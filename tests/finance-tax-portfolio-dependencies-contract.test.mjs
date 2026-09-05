@@ -110,3 +110,20 @@ test("Tax portfolio can claim unowned coordination across authorized entities wi
   assert.match(rail, /if \(row\.entity_id !== entityId\) return/);
   assert.match(rail, /Switch entity first/);
 });
+
+test("Tax control tower starts with one live next task and filing-level deadline horizon", () => {
+  assert.match(rail, /const \[expanded, setExpanded\] = useState\(true\)/);
+  assert.match(rail, /useEffect\(\(\) => \{ load\(\); \}, \[organizationId\]\)/);
+  assert.match(rail, /const filingSummary = state\.body\?\.summary \|\| \{\}/);
+  assert.match(rail, /const nextWork = workRows\[0\] \|\| null/);
+  assert.match(rail, /Next tax work/);
+  assert.match(rail, /One primary task first/);
+  assert.match(rail, /Practice horizon/);
+  assert.match(rail, /filingSummary\.overdue/);
+  assert.match(rail, /filingSummary\.due_14_days/);
+  assert.match(rail, /filingSummary\.amendments_open/);
+  assert.match(rail, /filingSummary\.settlement_attention/);
+  assert.match(rail, /Number\(filingSummary\.overdue \|\| 0\) \+ Number\(filingSummary\.due_14_days \|\| 0\)/);
+  assert.doesNotMatch(rail, /Number\(summary\.overdue \|\| 0\) \+ Number\(summary\.deadline \|\| 0\)/);
+  assert.match(rail, /Business Context stays fixed until the legal entity is deliberately switched/);
+});

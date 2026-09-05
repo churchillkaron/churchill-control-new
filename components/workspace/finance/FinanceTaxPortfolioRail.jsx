@@ -81,7 +81,7 @@ function requestLabel(row) {
 }
 
 export default function FinanceTaxPortfolioRail({ organizationId, entityId, selectedVatReturnId, onSelectedVatReturnIdChange }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [filter, setFilter] = useState("PRIORITY");
   const [state, setState] = useState({ loading: false, error: "", body: null });
   const [busyKey, setBusyKey] = useState("");
@@ -101,11 +101,12 @@ export default function FinanceTaxPortfolioRail({ organizationId, entityId, sele
     }
   }
 
-  useEffect(() => { if (expanded) load(); }, [expanded, organizationId]);
+  useEffect(() => { load(); }, [organizationId]);
 
   const filingRows = Array.isArray(state.body?.rows) ? state.body.rows : [];
   const workRows = Array.isArray(state.body?.dependency_rows) ? state.body.dependency_rows : [];
   const summary = state.body?.dependency_summary || {};
+  const filingSummary = state.body?.summary || {};
   const visibleWorkRows = useMemo(() => workRows.filter(row => {
     if (filter === "PRIORITY") return true;
     if (filter === "MINE") return row.owned_by_me;
@@ -118,7 +119,14 @@ export default function FinanceTaxPortfolioRail({ organizationId, entityId, sele
     return false;
   }), [filter, workRows]);
   const currentEntityRows = filingRows.filter(row => row.entity_id === entityId);
-  const urgentCount = Number(summary.overdue || 0) + Number(summary.deadline || 0);
+  const nextWork = workRows[0] || null;
+  const urgentCount = Number(filingSummary.overdue || 0) + Number(filingSummary.due_14_days || 0);
+
+  function toggleExpanded() {
+    const next = !expanded;
+    setExpanded(next);
+    if (next && state.body && !state.loading) load();
+  }
 
   function openFiling(row) {
     if (row.entity_id !== entityId) return;
@@ -151,14 +159,17 @@ export default function FinanceTaxPortfolioRail({ organizationId, entityId, sele
     }
   }
 
+  const nextIsCurrent = nextWork?.entity_id === entityId;
+  const nextOwnershipKey = nextWork ? `${nextWork.vat_return_id}:${nextWork.code}:TAKE_OWNERSHIP` : "";
+
   return (
     <section className="border-b border-black/[0.07] bg-[#F7F6F3] px-4 sm:px-5 lg:px-6">
       <div className="mx-auto max-w-[1760px] py-2.5">
-        <button type="button" onClick={() => setExpanded(value => !value)} className="flex w-full items-center gap-3 text-left">
+        <button type="button" onClick={toggleExpanded} className="flex w-full items-center gap-3 text-left">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/[0.07] bg-white text-[#8C6036]"><Building2 size={14} /></span>
           <span className="min-w-0 flex-1">
-            <span className="flex flex-wrap items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#9A7045]">Tax control tower {urgentCount ? <span className="rounded-full border border-amber-700/15 bg-amber-50 px-1.5 py-0.5 text-[7px] tracking-normal text-amber-900">{urgentCount} deadline risk</span> : null}</span>
-            <span className="mt-0.5 block text-[10px] text-[#777169]">Live statutory and accounting dependencies across authorized legal entities, with durable ownership and governed client-request context.</span>
+            <span className="flex flex-wrap items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#9A7045]">Tax control tower {urgentCount ? <span className="rounded-full border border-amber-700/15 bg-amber-50 px-1.5 py-0.5 text-[7px] tracking-normal text-amber-900">{urgentCount} filing deadline risk</span> : null}</span>
+            <span className="mt-0.5 block text-[10px] text-[#777169]">One priority queue across authorized legal entities. Start with the live next action, then work the exact filing without weakening Business Context or Tax truth.</span>
           </span>
           {currentEntityRows.length ? <span className="hidden text-[8px] text-[#918B83] md:block">Current entity · {currentEntityRows.length} filing{currentEntityRows.length === 1 ? "" : "s"}</span> : null}
           <span className="text-[9px] font-semibold text-[#817B73]">{expanded ? "Close" : "Open portfolio"}</span>
@@ -166,22 +177,69 @@ export default function FinanceTaxPortfolioRail({ organizationId, entityId, sele
         </button>
 
         {expanded ? <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.07] bg-white">
-          <div className="grid gap-px border-b border-black/[0.07] bg-black/[0.05] sm:grid-cols-4 lg:grid-cols-8">
-            <div className="bg-[#FAF9F7] p-2.5"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Open dependencies</div><div className="mt-1 text-[11px] font-semibold">{summary.total ?? "—"}</div></div>
-            <div className="bg-[#FAF9F7] p-2.5"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Mine</div><div className="mt-1 text-[11px] font-semibold">{summary.mine ?? "—"}</div></div>
-            <div className="bg-[#FAF9F7] p-2.5"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Unowned</div><div className={`mt-1 text-[11px] font-semibold ${summary.unowned ? "text-amber-900" : ""}`}>{summary.unowned ?? "—"}</div></div>
-            <div className="bg-[#FAF9F7] p-2.5"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Client evidence</div><div className="mt-1 text-[11px] font-semibold">{summary.client_evidence ?? "—"}</div></div>
-            <div className="bg-[#FAF9F7] p-2.5"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Client responded</div><div className="mt-1 text-[11px] font-semibold">{summary.client_responded ?? "—"}</div></div>
-            <div className="bg-[#FAF9F7] p-2.5"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Follow-up due</div><div className={`mt-1 text-[11px] font-semibold ${summary.follow_up_due ? "text-amber-900" : ""}`}>{summary.follow_up_due ?? "—"}</div></div>
-            <div className="bg-[#FAF9F7] p-2.5"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Do not chase</div><div className="mt-1 text-[11px] font-semibold">{summary.do_not_chase ?? "—"}</div></div>
-            <div className="bg-[#FAF9F7] p-2.5"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Overdue filings</div><div className={`mt-1 text-[11px] font-semibold ${summary.overdue ? "text-red-800" : ""}`}>{summary.overdue ?? "—"}</div></div>
+          <div className="grid gap-px border-b border-black/[0.07] bg-black/[0.05] xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.75fr)]">
+            <div className="bg-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#9A7045]">Next tax work</div>
+                  <div className="mt-1 text-[10px] text-[#817B73]">One primary task first. The queue below stays ordered by statutory risk, live blocker urgency and safe coordination.</div>
+                </div>
+                {state.loading ? <RefreshCw size={12} className="animate-spin text-[#A37849]" /> : null}
+              </div>
+
+              {nextWork ? <div className="mt-3 rounded-xl border border-[#A37849]/15 bg-[#FFF9F0] p-3.5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className={`rounded-md border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] ${nextWork.blocking ? "border-red-700/15 bg-red-50 text-red-800" : "border-amber-700/15 bg-amber-50 text-amber-900"}`}>{nextWork.blocking ? "Blocks filing" : "Review"}</span>
+                      <span className="rounded-md border border-black/[0.07] bg-white px-2 py-1 text-[7px] font-semibold text-[#716B63]">{ownerLabel(nextWork)}</span>
+                      {nextWork.client_should_wait ? <span className="rounded-md border border-black/[0.07] bg-[#F4F2EE] px-2 py-1 text-[7px] font-semibold text-[#716B63]">Do not chase client</span> : null}
+                    </div>
+                    <div className="mt-2 text-[13px] font-semibold tracking-[-0.01em] text-[#312E2A]">{nextWork.title}</div>
+                    <div className="mt-1 text-[9px] text-[#716B63]">{nextWork.entity_name} · {date(nextWork.period_start)} — {date(nextWork.period_end)}</div>
+                    <div className="mt-2 max-w-3xl text-[9px] leading-4 text-[#817B73]">{nextWork.detail}</div>
+                    <div className="mt-2 rounded-lg border border-black/[0.05] bg-white px-3 py-2.5">
+                      <div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-[#968F87]">Next safe action</div>
+                      <div className="mt-1 text-[10px] font-semibold text-[#3F3A35]">{nextWork.client_dependency_action || nextWork.next_action}</div>
+                    </div>
+                  </div>
+                  <div className="w-full shrink-0 lg:w-[210px]">
+                    <div className="rounded-lg border border-black/[0.06] bg-white p-2.5 text-[8px] leading-4 text-[#817B73]">
+                      <div className="font-semibold text-[#4B4640]">Due {date(nextWork.filing_due_date)}</div>
+                      <div>{Number.isFinite(nextWork.days_to_due) ? nextWork.days_to_due < 0 ? `${Math.abs(nextWork.days_to_due)} days overdue` : nextWork.days_to_due === 0 ? "Due today" : `${nextWork.days_to_due} days left` : "Governed calendar"}</div>
+                      {nextWork.target_at ? <div className={nextWork.target_overdue ? "text-red-800" : ""}>Internal target {date(nextWork.target_at)}</div> : null}
+                    </div>
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      {nextWork.unowned ? <button type="button" onClick={() => takeOwnership(nextWork)} disabled={Boolean(busyKey)} className="h-9 rounded-md bg-[#1F1E1B] px-3 text-[9px] font-semibold text-white disabled:opacity-35">{busyKey === nextOwnershipKey ? "Taking…" : "Take ownership"}</button> : nextWork.owned_by_me && nextIsCurrent ? <button type="button" onClick={() => openFiling(nextWork)} disabled={Boolean(busyKey)} className="h-9 rounded-md bg-[#1F1E1B] px-3 text-[9px] font-semibold text-white disabled:opacity-35">Open filing</button> : nextWork.owned_by_me ? <span className="inline-flex h-9 items-center justify-center rounded-md border border-black/[0.08] bg-[#F4F2EE] px-3 text-[9px] font-semibold text-[#716B63]">Switch entity first</span> : <span className="inline-flex h-9 items-center justify-center rounded-md border border-black/[0.08] bg-[#F4F2EE] px-3 text-[9px] font-semibold text-[#716B63]">Colleague owned</span>}
+                      {nextWork.unowned && nextIsCurrent ? <button type="button" onClick={() => openFiling(nextWork)} disabled={Boolean(busyKey)} className="h-8 rounded-md border border-black/[0.09] bg-white px-3 text-[8px] font-semibold disabled:opacity-35">Open filing</button> : null}
+                      {!nextIsCurrent ? <div className="text-center text-[7px] leading-3 text-[#99938B]">Business Context stays fixed until the legal entity is deliberately switched.</div> : null}
+                    </div>
+                  </div>
+                </div>
+              </div> : !state.loading ? <div className="mt-3 rounded-xl border border-emerald-700/15 bg-emerald-50 p-4 text-[9px] text-emerald-800">No open VAT dependency is waiting in the live portfolio.</div> : null}
+            </div>
+
+            <div className="bg-[#FAF9F7] p-4">
+              <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#817B73]">Practice horizon</div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="rounded-lg border border-black/[0.06] bg-white p-3"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Overdue filings</div><div className={`mt-1 text-[16px] font-semibold ${filingSummary.overdue ? "text-red-800" : "text-[#35312D]"}`}>{filingSummary.overdue ?? "—"}</div></div>
+                <div className="rounded-lg border border-black/[0.06] bg-white p-3"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Due in 14 days</div><div className={`mt-1 text-[16px] font-semibold ${filingSummary.due_14_days ? "text-amber-900" : "text-[#35312D]"}`}>{filingSummary.due_14_days ?? "—"}</div></div>
+                <div className="rounded-lg border border-black/[0.06] bg-white p-3"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Open amendments</div><div className="mt-1 text-[16px] font-semibold text-[#35312D]">{filingSummary.amendments_open ?? "—"}</div></div>
+                <div className="rounded-lg border border-black/[0.06] bg-white p-3"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Settlement attention</div><div className="mt-1 text-[16px] font-semibold text-[#35312D]">{filingSummary.settlement_attention ?? "—"}</div></div>
+              </div>
+              <div className="mt-3 text-[8px] leading-4 text-[#817B73]">Filing risk is counted once per VAT return. Dependency counts stay in the work queue so several blockers on one return never inflate the statutory horizon.</div>
+            </div>
           </div>
 
           <div className="flex flex-col gap-2 border-b border-black/[0.07] p-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-1.5">{WORK_FILTERS.map(([value, label]) => <button key={value} type="button" onClick={() => setFilter(value)} className={`h-7 rounded-md border px-2.5 text-[8px] font-semibold ${filter === value ? "border-[#A37849]/20 bg-[#FFF9F0] text-[#76583A]" : "border-black/[0.07] bg-white text-[#777169]"}`}>{label}</button>)}</div>
-            <div className="flex items-center gap-3"><span className="text-[8px] text-[#918B83]">Statutory risk first · live blocker urgency · then safe coordination. Client chasing never clears Tax truth.</span><button type="button" onClick={load} disabled={state.loading || Boolean(busyKey)} className="inline-flex h-7 items-center gap-1.5 rounded-md border border-black/[0.08] bg-white px-2.5 text-[8px] font-semibold disabled:opacity-40"><RefreshCw size={10} className={state.loading ? "animate-spin" : ""} /> Refresh</button></div>
+            <div>
+              <div className="text-[9px] font-semibold text-[#403C37]">Priority queue</div>
+              <div className="mt-0.5 text-[8px] text-[#918B83]">{filter === "FILINGS" ? `${filingRows.length} filing lifecycle records` : `${visibleWorkRows.length} live work item${visibleWorkRows.length === 1 ? "" : "s"}`} · resolution remains live Tax preflight only.</div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">{WORK_FILTERS.map(([value, label]) => <button key={value} type="button" onClick={() => setFilter(value)} className={`h-7 rounded-md border px-2.5 text-[8px] font-semibold ${filter === value ? "border-[#A37849]/20 bg-[#FFF9F0] text-[#76583A]" : "border-black/[0.07] bg-white text-[#777169]"}`}>{label}</button>)}<button type="button" onClick={load} disabled={state.loading || Boolean(busyKey)} className="inline-flex h-7 items-center gap-1.5 rounded-md border border-black/[0.08] bg-white px-2.5 text-[8px] font-semibold disabled:opacity-40"><RefreshCw size={10} className={state.loading ? "animate-spin" : ""} /> Refresh</button></div>
           </div>
 
+          <div className="border-b border-black/[0.06] bg-[#FAF9F7] px-3 py-2 text-[8px] text-[#918B83]">Statutory risk first · live blocker urgency · then safe coordination. Client chasing never clears Tax truth.</div>
           {state.error ? <div className="border-b border-red-700/15 bg-red-50 px-3 py-2.5 text-[9px] text-red-800">{state.error}</div> : null}
 
           {filter !== "FILINGS" ? <div className="overflow-x-auto">

@@ -1,0 +1,68 @@
+name: Avantiqo Investor Cache Completion Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-cache-complete-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-investor-cache-complete-once
+  cancel-in-progress: true
+
+jobs:
+  complete-cache:
+    if: github.event.head_commit.message == 'Run Avantiqo investor cache completion once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Modal client
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+
+      - name: Complete shared investor model cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import modal
+
+          fn = modal.Function.from_name('avantiqo-video-owned', 'seed_investor_hq_cache')
+          result = fn.remote()
+          if not isinstance(result, dict) or result.get('success') is not True:
+              raise RuntimeError(f'AVANTIQO_INVESTOR_CACHE_COMPLETION_FAILED:{result!r}')
+          print('AVANTIQO_INVESTOR_CACHE_COMPLETION_RESULT=' + json.dumps(result, sort_keys=True), flush=True)
+          print('AVANTIQO_INVESTOR_CACHE_COMPLETION=PASS', flush=True)
+          PY
+
+      - name: Verify exact cache paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SNAPSHOT='huggingface-cache/hub/models--Lightricks--LTX-2.5/snapshots/e8dc69fd26150afbfa20351f6bc9ac384257f9fd'
+          for path in \
+            "$SNAPSHOT/diffusion_models/ltx-2.5-22b-distilled-transformer-bf16.safetensors" \
+            "$SNAPSHOT/text_encoders/gemma4-12b-with-proj-ltx-2.5-bf16.safetensors" \
+            "$SNAPSHOT/vae/ltx-2.5-video-vae-bf16.safetensors" \
+            "$SNAPSHOT/vae/ltx-2.5-audio-vae-bf16.safetensors" \
+            "$SNAPSHOT/latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors" \
+            'avantiqo-investor-hq-assets/ltx-2.5-22b-ic-lora-pixel-spatial-upscaler-x2-1.0.safetensors'
+          do
+            modal volume ls avantiqo-video-models "$path" | grep -F "$(basename "$path")"
+          done
+          echo 'AVANTIQO_INVESTOR_CACHE_EXACT_PATHS=PASS'

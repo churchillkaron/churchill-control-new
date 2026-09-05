@@ -53,13 +53,13 @@ jobs:
           test -n "${MODAL_TOKEN_SECRET:-}"
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
           node --check scripts/run-avantiqo-investor-visual-proof-24s.mjs
-          grep -A12 -B8 'def generate_native_master' services/avantiqo-video-engine/modal_app.py | grep -F 'max_containers=4' >/dev/null
-          grep -A12 -B8 'def generate_native_controlled_master' services/avantiqo-video-engine/modal_native_controlled_master.py | grep -F 'max_containers=4' >/dev/null
+          grep -A12 -B8 'def generate_native_master' services/avantiqo-video-engine/modal_app.py | grep -F 'max_containers=1' >/dev/null
+          grep -A12 -B8 'def generate_native_controlled_master' services/avantiqo-video-engine/modal_native_controlled_master.py | grep -F 'max_containers=1' >/dev/null
           grep -F 'GENERATION_DEADLINE_EXCEEDED' scripts/run-avantiqo-investor-visual-proof-24s.mjs >/dev/null
           grep -F 'target_duration_seconds: 24' lib/creative/director/runtime/CreativeInvestorFilmMarketResearchRuntime.js >/dev/null
           grep -F 'screenshot_or_browser_capture_allowed: false' lib/creative/director/runtime/CreativeInvestorFilmMarketResearchRuntime.js >/dev/null
           echo 'AVANTIQO_INVESTOR_VISUAL_PROOF_REPAIRED_PREFLIGHT=PASS'
-          echo 'B200_MAX_CONTAINERS=4'
+          echo 'B200_MAX_CONTAINERS=1'
           echo 'GENERATION_FAIL_FAST_SECONDS=900'
 
       - name: Generate and assemble 24-second 4K investor visual proof

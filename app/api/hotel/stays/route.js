@@ -51,6 +51,25 @@ async function getFolioBalance(organizationId, bookingId) {
   return { folio, lines: activeLines, balance };
 }
 
+async function getUnfinishedSettlement(organizationId, bookingId) {
+  const { data: transactions, error } = await supabaseAdmin
+    .from("hotel_payment_transactions")
+    .select("id,status,transaction_type,processor_mode,finance_payment_id")
+    .eq("organization_id", organizationId)
+    .eq("booking_id", bookingId)
+    .in("status", ["PENDING", "SETTLED"]);
+  if (error) throw error;
+
+  const pending = (transactions || []).filter((transaction) => transaction.status === "PENDING");
+  const missingFinance = (transactions || []).filter(
+    (transaction) =>
+      transaction.status === "SETTLED" &&
+      transaction.processor_mode === "AVANTIQO_GATEWAY" &&
+      !transaction.finance_payment_id,
+  );
+  return { pending, missingFinance };
+}
+
 function signedFolioAmount(lineType, amount) {
   const absolute = Math.abs(Number(amount));
   if (["PAYMENT_REFERENCE", "DEPOSIT_REFERENCE"].includes(lineType)) return -absolute;
@@ -239,6 +258,14 @@ export async function POST(request) {
       const { folio, balance } = await getFolioBalance(auth.organizationId, booking.id);
       if (!folio) return fail("No folio exists for this stay", 404);
       if (folio.status === "CLOSED") return NextResponse.json({ success: true, folio, balance: 0, unchanged: true });
+
+      const settlement = await getUnfinishedSettlement(auth.organizationId, booking.id);
+      if (settlement.pending.length) {
+        return fail("Wait for pending Hotel payment/refund settlement before closing the folio.", 409);
+      }
+      if (settlement.missingFinance.length) {
+        return fail("Settled gateway transaction is missing Finance evidence; resolve payment reconciliation before closing the folio.", 409);
+      }
       if (Math.abs(balance) > 0.005) return fail(`Folio balance must be zero before closing. Current balance: ${balance.toFixed(2)} ${folio.currency_code || booking.currency_code || "THB"}`, 409);
 
       const closedAt = new Date().toISOString();

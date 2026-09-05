@@ -258,8 +258,17 @@ export default function PestControlWorkControl({ organizationId }) {
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) throw new Error(json.error || "Work orders could not be loaded.");
       const next = Array.isArray(json.rows) ? json.rows : [];
+      const requestedWorkOrderId = typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("workOrderId")
+        : null;
       setRows(next);
-      setSelectedId((current) => current && next.some((row) => row.id === current) ? current : next[0]?.id || "");
+      if (requestedWorkOrderId && next.some((row) => row.id === requestedWorkOrderId)) {
+        setTab("all");
+        setQuery("");
+        setSelectedId(requestedWorkOrderId);
+      } else {
+        setSelectedId((current) => current && next.some((row) => row.id === current) ? current : next[0]?.id || "");
+      }
     } catch (loadError) {
       setRows([]);
       setError(loadError.message || "Work orders could not be loaded.");
@@ -326,6 +335,14 @@ export default function PestControlWorkControl({ organizationId }) {
   useEffect(() => {
     if (!selected && filteredRows.length) setSelectedId(filteredRows[0].id);
   }, [filteredRows, selected]);
+
+  function selectWorkOrder(id) {
+    setSelectedId(id);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("workOrderId", id);
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }
 
   async function loadAssignees() {
     if (assignees.length || assigneesLoading) return;
@@ -468,7 +485,7 @@ export default function PestControlWorkControl({ organizationId }) {
                 const active = selected?.id === row.id;
                 const overdue = isOverdue(row);
                 return (
-                  <button key={row.id} onClick={() => setSelectedId(row.id)} className={`block w-full border-b border-black/[0.05] px-4 py-4 text-left transition last:border-b-0 ${active ? "bg-[#D6A66A]/[0.08] shadow-[inset_3px_0_0_#D6A66A]" : "hover:bg-black/[0.018]"}`}>
+                  <button key={row.id} onClick={() => selectWorkOrder(row.id)} className={`block w-full border-b border-black/[0.05] px-4 py-4 text-left transition last:border-b-0 ${active ? "bg-[#D6A66A]/[0.08] shadow-[inset_3px_0_0_#D6A66A]" : "hover:bg-black/[0.018]"}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">

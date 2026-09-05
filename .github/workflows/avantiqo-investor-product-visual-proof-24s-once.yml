@@ -1,0 +1,168 @@
+name: Avantiqo Investor Product Visual Proof 24s Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-product-visual-proof-24s-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-investor-product-visual-proof-24s-once
+  cancel-in-progress: true
+
+env:
+  MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+  MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+  PROOF_DIR: local-audit-output/avantiqo-investor-product-visual-24s
+  AVANTIQO_PRODUCT_VISUAL_GENERATION_REPORT: local-audit-output/avantiqo-investor-product-visual-24s/generation-report.json
+
+jobs:
+  proof:
+    if: github.event.head_commit.message == 'Run Avantiqo product visual proof once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install proof tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          npm ci --ignore-scripts
+          mkdir -p "$PROOF_DIR"
+
+      - name: Validate Avantiqo product visual contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            services/avantiqo-video-engine/modal_app.py \
+            services/avantiqo-video-engine/modal_investor_t2v.py \
+            services/avantiqo-video-engine/investor_avantiqo_product_visual_24s.py
+          node --check scripts/master-avantiqo-investor-product-visual-proof-24s.mjs
+          grep -F 'theme: "LIGHT_BUSINESS_OS"' lib/creative/director/runtime/AvantiqoInvestorFilmProductVisualContract.js >/dev/null
+          grep -F 'screenshot-or-browser-capture' lib/creative/director/runtime/AvantiqoInvestorFilmProductVisualContract.js >/dev/null
+          grep -F 'deterministic_product_ui_used: true' scripts/master-avantiqo-investor-product-visual-proof-24s.mjs >/dev/null
+          grep -F 'bronze_decision_thread_evidence_to_consequence_to_governed_action' scripts/master-avantiqo-investor-product-visual-proof-24s.mjs >/dev/null
+          echo 'AVANTIQO_PRODUCT_VISUAL_CONTRACT_PREFLIGHT=PASS'
+
+      - name: Recover and verify fast owned-video cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          modal run services/avantiqo-video-engine/investor_cache_recovery_once.py
+          SNAPSHOT='huggingface-cache/hub/models--Lightricks--LTX-2.5/snapshots/e8dc69fd26150afbfa20351f6bc9ac384257f9fd'
+          for path in \
+            "$SNAPSHOT/diffusion_models/ltx-2.5-22b-distilled-transformer-bf16.safetensors" \
+            "$SNAPSHOT/text_encoders/gemma4-12b-with-proj-ltx-2.5-bf16.safetensors" \
+            "$SNAPSHOT/vae/ltx-2.5-video-vae-bf16.safetensors" \
+            "$SNAPSHOT/vae/ltx-2.5-audio-vae-bf16.safetensors" \
+            "$SNAPSHOT/latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors"
+          do
+            modal volume ls avantiqo-video-models "$path" | grep -F "$(basename "$path")"
+          done
+          echo 'AVANTIQO_PRODUCT_VISUAL_CACHE_PREFLIGHT=PASS'
+
+      - name: Deploy exact current Avantiqo Video surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal deploy modal_deploy.py
+
+      - name: Generate four fresh Avantiqo proof plates concurrently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python services/avantiqo-video-engine/investor_avantiqo_product_visual_24s.py
+
+      - name: Retrieve four generated masters
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="investor-avantiqo-product-visual-24s/${GITHUB_SHA}"
+          modal volume get avantiqo-video-models "$ROOT/01-evidence-1920x1088.mp4" "$PROOF_DIR/01-evidence-1920x1088.mp4" --force
+          modal volume get avantiqo-video-models "$ROOT/02-consequence-1920x1088.mp4" "$PROOF_DIR/02-consequence-1920x1088.mp4" --force
+          modal volume get avantiqo-video-models "$ROOT/03-avantiqo-1920x1088.mp4" "$PROOF_DIR/03-avantiqo-1920x1088.mp4" --force
+          modal volume get avantiqo-video-models "$ROOT/04-human-control-1920x1088.mp4" "$PROOF_DIR/04-human-control-1920x1088.mp4" --force
+          for file in "$PROOF_DIR"/*-1920x1088.mp4; do test -s "$file"; done
+
+      - name: Apply Avantiqo Studio product visuals and finishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/master-avantiqo-investor-product-visual-proof-24s.mjs
+
+      - name: Verify exact Avantiqo visual proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT="$PROOF_DIR/proof-report.json"
+          MASTER="$PROOF_DIR/avantiqo-investor-product-visual-proof-24s-1080p.mp4"
+          VIEWING="$PROOF_DIR/avantiqo-investor-product-visual-proof-24s-4k-viewing-upscale.mp4"
+          test -s "$REPORT"
+          test -s "$MASTER"
+          test -s "$VIEWING"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const r = JSON.parse(fs.readFileSync(process.env.PROOF_DIR + '/proof-report.json', 'utf8'));
+          if (r.success !== true) throw new Error('PRODUCT_VISUAL_PROOF_NOT_SUCCESSFUL');
+          if (r.avantiqo_visual_language !== 'LIGHT_BUSINESS_OS') throw new Error('AVANTIQO_VISUAL_LANGUAGE_INVALID');
+          if (r.deterministic_product_ui_used !== true) throw new Error('DETERMINISTIC_PRODUCT_UI_REQUIRED');
+          if (r.product_ui_generated_from_screenshot !== false || r.product_ui_generated_from_browser_capture !== false) throw new Error('SCREEN_CAPTURE_POLICY_FAILED');
+          if (r.product_ui_text_readable_and_authored !== true) throw new Error('AUTHORED_PRODUCT_TEXT_REQUIRED');
+          if (r.signature_device !== 'bronze_decision_thread_evidence_to_consequence_to_governed_action') throw new Error('SIGNATURE_DEVICE_INVALID');
+          if (!Array.isArray(r.finishing_layers) || r.finishing_layers.length < 7) throw new Error('PROFESSIONAL_FINISHING_REQUIRED');
+          if (r.master_resolution !== '1920x1080') throw new Error('MASTER_RESOLUTION_INVALID');
+          if (Math.abs(Number(r.duration_seconds) - 24) > 0.12) throw new Error('MASTER_DURATION_INVALID');
+          if (r.viewing_copy_is_delivery_upscale !== true) throw new Error('VIEWING_COPY_TRUTH_REQUIRED');
+          console.log('AVANTIQO_INVESTOR_PRODUCT_VISUAL_24S=PASS');
+          console.log('AVANTIQO_VISUAL_LANGUAGE=' + r.avantiqo_visual_language);
+          console.log('SIGNATURE_DEVICE=' + r.signature_device);
+          console.log('FINISHING_LAYERS=' + r.finishing_layers.join(','));
+          NODE
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-product-visual-proof-24s
+          path: |
+            local-audit-output/avantiqo-investor-product-visual-24s/avantiqo-investor-product-visual-proof-24s-1080p.mp4
+            local-audit-output/avantiqo-investor-product-visual-24s/avantiqo-investor-product-visual-proof-24s-4k-viewing-upscale.mp4
+            local-audit-output/avantiqo-investor-product-visual-24s/proof-report.json
+            local-audit-output/avantiqo-investor-product-visual-24s/generation-report.json
+            local-audit-output/avantiqo-investor-product-visual-24s/avantiqo-ui-stage-1.png
+            local-audit-output/avantiqo-investor-product-visual-24s/avantiqo-ui-stage-2.png
+            local-audit-output/avantiqo-investor-product-visual-24s/avantiqo-ui-stage-3.png
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'PRODUCTION_VERCEL_DEPLOY_TRIGGERED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'EXTERNAL_VIDEO_PROVIDER_USED=false'

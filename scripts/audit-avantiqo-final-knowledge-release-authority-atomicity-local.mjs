@@ -7,6 +7,10 @@ const authRuntime = fs.readFileSync(
   "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js",
   "utf8",
 );
+const managerAuthorityRuntime = fs.readFileSync(
+  "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseManagerAuthorityRuntime.js",
+  "utf8",
+);
 const issuerRuntime = fs.readFileSync(
   "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationIssuerRuntime.js",
   "utf8",
@@ -31,6 +35,10 @@ const route = fs.readFileSync(
   "app/api/intelligence/knowledge/final-release/authorize/route.js",
   "utf8",
 );
+const readinessRoute = fs.readFileSync(
+  "app/api/intelligence/knowledge/final-release/readiness/route.js",
+  "utf8",
+);
 
 assert.equal(fs.existsSync("scripts/apply-final-knowledge-release-immutable-receipt-p3.py"), false);
 assert.equal(fs.existsSync("scripts/patch-final-knowledge-release-immutable-receipt.py"), false);
@@ -41,9 +49,20 @@ assert.equal(fs.existsSync("scripts/certify-avantiqo-final-knowledge-release-pos
 assert.match(authRuntime, /memory_type: "decision"/);
 assert.doesNotMatch(authRuntime, /memory_type: "approval"/);
 
-assert.match(issuerRuntime, /getServerCurrentUser\(\)/);
-assert.match(issuerRuntime, /\.rpc\("can_manage_organization"/);
-assert.match(issuerRuntime, /target_organization_id: organizationId/);
+assert.match(managerAuthorityRuntime, /getServerCurrentUser\(\)/);
+assert.match(managerAuthorityRuntime, /\.rpc\("can_manage_organization"/);
+assert.match(managerAuthorityRuntime, /target_organization_id: organizationId/);
+assert.match(managerAuthorityRuntime, /\.from\("staff_accounts"\)/);
+assert.match(managerAuthorityRuntime, /\.from\("organization_users"\)/);
+assert.match(managerAuthorityRuntime, /\.in\("staff_account_id", staffIds\)/);
+assert.doesNotMatch(managerAuthorityRuntime, /\.limit\(100\)/);
+assert.match(managerAuthorityRuntime, /MANAGER_ROLES\.has\(role\)/);
+assert.match(managerAuthorityRuntime, /AUTHORITY_EVIDENCE_MISMATCH/);
+assert.match(managerAuthorityRuntime, /caller_supplied_identity_allowed: false/);
+
+assert.match(issuerRuntime, /assertAvantiqoFinalKnowledgeReleaseManagerAuthority/);
+assert.doesNotMatch(issuerRuntime, /getServerCurrentUser/);
+assert.doesNotMatch(issuerRuntime, /\.rpc\("can_manage_organization"/);
 assert.match(issuerRuntime, /auth_user_id/);
 assert.match(issuerRuntime, /staff_account_id/);
 assert.match(issuerRuntime, /caller_supplied_approver_identity_allowed: false/);
@@ -55,6 +74,14 @@ assert.doesNotMatch(
 assert.match(issuerRuntime, /createAvantiqoFinalPromotionCandidateAuthenticityVerifier/);
 assert.match(issuerRuntime, /verifyAvantiqoFinalPromotionCandidateClaimBinding/);
 assert.match(issuerRuntime, /authority_verified: true/);
+assert.match(issuerRuntime, /organization_membership_active_verified/);
+assert.match(issuerRuntime, /manager_role_verified/);
+
+assert.match(readinessRoute, /assertAvantiqoFinalKnowledgeReleaseManagerAuthority/);
+assert.doesNotMatch(readinessRoute, /getServerCurrentUser/);
+assert.doesNotMatch(readinessRoute, /\.rpc\("can_manage_organization"/);
+assert.match(readinessRoute, /organization_membership_active_verified/);
+assert.match(readinessRoute, /manager_role_verified/);
 
 assert.match(route, /issueAvantiqoFinalKnowledgeReleaseAuthorization/);
 assert.match(route, /organization_id: body\?\.organization_id/);

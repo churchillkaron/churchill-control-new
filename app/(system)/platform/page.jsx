@@ -5,6 +5,24 @@ import checkSystemHealth from "@/lib/health/checkSystemHealth";
 import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
+function normalizePlatformHealth(health) {
+  const database = health?.services?.database || { status: "unknown" };
+
+  return {
+    ...health,
+    status: database.status === "healthy" ? "partial" : "degraded",
+    services: {
+      ...health?.services,
+      database,
+      queue: {
+        status: "unverified",
+        workers_active: null,
+        source: "QUEUE_HEALTH_PROBE_NOT_RUNTIME_VERIFIED",
+      },
+    },
+  };
+}
+
 async function loadPlatformControlTower() {
   const access = await requirePlatformAdminAccess();
 
@@ -53,7 +71,7 @@ async function loadPlatformControlTower() {
 
   const health =
     healthResult.status === "fulfilled"
-      ? healthResult.value
+      ? normalizePlatformHealth(healthResult.value)
       : {
           status: "degraded",
           timestamp: new Date().toISOString(),

@@ -51,6 +51,7 @@ jobs:
           if(m.contract!=='AVANTIQO_INVESTOR_FIRST_MINUTE_REAL_PLATES_V1') throw new Error('CONTRACT_INVALID');
           if(!m.source_policy.ai_generated_source_forbidden) throw new Error('REAL_SOURCE_POLICY_INVALID');
           if(m.plates.length!==9) throw new Error('REAL_PLATE_COUNT_INVALID');
+          if(m.source_policy.minimum_width!==1920||m.source_policy.minimum_height!==1080||!m.source_policy.landscape_required) throw new Error('SOURCE_QUALITY_POLICY_INVALID');
           console.log('AVANTIQO_REAL_PLATE_CONTRACT=PASS');
           NODE
       - name: Download nine real source plates
@@ -66,7 +67,13 @@ jobs:
             echo "Downloading $ID"
             curl -fL --retry 2 --retry-delay 2 --connect-timeout 20 -A 'Mozilla/5.0' "$URL" -o "$PROOF_DIR/${ID}-source.mp4"
             test -s "$PROOF_DIR/${ID}-source.mp4"
-            ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$PROOF_DIR/${ID}-source.mp4"
+            DIMS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$PROOF_DIR/${ID}-source.mp4")
+            echo "$ID $DIMS"
+            W=${DIMS%x*}
+            H=${DIMS#*x}
+            test "$W" -ge 1920
+            test "$H" -ge 1080
+            test "$W" -ge "$H"
           done < /tmp/plates.tsv
       - name: Retrieve approved generated food shot
         shell: bash

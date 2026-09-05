@@ -198,6 +198,48 @@ function CalculationReview({ evidence, issue, onOpenReturn }) {
   </div>;
 }
 
+function RegistrationReview({ evidence, issue, onOpenReturn }) {
+  if (!evidence) return null;
+  const precedence = Array.isArray(evidence.precedence) ? evidence.precedence : [];
+  const resolved = evidence.resolved_reference || null;
+
+  return <div className="mt-3 overflow-hidden rounded-lg border border-red-700/15 bg-red-50/25">
+    <div className="flex flex-col gap-2 border-b border-red-700/12 px-3 py-2.5 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-red-800">VAT registration proof</div>
+        <div className="mt-1 text-[10px] font-semibold text-[#403B36]">Exact filing and legal-entity registration context</div>
+        <div className="mt-0.5 max-w-4xl text-[8px] leading-4 text-[#817B73]">This card does not re-resolve VAT registration. It presents the registration reference already resolved by live Tax preflight and the exact precedence that preflight uses.</div>
+      </div>
+      <span className="shrink-0 rounded-md border border-red-700/15 bg-red-50 px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] text-red-800">Registration required</span>
+    </div>
+
+    <div className="border-b border-red-700/10 bg-red-50 px-3 py-2 text-[8px] leading-4 text-red-900"><b>Calculation and filing blocked:</b> {issue?.detail || "Live Tax preflight has not resolved a VAT registration reference for this filing."}</div>
+
+    <div className="grid gap-px bg-black/[0.05] sm:grid-cols-3">
+      <div className="bg-white/85 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Selected VAT filing</div><div className="mt-1 text-[10px] font-semibold text-[#3F3A35]">{evidence.filing_reference || evidence.filing_id || "—"}</div><div className="mt-0.5 text-[7px] text-[#918B83]">{evidence.jurisdiction_code || "Jurisdiction not recorded"} · {date(evidence.period_start)} → {date(evidence.period_end)}</div></div>
+      <div className="bg-white/85 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Legal entity</div><div className="mt-1 text-[10px] font-semibold text-[#3F3A35]">{evidence.legal_name || evidence.entity_code || evidence.entity_id || "—"}</div><div className="mt-0.5 text-[7px] text-[#918B83]">{evidence.entity_code ? `Entity ${evidence.entity_code}` : "Exact filing entity"}</div></div>
+      <div className="bg-white/85 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Resolved VAT registration</div><div className={`mt-1 text-[10px] font-semibold ${resolved ? "text-[#3F3A35]" : "text-red-800"}`}>{resolved || "Missing"}</div><div className="mt-0.5 text-[7px] text-[#918B83]">Authority: {evidence.resolution_authority || "LIVE_TAX_PREFLIGHT_ONLY"}</div></div>
+    </div>
+
+    <div className="grid gap-2 p-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(260px,0.85fr)]">
+      <div className="rounded-lg border border-black/[0.06] bg-white p-2.5">
+        <div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Registration source precedence</div>
+        <div className="mt-2 space-y-1.5">{precedence.map((label, index) => <div key={label} className="flex items-center gap-2 rounded-md bg-[#FAF9F7] px-2 py-1.5 text-[8px] text-[#5F5952]"><span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[7px] font-semibold">{index + 1}</span><span>{label}</span></div>)}</div>
+      </div>
+      <div className="rounded-lg border border-black/[0.06] bg-white p-2.5">
+        <div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Required proof</div>
+        <div className="mt-1 text-[9px] font-semibold text-[#4E4943]">A real VAT registration reference accepted by live Tax preflight</div>
+        <div className="mt-1 text-[8px] leading-4 text-[#817B73]">The selected return has highest precedence. If it is blank, preflight may fall back to the Finance Organization Profile and then the Legal Entity tax ID. Evidence cannot set or approve any of these values.</div>
+      </div>
+    </div>
+
+    <div className="flex flex-col gap-2 border-t border-red-700/12 bg-white/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-[8px] font-semibold text-red-800">Blocking · only live Tax preflight can clear this registration control.</div>
+      {typeof onOpenReturn === "function" ? <button type="button" onClick={onOpenReturn} className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">Fix VAT registration on selected return <ArrowUpRight size={9}/></button> : null}
+    </div>
+  </div>;
+}
+
 function EvidenceRecord({ issue, onOpenCalendar }) {
   const source = issue.source_record || null;
   const line = issue.tax_line || null;
@@ -207,6 +249,7 @@ function EvidenceRecord({ issue, onOpenCalendar }) {
   const navigation = issue.source_navigation || null;
   const calendarEvidence = issue.calendar_evidence || null;
   const calculationEvidence = issue.calculation_evidence || null;
+  const registrationEvidence = issue.registration_evidence || null;
 
   return <div className="rounded-lg border border-black/[0.07] bg-white p-3">
     <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
@@ -228,8 +271,9 @@ function EvidenceRecord({ issue, onOpenCalendar }) {
     <DuplicateReview source={source}/>
     <DeadlineReview evidence={calendarEvidence} issue={issue} onOpenCalendar={onOpenCalendar}/>
     <CalculationReview evidence={calculationEvidence} issue={issue} onOpenReturn={onOpenCalendar}/>
+    <RegistrationReview evidence={registrationEvidence} issue={issue} onOpenReturn={onOpenCalendar}/>
 
-    {!calendarEvidence && !calculationEvidence ? <>
+    {!calendarEvidence && !calculationEvidence && !registrationEvidence ? <>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Source document</div><div className="mt-1 text-[8px] leading-4 text-[#4E4943]">{source ? <>{source.reference || source.id}<br/>Status {source.status || "—"}{source.approval_status ? ` · ${source.approval_status}` : ""}{source.currency_code ? <><br/>{source.currency_code} · rate {source.exchange_rate ?? "missing"}</> : null}</> : "Context evidence"}</div></div>
         <div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Tax line</div><div className="mt-1 text-[8px] leading-4 text-[#4E4943]">{line ? <>Line {line.line_number ?? line.id ?? "—"}<br/>Tax {money(line.tax_amount) || "—"}{line.tax_rule_id ? <><br/>Rule {line.tax_rule_id}</> : null}</> : "No line-level record for this blocker"}</div></div>
@@ -352,7 +396,7 @@ export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entity
         <div>
           <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-[#9A7045]"><FileSearch2 size={11}/> VAT evidence trace</span><span className="rounded-md border border-black/[0.07] bg-[#F7F6F3] px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] text-[#716B63]">Read only · full population</span></div>
           <div className="mt-1 text-[12px] font-semibold">Start with the VAT control, then trace it to exact governed evidence.</div>
-          <div className="mt-1 max-w-4xl text-[9px] leading-4 text-[#817B73]">Choose the live VAT control below. Avantiqo rebuilds the complete filing population or reuses the governed statutory/calculation context, and keeps the legal entity and filing context fixed while you inspect the evidence. Viewing evidence never switches Business Context.</div>
+          <div className="mt-1 max-w-4xl text-[9px] leading-4 text-[#817B73]">Choose the live VAT control below. Avantiqo rebuilds the complete filing population or reuses governed registration, statutory and calculation context, and keeps the legal entity and filing context fixed while you inspect the evidence. Viewing evidence never switches Business Context.</div>
         </div>
         <button type="button" onClick={loadGuidance} className="inline-flex h-8 items-center gap-1.5 self-start rounded-lg border border-black/[0.09] bg-white px-2.5 text-[9px] font-semibold"><RefreshCw size={10} className={guidanceState.loading ? "animate-spin" : ""}/> Refresh truth</button>
       </div>
@@ -361,7 +405,7 @@ export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entity
 
       <div className="grid gap-px border-b border-black/[0.07] bg-black/[0.05] lg:grid-cols-3">
         <div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#9A7045]">1 · VAT control</div><div className="mt-1 text-[10px] font-semibold">Choose what needs proof</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">Only controls that still exist in live Tax truth appear here.</div></div>
-        <div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#9A7045]">2 · Source population</div><div className="mt-1 text-[10px] font-semibold">Review every affected record</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">Pagination is only presentation; transaction controls use the complete filing population and authority/calculation controls use governed live context.</div></div>
+        <div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#9A7045]">2 · Source population</div><div className="mt-1 text-[10px] font-semibold">Review every affected record</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">Pagination is only presentation; transaction controls use the complete filing population and registration, authority and calculation controls use governed live context.</div></div>
         <div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#9A7045]">3 · Exact source</div><div className="mt-1 text-[10px] font-semibold">Open the governing evidence</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">Open the exact accounting record or return to the selected VAT filing without changing Business Context.</div></div>
       </div>
 
@@ -379,7 +423,7 @@ export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entity
       {body ? <>
         <div className="flex flex-col gap-2 border-b border-black/[0.07] px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between"><div className="text-[8px] text-[#817B73]"><strong className="text-[#5F5952]">{population?.complete ? "Complete live population" : "Governed context evidence"}</strong> · showing {first}–{last} of {population?.total || 0} · source {String(body.source || "").replaceAll("_", " ").toLowerCase()}</div><div className="flex items-center gap-1.5"><button type="button" disabled={offset <= 0 || evidenceState.loading} onClick={() => loadEvidence(selectedCode, Math.max(0, offset - pageSize))} className="inline-flex h-7 items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 text-[8px] font-semibold disabled:opacity-30"><ChevronLeft size={9}/> Previous</button><button type="button" disabled={!population?.has_more || evidenceState.loading} onClick={() => loadEvidence(selectedCode, offset + pageSize)} className="inline-flex h-7 items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 text-[8px] font-semibold disabled:opacity-30">Next <ChevronRight size={9}/></button></div></div>
         <div className="space-y-2 bg-[#FAF9F7] p-3">{body.issues?.length ? body.issues.map((issue, index) => <EvidenceRecord key={`${issue.code}:${issue.source_id || "context"}:${issue.tax_line?.id || index}`} issue={issue} onOpenCalendar={openCalendar}/>) : <div className="flex items-start gap-2 rounded-lg border border-emerald-700/15 bg-emerald-50 p-3 text-[9px] text-emerald-800"><ShieldCheck size={12} className="mt-0.5"/><div><b>No evidence row remains for this blocker page.</b> Refresh live Tax truth; the dependency may have changed while the inspector was open.</div></div>}</div>
-        <div className="border-t border-black/[0.07] bg-white px-3.5 py-2.5 text-[8px] leading-4 text-[#817B73]">Resolution authority remains live Tax preflight only. Evidence inspection is read-only; it cannot post, recode, alter FX, update a VAT rule, recalculate VAT, complete work, or mutate Business Context.</div>
+        <div className="border-t border-black/[0.07] bg-white px-3.5 py-2.5 text-[8px] leading-4 text-[#817B73]">Resolution authority remains live Tax preflight only. Evidence inspection is read-only; it cannot post, recode, alter FX, update a VAT rule, recalculate VAT, complete work, or mutate Business Context. It also cannot set or approve a VAT registration reference.</div>
       </> : null}
     </div>
   </section>;

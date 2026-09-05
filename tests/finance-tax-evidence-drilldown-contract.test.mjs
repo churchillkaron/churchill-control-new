@@ -157,6 +157,40 @@ test("Tax calendar authority evidence cannot present a live filing blocker as re
   assert.doesNotMatch(rail, /Mark authority reviewed|Acknowledge authority|Resolve authority/);
 });
 
+test("Registration reference blocker proves exact live filing and legal-entity context without becoming a second registration authority", () => {
+  assert.match(preflight, /const registrationReference = text\(profile\?\.tax_registration_number \|\| profile\?\.tax_number \|\| entity\?\.tax_id\)/);
+  assert.match(preflight, /const registrationReference = text\(vatReturn\.registration_reference \|\| context\.registrationReference\)/);
+  assert.match(preflight, /Add the VAT registration reference before calculation\./);
+  assert.match(preflight, /blocksCalculation: missingRegistration/);
+  assert.match(preflight, /blocksSubmission: missingRegistration/);
+  assert.match(policy, /function registrationEvidenceFor\(preflight\)/);
+  assert.match(policy, /resolved_reference: text\(row\.registration_reference/);
+  assert.match(policy, /Selected VAT return registration_reference/);
+  assert.match(policy, /Finance Organization Profile tax registration/);
+  assert.match(policy, /Legal Entity tax ID/);
+  assert.match(policy, /resolution_authority: "LIVE_TAX_PREFLIGHT_ONLY"/);
+  assert.match(policy, /registration_evidence: registrationEvidenceFor\(preflight\)/);
+  assert.match(policy, /registration_evidence: normalizeRegistrationEvidence\(row\?\.registration_evidence\)/);
+  assert.match(rail, /function RegistrationReview\(\{ evidence, issue, onOpenReturn \}\)/);
+  assert.match(rail, /VAT registration proof/);
+  assert.match(rail, /Exact filing and legal-entity registration context/);
+  assert.match(rail, /does not re-resolve VAT registration/);
+  assert.match(rail, /Registration required/);
+  assert.match(rail, /Calculation and filing blocked:/);
+  assert.match(rail, /Selected VAT filing/);
+  assert.match(rail, /Legal entity/);
+  assert.match(rail, /Resolved VAT registration/);
+  assert.match(rail, /Registration source precedence/);
+  assert.match(rail, /A real VAT registration reference accepted by live Tax preflight/);
+  assert.match(rail, /Evidence cannot set or approve any of these values/);
+  assert.match(rail, /Blocking · only live Tax preflight can clear this registration control\./);
+  assert.match(rail, /Fix VAT registration on selected return/);
+  assert.match(rail, /<RegistrationReview evidence=\{registrationEvidence\} issue=\{issue\} onOpenReturn=\{onOpenCalendar\}\/>/);
+  assert.match(rail, /!calendarEvidence && !calculationEvidence && !registrationEvidence/);
+  assert.match(rail, /onStageChange\("RETURN"\)/);
+  assert.doesNotMatch(rail, /Mark registration reviewed|Acknowledge registration|Resolve registration/);
+});
+
 test("Evidence drilldown is organization-scoped, read-only and cannot mutate Business Context", () => {
   assert.match(route, /requireOrganizationAccess/);
   assert.match(route, /requireFinanceWorkspacePermission\(\{ capabilityId: "vat_returns", operation: "read", access \}\)/);

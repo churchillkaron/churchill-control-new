@@ -3,12 +3,32 @@
 import { ChevronRight } from "lucide-react";
 import WorkspaceCanvasRouter from "./WorkspaceCanvasRouter";
 
+const FILM_WORKSPACE_LABELS = {
+  production: "Production",
+  timeline: "Edit",
+  render: "Mastering",
+  publishing: "Release",
+};
+
+function titleCase(value) {
+  return String(value || "")
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
+}
+
 export default function Canvas({ runtime, editor }) {
   const mission = runtime.missionRuntime?.current || null;
+  const orchestration = runtime.orchestrationRuntime?.current || null;
   const workspaceTitle =
+    FILM_WORKSPACE_LABELS[editor.activeWorkspace] ||
     runtime.workspaces?.find((item) => item.id === editor.activeWorkspace)?.title ||
     runtime.workspace?.title ||
     "Creative Studio";
+  const currentPhase = orchestration?.phases?.find(
+    (phase) => phase.id === orchestration.current_phase,
+  ) || null;
+  const filmWorkspace = Boolean(FILM_WORKSPACE_LABELS[editor.activeWorkspace]);
 
   return (
     <section className="flex h-full min-h-0 flex-col bg-[#050505]">
@@ -24,7 +44,9 @@ export default function Canvas({ runtime, editor }) {
         </div>
 
         <div className="hidden text-[10px] uppercase tracking-[0.18em] text-white/22 sm:block">
-          {runtime.stateRuntime?.current?.stage || "MISSION_CREATED"}
+          {filmWorkspace && currentPhase
+            ? `${currentPhase.label} · ${titleCase(currentPhase.status)}`
+            : runtime.stateRuntime?.current?.stage || "MISSION_CREATED"}
         </div>
       </div>
 

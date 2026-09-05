@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import PlatformAdminConsole from "@/components/platform/PlatformAdminConsole";
+import PlatformCommercialRuntimeControl from "@/components/platform/PlatformCommercialRuntimeControl";
 import checkSystemHealth from "@/lib/health/checkSystemHealth";
 import { PROVIDER_REGISTRY } from "@/lib/platform/service-runtime/providers/ProviderRegistry";
 import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
@@ -30,6 +31,14 @@ function rowsFrom(result) {
     : [];
 }
 
+function releaseState() {
+  return {
+    environment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
+    ref: process.env.VERCEL_GIT_COMMIT_REF || null,
+    commitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+  };
+}
+
 async function loadPlatformAdminConsole() {
   const access = await requirePlatformAdminAccess();
 
@@ -44,6 +53,10 @@ async function loadPlatformAdminConsole() {
       wallets: [],
       walletTransactions: [],
       providers: [],
+      subscriptions: [],
+      queueJobs: [],
+      deadLetterJobs: [],
+      releaseState: releaseState(),
       health: {
         status: "degraded",
         timestamp: new Date().toISOString(),
@@ -61,6 +74,9 @@ async function loadPlatformAdminConsole() {
     usageResult,
     walletsResult,
     walletTransactionsResult,
+    subscriptionsResult,
+    queueJobsResult,
+    deadLetterJobsResult,
     healthResult,
   ] = await Promise.allSettled([
     supabaseAdmin.from("organizations").select("*"),
@@ -89,6 +105,21 @@ async function loadPlatformAdminConsole() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(1000),
+    supabaseAdmin
+      .from("subscriptions")
+      .select("id,organization_id,company,email,currency,billing_cycle,subtotal,discount_total,final_monthly_total,final_yearly_total,selected_modules,status,created_at,updated_at")
+      .order("created_at", { ascending: false })
+      .limit(500),
+    supabaseAdmin
+      .from("queue_jobs")
+      .select("id,organization_id,type,priority,status,error_message,retry_count,max_retries,worker_name,locked_at,started_at,completed_at,scheduled_for,dead_letter,created_at")
+      .order("created_at", { ascending: false })
+      .limit(500),
+    supabaseAdmin
+      .from("dead_letter_jobs")
+      .select("id,original_job_id,type,failed_at")
+      .order("failed_at", { ascending: false })
+      .limit(500),
     checkSystemHealth(),
   ]);
 
@@ -111,6 +142,10 @@ async function loadPlatformAdminConsole() {
     recentUsage: rowsFrom(usageResult),
     wallets: rowsFrom(walletsResult),
     walletTransactions: rowsFrom(walletTransactionsResult),
+    subscriptions: rowsFrom(subscriptionsResult),
+    queueJobs: rowsFrom(queueJobsResult),
+    deadLetterJobs: rowsFrom(deadLetterJobsResult),
+    releaseState: releaseState(),
     providers: Object.values(PROVIDER_REGISTRY).map(provider => ({
       id: provider.id,
       name: provider.name,
@@ -163,16 +198,25 @@ export default async function PlatformPage() {
   }
 
   return (
-    <PlatformAdminConsole
-      organizations={runtime.organizations}
-      recentEvents={runtime.recentEvents}
-      modules={runtime.modules}
-      staff={runtime.staff}
-      recentUsage={runtime.recentUsage}
-      wallets={runtime.wallets}
-      walletTransactions={runtime.walletTransactions}
-      providers={runtime.providers}
-      health={runtime.health}
-    />
+    <>
+      <PlatformAdminConsole
+        organizations={runtime.organizations}
+        recentEvents={runtime.recentEvents}
+        modules={runtime.modules}
+        staff={runtime.staff}
+        recentUsage={runtime.recentUsage}
+        wallets={runtime.wallets}
+        walletTransactions={runtime.walletTransactions}
+        providers={runtime.providers}
+        health={runtime.health}
+      />
+      <PlatformCommercialRuntimeControl
+        subscriptions={runtime.subscriptions}
+        queueJobs={runtime.queueJobs}
+        deadLetterJobs={runtime.deadLetterJobs}
+        organizations={runtime.organizations}
+        releaseState={runtime.releaseState}
+      />
+    </>
   );
 }

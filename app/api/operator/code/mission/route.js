@@ -168,12 +168,27 @@ export async function POST(request) {
     const suppliedResumeState = Object.keys(object(body.resume_state || body.resumeState)).length
       ? object(body.resume_state || body.resumeState)
       : null;
+    const suppliedIntelligencePreparation = Object.keys(object(body.intelligence_mission_preparation || body.intelligenceMissionPreparation)).length
+      ? object(body.intelligence_mission_preparation || body.intelligenceMissionPreparation)
+      : null;
+    const suppliedIntelligenceContext = Object.keys(object(body.intelligence_mission_context || body.intelligenceMissionContext)).length
+      ? object(body.intelligence_mission_context || body.intelligenceMissionContext)
+      : null;
+    const suppliedObjectiveContext = Object.keys(object(body.objective_context || body.objectiveContext)).length
+      ? object(body.objective_context || body.objectiveContext)
+      : null;
     const reasoningCallBudget = boundedInteger(body.reasoning_call_budget, 4, 1, 8);
     const maxEmployeePasses = boundedInteger(body.max_employee_passes, 8, 1, 16);
 
     if (!organizationId) return errorResponse(new Error("organization_id required"), 400);
     if (!requestedObjective && !resumeMissionId) {
       return errorResponse(new Error("objective or resume_mission_id required"), 400);
+    }
+    if (resumeMissionId && (suppliedIntelligencePreparation || suppliedIntelligenceContext || suppliedObjectiveContext)) {
+      return errorResponse(new Error("CODE_STUDIO_HISTORY_RESUME_CONTEXT_MUST_BE_SERVER_OWNED"), 400);
+    }
+    if (suppliedIntelligencePreparation && suppliedIntelligenceContext) {
+      return errorResponse(new Error("CODE_STUDIO_INTELLIGENCE_CONTEXT_AMBIGUOUS"), 400);
     }
 
     const access = await requireOrganizationAccess({
@@ -248,6 +263,9 @@ export async function POST(request) {
         ref,
         execution_key: key,
         resume_state: resumeState,
+        intelligence_mission_preparation: suppliedIntelligencePreparation,
+        intelligence_mission_context: suppliedIntelligenceContext,
+        objective_context: suppliedObjectiveContext,
         reasoning_call_budget: reasoningCallBudget,
         max_employee_passes: maxEmployeePasses,
         timeout_ms: 840000,
@@ -276,6 +294,8 @@ export async function POST(request) {
       engineering_skill_lifecycle: result?.engineering_skill_lifecycle || null,
       fast_start: result?.fast_start || null,
       execution_transport: result?.execution_transport || null,
+      intelligence_context_supplied: Boolean(suppliedIntelligencePreparation || suppliedIntelligenceContext),
+      objective_context_supplied: Boolean(suppliedObjectiveContext),
       preview_service_temporarily_enabled: true,
       production_routing_activated: false,
       pricing_activated: false,

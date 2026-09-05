@@ -1,4 +1,4 @@
-# trigger: recovery-pass-2
+# trigger: recovery-pass-3-render-only
 name: Avantiqo Investor Cache Recovery And Proof Once
 
 on:
@@ -140,6 +140,8 @@ jobs:
           duration = float(p1080.get('format', {}).get('duration') or 0)
           if generation.get('success') is not True or generation.get('shot_count') != 4:
               raise RuntimeError('AVANTIQO_INVESTOR_FAST_24S_GENERATION_INVALID')
+          if generation.get('cache_seed_called_by_runner') is not False:
+              raise RuntimeError('AVANTIQO_INVESTOR_FAST_24S_RENDER_NOT_RENDER_ONLY')
           if (int(v1080.get('width') or 0), int(v1080.get('height') or 0)) != (1920, 1080):
               raise RuntimeError(f'AVANTIQO_INVESTOR_FAST_24S_1080P_INVALID:{v1080}')
           if (int(v4k.get('width') or 0), int(v4k.get('height') or 0)) != (3840, 2160):
@@ -158,6 +160,7 @@ jobs:
               'fps': 24,
               'duration_seconds': duration,
               'shot_count': 4,
+              'render_only_after_cache_preflight': True,
               'screenshots_used': False,
               'external_video_provider_used': False,
           }

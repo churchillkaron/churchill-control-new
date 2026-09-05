@@ -26,7 +26,7 @@ test('Booking.com uses current token authentication for B.XML and OTA reservatio
 
 test('Booking.com availability preserves canonical inventory, pricing and restrictions', () => {
   assert.match(adapter, /<roomstosell>/);
-  assert.match(adapter, /BOOKING_COM_INVENTORY_INVALID/);
+  assert.match(adapter, /integer\(row\.inventory, 'INVENTORY', 0, 255\)/);
   assert.match(adapter, /<price>/);
   assert.match(adapter, /<closed>/);
   assert.match(adapter, /<minimumstay>/);
@@ -50,7 +50,7 @@ test('Booking.com inbound processing persists and reconciles before acknowledgem
   const evidenceIndex = ingest.indexOf('recordReservationEvent');
   const applyIndex = ingest.indexOf("hotel_apply_channel_reservation_guarded");
   const reconcileIndex = ingest.indexOf('recordReconciliation');
-  const ackIndex = ingest.indexOf('acknowledgeReservation');
+  const ackIndex = ingest.lastIndexOf('acknowledgeReservation({');
   assert.ok(evidenceIndex >= 0);
   assert.ok(applyIndex > evidenceIndex);
   assert.ok(reconcileIndex > applyIndex);
@@ -58,6 +58,7 @@ test('Booking.com inbound processing persists and reconciles before acknowledgem
   assert.match(ingest, /channel_room_stay_id/);
   assert.match(ingest, /HOTEL_CHANNEL_BOOKING_NOT_FOUND_FOR_CANCEL/);
   assert.match(ingest, /BOOKING_COM_RESERVATION_PROPERTY_MISMATCH/);
+  assert.match(ingest, /allAlreadyMatched/);
 });
 
 test('Booking.com remains non-live until inbound implementation is explicitly certified', () => {

@@ -1,0 +1,55 @@
+name: Avantiqo Investor Cache Recovery Probe Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-cache-recovery-probe-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-investor-cache-recovery-probe-once
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    if: github.event.head_commit.message == 'Run Avantiqo investor cache recovery probe once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Modal client
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+
+      - name: Probe exact LTX cache and interrupted proof outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          SNAPSHOT='huggingface-cache/hub/models--Lightricks--LTX-2.5/snapshots/e8dc69fd26150afbfa20351f6bc9ac384257f9fd'
+          FAST_ROOT='investor-fast-motion-24s/78a4ad62da84ffb46dd084f0e5a3633e9b1a3971'
+          probe() {
+            local path="$1"
+            echo "===== VOLUME_PATH:${path} ====="
+            if ! modal volume ls avantiqo-video-models "$path"; then
+              echo "AVANTIQO_VOLUME_PATH_UNAVAILABLE:${path}"
+            fi
+          }
+          probe "$SNAPSHOT/diffusion_models"
+          probe "$SNAPSHOT/text_encoders"
+          probe "$SNAPSHOT/vae"
+          probe "$SNAPSHOT/latent_upscale_models"
+          probe "$FAST_ROOT"
+          echo 'AVANTIQO_INVESTOR_CACHE_RECOVERY_PROBE=PASS'

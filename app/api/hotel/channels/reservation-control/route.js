@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { HotelChannelReservationIngestRuntime } from '@/lib/hotel/channels/HotelChannelReservationIngestRuntime';
 import { requireOrganizationAccess } from '@/lib/platform/security/requireOrganizationAccess';
 import { supabaseAdmin } from '@/lib/shared/supabase/admin';
 
@@ -203,5 +204,34 @@ export async function GET(request) {
   } catch (error) {
     console.error('HOTEL_CHANNEL_RESERVATION_CONTROL_ERROR', error);
     return NextResponse.json({ success: false, error: clean(error?.message) || 'Unable to load Hotel channel reservations' }, { status: 500 });
+  }
+}
+
+export async function POST(request) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const organizationId = clean(body?.organizationId || body?.organization_id);
+    const action = clean(body?.action).toUpperCase();
+    const reservationEventId = clean(body?.reservationEventId || body?.reservation_event_id);
+    if (!organizationId) return NextResponse.json({ success: false, error: 'organizationId required' }, { status: 400 });
+    if (!reservationEventId) return NextResponse.json({ success: false, error: 'reservationEventId required' }, { status: 400 });
+    if (action !== 'RETRY_PROVIDER_HANDOFF') {
+      return NextResponse.json({ success: false, error: 'Unsupported Hotel channel reservation action' }, { status: 400 });
+    }
+
+    const access = await requireOrganizationAccess({ organizationId, request });
+    if (!access.success) return NextResponse.json(access, { status: access.status });
+
+    const result = await HotelChannelReservationIngestRuntime.retryProviderHandoff({
+      supabase: supabaseAdmin,
+      organizationId: access.organizationId,
+      reservationEventId,
+    });
+    return NextResponse.json(result);
+  } catch (error) {
+    const code = clean(error?.code || error?.message).split(':')[0];
+    const status = /NOT_ALLOWED|NOT_FOUND|INVALID|REQUIRED/.test(code) ? 409 : 500;
+    console.error('HOTEL_CHANNEL_RESERVATION_ACTION_ERROR', error);
+    return NextResponse.json({ success: false, error: code || 'Unable to complete Hotel channel reservation action' }, { status });
   }
 }

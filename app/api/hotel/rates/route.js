@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { hotelRateDistributionFingerprint } from "@/lib/hotel/channels/HotelChannelSyncFingerprint";
 import { isHotelChannelTransportImplemented } from "@/lib/hotel/channels/HotelChannelTransportRegistry";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -90,6 +91,8 @@ export async function POST(request) {
 
     const { data, error } = await supabaseAdmin.from("hotel_rate_calendar").upsert(rows, { onConflict: "organization_id,property_id,rate_plan_id,room_type,stay_date" }).select();
     if (error) throw error;
+    const persistedRows = data || [];
+    const requestFingerprint = hotelRateDistributionFingerprint(persistedRows);
 
     const { data: candidates, error: connectionsError } = await supabaseAdmin
       .from("hotel_channel_connections")
@@ -119,6 +122,7 @@ export async function POST(request) {
       date_from: dates[0],
       date_to: dates[dates.length - 1],
       change_summary: { rate_plan_id: ratePlanId, room_type: roomType, entries: rows.length },
+      request_fingerprint: requestFingerprint,
     };
     const syncJobs = mappedConnectionIds.length
       ? mappedConnectionIds.map((connectionId) => ({ ...commonJob, connection_id: connectionId, status: "PENDING" }))
@@ -128,12 +132,13 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      entries: data || [],
+      entries: persistedRows,
       distributionQueued: mappedConnectionIds.length > 0,
       distributionState: mappedConnectionIds.length > 0 ? "INTERNAL_QUEUE_PENDING_PROVIDER_TRANSMISSION" : "AWAITING_CERTIFIED_TRANSPORT",
       destinationCount: mappedConnectionIds.length,
       configuredDestinationCount: credentialedConnections.length,
       transportReadyDestinationCount: transportReadyConnections.length,
+      requestFingerprint,
       providerTransmissionClaimed: false,
     });
   } catch (error) {

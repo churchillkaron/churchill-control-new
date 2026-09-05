@@ -1,0 +1,195 @@
+name: Avantiqo Investor Production 24s DFR Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-production-24s-dfr-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-investor-production-24s-dfr-once
+  cancel-in-progress: true
+
+jobs:
+  production-proof:
+    if: github.event.head_commit.message == 'Run Avantiqo investor production 24s DFR once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      PROOF_DIR: local-audit-output/avantiqo-investor-production-24s-dfr
+      AVANTIQO_24S_REPORT: local-audit-output/avantiqo-investor-production-24s-dfr/generation-report.json
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install proof tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          mkdir -p "$PROOF_DIR"
+
+      - name: Deploy complete Avantiqo Video Modal surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal deploy modal_deploy.py
+          echo 'AVANTIQO_VIDEO_MODAL_COMPLETE_SURFACE_DEPLOYMENT_V2=PASS'
+
+      - name: Verify production functions are deployed
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import modal
+          for name in (
+              'generate_investor_t2v_master',
+              'generate_investor_hq_master',
+              'generate_native_master',
+          ):
+              fn = modal.Function.from_name('avantiqo-video-owned', name)
+              if fn is None:
+                  raise RuntimeError(f'AVANTIQO_VIDEO_MODAL_FUNCTION_MISSING:{name}')
+              print(f'AVANTIQO_VIDEO_MODAL_FUNCTION_READY={name}')
+          PY
+
+      - name: Generate four production DFR shots concurrently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python services/avantiqo-video-engine/investor_production_24s.py
+
+      - name: Retrieve four native DFR masters
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="investor-production-24s/${GITHUB_SHA}"
+          modal volume get avantiqo-video-models "$ROOT/01-awakening-3840x2176.mp4" "$PROOF_DIR/01-awakening-3840x2176.mp4" --force
+          modal volume get avantiqo-video-models "$ROOT/02-human-operations-3840x2176.mp4" "$PROOF_DIR/02-human-operations-3840x2176.mp4" --force
+          modal volume get avantiqo-video-models "$ROOT/03-one-business-reality-3840x2176.mp4" "$PROOF_DIR/03-one-business-reality-3840x2176.mp4" --force
+          modal volume get avantiqo-video-models "$ROOT/04-forward-3840x2176.mp4" "$PROOF_DIR/04-forward-3840x2176.mp4" --force
+          for file in "$PROOF_DIR"/*-3840x2176.mp4; do test -s "$file"; done
+
+      - name: Master exact 24 second UHD film
+        shell: bash
+        run: |
+          set -euo pipefail
+          for id in 01-awakening 02-human-operations 03-one-business-reality 04-forward; do
+            ffmpeg -hide_banner -loglevel error -y \
+              -i "$PROOF_DIR/${id}-3840x2176.mp4" \
+              -vf 'crop=3840:2160:0:8,fps=24,setsar=1' \
+              -t 6 \
+              -c:v libx264 -preset veryfast -crf 15 -pix_fmt yuv420p -an -movflags +faststart \
+              "$PROOF_DIR/${id}-uhd.mp4"
+          done
+          cat > "$PROOF_DIR/concat.txt" <<EOF
+          file '01-awakening-uhd.mp4'
+          file '02-human-operations-uhd.mp4'
+          file '03-one-business-reality-uhd.mp4'
+          file '04-forward-uhd.mp4'
+          EOF
+          ffmpeg -hide_banner -loglevel error -y \
+            -f concat -safe 0 -i "$PROOF_DIR/concat.txt" \
+            -c copy -movflags +faststart \
+            "$PROOF_DIR/avantiqo-investor-futuristic-production-proof-24s-4k.mp4"
+          ffmpeg -hide_banner -loglevel error -y \
+            -i "$PROOF_DIR/avantiqo-investor-futuristic-production-proof-24s-4k.mp4" \
+            -vf 'scale=1920:1080:flags=lanczos' \
+            -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p -an -movflags +faststart \
+            "$PROOF_DIR/avantiqo-investor-futuristic-production-proof-24s-preview-1080p.mp4"
+
+      - name: Verify 4K production proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          ffprobe -v error -show_entries stream=codec_type,width,height,r_frame_rate -show_entries format=duration,size -of json \
+            "$PROOF_DIR/avantiqo-investor-futuristic-production-proof-24s-4k.mp4" > "$PROOF_DIR/final-ffprobe.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          d = Path(os.environ['PROOF_DIR'])
+          generation = json.loads((d / 'generation-report.json').read_text())
+          probe = json.loads((d / 'final-ffprobe.json').read_text())
+          video = next((s for s in probe.get('streams', []) if s.get('codec_type') == 'video'), {})
+          duration = float(probe.get('format', {}).get('duration') or 0)
+          if generation.get('success') is not True:
+              raise RuntimeError('AVANTIQO_INVESTOR_24S_GENERATION_NOT_SUCCESSFUL')
+          if generation.get('shot_count') != 4 or generation.get('timeline_duration_seconds') != 24:
+              raise RuntimeError('AVANTIQO_INVESTOR_24S_SHOT_PLAN_INVALID')
+          if int(video.get('width') or 0) != 3840 or int(video.get('height') or 0) != 2160:
+              raise RuntimeError(f'AVANTIQO_INVESTOR_24S_RESOLUTION_INVALID:{video}')
+          if str(video.get('r_frame_rate')) != '24/1':
+              raise RuntimeError(f'AVANTIQO_INVESTOR_24S_FPS_INVALID:{video.get("r_frame_rate")}')
+          if abs(duration - 24.0) > 0.35:
+              raise RuntimeError(f'AVANTIQO_INVESTOR_24S_DURATION_INVALID:{duration}')
+          for shot in generation.get('shots', []):
+              g = shot.get('generation') or {}
+              required = {
+                  'pipeline': 'LTX25_DFR_DETAIL_FIDELITY',
+                  'dfr_used': True,
+                  'detailing_ic_lora_used': True,
+                  'temporal_upscalings': 0,
+                  'pixel_delivery_upscale_used': False,
+                  'source_visual_asset_count': 0,
+                  'pure_text_to_video': True,
+                  'external_provider_contacted': False,
+              }
+              for key, expected in required.items():
+                  if g.get(key) != expected:
+                      raise RuntimeError(f'AVANTIQO_INVESTOR_24S_EVIDENCE_INVALID:{shot.get("id")}:{key}:{g.get(key)}')
+          report = {
+              'success': True,
+              'marker': 'AVANTIQO_INVESTOR_FUTURISTIC_PRODUCTION_24S_4K=PASS',
+              'source_commit': os.environ.get('GITHUB_SHA'),
+              'quality_tier': 'PRODUCTION_DFR_3840X2176',
+              'delivery_resolution': '3840x2160',
+              'fps': 24,
+              'duration_seconds': duration,
+              'shot_count': 4,
+              'screenshots_used': False,
+              'external_video_provider_used': False,
+              'full_dev_native_4k_default_used': False,
+          }
+          (d / 'proof-report.json').write_text(json.dumps(report, indent=2) + '\n')
+          print('AVANTIQO_INVESTOR_FUTURISTIC_PRODUCTION_24S_4K=PASS')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-futuristic-production-proof-24s-4k
+          path: |
+            local-audit-output/avantiqo-investor-production-24s-dfr/avantiqo-investor-futuristic-production-proof-24s-4k.mp4
+            local-audit-output/avantiqo-investor-production-24s-dfr/avantiqo-investor-futuristic-production-proof-24s-preview-1080p.mp4
+            local-audit-output/avantiqo-investor-production-24s-dfr/proof-report.json
+            local-audit-output/avantiqo-investor-production-24s-dfr/generation-report.json
+            local-audit-output/avantiqo-investor-production-24s-dfr/final-ffprobe.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'PRODUCTION_VERCEL_DEPLOY_TRIGGERED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'EXTERNAL_VIDEO_PROVIDER_USED=false'
+          echo 'AUTOMATIC_PAID_RETRY=false'

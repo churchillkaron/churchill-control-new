@@ -34,12 +34,12 @@ jobs:
           test -n "${MODAL_TOKEN_SECRET:-}"
           python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
 
-      - name: Probe exact LTX cache and interrupted proof outputs
+      - name: Probe exact LTX cache and active proof outputs
         shell: bash
         run: |
           set -euo pipefail
           SNAPSHOT='huggingface-cache/hub/models--Lightricks--LTX-2.5/snapshots/e8dc69fd26150afbfa20351f6bc9ac384257f9fd'
-          FAST_ROOT='investor-fast-motion-24s/78a4ad62da84ffb46dd084f0e5a3633e9b1a3971'
+          FAST_ROOT='investor-fast-motion-24s/77764b859fce720b796f4280af77038aae907ae7'
           probe() {
             local path="$1"
             echo "===== VOLUME_PATH:${path} ====="

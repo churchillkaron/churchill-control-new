@@ -30,6 +30,7 @@ export default function HotelSetupPage() {
   const [rooms, setRooms] = useState([]);
   const [entities, setEntities] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
+  const [liabilityAccounts, setLiabilityAccounts] = useState([]);
   const [financeProperties, setFinanceProperties] = useState([]);
   const [financeDrafts, setFinanceDrafts] = useState({});
   const [propertyForm, setPropertyForm] = useState(EMPTY_PROPERTY);
@@ -62,10 +63,12 @@ export default function HotelSetupPage() {
       setRooms(roomsData.rooms || []);
       setEntities(financeData.entities || []);
       setBankAccounts(financeData.bankAccounts || []);
+      setLiabilityAccounts(financeData.liabilityAccounts || []);
       setFinanceProperties(financeList);
       setFinanceDrafts(Object.fromEntries(financeList.map((property) => [property.id, {
         entityId: property.finance_entity_id || "",
         bankAccountId: property.settlement_bank_account_id || "",
+        depositAccountId: property.customer_deposit_account_id || "",
       }])));
       setRoomForm((current) => ({ ...current, propertyId: current.propertyId || propertyList[0]?.id || "" }));
       setLegacyPropertyId((current) => current || propertyList[0]?.id || "");
@@ -131,12 +134,12 @@ export default function HotelSetupPage() {
 
   async function saveFinance(propertyId) {
     const draft = financeDrafts[propertyId] || {};
-    if (!draft.entityId || !draft.bankAccountId) { setError("Choose both a legal entity and settlement bank account"); return; }
+    if (!draft.entityId || !draft.bankAccountId || !draft.depositAccountId) { setError("Choose a legal entity, settlement bank account and customer-deposit liability account"); return; }
     setSaving(`finance:${propertyId}`); setError(null); setMessage(null);
     try {
       const response = await fetch("/api/hotel/properties/finance", {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organizationId, propertyId, entityId: draft.entityId, bankAccountId: draft.bankAccountId }),
+        body: JSON.stringify({ organizationId, propertyId, entityId: draft.entityId, bankAccountId: draft.bankAccountId, depositAccountId: draft.depositAccountId }),
       });
       const result = await response.json();
       if (!response.ok || result.success === false) throw new Error(result.error || "Unable to save settlement setup");
@@ -151,20 +154,22 @@ export default function HotelSetupPage() {
       organizationId={organizationId}
       active="configuration"
       title="Hotel Setup"
-      subtitle="Configure property, room and Finance settlement boundaries once. Hotel payments stay inside the active organization, legal entity and governed bank account."
+      subtitle="Configure property, room and Finance settlement boundaries once. Hotel payments stay inside the active organization, legal entity, governed bank account and customer-deposit liability."
       actions={<HotelSecondaryAction onClick={load} disabled={loading}><RefreshCw size={9} className={loading ? "animate-spin" : ""} />Refresh</HotelSecondaryAction>}
     >
       <HotelError>{error}</HotelError><HotelSuccess>{message}</HotelSuccess>
 
-      <HotelSection eyebrow="Settlement readiness" title={`${financeReadyCount}/${financeProperties.length} properties ready for guest payments`} detail="Every property must point to one active legal entity and one Finance-linked bank account before Avantiqo can process deposits or payments. Card credentials never enter Hotel Setup.">
+      <HotelSection eyebrow="Settlement readiness" title={`${financeReadyCount}/${financeProperties.length} properties ready for guest payments`} detail="A property is ready only when its legal entity, Finance-linked settlement bank account and customer-deposit liability account are governed. Card credentials never enter Hotel Setup.">
         {financeProperties.length ? <div className="divide-y divide-black/[0.055]">
           {financeProperties.map((property) => {
-            const draft = financeDrafts[property.id] || { entityId: "", bankAccountId: "" };
+            const draft = financeDrafts[property.id] || { entityId: "", bankAccountId: "", depositAccountId: "" };
             const eligibleAccounts = bankAccounts.filter((account) => account.entity_id === draft.entityId);
-            return <div key={property.id} className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(150px,1fr)_minmax(180px,1.3fr)_minmax(180px,1.3fr)_90px_auto] md:items-end md:px-5">
+            const eligibleLiabilities = liabilityAccounts.filter((account) => account.entity_id === draft.entityId);
+            return <div key={property.id} className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(135px,0.9fr)_minmax(170px,1.1fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_80px_auto] md:items-end md:px-5">
               <div><div className="mb-1 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#969087]">Property</div><div className="text-[9px] font-semibold text-[#403C37]">{property.name}</div></div>
-              <HotelField label="Legal entity"><select className={hotelInputClass} value={draft.entityId} onChange={(event) => setFinanceDrafts((current) => ({ ...current, [property.id]: { entityId: event.target.value, bankAccountId: "" } }))}><option value="">Select legal entity</option>{entities.map((entity) => <option key={entity.id} value={entity.id}>{entity.display_name || entity.legal_name || entity.code}</option>)}</select></HotelField>
+              <HotelField label="Legal entity"><select className={hotelInputClass} value={draft.entityId} onChange={(event) => setFinanceDrafts((current) => ({ ...current, [property.id]: { entityId: event.target.value, bankAccountId: "", depositAccountId: "" } }))}><option value="">Select legal entity</option>{entities.map((entity) => <option key={entity.id} value={entity.id}>{entity.display_name || entity.legal_name || entity.code}</option>)}</select></HotelField>
               <HotelField label="Settlement account"><select className={hotelInputClass} value={draft.bankAccountId} disabled={!draft.entityId} onChange={(event) => setFinanceDrafts((current) => ({ ...current, [property.id]: { ...draft, bankAccountId: event.target.value } }))}><option value="">Select Finance-linked account</option>{eligibleAccounts.map((account) => <option key={account.id} value={account.id}>{account.account_name || account.bank_name || "Bank account"} · {account.currency_code || account.currency || ""}</option>)}</select></HotelField>
+              <HotelField label="Guest deposit liability"><select className={hotelInputClass} value={draft.depositAccountId} disabled={!draft.entityId} onChange={(event) => setFinanceDrafts((current) => ({ ...current, [property.id]: { ...draft, depositAccountId: event.target.value } }))}><option value="">Select liability account</option>{eligibleLiabilities.map((account) => <option key={account.id} value={account.id}>{account.account_code} · {account.account_name}</option>)}</select></HotelField>
               <div className="pb-[2px]"><HotelStatusPill value={property.finance_ready ? "READY" : "BLOCKED"} /></div>
               <HotelPrimaryAction disabled={Boolean(saving)} onClick={() => saveFinance(property.id)}>{saving === `finance:${property.id}` ? "Saving…" : "Save"}</HotelPrimaryAction>
             </div>;
@@ -185,7 +190,7 @@ export default function HotelSetupPage() {
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <HotelSection eyebrow="Property master" title="Add property" detail="Create the physical property boundary first, then assign its legal entity and settlement account above.">
+        <HotelSection eyebrow="Property master" title="Add property" detail="Create the physical property boundary first, then assign its Finance settlement controls above.">
           <div className="grid gap-3 p-4 md:grid-cols-2">
             <HotelField label="Property name"><input className={hotelInputClass} value={propertyForm.name} onChange={(event) => setPropertyForm((current) => ({ ...current, name: event.target.value }))} /></HotelField>
             <HotelField label="City"><input className={hotelInputClass} value={propertyForm.city} onChange={(event) => setPropertyForm((current) => ({ ...current, city: event.target.value }))} /></HotelField>

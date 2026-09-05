@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import CodeEngineeringIntelligenceCard from "@/components/operator/CodeEngineeringIntelligenceCard";
 import CodeEngineeringPlanCard from "@/components/operator/CodeEngineeringPlanCard";
+import ProductEngineeringPortfolioCard from "@/components/operator/ProductEngineeringPortfolioCard";
 
 const ACTIVE_POLL_MS = 2200;
 const IDLE_POLL_MS = 7000;
@@ -17,6 +18,7 @@ const ACTIVE_STATES = new Set([
   "running",
   "verifying",
   "working",
+  "portfolio",
 ]);
 
 function text(value) {
@@ -26,7 +28,18 @@ function text(value) {
 function progressActive(progress) {
   const state = text(progress?.state_status).toLowerCase();
   const event = text(progress?.latest_event?.status).toLowerCase();
-  return ACTIVE_STATES.has(state) || ACTIVE_STATES.has(event);
+  const portfolioStatus = text(
+    progress?.product_engineering_portfolio?.status,
+  ).toLowerCase();
+  return (
+    ACTIVE_STATES.has(state) ||
+    ACTIVE_STATES.has(event) ||
+    [
+      "engineering_active",
+      "reassessing_verified_main",
+      "waiting_verified_persistence",
+    ].includes(portfolioStatus)
+  );
 }
 
 export default function CodeEngineeringIntelligenceLiveCard({
@@ -86,6 +99,11 @@ export default function CodeEngineeringIntelligenceLiveCard({
 
   return (
     <div className={`space-y-3 ${className}`} data-avantiqo-code-intelligence-live-feed="true">
+      <ProductEngineeringPortfolioCard
+        portfolio={progress?.product_engineering_portfolio || null}
+        theme={theme}
+        compact={compact}
+      />
       <CodeEngineeringPlanCard
         plan={progress?.engineering_plan || null}
         theme={theme}

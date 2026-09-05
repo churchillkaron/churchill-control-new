@@ -21,6 +21,8 @@ jobs:
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_VIDEO_SCENE1_SOURCE_FRAME: ${{ github.workspace }}/assets/video/proofs/scene1-approved-reconstructed.jpg
+      AVANTIQO_VIDEO_SCENE1_OPENING_FRAME: ${{ github.workspace }}/assets/video/proofs/scene1-approved-reconstructed.jpg
       AVANTIQO_INVESTOR_PROOF_SOURCE_FRAME: ${{ github.workspace }}/assets/video/proofs/scene1-approved-reconstructed.jpg
       OUTPUT_DIR: local-audit-output/avantiqo-investor-worldclass-native4k
 

@@ -7,6 +7,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { buildFinanceVatReturnPreflight, loadFinanceTaxWorkspaceSetup } from "@/lib/finance/tax/FinanceVatReturnPreflight";
+import { applyFinanceVatCalculationMethodToPreflight } from "@/lib/finance/tax/FinanceVatCalculationMethodPolicy";
 import {
   applyFinanceTaxCalendarToPreflight,
   buildFinanceTaxCalendarMetadata,
@@ -71,7 +72,8 @@ export async function GET(request) {
     ]);
     const selectedId = vatReturnId || returns[0]?.id || null;
     const rawPreflight = selectedId ? await buildFinanceVatReturnPreflight({ organizationId: access.organizationId, entityId, vatReturnId: selectedId }) : null;
-    const preflight = rawPreflight ? applyFinanceTaxCalendarToPreflight(rawPreflight) : null;
+    const calendarPreflight = rawPreflight ? applyFinanceTaxCalendarToPreflight(rawPreflight) : null;
+    const preflight = calendarPreflight ? applyFinanceVatCalculationMethodToPreflight(calendarPreflight) : null;
 
     return NextResponse.json({
       success: true,

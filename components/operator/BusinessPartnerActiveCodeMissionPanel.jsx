@@ -16,21 +16,14 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-const ACTIVE_POLL_MS = 1800;
-const IDLE_POLL_MS = 6000;
-const ACTIVE_STALE_MS = 30 * 60 * 1000;
+import {
+  codeProgressIsActive,
+  useCodeProgressFeed,
+} from "@/components/operator/CodeProgressFeedProvider";
+
+const ACTIVE_CONTROL_POLL_MS = 2200;
+const IDLE_CONTROL_POLL_MS = 6500;
 const RECENT_VISIBLE_MS = 10 * 60 * 1000;
-const ACTIVE_STATES = new Set([
-  "active",
-  "executing",
-  "in_progress",
-  "pending",
-  "planner_pending",
-  "queued",
-  "running",
-  "verifying",
-  "working",
-]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -48,19 +41,9 @@ function progressUpdatedAt(progress) {
   );
 }
 
-function progressIsActive(progress) {
-  if (!progress) return false;
-  const updatedAt = progressUpdatedAt(progress);
-  if (updatedAt && Date.now() - updatedAt > ACTIVE_STALE_MS) return false;
-
-  const stateStatus = text(progress.state_status).toLowerCase();
-  const eventStatus = text(progress.latest_event?.status).toLowerCase();
-  return ACTIVE_STATES.has(stateStatus) || ACTIVE_STATES.has(eventStatus);
-}
-
 function shouldShowProgress(progress) {
   if (!progress) return false;
-  if (progressIsActive(progress)) return true;
+  if (codeProgressIsActive(progress)) return true;
   const updatedAt = progressUpdatedAt(progress);
   return updatedAt > 0 && Date.now() - updatedAt <= RECENT_VISIBLE_MS;
 }
@@ -98,17 +81,21 @@ function fileSet(value) {
 }
 
 export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
-  const [progress, setProgress] = useState(null);
+  const {
+    progress,
+    active,
+    requestRefresh,
+  } = useCodeProgressFeed();
   const [control, setControl] = useState(null);
   const [instruction, setInstruction] = useState("");
   const [controlPending, setControlPending] = useState(false);
   const [controlError, setControlError] = useState("");
   const [controlNotice, setControlNotice] = useState("");
   const [steerBaseline, setSteerBaseline] = useState(null);
+  const missionId = text(progress?.mission_id);
 
   useEffect(() => {
-    if (!organizationId) {
-      setProgress(null);
+    if (!organizationId || !missionId) {
       setControl(null);
       return undefined;
     }
@@ -116,11 +103,10 @@ export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
     const controller = new AbortController();
     let timer = null;
 
-    async function poll() {
-      let active = false;
+    async function pollControl() {
       try {
-        const response = await fetch(
-          `/api/operator/code/progress?organizationId=${encodeURIComponent(organizationId)}`,
+        const controlResponse = await fetch(
+          `/api/operator/code/intervention?organizationId=${encodeURIComponent(organizationId)}&missionId=${encodeURIComponent(missionId)}`,
           {
             method: "GET",
             credentials: "same-origin",
@@ -128,59 +114,46 @@ export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
             signal: controller.signal,
           },
         );
-        const result = await response.json().catch(() => ({}));
-        if (!controller.signal.aborted && response.ok && result?.success === true) {
-          const nextProgress = result?.live_progress || null;
-          active = progressIsActive(nextProgress);
-          setProgress(nextProgress);
-
-          const missionId = text(nextProgress?.mission_id);
-          if (missionId) {
-            const controlResponse = await fetch(
-              `/api/operator/code/intervention?organizationId=${encodeURIComponent(organizationId)}&missionId=${encodeURIComponent(missionId)}`,
-              {
-                method: "GET",
-                credentials: "same-origin",
-                cache: "no-store",
-                signal: controller.signal,
-              },
-            );
-            const controlResult = await controlResponse.json().catch(() => ({}));
-            if (!controller.signal.aborted && controlResponse.ok && controlResult?.success === true) {
-              setControl(controlResult.control || null);
-            }
-          } else {
-            setControl(null);
-          }
+        const controlResult = await controlResponse.json().catch(() => ({}));
+        if (
+          !controller.signal.aborted &&
+          controlResponse.ok &&
+          controlResult?.success === true
+        ) {
+          setControl(controlResult.control || null);
         }
       } catch (error) {
         if (error?.name !== "AbortError") {
-          console.debug("AVANTIQO_BUSINESS_PARTNER_CODE_PROGRESS_FAILED", error?.message || error);
+          console.debug(
+            "AVANTIQO_BUSINESS_PARTNER_CODE_CONTROL_FAILED",
+            error?.message || error,
+          );
         }
       }
 
       if (!controller.signal.aborted) {
-        timer = window.setTimeout(poll, active ? ACTIVE_POLL_MS : IDLE_POLL_MS);
+        timer = window.setTimeout(
+          pollControl,
+          active ? ACTIVE_CONTROL_POLL_MS : IDLE_CONTROL_POLL_MS,
+        );
       }
     }
 
-    poll();
+    pollControl();
     return () => {
       controller.abort();
       if (timer) window.clearTimeout(timer);
     };
-  }, [organizationId]);
+  }, [active, missionId, organizationId]);
 
   useEffect(() => {
-    const missionId = text(progress?.mission_id);
     if (!steerBaseline || steerBaseline.missionId === missionId) return;
     setSteerBaseline(null);
     setControlNotice("");
     setControlError("");
     setInstruction("");
-  }, [progress?.mission_id, steerBaseline]);
+  }, [missionId, steerBaseline]);
 
-  const active = progressIsActive(progress);
   const files = Array.isArray(progress?.files_changed) ? progress.files_changed : [];
   const visibleFiles = files.slice(-3);
   const verification = verificationLabel(progress, active);
@@ -188,7 +161,6 @@ export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
   const status = humanStatus(progress?.latest_event?.phase || progress?.state_status);
   const codeStudioHref = `/workspace/${organizationId}/creative/code`;
   const verifiedReviewReady = !active && progress?.latest_verification_passed === true;
-  const missionId = text(progress?.mission_id);
 
   const sinceSteer = useMemo(() => {
     if (!steerBaseline || steerBaseline.missionId !== missionId) return null;
@@ -256,6 +228,7 @@ export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
         latest_review:
           result.review_recorded === true ? result.control || null : current?.latest_review || null,
       }));
+      requestRefresh();
     } catch (error) {
       setControlError(text(error?.message || error) || "Code mission control failed");
     } finally {
@@ -270,6 +243,7 @@ export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
   return (
     <section
       data-avantiqo-business-partner-code-mission="true"
+      data-avantiqo-code-progress-consumer="shared-provider"
       className="border-b border-black/[0.07] bg-[#FBFAF8] px-5 py-4"
     >
       <div className="flex items-start justify-between gap-4">

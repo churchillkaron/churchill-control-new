@@ -34,7 +34,7 @@ assert.match(lifecycle, /message_digest/);
 assert.match(lifecycle, /commentary_digest/);
 assert.match(lifecycle, /summary_digest/);
 
-assert.match(inspection, /CREATIVE_PUBLISHING_INSPECTION_V4/);
+assert.match(inspection, /CREATIVE_PUBLISHING_INSPECTION_V5/);
 assert.match(inspection, /was_published/);
 assert.match(inspection, /current_live/);
 assert.match(inspection, /current_truth/);
@@ -57,6 +57,6 @@ assert.match(workspace, /Recheck remote/);
 assert.match(workspace, /\/api\/creative\/release\/lifecycle/);
 assert.match(workspace, /action: "revalidate"/);
 
-assert.match(router, /PublishingWorkspaceV2/);
+assert.match(router, /PublishingWorkspaceV3/);
 
 console.log("AVANTIQO_VIDEO_PUBLICATION_LIFECYCLE_CONTRACT=PASS");

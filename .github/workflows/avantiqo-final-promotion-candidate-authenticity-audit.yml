@@ -12,7 +12,7 @@ on:
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js"
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
       - "scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs"
-      - "scripts/patch-released-knowledge-authenticity.mjs"
+      - "scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs"
       - ".github/workflows/avantiqo-final-promotion-candidate-authenticity-audit.yml"
   pull_request:
     branches:
@@ -25,60 +25,20 @@ on:
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js"
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
       - "scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs"
+      - "scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs"
       - ".github/workflows/avantiqo-final-promotion-candidate-authenticity-audit.yml"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: avantiqo-final-promotion-candidate-authenticity-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  wire_released_knowledge:
-    name: Wire released knowledge authenticity
-    if: github.event_name == 'push' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout exact source
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Use Node 24
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-
-      - name: Apply exact released knowledge authenticity wiring
-        run: |
-          sed -i '2i const AVANTIQO_FINAL_KNOWLEDGE_RELEASE_CONTRACT = "${AVANTIQO_FINAL_KNOWLEDGE_RELEASE_CONTRACT}";' scripts/patch-released-knowledge-authenticity.mjs
-          node scripts/patch-released-knowledge-authenticity.mjs
-
-      - name: Syntax gate wired source
-        run: |
-          node --check lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js
-          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js
-          node --check lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js
-          node --check lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js
-
-      - name: Commit wired source to main
-        run: |
-          git checkout -- scripts/patch-released-knowledge-authenticity.mjs
-          if git diff --quiet; then
-            echo "No wiring changes required"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js
-          git commit -m "feat(intelligence): enforce released knowledge authenticity"
-          git push origin HEAD:main
-
   certify:
-    name: Zero-cost final promotion authenticity certification
+    name: Zero-cost promotion and released knowledge authenticity certification
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -106,6 +66,10 @@ jobs:
           node --check lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js
           node --check lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js
           node --check scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs
+          node --check scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs
 
       - name: Run final promotion authenticity adversarial audit
         run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs
+
+      - name: Run released knowledge authenticity adversarial audit
+        run: node scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs

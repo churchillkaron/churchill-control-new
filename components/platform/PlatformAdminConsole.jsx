@@ -3,17 +3,16 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Activity,
   BellRing,
   BrainCircuit,
   Building2,
   ChevronRight,
-  CircleDollarSign,
   Database,
   PlugZap,
   Search,
   Server,
   ShieldCheck,
+  TriangleAlert,
   UsersRound,
   WalletCards,
 } from "lucide-react";
@@ -21,20 +20,16 @@ import {
 const NAV = [
   ["inbox", "Operator inbox", BellRing],
   ["customers", "Customers", Building2],
+  ["wallet", "Wallet control", WalletCards],
   ["usage", "Usage & billing", WalletCards],
+  ["issues", "Issues", TriangleAlert],
   ["integrations", "Integrations", PlugZap],
+  ["providers", "Providers", Server],
   ["services", "Services & runtime", Server],
   ["intelligence", "Intelligence", BrainCircuit],
   ["team", "Team & security", UsersRound],
   ["audit", "Audit trail", ShieldCheck],
 ];
-
-const COLORS = {
-  page: "#F7F6F3",
-  surface: "#FFFDF9",
-  ink: "#2A2723",
-  gold: "#8A633C",
-};
 
 function t(value) {
   return String(value ?? "").trim();
@@ -57,7 +52,17 @@ function eventText(event) {
   try {
     payload = JSON.stringify(event?.payload || event?.metadata || event?.data || {});
   } catch {}
-  return [event?.event_type, event?.type, event?.name, event?.action, event?.status, event?.severity, event?.message, event?.description, payload]
+  return [
+    event?.event_type,
+    event?.type,
+    event?.name,
+    event?.action,
+    event?.status,
+    event?.severity,
+    event?.message,
+    event?.description,
+    payload,
+  ]
     .map(t)
     .filter(Boolean)
     .join(" ")
@@ -72,12 +77,25 @@ function when(value) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function numeric(value) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function money(value, currency = "THB") {
-  const number = Number(value || 0);
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(Number.isFinite(number) ? number : 0);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: t(currency || "THB").toUpperCase(),
+    maximumFractionDigits: 2,
+  }).format(numeric(value));
 }
 
 function orgName(org) {
@@ -92,6 +110,12 @@ function negativeEvent(event) {
   return /(critical|failed|failure|error|blocked|warning|action.required|needs.action|degraded|overdue)/i.test(eventText(event));
 }
 
+function usageFailed(row) {
+  return /(failed|failure|error|blocked|cancelled|canceled|rejected)/i.test(
+    `${t(row?.status)} ${t(row?.state)} ${t(row?.billing_status)} ${t(row?.error)} ${t(row?.error_code)}`,
+  );
+}
+
 function aiRecord(row) {
   return /(\bai\b|intelligence|model|learning|inference|voice|video|image|music|code)/i.test(
     `${t(row?.id)} ${t(row?.name)} ${t(row?.title)} ${t(row?.description)} ${eventText(row)}`,
@@ -100,14 +124,18 @@ function aiRecord(row) {
 
 function statusTone(value) {
   const state = t(value).toLowerCase();
-  if (/(failed|critical|blocked|degraded|inactive|error)/.test(state)) return "border-red-700/15 bg-red-50 text-red-800";
-  if (/(partial|pending|warning|review|unverified)/.test(state)) return "border-amber-700/15 bg-amber-50 text-amber-800";
-  if (/(active|healthy|ready|success|enabled|clear|connected)/.test(state)) return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
+  if (/(failed|critical|blocked|degraded|inactive|error|unavailable|not ready)/.test(state)) return "border-red-700/15 bg-red-50 text-red-800";
+  if (/(partial|pending|warning|review|unverified|low)/.test(state)) return "border-amber-700/15 bg-amber-50 text-amber-800";
+  if (/(active|healthy|ready|success|enabled|clear|connected|available|prepaid)/.test(state)) return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
   return "border-black/[0.08] bg-[#F6F4F0] text-[#746E66]";
 }
 
 function Pill({ children }) {
-  return <span className={`inline-flex rounded-md border px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.08em] ${statusTone(children)}`}>{label(children)}</span>;
+  return (
+    <span className={`inline-flex rounded-md border px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.08em] ${statusTone(children)}`}>
+      {label(children)}
+    </span>
+  );
 }
 
 function Panel({ eyebrow, title, description, children, action }) {
@@ -148,7 +176,37 @@ function EventRows({ rows, organizationsById }) {
   });
 }
 
-export default function PlatformAdminConsole({ organizations = [], recentEvents = [], modules = [], health = {}, staff = [], recentUsage = [] }) {
+function walletAvailable(wallet) {
+  return numeric(first(wallet, ["available_balance", "balance_available", "balance"], 0));
+}
+
+function walletReserved(wallet) {
+  return numeric(first(wallet, ["reserved_balance", "reserved_amount", "reserved"], 0));
+}
+
+function walletCurrency(wallet) {
+  return t(first(wallet, ["currency", "currency_code"], "THB")).toUpperCase();
+}
+
+function walletRisk(wallet) {
+  if (!wallet) return "missing";
+  if (t(wallet.status).toUpperCase() !== "ACTIVE") return "inactive";
+  if (t(wallet.billing_policy).toUpperCase() !== "PREPAID") return "policy mismatch";
+  if (walletAvailable(wallet) <= 0) return "no balance";
+  return "clear";
+}
+
+export default function PlatformAdminConsole({
+  organizations = [],
+  recentEvents = [],
+  modules = [],
+  health = {},
+  staff = [],
+  recentUsage = [],
+  wallets = [],
+  walletTransactions = [],
+  providers = [],
+}) {
   const [active, setActive] = useState("inbox");
   const [query, setQuery] = useState("");
   const [selectedOrgId, setSelectedOrgId] = useState("");
@@ -159,7 +217,9 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
     let alive = true;
     fetch("/api/platform/admin/profit", { cache: "no-store", credentials: "include" })
       .then(response => response.json().then(body => ({ response, body })))
-      .then(({ response, body }) => { if (alive && response.ok) setEconomics(body); })
+      .then(({ response, body }) => {
+        if (alive && response.ok) setEconomics(body);
+      })
       .catch(() => {});
     return () => { alive = false; };
   }, []);
@@ -183,15 +243,42 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
 
   const organizationsById = useMemo(() => new Map(organizations.map(org => [t(org.id), org])), [organizations]);
   const attention = useMemo(() => recentEvents.filter(negativeEvent), [recentEvents]);
+  const failedUsage = useMemo(() => recentUsage.filter(usageFailed), [recentUsage]);
   const aiModules = useMemo(() => modules.filter(aiRecord), [modules]);
   const filteredOrganizations = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return organizations;
     return organizations.filter(org => `${orgName(org)} ${orgState(org)} ${t(org.id)} ${t(org.industry)}`.toLowerCase().includes(needle));
   }, [organizations, query]);
+
+  const walletsByOrg = useMemo(() => {
+    const map = new Map();
+    for (const wallet of wallets) map.set(t(wallet.organization_id), wallet);
+    return map;
+  }, [wallets]);
+
+  const walletTxByOrg = useMemo(() => {
+    const map = new Map();
+    for (const row of walletTransactions) {
+      const id = t(row.organization_id);
+      if (!map.has(id)) map.set(id, []);
+      map.get(id).push(row);
+    }
+    return map;
+  }, [walletTransactions]);
+
+  const walletRisks = useMemo(
+    () => organizations
+      .map(org => ({ org, wallet: walletsByOrg.get(t(org.id)) || null }))
+      .filter(item => walletRisk(item.wallet) !== "clear"),
+    [organizations, walletsByOrg],
+  );
+
   const selectedOrg = organizationsById.get(selectedOrgId) || null;
   const selectedUsage = useMemo(() => recentUsage.filter(row => t(row.organization_id) === selectedOrgId), [recentUsage, selectedOrgId]);
   const selectedEvents = useMemo(() => recentEvents.filter(row => t(row.organization_id) === selectedOrgId), [recentEvents, selectedOrgId]);
+  const selectedWallet = selectedOrgId ? walletsByOrg.get(selectedOrgId) || null : null;
+  const selectedWalletTransactions = selectedOrgId ? walletTxByOrg.get(selectedOrgId) || [] : walletTransactions;
 
   const economicsRows = economics?.organizations || economics?.rows || economics?.data || [];
   const economicsByOrg = useMemo(() => {
@@ -202,12 +289,16 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
 
   const serviceRows = Object.entries(health?.services || {});
   const activeStaff = staff.filter(row => row?.active !== false);
+  const unavailableProviders = providers.filter(provider => provider?.active !== false && provider?.runtimeAvailable !== true);
 
   const titles = {
     inbox: ["Operator inbox", "Exceptions and decisions first"],
     customers: ["Customers", "Lifecycle, state and operator drill-down"],
+    wallet: ["Wallet control", "Prepaid balance, reservations and ledger evidence"],
     usage: ["Usage & billing", "Service consumption, billing state and economics"],
+    issues: ["Issues", "Failed, blocked and degraded evidence requiring operator review"],
     integrations: ["Integrations", "Connection readiness per organization"],
+    providers: ["Providers", "Registry, runtime availability and usage evidence"],
     services: ["Services & runtime", "Verified infrastructure and registered capabilities"],
     intelligence: ["Intelligence", "AI capability, learning and certification evidence"],
     team: ["Team & security", "Platform administrators and access state"],
@@ -217,7 +308,7 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
   function customerSelector() {
     return (
       <select value={selectedOrgId} onChange={event => setSelectedOrgId(event.target.value)} className="h-8 min-w-[220px] rounded-lg border border-black/[0.08] bg-white px-2 text-[9px] text-[#4B4640] outline-none">
-        <option value="">Choose organization</option>
+        <option value="">All organizations</option>
         {organizations.map(org => <option key={org.id} value={org.id}>{orgName(org)}</option>)}
       </select>
     );
@@ -231,8 +322,8 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
           <div className="grid border-b border-black/[0.05] bg-[#FBF8F3] sm:grid-cols-4">
             {[
               ["Attention", attention.length, "#9A533D"],
-              ["Organizations", organizations.length, "#4B4640"],
-              ["Active staff", activeStaff.length, "#4B4640"],
+              ["Wallet risk", walletRisks.length, walletRisks.length ? "#9A533D" : "#4B4640"],
+              ["Failed usage", failedUsage.length, failedUsage.length ? "#9A533D" : "#4B4640"],
               ["Runtime", label(health?.status), "#76583A"],
             ].map(([name, value, color], index) => (
               <div key={name} className={`px-4 py-3 ${index ? "sm:border-l sm:border-black/[0.05]" : ""}`}>
@@ -243,6 +334,20 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
           </div>
           <EventRows rows={rows.slice(0, 12)} organizationsById={organizationsById} />
         </Panel>
+
+        <Panel eyebrow="Control queues" title="Operator work surfaces" description="Jump directly to the underlying evidence instead of reading dashboard summaries.">
+          {[
+            ["Wallet exceptions", `${walletRisks.length} organizations`, "wallet"],
+            ["Failed service usage", `${failedUsage.length} records`, "issues"],
+            ["Provider runtime unavailable", `${unavailableProviders.length} providers`, "providers"],
+            ["Platform access", `${activeStaff.length} active staff`, "team"],
+          ].map(([name, detail, target]) => (
+            <button key={name} type="button" onClick={() => setActive(target)} className="flex w-full items-center justify-between border-b border-black/[0.05] px-4 py-3 text-left last:border-b-0 md:px-5">
+              <span className="text-[9px] font-medium text-[#3A3631]">{name}</span>
+              <span className="flex items-center gap-2 text-[8px] text-[#8B847B]">{detail}<ChevronRight size={11} /></span>
+            </button>
+          ))}
+        </Panel>
       </div>
     );
   }
@@ -250,17 +355,19 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
   function renderCustomers() {
     return (
       <div className={`grid gap-4 ${selectedOrg ? "xl:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
-        <Panel eyebrow="Customer universe" title="Organizations" description="Compact lifecycle list with direct workspace access and operator drill-down.">
-          <div className="hidden grid-cols-[minmax(220px,1.2fr)_120px_120px_1fr_28px] gap-3 border-b border-black/[0.05] bg-white/45 px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#979087] md:grid">
-            <span>Customer</span><span>Status</span><span>Economics</span><span>Last activity</span><span />
+        <Panel eyebrow="Customer universe" title="Organizations" description="Compact lifecycle list with wallet, economics and operator drill-down.">
+          <div className="hidden grid-cols-[minmax(220px,1.2fr)_110px_120px_120px_1fr_28px] gap-3 border-b border-black/[0.05] bg-white/45 px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#979087] md:grid">
+            <span>Customer</span><span>Status</span><span>Wallet</span><span>Economics</span><span>Last activity</span><span />
           </div>
           {filteredOrganizations.map(org => {
             const econ = economicsByOrg.get(t(org.id));
+            const wallet = walletsByOrg.get(t(org.id));
             const lastEvent = recentEvents.find(event => t(event.organization_id) === t(org.id));
             return (
-              <button key={org.id} type="button" onClick={() => setSelectedOrgId(t(org.id))} className="grid w-full gap-2 border-b border-black/[0.05] px-4 py-3 text-left last:border-b-0 hover:bg-[#FBF8F3] md:grid-cols-[minmax(220px,1.2fr)_120px_120px_1fr_28px] md:items-center md:px-5">
+              <button key={org.id} type="button" onClick={() => setSelectedOrgId(t(org.id))} className="grid w-full gap-2 border-b border-black/[0.05] px-4 py-3 text-left last:border-b-0 hover:bg-[#FBF8F3] md:grid-cols-[minmax(220px,1.2fr)_110px_120px_120px_1fr_28px] md:items-center md:px-5">
                 <div><div className="text-[10px] font-semibold text-[#35312D]">{orgName(org)}</div><div className="mt-0.5 text-[8px] text-[#9A948C]">{t(org.id)}</div></div>
                 <div><Pill>{orgState(org)}</Pill></div>
+                <div className="text-[8px] text-[#625D56]">{wallet ? money(walletAvailable(wallet), walletCurrency(wallet)) : "No wallet"}</div>
                 <div className="text-[8px] text-[#625D56]">{econ ? money(econ.revenue) : "—"}</div>
                 <div className="truncate text-[8px] text-[#746E66]">{lastEvent ? eventTitle(lastEvent) : "No recent event"}</div>
                 <ChevronRight size={13} className="text-[#B1AAA1]" />
@@ -275,16 +382,63 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
             <div className="border-b border-black/[0.06] px-4 py-4">
               <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">Customer control</div>
               <div className="mt-1 text-[15px] font-semibold text-[#2A2723]">{orgName(selectedOrg)}</div>
-              <div className="mt-2"><Pill>{orgState(selectedOrg)}</Pill></div>
+              <div className="mt-2 flex flex-wrap gap-2"><Pill>{orgState(selectedOrg)}</Pill><Pill>{walletRisk(selectedWallet)}</Pill></div>
             </div>
             <div className="divide-y divide-black/[0.05]">
               <Link href={`/workspace/${selectedOrg.id}`} className="flex items-center justify-between px-4 py-3 text-[9px] font-semibold text-[#76583A]">Open customer workspace <ChevronRight size={12} /></Link>
+              <button type="button" onClick={() => setActive("wallet")} className="flex w-full items-center justify-between px-4 py-3 text-left text-[9px] text-[#625D56]">Wallet & ledger <ChevronRight size={12} /></button>
               <button type="button" onClick={() => setActive("usage")} className="flex w-full items-center justify-between px-4 py-3 text-left text-[9px] text-[#625D56]">Usage records <span>{selectedUsage.length}</span></button>
               <button type="button" onClick={() => setActive("integrations")} className="flex w-full items-center justify-between px-4 py-3 text-left text-[9px] text-[#625D56]">Integration readiness <ChevronRight size={12} /></button>
               <button type="button" onClick={() => setActive("audit")} className="flex w-full items-center justify-between px-4 py-3 text-left text-[9px] text-[#625D56]">Recent events <span>{selectedEvents.length}</span></button>
             </div>
           </aside>
         ) : null}
+      </div>
+    );
+  }
+
+  function renderWallet() {
+    const rows = selectedOrgId
+      ? [{ org: selectedOrg, wallet: selectedWallet }]
+      : organizations.map(org => ({ org, wallet: walletsByOrg.get(t(org.id)) || null }));
+
+    return (
+      <div className="space-y-4">
+        <Panel eyebrow="Wallet control" title="Prepaid customer wallets" description="Read-only operator control over persisted balances. Reserve, charge, release and top-up remain governed runtime operations." action={customerSelector()}>
+          <div className="hidden grid-cols-[minmax(220px,1fr)_120px_120px_110px_120px_130px] gap-3 border-b border-black/[0.05] bg-white/45 px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#979087] md:grid">
+            <span>Organization</span><span>Available</span><span>Reserved</span><span>Currency</span><span>Policy</span><span>Risk</span>
+          </div>
+          {rows.filter(row => row.org).map(({ org, wallet }) => (
+            <div key={org.id} className="grid gap-2 border-b border-black/[0.05] px-4 py-3 last:border-b-0 md:grid-cols-[minmax(220px,1fr)_120px_120px_110px_120px_130px] md:items-center md:px-5">
+              <div><div className="text-[10px] font-semibold text-[#35312D]">{orgName(org)}</div><div className="mt-0.5 text-[8px] text-[#9A948C]">{wallet ? t(wallet.id) : "No persisted wallet"}</div></div>
+              <div className="text-[9px] font-medium text-[#3A3631]">{wallet ? money(walletAvailable(wallet), walletCurrency(wallet)) : "—"}</div>
+              <div className="text-[9px] text-[#625D56]">{wallet ? money(walletReserved(wallet), walletCurrency(wallet)) : "—"}</div>
+              <div className="text-[8px] text-[#746E66]">{wallet ? walletCurrency(wallet) : "—"}</div>
+              <div className="flex flex-wrap gap-1">{wallet ? <><Pill>{wallet.status || "unknown"}</Pill><Pill>{wallet.billing_policy || "unknown"}</Pill></> : <Pill>missing</Pill>}</div>
+              <div><Pill>{walletRisk(wallet)}</Pill></div>
+            </div>
+          ))}
+        </Panel>
+
+        <Panel eyebrow="Wallet ledger" title={selectedOrg ? `Transactions · ${orgName(selectedOrg)}` : "Recent wallet transactions"} description="Atomic wallet transaction evidence from the governed ledger.">
+          <div className="hidden grid-cols-[150px_120px_110px_110px_1fr_110px] gap-3 border-b border-black/[0.05] bg-white/45 px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#979087] md:grid">
+            <span>Organization</span><span>Type</span><span>Amount</span><span>Provider</span><span>Reference</span><span>Created</span>
+          </div>
+          {selectedWalletTransactions.slice(0, 100).map((row, index) => {
+            const org = organizationsById.get(t(row.organization_id));
+            return (
+              <div key={row.id || index} className="grid gap-2 border-b border-black/[0.05] px-4 py-3 last:border-b-0 md:grid-cols-[150px_120px_110px_110px_1fr_110px] md:items-center md:px-5">
+                <div className="truncate text-[8px] text-[#625D56]">{org ? orgName(org) : t(row.organization_id) || "Platform"}</div>
+                <div><Pill>{first(row, ["type", "operation"], "transaction")}</Pill></div>
+                <div className="text-[8px] font-medium text-[#3A3631]">{money(first(row, ["amount"], 0), first(row, ["currency"], "THB"))}</div>
+                <div className="truncate text-[8px] text-[#746E66]">{t(row.provider) || "—"}</div>
+                <div className="truncate text-[8px] text-[#746E66]">{t(first(row, ["reference", "usage_id", "invoice_id", "idempotency_key"], "—"))}</div>
+                <div className="text-[8px] text-[#9A948C]">{when(row.created_at)}</div>
+              </div>
+            );
+          })}
+          {!selectedWalletTransactions.length ? <Empty>No wallet transactions in this view.</Empty> : null}
+        </Panel>
       </div>
     );
   }
@@ -313,6 +467,33 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
     );
   }
 
+  function renderIssues() {
+    const usageRows = selectedOrgId ? selectedUsage.filter(usageFailed) : failedUsage;
+    const eventRows = selectedOrgId ? selectedEvents.filter(negativeEvent) : attention;
+    return (
+      <div className="space-y-4">
+        <Panel eyebrow="Issues" title="Platform exceptions" description="This is evidence-derived from real failed, blocked, warning and degraded events; Avantiqo does not yet have a separate incident-ticket subsystem." action={customerSelector()}>
+          <EventRows rows={eventRows} organizationsById={organizationsById} />
+        </Panel>
+        <Panel eyebrow="Runtime failures" title="Failed service usage" description="Usage records that ended in a failed, blocked, rejected or cancelled state.">
+          {usageRows.map((row, index) => {
+            const org = organizationsById.get(t(row.organization_id));
+            return (
+              <div key={row.id || index} className="grid gap-2 border-b border-black/[0.05] px-4 py-3 last:border-b-0 md:grid-cols-[160px_1fr_120px_1fr_110px] md:items-center md:px-5">
+                <div className="truncate text-[8px] text-[#625D56]">{org ? orgName(org) : t(row.organization_id) || "Platform"}</div>
+                <div className="truncate text-[9px] font-medium text-[#35312D]">{label(first(row, ["service_id", "service", "capability", "provider"], "service usage"))}</div>
+                <div><Pill>{first(row, ["status", "state", "billing_status"], "failed")}</Pill></div>
+                <div className="truncate text-[8px] text-[#9A533D]">{t(first(row, ["error", "error_code", "failure_reason"], "Failure detail not persisted"))}</div>
+                <div className="text-[8px] text-[#9A948C]">{when(row.created_at)}</div>
+              </div>
+            );
+          })}
+          {!usageRows.length ? <Empty>No failed service usage in this view.</Empty> : null}
+        </Panel>
+      </div>
+    );
+  }
+
   function renderIntegrations() {
     return (
       <Panel eyebrow="Integrations" title="Connection readiness" description="Readiness comes from Avantiqo's actual BusinessConnectionRegistry; no fake connected state." action={customerSelector()}>
@@ -327,6 +508,39 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
           </div>
         ))}
       </Panel>
+    );
+  }
+
+  function renderProviders() {
+    const needle = query.trim().toLowerCase();
+    const rows = providers.filter(provider => {
+      if (!needle) return true;
+      return `${t(provider.id)} ${t(provider.name)} ${t(provider.category)} ${(provider.capabilities || []).join(" ")}`.toLowerCase().includes(needle);
+    });
+
+    return (
+      <div className="space-y-4">
+        <Panel eyebrow="Providers" title="Provider registry" description="Read-only registry and runtime evidence. Provider routing and pricing activation remain governed by certification policy and are not mutable here.">
+          <div className="hidden grid-cols-[170px_120px_120px_1fr_120px_100px] gap-3 border-b border-black/[0.05] bg-white/45 px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#979087] md:grid">
+            <span>Provider</span><span>Category</span><span>Connection</span><span>Capabilities</span><span>Runtime</span><span>Failures</span>
+          </div>
+          {rows.map(provider => {
+            const usageRows = recentUsage.filter(row => t(row.provider).toLowerCase() === t(provider.id).toLowerCase());
+            const failures = usageRows.filter(usageFailed).length;
+            return (
+              <div key={provider.id} className="grid gap-2 border-b border-black/[0.05] px-4 py-3 last:border-b-0 md:grid-cols-[170px_120px_120px_1fr_120px_100px] md:items-center md:px-5">
+                <div><div className="text-[10px] font-semibold text-[#35312D]">{provider.name || provider.id}</div><div className="mt-0.5 text-[8px] text-[#9A948C]">{provider.id}</div></div>
+                <div className="text-[8px] text-[#625D56]">{label(provider.category)}</div>
+                <div className="text-[8px] text-[#625D56]">{label(provider.connectionModel || "managed")}</div>
+                <div className="truncate text-[8px] text-[#746E66]">{(provider.capabilities || []).join(" · ") || "No capabilities"}</div>
+                <div className="flex flex-wrap gap-1"><Pill>{provider.active === false ? "inactive" : "active"}</Pill><Pill>{provider.runtimeAvailable === true ? "available" : "unavailable"}</Pill></div>
+                <div className={`text-[8px] font-semibold ${failures ? "text-[#9A533D]" : "text-[#625D56]"}`}>{failures}</div>
+              </div>
+            );
+          })}
+          {!rows.length ? <Empty>No providers match this search.</Empty> : null}
+        </Panel>
+      </div>
     );
   }
 
@@ -393,14 +607,21 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
 
   function renderAudit() {
     const rows = selectedOrgId ? selectedEvents : recentEvents;
-    return <Panel eyebrow="Audit trail" title={selectedOrg ? `Activity · ${orgName(selectedOrg)}` : "Platform & organization activity"} description="Operator-visible event history for investigation and accountability." action={customerSelector()}><EventRows rows={rows} organizationsById={organizationsById} /></Panel>;
+    return (
+      <Panel eyebrow="Audit trail" title={selectedOrg ? `Activity · ${orgName(selectedOrg)}` : "Platform & organization activity"} description="Operator-visible event history for investigation and accountability." action={customerSelector()}>
+        <EventRows rows={rows} organizationsById={organizationsById} />
+      </Panel>
+    );
   }
 
   const renderer = {
     inbox: renderInbox,
     customers: renderCustomers,
+    wallet: renderWallet,
     usage: renderUsage,
+    issues: renderIssues,
     integrations: renderIntegrations,
+    providers: renderProviders,
     services: renderServices,
     intelligence: renderIntelligence,
     team: renderTeam,
@@ -417,7 +638,7 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
           </div>
           <div className="relative w-full lg:max-w-[620px]">
             <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9A948C]" />
-            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search customers or organization state" className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-[10px] text-[#35312D] outline-none placeholder:text-[#AAA49C] focus:border-[#A37849]/35" />
+            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search customers or provider capabilities" className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-[10px] text-[#35312D] outline-none placeholder:text-[#AAA49C] focus:border-[#A37849]/35" />
           </div>
         </div>
       </div>
@@ -432,6 +653,7 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
                   <Icon size={12} className={selected ? "text-[#8A633C]" : "text-[#9B958D]"} />
                   <span>{name}</span>
                   {id === "inbox" && attention.length ? <span className="ml-auto rounded-full bg-[#9A533D] px-1.5 py-0.5 text-[7px] font-semibold text-white">{attention.length}</span> : null}
+                  {id === "issues" && (attention.length + failedUsage.length) ? <span className="ml-auto rounded-full bg-[#9A533D] px-1.5 py-0.5 text-[7px] font-semibold text-white">{attention.length + failedUsage.length}</span> : null}
                 </button>
               );
             })}
@@ -439,13 +661,14 @@ export default function PlatformAdminConsole({ organizations = [], recentEvents 
           <div className="mt-5 border-t border-black/[0.06] px-3 pt-4">
             <div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#9B958D]">Verified state</div>
             <div className="mt-2 flex items-center justify-between gap-2"><span className="text-[8px] text-[#746E66]">Platform</span><Pill>{health?.status || "unknown"}</Pill></div>
+            <div className="mt-2 flex items-center justify-between gap-2"><span className="text-[8px] text-[#746E66]">Wallet risk</span><span className="text-[8px] font-semibold text-[#76583A]">{walletRisks.length}</span></div>
           </div>
         </aside>
 
         <main className="min-w-0 px-4 py-4 md:px-6 md:py-5">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div><div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">Platform control</div><h2 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#27231F]">{titles[active][0]}</h2><p className="mt-1 text-[9px] text-[#918B83]">{titles[active][1]}</p></div>
-            <div className="flex flex-wrap items-center gap-3 text-[8px] text-[#8B847B]"><span><strong className="font-semibold text-[#4B4640]">{organizations.length}</strong> organizations</span><span>·</span><span><strong className="font-semibold text-[#4B4640]">{activeStaff.length}</strong> active staff</span><span>·</span><span><strong className="font-semibold text-[#9A533D]">{attention.length}</strong> attention</span></div>
+            <div className="flex flex-wrap items-center gap-3 text-[8px] text-[#8B847B]"><span><strong className="font-semibold text-[#4B4640]">{organizations.length}</strong> organizations</span><span>·</span><span><strong className="font-semibold text-[#4B4640]">{providers.length}</strong> providers</span><span>·</span><span><strong className="font-semibold text-[#9A533D]">{attention.length + failedUsage.length}</strong> issue signals</span></div>
           </div>
           {renderer ? renderer() : null}
         </main>

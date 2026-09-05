@@ -11,8 +11,10 @@ on:
       - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js"
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js"
       - "scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs"
       - "scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs"
+      - "scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs"
       - ".github/workflows/avantiqo-final-promotion-candidate-authenticity-audit.yml"
   pull_request:
     branches:
@@ -24,8 +26,10 @@ on:
       - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js"
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js"
       - "scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs"
       - "scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs"
+      - "scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs"
       - ".github/workflows/avantiqo-final-promotion-candidate-authenticity-audit.yml"
   workflow_dispatch:
 
@@ -38,7 +42,7 @@ concurrency:
 
 jobs:
   certify:
-    name: Zero-cost promotion and released knowledge authenticity certification
+    name: Zero-cost final knowledge trust-chain certification
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -65,11 +69,16 @@ jobs:
           node --check lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js
           node --check lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js
           node --check lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js
           node --check scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs
           node --check scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs
+          node --check scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs
 
       - name: Run final promotion authenticity adversarial audit
         run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs
 
       - name: Run released knowledge authenticity adversarial audit
         run: node scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs
+
+      - name: Run signed final release authorization adversarial audit
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs

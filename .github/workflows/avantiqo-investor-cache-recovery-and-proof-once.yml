@@ -1,4 +1,4 @@
-# trigger: recovery-pass-3-render-only
+# trigger: recovery-pass-4-packaged-runtime
 name: Avantiqo Investor Cache Recovery And Proof Once
 
 on:

@@ -98,10 +98,12 @@ test("Configuration and authority blockers remain inspectable without fabricatin
   assert.match(policy, /manual_complete_allowed: false/);
 });
 
-test("Tax evidence inspector is filing-bound, paginated and exposes accounting proof before coordination", () => {
+test("Tax evidence inspector is filing-bound, paginated and isolated from coordination work", () => {
   assert.match(wrapper, /FinanceTaxEvidenceDrilldownRail/);
   assert.match(wrapper, /selectedVatReturnId=\{selectedVatReturnId\}/);
-  assert.ok(wrapper.indexOf("<FinanceTaxEvidenceDrilldownRail") < wrapper.indexOf("<FinanceTaxDependencyWorkRail"));
+  assert.match(wrapper, /activeStage === "EVIDENCE" \? <FinanceTaxEvidenceDrilldownRail/);
+  assert.match(wrapper, /activeStage === "FIX" \? <>/);
+  assert.match(wrapper, /<FinanceTaxDependencyWorkRail/);
   assert.match(rail, /Read only · full population/);
   assert.match(rail, /Complete live population/);
   assert.match(rail, /Source document/);

@@ -15,11 +15,11 @@ import FinanceTaxWorkflowNavigator from "./FinanceTaxWorkflowNavigator";
 
 export default function FinanceTaxWorkCenter(props) {
   // One filing selection is authoritative for every entity-level Tax control below.
-  const [selectedVatReturnId, setSelectedVatReturnId] = useState(null);
+  const [selectedVatReturnId, setSelectedVatReturnIdState] = useState(null);
   const [activeStage, setActiveStage] = useState("RETURN");
 
-  function selectFiling(nextId) {
-    setSelectedVatReturnId(nextId);
+  function setSelectedVatReturnId(nextId) {
+    setSelectedVatReturnIdState(nextId);
     if (!nextId) setActiveStage("RETURN");
   }
 
@@ -29,7 +29,7 @@ export default function FinanceTaxWorkCenter(props) {
         organizationId={props.organizationId}
         entityId={props.entityId}
         selectedVatReturnId={selectedVatReturnId}
-        onSelectedVatReturnIdChange={selectFiling}
+        onSelectedVatReturnIdChange={setSelectedVatReturnId}
       />
 
       <FinanceTaxWorkflowNavigator
@@ -43,7 +43,7 @@ export default function FinanceTaxWorkCenter(props) {
         <FinanceTaxLegacyWorkCenter
           {...props}
           selectedVatReturnId={selectedVatReturnId}
-          onSelectedVatReturnIdChange={selectFiling}
+          onSelectedVatReturnIdChange={setSelectedVatReturnId}
         />
       </> : null}
 

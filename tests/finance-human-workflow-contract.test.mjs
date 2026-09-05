@@ -193,7 +193,7 @@ test("Finance review UI signs before it completes reviewer and partner work", ()
   assert.ok(completeEndpoint > signoffEndpoint);
   assert.match(reviewerWorkspace, /governedSignoffAndComplete\(row, "REVIEWER"\)/);
   assert.match(reviewerWorkspace, /governedSignoffAndComplete\(row, "PARTNER"\)/);
-  assert.match(reviewerWorkspace, /Reviewer\/partner identity, review points, sign-offs, dependencies, evidence and accounting-truth gates are rechecked server-side/);
+  assert.match(reviewerWorkspace, /Reviewer identity, segregation of duties, open review points, sign-offs, evidence approvals, exact ledger population and current accounting truth are rebuilt at the decision boundary/);
 });
 
 test("Finance reviewer and partner signoffs are safe to retry after downstream lifecycle blockers", () => {

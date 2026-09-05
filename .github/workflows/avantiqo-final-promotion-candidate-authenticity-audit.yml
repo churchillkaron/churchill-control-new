@@ -13,6 +13,7 @@ on:
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationIssuerRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseManagerAuthorityRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAtomicCommitRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseActivationReadinessRuntime.js"
       - "app/api/intelligence/knowledge/final-release/authorize/route.js"
@@ -22,6 +23,7 @@ on:
       - "scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs"
       - "scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs"
       - "scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs"
+      - "scripts/audit-avantiqo-final-knowledge-release-manager-authority-local.mjs"
       - "scripts/audit-avantiqo-final-knowledge-release-authority-atomicity-local.mjs"
       - "scripts/certify-avantiqo-final-knowledge-release-postgres-local.mjs"
       - "scripts/certify-avantiqo-final-knowledge-release-readiness-postgres-local.mjs"
@@ -38,6 +40,7 @@ on:
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationIssuerRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseManagerAuthorityRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAtomicCommitRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseActivationReadinessRuntime.js"
       - "app/api/intelligence/knowledge/final-release/authorize/route.js"
@@ -47,6 +50,7 @@ on:
       - "scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs"
       - "scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs"
       - "scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs"
+      - "scripts/audit-avantiqo-final-knowledge-release-manager-authority-local.mjs"
       - "scripts/audit-avantiqo-final-knowledge-release-authority-atomicity-local.mjs"
       - "scripts/certify-avantiqo-final-knowledge-release-postgres-local.mjs"
       - "scripts/certify-avantiqo-final-knowledge-release-readiness-postgres-local.mjs"
@@ -91,6 +95,7 @@ jobs:
           node --check lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js
           node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js
           node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationIssuerRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseManagerAuthorityRuntime.js
           node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAtomicCommitRuntime.js
           node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseActivationReadinessRuntime.js
           node --check app/api/intelligence/knowledge/final-release/authorize/route.js
@@ -98,6 +103,7 @@ jobs:
           node --check scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs
           node --check scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs
           node --check scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs
+          node --check scripts/audit-avantiqo-final-knowledge-release-manager-authority-local.mjs
           node --check scripts/audit-avantiqo-final-knowledge-release-authority-atomicity-local.mjs
           node --check scripts/certify-avantiqo-final-knowledge-release-postgres-local.mjs
           node --check scripts/certify-avantiqo-final-knowledge-release-readiness-postgres-local.mjs
@@ -110,6 +116,9 @@ jobs:
 
       - name: Run signed final release authorization adversarial audit
         run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs
+
+      - name: Run shared manager authority audit
+        run: node scripts/audit-avantiqo-final-knowledge-release-manager-authority-local.mjs
 
       - name: Run authenticated authority and atomicity audit
         run: node scripts/audit-avantiqo-final-knowledge-release-authority-atomicity-local.mjs

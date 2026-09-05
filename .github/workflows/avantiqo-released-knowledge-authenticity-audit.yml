@@ -54,3 +54,5 @@ jobs:
 
       - name: Run released knowledge authenticity adversarial audit
         run: node scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs
+
+# Registered on main; this commit triggers the first dedicated certification.

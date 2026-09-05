@@ -36,21 +36,26 @@ test("Studio readiness checks deployed Modal control plane without spawning gene
   assert.equal(readinessProbe.includes(".remote("), false);
 });
 
-test("Studio readiness holds new native generation while the owned lane is busy", () => {
+test("Studio readiness serializes owned native generation without freezing active work", () => {
   assert.match(readinessProbe, /const busy = backlog > 0 \|\| running > 0/);
   assert.match(readinessProbe, /ready:\s*!busy/);
   assert.match(readinessProbe, /status:\s*busy \? "BUSY" : "READY"/);
-  assert.match(readinessRuntime, /status === "BUSY"/);
-  assert.match(readinessRuntime, /Studio will not pile another native generation onto the active lane/);
+  assert.match(readinessRuntime, /running_task_count/);
+  assert.match(readinessRuntime, /pending_task_count/);
+  assert.match(readinessRuntime, /This project has native Video work in flight/);
+  assert.match(readinessRuntime, /occupied by other work/);
 });
 
-test("server production boundary proves Video readiness before dispatch", () => {
+test("server production boundary polls active Video work before gating another generation", () => {
   assert.match(productionRuntime, /CreativeVideoProductionReadinessRuntime\.inspect/);
+  assert.match(productionRuntime, /ProductionQueueRuntime\.pollRunning/);
   assert.match(productionRuntime, /CREATIVE_VIDEO_RUNTIME_BUSY/);
   assert.match(productionRuntime, /CREATIVE_VIDEO_RUNTIME_NOT_READY/);
-  const readinessIndex = productionRuntime.indexOf("CreativeVideoProductionReadinessRuntime.inspect");
+  const pollIndex = productionRuntime.indexOf("ProductionQueueRuntime.pollRunning");
+  const gateIndex = productionRuntime.indexOf("if (videoReadiness.required && !videoReadiness.ready)");
   const dispatchIndex = productionRuntime.indexOf("ProductionQueueRuntime.dispatchAll");
-  assert.ok(readinessIndex >= 0 && dispatchIndex >= 0 && readinessIndex < dispatchIndex);
+  assert.ok(pollIndex >= 0 && gateIndex >= 0 && dispatchIndex >= 0);
+  assert.ok(pollIndex < gateIndex && gateIndex < dispatchIndex);
 });
 
 test("Studio queue API exposes readiness and preserves conflict status", () => {
@@ -60,13 +65,15 @@ test("Studio queue API exposes readiness and preserves conflict status", () => {
   assert.match(queueRoute, /error\?\.readiness/);
 });
 
-test("visible Run production control performs preflight and fails closed", () => {
+test("visible production control preflights, polls active work, and fails closed for unrelated busy work", () => {
   assert.match(studioControl, /method:\s*"GET"/);
   assert.match(studioControl, /cache:\s*"no-store"/);
   assert.match(studioControl, /blockedByReadiness/);
+  assert.match(studioControl, /Check production/);
   assert.match(studioControl, /Cinema busy/);
   assert.match(studioControl, /Cinema unavailable/);
   assert.match(studioControl, /no generation started by preflight/);
+  assert.match(studioControl, /activeProjectVideo/);
   const preflightIndex = studioControl.indexOf("await inspectReadiness({ quiet: true })");
   const postIndex = studioControl.indexOf('method: "POST"');
   assert.ok(preflightIndex >= 0 && postIndex >= 0 && preflightIndex < postIndex);

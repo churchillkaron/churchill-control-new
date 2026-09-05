@@ -80,11 +80,11 @@ export async function POST(request) {
       if (!booking || !offer || booking.property_id !== offer.property_id) return fail("Booking and offer do not belong to the same property", 409);
       if (["CHECKED_OUT", "CANCELLED"].includes(String(booking.status || "").toUpperCase())) return fail("Closed or cancelled stays cannot accept new offers", 409);
 
-      const { data: existing, error: existingError } = await supabaseAdmin.from("hotel_booking_upsells").select("*").eq("organization_id", access.organizationId).eq("booking_id", booking.id).eq("offer_id", offer.id).maybeSingle();
-      if (existingError) throw existingError;
-      if (existing?.status === "ACCEPTED") return NextResponse.json({ success: true, bookingUpsell: existing, unchanged: true });
+      const { data: existingFolio, error: existingFolioError } = await supabaseAdmin.from("hotel_folios").select("*").eq("organization_id", access.organizationId).eq("booking_id", booking.id).maybeSingle();
+      if (existingFolioError) throw existingFolioError;
+      if (existingFolio?.status === "CLOSED") return fail("The guest folio is closed; controlled reversal is required before adding another stay charge", 409);
 
-      const { data: bookingUpsell, error } = await supabaseAdmin.from("hotel_booking_upsells").upsert({
+      const { data: bookingUpsell, error: upsellError } = await supabaseAdmin.from("hotel_booking_upsells").upsert({
         organization_id: access.organizationId,
         booking_id: booking.id,
         offer_id: offer.id,
@@ -92,11 +92,7 @@ export async function POST(request) {
         unit_price: offer.price,
         status: "ACCEPTED",
       }, { onConflict: "organization_id,booking_id,offer_id" }).select().single();
-      if (error) throw error;
-
-      const { data: existingFolio, error: existingFolioError } = await supabaseAdmin.from("hotel_folios").select("*").eq("organization_id", access.organizationId).eq("booking_id", booking.id).maybeSingle();
-      if (existingFolioError) throw existingFolioError;
-      if (existingFolio?.status === "CLOSED") return fail("The guest folio is closed; reopen/reversal governance is required before adding an upsell", 409);
+      if (upsellError) throw upsellError;
 
       const { data: folio, error: folioError } = await supabaseAdmin.from("hotel_folios").upsert({
         organization_id: access.organizationId,
@@ -109,7 +105,8 @@ export async function POST(request) {
       }, { onConflict: "organization_id,booking_id" }).select().single();
       if (folioError) throw folioError;
 
-      const { data: existingLine, error: lineReadError } = await supabaseAdmin.from("hotel_folio_lines").select("id").eq("organization_id", access.organizationId).eq("folio_id", folio.id).eq("source_type", "HOTEL_UPSELL").eq("source_id", bookingUpsell.id).is("voided_at", null).maybeSingle();
+      const expectedAmount = Number(offer.price || 0) * quantity;
+      const { data: existingLine, error: lineReadError } = await supabaseAdmin.from("hotel_folio_lines").select("id,amount").eq("organization_id", access.organizationId).eq("folio_id", folio.id).eq("source_type", "HOTEL_UPSELL").eq("source_id", bookingUpsell.id).is("voided_at", null).maybeSingle();
       if (lineReadError) throw lineReadError;
       if (!existingLine) {
         const { error: lineError } = await supabaseAdmin.from("hotel_folio_lines").insert({
@@ -117,16 +114,18 @@ export async function POST(request) {
           folio_id: folio.id,
           line_type: "CHARGE",
           description: `${offer.name} × ${quantity}`,
-          amount: Number(offer.price || 0) * quantity,
+          amount: expectedAmount,
           tax_amount: 0,
           source_type: "HOTEL_UPSELL",
           source_id: bookingUpsell.id,
           metadata: { offer_id: offer.id, offer_code: offer.code, quantity, unit_price: offer.price },
         });
         if (lineError) throw lineError;
+      } else if (Math.abs(Number(existingLine.amount || 0) - expectedAmount) > 0.005) {
+        return fail("Upsell already has a different folio amount. Resolve the existing hotel charge before changing quantity.", 409);
       }
 
-      return NextResponse.json({ success: true, bookingUpsell, folioCharge: Number(offer.price || 0) * quantity });
+      return NextResponse.json({ success: true, bookingUpsell, folioCharge: expectedAmount, repairedFolioLine: !existingLine });
     }
 
     return fail("Unsupported upsell action");

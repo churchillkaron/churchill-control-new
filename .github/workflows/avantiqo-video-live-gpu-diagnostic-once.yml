@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   inspect:
-    if: github.event.head_commit.message == 'Inspect Avantiqo Video live GPU execution once'
+    if: github.event.head_commit.message == 'Inspect Avantiqo Video live GPU execution v2 once'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
@@ -47,9 +47,20 @@ jobs:
           while IFS= read -r cid; do
             [ -n "$cid" ] || continue
             echo "CONTAINER=$cid"
-            timeout 15s modal container exec --no-pty "$cid" nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,power.draw --format=csv,noheader,nounits || true
+            timeout 15s modal container exec --no-pty "$cid" -- sh -lc "nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,power.draw --format=csv,noheader,nounits || true" || true
           done </tmp/container-ids.txt
-          echo '=== APP LOGS LAST 15 MINUTES ==='
-          modal app logs avantiqo-video-owned --since 15m --tail 500 --timestamps --show-function-id --show-function-call-id --show-container-id || true
-          echo 'AVANTIQO_VIDEO_LIVE_DIAGNOSTIC=PASS'
+          echo '=== CURRENT DEPLOYED FUNCTION STATS ==='
+          python - <<'PY'
+          import modal
+          app='avantiqo-video-owned'
+          for name in ('generate_native_job','generate_native_master','generate_native_controlled_master'):
+              fn=modal.Function.from_name(app,name)
+              s=fn.get_current_stats()
+              print(name, {
+                  'backlog': int(getattr(s,'backlog',0) or 0),
+                  'num_total_runners': int(getattr(s,'num_total_runners',0) or 0),
+                  'num_running_inputs': int(getattr(s,'num_running_inputs',0) or 0),
+              })
+          PY
+          echo 'AVANTIQO_VIDEO_LIVE_DIAGNOSTIC_V2=PASS'
           echo 'PAID_GENERATION_CALLS_STARTED_BY_DIAGNOSTIC=0'

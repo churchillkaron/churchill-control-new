@@ -1,0 +1,56 @@
+name: Avantiqo Investor HQ Adapter Seed Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-hq-adapter-seed-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-investor-hq-adapter-seed-once
+  cancel-in-progress: true
+
+jobs:
+  seed:
+    if: github.event.head_commit.message == 'Seed Avantiqo investor HQ adapter once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Modal CLI
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+
+      - name: Seed exactly one HQ detailing adapter
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          timeout 180s modal shell modal_investor_hq.py::seed_investor_hq_cache --no-pty -c "python -c 'import os; from pathlib import Path; from huggingface_hub import hf_hub_download; import modal_app; root=Path(\"/models/avantiqo-investor-hq-assets\"); root.mkdir(parents=True, exist_ok=True); p=Path(hf_hub_download(repo_id=\"Lightricks/LTX-2.5-22b-IC-LoRA-Pixel-Spatial-Upscaler\", filename=\"ltx-2.5-22b-ic-lora-pixel-spatial-upscaler-x2-1.0.safetensors\", token=os.environ.get(\"HF_TOKEN\") or None, local_dir=str(root), etag_timeout=15)); assert p.is_file() and p.stat().st_size > 0, p; modal_app.model_volume.commit(); print(\"AVANTIQO_INVESTOR_HQ_ADAPTER_SEEDED=PASS\", p.stat().st_size)'"
+
+      - name: Verify adapter persisted on Modal Volume
+        run: |
+          set -euo pipefail
+          modal volume ls avantiqo-video-models avantiqo-investor-hq-assets --json | tee /tmp/investor-hq-adapter.json
+          grep -F 'ltx-2.5-22b-ic-lora-pixel-spatial-upscaler-x2-1.0.safetensors' /tmp/investor-hq-adapter.json >/dev/null
+          echo 'AVANTIQO_INVESTOR_HQ_ADAPTER_VOLUME=PASS'
+          echo 'BASE_CHECKPOINT_DOWNLOAD_PERFORMED=false'
+          echo 'GPU_REQUESTED=false'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_TRIGGERED=false'
+          echo 'EXTERNAL_VIDEO_PROVIDER_USED=false'

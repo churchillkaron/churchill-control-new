@@ -270,6 +270,7 @@ export async function POST(request) {
       customer_artifact: result?.customer_artifact || null,
       employee_completion: result?.employee_completion || null,
       verified_engineering_memory: result?.verified_engineering_memory || null,
+      engineering_memory_utility: result?.engineering_memory_utility || null,
       fast_start: result?.fast_start || null,
       execution_transport: result?.execution_transport || null,
       preview_service_temporarily_enabled: true,

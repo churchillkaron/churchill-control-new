@@ -155,7 +155,7 @@ export default function HotelChannelManagerPage() {
     }
     setSaving(true); setError(""); setSuccess("");
     try {
-      await api("/api/hotel/rates", {
+      const payload = await api("/api/hotel/rates", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -170,7 +170,10 @@ export default function HotelChannelManagerPage() {
           })),
         }),
       });
-      setSuccess(`${dates.length} day${dates.length === 1 ? "" : "s"} updated. Distribution is queued for every active mapped channel.`);
+      const dateLabel = `${dates.length} day${dates.length === 1 ? "" : "s"}`;
+      setSuccess(payload.distributionQueued
+        ? `${dateLabel} saved in Avantiqo. Distribution is queued to ${payload.destinationCount} active mapped channel${payload.destinationCount === 1 ? "" : "s"}.`
+        : `${dateLabel} saved in Avantiqo. Distribution is waiting for certified channel connectivity and room/rate-plan mapping.`);
       await loadProperty();
     } catch (reason) { setError(reason.message); } finally { setSaving(false); }
   }

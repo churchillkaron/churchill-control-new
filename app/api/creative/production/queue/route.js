@@ -9,6 +9,9 @@ import {
   ProductionQueueRuntime,
 } from "@/lib/creative/production/queue/runtime/ProductionQueueRuntime";
 import {
+  CreativeVideoProductionReadinessRuntime,
+} from "@/lib/creative/video/runtime/CreativeVideoProductionReadinessRuntime";
+import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
@@ -18,6 +21,11 @@ function creativeProjectId(input = {}) {
     input.creativeProjectId ||
     null
   );
+}
+
+function errorStatus(error) {
+  const status = Number(error?.status);
+  return Number.isFinite(status) && status >= 400 && status <= 599 ? status : 500;
 }
 
 export async function GET(req) {
@@ -42,17 +50,21 @@ export async function GET(req) {
       organization_id: organizationId,
       creative_project_id: projectId,
     });
+    const readiness = await CreativeVideoProductionReadinessRuntime.inspect({ queue });
 
     return NextResponse.json({
       success: true,
       queue,
+      readiness,
     });
   } catch (error) {
     return NextResponse.json({
       success: false,
       error: error.message,
+      readiness: error?.readiness || null,
+      coverage: error?.coverage || null,
     }, {
-      status: 500,
+      status: errorStatus(error),
     });
   }
 }
@@ -88,8 +100,10 @@ export async function POST(req) {
     return NextResponse.json({
       success: false,
       error: error.message,
+      readiness: error?.readiness || null,
+      coverage: error?.coverage || null,
     }, {
-      status: 500,
+      status: errorStatus(error),
     });
   }
 }

@@ -9,6 +9,11 @@ import {
   loadCodeAIEngineeringSkillVisibleReceipt,
   CODE_AI_ENGINEERING_SKILL_VISIBLE_RECEIPT_CONTRACT,
 } from "@/lib/code/runtime/CodeAIEngineeringSkillVisibleReceiptRuntime";
+import {
+  loadLatestProductEngineeringPortfolio,
+  compactProductEngineeringPortfolio,
+  AVANTIQO_PRODUCT_ENGINEERING_PORTFOLIO_CONTRACT,
+} from "@/lib/intelligence/runtime/AvantiqoProductEngineeringPortfolioRuntime";
 
 const REQUIRED_PERMISSION = "platform.code.ai.execute";
 
@@ -33,6 +38,24 @@ function safeVisibleReceiptUnavailable(error) {
     contains_raw_patch: false,
     automatic_knowledge_promotion: false,
     reusable_platform_knowledge_written: false,
+    authorization_effect: "NONE",
+  };
+}
+
+function safePortfolioUnavailable(error) {
+  return {
+    contract: AVANTIQO_PRODUCT_ENGINEERING_PORTFOLIO_CONTRACT,
+    found: false,
+    unavailable: true,
+    failure_reason: text(error?.message || error).slice(0, 500) || null,
+    roadmap: [],
+    current_main_is_authoritative: true,
+    queued_objectives_are_provisional: true,
+    raw_source_persisted: false,
+    raw_patch_persisted: false,
+    raw_reasoning_persisted: false,
+    automatic_commit_allowed: false,
+    automatic_deploy_allowed: false,
     authorization_effect: "NONE",
   };
 }
@@ -67,8 +90,24 @@ export async function GET(request) {
       organizationId,
       actor: { id: access.user?.id || access.userId },
     };
-    const loaded = await loadCodeAILiveProgress({ context });
+    const [loaded, portfolioLoaded] = await Promise.all([
+      loadCodeAILiveProgress({ context }),
+      loadLatestProductEngineeringPortfolio({ context }).catch((error) => ({
+        found: false,
+        error,
+        portfolio: null,
+      })),
+    ]);
     const progress = loaded.live_progress || null;
+    const productEngineeringPortfolio = portfolioLoaded?.error
+      ? safePortfolioUnavailable(portfolioLoaded.error)
+      : portfolioLoaded?.found && portfolioLoaded.portfolio
+        ? {
+            ...compactProductEngineeringPortfolio(portfolioLoaded.portfolio),
+            found: true,
+          }
+        : null;
+
     let engineeringIntelligence = {
       contract: CODE_AI_ENGINEERING_SKILL_VISIBLE_RECEIPT_CONTRACT,
       found: false,
@@ -100,18 +139,44 @@ export async function GET(request) {
       }
     }
 
+    const visibleProgress = progress
+      ? {
+          ...progress,
+          engineering_intelligence: engineeringIntelligence,
+          product_engineering_portfolio: productEngineeringPortfolio,
+        }
+      : productEngineeringPortfolio
+        ? {
+            contract: CODE_AI_LIVE_PROGRESS_CONTRACT,
+            mission_id: null,
+            objective: productEngineeringPortfolio.business_goal || null,
+            repository_url: productEngineeringPortfolio.repository_url || null,
+            ref: "main",
+            state_status: "portfolio",
+            files_changed: [],
+            engineering_intelligence: engineeringIntelligence,
+            product_engineering_portfolio: productEngineeringPortfolio,
+            raw_reasoning_persisted: false,
+            source_content_persisted: false,
+            secrets_persisted: false,
+          }
+        : null;
+
     return Response.json({
       success: true,
       contract: CODE_AI_LIVE_PROGRESS_CONTRACT,
-      found: loaded.found === true,
-      updated_at: loaded.updated_at || null,
-      live_progress: progress
-        ? {
-            ...progress,
-            engineering_intelligence: engineeringIntelligence,
-          }
-        : null,
+      found: loaded.found === true || Boolean(productEngineeringPortfolio),
+      updated_at: loaded.updated_at || portfolioLoaded?.updated_at || null,
+      live_progress: visibleProgress,
       engineering_intelligence: engineeringIntelligence,
+      product_engineering_portfolio: productEngineeringPortfolio,
+      product_engineering_portfolio_contract:
+        AVANTIQO_PRODUCT_ENGINEERING_PORTFOLIO_CONTRACT,
+      portfolio_current_main_is_authoritative: true,
+      portfolio_queued_objectives_are_provisional: true,
+      portfolio_parallel_code_execution_allowed: false,
+      portfolio_automatic_commit_allowed: false,
+      portfolio_production_deployment_allowed: false,
       contains_source_content: false,
       contains_raw_reasoning: false,
       contains_secrets: false,

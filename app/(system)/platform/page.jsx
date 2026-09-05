@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import PlatformControlTower from "@/components/platform/PlatformControlTower";
+import PlatformAdminConsole from "@/components/platform/PlatformAdminConsole";
 import checkSystemHealth from "@/lib/health/checkSystemHealth";
 import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -23,7 +23,13 @@ function normalizePlatformHealth(health) {
   };
 }
 
-async function loadPlatformControlTower() {
+function rowsFrom(result) {
+  return result.status === "fulfilled" && !result.value.error
+    ? result.value.data || []
+    : [];
+}
+
+async function loadPlatformAdminConsole() {
   const access = await requirePlatformAdminAccess();
 
   if (!access.success) {
@@ -32,6 +38,8 @@ async function loadPlatformControlTower() {
       organizations: [],
       recentEvents: [],
       modules: [],
+      staff: [],
+      recentUsage: [],
       health: {
         status: "degraded",
         timestamp: new Date().toISOString(),
@@ -41,33 +49,33 @@ async function loadPlatformControlTower() {
     };
   }
 
-  const [organizationsResult, eventsResult, modulesResult, healthResult] =
-    await Promise.allSettled([
-      supabaseAdmin.from("organizations").select("*"),
-      supabaseAdmin
-        .from("organization_events")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabaseAdmin.from("platform_modules").select("*"),
-      checkSystemHealth(),
-    ]);
-
-  const organizations =
-    organizationsResult.status === "fulfilled" &&
-    !organizationsResult.value.error
-      ? organizationsResult.value.data || []
-      : [];
-
-  const recentEvents =
-    eventsResult.status === "fulfilled" && !eventsResult.value.error
-      ? eventsResult.value.data || []
-      : [];
-
-  const modules =
-    modulesResult.status === "fulfilled" && !modulesResult.value.error
-      ? modulesResult.value.data || []
-      : [];
+  const [
+    organizationsResult,
+    eventsResult,
+    modulesResult,
+    staffResult,
+    usageResult,
+    healthResult,
+  ] = await Promise.allSettled([
+    supabaseAdmin.from("organizations").select("*"),
+    supabaseAdmin
+      .from("organization_events")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(250),
+    supabaseAdmin.from("platform_modules").select("*"),
+    supabaseAdmin
+      .from("staff_accounts")
+      .select("id,email,role,active,auth_user_id,organization_id")
+      .order("email", { ascending: true })
+      .limit(1000),
+    supabaseAdmin
+      .from("platform_service_usage")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(500),
+    checkSystemHealth(),
+  ]);
 
   const health =
     healthResult.status === "fulfilled"
@@ -81,9 +89,11 @@ async function loadPlatformControlTower() {
 
   return {
     access,
-    organizations,
-    recentEvents,
-    modules,
+    organizations: rowsFrom(organizationsResult),
+    recentEvents: rowsFrom(eventsResult),
+    modules: rowsFrom(modulesResult),
+    staff: rowsFrom(staffResult),
+    recentUsage: rowsFrom(usageResult),
     health,
   };
 }
@@ -114,7 +124,7 @@ function AccessDenied({ status, error }) {
 }
 
 export default async function PlatformPage() {
-  const runtime = await loadPlatformControlTower();
+  const runtime = await loadPlatformAdminConsole();
 
   if (!runtime.access?.success) {
     return (
@@ -126,10 +136,12 @@ export default async function PlatformPage() {
   }
 
   return (
-    <PlatformControlTower
+    <PlatformAdminConsole
       organizations={runtime.organizations}
       recentEvents={runtime.recentEvents}
       modules={runtime.modules}
+      staff={runtime.staff}
+      recentUsage={runtime.recentUsage}
       health={runtime.health}
     />
   );

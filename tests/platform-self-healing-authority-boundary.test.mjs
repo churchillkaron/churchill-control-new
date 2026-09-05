@@ -64,6 +64,24 @@ test("AUTO_REPAIR is only granted after canonical route authority is proven serv
   assert.match(route, /browser_reported_route:\s*route/);
 });
 
+test("research preparation preserves only registry-proven authoritative classifications", () => {
+  const runtime = source(
+    "lib/platform/self-healing/PlatformSelfHealingCodeResearchRuntime.js",
+  );
+
+  assert.match(runtime, /function authoritativePreparedClassification/);
+  assert.match(runtime, /classification === "AUTO_REPAIR"/);
+  assert.match(runtime, /proof\.authority_purpose === "repair"/);
+  assert.match(runtime, /proof\.registered_route === true/);
+  assert.match(runtime, /proof\.explicit_incomplete_status !== true/);
+  assert.match(runtime, /classification === "AUTO_COMPLETE"/);
+  assert.match(runtime, /proof\.authority_purpose === "completion"/);
+  assert.match(runtime, /proof\.explicit_incomplete_status === true/);
+  assert.match(runtime, /authority_source:\s*"ERP_REGISTRY"/);
+  assert.match(runtime, /authoritativePreparedClassification\(payload\) \|\| classifyPlatformSelfHealingFailure\(payload\)/);
+  assert.match(runtime, /classification_authority_source:\s*classification\.authority_source \|\| null/);
+});
+
 test("global observer captures uncaught errors and promise rejections without intercepting fetch", () => {
   const observer = source(
     "components/platform/self-healing/PlatformGlobalFailureObserver.js",

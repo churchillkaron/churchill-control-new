@@ -143,15 +143,30 @@ test("Tax close guidance separates client evidence from accountant work and prot
   assert.doesNotMatch(closeGuidanceRail, /fetch\([^\n]*(send|remind|message)/i);
 });
 
-test("Tax close guidance is bound to the exact shared filing and surfaces resolution proof", () => {
-  assert.match(wrapper, /FinanceTaxCloseGuidanceRail/);
+test("FIX stage consolidates deterministic guidance and coordination into one accountant work queue", () => {
+  assert.doesNotMatch(wrapper, /FinanceTaxCloseGuidanceRail/);
+  assert.match(wrapper, /activeStage === "FIX" \? <>/);
+  assert.match(wrapper, /<FinanceTaxDependencyWorkRail/);
+  assert.match(wrapper, /onStageChange=\{setActiveStage\}/);
+  assert.match(wrapper, /Optional support · client evidence & governed intelligence/);
+  assert.match(wrapper, /Open supporting tools/);
+  assert.match(dependencyWorkRail, /Tax fix work queue/);
+  assert.match(dependencyWorkRail, /Work the next live blocker first\./);
+  assert.match(dependencyWorkRail, /Next safe action/);
+  assert.match(dependencyWorkRail, /Resolution proof/);
+  assert.match(dependencyWorkRail, /Client evidence · accountant validates/);
+  assert.match(dependencyWorkRail, /onStageChange\?\.\("EVIDENCE"\)/);
+});
+
+test("Tax close guidance is bound to the exact shared filing and the FIX queue inherits its resolution proof", () => {
   assert.match(wrapper, /selectedVatReturnId=\{selectedVatReturnId\}/);
   assert.match(closeGuidanceRail, /url\.searchParams\.set\("vatReturnId", selectedVatReturnId\)/);
   assert.match(closeGuidanceRail, /body\.return_id !== selectedVatReturnId/);
   assert.match(closeGuidanceRail, /body\.resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY"/);
-  assert.match(closeGuidanceRail, /Resolution proof/);
-  assert.match(closeGuidanceRail, /Next safe action/);
-  assert.match(closeGuidanceRail, /Statutory deadline/);
+  assert.match(dependencyWorkRail, /body\.resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY"/);
+  assert.match(dependencyWorkRail, /Resolution proof/);
+  assert.match(dependencyWorkRail, /Next safe action/);
+  assert.match(dependencyWorkRail, /Statutory deadline/);
 });
 
 test("Tax dependency work envelope stores coordination but has no manual resolution state", () => {

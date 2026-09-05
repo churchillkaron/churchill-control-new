@@ -126,19 +126,28 @@ export async function POST(request) {
 
       const previousRoomId = booking.room_id || null;
       if (booking.status === "CHECKED_IN") {
-        const { data: acquired, error: acquireError } = await supabaseAdmin.from("hotel_rooms").update({ status: "OCCUPIED", updated_at: new Date().toISOString() }).eq("organization_id", auth.organizationId).eq("id", target.id).eq("status", "AVAILABLE").select("id").maybeSingle();
+        const now = new Date().toISOString();
+        const { data: acquired, error: acquireError } = await supabaseAdmin.from("hotel_rooms").update({ status: "OCCUPIED", updated_at: now }).eq("organization_id", auth.organizationId).eq("id", target.id).eq("status", "AVAILABLE").select("id").maybeSingle();
         if (acquireError) throw acquireError;
         if (!acquired) return fail("Target room readiness changed. Refresh and choose another room.", 409);
 
-        const { data: movedBooking, error: bookingError } = await supabaseAdmin.from("hotel_bookings").update({ room_id: target.id, property_id: target.property_id || booking.property_id, updated_at: new Date().toISOString() }).eq("organization_id", auth.organizationId).eq("id", booking.id).eq("room_id", previousRoomId).select().maybeSingle();
+        const { data: movedBooking, error: bookingError } = await supabaseAdmin.from("hotel_bookings").update({ room_id: target.id, property_id: target.property_id || booking.property_id, updated_at: now }).eq("organization_id", auth.organizationId).eq("id", booking.id).eq("room_id", previousRoomId).select().maybeSingle();
         if (bookingError || !movedBooking) {
           await supabaseAdmin.from("hotel_rooms").update({ status: "AVAILABLE" }).eq("organization_id", auth.organizationId).eq("id", target.id).eq("status", "OCCUPIED");
           if (bookingError) throw bookingError;
           return fail("Booking changed while moving rooms. Refresh and retry.", 409);
         }
         if (previousRoomId) {
-          await supabaseAdmin.from("hotel_rooms").update({ status: "DIRTY", updated_at: new Date().toISOString() }).eq("organization_id", auth.organizationId).eq("id", previousRoomId).eq("status", "OCCUPIED");
-          await supabaseAdmin.from("hotel_housekeeping_tasks").insert({ organization_id: auth.organizationId, room_id: previousRoomId, task_type: "ROOM_TURNOVER", status: "PENDING", notes: "Created automatically after guest room move" });
+          await supabaseAdmin.from("hotel_rooms").update({ status: "DIRTY", updated_at: now }).eq("organization_id", auth.organizationId).eq("id", previousRoomId).eq("status", "OCCUPIED");
+          const { error: housekeepingError } = await supabaseAdmin.from("hotel_housekeeping_tasks").insert({
+            organization_id: auth.organizationId,
+            room_id: previousRoomId,
+            booking_id: booking.id,
+            task_status: "PENDING",
+            scheduled_at: now,
+            created_at: now,
+          });
+          if (housekeepingError) throw housekeepingError;
         }
       } else {
         const { error } = await supabaseAdmin.from("hotel_bookings").update({ room_id: target.id, property_id: target.property_id || booking.property_id, updated_at: new Date().toISOString() }).eq("organization_id", auth.organizationId).eq("id", booking.id);

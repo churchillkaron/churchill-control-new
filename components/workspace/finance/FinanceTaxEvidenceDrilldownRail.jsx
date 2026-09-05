@@ -21,13 +21,7 @@ function dateTime(value) {
   if (!value) return "—";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return String(value);
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(parsed);
+  return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(parsed);
 }
 
 function money(value) {
@@ -51,18 +45,8 @@ function DuplicateReview({ source }) {
   const records = Array.isArray(source?.duplicate_records) ? source.duplicate_records : [];
   if (records.length < 2) return null;
   return <div className="mt-3 rounded-lg border border-amber-700/10 bg-[#FFF9F0] p-2.5">
-    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-      <div><div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-amber-900">Potential duplicate group</div><div className="mt-0.5 text-[9px] text-[#5F5952]">Compare all {records.length} VAT-bearing purchase documents before filing.</div></div>
-      <div className="text-[8px] text-[#918B83]">Review only · live accounting truth clears the warning</div>
-    </div>
-    <div className="mt-2 grid gap-2 xl:grid-cols-2">{records.map(record => {
-      const navigation = record.source_navigation || null;
-      const tax = money(record.tax_amount);
-      return <div key={record.id} className="rounded-lg border border-black/[0.06] bg-white p-2.5">
-        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-[9px] font-semibold">{record.reference || record.id}</div><div className="mt-0.5 text-[8px] text-[#817B73]">{date(record.date)} · {record.status || "—"}{record.approval_status ? ` · ${record.approval_status}` : ""}</div></div><div className="shrink-0 text-right text-[8px] text-[#817B73]">{tax ? <div className="font-semibold text-[#5F5952]">VAT {tax}</div> : null}<div>{record.vat_line_count || 0} VAT line{record.vat_line_count === 1 ? "" : "s"}</div></div></div>
-        <div className="mt-2 flex flex-col gap-2 rounded-md bg-[#FAF9F7] px-2 py-1.5 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 text-[7px] leading-3 text-[#817B73]"><span className="font-mono">{record.id}</span>{record.posting_journal ? <span className="ml-2">Journal {record.posting_journal.reference || record.posting_journal.id} · {record.posting_journal.status || "—"}{record.posting_journal.reversed ? " · reversed" : ""}</span> : <span className="ml-2">No linked posting journal</span>}</div>{navigation?.href ? <a href={navigation.href} className="inline-flex h-6 shrink-0 items-center justify-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 text-[7px] font-semibold text-[#4E4943]">Open this invoice <ArrowUpRight size={8}/></a> : <span className="text-[7px] font-semibold text-[#918B83]">No direct source route</span>}</div>
-      </div>;
-    })}</div>
+    <div className="flex items-end justify-between gap-2"><div><div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-amber-900">Potential duplicate group</div><div className="mt-0.5 text-[9px] text-[#5F5952]">Compare all {records.length} VAT-bearing purchase documents before filing.</div></div><div className="text-[8px] text-[#918B83]">Review only · live accounting truth clears the warning</div></div>
+    <div className="mt-2 grid gap-2 xl:grid-cols-2">{records.map(record => <div key={record.id} className="rounded-lg border border-black/[0.06] bg-white p-2.5"><div className="text-[9px] font-semibold">{record.reference || record.id}</div><div className="mt-0.5 text-[8px] text-[#817B73]">{date(record.date)} · {record.status || "—"}</div>{record.source_navigation?.href ? <a href={record.source_navigation.href} className="mt-2 inline-flex h-6 items-center gap-1 rounded-md border border-black/[0.08] px-2 text-[7px] font-semibold">Open this invoice <ArrowUpRight size={8}/></a> : null}</div>)}</div>
   </div>;
 }
 
@@ -77,70 +61,15 @@ function DeadlineReview({ evidence, issue, onOpenCalendar }) {
   const acceptedOverride = hasOverrideEvidence && !blocking;
   const acceptedHumanEvidence = hasHumanEvidence && !blocking;
   const recordedMatchesStatutory = Boolean(evidence.recorded_due_date && evidence.statutory_due_date && evidence.recorded_due_date === evidence.statutory_due_date);
-  const statusLabel = blocking
-    ? manualJurisdiction
-      ? "Authority evidence required"
-      : !evidence.recorded_due_date
-        ? "Governed deadline missing"
-        : evidence.statutory_due_date && !recordedMatchesStatutory
-          ? "Recorded date conflicts with policy"
-          : !verified
-            ? "Official confirmation required"
-            : "Filing authority unresolved"
-    : acceptedOverride
-      ? "Controlled authority override"
-      : verified
-        ? "Official authority calendar"
-        : acceptedHumanEvidence
-          ? "Human-confirmed authority evidence"
-          : authorityControl
-            ? "Authority confirmation required"
-            : "Governed calendar context";
+  const statusLabel = blocking ? (manualJurisdiction ? "Authority evidence required" : !evidence.recorded_due_date ? "Governed deadline missing" : evidence.statutory_due_date && !recordedMatchesStatutory ? "Recorded date conflicts with policy" : !verified ? "Official confirmation required" : "Filing authority unresolved") : acceptedOverride ? "Controlled authority override" : verified ? "Official authority calendar" : acceptedHumanEvidence ? "Human-confirmed authority evidence" : authorityControl ? "Authority confirmation required" : "Governed calendar context";
   const authority = evidence.authority || null;
-  const adjustment = evidence.adjustment || null;
 
   return <div className={`mt-3 overflow-hidden rounded-lg border ${blocking ? "border-red-700/15 bg-red-50/30" : "border-[#A37849]/15 bg-[#FFF9F0]"}`}>
-    <div className={`flex flex-col gap-2 border-b px-3 py-2.5 sm:flex-row sm:items-start sm:justify-between ${blocking ? "border-red-700/12" : "border-[#A37849]/12"}`}>
-      <div>
-        <div className={`inline-flex items-center gap-1.5 text-[7px] font-semibold uppercase tracking-[0.09em] ${blocking ? "text-red-800" : "text-[#8A633E]"}`}><CalendarClock size={9}/> {authorityControl ? "Statutory authority control" : "Statutory deadline evidence"}</div>
-        <div className="mt-1 text-[10px] font-semibold text-[#403B36]">Why this deadline</div>
-        <div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">{blocking ? "This is the same governed calendar resolution used by live Tax preflight. This control cannot be cleared in Evidence; filing stays blocked until live Tax preflight accepts the deadline authority." : "This is the same governed calendar resolution used by live Tax preflight. Evidence review does not recalculate or acknowledge the deadline."}</div>
-      </div>
-      <span className={`shrink-0 rounded-md border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] ${blocking ? "border-red-700/15 bg-red-50 text-red-800" : acceptedOverride || !verified ? "border-amber-700/15 bg-amber-50 text-amber-900" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>{statusLabel}</span>
-    </div>
-
-    {blocking ? <div className="border-b border-red-700/10 bg-red-50 px-3 py-2 text-[8px] leading-4 text-red-900"><b>Filing blocked:</b> {issue?.detail || "Live Tax preflight has not accepted the statutory deadline authority."}</div> : null}
-
-    <div className="grid gap-px bg-[#A37849]/10 sm:grid-cols-3">
-      <div className="bg-white/80 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Recorded filing date</div><div className="mt-1 text-[11px] font-semibold text-[#3F3A35]">{date(evidence.recorded_due_date)}</div><div className="mt-0.5 text-[7px] text-[#918B83]">Current filing record</div></div>
-      <div className="bg-white/80 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Governed statutory date</div><div className="mt-1 text-[11px] font-semibold text-[#3F3A35]">{evidence.statutory_due_date ? date(evidence.statutory_due_date) : manualJurisdiction ? "Authority date required" : "—"}</div><div className="mt-0.5 text-[7px] text-[#918B83]">{evidence.filing_channel_label || evidence.filing_channel || "Filing method"}</div></div>
-      <div className="bg-white/80 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Legal clock</div><div className={`mt-1 text-[11px] font-semibold ${evidence.overdue ? "text-red-800" : "text-[#3F3A35]"}`}>{date(evidence.legal_date)}</div><div className="mt-0.5 text-[7px] text-[#918B83]">{evidence.legal_time_zone || "Jurisdiction time"}{evidence.overdue ? " · overdue" : ""}</div></div>
-    </div>
-
-    <div className="grid gap-2 p-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(260px,0.85fr)]">
-      <div className="rounded-lg border border-black/[0.05] bg-white/75 p-2.5">
-        <div className="grid gap-2 sm:grid-cols-3">
-          <div><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Base filing date</div><div className="mt-1 text-[9px] font-semibold">{date(evidence.base_due_date)}</div></div>
-          <div><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Authority-adjusted date</div><div className="mt-1 text-[9px] font-semibold">{evidence.statutory_due_date ? date(evidence.statutory_due_date) : manualJurisdiction ? "Manual authority evidence" : "—"}</div></div>
-          <div><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Return period</div><div className="mt-1 text-[9px] font-semibold">to {date(evidence.period_end)}</div></div>
-        </div>
-        <div className="mt-2 text-[8px] leading-4 text-[#817B73]">{evidence.form_label || evidence.form_code || "VAT return"} · {evidence.filing_channel_label || evidence.filing_channel || "filing method"}{manualJurisdiction ? " · no automated statutory calendar for this jurisdiction" : adjustment?.applied ? ` · authority calendar moved the base date ${adjustment.days} day${adjustment.days === 1 ? "" : "s"} (${String(adjustment.reason || "").replaceAll("_", " ").toLowerCase()})` : " · no authority date adjustment"}.</div>
-      </div>
-
-      <div className="rounded-lg border border-black/[0.05] bg-white/75 p-2.5">
-        <div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Authority lineage</div>
-        <div className="mt-1 text-[9px] font-semibold text-[#4E4943]">{authority?.authority || (manualJurisdiction ? "Manual authority evidence required" : "Tax authority evidence")}</div>
-        <div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">{authority?.title || (manualJurisdiction ? `No automated ${evidence.jurisdiction_code || "jurisdiction"} statutory calendar` : evidence.policy_version || "Governed statutory calendar")}{authority?.calendar_last_reviewed ? ` · reviewed ${date(authority.calendar_last_reviewed)}` : ""}</div>
-        {authority?.url ? <a href={authority.url} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-[8px] font-semibold text-[#7D5B39] underline underline-offset-2">Revenue Department source <ExternalLink size={8}/></a> : null}
-      </div>
-    </div>
-
-    {hasOverrideEvidence ? <div className="mx-3 mb-3 rounded-lg border border-amber-700/12 bg-amber-50/70 px-2.5 py-2 text-[8px] leading-4 text-amber-900"><b>{blocking ? "Recorded override evidence · not accepted by live preflight:" : "Controlled override:"}</b> {evidence.override.reason || "Reason recorded"} · evidence {evidence.override.evidence_reference || "required"}</div> : hasHumanEvidence ? <div className="mx-3 mb-3 rounded-lg border border-amber-700/12 bg-amber-50/70 px-2.5 py-2 text-[8px] leading-4 text-amber-900"><b>{blocking ? "Recorded authority evidence · not accepted by live preflight:" : "Authority confirmation:"}</b> {evidence.human_confirmation.reason || "Confirmation recorded"} · evidence {evidence.human_confirmation.evidence_reference || "required"}</div> : blocking && manualJurisdiction ? <div className="mx-3 mb-3 rounded-lg border border-red-700/12 bg-red-50 px-2.5 py-2 text-[8px] leading-4 text-red-900"><b>Required proof:</b> record the authority-confirmed filing date together with a reason and authority evidence reference in the governed filing calendar.</div> : null}
-
-    <div className={`flex flex-col gap-2 border-t bg-white/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between ${blocking ? "border-red-700/12" : "border-[#A37849]/12"}`}>
-      <div className={`text-[8px] ${blocking ? "font-semibold text-red-800" : "text-[#817B73]"}`}>{blocking ? "Blocking · filing remains unavailable until live Tax preflight accepts the authority evidence." : "Review only · live Tax truth decides whether this warning remains."}</div>
-      {typeof onOpenCalendar === "function" ? <button type="button" onClick={onOpenCalendar} className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">{blocking ? "Fix deadline authority" : "Review filing method & deadline"} <ArrowUpRight size={9}/></button> : null}
-    </div>
+    <div className="flex items-start justify-between gap-3 border-b p-3"><div><div className={`inline-flex items-center gap-1.5 text-[7px] font-semibold uppercase tracking-[0.09em] ${blocking ? "text-red-800" : "text-[#8A633E]"}`}><CalendarClock size={9}/> {authorityControl ? "Statutory authority control" : "Statutory deadline evidence"}</div><div className="mt-1 text-[10px] font-semibold">Why this deadline</div><div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">{blocking ? "This is the same governed calendar resolution used by live Tax preflight. This control cannot be cleared in Evidence; filing stays blocked until live Tax preflight accepts the deadline authority." : "This is the same governed calendar resolution used by live Tax preflight. Evidence review does not recalculate or acknowledge the deadline."}</div></div><span className="rounded-md border px-2 py-1 text-[7px] font-semibold">{statusLabel}</span></div>
+    {blocking ? <div className="border-b border-red-700/10 bg-red-50 px-3 py-2 text-[8px] text-red-900"><b>Filing blocked:</b> {issue?.detail}</div> : null}
+    <div className="grid gap-px bg-black/[0.05] sm:grid-cols-3"><div className="bg-white p-2.5"><div className="text-[7px] uppercase text-[#968F87]">Recorded filing date</div><div className="mt-1 text-[10px] font-semibold">{date(evidence.recorded_due_date)}</div></div><div className="bg-white p-2.5"><div className="text-[7px] uppercase text-[#968F87]">Governed statutory date</div><div className="mt-1 text-[10px] font-semibold">{evidence.statutory_due_date ? date(evidence.statutory_due_date) : manualJurisdiction ? "Authority date required" : "—"}</div></div><div className="bg-white p-2.5"><div className="text-[7px] uppercase text-[#968F87]">Legal clock</div><div className="mt-1 text-[10px] font-semibold">{date(evidence.legal_date)}</div></div></div>
+    <div className="p-3"><div className="rounded-lg border border-black/[0.06] bg-white p-2.5"><div className="text-[7px] font-semibold uppercase text-[#968F87]">Authority lineage</div><div className="mt-1 text-[9px] font-semibold">{authority?.authority || (manualJurisdiction ? "Manual authority evidence required" : "Tax authority evidence")}</div>{authority?.url ? <a href={authority.url} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-[8px] font-semibold underline">Revenue Department source <ExternalLink size={8}/></a> : null}</div>{hasOverrideEvidence ? <div className="mt-2 text-[8px] text-amber-900"><b>{blocking ? "Recorded override evidence · not accepted by live preflight:" : "Controlled override:"}</b> {evidence.override.reason}</div> : hasHumanEvidence ? <div className="mt-2 text-[8px] text-amber-900"><b>{blocking ? "Recorded authority evidence · not accepted by live preflight:" : "Authority confirmation:"}</b> {evidence.human_confirmation.reason}</div> : blocking && manualJurisdiction ? <div className="mt-2 text-[8px] text-red-900"><b>Required proof:</b> record the authority-confirmed filing date together with a reason and authority evidence reference in the governed filing calendar.</div> : null}</div>
+    <div className="flex items-center justify-between gap-3 border-t px-3 py-2.5"><div className="text-[8px]">{blocking ? "Blocking · filing remains unavailable until live Tax preflight accepts the authority evidence." : "Review only · live Tax truth decides whether this warning remains."}</div>{typeof onOpenCalendar === "function" ? <button type="button" onClick={onOpenCalendar} className="inline-flex h-7 items-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">{blocking ? "Fix deadline authority" : "Review filing method & deadline"} <ArrowUpRight size={9}/></button> : null}</div>
   </div>;
 }
 
@@ -150,93 +79,27 @@ function CalculationReview({ evidence, issue, onOpenReturn }) {
   const live = evidence.live || {};
   const reasons = Array.isArray(evidence.freshness_reasons) ? evidence.freshness_reasons : [];
   const currency = live.currency_code || stored.currency_code || "";
-  const rows = [
-    { label: "Sales documents", key: "output_document_count", kind: "count" },
-    { label: "Credit notes", key: "customer_credit_note_count", kind: "count" },
-    { label: "Purchase documents", key: "input_document_count", kind: "count" },
-    { label: "Output VAT", key: "output_tax", kind: "money" },
-    { label: "Input VAT", key: "input_tax", kind: "money" },
-    { label: "Tax payable", key: "tax_payable", kind: "money" },
-    { label: "Tax refund", key: "tax_refund", kind: "money" },
-  ];
-
-  return <div className="mt-3 overflow-hidden rounded-lg border border-red-700/15 bg-red-50/25">
-    <div className="flex flex-col gap-2 border-b border-red-700/12 px-3 py-2.5 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-red-800">VAT calculation freshness proof</div>
-        <div className="mt-1 text-[10px] font-semibold text-[#403B36]">Stored calculation vs live governed evidence</div>
-        <div className="mt-0.5 max-w-4xl text-[8px] leading-4 text-[#817B73]">Live Tax preflight rebuilt the filing values and compared them with the stored calculation. Evidence is read-only and cannot mark a calculation fresh.</div>
-      </div>
-      <span className="shrink-0 rounded-md border border-red-700/15 bg-red-50 px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] text-red-800">Recalculation required</span>
-    </div>
-
-    <div className="border-b border-red-700/10 bg-red-50 px-3 py-2 text-[8px] leading-4 text-red-900"><b>Filing blocked:</b> {issue?.detail || "The stored VAT calculation no longer matches live governed evidence."}</div>
-
-    <div className="grid gap-px bg-black/[0.05] sm:grid-cols-3">
-      <div className="bg-white/85 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Stored calculation</div><div className="mt-1 text-[10px] font-semibold text-[#3F3A35]">{dateTime(evidence.calculated_at)}</div><div className="mt-0.5 text-[7px] text-[#918B83]">{evidence.calculated_by ? `Calculated by ${evidence.calculated_by}` : "Calculation actor unavailable"}</div></div>
-      <div className="bg-white/85 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Stored method</div><div className="mt-1 break-all text-[9px] font-semibold text-[#4E4943]">{stored.method || "Missing"}</div><div className="mt-0.5 text-[7px] text-[#918B83]">Method persisted with the calculation</div></div>
-      <div className="bg-white/85 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Current governed method</div><div className="mt-1 break-all text-[9px] font-semibold text-[#4E4943]">{live.method || "Unavailable"}</div><div className="mt-0.5 text-[7px] text-[#918B83]">Method required by current live preflight</div></div>
-    </div>
-
-    <div className="grid gap-2 p-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(260px,0.75fr)]">
-      <div className="overflow-hidden rounded-lg border border-black/[0.06] bg-white">
-        <div className="grid grid-cols-[minmax(0,1fr)_110px_110px] gap-px bg-black/[0.05] text-[7px] font-semibold uppercase tracking-[0.07em] text-[#8C857D]"><div className="bg-[#FAF9F7] px-2.5 py-2">Filing measure</div><div className="bg-[#FAF9F7] px-2.5 py-2 text-right">Stored</div><div className="bg-[#FAF9F7] px-2.5 py-2 text-right">Live now</div></div>
-        {rows.map(row => <div key={row.key} className="grid grid-cols-[minmax(0,1fr)_110px_110px] gap-px border-t border-black/[0.05] text-[8px]"><div className="px-2.5 py-2 font-medium text-[#5F5952]">{row.label}</div><div className="px-2.5 py-2 text-right text-[#817B73]">{row.kind === "money" && currency ? `${currency} ` : ""}{evidenceNumber(stored[row.key], row.kind)}</div><div className="px-2.5 py-2 text-right font-semibold text-[#4E4943]">{row.kind === "money" && currency ? `${currency} ` : ""}{evidenceNumber(live[row.key], row.kind)}</div></div>)}
-      </div>
-
-      <div className="rounded-lg border border-black/[0.06] bg-white p-2.5">
-        <div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Why the calculation is stale</div>
-        {reasons.length ? <div className="mt-2 space-y-1.5">{reasons.map(reason => <div key={reason} className="rounded-md border border-red-700/10 bg-red-50/60 px-2 py-1.5 text-[8px] leading-4 text-red-900">{reason}</div>)}</div> : <div className="mt-2 text-[8px] leading-4 text-[#817B73]">Live preflight has marked this calculation stale; no additional reason text is available.</div>}
-        <div className="mt-2 rounded-md bg-[#FAF9F7] px-2 py-1.5 text-[7px] leading-3 text-[#918B83]">These reasons come from live Tax preflight, including stored-vs-live values, source changes after calculation, timestamp validity and the governed calculation method.</div>
-      </div>
-    </div>
-
-    <div className="flex flex-col gap-2 border-t border-red-700/12 bg-white/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-[8px] font-semibold text-red-800">Blocking · only a new governed calculation from live evidence can clear freshness.</div>
-      {typeof onOpenReturn === "function" ? <button type="button" onClick={onOpenReturn} className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">Return to VAT calculation <ArrowUpRight size={9}/></button> : null}
-    </div>
-  </div>;
+  const rows = [{ label: "Sales documents", key: "output_document_count", kind: "count" }, { label: "Credit notes", key: "customer_credit_note_count", kind: "count" }, { label: "Purchase documents", key: "input_document_count", kind: "count" }, { label: "Output VAT", key: "output_tax", kind: "money" }, { label: "Input VAT", key: "input_tax", kind: "money" }, { label: "Tax payable", key: "tax_payable", kind: "money" }, { label: "Tax refund", key: "tax_refund", kind: "money" }];
+  return <div className="mt-3 overflow-hidden rounded-lg border border-red-700/15 bg-red-50/25"><div className="flex items-start justify-between gap-3 border-b border-red-700/12 p-3"><div><div className="text-[7px] font-semibold uppercase text-red-800">VAT calculation freshness proof</div><div className="mt-1 text-[10px] font-semibold">Stored calculation vs live governed evidence</div><div className="mt-0.5 text-[8px] text-[#817B73]">Live Tax preflight rebuilt the filing values and compared them with the stored calculation. Evidence is read-only and cannot mark a calculation fresh.</div></div><span className="rounded-md border border-red-700/15 bg-red-50 px-2 py-1 text-[7px] font-semibold text-red-800">Recalculation required</span></div><div className="border-b border-red-700/10 bg-red-50 px-3 py-2 text-[8px] text-red-900"><b>Filing blocked:</b> {issue?.detail}</div><div className="grid gap-px bg-black/[0.05] sm:grid-cols-3"><div className="bg-white p-2.5"><div className="text-[7px] uppercase text-[#968F87]">Stored calculation</div><div className="mt-1 text-[9px] font-semibold">{dateTime(evidence.calculated_at)}</div></div><div className="bg-white p-2.5"><div className="text-[7px] uppercase text-[#968F87]">Stored method</div><div className="mt-1 text-[9px] font-semibold">{stored.method || "Missing"}</div></div><div className="bg-white p-2.5"><div className="text-[7px] uppercase text-[#968F87]">Current governed method</div><div className="mt-1 text-[9px] font-semibold">{live.method || "Unavailable"}</div></div></div><div className="grid gap-2 p-3 lg:grid-cols-[1.25fr_0.75fr]"><div className="overflow-hidden rounded-lg border bg-white">{rows.map(row => <div key={row.key} className="grid grid-cols-[1fr_110px_110px] border-t text-[8px]"><div className="px-2.5 py-2">{row.label}</div><div className="px-2.5 py-2 text-right">{row.kind === "money" && currency ? `${currency} ` : ""}{evidenceNumber(stored[row.key], row.kind)}</div><div className="px-2.5 py-2 text-right font-semibold">{row.kind === "money" && currency ? `${currency} ` : ""}{evidenceNumber(live[row.key], row.kind)}</div></div>)}</div><div className="rounded-lg border bg-white p-2.5"><div className="text-[7px] font-semibold uppercase text-[#968F87]">Why the calculation is stale</div>{reasons.map(reason => <div key={reason} className="mt-1 rounded-md bg-red-50 px-2 py-1.5 text-[8px] text-red-900">{reason}</div>)}<div className="mt-2 text-[7px] text-[#918B83]">These reasons come from live Tax preflight.</div></div></div><div className="flex items-center justify-between border-t px-3 py-2.5"><div className="text-[8px] font-semibold text-red-800">Blocking · only a new governed calculation from live evidence can clear freshness.</div>{typeof onOpenReturn === "function" ? <button type="button" onClick={onOpenReturn} className="inline-flex h-7 items-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">Return to VAT calculation <ArrowUpRight size={9}/></button> : null}</div></div>;
 }
 
 function RegistrationReview({ evidence, issue, onOpenReturn }) {
   if (!evidence) return null;
   const precedence = Array.isArray(evidence.precedence) ? evidence.precedence : [];
   const resolved = evidence.resolved_reference || null;
+  return <div className="mt-3 overflow-hidden rounded-lg border border-red-700/15 bg-red-50/25"><div className="flex items-start justify-between gap-3 border-b p-3"><div><div className="text-[7px] font-semibold uppercase text-red-800">VAT registration proof</div><div className="mt-1 text-[10px] font-semibold">Exact filing and legal-entity registration context</div><div className="mt-0.5 text-[8px] text-[#817B73]">This card does not re-resolve VAT registration. It presents the registration reference already resolved by live Tax preflight and the exact precedence that preflight uses.</div></div><span className="rounded-md border border-red-700/15 bg-red-50 px-2 py-1 text-[7px] font-semibold text-red-800">Registration required</span></div><div className="border-b border-red-700/10 bg-red-50 px-3 py-2 text-[8px] text-red-900"><b>Calculation and filing blocked:</b> {issue?.detail}</div><div className="grid gap-px bg-black/[0.05] sm:grid-cols-3"><div className="bg-white p-2.5"><div className="text-[7px] uppercase text-[#968F87]">Selected VAT filing</div><div className="mt-1 text-[9px] font-semibold">{evidence.filing_reference || evidence.filing_id || "—"}</div></div><div className="bg-white p-2.5"><div className="text-[7px] uppercase text-[#968F87]">Legal entity</div><div className="mt-1 text-[9px] font-semibold">{evidence.legal_name || evidence.entity_code || evidence.entity_id || "—"}</div></div><div className="bg-white p-2.5"><div className="text-[7px] uppercase text-[#968F87]">Resolved VAT registration</div><div className="mt-1 text-[9px] font-semibold">{resolved || "Missing"}</div></div></div><div className="grid gap-2 p-3 lg:grid-cols-2"><div className="rounded-lg border bg-white p-2.5"><div className="text-[7px] font-semibold uppercase text-[#968F87]">Registration source precedence</div>{precedence.map((label, index) => <div key={label} className="mt-1 text-[8px]">{index + 1}. {label}</div>)}</div><div className="rounded-lg border bg-white p-2.5"><div className="text-[7px] font-semibold uppercase text-[#968F87]">Required proof</div><div className="mt-1 text-[9px] font-semibold">A real VAT registration reference accepted by live Tax preflight</div><div className="mt-1 text-[8px] text-[#817B73]">The selected return has highest precedence. If it is blank, preflight may fall back to the Finance Organization Profile and then the Legal Entity tax ID. Evidence cannot set or approve any of these values.</div></div></div><div className="flex items-center justify-between border-t px-3 py-2.5"><div className="text-[8px] font-semibold text-red-800">Blocking · only live Tax preflight can clear this registration control.</div>{typeof onOpenReturn === "function" ? <button type="button" onClick={onOpenReturn} className="inline-flex h-7 items-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">Fix VAT registration on selected return <ArrowUpRight size={9}/></button> : null}</div></div>;
+}
 
+function VatRuleReview({ evidence, issue }) {
+  if (!evidence) return null;
+  const rules = Array.isArray(evidence.rules) ? evidence.rules : [];
+  const regimes = Array.isArray(evidence.configured_regimes) ? evidence.configured_regimes : [];
   return <div className="mt-3 overflow-hidden rounded-lg border border-red-700/15 bg-red-50/25">
-    <div className="flex flex-col gap-2 border-b border-red-700/12 px-3 py-2.5 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-red-800">VAT registration proof</div>
-        <div className="mt-1 text-[10px] font-semibold text-[#403B36]">Exact filing and legal-entity registration context</div>
-        <div className="mt-0.5 max-w-4xl text-[8px] leading-4 text-[#817B73]">This card does not re-resolve VAT registration. It presents the registration reference already resolved by live Tax preflight and the exact precedence that preflight uses.</div>
-      </div>
-      <span className="shrink-0 rounded-md border border-red-700/15 bg-red-50 px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] text-red-800">Registration required</span>
-    </div>
-
-    <div className="border-b border-red-700/10 bg-red-50 px-3 py-2 text-[8px] leading-4 text-red-900"><b>Calculation and filing blocked:</b> {issue?.detail || "Live Tax preflight has not resolved a VAT registration reference for this filing."}</div>
-
-    <div className="grid gap-px bg-black/[0.05] sm:grid-cols-3">
-      <div className="bg-white/85 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Selected VAT filing</div><div className="mt-1 text-[10px] font-semibold text-[#3F3A35]">{evidence.filing_reference || evidence.filing_id || "—"}</div><div className="mt-0.5 text-[7px] text-[#918B83]">{evidence.jurisdiction_code || "Jurisdiction not recorded"} · {date(evidence.period_start)} → {date(evidence.period_end)}</div></div>
-      <div className="bg-white/85 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Legal entity</div><div className="mt-1 text-[10px] font-semibold text-[#3F3A35]">{evidence.legal_name || evidence.entity_code || evidence.entity_id || "—"}</div><div className="mt-0.5 text-[7px] text-[#918B83]">{evidence.entity_code ? `Entity ${evidence.entity_code}` : "Exact filing entity"}</div></div>
-      <div className="bg-white/85 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Resolved VAT registration</div><div className={`mt-1 text-[10px] font-semibold ${resolved ? "text-[#3F3A35]" : "text-red-800"}`}>{resolved || "Missing"}</div><div className="mt-0.5 text-[7px] text-[#918B83]">Authority: {evidence.resolution_authority || "LIVE_TAX_PREFLIGHT_ONLY"}</div></div>
-    </div>
-
-    <div className="grid gap-2 p-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(260px,0.85fr)]">
-      <div className="rounded-lg border border-black/[0.06] bg-white p-2.5">
-        <div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Registration source precedence</div>
-        <div className="mt-2 space-y-1.5">{precedence.map((label, index) => <div key={label} className="flex items-center gap-2 rounded-md bg-[#FAF9F7] px-2 py-1.5 text-[8px] text-[#5F5952]"><span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[7px] font-semibold">{index + 1}</span><span>{label}</span></div>)}</div>
-      </div>
-      <div className="rounded-lg border border-black/[0.06] bg-white p-2.5">
-        <div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Required proof</div>
-        <div className="mt-1 text-[9px] font-semibold text-[#4E4943]">A real VAT registration reference accepted by live Tax preflight</div>
-        <div className="mt-1 text-[8px] leading-4 text-[#817B73]">The selected return has highest precedence. If it is blank, preflight may fall back to the Finance Organization Profile and then the Legal Entity tax ID. Evidence cannot set or approve any of these values.</div>
-      </div>
-    </div>
-
-    <div className="flex flex-col gap-2 border-t border-red-700/12 bg-white/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-[8px] font-semibold text-red-800">Blocking · only live Tax preflight can clear this registration control.</div>
-      {typeof onOpenReturn === "function" ? <button type="button" onClick={onOpenReturn} className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">Fix VAT registration on selected return <ArrowUpRight size={9}/></button> : null}
-    </div>
+    <div className="flex items-start justify-between gap-3 border-b border-red-700/12 p-3"><div><div className="text-[7px] font-semibold uppercase text-red-800">VAT rule coverage proof</div><div className="mt-1 text-[10px] font-semibold">Exact filing jurisdiction and governed rule coverage</div><div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">The blocker is still decided only by live Tax preflight. This card exposes the active VAT configuration used for diagnosis and does not create a second coverage authority.</div></div><span className="rounded-md border border-red-700/15 bg-red-50 px-2 py-1 text-[7px] font-semibold text-red-800">Rule coverage required</span></div>
+    <div className="border-b border-red-700/10 bg-red-50 px-3 py-2 text-[8px] text-red-900"><b>Calculation and filing blocked:</b> {issue?.detail || "No active VAT rule covers this jurisdiction and filing period."}</div>
+    <div className="grid gap-px bg-black/[0.05] sm:grid-cols-3"><div className="bg-white p-2.5"><div className="text-[7px] uppercase text-[#968F87]">Filing jurisdiction</div><div className="mt-1 text-[10px] font-semibold">{evidence.jurisdiction_code || "Missing"}</div><div className="mt-0.5 text-[7px] text-[#918B83]">{date(evidence.period_start)} → {date(evidence.period_end)}</div></div><div className="bg-white p-2.5"><div className="text-[7px] uppercase text-[#968F87]">Rules covering period</div><div className="mt-1 text-[10px] font-semibold text-red-800">{evidence.covering_rule_count ?? 0}</div><div className="mt-0.5 text-[7px] text-[#918B83]">Live preflight result</div></div><div className="bg-white p-2.5"><div className="text-[7px] uppercase text-[#968F87]">Active VAT configuration</div><div className="mt-1 text-[10px] font-semibold">{evidence.configured_active_rule_count ?? 0} rule{evidence.configured_active_rule_count === 1 ? "" : "s"}</div><div className="mt-0.5 text-[7px] text-[#918B83]">{evidence.active_jurisdiction_rule_count ?? 0} in filing jurisdiction</div></div></div>
+    <div className="grid gap-2 p-3 lg:grid-cols-[1.2fr_0.8fr]"><div className="overflow-hidden rounded-lg border bg-white"><div className="border-b bg-[#FAF9F7] px-2.5 py-2 text-[7px] font-semibold uppercase text-[#968F87]">Active VAT rules</div>{rules.length ? rules.map(rule => <div key={rule.id || `${rule.tax_regime}:${rule.tax_code}`} className="flex flex-col gap-2 border-b px-2.5 py-2 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-[8px] font-semibold">{rule.tax_code || rule.tax_name || rule.id || "VAT rule"} · {rule.tax_rate ?? "—"}%</div><div className="mt-0.5 text-[7px] text-[#817B73]">{rule.tax_regime || "No regime"} · {date(rule.effective_from)} → {date(rule.effective_to)} · {rule.inherited ? "Inherited" : "Organization rule"}</div><div className={`mt-0.5 text-[7px] font-semibold ${rule.covers_filing_period ? "text-emerald-800" : rule.matching_jurisdiction ? "text-amber-900" : "text-[#918B83]"}`}>{rule.covers_filing_period ? "Covers selected filing period" : rule.matching_jurisdiction ? "Same jurisdiction, outside filing-period coverage" : "Different jurisdiction"}</div></div>{rule.source_navigation?.href ? <a href={rule.source_navigation.href} className="inline-flex h-6 items-center gap-1 rounded-md border border-black/[0.08] px-2 text-[7px] font-semibold">Open rule <ArrowUpRight size={8}/></a> : null}</div>) : <div className="p-3 text-[8px] text-[#817B73]">No active VAT rules are configured.</div>}</div><div className="rounded-lg border bg-white p-2.5"><div className="text-[7px] font-semibold uppercase text-[#968F87]">Coverage diagnosis</div><div className="mt-1 text-[9px] font-semibold">{evidence.active_jurisdiction_rule_count > 0 ? "Jurisdiction rules exist but none overlap the filing period." : "No active VAT rule exists for the filing jurisdiction."}</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">Configured regimes: {regimes.length ? regimes.join(", ") : "none"}. Effective dates and tax regime must make at least one governed VAT rule overlap the selected filing period. Evidence cannot activate, edit or approve a tax rule.</div></div></div>
+    <div className="flex items-center justify-between gap-3 border-t px-3 py-2.5"><div className="text-[8px] font-semibold text-red-800">Blocking · only live Tax preflight can clear VAT rule coverage.</div>{evidence.configuration_href ? <a href={evidence.configuration_href} className="inline-flex h-7 items-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">Fix governed Tax Codes <ArrowUpRight size={9}/></a> : null}</div>
   </div>;
 }
 
@@ -250,70 +113,15 @@ function EvidenceRecord({ issue, onOpenCalendar }) {
   const calendarEvidence = issue.calendar_evidence || null;
   const calculationEvidence = issue.calculation_evidence || null;
   const registrationEvidence = issue.registration_evidence || null;
-
-  return <div className="rounded-lg border border-black/[0.07] bg-white p-3">
-    <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className={`rounded-md border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] ${issue.severity === "WARNING" ? "border-amber-700/15 bg-amber-50 text-amber-900" : "border-red-700/15 bg-red-50 text-red-800"}`}>{issue.severity === "WARNING" ? "Review" : "Blocking evidence"}</span>
-          <span className="rounded-md border border-black/[0.06] bg-[#F7F6F3] px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] text-[#716B63]">{sourceLabel(issue.source_type)}</span>
-          <span className="text-[8px] text-[#918B83]">{issue.code}</span>
-        </div>
-        <div className="mt-2 text-[11px] font-semibold">{issue.reference || issue.source_id || "Governed evidence"}</div>
-        <div className="mt-1 text-[9px] leading-4 text-[#716B63]">{issue.detail}</div>
-      </div>
-      <div className="shrink-0 text-right text-[8px] leading-4 text-[#918B83]">
-        <div>{date(issue.date)}</div>
-        {money(issue.amount) ? <div className="font-semibold text-[#5F5952]">Tax amount {money(issue.amount)}</div> : null}
-      </div>
-    </div>
-
-    <DuplicateReview source={source}/>
-    <DeadlineReview evidence={calendarEvidence} issue={issue} onOpenCalendar={onOpenCalendar}/>
-    <CalculationReview evidence={calculationEvidence} issue={issue} onOpenReturn={onOpenCalendar}/>
-    <RegistrationReview evidence={registrationEvidence} issue={issue} onOpenReturn={onOpenCalendar}/>
-
-    {!calendarEvidence && !calculationEvidence && !registrationEvidence ? <>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Source document</div><div className="mt-1 text-[8px] leading-4 text-[#4E4943]">{source ? <>{source.reference || source.id}<br/>Status {source.status || "—"}{source.approval_status ? ` · ${source.approval_status}` : ""}{source.currency_code ? <><br/>{source.currency_code} · rate {source.exchange_rate ?? "missing"}</> : null}</> : "Context evidence"}</div></div>
-        <div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Tax line</div><div className="mt-1 text-[8px] leading-4 text-[#4E4943]">{line ? <>Line {line.line_number ?? line.id ?? "—"}<br/>Tax {money(line.tax_amount) || "—"}{line.tax_rule_id ? <><br/>Rule {line.tax_rule_id}</> : null}</> : "No line-level record for this blocker"}</div></div>
-        <div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Governed VAT rule</div><div className="mt-1 text-[8px] leading-4 text-[#4E4943]">{rule ? <>{rule.tax_code || rule.id} · {rule.tax_rate ?? "—"}%<br/>{rule.is_active ? "Active" : "Inactive"} · {date(rule.effective_from)} → {date(rule.effective_to)}</> : "Missing or not applicable"}</div></div>
-        <div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Posting proof</div><div className="mt-1 text-[8px] leading-4 text-[#4E4943]">{journal ? <>{journal.reference || journal.id}<br/>{journal.status || "—"}{journal.reversed ? " · reversed" : " · not reversed"}</> : "No linked posting evidence"}</div></div>
-      </div>
-
-      <div className="mt-2 flex flex-col gap-2 rounded-lg border border-black/[0.05] bg-[#FAF9F7] px-2.5 py-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 text-[8px] text-[#817B73]"><span className="font-mono">{issue.source_id || "context"}</span><span className="ml-2">{target ? `Exact ${String(target.workspace).replaceAll("_", " ")} record · Business Context stays fixed` : "Governed context evidence"}</span></div>
-        {navigation?.href ? <a href={navigation.href} className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">Open exact source <ArrowUpRight size={9}/></a> : <span className="shrink-0 text-[8px] font-semibold text-[#918B83]">No direct source route</span>}
-      </div>
-    </> : null}
-  </div>;
+  const vatRuleEvidence = issue.vat_rule_evidence || null;
+  return <div className="rounded-lg border border-black/[0.07] bg-white p-3"><div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-1.5"><span className={`rounded-md border px-2 py-1 text-[7px] font-semibold uppercase ${issue.severity === "WARNING" ? "border-amber-700/15 bg-amber-50 text-amber-900" : "border-red-700/15 bg-red-50 text-red-800"}`}>{issue.severity === "WARNING" ? "Review" : "Blocking evidence"}</span><span className="rounded-md border bg-[#F7F6F3] px-2 py-1 text-[7px] font-semibold uppercase text-[#716B63]">{sourceLabel(issue.source_type)}</span><span className="text-[8px] text-[#918B83]">{issue.code}</span></div><div className="mt-2 text-[11px] font-semibold">{issue.reference || issue.source_id || "Governed evidence"}</div><div className="mt-1 text-[9px] text-[#716B63]">{issue.detail}</div></div><div className="text-right text-[8px] text-[#918B83]">{date(issue.date)}</div></div><DuplicateReview source={source}/><DeadlineReview evidence={calendarEvidence} issue={issue} onOpenCalendar={onOpenCalendar}/><CalculationReview evidence={calculationEvidence} issue={issue} onOpenReturn={onOpenCalendar}/><RegistrationReview evidence={registrationEvidence} issue={issue} onOpenReturn={onOpenCalendar}/><VatRuleReview evidence={vatRuleEvidence} issue={issue}/>{!calendarEvidence && !calculationEvidence && !registrationEvidence && !vatRuleEvidence ? <><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4"><div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase text-[#968F87]">Source document</div><div className="mt-1 text-[8px]">{source ? source.reference || source.id : "Context evidence"}</div></div><div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase text-[#968F87]">Tax line</div><div className="mt-1 text-[8px]">{line ? line.line_number ?? line.id : "No line-level record for this blocker"}</div></div><div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase text-[#968F87]">Governed VAT rule</div><div className="mt-1 text-[8px]">{rule ? rule.tax_code || rule.id : "Missing or not applicable"}</div></div><div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase text-[#968F87]">Posting proof</div><div className="mt-1 text-[8px]">{journal ? journal.reference || journal.id : "No linked posting evidence"}</div></div></div><div className="mt-2 flex items-center justify-between gap-2 rounded-lg border bg-[#FAF9F7] px-2.5 py-2"><div className="text-[8px] text-[#817B73]">{target ? `Exact ${String(target.workspace).replaceAll("_", " ")} record · Business Context stays fixed` : "Governed context evidence"}</div>{navigation?.href ? <a href={navigation.href} className="inline-flex h-7 items-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">Open exact source <ArrowUpRight size={9}/></a> : null}</div></> : null}</div>;
 }
 
 function EvidenceControlSelector({ dependencies, selectedCode, onSelect }) {
   const blocking = dependencies.filter(item => item.blocking === true);
   const reviewOnly = dependencies.filter(item => item.blocking !== true);
   if (!dependencies.length) return null;
-
-  return <div className="grid gap-px border-b border-black/[0.07] bg-black/[0.05] lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
-    <div className="min-w-0 bg-[#FAF9F7] p-2.5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-red-800">Blocking · {blocking.length}</div>
-        <div className="text-[7px] text-[#918B83]">Must clear before filing</div>
-      </div>
-      <div className="mt-1.5 flex gap-1.5 overflow-x-auto">
-        {blocking.length ? blocking.map((item, index) => <button key={item.code} type="button" onClick={() => onSelect(item.code)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[8px] font-semibold ${item.code === selectedCode ? "border-red-800/20 bg-red-50 text-red-800" : "border-black/[0.07] bg-white text-[#5F5952]"}`}>{index === 0 ? "Next required · " : ""}{item.title} · {item.evidence_count || 0}</button>) : <span className="rounded-lg border border-emerald-700/12 bg-emerald-50 px-2.5 py-1.5 text-[8px] font-semibold text-emerald-800">No live blockers</span>}
-      </div>
-    </div>
-    <div className="min-w-0 bg-white p-2.5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-amber-900">Review only · {reviewOnly.length}</div>
-        <div className="text-[7px] text-[#918B83]">Does not block filing</div>
-      </div>
-      <div className="mt-1.5 flex gap-1.5 overflow-x-auto">
-        {reviewOnly.length ? reviewOnly.map(item => <button key={item.code} type="button" onClick={() => onSelect(item.code)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[8px] font-semibold ${item.code === selectedCode ? "border-[#A37849]/25 bg-[#FFF9F0] text-[#76583A]" : "border-black/[0.07] bg-white text-[#716B63]"}`}>{item.title} · {item.evidence_count || 0}</button>) : <span className="px-1 py-1.5 text-[8px] text-[#918B83]">No review-only controls</span>}
-      </div>
-    </div>
-  </div>;
+  return <div className="grid gap-px border-b bg-black/[0.05] lg:grid-cols-[1.35fr_0.65fr]"><div className="bg-[#FAF9F7] p-2.5"><div className="flex justify-between"><div className="text-[7px] font-semibold uppercase text-red-800">Blocking · {blocking.length}</div><div className="text-[7px] text-[#918B83]">Must clear before filing</div></div><div className="mt-1.5 flex gap-1.5 overflow-x-auto">{blocking.length ? blocking.map((item, index) => <button key={item.code} type="button" onClick={() => onSelect(item.code)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[8px] font-semibold ${item.code === selectedCode ? "border-red-800/20 bg-red-50 text-red-800" : "bg-white"}`}>{index === 0 ? "Next required · " : ""}{item.title} · {item.evidence_count || 0}</button>) : <span className="text-[8px] text-emerald-800">No live blockers</span>}</div></div><div className="bg-white p-2.5"><div className="flex justify-between"><div className="text-[7px] font-semibold uppercase text-amber-900">Review only · {reviewOnly.length}</div><div className="text-[7px] text-[#918B83]">Does not block filing</div></div><div className="mt-1.5 flex gap-1.5 overflow-x-auto">{reviewOnly.length ? reviewOnly.map(item => <button key={item.code} type="button" onClick={() => onSelect(item.code)} className="shrink-0 rounded-lg border bg-white px-2.5 py-1.5 text-[8px] font-semibold">{item.title} · {item.evidence_count || 0}</button>) : <span className="text-[8px] text-[#918B83]">No review-only controls</span>}</div></div></div>;
 }
 
 export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entityId, selectedVatReturnId, focusDependencyCode = null, onStageChange = null }) {
@@ -321,110 +129,19 @@ export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entity
   const [selectedCode, setSelectedCode] = useState(null);
   const [evidenceState, setEvidenceState] = useState({ loading: false, error: "", body: null });
   const pageSize = 25;
-
-  async function loadGuidance() {
-    if (!organizationId || !entityId || !selectedVatReturnId) return;
-    try {
-      setGuidanceState(current => ({ ...current, loading: true, error: "" }));
-      const url = new URL("/api/finance/vat-returns/dependency-work", window.location.origin);
-      url.searchParams.set("organizationId", organizationId);
-      url.searchParams.set("entityId", entityId);
-      url.searchParams.set("vatReturnId", selectedVatReturnId);
-      const body = await requestJson(url.toString());
-      if (body.return_id !== selectedVatReturnId || body.resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY") throw new Error("Tax evidence inspector could not verify the selected filing and resolution authority.");
-      const dependencies = body.guidance?.dependencies || [];
-      const requestedFocus = String(focusDependencyCode || "").trim().toUpperCase();
-      setGuidanceState({ loading: false, error: "", guidance: body.guidance || null });
-      setSelectedCode(current => {
-        if (requestedFocus && dependencies.some(item => item.code === requestedFocus)) return requestedFocus;
-        if (dependencies.some(item => item.code === current)) return current;
-        return dependencies.find(item => item.blocking === true)?.code || dependencies[0]?.code || null;
-      });
-    } catch (error) {
-      setGuidanceState({ loading: false, error: error?.message || "Tax evidence dependencies could not be loaded", guidance: null });
-      setSelectedCode(null);
-    }
-  }
-
-  async function loadEvidence(code = selectedCode, offset = 0) {
-    if (!organizationId || !entityId || !selectedVatReturnId || !code) return;
-    try {
-      setEvidenceState(current => ({ ...current, loading: true, error: "" }));
-      const url = new URL("/api/finance/vat-returns/evidence-drilldown", window.location.origin);
-      url.searchParams.set("organizationId", organizationId);
-      url.searchParams.set("entityId", entityId);
-      url.searchParams.set("vatReturnId", selectedVatReturnId);
-      url.searchParams.set("dependencyCode", code);
-      url.searchParams.set("offset", String(offset));
-      url.searchParams.set("limit", String(pageSize));
-      const body = await requestJson(url.toString());
-      if (body.return_id !== selectedVatReturnId || body.entity_id !== entityId) throw new Error("Tax evidence inspector returned a different filing scope.");
-      if (body.resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY" || body.mutation_authority !== false || body.context_mutation_authority !== false) throw new Error("Tax evidence inspector returned unsafe authority.");
-      setEvidenceState({ loading: false, error: "", body });
-    } catch (error) {
-      setEvidenceState({ loading: false, error: error?.message || "Tax evidence could not be loaded", body: null });
-    }
-  }
-
-  useEffect(() => {
-    setGuidanceState({ loading: false, error: "", guidance: null });
-    setSelectedCode(null);
-    setEvidenceState({ loading: false, error: "", body: null });
-    loadGuidance();
-  }, [organizationId, entityId, selectedVatReturnId, focusDependencyCode]);
-
-  useEffect(() => {
-    setEvidenceState({ loading: false, error: "", body: null });
-    if (selectedCode) loadEvidence(selectedCode, 0);
-  }, [selectedCode]);
-
+  async function loadGuidance() { if (!organizationId || !entityId || !selectedVatReturnId) return; try { setGuidanceState(current => ({ ...current, loading: true, error: "" })); const url = new URL("/api/finance/vat-returns/dependency-work", window.location.origin); url.searchParams.set("organizationId", organizationId); url.searchParams.set("entityId", entityId); url.searchParams.set("vatReturnId", selectedVatReturnId); const body = await requestJson(url.toString()); if (body.return_id !== selectedVatReturnId || body.resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY") throw new Error("Tax evidence inspector could not verify the selected filing and resolution authority."); const dependencies = body.guidance?.dependencies || []; const requestedFocus = String(focusDependencyCode || "").trim().toUpperCase(); setGuidanceState({ loading: false, error: "", guidance: body.guidance || null }); setSelectedCode(current => { if (requestedFocus && dependencies.some(item => item.code === requestedFocus)) return requestedFocus; if (dependencies.some(item => item.code === current)) return current; return dependencies.find(item => item.blocking === true)?.code || dependencies[0]?.code || null; }); } catch (error) { setGuidanceState({ loading: false, error: error?.message || "Tax evidence dependencies could not be loaded", guidance: null }); setSelectedCode(null); } }
+  async function loadEvidence(code = selectedCode, offset = 0) { if (!organizationId || !entityId || !selectedVatReturnId || !code) return; try { setEvidenceState(current => ({ ...current, loading: true, error: "" })); const url = new URL("/api/finance/vat-returns/evidence-drilldown", window.location.origin); url.searchParams.set("organizationId", organizationId); url.searchParams.set("entityId", entityId); url.searchParams.set("vatReturnId", selectedVatReturnId); url.searchParams.set("dependencyCode", code); url.searchParams.set("offset", String(offset)); url.searchParams.set("limit", String(pageSize)); const body = await requestJson(url.toString()); if (body.return_id !== selectedVatReturnId || body.entity_id !== entityId) throw new Error("Tax evidence inspector returned a different filing scope."); if (body.resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY" || body.mutation_authority !== false || body.context_mutation_authority !== false) throw new Error("Tax evidence inspector returned unsafe authority."); setEvidenceState({ loading: false, error: "", body }); } catch (error) { setEvidenceState({ loading: false, error: error?.message || "Tax evidence could not be loaded", body: null }); } }
+  useEffect(() => { setGuidanceState({ loading: false, error: "", guidance: null }); setSelectedCode(null); setEvidenceState({ loading: false, error: "", body: null }); loadGuidance(); }, [organizationId, entityId, selectedVatReturnId, focusDependencyCode]);
+  useEffect(() => { setEvidenceState({ loading: false, error: "", body: null }); if (selectedCode) loadEvidence(selectedCode, 0); }, [selectedCode]);
   const dependencies = guidanceState.guidance?.dependencies || [];
   const selected = useMemo(() => dependencies.find(item => item.code === selectedCode) || null, [dependencies, selectedCode]);
   if (!organizationId || !entityId || !selectedVatReturnId) return null;
   if (!guidanceState.loading && !guidanceState.error && dependencies.length === 0) return null;
-
   const body = evidenceState.body;
   const population = body?.population || null;
   const offset = population?.offset || 0;
   const first = population?.total ? offset + 1 : 0;
   const last = population?.total ? offset + (population.returned || 0) : 0;
   const openCalendar = typeof onStageChange === "function" ? () => onStageChange("RETURN") : null;
-
-  return <section className="mx-auto mt-3 max-w-[1760px] px-4 sm:px-5 lg:px-6">
-    <div className="overflow-hidden rounded-xl border border-black/[0.07] bg-white text-[#2A2723]">
-      <div className="flex flex-col gap-3 border-b border-black/[0.07] p-3.5 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-[#9A7045]"><FileSearch2 size={11}/> VAT evidence trace</span><span className="rounded-md border border-black/[0.07] bg-[#F7F6F3] px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] text-[#716B63]">Read only · full population</span></div>
-          <div className="mt-1 text-[12px] font-semibold">Start with the VAT control, then trace it to exact governed evidence.</div>
-          <div className="mt-1 max-w-4xl text-[9px] leading-4 text-[#817B73]">Choose the live VAT control below. Avantiqo rebuilds the complete filing population or reuses governed registration, statutory and calculation context, and keeps the legal entity and filing context fixed while you inspect the evidence. Viewing evidence never switches Business Context.</div>
-        </div>
-        <button type="button" onClick={loadGuidance} className="inline-flex h-8 items-center gap-1.5 self-start rounded-lg border border-black/[0.09] bg-white px-2.5 text-[9px] font-semibold"><RefreshCw size={10} className={guidanceState.loading ? "animate-spin" : ""}/> Refresh truth</button>
-      </div>
-
-      {guidanceState.error ? <div className="m-3 rounded-lg border border-red-700/15 bg-red-50 p-2.5 text-[9px] text-red-800">{guidanceState.error}</div> : null}
-
-      <div className="grid gap-px border-b border-black/[0.07] bg-black/[0.05] lg:grid-cols-3">
-        <div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#9A7045]">1 · VAT control</div><div className="mt-1 text-[10px] font-semibold">Choose what needs proof</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">Only controls that still exist in live Tax truth appear here.</div></div>
-        <div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#9A7045]">2 · Source population</div><div className="mt-1 text-[10px] font-semibold">Review every affected record</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">Pagination is only presentation; transaction controls use the complete filing population and registration, authority and calculation controls use governed live context.</div></div>
-        <div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#9A7045]">3 · Exact source</div><div className="mt-1 text-[10px] font-semibold">Open the governing evidence</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">Open the exact accounting record or return to the selected VAT filing without changing Business Context.</div></div>
-      </div>
-
-      <EvidenceControlSelector dependencies={dependencies} selectedCode={selectedCode} onSelect={setSelectedCode}/>
-
-      {selected ? <div className="grid gap-px border-b border-black/[0.07] bg-black/[0.05] lg:grid-cols-3">
-        <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase tracking-[0.08em] text-[#968F87]">Selected VAT control</div><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className="text-[10px] font-semibold">{selected.title}</span><span className={`rounded-md border px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.06em] ${selected.blocking ? "border-red-700/15 bg-red-50 text-red-800" : "border-amber-700/15 bg-amber-50 text-amber-900"}`}>{selected.blocking ? "Blocking" : "Review only"}</span></div><div className="mt-0.5 text-[8px] text-[#918B83]">{selected.code}</div></div>
-        <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase tracking-[0.08em] text-[#968F87]">{selected.blocking ? "Next required action" : "Review action"}</div><div className="mt-1 text-[9px] leading-4 text-[#4E4943]">{selected.next_action}</div></div>
-        <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase tracking-[0.08em] text-[#968F87]">Resolution proof</div><div className="mt-1 text-[9px] leading-4 text-[#4E4943]">{selected.resolution_rule}</div></div>
-      </div> : null}
-
-      {evidenceState.error ? <div className="m-3 rounded-lg border border-red-700/15 bg-red-50 p-2.5 text-[9px] text-red-800">{evidenceState.error}</div> : null}
-      {evidenceState.loading && !body ? <div className="p-4 text-[9px] text-[#817B73]">Re-evaluating full filing population…</div> : null}
-
-      {body ? <>
-        <div className="flex flex-col gap-2 border-b border-black/[0.07] px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between"><div className="text-[8px] text-[#817B73]"><strong className="text-[#5F5952]">{population?.complete ? "Complete live population" : "Governed context evidence"}</strong> · showing {first}–{last} of {population?.total || 0} · source {String(body.source || "").replaceAll("_", " ").toLowerCase()}</div><div className="flex items-center gap-1.5"><button type="button" disabled={offset <= 0 || evidenceState.loading} onClick={() => loadEvidence(selectedCode, Math.max(0, offset - pageSize))} className="inline-flex h-7 items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 text-[8px] font-semibold disabled:opacity-30"><ChevronLeft size={9}/> Previous</button><button type="button" disabled={!population?.has_more || evidenceState.loading} onClick={() => loadEvidence(selectedCode, offset + pageSize)} className="inline-flex h-7 items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 text-[8px] font-semibold disabled:opacity-30">Next <ChevronRight size={9}/></button></div></div>
-        <div className="space-y-2 bg-[#FAF9F7] p-3">{body.issues?.length ? body.issues.map((issue, index) => <EvidenceRecord key={`${issue.code}:${issue.source_id || "context"}:${issue.tax_line?.id || index}`} issue={issue} onOpenCalendar={openCalendar}/>) : <div className="flex items-start gap-2 rounded-lg border border-emerald-700/15 bg-emerald-50 p-3 text-[9px] text-emerald-800"><ShieldCheck size={12} className="mt-0.5"/><div><b>No evidence row remains for this blocker page.</b> Refresh live Tax truth; the dependency may have changed while the inspector was open.</div></div>}</div>
-        <div className="border-t border-black/[0.07] bg-white px-3.5 py-2.5 text-[8px] leading-4 text-[#817B73]">Resolution authority remains live Tax preflight only. Evidence inspection is read-only; it cannot post, recode, alter FX, update a VAT rule, recalculate VAT, complete work, or mutate Business Context. It also cannot set or approve a VAT registration reference.</div>
-      </> : null}
-    </div>
-  </section>;
+  return <section className="mx-auto mt-3 max-w-[1760px] px-4 sm:px-5 lg:px-6"><div className="overflow-hidden rounded-xl border border-black/[0.07] bg-white text-[#2A2723]"><div className="flex items-start justify-between gap-3 border-b p-3.5"><div><div className="flex items-center gap-2"><span className="inline-flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-[#9A7045]"><FileSearch2 size={11}/> VAT evidence trace</span><span className="rounded-md border bg-[#F7F6F3] px-2 py-1 text-[7px] font-semibold uppercase text-[#716B63]">Read only · full population</span></div><div className="mt-1 text-[12px] font-semibold">Start with the VAT control, then trace it to exact governed evidence.</div><div className="mt-1 text-[9px] text-[#817B73]">Choose the live VAT control below. Avantiqo rebuilds the complete filing population or reuses governed registration, VAT-rule, statutory and calculation context, and keeps the legal entity and filing context fixed while you inspect the evidence. Viewing evidence never switches Business Context.</div></div><button type="button" onClick={loadGuidance} className="inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[9px] font-semibold"><RefreshCw size={10}/> Refresh truth</button></div>{guidanceState.error ? <div className="m-3 text-[9px] text-red-800">{guidanceState.error}</div> : null}<div className="grid gap-px border-b bg-black/[0.05] lg:grid-cols-3"><div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase text-[#9A7045]">1 · VAT control</div><div className="mt-1 text-[10px] font-semibold">Choose what needs proof</div></div><div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase text-[#9A7045]">2 · Source population</div><div className="mt-1 text-[10px] font-semibold">Review every affected record</div></div><div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase text-[#9A7045]">3 · Exact source</div><div className="mt-1 text-[10px] font-semibold">Open the governing evidence</div></div></div><EvidenceControlSelector dependencies={dependencies} selectedCode={selectedCode} onSelect={setSelectedCode}/>{selected ? <div className="grid gap-px border-b bg-black/[0.05] lg:grid-cols-3"><div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase text-[#968F87]">Selected VAT control</div><div className="mt-1 text-[10px] font-semibold">{selected.title} · {selected.blocking ? "Blocking" : "Review only"}</div></div><div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase text-[#968F87]">{selected.blocking ? "Next required action" : "Review action"}</div><div className="mt-1 text-[9px]">{selected.next_action}</div></div><div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase text-[#968F87]">Resolution proof</div><div className="mt-1 text-[9px]">{selected.resolution_rule}</div></div></div> : null}{evidenceState.error ? <div className="m-3 text-[9px] text-red-800">{evidenceState.error}</div> : null}{body ? <><div className="flex items-center justify-between border-b px-3.5 py-2.5"><div className="text-[8px] text-[#817B73]"><strong>Complete live population</strong> · showing {first}–{last} of {population?.total || 0}</div><div className="flex gap-1.5"><button type="button" disabled={offset <= 0 || evidenceState.loading} onClick={() => loadEvidence(selectedCode, Math.max(0, offset - pageSize))} className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[8px] font-semibold"><ChevronLeft size={9}/> Previous</button><button type="button" disabled={!population?.has_more || evidenceState.loading} onClick={() => loadEvidence(selectedCode, offset + pageSize)} className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[8px] font-semibold">Next <ChevronRight size={9}/></button></div></div><div className="space-y-2 bg-[#FAF9F7] p-3">{body.issues?.length ? body.issues.map((issue, index) => <EvidenceRecord key={`${issue.code}:${issue.source_id || "context"}:${index}`} issue={issue} onOpenCalendar={openCalendar}/>) : <div className="flex items-start gap-2 rounded-lg border border-emerald-700/15 bg-emerald-50 p-3 text-[9px] text-emerald-800"><ShieldCheck size={12}/><div><b>No evidence row remains for this blocker page.</b></div></div>}</div><div className="border-t px-3.5 py-2.5 text-[8px] text-[#817B73]">Resolution authority remains live Tax preflight only. Evidence inspection is read-only; it cannot post, recode, alter FX, update a VAT rule, recalculate VAT, complete work, or mutate Business Context. It also cannot set or approve a VAT registration reference.</div></> : null}</div></section>;
 }

@@ -39,21 +39,7 @@ test("Transaction blocker evidence is re-evaluated across the full filing popula
 });
 
 test("Tax evidence runtime mirrors governed sales, purchase, FX and duplicate predicates", () => {
-  for (const marker of [
-    "OUTPUT_TAX_CODE_MISSING",
-    "OUTPUT_TAX_CODE_UNRESOLVED",
-    "OUTPUT_VAT_RULE_NOT_EFFECTIVE",
-    "OUTPUT_NOT_POSTED",
-    "OUTPUT_POSTING_REVERSED",
-    "INPUT_TAX_CODE_MISSING",
-    "INPUT_TAX_CODE_UNRESOLVED",
-    "INPUT_VAT_RULE_NOT_EFFECTIVE",
-    "INPUT_NOT_APPROVED_POSTED",
-    "INPUT_POSTING_REVERSED",
-    "OUTPUT_EXCHANGE_RATE_MISSING",
-    "INPUT_EXCHANGE_RATE_MISSING",
-    "POTENTIAL_DUPLICATE_VENDOR_INVOICE",
-  ]) {
+  for (const marker of ["OUTPUT_TAX_CODE_MISSING","OUTPUT_TAX_CODE_UNRESOLVED","OUTPUT_VAT_RULE_NOT_EFFECTIVE","OUTPUT_NOT_POSTED","OUTPUT_POSTING_REVERSED","INPUT_TAX_CODE_MISSING","INPUT_TAX_CODE_UNRESOLVED","INPUT_VAT_RULE_NOT_EFFECTIVE","INPUT_NOT_APPROVED_POSTED","INPUT_POSTING_REVERSED","OUTPUT_EXCHANGE_RATE_MISSING","INPUT_EXCHANGE_RATE_MISSING","POTENTIAL_DUPLICATE_VENDOR_INVOICE"]) {
     assert.match(preflight, new RegExp(marker));
     assert.match(runtime, new RegExp(marker));
   }
@@ -189,6 +175,34 @@ test("Registration reference blocker proves exact live filing and legal-entity c
   assert.match(rail, /!calendarEvidence && !calculationEvidence && !registrationEvidence/);
   assert.match(rail, /onStageChange\("RETURN"\)/);
   assert.doesNotMatch(rail, /Mark registration reviewed|Acknowledge registration|Resolve registration/);
+});
+
+test("VAT rule blocker exposes exact filing scope and governed rule configuration without becoming a second coverage authority", () => {
+  assert.match(preflight, /const periodVatRules = context\.rules\.filter/);
+  assert.match(preflight, /const missingRules = periodVatRules\.length === 0/);
+  assert.match(preflight, /No active VAT rule covers/);
+  assert.match(route, /loadFinanceTaxWorkspaceSetup/);
+  assert.match(route, /dependencyCode === "VAT_RULES"/);
+  assert.match(route, /function buildVatRuleEvidence/);
+  assert.match(route, /covering_rule_count: coveringRules\.length/);
+  assert.match(route, /configured_active_rule_count: activeRules\.length/);
+  assert.match(route, /active_jurisdiction_rule_count: activeJurisdictionRuleCount/);
+  assert.match(route, /coverage_authority: FINANCE_TAX_EVIDENCE_RESOLUTION_AUTHORITY/);
+  assert.match(route, /vat_rule_evidence: upper\(item\?\.source_type\) === "VAT_RULE_CONTEXT" \? governedVatRuleEvidence : null/);
+  assert.match(rail, /function VatRuleReview\(\{ evidence, issue \}\)/);
+  assert.match(rail, /VAT rule coverage proof/);
+  assert.match(rail, /Exact filing jurisdiction and governed rule coverage/);
+  assert.match(rail, /does not create a second coverage authority/);
+  assert.match(rail, /Rules covering period/);
+  assert.match(rail, /Active VAT configuration/);
+  assert.match(rail, /Same jurisdiction, outside filing-period coverage/);
+  assert.match(rail, /Different jurisdiction/);
+  assert.match(rail, /Evidence cannot activate, edit or approve a tax rule/);
+  assert.match(rail, /Blocking · only live Tax preflight can clear VAT rule coverage\./);
+  assert.match(rail, /Fix governed Tax Codes/);
+  assert.match(rail, /<VatRuleReview evidence=\{vatRuleEvidence\} issue=\{issue\}\/>/);
+  assert.match(rail, /!vatRuleEvidence/);
+  assert.doesNotMatch(rail, /Mark VAT rule reviewed|Acknowledge VAT rule|Resolve VAT rule/);
 });
 
 test("Evidence drilldown is organization-scoped, read-only and cannot mutate Business Context", () => {

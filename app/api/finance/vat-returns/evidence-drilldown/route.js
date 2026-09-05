@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
-import { buildFinanceVatReturnPreflight } from "@/lib/finance/tax/FinanceVatReturnPreflight";
+import { buildFinanceVatReturnPreflight, loadFinanceTaxWorkspaceSetup } from "@/lib/finance/tax/FinanceVatReturnPreflight";
 import { applyFinanceTaxCalendarToPreflight } from "@/lib/finance/tax/FinanceTaxCalendarPolicy";
 import { applyFinanceVatCalculationMethodToPreflight } from "@/lib/finance/tax/FinanceVatCalculationMethodPolicy";
 import { deriveFinanceTaxCloseGuidance } from "@/lib/finance/tax/FinanceTaxCloseGuidancePolicy";
@@ -102,6 +102,61 @@ function attachDuplicateCandidateNavigation({ organizationId, entityId, vatRetur
         source_navigation: duplicateCandidateNavigation({ organizationId, entityId, vatReturnId, record }),
       })),
     },
+  };
+}
+
+function buildTaxRuleConfigurationHref({ organizationId, entityId, vatReturnId }) {
+  const params = new URLSearchParams();
+  params.set("focusEntityId", entityId);
+  params.set("source", "tax-evidence");
+  params.set("returnVatReturnId", vatReturnId);
+  params.set("returnTo", `/workspace/${organizationId}/finance`);
+  return `/workspace/${organizationId}/finance/tax-codes?${params.toString()}`;
+}
+
+function taxRuleCandidateNavigation({ organizationId, entityId, vatReturnId, ruleId }) {
+  if (!ruleId) return null;
+  return buildFinanceTaxSourceNavigation({
+    organizationId,
+    entityId,
+    vatReturnId,
+    target: { workspace: "tax_rules", record_id: ruleId, context_mutation_allowed: false },
+    returnPath: `/workspace/${organizationId}/finance`,
+  });
+}
+
+function buildVatRuleEvidence({ current, setup, organizationId, entityId, vatReturnId }) {
+  if (!setup) return null;
+  const filing = current?.return || {};
+  const jurisdiction = upper(filing.jurisdiction_code);
+  const coveringRules = Array.isArray(current?.vat_rules) ? current.vat_rules : [];
+  const coveringRuleIds = new Set(coveringRules.map(rule => clean(rule?.id)).filter(Boolean));
+  const activeRules = Array.isArray(setup?.vat_rules) ? setup.vat_rules : [];
+  const activeJurisdictionRuleCount = activeRules.filter(rule => upper(rule?.tax_regime) === jurisdiction).length;
+
+  return {
+    jurisdiction_code: filing.jurisdiction_code || null,
+    period_start: filing.period_start || null,
+    period_end: filing.period_end || null,
+    covering_rule_count: coveringRules.length,
+    configured_active_rule_count: activeRules.length,
+    active_jurisdiction_rule_count: activeJurisdictionRuleCount,
+    configured_regimes: Array.isArray(setup?.vat_regimes) ? setup.vat_regimes : [],
+    coverage_authority: FINANCE_TAX_EVIDENCE_RESOLUTION_AUTHORITY,
+    configuration_href: buildTaxRuleConfigurationHref({ organizationId, entityId, vatReturnId }),
+    rules: activeRules.map(rule => ({
+      id: rule.id || null,
+      tax_code: rule.tax_code || null,
+      tax_name: rule.tax_name || null,
+      tax_rate: numberOrNull(rule.tax_rate),
+      tax_regime: rule.tax_regime || null,
+      effective_from: rule.effective_from || null,
+      effective_to: rule.effective_to || null,
+      inherited: rule.inherited === true,
+      matching_jurisdiction: upper(rule.tax_regime) === jurisdiction,
+      covers_filing_period: coveringRuleIds.has(clean(rule.id)),
+      source_navigation: taxRuleCandidateNavigation({ organizationId, entityId, vatReturnId, ruleId: rule.id }),
+    })),
   };
 }
 
@@ -212,6 +267,9 @@ export async function GET(request) {
     const guidance = deriveFinanceTaxCloseGuidance(current);
     const dependency = (guidance?.dependencies || []).find(item => upper(item?.code) === dependencyCode);
     if (!dependency) throw new Error("Tax dependency is no longer active in live accounting truth");
+    const vatRuleSetup = dependencyCode === "VAT_RULES"
+      ? await loadFinanceTaxWorkspaceSetup({ organizationId: access.organizationId, entityId })
+      : null;
 
     let issues;
     let population;
@@ -244,6 +302,13 @@ export async function GET(request) {
 
     const governedCalendarEvidence = buildCalendarEvidence(current);
     const governedCalculationEvidence = buildCalculationEvidence(current);
+    const governedVatRuleEvidence = buildVatRuleEvidence({
+      current,
+      setup: vatRuleSetup,
+      organizationId: access.organizationId,
+      entityId,
+      vatReturnId,
+    });
     issues = issues.map(rawItem => {
       const item = attachDuplicateCandidateNavigation({
         organizationId: access.organizationId,
@@ -255,6 +320,7 @@ export async function GET(request) {
         ...item,
         calendar_evidence: upper(item?.source_type) === "TAX_CALENDAR_CONTEXT" ? governedCalendarEvidence : null,
         calculation_evidence: upper(item?.source_type) === "VAT_CALCULATION_CONTEXT" ? governedCalculationEvidence : null,
+        vat_rule_evidence: upper(item?.source_type) === "VAT_RULE_CONTEXT" ? governedVatRuleEvidence : null,
         source_navigation: exactSourceNavigation({
           organizationId: access.organizationId,
           entityId,

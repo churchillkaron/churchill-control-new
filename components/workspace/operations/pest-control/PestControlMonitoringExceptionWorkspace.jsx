@@ -55,7 +55,7 @@ export default function PestControlMonitoringExceptionWorkspace({ organizationId
       setMessage(action === "create_corrective_action"
         ? "Corrective action created. Assign and start it in Operations before follow-up work can be created."
         : action === "create_follow_up_work"
-          ? "Follow-up work order created as a governed draft. Assign, release and execute it through Operations."
+          ? "Follow-up work created. Open Work Control to continue with the exact linked work order."
           : "Corrective action verified complete against the newer healthy monitoring check.");
       await load();
     } catch (error) {
@@ -67,7 +67,7 @@ export default function PestControlMonitoringExceptionWorkspace({ organizationId
 
   const rows = state.data?.rows || [];
   const metrics = state.data?.metrics || {};
-  const workOrdersHref = `/workspace/${encodeURIComponent(organizationId)}/operations/work-orders`;
+  const workControlBase = `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/work-control`;
   const correctiveHref = `/workspace/${encodeURIComponent(organizationId)}/operations/corrective-actions`;
   const scanHref = `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/monitoring-points/scan`;
 
@@ -97,6 +97,9 @@ export default function PestControlMonitoringExceptionWorkspace({ organizationId
             const verification = corrective?.verification;
             const [verificationLabel, verificationDetail] = verificationCopy(verification?.state);
             const actionStarted = corrective?.status === "in_progress";
+            const workControlHref = workOrder?.id
+              ? `${workControlBase}?workOrderId=${encodeURIComponent(workOrder.id)}`
+              : workControlBase;
             return (
               <article key={row.point_id} className="rounded-2xl border border-black/[0.07] bg-white p-5">
                 <div className="flex flex-wrap justify-between gap-3">
@@ -148,7 +151,7 @@ export default function PestControlMonitoringExceptionWorkspace({ organizationId
                       <div className="rounded-xl border border-[#748267]/18 bg-[#748267]/[0.04] p-3.5">
                         <div className="flex items-center justify-between gap-2 text-[9px]"><span className="font-medium text-[#607057]">Follow-up work</span><span className="text-[#607057]">{workOrder.status}</span></div>
                         <div className="mt-1 text-[8px] text-[#7F8878]">Governed by normal assignment, release, execution and completion controls.</div>
-                        <Link href={workOrdersHref} className="mt-2 inline-flex items-center gap-1 text-[8px] font-medium text-[#6B5947]">Open work orders <ArrowRight size={9} /></Link>
+                        <Link href={workControlHref} className="mt-2 inline-flex items-center gap-1 text-[8px] font-medium text-[#6B5947]">Open exact work <ArrowRight size={9} /></Link>
                       </div>
                     ) : null}
 

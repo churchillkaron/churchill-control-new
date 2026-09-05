@@ -55,6 +55,13 @@
       "creative_intent": "Real kitchen team under service pressure, used around the generated food beauty shot that already passed quality review."
     },
     {
+      "id": "07-restaurant-operator",
+      "role": "business_partner_decision",
+      "page_url": "https://www.pexels.com/video/woman-opening-a-restaurant-6211508/",
+      "download_url": "https://www.pexels.com/download/video/6211508/",
+      "creative_intent": "Real hospitality operator preparing a restaurant before service, used to carry the Business Partner decision beat without a generated hero face."
+    },
+    {
       "id": "09-evening-experience",
       "role": "creative_campaign_real_world",
       "page_url": "https://www.pexels.com/video/a-waiter-approaching-his-guests-8921931/",

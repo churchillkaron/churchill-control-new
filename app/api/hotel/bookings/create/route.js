@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { checkAvailability } from "@/lib/hotel/checkAvailability";
+import { getGroupInventoryProtection, getOwnGroupBlockCapacity } from "@/lib/hotel/getGroupInventoryProtection";
 import { MarketingAttributionCaptureRuntime } from "@/lib/marketing/intelligence/MarketingAttributionCaptureRuntime";
 import { MarketingBusinessOutcomeProjectionRuntime } from "@/lib/marketing/intelligence/MarketingBusinessOutcomeProjectionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
@@ -45,6 +46,7 @@ export async function POST(request) {
     if (roomError) throw roomError;
     if (!room) return errorResponse("Room not found", 404);
     if (!room.property_id) return errorResponse("Room must be bound to a hotel property before it can be reserved", 409);
+    if (String(room.status || "").toUpperCase() === "OUT_OF_SERVICE") return errorResponse("Out-of-service rooms cannot be reserved", 409);
 
     if (guestId) {
       const { data: guest, error: guestError } = await supabaseAdmin
@@ -57,17 +59,19 @@ export async function POST(request) {
       if (!guest) return errorResponse("Guest not found", 404);
     }
 
+    let group = null;
     if (groupId) {
-      const { data: group, error: groupError } = await supabaseAdmin
+      const { data, error: groupError } = await supabaseAdmin
         .from("hotel_groups")
-        .select("id,property_id,status")
+        .select("id,property_id,status,block_mode")
         .eq("id", groupId)
         .eq("organization_id", access.organizationId)
         .maybeSingle();
       if (groupError) throw groupError;
+      group = data;
       if (!group) return errorResponse("Group not found", 404);
       if (group.property_id !== room.property_id) return errorResponse("Group and room belong to different properties", 409);
-      if (["CANCELLED", "LOST", "CLOSED"].includes(String(group.status || "").toUpperCase())) return errorResponse("Group is not open for reservation pickup", 409);
+      if (["CANCELLED", "LOST", "COMPLETED"].includes(String(group.status || "").toUpperCase())) return errorResponse("Group is not open for reservation pickup", 409);
     }
 
     if (ratePlanId) {
@@ -90,6 +94,55 @@ export async function POST(request) {
       organizationId: access.organizationId,
     });
     if (!isAvailable) return errorResponse("Room is not available for the selected dates", 409);
+
+    const protection = await getGroupInventoryProtection({
+      supabase: supabaseAdmin,
+      organizationId: access.organizationId,
+      propertyId: room.property_id,
+      checkInDate,
+      checkOutDate,
+      excludeGroupId: groupId,
+    });
+
+    const [{ data: sameTypeRooms, error: sameTypeRoomsError }, { data: overlappingBookings, error: overlappingBookingsError }] = await Promise.all([
+      supabaseAdmin
+        .from("hotel_rooms")
+        .select("id")
+        .eq("organization_id", access.organizationId)
+        .eq("property_id", room.property_id)
+        .eq("room_type", room.room_type)
+        .neq("status", "OUT_OF_SERVICE"),
+      supabaseAdmin
+        .from("hotel_bookings")
+        .select("room_id")
+        .eq("organization_id", access.organizationId)
+        .eq("property_id", room.property_id)
+        .in("status", ["RESERVED", "CHECKED_IN"])
+        .lt("check_in_date", checkOutDate)
+        .gt("check_out_date", checkInDate),
+    ]);
+    if (sameTypeRoomsError) throw sameTypeRoomsError;
+    if (overlappingBookingsError) throw overlappingBookingsError;
+
+    const sameTypeIds = new Set((sameTypeRooms || []).map((candidate) => candidate.id));
+    const occupiedSameType = new Set((overlappingBookings || []).map((booking) => booking.room_id).filter((id) => sameTypeIds.has(id)));
+    const freeWholeStay = Math.max(0, sameTypeIds.size - occupiedSameType.size);
+    const protectedForOtherGroups = Number(protection.withheldByRoomType?.[room.room_type] || 0);
+    if (freeWholeStay <= protectedForOtherGroups) {
+      return errorResponse(`${room.room_type} inventory is protected for active group blocks across these dates`, 409);
+    }
+
+    if (groupId) {
+      const ownBlock = getOwnGroupBlockCapacity({
+        remainingBlocks: protection.remainingBlocks,
+        groupId,
+        roomType: room.room_type,
+        dates: protection.dates,
+      });
+      if (ownBlock.hasDeductBlock && (!ownBlock.complete || ownBlock.minRemaining < 1)) {
+        return errorResponse(`The ${room.room_type} group block has no remaining pickup capacity for the full stay`, 409);
+      }
+    }
 
     const { data, error } = await supabaseAdmin
       .from("hotel_bookings")

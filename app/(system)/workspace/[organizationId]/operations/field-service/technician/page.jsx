@@ -3,17 +3,21 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 import PestControlTechnicianCockpit from "@/components/workspace/operations/pest-control/PestControlTechnicianCockpit";
+import PestControlTreatmentReadinessBanner from "@/components/workspace/operations/pest-control/PestControlTreatmentReadinessBanner";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 import { organizationHasIndustrySolution } from "@/lib/platform/solutions/OrganizationIndustrySolutionResolver";
 
 export default function PestControlTechnicianPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { organization, loading } = useOrganizationRuntime();
   const organizationId = params?.organizationId || organization?.id || "";
+  const occurrenceId = searchParams?.get("occurrenceId") || "";
+  const workOrderId = searchParams?.get("workOrderId") || "";
 
   const isPestControl = useMemo(() => organizationHasIndustrySolution({
     organization,
@@ -34,5 +38,10 @@ export default function PestControlTechnicianPage() {
     return <div className="min-h-[420px] bg-[#F7F6F3] p-8 text-sm text-[#77736C]">Opening the installed Operations workspace...</div>;
   }
 
-  return <PestControlTechnicianCockpit organizationId={organizationId} />;
+  return (
+    <>
+      <PestControlTreatmentReadinessBanner organizationId={organizationId} occurrenceId={occurrenceId} workOrderId={workOrderId} />
+      <PestControlTechnicianCockpit organizationId={organizationId} />
+    </>
+  );
 }

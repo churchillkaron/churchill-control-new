@@ -47,3 +47,4 @@ jobs:
           git add lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js
           git commit -m "feat(intelligence): enforce released knowledge authenticity"
           git push origin HEAD:main
+# Triggered after registration on main.

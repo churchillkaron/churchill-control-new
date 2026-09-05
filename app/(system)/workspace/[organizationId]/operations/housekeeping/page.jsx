@@ -2,141 +2,36 @@
 
 export const dynamic = "force-dynamic";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import { useParams, useRouter } from "next/navigation";
-import {
-  CheckCircle2,
-  Clock3,
-  LoaderCircle,
-  Play,
-  RefreshCw,
-  Sparkles,
-} from "lucide-react";
-import PageWrapper from "@/components/PageWrapper";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { CheckCircle2, Play, RefreshCw } from "lucide-react";
 
-const STATUS_ORDER = Object.freeze([
-  "PENDING",
-  "IN_PROGRESS",
-  "COMPLETED",
-]);
+import {
+  HotelEmptyState,
+  HotelError,
+  HotelMetric,
+  HotelPrimaryAction,
+  HotelSecondaryAction,
+  HotelSection,
+  HotelStatusPill,
+  HotelWorkspaceShell,
+  hotelWorkspaceHref,
+} from "@/components/workspace/hotel/HotelWorkspaceUI";
+
+const STATUS_ORDER = Object.freeze(["PENDING", "IN_PROGRESS", "COMPLETED"]);
 
 function normalizeStatus(task) {
-  return String(
-    task?.task_status || "PENDING"
-  ).toUpperCase();
-}
-
-function statusLabel(status) {
-  if (status === "IN_PROGRESS") return "In progress";
-  if (status === "COMPLETED") return "Completed";
-  return "Pending";
-}
-
-function statusClass(status) {
-  if (status === "COMPLETED") {
-    return "border-emerald-400/20 bg-emerald-400/10 text-emerald-200";
-  }
-
-  if (status === "IN_PROGRESS") {
-    return "border-amber-400/20 bg-amber-400/10 text-amber-100";
-  }
-
-  return "border-white/10 bg-white/[0.04] text-white/55";
+  return String(task?.task_status || "PENDING").toUpperCase();
 }
 
 function roomLabel(task) {
   const room = task?.hotel_rooms;
-
-  return (
-    room?.room_number ||
-    room?.name ||
-    task?.room_id ||
-    "Unassigned room"
-  );
-}
-
-function TaskCard({
-  task,
-  busy,
-  onTransition,
-}) {
-  const status = normalizeStatus(task);
-  const room = task?.hotel_rooms || {};
-
-  return (
-    <article className="rounded-[26px] border border-white/10 bg-black/25 p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-[#D6A66A]">
-            {task?.task_type || "Housekeeping"}
-          </p>
-          <h3 className="mt-2 text-2xl font-semibold">
-            Room {roomLabel(task)}
-          </h3>
-          <p className="mt-1 text-sm text-white/40">
-            {room?.room_type || "Room service task"}
-          </p>
-        </div>
-
-        <span className={`rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${statusClass(status)}`}>
-          {statusLabel(status)}
-        </span>
-      </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3">
-          <div className="text-xs text-white/35">Room state</div>
-          <div className="mt-1 font-medium">
-            {room?.status || "Unknown"}
-          </div>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3">
-          <div className="text-xs text-white/35">Scheduled</div>
-          <div className="mt-1 font-medium">
-            {task?.scheduled_at
-              ? new Date(task.scheduled_at).toLocaleString()
-              : "Not scheduled"}
-          </div>
-        </div>
-      </div>
-
-      {status === "PENDING" ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onTransition(task.id, "START")}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#D6A66A] py-3.5 text-sm font-semibold text-black disabled:opacity-35"
-        >
-          {busy ? <LoaderCircle size={17} className="animate-spin" /> : <Play size={17} />}
-          Start Cleaning
-        </button>
-      ) : null}
-
-      {status === "IN_PROGRESS" ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onTransition(task.id, "COMPLETE")}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-300 py-3.5 text-sm font-semibold text-black disabled:opacity-35"
-        >
-          {busy ? <LoaderCircle size={17} className="animate-spin" /> : <CheckCircle2 size={17} />}
-          Complete and Release Room
-        </button>
-      ) : null}
-    </article>
-  );
+  return room?.room_number || room?.name || task?.room_id || "Unassigned room";
 }
 
 export default function OperationsHousekeepingPage() {
   const params = useParams();
-  const router = useRouter();
   const organizationId = params?.organizationId || null;
-
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -145,196 +40,82 @@ export default function OperationsHousekeepingPage() {
 
   const loadTasks = useCallback(async ({ silent = false } = {}) => {
     if (!organizationId) return;
-
-    if (silent) setRefreshing(true);
-    else setLoading(true);
-
+    if (silent) setRefreshing(true); else setLoading(true);
     setError(null);
-
     try {
-      const response = await fetch(
-        `/api/hotel/housekeeping/list?organizationId=${encodeURIComponent(organizationId)}`,
-        {
-          cache: "no-store",
-          credentials: "include",
-        }
-      );
+      const response = await fetch(`/api/hotel/housekeeping/list?organizationId=${encodeURIComponent(organizationId)}`, { cache: "no-store", credentials: "include" });
       const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.error ||
-          "Unable to load housekeeping tasks"
-        );
-      }
-
+      if (!response.ok || result.success === false) throw new Error(result.error || "Unable to load housekeeping tasks");
       setTasks(result.tasks || []);
     } catch (loadError) {
-      setError(
-        loadError?.message ||
-        "Unable to load housekeeping tasks"
-      );
+      setError(loadError?.message || "Unable to load housekeeping tasks");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoading(false); setRefreshing(false);
     }
   }, [organizationId]);
 
-  useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+  useEffect(() => { loadTasks(); }, [loadTasks]);
 
-  const groupedTasks = useMemo(() => {
-    return Object.fromEntries(
-      STATUS_ORDER.map((status) => [
-        status,
-        tasks.filter(
-          (task) => normalizeStatus(task) === status
-        ),
-      ])
-    );
-  }, [tasks]);
+  const groupedTasks = useMemo(() => Object.fromEntries(STATUS_ORDER.map((taskStatus) => [taskStatus, tasks.filter((task) => normalizeStatus(task) === taskStatus)])), [tasks]);
 
   async function transition(taskId, action) {
     if (!organizationId || !taskId) return;
-
-    setBusyTaskId(taskId);
-    setError(null);
-
+    setBusyTaskId(taskId); setError(null);
     try {
-      const response = await fetch(
-        "/api/hotel/housekeeping/update",
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            organizationId,
-            taskId,
-            action,
-          }),
-        }
-      );
+      const response = await fetch("/api/hotel/housekeeping/update", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId, taskId, action }),
+      });
       const result = await response.json();
-
-      if (!response.ok || result.success === false) {
-        throw new Error(
-          result.error ||
-          "Housekeeping transition failed"
-        );
-      }
-
+      if (!response.ok || result.success === false) throw new Error(result.error || "Housekeeping transition failed");
       await loadTasks({ silent: true });
     } catch (transitionError) {
-      setError(
-        transitionError?.message ||
-        "Housekeeping transition failed"
-      );
-    } finally {
-      setBusyTaskId(null);
-    }
+      setError(transitionError?.message || "Housekeeping transition failed");
+    } finally { setBusyTaskId(null); }
   }
 
+  const activeTasks = [...(groupedTasks.PENDING || []), ...(groupedTasks.IN_PROGRESS || [])];
+
   return (
-    <PageWrapper
+    <HotelWorkspaceShell
+      organizationId={organizationId}
+      active="housekeeping"
       title="Housekeeping"
-      subtitle="Turn checked-out rooms back into available inventory"
+      subtitle="Turn room turnover into ready inventory with a visible handoff from pending work to cleaning to released room."
+      actions={<>
+        <HotelPrimaryAction href={hotelWorkspaceHref(organizationId, "front-desk")}>Front Desk</HotelPrimaryAction>
+        <HotelSecondaryAction onClick={() => loadTasks({ silent: true })} disabled={refreshing}><RefreshCw size={9} className={refreshing ? "animate-spin" : ""} />Refresh</HotelSecondaryAction>
+      </>}
     >
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          <div className="rounded-xl border border-white/10 bg-black/25 px-4 py-2 text-xs text-white/55">
-            Pending {groupedTasks.PENDING?.length || 0}
-          </div>
-          <div className="rounded-xl border border-amber-400/15 bg-amber-400/5 px-4 py-2 text-xs text-amber-100">
-            In progress {groupedTasks.IN_PROGRESS?.length || 0}
-          </div>
-          <div className="rounded-xl border border-emerald-400/15 bg-emerald-400/5 px-4 py-2 text-xs text-emerald-200">
-            Completed {groupedTasks.COMPLETED?.length || 0}
-          </div>
-        </div>
+      <HotelError>{error}</HotelError>
 
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => router.push(`/workspace/${organizationId}/operations/front-desk`)}
-            className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60"
-          >
-            Front Desk
-          </button>
-          <button
-            type="button"
-            disabled={refreshing}
-            onClick={() => loadTasks({ silent: true })}
-            className="flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60 disabled:opacity-35"
-          >
-            <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
-            Refresh
-          </button>
-        </div>
-      </div>
+      <section className="grid grid-cols-3 gap-3">
+        <HotelMetric label="Pending" value={groupedTasks.PENDING?.length || 0} detail="Waiting to be started" attention={(groupedTasks.PENDING?.length || 0) > 0} />
+        <HotelMetric label="In progress" value={groupedTasks.IN_PROGRESS?.length || 0} detail="Rooms being turned" attention={(groupedTasks.IN_PROGRESS?.length || 0) > 0} />
+        <HotelMetric label="Completed" value={groupedTasks.COMPLETED?.length || 0} detail="Released tasks" />
+      </section>
 
-      {error ? (
-        <div className="mb-6 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
-          {error}
-        </div>
-      ) : null}
-
-      {loading ? (
-        <div className="flex min-h-64 items-center justify-center rounded-[30px] border border-white/10 bg-white/[0.025] text-white/40">
-          <LoaderCircle className="mr-2 animate-spin" size={18} />
-          Loading housekeeping tasks...
-        </div>
-      ) : (
-        <div className="grid gap-6 xl:grid-cols-3">
-          {STATUS_ORDER.map((status) => {
-            const statusTasks = groupedTasks[status] || [];
-            const Icon =
-              status === "COMPLETED"
-                ? CheckCircle2
-                : status === "IN_PROGRESS"
-                  ? Sparkles
-                  : Clock3;
-
-            return (
-              <section
-                key={status}
-                className="rounded-[30px] border border-white/10 bg-white/[0.025] p-5"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon size={18} className="text-[#D6A66A]" />
-                    <h2 className="font-semibold">
-                      {statusLabel(status)}
-                    </h2>
-                  </div>
-                  <span className="text-sm text-white/35">
-                    {statusTasks.length}
-                  </span>
+      <HotelSection eyebrow="Room turnover" title="Active housekeeping work" detail="Pending rooms first, then work already in progress. Completion is the room-release handoff.">
+        {loading ? <HotelEmptyState>Loading housekeeping…</HotelEmptyState> : activeTasks.length ? (
+          <div className="divide-y divide-black/[0.055]">
+            <div className="hidden grid-cols-[120px_minmax(160px,1fr)_140px_140px_130px] gap-3 bg-[#FCFBF8] px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#969087] md:grid"><span>Room</span><span>Task</span><span>Room state</span><span>Status</span><span>Next move</span></div>
+            {activeTasks.map((task) => {
+              const taskStatus = normalizeStatus(task);
+              const room = task?.hotel_rooms || {};
+              const busy = busyTaskId === task.id;
+              return (
+                <div key={task.id} className="grid gap-2 px-4 py-3 md:grid-cols-[120px_minmax(160px,1fr)_140px_140px_130px] md:items-center md:gap-3 md:px-5">
+                  <div className="text-[10px] font-semibold text-[#403C37]">{roomLabel(task)}</div>
+                  <div><div className="text-[8px] font-semibold text-[#5F5952]">{task?.task_type || "Room turnover"}</div><div className="mt-0.5 text-[7px] text-[#9A948B]">{task?.scheduled_at ? new Date(task.scheduled_at).toLocaleString() : "No scheduled time"}</div></div>
+                  <HotelStatusPill value={room?.status || "UNKNOWN"} />
+                  <HotelStatusPill value={taskStatus} />
+                  <div>{taskStatus === "PENDING" ? <HotelPrimaryAction onClick={() => transition(task.id, "START")} disabled={busy}><Play size={9} />{busy ? "Starting" : "Start"}</HotelPrimaryAction> : <HotelPrimaryAction onClick={() => transition(task.id, "COMPLETE")} disabled={busy}><CheckCircle2 size={9} />{busy ? "Releasing" : "Complete"}</HotelPrimaryAction>}</div>
                 </div>
-
-                <div className="space-y-3">
-                  {statusTasks.length ? (
-                    statusTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        busy={busyTaskId === task.id}
-                        onTransition={transition}
-                      />
-                    ))
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-white/30">
-                      No {statusLabel(status).toLowerCase()} tasks.
-                    </div>
-                  )}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      )}
-    </PageWrapper>
+              );
+            })}
+          </div>
+        ) : <HotelEmptyState>No active housekeeping tasks. Room turnover is clear.</HotelEmptyState>}
+      </HotelSection>
+    </HotelWorkspaceShell>
   );
 }

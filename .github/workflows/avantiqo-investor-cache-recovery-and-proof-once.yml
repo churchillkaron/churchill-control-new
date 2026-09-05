@@ -1,4 +1,4 @@
-# trigger: recovery-pass-4-packaged-runtime
+# trigger: recovery-pass-5-gemma-compat
 name: Avantiqo Investor Cache Recovery And Proof Once
 
 on:

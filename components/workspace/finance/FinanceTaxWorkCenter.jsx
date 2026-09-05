@@ -16,7 +16,12 @@ export default function FinanceTaxWorkCenter(props) {
 
   return (
     <>
-      <FinanceTaxPortfolioRail organizationId={props.organizationId} entityId={props.entityId} />
+      <FinanceTaxPortfolioRail
+        organizationId={props.organizationId}
+        entityId={props.entityId}
+        selectedVatReturnId={selectedVatReturnId}
+        onSelectedVatReturnIdChange={setSelectedVatReturnId}
+      />
       <FinanceTaxCalendarRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
       <FinanceTaxCloseGuidanceRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
       <FinanceTaxDependencyWorkRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />

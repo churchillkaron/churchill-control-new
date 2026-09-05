@@ -110,18 +110,23 @@ from ltx_pipelines.distilled import main
 main()
 """
 
+# Persisted Modal Functions hydrate this module from /root. Mount the sibling
+# module at the exact import location rather than relying on source discovery.
+# This is deliberately explicit because the registry-based GPU image contains
+# the LTX runtime, not Avantiqo's deployment modules.
+MODAL_APP_LOCAL_PATH = Path(__file__).resolve().with_name("modal_app.py")
+MODAL_APP_REMOTE_PATH = "/root/modal_app.py"
+
 transport_image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install("requests==2.32.4")
-    .add_local_python_source("modal_app")
+    .add_local_file(MODAL_APP_LOCAL_PATH, MODAL_APP_REMOTE_PATH)
 )
 
-# Functions defined in this module import constants/helpers from modal_app at
-# container hydration time. The base immutable LTX image intentionally contains
-# only the model runtime, so explicitly package the sibling Python module into
-# this function image as well. Without this, Modal can schedule a GPU worker but
-# the container crash-loops before inference with ModuleNotFoundError: modal_app.
-investor_ltx_worker_image = ltx_worker_image.add_local_python_source("modal_app")
+investor_ltx_worker_image = ltx_worker_image.add_local_file(
+    MODAL_APP_LOCAL_PATH,
+    MODAL_APP_REMOTE_PATH,
+)
 
 
 def _text(value: Any) -> str:

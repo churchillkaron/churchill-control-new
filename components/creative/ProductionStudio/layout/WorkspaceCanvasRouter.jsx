@@ -13,7 +13,7 @@ import TimelineWorkspace from "../workspaces/TimelineWorkspace";
 import ReviewWorkspace from "../workspaces/ReviewWorkspaceV2";
 import LearningWorkspace from "../workspaces/LearningWorkspace";
 import RenderWorkspace from "../workspaces/RenderWorkspaceV5";
-import PublishingWorkspace from "../workspaces/PublishingWorkspace";
+import PublishingWorkspace from "../workspaces/PublishingWorkspaceV2";
 import DocumentsWorkspace from "../workspaces/DocumentsWorkspace";
 
 const WORKSPACES = {

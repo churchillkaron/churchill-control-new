@@ -13,7 +13,7 @@ test("Tax evidence follows accountant VAT control to population to exact source"
   assert.match(rail, /1 · VAT control/);
   assert.match(rail, /2 · Source population/);
   assert.match(rail, /3 · Exact source/);
-  assert.match(rail, /Start with the VAT control, then trace it to the exact transaction\./);
+  assert.match(rail, /Start with the VAT control, then trace it to exact governed evidence\./);
   assert.match(rail, /Complete live population/);
   assert.match(rail, /Open exact source/);
   assert.match(rail, /Business Context stays fixed/);

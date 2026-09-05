@@ -147,7 +147,7 @@ test("FIX stage consolidates deterministic guidance and coordination into one ac
   assert.doesNotMatch(wrapper, /FinanceTaxCloseGuidanceRail/);
   assert.match(wrapper, /activeStage === "FIX" \? <>/);
   assert.match(wrapper, /<FinanceTaxDependencyWorkRail/);
-  assert.match(wrapper, /onStageChange=\{setActiveStage\}/);
+  assert.match(wrapper, /onStageChange=\{changeStage\}/);
   assert.match(wrapper, /Optional support · client evidence & governed intelligence/);
   assert.match(wrapper, /Open supporting tools/);
   assert.match(dependencyWorkRail, /Tax fix work queue/);

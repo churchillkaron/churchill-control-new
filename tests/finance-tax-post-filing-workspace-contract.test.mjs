@@ -15,7 +15,7 @@ test("AFTER stage is one post-filing workspace instead of stacked amendment and 
   assert.match(wrapper, /FinanceTaxPostFilingWorkspace/);
   assert.match(wrapper, /activeStage === "AFTER" \? <FinanceTaxPostFilingWorkspace/);
   assert.match(wrapper, /selectedVatReturnId=\{selectedVatReturnId\}/);
-  assert.match(wrapper, /onStageChange=\{setActiveStage\}/);
+  assert.match(wrapper, /onStageChange=\{changeStage\}/);
   assert.match(postFiling, /One close path after filing: correct only if wrong, then clear the filed balance\./);
   assert.match(postFiling, /One work surface is shown at a time/);
   assert.match(postFiling, /mode === "SETTLEMENT" \? <FinanceTaxSettlementRail/);

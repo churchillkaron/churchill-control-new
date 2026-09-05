@@ -8,10 +8,13 @@ import {
   FileCode2,
   GitBranch,
   Loader2,
+  MessageSquareMore,
+  Send,
   ShieldCheck,
+  ThumbsUp,
   XCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const ACTIVE_POLL_MS = 1800;
 const IDLE_POLL_MS = 6000;
@@ -90,12 +93,23 @@ function verificationLabel(progress, active) {
   };
 }
 
+function fileSet(value) {
+  return new Set(Array.isArray(value) ? value.map(text).filter(Boolean) : []);
+}
+
 export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
   const [progress, setProgress] = useState(null);
+  const [control, setControl] = useState(null);
+  const [instruction, setInstruction] = useState("");
+  const [controlPending, setControlPending] = useState(false);
+  const [controlError, setControlError] = useState("");
+  const [controlNotice, setControlNotice] = useState("");
+  const [steerBaseline, setSteerBaseline] = useState(null);
 
   useEffect(() => {
     if (!organizationId) {
       setProgress(null);
+      setControl(null);
       return undefined;
     }
 
@@ -119,6 +133,25 @@ export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
           const nextProgress = result?.live_progress || null;
           active = progressIsActive(nextProgress);
           setProgress(nextProgress);
+
+          const missionId = text(nextProgress?.mission_id);
+          if (missionId) {
+            const controlResponse = await fetch(
+              `/api/operator/code/intervention?organizationId=${encodeURIComponent(organizationId)}&missionId=${encodeURIComponent(missionId)}`,
+              {
+                method: "GET",
+                credentials: "same-origin",
+                cache: "no-store",
+                signal: controller.signal,
+              },
+            );
+            const controlResult = await controlResponse.json().catch(() => ({}));
+            if (!controller.signal.aborted && controlResponse.ok && controlResult?.success === true) {
+              setControl(controlResult.control || null);
+            }
+          } else {
+            setControl(null);
+          }
         }
       } catch (error) {
         if (error?.name !== "AbortError") {
@@ -138,7 +171,14 @@ export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
     };
   }, [organizationId]);
 
-  if (!shouldShowProgress(progress)) return null;
+  useEffect(() => {
+    const missionId = text(progress?.mission_id);
+    if (!steerBaseline || steerBaseline.missionId === missionId) return;
+    setSteerBaseline(null);
+    setControlNotice("");
+    setControlError("");
+    setInstruction("");
+  }, [progress?.mission_id, steerBaseline]);
 
   const active = progressIsActive(progress);
   const files = Array.isArray(progress?.files_changed) ? progress.files_changed : [];
@@ -147,6 +187,85 @@ export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
   const VerificationIcon = verification.icon;
   const status = humanStatus(progress?.latest_event?.phase || progress?.state_status);
   const codeStudioHref = `/workspace/${organizationId}/creative/code`;
+  const verifiedReviewReady = !active && progress?.latest_verification_passed === true;
+  const missionId = text(progress?.mission_id);
+
+  const sinceSteer = useMemo(() => {
+    if (!steerBaseline || steerBaseline.missionId !== missionId) return null;
+    const before = fileSet(steerBaseline.files);
+    const newlyTouchedFiles = files.filter((file) => !before.has(text(file)));
+    const operationDelta = Math.max(
+      0,
+      Number(progress?.completed_operation_count || 0) - Number(steerBaseline.operations || 0),
+    );
+    return { newlyTouchedFiles, operationDelta };
+  }, [files, missionId, progress?.completed_operation_count, steerBaseline]);
+
+  if (!shouldShowProgress(progress)) return null;
+
+  async function submitControl(action) {
+    if (!organizationId || !missionId || controlPending) return;
+    const cleanInstruction = text(instruction);
+    if (action !== "APPROVE_PATCH" && !cleanInstruction) return;
+
+    setControlPending(true);
+    setControlError("");
+    setControlNotice("");
+    try {
+      const response = await fetch("/api/operator/code/intervention", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          organizationId,
+          mission_id: missionId,
+          action,
+          ...(cleanInstruction ? { instruction: cleanInstruction } : {}),
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result?.success !== true) {
+        throw new Error(result?.error || "Code mission control failed");
+      }
+
+      if (result.queued_for_safe_boundary === true) {
+        setSteerBaseline({
+          missionId,
+          files: [...files],
+          operations: Number(progress?.completed_operation_count || 0),
+        });
+        setControlNotice("Queued for the next safe engineering boundary. The same mission will continue with this instruction.");
+      } else if (action === "APPROVE_PATCH") {
+        setControlNotice("Preview patch approved for review. No commit or deployment was authorized.");
+      } else {
+        setControlNotice("Changes recorded. Business Partner will carry them into the next governed engineering continuation.");
+        window.dispatchEvent(
+          new CustomEvent("avantiqo:home-command", {
+            detail: {
+              source: "text",
+              message: `Continue the Code work from mission ${missionId}. Preserve the verified context and address these requested changes: ${cleanInstruction}`,
+            },
+          }),
+        );
+      }
+      setInstruction("");
+      setControl((current) => ({
+        ...(current || {}),
+        pending_intervention:
+          result.queued_for_safe_boundary === true ? result.control || null : current?.pending_intervention || null,
+        latest_review:
+          result.review_recorded === true ? result.control || null : current?.latest_review || null,
+      }));
+    } catch (error) {
+      setControlError(text(error?.message || error) || "Code mission control failed");
+    } finally {
+      setControlPending(false);
+    }
+  }
+
+  const pendingIntervention = control?.pending_intervention || null;
+  const lastApplied = control?.last_applied_intervention || null;
+  const latestReview = control?.latest_review || null;
 
   return (
     <section
@@ -219,6 +338,92 @@ export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
           <ArrowUpRight size={10} />
         </Link>
       </div>
+
+      {pendingIntervention ? (
+        <div className="mt-3 rounded-lg border border-amber-700/10 bg-amber-50/70 px-3 py-2 text-[10px] leading-4 text-amber-900/70">
+          Steering queued · it will apply at the next safe engineering boundary.
+        </div>
+      ) : lastApplied ? (
+        <div className="mt-3 rounded-lg border border-emerald-700/10 bg-emerald-50/70 px-3 py-2 text-[10px] leading-4 text-emerald-900/65">
+          Latest steering applied to this same mission.
+          {sinceSteer ? ` Since then: +${sinceSteer.operationDelta} operations${sinceSteer.newlyTouchedFiles.length ? ` · ${sinceSteer.newlyTouchedFiles.length} newly touched file(s)` : ""}.` : ""}
+        </div>
+      ) : null}
+
+      {active ? (
+        <div data-avantiqo-code-steering="true" className="mt-3 rounded-xl border border-black/[0.07] bg-white p-3">
+          <div className="flex items-center gap-1.5 text-[9px] font-medium uppercase tracking-[0.12em] text-[#8B663E]">
+            <MessageSquareMore size={11} />
+            Steer active mission
+          </div>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={instruction}
+              onChange={(event) => setInstruction(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  submitControl("STEER");
+                }
+              }}
+              disabled={controlPending || Boolean(pendingIntervention)}
+              placeholder="Change direction without starting a new mission…"
+              className="min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-[#FCFBF9] px-3 py-2 text-[11px] text-[#37332E] outline-none placeholder:text-[#AAA59D] focus:border-[#9A744B]/35 disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={() => submitControl("STEER")}
+              disabled={controlPending || Boolean(pendingIntervention) || !instruction.trim()}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#332C24] px-3 py-2 text-[9px] font-medium uppercase tracking-[0.1em] text-white transition hover:bg-[#4A3E31] disabled:opacity-35"
+            >
+              {controlPending ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+              Apply
+            </button>
+          </div>
+          <div className="mt-1.5 text-[9px] leading-4 text-[#9B968E]">
+            Applied at the next safe engineering boundary · same mission · no commit or deploy authority.
+          </div>
+        </div>
+      ) : verifiedReviewReady ? (
+        <div data-avantiqo-code-review="true" className="mt-3 rounded-xl border border-black/[0.07] bg-white p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-[9px] font-medium uppercase tracking-[0.12em] text-[#8B663E]">Verified patch review</div>
+              <div className="mt-1 text-[10px] leading-4 text-[#858077]">Approve the preview or request another governed engineering continuation. Review approval never commits or deploys.</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => submitControl("APPROVE_PATCH")}
+              disabled={controlPending || latestReview?.action === "APPROVE_PATCH"}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-700/15 bg-emerald-50 px-2.5 py-1.5 text-[9px] font-medium uppercase tracking-[0.1em] text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-40"
+            >
+              <ThumbsUp size={10} />
+              {latestReview?.action === "APPROVE_PATCH" ? "Preview approved" : "Approve preview"}
+            </button>
+          </div>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={instruction}
+              onChange={(event) => setInstruction(event.target.value)}
+              disabled={controlPending}
+              placeholder="Request changes to the verified result…"
+              className="min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-[#FCFBF9] px-3 py-2 text-[11px] text-[#37332E] outline-none placeholder:text-[#AAA59D] focus:border-[#9A744B]/35 disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={() => submitControl("REQUEST_CHANGES")}
+              disabled={controlPending || !instruction.trim()}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#9A744B]/20 bg-[#FFFDFC] px-3 py-2 text-[9px] font-medium uppercase tracking-[0.1em] text-[#8B663E] transition hover:border-[#9A744B]/40 disabled:opacity-35"
+            >
+              <MessageSquareMore size={10} />
+              Request changes
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {controlNotice ? <div className="mt-2 text-[9px] leading-4 text-[#6F7E68]">{controlNotice}</div> : null}
+      {controlError ? <div className="mt-2 text-[9px] leading-4 text-red-700/70">{controlError}</div> : null}
     </section>
   );
 }

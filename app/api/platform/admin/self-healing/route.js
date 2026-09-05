@@ -1,6 +1,9 @@
 import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
+  PLATFORM_USER_FAILURE_EVENT_TYPE,
+} from "@/lib/platform/self-healing/PlatformUserFailureCaptureRuntime";
+import {
   preparePlatformSelfHealingCodeMission,
   PLATFORM_SELF_HEALING_CODE_RESEARCH_CONTRACT,
 } from "@/lib/platform/self-healing/PlatformSelfHealingCodeResearchRuntime";
@@ -9,6 +12,8 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const SYSTEM_EVENT_BACKLOG_KEY = "system-event-backlog";
+const USER_FAILURE_PREFIX = "user-failure:";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function text(value, limit = 4000) {
   return String(value ?? "").trim().slice(0, limit);
@@ -26,6 +31,34 @@ function safeError(error) {
 function providerConfigurationFailure(summary = {}) {
   const source = `${text(summary.error_code, 400)} ${text(summary.error_message, 1600)}`.toLowerCase();
   return /accessnotconfigured|service[_ ]?disabled|api.*(?:has )?not been used|api.*disabled|api.*not enabled|enable.*api|credential|oauth|access token|quota|billing account|missing secret/.test(source);
+}
+
+function classifyCapturedFailure(payload = {}) {
+  const category = text(payload.category, 80).toLowerCase();
+  if (providerConfigurationFailure({ error_message: payload.error_message })) {
+    return "NON_CODE_CONFIGURATION";
+  }
+  if (category === "capability_unimplemented" || category === "workspace_unfinished") {
+    return "AUTO_COMPLETE";
+  }
+  if (
+    category === "organization_context_missing" ||
+    category === "runtime_exception" ||
+    category === "request_failure"
+  ) {
+    return "AUTO_REPAIR";
+  }
+  return "PRODUCT_DECISION_REQUIRED";
+}
+
+function capturedFailureExpectedOutcome(category) {
+  if (category === "organization_context_missing") {
+    return "The original user action resolves authoritative organization context and completes without a missing-organization failure.";
+  }
+  if (category === "workspace_unfinished" || category === "capability_unimplemented") {
+    return "The registered Avantiqo workspace or capability completes the intended business action through its governed production path.";
+  }
+  return "The original Avantiqo user action completes through its intended governed capability without reproducing the captured failure.";
 }
 
 async function loadUsageFailure(signalKey) {
@@ -137,9 +170,111 @@ async function loadSystemEventBacklog() {
   };
 }
 
+async function loadCapturedUserFailure(signalKey) {
+  const eventId = text(signalKey.slice(USER_FAILURE_PREFIX.length), 100);
+  if (!UUID_PATTERN.test(eventId)) {
+    return {
+      blocked: true,
+      classification: "NOT_CODE_CANDIDATE",
+      reason: "Captured user failure signal is malformed.",
+    };
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("system_events")
+    .select("id,organization_id,type,payload,created_at")
+    .eq("id", eventId)
+    .eq("type", PLATFORM_USER_FAILURE_EVENT_TYPE)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  const stored = data.payload && typeof data.payload === "object" ? data.payload : {};
+  const classification = classifyCapturedFailure(stored);
+  const category = text(stored.category, 80).toLowerCase() || "runtime_exception";
+  const organizationId = text(data.organization_id, 200) || null;
+
+  if (!organizationId) {
+    return {
+      blocked: true,
+      classification: "ORGANIZATION_SCOPE_REQUIRED",
+      reason: "Captured failure has no unambiguous authoritative organization scope. Autonomous Code preparation is blocked.",
+    };
+  }
+  if (classification === "NON_CODE_CONFIGURATION") {
+    return {
+      blocked: true,
+      classification,
+      reason: "The captured failure indicates provider configuration, credentials, quota, OAuth, billing, or API enablement. Code changes are not the remediation path.",
+    };
+  }
+  if (classification === "PRODUCT_DECISION_REQUIRED") {
+    return {
+      blocked: true,
+      classification,
+      reason: "The captured evidence does not establish a registered implementation contract strongly enough for autonomous Code repair. Product intent must be resolved first.",
+    };
+  }
+
+  const capability = text(stored.capability, 300) || null;
+  const workspace = text(stored.workspace, 300) || null;
+  const action = text(stored.action, 300) || "complete original user action";
+  const route = text(stored.route, 600) || null;
+  const errorMessage = text(stored.error_message, 1200) || null;
+
+  return {
+    signalKey,
+    organizationId,
+    payload: {
+      failure_id: eventId,
+      signal_key: signalKey,
+      problem_type: classification === "AUTO_COMPLETE" ? "registered_capability_incomplete" : "user_action_failure",
+      category,
+      source: "system_events.platform_user_failure_capture",
+      title: classification === "AUTO_COMPLETE"
+        ? `${workspace || capability || "Registered Avantiqo capability"} is incomplete`
+        : `${capability || workspace || route || "Avantiqo user action"} failed`,
+      error_class: category.toUpperCase(),
+      error_message: errorMessage,
+      capability,
+      workspace,
+      route,
+      action,
+      classification,
+      evidence: {
+        event_id: eventId,
+        captured_at: data.created_at || stored.occurred_at || null,
+        route,
+        status_code: stored.status_code ?? null,
+        error_digest: text(stored.error_digest, 200) || null,
+        organization_scope: text(stored.organization_scope, 120) || null,
+        browser_evidence_authoritative: false,
+        raw_stack_stored: false,
+        raw_request_body_stored: false,
+      },
+      replay: {
+        route,
+        action,
+        capability,
+        workspace,
+        reconstruct_from_authoritative_state: true,
+        original_browser_payload_authoritative: false,
+      },
+      expected_contract: {
+        capability,
+        workspace,
+        action,
+        expected_outcome: capturedFailureExpectedOutcome(category),
+        verification_requires_original_action_replay: true,
+      },
+    },
+  };
+}
+
 async function resolveAuthoritativeCandidate(signalKey) {
   if (signalKey === SYSTEM_EVENT_BACKLOG_KEY) return loadSystemEventBacklog();
   if (signalKey.startsWith("usage:")) return loadUsageFailure(signalKey);
+  if (signalKey.startsWith(USER_FAILURE_PREFIX)) return loadCapturedUserFailure(signalKey);
   return {
     blocked: true,
     classification: "NOT_CODE_CANDIDATE",

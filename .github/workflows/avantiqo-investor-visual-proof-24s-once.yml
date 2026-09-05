@@ -18,7 +18,7 @@ jobs:
   proof:
     if: github.event.head_commit.message == 'Run repaired Avantiqo investor visual proof 24s once'
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
+    timeout-minutes: 180
     env:
       NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -26,7 +26,7 @@ jobs:
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
       AVANTIQO_INVESTOR_PROOF_REAL_INFERENCE_APPROVED: "YES"
       AVANTIQO_INVESTOR_PROOF_RUN_KEY: "visual-proof-24s-${{ github.sha }}"
-      AVANTIQO_INVESTOR_PROOF_MAX_WAIT_SECONDS: "900"
+      AVANTIQO_INVESTOR_PROOF_MAX_WAIT_SECONDS: "2100"
 
     steps:
       - uses: actions/checkout@v4
@@ -60,8 +60,9 @@ jobs:
           grep -F 'screenshot_or_browser_capture_allowed: false' lib/creative/director/runtime/CreativeInvestorFilmMarketResearchRuntime.js >/dev/null
           echo 'AVANTIQO_INVESTOR_VISUAL_PROOF_REPAIRED_PREFLIGHT=PASS'
           echo 'B200_MAX_CONTAINERS=1'
-          echo 'GENERATION_FAIL_FAST_SECONDS=900'
-          echo 'JOB_TIMEOUT_MINUTES=75'
+          echo 'GENERATION_WAIT_SECONDS=2100'
+          echo 'B200_ENGINE_HARD_TIMEOUT_SECONDS=1800'
+          echo 'JOB_TIMEOUT_MINUTES=180'
 
       - name: Generate and assemble 24-second 4K investor visual proof
         run: |
@@ -128,5 +129,6 @@ jobs:
           echo 'VIDEO_PRICING_ACTIVATED=false'
           echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
           echo 'AUTOMATIC_PAID_RETRY=false'
-          echo 'GENERATION_FAIL_FAST_SECONDS=900'
-          echo 'JOB_TIMEOUT_MINUTES=75'
+          echo 'GENERATION_WAIT_SECONDS=2100'
+          echo 'B200_ENGINE_HARD_TIMEOUT_SECONDS=1800'
+          echo 'JOB_TIMEOUT_MINUTES=180'

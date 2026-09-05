@@ -58,18 +58,33 @@ test("server production boundary polls active Video work before gating another g
   assert.ok(pollIndex < gateIndex && gateIndex < dispatchIndex);
 });
 
-test("Studio queue API exposes readiness and preserves conflict status", () => {
+test("poll-only production boundary can settle provider state without dispatching generation", () => {
+  assert.match(productionRuntime, /async pollProduction/);
+  assert.match(productionRuntime, /mode:\s*"POLL_ONLY"/);
+  const pollStart = productionRuntime.indexOf("async pollProduction");
+  const runStart = productionRuntime.indexOf("async runProduction");
+  const pollBody = productionRuntime.slice(pollStart, runStart);
+  assert.match(pollBody, /ProductionQueueRuntime\.pollRunning/);
+  assert.equal(pollBody.includes("ProductionQueueRuntime.dispatchAll"), false);
+});
+
+test("Studio queue API exposes readiness, poll-only PATCH, and preserves conflict status", () => {
   assert.match(queueRoute, /readiness = await CreativeVideoProductionReadinessRuntime\.inspect/);
+  assert.match(queueRoute, /export async function PATCH/);
+  assert.match(queueRoute, /ProductionRuntime\.pollProduction/);
   assert.match(queueRoute, /readiness,/);
   assert.match(queueRoute, /status:\s*errorStatus\(error\)/);
   assert.match(queueRoute, /error\?\.readiness/);
 });
 
-test("visible production control preflights, polls active work, and fails closed for unrelated busy work", () => {
+test("visible production control preflights, auto-polls active work, and fails closed for unrelated busy work", () => {
   assert.match(studioControl, /method:\s*"GET"/);
-  assert.match(studioControl, /cache:\s*"no-store"/);
+  assert.match(studioControl, /method:\s*"PATCH"/);
+  assert.match(studioControl, /ACTIVE_POLL_MS = 5000/);
+  assert.match(studioControl, /window\.setInterval/);
+  assert.match(studioControl, /pollingRef/);
   assert.match(studioControl, /blockedByReadiness/);
-  assert.match(studioControl, /Check production/);
+  assert.match(studioControl, /Cinema producing/);
   assert.match(studioControl, /Cinema busy/);
   assert.match(studioControl, /Cinema unavailable/);
   assert.match(studioControl, /no generation started by preflight/);

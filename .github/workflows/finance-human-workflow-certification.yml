@@ -62,5 +62,5 @@ jobs:
           node-version: "24"
 
       - name: Certify Finance human workflow and accountant UI
-        # Keep every Tax coordination and portfolio contract in the same exact-source certification lane.
+        # Certify Tax coordination, portfolio ranking and direct portfolio ownership in one exact-source lane.
         run: node --test tests/finance-human-workflow-contract.test.mjs tests/finance-ui-completion-contract.test.mjs tests/finance-tax-workspace-contract.test.mjs tests/finance-tax-selection-contract.test.mjs tests/finance-tax-calculation-method-contract.test.mjs tests/finance-tax-client-request-bridge-contract.test.mjs tests/finance-tax-dependency-work-contract.test.mjs tests/finance-tax-portfolio-dependencies-contract.test.mjs

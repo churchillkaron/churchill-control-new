@@ -1,4 +1,4 @@
-name: Prepare Safe Sequential Native-4K Investor Render Once
+name: Prepare Safe Sequential Native-4K Investor Render V2 Once
 
 on:
   push:
@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   prepare:
-    if: github.event.head_commit.message == 'Prepare safe sequential native-4K investor render once'
+    if: github.event.head_commit.message == 'Prepare safe sequential native-4K investor render v2 once'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
@@ -46,14 +46,16 @@ jobs:
                   raise SystemExit('AVANTIQO_INVESTOR_FULL_RUNNER_MAIN_MARKER_MISSING')
               source = source.replace(helper_marker, helper + helper_marker, 1)
 
-          start_marker = '  console.log(JSON.stringify({ event: "AVANTIQO_INVESTOR_VISUAL_PROOF_SPAWN"'
-          end_marker = '  const normalizedFiles = [];'
-          start = source.find(start_marker)
-          end = source.find(end_marker, start)
-          if start < 0 or end < 0:
-              raise SystemExit('AVANTIQO_INVESTOR_FULL_RUNNER_GENERATION_BLOCK_MISSING')
-          replacement = '''  console.log(JSON.stringify({ event: "AVANTIQO_INVESTOR_VISUAL_PROOF_SEQUENTIAL_START", shot_count: prepared.length, total_duration_seconds: TARGET_DURATION, gpu_jobs: prepared.length, simultaneous_gpu_jobs: 1, automatic_paid_retry: false }));\n  const completed = [];\n  for (const item of prepared) {\n    console.log(`AVANTIQO_INVESTOR_PROOF_SHOT_START=${item.index + 1}:${item.shot.id}`);\n    const generated = await generateOneShot(client, worker, item);\n    completed.push(generated);\n    console.log(`AVANTIQO_INVESTOR_PROOF_SHOT_COMPLETE=${item.index + 1}:${item.shot.id}`);\n  }\n\n'''
-          source = source[:start] + replacement + source[end:]
+          if 'Promise.all(prepared.map' in source:
+              start_marker = '  console.log(JSON.stringify({ event: "AVANTIQO_INVESTOR_VISUAL_PROOF_SPAWN"'
+              end_marker = '  const normalizedFiles = [];'
+              start = source.find(start_marker)
+              end = source.find(end_marker, start)
+              if start < 0 or end < 0:
+                  raise SystemExit('AVANTIQO_INVESTOR_FULL_RUNNER_GENERATION_BLOCK_MISSING')
+              replacement = '''  console.log(JSON.stringify({ event: "AVANTIQO_INVESTOR_VISUAL_PROOF_SEQUENTIAL_START", shot_count: prepared.length, total_duration_seconds: TARGET_DURATION, gpu_jobs: prepared.length, simultaneous_gpu_jobs: 1, automatic_paid_retry: false }));\n  const completed = [];\n  for (const item of prepared) {\n    console.log(`AVANTIQO_INVESTOR_PROOF_SHOT_START=${item.index + 1}:${item.shot.id}`);\n    const generated = await generateOneShot(client, worker, item);\n    completed.push(generated);\n    console.log(`AVANTIQO_INVESTOR_PROOF_SHOT_COMPLETE=${item.index + 1}:${item.shot.id}`);\n  }\n\n'''
+              source = source[:start] + replacement + source[end:]
+
           path.write_text(source)
           PY
 
@@ -61,7 +63,6 @@ jobs:
           grep -F 'async function generateOneShot(client, worker, item)' scripts/run-avantiqo-investor-visual-proof-24s.mjs >/dev/null
           grep -F 'cancel({ terminateContainers: true })' scripts/run-avantiqo-investor-visual-proof-24s.mjs >/dev/null
           grep -F 'simultaneous_gpu_jobs: 1' scripts/run-avantiqo-investor-visual-proof-24s.mjs >/dev/null
-          grep -F 'const completed = [];' scripts/run-avantiqo-investor-visual-proof-24s.mjs >/dev/null
           if grep -F 'Promise.all(prepared.map' scripts/run-avantiqo-investor-visual-proof-24s.mjs >/dev/null; then
             echo 'AVANTIQO_INVESTOR_PARALLEL_PAID_SPAWN_REMAINS' >&2
             exit 1
@@ -71,7 +72,7 @@ jobs:
           echo 'AUTOMATIC_PAID_RETRY=false'
           echo 'GPU_INFERENCE_PERFORMED=false'
 
-      - name: Commit safe runner to main
+      - name: Commit safe runner to current main
         shell: bash
         run: |
           set -euo pipefail
@@ -82,6 +83,8 @@ jobs:
             echo 'AVANTIQO_INVESTOR_FULL_RUNNER_ALREADY_SAFE=true'
           else
             git commit -m 'Make investor 24s render sequential and cancellable [skip ci]'
+            git fetch origin main
+            git rebase origin/main
             git push origin HEAD:main
           fi
           echo 'PAID_VIDEO_GENERATION_SUBMITTED=false'

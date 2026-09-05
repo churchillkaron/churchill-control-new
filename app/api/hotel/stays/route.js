@@ -26,6 +26,38 @@ async function getBooking(organizationId, bookingId) {
   return data;
 }
 
+async function getFolioBalance(organizationId, bookingId) {
+  const { data: folio, error: folioError } = await supabaseAdmin
+    .from("hotel_folios")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  if (folioError) throw folioError;
+  if (!folio) return { folio: null, lines: [], balance: 0 };
+
+  const { data: lines, error: linesError } = await supabaseAdmin
+    .from("hotel_folio_lines")
+    .select("id,line_type,amount,tax_amount,voided_at")
+    .eq("organization_id", organizationId)
+    .eq("folio_id", folio.id);
+  if (linesError) throw linesError;
+
+  const activeLines = (lines || []).filter((line) => !line.voided_at);
+  const balance = activeLines.reduce(
+    (sum, line) => sum + Number(line.amount || 0) + Number(line.tax_amount || 0),
+    0,
+  );
+  return { folio, lines: activeLines, balance };
+}
+
+function signedFolioAmount(lineType, amount) {
+  const absolute = Math.abs(Number(amount));
+  if (["PAYMENT_REFERENCE", "DEPOSIT_REFERENCE"].includes(lineType)) return -absolute;
+  if (["CHARGE", "REFUND_REFERENCE"].includes(lineType)) return absolute;
+  return Number(amount);
+}
+
 export async function GET(request) {
   try {
     const organizationId = clean(request.nextUrl.searchParams.get("organizationId") || request.nextUrl.searchParams.get("organization_id"));
@@ -163,11 +195,15 @@ export async function POST(request) {
       const lineType = clean(body.lineType || body.line_type).toUpperCase();
       const allowed = new Set(["CHARGE", "DEPOSIT_REFERENCE", "PAYMENT_REFERENCE", "ADJUSTMENT", "REFUND_REFERENCE"]);
       if (!allowed.has(lineType)) return fail("Unsupported folio line type");
-      const amount = Number(body.amount);
-      if (!Number.isFinite(amount)) return fail("Valid amount required");
+      const rawAmount = Number(body.amount);
+      if (!Number.isFinite(rawAmount) || rawAmount === 0) return fail("Non-zero valid amount required");
+      const amount = signedFolioAmount(lineType, rawAmount);
       const description = clean(body.description);
       if (!description) return fail("Description required");
       if (lineType.includes("REFERENCE") && !clean(body.sourceId || body.source_id || body.financeReferenceId || body.finance_reference_id)) return fail("Payment/deposit/refund references require an external or Finance reference");
+
+      const existing = await getFolioBalance(auth.organizationId, booking.id);
+      if (existing.folio?.status === "CLOSED") return fail("Closed folios cannot receive new lines", 409);
 
       const folioPayload = {
         organization_id: auth.organizationId,
@@ -191,10 +227,41 @@ export async function POST(request) {
         source_type: clean(body.sourceType || body.source_type) || null,
         source_id: clean(body.sourceId || body.source_id) || null,
         finance_reference_id: financeReferenceId,
-        metadata: {},
+        metadata: { amount_sign_governed_by: "hotel_folio_line_type" },
       }).select().single();
       if (lineError) throw lineError;
-      return NextResponse.json({ success: true, folio, line });
+
+      const next = await getFolioBalance(auth.organizationId, booking.id);
+      return NextResponse.json({ success: true, folio, line, balance: next.balance });
+    }
+
+    if (action === "CLOSE_FOLIO") {
+      const { folio, balance } = await getFolioBalance(auth.organizationId, booking.id);
+      if (!folio) return fail("No folio exists for this stay", 404);
+      if (folio.status === "CLOSED") return NextResponse.json({ success: true, folio, balance: 0, unchanged: true });
+      if (Math.abs(balance) > 0.005) return fail(`Folio balance must be zero before closing. Current balance: ${balance.toFixed(2)} ${folio.currency_code || booking.currency_code || "THB"}`, 409);
+
+      const closedAt = new Date().toISOString();
+      const { data: closedFolio, error: closeError } = await supabaseAdmin
+        .from("hotel_folios")
+        .update({ status: "CLOSED", closed_at: closedAt, updated_at: closedAt })
+        .eq("organization_id", auth.organizationId)
+        .eq("id", folio.id)
+        .eq("status", "OPEN")
+        .select()
+        .maybeSingle();
+      if (closeError) throw closeError;
+      if (!closedFolio) return fail("Folio changed before close completed. Refresh and retry.", 409);
+
+      const paymentStatus = Number(booking.total_amount || 0) > 0 ? "PAID" : booking.payment_status;
+      const { error: bookingError } = await supabaseAdmin
+        .from("hotel_bookings")
+        .update({ payment_status: paymentStatus, paid_amount: Number(booking.total_amount || booking.paid_amount || 0), updated_at: closedAt })
+        .eq("organization_id", auth.organizationId)
+        .eq("id", booking.id);
+      if (bookingError) throw bookingError;
+
+      return NextResponse.json({ success: true, folio: closedFolio, balance: 0 });
     }
 
     if (action === "CREATE_PRE_ARRIVAL") {

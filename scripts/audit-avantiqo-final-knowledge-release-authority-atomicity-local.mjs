@@ -53,17 +53,24 @@ assert.match(route, /hypothesis_fingerprint: body\?\.hypothesis_fingerprint/);
 assert.match(route, /approval_reason: body\?\.approval_reason/);
 assert.doesNotMatch(route, /approver_id/);
 
-// App runtime delegates the state transition to one database RPC.
+// App runtime delegates the core state transition to one database RPC. Audit-event persistence
+// remains deliberately outside this critical transaction and must not be confused with release persistence.
+const releaseFunctionStart = releaseRuntime.indexOf("export async function releaseAvantiqoFinalKnowledge");
+const releaseFunctionEnd = releaseRuntime.indexOf("\nexport async function revalidateAvantiqoReleasedKnowledge", releaseFunctionStart);
+assert.ok(releaseFunctionStart >= 0 && releaseFunctionEnd > releaseFunctionStart);
+const releaseFunction = releaseRuntime.slice(releaseFunctionStart, releaseFunctionEnd);
 assert.match(atomicRuntime, /\.rpc\("avantiqo_commit_final_knowledge_release"/);
 assert.match(atomicRuntime, /p_authorization_expected_updated_at: authorization\.updated_at/);
 assert.match(atomicRuntime, /p_candidate_expected_updated_at: candidate\.updated_at/);
 assert.match(atomicRuntime, /p_provisional_expected_updated_at: provisional\.updated_at/);
 assert.match(atomicRuntime, /receipt\.transaction_atomic !== true/);
-assert.match(releaseRuntime, /commitAvantiqoFinalKnowledgeReleaseAtomically/);
-assert.match(releaseRuntime, /partial_release_state_allowed: false/);
+assert.match(releaseFunction, /commitAvantiqoFinalKnowledgeReleaseAtomically/);
+assert.match(releaseFunction, /partial_release_state_allowed: false/);
 assert.doesNotMatch(releaseRuntime, /async function consumeFinalReleaseAuthorization/);
-assert.doesNotMatch(releaseRuntime, /\.upsert\(row, \{ onConflict: "organization_id,memory_scope,memory_key" \}\)/);
-assert.doesNotMatch(releaseRuntime, /FINALIZATION_CONFLICT_RELEASE_QUARANTINED/);
+assert.doesNotMatch(releaseFunction, /\.upsert\(row, \{ onConflict: "organization_id,memory_scope,memory_key" \}\)/);
+assert.doesNotMatch(releaseFunction, /FINALIZATION_CONFLICT_RELEASE_QUARANTINED/);
+assert.match(releaseRuntime, /async function writeEvent/);
+assert.match(releaseRuntime, /\.upsert\(row, \{ onConflict: "organization_id,memory_scope,memory_key" \}\)/);
 
 // SQL boundary is invoker-security, service-role only, locks all exact mutable state,
 // and raises on every optimistic conflict so Postgres rolls the whole function call back.
@@ -96,5 +103,3 @@ assert.match(migration, /provisional_claim_digest/);
 assert.match(migration, /final_release_authorization_one_use_consumed/);
 
 console.log("AVANTIQO_FINAL_KNOWLEDGE_RELEASE_AUTHORITY_ATOMICITY_CERTIFIED");
-
-// Clean-source certification trigger after temporary wiring machinery was removed.

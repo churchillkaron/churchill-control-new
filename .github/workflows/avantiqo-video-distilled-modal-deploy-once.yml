@@ -74,3 +74,10 @@ jobs:
           echo 'GPU_INFERENCE_PERFORMED=false'
           echo 'PAID_VIDEO_GENERATION_SUBMITTED=false'
           echo 'AUTOMATIC_PAID_RETRY=false'
+
+      - name: Release boundary
+        if: always()
+        run: |
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'

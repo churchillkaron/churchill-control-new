@@ -58,6 +58,10 @@ LTX_MASTER_WIDTH = 3840
 LTX_MASTER_HEIGHT = 2176
 LTX_FPS = 24
 LTX_NUM_INFERENCE_STEPS = 30
+# B200 native-4K optimization: batch the four guided passes together.
+# This changes execution efficiency only; resolution, model weights,
+# sampling step count and generated pixels remain native 3840x2176.
+LTX_MAX_BATCH_SIZE = 4
 LTX_GPU = "B200"
 LTX_GPU_USD_PER_SECOND = 0.001736
 LTX_HARD_TIMEOUT_SECONDS = 30 * 60
@@ -396,7 +400,7 @@ def generate_native_master(
         "--frame-rate", str(LTX_FPS),
         "--num-inference-steps", str(LTX_NUM_INFERENCE_STEPS),
         "--seed", str(int(seed)),
-        "--max-batch-size", "1",
+        "--max-batch-size", str(LTX_MAX_BATCH_SIZE),
         "--output-path", str(output),
         "--prompt", _ltx_prompt(instruction),
         "--negative-prompt", _ltx_negative_prompt(),

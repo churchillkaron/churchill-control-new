@@ -26,6 +26,26 @@ const MAX_WAIT_SECONDS = Math.max(300, Number(process.env.AVANTIQO_VIDEO_SMOKE_M
 const INSTRUCTION = "Prestige live-action investor-film shot in a real hospitality receiving area. Begin macro on delivered carton and packing evidence, then reveal a time-critical supplier short-shipment: a critical item is absent, an empty compartment is unmistakable, and the receiving manager recognizes the exception. The shot must be understandable visually before any product reveal. Natural practical light, authentic skin and materials, restrained cinematic camera movement, real depth, tactile cardboard and stainless steel, physically plausible motion. Native sound: trolley wheel, paper, refrigerator hum, one short pause before a restrained low score begins. No Avantiqo logo, no interface, no browser, no dashboard, no readable generated text, no neon, no hologram, no sci-fi network, no AI-art look.";
 
 function text(value) { return String(value ?? "").trim(); }
+let ACTIVE_MODAL_CLIENT = null;
+let ACTIVE_FUNCTION_CALL_ID = "";
+let ACTIVE_FUNCTION_CALL = null;
+let ACTIVE_CANCEL_STARTED = false;
+
+async function cancelActiveFunctionCall(reason) {
+  if (!ACTIVE_MODAL_CLIENT || !ACTIVE_FUNCTION_CALL_ID || ACTIVE_CANCEL_STARTED) return;
+  ACTIVE_CANCEL_STARTED = true;
+  try {
+    const call = ACTIVE_FUNCTION_CALL || await ACTIVE_MODAL_CLIENT.functionCalls.fromId(ACTIVE_FUNCTION_CALL_ID);
+    await call.cancel({ terminateContainers: true });
+    console.error(`AVANTIQO_VIDEO_SMOKE_FUNCTION_CALL_CANCELLED=${ACTIVE_FUNCTION_CALL_ID}:reason=${reason}`);
+  } catch (error) {
+    console.error(`AVANTIQO_VIDEO_SMOKE_FUNCTION_CALL_CANCEL_FAILED=${ACTIVE_FUNCTION_CALL_ID}:${text(error?.message)}`);
+  } finally {
+    ACTIVE_FUNCTION_CALL = null;
+    ACTIVE_FUNCTION_CALL_ID = "";
+  }
+}
+
 function approved(value) { return ["YES", "TRUE", "1", "APPROVED", "ON"].includes(text(value).toUpperCase()); }
 function ensure(condition, code) { if (!condition) throw new Error(`${CONTRACT}_${code}`); }
 function requireEnv(name) { const value = text(process.env[name]); if (!value) throw new Error(`${name}_REQUIRED`); return value; }
@@ -140,6 +160,7 @@ async function main() {
   };
 
   const client = new modal.ModalClient({ tokenId, tokenSecret });
+  ACTIVE_MODAL_CLIENT = client;
   const lookupOptions = text(process.env.MODAL_ENVIRONMENT) ? { environment: text(process.env.MODAL_ENVIRONMENT) } : {};
   const worker = await client.functions.fromName(MODAL_APP, MODAL_FUNCTION, lookupOptions);
   const stats = await worker.getCurrentStats();
@@ -148,6 +169,9 @@ async function main() {
   const call = await worker.spawn([payload]);
   const functionCallId = text(call.functionCallId);
   ensure(functionCallId, "FUNCTION_CALL_ID_REQUIRED");
+  ACTIVE_FUNCTION_CALL = call;
+  ACTIVE_FUNCTION_CALL_ID = functionCallId;
+  ACTIVE_CANCEL_STARTED = false;
   console.log(`AVANTIQO_VIDEO_SMOKE_FUNCTION_CALL_ID=${functionCallId}`);
 
   const deadline = Date.now() + MAX_WAIT_SECONDS * 1000;
@@ -155,10 +179,15 @@ async function main() {
   let result;
   for (;;) {
     polls += 1;
-    ensure(Date.now() < deadline, `GENERATION_DEADLINE_EXCEEDED:${MAX_WAIT_SECONDS}s`);
+    if (Date.now() >= deadline) {
+      await cancelActiveFunctionCall(`generation-deadline-${MAX_WAIT_SECONDS}s`);
+      throw new Error(`${CONTRACT}_GENERATION_DEADLINE_EXCEEDED:${MAX_WAIT_SECONDS}s`);
+    }
     const sameCall = await client.functionCalls.fromId(functionCallId);
     try {
       result = await sameCall.get({ timeoutMs: 0 });
+      ACTIVE_FUNCTION_CALL = null;
+      ACTIVE_FUNCTION_CALL_ID = "";
       break;
     } catch (error) {
       if (error instanceof modal.FunctionTimeoutError && /Timeout exceeded:\s*0ms/i.test(text(error?.message))) {
@@ -216,7 +245,8 @@ async function main() {
   console.log(`AVANTIQO_VIDEO_SMOKE_STORAGE_REFERENCE=${storageRef(deliveryPath)}`);
 }
 
-main().catch((error) => {
+main().catch(async (error) => {
+  await cancelActiveFunctionCall("runner-error");
   console.error(error?.stack || error?.message || String(error));
   process.exitCode = 1;
 });

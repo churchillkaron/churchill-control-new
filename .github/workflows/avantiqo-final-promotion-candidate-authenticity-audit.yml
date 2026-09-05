@@ -14,12 +14,17 @@ on:
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationIssuerRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAtomicCommitRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseActivationReadinessRuntime.js"
       - "app/api/intelligence/knowledge/final-release/authorize/route.js"
+      - "app/api/intelligence/knowledge/final-release/readiness/route.js"
       - "supabase/migrations/20260905065000_atomic_final_knowledge_release.sql"
+      - "supabase/migrations/20260905114500_final_knowledge_release_activation_readiness.sql"
       - "scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs"
       - "scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs"
       - "scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs"
       - "scripts/audit-avantiqo-final-knowledge-release-authority-atomicity-local.mjs"
+      - "scripts/certify-avantiqo-final-knowledge-release-postgres-local.mjs"
+      - "scripts/certify-avantiqo-final-knowledge-release-readiness-postgres-local.mjs"
       - ".github/workflows/avantiqo-final-promotion-candidate-authenticity-audit.yml"
   pull_request:
     branches:
@@ -34,12 +39,17 @@ on:
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationIssuerRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAtomicCommitRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseActivationReadinessRuntime.js"
       - "app/api/intelligence/knowledge/final-release/authorize/route.js"
+      - "app/api/intelligence/knowledge/final-release/readiness/route.js"
       - "supabase/migrations/20260905065000_atomic_final_knowledge_release.sql"
+      - "supabase/migrations/20260905114500_final_knowledge_release_activation_readiness.sql"
       - "scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs"
       - "scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs"
       - "scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs"
       - "scripts/audit-avantiqo-final-knowledge-release-authority-atomicity-local.mjs"
+      - "scripts/certify-avantiqo-final-knowledge-release-postgres-local.mjs"
+      - "scripts/certify-avantiqo-final-knowledge-release-readiness-postgres-local.mjs"
       - ".github/workflows/avantiqo-final-promotion-candidate-authenticity-audit.yml"
   workflow_dispatch:
 
@@ -82,11 +92,15 @@ jobs:
           node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js
           node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationIssuerRuntime.js
           node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAtomicCommitRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseActivationReadinessRuntime.js
           node --check app/api/intelligence/knowledge/final-release/authorize/route.js
+          node --check app/api/intelligence/knowledge/final-release/readiness/route.js
           node --check scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs
           node --check scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs
           node --check scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs
           node --check scripts/audit-avantiqo-final-knowledge-release-authority-atomicity-local.mjs
+          node --check scripts/certify-avantiqo-final-knowledge-release-postgres-local.mjs
+          node --check scripts/certify-avantiqo-final-knowledge-release-readiness-postgres-local.mjs
 
       - name: Run final promotion authenticity adversarial audit
         run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs
@@ -99,3 +113,6 @@ jobs:
 
       - name: Run authenticated authority and atomicity audit
         run: node scripts/audit-avantiqo-final-knowledge-release-authority-atomicity-local.mjs
+
+      - name: Run activation readiness PostgreSQL certification
+        run: node scripts/certify-avantiqo-final-knowledge-release-readiness-postgres-local.mjs

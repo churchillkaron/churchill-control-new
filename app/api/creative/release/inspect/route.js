@@ -5,8 +5,8 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import {
-  CreativePublishingInspectionRuntime,
-} from "@/lib/creative/release/runtime/CreativePublishingInspectionRuntime";
+  CreativePublishingInspectionRuntimeV2,
+} from "@/lib/creative/release/runtime/CreativePublishingInspectionRuntimeV2";
 
 export async function POST(request) {
   try {
@@ -34,7 +34,7 @@ export async function POST(request) {
       return Response.json(access, { status: access.status });
     }
 
-    const publishing = await CreativePublishingInspectionRuntime.inspect({
+    const publishing = await CreativePublishingInspectionRuntimeV2.inspect({
       organization_id: organizationId,
       creative_project_id: creativeProjectId,
     });

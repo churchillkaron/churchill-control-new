@@ -7,6 +7,9 @@ import {
 import {
   CreativeMasteringInspectionRuntime,
 } from "@/lib/creative/post-production/runtime/CreativeMasteringInspectionRuntime";
+import {
+  CreativeEditReviewRuntime,
+} from "@/lib/creative/review/runtime/CreativeEditReviewRuntime";
 
 export async function POST(request) {
   try {
@@ -34,12 +37,43 @@ export async function POST(request) {
       return Response.json(access, { status: access.status });
     }
 
-    const mastering = await CreativeMasteringInspectionRuntime.inspect({
-      organization_id: organizationId,
-      creative_project_id: creativeProjectId,
-    });
+    const [mastering, editReview] = await Promise.all([
+      CreativeMasteringInspectionRuntime.inspect({
+        organization_id: organizationId,
+        creative_project_id: creativeProjectId,
+      }),
+      CreativeEditReviewRuntime.inspect({
+        organization_id: organizationId,
+        creative_project_id: creativeProjectId,
+      }),
+    ]);
 
-    return Response.json({ success: true, mastering });
+    const canRunMastering = Boolean(
+      mastering?.can_run_mastering &&
+      editReview?.ready_for_master,
+    );
+
+    return Response.json({
+      success: true,
+      mastering: {
+        ...mastering,
+        edit_review: {
+          timeline_asset_node_id: editReview?.timeline?.id || null,
+          approved: editReview?.approved === true,
+          ready_for_master: editReview?.ready_for_master === true,
+          open_comment_count: editReview?.open_comment_count || 0,
+          resolved_comment_count: editReview?.resolved_comment_count || 0,
+          missing_requirement_count: editReview?.missing_requirement_count || 0,
+          approval_record_id: editReview?.edit_approval?.id || null,
+        },
+        can_run_mastering: canRunMastering,
+        mastering_blocker: canRunMastering
+          ? null
+          : editReview?.ready_for_master
+            ? "PRODUCTION_NOT_SETTLED"
+            : "EDIT_REVIEW_NOT_APPROVED",
+      },
+    });
   } catch (error) {
     return Response.json(
       { success: false, error: error?.message || String(error) },

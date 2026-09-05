@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - "scripts/fix-final-knowledge-release-stale-approval-export.py"
+      - ".github/workflows/avantiqo-fix-stale-release-approval-export.yml"
 
 permissions:
   contents: write

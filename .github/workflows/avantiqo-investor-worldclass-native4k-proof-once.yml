@@ -1,0 +1,163 @@
+name: Avantiqo Investor Worldclass Native 4K Proof Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-worldclass-native4k-proof-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-investor-worldclass-native4k-proof-once
+  cancel-in-progress: false
+
+jobs:
+  proof:
+    if: github.event.head_commit.message == 'Run Avantiqo worldclass native 4K investor proof once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_INVESTOR_PROOF_SOURCE_FRAME: ${{ github.workspace }}/assets/video/proofs/scene1-approved-reconstructed.jpg
+      OUTPUT_DIR: local-audit-output/avantiqo-investor-worldclass-native4k
+
+    steps:
+      - name: Checkout exact launch commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct approved source frame
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/reconstruct-avantiqo-video-scene1-frame-ci.py
+          test -s "$AVANTIQO_INVESTOR_PROOF_SOURCE_FRAME"
+
+      - name: Static canonical-lane guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-video-engine/modal_app.py
+          python -m py_compile services/avantiqo-video-engine/modal_investor_worldclass_proof.py
+          python - <<'PY'
+          from pathlib import Path
+          app = Path('services/avantiqo-video-engine/modal_app.py').read_text(encoding='utf-8')
+          proof = Path('services/avantiqo-video-engine/modal_investor_worldclass_proof.py').read_text(encoding='utf-8')
+          required = (
+              'LTX_GPU = "B200"',
+              'LTX_MASTER_WIDTH = 3840',
+              'LTX_MASTER_HEIGHT = 2176',
+              'LTX_FPS = 24',
+              'LTX_NUM_INFERENCE_STEPS = 30',
+              'def generate_native_master(',
+              'master_is_exact_model_output',
+              '"pixel_upscale_used": False',
+              '"learned_latent_upsampler_used": False',
+              '"learned_spatial_upscaler_used": False',
+              '"temporal_interpolation_used": False',
+              '"resize_used": False',
+              '"assembly_used": False',
+              '"external_provider_contacted": False',
+          )
+          for needle in required:
+              if needle not in app:
+                  raise SystemExit(f'CANONICAL_NATIVE_LANE_GUARD_MISSING:{needle}')
+          if 'generate_native_master.remote(' not in proof:
+              raise SystemExit('INVESTOR_PROOF_CANONICAL_PAID_CALL_MISSING')
+          if 'DURATION_SECONDS = 4' not in proof:
+              raise SystemExit('INVESTOR_PROOF_DURATION_NOT_PROVEN_VALUE')
+          if 'AVANTIQO_NEAR_FUTURE_ENTERPRISE_INTELLIGENCE' not in proof:
+              raise SystemExit('INVESTOR_PROOF_DIRECTION_MARKER_MISSING')
+          print('AVANTIQO_INVESTOR_NATIVE4K_STATIC_GUARD=PASS')
+          print('GPU_INFERENCE_PERFORMED=false')
+          PY
+
+      - name: Install pinned Modal CLI and ffprobe
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+
+      - name: Require Modal credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          echo 'AVANTIQO_INVESTOR_NATIVE4K_CREDENTIALS=PASS'
+
+      - name: Generate exactly one native 4K investor proof on canonical B200 lane
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUTPUT_DIR"
+          cd services/avantiqo-video-engine
+          modal run modal_investor_worldclass_proof.py::render \
+            --output-path "${GITHUB_WORKSPACE}/${OUTPUT_DIR}/avantiqo-investor-worldclass-native-3840x2176.mp4"
+
+      - name: Verify native output and proof report
+        shell: bash
+        run: |
+          set -euo pipefail
+          MP4="$OUTPUT_DIR/avantiqo-investor-worldclass-native-3840x2176.mp4"
+          REPORT="$OUTPUT_DIR/avantiqo-investor-worldclass-native-3840x2176.json"
+          test -s "$MP4"
+          test -s "$REPORT"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('local-audit-output/avantiqo-investor-worldclass-native4k/avantiqo-investor-worldclass-native-3840x2176.json').read_text())
+          generation = report['generation']
+          assert report['success'] is True
+          assert report['creative_direction'] == 'AVANTIQO_NEAR_FUTURE_ENTERPRISE_INTELLIGENCE'
+          assert generation['success'] is True
+          assert generation['modal_gpu'] == 'B200'
+          assert (generation['width'], generation['height'], generation['fps'], generation['num_inference_steps']) == (3840, 2176, 24, 30)
+          assert generation['master_is_exact_model_output'] is True
+          assert generation['pixel_upscale_used'] is False
+          assert generation['learned_latent_upsampler_used'] is False
+          assert generation['learned_spatial_upscaler_used'] is False
+          assert generation['temporal_interpolation_used'] is False
+          assert generation['resize_used'] is False
+          assert generation['assembly_used'] is False
+          assert generation['external_provider_contacted'] is False
+          assert generation['automatic_paid_retry'] is False
+          print('AVANTIQO_INVESTOR_WORLDCLASS_NATIVE_4K_PROOF=PASS')
+          print('ESTIMATED_SUPPLIER_GPU_COST_USD=' + str(generation.get('estimated_supplier_gpu_cost_usd')))
+          print('GENERATION_SECONDS=' + str(generation.get('generation_seconds')))
+          PY
+
+      - name: Upload untouched native 4K proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-worldclass-native4k-proof
+          path: |
+            local-audit-output/avantiqo-investor-worldclass-native4k/avantiqo-investor-worldclass-native-3840x2176.mp4
+            local-audit-output/avantiqo-investor-worldclass-native4k/avantiqo-investor-worldclass-native-3840x2176.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve production boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'MAX_PAID_GPU_JOBS_ALLOWED=1'
+          echo 'AUTOMATIC_PAID_RETRY=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'
+          echo 'EXTERNAL_VIDEO_PROVIDER_USED=false'

@@ -36,11 +36,14 @@ test('Booking.com availability preserves canonical inventory, pricing and restri
   assert.match(adapter, /BOOKING_COM_ARI_MONTHLY_BATCH_LIMIT_EXCEEDED/);
 });
 
-test('Booking.com OTA parser is bounded and strips payment data from normalized events', () => {
+test('Booking.com OTA parser is bounded, normalizes minor units and strips payment data', () => {
   assert.match(otaParser, /MAX_XML_BYTES/);
   assert.match(otaParser, /MAX_XML_NODES/);
   assert.match(otaParser, /MAX_XML_DEPTH/);
   assert.match(otaParser, /BOOKING_COM_OTA_XML_DTD_FORBIDDEN/);
+  assert.match(otaParser, /DecimalPlaces/);
+  assert.match(otaParser, /minorUnits \/ \(10 \*\* decimalPlaces\)/);
+  assert.match(otaParser, /BOOKING_COM_OTA_AMOUNT_INVALID/);
   assert.match(otaParser, /payment_details_redacted: true/);
   assert.match(otaParser, /sensitive_payment_data_persisted: false/);
   assert.doesNotMatch(otaParser, /CardNumber\s*:/);
@@ -59,6 +62,17 @@ test('Booking.com inbound processing persists and reconciles before acknowledgem
   assert.match(ingest, /HOTEL_CHANNEL_BOOKING_NOT_FOUND_FOR_CANCEL/);
   assert.match(ingest, /BOOKING_COM_RESERVATION_PROPERTY_MISMATCH/);
   assert.match(ingest, /allAlreadyMatched/);
+});
+
+test('Booking.com stale acknowledgements re-fetch the exact latest reservation before retry', () => {
+  assert.match(adapter, /url\.searchParams\.set\('id', clean\(externalReservationId\)\)/);
+  assert.match(adapter, /BOOKING_COM_OTA_ACK_STALE_RESERVATION/);
+  assert.match(adapter, /response\.status === 409/);
+  assert.match(adapter, /explicitSuccess/);
+  assert.match(ingest, /MAX_STALE_ACK_CONVERGENCE_ATTEMPTS/);
+  assert.match(ingest, /pullLatestExactReservation/);
+  assert.match(ingest, /BOOKING_COM_OTA_STALE_RESERVATION_VERSION_DID_NOT_ADVANCE/);
+  assert.match(ingest, /externalReservationId: reservation\.external_reservation_id/);
 });
 
 test('Booking.com remains non-live until inbound implementation is explicitly certified', () => {

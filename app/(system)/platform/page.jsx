@@ -1,60 +1,115 @@
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
+import PlatformControlTower from "@/components/platform/PlatformControlTower";
+import checkSystemHealth from "@/lib/health/checkSystemHealth";
+import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-const platformAreas = [
-  {
-    title: "Workspace",
-    description: "Open the enterprise workspace and domain modules.",
-    href: "/workspace",
-  },
-  {
-    title: "Finance",
-    description: "Review accounting, treasury, revenue and control flows.",
-    href: "/workspace/demo/finance",
-  },
-  {
-    title: "POS",
-    description: "Run table control, open checks and payment workflows.",
-    href: "/workspace/demo/operations/pos",
-  },
-  {
-    title: "Services",
-    description: "Manage integrations, usage, wallet and platform services.",
-    href: "/workspace/demo/services",
-  },
-];
+async function loadPlatformControlTower() {
+  const access = await requirePlatformAdminAccess();
 
-export default function PlatformPage() {
+  if (!access.success) {
+    return {
+      access,
+      organizations: [],
+      recentEvents: [],
+      modules: [],
+      health: {
+        status: "degraded",
+        timestamp: new Date().toISOString(),
+        duration_ms: 0,
+        services: {},
+      },
+    };
+  }
+
+  const [organizationsResult, eventsResult, modulesResult, healthResult] =
+    await Promise.allSettled([
+      supabaseAdmin.from("organizations").select("*"),
+      supabaseAdmin
+        .from("organization_events")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabaseAdmin.from("platform_modules").select("*"),
+      checkSystemHealth(),
+    ]);
+
+  const organizations =
+    organizationsResult.status === "fulfilled" &&
+    !organizationsResult.value.error
+      ? organizationsResult.value.data || []
+      : [];
+
+  const recentEvents =
+    eventsResult.status === "fulfilled" && !eventsResult.value.error
+      ? eventsResult.value.data || []
+      : [];
+
+  const modules =
+    modulesResult.status === "fulfilled" && !modulesResult.value.error
+      ? modulesResult.value.data || []
+      : [];
+
+  const health =
+    healthResult.status === "fulfilled"
+      ? healthResult.value
+      : {
+          status: "degraded",
+          timestamp: new Date().toISOString(),
+          duration_ms: 0,
+          services: {},
+        };
+
+  return {
+    access,
+    organizations,
+    recentEvents,
+    modules,
+    health,
+  };
+}
+
+function AccessDenied({ status, error }) {
   return (
-    <section className="mx-auto flex max-w-6xl flex-col gap-8">
-      <div className="border-b border-white/10 pb-8">
-        <p className="text-xs uppercase tracking-[0.32em] text-emerald-300">
-          Avantiqo Runtime
-        </p>
-        <h1 className="mt-4 text-4xl font-semibold text-white">
-          Platform Command
+    <div className="-mx-5 -my-5 min-h-[calc(100vh-61px)] bg-[#070707] px-5 py-10 text-white lg:-mx-7 lg:-my-6 lg:px-7">
+      <div className="mx-auto max-w-3xl rounded-[24px] border border-white/[0.08] bg-[#0D0D0D] p-6">
+        <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#D6A66A]">
+          Avantiqo Platform
+        </div>
+        <h1 className="mt-3 text-[28px] font-medium tracking-[-0.04em]">
+          Platform administrator access required
         </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-white/55">
-          Your operating system is online. Choose a workspace area to verify
-          core workflows and continue building from the live runtime.
+        <p className="mt-3 text-[12px] leading-6 text-white/45">
+          This control tower is restricted to active PLATFORM_OWNER and
+          SUPER_ADMIN staff accounts.
         </p>
+        <div className="mt-5 rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-3 text-[11px] text-white/42">
+          {status || 403} · {error || "Access denied"}
+        </div>
       </div>
+    </div>
+  );
+}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {platformAreas.map((area) => (
-          <Link
-            key={area.href}
-            href={area.href}
-            className="rounded-lg border border-white/10 bg-white/[0.035] p-5 transition hover:border-emerald-400/50 hover:bg-emerald-400/10"
-          >
-            <div className="text-lg font-medium text-white">{area.title}</div>
-            <div className="mt-2 text-sm leading-6 text-white/50">
-              {area.description}
-            </div>
-          </Link>
-        ))}
-      </div>
-    </section>
+export default async function PlatformPage() {
+  const runtime = await loadPlatformControlTower();
+
+  if (!runtime.access?.success) {
+    return (
+      <AccessDenied
+        status={runtime.access?.status}
+        error={runtime.access?.error}
+      />
+    );
+  }
+
+  return (
+    <PlatformControlTower
+      organizations={runtime.organizations}
+      recentEvents={runtime.recentEvents}
+      modules={runtime.modules}
+      health={runtime.health}
+    />
   );
 }

@@ -3,27 +3,10 @@ export const dynamic = "force-dynamic";
 import PlatformAdminConsole from "@/components/platform/PlatformAdminConsole";
 import PlatformCommercialRuntimeControl from "@/components/platform/PlatformCommercialRuntimeControl";
 import checkSystemHealth from "@/lib/health/checkSystemHealth";
+import loadVercelDeploymentHistory from "@/lib/platform/release/loadVercelDeploymentHistory";
 import { PROVIDER_REGISTRY } from "@/lib/platform/service-runtime/providers/ProviderRegistry";
 import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-
-function normalizePlatformHealth(health) {
-  const database = health?.services?.database || { status: "unknown" };
-
-  return {
-    ...health,
-    status: database.status === "healthy" ? "partial" : "degraded",
-    services: {
-      ...health?.services,
-      database,
-      queue: {
-        status: "unverified",
-        workers_active: null,
-        source: "QUEUE_HEALTH_PROBE_NOT_RUNTIME_VERIFIED",
-      },
-    },
-  };
-}
 
 function rowsFrom(result) {
   return result.status === "fulfilled" && !result.value.error
@@ -36,6 +19,19 @@ function releaseState() {
     environment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
     ref: process.env.VERCEL_GIT_COMMIT_REF || null,
     commitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+    deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
+    deploymentUrl: process.env.VERCEL_URL || null,
+    productionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL || null,
+  };
+}
+
+function unavailableReleaseHistory(source, error = null) {
+  return {
+    status: "unverified",
+    source,
+    checkedAt: new Date().toISOString(),
+    deployments: [],
+    error,
   };
 }
 
@@ -57,8 +53,10 @@ async function loadPlatformAdminConsole() {
       queueJobs: [],
       deadLetterJobs: [],
       releaseState: releaseState(),
+      releaseHistory: unavailableReleaseHistory("PLATFORM_ADMIN_ACCESS_REQUIRED"),
       health: {
         status: "degraded",
+        runtime_state: "unverified",
         timestamp: new Date().toISOString(),
         duration_ms: 0,
         services: {},
@@ -78,6 +76,7 @@ async function loadPlatformAdminConsole() {
     queueJobsResult,
     deadLetterJobsResult,
     healthResult,
+    releaseHistoryResult,
   ] = await Promise.allSettled([
     supabaseAdmin.from("organizations").select("*"),
     supabaseAdmin
@@ -121,17 +120,27 @@ async function loadPlatformAdminConsole() {
       .order("failed_at", { ascending: false })
       .limit(500),
     checkSystemHealth(),
+    loadVercelDeploymentHistory(),
   ]);
 
   const health =
     healthResult.status === "fulfilled"
-      ? normalizePlatformHealth(healthResult.value)
+      ? healthResult.value
       : {
           status: "degraded",
+          runtime_state: "unverified",
           timestamp: new Date().toISOString(),
           duration_ms: 0,
           services: {},
         };
+
+  const releaseHistory =
+    releaseHistoryResult.status === "fulfilled"
+      ? releaseHistoryResult.value
+      : unavailableReleaseHistory(
+          "VERCEL_DEPLOYMENT_HISTORY_PROMISE_REJECTED",
+          releaseHistoryResult.reason?.message || "Deployment history unavailable",
+        );
 
   return {
     access,
@@ -146,6 +155,7 @@ async function loadPlatformAdminConsole() {
     queueJobs: rowsFrom(queueJobsResult),
     deadLetterJobs: rowsFrom(deadLetterJobsResult),
     releaseState: releaseState(),
+    releaseHistory,
     providers: Object.values(PROVIDER_REGISTRY).map(provider => ({
       id: provider.id,
       name: provider.name,
@@ -216,6 +226,8 @@ export default async function PlatformPage() {
         deadLetterJobs={runtime.deadLetterJobs}
         organizations={runtime.organizations}
         releaseState={runtime.releaseState}
+        releaseHistory={runtime.releaseHistory}
+        queueHealth={runtime.health?.services?.queue || {}}
       />
     </>
   );

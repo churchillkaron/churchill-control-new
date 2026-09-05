@@ -13,6 +13,10 @@ function text(value, maximum = 4000) {
   return String(value ?? "").trim().slice(0, maximum);
 }
 
+function truthy(value) {
+  return ["1", "true", "yes", "on"].includes(text(value, 20).toLowerCase());
+}
+
 function contextFor(access, organizationId) {
   return {
     organizationId,
@@ -46,6 +50,16 @@ export async function GET(request) {
       url.searchParams.get("missionId") || url.searchParams.get("mission_id"),
       240,
     );
+    const query = text(url.searchParams.get("q") || url.searchParams.get("query"), 2000);
+    const file = text(url.searchParams.get("file"), 1000);
+    const repositoryUrl = text(
+      url.searchParams.get("repositoryUrl") || url.searchParams.get("repository_url"),
+      1000,
+    );
+    const ref = text(url.searchParams.get("ref"), 160);
+    const verifiedOnly = truthy(
+      url.searchParams.get("verifiedOnly") || url.searchParams.get("verified_only"),
+    );
     const limit = Number(url.searchParams.get("limit") || 20);
     if (!organizationId) {
       return response({ success: false, error: "organization_id required" }, 400);
@@ -66,11 +80,20 @@ export async function GET(request) {
       return response({ success: true, ...detail });
     }
 
-    const history = await listCodeAIMissionHistory({ context, limit });
+    const history = await listCodeAIMissionHistory({
+      context,
+      limit,
+      query: query || null,
+      file: file || null,
+      verifiedOnly,
+      repositoryUrl: repositoryUrl || null,
+      ref: ref || null,
+    });
     return response({
       success: true,
       sessions: history.sessions,
       count: history.count,
+      search: history.search,
     });
   } catch (error) {
     return response({

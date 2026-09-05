@@ -28,6 +28,10 @@ export default function HotelSetupPage() {
   const organizationId = params?.organizationId || "";
   const [properties, setProperties] = useState([]);
   const [rooms, setRooms] = useState([]);
+  const [entities, setEntities] = useState([]);
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [financeProperties, setFinanceProperties] = useState([]);
+  const [financeDrafts, setFinanceDrafts] = useState({});
   const [propertyForm, setPropertyForm] = useState(EMPTY_PROPERTY);
   const [roomForm, setRoomForm] = useState(EMPTY_ROOM);
   const [legacyPropertyId, setLegacyPropertyId] = useState("");
@@ -41,16 +45,28 @@ export default function HotelSetupPage() {
     setLoading(true); setError(null);
     try {
       const query = `?organizationId=${encodeURIComponent(organizationId)}`;
-      const [propertiesResponse, roomsResponse] = await Promise.all([
+      const [propertiesResponse, roomsResponse, financeResponse] = await Promise.all([
         fetch(`/api/hotel/properties/list${query}`, { cache: "no-store", credentials: "include" }),
         fetch(`/api/hotel/rooms/list${query}`, { cache: "no-store", credentials: "include" }),
+        fetch(`/api/hotel/properties/finance${query}`, { cache: "no-store", credentials: "include" }),
       ]);
-      const [propertiesData, roomsData] = await Promise.all([propertiesResponse.json(), roomsResponse.json()]);
+      const [propertiesData, roomsData, financeData] = await Promise.all([
+        propertiesResponse.json(), roomsResponse.json(), financeResponse.json(),
+      ]);
       if (!propertiesResponse.ok || propertiesData.success === false) throw new Error(propertiesData.error || "Unable to load hotel properties");
       if (!roomsResponse.ok || roomsData.success === false) throw new Error(roomsData.error || "Unable to load room inventory");
+      if (!financeResponse.ok || financeData.success === false) throw new Error(financeData.error || "Unable to load Hotel Finance setup");
       const propertyList = propertiesData.properties || [];
+      const financeList = financeData.properties || [];
       setProperties(propertyList);
       setRooms(roomsData.rooms || []);
+      setEntities(financeData.entities || []);
+      setBankAccounts(financeData.bankAccounts || []);
+      setFinanceProperties(financeList);
+      setFinanceDrafts(Object.fromEntries(financeList.map((property) => [property.id, {
+        entityId: property.finance_entity_id || "",
+        bankAccountId: property.settlement_bank_account_id || "",
+      }])));
       setRoomForm((current) => ({ ...current, propertyId: current.propertyId || propertyList[0]?.id || "" }));
       setLegacyPropertyId((current) => current || propertyList[0]?.id || "");
     } catch (loadError) {
@@ -62,6 +78,7 @@ export default function HotelSetupPage() {
 
   const propertyNames = useMemo(() => new Map(properties.map((property) => [String(property.id), property.name || "Property"])), [properties]);
   const unassignedRooms = useMemo(() => rooms.filter((room) => !room.property_id), [rooms]);
+  const financeReadyCount = useMemo(() => financeProperties.filter((property) => property.finance_ready).length, [financeProperties]);
 
   async function createProperty() {
     if (!propertyForm.name.trim()) { setError("Property name is required"); return; }
@@ -73,7 +90,7 @@ export default function HotelSetupPage() {
       });
       const result = await response.json();
       if (!response.ok || result.success === false) throw new Error(result.error || "Unable to create property");
-      setPropertyForm(EMPTY_PROPERTY); setMessage("Property created."); await load();
+      setPropertyForm(EMPTY_PROPERTY); setMessage("Property created. Configure its Finance settlement boundary before collecting guest payments."); await load();
     } catch (saveError) { setError(saveError?.message || "Unable to create property"); }
     finally { setSaving(null); }
   }
@@ -112,15 +129,48 @@ export default function HotelSetupPage() {
     finally { setSaving(null); }
   }
 
+  async function saveFinance(propertyId) {
+    const draft = financeDrafts[propertyId] || {};
+    if (!draft.entityId || !draft.bankAccountId) { setError("Choose both a legal entity and settlement bank account"); return; }
+    setSaving(`finance:${propertyId}`); setError(null); setMessage(null);
+    try {
+      const response = await fetch("/api/hotel/properties/finance", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId, propertyId, entityId: draft.entityId, bankAccountId: draft.bankAccountId }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) throw new Error(result.error || "Unable to save settlement setup");
+      setMessage(`${result.property?.name || "Property"} is Finance-ready for governed guest settlement.`);
+      await load();
+    } catch (saveError) { setError(saveError?.message || "Unable to save settlement setup"); }
+    finally { setSaving(null); }
+  }
+
   return (
     <HotelWorkspaceShell
       organizationId={organizationId}
       active="configuration"
       title="Hotel Setup"
-      subtitle="Configure properties and room inventory inside the active organization. No hard-coded business context and no restaurant configuration leakage."
+      subtitle="Configure property, room and Finance settlement boundaries once. Hotel payments stay inside the active organization, legal entity and governed bank account."
       actions={<HotelSecondaryAction onClick={load} disabled={loading}><RefreshCw size={9} className={loading ? "animate-spin" : ""} />Refresh</HotelSecondaryAction>}
     >
       <HotelError>{error}</HotelError><HotelSuccess>{message}</HotelSuccess>
+
+      <HotelSection eyebrow="Settlement readiness" title={`${financeReadyCount}/${financeProperties.length} properties ready for guest payments`} detail="Every property must point to one active legal entity and one Finance-linked bank account before Avantiqo can process deposits or payments. Card credentials never enter Hotel Setup.">
+        {financeProperties.length ? <div className="divide-y divide-black/[0.055]">
+          {financeProperties.map((property) => {
+            const draft = financeDrafts[property.id] || { entityId: "", bankAccountId: "" };
+            const eligibleAccounts = bankAccounts.filter((account) => account.entity_id === draft.entityId);
+            return <div key={property.id} className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(150px,1fr)_minmax(180px,1.3fr)_minmax(180px,1.3fr)_90px_auto] md:items-end md:px-5">
+              <div><div className="mb-1 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#969087]">Property</div><div className="text-[9px] font-semibold text-[#403C37]">{property.name}</div></div>
+              <HotelField label="Legal entity"><select className={hotelInputClass} value={draft.entityId} onChange={(event) => setFinanceDrafts((current) => ({ ...current, [property.id]: { entityId: event.target.value, bankAccountId: "" } }))}><option value="">Select legal entity</option>{entities.map((entity) => <option key={entity.id} value={entity.id}>{entity.display_name || entity.legal_name || entity.code}</option>)}</select></HotelField>
+              <HotelField label="Settlement account"><select className={hotelInputClass} value={draft.bankAccountId} disabled={!draft.entityId} onChange={(event) => setFinanceDrafts((current) => ({ ...current, [property.id]: { ...draft, bankAccountId: event.target.value } }))}><option value="">Select Finance-linked account</option>{eligibleAccounts.map((account) => <option key={account.id} value={account.id}>{account.account_name || account.bank_name || "Bank account"} · {account.currency_code || account.currency || ""}</option>)}</select></HotelField>
+              <div className="pb-[2px]"><HotelStatusPill value={property.finance_ready ? "READY" : "BLOCKED"} /></div>
+              <HotelPrimaryAction disabled={Boolean(saving)} onClick={() => saveFinance(property.id)}>{saving === `finance:${property.id}` ? "Saving…" : "Save"}</HotelPrimaryAction>
+            </div>;
+          })}
+        </div> : <HotelEmptyState>Create a property before configuring settlement.</HotelEmptyState>}
+      </HotelSection>
 
       {unassignedRooms.length ? (
         <HotelSection eyebrow="Migration control" title={`${unassignedRooms.length} legacy room${unassignedRooms.length === 1 ? "" : "s"} need a property`} detail="Legacy inventory stays intact. Bind each unassigned room once; reassignment after that requires a controlled transfer instead of silently moving inventory.">
@@ -135,7 +185,7 @@ export default function HotelSetupPage() {
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <HotelSection eyebrow="Property master" title="Add property" detail="Create the physical property boundary before room inventory is added.">
+        <HotelSection eyebrow="Property master" title="Add property" detail="Create the physical property boundary first, then assign its legal entity and settlement account above.">
           <div className="grid gap-3 p-4 md:grid-cols-2">
             <HotelField label="Property name"><input className={hotelInputClass} value={propertyForm.name} onChange={(event) => setPropertyForm((current) => ({ ...current, name: event.target.value }))} /></HotelField>
             <HotelField label="City"><input className={hotelInputClass} value={propertyForm.city} onChange={(event) => setPropertyForm((current) => ({ ...current, city: event.target.value }))} /></HotelField>

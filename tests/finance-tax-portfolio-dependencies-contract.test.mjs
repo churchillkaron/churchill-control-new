@@ -7,6 +7,7 @@ const root = process.cwd();
 const read = relativePath => fs.readFileSync(path.join(root, relativePath), "utf8");
 const policy = read("lib/finance/tax/FinanceTaxPortfolioPolicy.js");
 const route = read("app/api/finance/tax/portfolio/route.js");
+const workRoute = read("app/api/finance/vat-returns/dependency-work/route.js");
 const rail = read("components/workspace/finance/FinanceTaxPortfolioRail.jsx");
 const wrapper = read("components/workspace/finance/FinanceTaxWorkCenter.jsx");
 
@@ -62,4 +63,20 @@ test("Tax control tower exposes accountant work views and opens only the exact c
   assert.match(rail, /Switch entity first/);
   assert.match(wrapper, /onSelectedVatReturnIdChange=\{setSelectedVatReturnId\}/);
   assert.doesNotMatch(rail, />\s*(Complete|Resolve|Close dependency)\s*</i);
+});
+
+test("Tax portfolio can claim unowned coordination across authorized entities without bypassing filing scope", () => {
+  assert.match(rail, /async function takeOwnership\(row\)/);
+  assert.match(rail, /if \(!row\?\.unowned \|\| busyKey\) return/);
+  assert.match(rail, /\/api\/finance\/vat-returns\/dependency-work/);
+  assert.match(rail, /entityId: row\.entity_id/);
+  assert.match(rail, /vatReturnId: row\.vat_return_id/);
+  assert.match(rail, /dependencyCode: row\.code/);
+  assert.match(rail, /action: "TAKE_OWNERSHIP"/);
+  assert.match(rail, /Take ownership/);
+  assert.match(workRoute, /loadLiveGuidance/);
+  assert.match(workRoute, /This Tax dependency already has a current owner; refresh before changing ownership/);
+  assert.match(workRoute, /Tax dependency is no longer active in live accounting truth; refresh before updating coordination work/);
+  assert.match(rail, /if \(row\.entity_id !== entityId\) return/);
+  assert.match(rail, /Switch entity first/);
 });

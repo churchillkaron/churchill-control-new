@@ -1,0 +1,51 @@
+name: Avantiqo Final Release Atomic Wiring
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/patch-final-knowledge-release-atomic-commit.py"
+      - ".github/workflows/avantiqo-final-release-atomic-wiring.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    name: Wire atomic final knowledge release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Apply exact atomic wiring
+        run: python3 scripts/patch-final-knowledge-release-atomic-commit.py
+
+      - name: Syntax gate
+        run: |
+          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAtomicCommitRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationIssuerRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js
+
+      - name: Commit wired runtime
+        run: |
+          if git diff --quiet -- lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js; then
+            echo "No source change produced"
+            exit 1
+          fi
+          git config user.name "avantiqo-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js
+          git commit -m "feat(intelligence): make final knowledge release atomic"
+          git pull --rebase origin main
+          git push origin HEAD:main

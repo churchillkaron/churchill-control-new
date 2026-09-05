@@ -51,21 +51,33 @@ async function getPaymentContext(organizationId, bookingId) {
   }
   if (!guest?.party_id) return { error: "Guest is not linked to a Finance party. Repair the guest profile before payment.", status: 409, blocker: "GUEST_PARTY_LINK" };
 
-  const { data: folio, error: folioError } = await supabaseAdmin
+  const { data: existingFolio, error: existingFolioError } = await supabaseAdmin
     .from("hotel_folios")
-    .upsert({
-      organization_id: organizationId,
-      property_id: booking.property_id,
-      booking_id: booking.id,
-      guest_id: booking.guest_id,
-      currency_code: booking.currency_code || "THB",
-      status: "OPEN",
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "organization_id,booking_id" })
-    .select()
-    .single();
-  if (folioError) throw folioError;
-  if (folio.status === "CLOSED") return { error: "Closed folios cannot receive a new payment", status: 409 };
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("booking_id", booking.id)
+    .maybeSingle();
+  if (existingFolioError) throw existingFolioError;
+  if (existingFolio?.status === "CLOSED") return { error: "Closed folios cannot receive a new payment", status: 409 };
+
+  let folio = existingFolio;
+  if (!folio) {
+    const { data, error } = await supabaseAdmin
+      .from("hotel_folios")
+      .insert({
+        organization_id: organizationId,
+        property_id: booking.property_id,
+        booking_id: booking.id,
+        guest_id: booking.guest_id,
+        currency_code: booking.currency_code || "THB",
+        status: "OPEN",
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    folio = data;
+  }
 
   return { booking, property, guest, folio };
 }
@@ -130,6 +142,7 @@ export async function POST(request) {
         if (existing.booking_id !== booking.id || Number(existing.amount) !== amount || existing.transaction_type !== transactionType) {
           return fail("Idempotency key was already used for a different Hotel payment request", 409);
         }
+        if (existing.status === "FAILED") return fail("This payment attempt already failed. Start a new payment request.", 409);
         if (existing.provider_session_id) {
           const stripe = getStripe();
           const session = await stripe.checkout.sessions.retrieve(existing.provider_session_id);
@@ -170,30 +183,37 @@ export async function POST(request) {
 
       const stripe = getStripe();
       const origin = clean(process.env.NEXT_PUBLIC_APP_URL) || request.nextUrl.origin;
-      const stayUrl = `${origin}/workspace/${auth.organizationId}/operations/stay-control?bookingId=${encodeURIComponent(booking.id)}`;
+      const paymentUrl = `${origin}/workspace/${auth.organizationId}/operations/hotel-payments?bookingId=${encodeURIComponent(booking.id)}`;
       const metadata = {
         domain: "hotel",
         hotelTransactionId: transaction.id,
         organizationId: auth.organizationId,
         bookingId: booking.id,
       };
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        payment_method_types: ["card"],
-        line_items: [{
-          quantity: 1,
-          price_data: {
-            currency: currency.toLowerCase(),
-            unit_amount: toMinorUnits(currency, amount),
-            product_data: { name: description },
-          },
-        }],
-        customer_email: guest.email || undefined,
-        metadata,
-        payment_intent_data: { metadata },
-        success_url: `${stayUrl}&paymentReturn=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${stayUrl}&paymentReturn=cancelled`,
-      }, { idempotencyKey: `hotel-checkout:${transaction.id}` });
+
+      let session;
+      try {
+        session = await stripe.checkout.sessions.create({
+          mode: "payment",
+          payment_method_types: ["card"],
+          line_items: [{
+            quantity: 1,
+            price_data: {
+              currency: currency.toLowerCase(),
+              unit_amount: toMinorUnits(currency, amount),
+              product_data: { name: description },
+            },
+          }],
+          customer_email: guest.email || undefined,
+          metadata,
+          payment_intent_data: { metadata },
+          success_url: `${paymentUrl}&paymentReturn=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${paymentUrl}&paymentReturn=cancelled`,
+        }, { idempotencyKey: `hotel-checkout:${transaction.id}` });
+      } catch (providerError) {
+        await supabaseAdmin.from("hotel_payment_transactions").update({ status: "FAILED", failure_reason: providerError?.message || "Checkout provider failure", updated_at: new Date().toISOString() }).eq("organization_id", auth.organizationId).eq("id", transaction.id).eq("status", "PENDING");
+        throw providerError;
+      }
 
       const { data: saved, error: saveError } = await supabaseAdmin
         .from("hotel_payment_transactions")
@@ -265,7 +285,7 @@ export async function POST(request) {
         stripeRefund = await stripe.refunds.create({
           payment_intent: parent.provider_payment_id,
           amount: toMinorUnits(parent.currency_code, amount),
-          metadata: { domain: "hotel", hotelTransactionId: refundTx.id, organizationId: auth.organizationId, bookingId: bookingId },
+          metadata: { domain: "hotel", hotelTransactionId: refundTx.id, organizationId: auth.organizationId, bookingId },
         }, { idempotencyKey: `hotel-refund:${refundTx.id}` });
       } catch (providerError) {
         await supabaseAdmin.from("hotel_payment_transactions").update({ status: "FAILED", failure_reason: providerError?.message || "Refund provider failure", updated_at: new Date().toISOString() }).eq("id", refundTx.id).eq("organization_id", auth.organizationId);

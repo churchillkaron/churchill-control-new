@@ -34,10 +34,18 @@ function label(value) {
 
 function statusTone(value = "") {
   const status = String(value).toUpperCase();
-  if (["COMPLETED", "APPROVED", "READY"].includes(status)) {
+  if (["PUBLISHED", "APPROVED", "READY"].includes(status)) {
     return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
   }
-  if (["PENDING_CONNECTOR", "PENDING_PROVIDER", "DISPATCHING", "REVIEW"].includes(status)) {
+  if ([
+    "PENDING_CONNECTOR",
+    "PENDING_PROVIDER",
+    "DISPATCHING",
+    "REMOTE_ACKNOWLEDGED",
+    "REMOTE_ACKNOWLEDGED_LEGACY",
+    "REMOTE_VERIFICATION_REQUIRED",
+    "REVIEW",
+  ].includes(status)) {
     return "border-amber-700/15 bg-amber-50 text-amber-800";
   }
   if (["FAILED", "EVIDENCE_REQUIRED", "REJECTED"].includes(status)) {
@@ -185,6 +193,40 @@ export default function PublishingWorkspace({ runtime, editor }) {
     }
   }
 
+  async function verifyTarget(target) {
+    const commandId = target?.command?.id;
+    if (!commandId || working) return;
+    setWorking(`verify:${target.id}`);
+    setMessage("");
+    setError("");
+    try {
+      const response = await fetch("/api/creative/release/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organization_id: runtime.organizationId,
+          publish_command_asset_node_id: commandId,
+          action: "verify",
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || "Remote publication verification failed");
+      }
+      if (result.result?.published) {
+        setMessage(`${target.name || target.channel || target.id} · verified published by remote read-back`);
+      } else {
+        setMessage(`${target.name || target.channel || target.id} · remote object not final yet; no duplicate publish was sent`);
+      }
+      await inspect({ quiet: true });
+      await runtime.refresh?.();
+    } catch (verificationError) {
+      setError(verificationError.message || "Remote publication verification failed");
+    } finally {
+      setWorking("");
+    }
+  }
+
   const targets = publishing?.targets || [];
   const summary = publishing?.summary || {};
   const readiness = publishing?.release?.readiness || null;
@@ -232,8 +274,8 @@ export default function PublishingWorkspace({ runtime, editor }) {
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {[
               ["Targets", summary.target_count ?? 0, Waypoints],
-              ["Delivered", summary.completed_count ?? 0, CheckCircle2],
-              ["Pending", summary.pending_count ?? 0, RadioTower],
+              ["Verified published", summary.published_count ?? 0, CheckCircle2],
+              ["Awaiting verification", (summary.verification_required_count ?? 0) + (summary.pending_count ?? 0), RadioTower],
               ["Exceptions", summary.failed_count ?? 0, AlertTriangle],
             ].map(([name, value, Icon]) => (
               <div key={name} className="rounded-xl border border-black/[0.07] bg-white px-3 py-3">
@@ -265,7 +307,7 @@ export default function PublishingWorkspace({ runtime, editor }) {
 
           <section className="mt-3 overflow-hidden rounded-xl border border-black/[0.07] bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] px-4 py-3">
-              <div><div className="text-[7px] font-semibold uppercase tracking-[0.11em] text-[#8A633C]">Channel deliveries</div><div className="mt-0.5 text-[9px] text-[#716B63]">Authorize once, execute deliberately, verify external receipt</div></div>
+              <div><div className="text-[7px] font-semibold uppercase tracking-[0.11em] text-[#8A633C]">Channel deliveries</div><div className="mt-0.5 text-[9px] text-[#716B63]">Authorize → dispatch → remote acknowledgement → exact read-back → verified published</div></div>
               <span className="text-[8px] text-[#918B83]">{readyTargets.length}/{targets.length} configured</span>
             </div>
 
@@ -273,7 +315,8 @@ export default function PublishingWorkspace({ runtime, editor }) {
               {targets.map((target) => {
                 const busyAuthorize = working === `authorize:${target.id}`;
                 const busyExecute = working === `execute:${target.id}`;
-                const receiptUrl = target.external_publication_url;
+                const busyVerify = working === `verify:${target.id}`;
+                const publicationUrl = target.external_publication_url;
                 return (
                   <div key={target.id} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_210px]">
                     <div className="min-w-0">
@@ -284,21 +327,26 @@ export default function PublishingWorkspace({ runtime, editor }) {
                       </div>
                       <div className="mt-1 text-[7px] text-[#918B83]">{target.channel || "channel —"} · {target.provider_id || target.provider || target.connector || "provider —"} · {target.service_id || "service —"}</div>
                       <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                        <Evidence passed={target.channel_delivery ? target.channel_delivery.passed : true}>{target.channel_delivery ? `Derivative ${target.channel_delivery.passed ? "passed" : "failed"}` : "No channel derivative evidence required / present"}</Evidence>
                         <Evidence passed={Boolean(target.command)}>Authorization {target.command ? "recorded" : "not created"}</Evidence>
-                        <Evidence passed={target.completed}>External receipt {target.completed ? "verified" : target.execution ? "not verified yet" : "not executed"}</Evidence>
+                        <Evidence passed={target.remote_acknowledged}>Remote acknowledgement {target.remote_acknowledged ? "recorded with exact ID" : target.execution ? "not received yet" : "not executed"}</Evidence>
+                        <Evidence passed={target.published}>Verified publication {target.published ? "proven by read-back" : target.remote_acknowledged ? "read-back required" : "not yet eligible"}</Evidence>
                       </div>
                       {target.error ? <div className="mt-3 rounded-lg border border-red-700/10 bg-red-50 px-3 py-2 text-[7px] leading-4 text-red-900">{target.error}</div> : null}
-                      {target.execution ? <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[7px] text-[#918B83]"><span>provider {target.execution.provider_status || target.execution.provider_id || "—"}</span><span>settlement {label(target.execution.settlement || "—")}</span><span>usage {target.execution.usage_id || "—"}</span></div> : null}
-                      {receiptUrl ? <a href={receiptUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-[8px] font-semibold text-[#76583A] hover:underline">Open external publication <ExternalLink size={8} /></a> : null}
+                      {target.execution ? <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[7px] text-[#918B83]"><span>provider {target.execution.provider_status || target.execution.provider_id || "—"}</span><span>settlement {label(target.execution.settlement || "—")}</span><span>remote id {target.external_publication_id || "—"}</span></div> : null}
+                      {target.publication_evidence ? <div className="mt-2 text-[7px] text-[#918B83]">read-back {label(target.publication_evidence.remote_state)} · evidence <span className="font-mono">{target.publication_evidence.id}</span></div> : null}
+                      {publicationUrl && target.published ? <a href={publicationUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-[8px] font-semibold text-[#76583A] hover:underline">Open verified publication <ExternalLink size={8} /></a> : null}
                     </div>
                     <div className="flex flex-col justify-center gap-2">
                       {!target.command ? (
                         <button type="button" onClick={() => authorizeTarget(target)} disabled={!target.can_authorize || Boolean(working)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#A37849]/15 bg-[#F5EEE5] px-3 text-[8px] font-semibold text-[#76583A] disabled:cursor-not-allowed disabled:opacity-35">{busyAuthorize ? <Loader2 size={9} className="animate-spin" /> : <ShieldCheck size={9} />} Authorize target</button>
+                      ) : target.can_execute ? (
+                        <button type="button" onClick={() => executeTarget(target)} disabled={Boolean(working)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35">{busyExecute ? <Loader2 size={9} className="animate-spin" /> : target.can_poll ? <RefreshCw size={9} /> : <Send size={9} />} {target.can_poll ? "Check provider" : "Publish"}</button>
+                      ) : target.can_verify ? (
+                        <button type="button" onClick={() => verifyTarget(target)} disabled={Boolean(working)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35">{busyVerify ? <Loader2 size={9} className="animate-spin" /> : <RefreshCw size={9} />} Verify publication</button>
                       ) : (
-                        <button type="button" onClick={() => executeTarget(target)} disabled={!target.can_execute || Boolean(working)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35">{busyExecute ? <Loader2 size={9} className="animate-spin" /> : target.can_poll ? <RefreshCw size={9} /> : <Send size={9} />} {target.can_poll ? "Check provider" : target.completed ? "Delivered" : "Execute delivery"}</button>
+                        <button type="button" disabled className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-emerald-700/10 bg-emerald-50 px-3 text-[8px] font-semibold text-emerald-800 disabled:opacity-100"><CheckCircle2 size={9} /> {target.published ? "Verified published" : label(target.state)}</button>
                       )}
-                      <div className="text-center text-[6px] leading-3 text-[#A09A92]">{!target.command ? "Creates an immutable publish command only." : target.can_poll ? "Polls the existing provider job; no duplicate command." : "External execution requires explicit action."}</div>
+                      <div className="text-center text-[6px] leading-3 text-[#A09A92]">{!target.command ? "Creates an immutable publish command only." : target.can_execute ? "Uses the existing idempotent command; retries do not create a new authorization." : target.can_verify ? "Read-only provider check. It never resends the publication." : target.published ? "Remote publication state is backed by immutable read-back evidence." : "No published claim without provider proof."}</div>
                     </div>
                   </div>
                 );
@@ -312,7 +360,7 @@ export default function PublishingWorkspace({ runtime, editor }) {
           <div className="border-b border-black/[0.06] px-4 py-3">
             <div className="flex items-center gap-1.5 text-[7px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]"><ShieldCheck size={9} /> Release control</div>
             <div className="mt-1 text-[11px] font-semibold text-[#403C37]">Publication authority</div>
-            <div className="mt-1 text-[8px] leading-4 text-[#918B83]">Master approval and publication approval are different controls.</div>
+            <div className="mt-1 text-[8px] leading-4 text-[#918B83]">Authorization permits dispatch. Only provider read-back proves publication.</div>
           </div>
 
           <div className={`border-b px-4 py-3 ${readiness?.passed && publicationApproved ? "border-emerald-700/10 bg-emerald-50/60" : "border-amber-700/10 bg-amber-50/60"}`}>
@@ -320,7 +368,7 @@ export default function PublishingWorkspace({ runtime, editor }) {
               {readiness?.passed && publicationApproved ? <CheckCircle2 size={13} className="mt-0.5 text-emerald-700" /> : <AlertTriangle size={13} className="mt-0.5 text-amber-700" />}
               <div>
                 <div className={`text-[9px] font-semibold ${readiness?.passed && publicationApproved ? "text-emerald-900" : "text-amber-950"}`}>{readiness?.passed && publicationApproved ? "Publication release approved" : readiness?.passed ? "Publication approval required" : "Release readiness blocked"}</div>
-                <div className={`mt-1 text-[8px] leading-4 ${readiness?.passed && publicationApproved ? "text-emerald-800/70" : "text-amber-900/70"}`}>{readiness?.passed && publicationApproved ? "Targets may now be authorized individually. Nothing is published automatically." : "Avantiqo will not create connector commands until the current immutable readiness report is approved for publishing."}</div>
+                <div className={`mt-1 text-[8px] leading-4 ${readiness?.passed && publicationApproved ? "text-emerald-800/70" : "text-amber-900/70"}`}>{readiness?.passed && publicationApproved ? "Targets may be authorized individually. Nothing is called published until exact remote read-back succeeds." : "Avantiqo will not create connector commands until the current immutable readiness report is approved for publishing."}</div>
               </div>
             </div>
           </div>

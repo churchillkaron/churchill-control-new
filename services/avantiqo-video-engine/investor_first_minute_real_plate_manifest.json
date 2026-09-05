@@ -1,0 +1,72 @@
+{
+  "contract": "AVANTIQO_INVESTOR_FIRST_MINUTE_REAL_PLATES_V1",
+  "purpose": "Replace synthetic hero people and locations with real licensed footage while keeping Avantiqo Creative Studio responsible for direction, selection, editing, sound, transitions, VFX and generated campaign beauty.",
+  "source_policy": {
+    "provider": "Pexels",
+    "source_type": "real_stock_video",
+    "commercial_use_review_required": true,
+    "ai_generated_source_forbidden": true,
+    "minimum_width": 1920,
+    "minimum_height": 1080,
+    "landscape_required": true,
+    "watermark_forbidden": true
+  },
+  "plates": [
+    {
+      "id": "01-city-nyc",
+      "role": "opening_global_scale",
+      "page_url": "https://www.pexels.com/video/aerial-footage-of-a-city-8491153/",
+      "download_url": "https://www.pexels.com/download/video/8491153/",
+      "creative_intent": "Recognizable New York aerial at sunrise with global-business scale and premium energy."
+    },
+    {
+      "id": "02-hotel-lobby",
+      "role": "hotel_arrival",
+      "page_url": "https://www.pexels.com/video/concierge-pushing-trolley-in-hotel-lobby-6474559/",
+      "download_url": "https://www.pexels.com/download/video/6474559/",
+      "creative_intent": "Real luxury hotel lobby with staff and guests, used as the physical-world landing point after the city opening."
+    },
+    {
+      "id": "03-housekeeping",
+      "role": "hotel_housekeeping",
+      "page_url": "https://www.pexels.com/video/hotel-maid-making-bed-6466563/",
+      "download_url": "https://www.pexels.com/download/video/6466563/",
+      "creative_intent": "Real professional housekeeper in a premium room; no generated anatomy risk."
+    },
+    {
+      "id": "04-field-service",
+      "role": "field_service",
+      "page_url": "https://www.pexels.com/video/man-holding-a-vacuum-cleaner-6195140/",
+      "download_url": "https://www.pexels.com/download/video/6195140/",
+      "creative_intent": "Real service professional beside a utility van with real equipment, communicating field-service execution without fake people."
+    },
+    {
+      "id": "05-construction",
+      "role": "construction_execution",
+      "page_url": "https://www.pexels.com/video/construction-site-workers-10810477/",
+      "download_url": "https://www.pexels.com/download/video/10810477/",
+      "creative_intent": "Real active construction site with workers and cranes; scale, project execution and physical work."
+    },
+    {
+      "id": "06-restaurant-kitchen",
+      "role": "restaurant_operations",
+      "page_url": "https://www.pexels.com/video/a-group-of-chefs-busy-working-in-the-restaurant-kitchen-3768941/",
+      "download_url": "https://www.pexels.com/download/video/3768941/",
+      "creative_intent": "Real kitchen team under service pressure, used around the generated food beauty shot that already passed quality review."
+    },
+    {
+      "id": "09-evening-experience",
+      "role": "creative_campaign_real_world",
+      "page_url": "https://www.pexels.com/video/a-waiter-approaching-his-guests-8921931/",
+      "download_url": "https://www.pexels.com/download/video/8921931/",
+      "creative_intent": "Real elegant dining and hospitality experience to anchor the Creative Studio campaign in believable human footage."
+    },
+    {
+      "id": "10-real-result",
+      "role": "commercial_result",
+      "page_url": "https://www.pexels.com/video/group-of-friends-having-dinner-together-8922355/",
+      "download_url": "https://www.pexels.com/download/video/8922355/",
+      "creative_intent": "Real busy successful service and happy guests as the physical commercial result."
+    }
+  ]
+}

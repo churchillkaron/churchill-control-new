@@ -154,20 +154,32 @@ export default function RestaurantAvantiqoTheme({
         }
 
         [data-avantiqo-restaurant-theme="production"] article {
-          background-color: #fff !important;
           color: #191919;
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.025);
         }
 
-        [data-avantiqo-restaurant-theme="production"] article[class*="bg-red-"],
-        [data-avantiqo-restaurant-theme="production"] article[class*="bg-amber-"] {
-          background-color: inherit !important;
+        [data-avantiqo-restaurant-theme="production"] article:not([class*="bg-red-"]):not([class*="bg-amber-"]) {
+          background-color: #fff !important;
         }
 
-        [data-avantiqo-restaurant-theme="production"] [class*="text-red-"],
-        [data-avantiqo-restaurant-theme="production"] [class*="text-amber-"],
+        [data-avantiqo-restaurant-theme="production"] article[class*="bg-red-"] {
+          background-color: rgba(239, 68, 68, 0.075) !important;
+        }
+
+        [data-avantiqo-restaurant-theme="production"] article[class*="bg-amber-"] {
+          background-color: rgba(245, 158, 11, 0.08) !important;
+        }
+
+        [data-avantiqo-restaurant-theme="production"] [class*="text-red-"] {
+          color: #991b1b !important;
+        }
+
+        [data-avantiqo-restaurant-theme="production"] [class*="text-amber-"] {
+          color: #92400e !important;
+        }
+
         [data-avantiqo-restaurant-theme="production"] [class*="text-emerald-"] {
-          color: inherit;
+          color: #047857 !important;
         }
 
         [data-avantiqo-restaurant-theme] [data-pos-inline-checkout="true"] {

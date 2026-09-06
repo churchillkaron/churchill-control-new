@@ -1,9 +1,11 @@
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { runMonthEndCloseCommand } from "@/lib/finance/period-close/runtime/PeriodCloseApplicationService";
+import { recordFinanceClosePackageBaseline } from "@/lib/finance/period-close/runtime/FinanceClosePackageFreshness";
 
 function required(value, field) {
   const normalized = String(value || "").trim();
@@ -54,7 +56,41 @@ export async function POST(request) {
       idempotencyKey,
     });
 
-    return NextResponse.json(result);
+    let baseline;
+    try {
+      baseline = await recordFinanceClosePackageBaseline({
+        organizationId: access.organizationId,
+        entityId,
+        periodId,
+        closeType: "MONTH_END",
+      });
+    } catch (freshnessError) {
+      console.error("FINANCE_MONTH_END_CLOSE_BASELINE_FAILED", {
+        organizationId: access.organizationId,
+        entityId,
+        periodId,
+        error: freshnessError,
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          closed: true,
+          close_result: result,
+          code: "FINANCE_CLOSE_FRESHNESS_BASELINE_UNPROVEN",
+          error: "Month-end close completed, but Avantiqo could not certify the post-close accounting freshness baseline. Treat the close package as unproven until the freshness control is restored.",
+        },
+        { status: 503 },
+      );
+    }
+
+    return NextResponse.json({
+      ...result,
+      package_freshness: {
+        state: "CURRENT",
+        trusted: true,
+        fingerprint: baseline.fingerprint,
+      },
+    });
   } catch (error) {
     const message = error.message || "Month-end close failed";
     return NextResponse.json({ success: false, error: message }, { status: statusFor(message) });

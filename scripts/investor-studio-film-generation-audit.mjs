@@ -10,7 +10,9 @@ const files = {
   videoDispatch: "lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap.js",
   humanRenderer: "services/avantiqo-video-engine/modal_human_multi_keyframe_render.py",
   humanQc: "services/avantiqo-video-engine/investor_human_qc_pack.py",
+  humanVbench: "services/avantiqo-video-engine/investor_human_vbench_qc.py",
   humanRelease: "services/avantiqo-video-engine/investor_human_release_gate.py",
+  humanPipeline: "scripts/investor-human-proof-pipeline.py",
   product: "lib/creative/post-production/runtime/AvantiqoInvestorProductProofPlan.js",
   finalAct: "lib/creative/post-production/runtime/AvantiqoInvestorFinalActPlan.js",
   master: "lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js",
@@ -82,14 +84,16 @@ requireToken("humanPolicy", "AVANTIQO_INVESTOR_HUMAN_QC_PACK_V1");
 requireToken("humanPolicy", "AVANTIQO_INVESTOR_HUMAN_RELEASE_V1");
 requireToken("humanPolicy", "approved_same_identity_multi_keyframe");
 requireToken("humanPolicy", "generic_video_dispatch_for_humans: \"FORBIDDEN\"");
+requireToken("humanPolicy", "fine_detail_machine_certification_forbidden");
 for (const check of [
   "face_identity",
-  "face_temporal_stability",
+  "anatomy",
+  "subject_consistency",
+  "motion_physics",
+  "imaging_quality",
   "eyes",
   "hands",
-  "anatomy",
-  "skin_texture",
-  "motion_physics",
+  "skin",
 ]) requireToken("humanPolicy", check);
 requireToken("videoDispatch", "investorOwnedOnly");
 requireToken("videoDispatch", "assertGenericVideoDispatchAllowed");
@@ -104,10 +108,29 @@ requireToken("humanRenderer", "LATE_IDENTITY_ANCHOR_REQUIRED");
 requireToken("humanRenderer", "MID_IDENTITY_ANCHOR_REQUIRED");
 requireToken("humanRenderer", '"release_authorized": False');
 requireToken("humanQc", "AVANTIQO_INVESTOR_HUMAN_QC_PACK_V1");
+requireToken("humanQc", "fine_detail_machine_certification_forbidden");
+requireToken("humanQc", "VISUAL_REVIEW_REQUIRED");
 requireToken("humanQc", "video_sha256");
+requireToken("humanVbench", "AVANTIQO_INVESTOR_HUMAN_VBENCH_QC_V1");
+requireToken("humanVbench", "VBENCH2_HUMAN_IDENTITY");
+requireToken("humanVbench", "VBENCH2_HUMAN_ANATOMY");
+requireToken("humanVbench", "VBENCH_I2V_SUBJECT_CONSISTENCY");
+requireToken("humanVbench", "VBENCH_I2V_MOTION_SMOOTHNESS");
+requireToken("humanVbench", "VBENCH_I2V_IMAGING_QUALITY");
+requireToken("humanVbench", "FALSE_FINE_DETAIL_MACHINE_CERTIFICATION");
 requireToken("humanRelease", "AVANTIQO_INVESTOR_HUMAN_RELEASE_V1");
+requireToken("humanRelease", "fine_detail_machine_certification_forbidden");
+requireToken("humanRelease", "exact_master_reviewed");
 requireToken("humanRelease", "release_authorized");
 requireToken("humanRelease", "contact_sheet_sha256");
+requireToken("humanPipeline", "AVANTIQO_INVESTOR_HUMAN_PROOF_PIPELINE_V1");
+requireToken("humanPipeline", "churchillkaron/churchill-control-new");
+requireToken("humanPipeline", "validate_approved_source");
+requireToken("humanPipeline", "validate_keyframe_manifest");
+requireToken("humanPipeline", "CHARACTER_VARIANT_PENDING_APPROVAL");
+requireToken("humanPipeline", "MASTER_QC_PENDING");
+requireToken("humanPipeline", "MACHINE_QC_PASS_VISUAL_REVIEW_PENDING");
+requireToken("humanPipeline", "RELEASE_AUTHORIZED");
 requireToken("product", "FRESH_AVANTIQO_STUDIO_GENERATED_FILM_ASSETS_GROUNDED_IN_REAL_CAPABILITIES");
 requireToken("product", "product_screenshot_allowed: false");
 requireToken("product", "creative_studio_creates_campaign_to_customer_and_result");
@@ -124,6 +147,7 @@ forbidToken("product", 'source_policy: "AUTHENTIC_AVANTIQO_UI_ONLY"');
 forbidToken("finalAct", 'source_policy: "AUTHENTIC_AVANTIQO_UI_PLUS_APPROVED_FOUNDER_ONLY"');
 forbidToken("master", 'product_ui_policy: "AUTHENTIC_USER_SUPPLIED_AVANTIQO_UI_ONLY"');
 forbidToken("ownedPolicy", 'external_provider_role: "OPTIONAL_FALLBACK_ONLY"');
+forbidToken("humanRelease", '"hands": {"status": "PASS"');
 
 const preserved = source.plan.match(/preserve_user_approved_scenes:\s*Object\.freeze\(\[([^\]]+)\]\)/)?.[1] || "";
 for (const scene of [1, 2, 3, 4, 5, 6, 7, 8, 10]) {
@@ -152,8 +176,10 @@ console.log("CAPABILITY_VISUAL_CHOREOGRAPHY=ENFORCED");
 console.log("OWNED_AI_ONLY=ENFORCED");
 console.log("EXTERNAL_AI_FALLBACK=FORBIDDEN");
 console.log("HUMAN_MULTI_KEYFRAME_CONTROL=ENFORCED");
-console.log("HUMAN_EXACT_MASTER_QC=ENFORCED");
+console.log("HUMAN_MACHINE_QC=BYTE_BOUND_VBENCH_PREFLIGHT");
+console.log("HUMAN_FINE_DETAIL_QC=EXACT_MASTER_VISUAL_REVIEW");
 console.log("HUMAN_GENERIC_VIDEO_DISPATCH=FORBIDDEN");
+console.log("HUMAN_PROOF_PIPELINE=FAIL_CLOSED");
 console.log("PREPARE_MODE=NO_SPEND");
 console.log("PAID_EXECUTION=EXPLICIT_GATE");
 console.log("APPROVED_SCENES_PRESERVED=1,2,3,4,5,6,7,8,10");

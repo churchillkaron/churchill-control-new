@@ -1,0 +1,105 @@
+{
+  "contract": "AVANTIQO_INVESTOR_FILM_OWNER_PRODUCTION_GRAMMAR_V1",
+  "source_repository": "churchillkaron/churchill-control-new",
+  "authority": "OWNER_EXPLICIT_DIRECTION_2026_09_06",
+  "applies_to": "AVANTIQO_INVESTOR_FILM_9MIN_MASTER_LOCK_V1",
+  "master_rule": "The film is a fast-moving premium business movie. Avantiqo is shown inside real work, on the device the human would genuinely use. Spoken subject, business reality, product screen, interaction and consequence must agree.",
+  "shot_grammar": [
+    "VOICE",
+    "REAL_BUSINESS_ACTION",
+    "ROLE_CORRECT_PHYSICAL_DEVICE",
+    "IDENTICAL_CURRENT_AVANTIQO_UI",
+    "MEANINGFUL_PRODUCT_INTERACTION_WHEN_USEFUL",
+    "REAL_BUSINESS_CONSEQUENCE"
+  ],
+  "device_transition_grammar": {
+    "camera_may_approach_screen": true,
+    "camera_may_push_through_screen": true,
+    "edit_may_continue_as_full_frame_product": true,
+    "product_may_scroll_type_click_or_navigate": true,
+    "product_motion_must_be_reproducible_from_current_avantiqo": true,
+    "camera_may_pull_back_to_same_or_different_real_business_scene": true,
+    "transition_must_preserve_semantic_continuity": true,
+    "fake_interface_animation_forbidden": true
+  },
+  "voice_binding": {
+    "rule": "If narration names or explains a domain, that domain must be visible in both the real business and the matching Avantiqo product proof during the same semantic beat.",
+    "operations": {
+      "business_examples": ["hotel_front_desk_and_room_readiness", "restaurant_service_and_kitchen", "field_service_technician", "construction_project_execution", "artist_agency_booking_execution"],
+      "product_required": "current Avantiqo Operations surface relevant to the exact work shown",
+      "multi_industry_required": true
+    },
+    "finance": {
+      "business_examples": ["restaurant_finance", "hotel_finance", "service_business_finance", "project_finance", "accounting_firm_client_work"],
+      "product_required": "current Avantiqo Finance surface relevant to the exact finance work described",
+      "accounting_firm_many_clients_required": true,
+      "show_operating_cause_behind_financial_number": true
+    },
+    "creative_studio": {
+      "product_required": "current Avantiqo Creative Studio workflow on device",
+      "master_itself_is_capability_demo": true,
+      "finished_output_must_break_out_of_device_to_full_frame": true,
+      "show_multiple_verified_studio_capabilities": true,
+      "owner_named_capability_to_verify_and_show": "drone effect"
+    },
+    "business_partner": {
+      "business_context_before_product": true,
+      "product_required": "current Avantiqo Business Partner response and governed action state",
+      "human_control_boundary_visible": true
+    },
+    "intelligence": {
+      "abstract_ai_visualization_forbidden": true,
+      "business_context_and_causal_history_required": true
+    }
+  },
+  "role_correct_device_examples": {
+    "waiter": "phone",
+    "field_technician": "phone",
+    "front_desk": "desktop_or_laptop",
+    "stationary_restaurant_pos": "fixed_pos_screen",
+    "accountant": "laptop_or_desktop",
+    "finance_controller": "laptop_or_desktop",
+    "manager_owner": "phone_laptop_or_tablet_as_natural_to_scene",
+    "project_supervisor": "phone_or_tablet",
+    "creative_operator": "laptop_or_desktop"
+  },
+  "motion_and_energy": {
+    "boring_software_video_forbidden": true,
+    "real_world_motion_required": true,
+    "meaningful_change_target_seconds": "2-5",
+    "meaningful_change_hard_max_seconds": 6,
+    "camera_variety_required": true,
+    "industry_variety_required": true,
+    "human_variety_required": true,
+    "product_state_variety_required": true,
+    "sound_design_variety_required": true,
+    "cinematic_effects_required_when_story_motivated": true,
+    "empty_effect_reel_forbidden": true
+  },
+  "creative_studio_meta_proof": {
+    "statement": "The investor film is itself a proof artifact of Avantiqo Creative Studio.",
+    "must_show": [
+      "business objective and context entering Studio",
+      "strategy or creative direction",
+      "storyboard or scene planning",
+      "video production",
+      "human generation controls where people are generated",
+      "editing and transition craft",
+      "voice",
+      "music and sound where current Studio supports them",
+      "finishing",
+      "multiple verified cinematic effects including the owner-specified drone effect if canonical implementation is found",
+      "final full-frame cinematic output"
+    ],
+    "must_not_show": [
+      "a prompt box as the main Studio idea",
+      "a static Studio dashboard while narration claims cinematic capability",
+      "unverified effects invented for the film"
+    ]
+  },
+  "approval": {
+    "old_renders_owner_approved": false,
+    "this_grammar_owner_direction": true,
+    "final_picture_lock_owner_approval_required": true
+  }
+}

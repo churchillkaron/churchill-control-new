@@ -19,6 +19,10 @@ import {
   evaluateScheduleAvailability,
   loadAvailabilityForScheduleRange,
 } from "@/lib/people/workforce/workforceAvailabilityRuntime";
+import {
+  loadQualificationEvidence,
+  requiredQualificationCodesFromService,
+} from "@/lib/people/workforce/qualificationRuntime";
 
 const SERVICE_WORK_SOURCES = new Set([
   "service-plan-occurrence",
@@ -113,8 +117,10 @@ function readinessRank(value) {
   return ({
     AVAILABLE: 0,
     AVAILABILITY_UNVERIFIED: 1,
-    BLOCKED_UNAVAILABLE: 2,
-    BLOCKED_OUTSIDE_SHIFT: 3,
+    BLOCKED_UNQUALIFIED: 2,
+    BLOCKED_QUALIFICATION_CONFIG: 3,
+    BLOCKED_UNAVAILABLE: 4,
+    BLOCKED_OUTSIDE_SHIFT: 5,
   })[value] ?? 9;
 }
 
@@ -205,6 +211,14 @@ export async function GET(request) {
     if (schedulesResult.error) throw schedulesResult.error;
     const schedules = schedulesResult.data || [];
 
+    const requiredQualificationCodes = requiredQualificationCodesFromService(service);
+    const qualificationEvidence = await loadQualificationEvidence({
+      organizationId,
+      staffIds,
+      requiredCodes: requiredQualificationCodes,
+      onDate: localStart.date,
+    });
+
     const preferredStaffId = text(service.preferred_staff_id);
     const candidates = staff.map((person) => {
       const evaluation = evaluateScheduleAvailability({
@@ -222,14 +236,26 @@ export async function GET(request) {
         scheduledEnd,
         timezone,
       });
+      const qualification = qualificationEvidence.evaluations[person.id] || {
+        status: requiredQualificationCodes.length ? "MISSING" : "NOT_REQUIRED",
+        qualified: requiredQualificationCodes.length === 0,
+        required_codes: requiredQualificationCodes,
+        held_codes: [],
+        missing_codes: requiredQualificationCodes,
+        evidence: [],
+      };
 
-      const dispatchReadiness = evaluation.conflict
-        ? "BLOCKED_UNAVAILABLE"
-        : shift.covered === false
-          ? "BLOCKED_OUTSIDE_SHIFT"
-          : shift.covered === true
-            ? "AVAILABLE"
-            : "AVAILABILITY_UNVERIFIED";
+      const dispatchReadiness = qualification.status === "REQUIREMENT_NOT_CONFIGURED"
+        ? "BLOCKED_QUALIFICATION_CONFIG"
+        : qualification.qualified === false
+          ? "BLOCKED_UNQUALIFIED"
+          : evaluation.conflict
+            ? "BLOCKED_UNAVAILABLE"
+            : shift.covered === false
+              ? "BLOCKED_OUTSIDE_SHIFT"
+              : shift.covered === true
+                ? "AVAILABLE"
+                : "AVAILABILITY_UNVERIFIED";
       const preferred = Boolean(preferredStaffId && [person.id, person.party_id].filter(Boolean).some((value) => text(value) === preferredStaffId));
 
       return {
@@ -251,10 +277,7 @@ export async function GET(request) {
           source_id: evaluation.sourceId || null,
         },
         published_shift: shift,
-        qualification: {
-          status: "NOT_EVALUATED",
-          reason: "No authoritative service qualification requirement is resolved yet.",
-        },
+        qualification,
       };
     }).sort((a, b) => {
       const readiness = readinessRank(a.dispatch_readiness) - readinessRank(b.dispatch_readiness);
@@ -273,9 +296,9 @@ export async function GET(request) {
         scheduled_end: scheduledEnd.toISOString(),
         timezone,
         preferred_staff_id: preferredStaffId || null,
+        required_qualification_codes: requiredQualificationCodes,
       },
-      qualification_authority_ready: false,
-      qualification_note: "People qualification requirements have not yet been bound to this service, so this response does not claim a qualification pass.",
+      qualification_authority_ready: true,
       candidates,
     });
   } catch (error) {

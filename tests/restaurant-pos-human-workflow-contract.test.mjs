@@ -16,6 +16,8 @@ const paths = Object.freeze({
   tablesLayout: "app/(system)/workspace/[organizationId]/operations/tables/layout.jsx",
   kitchenLayout: "app/(system)/workspace/[organizationId]/operations/kitchen/layout.jsx",
   expoLayout: "app/(system)/workspace/[organizationId]/operations/expo/layout.jsx",
+  restaurantAdapter: "lib/operations/commerce/adapters/restaurant/RestaurantPOSAdapter.js",
+  serviceActionAdapter: "lib/operations/commerce/adapters/restaurant/RestaurantServiceActionAdapter.js",
 });
 
 async function source(path) {
@@ -45,6 +47,18 @@ test("restaurant uses the current Avantiqo visual system across human work surfa
   assert.match(tablesLayout, /RestaurantAvantiqoTheme mode="service"/);
   assert.match(kitchenLayout, /RestaurantAvantiqoTheme mode="production"/);
   assert.match(expoLayout, /RestaurantAvantiqoTheme mode="production"/);
+});
+
+test("restaurant canonical adapter owns the governed context actions", async () => {
+  const adapter = await source(paths.restaurantAdapter);
+  const actions = await source(paths.serviceActionAdapter);
+
+  assert.match(adapter, /RestaurantServiceActionAdapter/);
+  assert.match(adapter, /contextActions:\s*RestaurantServiceActionAdapter/);
+  assert.match(actions, /assertPOSActionAllowed/);
+  assert.match(actions, /TRANSFER_TABLE/);
+  assert.match(actions, /MERGE_TABLES/);
+  assert.match(actions, /MOVE_GUESTS/);
 });
 
 test("restaurant waiter phone stays service-only", async () => {
@@ -123,13 +137,15 @@ test("restaurant floor stays a live overview, not a second POS", async () => {
   assert.doesNotMatch(floor, /Send to kitchen/);
 });
 
-test("restaurant kitchen display stays production-only", async () => {
+test("restaurant kitchen requires preparation before ready and stays production-only", async () => {
   const kitchen = await source(paths.kitchen);
 
   assert.match(kitchen, /restaurant_kitchen_ticket/);
   assert.match(kitchen, /No payment, floor administration or serving controls/);
   assert.match(kitchen, /"PREPARING"/);
   assert.match(kitchen, /"READY"/);
+  assert.match(kitchen, /disabled=\{busy \|\| ready \|\| !cooking\}/);
+  assert.match(kitchen, /Start first/);
 
   assert.doesNotMatch(kitchen, /\/api\/pos\/payments\/settle/);
   assert.doesNotMatch(kitchen, /operations\/pos\/payments/);
@@ -137,7 +153,7 @@ test("restaurant kitchen display stays production-only", async () => {
   assert.doesNotMatch(kitchen, />\s*Pay(?:ment)?\s*</i);
 });
 
-test("restaurant expo owns ready-to-served physical handoff", async () => {
+test("restaurant expo owns exact ready-to-served physical handoff", async () => {
   const expo = await source(paths.expo);
   const expoPage = await source(paths.expoPage);
 
@@ -145,6 +161,9 @@ test("restaurant expo owns ready-to-served physical handoff", async () => {
   assert.match(expo, /scope:\s*"ready"/);
   assert.match(expo, /restaurant_kitchen_ticket/);
   assert.match(expo, /restaurant_bar_ticket/);
+  assert.match(expo, /function seatOf\(item\)/);
+  assert.match(expo, /item\?\.modifiers\?\.seat/);
+  assert.match(expo, /data-expo-item-modifiers="true"/);
   assert.match(expo, /status:\s*"SERVED"/);
   assert.match(expo, /Only ready kitchen and bar items appear here/);
   assert.doesNotMatch(expo, /\/api\/pos\/payments\/settle/);

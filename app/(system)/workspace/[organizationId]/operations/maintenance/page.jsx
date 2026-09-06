@@ -9,6 +9,14 @@ import { HotelEmptyState, HotelError, HotelField, HotelMetric, HotelPrimaryActio
 import { notifyHotelReadinessChanged } from "@/lib/hotel/client/readinessInvalidation";
 
 const TASK_TYPES = ["REPAIR", "INSPECTION", "PREVENTIVE", "SAFETY"];
+const RESOLUTION_OUTCOMES = [
+  ["REPAIRED", "Repaired"],
+  ["REPLACED", "Replaced"],
+  ["RESET_ADJUSTED", "Reset / adjusted"],
+  ["CLEANED_CLEARED", "Cleaned / cleared"],
+  ["NO_FAULT_FOUND", "No fault found"],
+  ["OTHER", "Other"],
+];
 const TERMINAL_REQUESTS = new Set(["RESOLVED", "CLOSED", "COMPLETED", "CANCELLED"]);
 const statusOf = (task) => String(task?.status || "PENDING").toUpperCase();
 const propertyName = (task) => task?.hotel_properties?.name || task?.property_id || "Property";
@@ -24,6 +32,7 @@ export default function OperationsMaintenancePage() {
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
   const [form, setForm] = useState({ propertyId: "", taskType: "REPAIR", scheduledAt: "", notes: "" });
+  const [resolutionDrafts, setResolutionDrafts] = useState({});
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -102,7 +111,16 @@ export default function OperationsMaintenancePage() {
     }
   }
 
+  function draftFor(requestId) {
+    return resolutionDrafts[requestId] || { outcomeCode: "REPAIRED", resolutionNotes: "", evidenceReference: "" };
+  }
+
+  function updateResolutionDraft(requestId, patch) {
+    setResolutionDrafts((current) => ({ ...current, [requestId]: { ...draftFor(requestId), ...patch } }));
+  }
+
   async function transitionRequest(requestId, action) {
+    const draft = draftFor(requestId);
     setBusyId(requestId);
     setError(null);
     try {
@@ -110,10 +128,23 @@ export default function OperationsMaintenancePage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId, action }),
+        body: JSON.stringify({
+          requestId,
+          action,
+          outcomeCode: action === "RESOLVE" ? draft.outcomeCode : null,
+          resolutionNotes: action === "RESOLVE" ? draft.resolutionNotes : null,
+          evidenceReference: action === "RESOLVE" ? draft.evidenceReference : null,
+        }),
       });
       const data = await response.json();
       if (!response.ok || data.success === false) throw new Error(data.error || "Unable to update room defect");
+      if (action === "RESOLVE") {
+        setResolutionDrafts((current) => {
+          const next = { ...current };
+          delete next[requestId];
+          return next;
+        });
+      }
       await load();
       notifyHotelReadinessChanged({ source: "maintenance", requestId, action });
     } catch (transitionError) {
@@ -142,28 +173,50 @@ export default function OperationsMaintenancePage() {
         <HotelMetric label="Planned completed" value={groups.COMPLETED.length} detail="Closed planning tasks" />
       </section>
 
-      <HotelSection eyebrow="Guest readiness" title="Room defects blocking release" detail="This is the authority Housekeeping and Front Desk actually read. Resolve only when the physical defect is genuinely cleared; room availability is still decided by the remaining room and Housekeeping state.">
+      <HotelSection eyebrow="Guest readiness" title="Room defects blocking release" detail="Start the physical repair, then close it with recorded repair evidence. Maintenance resolution never changes room availability; Housekeeping inspection or the remaining room state still owns release to Front Desk.">
         {loading ? <HotelEmptyState>Loading room defects…</HotelEmptyState> : activeRoomRequests.length ? (
           <div className="divide-y divide-black/[0.055]">
             {activeRoomRequests.map((request) => {
               const busy = busyId === request.id;
               const status = statusOf(request);
+              const draft = draftFor(request.id);
+              const safetyCritical = String(request.priority || "").toUpperCase() === "CRITICAL" || /safety/i.test(`${request.issue_title || ""} ${request.issue_description || ""}`);
+              const canResolve = status === "IN_PROGRESS" && Boolean(draft.outcomeCode && draft.resolutionNotes.trim() && (!safetyCritical || draft.evidenceReference.trim()));
               return (
-                <div key={request.id} className="grid gap-2 px-4 py-3 md:grid-cols-[110px_minmax(220px,1fr)_110px_120px_150px] md:items-center md:px-5">
-                  <div>
-                    <div className="text-[10px] font-semibold text-[#403C37]">{roomName(request)}</div>
-                    <div className="mt-0.5 text-[7px] text-[#9A948B]">{request.hotel_rooms?.room_type || "Room"} · {request.hotel_rooms?.status || "state unknown"}</div>
+                <div key={request.id} className="px-4 py-4 md:px-5">
+                  <div className="grid gap-2 md:grid-cols-[110px_minmax(220px,1fr)_110px_120px_150px] md:items-center">
+                    <div>
+                      <div className="text-[10px] font-semibold text-[#403C37]">{roomName(request)}</div>
+                      <div className="mt-0.5 text-[7px] text-[#9A948B]">{request.hotel_rooms?.room_type || "Room"} · {request.hotel_rooms?.status || "state unknown"}</div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] font-semibold text-[#5F5952]">{request.issue_title || "Room defect"}</div>
+                      <div className="mt-0.5 text-[7px] leading-3 text-[#928B82]">{request.issue_description || "No description recorded"}</div>
+                    </div>
+                    <HotelStatusPill value={request.priority || "UNKNOWN"} tone={["CRITICAL", "URGENT", "HIGH"].includes(String(request.priority || "").toUpperCase()) ? "critical" : undefined} />
+                    <HotelStatusPill value={status} tone={status === "IN_PROGRESS" ? "attention" : undefined} />
+                    <div>{status === "OPEN" ? <HotelPrimaryAction onClick={() => transitionRequest(request.id, "START")} disabled={busy}>Start repair</HotelPrimaryAction> : <HotelStatusPill value="REPAIR UNDERWAY" tone="attention" />}</div>
                   </div>
-                  <div>
-                    <div className="text-[8px] font-semibold text-[#5F5952]">{request.issue_title || "Room defect"}</div>
-                    <div className="mt-0.5 text-[7px] leading-3 text-[#928B82]">{request.issue_description || "No description recorded"}</div>
-                  </div>
-                  <HotelStatusPill value={request.priority || "UNKNOWN"} tone={["CRITICAL", "URGENT", "HIGH"].includes(String(request.priority || "").toUpperCase()) ? "critical" : undefined} />
-                  <HotelStatusPill value={status} tone={status === "IN_PROGRESS" ? "attention" : undefined} />
-                  <div className="flex flex-wrap gap-1.5">
-                    {status !== "IN_PROGRESS" ? <HotelSecondaryAction onClick={() => transitionRequest(request.id, "START")} disabled={busy}>Start work</HotelSecondaryAction> : null}
-                    <HotelPrimaryAction onClick={() => transitionRequest(request.id, "RESOLVE")} disabled={busy}><Wrench size={9} />{busy ? "Updating" : "Resolve defect"}</HotelPrimaryAction>
-                  </div>
+
+                  {status === "IN_PROGRESS" ? (
+                    <div className="mt-3 grid gap-2 border-t border-black/[0.05] pt-3 md:grid-cols-[170px_minmax(220px,1fr)_minmax(180px,0.8fr)_150px] md:items-end">
+                      <HotelField label="Repair outcome">
+                        <select className={hotelInputClass} value={draft.outcomeCode} onChange={(event) => updateResolutionDraft(request.id, { outcomeCode: event.target.value })}>
+                          {RESOLUTION_OUTCOMES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                        </select>
+                      </HotelField>
+                      <HotelField label="What was repaired / verified">
+                        <textarea className={hotelTextareaClass} value={draft.resolutionNotes} onChange={(event) => updateResolutionDraft(request.id, { resolutionNotes: event.target.value })} placeholder="Required before the defect can close" />
+                      </HotelField>
+                      <HotelField label={safetyCritical ? "Evidence reference · required" : "Evidence reference · optional"}>
+                        <input className={hotelInputClass} value={draft.evidenceReference} onChange={(event) => updateResolutionDraft(request.id, { evidenceReference: event.target.value })} placeholder="Photo, work order, receipt, test result…" />
+                      </HotelField>
+                      <div>
+                        <HotelPrimaryAction onClick={() => transitionRequest(request.id, "RESOLVE")} disabled={busy || !canResolve}><Wrench size={9} />{busy ? "Recording" : "Record repair & resolve"}</HotelPrimaryAction>
+                        <div className="mt-1 text-[7px] leading-3 text-[#9A948B]">Room stays blocked until all remaining readiness checks pass.</div>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}

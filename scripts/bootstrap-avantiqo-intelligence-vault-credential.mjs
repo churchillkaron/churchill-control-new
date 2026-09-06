@@ -1,7 +1,7 @@
 import { register } from "node:module";
 import { pathToFileURL } from "node:url";
 
-const CONTRACT = "AVANTIQO_INTELLIGENCE_VAULT_CREDENTIAL_BOOTSTRAP_V1";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_VAULT_CREDENTIAL_BOOTSTRAP_V2";
 const PROVIDER = "avantiqo-intelligence";
 const CREDENTIAL_TYPE = "managed_modal_credentials";
 const PURPOSE = "AVANTIQO_OWNED_INTELLIGENCE";
@@ -14,6 +14,13 @@ function text(value, limit = 500) {
 
 function assert(condition, code) {
   if (!condition) throw new Error(`${CONTRACT}_${code}`);
+}
+
+function validGovernedStatus(status) {
+  return status?.provisioned === true
+    && status?.status === "ACTIVE"
+    && status?.secret_reference_scheme === "vault"
+    && Boolean(text(status?.credential_id));
 }
 
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
@@ -31,6 +38,9 @@ await import(
 const {
   resolveProviderCredential,
 } = await import("@/lib/platform/service-runtime/providers/ProviderCredentialRuntime");
+const {
+  prepareProviderInputForExecution,
+} = await import("@/lib/platform/service-runtime/providers/ProviderExecutorCore");
 
 const organizationResult = await supabaseAdmin
   .from("organizations")
@@ -58,9 +68,14 @@ const before = await ownedIntelligenceCredentialProvisioningStatus({
   organization_id: organizationId,
 });
 
-const provisioned = await provisionOwnedIntelligenceCredentialFromServerEnvironment({
-  organization_id: organizationId,
-});
+let operation = "UNCHANGED";
+let provisioned = before;
+if (!validGovernedStatus(before)) {
+  provisioned = await provisionOwnedIntelligenceCredentialFromServerEnvironment({
+    organization_id: organizationId,
+  });
+  operation = text(provisioned?.operation).toUpperCase() || "PROVISIONED";
+}
 assert(provisioned?.status === "ACTIVE", "PROVISION_STATUS_NOT_ACTIVE");
 assert(
   provisioned?.secret_reference_scheme === "vault",
@@ -70,9 +85,7 @@ assert(
 const after = await ownedIntelligenceCredentialProvisioningStatus({
   organization_id: organizationId,
 });
-assert(after?.provisioned === true, "STATUS_NOT_PROVISIONED");
-assert(after?.status === "ACTIVE", "STATUS_NOT_ACTIVE");
-assert(after?.secret_reference_scheme === "vault", "STATUS_REFERENCE_NOT_VAULT");
+assert(validGovernedStatus(after), "STATUS_NOT_GOVERNED_ACTIVE_VAULT");
 assert(
   text(after?.credential_id) === text(provisioned?.credential_id),
   "STATUS_CREDENTIAL_ID_MISMATCH",
@@ -95,6 +108,37 @@ assert(text(resolved.managed_by).toUpperCase() === "AVANTIQO", "RUNTIME_OWNER_IN
 assert(
   text(resolved.credential_purpose).toUpperCase() === PURPOSE,
   "RUNTIME_PURPOSE_INVALID",
+);
+
+const prepared = await prepareProviderInputForExecution({
+  provider: PROVIDER,
+  capability: "ai.text.generate",
+  model: "Qwen/Qwen3-30B-A3B-Instruct-2507",
+  input: {
+    prompt: "Credential authority preflight only. Do not execute this provider input.",
+  },
+  context: {
+    organization_id: organizationId,
+    organization_service_id: "credential-authority-preflight-no-execution",
+    usage_id: "credential-authority-preflight-no-execution",
+    credential_id: after.credential_id,
+  },
+});
+const preparedCredential = prepared?.credential;
+assert(preparedCredential && typeof preparedCredential === "object", "EXECUTOR_CREDENTIAL_NOT_PREPARED");
+assert(text(preparedCredential.modal_token_id), "EXECUTOR_MODAL_TOKEN_ID_MISSING");
+assert(text(preparedCredential.modal_token_secret), "EXECUTOR_MODAL_TOKEN_SECRET_MISSING");
+assert(
+  text(preparedCredential.credential_runtime_source).toLowerCase() === "vault",
+  "EXECUTOR_RUNTIME_SOURCE_NOT_VAULT",
+);
+assert(
+  text(prepared?.credential_id) === text(after.credential_id),
+  "EXECUTOR_CREDENTIAL_ID_MISMATCH",
+);
+assert(
+  prepared?.provider_credential_transport_contract?.reserved_business_input_keys_protected === true,
+  "EXECUTOR_BUSINESS_INPUT_ISOLATION_REQUIRED",
 );
 
 const rowsResult = await supabaseAdmin
@@ -123,13 +167,18 @@ console.log(JSON.stringify({
   purpose: PURPOSE,
   organization_resolved_from_database: true,
   previously_provisioned: before?.provisioned === true,
-  operation: text(provisioned?.operation).toUpperCase() || "UNKNOWN",
+  credential_rewritten_this_run: operation !== "UNCHANGED",
+  operation,
   active_scoped_credential_count: scopedRows.length,
   secret_reference_scheme: "vault",
   runtime_resolution_source: "vault",
+  provider_executor_preparation_proven: true,
+  provider_executor_runtime_resolution_source: "vault",
+  provider_executor_business_input_isolation_proven: true,
   modal_token_id_present: true,
   modal_token_secret_present: true,
   secret_material_printed: false,
+  provider_execute_called: false,
   gpu_inference_performed: false,
   external_ai_used: false,
   production_vercel_deploy_performed: false,

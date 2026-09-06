@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 const CAPABILITY_ID = "artist-agency.booking";
 const RECORD_TYPE = "artist_booking";
-const ALLOWED_STATUSES = new Set([
+const ALLOWED_BOOKING_STAGES = new Set([
   "inquiry",
   "hold",
   "offer",
@@ -66,8 +66,8 @@ async function resolveMembership(supabase, user, organizationId) {
 }
 
 function bookingPayload(body = {}) {
-  const status = cleanText(body.status, 30).toLowerCase() || "inquiry";
-  if (!ALLOWED_STATUSES.has(status)) throw new Error("INVALID_BOOKING_STATUS");
+  const bookingStage = cleanText(body.booking_stage || body.status, 30).toLowerCase() || "inquiry";
+  if (!ALLOWED_BOOKING_STAGES.has(bookingStage)) throw new Error("INVALID_BOOKING_STAGE");
 
   const buyerName = cleanText(body.buyer_name || body.client_name, 180);
   const venue = cleanText(body.venue || body.location, 220);
@@ -84,7 +84,7 @@ function bookingPayload(body = {}) {
   }
 
   return {
-    status,
+    bookingStage,
     buyerName,
     venue,
     eventDate,
@@ -114,7 +114,7 @@ export async function GET(request) {
       .eq("organization_id", organizationId)
       .eq("capability_id", CAPABILITY_ID)
       .eq("record_type", RECORD_TYPE)
-      .order("scheduled_start", { ascending: true })
+      .order("scheduled_start", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -160,13 +160,16 @@ export async function POST(request) {
       code,
       name: `${payload.buyerName}${payload.venue ? ` · ${payload.venue}` : ""}`,
       description: payload.notes || null,
-      status: payload.status,
-      priority: payload.status === "inquiry" ? "normal" : null,
+      status: "draft",
+      priority: payload.bookingStage === "inquiry" ? "normal" : null,
       scheduled_start: payload.eventDate,
+      last_command: "create",
       source_domain: "operations",
       source_type: payload.source,
       source_id: payload.sourceId,
       attributes: {
+        _operations_lifecycle: "master",
+        booking_stage: payload.bookingStage,
         artist_name: cleanText(body.artist_name || "Cole Ley", 180),
         buyer_name: payload.buyerName,
         buyer_email: payload.buyerEmail || null,
@@ -200,7 +203,7 @@ export async function POST(request) {
   } catch (error) {
     const message = error?.message || "BOOKING_CREATE_FAILED";
     const clientErrors = new Set([
-      "INVALID_BOOKING_STATUS",
+      "INVALID_BOOKING_STAGE",
       "BUYER_NAME_REQUIRED",
       "EVENT_DATE_REQUIRED",
       "INVALID_GROSS_FEE",

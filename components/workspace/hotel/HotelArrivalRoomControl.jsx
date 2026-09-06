@@ -12,6 +12,7 @@ import {
   HotelSection,
   HotelStatusPill,
 } from "@/components/workspace/hotel/HotelWorkspaceUI";
+import { notifyHotelReadinessChanged } from "@/lib/hotel/client/readinessInvalidation";
 
 function clean(value) { return String(value ?? "").trim(); }
 function status(value) { return clean(value).toUpperCase(); }
@@ -98,6 +99,7 @@ export default function HotelArrivalRoomControl({ organizationId, onChanged = nu
         }),
       });
       await load();
+      notifyHotelReadinessChanged({ source: "front-desk", bookingId: booking.id, roomId });
       if (typeof onChanged === "function") onChanged();
     } catch (reason) {
       setError(reason?.message || "Unable to assign safe room");

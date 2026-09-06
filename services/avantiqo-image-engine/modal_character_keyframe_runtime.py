@@ -99,10 +99,11 @@ def seed_character_cache() -> dict[str, Any]:
         "foundation_model": FOUNDATION_MODEL,
         "foundation_license": FOUNDATION_LICENSE,
         "snapshot_revision": resolved.name,
+        "snapshot_path": str(resolved),
         "diffusers_revision": DIFFUSERS_REVISION,
     }, sort_keys=True), encoding="utf-8")
     model_volume.commit()
-    return {"success": True, "snapshot_revision": resolved.name}
+    return {"success": True, "snapshot_revision": resolved.name, "snapshot_path": str(resolved)}
 
 
 worker_image = (
@@ -126,7 +127,7 @@ worker_image = (
 
 
 def _resolved_snapshot() -> Path:
-    snapshots = sorted(Path(CACHE_ROOT).glob("hub/models--Qwen--Qwen-Image-Edit-2511/snapshots/*"))
+    snapshots = sorted(Path(CACHE_ROOT).glob("models--Qwen--Qwen-Image-Edit-2511/snapshots/*"))
     snapshots = [path.resolve() for path in snapshots if path.is_dir()]
     if len(snapshots) != 1:
         raise RuntimeError(f"{CONTRACT}_EXACTLY_ONE_CACHED_SNAPSHOT_REQUIRED:{len(snapshots)}")

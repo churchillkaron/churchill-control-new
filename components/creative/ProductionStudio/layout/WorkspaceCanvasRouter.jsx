@@ -6,7 +6,7 @@ import ResearchWorkspace from "../workspaces/ResearchWorkspace";
 import StrategyWorkspace from "../workspaces/StrategyWorkspace";
 import ConceptWorkspace from "../workspaces/ConceptWorkspace";
 import StoryboardWorkspace from "../workspaces/StoryboardWorkspace";
-import ProductionWorkspace from "../workspaces/ProductionWorkspace";
+import ProductionWorkspace from "../workspaces/ProductionWorkspaceV2";
 import MusicStudioWorkspace from "../workspaces/MusicStudioWorkspace";
 import AssetsWorkspace from "../workspaces/AssetsWorkspace";
 import TimelineWorkspace from "../workspaces/TimelineWorkspace";

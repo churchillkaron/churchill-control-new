@@ -22,6 +22,7 @@ const paths = Object.freeze({
   tableCommandRuntime: "lib/restaurant/pos/capabilities/tableActions/tableCommandRuntime.js",
   paymentCorrectionAdapter: "lib/operations/commerce/adapters/shared/POSPaymentCorrectionAdapter.js",
   paymentCorrectionRoute: "app/api/pos/payment-corrections/route.js",
+  posRuntimeRoute: "app/api/pos/runtime/route.js",
 });
 
 async function source(path) {
@@ -71,6 +72,32 @@ test("restaurant canonical adapter owns the governed context actions", async () 
   assert.match(actions, /TRANSFER_TABLE/);
   assert.match(actions, /MERGE_TABLES/);
   assert.match(actions, /MOVE_GUESTS/);
+});
+
+test("restaurant runtime exposes server-authoritative human action capabilities", async () => {
+  const runtime = await source(paths.posRuntimeRoute);
+  const registry = await source(paths.registry);
+  const stationary = await source(paths.stationary);
+
+  assert.match(runtime, /canExecutePOSAction/);
+  assert.match(runtime, /function resolveActionCapabilities\(access\)/);
+  assert.match(runtime, /payment: can\("PAYMENT"\)/);
+  assert.match(runtime, /transfer_table: can\("TRANSFER_TABLE"\)/);
+  assert.match(runtime, /merge_tables: can\("MERGE_TABLES"\)/);
+  assert.match(runtime, /\.\.\.applicationRuntime,[\s\S]*capabilities:\s*\{[\s\S]*actions: actionCapabilities/);
+
+  assert.match(stationary, /runtime\?\.capabilities\?\.actions \|\| \{\}/);
+  assert.match(stationary, /canTransferTable = actionCapabilities\.transfer_table === true/);
+  assert.match(stationary, /canMergeTables = actionCapabilities\.merge_tables === true/);
+  assert.match(stationary, /data-stationary-authorized-table-actions="true"/);
+  assert.match(stationary, /data-stationary-supervisor-boundary="true"/);
+  assert.match(stationary, /Supervisor authority is required to move a whole table/);
+  assert.match(stationary, /Supervisor authority is required to merge tables/);
+
+  assert.match(registry, /canSettle = props\.posRuntime\?\.capabilities\?\.actions\?\.payment === true/);
+  assert.match(registry, /data-stationary-payment-authority-boundary="true"/);
+  assert.match(registry, /Cashier authority required/);
+  assert.match(registry, /\{canSettle \? \([\s\S]*<POSInlineCheckout/);
 });
 
 test("restaurant whole-table transfer requires a truly free destination", async () => {

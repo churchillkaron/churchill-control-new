@@ -95,6 +95,29 @@ function requireOperationsResult(result, fallback) {
   throw error;
 }
 
+function pointTypePrefix(pointType) {
+  return ({
+    rodent_bait_station: "RB",
+    rodent_trap: "RT",
+    glue_board: "GB",
+    insect_light_trap: "ILT",
+    termite_station: "TS",
+    monitoring_trap: "MT",
+    other: "MP",
+  })[pointType] || "MP";
+}
+
+function nextGeneratedCode(rows, pointType) {
+  const prefix = pointTypePrefix(pointType);
+  let maximum = 0;
+  for (const row of rows || []) {
+    const match = text(row.code).toUpperCase().match(new RegExp(`^${prefix}-(\\d{1,6})$`));
+    if (!match) continue;
+    maximum = Math.max(maximum, Number(match[1]) || 0);
+  }
+  return `${prefix}-${String(maximum + 1).padStart(3, "0")}`;
+}
+
 async function loadSites(context) {
   const plans = await getServicePlans({ context, filters: { limit: 1000 } });
   const byLocation = new Map();
@@ -239,17 +262,18 @@ export async function POST(request) {
     if (action === "create") {
       requirePermission(context, { capabilityId: "equipment", command: "create" });
       requirePermission(context, { capabilityId: "equipment", command: "activate" });
-      const code = text(body.code, 80).toUpperCase();
-      const barcode = text(body.barcode, 120);
+      const requestedCode = text(body.code, 80).toUpperCase();
+      const requestedBarcode = text(body.barcode, 120);
       const pointType = normalized(body.pointType || body.point_type);
       const locationId = text(body.customerLocationId || body.customer_location_id, 160);
       const cadenceDays = boundedNumber(body.checkCadenceDays || body.check_cadence_days, 1, 3650, null);
-      if (!code) return responseError("Monitoring point code is required.", 400);
       if (!POINT_TYPES.has(pointType)) return responseError("Choose a supported monitoring point type.", 400);
       if (!locationId) return responseError("Choose the exact customer site for this monitoring point.", 400);
       if (!cadenceDays) return responseError("Check cadence must be between 1 and 3650 days.", 400);
 
       const current = await loadMonitoringData(context);
+      const code = requestedCode || nextGeneratedCode(current.rows, pointType);
+      const barcode = requestedBarcode || code;
       const duplicateCode = current.rows.some((row) => normalized(row.code) === normalized(code));
       const duplicateBarcode = barcode && current.rows.some((row) => normalized(row.barcode) === normalized(barcode));
       if (duplicateCode) return responseError(`Monitoring point code ${code} already exists.`, 409);
@@ -262,7 +286,7 @@ export async function POST(request) {
         schema_version: 1,
         industry_key: "pest-control",
         code,
-        barcode: barcode || null,
+        barcode,
         point_type: pointType,
         point_type_label: typeLabel(pointType),
         customer_party_id: site.customer_party_id,
@@ -275,6 +299,7 @@ export async function POST(request) {
         check_cadence_days: cadenceDays,
       };
 
+      const mutationId = text(body.clientMutationId || body.client_mutation_id, 160) || code;
       const createResult = await serverOperationsApi.execute({
         capabilityId: "equipment",
         command: "create",
@@ -285,7 +310,7 @@ export async function POST(request) {
           source_domain: "service-management",
           source_type: "customer-location",
           source_id: site.customer_location_id,
-          idempotency_key: text(body.clientMutationId || body.client_mutation_id, 160) || `monitoring-point:${code}`,
+          idempotency_key: `monitoring-point:${mutationId}`,
           attributes: { monitoring_point: point },
         },
       });
@@ -296,13 +321,10 @@ export async function POST(request) {
         capabilityId: "equipment",
         command: "activate",
         context,
-        payload: {
-          id: created.id,
-          idempotency_key: `monitoring-point:${created.id}:activate`,
-        },
+        payload: { id: created.id, idempotency_key: `monitoring-point:${created.id}:activate` },
       });
       const activated = requireOperationsResult(activateResult, "Monitoring point was created but could not be activated.").execution?.result || created;
-      return Response.json({ success: true, action, row: activated }, { status: 201 });
+      return Response.json({ success: true, action, row: activated, generated_code: code, generated_barcode: barcode }, { status: 201 });
     }
 
     if (action === "check") {

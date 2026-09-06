@@ -11,7 +11,8 @@ create table if not exists public.hotel_booking_reinstatements (
   business_date date not null,
   reason text not null,
   previous_actual_check_out_at timestamptz,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint hotel_booking_reinstatement_reason_length check (char_length(btrim(reason)) between 8 and 1000)
 );
 
 create index if not exists hotel_booking_reinstatements_booking_idx
@@ -25,9 +26,12 @@ create policy "hotel_booking_reinstatements_org_read"
   using (
     exists (
       select 1
-      from public.organization_members om
-      where om.organization_id = hotel_booking_reinstatements.organization_id
-        and om.user_id = auth.uid()
+      from public.organization_users ou
+      join public.staff_accounts sa on sa.id = ou.staff_account_id
+      where ou.organization_id = hotel_booking_reinstatements.organization_id
+        and upper(coalesce(ou.status, 'ACTIVE')) = 'ACTIVE'
+        and coalesce(sa.auth_user_id, sa.user_id) = auth.uid()
+        and coalesce(sa.active, true) = true
     )
   );
 
@@ -51,8 +55,10 @@ declare
   v_active_turnover_count integer := 0;
   v_pending_turnover_id uuid;
 begin
-  if v_reason = '' or char_length(v_reason) < 8 then
-    raise exception 'A clear reinstatement reason is required';
+  if p_room_id is null then raise exception 'A governed room is required for reinstatement'; end if;
+  if p_business_date is null then raise exception 'Current property business date is required'; end if;
+  if char_length(v_reason) < 8 or char_length(v_reason) > 1000 then
+    raise exception 'Reinstatement reason must be between 8 and 1000 characters';
   end if;
 
   select * into v_booking
@@ -145,7 +151,6 @@ begin
   if v_pending_turnover_id is not null then
     update public.hotel_housekeeping_tasks
     set task_status = 'CANCELLED',
-        completed_at = now(),
         updated_at = now(),
         notes = concat_ws(E'\n', nullif(notes, ''), 'Cancelled automatically: guest stay reinstated before cleaning began.')
     where id = v_pending_turnover_id
@@ -177,4 +182,4 @@ end;
 $$;
 
 comment on function public.hotel_reinstate_checkout(uuid, uuid, uuid, date, text) is
-  'Atomically reinstates a same-business-day mistaken Hotel checkout without changing folio, payment, charge, or booked departure history.';
+  'Atomically reinstates a same-business-day mistaken Hotel checkout without changing folio, payment, charge, booked departure, or original checkout history.';

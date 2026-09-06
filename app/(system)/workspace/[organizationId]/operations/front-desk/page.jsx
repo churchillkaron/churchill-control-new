@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { CalendarPlus2, CheckCircle2, LogIn, LogOut, RefreshCw } from "lucide-react";
+import { CalendarPlus2, CheckCircle2, LogIn, LogOut, RefreshCw, UserX } from "lucide-react";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import {
@@ -100,6 +100,7 @@ export default function OperationsFrontDeskPage() {
   const [error, setError] = useState(null);
   const [resolver, setResolver] = useState({ bookingId: null, loading: false, busy: false, rooms: [], roomId: "", arrivalLink: "", error: "" });
   const [extension, setExtension] = useState({ bookingId: null, newCheckOutDate: "", busy: false, error: "" });
+  const [noShow, setNoShow] = useState({ bookingId: null, busy: false, error: "" });
 
   const loadBookings = useCallback(async () => {
     if (!organizationId) return;
@@ -126,7 +127,8 @@ export default function OperationsFrontDeskPage() {
     ready: queues.ARRIVALS.filter((booking) => booking?.arrival_readiness?.state === "READY").length,
     attention: queues.ARRIVALS.filter((booking) => booking?.arrival_readiness?.state === "NEEDS_ACTION").length,
     blocked: queues.ARRIVALS.filter((booking) => booking?.arrival_readiness?.state === "BLOCKED").length,
-  }), [queues.ARRIVALS]);
+    overdue: queues.ARRIVALS.filter((booking) => dateValue(booking.check_in_date) < today).length,
+  }), [queues.ARRIVALS, today]);
   const departureSummary = useMemo(() => ({
     ready: queues.DEPARTURES.filter((booking) => booking?.departure_readiness?.can_check_out === true).length,
     blocked: queues.DEPARTURES.filter((booking) => booking?.departure_readiness?.can_check_out !== true).length,
@@ -184,6 +186,31 @@ export default function OperationsFrontDeskPage() {
     }
   }
 
+  function openNoShow(booking) {
+    if (!booking?.id || dateValue(booking.check_in_date) >= today) return;
+    if (noShow.bookingId === booking.id) {
+      setNoShow({ bookingId: null, busy: false, error: "" });
+      return;
+    }
+    setNoShow({ bookingId: booking.id, busy: false, error: "" });
+  }
+
+  async function recordNoShow(booking) {
+    if (!booking?.id || dateValue(booking.check_in_date) >= today) return;
+    setNoShow((current) => ({ ...current, busy: true, error: "" }));
+    try {
+      await hotelApi("/api/hotel/bookings/no-show", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: booking.id }),
+      });
+      setNoShow({ bookingId: null, busy: false, error: "" });
+      await loadBookings();
+    } catch (reason) {
+      setNoShow((current) => ({ ...current, busy: false, error: reason?.message || "Unable to record no-show" }));
+    }
+  }
+
   async function inspectRoomForArrival(booking) {
     const taskId = booking?.room_turnover?.id;
     if (!organizationId || !booking?.id || !taskId) return;
@@ -235,13 +262,18 @@ export default function OperationsFrontDeskPage() {
     } catch (reason) { setResolver({ bookingId: booking.id, loading: false, busy: false, rooms: [], roomId: "", arrivalLink: "", error: reason.message || "Unable to prepare guest arrival" }); }
   }
 
+  function noShowAction(booking) {
+    if (dateValue(booking?.check_in_date) >= today) return null;
+    return <HotelSecondaryAction onClick={() => openNoShow(booking)}><UserX size={9} />Record no-show</HotelSecondaryAction>;
+  }
+
   function blockedAction(booking) {
     const code = firstReadinessCode(booking);
     const inspectable = code === "ROOM_NOT_AVAILABLE" && status(booking?.hotel_rooms?.status) === "CLEAN" && status(booking?.room_turnover?.task_status) === "AWAITING_INSPECTION";
-    if (inspectable) return <><HotelPrimaryAction onClick={() => inspectRoomForArrival(booking)} disabled={resolvingId === booking.id}><CheckCircle2 size={9} />{resolvingId === booking.id ? "Releasing" : "Inspect room"}</HotelPrimaryAction><HotelSecondaryAction onClick={() => openRoomResolver(booking)}>Choose another</HotelSecondaryAction></>;
-    if (["ROOM_UNASSIGNED", "ROOM_NOT_FOUND", "ROOM_NOT_AVAILABLE"].includes(code)) return <><HotelSecondaryAction onClick={() => openRoomResolver(booking)}>Choose room</HotelSecondaryAction>{booking?.room_turnover ? <HotelSecondaryAction href={hotelWorkspaceHref(organizationId, "housekeeping")}>Housekeeping</HotelSecondaryAction> : null}</>;
-    if (code === "DEPOSIT_OUTSTANDING") return <HotelSecondaryAction href={bookingWorkHref(organizationId, "hotel-payments", booking)}>Collect deposit</HotelSecondaryAction>;
-    return <HotelSecondaryAction href={bookingWorkHref(organizationId, "stay-control", booking)}>Open stay</HotelSecondaryAction>;
+    if (inspectable) return <><HotelPrimaryAction onClick={() => inspectRoomForArrival(booking)} disabled={resolvingId === booking.id}><CheckCircle2 size={9} />{resolvingId === booking.id ? "Releasing" : "Inspect room"}</HotelPrimaryAction><HotelSecondaryAction onClick={() => openRoomResolver(booking)}>Choose another</HotelSecondaryAction>{noShowAction(booking)}</>;
+    if (["ROOM_UNASSIGNED", "ROOM_NOT_FOUND", "ROOM_NOT_AVAILABLE"].includes(code)) return <><HotelSecondaryAction onClick={() => openRoomResolver(booking)}>Choose room</HotelSecondaryAction>{booking?.room_turnover ? <HotelSecondaryAction href={hotelWorkspaceHref(organizationId, "housekeeping")}>Housekeeping</HotelSecondaryAction> : null}{noShowAction(booking)}</>;
+    if (code === "DEPOSIT_OUTSTANDING") return <><HotelSecondaryAction href={bookingWorkHref(organizationId, "hotel-payments", booking)}>Collect deposit</HotelSecondaryAction>{noShowAction(booking)}</>;
+    return <><HotelSecondaryAction href={bookingWorkHref(organizationId, "stay-control", booking)}>Open stay</HotelSecondaryAction>{noShowAction(booking)}</>;
   }
 
   function attentionAction(booking) {
@@ -276,11 +308,11 @@ export default function OperationsFrontDeskPage() {
     <HotelWorkspaceShell organizationId={organizationId} active="front-desk" title="Front Desk" subtitle="Work the exception, not the menu. Arrivals and departures expose the exact operational blocker and safest governed resolution before the final desk action." context={organization?.name || "Property"} actions={<><HotelPrimaryAction href={hotelWorkspaceHref(organizationId, "reservations")}>New / manage reservation</HotelPrimaryAction><HotelSecondaryAction onClick={loadBookings} disabled={loading}><RefreshCw size={9} className={loading ? "animate-spin" : ""} />Refresh</HotelSecondaryAction></>}>
       <HotelError>{error}</HotelError>
       <section className="grid grid-cols-3 gap-3">
-        <button type="button" onClick={() => setFilter("ARRIVALS")} className="text-left"><HotelMetric label="Arrivals" value={queues.ARRIVALS.length} detail={`${arrivalSummary.ready} ready · ${arrivalSummary.attention} attention · ${arrivalSummary.blocked} blocked`} attention={filter === "ARRIVALS" && (arrivalSummary.attention + arrivalSummary.blocked) > 0} /></button>
+        <button type="button" onClick={() => setFilter("ARRIVALS")} className="text-left"><HotelMetric label="Arrivals" value={queues.ARRIVALS.length} detail={`${arrivalSummary.ready} ready · ${arrivalSummary.attention} attention · ${arrivalSummary.blocked} blocked${arrivalSummary.overdue ? ` · ${arrivalSummary.overdue} overdue` : ""}`} attention={filter === "ARRIVALS" && (arrivalSummary.attention + arrivalSummary.blocked + arrivalSummary.overdue) > 0} /></button>
         <button type="button" onClick={() => setFilter("IN_HOUSE")} className="text-left"><HotelMetric label="In house" value={queues.IN_HOUSE.length} detail="Active guest stays" attention={false} /></button>
         <button type="button" onClick={() => setFilter("DEPARTURES")} className="text-left"><HotelMetric label="Departures" value={queues.DEPARTURES.length} detail={`${departureSummary.ready} ready · ${departureSummary.blocked} blocked${departureSummary.overdue ? ` · ${departureSummary.overdue} overdue` : ""}`} attention={filter === "DEPARTURES" && (departureSummary.blocked + departureSummary.overdue) > 0} /></button>
       </section>
-      <HotelSection eyebrow="Live desk queue" title={filter === "ARRIVALS" ? "Arrivals requiring a desk move" : filter === "DEPARTURES" ? "Departures requiring closeout" : "Guests currently in house"} detail={filter === "ARRIVALS" ? "Resolve the exact arrival blocker here. A cleaned room can be inspected and released without leaving the desk; cleaning rooms can be swapped to an already-ready alternative." : filter === "DEPARTURES" ? "Check out when settlement is ready, or explicitly extend the occupied room. Extensions re-check future room and group-held inventory atomically and never add an ungoverned charge." : "Active stays remain connected to departure readiness and can be explicitly extended without silent rollover."}>
+      <HotelSection eyebrow="Live desk queue" title={filter === "ARRIVALS" ? "Arrivals requiring a desk move" : filter === "DEPARTURES" ? "Departures requiring closeout" : "Guests currently in house"} detail={filter === "ARRIVALS" ? "Resolve the exact arrival blocker here. Same-day arrivals remain live; a reservation whose arrival date has passed can be recorded as a governed no-show without silently deciding deposits, folio treatment, group allotment or OTA reporting." : filter === "DEPARTURES" ? "Check out when settlement is ready, or explicitly extend the occupied room. Extensions re-check future room and group-held inventory atomically and never add an ungoverned charge." : "Active stays remain connected to departure readiness and can be explicitly extended without silent rollover."}>
         {loading ? <HotelEmptyState>Loading Front Desk…</HotelEmptyState> : filteredBookings.length ? <div className="divide-y divide-black/[0.055]">
           <div className="hidden grid-cols-[minmax(190px,1.15fr)_130px_130px_105px_minmax(200px,1fr)_180px] gap-3 bg-[#FCFBF8] px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#969087] md:grid"><span>Guest / room</span><span>Arrival</span><span>Departure</span><span>Status</span><span>Readiness</span><span>Next move</span></div>
           {filteredBookings.map((booking) => {
@@ -291,16 +323,19 @@ export default function OperationsFrontDeskPage() {
             const canCheckIn = bookingStatus === "RESERVED" && arrivalReadiness?.can_check_in === true;
             const showResolver = resolver.bookingId === booking.id;
             const showExtension = extension.bookingId === booking.id;
+            const showNoShow = noShow.bookingId === booking.id;
+            const isOverdueArrival = bookingStatus === "RESERVED" && dateValue(booking.check_in_date) < today;
             const isOverdueDeparture = bookingStatus === "CHECKED_IN" && dateValue(booking.check_out_date) < today;
             return <div key={booking.id}>
               <div className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(190px,1.15fr)_130px_130px_105px_minmax(200px,1fr)_180px] md:items-center md:gap-3 md:px-5">
                 <div className="min-w-0"><div className="truncate text-[9px] font-semibold text-[#403C37]">{guestName(booking)}</div><div className="mt-0.5 text-[8px] text-[#918B83]">Room {booking.hotel_rooms?.room_number || "Unassigned"}{booking.hotel_rooms?.room_type ? ` · ${booking.hotel_rooms.room_type}` : ""}{booking.hotel_rooms?.status ? ` · ${booking.hotel_rooms.status}` : ""}</div></div>
-                <div className="text-[8px] text-[#716B63]">{dateValue(booking.check_in_date) || "—"}</div>
+                <div><div className="text-[8px] text-[#716B63]">{dateValue(booking.check_in_date) || "—"}</div>{isOverdueArrival ? <div className="mt-0.5 text-[7px] font-semibold text-[#9A533D]">Arrival passed</div> : null}</div>
                 <div><div className="text-[8px] text-[#716B63]">{dateValue(booking.check_out_date) || "—"}</div>{isOverdueDeparture ? <div className="mt-0.5 text-[7px] font-semibold text-[#9A533D]">Date passed</div> : null}</div>
                 <HotelStatusPill value={bookingStatus} />
-                <div className="min-w-0">{bookingStatus === "RESERVED" ? <><HotelStatusPill value={arrivalReadiness?.state || "BLOCKED"} /><div className="mt-1 text-[7px] leading-3 text-[#918B83]">{readinessDetail(booking)}</div>{booking?.room_turnover ? <div className="mt-0.5 text-[7px] font-semibold text-[#8A633C]">Housekeeping · {String(booking.room_turnover.task_status || "").replaceAll("_", " ")}</div> : null}{(arrivalReadiness?.blockers?.length || 0) + (arrivalReadiness?.attention?.length || 0) > 1 ? <div className="mt-0.5 text-[7px] font-semibold text-[#8A633C]">+{(arrivalReadiness?.blockers?.length || 0) + (arrivalReadiness?.attention?.length || 0) - 1} more item(s)</div> : null}</> : bookingStatus === "CHECKED_IN" ? <><HotelStatusPill value={departureReadiness?.state || "BLOCKED"} /><div className="mt-1 text-[7px] leading-3 text-[#918B83]">{departureDetail(booking, today)}</div>{departureReadiness?.folio_status ? <div className="mt-0.5 text-[7px] font-semibold text-[#8A633C]">Folio {departureReadiness.folio_status} · {money(departureReadiness.folio_balance, departureReadiness.currency_code)}</div> : null}</> : <span className="text-[8px] text-[#918B83]">—</span>}</div>
-                <div className="flex flex-wrap gap-1.5">{bookingStatus === "RESERVED" ? (canCheckIn ? <><HotelPrimaryAction onClick={() => transitionBooking(booking, "CHECK_IN")} disabled={transitioning}><LogIn size={9} />{transitioning ? "Checking in" : "Check in"}</HotelPrimaryAction>{arrivalReadiness?.state === "NEEDS_ACTION" ? attentionAction(booking) : null}</> : blockedAction(booking)) : bookingStatus === "CHECKED_IN" ? departureAction(booking) : <span className="text-[8px] text-[#918B83]">No desk action</span>}</div>
+                <div className="min-w-0">{bookingStatus === "RESERVED" ? <><HotelStatusPill value={arrivalReadiness?.state || "BLOCKED"} /><div className="mt-1 text-[7px] leading-3 text-[#918B83]">{isOverdueArrival ? "Reserved arrival date has passed. Confirm arrival or resolve the reservation as a no-show." : readinessDetail(booking)}</div>{booking?.room_turnover ? <div className="mt-0.5 text-[7px] font-semibold text-[#8A633C]">Housekeeping · {String(booking.room_turnover.task_status || "").replaceAll("_", " ")}</div> : null}{(arrivalReadiness?.blockers?.length || 0) + (arrivalReadiness?.attention?.length || 0) > 1 ? <div className="mt-0.5 text-[7px] font-semibold text-[#8A633C]">+{(arrivalReadiness?.blockers?.length || 0) + (arrivalReadiness?.attention?.length || 0) - 1} more item(s)</div> : null}</> : bookingStatus === "CHECKED_IN" ? <><HotelStatusPill value={departureReadiness?.state || "BLOCKED"} /><div className="mt-1 text-[7px] leading-3 text-[#918B83]">{departureDetail(booking, today)}</div>{departureReadiness?.folio_status ? <div className="mt-0.5 text-[7px] font-semibold text-[#8A633C]">Folio {departureReadiness.folio_status} · {money(departureReadiness.folio_balance, departureReadiness.currency_code)}</div> : null}</> : <span className="text-[8px] text-[#918B83]">—</span>}</div>
+                <div className="flex flex-wrap gap-1.5">{bookingStatus === "RESERVED" ? (canCheckIn ? <><HotelPrimaryAction onClick={() => transitionBooking(booking, "CHECK_IN")} disabled={transitioning}><LogIn size={9} />{transitioning ? "Checking in" : "Check in"}</HotelPrimaryAction>{arrivalReadiness?.state === "NEEDS_ACTION" ? attentionAction(booking) : null}{noShowAction(booking)}</> : blockedAction(booking)) : bookingStatus === "CHECKED_IN" ? departureAction(booking) : <span className="text-[8px] text-[#918B83]">No desk action</span>}</div>
               </div>
+              {showNoShow ? <div className="border-t border-black/[0.05] bg-[#FBFAF7] px-4 py-3 md:px-5"><div className="grid gap-2 md:grid-cols-[minmax(300px,1fr)_auto] md:items-center"><div><div className="text-[8px] font-semibold text-[#403C37]">Record {guestName(booking)} as no-show?</div><div className="mt-1 text-[7px] leading-4 text-[#918B83]">This changes only the reservation state to NO_SHOW, releases this reservation from sellable stay inventory and clears the unresolved-arrival blocker. It does not refund or forfeit a deposit, change pricing or folio evidence, release a protected group allotment, or report the no-show to an OTA automatically. Those remain explicit follow-up decisions.</div></div><div className="flex gap-1.5"><HotelSecondaryAction onClick={() => setNoShow({ bookingId: null, busy: false, error: "" })} disabled={noShow.busy}>Keep reservation</HotelSecondaryAction><HotelPrimaryAction onClick={() => recordNoShow(booking)} disabled={noShow.busy}><UserX size={9} />{noShow.busy ? "Recording…" : "Confirm no-show"}</HotelPrimaryAction></div></div>{noShow.error ? <div className="mt-2 text-[8px] text-red-800">{noShow.error}</div> : null}</div> : null}
               {showExtension ? <div className="border-t border-black/[0.05] bg-[#FBFAF7] px-4 py-3 md:px-5"><div className="grid gap-2 md:grid-cols-[minmax(220px,320px)_auto_minmax(280px,1fr)] md:items-end"><label><span className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#8D877F]">New departure</span><input type="date" className={`${hotelInputClass} mt-1.5`} min={nextDate(booking.check_out_date)} value={extension.newCheckOutDate} onChange={(event) => setExtension((current) => ({ ...current, newCheckOutDate: event.target.value, error: "" }))} /></label><HotelPrimaryAction disabled={extension.busy || !extension.newCheckOutDate} onClick={() => extendStay(booking)}><CalendarPlus2 size={9} />{extension.busy ? "Checking inventory…" : "Confirm extension"}</HotelPrimaryAction><div className="text-[7px] leading-4 text-[#918B83]">Avantiqo locks the stay and re-checks the exact room, room-type capacity and protected group inventory for every added night. Pricing and folio are not changed automatically; review the commercial charge separately after the extension is accepted.</div></div>{extension.error ? <div className="mt-2 text-[8px] text-red-800">{extension.error}</div> : null}</div> : null}
               {showResolver ? <div className="border-t border-black/[0.05] bg-[#FBFAF7] px-4 py-3 md:px-5">{resolver.loading ? <div className="text-[8px] text-[#918B83]">Finding governed-ready rooms…</div> : resolver.arrivalLink ? <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><div><div className="text-[8px] font-semibold text-[#403C37]">Secure arrival link ready</div><div className="mt-0.5 break-all text-[7px] text-[#918B83]">{resolver.arrivalLink}</div></div><div className="flex gap-2"><HotelSecondaryAction onClick={() => navigator.clipboard?.writeText(resolver.arrivalLink)}>Copy link</HotelSecondaryAction><HotelSecondaryAction href={bookingWorkHref(organizationId, "stay-control", booking)}>Open stay</HotelSecondaryAction></div></div> : resolver.rooms.length ? <div className="grid gap-2 md:grid-cols-[minmax(260px,420px)_auto_1fr] md:items-end"><label><span className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#8D877F]">Governed-ready alternative</span><select className={`${hotelInputClass} mt-1.5`} value={resolver.roomId} onChange={(event) => setResolver((current) => ({ ...current, roomId: event.target.value }))}>{resolver.rooms.map((room) => <option key={room.id} value={room.id}>Room {room.room_number} · {room.room_type || "Room"}</option>)}</select></label><HotelPrimaryAction disabled={resolver.busy || !resolver.roomId} onClick={() => assignReadyRoom(booking)}>{resolver.busy ? "Assigning…" : booking.room_id ? "Move & resolve" : "Assign & resolve"}</HotelPrimaryAction><div className="text-[7px] leading-4 text-[#918B83]">The stay API re-checks property scope and AVAILABLE state. A stale browser choice cannot force a room move.</div></div> : <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><div><div className="text-[8px] font-semibold text-[#403C37]">No alternate room is ready</div><div className="mt-0.5 text-[7px] text-[#918B83]">Keep the arrival blocked and work the assigned room through Housekeeping.</div></div><div className="flex gap-2"><HotelSecondaryAction href={hotelWorkspaceHref(organizationId, "housekeeping")}>Open Housekeeping</HotelSecondaryAction><HotelSecondaryAction href={bookingWorkHref(organizationId, "stay-control", booking)}>Open stay</HotelSecondaryAction></div></div>}{resolver.error ? <div className="mt-2 text-[8px] text-red-800">{resolver.error}</div> : null}</div> : null}
             </div>;

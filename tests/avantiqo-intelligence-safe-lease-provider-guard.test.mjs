@@ -58,11 +58,16 @@ test("Intelligence direct transport mirrors working Audio Modal SDK pattern", ()
   assert.doesNotMatch(directRuntimeSource, /Runpod|RunPod|RUNPOD/);
 });
 
-test("active Intelligence provider is Modal-only and fails closed without Modal", () => {
-  assert.match(providerV2Source, /AVANTIQO_INTELLIGENCE_MODAL_DIRECT_CONFIGURATION_REQUIRED/);
+test("active Intelligence provider is Modal-only and fails closed through governed direct runtime", () => {
   assert.match(providerV2Source, /return executeIntelligenceModalDirect\(input\)/);
   assert.match(providerV2Source, /AVANTIQO_INTELLIGENCE_MODAL_DIRECT_JOB_ID_REQUIRED/);
   assert.doesNotMatch(providerV2Source, /Runpod|RunPod|RUNPOD/);
+
+  assert.match(directRuntimeSource, /function governedModalCredential\(input = \{\}\)/);
+  assert.match(directRuntimeSource, /if \(governed\.present\)/);
+  assert.match(directRuntimeSource, /source:\s*"provider_credential"/);
+  assert.match(directRuntimeSource, /AVANTIQO_INTELLIGENCE_MODAL_DIRECT_CONFIGURATION_REQUIRED/);
+  assert.match(directRuntimeSource, /function processEnvModalCredential\(\)/);
 
   assert.match(canonicalProviderSource, /infrastructure_fallback:\s*null/);
   assert.match(canonicalProviderSource, /modal_only:\s*true/);
@@ -70,11 +75,16 @@ test("active Intelligence provider is Modal-only and fails closed without Modal"
   assert.doesNotMatch(canonicalProviderSource, /Runpod|RunPod|RUNPOD/);
 });
 
-test("Intelligence registration is Modal-only", () => {
+test("Intelligence registration is Modal-only with execution-time governed credential authority", () => {
+  assert.match(registrationSource, /import "\.\/AvantiqoIntelligenceCredentialRegistration\.js"/);
   assert.match(registrationSource, /infrastructure_provider:\s*"MODAL_H100_ASYNC_V1"/);
   assert.match(registrationSource, /infrastructure_candidates:\s*\["MODAL_H100_ASYNC_V1"\]/);
   assert.match(registrationSource, /modal_only:\s*true/);
-  assert.match(registrationSource, /runtimeAvailable = Boolean\(modalConfigured/);
+  assert.match(registrationSource, /runtimeAvailable = Boolean\(engineEnabled \|\| localReviewRuntimeAllowed\)/);
+  assert.match(registrationSource, /credential_transport:\s*"PROVIDER_EXECUTOR_GOVERNED_SECRET_BROKER_OR_PROCESS_ENV_V2"/);
+  assert.match(registrationSource, /server_secret_broker:\s*"SUPABASE_VAULT_ROW_BOUND_SERVICE_ROLE_RPC_V1"/);
+  assert.match(registrationSource, /runtime_credentials_required_at_execution:\s*true/);
+  assert.match(registrationSource, /opaque_secret_reference_passthrough_allowed:\s*false/);
   assert.doesNotMatch(registrationSource, /Runpod|RunPod|RUNPOD/);
 });
 

@@ -397,19 +397,27 @@ export async function POST(request) {
 
     const responseText =
       text(result?.decision?.response_text) ||
-      "Done.";
+      "I couldn't produce a reliable response for that turn. No action was assumed complete.";
+    const normalizedDecision = {
+      ...object(result?.decision),
+      response_text: responseText,
+    };
     const returnedAgreementState =
       result?.agreement_state ||
-      result?.decision?.agreement_state;
+      normalizedDecision.agreement_state;
     const nextAgreementState =
       returnedAgreementState &&
       typeof returnedAgreementState === "object" &&
       !Array.isArray(returnedAgreementState)
         ? returnedAgreementState
         : agreementState;
+    const normalizedResult = {
+      ...object(result),
+      decision: normalizedDecision,
+    };
     const nextProjectState = deriveProjectState(
       effectiveProjectState,
-      result,
+      normalizedResult,
     );
 
     const assistantPersistStartedAt = Date.now();
@@ -419,7 +427,7 @@ export async function POST(request) {
       partyId,
       source,
       content: responseText,
-      decision: object(result?.decision),
+      decision: normalizedDecision,
       evidence: object(result?.provider_evidence),
       execution: object(result?.execution),
       navigation: object(result?.navigation),
@@ -468,7 +476,7 @@ export async function POST(request) {
         organization_id: businessContext.organizationId,
         entity_scoped: Boolean(businessContext.entityId),
         source,
-        intent: text(result?.decision?.intent) || null,
+        intent: text(normalizedDecision.intent) || null,
         execution_status: text(result?.execution?.status) || null,
         capability_key: text(result?.execution?.capability?.key) || null,
         long_term_memory_recalled: longTermMemory.length,
@@ -481,7 +489,7 @@ export async function POST(request) {
     );
 
     const response = Response.json({
-      ...result,
+      ...normalizedResult,
       agreement_state: object(persistedState.agreement_state),
       project_state: object(persistedState.project_state),
       project_continuity: {

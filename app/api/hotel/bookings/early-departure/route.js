@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { getHotelOperationalDate } from "@/lib/hotel/server/getHotelOperationalDate";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -110,6 +111,12 @@ export async function POST(request) {
       if (updateError) throw updateError;
       if (!booking) return errorResponse("Stay state changed before early departure could be prepared", 409);
 
+      await broadcastHotelReadinessChanged({
+        organizationId: access.organizationId,
+        source: "front-desk-booking",
+        action: "EARLY_DEPARTURE_PREPARE",
+      });
+
       return NextResponse.json({
         success: true,
         booking,
@@ -165,6 +172,12 @@ export async function POST(request) {
 
     if (updateError) throw updateError;
     if (!booking) return errorResponse("Early departure review state changed before confirmation", 409);
+
+    await broadcastHotelReadinessChanged({
+      organizationId: access.organizationId,
+      source: "front-desk-booking",
+      action: "EARLY_DEPARTURE_CONFIRM",
+    });
 
     return NextResponse.json({
       success: true,

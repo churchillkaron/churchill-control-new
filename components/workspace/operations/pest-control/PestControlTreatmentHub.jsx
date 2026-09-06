@@ -36,7 +36,7 @@ export default function PestControlTreatmentHub({ organizationId }) {
     if (!organizationId) return;
     setState((current) => ({ ...current, loading: true, error: "" }));
     try {
-      const response = await fetch(`/api/service-management/technician?organizationId=${encodeURIComponent(organizationId)}&limit=500`, { cache: "no-store", credentials: "include" });
+      const response = await fetch(`/api/service-management/treatment-register?organizationId=${encodeURIComponent(organizationId)}&limit=500`, { cache: "no-store", credentials: "include" });
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.success) throw new Error(json.error || "Treatment visit queue could not be loaded.");
       setState({ loading: false, error: "", rows: Array.isArray(json.rows) ? json.rows : [] });

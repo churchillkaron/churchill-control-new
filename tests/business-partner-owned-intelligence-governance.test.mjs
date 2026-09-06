@@ -66,3 +66,25 @@ test("Business Partner owned cognition preserves Operator and Code execution gov
     /authorization:\s*object\(authorization\)/,
   );
 });
+
+test("Business Partner never converts missing response evidence into false completion", () => {
+  const route = source("app/api/operator/turn/route.js");
+
+  assert.doesNotMatch(
+    route,
+    /text\(result\?\.decision\?\.response_text\)\s*\|\|\s*"Done\."/,
+  );
+  assert.match(
+    route,
+    /No action was assumed complete\./,
+  );
+  assert.match(
+    route,
+    /const normalizedDecision = \{[\s\S]*response_text:\s*responseText/,
+  );
+  assert.match(
+    route,
+    /const normalizedResult = \{[\s\S]*decision:\s*normalizedDecision/,
+  );
+  assert.match(route, /\.\.\.normalizedResult/);
+});

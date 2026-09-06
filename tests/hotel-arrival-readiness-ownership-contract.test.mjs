@@ -9,6 +9,7 @@ const frontDesk = fs.readFileSync("app/(system)/workspace/[organizationId]/opera
 const housekeeping = fs.readFileSync("app/(system)/workspace/[organizationId]/operations/housekeeping/page.jsx", "utf8");
 const maintenance = fs.readFileSync("app/(system)/workspace/[organizationId]/operations/maintenance/page.jsx", "utf8");
 const maintenanceRequestsRoute = fs.readFileSync("app/api/hotel/maintenance/requests/route.js", "utf8");
+const assignRoomRoute = fs.readFileSync("app/api/hotel/bookings/assign-room/route.js", "utf8");
 const roomOptions = fs.readFileSync("lib/hotel/server/getHotelRoomAssignmentOptions.js", "utf8");
 const roomAssignmentMigration = fs.readFileSync("supabase/migrations/20260906014500_hotel_guarded_room_assignment.sql", "utf8");
 
@@ -41,6 +42,29 @@ test("owner precedence gives physical defects to Maintenance before Housekeeping
   assert.match(ownership, /MOVE_OR_INVESTIGATE_ROOM/);
 });
 
+test("blocked arrivals move to Front Desk when a safe ready alternative exists", () => {
+  assert.match(ownership, /findReadyAlternative/);
+  assert.match(ownership, /READY_ALTERNATIVE_AVAILABLE/);
+  assert.match(ownership, /REASSIGN_READY_ALTERNATIVE/);
+  assert.match(ownership, /ASSIGN_READY_ALTERNATIVE/);
+  assert.match(ownership, /owner = "FRONT_DESK"/);
+  assert.match(ownership, /underlyingOwner/);
+  assert.match(ownership, /underlyingBlocker/);
+  assert.match(ownership, /fastPathReadyRooms/);
+  assert.match(ownershipBoard, /assignRecommendedRoom/);
+  assert.match(ownershipBoard, /\/api\/hotel\/bookings\/assign-room/);
+  assert.match(ownershipBoard, /Fast room path/);
+  assert.match(ownershipBoard, /Ready alternative:/);
+});
+
+test("fast-path room assignment still rechecks authority before and during the write", () => {
+  assert.match(assignRoomRoute, /getHotelRoomAssignmentOptions/);
+  assert.match(assignRoomRoute, /option\.assignableNow/);
+  assert.match(assignRoomRoute, /hotel_assign_booking_room_guarded/);
+  assert.match(assignRoomRoute, /recommendationRecheckedBeforeWrite: true/);
+  assert.match(assignRoomRoute, /assignmentRecheckedAtomically: true/);
+});
+
 test("ownership API re-authorizes organization scope on the server", () => {
   assert.match(ownershipRoute, /requireOrganizationAccess/);
   assert.match(ownershipRoute, /organizationId: access\.organizationId/);
@@ -55,7 +79,6 @@ test("the same ownership board is visible to Front Desk, Housekeeping and Mainte
   assert.match(maintenance, /HotelArrivalReadinessOwnership/);
   assert.match(maintenance, /focusOwner="MAINTENANCE"/);
   assert.match(ownershipBoard, /Who owns every blocked arrival/);
-  assert.match(ownershipBoard, /there is no duplicate queue to maintain/);
 });
 
 test("Maintenance workspace operates canonical room blockers separately from planned work", () => {

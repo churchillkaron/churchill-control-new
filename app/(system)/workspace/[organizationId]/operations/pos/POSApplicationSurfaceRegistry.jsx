@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 import POSInlineCheckout from "./POSInlineCheckout";
 import PaymentWorkspace from "./PaymentWorkspace";
+import RestaurantWaiterPhoneSurface from "./RestaurantWaiterPhoneSurface";
 import RetailCatalogWorkspace from "./RetailCatalogWorkspace";
 import RetailOrdersWorkspace from "./RetailOrdersWorkspace";
 import POSFinalUI from "./waiter/POS_FINAL_UI";
@@ -46,9 +47,8 @@ function RestaurantSaleSurface(props) {
           </div>
         </div>
 
-        <POSFinalUI
+        <RestaurantWaiterPhoneSurface
           {...props}
-          surfaceMode="waiter"
         />
       </div>
     );
@@ -70,7 +70,7 @@ function RestaurantSaleSurface(props) {
               Table · order · send · split · settle
             </div>
             <div className="mt-1 text-[10px] text-white/35">
-              The check stays editable while tender and split payment stay visible.
+              The active check stays editable while tender and split payment stay visible.
             </div>
           </div>
 

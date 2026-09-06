@@ -76,16 +76,19 @@ export default function ArtistAgencyBookingStageControls({ booking, organization
       });
       const payload = await response.json();
       if (!response.ok) {
-        if (payload?.error === "BOOKING_CHANGED_RELOAD_REQUIRED") throw new Error("This booking changed elsewhere. Reloaded authoritative state; review it before trying again.");
+        if (payload?.error === "BOOKING_CHANGED_RELOAD_REQUIRED") {
+          setError("This booking changed elsewhere. Avantiqo reloaded authoritative state; review it before making another decision.");
+          await onChanged?.(null, { reload: true });
+          return;
+        }
         if (payload?.error === "TRANSITION_EVIDENCE_REQUIRED") throw new Error("Evidence or a human reason is required for this move.");
         throw new Error(payload?.error || "Booking stage could not be changed");
       }
       setSuccess(`${label(payload?.transition?.from)} → ${label(payload?.transition?.to)} recorded.`);
       setEvidence("");
-      await onChanged?.(payload?.booking || null);
+      await onChanged?.(payload?.booking || null, { reload: true });
     } catch (cause) {
       setError(cause?.message || "Booking stage could not be changed");
-      await onChanged?.(null);
     } finally {
       setSaving(false);
     }

@@ -1,0 +1,76 @@
+name: Avantiqo Intelligence - Governed Preflight
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-intelligence-governed-preflight.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-governed-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: ${{ github.event.head_commit.message == 'Run governed Intelligence preflight' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_ENV: development
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
+      AVANTIQO_INTELLIGENCE_MODAL_BASE_URL: ""
+      AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN: ""
+
+    steps:
+      - name: Checkout exact preflight commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install repository dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          touch .env.local
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+
+      - name: Re-prove governed Vault credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/bootstrap-avantiqo-intelligence-vault-credential.mjs
+
+      - name: Run owned Intelligence zero-inference preflight
+        shell: bash
+        env:
+          AVANTIQO_INTELLIGENCE_MODAL_REAL_INFERENCE_APPROVED: "NO"
+        run: |
+          set -euo pipefail
+          bash scripts/run-avantiqo-intelligence-modal-direct-certification-local.sh
+
+      - name: Assert preflight boundary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'EXTERNAL_AI_USED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'SECRET_MATERIAL_PRINTED=false'

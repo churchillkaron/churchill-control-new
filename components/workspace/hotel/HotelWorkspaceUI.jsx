@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 
+import HotelRealtimeReadinessBridge from "@/components/workspace/hotel/HotelRealtimeReadinessBridge";
+
 export const HOTEL_WORKSPACE_NAV = Object.freeze([
   { id: "control", label: "Hotel Control", route: "hotel" },
   { id: "front-desk", label: "Front Desk", route: "front-desk" },
@@ -50,6 +52,7 @@ export function HotelWorkspaceShell({
 }) {
   return (
     <main className="min-h-[calc(100vh-61px)] bg-[#F7F6F3] px-4 py-5 text-[#2A2723] md:px-6 lg:px-8">
+      <HotelRealtimeReadinessBridge organizationId={organizationId} />
       <div className="mx-auto max-w-[1720px] space-y-4">
         <section className="overflow-hidden rounded-[22px] border border-black/[0.07] bg-[#FBF8F3]">
           <div className="flex flex-col gap-3 px-4 py-4 md:px-5 lg:flex-row lg:items-center lg:justify-between">

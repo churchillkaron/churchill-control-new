@@ -26,21 +26,18 @@ export async function POST(request) {
     if (existingError) throw existingError;
     if (!existing?.organization_id) return errorResponse("Booking not found", 404);
 
-    const access = await requireOrganizationAccess({
-      organizationId: existing.organization_id,
-      request,
-    });
-
+    const access = await requireOrganizationAccess({ organizationId: existing.organization_id, request });
     if (!access.success) return errorResponse(access.error, access.status);
     if (!existing.property_id) return errorResponse("Booking has no governed Hotel property", 409);
     if (String(existing.status || "").toUpperCase() !== "RESERVED") {
       return errorResponse("Only a reserved arrival can be recorded as a no-show", 409);
     }
 
-    const operationalDate = await getHotelOperationalDate({
-      organizationId: access.organizationId,
-      propertyId: existing.property_id,
-    });
+    const operationalDate = await getHotelOperationalDate({ organizationId: access.organizationId, propertyId: existing.property_id });
+    if (operationalDate.compatibilityFallback || !operationalDate.configured) {
+      return errorResponse("Configure the property's operational timezone and day cutoff before recording a date-sensitive no-show", 409);
+    }
+
     const businessDate = operationalDate.businessDate;
     const arrivalDate = String(existing.check_in_date || "").slice(0, 10);
     if (!arrivalDate || arrivalDate >= businessDate) {
@@ -75,11 +72,7 @@ export async function POST(request) {
       stayInventoryReleased: true,
       groupInventoryStillProtected: Boolean(booking.group_id),
       financialReviewRequired: true,
-      commercialDecision: {
-        pricingChanged: false,
-        paymentsChanged: false,
-        folioChanged: false,
-      },
+      commercialDecision: { pricingChanged: false, paymentsChanged: false, folioChanged: false },
       channelReportingRequired: Boolean(booking.channel_connection_id && booking.external_reservation_id),
     });
   } catch (error) {

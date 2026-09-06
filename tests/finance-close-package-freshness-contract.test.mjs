@@ -8,6 +8,7 @@ const freshnessRuntime = read("lib/finance/period-close/runtime/FinanceClosePack
 const monthEndRoute = read("app/api/finance/month-end/close-period/route.js");
 const yearEndRoute = read("app/api/finance/year-end/close-fiscal-year/route.js");
 const freshnessRoute = read("app/api/workspace/finance/close-package-freshness/route.js");
+const closeControlTower = read("app/api/workspace/finance/close-control-tower/route.js");
 const freshnessRail = read("components/workspace/finance/FinanceClosePackageFreshnessRail.jsx");
 const closePage = read("app/(system)/workspace/[organizationId]/finance/close/page.jsx");
 const reportingPage = read("app/(system)/workspace/[organizationId]/finance/reporting/page.jsx");
@@ -82,6 +83,19 @@ test("Freshness read fails closed when the complete accounting population cannot
   assert.match(freshnessRoute, /trusted: false/);
   assert.match(freshnessRoute, /status = \/permission denied\|authentication\|membership\/i/);
   assert.match(freshnessRoute, /: 503/);
+});
+
+test("Close control tower treats a stale closed period as attention, never a normal closed terminal state", () => {
+  assert.match(closeControlTower, /buildFinanceClosePackageSnapshot/);
+  assert.match(closeControlTower, /evaluateFinanceClosePackageFreshness/);
+  assert.match(closeControlTower, /finance_close_package_freshness/);
+  assert.match(closeControlTower, /PACKAGE_FRESHNESS/);
+  assert.match(closeControlTower, /Closed accounting package changed after sign-off/);
+  assert.match(closeControlTower, /closedPackageTrusted/);
+  assert.match(closeControlTower, /periodClosed \? \(closedPackageTrusted \? \"CLOSED\" : \"ATTENTION\"\)/);
+  assert.match(closeControlTower, /closed_package_trusted: closedPackageTrusted/);
+  assert.match(closeControlTower, /close_package_freshness_state/);
+  assert.match(closeControlTower, /DETERMINISTIC_FINGERPRINT_REVALIDATED/);
 });
 
 test("Close and reporting surfaces refuse to hide stale or unproven accounting packages", () => {

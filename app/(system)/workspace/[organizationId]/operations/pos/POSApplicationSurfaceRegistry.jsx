@@ -5,10 +5,10 @@ import { useSearchParams } from "next/navigation";
 
 import POSInlineCheckout from "./POSInlineCheckout";
 import PaymentWorkspace from "./PaymentWorkspace";
+import RestaurantStationaryOrderSurface from "./RestaurantStationaryOrderSurface";
 import RestaurantWaiterPhoneSurface from "./RestaurantWaiterPhoneSurface";
 import RetailCatalogWorkspace from "./RetailCatalogWorkspace";
 import RetailOrdersWorkspace from "./RetailOrdersWorkspace";
-import POSFinalUI from "./waiter/POS_FINAL_UI";
 import POSOrdersPage from "./orders/page";
 import ReceiptsPage from "./receipts/page";
 import ShiftPage from "./shifts/page";
@@ -35,88 +35,41 @@ function RestaurantSaleSurface(props) {
 
   if (waiterMode) {
     return (
-      <div
-        className="min-h-screen bg-black text-white"
-        data-restaurant-waiter-surface="true"
-      >
+      <div className="min-h-screen bg-black text-white" data-restaurant-waiter-surface="true">
         <div className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/95 px-4 py-3 backdrop-blur-xl">
           <div className="mx-auto max-w-[480px]">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">
-              Waiter
-            </div>
-            <div className="mt-1 text-sm font-semibold">
-              Table · seat · order · split · move
-            </div>
-            <div className="mt-1 text-[10px] text-white/35">
-              Phone service workspace · settlement stays at the stationary POS
-            </div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Waiter</div>
+            <div className="mt-1 text-sm font-semibold">Table · seat · order · split · move</div>
+            <div className="mt-1 text-[10px] text-white/35">Phone service workspace · settlement stays at the stationary POS</div>
           </div>
         </div>
 
-        <RestaurantWaiterPhoneSurface
-          {...props}
-        />
+        <RestaurantWaiterPhoneSurface {...props} />
       </div>
     );
   }
 
   return (
-    <div
-      className="min-h-screen bg-black text-white"
-      data-restaurant-stationary-pos="true"
-      data-pos-unified-sale="true"
-    >
+    <div className="min-h-screen bg-black text-white" data-restaurant-stationary-pos="true" data-pos-unified-sale="true">
       <div className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/95 px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1760px] flex-wrap items-end justify-between gap-3">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">
-              Stationary POS
-            </div>
-            <div className="mt-1 text-sm font-semibold">
-              Table · order · send · split · settle
-            </div>
-            <div className="mt-1 text-[10px] text-white/35">
-              The active check stays editable while tender and split payment stay visible.
-            </div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Stationary POS</div>
+            <div className="mt-1 text-sm font-semibold">Table · order · send · split · settle</div>
+            <div className="mt-1 text-[10px] text-white/35">Desktop cashier workstation · order and settlement remain visible together.</div>
           </div>
 
-          <div className="rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-[#E7C991]">
-            One continuous cashier screen
-          </div>
+          <div className="rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-[#E7C991]">One continuous cashier screen</div>
         </div>
       </div>
 
       <div className="mx-auto grid max-w-[1760px] gap-4 p-3 xl:grid-cols-[minmax(0,1fr)_430px] xl:p-4">
-        <div
-          className="min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#050505]"
-          data-stationary-order-entry="true"
-        >
-          <style jsx global>{`
-            [data-stationary-order-entry="true"] > main {
-              padding: 0 !important;
-            }
-            [data-stationary-order-entry="true"] > main > section {
-              width: 100% !important;
-              max-width: none !important;
-              min-height: calc(100vh - 150px);
-              border: 0 !important;
-              border-radius: 0 !important;
-              box-shadow: none !important;
-            }
-            [data-stationary-order-entry="true"] > main > section > div {
-              width: 100% !important;
-            }
-            @media (min-width: 1100px) {
-              [data-stationary-order-entry="true"] > main > section .grid.grid-cols-2 {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-              }
-            }
-          `}</style>
-
-          <POSFinalUI
+        <div className="min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#050505]" data-stationary-order-entry="true">
+          <RestaurantStationaryOrderSurface
             {...props}
-            surfaceMode="stationary"
+            preferredTableReference={requestedTable}
             onActiveContextChange={setActiveTableReference}
+            onOrderComplete={() => setCheckoutVersion((current) => current + 1)}
           />
         </div>
 
@@ -150,21 +103,14 @@ function RetailSaleSurface(props) {
     <div className="min-h-screen bg-black text-white" data-pos-unified-sale="true">
       <div className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/95 px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto max-w-[1760px]">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">
-            Retail POS
-          </div>
-          <div className="mt-1 text-sm font-semibold">
-            Scan · Basket · Reserve · Pay · Receipt
-          </div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Retail POS</div>
+          <div className="mt-1 text-sm font-semibold">Scan · Basket · Reserve · Pay · Receipt</div>
         </div>
       </div>
 
       <div className="mx-auto grid max-w-[1760px] gap-4 p-3 xl:grid-cols-[minmax(0,1fr)_430px] xl:p-4">
         <div className="min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#050505]">
-          <RetailCatalogWorkspace
-            {...props}
-            onSaleReady={refreshCheckout}
-          />
+          <RetailCatalogWorkspace {...props} onSaleReady={refreshCheckout} />
         </div>
         <aside className="min-w-0 xl:sticky xl:top-[76px] xl:self-start">
           <POSInlineCheckout

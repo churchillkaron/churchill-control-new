@@ -7,11 +7,12 @@ const frontDesk = fs.readFileSync("components/workspace/hotel/HotelFrontDeskWork
 const frontDeskPage = fs.readFileSync("app/(system)/workspace/[organizationId]/operations/front-desk/page.jsx", "utf8");
 const nightAuditRoute = fs.readFileSync("app/api/hotel/night-audit/route.js", "utf8");
 const nightAuditPage = fs.readFileSync("app/(system)/workspace/[organizationId]/operations/night-audit/page.jsx", "utf8");
+const noShowRoute = fs.readFileSync("app/api/hotel/bookings/no-show/route.js", "utf8");
+const earlyDepartureRoute = fs.readFileSync("app/api/hotel/bookings/early-departure/route.js", "utf8");
 
 test("Front Desk derives due work from each property's server-owned operating day", () => {
   assert.match(bookingList, /deriveHotelOperationalDate/);
   assert.match(bookingList, /operational_day:/);
-  assert.match(bookingList, /businessDate: operationalDay\.businessDate/);
   assert.match(bookingList, /businessDate: operationalDay\.businessDate/);
   assert.match(frontDesk, /function businessDate\(booking\)/);
   assert.match(frontDesk, /dateValue\(booking\.check_in_date\) <= businessDate\(booking\)/);
@@ -40,6 +41,13 @@ test("Night Audit cannot close an unconfigured property clock or accept a browse
   assert.doesNotMatch(nightAuditPage, /type="date"/);
   assert.doesNotMatch(nightAuditPage, /setBusinessDate/);
   assert.match(nightAuditPage, /Staff choose the property, never the date/);
+});
+
+test("date-sensitive guest decisions fail closed until the property operational day is certified", () => {
+  assert.match(noShowRoute, /compatibilityFallback \|\| !operationalDate\.configured/);
+  assert.match(noShowRoute, /before recording a date-sensitive no-show/);
+  assert.match(earlyDepartureRoute, /compatibilityFallback \|\| !operationalDate\.configured/);
+  assert.match(earlyDepartureRoute, /before recording a date-sensitive early departure/);
 });
 
 test("Day Close is an exception work board with exact resolution routes", () => {

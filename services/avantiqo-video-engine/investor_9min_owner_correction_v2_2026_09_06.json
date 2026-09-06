@@ -1,0 +1,25 @@
+{
+  "contract": "AVANTIQO_INVESTOR_FILM_OWNER_CORRECTION_V2_2026_09_06",
+  "source_repository": "churchillkaron/churchill-control-new",
+  "authority": "OWNER_EXPLICIT_CORRECTION_2026_09_06",
+  "applies_to": "AVANTIQO_INVESTOR_FILM_9MIN_MASTER_LOCK_V1",
+  "corrections": {
+    "first_minute_is_not_a_separate_film": true,
+    "first_minute_must_be_the_first_60_seconds_of_the_full_9_minute_master": true,
+    "supplier_delivery_exception_must_not_be_used_as_the_primary_showcase_of_avantiqo": true,
+    "do_not_reframe_the_film_around_a_wrong_delivery_event": true,
+    "avantiqo_must_be_shown_through_real_business_work_across_relevant_domains_and_industries": true,
+    "spoken_subject_real_business_product_ui_interaction_and_consequence_must_match": true,
+    "role_correct_physical_devices_required": true,
+    "avantiqo_ui_on_devices_must_be_visually_identical_to_current_avantiqo": true,
+    "scroll_type_click_and_navigation_must_behave_and_look_like_current_avantiqo": true,
+    "screenshot_overlay_compositing_for_product_ui_forbidden": true,
+    "fake_or_approximate_avantiqo_ui_forbidden": true,
+    "generic_ai_generated_product_ui_forbidden": true,
+    "product_motion_must_be_generated_or_rendered_from_current_avantiqo_truth": true,
+    "billion_dollar_cinematic_quality_required": true,
+    "video_must_feel_like_a_world_class_business_film_not_a_software_demo": true
+  },
+  "production_rule": "The first minute must introduce the full 9-minute film on its real thesis and show Avantiqo in authentic business work, with exact current Avantiqo behavior on role-correct devices. It must not invent a standalone opening concept or use a wrong supplier delivery as the main explanation of what Avantiqo is.",
+  "status": "OWNER_LOCKED"
+}

@@ -13,6 +13,7 @@ import {
   assertServiceTreatmentReady,
   projectServiceTreatmentReadiness,
 } from "@/lib/service-management/runtime/ServiceTreatmentReadinessRuntime";
+import { assertServiceVisitExceptionReady } from "@/lib/service-management/runtime/ServiceVisitExceptionRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const TERMINAL_OCCURRENCE_STATUSES = new Set(["completed", "cancelled", "canceled", "archived"]);
@@ -29,6 +30,7 @@ function responseError(error, status = 500) {
     error: error?.message || error || "Technician execution failed.",
     monitoring_round: error?.monitoring_round || undefined,
     treatment_readiness: error?.treatment_readiness || undefined,
+    service_exception: error?.service_exception || undefined,
   }, { status: error?.status || status });
 }
 
@@ -278,14 +280,38 @@ export async function POST(request) {
     if (!(workOrder.allowed_commands || []).includes("complete")) {
       const error = new Error("This work order cannot be completed from its current lifecycle state."); error.status = 409; throw error;
     }
+
     const protocol = protocolFor(occurrence, workOrder);
     const responses = body.responses && typeof body.responses === "object" ? body.responses : {};
-    const outcome = normalized(body.outcome);
+    const requestedOutcome = normalized(body.outcome) || "completed";
     const completionEvidenceId = text(body.completionEvidenceId || body.completion_evidence_id) || null;
-    validateProtocolCompletion({ protocol, responses, outcome, completionEvidenceId });
-    await validateLinkedCompletionEvidence({ organizationId: resolved.context.organization_id, occurrenceId: occurrence.id, evidenceId: completionEvidenceId });
-
     const pestControl = normalized(delivery.industry_key) === "pest_control";
+
+    const serviceException = pestControl
+      ? await assertServiceVisitExceptionReady({
+        context: runtimeContext,
+        occurrenceId: occurrence.id,
+        requestedOutcome,
+        completionEvidenceId,
+      })
+      : null;
+    const outcome = serviceException?.outcome || requestedOutcome;
+    const followUpNotes = serviceException?.active
+      ? serviceException.follow_up_notes
+      : text(body.followUpNotes || body.follow_up_notes) || null;
+    const requiresManagerReview = Boolean(
+      body.requiresManagerReview
+      || body.requires_manager_review
+      || serviceException?.requires_manager_review,
+    );
+
+    validateProtocolCompletion({ protocol, responses, outcome, completionEvidenceId });
+    await validateLinkedCompletionEvidence({
+      organizationId: resolved.context.organization_id,
+      occurrenceId: occurrence.id,
+      evidenceId: completionEvidenceId,
+    });
+
     const treatmentReadiness = pestControl
       ? await assertServiceTreatmentReady({ context: runtimeContext, occurrenceId: occurrence.id })
       : null;
@@ -300,8 +326,18 @@ export async function POST(request) {
       submitted_at: now,
       responses,
       outcome,
-      follow_up_notes: text(body.followUpNotes || body.follow_up_notes) || null,
-      requires_manager_review: Boolean(body.requiresManagerReview || body.requires_manager_review),
+      follow_up_notes: followUpNotes,
+      requires_manager_review: requiresManagerReview,
+      service_exception: serviceException?.active ? {
+        schema_version: serviceException.schema_version,
+        outcome: serviceException.outcome,
+        severity: serviceException.severity,
+        next_action: serviceException.next_action,
+        summary: serviceException.summary,
+        evidence_id: serviceException.evidence_id,
+        requires_manager_review: serviceException.requires_manager_review,
+        recorded_at: serviceException.recorded_at,
+      } : null,
       treatment_preflight: treatmentReadiness ? {
         occurrence_id: treatmentReadiness.occurrence_id,
         status: treatmentReadiness.status,
@@ -357,6 +393,7 @@ export async function POST(request) {
     if (response.status >= 400 || !response.body?.ok) {
       const error = new Error(response.body?.error || "Service could not be completed."); error.status = response.status || 500; throw error;
     }
+
     const reconciliation = await reconcileServiceOccurrence({
       organizationId: resolved.context.organization_id,
       occurrenceId: occurrence.id,
@@ -369,6 +406,7 @@ export async function POST(request) {
       work_order: response.body.execution?.result || null,
       treatment_readiness: treatmentReadiness,
       monitoring_round: monitoringRound,
+      service_exception: serviceException,
       reconciliation,
     });
   } catch (error) { return responseError(error); }

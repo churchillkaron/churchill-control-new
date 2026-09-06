@@ -1,0 +1,3 @@
+Avantiqo public homepage redesign release.
+Landing implementation commit: 28f2ee32a479a292c4d1db86e5b9f6a285765bd5
+Scope: public avantiqo.ai homepage presentation only; existing hostname routing, login, authentication, Supabase, middleware and domain configuration unchanged.

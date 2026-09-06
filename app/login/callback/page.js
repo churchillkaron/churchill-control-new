@@ -4,7 +4,10 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { supabase } from "@/lib/shared/supabase/client";
-import { resolvePlatformHostContext } from "@/lib/platform/context/resolvePlatformHostContext";
+import {
+  PLATFORM_LOGIN_BRAND_SESSION_KEY,
+  resolvePlatformLoginContext,
+} from "@/lib/platform/context/resolvePlatformHostContext";
 
 const WORKSPACE_ROLES = new Set([
   "OWNER",
@@ -23,7 +26,18 @@ const WORKSPACE_ROLES = new Set([
 function browserOrganizationId() {
   if (typeof window === "undefined") return null;
 
-  return resolvePlatformHostContext(window.location.hostname).organizationId;
+  const storedBrand = window.sessionStorage.getItem(
+    PLATFORM_LOGIN_BRAND_SESSION_KEY,
+  );
+  return resolvePlatformLoginContext(
+    window.location.hostname,
+    storedBrand,
+  ).organizationId;
+}
+
+function clearBrowserBrandIntent() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(PLATFORM_LOGIN_BRAND_SESSION_KEY);
 }
 
 function normalizeRole(value) {
@@ -51,6 +65,7 @@ export default function LoginCallback() {
         } = await supabase.auth.getUser();
 
         if (!user) {
+          clearBrowserBrandIntent();
           router.push("/");
           return;
         }
@@ -68,6 +83,7 @@ export default function LoginCallback() {
         const data = await res.json();
 
         if (!data?.success) {
+          clearBrowserBrandIntent();
           if (
             data?.reason === "ORGANIZATION_SELECTION_REQUIRED" ||
             (Array.isArray(data?.availableOrganizationIds) &&
@@ -96,17 +112,21 @@ export default function LoginCallback() {
           });
 
           if (!selectionResponse.ok) {
+            clearBrowserBrandIntent();
             router.push("/workspace");
             return;
           }
 
+          clearBrowserBrandIntent();
           router.push(postLoginDestination(data, activeOrganizationId));
           return;
         }
 
+        clearBrowserBrandIntent();
         router.push("/workspace");
       } catch (err) {
         console.error(err);
+        clearBrowserBrandIntent();
         router.push("/");
       }
     };

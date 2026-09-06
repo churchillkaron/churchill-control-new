@@ -11,7 +11,10 @@ import {
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const signoffRoute = read("app/api/workspace/finance/work-programs/review-signoff/route.js");
 const evidenceRoute = read("app/api/workspace/finance/reviewer-evidence/route.js");
+const freshnessExceptionsRoute = read("app/api/workspace/finance/review-freshness-exceptions/route.js");
 const evidencePanel = read("components/workspace/finance/FinanceReviewerEvidencePanel.jsx");
+const freshnessRail = read("components/workspace/finance/FinanceReviewFreshnessExceptionsRail.jsx");
+const accountingFirmPage = read("app/(system)/workspace/[organizationId]/finance/accounting-firm/page.jsx");
 
 function baseEvidence() {
   return {
@@ -138,4 +141,22 @@ test("Reviewer evidence API and cockpit expose exact stale-review guidance", () 
   assert.match(evidencePanel, /Re-review required/);
   assert.match(evidencePanel, /changed_labels/);
   assert.match(evidencePanel, /Partner clearance remains blocked until the review is current/);
+});
+
+test("Accounting-firm Home proactively surfaces stale signed reviews before partner clearance", () => {
+  assert.match(freshnessExceptionsRoute, /finance_review_signoffs/);
+  assert.match(freshnessExceptionsRoute, /buildFinanceReviewerEvidence/);
+  assert.match(freshnessExceptionsRoute, /evaluateFinanceReviewEvidenceFreshness/);
+  assert.match(freshnessExceptionsRoute, /\.is\("locked_at", null\)/);
+  assert.match(freshnessExceptionsRoute, /MAX_SIGNED_REVIEWS_PER_SCAN/);
+  assert.match(freshnessExceptionsRoute, /Signed-review freshness population exceeds the interactive scan boundary/);
+  assert.match(freshnessExceptionsRoute, /filter\(\(row\) => row\.trusted !== true\)/);
+  assert.match(freshnessRail, /Previously reviewed work that changed after sign-off/);
+  assert.match(freshnessRail, /Only evidence-bound changes appear here/);
+  assert.match(freshnessRail, /Freshness control unavailable/);
+  assert.match(freshnessRail, /Open review/);
+  assert.match(accountingFirmPage, /FinanceReviewFreshnessExceptionsRail/);
+  const portfolioIndex = accountingFirmPage.indexOf("<FinancePracticePortfolioFocus");
+  const freshnessIndex = accountingFirmPage.indexOf("<FinanceReviewFreshnessExceptionsRail");
+  assert.ok(portfolioIndex >= 0 && freshnessIndex > portfolioIndex, "Freshness exceptions should sit immediately after firm portfolio work");
 });

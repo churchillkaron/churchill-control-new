@@ -106,7 +106,7 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
   );
 
   const loadOrders = useCallback(async ({ silent = false } = {}) => {
-    if (!organizationId || orderRefreshRef.current) return;
+    if (!organizationId || !entityId || orderRefreshRef.current) return;
 
     orderRefreshRef.current = true;
     if (silent) setRefreshing(true);
@@ -114,8 +114,13 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
     setError(null);
 
     try {
+      const orderQuery = new URLSearchParams({
+        organizationId: String(organizationId),
+        entityId: String(entityId),
+      });
+      if (applicationId) orderQuery.set("applicationId", applicationId);
       const response = await fetch(
-        `/api/pos/orders?organizationId=${encodeURIComponent(organizationId)}`,
+        `/api/pos/orders?${orderQuery.toString()}`,
         { cache: "no-store", credentials: "include" }
       );
       const result = await response.json();
@@ -150,7 +155,7 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [organizationId, requestedContext]);
+  }, [applicationId, entityId, organizationId, requestedContext]);
 
   useEffect(() => {
     loadOrders();
@@ -164,12 +169,12 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
     organizationId,
     applicationSubscriptions:
       posConfiguration?.realtimeSubscriptions || [],
-    enabled: Boolean(organizationId),
+    enabled: Boolean(organizationId && entityId),
     onChange: refreshOrders,
   });
 
   useEffect(() => {
-    if (!organizationId) return undefined;
+    if (!organizationId || !entityId) return undefined;
 
     window.addEventListener("focus", refreshOrders);
 
@@ -189,7 +194,7 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshOrders);
     };
-  }, [organizationId, realtimeStatus, refreshOrders]);
+  }, [entityId, organizationId, realtimeStatus, refreshOrders]);
 
   const filteredOrders = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -285,6 +290,16 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
     } finally {
       setVoidBusy(false);
     }
+  }
+
+  if (!entityId) {
+    return (
+      <main className="min-h-screen bg-black px-6 py-8 text-white">
+        <div className="mx-auto max-w-[1600px] rounded-[30px] border border-white/10 bg-white/[0.03] p-6 text-sm text-white/50">
+          Select an active legal entity before loading Order Control.
+        </div>
+      </main>
+    );
   }
 
   return (

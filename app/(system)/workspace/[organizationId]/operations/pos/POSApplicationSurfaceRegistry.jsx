@@ -24,6 +24,7 @@ function normalizeApplicationId(value) {
 function RestaurantSaleSurface(props) {
   const searchParams = useSearchParams();
   const requestedView = String(searchParams.get("view") || "").trim().toLowerCase();
+  const requestedTable = String(searchParams.get("table") || "").trim() || null;
   const waiterMode = requestedView === "waiter" || requestedView === "service";
   const [checkoutVersion, setCheckoutVersion] = useState(0);
 
@@ -117,6 +118,7 @@ function RestaurantSaleSurface(props) {
           <POSInlineCheckout
             key={checkoutVersion}
             posConfiguration={props.posConfiguration}
+            preferredContextReference={requestedTable}
             compact
             onRefresh={props.refreshPOSRuntime}
             onPaymentComplete={() => {

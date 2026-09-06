@@ -52,6 +52,7 @@ function resolveActionCapabilities(access) {
     change_customer: can("CHANGE_CUSTOMER"),
     assign_items_to_group: can("ASSIGN_ITEMS_TO_GROUP"),
     payment: can("PAYMENT"),
+    payment_correction: can("PAYMENT_CORRECTION"),
     transfer_table: can("TRANSFER_TABLE"),
     merge_tables: can("MERGE_TABLES"),
     close_table: can("CLOSE_TABLE"),

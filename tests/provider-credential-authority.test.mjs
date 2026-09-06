@@ -79,3 +79,43 @@ test("owned Intelligence credential provisioning accepts secrets only from serve
   assert.match(migration, /from authenticated/i);
   assert.match(migration, /grant execute on function public\.provision_owned_intelligence_modal_credential\(uuid, text\) to service_role/i);
 });
+
+test("Business Partner binds selected business context to governed owned Intelligence", () => {
+  const home = source("components/operator/HomeAvantiqoIntelligence.jsx");
+  const route = source("app/api/operator/turn/route.js");
+  const fast = source("lib/operator/runtime/OperatorFastConversationRuntime.js");
+  const owned = source("lib/operator/runtime/OperatorOwnedIntelligenceServiceRuntime.js");
+  const reasoning = source("lib/intelligence/runtime/AvantiqoIntelligenceReasoningRuntime.js");
+
+  assert.match(home, /useBusinessContext/);
+  assert.match(home, /body:\s*JSON\.stringify\(\{[\s\S]*organizationId,[\s\S]*entityId,[\s\S]*periodId,/);
+  assert.match(home, /fetchWithTimeout\([\s\S]*"\/api\/operator\/turn"/);
+
+  assert.match(route, /requireOrganizationAccess/);
+  assert.match(route, /resolveBusinessContext/);
+  assert.match(route, /organizationId:\s*businessContext\.organizationId/);
+  assert.match(route, /entityId:\s*businessContext\.entityId/);
+  assert.match(route, /periodId:\s*businessContext\.periodId/);
+  assert.match(route, /callerRequest:\s*request/);
+
+  assert.match(fast, /ServiceExecutionRuntime\.execute\(\{/);
+  assert.match(fast, /organization_id:\s*organizationId/);
+  assert.match(fast, /entity_id:\s*entityId/);
+  assert.match(fast, /service_id:\s*"ai\.text\.generate"/);
+  assert.match(fast, /ownedOperatorIntelligenceSelectionPolicy\(\)/);
+  assert.match(fast, /settleOperatorIntelligenceExecution/);
+
+  assert.match(owned, /provider_id:\s*OWNED_PROVIDER/);
+  assert.match(owned, /allowed_providers:\s*\[OWNED_PROVIDER\]/);
+  assert.match(owned, /owned_only_required:\s*true/);
+  assert.match(owned, /external_fallback_allowed:\s*false/);
+  assert.match(owned, /assertOwnedProvider\(execution\?\.provider,\s*"EXECUTION"\)/);
+  assert.match(owned, /operator_intelligence_owned_provider_verified:\s*true/);
+  assert.match(owned, /external_ai_fallback_used:\s*false/);
+
+  assert.match(reasoning, /const OWNED_PROVIDER = "avantiqo-intelligence"/);
+  assert.match(reasoning, /fast:\s*FAST_TEXT_CAPABILITY/);
+  assert.match(reasoning, /deep:\s*REASONING_CAPABILITY/);
+  assert.match(reasoning, /provider_id:\s*OWNED_PROVIDER/);
+  assert.match(reasoning, /allowed_providers:\s*\[OWNED_PROVIDER\]/);
+});

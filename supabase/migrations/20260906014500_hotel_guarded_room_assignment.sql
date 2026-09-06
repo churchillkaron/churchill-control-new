@@ -7,8 +7,8 @@ create or replace function public.hotel_assign_booking_room_guarded(
 )
 returns public.hotel_bookings
 language plpgsql
-security definer
-set search_path = public, pg_temp
+security invoker
+set search_path = ''
 as $$
 declare
   v_booking public.hotel_bookings%rowtype;
@@ -25,10 +25,6 @@ declare
   v_wall_minutes integer;
   v_require_ready boolean := coalesce(p_require_ready, false);
 begin
-  if coalesce(auth.role(), '') <> 'service_role' then
-    raise exception 'Server authority required for Hotel room assignment';
-  end if;
-
   select *
   into v_booking
   from public.hotel_bookings

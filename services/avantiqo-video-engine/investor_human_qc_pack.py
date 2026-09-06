@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import math
 import shutil
 import subprocess
 from pathlib import Path
@@ -47,13 +46,7 @@ def require_binary(name: str) -> str:
 
 
 def run(command: list[str]) -> str:
-    completed = subprocess.run(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-    )
+    completed = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
     if completed.returncode != 0:
         detail = (completed.stderr or completed.stdout or "")[-2000:].replace("\n", " ")
         raise RuntimeError(f"{CONTRACT}_COMMAND_FAILED:{completed.returncode}:{detail}")
@@ -62,15 +55,11 @@ def run(command: list[str]) -> str:
 
 def probe_video(video: Path) -> dict[str, Any]:
     ffprobe = require_binary("ffprobe")
-    raw = run([
-        ffprobe,
-        "-v", "error",
-        "-select_streams", "v:0",
+    payload = json.loads(run([
+        ffprobe, "-v", "error", "-select_streams", "v:0",
         "-show_entries", "stream=width,height,r_frame_rate,avg_frame_rate,nb_frames:format=duration,size",
-        "-of", "json",
-        str(video),
-    ])
-    payload = json.loads(raw)
+        "-of", "json", str(video),
+    ]))
     streams = payload.get("streams") or []
     if not streams:
         raise RuntimeError(f"{CONTRACT}_VIDEO_STREAM_MISSING")
@@ -96,7 +85,7 @@ def sample_timestamps(duration: float, count: int = SAMPLE_COUNT) -> list[float]
     if count < 3:
         raise ValueError(f"{CONTRACT}_SAMPLE_COUNT_TOO_LOW")
     margin = min(0.08, duration * 0.01)
-    usable = max(duration - 2 * margin, duration * 0.9)
+    usable = duration - (2 * margin)
     if usable <= 0:
         raise RuntimeError(f"{CONTRACT}_DURATION_TOO_SHORT")
     return [round(margin + usable * index / (count - 1), 6) for index in range(count)]
@@ -109,13 +98,9 @@ def extract_frames(video: Path, frames_dir: Path, timestamps: list[float]) -> li
     for index, timestamp in enumerate(timestamps):
         output = frames_dir / f"frame-{index:02d}-{timestamp:010.6f}s.png"
         run([
-            ffmpeg,
-            "-hide_banner", "-loglevel", "error", "-y",
-            "-ss", f"{timestamp:.6f}",
-            "-i", str(video),
-            "-frames:v", "1",
-            "-vsync", "0",
-            str(output),
+            ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
+            "-ss", f"{timestamp:.6f}", "-i", str(video),
+            "-frames:v", "1", "-vsync", "0", str(output),
         ])
         if not output.is_file() or output.stat().st_size < 10_000:
             raise RuntimeError(f"{CONTRACT}_FRAME_EXTRACTION_INVALID:{index}")
@@ -127,19 +112,13 @@ def build_contact_sheet(frame_paths: list[Path], output: Path) -> None:
     ffmpeg = require_binary("ffmpeg")
     if len(frame_paths) != SAMPLE_COUNT:
         raise RuntimeError(f"{CONTRACT}_CONTACT_SHEET_SAMPLE_COUNT_INVALID")
-    concat = output.parent / "contact-sheet-input.txt"
-    concat.write_text("".join(f"file '{path.as_posix()}'\nduration 1\n" for path in frame_paths), encoding="utf-8")
-    try:
-        run([
-            ffmpeg,
-            "-hide_banner", "-loglevel", "error", "-y",
-            "-f", "concat", "-safe", "0", "-i", str(concat),
-            "-vf", "scale=480:-2,tile=4x4:padding=4:margin=4",
-            "-frames:v", "1",
-            str(output),
-        ])
-    finally:
-        concat.unlink(missing_ok=True)
+    pattern = frame_paths[0].parent / "frame-*.png"
+    run([
+        ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
+        "-framerate", "1", "-pattern_type", "glob", "-i", str(pattern),
+        "-vf", "scale=480:-2,tile=4x4:padding=4:margin=4",
+        "-frames:v", "1", str(output),
+    ])
     if not output.is_file() or output.stat().st_size < 20_000:
         raise RuntimeError(f"{CONTRACT}_CONTACT_SHEET_INVALID")
 
@@ -149,10 +128,7 @@ def pending_automated_qc(video_sha: str) -> dict[str, Any]:
         "status": "PENDING",
         "video_sha256": video_sha,
         "sampled_frames": SAMPLE_COUNT,
-        "checks": {
-            name: {"status": "PENDING", "evidence_id": None, "score": None}
-            for name in REQUIRED_CHECKS
-        },
+        "checks": {name: {"status": "PENDING", "evidence_id": None, "score": None} for name in REQUIRED_CHECKS},
     }
 
 
@@ -172,13 +148,11 @@ def main() -> None:
     parser.add_argument("--video", required=True)
     parser.add_argument("--output-dir", required=True)
     args = parser.parse_args()
-
     video = Path(args.video).expanduser().resolve()
     output_dir = Path(args.output_dir).expanduser().resolve()
     if not video.is_file() or video.suffix.lower() != ".mp4" or video.stat().st_size < 100_000:
         raise SystemExit(f"{CONTRACT}_VIDEO_INVALID")
     output_dir.mkdir(parents=True, exist_ok=True)
-
     video_sha = sha256(video)
     probe = probe_video(video)
     timestamps = sample_timestamps(float(probe["duration_seconds"]))
@@ -186,16 +160,6 @@ def main() -> None:
     contact_sheet = output_dir / "contact-sheet-4x4.png"
     build_contact_sheet(frame_paths, contact_sheet)
     contact_sha = sha256(contact_sheet)
-
-    frame_evidence = [
-        {
-            "index": index,
-            "timestamp_seconds": timestamps[index],
-            "path": str(path.relative_to(output_dir)),
-            "sha256": sha256(path),
-        }
-        for index, path in enumerate(frame_paths)
-    ]
     evidence = {
         "success": True,
         "status": "REVIEW_PENDING",
@@ -207,18 +171,15 @@ def main() -> None:
         "video_probe": probe,
         "sample_count": SAMPLE_COUNT,
         "sample_timestamps_seconds": timestamps,
-        "frames": frame_evidence,
-        "contact_sheet": {
-            "path": str(contact_sheet.relative_to(output_dir)),
-            "sha256": contact_sha,
-        },
+        "frames": [
+            {"index": i, "timestamp_seconds": timestamps[i], "path": str(path.relative_to(output_dir)), "sha256": sha256(path)}
+            for i, path in enumerate(frame_paths)
+        ],
+        "contact_sheet": {"path": str(contact_sheet.relative_to(output_dir)), "sha256": contact_sha},
     }
-    automated = pending_automated_qc(video_sha)
-    visual = pending_visual_review(video_sha, contact_sha)
-
     (output_dir / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
-    (output_dir / "automated-qc.json").write_text(json.dumps(automated, indent=2) + "\n", encoding="utf-8")
-    (output_dir / "visual-review.json").write_text(json.dumps(visual, indent=2) + "\n", encoding="utf-8")
+    (output_dir / "automated-qc.json").write_text(json.dumps(pending_automated_qc(video_sha), indent=2) + "\n", encoding="utf-8")
+    (output_dir / "visual-review.json").write_text(json.dumps(pending_visual_review(video_sha, contact_sha), indent=2) + "\n", encoding="utf-8")
     print(f"{CONTRACT}=PASS_REVIEW_PENDING")
     print(f"VIDEO_SHA256={video_sha}")
     print(f"CONTACT_SHEET_SHA256={contact_sha}")

@@ -32,11 +32,17 @@ function compactId(value) {
   return normalized ? normalized.slice(0, 8) : "—";
 }
 
-function relativeTime(value) {
+function serverReferenceTime(value) {
+  const timestamp = new Date(value || 0).getTime();
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+}
+
+function relativeTime(value, referenceTime) {
   if (!value) return "No evidence";
   const timestamp = new Date(value).getTime();
   if (!Number.isFinite(timestamp)) return "No evidence";
-  const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  if (!Number.isFinite(referenceTime) || !referenceTime) return "time unavailable";
+  const seconds = Math.max(0, Math.floor((referenceTime - timestamp) / 1000));
   if (seconds < 60) return "now";
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -101,14 +107,14 @@ function NextObligationFields({ dueAt, setDueAt, note, setNote }) {
         </div>
       </div>
       <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
-        <Field label="Due *" type="datetime-local" value={dueAt} onChange={setDueAt} />
+        <Field label="Due · Bangkok (UTC+7) *" type="datetime-local" value={dueAt} onChange={setDueAt} />
         <TextArea label="Why this timing / what must be true *" value={note} onChange={setNote} placeholder="Example: follow up after the buyer reviews the commercial terms." />
       </div>
     </div>
   );
 }
 
-function EventTimeline({ events }) {
+function EventTimeline({ events, referenceTime }) {
   const rows = Array.isArray(events) ? events : [];
   return (
     <div className="rounded-xl border border-black/[0.065] bg-[#FBFAF8] p-3.5">
@@ -121,7 +127,7 @@ function EventTimeline({ events }) {
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span className="text-[8px] font-semibold text-[#514B44]">{humanStage(event.to_stage)}</span>
                 <span className="text-[7px] uppercase tracking-[0.06em] text-[#AAA39A]">{clean(event.evidence_type).replace(/_/g, " ")}</span>
-                <span className="text-[7px] text-[#AAA39A]">{relativeTime(event.occurred_at)}</span>
+                <span className="text-[7px] text-[#AAA39A]">{relativeTime(event.occurred_at, referenceTime)}</span>
               </div>
               {event.evidence_reference ? <div className="mt-0.5 truncate text-[8px] text-[#777168]">Ref: {event.evidence_reference}</div> : null}
               {event.note ? <div className="mt-0.5 text-[8px] leading-3.5 text-[#918B83]">{event.note}</div> : null}
@@ -203,8 +209,8 @@ export default function PlatformAcquisitionAtomicWorkbench() {
   const [lossNote, setLossNote] = useState("");
   const [showLoss, setShowLoss] = useState(false);
 
-  const load = useCallback(async ({ keepSelection = true } = {}) => {
-    setLoading(true);
+  const load = useCallback(async ({ keepSelection = true, showLoading = true } = {}) => {
+    if (showLoading) setLoading(true);
     try {
       const next = await requestPipeline();
       setPipeline(next);
@@ -214,12 +220,22 @@ export default function PlatformAcquisitionAtomicWorkbench() {
     } catch (loadError) {
       setError(loadError?.message || "Acquisition evidence is unavailable");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const refresh = window.setInterval(() => load({ showLoading: false }), 60000);
+    const onFocus = () => load({ showLoading: false });
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(refresh);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [load]);
 
+  const authoritativeNow = useMemo(() => serverReferenceTime(pipeline?.observedAt), [pipeline?.observedAt]);
   const recent = useMemo(() => Array.isArray(pipeline?.recentAcquisitions) ? pipeline.recentAcquisitions : [], [pipeline]);
   const selected = useMemo(() => recent.find((row) => row.id === selectedId) || null, [recent, selectedId]);
   const canCreate = clean(source) && clean(originReference) && clean(originNote) && clean(originDueAt) && clean(originScheduleNote);
@@ -337,7 +353,7 @@ export default function PlatformAcquisitionAtomicWorkbench() {
         <div className="rounded-xl border border-black/[0.065] bg-[#FBFAF8] p-3.5">
           <div className="text-[8px] font-semibold uppercase tracking-[0.11em] text-[#8D877E]">Verified subscription candidates</div>
           <p className="mt-1 text-[8px] leading-4 text-[#918B83]">Only a subscription whose persisted lead identity matches this qualified prospect can establish commitment.</p>
-          {candidates.length ? <select value={subscriptionId} onChange={(event) => setSubscriptionId(event.target.value)} className="mt-2.5 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-2.5 text-[9px] text-[#48423C] outline-none focus:border-[#B98A57]/45">{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{compactId(candidate.id)} · {humanStage(candidate.status)} · {relativeTime(candidate.createdAt)}</option>)}</select> : <div className="mt-2.5 rounded-lg border border-amber-700/15 bg-amber-50 px-3 py-2.5 text-[8px] leading-4 text-amber-800">No subscription currently proves this prospect identity. Complete the real commercial subscription first.</div>}
+          {candidates.length ? <select value={subscriptionId} onChange={(event) => setSubscriptionId(event.target.value)} className="mt-2.5 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-2.5 text-[9px] text-[#48423C] outline-none focus:border-[#B98A57]/45">{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{compactId(candidate.id)} · {humanStage(candidate.status)} · {relativeTime(candidate.createdAt, authoritativeNow)}</option>)}</select> : <div className="mt-2.5 rounded-lg border border-amber-700/15 bg-amber-50 px-3 py-2.5 text-[8px] leading-4 text-amber-800">No subscription currently proves this prospect identity. Complete the real commercial subscription first.</div>}
         </div>
         {renderNextObligation()}
         <button type="button" disabled={!verified || !nextReady || saving} onClick={() => advance("COMMITTED")} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#B98A57]/25 bg-[#FBF7F1] px-3 text-[9px] font-semibold text-[#8A643C] disabled:opacity-40">{saving ? <RefreshCw size={11} className="animate-spin" /> : <ShieldCheck size={11} />} Verify commitment + schedule activation</button>
@@ -370,7 +386,7 @@ export default function PlatformAcquisitionAtomicWorkbench() {
           <div>
             <div className="flex items-center gap-2 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#8D877E]"><Workflow size={12} /> Acquisition opportunity workbench</div>
             <h2 className="mt-1.5 text-[17px] font-semibold tracking-[-0.025em] text-[#403C37]">Evidence moves the stage. Ownership moves with it.</h2>
-            <p className="mt-1 max-w-4xl text-[9px] leading-4 text-[#918B83]">Every live stage carries exactly one explicit owner obligation. Advancing a record replaces the old obligation and creates the next one in the same database transaction, while customer activation and first value remain server-verified facts.</p>
+            <p className="mt-1 max-w-4xl text-[9px] leading-4 text-[#918B83]">Every live stage carries exactly one explicit owner obligation. Advancing a record replaces the old obligation and creates the next one in the same database transaction, while customer activation and first value remain server-verified facts. Relative evidence times use the server observation clock.</p>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => load()} disabled={loading} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[8px] font-medium text-[#625D55] disabled:opacity-50"><RefreshCw size={10} className={loading ? "animate-spin" : ""} /> Refresh</button>
@@ -398,7 +414,7 @@ export default function PlatformAcquisitionAtomicWorkbench() {
             <div className="p-3">
               <div className="flex items-center justify-between px-1 pb-2"><span className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8D877E]">Opportunity queue</span><span className="text-[8px] text-[#AAA39A]">{pipeline?.summary?.canonicalAcquisitions || 0}</span></div>
               <div className="space-y-1.5">
-                {recent.length ? recent.map((record) => <button key={record.id} type="button" onClick={() => setSelectedId(record.id)} className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${selectedId === record.id ? "border-[#B98A57]/30 bg-[#FBF7F1]" : "border-black/[0.06] bg-white hover:bg-[#FBFAF8]"}`}><div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="truncate text-[9px] font-semibold text-[#48433D]">{record.prospect_company || clean(record.sourceReference) || clean(record.source) || `Acquisition ${compactId(record.id)}`}</div><div className="mt-0.5 truncate text-[8px] text-[#AAA39A]">{record.prospect_contact || clean(record.source) || "Identity pending"}</div></div><span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[7px] font-semibold ${stageTone(record.stage)}`}>{humanStage(record.stage)}</span></div><div className="mt-1.5 flex items-center gap-1 text-[7px] text-[#AAA39A]"><Clock3 size={8} /> stage updated {relativeTime(record.stage_updated_at)}</div></button>) : <div className="rounded-xl bg-[#FBFAF8] px-3 py-4 text-[8px] leading-4 text-[#918B83]">No canonical prospects yet. Existing customers and legacy leads remain intentionally unattributed.</div>}
+                {recent.length ? recent.map((record) => <button key={record.id} type="button" onClick={() => setSelectedId(record.id)} className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${selectedId === record.id ? "border-[#B98A57]/30 bg-[#FBF7F1]" : "border-black/[0.06] bg-white hover:bg-[#FBFAF8]"}`}><div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="truncate text-[9px] font-semibold text-[#48433D]">{record.prospect_company || clean(record.source_reference) || clean(record.source) || `Acquisition ${compactId(record.id)}`}</div><div className="mt-0.5 truncate text-[8px] text-[#AAA39A]">{record.prospect_contact || clean(record.source) || "Identity pending"}</div></div><span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[7px] font-semibold ${stageTone(record.stage)}`}>{humanStage(record.stage)}</span></div><div className="mt-1.5 flex items-center gap-1 text-[7px] text-[#AAA39A]"><Clock3 size={8} /> stage updated {relativeTime(record.stage_updated_at, authoritativeNow)}</div></button>) : <div className="rounded-xl bg-[#FBFAF8] px-3 py-4 text-[8px] leading-4 text-[#918B83]">No canonical prospects yet. Existing customers and legacy leads remain intentionally unattributed.</div>}
               </div>
             </div>
           </div>
@@ -406,7 +422,7 @@ export default function PlatformAcquisitionAtomicWorkbench() {
           <div className="p-4">
             {selected ? <div className="space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div><div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8D877E]">Selected opportunity</div><div className="mt-1 text-[15px] font-semibold tracking-[-0.02em] text-[#403C37]">{selected.prospect_company || clean(selected.sourceReference) || clean(selected.source) || `Acquisition ${compactId(selected.id)}`}</div><div className="mt-1 text-[8px] text-[#918B83]">{selected.prospect_contact || "Identity pending"}{selected.prospect_email ? ` · ${selected.prospect_email}` : ""}</div></div>
+                <div><div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8D877E]">Selected opportunity</div><div className="mt-1 text-[15px] font-semibold tracking-[-0.02em] text-[#403C37]">{selected.prospect_company || clean(selected.source_reference) || clean(selected.source) || `Acquisition ${compactId(selected.id)}`}</div><div className="mt-1 text-[8px] text-[#918B83]">{selected.prospect_contact || "Identity pending"}{selected.prospect_email ? ` · ${selected.prospect_email}` : ""}</div></div>
                 <span className={`w-fit rounded-full border px-2 py-1 text-[8px] font-semibold ${stageTone(selected.stage)}`}>{humanStage(selected.stage)}</span>
               </div>
 
@@ -417,14 +433,14 @@ export default function PlatformAcquisitionAtomicWorkbench() {
               </div>
 
               <div className="rounded-2xl border border-black/[0.065] p-4"><div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8D877E]">Governed stage action</div><div className="mt-3">{renderStageAction()}</div></div>
-              <EventTimeline events={selected.events} />
+              <EventTimeline events={selected.events} referenceTime={authoritativeNow} />
 
               {LOSS_STAGES.has(selected.stage) ? <div className="border-t border-black/[0.06] pt-3">{showLoss ? <div className="space-y-3 rounded-xl border border-red-700/15 bg-red-50/60 p-3.5"><EvidenceFields reference={lossReference} setReference={setLossReference} note={lossNote} setNote={setLossNote} label="Loss" /><div className="flex items-center gap-2"><button type="button" disabled={!clean(lossReference) || !clean(lossNote) || saving} onClick={() => advance("LOST")} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-red-700/20 bg-white px-2.5 text-[8px] font-semibold text-red-800 disabled:opacity-40"><XCircle size={10} /> Confirm lost</button><button type="button" onClick={() => setShowLoss(false)} className="text-[8px] text-[#777168]">Cancel</button></div></div> : <button type="button" onClick={() => setShowLoss(true)} className="text-[8px] font-medium text-red-700">Record as lost</button>}</div> : null}
             </div> : <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-dashed border-black/[0.08] bg-[#FBFAF8] p-6 text-center text-[9px] leading-4 text-[#918B83]">Start a genuine prospect to establish canonical acquisition evidence and its first owner obligation.</div>}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-black/[0.06] px-4 py-3 text-[7px] text-[#AAA39A]"><span>Atomic continuity: stage evidence + lifecycle change + next owner obligation, or no change.</span><span>No fabricated conversion rate · no inferred attribution · no arbitrary SLA</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-black/[0.06] px-4 py-3 text-[7px] text-[#AAA39A]"><span>Atomic continuity: stage evidence + lifecycle change + next owner obligation, or no change.</span><span>Server-observed relative time · Bangkok owner due times · no fabricated conversion rate · no inferred attribution · no arbitrary SLA</span></div>
       </div>
     </section>
   );

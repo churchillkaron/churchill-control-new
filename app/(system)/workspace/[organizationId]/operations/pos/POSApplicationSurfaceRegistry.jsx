@@ -87,14 +87,18 @@ function RestaurantSaleSurface(props) {
         >
           <style jsx global>{`
             [data-stationary-order-entry="true"] > main {
-              padding: 0;
+              padding: 0 !important;
             }
             [data-stationary-order-entry="true"] > main > section {
-              max-width: none;
+              width: 100% !important;
+              max-width: none !important;
               min-height: calc(100vh - 150px);
-              border: 0;
-              border-radius: 0;
-              box-shadow: none;
+              border: 0 !important;
+              border-radius: 0 !important;
+              box-shadow: none !important;
+            }
+            [data-stationary-order-entry="true"] > main > section > div {
+              width: 100% !important;
             }
             @media (min-width: 1100px) {
               [data-stationary-order-entry="true"] > main > section .grid.grid-cols-2 {

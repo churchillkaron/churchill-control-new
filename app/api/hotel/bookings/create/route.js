@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { MarketingAttributionCaptureRuntime } from "@/lib/marketing/intelligence/MarketingAttributionCaptureRuntime";
 import { MarketingBusinessOutcomeProjectionRuntime } from "@/lib/marketing/intelligence/MarketingBusinessOutcomeProjectionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
@@ -97,6 +98,12 @@ export async function POST(request) {
         reason: projectionError?.message || "MARKETING_OUTCOME_PROJECTION_FAILED",
       }));
     }
+
+    await broadcastHotelReadinessChanged({
+      organizationId: access.organizationId,
+      source: "reservation-lifecycle",
+      action: "CREATE",
+    });
 
     return NextResponse.json({ success: true, booking, marketing_outcome: marketingOutcome });
   } catch (error) {

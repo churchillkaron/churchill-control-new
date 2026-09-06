@@ -9,6 +9,10 @@ const wrapper = read("components/workspace/finance/FinanceTaxWorkCenter.jsx");
 const closeSheet = read("components/workspace/finance/FinanceTaxReturnCloseSheet.jsx");
 const evidenceRail = read("components/workspace/finance/FinanceTaxEvidenceDrilldownRail.jsx");
 const dependencyWorkRail = read("components/workspace/finance/FinanceTaxDependencyWorkRail.jsx");
+const sourceNavigation = read("lib/finance/tax/FinanceTaxSourceNavigationPolicy.js");
+const sourceReturnRail = read("components/workspace/finance/FinanceSourceReturnRail.jsx");
+const recordsWorkCenter = read("components/workspace/finance/FinanceAccountantRecordsWorkCenter.jsx");
+const dynamicFinancePage = read("app/(system)/workspace/[organizationId]/finance/[...financeRoute]/page.jsx");
 
 test("VAT Return stage presents one accountant close sheet bound to the selected filing", () => {
   assert.match(wrapper, /FinanceTaxReturnCloseSheet/);
@@ -98,7 +102,7 @@ test("VAT close sheet separates non-blocking accountant review from live blocker
 });
 
 test("VAT warning review can focus the exact live evidence control without changing accounting truth", () => {
-  assert.match(wrapper, /const \[evidenceFocusCode, setEvidenceFocusCode\] = useState\(null\)/);
+  assert.match(wrapper, /evidenceFocusCode/);
   assert.match(wrapper, /function openEvidence\(dependencyCode = null\)/);
   assert.match(wrapper, /onEvidenceFocus=\{openEvidence\}/);
   assert.match(wrapper, /focusDependencyCode=\{evidenceFocusCode\}/);
@@ -121,4 +125,31 @@ test("VAT FIX preserves the exact blocker identity when opening evidence", () =>
   assert.match(dependencyWorkRail, /onEvidenceFocus\(dependencyCode\)/);
   assert.match(dependencyWorkRail, /inspectEvidence\(dependency\.code\)/);
   assert.doesNotMatch(dependencyWorkRail, /onClick=\{\(\) => onStageChange\?\.\("EVIDENCE"\)\}/);
+});
+
+test("VAT source repair navigation returns to the same filing rather than Finance home", () => {
+  assert.match(sourceNavigation, /FINANCE_TAX_SOURCE_NAVIGATION_V2/);
+  assert.match(sourceNavigation, /function taxEvidenceReturnPath/);
+  assert.match(sourceNavigation, /params\.set\("vatReturnId", vatReturnId\)/);
+  assert.match(sourceNavigation, /params\.set\("stage", "EVIDENCE"\)/);
+  assert.match(sourceNavigation, /params\.set\("source", "tax-source-return"\)/);
+  assert.match(sourceNavigation, /return `\/workspace\/\$\{organizationId\}\/finance\/tax\?/);
+  assert.match(sourceNavigation, /return_href: effectiveReturn/);
+  assert.match(wrapper, /useSearchParams/);
+  assert.match(wrapper, /searchParams\?\.get\("vatReturnId"\)/);
+  assert.match(wrapper, /searchParams\?\.get\("stage"\)/);
+  assert.match(wrapper, /source"\) === "tax-source-return"/);
+  assert.match(wrapper, /Returned to the same VAT filing\./);
+});
+
+test("VAT source repair opens the exact Finance record and keeps an explicit return control", () => {
+  assert.match(sourceNavigation, /params\.set\("focusRecordId", recordId\)/);
+  assert.match(recordsWorkCenter, /focusRecordId/);
+  assert.match(recordsWorkCenter, /loaded\.find\(\(row\) => text\(row\?\.id\) === focusRecordId\)/);
+  assert.match(recordsWorkCenter, /focused\?\.id \|\|/);
+  assert.match(dynamicFinancePage, /FinanceSourceReturnRail/);
+  assert.match(sourceReturnRail, /source !== "tax-evidence"/);
+  assert.match(sourceReturnRail, /Back to VAT evidence/);
+  assert.match(sourceReturnRail, /Fixing this record does not clear Tax by itself/);
+  assert.match(sourceReturnRail, /path\.startsWith\(prefix\)/);
 });

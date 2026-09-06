@@ -1,7 +1,7 @@
 Production deployment trigger
 
-Requested: 2026-09-05
-Purpose: One deliberate production deployment of current main after fixing the continuous-learning build blocker.
-Source baseline before trigger: 69d9c93612eea56ffc345fd9893cf876a3d49910
-Build blocker fixed by: 59096705ec09b41ade6133ba6210832d32a764b5
+Requested: 2026-09-06
+Purpose: Explicit owner-requested production deployment of current main so the Cole Ley branded Avantiqo login can be verified end to end.
+Source baseline before trigger: 48e2ddc66a804acc771fde5d7d63b9d19375b494
+Expected login path: https://avantiqo.ai/login?brand=coleley
 Policy: Single production deployment requested by the owner. Do not retrigger automatically from this request.

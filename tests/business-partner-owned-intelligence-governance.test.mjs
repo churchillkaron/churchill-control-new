@@ -102,3 +102,24 @@ test("Business Partner never converts missing response evidence into false compl
     /if \(!responseText\) \{[\s\S]*No action was assumed complete\./,
   );
 });
+
+test("Business Partner cannot claim mutation completion after verification failure", () => {
+  const operator = source("lib/operator/runtime/OperatorTurnRuntime.js");
+
+  assert.match(
+    operator,
+    /const rolledBackDecision = rollbackUnverifiedProjectProgress\(/,
+  );
+  assert.match(
+    operator,
+    /could not verify the business effect/,
+  );
+  assert.match(
+    operator,
+    /will not claim it completed or repeat the mutation automatically/,
+  );
+  assert.match(operator, /intent:\s*"verification_required"/);
+  assert.match(operator, /business_effect_verified:\s*false/);
+  assert.match(operator, /mutation_replay_allowed:\s*false/);
+  assert.match(operator, /completion_claim_allowed:\s*false/);
+});

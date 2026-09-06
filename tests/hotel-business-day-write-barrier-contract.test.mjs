@@ -3,15 +3,22 @@ import fs from "node:fs";
 import test from "node:test";
 
 const barrier = fs.readFileSync("supabase/migrations/20260906161000_hotel_business_day_write_barrier.sql", "utf8");
+const operationalDay = fs.readFileSync("lib/hotel/server/getHotelOperationalDate.js", "utf8");
 const nightAudit = fs.readFileSync("app/api/hotel/night-audit/route.js", "utf8");
 const atomicCheckout = fs.readFileSync("supabase/migrations/20260906154800_hotel_atomic_checkout_transition.sql", "utf8");
 const transition = fs.readFileSync("lib/hotel/server/transitionHotelBooking.js", "utf8");
 
-test("Hotel business date is derived from the same explicit property settings at server and database boundaries", () => {
+test("Hotel business date is derived from the same canonical explicit property settings at server and database boundaries", () => {
+  assert.match(operationalDay, /const configuredTimezone = validTimezone\(property\?\.time_zone\)/);
+  assert.match(operationalDay, /const raw = property\?\.business_day_cutoff_minutes;/);
+  assert.match(operationalDay, /operational_day_configured_at/);
+  assert.match(operationalDay, /compatibilityTimezone = configuredTimezone \|\| validTimezone\(property\?\.timezone\)/);
+  assert.match(operationalDay, /compatibilityFallback: !explicitlyConfigured/);
+
   assert.match(barrier, /hotel_business_date_from_settings/);
-  assert.match(barrier, /p_time_zone text/);
-  assert.match(barrier, /p_cutoff_minutes integer/);
-  assert.match(barrier, /p_configured_at timestamptz/);
+  assert.match(barrier, /v_property\.time_zone/);
+  assert.match(barrier, /v_property\.business_day_cutoff_minutes/);
+  assert.match(barrier, /v_property\.operational_day_configured_at/);
   assert.match(barrier, /pg_timezone_names/);
   assert.match(barrier, /v_minutes < p_cutoff_minutes/);
   assert.match(barrier, /HOTEL_BUSINESS_DAY_UNCONFIGURED/);

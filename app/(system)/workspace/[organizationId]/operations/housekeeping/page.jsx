@@ -18,6 +18,7 @@ import {
   HotelWorkspaceShell,
   hotelWorkspaceHref,
 } from "@/components/workspace/hotel/HotelWorkspaceUI";
+import { notifyHotelReadinessChanged } from "@/lib/hotel/client/readinessInvalidation";
 
 function normalizeStatus(task) {
   return String(task?.task_status || "PENDING").toUpperCase();
@@ -101,6 +102,7 @@ export default function OperationsHousekeepingPage() {
       const result = await response.json();
       if (!response.ok || result.success === false) throw new Error(result.error || "Housekeeping transition failed");
       await loadPlan({ silent: true });
+      notifyHotelReadinessChanged({ source: "housekeeping", taskId, action });
     } catch (transitionError) {
       setError(transitionError?.message || "Housekeeping transition failed");
     } finally {

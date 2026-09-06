@@ -17,10 +17,13 @@ on:
       - "services/avantiqo-image-engine/modal_character_keyframe_runtime.py"
       - "services/avantiqo-video-engine/investor_human_release_gate.py"
       - "services/avantiqo-video-engine/investor_human_qc_pack.py"
+      - "services/avantiqo-video-engine/investor_human_vbench_qc.py"
       - "services/avantiqo-video-engine/modal_human_multi_keyframe_render.py"
+      - "scripts/investor-human-proof-pipeline.py"
       - "scripts/test_investor_human_generation_policy.mjs"
       - "scripts/test_investor_human_release_gate.py"
       - "scripts/test_investor_human_qc_pack.py"
+      - "scripts/test_investor_human_vbench_qc.py"
       - "scripts/avantiqo-investor-studio-scenes.mjs"
       - "scripts/investor-studio-film-generation-audit.mjs"
       - ".github/workflows/audit-investor-studio-film-generation.yml"
@@ -40,10 +43,13 @@ on:
       - "services/avantiqo-image-engine/modal_character_keyframe_runtime.py"
       - "services/avantiqo-video-engine/investor_human_release_gate.py"
       - "services/avantiqo-video-engine/investor_human_qc_pack.py"
+      - "services/avantiqo-video-engine/investor_human_vbench_qc.py"
       - "services/avantiqo-video-engine/modal_human_multi_keyframe_render.py"
+      - "scripts/investor-human-proof-pipeline.py"
       - "scripts/test_investor_human_generation_policy.mjs"
       - "scripts/test_investor_human_release_gate.py"
       - "scripts/test_investor_human_qc_pack.py"
+      - "scripts/test_investor_human_vbench_qc.py"
       - "scripts/avantiqo-investor-studio-scenes.mjs"
       - "scripts/investor-studio-film-generation-audit.mjs"
       - ".github/workflows/audit-investor-studio-film-generation.yml"
@@ -85,12 +91,19 @@ jobs:
           python -m py_compile services/avantiqo-image-engine/modal_character_keyframe_runtime.py
           python -m py_compile services/avantiqo-video-engine/investor_human_release_gate.py
           python -m py_compile services/avantiqo-video-engine/investor_human_qc_pack.py
+          python -m py_compile services/avantiqo-video-engine/investor_human_vbench_qc.py
           python -m py_compile services/avantiqo-video-engine/modal_human_multi_keyframe_render.py
+          python -m py_compile scripts/investor-human-proof-pipeline.py
+          python -m py_compile scripts/test_investor_human_release_gate.py
+          python -m py_compile scripts/test_investor_human_qc_pack.py
+          python -m py_compile scripts/test_investor_human_vbench_qc.py
       - name: Test investor human generation routing policy
         run: node scripts/test_investor_human_generation_policy.mjs
-      - name: Test fail-closed investor human contract
+      - name: Test fail-closed investor human release contract
         run: python scripts/test_investor_human_release_gate.py
       - name: Test exact-master investor human QC pack
         run: python scripts/test_investor_human_qc_pack.py
+      - name: Test byte-bound VBench investor human QC
+        run: python scripts/test_investor_human_vbench_qc.py
       - name: Enforce investor Studio generation contract
         run: node scripts/investor-studio-film-generation-audit.mjs

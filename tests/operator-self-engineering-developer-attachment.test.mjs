@@ -97,10 +97,37 @@ test("Business Partner can continue Code from the universal chat", () => {
   );
 });
 
+test("Business Partner terse Code-now command enters Product Engineering", () => {
+  assert.equal(
+    isAvantiqoSelfEngineeringRequest({
+      message: "code now",
+      pathname: "/workspace/33336a72-acb5-474e-856b-8be0269360e2",
+    }),
+    true,
+  );
+});
+
+test("Business Partner open-Code command enters Product Engineering", () => {
+  assert.equal(
+    isAvantiqoSelfEngineeringRequest({
+      message: "open Code",
+      pathname: "/workspace/33336a72-acb5-474e-856b-8be0269360e2",
+    }),
+    true,
+  );
+});
+
 test("explicit Code execution routing remains workspace scoped", () => {
   assert.equal(
     isAvantiqoSelfEngineeringRequest({
       message: "continue Code",
+      pathname: "/public/landing-page",
+    }),
+    false,
+  );
+  assert.equal(
+    isAvantiqoSelfEngineeringRequest({
+      message: "code now",
       pathname: "/public/landing-page",
     }),
     false,

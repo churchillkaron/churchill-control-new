@@ -7,6 +7,7 @@ function read(path) {
 }
 
 const financePage = read("app/(system)/workspace/[organizationId]/finance/page.jsx");
+const accountingFirmPage = read("app/(system)/workspace/[organizationId]/finance/accounting-firm/page.jsx");
 const overview = read("components/workspace/finance/FinanceAccountantOverview.jsx");
 const portfolioFocus = read("components/workspace/finance/FinancePracticePortfolioFocus.jsx");
 const clientDependencyRail = read("components/workspace/finance/FinanceClientDependencyRail.jsx");
@@ -44,6 +45,15 @@ test("Finance accounting-firm landing adds a conditional portfolio exception rai
   assert.doesNotMatch(portfolioFocus, /MetricCard/);
 });
 
+test("Accounting-firm solution route resolves to the live firm work surface", () => {
+  assert.match(accountingFirmPage, /FinanceLandingRuntimeProvider/);
+  assert.match(accountingFirmPage, /FinancePracticePortfolioFocus/);
+  assert.match(accountingFirmPage, /FinanceContinuousCloseRail/);
+  assert.match(accountingFirmPage, /FinanceAccountHealthPanel/);
+  assert.match(accountingFirmPage, /FinanceCorrectionWorkspace/);
+  assert.match(accountingFirmPage, /FinanceAccountantOverview/);
+});
+
 test("Finance client dependencies stay a work list instead of becoming KPI cards", () => {
   assert.match(clientDependencyRail, /Client dependencies/);
   assert.match(clientDependencyRail, /need action/);
@@ -78,7 +88,7 @@ test("Finance top navigation uses the same explicit route truth", () => {
   assert.match(informationArchitecture, /"\/finance\/approval-workflows"/);
 });
 
-test("Every stale Finance planned declaration is runtime-backed and converges before presentation", () => {
+test("Every stale Finance planned declaration needs executable evidence before presentation activates it", () => {
   const financeStart = registryBase.indexOf("\n    finance: {");
   const financeEnd = registryBase.indexOf("\n    services: {", financeStart);
   assert.ok(financeStart >= 0 && financeEnd > financeStart, "Finance registry block must be found");
@@ -92,8 +102,11 @@ test("Every stale Finance planned declaration is runtime-backed and converges be
     assert.ok(runtimeManifest[capabilityId], `${capabilityId} is still planned without a Finance runtime definition`);
   }
 
+  assert.match(presentationPolicy, /getFinanceWorkspaceContract/);
+  assert.match(presentationPolicy, /function hasExecutableRuntimeEvidence/);
+  assert.match(presentationPolicy, /configuredApi \|\| contract \|\| executableCreate \|\| executableAction/);
+  assert.doesNotMatch(presentationPolicy, /const runtimeBacked = Boolean\(runtimeDefinition\)/);
   assert.match(presentationPolicy, /runtimeBacked && declaredStatus\.toLowerCase\(\) === "planned"/);
-  assert.match(presentationPolicy, /\? "active"/);
   assert.match(presentationPolicy, /item\.status = readiness\.effectiveStatus/);
   assert.match(areaHub, /"planned", "blocked", "disabled", "unavailable"/);
 });

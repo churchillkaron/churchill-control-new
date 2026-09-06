@@ -18,6 +18,7 @@ const TRANSITIONS = Object.freeze({
   lost: new Set(),
   cancelled: new Set(),
 });
+const EVIDENCE_REQUIRED_STAGES = new Set(["confirmed", "settled", "lost", "cancelled"]);
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -91,8 +92,8 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "INVALID_BOOKING_STAGE_TRANSITION", current_stage: currentStage, to_stage: targetStage }, { status: 409 });
     }
 
-    if (["confirmed", "settled"].includes(targetStage) && !evidence) {
-      return NextResponse.json({ error: "TRANSITION_EVIDENCE_REQUIRED" }, { status: 400 });
+    if (EVIDENCE_REQUIRED_STAGES.has(targetStage) && !evidence) {
+      return NextResponse.json({ error: "TRANSITION_EVIDENCE_REQUIRED", to_stage: targetStage }, { status: 400 });
     }
 
     const command = lifecycleCommand(String(booking.status || "draft").toLowerCase(), targetStage);

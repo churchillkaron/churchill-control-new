@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -64,6 +65,12 @@ export async function POST(request) {
         businessErrorStatus(extensionError.message)
       );
     }
+
+    await broadcastHotelReadinessChanged({
+      organizationId: access.organizationId,
+      source: "front-desk-booking",
+      action: "EXTEND_STAY",
+    });
 
     return NextResponse.json({
       success: true,

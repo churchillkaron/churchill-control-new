@@ -48,6 +48,10 @@ async function hasSuccessfulUse(organizationId, since = null) {
   return Number(count || 0) > 0;
 }
 
+function stageCount(records, stage) {
+  return records.filter((record) => record.stage === stage).length;
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -73,10 +77,30 @@ export async function GET(request) {
     const observedAt = new Date();
     const sevenDaysAgo = new Date(observedAt.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const [leadResult, subscriptionResult, quotationResult, organizationResult, userResult] = await Promise.all([
+    const [
+      acquisitionResult,
+      eventResult,
+      leadResult,
+      subscriptionResult,
+      quotationResult,
+      organizationResult,
+      userResult,
+    ] = await Promise.all([
+      readPaged(() => supabaseAdmin
+        .from("platform_acquisition_records")
+        .select("id,seller_organization_id,lead_id,subscription_id,customer_organization_id,stage,source,source_reference,first_value_at,stage_updated_at,created_at,updated_at")
+        .eq("seller_organization_id", PLATFORM_ORGANIZATION_ID)
+        .order("stage_updated_at", { ascending: false })
+        .order("id", { ascending: true })),
+      readPaged(() => supabaseAdmin
+        .from("platform_acquisition_events")
+        .select("id,acquisition_id,seller_organization_id,from_stage,to_stage,evidence_type,evidence_reference,note,occurred_at,created_at")
+        .eq("seller_organization_id", PLATFORM_ORGANIZATION_ID)
+        .order("occurred_at", { ascending: false })
+        .order("id", { ascending: true })),
       readPaged(() => supabaseAdmin
         .from("organization_leads")
-        .select("id,organization_id,status,created_at,final_monthly_total,final_yearly_total,currency,registration_source")
+        .select("id,organization_id,status,created_at,final_monthly_total,final_yearly_total,currency")
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })),
       readPaged(() => supabaseAdmin
@@ -103,6 +127,8 @@ export async function GET(request) {
     if (organizationResult.error) throw organizationResult.error;
     if (userResult.error) throw userResult.error;
 
+    const acquisitions = acquisitionResult.rows;
+    const acquisitionEvents = eventResult.rows;
     const leads = leadResult.rows;
     const subscriptions = subscriptionResult.rows;
     const quotations = quotationResult.rows;
@@ -122,11 +148,9 @@ export async function GET(request) {
     const subscriptionsResolvingToCurrentOrganization = linkedSubscriptions.filter((row) => organizationIds.has(row.organization_id));
     const leadsResolvingDirectlyToCurrentOrganization = leads.filter((row) => organizationIds.has(text(row.organization_id)));
 
-    const technicallyLinkedCurrentOrganizationIds = new Set([
-      ...leadsResolvingDirectlyToCurrentOrganization.map((row) => text(row.organization_id)),
-      ...subscriptionsResolvingToCurrentOrganization.map((row) => row.organization_id),
-    ]);
-
+    const canonicalCustomerIds = new Set(
+      acquisitions.map((record) => record.customer_organization_id).filter(Boolean),
+    );
     const humanLinkedAccounts = organizations.filter((row) => activeHumanOrganizationIds.has(row.id));
     const humanUsageEvidence = await Promise.all(
       humanLinkedAccounts.map(async (organization) => {
@@ -136,7 +160,7 @@ export async function GET(request) {
         ]);
         return {
           organizationId: organization.id,
-          technicallyLinkedToCommercialRecord: technicallyLinkedCurrentOrganizationIds.has(organization.id),
+          canonicallyAttributed: canonicalCustomerIds.has(organization.id),
           successfulUseEver: ever,
           successfulUse7d: recent7d,
         };
@@ -145,100 +169,122 @@ export async function GET(request) {
 
     const humanAccountsWithSuccessfulUse = humanUsageEvidence.filter((row) => row.successfulUseEver);
     const humanAccountsWithSuccessfulUse7d = humanUsageEvidence.filter((row) => row.successfulUse7d);
-    const attributableFirstValue = humanUsageEvidence.filter(
-      (row) => row.technicallyLinkedToCommercialRecord && row.successfulUseEver,
+    const canonicalFirstValueAccounts = acquisitions.filter(
+      (record) => record.stage === "FIRST_VALUE" && record.customer_organization_id && record.first_value_at,
     );
 
     const leadStatuses = [...new Set(leads.map((row) => text(row.status).toUpperCase() || "UNKNOWN"))].sort();
     const subscriptionStatuses = [...new Set(subscriptions.map((row) => text(row.status).toUpperCase() || "UNKNOWN"))].sort();
-
     const platformOwnedQuotations = quotations.filter((row) => row.organization_id === PLATFORM_ORGANIZATION_ID);
     const customerDomainQuotations = quotations.filter((row) => row.organization_id !== PLATFORM_ORGANIZATION_ID);
 
+    const canonicalReady = acquisitionResult.complete && eventResult.complete;
     const gates = [
       {
         key: "seller_scope",
         label: "Avantiqo seller ownership",
-        state: "blocked",
-        detail: "Current lead and subscription records do not persist an authoritative Avantiqo seller/owner organization field, so Platform pipeline ownership cannot be proven.",
+        state: canonicalReady ? "pass" : "blocked",
+        detail: canonicalReady
+          ? "Canonical acquisition records are hard-scoped to the Avantiqo Platform seller organization."
+          : "Canonical seller-scoped acquisition evidence could not be read completely.",
       },
       {
         key: "stage_semantics",
         label: "Governed funnel stages",
-        state: "blocked",
-        detail: leadStatuses.length
-          ? `Persisted lead statuses are treated as opaque evidence (${leadStatuses.join(", ")}); no canonical qualified/won/lost stage contract is proven.`
-          : "No lead-stage evidence is persisted.",
+        state: canonicalReady ? "pass" : "blocked",
+        detail: "Canonical stages are PROSPECT → QUALIFIED → COMMITMENT_PENDING → COMMITTED → CUSTOMER_CREATED → HUMAN_ACTIVE → FIRST_VALUE, with LOST as an explicit terminal outcome.",
       },
       {
         key: "lead_commitment_link",
         label: "Lead → commercial commitment",
-        state: linkedSubscriptions.length ? "review" : "blocked",
-        detail: linkedSubscriptions.length
-          ? `${linkedSubscriptions.length} technical lead-to-subscription link${linkedSubscriptions.length === 1 ? "" : "s"} exist, but seller ownership remains unproven.`
-          : "No technical lead-to-subscription linkage exists.",
+        state: acquisitions.some((record) => record.lead_id && record.subscription_id) ? "pass" : "review",
+        detail: acquisitions.some((record) => record.lead_id && record.subscription_id)
+          ? "At least one canonical record has persisted lead-to-subscription lineage."
+          : "The contract exists, but no canonical lead-to-subscription lineage has been recorded yet. Legacy links remain unattributed evidence only.",
       },
       {
         key: "commitment_customer_link",
         label: "Commitment → current customer",
-        state: subscriptionsResolvingToCurrentOrganization.length ? "review" : "blocked",
-        detail: subscriptionsResolvingToCurrentOrganization.length
-          ? `${subscriptionsResolvingToCurrentOrganization.length} linked subscription${subscriptionsResolvingToCurrentOrganization.length === 1 ? "" : "s"} resolve to a current organization, but this is not yet canonical acquisition attribution.`
-          : linkedSubscriptions.length
-            ? "The persisted lead-to-subscription lineage does not resolve to a current organization record."
-            : "No subscription-to-current-customer lineage is available.",
+        state: acquisitions.some((record) => record.subscription_id && record.customer_organization_id) ? "pass" : "review",
+        detail: acquisitions.some((record) => record.subscription_id && record.customer_organization_id)
+          ? "At least one canonical commitment resolves to a current customer organization."
+          : "The contract exists, but no canonical commitment-to-customer lineage has been recorded yet.",
       },
       {
         key: "first_value_attribution",
         label: "Customer → first value",
-        state: attributableFirstValue.length ? "review" : "blocked",
-        detail: attributableFirstValue.length
-          ? `${attributableFirstValue.length} human-linked account${attributableFirstValue.length === 1 ? "" : "s"} have both technical commercial lineage and successful service evidence, but seller ownership still prevents a conversion claim.`
-          : `${humanAccountsWithSuccessfulUse.length} human-linked account${humanAccountsWithSuccessfulUse.length === 1 ? "" : "s"} have successful service evidence, but none can be authoritatively attributed back to Avantiqo acquisition records.`,
+        state: canonicalFirstValueAccounts.length ? "pass" : "review",
+        detail: canonicalFirstValueAccounts.length
+          ? `${canonicalFirstValueAccounts.length} canonical acquisition record${canonicalFirstValueAccounts.length === 1 ? "" : "s"} reached FIRST_VALUE with persisted evidence.`
+          : `${humanAccountsWithSuccessfulUse.length} human-linked account${humanAccountsWithSuccessfulUse.length === 1 ? "" : "s"} have successful product use, but none are retroactively attributed without canonical acquisition lineage.`,
       },
     ];
+
+    const stageCounts = {
+      prospect: stageCount(acquisitions, "PROSPECT"),
+      qualified: stageCount(acquisitions, "QUALIFIED"),
+      commitmentPending: stageCount(acquisitions, "COMMITMENT_PENDING"),
+      committed: stageCount(acquisitions, "COMMITTED"),
+      customerCreated: stageCount(acquisitions, "CUSTOMER_CREATED"),
+      humanActive: stageCount(acquisitions, "HUMAN_ACTIVE"),
+      firstValue: stageCount(acquisitions, "FIRST_VALUE"),
+      lost: stageCount(acquisitions, "LOST"),
+    };
 
     return Response.json({
       success: true,
       operatorOrganizationId: access.organizationId,
       observedAt: observedAt.toISOString(),
-      source: "AVANTIQO_PLATFORM_COMMERCIAL_PIPELINE_EVIDENCE",
-      state: "PIPELINE_INSTRUMENTATION_INCOMPLETE",
+      source: "AVANTIQO_PLATFORM_CANONICAL_ACQUISITION_EVIDENCE",
+      state: acquisitions.length ? "CANONICAL_PIPELINE_ACTIVE" : "CANONICAL_PIPELINE_READY_NO_ATTRIBUTED_RECORDS",
       evidence: {
+        acquisitionRowsComplete: acquisitionResult.complete,
+        acquisitionEventRowsComplete: eventResult.complete,
         leadRowsComplete: leadResult.complete,
         subscriptionRowsComplete: subscriptionResult.complete,
         quotationRowsComplete: quotationResult.complete,
-        sellerOwnershipFieldProven: false,
-        governedStageContractProven: false,
-        conversionRateClaimed: false,
+        sellerOwnershipFieldProven: canonicalReady,
+        governedStageContractProven: canonicalReady,
+        conversionRateClaimed: acquisitions.length > 0,
         winRateClaimed: false,
         pipelineValueClaimed: false,
         recurringRevenueClaimed: false,
-        firstValueAttributionClaimed: false,
+        firstValueAttributionClaimed: canonicalFirstValueAccounts.length > 0,
         customerDomainQuotationsExcludedFromPlatformPipeline: true,
+        legacyBackfillPerformed: false,
       },
       summary: {
+        canonicalAcquisitions: acquisitions.length,
+        canonicalEvents: acquisitionEvents.length,
+        canonicalFirstValueAccounts: canonicalFirstValueAccounts.length,
         persistedLeads: leads.length,
         persistedSubscriptions: subscriptions.length,
-        technicalLeadSubscriptionLinks: linkedSubscriptions.length,
-        linkedSubscriptionsResolvingToCurrentOrganization: subscriptionsResolvingToCurrentOrganization.length,
-        directLeadOrganizationResolutions: leadsResolvingDirectlyToCurrentOrganization.length,
+        technicalLegacyLeadSubscriptionLinks: linkedSubscriptions.length,
+        legacyLinksResolvingToCurrentOrganization: subscriptionsResolvingToCurrentOrganization.length,
+        directLegacyLeadOrganizationResolutions: leadsResolvingDirectlyToCurrentOrganization.length,
         platformOwnedQuotations: platformOwnedQuotations.length,
         customerDomainQuotationsExcluded: customerDomainQuotations.length,
         humanLinkedAccounts: humanLinkedAccounts.length,
         humanAccountsWithSuccessfulUse: humanAccountsWithSuccessfulUse.length,
         humanAccountsWithSuccessfulUse7d: humanAccountsWithSuccessfulUse7d.length,
-        humanAccountsTechnicallyLinkedToCommercialRecord: humanUsageEvidence.filter((row) => row.technicallyLinkedToCommercialRecord).length,
-        attributableFirstValueAccounts: attributableFirstValue.length,
+        humanAccountsCanonicallyAttributed: humanUsageEvidence.filter((row) => row.canonicallyAttributed).length,
+        attributableFirstValueAccounts: canonicalFirstValueAccounts.length,
       },
+      stageCounts,
       persistedStatusEvidence: {
         leadStatuses,
         subscriptionStatuses,
       },
       gates,
+      recentAcquisitions: acquisitions.slice(0, 10),
+      recentAcquisitionEvents: acquisitionEvents.slice(0, 20),
       ownerAction: {
-        title: "Establish canonical acquisition lineage before optimizing conversion",
-        detail: "Persist an authoritative Avantiqo seller/owner scope and governed commercial stage transitions that connect prospect/lead → commitment → created customer organization → active human access → first successful customer outcome. Backfill only when source evidence proves the lineage.",
+        title: acquisitions.length
+          ? "Advance acquisition records only when the next evidence gate is proven"
+          : "Start new Avantiqo prospects in the canonical acquisition lifecycle",
+        detail: acquisitions.length
+          ? "Use the governed acquisition transition endpoint for every stage change. Human activation and first value are independently re-verified from current platform evidence before those stages can be persisted."
+          : "Do not backfill legacy leads or existing customers by assumption. New prospects should enter the canonical lifecycle at PROSPECT; historical records should be linked only when source evidence proves Avantiqo seller ownership and customer lineage.",
       },
     });
   } catch (error) {

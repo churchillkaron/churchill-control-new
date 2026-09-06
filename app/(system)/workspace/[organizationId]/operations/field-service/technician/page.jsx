@@ -6,8 +6,6 @@ import { useEffect, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 import PestControlTechnicianCockpit from "@/components/workspace/operations/pest-control/PestControlTechnicianCockpit";
-import PestControlTreatmentReadinessBanner from "@/components/workspace/operations/pest-control/PestControlTreatmentReadinessBanner";
-import PestControlVisitExceptionCard from "@/components/workspace/operations/pest-control/PestControlVisitExceptionCard";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 import { organizationHasIndustrySolution } from "@/lib/platform/solutions/OrganizationIndustrySolutionResolver";
 
@@ -20,7 +18,6 @@ export default function PestControlTechnicianPage() {
   const { organization, loading } = useOrganizationRuntime();
   const organizationId = params?.organizationId || organization?.id || "";
   const occurrenceId = searchParams?.get("occurrenceId") || "";
-  const workOrderId = searchParams?.get("workOrderId") || "";
 
   const isPestControl = useMemo(() => organizationHasIndustrySolution({
     organization,
@@ -52,7 +49,7 @@ export default function PestControlTechnicianPage() {
         if (selected.work_order_id) query.set("workOrderId", selected.work_order_id);
         router.replace(`/workspace/${encodeURIComponent(organizationId)}/operations/field-service/technician?${query.toString()}`, { scroll: false });
       } catch {
-        // The cockpit owns the visible load error. This effect only binds URL context.
+        // The cockpit owns visible load errors. This effect only binds URL context.
       }
     }
 
@@ -68,11 +65,5 @@ export default function PestControlTechnicianPage() {
     return <div className="min-h-[420px] bg-[#F7F6F3] p-8 text-sm text-[#77736C]">Opening the installed Operations workspace...</div>;
   }
 
-  return (
-    <>
-      <PestControlTreatmentReadinessBanner organizationId={organizationId} occurrenceId={occurrenceId} workOrderId={workOrderId} />
-      <PestControlVisitExceptionCard organizationId={organizationId} occurrenceId={occurrenceId} workOrderId={workOrderId} />
-      <PestControlTechnicianCockpit organizationId={organizationId} />
-    </>
-  );
+  return <PestControlTechnicianCockpit organizationId={organizationId} />;
 }

@@ -8,6 +8,7 @@ const paths = Object.freeze({
   checkout: "app/(system)/workspace/[organizationId]/operations/pos/POSInlineCheckout.jsx",
   waiter: "app/(system)/workspace/[organizationId]/operations/pos/RestaurantWaiterPhoneSurface.jsx",
   stationary: "app/(system)/workspace/[organizationId]/operations/pos/RestaurantStationaryOrderSurface.jsx",
+  correctionSurface: "app/(system)/workspace/[organizationId]/operations/pos/RestaurantPaymentCorrections.jsx",
   floor: "app/(system)/workspace/[organizationId]/operations/tables/page.jsx",
   kitchen: "components/workspace/operations/RestaurantKitchenDisplay.jsx",
   expo: "components/workspace/operations/RestaurantExpoPass.jsx",
@@ -50,6 +51,14 @@ test("restaurant uses the current Avantiqo visual system across human work surfa
   assert.match(tablesLayout, /RestaurantAvantiqoTheme mode="service"/);
   assert.match(kitchenLayout, /RestaurantAvantiqoTheme mode="production"/);
   assert.match(expoLayout, /RestaurantAvantiqoTheme mode="production"/);
+
+  assert.match(theme, /article\[class\*="bg-red-"\]/);
+  assert.match(theme, /background-color: rgba\(239, 68, 68, 0\.075\) !important/);
+  assert.match(theme, /article\[class\*="bg-amber-"\]/);
+  assert.match(theme, /background-color: rgba\(245, 158, 11, 0\.08\) !important/);
+  assert.match(theme, /color: #991b1b !important/);
+  assert.match(theme, /color: #92400e !important/);
+  assert.match(theme, /color: #047857 !important/);
 });
 
 test("restaurant canonical adapter owns the governed context actions", async () => {
@@ -79,6 +88,8 @@ test("restaurant payment corrections are governed, manager-only, auditable and o
   const adapter = await source(paths.restaurantAdapter);
   const correction = await source(paths.paymentCorrectionAdapter);
   const route = await source(paths.paymentCorrectionRoute);
+  const surface = await source(paths.correctionSurface);
+  const registry = await source(paths.registry);
 
   assert.match(adapter, /POSPaymentCorrectionAdapter/);
   assert.match(adapter, /paymentCorrections:\s*POSPaymentCorrectionAdapter/);
@@ -92,6 +103,16 @@ test("restaurant payment corrections are governed, manager-only, auditable and o
   assert.match(correction, /preserves_original_payment:\s*true/);
   assert.match(correction, /cash_only:\s*true/);
   assert.match(correction, /requires_active_cash_session:\s*true/);
+
+  assert.match(registry, /RestaurantPaymentCorrections/);
+  assert.match(registry, /<RestaurantPaymentCorrections[\s\S]*refreshKey=\{checkoutVersion\}/);
+  assert.match(surface, /state\?\.actor\?\.can_correct/);
+  assert.match(surface, /state\?\.active_cash_session\?\.id/);
+  assert.match(surface, /eligiblePayments\.length/);
+  assert.match(surface, /correctionType:\s*action/);
+  assert.match(surface, /reason:\s*reason\.trim\(\)/);
+  assert.match(surface, /original payment is never deleted/i);
+  assert.match(surface, /data-restaurant-payment-corrections="true"/);
 });
 
 test("restaurant waiter phone stays service-only", async () => {
@@ -105,6 +126,8 @@ test("restaurant waiter phone stays service-only", async () => {
   assert.doesNotMatch(waiter, /\/api\/pos\/payments\/settle/);
   assert.doesNotMatch(waiter, /operations\/pos\/payments/);
   assert.doesNotMatch(waiter, /goToPayment/);
+  assert.doesNotMatch(waiter, /RestaurantPaymentCorrections/);
+  assert.doesNotMatch(waiter, /payment-corrections/);
 });
 
 test("restaurant stationary POS is a dedicated desktop workstation", async () => {
@@ -179,6 +202,8 @@ test("restaurant kitchen requires preparation before ready and stays production-
   assert.match(kitchen, /"READY"/);
   assert.match(kitchen, /disabled=\{busy \|\| ready \|\| !cooking\}/);
   assert.match(kitchen, /Start first/);
+  assert.match(kitchen, /border-red-400\/45 bg-red-500\/\[0\.07\] text-red-100/);
+  assert.match(kitchen, /border-amber-300\/35 bg-amber-300\/\[0\.06\] text-amber-100/);
 
   assert.doesNotMatch(kitchen, /\/api\/pos\/payments\/settle/);
   assert.doesNotMatch(kitchen, /operations\/pos\/payments/);

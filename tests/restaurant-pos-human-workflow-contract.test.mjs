@@ -149,12 +149,39 @@ test("restaurant waiter phone stays service-only", async () => {
   assert.match(registry, /RestaurantWaiterPhoneSurface/);
   assert.match(registry, /requestedView === "waiter" \|\| requestedView === "service"/);
   assert.match(registry, /settlement stays at the stationary POS/);
+  assert.match(waiter, /data-restaurant-waiter-phone="true"/);
+  assert.match(waiter, /runtime\?\.capabilities\?\.actions \|\| \{\}/);
+  assert.match(waiter, /canOrder = actionCapabilities\.order_entry === true/);
+  assert.match(waiter, /canTransferTable = actionCapabilities\.transfer_table === true/);
+  assert.match(waiter, /canMergeTables = actionCapabilities\.merge_tables === true/);
+  assert.match(waiter, /data-waiter-authorized-actions="true"/);
+  assert.match(waiter, /data-waiter-supervisor-boundary="true"/);
+  assert.match(waiter, /Supervisor authority is required to move a whole table/);
+  assert.match(waiter, /Supervisor authority is required to merge tables/);
+  assert.match(waiter, /Payment is intentionally not available on the waiter phone/);
 
   assert.doesNotMatch(waiter, /\/api\/pos\/payments\/settle/);
   assert.doesNotMatch(waiter, /operations\/pos\/payments/);
   assert.doesNotMatch(waiter, /goToPayment/);
   assert.doesNotMatch(waiter, /RestaurantPaymentCorrections/);
   assert.doesNotMatch(waiter, /payment-corrections/);
+});
+
+test("restaurant waiter phone never silently drops unsent orders", async () => {
+  const waiter = await source(paths.waiter);
+
+  assert.match(waiter, /data-waiter-draft-switch-guard="true"/);
+  assert.match(waiter, /Keep current order/);
+  assert.match(waiter, /Discard order & switch/);
+  assert.match(waiter, /setPendingSwitch\(\{ kind: "zone", zoneId \}\)/);
+  assert.match(waiter, /setPendingSwitch\(\{ kind: "table", tableId: table\.id \}\)/);
+  assert.match(waiter, /Table moved · unsent order kept with this service/);
+  assert.match(waiter, /function tableIsFreeForTransfer\(table\)/);
+  assert.match(waiter, /Only empty available tables can receive the service/);
+  assert.match(waiter, /No empty available table\. Use Merge tables for an occupied service/);
+  assert.doesNotMatch(waiter, /function chooseZone\(zoneId\) \{[\s\S]{0,220}setCart\(\[\]\)/);
+  assert.doesNotMatch(waiter, /function chooseTable\(table\) \{[\s\S]{0,260}setCart\(\[\]\)/);
+  assert.doesNotMatch(waiter, /async function transferTable\(\) \{[\s\S]{0,800}setCart\(\[\]\)/);
 });
 
 test("restaurant stationary POS is a dedicated desktop workstation", async () => {

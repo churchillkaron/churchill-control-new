@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { getHotelOperationalDate } from "@/lib/hotel/server/getHotelOperationalDate";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -57,6 +58,12 @@ export async function POST(request) {
 
     if (updateError) throw updateError;
     if (!booking) return errorResponse("Reservation changed before no-show could be recorded", 409);
+
+    await broadcastHotelReadinessChanged({
+      organizationId: access.organizationId,
+      source: "front-desk-booking",
+      action: "NO_SHOW",
+    });
 
     return NextResponse.json({
       success: true,

@@ -1,0 +1,164 @@
+{
+  "contract": "AVANTIQO_INVESTOR_PRODUCT_PROOF_MANIFEST_V1",
+  "source_repository": "churchillkaron/churchill-control-new",
+  "binding_baseline_commit": "88cb72415eb3b21a1d8db8108ef3b01cea9c1d6d",
+  "status": "SOURCE_BOUND",
+  "capture_policy": {
+    "allowed_capture_modes": ["REAL_CURRENT_UI", "DETERMINISTIC_COMPOSITE_FROM_REAL_UI"],
+    "mock_ui_allowed": false,
+    "invented_route_allowed": false,
+    "invented_business_state_allowed": false,
+    "synthetic_svg_product_screen_allowed": false,
+    "source_code_alone_authorizes_picture_lock": false,
+    "capture_digest_required_for_picture_lock": true,
+    "customer_private_data_must_be_redacted": true
+  },
+  "truth_amendments": [
+    {
+      "beat_id": "B05",
+      "reason": "Current Projects command center proves schedule, scope and delivery-risk control; governed project-cost impact was not source-proven during investor-film binding.",
+      "replacement_voice": "A project shifts when timing, scope and delivery risk collide.",
+      "replacement_avantiqo_action": "Show the real Projects command center moving through overdue work, due-soon deadlines, planning gaps, scope gaps and project health. Do not show or imply project cost impact unless a separately governed Finance/Projects source is captured and bound later.",
+      "forbidden_claims": ["project cost impact", "project margin impact", "project budget impact"]
+    },
+    {
+      "beat_id": "B13",
+      "reason": "Creative source lineage, Intelligence planning, governed Review Room and Mastering are source-proven; campaign business-response analytics were not source-proven during investor-film binding.",
+      "replacement_voice": "Strategy, creation and review become one continuous loop.",
+      "replacement_avantiqo_action": "Show real source campaign/objective context entering Creative, governed Intelligence planning, the current Review Room with timecoded notes and approval, then the Mastering handoff. Do not imply measured campaign response without separately bound analytics evidence.",
+      "forbidden_claims": ["measured campaign response", "attributed revenue lift", "campaign ROI"]
+    }
+  ],
+  "proof_beats": [
+    {
+      "beat_id": "B04",
+      "domain": "Operations · Pest Control",
+      "narrative_proof": "A changed field-service commitment is surfaced with exact work identity, assignment, time window, customer/site context, constraint risk and a deep link to the governed work order.",
+      "capture_mode": "REAL_CURRENT_UI",
+      "evidence_commits": ["10d5eeee2422b7b8d2e4ac5ea3273fae8cdfd49e", "3e3d207ba5391edf31170390f3c2757852061a5c"],
+      "source_paths": ["components/workspace/operations/pest-control/PestControlDispatchControl.jsx"],
+      "routes": ["/workspace/{organizationId}/operations/dispatch", "/workspace/{organizationId}/operations/work-orders?workOrderId={workOrderId}"],
+      "required_visible_state": ["service or work identity", "scheduled window", "assigned technician or unassigned state", "risk or constraint state", "customer or site context"],
+      "forbidden_fabrication": ["invented drive time", "invented geospatial optimization", "invented technician assignment"],
+      "capture_sha256": null,
+      "picture_lock_status": "CAPTURE_REQUIRED"
+    },
+    {
+      "beat_id": "B05",
+      "domain": "Projects",
+      "narrative_proof": "Portfolio delivery risk is visible through project health, overdue work, upcoming deadlines, planning gaps and scope gaps.",
+      "capture_mode": "REAL_CURRENT_UI",
+      "evidence_commits": ["07199adbc4d2ef7d29a8757f6a29b13386d1921b", "42a37c1c19955b6c16ccb5de993e64a256579a6f"],
+      "source_paths": ["components/workspace/projects/ProjectsCommandCenter.jsx"],
+      "routes": ["/workspace/{organizationId}/projects"],
+      "required_visible_state": ["active projects", "overdue", "due in 30 days", "planning gaps", "scope gaps", "portfolio attention or health"],
+      "forbidden_fabrication": ["project cost impact", "project margin impact", "unbound budget variance"],
+      "capture_sha256": null,
+      "picture_lock_status": "CAPTURE_REQUIRED"
+    },
+    {
+      "beat_id": "B07",
+      "domain": "Connected operating system",
+      "narrative_proof": "Multiple real Avantiqo workspaces are editorially connected without inventing a meta-dashboard that does not exist.",
+      "capture_mode": "DETERMINISTIC_COMPOSITE_FROM_REAL_UI",
+      "evidence_commits": ["36e2e5b1c0a8f5971aebaecf1e8b93501152f2fa", "10d5eeee2422b7b8d2e4ac5ea3273fae8cdfd49e", "07199adbc4d2ef7d29a8757f6a29b13386d1921b", "94d1cf42f65ab78890769169c3f8861d8f6b4df5"],
+      "source_paths": ["app/(system)/workspace/[organizationId]/finance/[...financeRoute]/page.jsx", "components/workspace/operations/pest-control/PestControlDispatchControl.jsx", "components/workspace/projects/ProjectsCommandCenter.jsx", "app/(system)/workspace/9a148429-b6a0-4bc6-ac83-a35c64fb7045/platform-owner-home.module.css"],
+      "routes": ["/workspace/{organizationId}/finance/{financeRoute}", "/workspace/{organizationId}/operations/dispatch", "/workspace/{organizationId}/projects"],
+      "required_visible_state": ["at least three independently captured current Avantiqo workspace states", "shared Avantiqo visual language", "no invented cross-domain numbers"],
+      "forbidden_fabrication": ["synthetic all-in-one dashboard", "invented cross-domain KPI", "fake domain state"],
+      "capture_sha256": null,
+      "picture_lock_status": "CAPTURE_REQUIRED"
+    },
+    {
+      "beat_id": "B08",
+      "domain": "Business Partner",
+      "narrative_proof": "Business Partner provides an owned-intelligence interaction surface and exposes governed continuation/control rather than pretending AI has unrestricted authority.",
+      "capture_mode": "REAL_CURRENT_UI",
+      "evidence_commits": ["928a115f08b3dfd51aa3d5f1f0ce1b6d3d01ace7", "191132ee2a398009175c7ee090afb74c2e53c8d0", "94d1cf42f65ab78890769169c3f8861d8f6b4df5"],
+      "source_paths": ["components/operator/BusinessPartnerCodeMissionPanel.jsx", "app/(system)/workspace/9a148429-b6a0-4bc6-ac83-a35c64fb7045/platform-owner-home.module.css"],
+      "routes": ["/workspace/9a148429-b6a0-4bc6-ac83-a35c64fb7045"],
+      "required_visible_state": ["Business Partner interaction", "live or completed governed mission evidence", "authority boundary or safe continuation state"],
+      "forbidden_fabrication": ["unsupported recommendation", "fake evidence citation", "unrestricted autonomous authority"],
+      "capture_sha256": null,
+      "picture_lock_status": "CAPTURE_REQUIRED"
+    },
+    {
+      "beat_id": "B09",
+      "domain": "Finance",
+      "narrative_proof": "VAT review can move from exact blocker/evidence into the exact Finance source record and back to live filing preflight without falsely clearing Tax by editing the source alone.",
+      "capture_mode": "REAL_CURRENT_UI",
+      "evidence_commits": ["36e2e5b1c0a8f5971aebaecf1e8b93501152f2fa", "d3455aa66d43427e4eb454e032cb7e8b68e00d46", "4d1d2c5b29c901175ac0d96bc5005b8ce9038cf9"],
+      "source_paths": ["components/workspace/finance/FinanceSourceReturnRail.jsx", "app/(system)/workspace/[organizationId]/finance/[...financeRoute]/page.jsx"],
+      "routes": ["/workspace/{organizationId}/finance/{financeRoute}?source=tax-evidence&returnTo={vatReturnRoute}&returnVatReturnId={filingId}&returnDependencyCode={dependencyCode}&focusRecordId={recordId}"],
+      "required_visible_state": ["VAT source repair context", "exact Finance source", "return to VAT evidence", "live preflight semantics"],
+      "forbidden_fabrication": ["fake VAT cleared state", "invented tax evidence", "invented filing approval"],
+      "capture_sha256": null,
+      "picture_lock_status": "CAPTURE_REQUIRED"
+    },
+    {
+      "beat_id": "B10",
+      "domain": "Operations · Pest Control",
+      "narrative_proof": "An operational exception is surfaced as a decision tied to exact work instead of remaining a passive queue item.",
+      "capture_mode": "REAL_CURRENT_UI",
+      "evidence_commits": ["6fd132066e51bfbf09ef3a40dbad6864fc2df527", "38fd904be6d7d04941604ce79b4f5adfa9c2d0f8", "10d5eeee2422b7b8d2e4ac5ea3273fae8cdfd49e"],
+      "source_paths": ["components/workspace/operations/pest-control/PestControlDispatchControl.jsx"],
+      "routes": ["/workspace/{organizationId}/operations/dispatch", "/workspace/{organizationId}/operations/work-orders?workOrderId={workOrderId}"],
+      "required_visible_state": ["exception or risk state", "decision context", "exact work deep link", "owner or assignment context"],
+      "forbidden_fabrication": ["fake resolved state", "invented evidence", "generic issue queue substituted for exact work"],
+      "capture_sha256": null,
+      "picture_lock_status": "CAPTURE_REQUIRED"
+    },
+    {
+      "beat_id": "B11",
+      "domain": "Business Partner · Governed control",
+      "narrative_proof": "A human can steer an active mission at a safe boundary or approve/request changes on a verified result while commit/deploy authority remains explicitly separate.",
+      "capture_mode": "REAL_CURRENT_UI",
+      "evidence_commits": ["191132ee2a398009175c7ee090afb74c2e53c8d0", "372c947ad74bb23abe1c9eee00ffdf7335e4736d"],
+      "source_paths": ["components/operator/BusinessPartnerCodeMissionPanel.jsx"],
+      "routes": ["/workspace/9a148429-b6a0-4bc6-ac83-a35c64fb7045"],
+      "required_visible_state": ["steer active mission or verified patch review", "safe-boundary or review state", "explicit no commit/deploy authority wording"],
+      "forbidden_fabrication": ["automatic production deployment", "approval implying commit", "unreviewed autonomous code release"],
+      "capture_sha256": null,
+      "picture_lock_status": "CAPTURE_REQUIRED"
+    },
+    {
+      "beat_id": "B12",
+      "domain": "Creative Studio",
+      "narrative_proof": "A real business objective is translated by Avantiqo Intelligence into a governed Creative mission plan with directors, canonical capabilities, success criteria and human-only decisions before production.",
+      "capture_mode": "DETERMINISTIC_COMPOSITE_FROM_REAL_UI",
+      "evidence_commits": ["b0573b9bf24778fbd862ac7ad97f999e6af6cc86", "f7e6a3e78d04a7cc7003fd59ccd7a2eab3113d8f"],
+      "source_paths": ["lib/creative/intelligence/runtime/CreativeIntelligenceRuntime.js", "components/creative/ProductionStudio/workspaces/ReviewWorkspace.jsx"],
+      "routes": ["/workspace/{organizationId}/creative/video"],
+      "required_visible_state": ["business objective or mission", "Creative plan or governed production state", "real produced visual result"],
+      "forbidden_fabrication": ["prompt-engineering hero screen", "invented provider choice", "release without quality gate"],
+      "capture_sha256": null,
+      "picture_lock_status": "CAPTURE_REQUIRED"
+    },
+    {
+      "beat_id": "B13",
+      "domain": "Creative Studio · Review",
+      "narrative_proof": "Creative work remains governed through real edit decisions, timecoded review notes, note resolution, authenticated cut approval and Mastering readiness.",
+      "capture_mode": "REAL_CURRENT_UI",
+      "evidence_commits": ["f7e6a3e78d04a7cc7003fd59ccd7a2eab3113d8f", "ab5d90feb1a2b7b5016168e4a5198c85702cc3ed"],
+      "source_paths": ["components/creative/ProductionStudio/workspaces/ReviewWorkspace.jsx"],
+      "routes": ["/workspace/{organizationId}/creative/video"],
+      "required_visible_state": ["reviewable cut", "timecoded note or resolved note", "approval readiness", "Mastering locked until approval"],
+      "forbidden_fabrication": ["measured campaign response", "fake campaign ROI", "mastering before review approval"],
+      "capture_sha256": null,
+      "picture_lock_status": "CAPTURE_REQUIRED"
+    },
+    {
+      "beat_id": "B14",
+      "domain": "Outcome montage",
+      "narrative_proof": "The closing proof montage may reuse only already-bound Finance, Operations, Projects, Business Partner and Creative states to express less fragmentation and faster governed decisions qualitatively.",
+      "capture_mode": "DETERMINISTIC_COMPOSITE_FROM_REAL_UI",
+      "evidence_commits": ["36e2e5b1c0a8f5971aebaecf1e8b93501152f2fa", "10d5eeee2422b7b8d2e4ac5ea3273fae8cdfd49e", "07199adbc4d2ef7d29a8757f6a29b13386d1921b", "191132ee2a398009175c7ee090afb74c2e53c8d0", "f7e6a3e78d04a7cc7003fd59ccd7a2eab3113d8f"],
+      "source_paths": ["components/workspace/finance/FinanceSourceReturnRail.jsx", "components/workspace/operations/pest-control/PestControlDispatchControl.jsx", "components/workspace/projects/ProjectsCommandCenter.jsx", "components/operator/BusinessPartnerCodeMissionPanel.jsx", "components/creative/ProductionStudio/workspaces/ReviewWorkspace.jsx"],
+      "routes": [],
+      "required_visible_state": ["only previously captured real product states", "no new claims", "qualitative outcome language only"],
+      "forbidden_fabrication": ["unsupported percentage", "unsupported savings", "unsupported revenue claim", "new uncaptured UI"],
+      "capture_sha256": null,
+      "picture_lock_status": "CAPTURE_REQUIRED"
+    }
+  ]
+}

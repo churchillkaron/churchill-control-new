@@ -6,6 +6,11 @@ function clean(value) {
   return String(value ?? "").trim();
 }
 
+function isThailand(country) {
+  const normalized = clean(country).toLowerCase();
+  return normalized === "thailand" || normalized === "th" || normalized === "tha";
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -16,12 +21,28 @@ export async function POST(request) {
     const country = clean(body.country);
     const ownerName = clean(body.ownerName);
     const ownerPhone = clean(body.ownerPhone);
+    const thaiBusiness = isThailand(country);
+    const currency = clean(body.currency || (thaiBusiness ? "THB" : "")).toUpperCase();
+    const accountingStandard = clean(
+      body.accountingStandard || (thaiBusiness ? "TFRS" : "IFRS")
+    ).toUpperCase();
 
-    if (!name || !industry || !country || !ownerName || !ownerEmail) {
+    if (!name || !industry || !country || !ownerName || !ownerEmail || !currency) {
       return NextResponse.json(
         {
           success: false,
-          error: "Organization name, industry, country, owner name and owner email are required",
+          error:
+            "Organization name, industry, country, base currency, owner name and owner email are required",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Base currency must use a three-letter ISO currency code",
         },
         { status: 400 }
       );
@@ -46,6 +67,16 @@ export async function POST(request) {
       name: ownerName,
       email: ownerEmail,
       phone: ownerPhone || null,
+    };
+
+    payload.finance = {
+      taxRegime: thaiBusiness ? "THAILAND" : "UNCONFIGURED",
+      accountingStandard,
+      accountingMode: "operational_entity",
+      legalName: name,
+      displayName: name,
+      country,
+      currency,
     };
 
     const result = await provisionOrganization(payload);

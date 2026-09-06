@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -52,6 +53,12 @@ export async function POST(request) {
     }
 
     const task = Array.isArray(data) ? data[0] : data;
+    await broadcastHotelReadinessChanged({
+      organizationId: access.organizationId,
+      source: "housekeeping-recovery",
+      action: "RESTORE",
+    });
+
     return NextResponse.json({
       success: true,
       organizationId: access.organizationId,

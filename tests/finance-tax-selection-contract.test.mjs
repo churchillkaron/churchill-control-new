@@ -21,8 +21,12 @@ const settlement = read("components/workspace/finance/FinanceTaxSettlementRail.j
 const settlementRoute = read("app/api/finance/vat-returns/settlement/route.js");
 const journalPosting = read("lib/finance/general-ledger/capabilities/postJournalEntrySafe.js");
 
-test("Tax workspace owns one shared selected VAT filing", () => {
-  assert.match(wrapper, /useState\(null\)/);
+test("Tax workspace owns one shared selected VAT filing and restores only governed source-return context", () => {
+  assert.match(wrapper, /const requestedVatReturnId = String\(searchParams\?\.get\("vatReturnId"\)/);
+  assert.match(wrapper, /const taxSourceReturn = searchParams\?\.get\("source"\) === "tax-source-return"/);
+  assert.match(wrapper, /useState\(requestedVatReturnId\)/);
+  assert.match(wrapper, /if \(!taxSourceReturn \|\| !requestedVatReturnId\) return/);
+  assert.match(wrapper, /setSelectedVatReturnIdState\(requestedVatReturnId\)/);
   assert.match(wrapper, /selectedVatReturnId=\{selectedVatReturnId\}/);
   assert.match(wrapper, /onSelectedVatReturnIdChange=\{setSelectedVatReturnId\}/);
   assert.match(cockpit, /onSelectedVatReturnIdChange\?\.\(row\.id\)/);

@@ -13,6 +13,7 @@ import {
   HotelStatusPill,
   hotelWorkspaceHref,
 } from "@/components/workspace/hotel/HotelWorkspaceUI";
+import { HOTEL_READINESS_CHANGED_EVENT, notifyHotelReadinessChanged } from "@/lib/hotel/client/readinessInvalidation";
 
 const OWNER_LABEL = Object.freeze({ FRONT_DESK: "Front Desk", HOUSEKEEPING: "Housekeeping", MAINTENANCE: "Maintenance" });
 const OWNER_ROUTE = Object.freeze({ FRONT_DESK: "front-desk", HOUSEKEEPING: "housekeeping", MAINTENANCE: "maintenance" });
@@ -53,6 +54,12 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
   }, [organizationId]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handleReadinessChanged = () => { load({ silent: true }); };
+    window.addEventListener(HOTEL_READINESS_CHANGED_EVENT, handleReadinessChanged);
+    return () => window.removeEventListener(HOTEL_READINESS_CHANGED_EVENT, handleReadinessChanged);
+  }, [load]);
 
   const restoreHousekeepingWork = useCallback(async (bookingId) => {
     if (!bookingId) return;
@@ -67,13 +74,13 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
       });
       const result = await response.json();
       if (!response.ok || result.success === false) throw new Error(result.error || "Unable to restore Housekeeping work");
-      await load({ silent: true });
+      notifyHotelReadinessChanged({ source: "arrival-ownership", bookingId });
     } catch (restoreError) {
       setError(restoreError?.message || "Unable to restore Housekeeping work");
     } finally {
       setBusyBookingId(null);
     }
-  }, [load]);
+  }, []);
 
   const items = useMemo(() => {
     const all = data?.items || [];

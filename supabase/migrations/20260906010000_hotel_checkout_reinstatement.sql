@@ -137,10 +137,13 @@ begin
       and other.room_id = p_room_id
       and other.id <> p_booking_id
       and upper(coalesce(other.status, '')) in ('RESERVED', 'CHECKED_IN')
-      and other.check_in_date < v_booking.check_out_date
       and other.check_out_date > p_business_date
+      and (
+        other.check_in_date < v_booking.check_out_date
+        or (v_booking.check_out_date <= p_business_date and other.check_in_date <= p_business_date)
+      )
   ) then
-    raise exception 'Selected room conflicts with another active stay';
+    raise exception 'Selected room conflicts with another active or same-day arriving stay';
   end if;
 
   update public.hotel_rooms

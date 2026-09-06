@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -209,6 +210,13 @@ export async function POST(request) {
         .eq("id", toRoomId)
         .maybeSingle();
       if (targetError) throw targetError;
+
+      await broadcastHotelReadinessChanged({
+        organizationId: auth.organizationId,
+        source: "stay-control-room-assignment",
+        action,
+      });
+
       return NextResponse.json({ success: true, booking: row || null, roomId: toRoomId, roomNumber: target?.room_number || null });
     }
 
@@ -253,6 +261,13 @@ export async function POST(request) {
       if (lineError) throw lineError;
 
       const next = await getFolioBalance(auth.organizationId, booking.id);
+
+      await broadcastHotelReadinessChanged({
+        organizationId: auth.organizationId,
+        source: "stay-control-folio",
+        action: "ADD_FOLIO_LINE",
+      });
+
       return NextResponse.json({ success: true, folio, line, balance: next.balance });
     }
 
@@ -281,6 +296,12 @@ export async function POST(request) {
         .maybeSingle();
       if (closeError) throw closeError;
       if (!closedFolio) return fail("Folio changed before close completed. Refresh and retry.", 409);
+
+      await broadcastHotelReadinessChanged({
+        organizationId: auth.organizationId,
+        source: "stay-control-folio",
+        action: "CLOSE_FOLIO",
+      });
 
       return NextResponse.json({ success: true, folio: closedFolio, balance: 0 });
     }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { getHotelRoomAssignmentOptions } from "@/lib/hotel/server/getHotelRoomAssignmentOptions";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -77,6 +78,12 @@ export async function POST(request) {
       .eq("id", roomId)
       .maybeSingle();
     if (roomError) throw roomError;
+
+    await broadcastHotelReadinessChanged({
+      organizationId: access.organizationId,
+      source: "front-desk-room-assignment",
+      action: booking.room_id ? "MOVE" : "ASSIGN",
+    });
 
     return NextResponse.json({
       success: true,

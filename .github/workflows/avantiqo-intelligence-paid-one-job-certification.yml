@@ -1,0 +1,90 @@
+name: Avantiqo Intelligence - Paid One Job Certification
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-intelligence-paid-one-job-certification.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-paid-one-job-certification
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    if: ${{ github.event.head_commit.message == 'Execute governed Intelligence one-job certification' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_ENV: development
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
+      AVANTIQO_INTELLIGENCE_MODAL_BASE_URL: ""
+      AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN: ""
+      AVANTIQO_INTELLIGENCE_MODAL_REAL_INFERENCE_APPROVED: "YES"
+      AVANTIQO_INTELLIGENCE_MODAL_CERT_MAX_CUSTOMER_CHARGE: "2"
+
+    steps:
+      - name: Checkout exact approval commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install repository dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          touch .env.local
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+
+      - name: Execute exactly one governed owned-Intelligence job
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p paid-certification-evidence
+          set +e
+          bash scripts/run-avantiqo-intelligence-modal-direct-certification-local.sh --execute 2>&1 | tee paid-certification-evidence/execution.log
+          status=${PIPESTATUS[0]}
+          echo "$status" > paid-certification-evidence/exit-code.txt
+          exit "$status"
+
+      - name: Upload certification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-intelligence-paid-one-job-${{ github.run_id }}
+          path: |
+            paid-certification-evidence/
+            local-audit-output/avantiqo-intelligence-modal-direct-service-certification/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Assert certification boundaries
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          echo 'MAX_PROVIDER_JOBS=1'
+          echo 'MAX_CUSTOMER_CHARGE_THB=2'
+          echo 'EXTERNAL_AI_FALLBACK_ALLOWED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'PRODUCTION_ACTIVATION_ALLOWED=false'
+          echo 'PRICING_ACTIVATION_ALLOWED=false'
+          echo 'PROVIDER_SELECTION_CHANGE_ALLOWED=false'
+          echo 'SECRET_MATERIAL_PRINTED=false'

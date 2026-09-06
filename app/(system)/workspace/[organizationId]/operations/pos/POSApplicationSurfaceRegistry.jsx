@@ -96,6 +96,30 @@ function RestaurantSaleSurface(props) {
   );
 }
 
+function RestaurantOrdersSurface(props) {
+  return (
+    <RestaurantAvantiqoTheme mode="service">
+      <POSOrdersPage {...props} />
+    </RestaurantAvantiqoTheme>
+  );
+}
+
+function RestaurantReceiptsSurface(props) {
+  return (
+    <RestaurantAvantiqoTheme mode="service">
+      <ReceiptsPage {...props} />
+    </RestaurantAvantiqoTheme>
+  );
+}
+
+function RestaurantCashSurface(props) {
+  return (
+    <RestaurantAvantiqoTheme mode="service">
+      <ShiftPage {...props} />
+    </RestaurantAvantiqoTheme>
+  );
+}
+
 function RetailSaleSurface(props) {
   const [checkoutVersion, setCheckoutVersion] = useState(0);
 
@@ -134,10 +158,10 @@ function RetailSaleSurface(props) {
 const APPLICATION_SURFACES = Object.freeze({
   restaurant: Object.freeze({
     sale: RestaurantSaleSurface,
-    orders: POSOrdersPage,
+    orders: RestaurantOrdersSurface,
     payment: RestaurantSaleSurface,
-    receipts: ReceiptsPage,
-    cash: ShiftPage,
+    receipts: RestaurantReceiptsSurface,
+    cash: RestaurantCashSurface,
   }),
   retail: Object.freeze({
     sale: RetailSaleSurface,

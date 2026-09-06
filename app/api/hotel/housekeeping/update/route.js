@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
@@ -43,6 +44,12 @@ export async function POST(request) {
       supabase: supabaseAdmin,
       organizationId: access.organizationId,
       taskId,
+      action,
+    });
+
+    await broadcastHotelReadinessChanged({
+      organizationId: access.organizationId,
+      source: "housekeeping",
       action,
     });
 

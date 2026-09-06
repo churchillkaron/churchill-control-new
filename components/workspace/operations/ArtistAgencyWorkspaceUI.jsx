@@ -24,6 +24,8 @@ import {
   X,
 } from "lucide-react";
 
+import ArtistAgencyBookingStageControls from "./ArtistAgencyBookingStageControls";
+
 const STAGES = ["All", "Inquiry", "Hold", "Offer", "Contract", "Confirmed", "Settled", "Lost", "Cancelled"];
 
 function money(value) {
@@ -148,7 +150,7 @@ function StageChip({ booking }) {
   );
 }
 
-function BookingDetail({ booking, organizationId, onClose }) {
+function BookingDetail({ booking, organizationId, onClose, onChanged }) {
   if (!booking) return null;
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-[2px]" onMouseDown={onClose}>
@@ -195,6 +197,8 @@ function BookingDetail({ booking, organizationId, onClose }) {
             <div className="flex items-center justify-between gap-3"><span>Source</span><strong className="font-semibold text-[#3F3A35]">{booking.sourceType}</strong></div>
           </div>
         </section>
+
+        <ArtistAgencyBookingStageControls booking={booking} organizationId={organizationId} onChanged={onChanged} />
 
         <section className="mt-4 rounded-[20px] border border-black/[0.07] bg-white p-5">
           <IconLabel icon={ShieldCheck}>Finance authority</IconLabel>
@@ -366,7 +370,15 @@ export default function ArtistAgencyWorkspaceUI({ organizationId }) {
           </section>
         </main>
       </div>
-      <BookingDetail booking={selected} organizationId={organizationId} onClose={() => setSelected(null)} />
+      <BookingDetail
+        booking={selected}
+        organizationId={organizationId}
+        onClose={() => setSelected(null)}
+        onChanged={async () => {
+          await loadBookings();
+          setSelected(null);
+        }}
+      />
       {showNewBooking ? <NewBookingModal organizationId={organizationId} onClose={() => setShowNewBooking(false)} onCreated={loadBookings} /> : null}
     </div>
   );

@@ -2,6 +2,7 @@ import { requirePlatformOperatorWorkspaceAccess } from "@/lib/platform/security/
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const PLATFORM_ORGANIZATION_ID = "9a148429-b6a0-4bc6-ac83-a35c64fb7045";
+const TERMINAL_STAGES = new Set(["FIRST_VALUE", "LOST"]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -26,6 +27,9 @@ async function requireOperator(request) {
   if (access.organizationId !== PLATFORM_ORGANIZATION_ID) {
     return { success: false, status: 404, error: "Avantiqo Platform owner workspace required" };
   }
+  if (!access.staff?.id) {
+    return { success: false, status: 403, error: "Authenticated platform owner identity is required" };
+  }
   return access;
 }
 
@@ -35,6 +39,28 @@ async function readBody(request) {
     return { success: false, status: 400, error: "A JSON request body is required" };
   }
   return { success: true, body };
+}
+
+function requireNextObligation(body) {
+  const nextDueAt = text(body.nextDueAt || body.next_due_at);
+  const nextScheduleNote = text(body.nextScheduleNote || body.next_schedule_note);
+  if (!nextDueAt) {
+    const error = new Error("Next owner obligation due date is required");
+    error.status = 400;
+    throw error;
+  }
+  const timestamp = new Date(nextDueAt).getTime();
+  if (!Number.isFinite(timestamp) || timestamp <= Date.now()) {
+    const error = new Error("Next owner obligation due date must be a valid future time");
+    error.status = 400;
+    throw error;
+  }
+  if (!nextScheduleNote) {
+    const error = new Error("Next owner obligation timing note is required");
+    error.status = 400;
+    throw error;
+  }
+  return { nextDueAt: new Date(timestamp).toISOString(), nextScheduleNote };
 }
 
 async function requireLead(leadId) {
@@ -181,11 +207,12 @@ export async function POST(request) {
     if (!evidenceType) {
       return Response.json({ success: false, error: "Evidence type is required" }, { status: 400 });
     }
+    const { nextDueAt, nextScheduleNote } = requireNextObligation(body);
 
     const leadId = uuidOrNull(body.leadId || body.lead_id);
     await requireLead(leadId);
 
-    const { data, error } = await supabaseAdmin.rpc("platform_create_acquisition", {
+    const { data, error } = await supabaseAdmin.rpc("platform_create_acquisition_v2", {
       p_seller_organization_id: PLATFORM_ORGANIZATION_ID,
       p_evidence_type: evidenceType,
       p_evidence_reference: text(body.evidenceReference || body.evidence_reference) || null,
@@ -193,13 +220,16 @@ export async function POST(request) {
       p_lead_id: leadId,
       p_source: text(body.source) || null,
       p_source_reference: text(body.sourceReference || body.source_reference) || null,
+      p_next_due_at: nextDueAt,
+      p_next_schedule_note: nextScheduleNote,
+      p_owner_staff_account_id: access.staff.id,
     });
     if (error) throw error;
 
     return Response.json({
       success: true,
       acquisition: data,
-      authority: "AVANTIQO_PLATFORM_ATOMIC_ACQUISITION_CREATE",
+      authority: "AVANTIQO_PLATFORM_ATOMIC_ACQUISITION_CREATE_V2",
     }, { status: 201 });
   } catch (error) {
     console.error("PLATFORM_ACQUISITION_CREATE_ERROR", error);
@@ -244,6 +274,7 @@ export async function PATCH(request) {
       );
     }
 
+    const nextObligation = TERMINAL_STAGES.has(toStage) ? { nextDueAt: null, nextScheduleNote: null } : requireNextObligation(body);
     let subscriptionId = uuidOrNull(body.subscriptionId || body.subscription_id) || acquisition.subscription_id;
     let customerOrganizationId = acquisition.customer_organization_id;
     let firstValueAt = null;
@@ -333,7 +364,7 @@ export async function PATCH(request) {
       return Response.json({ success: false, error: "Evidence type is required for this transition" }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin.rpc("platform_transition_acquisition_v2", {
+    const { data, error } = await supabaseAdmin.rpc("platform_transition_acquisition_v3", {
       p_acquisition_id: acquisitionId,
       p_seller_organization_id: PLATFORM_ORGANIZATION_ID,
       p_expected_from_stage: expectedFromStage,
@@ -347,13 +378,16 @@ export async function PATCH(request) {
       p_subscription_id: subscriptionId,
       p_customer_organization_id: customerOrganizationId,
       p_first_value_at: firstValueAt,
+      p_next_due_at: nextObligation.nextDueAt,
+      p_next_schedule_note: nextObligation.nextScheduleNote,
+      p_owner_staff_account_id: TERMINAL_STAGES.has(toStage) ? null : access.staff.id,
     });
     if (error) throw error;
 
     return Response.json({
       success: true,
       acquisition: data,
-      authority: "AVANTIQO_PLATFORM_ATOMIC_ACQUISITION_TRANSITION_V2",
+      authority: "AVANTIQO_PLATFORM_ATOMIC_ACQUISITION_TRANSITION_V3",
     });
   } catch (error) {
     console.error("PLATFORM_ACQUISITION_TRANSITION_ERROR", error);

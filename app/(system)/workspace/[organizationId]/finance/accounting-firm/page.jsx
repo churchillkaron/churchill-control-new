@@ -8,6 +8,7 @@ import FinanceContinuousCloseRail from "@/components/workspace/finance/FinanceCo
 import FinanceCorrectionWorkspace from "@/components/workspace/finance/FinanceCorrectionWorkspace";
 import { FinanceLandingRuntimeProvider } from "@/components/workspace/finance/FinanceLandingRuntimeProvider";
 import FinancePracticePortfolioFocus from "@/components/workspace/finance/FinancePracticePortfolioFocus";
+import FinanceReviewFreshnessExceptionsRail from "@/components/workspace/finance/FinanceReviewFreshnessExceptionsRail";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export default function FinanceAccountingFirmPage() {
   return (
     <FinanceLandingRuntimeProvider organizationId={organizationId}>
       <FinancePracticePortfolioFocus organizationId={organizationId} />
+      <FinanceReviewFreshnessExceptionsRail organizationId={organizationId} />
       <FinanceContinuousCloseRail organizationId={organizationId} />
       <FinanceAccountHealthPanel organizationId={organizationId} />
       <FinanceCorrectionWorkspace organizationId={organizationId} />

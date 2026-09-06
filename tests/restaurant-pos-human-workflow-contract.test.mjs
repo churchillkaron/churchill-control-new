@@ -6,7 +6,7 @@ const paths = Object.freeze({
   registry: "app/(system)/workspace/[organizationId]/operations/pos/POSApplicationSurfaceRegistry.jsx",
   checkout: "app/(system)/workspace/[organizationId]/operations/pos/POSInlineCheckout.jsx",
   waiter: "app/(system)/workspace/[organizationId]/operations/pos/RestaurantWaiterPhoneSurface.jsx",
-  stationary: "app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx",
+  stationary: "app/(system)/workspace/[organizationId]/operations/pos/RestaurantStationaryOrderSurface.jsx",
   floor: "app/(system)/workspace/[organizationId]/operations/tables/page.jsx",
   kitchen: "components/workspace/operations/RestaurantKitchenDisplay.jsx",
   expo: "components/workspace/operations/RestaurantExpoPass.jsx",
@@ -30,21 +30,28 @@ test("restaurant waiter phone stays service-only", async () => {
   assert.doesNotMatch(waiter, /goToPayment/);
 });
 
-test("restaurant stationary POS keeps ordering and settlement on one surface", async () => {
+test("restaurant stationary POS is a dedicated desktop workstation", async () => {
   const registry = await source(paths.registry);
   const stationary = await source(paths.stationary);
 
   assert.match(registry, /data-restaurant-stationary-pos="true"/);
-  assert.match(registry, /<POSFinalUI[\s\S]*<POSInlineCheckout/);
+  assert.match(registry, /RestaurantStationaryOrderSurface/);
+  assert.match(registry, /<RestaurantStationaryOrderSurface[\s\S]*<POSInlineCheckout/);
   assert.match(registry, /payment: RestaurantSaleSurface/);
   assert.match(registry, /onActiveContextChange=\{setActiveTableReference\}/);
   assert.match(registry, /preferredContextReference=\{activeTableReference\}/);
 
-  assert.match(stationary, /onActiveContextChange/);
-  assert.match(stationary, /onActiveContextChange\?\.\(tableReference\(table\)\)/);
+  assert.match(stationary, /data-restaurant-stationary-order-surface="true"/);
+  assert.match(stationary, /data-stationary-draft-order="true"/);
+  assert.match(stationary, /Search menu/);
+  assert.match(stationary, /Send to kitchen/);
+  assert.match(stationary, /Change guest count/);
+  assert.match(stationary, /Move whole table/);
+  assert.match(stationary, /Merge tables/);
   assert.doesNotMatch(stationary, /Go to Payment/);
   assert.doesNotMatch(stationary, /operations\/pos\/payments/);
   assert.doesNotMatch(stationary, /goToPayment/);
+  assert.doesNotMatch(stationary, /onMouseDown=\{\(\) => startHold/);
 });
 
 test("stationary checkout uses real split tenders and cash change", async () => {
@@ -65,12 +72,25 @@ test("stationary checkout uses real split tenders and cash change", async () => 
 test("floor handoff targets the stationary POS with exact table context", async () => {
   const floor = await source(paths.floor);
   const checkout = await source(paths.checkout);
+  const stationary = await source(paths.stationary);
 
   assert.match(floor, /new URLSearchParams\(\{[\s\S]*view: "stationary",[\s\S]*table: String\(tableReference\)/);
   assert.match(floor, /router\.push\(`\/workspace\/\$\{organizationId\}\/operations\/pos\?\$\{query\.toString\(\)\}`\)/);
   assert.match(checkout, /preferredContextReference = null/);
   assert.match(checkout, /contextMatchesReference\(context, preferredContextReference\)/);
   assert.match(checkout, /requestedEntry\?\.context/);
+  assert.match(stationary, /preferredTableReference = null/);
+  assert.match(stationary, /matchesTableReference\(table, preferred\)/);
+});
+
+test("restaurant floor stays a live overview, not a second POS", async () => {
+  const floor = await source(paths.floor);
+
+  assert.match(floor, /Restaurant Floor/);
+  assert.match(floor, /Continue at stationary POS/);
+  assert.match(floor, /Service detail/);
+  assert.doesNotMatch(floor, /\/api\/pos\/payments\/settle/);
+  assert.doesNotMatch(floor, /Send to kitchen/);
 });
 
 test("restaurant kitchen display stays production-only", async () => {

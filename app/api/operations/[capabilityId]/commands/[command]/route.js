@@ -17,6 +17,10 @@ import {
   evaluateScheduleAvailability,
   loadAvailabilityForScheduleRange,
 } from "@/lib/people/workforce/workforceAvailabilityRuntime";
+import {
+  loadQualificationEvidence,
+  requiredQualificationCodesFromService,
+} from "@/lib/people/workforce/qualificationRuntime";
 
 const SERVICE_EXECUTION_COMMANDS = new Set(["start", "complete"]);
 const SERVICE_WORK_SOURCES = new Set([
@@ -102,11 +106,8 @@ async function resolveActiveAssignedStaff({ organizationId, body }) {
     .eq("active_organization_id", organizationId)
     .eq("active", true);
 
-  if (suppliedStaffId) {
-    query = query.eq("id", suppliedStaffId);
-  } else {
-    query = query.eq("party_id", assignedTo);
-  }
+  if (suppliedStaffId) query = query.eq("id", suppliedStaffId);
+  else query = query.eq("party_id", assignedTo);
 
   let { data, error } = await query.maybeSingle();
   if (error) throw error;
@@ -147,19 +148,10 @@ async function guardServiceAssignmentCommand({ capabilityId, command, body, cont
 
   const service = record.attributes?.service_delivery || record.attributes?.service_follow_up || {};
   const scheduledStart = validDate(
-    record.scheduled_start
-    || record.window_start
-    || service.current_scheduled_start
-    || service.window_start
-    || service.arrival_window_start
-    || service.scheduled_at
+    record.scheduled_start || record.window_start || service.current_scheduled_start || service.window_start || service.arrival_window_start || service.scheduled_at
   );
   const scheduledEnd = validDate(
-    record.scheduled_end
-    || record.window_end
-    || service.current_scheduled_end
-    || service.window_end
-    || service.arrival_window_end
+    record.scheduled_end || record.window_end || service.current_scheduled_end || service.window_end || service.arrival_window_end
   );
 
   if (!scheduledStart || !scheduledEnd || scheduledEnd <= scheduledStart) {
@@ -175,6 +167,37 @@ async function guardServiceAssignmentCommand({ capabilityId, command, body, cont
   const timezone = timeContext.timezone;
   const localStart = localWindowPart(scheduledStart, timezone);
   const localEnd = localWindowPart(scheduledEnd, timezone);
+
+  const requiredQualificationCodes = requiredQualificationCodesFromService(service);
+  const qualificationEvidence = await loadQualificationEvidence({
+    organizationId,
+    staffIds: [staff.id],
+    requiredCodes: requiredQualificationCodes,
+    onDate: localStart.date,
+  });
+  const qualification = qualificationEvidence.evaluations[staff.id];
+
+  if (qualification?.status === "REQUIREMENT_NOT_CONFIGURED") {
+    return NextResponse.json({
+      ok: false,
+      code: "SERVICE_QUALIFICATION_REQUIREMENT_NOT_CONFIGURED",
+      error: `Configure these required People qualifications before assignment: ${(qualification.unknown_requirement_codes || []).join(", ")}.`,
+      work_order_id: record.id,
+      staff_id: staff.id,
+      required_qualification_codes: requiredQualificationCodes,
+    }, { status: 409 });
+  }
+
+  if (qualification?.qualified === false) {
+    return NextResponse.json({
+      ok: false,
+      code: "SERVICE_ASSIGNMENT_PERSON_UNQUALIFIED",
+      error: `This person is missing required qualification${qualification.missing_codes?.length === 1 ? "" : "s"}: ${(qualification.missing_codes || []).join(", ")}.`,
+      work_order_id: record.id,
+      staff_id: staff.id,
+      missing_qualification_codes: qualification.missing_codes || [],
+    }, { status: 409 });
+  }
 
   const availability = await loadAvailabilityForScheduleRange({
     organizationId,
@@ -215,12 +238,7 @@ async function guardServiceAssignmentCommand({ capabilityId, command, body, cont
   if (schedulesResult.error) throw schedulesResult.error;
   const schedules = schedulesResult.data || [];
   const coveringShift = schedules.find((row) => {
-    const window = scheduleWindow({
-      shiftDate: row.shift_date,
-      startTime: row.start_time,
-      endTime: row.end_time,
-      timezone,
-    });
+    const window = scheduleWindow({ shiftDate: row.shift_date, startTime: row.start_time, endTime: row.end_time, timezone });
     return window?.start && window?.end
       && window.start.getTime() <= scheduledStart.getTime()
       && window.end.getTime() >= scheduledEnd.getTime();
@@ -257,6 +275,9 @@ async function guardServiceAssignmentCommand({ capabilityId, command, body, cont
       availability_source: evaluation.sourceType || null,
       availability_source_id: evaluation.sourceId || null,
       published_shift_id: coveringShift?.id || null,
+      qualification_status: qualification?.status || "NOT_REQUIRED",
+      required_qualification_codes: requiredQualificationCodes,
+      qualification_evidence: qualification?.evidence || [],
     },
   };
 
@@ -268,38 +289,20 @@ export async function POST(request, { params }) {
   const capabilityId = String(resolvedParams?.capabilityId || "").trim();
   const command = String(resolvedParams?.command || "").trim();
   const body = await request.json();
-  const resolved = await resolveOperationsRequestContext({
-    request,
-    input: body,
-    capabilityId,
-    command,
-  });
+  const resolved = await resolveOperationsRequestContext({ request, input: body, capabilityId, command });
 
   if (!resolved.success) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: resolved.error,
-        required_permissions: resolved.required_permissions || [],
-      },
-      { status: resolved.status || 400 },
-    );
+    return NextResponse.json({
+      ok: false,
+      error: resolved.error,
+      required_permissions: resolved.required_permissions || [],
+    }, { status: resolved.status || 400 });
   }
 
-  const serviceGuard = await guardServiceExecutionCommand({
-    capabilityId,
-    command,
-    body,
-    context: resolved.context,
-  });
+  const serviceGuard = await guardServiceExecutionCommand({ capabilityId, command, body, context: resolved.context });
   if (serviceGuard) return serviceGuard;
 
-  const assignmentGuard = await guardServiceAssignmentCommand({
-    capabilityId,
-    command,
-    body,
-    context: resolved.context,
-  });
+  const assignmentGuard = await guardServiceAssignmentCommand({ capabilityId, command, body, context: resolved.context });
   if (assignmentGuard) return assignmentGuard;
 
   const result = await serverOperationsApi.execute({
@@ -314,7 +317,6 @@ export async function POST(request, { params }) {
   });
 
   let eventDelivery = null;
-
   if (result.status >= 200 && result.status < 300 && result.body?.ok) {
     try {
       eventDelivery = await serverOperationsEvents.publishPending({
@@ -322,19 +324,9 @@ export async function POST(request, { params }) {
         limit: 50,
       });
     } catch (error) {
-      eventDelivery = {
-        ok: false,
-        deferred: true,
-        error: error.message || "Operations event delivery deferred.",
-      };
+      eventDelivery = { ok: false, deferred: true, error: error.message || "Operations event delivery deferred." };
     }
   }
 
-  return NextResponse.json(
-    {
-      ...result.body,
-      event_delivery: eventDelivery,
-    },
-    { status: result.status },
-  );
+  return NextResponse.json({ ...result.body, event_delivery: eventDelivery }, { status: result.status });
 }

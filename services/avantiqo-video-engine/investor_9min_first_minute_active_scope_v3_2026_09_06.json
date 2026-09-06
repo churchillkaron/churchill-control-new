@@ -1,0 +1,129 @@
+{
+  "contract": "AVANTIQO_INVESTOR_FILM_FIRST_MINUTE_ACTIVE_SCOPE_V3_2026_09_06",
+  "source_repository": "churchillkaron/churchill-control-new",
+  "authority": "OWNER_LATEST_EXPLICIT_PRODUCTION_CHECKPOINT_2026_09_06_11_55_ASIA_BANGKOK",
+  "master": "AVANTIQO_INVESTOR_FILM_9MIN_MASTER_LOCK_V1",
+  "story_authority": "services/avantiqo-video-engine/INVESTOR_FILM_9MIN_MASTER_V1.md",
+  "active_generation_scope": {
+    "film_start_seconds": 0,
+    "film_end_seconds": 60,
+    "duration_seconds": 60,
+    "only_this_scope_is_authorized_now": true,
+    "is_first_60_seconds_of_full_9_minute_master": true,
+    "is_separate_film": false,
+    "chapter_1": {
+      "title": "THE BUSINESS BEFORE SOFTWARE",
+      "start_seconds": 0,
+      "end_seconds": 45
+    },
+    "chapter_2_opening": {
+      "title": "ONE EVENT BECOMES FIVE PROBLEMS",
+      "start_seconds": 45,
+      "end_seconds": 60,
+      "description": "Only the first 15 seconds of Chapter 2 are in the active scope: the supplier exception begins spreading into Operations and the first Supply consequence begins."
+    }
+  },
+  "supersedes_for_active_generation": [
+    "services/avantiqo-video-engine/investor_9min_ch01_operations_60s_v2.json"
+  ],
+  "supersede_rule": "The Operations-only 60-second contract remains historical evidence but MUST NOT drive the current investor-film generation. This later owner checkpoint is authoritative for 00:00-01:00.",
+  "asset_policy": {
+    "fresh_assets_only": true,
+    "old_24_second_proofs_reusable": false,
+    "old_60_second_proofs_reusable": false,
+    "old_investor_renders_reusable": false,
+    "old_generated_people_reusable": false,
+    "reference_assets_may_only_ground_new_generation": true,
+    "generic_stock_forbidden": true,
+    "generated_humans_allowed_only_through_controlled_avantiqo_human_pipeline": true,
+    "exact_master_human_qc_and_release_required": true
+  },
+  "production_path": {
+    "owner": "AVANTIQO_CREATIVE_STUDIO",
+    "video_engine": "AVANTIQO_OWNED_VIDEO",
+    "human_engine_contract": "AVANTIQO_VIDEO_HUMAN_FAST_DISTILLED_MULTI_KEYFRAME_V1",
+    "external_ai_fallback_allowed": false,
+    "provider_selection_exposed": false,
+    "final_master": {
+      "width": 3840,
+      "height": 2160,
+      "fps": 24,
+      "aspect_ratio": "16:9"
+    }
+  },
+  "beats": [
+    {
+      "id": "FM01",
+      "time": "00:00-00:08",
+      "chapter": 1,
+      "picture": "Black first. Location sound arrives before picture. Dawn over a believable tropical city, then descend into loading bays, hotel corridors, restaurant prep, an accounting desk and service vehicles waking up.",
+      "narration": "Before a company becomes a number, it is thousands of small promises being kept.",
+      "visual_rule": "Premium physical business reality first; no software exposition."
+    },
+    {
+      "id": "FM02",
+      "time": "00:08-00:18",
+      "chapter": 1,
+      "picture": "Match-cut a delivery seal, hotel-room key, chef checking prep, technician closing a van door and stage lights testing. Every promise is physical and role-correct.",
+      "narration": "A room ready. A table booked. A job on time. A supplier who said yes. A customer who expects the business to remember.",
+      "visual_rule": "Fast, tactile, human, cinematic match cuts; no generic stock smiles."
+    },
+    {
+      "id": "FM03",
+      "time": "00:18-00:30",
+      "chapter": 1,
+      "picture": "Show re-entry, calls, context chasing and an accountant waiting for the operating reason. Fragmentation is felt through work and delay rather than a feature montage.",
+      "narration": "Most companies already have software. That is not the problem. The problem is that every part of the company learns reality separately.",
+      "visual_rule": "No dashboard montage, no fake UI, no feature grid, no abstract AI graphics."
+    },
+    {
+      "id": "FM04",
+      "time": "00:30-00:45",
+      "chapter": 1,
+      "picture": "A time-critical supplier truck arrives. Receiving counts a key delivery. One item is missing and another is wrong. The receiver checks the physical label twice. No melodrama; let the ordinary exception land.",
+      "narration": "And then something ordinary happens. One delivery is wrong.",
+      "visual_rule": "The supplier exception is the inciting event, not the primary showcase or definition of Avantiqo."
+    },
+    {
+      "id": "FM05",
+      "time": "00:45-00:57",
+      "chapter": 2,
+      "picture": "Operations learns first. Kitchen and service readiness no longer fit tonight's commitment; people keep working while the consequence becomes visible.",
+      "narration": "To Operations, it is a service problem.",
+      "visual_rule": "Human work stays primary; show the operational consequence before any later product reveal."
+    },
+    {
+      "id": "FM06",
+      "time": "00:57-01:00",
+      "chapter": 2,
+      "picture": "Begin the transition into Supply: replacement availability, lead time and cost are now implicated. Cut cleanly at 01:00 so Chapter 2 can continue without reset.",
+      "narration": "To Supply, it is availability, lead time and another decision.",
+      "narration_delivery": "The line may begin in this window and continue naturally beyond 01:00 in the full master; do not unnaturally compress the voice to finish before the active cut.",
+      "visual_rule": "End on an edit-safe continuation point, not a standalone-film ending."
+    }
+  ],
+  "cinematic_rules": {
+    "meaningful_change_target_seconds": "2-5",
+    "meaningful_change_hard_max_seconds": 6,
+    "naturalistic_practical_light": true,
+    "warm_highlights_deep_readable_shadows": true,
+    "blue_neon_cyberpunk_forbidden": true,
+    "words_generated_inside_live_action_forbidden": true,
+    "location_sound_before_score": true,
+    "camera_movement_must_have_narrative_purpose": true,
+    "billion_dollar_cinematic_quality_required": true
+  },
+  "release_gates": [
+    "EXACTLY_60_SECONDS_ACTIVE_SCOPE",
+    "FRESH_ASSETS_ONLY",
+    "NO_REJECTED_PROOF_REUSE",
+    "CHAPTER_1_00_00_TO_00_45_PRESERVED",
+    "CHAPTER_2_ONLY_00_45_TO_01_00_INCLUDED",
+    "SUPPLIER_EXCEPTION_IS_INCITING_EVENT_NOT_AVANTIQO_DEFINITION",
+    "GENERATED_HUMANS_PASS_IDENTITY_ANATOMY_MOTION_QC",
+    "EXACT_MASTER_DIGEST_QC_EVIDENCE_PRESENT",
+    "4K_24FPS_16_9_MASTER",
+    "EDIT_CONTINUES_INTO_FULL_9_MINUTE_FILM"
+  ],
+  "status": "ACTIVE_PRODUCTION_SCOPE_LOCKED"
+}

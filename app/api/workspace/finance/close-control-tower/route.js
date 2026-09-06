@@ -5,6 +5,10 @@ import { NextResponse } from "next/server";
 
 import { resolveBusinessContext } from "@/lib/business-context/resolveBusinessContext";
 import { fetchCompleteFinancePopulation } from "@/lib/finance/data/fetchCompleteFinancePopulation";
+import {
+  buildFinanceClosePackageSnapshot,
+  evaluateFinanceClosePackageFreshness,
+} from "@/lib/finance/period-close/runtime/FinanceClosePackageFreshness";
 import { loadPeriodCloseChecklist } from "@/lib/finance/period-close/runtime/PeriodCloseStepApplicationService";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
@@ -291,6 +295,28 @@ export async function GET(request) {
       }),
     ]);
 
+    const closeFreshnessSource = periodClosed
+      ? await safeSingle("finance_close_package_freshness", async () => {
+          const snapshot = await buildFinanceClosePackageSnapshot({
+            organizationId: access.organizationId,
+            entityId: resolvedEntityId,
+            periodId: resolvedPeriodId,
+          });
+          return evaluateFinanceClosePackageFreshness({ snapshot, closeRun: closeRunSource.row || null });
+        })
+      : {
+          source: "finance_close_package_freshness",
+          status: "connected",
+          row: {
+            state: "NOT_CLOSED",
+            trusted: false,
+            reason: "Freshness baseline is created only after governed final close",
+            changed_sections: [],
+            changed_labels: [],
+          },
+          error: null,
+        };
+
     const persistedCloseRows = closeStepsSource.rows || [];
     const requiredMonthEndSteps = checklist?.required_steps?.length
       ? checklist.required_steps
@@ -336,7 +362,8 @@ export async function GET(request) {
     const approvals = approvalsSource.rows || [];
     const reviews = reviewsSource.rows || [];
     const filings = (filingsSource.rows || []).filter((row) => !isComplete(row.status));
-    const sourceErrors = [bankAccountsSource, reconciliationsSource, approvalsSource, reviewsSource, filingsSource, closeStepsSource, closeRunSource]
+    const freshness = closeFreshnessSource.row || null;
+    const sourceErrors = [bankAccountsSource, reconciliationsSource, approvalsSource, reviewsSource, filingsSource, closeStepsSource, closeRunSource, ...(periodClosed ? [closeFreshnessSource] : [])]
       .filter((source) => source.status === "error");
 
     const blockers = [];
@@ -349,6 +376,17 @@ export async function GET(request) {
         detail: `${source.source}: ${source.error || "Source unavailable"}`,
         count: 1,
         href: null,
+      });
+    }
+    if (periodClosed && closeFreshnessSource.status === "connected" && freshness?.trusted !== true) {
+      blockers.push({
+        id: "close:package-freshness",
+        kind: "PACKAGE_FRESHNESS",
+        rank: 1,
+        title: freshness?.state === "STALE" ? "Closed accounting package changed after sign-off" : "Closed accounting package freshness is unproven",
+        detail: freshness?.reason || "Current accounting truth cannot be matched to the governed close baseline.",
+        count: Array.isArray(freshness?.changed_sections) && freshness.changed_sections.length ? freshness.changed_sections.length : 1,
+        href: "/finance/close",
       });
     }
     if (missingAccounts.length) {
@@ -375,6 +413,7 @@ export async function GET(request) {
       [bankAccountsSource, reconciliationsSource, approvalsSource, reviewsSource, filingsSource, closeStepsSource]
         .every((source) => source.population?.complete === true);
     const finalReady = !periodClosed && integrityComplete && blockers.length === 0;
+    const closedPackageTrusted = periodClosed && closeFreshnessSource.status === "connected" && freshness?.trusted === true;
 
     const path = [
       {
@@ -410,9 +449,15 @@ export async function GET(request) {
       {
         id: "final",
         label: "Final period lock",
-        state: periodClosed ? "CLOSED" : finalReady ? "READY" : "WAITING",
-        detail: periodClosed ? "Period is already closed or locked." : finalReady ? "Control tower is clear. Final server close still revalidates the governed runtime." : "Waiting for the control path above to clear.",
-        href: null,
+        state: periodClosed ? (closedPackageTrusted ? "CLOSED" : "ATTENTION") : finalReady ? "READY" : "WAITING",
+        detail: periodClosed
+          ? closedPackageTrusted
+            ? "Period is closed and the final package still matches current accounting truth."
+            : freshness?.reason || "Period is closed, but package freshness cannot be trusted."
+          : finalReady
+            ? "Control tower is clear. Final server close still revalidates the governed runtime."
+            : "Waiting for the control path above to clear.",
+        href: periodClosed && !closedPackageTrusted ? "/finance/close" : null,
       },
     ];
 
@@ -424,6 +469,7 @@ export async function GET(request) {
       finance_statutory_filings: sourceSummary(filingsSource),
       finance_period_close_steps: sourceSummary(closeStepsSource),
       finance_period_close_runs: sourceSummary(closeRunSource),
+      finance_close_package_freshness: sourceSummary(closeFreshnessSource),
     };
 
     return NextResponse.json({
@@ -442,6 +488,7 @@ export async function GET(request) {
         complete: integrityComplete,
         queue_truth: "SERVER_GENERATED",
         reconciliation_truth: "COMPLETE_POPULATION_PLUS_ACCOUNT_COVERAGE",
+        close_package_truth: periodClosed ? "DETERMINISTIC_FINGERPRINT_REVALIDATED" : "NOT_YET_CLOSED",
         final_authorization: "ATOMIC_PERIOD_CLOSE_RUNTIME",
         sources,
       },
@@ -457,6 +504,8 @@ export async function GET(request) {
         open_filings: filings.length,
         final_ready: finalReady,
         period_closed: periodClosed,
+        closed_package_trusted: closedPackageTrusted,
+        close_package_freshness_state: freshness?.state || null,
       },
       reconciliation: {
         active_accounts: reconciliationAccounts.length,
@@ -470,6 +519,7 @@ export async function GET(request) {
       },
       close: {
         run: closeRunSource.row || null,
+        freshness,
         steps: monthEndSteps,
         year_end_steps: yearEndSteps,
         month_end_ready: incompleteCloseSteps.length === 0,

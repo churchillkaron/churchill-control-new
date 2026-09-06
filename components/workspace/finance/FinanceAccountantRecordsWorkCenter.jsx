@@ -237,8 +237,12 @@ export default function FinanceAccountantRecordsWorkCenter({
         if (!active) return;
         setPayload(body || {});
         const loaded = firstArray(body || {}, config.rowsKey);
+        const focusRecordId = text(new URLSearchParams(window.location.search).get("focusRecordId"));
+        const focused = focusRecordId
+          ? loaded.find((row) => text(row?.id) === focusRecordId)
+          : null;
         setRows(loaded);
-        setSelectedId((current) => current && loaded.some((row) => row.id === current) ? current : loaded[0]?.id || null);
+        setSelectedId((current) => focused?.id || (current && loaded.some((row) => row.id === current) ? current : loaded[0]?.id || null));
       } catch (loadError) {
         if (active) {
           setRows([]);

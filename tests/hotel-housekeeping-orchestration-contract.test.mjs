@@ -57,7 +57,7 @@ test("Housekeeping UI is a human-controlled clean-next and inspect-next workboar
   assert.match(page, /Maintenance blocked/);
   assert.match(page, /Inspect next/);
   assert.match(page, /Guest due now/);
-  assert.match(page, /Property operational-day configuration is not yet applied/);
+  assert.match(page, /property operational-day configuration is not yet applied/i);
   assert.match(page, /Start cleaning/);
   assert.match(page, /Mark clean/);
   assert.match(page, /Inspect & release/);

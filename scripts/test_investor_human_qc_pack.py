@@ -21,15 +21,28 @@ def test_timestamps_span_clip_without_touching_edges() -> None:
     assert 3.8 < points[-1] < 4.0
 
 
-def test_automated_qc_starts_pending() -> None:
+def test_automated_qc_starts_pending_and_does_not_fake_fine_detail_scores() -> None:
     digest = "a" * 64
     payload = qc.pending_automated_qc(digest)
     assert payload["status"] == "PENDING"
     assert payload["video_sha256"] == digest
     assert payload["sampled_frames"] == qc.SAMPLE_COUNT
-    assert set(payload["checks"]) == set(qc.REQUIRED_CHECKS)
-    assert all(item["status"] == "PENDING" for item in payload["checks"].values())
-    assert all(item["score"] is None for item in payload["checks"].values())
+    assert payload["fine_detail_visual_review_required"] is True
+    assert set(payload["machine_certified_dimensions"]) == set(qc.MACHINE_CHECKS)
+    assert set(payload["visual_only_dimensions"]) == set(qc.VISUAL_ONLY_CHECKS)
+    assert set(payload["checks"]) == set(qc.MACHINE_CHECKS) | set(qc.VISUAL_ONLY_CHECKS)
+    for name in qc.MACHINE_CHECKS:
+        item = payload["checks"][name]
+        assert item["status"] == "PENDING"
+        assert item["score"] is None
+        assert item["evaluator"] is None
+        assert item["video_sha256"] == digest
+    for name in qc.VISUAL_ONLY_CHECKS:
+        item = payload["checks"][name]
+        assert item["status"] == "VISUAL_REVIEW_REQUIRED"
+        assert item["score"] is None
+        assert item["evaluator"] is None
+        assert item["video_sha256"] == digest
 
 
 def test_visual_review_starts_pending_and_byte_bound() -> None:
@@ -39,6 +52,7 @@ def test_visual_review_starts_pending_and_byte_bound() -> None:
     assert payload["status"] == "PENDING"
     assert payload["video_sha256"] == video
     assert payload["contact_sheet_sha256"] == sheet
+    assert payload["exact_master_reviewed"] is False
     assert payload["reviewer_id"] is None
     assert payload["reviewed_at"] is None
     assert set(payload["dimensions"]) == set(qc.VISUAL_DIMENSIONS)
@@ -48,7 +62,7 @@ def test_visual_review_starts_pending_and_byte_bound() -> None:
 def main() -> None:
     tests = [
         test_timestamps_span_clip_without_touching_edges,
-        test_automated_qc_starts_pending,
+        test_automated_qc_starts_pending_and_does_not_fake_fine_detail_scores,
         test_visual_review_starts_pending_and_byte_bound,
     ]
     for test in tests:

@@ -50,10 +50,10 @@ test("Vault broker is service-role-only, security-invoker and row bound", () => 
   assert.match(migration, /grant execute on function public\.resolve_provider_credential_vault_secret\(uuid, text, uuid\) to service_role/i);
 });
 
-test("owned Intelligence credential provisioning accepts secrets only from server environment", () => {
+test("owned Intelligence credential provisioning accepts secrets only from server environment and serializes retries", () => {
   const runtime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceCredentialProvisioningRuntime.js");
   const route = source("app/api/platform/admin/intelligence-credentials/route.js");
-  const migration = source("supabase/migrations/20260906023619_provision_owned_intelligence_modal_credential.sql");
+  const migration = source("supabase/migrations/20260906023913_serialize_owned_intelligence_credential_provisioning.sql");
 
   assert.match(runtime, /process\.env\.MODAL_TOKEN_ID/);
   assert.match(runtime, /process\.env\.MODAL_TOKEN_SECRET/);
@@ -66,6 +66,9 @@ test("owned Intelligence credential provisioning accepts secrets only from serve
   assert.match(migration, /security invoker/i);
   assert.doesNotMatch(migration, /security definer/i);
   assert.match(migration, /current_user <> 'service_role'/i);
+  assert.match(migration, /pg_catalog\.pg_advisory_xact_lock/);
+  assert.match(migration, /pg_catalog\.hashtextextended/);
+  assert.match(migration, /metadata ->> 'priority'.*\~ '\^\[0-9\]\+\$'/s);
   assert.match(migration, /vault\.create_secret/);
   assert.match(migration, /vault\.update_secret/);
   assert.match(migration, /'avantiqo-intelligence'/);

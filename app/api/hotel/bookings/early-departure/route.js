@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getHotelOperationalDate } from "@/lib/hotel/server/getHotelOperationalDate";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -18,10 +19,6 @@ function clean(value) {
   return String(value ?? "").trim();
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function errorResponse(error, status = 500) {
   return NextResponse.json({ success: false, error }, { status });
 }
@@ -35,6 +32,17 @@ function commercialDecision() {
     folioChanged: false,
     bookingPriceChanged: false,
   });
+}
+
+function operationalDatePayload(operationalDate) {
+  return {
+    businessDate: operationalDate.businessDate,
+    propertyDate: operationalDate.propertyDate,
+    timezone: operationalDate.timezone,
+    cutoffMinutes: operationalDate.cutoffMinutes,
+    configured: operationalDate.configured,
+    compatibilityFallback: operationalDate.compatibilityFallback,
+  };
 }
 
 export async function POST(request) {
@@ -62,15 +70,20 @@ export async function POST(request) {
       request,
     });
     if (!access.success) return errorResponse(access.error, access.status);
+    if (!existing.property_id) return errorResponse("Booking has no governed Hotel property", 409);
 
     if (clean(existing.status).toUpperCase() !== "CHECKED_IN") {
       return errorResponse("Only an in-house stay can use early departure", 409);
     }
 
-    const businessDate = todayIso();
+    const operationalDate = await getHotelOperationalDate({
+      organizationId: access.organizationId,
+      propertyId: existing.property_id,
+    });
+    const businessDate = operationalDate.businessDate;
     const scheduledDeparture = clean(existing.check_out_date).slice(0, 10);
     if (!scheduledDeparture || scheduledDeparture <= businessDate) {
-      return errorResponse("This stay is already due to depart. Use the normal departure flow.", 409);
+      return errorResponse("This stay is already due to depart in the property's operational day. Use the normal departure flow.", 409);
     }
 
     const changedAt = new Date().toISOString();
@@ -113,6 +126,7 @@ export async function POST(request) {
       return NextResponse.json({
         success: true,
         booking,
+        operationalDate: operationalDatePayload(operationalDate),
         earlyDeparture: {
           state: "REVIEW_REQUIRED",
           businessDate,
@@ -136,6 +150,7 @@ export async function POST(request) {
         success: true,
         alreadyConfirmed: true,
         booking: existing,
+        operationalDate: operationalDatePayload(operationalDate),
         earlyDeparture: {
           state: "CONFIRMED",
           businessDate,
@@ -174,6 +189,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       booking,
+      operationalDate: operationalDatePayload(operationalDate),
       earlyDeparture: {
         state: "CONFIRMED",
         businessDate,

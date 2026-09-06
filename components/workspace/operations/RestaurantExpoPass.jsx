@@ -27,6 +27,36 @@ function stationLabel(entry) {
   return entry.work_center?.name || entry.queue_name || "Pass";
 }
 
+function seatOf(item) {
+  return (
+    item?.seat_position ||
+    item?.seat_number ||
+    item?.attributes?.seat_position ||
+    item?.attributes?.seat_number ||
+    item?.modifiers?.seat ||
+    item?.raw?.seat_position ||
+    item?.raw?.seat_number ||
+    item?.raw?.modifiers?.seat ||
+    null
+  );
+}
+
+function notesOf(item) {
+  return item?.notes || item?.attributes?.notes || item?.modifiers?.notes || item?.raw?.notes || null;
+}
+
+function modifierValues(item) {
+  const sources = [
+    item?.modifiers,
+    item?.attributes?.modifiers,
+    item?.raw?.modifiers,
+  ].filter((source) => source && typeof source === "object" && !Array.isArray(source));
+  const merged = Object.assign({}, ...sources);
+  return Object.entries(merged)
+    .filter(([key, value]) => value && !["seat", "notes"].includes(String(key).toLowerCase()))
+    .map(([key, value]) => ({ key, value: String(value) }));
+}
+
 function readyAgeMinutes(entry, item) {
   const raw =
     item?.raw?.ready_at ||
@@ -221,7 +251,9 @@ export default function RestaurantExpoPass() {
             readyItems.map(({ entry, item, age }) => {
               const itemId = item.id || item.source_id;
               const busy = busyId === `${entry.id}:${itemId}`;
-              const seat = item.attributes?.seat_position || item.raw?.seat_position || null;
+              const seat = seatOf(item);
+              const notes = notesOf(item);
+              const modifiers = modifierValues(item);
               return (
                 <article key={`${entry.id}:${itemId}`} className={`rounded-[24px] border p-4 ${ageClass(age)}`}>
                   <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
@@ -237,7 +269,16 @@ export default function RestaurantExpoPass() {
 
                   <div className="py-4">
                     <div className="text-xl font-semibold">{Number(item.quantity || 1)} × {item.name || "Item"}</div>
-                    {item.notes ? <div className="mt-2 rounded-xl border border-amber-300/15 bg-amber-300/[0.05] px-3 py-2 text-xs text-amber-100/85">{item.notes}</div> : null}
+                    {notes ? <div className="mt-2 rounded-xl border border-amber-300/15 bg-amber-300/[0.05] px-3 py-2 text-xs text-amber-100/85">{notes}</div> : null}
+                    {modifiers.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5" data-expo-item-modifiers="true">
+                        {modifiers.map(({ key, value }) => (
+                          <span key={`${key}:${value}`} className="rounded-lg border border-white/10 px-2 py-1 text-[10px] text-white/55">
+                            {value}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
 
                   <button

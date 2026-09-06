@@ -18,6 +18,7 @@ const noShow = fs.readFileSync("app/api/hotel/bookings/no-show/route.js", "utf8"
 const earlyDeparture = fs.readFileSync("app/api/hotel/bookings/early-departure/route.js", "utf8");
 const stayControl = fs.readFileSync("app/api/hotel/stays/route.js", "utf8");
 const frontDesk = fs.readFileSync("components/workspace/hotel/HotelFrontDeskWorkBoard.jsx", "utf8");
+const billingWebhook = fs.readFileSync("app/api/billing/webhook/route.js", "utf8");
 
 test("Hotel readiness Realtime is receive-only and organization scoped", () => {
   assert.match(migration, /on realtime\.messages\s+for select\s+to authenticated/i);
@@ -84,4 +85,16 @@ test("live Front Desk mutations invalidate other Hotel devices after governed wr
   assert.ok(stayControl.indexOf('rpc("hotel_assign_booking_room_guarded"') < stayControl.indexOf('source: "stay-control-room-assignment"'));
   assert.ok(stayControl.indexOf('from("hotel_folio_lines").insert') < stayControl.indexOf('action: "ADD_FOLIO_LINE"'));
   assert.ok(stayControl.indexOf('update({ status: "CLOSED"') < stayControl.indexOf('action: "CLOSE_FOLIO"'));
+});
+
+test("verified gateway settlement wakes Hotel departure readiness without exposing payment data", () => {
+  assert.match(billingWebhook, /stripe\.webhooks\.constructEvent/);
+  assert.match(billingWebhook, /broadcastHotelReadinessChanged/);
+  assert.match(billingWebhook, /source: "hotel-payment-webhook"/);
+  assert.match(billingWebhook, /action,\n  \}\);/);
+
+  assert.ok(billingWebhook.indexOf('rpc("hotel_finalize_gateway_payment_with_finance"') < billingWebhook.indexOf('"PAYMENT_SETTLED"'));
+  assert.ok(billingWebhook.indexOf('rpc("hotel_finalize_gateway_refund_with_finance"') < billingWebhook.indexOf('"REFUND_SETTLED"'));
+  assert.ok(billingWebhook.indexOf('status: "FAILED"') < billingWebhook.indexOf('"PAYMENT_FAILED"'));
+  assert.doesNotMatch(broadcaster, /amount|currency|payment|refund|finance_payment_id|provider_payment_id/);
 });

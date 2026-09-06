@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import defaultPOSSettings from "@/lib/settings/defaultPOSSettings";
 import { resolvePOSFinancialPolicy } from "@/lib/pos/runtime/resolvePOSFinancialPolicy";
 import resolvePOSRequestApplication from "@/lib/operations/commerce/server/resolvePOSRequestApplication";
+import { canExecutePOSAction } from "@/lib/operations/commerce/security/POSActionPolicy";
 
 function errorResponse(error, status = 500) {
   return NextResponse.json(
@@ -35,6 +36,26 @@ function publicPOSInstallation(module) {
       module.status ||
       null,
   };
+}
+
+function resolveActionCapabilities(access) {
+  const can = (action) =>
+    canExecutePOSAction({
+      access,
+      action,
+    });
+
+  return Object.freeze({
+    order_entry: can("ORDER_ENTRY"),
+    move_guests: can("MOVE_GUESTS"),
+    move_seat: can("MOVE_SEAT"),
+    change_customer: can("CHANGE_CUSTOMER"),
+    assign_items_to_group: can("ASSIGN_ITEMS_TO_GROUP"),
+    payment: can("PAYMENT"),
+    transfer_table: can("TRANSFER_TABLE"),
+    merge_tables: can("MERGE_TABLES"),
+    close_table: can("CLOSE_TABLE"),
+  });
 }
 
 export async function GET(request) {
@@ -164,6 +185,11 @@ export async function GET(request) {
       resolved.templateBinding ||
       null;
 
+    const actionCapabilities =
+      resolveActionCapabilities(
+        resolved.access
+      );
+
     return NextResponse.json({
       success: true,
 
@@ -219,6 +245,11 @@ export async function GET(request) {
 
       access:
         resolved.access.access,
+
+      capabilities: {
+        ...(applicationRuntime?.capabilities || {}),
+        actions: actionCapabilities,
+      },
 
       ...applicationRuntime,
 

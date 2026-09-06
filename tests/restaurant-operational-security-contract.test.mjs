@@ -73,3 +73,11 @@ test("restaurant order control returns to unified stationary POS instead of a se
   assert.match(orders, /isRestaurant \? "Open stationary POS" : "Open Payment"/);
   assert.match(orders, /data-restaurant-open-stationary-pos/);
 });
+
+test("unimplemented advanced restaurant corrections are explicit fail-closed capabilities", async () => {
+  const runtime = await readFile(new URL(`../${runtimePath}`, import.meta.url), "utf8");
+
+  assert.match(runtime, /comp_ready: false/);
+  assert.match(runtime, /discounts_ready: false/);
+  assert.match(runtime, /non_cash_refunds_ready: false/);
+});

@@ -12,6 +12,26 @@ on:
       - "lib/creative/post-production/runtime/AvantiqoInvestorProductProofPlan.js"
       - "lib/creative/post-production/runtime/AvantiqoInvestorFinalActPlan.js"
       - "lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js"
+      - "services/avantiqo-video-engine/investor_human_release_gate.py"
+      - "services/avantiqo-video-engine/modal_human_multi_keyframe_render.py"
+      - "scripts/test_investor_human_release_gate.py"
+      - "scripts/avantiqo-investor-studio-scenes.mjs"
+      - "scripts/investor-studio-film-generation-audit.mjs"
+      - ".github/workflows/audit-investor-studio-film-generation.yml"
+  pull_request:
+    paths:
+      - "lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationPlan.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationRuntime.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorStudioExecutionRuntime.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorCapabilityVisualChoreography.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorOwnedExecutionPolicy.js"
+      - "lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorProductProofPlan.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorFinalActPlan.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js"
+      - "services/avantiqo-video-engine/investor_human_release_gate.py"
+      - "services/avantiqo-video-engine/modal_human_multi_keyframe_render.py"
+      - "scripts/test_investor_human_release_gate.py"
       - "scripts/avantiqo-investor-studio-scenes.mjs"
       - "scripts/investor-studio-film-generation-audit.mjs"
       - ".github/workflows/audit-investor-studio-film-generation.yml"
@@ -29,6 +49,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Syntax check investor Studio source
         shell: bash
         run: |
@@ -44,5 +67,9 @@ jobs:
           node --check lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js
           node --check scripts/avantiqo-investor-studio-scenes.mjs
           node --check scripts/investor-studio-film-generation-audit.mjs
+          python -m py_compile services/avantiqo-video-engine/investor_human_release_gate.py
+          python -m py_compile services/avantiqo-video-engine/modal_human_multi_keyframe_render.py
+      - name: Test fail-closed investor human contract
+        run: python scripts/test_investor_human_release_gate.py
       - name: Enforce investor Studio generation contract
         run: node scripts/investor-studio-film-generation-audit.mjs

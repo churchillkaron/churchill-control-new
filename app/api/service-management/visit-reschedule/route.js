@@ -4,7 +4,10 @@ export const runtime = "nodejs";
 import {
   resolveServiceManagementContext,
 } from "@/lib/service-management/api/resolveServiceManagementContext";
-import { authorizeOperationsAccess } from "@/lib/operations/security/OperationsAuthorizationPolicy";
+import {
+  authorizeOperationsAccess,
+  bootstrapOperationsPermissions,
+} from "@/lib/operations/security/OperationsAuthorizationPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function text(value) {
@@ -28,14 +31,33 @@ function responseError(error, status = 500) {
   }, { status: error?.status || status });
 }
 
+async function resolveOccurrenceId({ organizationId, occurrenceId, workOrderId }) {
+  if (occurrenceId) return occurrenceId;
+  if (!workOrderId) return null;
+
+  const result = await supabaseAdmin
+    .from("service_plan_occurrences")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("work_order_id", workOrderId)
+    .maybeSingle();
+
+  if (result.error) throw result.error;
+  return result.data?.id || null;
+}
+
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
     const resolved = await resolveServiceManagementContext({ request, input: body });
     if (!resolved.success) return responseError(resolved.error, resolved.status || 403);
 
-    const authorization = authorizeOperationsAccess({
+    const permissions = bootstrapOperationsPermissions({
       permissions: resolved.context.permissions,
+      role: resolved.context.role,
+    });
+    const authorization = authorizeOperationsAccess({
+      permissions,
       capabilityId: "work-orders",
       command: "reschedule",
     });
@@ -43,7 +65,13 @@ export async function POST(request) {
       return responseError("You do not have permission to reschedule service visits.", 403);
     }
 
-    const occurrenceId = text(body.occurrenceId || body.occurrence_id);
+    const workOrderId = text(body.workOrderId || body.work_order_id);
+    const requestedOccurrenceId = text(body.occurrenceId || body.occurrence_id);
+    const occurrenceId = await resolveOccurrenceId({
+      organizationId: resolved.context.organization_id,
+      occurrenceId: requestedOccurrenceId,
+      workOrderId,
+    });
     const reason = text(body.reason);
     const idempotencyKey = text(
       request.headers.get("Idempotency-Key")
@@ -51,7 +79,7 @@ export async function POST(request) {
       || body.idempotency_key,
     );
 
-    if (!occurrenceId) return responseError("Service visit is required.", 400);
+    if (!occurrenceId) return responseError("The exact service visit could not be resolved for this work order.", 409);
     if (!reason) return responseError("Tell us why the visit is moving.", 400);
     if (!idempotencyKey) return responseError("A request identity is required.", 400);
 
@@ -82,7 +110,7 @@ export async function POST(request) {
       idempotent_replay: Boolean(data?.idempotent_replay),
       visit: {
         occurrence_id: data?.result?.occurrence?.id || occurrenceId,
-        work_order_id: data?.result?.work_order?.id || null,
+        work_order_id: data?.result?.work_order?.id || workOrderId || null,
         scheduled_start: data?.result?.work_order?.scheduled_start || scheduledStart,
         scheduled_end: data?.result?.work_order?.scheduled_end || scheduledEnd,
         reason: data?.result?.change?.reason || reason,

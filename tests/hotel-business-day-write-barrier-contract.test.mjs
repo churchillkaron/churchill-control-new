@@ -79,8 +79,7 @@ test("write-barrier and Day Close functions are not browser-callable", () => {
     "hotel_assert_business_day_open(uuid, uuid, date)",
     "hotel_close_business_day_guarded(uuid, uuid, date, jsonb, uuid)",
   ]) {
-    const escaped = signature.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    assert.match(barrier, new RegExp(`revoke all on function public\\.${escaped} from authenticated`));
-    assert.match(barrier, new RegExp(`grant execute on function public\\.${escaped} to service_role`));
+    assert.ok(barrier.includes(`revoke all on function public.${signature} from authenticated;`));
+    assert.ok(barrier.includes(`grant execute on function public.${signature} to service_role;`));
   }
 });

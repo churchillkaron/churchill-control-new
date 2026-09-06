@@ -7,6 +7,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 import PestControlTechnicianCockpit from "@/components/workspace/operations/pest-control/PestControlTechnicianCockpit";
 import PestControlTreatmentReadinessBanner from "@/components/workspace/operations/pest-control/PestControlTreatmentReadinessBanner";
+import PestControlVisitExceptionCard from "@/components/workspace/operations/pest-control/PestControlVisitExceptionCard";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 import { organizationHasIndustrySolution } from "@/lib/platform/solutions/OrganizationIndustrySolutionResolver";
 
@@ -41,6 +42,7 @@ export default function PestControlTechnicianPage() {
   return (
     <>
       <PestControlTreatmentReadinessBanner organizationId={organizationId} occurrenceId={occurrenceId} workOrderId={workOrderId} />
+      <PestControlVisitExceptionCard organizationId={organizationId} occurrenceId={occurrenceId} workOrderId={workOrderId} />
       <PestControlTechnicianCockpit organizationId={organizationId} />
     </>
   );

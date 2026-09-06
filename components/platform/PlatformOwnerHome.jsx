@@ -116,8 +116,8 @@ function isOpenSignal(signal) {
   ].includes(status);
 }
 
-function moduleState(module) {
-  const status = normalized(module?.health || module?.status || module?.state);
+function moduleState(moduleRecord) {
+  const status = normalized(moduleRecord?.health || moduleRecord?.status || moduleRecord?.state);
   if (["degraded", "error", "failed", "unhealthy"].includes(status)) return "degraded";
   if (["disabled", "inactive", "archived"].includes(status)) return "inactive";
   if (["active", "enabled", "healthy", "live", "ready"].includes(status)) return "active";
@@ -315,7 +315,7 @@ export default function PlatformOwnerHome() {
 
   const moduleCounts = useMemo(() => {
     const counts = { active: 0, degraded: 0, inactive: 0, registered: 0 };
-    for (const module of modules) counts[moduleState(module)] += 1;
+    for (const moduleRecord of modules) counts[moduleState(moduleRecord)] += 1;
     return counts;
   }, [modules]);
 
@@ -697,7 +697,6 @@ export default function PlatformOwnerHome() {
                   {serviceCounts.degraded ? <><span>·</span><span className="text-red-700">{serviceCounts.degraded} degraded</span></> : null}
                 </div>
               </div>
-
               {rankedServices.length === 0 ? (
                 <div className="px-5 py-6 text-[11px] text-[#8B867E]">
                   No Avantiqo Platform service registry evidence is available.
@@ -772,14 +771,14 @@ export default function PlatformOwnerHome() {
               <div className="mt-4 grid grid-cols-1 gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
                 {rankedModules.length === 0 ? (
                   <div className="py-4 text-[11px] text-[#8B867E]">No platform modules were returned by the control source.</div>
-                ) : rankedModules.slice(0, 15).map((module, index) => {
-                  const state = moduleState(module);
+                ) : rankedModules.slice(0, 15).map((moduleRecord, index) => {
+                  const state = moduleState(moduleRecord);
                   return (
-                    <div key={module?.id || module?.module_id || index} className="flex items-center gap-2.5 border-b border-black/[0.055] py-3">
+                    <div key={moduleRecord?.id || moduleRecord?.module_id || index} className="flex items-center gap-2.5 border-b border-black/[0.055] py-3">
                       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${moduleStateClasses(state)}`} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[10px] font-medium text-[#4B463F]">
-                          {clean(module?.name || module?.module_name || module?.label || module?.id) || "Platform module"}
+                          {clean(moduleRecord?.name || moduleRecord?.module_name || moduleRecord?.label || moduleRecord?.id) || "Platform module"}
                         </div>
                       </div>
                       <span className="text-[8px] uppercase tracking-[0.08em] text-[#AAA49B]">{state}</span>

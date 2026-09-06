@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRightLeft,
   Layers3,
@@ -15,12 +15,36 @@ import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { assignSeatToBillGroup } from "@/lib/restaurant/pos/tables/assignSeatToBillGroup";
 import { groupMenuByCategory } from "@/lib/restaurant/pos/waiter/groupMenuByCategory";
 
+const TRANSFER_UNAVAILABLE_STATUSES = new Set([
+  "OCCUPIED",
+  "IN_SERVICE",
+  "ACTIVE",
+  "SEATED",
+  "ORDERING",
+  "ORDERED",
+  "RESERVED",
+  "MERGED",
+  "OUT_OF_SERVICE",
+  "BLOCKED",
+  "UNAVAILABLE",
+]);
+
 function tableName(table) {
   return table?.table_name || table?.table_number || table?.name || "Table";
 }
 
 function seatOf(item) {
   return item?.seat_position || item?.seat_number || item?.modifiers?.seat || null;
+}
+
+function tableIsFreeForTransfer(table) {
+  const status = String(table?.status || "").trim().toUpperCase();
+  return Boolean(
+    table &&
+      !table.active_session_id &&
+      Number(table.current_guests || 0) <= 0 &&
+      !TRANSFER_UNAVAILABLE_STATUSES.has(status)
+  );
 }
 
 function normalizeModifierGroups(settings = {}) {
@@ -56,12 +80,37 @@ function normalizeModifierGroups(settings = {}) {
     .filter((group) => group.key && group.options.length);
 }
 
-function Modal({ title, onClose, children }) {
+function money(value, currencyCode) {
+  const amount = Number(value || 0);
+  try {
+    return new Intl.NumberFormat(
+      undefined,
+      currencyCode
+        ? {
+            style: "currency",
+            currency: currencyCode,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }
+        : {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          },
+    ).format(amount);
+  } catch {
+    return amount.toFixed(2);
+  }
+}
+
+function Modal({ title, subtitle, onClose, children }) {
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-2 sm:items-center">
       <div className="max-h-[92vh] w-full max-w-[430px] overflow-y-auto rounded-[28px] border border-white/10 bg-[#090909] p-4 text-white shadow-2xl">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">{title}</h2>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">{title}</h2>
+            {subtitle ? <p className="mt-1 text-xs text-white/35">{subtitle}</p> : null}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -82,10 +131,11 @@ export default function RestaurantWaiterPhoneSurface({
   refreshPOSRuntime,
 }) {
   const businessContext = useBusinessContext() || {};
+  const organization = businessContext.organization || null;
   const organizationId =
     posRuntime?.organization?.id ||
     businessContext.organization_id ||
-    businessContext.organization?.id ||
+    organization?.id ||
     null;
   const entityId =
     posRuntime?.terminal?.entity_id ||
@@ -93,11 +143,16 @@ export default function RestaurantWaiterPhoneSurface({
     businessContext.entity_id ||
     businessContext.entity?.id ||
     null;
+  const currencyCode =
+    businessContext.entity?.currency ||
+    businessContext.entity?.currency_code ||
+    organization?.currency_code ||
+    organization?.currency ||
+    businessContext.currency ||
+    null;
 
   const [runtime, setRuntime] = useState(posRuntime || null);
-  const [activeZoneId, setActiveZoneId] = useState(
-    posRuntime?.zones?.[0]?.id || null,
-  );
+  const [activeZoneId, setActiveZoneId] = useState(posRuntime?.zones?.[0]?.id || null);
   const [activeTableId, setActiveTableId] = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
   const [selectedSeat, setSelectedSeat] = useState(1);
@@ -107,6 +162,7 @@ export default function RestaurantWaiterPhoneSurface({
   const [dishDraft, setDishDraft] = useState(null);
   const [modifierDraft, setModifierDraft] = useState({});
   const [panel, setPanel] = useState(null);
+  const [pendingSwitch, setPendingSwitch] = useState(null);
   const [panelData, setPanelData] = useState(null);
   const [selectedSplitSeat, setSelectedSplitSeat] = useState(null);
   const [selectedSplitGroup, setSelectedSplitGroup] = useState(null);
@@ -118,10 +174,24 @@ export default function RestaurantWaiterPhoneSurface({
   const [error, setError] = useState(null);
   const orderKey = useRef(null);
 
+  useEffect(() => {
+    if (!posRuntime) return;
+    setRuntime(posRuntime);
+    setActiveZoneId((current) => current || posRuntime?.zones?.[0]?.id || null);
+  }, [posRuntime]);
+
   const zones = runtime?.zones || [];
   const tables = runtime?.tables || [];
   const dishes = runtime?.dishes || [];
   const settings = runtime?.posSettings || runtime?.settings || {};
+  const actionCapabilities = runtime?.capabilities?.actions || {};
+  const canOrder = actionCapabilities.order_entry === true;
+  const canMoveGuests = actionCapabilities.move_guests === true;
+  const canMoveSeat = actionCapabilities.move_seat === true;
+  const canAssignItems = actionCapabilities.assign_items_to_group === true;
+  const canTransferTable = actionCapabilities.transfer_table === true;
+  const canMergeTables = actionCapabilities.merge_tables === true;
+
   const modifierGroups = useMemo(
     () => normalizeModifierGroups(settings),
     [settings],
@@ -130,6 +200,10 @@ export default function RestaurantWaiterPhoneSurface({
   const visibleTables = useMemo(
     () => tables.filter((table) => !activeZoneId || table.zone_id === activeZoneId),
     [activeZoneId, tables],
+  );
+  const transferTargets = useMemo(
+    () => tables.filter((table) => table.id !== activeTableId && tableIsFreeForTransfer(table)),
+    [activeTableId, tables],
   );
   const menuGroups = useMemo(() => groupMenuByCategory(dishes), [dishes]);
   const categories = Object.keys(menuGroups || {});
@@ -143,6 +217,14 @@ export default function RestaurantWaiterPhoneSurface({
 
   const guestCount = Math.max(0, guestsFor(activeTable));
   const seats = Array.from({ length: guestCount }, (_, index) => index + 1);
+  const cartUnits = useMemo(
+    () => cart.reduce((sum, item) => sum + Number(item.quantity || 1), 0),
+    [cart],
+  );
+  const cartSubtotal = useMemo(
+    () => cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1), 0),
+    [cart],
+  );
 
   async function refreshRuntime() {
     if (typeof refreshPOSRuntime !== "function") return runtime;
@@ -182,26 +264,75 @@ export default function RestaurantWaiterPhoneSurface({
     return result;
   }
 
-  function chooseZone(zoneId) {
+  function applyZoneSelection(zoneId) {
     setActiveZoneId(zoneId);
     setActiveTableId(null);
-    setCart([]);
+    setSelectedSeat(1);
     setMessage(null);
     setError(null);
+    orderKey.current = null;
   }
 
-  function chooseTable(table) {
-    if (String(table.status || "").toUpperCase() === "MERGED") return;
+  function applyTableSelection(table) {
+    if (!table || String(table.status || "").toUpperCase() === "MERGED") return;
     setActiveTableId(table.id);
-    setCart([]);
+    setActiveZoneId(table.zone_id || activeZoneId);
     setMessage(null);
     setError(null);
+    orderKey.current = null;
+
     const guests = guestsFor(table);
     if (!guests) {
       setGuestDraft(1);
       setPanel("GUESTS");
     } else {
       setSelectedSeat(1);
+    }
+  }
+
+  function chooseZone(zoneId) {
+    if (zoneId === activeZoneId && !activeTableId) return;
+    if (cart.length && activeTableId) {
+      setPendingSwitch({ kind: "zone", zoneId });
+      setPanel("DRAFT_SWITCH");
+      return;
+    }
+    applyZoneSelection(zoneId);
+  }
+
+  function chooseTable(table) {
+    if (!table || String(table.status || "").toUpperCase() === "MERGED") return;
+    if (table.id === activeTableId) return;
+    if (cart.length && activeTableId) {
+      setPendingSwitch({ kind: "table", tableId: table.id });
+      setPanel("DRAFT_SWITCH");
+      return;
+    }
+    applyTableSelection(table);
+  }
+
+  function cancelDraftSwitch() {
+    setPendingSwitch(null);
+    setPanel(null);
+  }
+
+  function confirmDraftSwitch() {
+    const next = pendingSwitch;
+    if (!next) return;
+
+    setCart([]);
+    orderKey.current = null;
+    setPendingSwitch(null);
+    setPanel(null);
+
+    if (next.kind === "zone") {
+      applyZoneSelection(next.zoneId);
+      return;
+    }
+
+    if (next.kind === "table") {
+      const table = tables.find((candidate) => candidate.id === next.tableId) || null;
+      if (table) applyTableSelection(table);
     }
   }
 
@@ -214,6 +345,10 @@ export default function RestaurantWaiterPhoneSurface({
   }
 
   function openDish(dish) {
+    if (!canOrder) {
+      setError("Your signed-in role cannot create restaurant orders.");
+      return;
+    }
     if (!activeTable || !guestCount) {
       setError("Choose a table and guest count first.");
       return;
@@ -228,7 +363,7 @@ export default function RestaurantWaiterPhoneSurface({
   }
 
   function addDish() {
-    if (!dishDraft) return;
+    if (!dishDraft || !canOrder) return;
     const seat = Number(modifierDraft.seat || selectedSeat || 0);
     if (!Number.isInteger(seat) || seat < 1) {
       setError("Choose a seat before adding the item.");
@@ -276,6 +411,10 @@ export default function RestaurantWaiterPhoneSurface({
   }
 
   async function sendOrder() {
+    if (!canOrder) {
+      setError("Your signed-in role cannot create restaurant orders.");
+      return;
+    }
     if (!activeTable || !cart.length || !entityId) return;
     if (!orderKey.current) orderKey.current = crypto.randomUUID();
 
@@ -325,8 +464,22 @@ export default function RestaurantWaiterPhoneSurface({
     }
   }
 
+  function panelAllowed(type) {
+    if (type === "SPLIT") return canAssignItems;
+    if (type === "MOVE_GUEST") return canMoveSeat;
+    if (type === "TRANSFER") return canTransferTable;
+    if (type === "MERGE") return canMergeTables;
+    if (type === "EDIT_GUESTS") return canMoveGuests;
+    return true;
+  }
+
   async function openServicePanel(type) {
     if (!activeTable) return;
+    if (!panelAllowed(type)) {
+      setPanel(null);
+      setError("That table action is not available for your signed-in role.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -370,6 +523,11 @@ export default function RestaurantWaiterPhoneSurface({
   }, [openItems, settings.default_bill_group]);
 
   async function assignSeatGroup() {
+    if (!canAssignItems) {
+      setPanel(null);
+      setError("Your role cannot change bill groups.");
+      return;
+    }
     if (!activeTable || !selectedSplitSeat || !selectedSplitGroup) return;
     const itemIds = openItems
       .filter((item) => String(seatOf(item)) === String(selectedSplitSeat))
@@ -398,6 +556,11 @@ export default function RestaurantWaiterPhoneSurface({
   }
 
   async function moveGuest() {
+    if (!canMoveSeat) {
+      setPanel(null);
+      setError("Your role cannot move a guest between tables.");
+      return;
+    }
     if (!activeTable || !moveSeat || !targetTableId) return;
     setBusy(true);
     setError(null);
@@ -428,6 +591,11 @@ export default function RestaurantWaiterPhoneSurface({
   }
 
   async function transferTable() {
+    if (!canTransferTable) {
+      setPanel(null);
+      setError("Supervisor authority is required to move a whole table.");
+      return;
+    }
     if (!activeTable || !targetTableId) return;
     setBusy(true);
     setError(null);
@@ -436,9 +604,14 @@ export default function RestaurantWaiterPhoneSurface({
         fromTableId: activeTable.id,
         toTableId: targetTableId,
       });
+      const target = tables.find((table) => table.id === targetTableId) || null;
       setPanel(null);
-      setMessage("Table moved.");
-      setActiveTableId(targetTableId);
+      orderKey.current = null;
+      if (target) {
+        setActiveTableId(target.id);
+        setActiveZoneId(target.zone_id || activeZoneId);
+      }
+      setMessage(cart.length ? "Table moved · unsent order kept with this service." : "Table moved.");
       await refreshRuntime();
     } catch (actionError) {
       setError(actionError.message);
@@ -448,6 +621,11 @@ export default function RestaurantWaiterPhoneSurface({
   }
 
   async function mergeTables() {
+    if (!canMergeTables) {
+      setPanel(null);
+      setError("Supervisor authority is required to merge tables.");
+      return;
+    }
     if (!activeTable || !mergeTargets.length) return;
     setBusy(true);
     setError(null);
@@ -467,6 +645,11 @@ export default function RestaurantWaiterPhoneSurface({
   }
 
   async function persistGuestCount() {
+    if (!canMoveGuests) {
+      setPanel(null);
+      setError("Your role cannot change the guest count for an active table.");
+      return;
+    }
     if (!activeTable) return;
     setBusy(true);
     setError(null);
@@ -491,7 +674,7 @@ export default function RestaurantWaiterPhoneSurface({
   }
 
   return (
-    <main className="min-h-screen bg-black p-2 text-white">
+    <main className="min-h-screen bg-black p-2 text-white" data-restaurant-waiter-phone="true">
       <section className="mx-auto flex min-h-[calc(100vh-16px)] w-full max-w-[480px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#070707]">
         <header className="border-b border-white/10 px-3 py-3">
           <div className="flex items-center justify-between gap-3">
@@ -588,6 +771,12 @@ export default function RestaurantWaiterPhoneSurface({
         ) : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          {!canOrder ? (
+            <div className="mb-3 rounded-2xl border border-[#A37849]/20 bg-[#A37849]/[0.06] px-3 py-3 text-xs text-[#9A744B]" data-waiter-order-authority-boundary="true">
+              Order entry is not available for your signed-in role.
+            </div>
+          ) : null}
+
           {categories.length ? (
             <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
               {categories.map((category) => (
@@ -612,13 +801,13 @@ export default function RestaurantWaiterPhoneSurface({
               <button
                 key={dish.id}
                 type="button"
-                disabled={!activeTable || !guestCount}
+                disabled={!canOrder || !activeTable || !guestCount}
                 onClick={() => openDish(dish)}
                 className="min-h-20 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-left disabled:opacity-25"
               >
                 <div className="line-clamp-2 text-sm font-medium">{dish.name || dish.dish_name}</div>
                 {dish.price != null ? (
-                  <div className="mt-2 text-[10px] text-[#D6A66A]/75">{Number(dish.price || 0).toFixed(2)}</div>
+                  <div className="mt-2 text-[10px] text-[#D6A66A]/75">{money(dish.price, currencyCode)}</div>
                 ) : null}
               </button>
             ))}
@@ -632,11 +821,12 @@ export default function RestaurantWaiterPhoneSurface({
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-[9px] uppercase tracking-[0.18em] text-white/30">Current order</div>
-              <div className="mt-1 text-sm font-semibold">{cart.length} item{cart.length === 1 ? "" : "s"}</div>
+              <div className="mt-1 text-sm font-semibold">{cartUnits} item{cartUnits === 1 ? "" : "s"}</div>
+              <div className="mt-0.5 text-[10px] text-white/30">{money(cartSubtotal, currencyCode)}</div>
             </div>
             <button
               type="button"
-              disabled={busy || !cart.length || !activeTable || !entityId}
+              disabled={busy || !canOrder || !cart.length || !activeTable || !entityId}
               onClick={sendOrder}
               className="inline-flex min-w-40 items-center justify-center gap-2 rounded-2xl bg-[#D6A66A] px-4 py-3 text-sm font-bold text-black disabled:opacity-30"
             >
@@ -664,7 +854,27 @@ export default function RestaurantWaiterPhoneSurface({
         </footer>
       </section>
 
-      {panel === "GUESTS" ? (
+      {panel === "DRAFT_SWITCH" && pendingSwitch && activeTable ? (
+        <Modal
+          title="Unsent order on this table"
+          subtitle={`${cartUnits} unsent item${cartUnits === 1 ? "" : "s"} belong to Table ${tableName(activeTable)}.`}
+          onClose={cancelDraftSwitch}
+        >
+          <div className="space-y-3" data-waiter-draft-switch-guard="true">
+            <div className="rounded-2xl border border-amber-300/25 bg-amber-300/[0.07] px-3 py-3 text-xs leading-5 text-amber-100">
+              Keep working here, or explicitly discard this unsent order before switching tables or areas.
+            </div>
+            <button type="button" onClick={cancelDraftSwitch} className="w-full rounded-2xl bg-white py-3 text-sm font-semibold text-black">
+              Keep current order
+            </button>
+            <button type="button" onClick={confirmDraftSwitch} className="w-full rounded-2xl border border-red-400/25 bg-red-500/[0.06] py-3 text-sm font-semibold text-red-200">
+              Discard order & switch
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {panel === "GUESTS" && activeTable ? (
         <Modal title={`Guests · ${tableName(activeTable)}`} onClose={() => setPanel(null)}>
           <div className="grid grid-cols-5 gap-2">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
@@ -682,11 +892,7 @@ export default function RestaurantWaiterPhoneSurface({
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={confirmGuestDraft}
-            className="mt-4 w-full rounded-2xl bg-white py-3 text-sm font-semibold text-black"
-          >
+          <button type="button" onClick={confirmGuestDraft} className="mt-4 w-full rounded-2xl bg-white py-3 text-sm font-semibold text-black">
             Continue
           </button>
         </Modal>
@@ -743,32 +949,43 @@ export default function RestaurantWaiterPhoneSurface({
             rows={3}
             className="mt-4 w-full rounded-2xl border border-white/10 bg-black px-3 py-3 text-sm outline-none"
           />
-          <button
-            type="button"
-            onClick={addDish}
-            className="mt-3 w-full rounded-2xl bg-[#D6A66A] py-3.5 text-sm font-bold text-black"
-          >
+          <button type="button" onClick={addDish} className="mt-3 w-full rounded-2xl bg-[#D6A66A] py-3.5 text-sm font-bold text-black">
             Add to seat {modifierDraft.seat || selectedSeat}
           </button>
         </Modal>
       ) : null}
 
-      {panel === "ACTIONS" ? (
+      {panel === "ACTIONS" && activeTable ? (
         <Modal title={`Table ${tableName(activeTable)}`} onClose={() => setPanel(null)}>
-          <div className="grid gap-2">
-            <button type="button" onClick={() => openServicePanel("SPLIT")} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Split size={17} className="text-[#D6A66A]" /> Split by seat / bill group</button>
-            <button type="button" onClick={() => openServicePanel("MOVE_GUEST")} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Move size={17} className="text-[#D6A66A]" /> Move guest / seat</button>
-            <button type="button" onClick={() => openServicePanel("TRANSFER")} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><ArrowRightLeft size={17} className="text-[#D6A66A]" /> Move whole table</button>
-            <button type="button" onClick={() => openServicePanel("MERGE")} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Layers3 size={17} className="text-[#D6A66A]" /> Merge tables</button>
-            <button type="button" onClick={() => { setGuestDraft(Math.max(1, guestCount)); setPanel("EDIT_GUESTS"); }} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Users size={17} className="text-[#D6A66A]" /> Change guest count</button>
+          <div className="grid gap-2" data-waiter-authorized-actions="true">
+            {canAssignItems ? (
+              <button type="button" onClick={() => openServicePanel("SPLIT")} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Split size={17} className="text-[#D6A66A]" /> Split by seat / bill group</button>
+            ) : null}
+            {canMoveSeat ? (
+              <button type="button" onClick={() => openServicePanel("MOVE_GUEST")} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Move size={17} className="text-[#D6A66A]" /> Move guest / seat</button>
+            ) : null}
+            {canTransferTable ? (
+              <button type="button" onClick={() => openServicePanel("TRANSFER")} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><ArrowRightLeft size={17} className="text-[#D6A66A]" /> Move whole table</button>
+            ) : null}
+            {canMergeTables ? (
+              <button type="button" onClick={() => openServicePanel("MERGE")} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Layers3 size={17} className="text-[#D6A66A]" /> Merge tables</button>
+            ) : null}
+            {canMoveGuests ? (
+              <button type="button" onClick={() => { setGuestDraft(Math.max(1, guestCount)); setPanel("EDIT_GUESTS"); }} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Users size={17} className="text-[#D6A66A]" /> Change guest count</button>
+            ) : null}
           </div>
+          {!canTransferTable || !canMergeTables ? (
+            <div className="mt-3 rounded-xl border border-[#A37849]/20 bg-[#A37849]/[0.06] px-3 py-2 text-[10px] leading-4 text-[#9A744B]" data-waiter-supervisor-boundary="true">
+              Whole-table move and merge are supervisor actions and only appear when your signed-in role is authorized.
+            </div>
+          ) : null}
           <div className="mt-4 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.05] px-3 py-2 text-[10px] leading-4 text-[#E9CF9A]/70">
             Payment is intentionally not available on the waiter phone. Settlement is completed at the stationary POS.
           </div>
         </Modal>
       ) : null}
 
-      {panel === "SPLIT" ? (
+      {panel === "SPLIT" && canAssignItems ? (
         <Modal title="Split check" onClose={() => setPanel(null)}>
           <div className="text-xs text-white/45">Move all items for a seat into a bill group. The same groups are visible to the stationary POS.</div>
           <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-white/30">Seat</div>
@@ -787,7 +1004,7 @@ export default function RestaurantWaiterPhoneSurface({
         </Modal>
       ) : null}
 
-      {panel === "MOVE_GUEST" ? (
+      {panel === "MOVE_GUEST" && canMoveSeat ? (
         <Modal title="Move guest" onClose={() => setPanel(null)}>
           <div className="text-[10px] uppercase tracking-[0.18em] text-white/30">Seat</div>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -805,18 +1022,21 @@ export default function RestaurantWaiterPhoneSurface({
         </Modal>
       ) : null}
 
-      {panel === "TRANSFER" ? (
-        <Modal title="Move whole table" onClose={() => setPanel(null)}>
+      {panel === "TRANSFER" && canTransferTable ? (
+        <Modal title="Move whole table" subtitle="Only empty available tables can receive the service." onClose={() => setPanel(null)}>
           <div className="grid grid-cols-3 gap-2">
-            {tables.filter((table) => table.id !== activeTable?.id && String(table.status || "").toUpperCase() !== "MERGED").map((table) => (
+            {transferTargets.map((table) => (
               <button key={table.id} type="button" onClick={() => setTargetTableId(table.id)} className={targetTableId === table.id ? "rounded-xl bg-[#D6A66A] py-3 text-xs font-bold text-black" : "rounded-xl border border-white/10 py-3 text-xs text-white/55"}>{tableName(table)}</button>
             ))}
           </div>
+          {!transferTargets.length ? (
+            <div className="mt-3 rounded-xl border border-dashed border-white/10 px-3 py-4 text-center text-xs text-white/35">No empty available table. Use Merge tables for an occupied service.</div>
+          ) : null}
           <button type="button" disabled={busy || !targetTableId} onClick={transferTable} className="mt-4 w-full rounded-2xl bg-[#D6A66A] py-3 text-sm font-bold text-black disabled:opacity-30">Move table</button>
         </Modal>
       ) : null}
 
-      {panel === "MERGE" ? (
+      {panel === "MERGE" && canMergeTables ? (
         <Modal title="Merge tables" onClose={() => setPanel(null)}>
           <div className="grid grid-cols-3 gap-2">
             {tables.filter((table) => table.id !== activeTable?.id && String(table.status || "").toUpperCase() !== "MERGED").map((table) => {
@@ -830,7 +1050,7 @@ export default function RestaurantWaiterPhoneSurface({
         </Modal>
       ) : null}
 
-      {panel === "EDIT_GUESTS" ? (
+      {panel === "EDIT_GUESTS" && canMoveGuests ? (
         <Modal title="Guest count" onClose={() => setPanel(null)}>
           <div className="grid grid-cols-5 gap-2">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (

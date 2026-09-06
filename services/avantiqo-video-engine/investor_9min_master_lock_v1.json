@@ -1,0 +1,65 @@
+{
+  "contract": "AVANTIQO_INVESTOR_FILM_9MIN_MASTER_LOCK_V1",
+  "source_repository": "churchillkaron/churchill-control-new",
+  "story_authority": "services/avantiqo-video-engine/INVESTOR_FILM_9MIN_MASTER_V1.md",
+  "target_duration_seconds": 540,
+  "target_duration_timecode": "09:00",
+  "frame_rate": 24,
+  "master_resolution": "3840x2160",
+  "master_aspect_ratio": "16:9",
+  "legacy_visual_assets": {
+    "owner_approved": false,
+    "automatic_reuse_allowed": false,
+    "disposition": "REJECTED_UNAPPROVED_REFERENCE_ONLY"
+  },
+  "reusable_infrastructure": [
+    "owned_video_generation",
+    "multi_keyframe_human_control",
+    "exact_master_human_qc_release",
+    "canonical_product_truth_binding",
+    "voice_visual_semantic_lock",
+    "audio_mastering",
+    "deterministic_assembly"
+  ],
+  "story_spine": [
+    "fragmentation",
+    "one_consequential_physical_event",
+    "shared_business_context",
+    "governed_action",
+    "cross_domain_consequence",
+    "accounting_firm_leverage",
+    "multi_industry_scale",
+    "creative_growth",
+    "learning_and_foresight",
+    "earned_investor_close"
+  ],
+  "core_event": "TIME_CRITICAL_SUPPLIER_EXCEPTION",
+  "signature_visual_system": "THE_CAUSAL_THREAD",
+  "chapters": [
+    {"id":"C01","start":0,"end":45,"title":"THE BUSINESS BEFORE SOFTWARE"},
+    {"id":"C02","start":45,"end":95,"title":"ONE EVENT BECOMES FIVE PROBLEMS"},
+    {"id":"C03","start":95,"end":135,"title":"THE REVEAL — ONE BUSINESS REALITY"},
+    {"id":"C04","start":135,"end":200,"title":"THE BUSINESS REACTS AS ONE SYSTEM"},
+    {"id":"C05","start":200,"end":260,"title":"BUSINESS PARTNER — INTELLIGENCE WITH RESPONSIBILITY"},
+    {"id":"C06","start":260,"end":330,"title":"FINANCE THAT KNOWS WHAT HAPPENED"},
+    {"id":"C07","start":330,"end":400,"title":"THE SAME INTELLIGENCE, DIFFERENT BUSINESSES"},
+    {"id":"C08","start":400,"end":455,"title":"FROM OPERATING THE BUSINESS TO CREATING DEMAND"},
+    {"id":"C09","start":455,"end":500,"title":"A SYSTEM THAT LEARNS THE BUSINESS"},
+    {"id":"C10","start":500,"end":540,"title":"THE INVESTOR CLOSE — ONE INTELLIGENCE"}
+  ],
+  "hard_release_rules": {
+    "generated_humans_require_exact_master_release": true,
+    "canonical_product_evidence_required": true,
+    "generic_stock_people_forbidden": true,
+    "generic_ai_people_forbidden": true,
+    "fake_product_ui_forbidden": true,
+    "static_dashboard_exposition_forbidden": true,
+    "feature_grid_montage_forbidden": true,
+    "science_fiction_ui_forbidden": true,
+    "blue_neon_cyberpunk_forbidden": true,
+    "unsupported_investor_metrics_forbidden": true,
+    "prompt_box_as_studio_hero_forbidden": true,
+    "human_governance_boundary_required": true,
+    "final_picture_lock_requires_owner_review": true
+  }
+}

@@ -18,6 +18,9 @@ const paths = Object.freeze({
   expoLayout: "app/(system)/workspace/[organizationId]/operations/expo/layout.jsx",
   restaurantAdapter: "lib/operations/commerce/adapters/restaurant/RestaurantPOSAdapter.js",
   serviceActionAdapter: "lib/operations/commerce/adapters/restaurant/RestaurantServiceActionAdapter.js",
+  tableCommandRuntime: "lib/restaurant/pos/capabilities/tableActions/tableCommandRuntime.js",
+  paymentCorrectionAdapter: "lib/operations/commerce/adapters/shared/POSPaymentCorrectionAdapter.js",
+  paymentCorrectionRoute: "app/api/pos/payment-corrections/route.js",
 });
 
 async function source(path) {
@@ -59,6 +62,36 @@ test("restaurant canonical adapter owns the governed context actions", async () 
   assert.match(actions, /TRANSFER_TABLE/);
   assert.match(actions, /MERGE_TABLES/);
   assert.match(actions, /MOVE_GUESTS/);
+});
+
+test("restaurant whole-table transfer requires a truly free destination", async () => {
+  const runtime = await source(paths.tableCommandRuntime);
+
+  assert.match(runtime, /tableUnavailableForTransfer/);
+  assert.match(runtime, /active_session_id/);
+  assert.match(runtime, /current_guests/);
+  assert.match(runtime, /OUT_OF_SERVICE/);
+  assert.match(runtime, /Choose an empty available table or merge services instead/);
+  assert.match(runtime, /error\.status = 409/);
+});
+
+test("restaurant payment corrections are governed, manager-only, auditable and original-preserving", async () => {
+  const adapter = await source(paths.restaurantAdapter);
+  const correction = await source(paths.paymentCorrectionAdapter);
+  const route = await source(paths.paymentCorrectionRoute);
+
+  assert.match(adapter, /POSPaymentCorrectionAdapter/);
+  assert.match(adapter, /paymentCorrections:\s*POSPaymentCorrectionAdapter/);
+  assert.match(route, /paymentCorrections\.load/);
+  assert.match(route, /paymentCorrections\.execute/);
+  assert.match(correction, /Manager or owner role required for POS payment corrections/);
+  assert.match(correction, /correctionType must be REFUND or REVERSAL/);
+  assert.match(correction, /Correction reason required/);
+  assert.match(correction, /pos_correct_payment_atomic/);
+  assert.match(correction, /pos_payment_corrections/);
+  assert.match(correction, /preserves_original_payment:\s*true/);
+  assert.match(correction, /cash_only:\s*true/);
+  assert.match(correction, /requires_active_cash_session:\s*true/);
 });
 
 test("restaurant waiter phone stays service-only", async () => {

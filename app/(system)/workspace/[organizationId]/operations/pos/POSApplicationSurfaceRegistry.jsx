@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+import RestaurantAvantiqoTheme from "@/components/workspace/operations/RestaurantAvantiqoTheme";
 import POSInlineCheckout from "./POSInlineCheckout";
 import PaymentWorkspace from "./PaymentWorkspace";
 import RestaurantStationaryOrderSurface from "./RestaurantStationaryOrderSurface";
@@ -35,59 +36,63 @@ function RestaurantSaleSurface(props) {
 
   if (waiterMode) {
     return (
-      <div className="min-h-screen bg-black text-white" data-restaurant-waiter-surface="true">
-        <div className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/95 px-4 py-3 backdrop-blur-xl">
-          <div className="mx-auto max-w-[480px]">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Waiter</div>
-            <div className="mt-1 text-sm font-semibold">Table · seat · order · split · move</div>
-            <div className="mt-1 text-[10px] text-white/35">Phone service workspace · settlement stays at the stationary POS</div>
+      <RestaurantAvantiqoTheme mode="service">
+        <div className="min-h-screen bg-black text-white" data-restaurant-waiter-surface="true">
+          <div className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/95 px-4 py-3 backdrop-blur-xl">
+            <div className="mx-auto max-w-[480px]">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Waiter</div>
+              <div className="mt-1 text-sm font-semibold">Table · seat · order · split · move</div>
+              <div className="mt-1 text-[10px] text-white/35">Phone service workspace · settlement stays at the stationary POS</div>
+            </div>
           </div>
-        </div>
 
-        <RestaurantWaiterPhoneSurface {...props} />
-      </div>
+          <RestaurantWaiterPhoneSurface {...props} />
+        </div>
+      </RestaurantAvantiqoTheme>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white" data-restaurant-stationary-pos="true" data-pos-unified-sale="true">
-      <div className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/95 px-4 py-3 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1760px] flex-wrap items-end justify-between gap-3">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Stationary POS</div>
-            <div className="mt-1 text-sm font-semibold">Table · order · send · split · settle</div>
-            <div className="mt-1 text-[10px] text-white/35">Desktop cashier workstation · order and settlement remain visible together.</div>
+    <RestaurantAvantiqoTheme mode="service">
+      <div className="min-h-screen bg-black text-white" data-restaurant-stationary-pos="true" data-pos-unified-sale="true">
+        <div className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/95 px-4 py-3 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-[1760px] flex-wrap items-end justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Stationary POS</div>
+              <div className="mt-1 text-sm font-semibold">Table · order · send · split · settle</div>
+              <div className="mt-1 text-[10px] text-white/35">Desktop cashier workstation · order and settlement remain visible together.</div>
+            </div>
+
+            <div className="rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-[#E7C991]">One continuous cashier screen</div>
+          </div>
+        </div>
+
+        <div className="mx-auto grid max-w-[1760px] gap-4 p-3 xl:grid-cols-[minmax(0,1fr)_430px] xl:p-4">
+          <div className="min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#050505]" data-stationary-order-entry="true">
+            <RestaurantStationaryOrderSurface
+              {...props}
+              preferredTableReference={requestedTable}
+              onActiveContextChange={setActiveTableReference}
+              onOrderComplete={() => setCheckoutVersion((current) => current + 1)}
+            />
           </div>
 
-          <div className="rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-[#E7C991]">One continuous cashier screen</div>
+          <aside className="min-w-0 xl:sticky xl:top-[124px] xl:self-start">
+            <POSInlineCheckout
+              key={checkoutVersion}
+              posConfiguration={props.posConfiguration}
+              preferredContextReference={activeTableReference}
+              compact
+              onRefresh={props.refreshPOSRuntime}
+              onPaymentComplete={() => {
+                setCheckoutVersion((current) => current + 1);
+                props.refreshPOSRuntime?.();
+              }}
+            />
+          </aside>
         </div>
       </div>
-
-      <div className="mx-auto grid max-w-[1760px] gap-4 p-3 xl:grid-cols-[minmax(0,1fr)_430px] xl:p-4">
-        <div className="min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#050505]" data-stationary-order-entry="true">
-          <RestaurantStationaryOrderSurface
-            {...props}
-            preferredTableReference={requestedTable}
-            onActiveContextChange={setActiveTableReference}
-            onOrderComplete={() => setCheckoutVersion((current) => current + 1)}
-          />
-        </div>
-
-        <aside className="min-w-0 xl:sticky xl:top-[124px] xl:self-start">
-          <POSInlineCheckout
-            key={checkoutVersion}
-            posConfiguration={props.posConfiguration}
-            preferredContextReference={activeTableReference}
-            compact
-            onRefresh={props.refreshPOSRuntime}
-            onPaymentComplete={() => {
-              setCheckoutVersion((current) => current + 1);
-              props.refreshPOSRuntime?.();
-            }}
-          />
-        </aside>
-      </div>
-    </div>
+    </RestaurantAvantiqoTheme>
   );
 }
 

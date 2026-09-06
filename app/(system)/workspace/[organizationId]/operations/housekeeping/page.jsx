@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { CheckCircle2, Clock3, Play, RefreshCw, Wrench } from "lucide-react";
 
+import HotelArrivalReadinessOwnership from "@/components/workspace/hotel/HotelArrivalReadinessOwnership";
 import {
   HotelEmptyState,
   HotelError,
@@ -124,6 +125,8 @@ export default function OperationsHousekeepingPage() {
       </>}
     >
       <HotelError>{error}</HotelError>
+
+      <HotelArrivalReadinessOwnership organizationId={organizationId} focusOwner="HOUSEKEEPING" compact />
 
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <HotelMetric label="Active room work" value={summary.active || 0} detail="Live physical readiness tasks" attention={(summary.active || 0) > 0} />

@@ -16,6 +16,7 @@ on:
       - "tests/finance-human-workflow-contract.test.mjs"
       - "tests/finance-ui-completion-contract.test.mjs"
       - "tests/finance-review-evidence-freshness-contract.test.mjs"
+      - "tests/finance-partner-lifecycle-freshness-contract.test.mjs"
       - "tests/finance-close-package-freshness-contract.test.mjs"
       - "tests/finance-tax-workspace-contract.test.mjs"
       - "tests/finance-tax-selection-contract.test.mjs"
@@ -45,6 +46,7 @@ on:
       - "tests/finance-human-workflow-contract.test.mjs"
       - "tests/finance-ui-completion-contract.test.mjs"
       - "tests/finance-review-evidence-freshness-contract.test.mjs"
+      - "tests/finance-partner-lifecycle-freshness-contract.test.mjs"
       - "tests/finance-close-package-freshness-contract.test.mjs"
       - "tests/finance-tax-workspace-contract.test.mjs"
       - "tests/finance-tax-selection-contract.test.mjs"
@@ -84,5 +86,5 @@ jobs:
           node-version: "24"
 
       - name: Certify Finance human workflow and accountant UI
-        # Certify deterministic close-package and reviewer evidence freshness, Tax truth, human statutory deadline runway, full-population evidence drilldown, exact-source navigation, coordination, portfolio ranking, close-sheet action selection, one post-filing close path and advisory owned Intelligence boundaries in one exact-source lane.
-        run: node --test tests/finance-human-workflow-contract.test.mjs tests/finance-ui-completion-contract.test.mjs tests/finance-review-evidence-freshness-contract.test.mjs tests/finance-close-package-freshness-contract.test.mjs tests/finance-tax-workspace-contract.test.mjs tests/finance-tax-selection-contract.test.mjs tests/finance-tax-calculation-method-contract.test.mjs tests/finance-tax-client-request-bridge-contract.test.mjs tests/finance-tax-dependency-work-contract.test.mjs tests/finance-tax-portfolio-dependencies-contract.test.mjs tests/finance-tax-close-intelligence-contract.test.mjs tests/finance-tax-evidence-drilldown-contract.test.mjs tests/finance-tax-evidence-navigation-contract.test.mjs tests/finance-tax-posting-evidence-accountant-first.test.mjs tests/finance-tax-return-close-sheet-contract.test.mjs tests/finance-tax-post-filing-workspace-contract.test.mjs tests/finance-tax-calendar-workflow-contract.test.mjs
+        # Certify deterministic reviewer, lifecycle and close-package freshness, Tax truth, human statutory deadline runway, full-population evidence drilldown, exact-source navigation, coordination, portfolio ranking, close-sheet action selection, one post-filing close path and advisory owned Intelligence boundaries in one exact-source lane.
+        run: node --test tests/finance-human-workflow-contract.test.mjs tests/finance-ui-completion-contract.test.mjs tests/finance-review-evidence-freshness-contract.test.mjs tests/finance-partner-lifecycle-freshness-contract.test.mjs tests/finance-close-package-freshness-contract.test.mjs tests/finance-tax-workspace-contract.test.mjs tests/finance-tax-selection-contract.test.mjs tests/finance-tax-calculation-method-contract.test.mjs tests/finance-tax-client-request-bridge-contract.test.mjs tests/finance-tax-dependency-work-contract.test.mjs tests/finance-tax-portfolio-dependencies-contract.test.mjs tests/finance-tax-close-intelligence-contract.test.mjs tests/finance-tax-evidence-drilldown-contract.test.mjs tests/finance-tax-evidence-navigation-contract.test.mjs tests/finance-tax-posting-evidence-accountant-first.test.mjs tests/finance-tax-return-close-sheet-contract.test.mjs tests/finance-tax-post-filing-workspace-contract.test.mjs tests/finance-tax-calendar-workflow-contract.test.mjs

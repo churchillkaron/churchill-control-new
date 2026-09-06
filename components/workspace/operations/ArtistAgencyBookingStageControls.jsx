@@ -77,8 +77,7 @@ export default function ArtistAgencyBookingStageControls({ booking, organization
       const payload = await response.json();
       if (!response.ok) {
         if (payload?.error === "BOOKING_CHANGED_RELOAD_REQUIRED") {
-          setError("This booking changed elsewhere. Avantiqo reloaded authoritative state; review it before making another decision.");
-          await onChanged?.(null, { reload: true });
+          setError("This booking changed elsewhere. Close and reopen it to load authoritative state before making another decision.");
           return;
         }
         if (payload?.error === "TRANSITION_EVIDENCE_REQUIRED") throw new Error("Evidence or a human reason is required for this move.");

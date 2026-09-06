@@ -8,6 +8,7 @@ const read = relativePath => fs.readFileSync(path.join(root, relativePath), "utf
 const wrapper = read("components/workspace/finance/FinanceTaxWorkCenter.jsx");
 const closeSheet = read("components/workspace/finance/FinanceTaxReturnCloseSheet.jsx");
 const evidenceRail = read("components/workspace/finance/FinanceTaxEvidenceDrilldownRail.jsx");
+const dependencyWorkRail = read("components/workspace/finance/FinanceTaxDependencyWorkRail.jsx");
 
 test("VAT Return stage presents one accountant close sheet bound to the selected filing", () => {
   assert.match(wrapper, /FinanceTaxReturnCloseSheet/);
@@ -111,4 +112,13 @@ test("VAT warning review can focus the exact live evidence control without chang
   assert.match(evidenceRail, /resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY"/);
   assert.match(evidenceRail, /mutation_authority !== false/);
   assert.match(evidenceRail, /context_mutation_authority !== false/);
+});
+
+test("VAT FIX preserves the exact blocker identity when opening evidence", () => {
+  assert.match(wrapper, /<FinanceTaxDependencyWorkRail[\s\S]*?onEvidenceFocus=\{openEvidence\}/);
+  assert.match(dependencyWorkRail, /onEvidenceFocus/);
+  assert.match(dependencyWorkRail, /function inspectEvidence\(dependencyCode\)/);
+  assert.match(dependencyWorkRail, /onEvidenceFocus\(dependencyCode\)/);
+  assert.match(dependencyWorkRail, /inspectEvidence\(dependency\.code\)/);
+  assert.doesNotMatch(dependencyWorkRail, /onClick=\{\(\) => onStageChange\?\.\("EVIDENCE"\)\}/);
 });

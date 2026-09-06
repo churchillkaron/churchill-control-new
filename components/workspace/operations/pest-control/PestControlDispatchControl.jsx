@@ -67,6 +67,13 @@ function hrefFor(organizationId, capabilityId) {
   return `/workspace/${encodeURIComponent(organizationId)}/operations/${encodeURIComponent(capabilityId)}`;
 }
 
+function decisionHref(organizationId, row) {
+  if (row?.capability_id === "work-orders" && row?.id) {
+    return `${hrefFor(organizationId, "work-orders")}?workOrderId=${encodeURIComponent(row.id)}`;
+  }
+  return hrefFor(organizationId, row?.capability_id || "dispatch");
+}
+
 function ownerLabel(value) {
   const owner = text(value);
   if (!owner) return "Unassigned";
@@ -192,7 +199,7 @@ function DispatchRow({ row, risk, organizationId }) {
   const duration = formatDuration(Number(row?.dispatch_context?.duration_minutes));
 
   return (
-    <Link href={hrefFor(organizationId, row.capability_id)} className="group grid gap-2 px-4 py-3.5 transition hover:bg-[#FCFBF9] md:grid-cols-[92px_minmax(170px,0.9fr)_minmax(230px,1.2fr)_145px_105px] md:items-center md:gap-4">
+    <Link href={decisionHref(organizationId, row)} className="group grid gap-2 px-4 py-3.5 transition hover:bg-[#FCFBF9] md:grid-cols-[92px_minmax(170px,0.9fr)_minmax(230px,1.2fr)_145px_105px] md:items-center md:gap-4">
       <div><div className="text-[9px] font-medium text-[#625D56]">{window}</div>{duration ? <div className="mt-0.5 text-[7px] text-[#A09A92]">{duration} service</div> : null}</div>
       <div className="min-w-0">
         <div className="truncate text-[10px] font-medium text-[#403C37] group-hover:text-[#8D6338]">{row?.dispatch_context?.service_name || row.name || row.code || titleCase(row.capability_id)}</div>

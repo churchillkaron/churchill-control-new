@@ -15,6 +15,8 @@ const areaHub = read("components/workspace/finance/FinanceAreaHub.jsx");
 const shellNavigation = read("components/workspace/finance/FinanceShellNavigation.jsx");
 const informationArchitecture = read("lib/finance/ui/FinanceInformationArchitecture.js");
 const presentationPolicy = read("lib/finance/ui/FinanceCapabilityPresentation.js");
+const workspaceContracts = read("lib/finance/workspaces/FinanceWorkspaceContracts.js");
+const workspaceRuntime = read("app/api/finance/workspaces/[capabilityId]/route.js");
 const registryBase = read("lib/platform/registry/erpRegistry.base.js");
 const runtimeManifest = JSON.parse(read("lib/finance/runtime/financeCapabilityRuntimeManifest.json"));
 
@@ -88,7 +90,7 @@ test("Finance top navigation uses the same explicit route truth", () => {
   assert.match(informationArchitecture, /"\/finance\/approval-workflows"/);
 });
 
-test("Every stale Finance planned declaration needs executable evidence before presentation activates it", () => {
+test("Every stale Finance planned declaration has executable evidence before presentation activates it", () => {
   const financeStart = registryBase.indexOf("\n    finance: {");
   const financeEnd = registryBase.indexOf("\n    services: {", financeStart);
   assert.ok(financeStart >= 0 && financeEnd > financeStart, "Finance registry block must be found");
@@ -99,9 +101,20 @@ test("Every stale Finance planned declaration needs executable evidence before p
 
   assert.ok(plannedIds.length >= 20, `Expected legacy Finance planned declarations, found ${plannedIds.length}`);
   for (const capabilityId of plannedIds) {
-    assert.ok(runtimeManifest[capabilityId], `${capabilityId} is still planned without a Finance runtime definition`);
+    const runtimeDefinition = runtimeManifest[capabilityId];
+    assert.ok(runtimeDefinition, `${capabilityId} is still planned without a Finance runtime definition`);
+    const contractBacked = new RegExp(`\\n\\s{2}${capabilityId}:\\s`).test(workspaceContracts);
+    const apiBacked = Boolean(runtimeDefinition.api);
+    assert.ok(contractBacked || apiBacked, `${capabilityId} is still planned without an executable workspace contract or API`);
   }
 
+  assert.match(workspaceRuntime, /export async function GET/);
+  assert.match(workspaceRuntime, /export async function POST/);
+  assert.match(workspaceRuntime, /export async function PATCH/);
+  assert.match(workspaceRuntime, /export async function DELETE/);
+  assert.match(workspaceRuntime, /requireFinanceWorkspacePermission/);
+  assert.match(workspaceRuntime, /resolveScopedEntity/);
+  assert.match(workspaceRuntime, /validateFinanceWorkspaceWrite/);
   assert.match(presentationPolicy, /getFinanceWorkspaceContract/);
   assert.match(presentationPolicy, /function hasExecutableRuntimeEvidence/);
   assert.match(presentationPolicy, /configuredApi \|\| contract \|\| executableCreate \|\| executableAction/);

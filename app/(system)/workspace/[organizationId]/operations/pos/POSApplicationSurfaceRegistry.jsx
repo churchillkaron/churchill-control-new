@@ -28,6 +28,7 @@ function RestaurantSaleSurface(props) {
   const requestedView = String(searchParams.get("view") || "").trim().toLowerCase();
   const requestedTable = String(searchParams.get("table") || "").trim() || null;
   const waiterMode = requestedView === "waiter" || requestedView === "service";
+  const canOrder = props.posRuntime?.capabilities?.actions?.order_entry === true;
   const canSettle = props.posRuntime?.capabilities?.actions?.payment === true;
   const [checkoutVersion, setCheckoutVersion] = useState(0);
   const [activeTableReference, setActiveTableReference] = useState(requestedTable);
@@ -76,12 +77,25 @@ function RestaurantSaleSurface(props) {
 
         <div className="mx-auto grid max-w-[1760px] gap-4 p-3 xl:grid-cols-[minmax(0,1fr)_430px] xl:p-4">
           <div className="min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#050505]" data-stationary-order-entry="true">
-            <RestaurantStationaryOrderSurface
-              {...props}
-              preferredTableReference={requestedTable}
-              onActiveContextChange={setActiveTableReference}
-              onOrderComplete={refreshStationary}
-            />
+            {canOrder ? (
+              <RestaurantStationaryOrderSurface
+                {...props}
+                preferredTableReference={requestedTable}
+                onActiveContextChange={setActiveTableReference}
+                onOrderComplete={refreshStationary}
+              />
+            ) : (
+              <div
+                className="m-4 rounded-[22px] border border-[#A37849]/20 bg-white p-5 text-[#191919]"
+                data-stationary-order-authority-boundary="true"
+              >
+                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#9A744B]">Order entry</div>
+                <div className="mt-2 text-sm font-semibold">Service authority required</div>
+                <div className="mt-2 text-xs leading-5 text-[#6C6963]">
+                  Menu entry and order submission are hidden because the signed-in role is not authorized to create restaurant orders.
+                </div>
+              </div>
+            )}
           </div>
 
           <aside className="min-w-0 xl:sticky xl:top-[124px] xl:self-start">
@@ -109,7 +123,7 @@ function RestaurantSaleSurface(props) {
                 <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#9A744B]">Settlement</div>
                 <div className="mt-2 text-sm font-semibold">Cashier authority required</div>
                 <div className="mt-2 text-xs leading-5 text-[#6C6963]">
-                  Order entry can remain visible, but payment and payment corrections are hidden because the signed-in role is not authorized to settle checks.
+                  Payment and payment corrections are hidden because the signed-in role is not authorized to settle checks.
                 </div>
               </div>
             )}

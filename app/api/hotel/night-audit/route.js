@@ -107,6 +107,22 @@ function publicOperationalDate(operationalDate) {
   };
 }
 
+async function refreshedCloseBlockers(organizationId, propertyId) {
+  const operationalDate = await getHotelOperationalDate({ organizationId, propertyId });
+  const preflight = await buildPreflight(organizationId, propertyId, operationalDate);
+  return { operationalDate, preflight };
+}
+
+function isGuardedCloseConflict(error) {
+  const message = clean(error?.message);
+  return [
+    "HOTEL_DAY_CLOSE_BLOCKED",
+    "HOTEL_DAY_CLOSE_DATE_MISMATCH",
+    "HOTEL_BUSINESS_DAY_UNCONFIGURED",
+    "HOTEL_BUSINESS_DAY_CLOSED",
+  ].some((code) => message.includes(code));
+}
+
 export async function GET(request) {
   try {
     const organizationId = clean(request.nextUrl.searchParams.get("organizationId"));
@@ -143,17 +159,34 @@ export async function POST(request) {
     const preflight = await buildPreflight(access.organizationId, propertyId, operationalDate);
     if (!preflight.ready) return fail("Business day cannot close until the remaining work is resolved", 409, preflight);
 
-    const now = new Date().toISOString();
-    const { data, error } = await supabaseAdmin.from("hotel_night_audits").upsert({
-      organization_id: access.organizationId,
-      property_id: propertyId,
-      business_date: operationalDate.businessDate,
-      status: "CLOSED",
-      control_summary: { ...preflight, operationalDate: publicOperationalDate(operationalDate) },
-      closed_at: now,
-      updated_at: now,
-    }, { onConflict: "organization_id,property_id,business_date" }).select().single();
-    if (error) throw error;
+    const controlSummary = {
+      ...preflight,
+      operationalDate: publicOperationalDate(operationalDate),
+    };
+    const { data: closeResult, error: closeError } = await supabaseAdmin.rpc("hotel_close_business_day_guarded", {
+      p_organization_id: access.organizationId,
+      p_property_id: propertyId,
+      p_expected_business_date: operationalDate.businessDate,
+      p_control_summary: controlSummary,
+      p_closed_by_staff_account_id: access.access?.staffAccountId || null,
+    });
+
+    if (closeError) {
+      if (isGuardedCloseConflict(closeError)) {
+        const refreshed = await refreshedCloseBlockers(access.organizationId, propertyId);
+        return fail(
+          "Business day changed or new operating work arrived before close completed. Review the refreshed work queue.",
+          409,
+          refreshed.preflight,
+        );
+      }
+      throw closeError;
+    }
+
+    const audit = closeResult?.audit || null;
+    if (!audit || String(audit.status || "").toUpperCase() !== "CLOSED") {
+      throw new Error("Hotel day-close authority returned no CLOSED audit evidence");
+    }
 
     await broadcastHotelReadinessChanged({
       organizationId: access.organizationId,
@@ -161,7 +194,14 @@ export async function POST(request) {
       action: "CLOSE",
     });
 
-    return NextResponse.json({ success: true, audit: data, preflight, operationalDate: publicOperationalDate(operationalDate) });
+    return NextResponse.json({
+      success: true,
+      audit,
+      preflight,
+      operationalDate: publicOperationalDate(operationalDate),
+      databaseGuard: closeResult?.database_guard || null,
+      alreadyClosed: closeResult?.already_closed === true,
+    });
   } catch (error) {
     console.error("HOTEL_NIGHT_AUDIT_CLOSE_ERROR", error);
     return fail(error?.message || "Unable to close night audit", 500);

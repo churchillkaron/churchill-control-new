@@ -17,6 +17,13 @@ declare
   v_party_size integer;
   v_now timestamptz := now();
   v_task_date date := current_date;
+  v_property_timezone text;
+  v_cutoff_minutes integer;
+  v_operational_configured_at timestamptz;
+  v_property_local timestamp;
+  v_business_date date;
+  v_wall_minutes integer;
+  v_require_ready boolean := coalesce(p_require_ready, false);
 begin
   if coalesce(auth.role(), '') <> 'service_role' then
     raise exception 'Server authority required for Hotel room assignment';
@@ -45,6 +52,35 @@ begin
      or v_booking.check_out_date is null
      or v_booking.check_out_date <= v_booking.check_in_date then
     raise exception 'Booking stay dates are invalid for room assignment';
+  end if;
+
+  select p.time_zone, p.business_day_cutoff_minutes, p.operational_day_configured_at
+  into v_property_timezone, v_cutoff_minutes, v_operational_configured_at
+  from public.hotel_properties p
+  where p.organization_id = p_organization_id
+    and p.id = v_booking.property_id;
+
+  if upper(coalesce(v_booking.status, '')) = 'CHECKED_IN' then
+    v_require_ready := true;
+  elsif upper(coalesce(v_booking.status, '')) = 'RESERVED'
+    and nullif(btrim(coalesce(v_property_timezone, '')), '') is not null
+    and v_cutoff_minutes between 0 and 720
+    and v_operational_configured_at is not null then
+    begin
+      v_property_local := timezone(v_property_timezone, v_now);
+    exception when others then
+      v_property_local := null;
+    end;
+    if v_property_local is not null then
+      v_wall_minutes := extract(hour from v_property_local)::integer * 60 + extract(minute from v_property_local)::integer;
+      v_business_date := v_property_local::date;
+      if v_wall_minutes < v_cutoff_minutes then
+        v_business_date := v_business_date - 1;
+      end if;
+      if v_booking.check_in_date <= v_business_date then
+        v_require_ready := true;
+      end if;
+    end if;
   end if;
 
   select *
@@ -102,7 +138,7 @@ begin
     raise exception 'Target room is already committed to an overlapping stay';
   end if;
 
-  if p_require_ready then
+  if v_require_ready then
     if upper(coalesce(v_room.status, '')) <> 'AVAILABLE' then
       raise exception 'Target room is not physically ready for an arrival due now';
     end if;
@@ -156,7 +192,7 @@ begin
         v_previous_room_id,
         'PENDING',
         'HIGH',
-        v_task_date,
+        coalesce(v_business_date, v_task_date),
         'Room turnover after in-house room move.',
         v_now,
         v_now

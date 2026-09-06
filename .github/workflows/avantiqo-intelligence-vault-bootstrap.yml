@@ -1,0 +1,69 @@
+name: Avantiqo Intelligence - Vault Credential Bootstrap
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-intelligence-vault-bootstrap.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-vault-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    if: ${{ github.event.head_commit.message == 'Bootstrap governed Intelligence Vault credential' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_ENV: development
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_INTELLIGENCE_MODAL_BASE_URL: ""
+      AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN: ""
+
+    steps:
+      - name: Checkout exact bootstrap commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install repository dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          echo 'AVANTIQO_INTELLIGENCE_VAULT_BOOTSTRAP_SECRET_GATE=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+
+      - name: Provision and prove governed Vault credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/bootstrap-avantiqo-intelligence-vault-credential.mjs
+
+      - name: Assert bootstrap boundary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'EXTERNAL_AI_USED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'SECRET_MATERIAL_PRINTED=false'

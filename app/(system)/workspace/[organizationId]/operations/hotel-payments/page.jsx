@@ -36,6 +36,8 @@ function money(value, currency = "THB") {
   }
 }
 
+const FOLIO_EPSILON = 0.005;
+
 export default function HotelPaymentsPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -44,7 +46,7 @@ export default function HotelPaymentsPage() {
   const requestedBookingId = searchParams?.get("bookingId") || "";
   const [properties, setProperties] = useState([]);
   const [propertyId, setPropertyId] = useState("");
-  const [stays, setStays] = useState({ bookings: [], guests: [] });
+  const [stays, setStays] = useState({ bookings: [], guests: [], folios: [], folioLines: [] });
   const [transactions, setTransactions] = useState([]);
   const [bookingId, setBookingId] = useState("");
   const [transactionType, setTransactionType] = useState("PAYMENT");
@@ -98,6 +100,19 @@ export default function HotelPaymentsPage() {
   const guestById = useMemo(() => new Map((stays.guests || []).map((guest) => [guest.id, guest])), [stays.guests]);
   const booking = (stays.bookings || []).find((item) => item.id === bookingId) || null;
   const guest = booking ? guestById.get(booking.guest_id) : null;
+  const folio = (stays.folios || []).find((item) => item.booking_id === bookingId) || null;
+  const activeFolioLines = useMemo(
+    () => (stays.folioLines || []).filter((line) => line.folio_id === folio?.id && !line.voided_at),
+    [stays.folioLines, folio?.id],
+  );
+  const folioBalance = useMemo(
+    () => activeFolioLines.reduce((sum, line) => sum + Number(line.amount || 0) + Number(line.tax_amount || 0), 0),
+    [activeFolioLines],
+  );
+  const hasFolio = Boolean(folio);
+  const guestCredit = hasFolio && folioBalance < -FOLIO_EPSILON;
+  const openFolioAmountDue = hasFolio && folioBalance > FOLIO_EPSILON ? folioBalance : 0;
+  const reservationOutstanding = booking ? Math.max(Number(booking.total_amount || 0) - Number(booking.paid_amount || 0), 0) : 0;
   const bookingTransactions = useMemo(() => transactions.filter((item) => item.booking_id === bookingId), [transactions, bookingId]);
   const settled = transactions.filter((item) => item.status === "SETTLED");
   const pending = transactions.filter((item) => item.status === "PENDING");
@@ -109,13 +124,21 @@ export default function HotelPaymentsPage() {
 
   useEffect(() => {
     if (!booking) return;
-    const balance = Math.max(Number(booking.total_amount || 0) - Number(booking.paid_amount || 0), 0);
-    setAmount(balance > 0 ? String(balance) : "");
-    setDescription("");
-  }, [bookingId, booking?.total_amount, booking?.paid_amount]);
+    const recommended = transactionType === "PAYMENT" && hasFolio ? openFolioAmountDue : reservationOutstanding;
+    setAmount(recommended > FOLIO_EPSILON ? String(Number(recommended.toFixed(2))) : "");
+    setDescription(transactionType === "PAYMENT" && hasFolio ? "Folio settlement" : "");
+  }, [bookingId, transactionType, hasFolio, openFolioAmountDue, reservationOutstanding]);
 
   async function collect() {
     if (!booking || !amount) return;
+    if (transactionType === "PAYMENT" && hasFolio && guestCredit) {
+      setError("This folio has a guest credit. Resolve the credit or refund instead of collecting another stay payment.");
+      return;
+    }
+    if (transactionType === "PAYMENT" && folio?.status === "CLOSED") {
+      setError("This folio is closed. Reconcile the stay instead of collecting another payment against it.");
+      return;
+    }
     setSaving(true); setError(""); setSuccess("");
     try {
       const payload = await api("/api/hotel/payments", {
@@ -155,6 +178,7 @@ export default function HotelPaymentsPage() {
   }
 
   const paymentReturn = searchParams?.get("paymentReturn");
+  const paymentBlockedByFolio = transactionType === "PAYMENT" && hasFolio && (guestCredit || folio?.status === "CLOSED");
 
   return (
     <HotelWorkspaceShell
@@ -187,15 +211,18 @@ export default function HotelPaymentsPage() {
         <div className="grid gap-4 xl:grid-cols-[minmax(330px,0.72fr)_minmax(0,1.28fr)]">
           <HotelSection eyebrow="Collect" title={guest?.full_name || "Guest payment"} detail={`${booking.booking_reference || "Reservation"} · ${booking.check_in_date} → ${booking.check_out_date}`} action={<HotelStatusPill value={booking.payment_status || "UNPAID"} />}>
             <div className="space-y-3 p-4 md:p-5">
-              <div className="grid grid-cols-2 gap-2 rounded-xl border border-black/[0.06] bg-[#FBFAF7] p-3">
+              <div className="grid grid-cols-2 gap-2 rounded-xl border border-black/[0.06] bg-[#FBFAF7] p-3 sm:grid-cols-3">
                 <div><div className="text-[7px] uppercase tracking-[0.1em] text-[#938C84]">Stay total</div><div className="mt-1 text-[12px] font-semibold">{money(booking.total_amount, booking.currency_code)}</div></div>
                 <div><div className="text-[7px] uppercase tracking-[0.1em] text-[#938C84]">Gateway applied</div><div className="mt-1 text-[12px] font-semibold">{money(booking.paid_amount, booking.currency_code)}</div></div>
+                <div><div className="text-[7px] uppercase tracking-[0.1em] text-[#938C84]">{hasFolio ? guestCredit ? "Guest credit" : "Folio balance" : "Reservation due"}</div><div className={`mt-1 text-[12px] font-semibold ${guestCredit ? "text-[#9A533D]" : ""}`}>{money(hasFolio ? Math.abs(folioBalance) : reservationOutstanding, booking.currency_code)}</div>{hasFolio ? <div className="mt-0.5 text-[7px] text-[#918B83]">Folio {folio.status}</div> : null}</div>
               </div>
+              {guestCredit ? <div className="rounded-xl border border-[#9A533D]/20 bg-[#9A533D]/[0.04] p-3 text-[8px] leading-4 text-[#7D4939]">This folio is in credit by {money(Math.abs(folioBalance), booking.currency_code)}. Do not collect another stay payment; resolve the guest credit through the governed refund / credit flow.</div> : null}
+              {transactionType === "PAYMENT" && hasFolio && openFolioAmountDue > FOLIO_EPSILON ? <div className="rounded-xl border border-black/[0.06] bg-white p-3 text-[8px] leading-4 text-[#716B63]">Settlement amount is anchored to the live folio balance: <strong>{money(openFolioAmountDue, booking.currency_code)}</strong>. Reservation total and applied gateway amounts remain visible as supporting evidence, not the amount-due authority.</div> : null}
               <HotelField label="Purpose"><select className={hotelInputClass} value={transactionType} onChange={(event) => setTransactionType(event.target.value)}><option value="PAYMENT">Stay payment</option><option value="DEPOSIT">Deposit</option></select></HotelField>
               <HotelField label={`Amount · ${booking.currency_code || "THB"}`}><input className={hotelInputClass} inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} /></HotelField>
               <HotelField label="Description"><input className={hotelInputClass} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={transactionType === "DEPOSIT" ? "Reservation deposit" : "Stay settlement"} /></HotelField>
-              <HotelPrimaryAction disabled={saving || !amount || Number(amount) <= 0} onClick={collect}>{saving ? "Preparing…" : transactionType === "DEPOSIT" ? "Collect deposit securely" : "Collect payment securely"}</HotelPrimaryAction>
-              <p className="text-[7px] leading-4 text-[#918B83]">Avantiqo opens hosted checkout. A signed gateway confirmation triggers one governed transaction that posts cash, guest-deposit liability, Finance prepayment and Hotel folio evidence together.</p>
+              <HotelPrimaryAction disabled={saving || !amount || Number(amount) <= 0 || paymentBlockedByFolio} onClick={collect}>{saving ? "Preparing…" : transactionType === "DEPOSIT" ? "Collect deposit securely" : guestCredit ? "Resolve guest credit" : "Collect payment securely"}</HotelPrimaryAction>
+              <p className="text-[7px] leading-4 text-[#918B83]">Avantiqo opens hosted checkout. For stay settlement, a live folio balance is the amount-due authority. A signed gateway confirmation then triggers one governed transaction that posts cash, guest-deposit liability, Finance prepayment and Hotel folio evidence together.</p>
             </div>
           </HotelSection>
 

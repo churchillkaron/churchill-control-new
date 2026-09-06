@@ -1,0 +1,176 @@
+{
+  "contract": "AVANTIQO_INVESTOR_FILM_CH01_OPERATIONS_60S_V2",
+  "source_repository": "churchillkaron/churchill-control-new",
+  "authority": "OWNER_EXPLICIT_DIRECTION_2026_09_06",
+  "master": "AVANTIQO_INVESTOR_FILM_9MIN_MASTER_LOCK_V1",
+  "chapter": {
+    "number": 1,
+    "domain": "Operations",
+    "duration_seconds": 60,
+    "standalone_cut_allowed": true,
+    "visible_chapter_card_required": false,
+    "purpose": "Show what Avantiqo Operations actually does through real people doing real work on role-correct devices, with exact current Avantiqo UI and visible business consequences."
+  },
+  "hard_rules": {
+    "wrong_supplier_delivery_story_forbidden": true,
+    "fake_ui_forbidden": true,
+    "approximate_ui_forbidden": true,
+    "static_screenshot_overlay_forbidden": true,
+    "generic_dashboard_montage_forbidden": true,
+    "real_current_avantiqo_motion_required": true,
+    "scroll_type_click_navigation_must_match_current_product": true,
+    "role_correct_device_required": true,
+    "generated_humans_require_identity_anatomy_qc": true,
+    "meaningful_change_target_seconds": "2-5",
+    "meaningful_change_hard_max_seconds": 6,
+    "billion_dollar_cinematic_quality_required": true
+  },
+  "narration": [
+    "Operations is where plans become work.",
+    "The person doing the job should see exactly what they need, exactly when they need it.",
+    "A waiter works by table, guest and seat — and sends the order straight into production.",
+    "A field technician sees the next job, the site, the risk, the evidence and the follow-up.",
+    "Different industries. Different jobs. One operating logic.",
+    "Every action becomes part of the same business reality, so the next person does not have to reconstruct what happened."
+  ],
+  "beats": [
+    {
+      "id": "OP01",
+      "time": "00:00-00:06",
+      "picture": "Premium aerial/drone-style descent from real tropical business scale into an active hospitality environment, ending on a waiter moving with purpose toward a table.",
+      "product": null,
+      "effect": ["DRONE_AERIAL", "DRONE_TO_GIMBAL_HANDOFF", "MATCH_MOTION"],
+      "studio_proof": ["camera choreography", "environment continuity", "cinematic finishing"]
+    },
+    {
+      "id": "OP02",
+      "time": "00:06-00:12",
+      "picture": "Waiter naturally raises phone while arriving at the table. Camera moves close enough that the device becomes the visual focus without stopping the real-world motion.",
+      "product": {
+        "surface": "RestaurantWaiterPhone",
+        "evidence_commit": "74c53c348d0b6d42dc2df6b46b50dc558d3e1ea2",
+        "required_interaction": ["choose zone", "choose table", "guest count"],
+        "device": "phone",
+        "capture": "LIVE_CURRENT_AVANTIQO_MOTION",
+        "pixel_identity_required": true
+      },
+      "effect": ["PUSH_INTO_DEVICE", "FOCUS_PULL", "SCREEN_REFLECTION_INTEGRATION"],
+      "studio_proof": ["exact product capture", "device integration", "focus choreography"]
+    },
+    {
+      "id": "OP03",
+      "time": "00:12-00:18",
+      "picture": "Continue inside the same real Avantiqo waiter interaction: select seat, select dish, apply a modifier or note. Human hand movement and UI response remain synchronized.",
+      "product": {
+        "surface": "RestaurantWaiterPhone",
+        "evidence_commit": "74c53c348d0b6d42dc2df6b46b50dc558d3e1ea2",
+        "required_interaction": ["select seat", "open dish", "modifier or note", "add dish"],
+        "device": "phone",
+        "capture": "LIVE_CURRENT_AVANTIQO_MOTION",
+        "pixel_identity_required": true
+      },
+      "effect": ["DEVICE_TO_FULL_FRAME_UI", "MOTION_CONTINUITY", "MATCH_CUT"],
+      "studio_proof": ["live UI motion", "interaction timing", "seamless full-frame transition"]
+    },
+    {
+      "id": "OP04",
+      "time": "00:18-00:24",
+      "picture": "Waiter sends the order. The film leaves the phone through the action and lands in the real kitchen where production begins immediately.",
+      "product": {
+        "surface": "RestaurantWaiterPhone",
+        "evidence_commit": "74c53c348d0b6d42dc2df6b46b50dc558d3e1ea2",
+        "required_interaction": ["send order", "kitchen dispatch state"],
+        "device": "phone",
+        "capture": "LIVE_CURRENT_AVANTIQO_MOTION",
+        "pixel_identity_required": true
+      },
+      "effect": ["ACTION_MATCH_CUT", "DEVICE_PULL_OUT", "SOUND_BRIDGE"],
+      "studio_proof": ["causal transition", "sound design", "product-to-reality continuity"]
+    },
+    {
+      "id": "OP05",
+      "time": "00:24-00:30",
+      "picture": "Kitchen production in premium real-life detail: order enters real work, chef executes, pass moves. No software hold; the consequence is the hero.",
+      "product": null,
+      "effect": ["MACRO_DETAIL", "SPEED_RAMP_RESTRAINED", "PARALLAX_TRACK"],
+      "studio_proof": ["temporal edit control", "micro-detail cinematography", "sound-picture lock"]
+    },
+    {
+      "id": "OP06",
+      "time": "00:30-00:36",
+      "picture": "Match movement into field service: technician exits vehicle at a real commercial site, already checking the next job on a phone while walking.",
+      "product": {
+        "surface": "PestControlDispatchControl",
+        "source_path": "components/workspace/operations/pest-control/PestControlDispatchControl.jsx",
+        "route": "/workspace/{organizationId}/operations/dispatch",
+        "required_visible_state": ["work identity", "scheduled window", "assigned technician", "customer or site context", "risk or constraint"],
+        "device": "phone",
+        "capture": "LIVE_CURRENT_AVANTIQO_MOTION",
+        "pixel_identity_required": true
+      },
+      "effect": ["MATCH_MOTION", "HANDHELD_TO_STEADY_TRANSITION", "PUSH_INTO_DEVICE"],
+      "studio_proof": ["cross-location continuity", "camera transfer", "exact product capture"]
+    },
+    {
+      "id": "OP07",
+      "time": "00:36-00:42",
+      "picture": "Inside Avantiqo field-service work: exact job/site context, risk and deep link to governed work. Scroll and navigation are real current Avantiqo behavior.",
+      "product": {
+        "surface": "PestControlDispatchControl",
+        "source_path": "components/workspace/operations/pest-control/PestControlDispatchControl.jsx",
+        "route": "/workspace/{organizationId}/operations/dispatch",
+        "required_interaction": ["inspect work", "inspect risk or constraint", "open exact work order"],
+        "device": "phone",
+        "capture": "LIVE_CURRENT_AVANTIQO_MOTION",
+        "pixel_identity_required": true
+      },
+      "effect": ["DEVICE_TO_FULL_FRAME_UI", "CONTROLLED_SCROLL", "DEPTH_TRANSITION"],
+      "studio_proof": ["current UI truth", "interaction choreography", "depth transition"]
+    },
+    {
+      "id": "OP08",
+      "time": "00:42-00:48",
+      "picture": "Technician performs the real site action, records evidence and creates the follow-up only when the work requires it. Human work remains primary.",
+      "product": {
+        "surface": "Operations work order / evidence",
+        "required_interaction": ["evidence capture", "follow-up when required"],
+        "device": "phone",
+        "capture": "LIVE_CURRENT_AVANTIQO_MOTION",
+        "pixel_identity_required": true
+      },
+      "effect": ["TEMPORAL_MATCH", "BOUNDED_VFX_REPAIR_IF_NEEDED", "NATURAL_OCCLUSION_WIPE"],
+      "studio_proof": ["human continuity", "bounded repair", "physical-digital synchronization"]
+    },
+    {
+      "id": "OP09",
+      "time": "00:48-00:54",
+      "picture": "Fast but elegant cross-industry proof: hotel front desk on desktop/laptop, project supervisor on tablet, artist agency on laptop. Each device shows only its real current Avantiqo Operations/Projects workflow; no fake meta-dashboard.",
+      "product": {
+        "surfaces": ["Hotel operations", "Projects", "Artist agency operations"],
+        "device_map": ["front desk desktop or laptop", "project supervisor tablet", "artist agency laptop"],
+        "capture": "LIVE_CURRENT_AVANTIQO_MOTION",
+        "pixel_identity_required": true
+      },
+      "effect": ["MATCH_CUT_SERIES", "OBJECT_WIPE", "PARALLAX", "RACK_FOCUS"],
+      "studio_proof": ["multi-industry editorial continuity", "device-role correctness", "transition design"]
+    },
+    {
+      "id": "OP10",
+      "time": "00:54-01:00",
+      "picture": "Return from exact Avantiqo interaction to real people working smoothly. End on a clean edit-safe visual and audio resolution that can either finish the standalone Operations film or continue directly into the next domain chapter.",
+      "product": null,
+      "effect": ["PULL_OUT_FROM_DEVICE", "SOUND_RESOLUTION", "EDIT_SAFE_CHAPTER_EXIT"],
+      "studio_proof": ["modular editing", "sound mastering", "chapter-safe finishing"]
+    }
+  ],
+  "release_requirements": {
+    "all_ui_motion_capture_digests_required": true,
+    "all_generated_human_shots_require_exact_master_qc": true,
+    "no_ui_generation_by_text_to_video_model": true,
+    "no_ui_pixel_approximation": true,
+    "no_unsupported_business_metrics": true,
+    "standalone_operations_cut_must_pass": true,
+    "full_9_minute_continuity_must_pass": true
+  },
+  "status": "PRODUCTION_READY_FOR_ASSET_CAPTURE"
+}

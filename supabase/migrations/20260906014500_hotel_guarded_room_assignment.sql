@@ -107,7 +107,6 @@ begin
     select 1
     from public.hotel_maintenance_requests mr
     where mr.organization_id = p_organization_id
-      and mr.property_id = v_booking.property_id
       and mr.room_id = p_room_id
       and upper(coalesce(mr.status, '')) not in ('RESOLVED', 'CLOSED', 'COMPLETED', 'CANCELLED')
   ) then

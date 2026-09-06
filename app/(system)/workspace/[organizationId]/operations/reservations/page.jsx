@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, XCircle } from "lucide-react";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import {
@@ -25,6 +25,16 @@ function dateValue(value) {
   return String(value || "").slice(0, 10);
 }
 
+const cancellationReasons = [
+  ["GUEST_REQUEST", "Guest requested cancellation"],
+  ["INVALID_PAYMENT", "Invalid / failed payment"],
+  ["BOOKED_ELSEWHERE", "Booked elsewhere"],
+  ["TRAVEL_DISRUPTION", "Travel disruption"],
+  ["PROPERTY_UNAVAILABLE", "Property cannot honor stay"],
+  ["DUPLICATE_OR_ERROR", "Duplicate / booking error"],
+  ["OTHER", "Other"],
+];
+
 export default function OperationsReservationsPage() {
   const params = useParams();
   const businessContext = useBusinessContext() || {};
@@ -43,6 +53,7 @@ export default function OperationsReservationsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  const [cancellation, setCancellation] = useState({ bookingId: null, reason: "GUEST_REQUEST", detail: "", busy: false, error: "" });
 
   const loadWorkspace = useCallback(async () => {
     if (!organizationId) return;
@@ -176,12 +187,48 @@ export default function OperationsReservationsPage() {
     } finally { setSaving(false); }
   }
 
+  function openCancellation(booking) {
+    if (!booking?.id || String(booking.status || "").toUpperCase() !== "RESERVED") return;
+    if (cancellation.bookingId === booking.id) {
+      setCancellation({ bookingId: null, reason: "GUEST_REQUEST", detail: "", busy: false, error: "" });
+      return;
+    }
+    setCancellation({ bookingId: booking.id, reason: "GUEST_REQUEST", detail: "", busy: false, error: "" });
+  }
+
+  async function cancelReservation(booking) {
+    if (!booking?.id || cancellation.bookingId !== booking.id) return;
+    if (cancellation.reason === "OTHER" && !cancellation.detail.trim()) {
+      setCancellation((current) => ({ ...current, error: "Add a short explanation when using Other." }));
+      return;
+    }
+    setCancellation((current) => ({ ...current, busy: true, error: "" }));
+    setMessage(null);
+    try {
+      const response = await fetch("/api/hotel/bookings/cancel", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: booking.id, reason: cancellation.reason, detail: cancellation.detail }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success === false) throw new Error(result.error || "Unable to cancel reservation");
+      setCancellation({ bookingId: null, reason: "GUEST_REQUEST", detail: "", busy: false, error: "" });
+      setMessage(result.financialReviewRequired
+        ? "Reservation cancelled and stay inventory released. Payment/deposit evidence still requires an explicit refund, retention or fee decision."
+        : "Reservation cancelled and stay inventory released. No automatic fee, folio or channel decision was made.");
+      await loadWorkspace();
+    } catch (reason) {
+      setCancellation((current) => ({ ...current, busy: false, error: reason?.message || "Unable to cancel reservation" }));
+    }
+  }
+
   return (
     <HotelWorkspaceShell
       organizationId={organizationId}
       active="reservations"
       title="Reservations"
-      subtitle="Create transient stays or group pickup against live room availability after existing reservations, out-of-service rooms and unpicked group allotments are protected."
+      subtitle="Create and manage stays against live governed inventory. Cancellation releases the reservation without silently deciding deposits, fees, group blocks or channel reporting."
       context={organization?.name || "Property"}
       actions={<>
         <HotelPrimaryAction href={hotelWorkspaceHref(organizationId, "front-desk")}>Open Front Desk</HotelPrimaryAction>
@@ -214,19 +261,25 @@ export default function OperationsReservationsPage() {
           </div>
         </HotelSection>
 
-        <HotelSection eyebrow="Stay book" title="Upcoming and active stays" detail="A compact operating list that hands directly into Front Desk.">
+        <HotelSection eyebrow="Stay book" title="Upcoming and active stays" detail="Work future reservations here; Front Desk remains the arrival and in-house execution surface.">
           {loading ? <HotelEmptyState>Loading reservations…</HotelEmptyState> : upcomingBookings.length ? (
             <div className="divide-y divide-black/[0.055]">
-              <div className="hidden grid-cols-[minmax(190px,1.2fr)_110px_120px_120px_100px] gap-3 bg-[#FCFBF8] px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#969087] md:grid"><span>Guest</span><span>Room</span><span>Arrival</span><span>Departure</span><span>Status</span></div>
-              {upcomingBookings.map((booking) => (
-                <div key={booking.id} className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(190px,1.2fr)_110px_120px_120px_100px] md:items-center md:gap-3 md:px-5">
-                  <div className="truncate text-[9px] font-semibold text-[#403C37]">{booking.hotel_guests?.full_name || "Guest"}</div>
-                  <div className="text-[8px] text-[#716B63]">{booking.hotel_rooms?.room_number || "Unassigned"}</div>
-                  <div className="text-[8px] text-[#716B63]">{dateValue(booking.check_in_date)}</div>
-                  <div className="text-[8px] text-[#716B63]">{dateValue(booking.check_out_date)}</div>
-                  <HotelStatusPill value={booking.status || "RESERVED"} />
-                </div>
-              ))}
+              <div className="hidden grid-cols-[minmax(180px,1.1fr)_90px_105px_105px_90px_110px] gap-3 bg-[#FCFBF8] px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#969087] md:grid"><span>Guest</span><span>Room</span><span>Arrival</span><span>Departure</span><span>Status</span><span>Action</span></div>
+              {upcomingBookings.map((booking) => {
+                const reserved = String(booking.status || "").toUpperCase() === "RESERVED";
+                const showCancellation = cancellation.bookingId === booking.id;
+                return <div key={booking.id}>
+                  <div className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(180px,1.1fr)_90px_105px_105px_90px_110px] md:items-center md:gap-3 md:px-5">
+                    <div className="truncate text-[9px] font-semibold text-[#403C37]">{booking.hotel_guests?.full_name || "Guest"}</div>
+                    <div className="text-[8px] text-[#716B63]">{booking.hotel_rooms?.room_number || "Unassigned"}</div>
+                    <div className="text-[8px] text-[#716B63]">{dateValue(booking.check_in_date)}</div>
+                    <div className="text-[8px] text-[#716B63]">{dateValue(booking.check_out_date)}</div>
+                    <HotelStatusPill value={booking.status || "RESERVED"} />
+                    <div>{reserved ? <HotelSecondaryAction onClick={() => openCancellation(booking)}><XCircle size={9} />Cancel</HotelSecondaryAction> : <HotelSecondaryAction href={hotelWorkspaceHref(organizationId, "front-desk")}>Front Desk</HotelSecondaryAction>}</div>
+                  </div>
+                  {showCancellation ? <div className="border-t border-black/[0.05] bg-[#FBFAF7] px-4 py-3 md:px-5"><div className="grid gap-3 lg:grid-cols-[220px_minmax(220px,1fr)_auto] lg:items-end"><HotelField label="Cancellation reason"><select className={hotelInputClass} value={cancellation.reason} onChange={(event) => setCancellation((current) => ({ ...current, reason: event.target.value, error: "" }))}>{cancellationReasons.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></HotelField><HotelField label="Detail"><input className={hotelInputClass} maxLength={1000} value={cancellation.detail} onChange={(event) => setCancellation((current) => ({ ...current, detail: event.target.value, error: "" }))} placeholder={cancellation.reason === "OTHER" ? "Required explanation" : "Optional operational note"} /></HotelField><div className="flex gap-1.5"><HotelSecondaryAction onClick={() => setCancellation({ bookingId: null, reason: "GUEST_REQUEST", detail: "", busy: false, error: "" })} disabled={cancellation.busy}>Keep reservation</HotelSecondaryAction><HotelPrimaryAction onClick={() => cancelReservation(booking)} disabled={cancellation.busy}><XCircle size={9} />{cancellation.busy ? "Cancelling…" : "Confirm cancellation"}</HotelPrimaryAction></div></div><div className="mt-2 text-[7px] leading-4 text-[#918B83]">Cancellation releases this reservation from stay inventory. It does not automatically refund or forfeit deposits, post a cancellation fee, alter folio evidence, release a group allotment, or notify an OTA; those remain governed follow-up decisions.</div>{cancellation.error ? <div className="mt-2 text-[8px] text-red-800">{cancellation.error}</div> : null}</div> : null}
+                </div>;
+              })}
             </div>
           ) : <HotelEmptyState>No upcoming bookings.</HotelEmptyState>}
         </HotelSection>

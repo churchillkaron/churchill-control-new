@@ -18,7 +18,10 @@ import {
 function dateValue(value) { return String(value || "").slice(0, 10); }
 function status(value) { return String(value || "").trim().toUpperCase(); }
 function guestName(booking) { return booking?.hotel_guests?.full_name || "Guest"; }
-function businessDate(booking) { return dateValue(booking?.operational_day?.businessDate) || new Date().toISOString().slice(0, 10); }
+function businessDate(booking) {
+  if (booking?.operational_day?.configured !== true) return "";
+  return dateValue(booking?.operational_day?.businessDate);
+}
 function propertyClockLabel(booking) {
   const day = booking?.operational_day || {};
   if (!day.configured) return "Property clock not configured";
@@ -73,9 +76,15 @@ export default function HotelFrontDeskWorkBoard({ organizationId }) {
   useEffect(() => { load(); }, [load]);
 
   const queues = useMemo(() => {
-    const arrivals = bookings.filter((booking) => status(booking.status) === "RESERVED" && dateValue(booking.check_in_date) <= businessDate(booking));
+    const arrivals = bookings.filter((booking) => {
+      const day = businessDate(booking);
+      return Boolean(day) && status(booking.status) === "RESERVED" && dateValue(booking.check_in_date) <= day;
+    });
     const inHouse = bookings.filter((booking) => status(booking.status) === "CHECKED_IN");
-    const departures = inHouse.filter((booking) => dateValue(booking.check_out_date) <= businessDate(booking));
+    const departures = inHouse.filter((booking) => {
+      const day = businessDate(booking);
+      return Boolean(day) && dateValue(booking.check_out_date) <= day;
+    });
     return { ARRIVALS: arrivals, IN_HOUSE: inHouse, DEPARTURES: departures };
   }, [bookings]);
 
@@ -130,7 +139,8 @@ export default function HotelFrontDeskWorkBoard({ organizationId }) {
   }
 
   function toggleNoShow(booking) {
-    if (dateValue(booking.check_in_date) >= businessDate(booking)) return;
+    const day = businessDate(booking);
+    if (!day || dateValue(booking.check_in_date) >= day) return;
     setNoShow((currentState) => currentState.bookingId === booking.id ? { bookingId: null, busy: false, error: "" } : { bookingId: booking.id, busy: false, error: "" });
   }
 
@@ -198,6 +208,7 @@ export default function HotelFrontDeskWorkBoard({ organizationId }) {
     const code = firstDepartureCode(booking);
     const scheduled = dateValue(booking.check_out_date);
     const day = businessDate(booking);
+    if (!day) return <HotelSecondaryAction href={hotelWorkspaceHref(organizationId, "operational-day")}>Configure property clock</HotelSecondaryAction>;
     if (scheduled > day) return <><HotelPrimaryAction href={stayHref(organizationId, "stay-control", booking)}><LogOut size={9} />Leave early</HotelPrimaryAction><HotelSecondaryAction onClick={() => toggleExtension(booking)}><CalendarPlus2 size={9} />Extend stay</HotelSecondaryAction></>;
     if (booking?.departure_readiness?.can_check_out === true) return <><HotelPrimaryAction onClick={() => transition(booking, "CHECK_OUT")} disabled={busyId === booking.id}><LogOut size={9} />{busyId === booking.id ? "Checking out…" : "Check out"}</HotelPrimaryAction><HotelSecondaryAction onClick={() => toggleExtension(booking)}><CalendarPlus2 size={9} />Extend</HotelSecondaryAction></>;
     if (code === "FOLIO_OPEN_ZERO_BALANCE") return <><HotelPrimaryAction onClick={() => closeFolio(booking)} disabled={busyId === booking.id}><CheckCircle2 size={9} />Close zero folio</HotelPrimaryAction><HotelSecondaryAction href={stayHref(organizationId, "stay-control", booking)}>Review stay</HotelSecondaryAction></>;
@@ -217,7 +228,7 @@ export default function HotelFrontDeskWorkBoard({ organizationId }) {
 
   return <div className="space-y-4">
     <HotelError>{error}</HotelError>
-    {clockProblems ? <div className="rounded-2xl border border-amber-700/15 bg-amber-50 px-4 py-3 text-[8px] leading-4 text-amber-900">{clockProblems} booking{clockProblems === 1 ? "" : "s"} belong to properties without a certified operational clock. Configure those properties before relying on date-based arrival/departure decisions. <span className="ml-1 inline-block"><HotelSecondaryAction href={hotelWorkspaceHref(organizationId, "operational-day")}>Configure property clock</HotelSecondaryAction></span></div> : null}
+    {clockProblems ? <div className="rounded-2xl border border-amber-700/15 bg-amber-50 px-4 py-3 text-[8px] leading-4 text-amber-900">{clockProblems} booking{clockProblems === 1 ? "" : "s"} belong to properties without a certified operational clock. Date-driven arrivals, departures, no-shows and checkouts are hidden until those properties are configured. <span className="ml-1 inline-block"><HotelSecondaryAction href={hotelWorkspaceHref(organizationId, "operational-day")}>Configure property clock</HotelSecondaryAction></span></div> : null}
     <div className="grid gap-3 sm:grid-cols-3">
       <button type="button" onClick={() => setFilter("ARRIVALS")} className="text-left"><HotelMetric label="Arrivals" value={queues.ARRIVALS.length} detail={`${arrivalStats.ready} ready · ${arrivalStats.blocked} need work${arrivalStats.overdue ? ` · ${arrivalStats.overdue} overdue` : ""}`} attention={filter === "ARRIVALS" && (arrivalStats.blocked + arrivalStats.overdue) > 0} /></button>
       <button type="button" onClick={() => setFilter("IN_HOUSE")} className="text-left"><HotelMetric label="In house" value={queues.IN_HOUSE.length} detail="Active guests, each on its property day" attention={filter === "IN_HOUSE" && clockProblems > 0} /></button>
@@ -228,8 +239,8 @@ export default function HotelFrontDeskWorkBoard({ organizationId }) {
       {loading ? <HotelEmptyState>Building the live Front Desk queue…</HotelEmptyState> : current.length ? <div className="divide-y divide-black/[0.055]">{current.map((booking) => {
         const bookingStatus = status(booking.status);
         const day = businessDate(booking);
-        const isOverdueArrival = bookingStatus === "RESERVED" && dateValue(booking.check_in_date) < day;
-        const isOverdueDeparture = bookingStatus === "CHECKED_IN" && dateValue(booking.check_out_date) < day;
+        const isOverdueArrival = Boolean(day) && bookingStatus === "RESERVED" && dateValue(booking.check_in_date) < day;
+        const isOverdueDeparture = Boolean(day) && bookingStatus === "CHECKED_IN" && dateValue(booking.check_out_date) < day;
         const showNoShow = noShow.bookingId === booking.id;
         const showExtension = extension.bookingId === booking.id;
         const showResolver = resolver.bookingId === booking.id;

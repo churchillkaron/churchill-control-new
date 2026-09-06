@@ -63,8 +63,24 @@ jobs:
         env:
           AVANTIQO_INTELLIGENCE_MODAL_REAL_INFERENCE_APPROVED: "NO"
         run: |
-          set -euo pipefail
-          bash scripts/run-avantiqo-intelligence-modal-direct-certification-local.sh
+          set -uo pipefail
+          mkdir -p preflight-evidence
+          set +e
+          bash scripts/run-avantiqo-intelligence-modal-direct-certification-local.sh 2>&1 | tee preflight-evidence/preflight.log
+          status=${PIPESTATUS[0]}
+          echo "$status" > preflight-evidence/exit-code.txt
+          exit "$status"
+
+      - name: Upload preflight evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-intelligence-governed-preflight-${{ github.run_id }}
+          path: |
+            preflight-evidence/
+            local-audit-output/avantiqo-intelligence-modal-direct-service-certification/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Assert preflight boundary
         if: ${{ always() }}

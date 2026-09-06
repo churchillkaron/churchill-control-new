@@ -40,21 +40,44 @@ export async function GET(request) {
       .order("created_at", { ascending: false });
     if (error) throw error;
 
+    const requestIds = [...new Set((requests || []).map((item) => item.id).filter(Boolean))];
     const roomIds = [...new Set((requests || []).map((item) => item.room_id).filter(Boolean))];
-    const { data: rooms, error: roomError } = roomIds.length
-      ? await supabaseAdmin
-          .from("hotel_rooms")
-          .select("id,property_id,room_number,room_type,status")
-          .eq("organization_id", access.organizationId)
-          .in("id", roomIds)
-      : { data: [], error: null };
-    if (roomError) throw roomError;
-    const roomById = new Map((rooms || []).map((room) => [room.id, room]));
+    const [roomsResult, eventsResult] = await Promise.all([
+      roomIds.length
+        ? supabaseAdmin
+            .from("hotel_rooms")
+            .select("id,property_id,room_number,room_type,status")
+            .eq("organization_id", access.organizationId)
+            .in("id", roomIds)
+        : Promise.resolve({ data: [], error: null }),
+      requestIds.length
+        ? supabaseAdmin
+            .from("hotel_maintenance_resolution_events")
+            .select("id,request_id,room_id,technician_staff_account_id,action,outcome_code,resolution_notes,evidence_reference,created_at")
+            .eq("organization_id", access.organizationId)
+            .in("request_id", requestIds)
+            .order("created_at", { ascending: false })
+            .limit(1000)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (roomsResult.error) throw roomsResult.error;
+    if (eventsResult.error) throw eventsResult.error;
+
+    const roomById = new Map((roomsResult.data || []).map((room) => [room.id, room]));
+    const eventsByRequest = new Map();
+    for (const event of eventsResult.data || []) {
+      if (!eventsByRequest.has(event.request_id)) eventsByRequest.set(event.request_id, []);
+      eventsByRequest.get(event.request_id).push(event);
+    }
 
     return NextResponse.json({
       success: true,
       organizationId: access.organizationId,
-      requests: (requests || []).map((item) => ({ ...item, hotel_rooms: item.room_id ? roomById.get(item.room_id) || null : null })),
+      requests: (requests || []).map((item) => ({
+        ...item,
+        hotel_rooms: item.room_id ? roomById.get(item.room_id) || null : null,
+        maintenance_events: eventsByRequest.get(item.id) || [],
+      })),
     });
   } catch (error) {
     console.error("HOTEL_MAINTENANCE_REQUESTS_LIST_ERROR", error);
@@ -81,13 +104,14 @@ export async function POST(request) {
     const access = await requireOrganizationAccess({ organizationId: existing.organization_id, request });
     if (!access.success) return fail(access.error, access.status);
 
+    const resolutionNotes = String(body.resolutionNotes || body.resolution_notes || "").trim() || null;
     const { data, error } = await supabaseAdmin.rpc("hotel_transition_maintenance_request", {
       p_organization_id: access.organizationId,
       p_request_id: requestId,
       p_action: action,
-      p_outcome_code: String(body.outcomeCode || body.outcome_code || "").trim() || null,
-      p_resolution_notes: String(body.resolutionNotes || body.resolution_notes || "").trim() || null,
-      p_evidence_reference: String(body.evidenceReference || body.evidence_reference || "").trim() || null,
+      p_outcome_code: action === "RESOLVE" ? String(body.outcomeCode || body.outcome_code || "").trim() || null : null,
+      p_resolution_notes: ["RESOLVE", "REOPEN"].includes(action) ? resolutionNotes : null,
+      p_evidence_reference: action === "RESOLVE" ? String(body.evidenceReference || body.evidence_reference || "").trim() || null : null,
       p_technician_staff_account_id: access.access?.staffAccountId || null,
     });
     if (error) {

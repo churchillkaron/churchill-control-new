@@ -28,8 +28,10 @@ function RestaurantSaleSurface(props) {
   const requestedView = String(searchParams.get("view") || "").trim().toLowerCase();
   const requestedTable = String(searchParams.get("table") || "").trim() || null;
   const waiterMode = requestedView === "waiter" || requestedView === "service";
-  const canOrder = props.posRuntime?.capabilities?.actions?.order_entry === true;
-  const canSettle = props.posRuntime?.capabilities?.actions?.payment === true;
+  const actions = props.posRuntime?.capabilities?.actions || {};
+  const canOrder = actions.order_entry === true;
+  const canSettle = actions.payment === true;
+  const canCorrectPayment = actions.payment_correction === true;
   const [checkoutVersion, setCheckoutVersion] = useState(0);
   const [activeTableReference, setActiveTableReference] = useState(requestedTable);
 
@@ -109,11 +111,13 @@ function RestaurantSaleSurface(props) {
                   onRefresh={props.refreshPOSRuntime}
                   onPaymentComplete={refreshStationary}
                 />
-                <RestaurantPaymentCorrections
-                  posConfiguration={props.posConfiguration}
-                  refreshKey={checkoutVersion}
-                  onCorrected={refreshStationary}
-                />
+                {canCorrectPayment ? (
+                  <RestaurantPaymentCorrections
+                    posConfiguration={props.posConfiguration}
+                    refreshKey={checkoutVersion}
+                    onCorrected={refreshStationary}
+                  />
+                ) : null}
               </>
             ) : (
               <div
@@ -123,7 +127,7 @@ function RestaurantSaleSurface(props) {
                 <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#9A744B]">Settlement</div>
                 <div className="mt-2 text-sm font-semibold">Cashier authority required</div>
                 <div className="mt-2 text-xs leading-5 text-[#6C6963]">
-                  Payment and payment corrections are hidden because the signed-in role is not authorized to settle checks.
+                  Payment is hidden because the signed-in role is not authorized to settle checks.
                 </div>
               </div>
             )}

@@ -5,6 +5,7 @@ import Link from "next/link";
 export const HOTEL_WORKSPACE_NAV = Object.freeze([
   { id: "control", label: "Hotel Control", route: "hotel" },
   { id: "front-desk", label: "Front Desk", route: "front-desk" },
+  { id: "shift-handover", label: "Shift Handover", route: "shift-handover" },
   { id: "reservations", label: "Reservations", route: "reservations" },
   { id: "channel-reservations", label: "Channel Reservations", route: "channel-reservations" },
   { id: "groups", label: "Groups", route: "group-reservations" },

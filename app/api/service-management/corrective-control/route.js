@@ -11,7 +11,6 @@ const SLA_HOURS = Object.freeze({ critical: 4, high: 24, medium: 72, low: 168 })
 const TERMINAL_WORK = new Set(["complete", "completed", "cancelled", "canceled", "archived"]);
 
 function normalized(value) { return String(value ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_"); }
-function text(value) { return String(value ?? "").trim() || null; }
 function severityFor(followUp = {}) {
   const explicit = normalized(followUp.protocol_submission?.service_exception?.severity);
   if (SLA_HOURS[explicit]) return explicit;
@@ -35,7 +34,6 @@ function stageFor({ request, workOrder, resolution }) {
   if (status === "assigned") return "assigned";
   return "needs_assignment";
 }
-
 function responseError(error, status = 500) {
   return Response.json({ success: false, error: error?.message || error || "Corrective service control could not be loaded." }, { status: error?.status || status });
 }
@@ -48,15 +46,10 @@ export async function GET(request) {
     if (!resolved.success) return responseError(resolved.error, resolved.status || 403);
     const organizationId = resolved.context.organization_id;
 
-    let requestQuery = supabaseAdmin
-      .from("operations_records")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .eq("capability_id", "work-requests")
-      .eq("source_domain", "service-management")
-      .eq("source_type", "service-follow-up")
-      .order("created_at", { ascending: false })
-      .limit(Math.min(Number(input.limit) || 500, 1000));
+    let requestQuery = supabaseAdmin.from("operations_records").select("*")
+      .eq("organization_id", organizationId).eq("capability_id", "work-requests")
+      .eq("source_domain", "service-management").eq("source_type", "service-follow-up")
+      .order("created_at", { ascending: false }).limit(Math.min(Number(input.limit) || 500, 1000));
     if (resolved.context.entity_id) requestQuery = requestQuery.or(`entity_id.eq.${resolved.context.entity_id},entity_id.is.null`);
     const requestResult = await requestQuery;
     if (requestResult.error) throw requestResult.error;
@@ -65,43 +58,43 @@ export async function GET(request) {
 
     let workOrders = [];
     if (requestIds.length) {
-      let workQuery = supabaseAdmin
-        .from("operations_records")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .eq("capability_id", "work-orders")
-        .eq("source_domain", "service-management")
-        .eq("source_type", "service-follow-up-work-request")
-        .in("source_id", requestIds)
-        .order("created_at", { ascending: false });
+      let workQuery = supabaseAdmin.from("operations_records").select("*")
+        .eq("organization_id", organizationId).eq("capability_id", "work-orders")
+        .eq("source_domain", "service-management").eq("source_type", "service-follow-up-work-request")
+        .in("source_id", requestIds).order("created_at", { ascending: false });
       if (resolved.context.entity_id) workQuery = workQuery.or(`entity_id.eq.${resolved.context.entity_id},entity_id.is.null`);
       const workResult = await workQuery;
       if (workResult.error) throw workResult.error;
       workOrders = workResult.data || [];
     }
 
-    const occurrenceIds = requests.map((row) => row.attributes?.service_follow_up?.occurrence_id).filter(Boolean);
-    let originals = [];
-    if (occurrenceIds.length) {
-      let occurrenceQuery = supabaseAdmin
-        .from("service_plan_occurrences")
-        .select("id,organization_id,entity_id,status,completed_at,attributes")
+    const originalIds = requests.map((row) => row.attributes?.service_follow_up?.occurrence_id).filter(Boolean);
+    const correctiveWorkOrderIds = workOrders.map((row) => row.id).filter(Boolean);
+    let occurrences = [];
+    const occurrenceOr = [];
+    if (originalIds.length) occurrenceOr.push(`id.in.(${[...new Set(originalIds)].join(",")})`);
+    if (correctiveWorkOrderIds.length) occurrenceOr.push(`work_order_id.in.(${[...new Set(correctiveWorkOrderIds)].join(",")})`);
+    if (occurrenceOr.length) {
+      let occurrenceQuery = supabaseAdmin.from("service_plan_occurrences")
+        .select("id,organization_id,entity_id,work_order_id,status,completed_at,attributes")
         .eq("organization_id", organizationId)
-        .in("id", [...new Set(occurrenceIds)]);
+        .or(occurrenceOr.join(","));
       if (resolved.context.entity_id) occurrenceQuery = occurrenceQuery.or(`entity_id.eq.${resolved.context.entity_id},entity_id.is.null`);
       const occurrenceResult = await occurrenceQuery;
       if (occurrenceResult.error) throw occurrenceResult.error;
-      originals = occurrenceResult.data || [];
+      occurrences = occurrenceResult.data || [];
     }
 
     const workByRequest = new Map();
     for (const row of workOrders) if (!workByRequest.has(row.source_id)) workByRequest.set(row.source_id, row);
-    const originalById = new Map(originals.map((row) => [row.id, row]));
+    const originalById = new Map(occurrences.map((row) => [row.id, row]));
+    const occurrenceByWorkOrder = new Map(occurrences.filter((row) => row.work_order_id).map((row) => [row.work_order_id, row]));
     const now = Date.now();
 
     const rows = requests.map((requestRow) => {
       const followUp = requestRow.attributes?.service_follow_up || {};
       const workOrder = workByRequest.get(requestRow.id) || null;
+      const correctiveOccurrence = workOrder ? occurrenceByWorkOrder.get(workOrder.id) || null : null;
       const original = originalById.get(followUp.occurrence_id) || null;
       const resolution = original?.attributes?.completion?.follow_up_resolution || null;
       const matchingResolution = resolution?.work_request_id === requestRow.id ? resolution : null;
@@ -114,7 +107,6 @@ export async function GET(request) {
       return {
         work_request_id: requestRow.id,
         work_request_status: requestRow.status,
-        allowed_commands: requestRow.allowed_commands || [],
         stage,
         severity,
         requested_at: requestedAt,
@@ -134,7 +126,8 @@ export async function GET(request) {
         corrective_assigned_to: workOrder?.assigned_to || null,
         corrective_scheduled_start: workOrder?.scheduled_start || null,
         corrective_scheduled_end: workOrder?.scheduled_end || null,
-        corrective_occurrence_id: workOrder?.attributes?.service_delivery?.corrective_occurrence_id || matchingResolution?.corrective_occurrence_id || null,
+        corrective_occurrence_id: correctiveOccurrence?.id || matchingResolution?.corrective_occurrence_id || null,
+        corrective_occurrence_status: correctiveOccurrence?.status || null,
         resolved_at: matchingResolution?.resolved_at || null,
         resolution: matchingResolution,
       };

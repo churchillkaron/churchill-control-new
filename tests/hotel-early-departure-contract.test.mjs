@@ -6,6 +6,7 @@ const migration = fs.readFileSync("supabase/migrations/20260906003000_hotel_earl
 const route = fs.readFileSync("app/api/hotel/bookings/early-departure/route.js", "utf8");
 const readiness = fs.readFileSync("lib/hotel/server/getHotelDepartureReadiness.js", "utf8");
 const transition = fs.readFileSync("lib/hotel/server/transitionHotelBooking.js", "utf8");
+const operationalDate = fs.readFileSync("lib/hotel/server/getHotelOperationalDate.js", "utf8");
 const control = fs.readFileSync("components/workspace/hotel/HotelEarlyDepartureControl.jsx", "utf8");
 const stayControl = fs.readFileSync("app/(system)/workspace/[organizationId]/operations/stay-control/page.jsx", "utf8");
 
@@ -19,14 +20,17 @@ test("booked departure is preserved while actual departure gets separate evidenc
 });
 
 test("early departure eligibility is derived server-side and limited to in-house future stays", () => {
-  assert.match(route, /const businessDate = todayIso\(\)/);
+  assert.match(route, /getHotelOperationalDate/);
+  assert.match(route, /const businessDate = operationalDate\.businessDate/);
   assert.doesNotMatch(route, /body\.businessDate/);
   assert.match(route, /organizationId: existing\.organization_id/);
+  assert.match(route, /propertyId: existing\.property_id/);
   assert.match(route, /requireOrganizationAccess/);
   assert.match(route, /Only an in-house stay can use early departure/);
   assert.match(route, /scheduledDeparture <= businessDate/);
   assert.match(route, /\.eq\("status", "CHECKED_IN"\)/);
   assert.match(route, /\.gt\("check_out_date", businessDate\)/);
+  assert.match(operationalDate, /compatibilityFallback/);
 });
 
 test("early departure requires preparation and explicit commercial review", () => {
@@ -50,8 +54,10 @@ test("future-dated normal checkout fails closed until early departure review is 
   assert.match(readiness, /confirm the unused-night \/ refund \/ fee treatment before check-out/);
 });
 
-test("checkout records actual departure without rewriting booked checkout date", () => {
-  assert.match(transition, /businessDate: new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
+test("checkout uses the same property operational date and records actual departure", () => {
+  assert.match(transition, /getHotelOperationalDate/);
+  assert.match(transition, /propertyId: booking\.property_id/);
+  assert.match(transition, /businessDate: operationalDate\.businessDate/);
   assert.match(transition, /actual_check_out_at: changedAt/);
   assert.doesNotMatch(transition, /check_out_date: changedAt/);
   assert.match(transition, /status: transition\.toStatus/);

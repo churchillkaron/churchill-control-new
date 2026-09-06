@@ -46,6 +46,9 @@ export async function register() {
       "@/lib/creative/production/review/runtime/CreativeProductionTaskReviewSettlementGate"
     );
     await import(
+      "@/lib/creative/quality/runtime/CreativeWorldClassQualityBootstrap"
+    );
+    await import(
       "@/lib/creative/quality/runtime/CreativeGeneratedMediaRecoveryBootstrap"
     );
     await import(
@@ -77,6 +80,9 @@ export async function register() {
     );
     await import(
       "@/lib/creative/quality/runtime/CreativePerceptualCandidateSelectionBridgeBootstrap"
+    );
+    await import(
+      "@/lib/creative/quality/runtime/CreativeShotCandidateQualityGateBootstrap"
     );
     await import(
       "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"

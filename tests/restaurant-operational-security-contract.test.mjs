@@ -22,12 +22,18 @@ test("restaurant operational tables are server-authoritative", async () => {
   assert.doesNotMatch(migration, /'pos_discounts'/);
 });
 
-test("payment corrections use the central role policy without permission widening", async () => {
+test("payment corrections use the exact central role policy used by the database", async () => {
   const policy = await readFile(new URL(`../${policyPath}`, import.meta.url), "utf8");
   const correction = await readFile(new URL(`../${correctionPath}`, import.meta.url), "utf8");
+  const correctionRoles = policy.match(/const PAYMENT_CORRECTION_ROLES = new Set\(\[([\s\S]*?)\]\);/)?.[1] || "";
 
-  assert.match(policy, /const PAYMENT_CORRECTION_ROLES = new Set\(\[[\s\S]*"MANAGER"[\s\S]*"GENERAL_MANAGER"/);
-  assert.match(policy, /PAYMENT_CORRECTION:\s*Object\.freeze\(\{[\s\S]*roles: PAYMENT_CORRECTION_ROLES,[\s\S]*permissions: Object\.freeze\(\[\]\),[\s\S]*fallback: false/);
+  for (const role of ["MANAGER", "GENERAL_MANAGER", "OWNER", "ORGANIZATION_OWNER", "ORG_OWNER", "PLATFORM_OWNER", "SUPER_ADMIN"]) {
+    assert.match(correctionRoles, new RegExp(`"${role}"`));
+  }
+  assert.doesNotMatch(correctionRoles, /"ADMIN"/);
+  assert.doesNotMatch(correctionRoles, /"SUPERVISOR"|"SHIFT_MANAGER"|"DUTY_MANAGER"/);
+  assert.match(policy, /PAYMENT_CORRECTION:\s*Object\.freeze\(\{[\s\S]*roles: PAYMENT_CORRECTION_ROLES,[\s\S]*permissions: Object\.freeze\(\[\]\),[\s\S]*exact_roles: true,[\s\S]*fallback: false/);
+  assert.match(policy, /if \(!policy\.exact_roles && FULL_ACCESS_ROLES\.has\(snapshot\.role\)\) return true/);
   assert.match(correction, /canExecutePOSAction\(\{ access, action: "PAYMENT_CORRECTION" \}\)/);
   assert.doesNotMatch(correction, /const CORRECTION_ROLES/);
 });

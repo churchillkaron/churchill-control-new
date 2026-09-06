@@ -91,4 +91,4 @@ jobs:
           echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
           echo 'SECRET_MATERIAL_PRINTED=false'
 
-# rerun after governed credential guard alignment
+# rerun after explicit Modal-only execution policy declaration

@@ -1,4 +1,4 @@
-# trigger: investor-modal-repair-2026-09-06-1
+# trigger: investor-modal-repair-2026-09-06-2
 name: Avantiqo Investor Modal Live Diagnostic Once
 
 on:
@@ -50,7 +50,7 @@ jobs:
 
           fn = modal.Function.from_name(
               "avantiqo-video-owned",
-              "modal_investor_t2v.seed_investor_t2v_cache",
+              "seed_investor_t2v_cache",
           )
           result = fn.remote()
           print(json.dumps(result, sort_keys=True))
@@ -60,6 +60,7 @@ jobs:
           PY
 
       - name: Check repaired app logs for crash-loop signature
+        if: always()
         shell: bash
         run: |
           set -euo pipefail

@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/billing/stripe";
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+async function invalidateHotelSettlement(organizationId, action) {
+  await broadcastHotelReadinessChanged({
+    organizationId,
+    source: "hotel-payment-webhook",
+    action,
+  });
+}
 
 async function finalizeHotelPayment(event, session) {
   const transactionId = session?.metadata?.hotelTransactionId;
@@ -13,10 +22,12 @@ async function finalizeHotelPayment(event, session) {
     p_provider_payment_id: session.payment_intent ? String(session.payment_intent) : null,
   });
   if (error) throw error;
+
+  await invalidateHotelSettlement(session?.metadata?.organizationId, "PAYMENT_SETTLED");
   return data;
 }
 
-async function failHotelTransaction(transactionId, reason, providerEventId) {
+async function failHotelTransaction(transactionId, reason, providerEventId, organizationId) {
   if (!transactionId) return;
   const { error } = await supabaseAdmin
     .from("hotel_payment_transactions")
@@ -30,6 +41,8 @@ async function failHotelTransaction(transactionId, reason, providerEventId) {
     .eq("processor_mode", "AVANTIQO_GATEWAY")
     .eq("status", "PENDING");
   if (error) throw error;
+
+  await invalidateHotelSettlement(organizationId, "PAYMENT_FAILED");
 }
 
 async function reconcileHotelRefund(event, refund) {
@@ -44,11 +57,18 @@ async function reconcileHotelRefund(event, refund) {
       p_provider_refund_id: refund.id,
     });
     if (error) throw error;
+
+    await invalidateHotelSettlement(refund?.metadata?.organizationId, "REFUND_SETTLED");
     return data;
   }
 
   if (["failed", "canceled"].includes(String(refund.status || "").toLowerCase())) {
-    await failHotelTransaction(transactionId, `Stripe refund ${refund.status}`, event.id);
+    await failHotelTransaction(
+      transactionId,
+      `Stripe refund ${refund.status}`,
+      event.id,
+      refund?.metadata?.organizationId,
+    );
   }
 }
 
@@ -95,6 +115,7 @@ export async function POST(req) {
           session.metadata.hotelTransactionId,
           event.type === "checkout.session.expired" ? "Stripe Checkout session expired" : "Stripe asynchronous payment failed",
           event.id,
+          session.metadata.organizationId,
         );
       }
     }

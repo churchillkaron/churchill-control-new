@@ -6,12 +6,15 @@ from pathlib import Path
 
 import modal
 
-CONTRACT = "AVANTIQO_INVESTOR_FIRST_MINUTE_PHOTOREAL_KEYFRAMES_V1"
+CONTRACT = "AVANTIQO_INVESTOR_FIRST_MINUTE_PHOTOREAL_KEYFRAMES_V2"
 APP_NAME = "avantiqo-image-owned"
 FUNCTION_NAME = "generate_investor_keyframe"
 REMOTE_ROOT = "investor-first-minute-photoreal-keyframes"
 WIDTH = 1920
 HEIGHT = 1088
+CHARACTER_CONTRACT = "AVANTIQO_IMAGE_CHARACTER_KEYFRAME_V1"
+RECURRING_CHARACTER_ID = "investor-owner-manager-01"
+RECURRING_CHARACTER_SHOTS = frozenset({"07-owner-decision", "10-real-result"})
 
 COMMON = (
     " Real location photography, not concept art. Documentary-level realism with feature-film lighting. "
@@ -39,7 +42,19 @@ def main() -> None:
     remote_root = f"{REMOTE_ROOT}/{commit}"
     fn = modal.Function.from_name(APP_NAME, FUNCTION_NAME).with_options(max_containers=3, timeout=1200, scaledown_window=5)
     pending = []
+    identity_required = []
+
     for shot_id, seed, prompt in SHOTS:
+        if shot_id in RECURRING_CHARACTER_SHOTS:
+            identity_required.append({
+                "id": shot_id,
+                "character_id": RECURRING_CHARACTER_ID,
+                "required_contract": CHARACTER_CONTRACT,
+                "status": "IDENTITY_BOUND_ASSET_REQUIRED",
+                "generic_prompt_generation_blocked": True,
+            })
+            print(f"{CONTRACT}_IDENTITY_LANE_REQUIRED={shot_id}:{RECURRING_CHARACTER_ID}", flush=True)
+            continue
         relative = f"{remote_root}/{shot_id}.png"
         call = fn.spawn(relative, prompt + COMMON, WIDTH, HEIGHT, seed)
         pending.append((shot_id, seed, relative, call))
@@ -57,17 +72,25 @@ def main() -> None:
         completed.append({"id": shot_id, "seed": seed, "remote_path": relative, "generation": result})
         print(f"{CONTRACT}_PASS={shot_id}", flush=True)
 
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps({
-        "success": True,
+    report = {
+        "success": False,
         "contract": CONTRACT,
+        "source_repository": "churchillkaron/churchill-control-new",
         "source_commit": commit,
-        "keyframe_count": len(completed),
+        "generic_keyframe_count": len(completed),
         "food_shot_reused_from_previous_visual_pass": True,
         "animation_authorized": False,
         "human_visual_review_required": True,
+        "recurring_character_policy": "PROMPT_ONLY_IDENTITY_CONTINUITY_FORBIDDEN",
+        "identity_bound_character_contract": CHARACTER_CONTRACT,
+        "identity_required": identity_required,
         "shots": completed,
-    }, indent=2) + "\n", encoding="utf-8")
+    }
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    if identity_required:
+        print(f"{CONTRACT}=BLOCKED_IDENTITY_BOUND_ASSETS_REQUIRED", flush=True)
+        raise SystemExit(2)
     print(f"{CONTRACT}=PASS", flush=True)
 
 

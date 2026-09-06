@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, CalendarClock, ChevronLeft, ChevronRight, ExternalLink, FileSearch2, RefreshCw, ShieldCheck } from "lucide-react";
+import FinanceTaxPostingEvidenceReview, { isFinanceTaxPostingIssue } from "@/components/workspace/finance/FinanceTaxPostingEvidenceReview";
 
 async function requestJson(url) {
   const response = await fetch(url, { credentials: "include", cache: "no-store" });
@@ -285,6 +286,7 @@ function EvidenceRecord({ issue, onOpenCalendar }) {
   const registrationEvidence = issue.registration_evidence || null;
   const vatRuleEvidence = issue.vat_rule_evidence || null;
   const codingIssue = isCodingIssue(issue.code);
+  const postingIssue = isFinanceTaxPostingIssue(issue.code);
 
   return <div className="rounded-lg border border-black/[0.07] bg-white p-3">
     <div className="flex items-start justify-between gap-3">
@@ -302,8 +304,9 @@ function EvidenceRecord({ issue, onOpenCalendar }) {
     <RegistrationReview evidence={registrationEvidence} issue={issue} onOpenReturn={onOpenCalendar}/>
     <VatRuleReview evidence={vatRuleEvidence} issue={issue}/>
     <CodingReview issue={issue} source={source} line={line} rule={rule} journal={journal} navigation={navigation}/>
+    <FinanceTaxPostingEvidenceReview issue={issue} source={source} journal={journal} navigation={navigation}/>
 
-    {!calendarEvidence && !calculationEvidence && !registrationEvidence && !vatRuleEvidence && !codingIssue ? <>
+    {!calendarEvidence && !calculationEvidence && !registrationEvidence && !vatRuleEvidence && !codingIssue && !postingIssue ? <>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase text-[#968F87]">Source document</div><div className="mt-1 text-[8px]">{source ? source.reference || source.id : "Context evidence"}</div></div>
         <div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase text-[#968F87]">Tax line</div><div className="mt-1 text-[8px]">{line ? line.line_number ?? line.id : "No line-level record for this blocker"}</div></div>

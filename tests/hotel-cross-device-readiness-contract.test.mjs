@@ -16,6 +16,9 @@ const checkOut = fs.readFileSync("app/api/hotel/bookings/check-out/route.js", "u
 const extension = fs.readFileSync("app/api/hotel/bookings/extend/route.js", "utf8");
 const noShow = fs.readFileSync("app/api/hotel/bookings/no-show/route.js", "utf8");
 const earlyDeparture = fs.readFileSync("app/api/hotel/bookings/early-departure/route.js", "utf8");
+const bookingCreate = fs.readFileSync("app/api/hotel/bookings/create/route.js", "utf8");
+const bookingCancel = fs.readFileSync("app/api/hotel/bookings/cancel/route.js", "utf8");
+const bookingReinstate = fs.readFileSync("app/api/hotel/bookings/reinstate/route.js", "utf8");
 const stayControl = fs.readFileSync("app/api/hotel/stays/route.js", "utf8");
 const frontDesk = fs.readFileSync("components/workspace/hotel/HotelFrontDeskWorkBoard.jsx", "utf8");
 const billingWebhook = fs.readFileSync("app/api/billing/webhook/route.js", "utf8");
@@ -85,6 +88,17 @@ test("live Front Desk mutations invalidate other Hotel devices after governed wr
   assert.ok(stayControl.indexOf('rpc("hotel_assign_booking_room_guarded"') < stayControl.indexOf('source: "stay-control-room-assignment"'));
   assert.ok(stayControl.indexOf('from("hotel_folio_lines").insert') < stayControl.indexOf('action: "ADD_FOLIO_LINE"'));
   assert.ok(stayControl.indexOf('update({ status: "CLOSED"') < stayControl.indexOf('action: "CLOSE_FOLIO"'));
+});
+
+test("reservation lifecycle changes wake arrivals and inventory after governed writes", () => {
+  for (const source of [bookingCreate, bookingCancel, bookingReinstate]) {
+    assert.match(source, /broadcastHotelReadinessChanged/);
+    assert.match(source, /source: "reservation-lifecycle"/);
+  }
+
+  assert.ok(bookingCreate.indexOf('rpc("hotel_create_booking_guarded"') < bookingCreate.indexOf('action: "CREATE"'));
+  assert.ok(bookingCancel.indexOf('status: "CANCELLED"') < bookingCancel.indexOf('action: "CANCEL"'));
+  assert.ok(bookingReinstate.indexOf('rpc("hotel_reinstate_checkout"') < bookingReinstate.indexOf('action: "REINSTATE_CHECKOUT"'));
 });
 
 test("verified gateway settlement wakes Hotel departure readiness without exposing payment data", () => {

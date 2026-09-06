@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { getHotelOperationalDate } from "@/lib/hotel/server/getHotelOperationalDate";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -193,6 +194,13 @@ export async function POST(request) {
     if (rpcError) return fail(rpcError.message || "Checkout could not be reinstated", 409);
 
     const updatedBooking = Array.isArray(booking) ? booking[0] || null : booking;
+
+    await broadcastHotelReadinessChanged({
+      organizationId: context.access.organizationId,
+      source: "reservation-lifecycle",
+      action: "REINSTATE_CHECKOUT",
+    });
+
     return NextResponse.json({
       success: true,
       booking: updatedBooking,

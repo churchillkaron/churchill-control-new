@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import RestaurantAvantiqoTheme from "@/components/workspace/operations/RestaurantAvantiqoTheme";
 import POSInlineCheckout from "./POSInlineCheckout";
 import PaymentWorkspace from "./PaymentWorkspace";
+import RestaurantPaymentCorrections from "./RestaurantPaymentCorrections";
 import RestaurantStationaryOrderSurface from "./RestaurantStationaryOrderSurface";
 import RestaurantWaiterPhoneSurface from "./RestaurantWaiterPhoneSurface";
 import RetailCatalogWorkspace from "./RetailCatalogWorkspace";
@@ -52,6 +53,11 @@ function RestaurantSaleSurface(props) {
     );
   }
 
+  function refreshStationary() {
+    setCheckoutVersion((current) => current + 1);
+    props.refreshPOSRuntime?.();
+  }
+
   return (
     <RestaurantAvantiqoTheme mode="service">
       <div className="min-h-screen bg-black text-white" data-restaurant-stationary-pos="true" data-pos-unified-sale="true">
@@ -73,7 +79,7 @@ function RestaurantSaleSurface(props) {
               {...props}
               preferredTableReference={requestedTable}
               onActiveContextChange={setActiveTableReference}
-              onOrderComplete={() => setCheckoutVersion((current) => current + 1)}
+              onOrderComplete={refreshStationary}
             />
           </div>
 
@@ -84,10 +90,12 @@ function RestaurantSaleSurface(props) {
               preferredContextReference={activeTableReference}
               compact
               onRefresh={props.refreshPOSRuntime}
-              onPaymentComplete={() => {
-                setCheckoutVersion((current) => current + 1);
-                props.refreshPOSRuntime?.();
-              }}
+              onPaymentComplete={refreshStationary}
+            />
+            <RestaurantPaymentCorrections
+              posConfiguration={props.posConfiguration}
+              refreshKey={checkoutVersion}
+              onCorrected={refreshStationary}
             />
           </aside>
         </div>

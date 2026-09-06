@@ -17,19 +17,25 @@ create table if not exists public.restaurant_order_item_corrections (
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   constraint restaurant_order_item_corrections_type_check
-    check (upper(correction_type) = 'VOID'),
+    check (upper(correction_type) in ('VOID','COMP')),
+  constraint restaurant_order_item_corrections_application_check
+    check (lower(application_id) = 'restaurant'),
+  constraint restaurant_order_item_corrections_reason_check
+    check (length(btrim(reason)) > 0),
+  constraint restaurant_order_item_corrections_idempotency_check
+    check (length(btrim(idempotency_key)) > 0),
   constraint restaurant_order_item_corrections_original_amount_check
     check (original_amount >= 0),
   constraint restaurant_order_item_corrections_corrected_amount_check
-    check (corrected_amount >= 0)
+    check (corrected_amount >= 0 and corrected_amount <= original_amount)
 );
 
 create unique index if not exists restaurant_order_item_corrections_idempotency_uidx
   on public.restaurant_order_item_corrections (organization_id, entity_id, idempotency_key);
 
-create unique index if not exists restaurant_order_item_one_void_uidx
+create unique index if not exists restaurant_order_item_one_charge_removal_uidx
   on public.restaurant_order_item_corrections (organization_id, entity_id, order_item_id)
-  where upper(correction_type) = 'VOID';
+  where upper(correction_type) in ('VOID','COMP');
 
 create index if not exists restaurant_order_item_corrections_order_created_idx
   on public.restaurant_order_item_corrections (organization_id, entity_id, order_id, created_at desc);
@@ -38,7 +44,8 @@ alter table public.restaurant_order_item_corrections enable row level security;
 revoke all on table public.restaurant_order_item_corrections from public, anon, authenticated;
 grant all on table public.restaurant_order_item_corrections to service_role;
 
-create or replace function public.restaurant_void_order_item_atomic(
+create or replace function public.restaurant_correct_order_item_atomic(
+  p_correction_type text,
   p_organization_id uuid,
   p_entity_id uuid,
   p_application_id text,
@@ -54,10 +61,11 @@ create or replace function public.restaurant_void_order_item_atomic(
 )
 returns jsonb
 language plpgsql
-security definer
+security invoker
 set search_path to ''
 as $$
 declare
+  v_correction_type text := upper(pg_catalog.btrim(coalesce(p_correction_type, '')));
   v_application_id text := lower(pg_catalog.btrim(coalesce(p_application_id, '')));
   v_role text;
   v_order public.orders%rowtype;
@@ -76,16 +84,21 @@ declare
   v_new_total numeric(18,2) := 0;
   v_taxable numeric(18,2) := 0;
   v_item_amount numeric(18,2) := 0;
-  v_active_item_count integer := 0;
+  v_physical_item_count integer := 0;
   v_session_revenue numeric(18,2) := 0;
   v_event_id uuid;
+  v_event_type text;
   v_now timestamptz := now();
+  v_production_evidence boolean := false;
 begin
+  if v_correction_type not in ('VOID','COMP') then
+    raise exception 'Unsupported restaurant item correction: %', v_correction_type;
+  end if;
   if p_organization_id is null or p_entity_id is null then
     raise exception 'organizationId and entityId required';
   end if;
   if v_application_id <> 'restaurant' then
-    raise exception 'Restaurant item VOID requires the restaurant application';
+    raise exception 'Restaurant item correction requires the restaurant application';
   end if;
   if p_order_id is null or p_order_item_id is null then
     raise exception 'orderId and orderItemId required';
@@ -94,7 +107,7 @@ begin
     raise exception 'Authenticated supervisor required';
   end if;
   if nullif(pg_catalog.btrim(coalesce(p_reason, '')), '') is null then
-    raise exception 'Void reason required';
+    raise exception '% reason required', initcap(lower(v_correction_type));
   end if;
   if nullif(pg_catalog.btrim(coalesce(p_idempotency_key, '')), '') is null then
     raise exception 'idempotencyKey required';
@@ -127,12 +140,12 @@ begin
     'MANAGER','GENERAL_MANAGER','DUTY_MANAGER','SUPERVISOR','SHIFT_MANAGER',
     'RESTAURANT_MANAGER','VENUE_MANAGER'
   ) then
-    raise exception 'Supervisor or owner role required for restaurant item VOID';
+    raise exception 'Supervisor or owner role required for restaurant item %', v_correction_type;
   end if;
 
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(
-      p_organization_id::text || ':' || p_entity_id::text || ':restaurant-item-void:' || p_order_item_id::text,
+      p_organization_id::text || ':' || p_entity_id::text || ':restaurant-item-correction:' || p_order_item_id::text,
       0
     )
   );
@@ -147,7 +160,7 @@ begin
   if found then
     if v_existing.order_id <> p_order_id
        or v_existing.order_item_id <> p_order_item_id
-       or upper(v_existing.correction_type) <> 'VOID' then
+       or upper(v_existing.correction_type) <> v_correction_type then
       raise exception 'Idempotency key is already used by a different restaurant item correction';
     end if;
 
@@ -167,9 +180,9 @@ begin
     where c.organization_id = p_organization_id
       and c.entity_id = p_entity_id
       and c.order_item_id = p_order_item_id
-      and upper(c.correction_type) = 'VOID'
+      and upper(c.correction_type) in ('VOID','COMP')
   ) then
-    raise exception 'Restaurant order item is already voided';
+    raise exception 'Restaurant order item already has a charge-removal correction';
   end if;
 
   select * into v_order
@@ -184,7 +197,7 @@ begin
   end if;
 
   if upper(coalesce(v_order.status, '')) <> 'OPEN' then
-    raise exception 'Only an open restaurant order can be voided before payment';
+    raise exception 'Only an open restaurant order can be corrected before payment';
   end if;
 
   if coalesce(v_order.amount_paid, 0) > 0
@@ -206,7 +219,7 @@ begin
 
   if abs(coalesce(v_order.discount_amount, 0)) > 0.01
      or abs(coalesce(v_order.discount, 0)) > 0.01 then
-    raise exception 'VOID is blocked while the order has a discount; use a governed discount correction lifecycle';
+    raise exception '% is blocked while the order has a discount; use a governed discount correction lifecycle', v_correction_type;
   end if;
 
   select * into v_item
@@ -221,34 +234,77 @@ begin
     raise exception 'Restaurant order item not found in order, organization and entity scope';
   end if;
 
-  if upper(coalesce(v_item.status, 'NEW')) not in ('NEW','PENDING') then
-    raise exception 'Only an unstarted restaurant item can be voided; prepared items require COMP or another governed exception';
+  if upper(coalesce(v_item.status, 'NEW')) in ('VOID','VOIDED','CANCELLED','CANCELED') then
+    raise exception 'Restaurant order item is already non-billable';
   end if;
 
-  if exists (
-    select 1
-    from public.kitchen_tickets kt
-    cross join lateral pg_catalog.jsonb_array_elements(
-      case when pg_catalog.jsonb_typeof(kt.items) = 'array' then kt.items else '[]'::jsonb end
-    ) work_item
-    where kt.organization_id = p_organization_id
-      and kt.entity_id = p_entity_id
-      and kt.order_id = p_order_id
-      and coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
-      and upper(coalesce(work_item->>'status', 'NEW')) not in ('NEW','PENDING')
-  ) or exists (
-    select 1
-    from public.bar_tickets bt
-    cross join lateral pg_catalog.jsonb_array_elements(
-      case when pg_catalog.jsonb_typeof(bt.items) = 'array' then bt.items else '[]'::jsonb end
-    ) work_item
-    where bt.organization_id = p_organization_id
-      and bt.entity_id = p_entity_id
-      and bt.order_id = p_order_id
-      and coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
-      and upper(coalesce(work_item->>'status', 'NEW')) not in ('NEW','PENDING')
-  ) then
-    raise exception 'Kitchen or bar production already started; this item cannot use pre-production VOID';
+  if v_correction_type = 'VOID' then
+    if upper(coalesce(v_item.status, 'NEW')) not in ('NEW','PENDING') then
+      raise exception 'Only an unstarted restaurant item can be voided; prepared items require COMP';
+    end if;
+
+    if exists (
+      select 1
+      from public.kitchen_tickets kt
+      cross join lateral pg_catalog.jsonb_array_elements(
+        case when pg_catalog.jsonb_typeof(kt.items) = 'array' then kt.items else '[]'::jsonb end
+      ) work_item
+      where kt.organization_id = p_organization_id
+        and kt.entity_id = p_entity_id
+        and kt.order_id = p_order_id
+        and coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
+        and upper(coalesce(work_item->>'status', 'NEW')) not in ('NEW','PENDING')
+    ) or exists (
+      select 1
+      from public.bar_tickets bt
+      cross join lateral pg_catalog.jsonb_array_elements(
+        case when pg_catalog.jsonb_typeof(bt.items) = 'array' then bt.items else '[]'::jsonb end
+      ) work_item
+      where bt.organization_id = p_organization_id
+        and bt.entity_id = p_entity_id
+        and bt.order_id = p_order_id
+        and coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
+        and upper(coalesce(work_item->>'status', 'NEW')) not in ('NEW','PENDING')
+    ) then
+      raise exception 'Kitchen or bar production already started; this item cannot use pre-production VOID';
+    end if;
+  else
+    if upper(coalesce(v_item.status, 'NEW')) not in ('PREPARING','IN_PROGRESS','READY','SERVED','COMPLETED') then
+      raise exception 'COMP requires an item that has entered production or service';
+    end if;
+
+    v_production_evidence :=
+      v_item.kitchen_started_at is not null
+      or v_item.ready_at is not null
+      or v_item.served_at is not null
+      or exists (
+        select 1
+        from public.kitchen_tickets kt
+        cross join lateral pg_catalog.jsonb_array_elements(
+          case when pg_catalog.jsonb_typeof(kt.items) = 'array' then kt.items else '[]'::jsonb end
+        ) work_item
+        where kt.organization_id = p_organization_id
+          and kt.entity_id = p_entity_id
+          and kt.order_id = p_order_id
+          and coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
+          and upper(coalesce(work_item->>'status', 'NEW')) in ('PREPARING','IN_PROGRESS','READY','SERVED','COMPLETED')
+      )
+      or exists (
+        select 1
+        from public.bar_tickets bt
+        cross join lateral pg_catalog.jsonb_array_elements(
+          case when pg_catalog.jsonb_typeof(bt.items) = 'array' then bt.items else '[]'::jsonb end
+        ) work_item
+        where bt.organization_id = p_organization_id
+          and bt.entity_id = p_entity_id
+          and bt.order_id = p_order_id
+          and coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
+          and upper(coalesce(work_item->>'status', 'NEW')) in ('PREPARING','IN_PROGRESS','READY','SERVED','COMPLETED')
+      );
+
+    if not v_production_evidence then
+      raise exception 'COMP requires persisted production or service evidence';
+    end if;
   end if;
 
   select round(coalesce(sum(coalesce(i.price, 0) * coalesce(i.quantity, 1)), 0), 2)
@@ -257,10 +313,18 @@ begin
   where i.organization_id = p_organization_id
     and i.entity_id = p_entity_id
     and i.order_id = p_order_id
-    and upper(coalesce(i.status, 'NEW')) not in ('VOID','VOIDED','CANCELLED','CANCELED');
+    and upper(coalesce(i.status, 'NEW')) not in ('VOID','VOIDED','CANCELLED','CANCELED')
+    and not exists (
+      select 1
+      from public.restaurant_order_item_corrections c
+      where c.organization_id = p_organization_id
+        and c.entity_id = p_entity_id
+        and c.order_item_id = i.id
+        and upper(c.correction_type) = 'COMP'
+    );
 
   if abs(v_current_subtotal - coalesce(v_order.subtotal, 0)) > 0.01 then
-    raise exception 'Order subtotal is out of sync with active order items; refresh or repair the order before VOID';
+    raise exception 'Order subtotal is out of sync with billable order items; refresh or repair the order before %', v_correction_type;
   end if;
 
   v_current_service := round(v_current_subtotal * v_service_rate, 2);
@@ -276,7 +340,7 @@ begin
   if abs(v_current_service - coalesce(v_order.service_charge_amount, 0)) > 0.01
      or abs(v_current_tax - coalesce(v_order.vat_amount, 0)) > 0.01
      or abs(v_current_total - coalesce(v_order.total_amount, v_order.total, 0)) > 0.01 then
-    raise exception 'Current financial policy no longer matches this order; VOID requires the original tax and service policy';
+    raise exception 'Current financial policy no longer matches this order; % requires the original tax and service policy', v_correction_type;
   end if;
 
   v_item_amount := round(coalesce(v_item.price, 0) * coalesce(v_item.quantity, 1), 2);
@@ -301,7 +365,7 @@ begin
     v_application_id,
     p_order_id,
     p_order_item_id,
-    'VOID',
+    v_correction_type,
     upper(coalesce(v_item.status, 'NEW')),
     v_item_amount,
     0,
@@ -313,115 +377,135 @@ begin
       'tax_rate', v_tax_rate,
       'prices_include_tax', coalesce(p_prices_include_tax, false),
       'preserves_original_item', true,
-      'pre_production_only', true,
+      'preserves_fulfillment_history', v_correction_type = 'COMP',
+      'pre_production_only', v_correction_type = 'VOID',
+      'post_production_only', v_correction_type = 'COMP',
       'unpaid_only', true
     )
   )
   returning * into v_correction;
 
-  update public.order_items
-  set status = 'VOID',
-      void_reason = pg_catalog.btrim(p_reason),
-      voided_by = p_actor_id::text,
-      voided_at = v_now,
-      updated_at = v_now
-  where id = p_order_item_id
-    and order_id = p_order_id
-    and organization_id = p_organization_id
-    and entity_id = p_entity_id;
+  if v_correction_type = 'VOID' then
+    update public.order_items
+    set status = 'VOID',
+        void_reason = pg_catalog.btrim(p_reason),
+        voided_by = p_actor_id::text,
+        voided_at = v_now,
+        updated_at = v_now
+    where id = p_order_item_id
+      and order_id = p_order_id
+      and organization_id = p_organization_id
+      and entity_id = p_entity_id;
 
-  update public.kitchen_tickets kt
-  set items = (
-        select coalesce(
-          jsonb_agg(
-            case
-              when coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
-              then work_item || jsonb_build_object(
-                'status', 'VOID',
-                'void_reason', pg_catalog.btrim(p_reason),
-                'voided_by', p_actor_id,
-                'voided_at', v_now
-              )
-              else work_item
-            end
-            order by ordinality
-          ),
-          '[]'::jsonb
-        )
-        from pg_catalog.jsonb_array_elements(
-          case when pg_catalog.jsonb_typeof(kt.items) = 'array' then kt.items else '[]'::jsonb end
-        ) with ordinality as item_rows(work_item, ordinality)
-      ),
-      status = case
-        when not exists (
-          select 1
+    update public.kitchen_tickets kt
+    set items = (
+          select coalesce(
+            jsonb_agg(
+              case
+                when coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
+                then work_item || jsonb_build_object(
+                  'status', 'VOID',
+                  'void_reason', pg_catalog.btrim(p_reason),
+                  'voided_by', p_actor_id,
+                  'voided_at', v_now
+                )
+                else work_item
+              end
+              order by ordinality
+            ),
+            '[]'::jsonb
+          )
           from pg_catalog.jsonb_array_elements(
             case when pg_catalog.jsonb_typeof(kt.items) = 'array' then kt.items else '[]'::jsonb end
-          ) remaining
-          where coalesce(remaining->>'order_item_id', remaining->>'id') <> p_order_item_id::text
-            and upper(coalesce(remaining->>'status', 'NEW')) not in ('VOID','VOIDED','CANCELLED','CANCELED','COMPLETED','SERVED')
-        ) then 'VOID'
-        else kt.status
-      end,
-      updated_at = v_now
-  where kt.organization_id = p_organization_id
-    and kt.entity_id = p_entity_id
-    and kt.order_id = p_order_id
-    and exists (
-      select 1
-      from pg_catalog.jsonb_array_elements(
-        case when pg_catalog.jsonb_typeof(kt.items) = 'array' then kt.items else '[]'::jsonb end
-      ) work_item
-      where coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
-    );
-
-  update public.bar_tickets bt
-  set items = (
-        select coalesce(
-          jsonb_agg(
-            case
-              when coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
-              then work_item || jsonb_build_object(
-                'status', 'VOID',
-                'void_reason', pg_catalog.btrim(p_reason),
-                'voided_by', p_actor_id,
-                'voided_at', v_now
-              )
-              else work_item
-            end
-            order by ordinality
-          ),
-          '[]'::jsonb
-        )
+          ) with ordinality as item_rows(work_item, ordinality)
+        ),
+        status = case
+          when not exists (
+            select 1
+            from pg_catalog.jsonb_array_elements(
+              case when pg_catalog.jsonb_typeof(kt.items) = 'array' then kt.items else '[]'::jsonb end
+            ) remaining
+            where coalesce(remaining->>'order_item_id', remaining->>'id') <> p_order_item_id::text
+              and upper(coalesce(remaining->>'status', 'NEW')) not in ('VOID','VOIDED','CANCELLED','CANCELED','COMPLETED','SERVED')
+          ) then 'VOID'
+          else kt.status
+        end,
+        updated_at = v_now
+    where kt.organization_id = p_organization_id
+      and kt.entity_id = p_entity_id
+      and kt.order_id = p_order_id
+      and exists (
+        select 1
         from pg_catalog.jsonb_array_elements(
-          case when pg_catalog.jsonb_typeof(bt.items) = 'array' then bt.items else '[]'::jsonb end
-        ) with ordinality as item_rows(work_item, ordinality)
-      ),
-      status = case
-        when not exists (
-          select 1
+          case when pg_catalog.jsonb_typeof(kt.items) = 'array' then kt.items else '[]'::jsonb end
+        ) work_item
+        where coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
+      );
+
+    update public.bar_tickets bt
+    set items = (
+          select coalesce(
+            jsonb_agg(
+              case
+                when coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
+                then work_item || jsonb_build_object(
+                  'status', 'VOID',
+                  'void_reason', pg_catalog.btrim(p_reason),
+                  'voided_by', p_actor_id,
+                  'voided_at', v_now
+                )
+                else work_item
+              end
+              order by ordinality
+            ),
+            '[]'::jsonb
+          )
           from pg_catalog.jsonb_array_elements(
             case when pg_catalog.jsonb_typeof(bt.items) = 'array' then bt.items else '[]'::jsonb end
-          ) remaining
-          where coalesce(remaining->>'order_item_id', remaining->>'id') <> p_order_item_id::text
-            and upper(coalesce(remaining->>'status', 'NEW')) not in ('VOID','VOIDED','CANCELLED','CANCELED','COMPLETED','SERVED')
-        ) then 'VOID'
-        else bt.status
-      end,
-      updated_at = v_now
-  where bt.organization_id = p_organization_id
-    and bt.entity_id = p_entity_id
-    and bt.order_id = p_order_id
-    and exists (
-      select 1
-      from pg_catalog.jsonb_array_elements(
-        case when pg_catalog.jsonb_typeof(bt.items) = 'array' then bt.items else '[]'::jsonb end
-      ) work_item
-      where coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
-    );
+          ) with ordinality as item_rows(work_item, ordinality)
+        ),
+        status = case
+          when not exists (
+            select 1
+            from pg_catalog.jsonb_array_elements(
+              case when pg_catalog.jsonb_typeof(bt.items) = 'array' then bt.items else '[]'::jsonb end
+            ) remaining
+            where coalesce(remaining->>'order_item_id', remaining->>'id') <> p_order_item_id::text
+              and upper(coalesce(remaining->>'status', 'NEW')) not in ('VOID','VOIDED','CANCELLED','CANCELED','COMPLETED','SERVED')
+          ) then 'VOID'
+          else bt.status
+        end,
+        updated_at = v_now
+    where bt.organization_id = p_organization_id
+      and bt.entity_id = p_entity_id
+      and bt.order_id = p_order_id
+      and exists (
+        select 1
+        from pg_catalog.jsonb_array_elements(
+          case when pg_catalog.jsonb_typeof(bt.items) = 'array' then bt.items else '[]'::jsonb end
+        ) work_item
+        where coalesce(work_item->>'order_item_id', work_item->>'id') = p_order_item_id::text
+      );
+  end if;
 
   select round(coalesce(sum(coalesce(i.price, 0) * coalesce(i.quantity, 1)), 0), 2), count(*)
-  into v_new_subtotal, v_active_item_count
+  into v_new_subtotal, v_physical_item_count
+  from public.order_items i
+  where i.organization_id = p_organization_id
+    and i.entity_id = p_entity_id
+    and i.order_id = p_order_id
+    and upper(coalesce(i.status, 'NEW')) not in ('VOID','VOIDED','CANCELLED','CANCELED')
+    and not exists (
+      select 1
+      from public.restaurant_order_item_corrections c
+      where c.organization_id = p_organization_id
+        and c.entity_id = p_entity_id
+        and c.order_item_id = i.id
+        and upper(c.correction_type) = 'COMP'
+    );
+
+  select count(*)
+  into v_physical_item_count
   from public.order_items i
   where i.organization_id = p_organization_id
     and i.entity_id = p_entity_id
@@ -446,8 +530,14 @@ begin
       total_amount = v_new_total,
       final_amount = v_new_total,
       remaining_balance = v_new_total,
-      status = case when v_active_item_count = 0 then 'VOID' else status end,
-      production_status = case when v_active_item_count = 0 then 'VOID' else production_status end,
+      status = case
+        when v_correction_type = 'VOID' and v_physical_item_count = 0 then 'VOID'
+        else status
+      end,
+      production_status = case
+        when v_correction_type = 'VOID' and v_physical_item_count = 0 then 'VOID'
+        else production_status
+      end,
       updated_at = v_now
   where id = p_order_id
     and organization_id = p_organization_id
@@ -479,6 +569,11 @@ begin
       and s.entity_id = p_entity_id;
   end if;
 
+  v_event_type := case
+    when v_correction_type = 'COMP' then 'RESTAURANT_ORDER_ITEM_COMPED'
+    else 'RESTAURANT_ORDER_ITEM_VOIDED'
+  end;
+
   insert into public.system_events (
     organization_id,
     type,
@@ -488,7 +583,7 @@ begin
     idempotency_key
   ) values (
     p_organization_id,
-    'RESTAURANT_ORDER_ITEM_VOIDED',
+    v_event_type,
     jsonb_build_object(
       'organization_id', p_organization_id,
       'entity_id', p_entity_id,
@@ -496,14 +591,18 @@ begin
       'order_id', p_order_id,
       'order_item_id', p_order_item_id,
       'correction_id', v_correction.id,
+      'correction_type', v_correction_type,
       'actor_id', p_actor_id,
       'reason', pg_catalog.btrim(p_reason),
+      'original_status', upper(coalesce(v_item.status, 'NEW')),
       'original_amount', v_item_amount,
+      'corrected_amount', 0,
       'new_subtotal', v_new_subtotal,
       'new_service_charge_amount', v_new_service,
       'new_tax_amount', v_new_tax,
       'new_total_amount', v_new_total,
-      'preserves_original_item', true
+      'preserves_original_item', true,
+      'preserves_fulfillment_history', v_correction_type = 'COMP'
     ),
     false,
     false,
@@ -514,6 +613,7 @@ begin
   return jsonb_build_object(
     'success', true,
     'duplicate', false,
+    'correction_type', v_correction_type,
     'correction', to_jsonb(v_correction),
     'order', to_jsonb(v_order),
     'order_item', (select to_jsonb(i) from public.order_items i where i.id = p_order_item_id),
@@ -522,9 +622,66 @@ begin
 end;
 $$;
 
+create or replace function public.restaurant_void_order_item_atomic(
+  p_organization_id uuid,
+  p_entity_id uuid,
+  p_application_id text,
+  p_order_id uuid,
+  p_order_item_id uuid,
+  p_actor_id uuid,
+  p_actor_role text,
+  p_reason text,
+  p_service_charge_rate numeric,
+  p_tax_rate numeric,
+  p_prices_include_tax boolean,
+  p_idempotency_key text
+)
+returns jsonb
+language sql
+security invoker
+set search_path to ''
+as $$
+  select public.restaurant_correct_order_item_atomic(
+    'VOID', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+  );
+$$;
+
+create or replace function public.restaurant_comp_order_item_atomic(
+  p_organization_id uuid,
+  p_entity_id uuid,
+  p_application_id text,
+  p_order_id uuid,
+  p_order_item_id uuid,
+  p_actor_id uuid,
+  p_actor_role text,
+  p_reason text,
+  p_service_charge_rate numeric,
+  p_tax_rate numeric,
+  p_prices_include_tax boolean,
+  p_idempotency_key text
+)
+returns jsonb
+language sql
+security invoker
+set search_path to ''
+as $$
+  select public.restaurant_correct_order_item_atomic(
+    'COMP', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+  );
+$$;
+
+revoke all on function public.restaurant_correct_order_item_atomic(text,uuid,uuid,text,uuid,uuid,uuid,text,text,numeric,numeric,boolean,text)
+  from public, anon, authenticated;
 revoke all on function public.restaurant_void_order_item_atomic(uuid,uuid,text,uuid,uuid,uuid,text,text,numeric,numeric,boolean,text)
   from public, anon, authenticated;
+revoke all on function public.restaurant_comp_order_item_atomic(uuid,uuid,text,uuid,uuid,uuid,text,text,numeric,numeric,boolean,text)
+  from public, anon, authenticated;
+
+grant execute on function public.restaurant_correct_order_item_atomic(text,uuid,uuid,text,uuid,uuid,uuid,text,text,numeric,numeric,boolean,text)
+  to service_role;
 grant execute on function public.restaurant_void_order_item_atomic(uuid,uuid,text,uuid,uuid,uuid,text,text,numeric,numeric,boolean,text)
+  to service_role;
+grant execute on function public.restaurant_comp_order_item_atomic(uuid,uuid,text,uuid,uuid,uuid,text,text,numeric,numeric,boolean,text)
   to service_role;
 
 commit;

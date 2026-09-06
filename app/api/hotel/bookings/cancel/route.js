@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -68,6 +69,12 @@ export async function POST(request) {
 
     if (updateError) throw updateError;
     if (!booking) return fail("Reservation changed before cancellation completed", 409);
+
+    await broadcastHotelReadinessChanged({
+      organizationId: access.organizationId,
+      source: "reservation-lifecycle",
+      action: "CANCEL",
+    });
 
     return NextResponse.json({
       success: true,

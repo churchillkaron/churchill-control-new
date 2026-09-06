@@ -52,9 +52,7 @@ export async function POST(request) {
     const action = clean(body.action).toUpperCase();
 
     if (!bookingId) return errorResponse("bookingId required", 400);
-    if (!["PREPARE", "CONFIRM"].includes(action)) {
-      return errorResponse("action must be PREPARE or CONFIRM", 400);
-    }
+    if (!["PREPARE", "CONFIRM"].includes(action)) return errorResponse("action must be PREPARE or CONFIRM", 400);
 
     const { data: existing, error: existingError } = await supabaseAdmin
       .from("hotel_bookings")
@@ -65,21 +63,16 @@ export async function POST(request) {
     if (existingError) throw existingError;
     if (!existing?.organization_id) return errorResponse("Booking not found", 404);
 
-    const access = await requireOrganizationAccess({
-      organizationId: existing.organization_id,
-      request,
-    });
+    const access = await requireOrganizationAccess({ organizationId: existing.organization_id, request });
     if (!access.success) return errorResponse(access.error, access.status);
     if (!existing.property_id) return errorResponse("Booking has no governed Hotel property", 409);
+    if (clean(existing.status).toUpperCase() !== "CHECKED_IN") return errorResponse("Only an in-house stay can use early departure", 409);
 
-    if (clean(existing.status).toUpperCase() !== "CHECKED_IN") {
-      return errorResponse("Only an in-house stay can use early departure", 409);
+    const operationalDate = await getHotelOperationalDate({ organizationId: access.organizationId, propertyId: existing.property_id });
+    if (operationalDate.compatibilityFallback || !operationalDate.configured) {
+      return errorResponse("Configure the property's operational timezone and day cutoff before recording a date-sensitive early departure", 409);
     }
 
-    const operationalDate = await getHotelOperationalDate({
-      organizationId: access.organizationId,
-      propertyId: existing.property_id,
-    });
     const businessDate = operationalDate.businessDate;
     const scheduledDeparture = clean(existing.check_out_date).slice(0, 10);
     if (!scheduledDeparture || scheduledDeparture <= businessDate) {
@@ -87,19 +80,13 @@ export async function POST(request) {
     }
 
     const changedAt = new Date().toISOString();
-    const channelReportingRequired = Boolean(
-      existing.channel_connection_id && existing.external_reservation_id,
-    );
+    const channelReportingRequired = Boolean(existing.channel_connection_id && existing.external_reservation_id);
 
     if (action === "PREPARE") {
       const reason = clean(body.reason).toUpperCase();
       const detail = clean(body.detail);
-      if (!EARLY_DEPARTURE_REASONS.includes(reason)) {
-        return errorResponse("A valid early departure reason is required", 400);
-      }
-      if (reason === "OTHER" && !detail) {
-        return errorResponse("Explain the early departure when reason is OTHER", 400);
-      }
+      if (!EARLY_DEPARTURE_REASONS.includes(reason)) return errorResponse("A valid early departure reason is required", 400);
+      if (reason === "OTHER" && !detail) return errorResponse("Explain the early departure when reason is OTHER", 400);
       if (detail.length > 1000) return errorResponse("Early departure detail is too long", 400);
 
       const { data: booking, error: updateError } = await supabaseAdmin
@@ -140,9 +127,7 @@ export async function POST(request) {
     }
 
     const reviewNote = clean(body.reviewNote || body.review_note);
-    if (reviewNote.length < 8) {
-      return errorResponse("Describe the reviewed unused-night, refund, fee or no-adjustment treatment", 400);
-    }
+    if (reviewNote.length < 8) return errorResponse("Describe the reviewed unused-night, refund, fee or no-adjustment treatment", 400);
     if (reviewNote.length > 1000) return errorResponse("Commercial review note is too long", 400);
 
     if (clean(existing.early_departure_review_status).toUpperCase() === "CONFIRMED") {
@@ -169,12 +154,7 @@ export async function POST(request) {
 
     const { data: booking, error: updateError } = await supabaseAdmin
       .from("hotel_bookings")
-      .update({
-        early_departure_review_status: "CONFIRMED",
-        early_departure_reviewed_at: changedAt,
-        early_departure_review_note: reviewNote,
-        updated_at: changedAt,
-      })
+      .update({ early_departure_review_status: "CONFIRMED", early_departure_reviewed_at: changedAt, early_departure_review_note: reviewNote, updated_at: changedAt })
       .eq("organization_id", access.organizationId)
       .eq("id", bookingId)
       .eq("status", "CHECKED_IN")

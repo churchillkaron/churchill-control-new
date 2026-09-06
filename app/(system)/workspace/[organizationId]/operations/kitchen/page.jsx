@@ -2,17 +2,8 @@
 
 export const dynamic = "force-dynamic";
 
-import FulfillmentDispatchWorkspace from "@/components/workspace/operations/FulfillmentDispatchWorkspace";
+import RestaurantKitchenDisplay from "@/components/workspace/operations/RestaurantKitchenDisplay";
 
 export default function KitchenPage() {
-  return (
-    <FulfillmentDispatchWorkspace
-      eyebrow="Restaurant Production"
-      title="Kitchen Display"
-      description="Live preparation work routed through neutral fulfillment queues and work centres."
-      emptyLabel="No kitchen fulfillment work in this view."
-      contextFallback="Unassigned table"
-      sourceTypes={["restaurant_kitchen_ticket"]}
-    />
-  );
+  return <RestaurantKitchenDisplay />;
 }

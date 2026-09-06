@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import HotelRealtimeReadinessBridge from "@/components/workspace/hotel/HotelRealtimeReadinessBridge";
+import { HOTEL_READINESS_CHANGED_EVENT } from "@/lib/hotel/client/readinessInvalidation";
 
 export const HOTEL_WORKSPACE_NAV = Object.freeze([
   { id: "control", label: "Hotel Control", route: "hotel" },
@@ -50,6 +52,21 @@ export function HotelWorkspaceShell({
   actions = null,
   children,
 }) {
+  const [readinessRevision, setReadinessRevision] = useState(0);
+
+  useEffect(() => {
+    let timer = null;
+    const revalidate = () => {
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => setReadinessRevision((revision) => revision + 1), 120);
+    };
+    window.addEventListener(HOTEL_READINESS_CHANGED_EVENT, revalidate);
+    return () => {
+      window.removeEventListener(HOTEL_READINESS_CHANGED_EVENT, revalidate);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, []);
+
   return (
     <main className="min-h-[calc(100vh-61px)] bg-[#F7F6F3] px-4 py-5 text-[#2A2723] md:px-6 lg:px-8">
       <HotelRealtimeReadinessBridge organizationId={organizationId} />
@@ -89,7 +106,7 @@ export function HotelWorkspaceShell({
           </nav>
         </section>
 
-        {children}
+        <div key={readinessRevision} className="contents">{children}</div>
       </div>
     </main>
   );

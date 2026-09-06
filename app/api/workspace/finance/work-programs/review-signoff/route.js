@@ -11,6 +11,10 @@ import {
   evaluateFinanceReviewerDecisionReadiness,
   summarizeFinanceReviewerEvidencePreflight,
 } from "@/lib/finance/practice/FinanceReviewerDecisionReadiness";
+import {
+  buildFinanceReviewEvidenceFingerprint,
+  evaluateFinanceReviewEvidenceFreshness,
+} from "@/lib/finance/practice/FinanceReviewEvidenceFreshness";
 
 const MANAGE_PERMISSIONS = [
   "finance.accounting.manage",
@@ -18,6 +22,7 @@ const MANAGE_PERMISSIONS = [
   "finance.configuration.manage",
 ];
 const ALLOWED_ROLES = new Set(["REVIEWER", "PARTNER"]);
+const FRESHNESS_CONCURRENCY = 4;
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -62,6 +67,20 @@ function actorMatches(access, value) {
   return actorIds(access).has(String(value));
 }
 
+async function mapWithConcurrency(rows, limit, mapper) {
+  const values = new Array(rows.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < rows.length) {
+      const index = cursor;
+      cursor += 1;
+      values[index] = await mapper(rows[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), rows.length || 1) }, worker));
+  return values;
+}
+
 async function audit(access, action, reviewItemId, workItem, metadata = {}) {
   const { error } = await supabaseAdmin.from("organization_audit_logs").insert({
     organization_id: access.organizationId,
@@ -99,7 +118,7 @@ async function loadReviewControl(reviewItemIds, organizationId) {
       .neq("status", "RESOLVED"),
     supabaseAdmin
       .from("finance_review_signoffs")
-      .select("review_item_id,signoff_role,signed_by")
+      .select("id,review_item_id,signoff_role,signed_by,signed_at,metadata,revoked_at,revoked_by,revocation_reason")
       .eq("organization_id", organizationId)
       .in("review_item_id", reviewItemIds)
       .is("revoked_at", null),
@@ -110,6 +129,82 @@ async function loadReviewControl(reviewItemIds, organizationId) {
     openNotes: Number(openNotesResult.count || 0),
     signoffs: signoffsResult.data || [],
   };
+}
+
+async function revokePartnerSignoffAfterStaleReview({ access, reviewItem, workItem, partnerSignoff, freshness }) {
+  if (!partnerSignoff?.id) return false;
+  const now = new Date().toISOString();
+  const reason = "Reviewer evidence changed; partner clearance must be repeated";
+  const { error } = await supabaseAdmin
+    .from("finance_review_signoffs")
+    .update({
+      revoked_at: now,
+      revoked_by: access.user?.id || null,
+      revocation_reason: reason,
+    })
+    .eq("id", partnerSignoff.id)
+    .eq("organization_id", reviewItem.organization_id);
+  if (error) throw error;
+  await audit(access, "ACCOUNTING_PARTNER_SIGNOFF_INVALIDATED_BY_EVIDENCE_CHANGE", reviewItem.id, workItem, {
+    reason,
+    changed_sections: freshness?.changed_sections || [],
+    changed_labels: freshness?.changed_labels || [],
+  });
+  return true;
+}
+
+async function loadReviewWorkItems({ accountingFirmId, runId, reviewItemIds }) {
+  if (!reviewItemIds.length) return new Map();
+  const { data, error } = await supabaseAdmin
+    .from("accounting_engagement_work_items")
+    .select("id,run_id,finance_review_item_id,title,status,required_role,capability_id")
+    .eq("accounting_firm_id", accountingFirmId)
+    .eq("run_id", runId)
+    .in("finance_review_item_id", reviewItemIds);
+  if (error) throw error;
+  return new Map((data || []).filter((row) => row.finance_review_item_id).map((row) => [row.finance_review_item_id, row]));
+}
+
+async function buildPortfolioFreshness({ access, run, reviewItems, signoffsByReview }) {
+  const reviewItemIds = reviewItems.map((row) => row.id);
+  const workItemsByReview = await loadReviewWorkItems({
+    accountingFirmId: access.organizationId,
+    runId: run.id,
+    reviewItemIds,
+  });
+
+  const rows = await mapWithConcurrency(reviewItems, FRESHNESS_CONCURRENCY, async (reviewItem) => {
+    const reviewerSignoff = (signoffsByReview.get(reviewItem.id) || []).find((row) => row.signoff_role === "REVIEWER") || null;
+    const sourceWorkItem = workItemsByReview.get(reviewItem.id) || null;
+    if (!reviewerSignoff || !sourceWorkItem) {
+      return {
+        review_item_id: reviewItem.id,
+        record_label: reviewItem.record_label || null,
+        source_work_item_id: sourceWorkItem?.id || null,
+        freshness: {
+          state: "UNPROVEN",
+          trusted: false,
+          reason: !reviewerSignoff ? "Reviewer sign-off is missing" : "Reviewer workpaper linkage is missing",
+          changed_sections: [],
+          changed_labels: [],
+        },
+      };
+    }
+
+    const evidence = await buildFinanceReviewerEvidence({
+      accountingFirmId: access.organizationId,
+      runId: run.id,
+      workItemId: sourceWorkItem.id,
+    });
+    return {
+      review_item_id: reviewItem.id,
+      record_label: reviewItem.record_label || null,
+      source_work_item_id: sourceWorkItem.id,
+      freshness: evaluateFinanceReviewEvidenceFreshness({ evidence, reviewerSignoff }),
+    };
+  });
+
+  return rows;
 }
 
 export async function POST(request) {
@@ -186,20 +281,8 @@ export async function POST(request) {
       const control = await loadReviewControl([reviewItem.id], run.organization_id);
       const signedRoles = new Set(control.signoffs.map((row) => row.signoff_role));
       const existingReviewer = control.signoffs.find((row) => row.signoff_role === "REVIEWER") || null;
-      if (existingReviewer) {
-        if (!actorMatches(access, existingReviewer.signed_by)) {
-          return jsonError("Reviewer sign-off is already owned by another reviewer", 409);
-        }
-        if (["REVIEWED", "CLEARED", "LOCKED"].includes(reviewItem.status)) {
-          return NextResponse.json({
-            success: true,
-            idempotent: true,
-            signoff: existingReviewer,
-            review_item: reviewItem,
-            work_item_id: workItem.id,
-            run_id: run.id,
-          });
-        }
+      if (existingReviewer && !actorMatches(access, existingReviewer.signed_by)) {
+        return jsonError("Reviewer sign-off is already owned by another reviewer", 409);
       }
 
       const conflictingActorRoles = control.signoffs
@@ -224,7 +307,32 @@ export async function POST(request) {
           readiness.blockers.slice(0, 25),
         );
       }
+
+      const currentFingerprint = buildFinanceReviewEvidenceFingerprint(evidence);
+      const existingFreshness = evaluateFinanceReviewEvidenceFreshness({ evidence, reviewerSignoff: existingReviewer });
+      if (existingReviewer && existingFreshness.trusted && ["REVIEWED", "CLEARED", "LOCKED"].includes(reviewItem.status)) {
+        return NextResponse.json({
+          success: true,
+          idempotent: true,
+          signoff: existingReviewer,
+          review_item: reviewItem,
+          work_item_id: workItem.id,
+          run_id: run.id,
+          review_freshness: existingFreshness,
+        });
+      }
+
       const evidencePreflight = summarizeFinanceReviewerEvidencePreflight(evidence, readiness);
+      const existingPartner = control.signoffs.find((row) => row.signoff_role === "PARTNER") || null;
+      const partnerInvalidated = existingReviewer && existingFreshness.trusted !== true
+        ? await revokePartnerSignoffAfterStaleReview({
+            access,
+            reviewItem,
+            workItem,
+            partnerSignoff: existingPartner,
+            freshness: existingFreshness,
+          })
+        : false;
 
       const { data: signoff, error: signoffError } = await supabaseAdmin
         .from("finance_review_signoffs")
@@ -235,12 +343,17 @@ export async function POST(request) {
           signed_by: access.user.id,
           signed_at: new Date().toISOString(),
           note: clean(body.note) || null,
+          revoked_at: null,
+          revoked_by: null,
+          revocation_reason: null,
           metadata: {
             source: "accounting_work_program",
             accounting_firm_id: access.organizationId,
             run_id: run.id,
             work_item_id: workItem.id,
             reviewer_evidence_preflight: evidencePreflight,
+            review_evidence_fingerprint: currentFingerprint,
+            replaces_freshness_state: existingReviewer ? existingFreshness.state : null,
           },
         }, { onConflict: "review_item_id,signoff_role" })
         .select("*")
@@ -255,12 +368,25 @@ export async function POST(request) {
         .select("*")
         .single();
       if (updateError) throw updateError;
-      await audit(access, "ACCOUNTING_REVIEWER_SIGNOFF", updatedReview.id, workItem, {
+      await audit(access, existingReviewer ? "ACCOUNTING_REVIEWER_EVIDENCE_REVALIDATED" : "ACCOUNTING_REVIEWER_SIGNOFF", updatedReview.id, workItem, {
         signoff_role: "REVIEWER",
         review_status: "REVIEWED",
         reviewer_evidence_preflight: evidencePreflight,
+        review_evidence_fingerprint: currentFingerprint,
+        previous_freshness_state: existingReviewer ? existingFreshness.state : null,
+        changed_sections: existingReviewer ? existingFreshness.changed_sections : [],
+        partner_signoff_invalidated: partnerInvalidated,
       });
-      return NextResponse.json({ success: true, idempotent: false, signoff, review_item: updatedReview, work_item_id: workItem.id, run_id: run.id });
+      return NextResponse.json({
+        success: true,
+        idempotent: false,
+        signoff,
+        review_item: updatedReview,
+        work_item_id: workItem.id,
+        run_id: run.id,
+        review_freshness: { state: "CURRENT", trusted: true, current_fingerprint: currentFingerprint },
+        partner_signoff_invalidated: partnerInvalidated,
+      });
     }
 
     const reviewItems = await scopedReviewItems(run);
@@ -273,6 +399,22 @@ export async function POST(request) {
     for (const signoff of control.signoffs) {
       if (!signoffsByReview.has(signoff.review_item_id)) signoffsByReview.set(signoff.review_item_id, []);
       signoffsByReview.get(signoff.review_item_id).push(signoff);
+    }
+
+    const freshnessRows = await buildPortfolioFreshness({ access, run, reviewItems, signoffsByReview });
+    const freshnessByReview = new Map(freshnessRows.map((row) => [row.review_item_id, row]));
+    const staleReviewBlockers = freshnessRows
+      .filter((row) => row.freshness?.trusted !== true)
+      .map((row) => ({
+        review_item_id: row.review_item_id,
+        record_label: row.record_label,
+        reason: row.freshness?.reason || "Reviewer evidence freshness is not proven",
+        freshness_state: row.freshness?.state || "UNPROVEN",
+        changed_sections: row.freshness?.changed_sections || [],
+        changed_labels: row.freshness?.changed_labels || [],
+      }));
+    if (staleReviewBlockers.length) {
+      return jsonError("Partner clearance requires current reviewer evidence", 409, staleReviewBlockers.slice(0, 100));
     }
 
     const alreadyClearedByActor = reviewItems.every((reviewItem) => {
@@ -289,6 +431,7 @@ export async function POST(request) {
         cleared_count: reviewItemIds.length,
         work_item_id: workItem.id,
         run_id: run.id,
+        review_freshness: freshnessRows,
       });
     }
 
@@ -311,15 +454,29 @@ export async function POST(request) {
     if (blockers.length) return jsonError("Engagement is not ready for partner clearance", 409, blockers.slice(0, 100));
 
     const now = new Date().toISOString();
-    const signoffRows = reviewItems.map((reviewItem) => ({
-      organization_id: run.organization_id,
-      review_item_id: reviewItem.id,
-      signoff_role: "PARTNER",
-      signed_by: access.user.id,
-      signed_at: now,
-      note: clean(body.note) || null,
-      metadata: { source: "accounting_work_program_portfolio_clearance", accounting_firm_id: access.organizationId, run_id: run.id, work_item_id: workItem.id },
-    }));
+    const signoffRows = reviewItems.map((reviewItem) => {
+      const freshness = freshnessByReview.get(reviewItem.id)?.freshness || null;
+      return {
+        organization_id: run.organization_id,
+        review_item_id: reviewItem.id,
+        signoff_role: "PARTNER",
+        signed_by: access.user.id,
+        signed_at: now,
+        note: clean(body.note) || null,
+        revoked_at: null,
+        revoked_by: null,
+        revocation_reason: null,
+        metadata: {
+          source: "accounting_work_program_portfolio_clearance",
+          accounting_firm_id: access.organizationId,
+          run_id: run.id,
+          work_item_id: workItem.id,
+          reviewer_evidence_fingerprint_digest: freshness?.current_fingerprint?.digest || null,
+          reviewer_evidence_fingerprint_version: freshness?.current_fingerprint?.version || null,
+          reviewer_evidence_checked_at: now,
+        },
+      };
+    });
     const { data: partnerSignoffs, error: partnerSignoffError } = await supabaseAdmin
       .from("finance_review_signoffs")
       .upsert(signoffRows, { onConflict: "review_item_id,signoff_role" })
@@ -338,6 +495,10 @@ export async function POST(request) {
       signoff_role: "PARTNER",
       review_status: "CLEARED",
       review_item_count: reviewItemIds.length,
+      reviewer_evidence_fingerprints: freshnessRows.map((row) => ({
+        review_item_id: row.review_item_id,
+        digest: row.freshness?.current_fingerprint?.digest || null,
+      })),
     });
 
     return NextResponse.json({
@@ -348,6 +509,7 @@ export async function POST(request) {
       cleared_count: reviewItemIds.length,
       work_item_id: workItem.id,
       run_id: run.id,
+      review_freshness: freshnessRows,
     });
   } catch (error) {
     const message = error?.message || "Unable to record governed Finance review sign-off";

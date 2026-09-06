@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { resolvePOSApplicationDefinition } from "@/lib/operations/commerce/server/POSApplicationRegistry";
+import { assertPOSActionAllowed } from "@/lib/operations/commerce/security/POSActionPolicy";
 
 function readValue(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -52,6 +53,11 @@ export async function POST(request) {
     if (!access.success) {
       return errorResponse(access.error, access.status || 403);
     }
+
+    assertPOSActionAllowed({
+      access,
+      action: "ORDER_ENTRY",
+    });
 
     const organizationId = access.organizationId;
     const organization = await loadOrganization(organizationId, access);

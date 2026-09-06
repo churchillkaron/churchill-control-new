@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { provisionOrganization } from "@/lib/onboarding/provisionOrganization";
 import { buildOnboardingCore } from "@/lib/onboarding/aiOnboardingCore";
+import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
+
+const ACTIVE_ORGANIZATION_COOKIE = "avantiqo_active_organization_id";
+const LEGACY_ACTIVE_ORGANIZATION_COOKIE = "active_organization_id";
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -13,6 +17,19 @@ function isThailand(country) {
 
 export async function POST(request) {
   try {
+    const user = await getServerCurrentUser();
+
+    if (!user?.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Authentication required",
+          code: "AUTHENTICATION_REQUIRED",
+        },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
 
     const name = clean(body.name);
@@ -54,6 +71,7 @@ export async function POST(request) {
       industry,
     });
 
+    payload.requestedByAuthUserId = user.id;
     payload.organization = {
       ...payload.organization,
       name,
@@ -85,19 +103,40 @@ export async function POST(request) {
       return NextResponse.json(result, { status: 400 });
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ...result,
       redirect: {
         redirectTo: `/workspace/${result.organization.id}`,
       },
     });
+
+    const cookieOptions = {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    };
+
+    response.cookies.set(
+      ACTIVE_ORGANIZATION_COOKIE,
+      result.organization.id,
+      cookieOptions
+    );
+    response.cookies.set(
+      LEGACY_ACTIVE_ORGANIZATION_COOKIE,
+      result.organization.id,
+      cookieOptions
+    );
+
+    return response;
   } catch (error) {
     console.error("PROVISION ERROR", error);
 
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
+        error: error?.message || "Unable to create the organization",
       },
       { status: 500 }
     );

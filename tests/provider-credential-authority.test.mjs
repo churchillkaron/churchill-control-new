@@ -49,3 +49,30 @@ test("Vault broker is service-role-only, security-invoker and row bound", () => 
   assert.match(migration, /from authenticated/i);
   assert.match(migration, /grant execute on function public\.resolve_provider_credential_vault_secret\(uuid, text, uuid\) to service_role/i);
 });
+
+test("owned Intelligence credential provisioning accepts secrets only from server environment", () => {
+  const runtime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceCredentialProvisioningRuntime.js");
+  const route = source("app/api/platform/admin/intelligence-credentials/route.js");
+  const migration = source("supabase/migrations/20260906023619_provision_owned_intelligence_modal_credential.sql");
+
+  assert.match(runtime, /process\.env\.MODAL_TOKEN_ID/);
+  assert.match(runtime, /process\.env\.MODAL_TOKEN_SECRET/);
+  assert.match(runtime, /provision_owned_intelligence_modal_credential/);
+  assert.match(runtime, /secret_material_returned|secret_reference_scheme|SUPABASE_VAULT/);
+  assert.doesNotMatch(route, /request\.json\(/);
+  assert.match(route, /requirePlatformOperatorWorkspaceAccess/);
+  assert.match(route, /provisionOwnedIntelligenceCredentialFromServerEnvironment/);
+  assert.match(route, /secret_material_returned:\s*false/);
+  assert.match(migration, /security invoker/i);
+  assert.doesNotMatch(migration, /security definer/i);
+  assert.match(migration, /current_user <> 'service_role'/i);
+  assert.match(migration, /vault\.create_secret/);
+  assert.match(migration, /vault\.update_secret/);
+  assert.match(migration, /'avantiqo-intelligence'/);
+  assert.match(migration, /'managed_modal_credentials'/);
+  assert.match(migration, /'AVANTIQO_OWNED_INTELLIGENCE'/);
+  assert.match(migration, /revoke all on function public\.provision_owned_intelligence_modal_credential\(uuid, text\) from public/i);
+  assert.match(migration, /from anon/i);
+  assert.match(migration, /from authenticated/i);
+  assert.match(migration, /grant execute on function public\.provision_owned_intelligence_modal_credential\(uuid, text\) to service_role/i);
+});

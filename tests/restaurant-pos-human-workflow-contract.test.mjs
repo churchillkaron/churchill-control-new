@@ -4,6 +4,7 @@ import test from "node:test";
 
 const paths = Object.freeze({
   registry: "app/(system)/workspace/[organizationId]/operations/pos/POSApplicationSurfaceRegistry.jsx",
+  shell: "app/(system)/workspace/[organizationId]/operations/pos/StationaryPOS_UI.jsx",
   checkout: "app/(system)/workspace/[organizationId]/operations/pos/POSInlineCheckout.jsx",
   waiter: "app/(system)/workspace/[organizationId]/operations/pos/RestaurantWaiterPhoneSurface.jsx",
   stationary: "app/(system)/workspace/[organizationId]/operations/pos/RestaurantStationaryOrderSurface.jsx",
@@ -11,11 +12,40 @@ const paths = Object.freeze({
   kitchen: "components/workspace/operations/RestaurantKitchenDisplay.jsx",
   expo: "components/workspace/operations/RestaurantExpoPass.jsx",
   expoPage: "app/(system)/workspace/[organizationId]/operations/expo/page.jsx",
+  theme: "components/workspace/operations/RestaurantAvantiqoTheme.jsx",
+  tablesLayout: "app/(system)/workspace/[organizationId]/operations/tables/layout.jsx",
+  kitchenLayout: "app/(system)/workspace/[organizationId]/operations/kitchen/layout.jsx",
+  expoLayout: "app/(system)/workspace/[organizationId]/operations/expo/layout.jsx",
 });
 
 async function source(path) {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
 }
+
+test("restaurant uses the current Avantiqo visual system across human work surfaces", async () => {
+  const theme = await source(paths.theme);
+  const registry = await source(paths.registry);
+  const shell = await source(paths.shell);
+  const tablesLayout = await source(paths.tablesLayout);
+  const kitchenLayout = await source(paths.kitchenLayout);
+  const expoLayout = await source(paths.expoLayout);
+
+  assert.match(theme, /#f7f6f3/i);
+  assert.match(theme, /#ffffff/i);
+  assert.match(theme, /#a37849/i);
+  assert.match(theme, /rgba\(0, 0, 0, 0\.075\)/);
+  assert.match(theme, /data-avantiqo-restaurant-theme/);
+  assert.match(registry, /RestaurantAvantiqoTheme/);
+  assert.match(registry, /orders: RestaurantOrdersSurface/);
+  assert.match(registry, /receipts: RestaurantReceiptsSurface/);
+  assert.match(registry, /cash: RestaurantCashSurface/);
+  assert.match(shell, /data-avantiqo-pos-shell=\{isRestaurant \? "light" : "dark"\}/);
+  assert.match(shell, /bg-\[#F7F6F3\]/);
+  assert.match(shell, /bg-\[#25231F\]/);
+  assert.match(tablesLayout, /RestaurantAvantiqoTheme mode="service"/);
+  assert.match(kitchenLayout, /RestaurantAvantiqoTheme mode="production"/);
+  assert.match(expoLayout, /RestaurantAvantiqoTheme mode="production"/);
+});
 
 test("restaurant waiter phone stays service-only", async () => {
   const waiter = await source(paths.waiter);

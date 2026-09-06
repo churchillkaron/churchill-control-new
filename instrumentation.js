@@ -16,6 +16,9 @@ export async function register() {
       "@/lib/creative/director/runtime/CreativeCameraGrammarExecutionGate"
     );
     await import(
+      "@/lib/creative/director/runtime/CreativeAerialCinematographyExecutionGate"
+    );
+    await import(
       "@/lib/creative/identity/runtime/CreativeHumanContinuityQualityBootstrap"
     );
     await import(

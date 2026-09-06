@@ -17,11 +17,15 @@ import {
 const OWNER_LABEL = Object.freeze({ FRONT_DESK: "Front Desk", HOUSEKEEPING: "Housekeeping", MAINTENANCE: "Maintenance" });
 const OWNER_ROUTE = Object.freeze({ FRONT_DESK: "front-desk", HOUSEKEEPING: "housekeeping", MAINTENANCE: "maintenance" });
 
-function etaLabel(value) {
+function etaLabel(value, timeZone) {
   if (!value) return "ETA not recorded";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "ETA not recorded";
-  return `ETA ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  try {
+    return `ETA ${new Intl.DateTimeFormat([], { timeZone: timeZone || "UTC", hour: "2-digit", minute: "2-digit" }).format(date)}`;
+  } catch {
+    return "ETA recorded";
+  }
 }
 
 export default function HotelArrivalReadinessOwnership({ organizationId, focusOwner = null, compact = false }) {
@@ -74,7 +78,7 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
   const items = useMemo(() => {
     const all = data?.items || [];
     if (!focusOwner) return all;
-    return all.filter((item) => item.owner === focusOwner || item.state === "READY");
+    return all.filter((item) => item.owner === focusOwner);
   }, [data, focusOwner]);
 
   const summary = data?.summary || {};
@@ -116,7 +120,7 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
               <div key={item.booking.id} className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(170px,1fr)_100px_120px_minmax(190px,1.4fr)_150px] md:items-center md:px-5">
                 <div>
                   <div className="text-[10px] font-semibold text-[#403C37]">{item.guest?.name || item.booking.reference || "Arrival"}</div>
-                  <div className="mt-0.5 text-[7px] text-[#938D84]">{item.booking.checkInDate || "No arrival date"} · {etaLabel(item.booking.estimatedArrivalAt)}</div>
+                  <div className="mt-0.5 text-[7px] text-[#938D84]">{item.booking.checkInDate || "No arrival date"} · {etaLabel(item.booking.estimatedArrivalAt, item.operationalDay?.timeZone)}</div>
                   <div className="mt-0.5 text-[7px] text-[#AAA39A]">{item.room ? `Room ${item.room.number} · ${item.room.type || "Room"}` : "No room assigned"}</div>
                 </div>
                 <HotelStatusPill value={item.state} tone={item.state === "BLOCKED" ? "critical" : undefined} />

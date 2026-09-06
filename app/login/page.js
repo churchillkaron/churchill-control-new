@@ -6,7 +6,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Mail } from "lucide-react";
 
-import { resolvePlatformHostContext } from "@/lib/platform/context/resolvePlatformHostContext";
+import {
+  PLATFORM_LOGIN_BRAND_SESSION_KEY,
+  resolvePlatformLoginContext,
+} from "@/lib/platform/context/resolvePlatformHostContext";
 import { supabase } from "@/lib/shared/supabase/client";
 
 function PlatformIdentity({ brand }) {
@@ -21,7 +24,7 @@ function PlatformIdentity({ brand }) {
     );
   }
 
-  const churchillLogo = brand.id === "churchill";
+  const wideLogo = brand.id === "churchill" || brand.id === "coleley";
 
   return (
     <div className="flex flex-col items-center">
@@ -30,10 +33,10 @@ function PlatformIdentity({ brand }) {
         <img
           src={brand.logoSrc}
           alt={brand.logoAlt}
-          width={churchillLogo ? "520" : "320"}
-          height={churchillLogo ? "260" : "220"}
+          width={wideLogo ? "520" : "320"}
+          height={wideLogo ? "260" : "220"}
           className={
-            churchillLogo
+            wideLogo
               ? "relative h-auto max-h-[142px] w-full max-w-[440px] rounded-[18px] object-contain shadow-[0_0_36px_rgba(214,166,106,0.16)]"
               : "relative h-[148px] w-auto max-w-full object-contain drop-shadow-[0_0_34px_rgba(214,166,106,0.28)] sm:h-[162px]"
           }
@@ -68,7 +71,23 @@ export default function LoginPage() {
     let mounted = true;
 
     if (typeof window !== "undefined") {
-      setBrand(resolvePlatformHostContext(window.location.hostname));
+      const params = new URLSearchParams(window.location.search);
+      const requestedBrand = params.get("brand");
+      const resolvedBrand = resolvePlatformLoginContext(
+        window.location.hostname,
+        requestedBrand,
+      );
+
+      setBrand(resolvedBrand);
+
+      if (resolvedBrand?.id && resolvedBrand.id !== "avantiqo") {
+        window.sessionStorage.setItem(
+          PLATFORM_LOGIN_BRAND_SESSION_KEY,
+          resolvedBrand.id,
+        );
+      } else {
+        window.sessionStorage.removeItem(PLATFORM_LOGIN_BRAND_SESSION_KEY);
+      }
     }
 
     async function initialiseAuth() {

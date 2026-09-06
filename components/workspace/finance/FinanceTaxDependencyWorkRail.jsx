@@ -33,7 +33,7 @@ function Responsibility({ value }) {
   return <span className="inline-flex items-center gap-1 rounded-md border border-black/[0.07] bg-white px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.07em] text-[#6F6961]">{client ? <Users size={9} /> : <ShieldCheck size={9} />}{client ? "Client evidence · accountant validates" : "Accounting team"}</span>;
 }
 
-export default function FinanceTaxDependencyWorkRail({ organizationId, entityId, selectedVatReturnId, onStageChange }) {
+export default function FinanceTaxDependencyWorkRail({ organizationId, entityId, selectedVatReturnId, onStageChange, onEvidenceFocus }) {
   const [state, setState] = useState({ loading: false, error: "", body: null });
   const [busyCode, setBusyCode] = useState("");
   const [drafts, setDrafts] = useState({});
@@ -98,6 +98,11 @@ export default function FinanceTaxDependencyWorkRail({ organizationId, entityId,
     }
   }
 
+  function inspectEvidence(dependencyCode) {
+    if (typeof onEvidenceFocus === "function") return onEvidenceFocus(dependencyCode);
+    return onStageChange?.("EVIDENCE");
+  }
+
   if (!organizationId || !entityId || !selectedVatReturnId) return null;
   if (!state.loading && !state.error && (!guidance || guidance.state === "FILED" || dependencies.length === 0)) return null;
 
@@ -148,7 +153,7 @@ export default function FinanceTaxDependencyWorkRail({ organizationId, entityId,
                 {!envelope?.assigned_to ? <button onClick={() => action(dependency.code, "TAKE_OWNERSHIP")} disabled={busyCode === dependency.code} className="h-8 rounded-lg bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white disabled:opacity-40">Take ownership</button> : null}
                 {ownedByMe ? <button onClick={() => action(dependency.code, "RELEASE_OWNERSHIP")} disabled={busyCode === dependency.code} className="h-8 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[8px] font-semibold disabled:opacity-40">Release</button> : null}
                 {!envelope?.acknowledged_at ? <button onClick={() => action(dependency.code, "ACKNOWLEDGE")} disabled={busyCode === dependency.code || readOnly} className="h-8 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[8px] font-semibold disabled:cursor-not-allowed disabled:opacity-35">Acknowledge</button> : null}
-                <button type="button" onClick={() => onStageChange?.("EVIDENCE")} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[8px] font-semibold"><Eye size={9} /> Inspect evidence</button>
+                <button type="button" onClick={() => inspectEvidence(dependency.code)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[8px] font-semibold"><Eye size={9} /> Inspect evidence</button>
               </div>
             </div>
 

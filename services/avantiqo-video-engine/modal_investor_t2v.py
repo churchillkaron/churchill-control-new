@@ -128,6 +128,11 @@ investor_ltx_worker_image = ltx_worker_image.add_local_file(
     MODAL_APP_REMOTE_PATH,
 )
 
+investor_seed_image = seed_image.add_local_file(
+    MODAL_APP_LOCAL_PATH,
+    MODAL_APP_REMOTE_PATH,
+)
+
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
@@ -153,7 +158,7 @@ def _snapshot() -> Path:
 
 
 @app.function(
-    image=seed_image,
+    image=investor_seed_image,
     volumes={"/models": model_volume},
     secrets=[modal.Secret.from_name(MODEL_SECRET_NAME)],
     timeout=2 * 60 * 60,

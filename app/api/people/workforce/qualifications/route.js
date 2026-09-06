@@ -98,7 +98,31 @@ function publicHolding(row, catalogById, staffById) {
 export async function GET(request) {
   try {
     const url = new URL(request.url);
-    const ctx = await managementContext(request, url.searchParams.get("organizationId") || null);
+    const requestedOrganizationId = url.searchParams.get("organizationId") || null;
+    const catalogOnly = url.searchParams.get("scope") === "catalog";
+
+    if (catalogOnly) {
+      const context = await resolveAuthenticatedStaffContext({
+        request,
+        organizationId: requestedOrganizationId,
+      });
+      if (!context.success) return contextError(context);
+      const catalogResult = await supabaseAdmin
+        .from("people_qualification_catalog")
+        .select("id,code,name,description,status")
+        .eq("organization_id", context.organizationId)
+        .eq("status", "active")
+        .order("name", { ascending: true });
+      if (catalogResult.error) throw catalogResult.error;
+      return NextResponse.json({
+        success: true,
+        organizationId: context.organizationId,
+        scope: "catalog",
+        catalog: catalogResult.data || [],
+      });
+    }
+
+    const ctx = await managementContext(request, requestedOrganizationId);
     if (ctx.response) return ctx.response;
     const includeArchived = url.searchParams.get("status") === "all";
 

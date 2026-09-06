@@ -6,6 +6,8 @@ const migration = fs.readFileSync("supabase/migrations/20260906003000_hotel_earl
 const route = fs.readFileSync("app/api/hotel/bookings/early-departure/route.js", "utf8");
 const readiness = fs.readFileSync("lib/hotel/server/getHotelDepartureReadiness.js", "utf8");
 const transition = fs.readFileSync("lib/hotel/server/transitionHotelBooking.js", "utf8");
+const control = fs.readFileSync("components/workspace/hotel/HotelEarlyDepartureControl.jsx", "utf8");
+const stayControl = fs.readFileSync("app/(system)/workspace/[organizationId]/operations/stay-control/page.jsx", "utf8");
 
 test("booked departure is preserved while actual departure gets separate evidence", () => {
   assert.match(migration, /actual_check_out_at timestamptz/);
@@ -54,4 +56,18 @@ test("checkout records actual departure without rewriting booked checkout date",
   assert.doesNotMatch(transition, /check_out_date: changedAt/);
   assert.match(transition, /status: transition\.toStatus/);
   assert.match(transition, /task_type: "CLEANING"/);
+});
+
+test("operator workflow lives beside the real stay and folio controls", () => {
+  assert.match(stayControl, /HotelEarlyDepartureControl/);
+  assert.match(stayControl, /booking=\{selected\}/);
+  assert.match(stayControl, /onChanged=\{load\}/);
+  assert.match(control, /\/api\/hotel\/bookings\/early-departure/);
+  assert.match(control, /action: "PREPARE"/);
+  assert.match(control, /action: "CONFIRM"/);
+  assert.match(control, /Record early departure/);
+  assert.match(control, /Confirm commercial review/);
+  assert.match(control, /does not change the booked departure, room price, folio, deposit, refund or fee/);
+  assert.match(control, /Confirmation records the decision; it does not create money movement/);
+  assert.match(control, /Open Hotel payments/);
 });

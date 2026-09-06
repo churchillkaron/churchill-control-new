@@ -9,6 +9,8 @@ const paths = Object.freeze({
   stationary: "app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx",
   floor: "app/(system)/workspace/[organizationId]/operations/tables/page.jsx",
   kitchen: "components/workspace/operations/RestaurantKitchenDisplay.jsx",
+  expo: "components/workspace/operations/RestaurantExpoPass.jsx",
+  expoPage: "app/(system)/workspace/[organizationId]/operations/expo/page.jsx",
 });
 
 async function source(path) {
@@ -66,5 +68,19 @@ test("restaurant kitchen display stays production-only", async () => {
 
   assert.doesNotMatch(kitchen, /\/api\/pos\/payments\/settle/);
   assert.doesNotMatch(kitchen, /operations\/pos\/payments/);
+  assert.doesNotMatch(kitchen, /status:\s*"SERVED"/);
   assert.doesNotMatch(kitchen, />\s*Pay(?:ment)?\s*</i);
+});
+
+test("restaurant expo owns ready-to-served physical handoff", async () => {
+  const expo = await source(paths.expo);
+  const expoPage = await source(paths.expoPage);
+
+  assert.match(expoPage, /RestaurantExpoPass/);
+  assert.match(expo, /scope:\s*"ready"/);
+  assert.match(expo, /restaurant_kitchen_ticket/);
+  assert.match(expo, /restaurant_bar_ticket/);
+  assert.match(expo, /status:\s*"SERVED"/);
+  assert.match(expo, /Only ready kitchen and bar items appear here/);
+  assert.doesNotMatch(expo, /\/api\/pos\/payments\/settle/);
 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { evaluateHotelArrivalReadiness } from "@/lib/hotel/server/getHotelArrivalReadiness";
 import { evaluateHotelDepartureReadiness } from "@/lib/hotel/server/getHotelDepartureReadiness";
+import { deriveHotelOperationalDate } from "@/lib/hotel/server/getHotelOperationalDate";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -41,10 +42,22 @@ export async function GET(request) {
     const bookingRows = data || [];
     const bookingIds = bookingRows.map((booking) => booking.id).filter(Boolean);
     const roomIds = [...new Set(bookingRows.map((booking) => booking.room_id).filter(Boolean))];
+    const propertyIds = [...new Set(bookingRows.map((booking) => booking.property_id).filter(Boolean))];
     const turnoverByRoomId = new Map();
     const folioByBookingId = new Map();
     const linesByFolioId = new Map();
     const transactionsByBookingId = new Map();
+    const propertyById = new Map();
+
+    if (propertyIds.length) {
+      const { data: properties, error: propertyError } = await supabaseAdmin
+        .from("hotel_properties")
+        .select("*")
+        .eq("organization_id", access.organizationId)
+        .in("id", propertyIds);
+      if (propertyError) throw propertyError;
+      for (const property of properties || []) propertyById.set(property.id, property);
+    }
 
     if (roomIds.length) {
       const { data: turnoverTasks, error: turnoverError } = await supabaseAdmin
@@ -97,10 +110,22 @@ export async function GET(request) {
       }
     }
 
+    const fallbackOperationalDay = deriveHotelOperationalDate(null);
     const bookings = bookingRows.map((booking) => {
       const folio = folioByBookingId.get(booking.id) || null;
+      const property = booking.property_id ? propertyById.get(booking.property_id) || null : null;
+      const operationalDay = property ? deriveHotelOperationalDate(property) : fallbackOperationalDay;
       return {
         ...booking,
+        operational_day: {
+          businessDate: operationalDay.businessDate,
+          propertyDate: operationalDay.propertyDate,
+          timezone: operationalDay.timezone,
+          cutoffMinutes: operationalDay.cutoffMinutes,
+          configured: operationalDay.configured,
+          compatibilityFallback: operationalDay.compatibilityFallback,
+          propertyName: property?.name || null,
+        },
         room_turnover: booking.room_id ? turnoverByRoomId.get(booking.room_id) || null : null,
         arrival_readiness: evaluateHotelArrivalReadiness(booking),
         departure_readiness: evaluateHotelDepartureReadiness({
@@ -108,6 +133,7 @@ export async function GET(request) {
           folio,
           folioLines: folio ? linesByFolioId.get(folio.id) || [] : [],
           transactions: transactionsByBookingId.get(booking.id) || [],
+          businessDate: operationalDay.businessDate,
         }),
       };
     });

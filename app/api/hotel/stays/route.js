@@ -77,6 +77,25 @@ function signedFolioAmount(lineType, amount) {
   return Number(amount);
 }
 
+function governedRoomAssignmentError(error) {
+  const message = clean(error?.message || error?.details || error?.hint);
+  const known = [
+    "Only reserved or in-house stays can receive a room assignment",
+    "Booking property required before room assignment",
+    "Booking stay dates are invalid for room assignment",
+    "Target room not found",
+    "Target room belongs to another property",
+    "Target room capacity is insufficient for this stay",
+    "Target room is out of service",
+    "Target room has unresolved maintenance work",
+    "Target room is already committed to an overlapping stay",
+    "Target room is not physically ready for an arrival due now",
+    "Target room still has active Housekeeping work",
+    "Target room readiness changed during assignment",
+  ];
+  return known.find((entry) => message.includes(entry)) || null;
+}
+
 export async function GET(request) {
   try {
     const organizationId = clean(request.nextUrl.searchParams.get("organizationId") || request.nextUrl.searchParams.get("organization_id"));
@@ -168,46 +187,29 @@ export async function POST(request) {
     if (action === "ASSIGN_ROOM" || action === "MOVE_ROOM") {
       const toRoomId = clean(body.roomId || body.toRoomId || body.to_room_id);
       if (!toRoomId) return fail("Target room required");
-      const { data: target, error: targetError } = await supabaseAdmin.from("hotel_rooms").select("*").eq("organization_id", auth.organizationId).eq("id", toRoomId).maybeSingle();
-      if (targetError) throw targetError;
-      if (!target) return fail("Target room not found", 404);
-      if (booking.property_id && target.property_id !== booking.property_id) return fail("Target room belongs to another property", 409);
-      if (target.status !== "AVAILABLE") return fail(`Room ${target.room_number || ""} is ${target.status}; only AVAILABLE rooms can be assigned`, 409);
-      if (booking.room_id === target.id) return NextResponse.json({ success: true, booking, unchanged: true });
-
-      const previousRoomId = booking.room_id || null;
-      if (booking.status === "CHECKED_IN") {
-        const now = new Date().toISOString();
-        const { data: acquired, error: acquireError } = await supabaseAdmin.from("hotel_rooms").update({ status: "OCCUPIED", updated_at: now }).eq("organization_id", auth.organizationId).eq("id", target.id).eq("status", "AVAILABLE").select("id").maybeSingle();
-        if (acquireError) throw acquireError;
-        if (!acquired) return fail("Target room readiness changed. Refresh and choose another room.", 409);
-
-        const { data: movedBooking, error: bookingError } = await supabaseAdmin.from("hotel_bookings").update({ room_id: target.id, property_id: target.property_id || booking.property_id, updated_at: now }).eq("organization_id", auth.organizationId).eq("id", booking.id).eq("room_id", previousRoomId).select().maybeSingle();
-        if (bookingError || !movedBooking) {
-          await supabaseAdmin.from("hotel_rooms").update({ status: "AVAILABLE" }).eq("organization_id", auth.organizationId).eq("id", target.id).eq("status", "OCCUPIED");
-          if (bookingError) throw bookingError;
-          return fail("Booking changed while moving rooms. Refresh and retry.", 409);
-        }
-        if (previousRoomId) {
-          await supabaseAdmin.from("hotel_rooms").update({ status: "DIRTY", updated_at: now }).eq("organization_id", auth.organizationId).eq("id", previousRoomId).eq("status", "OCCUPIED");
-          const { error: housekeepingError } = await supabaseAdmin.from("hotel_housekeeping_tasks").insert({
-            organization_id: auth.organizationId,
-            room_id: previousRoomId,
-            booking_id: booking.id,
-            task_status: "PENDING",
-            scheduled_at: now,
-            created_at: now,
-          });
-          if (housekeepingError) throw housekeepingError;
-        }
-      } else {
-        const { error } = await supabaseAdmin.from("hotel_bookings").update({ room_id: target.id, property_id: target.property_id || booking.property_id, updated_at: new Date().toISOString() }).eq("organization_id", auth.organizationId).eq("id", booking.id);
-        if (error) throw error;
+      const requireReady = booking.status === "CHECKED_IN" || body.requireReady === true || body.require_ready === true;
+      const reason = clean(body.reason) || (booking.room_id ? "Room move" : "Room assignment");
+      const { data: assigned, error: assignmentError } = await supabaseAdmin.rpc("hotel_assign_booking_room_guarded", {
+        p_organization_id: auth.organizationId,
+        p_booking_id: booking.id,
+        p_room_id: toRoomId,
+        p_require_ready: requireReady,
+        p_reason: reason,
+      });
+      if (assignmentError) {
+        const governed = governedRoomAssignmentError(assignmentError);
+        if (governed) return fail(governed, 409);
+        throw assignmentError;
       }
-
-      const { error: moveError } = await supabaseAdmin.from("hotel_room_moves").insert({ organization_id: auth.organizationId, booking_id: booking.id, from_room_id: previousRoomId, to_room_id: target.id, reason: clean(body.reason) || (previousRoomId ? "Room move" : "Room assignment") });
-      if (moveError) throw moveError;
-      return NextResponse.json({ success: true, roomId: target.id, roomNumber: target.room_number });
+      const row = Array.isArray(assigned) ? assigned[0] : assigned;
+      const { data: target, error: targetError } = await supabaseAdmin
+        .from("hotel_rooms")
+        .select("id,room_number")
+        .eq("organization_id", auth.organizationId)
+        .eq("id", toRoomId)
+        .maybeSingle();
+      if (targetError) throw targetError;
+      return NextResponse.json({ success: true, booking: row || null, roomId: toRoomId, roomNumber: target?.room_number || null });
     }
 
     if (action === "ADD_FOLIO_LINE") {

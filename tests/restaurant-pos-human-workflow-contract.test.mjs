@@ -47,6 +47,21 @@ test("restaurant stationary POS keeps ordering and settlement on one surface", a
   assert.doesNotMatch(stationary, /goToPayment/);
 });
 
+test("stationary checkout uses real split tenders and cash change", async () => {
+  const checkout = await source(paths.checkout);
+
+  assert.match(checkout, /data-stationary-payment-rail="true"/);
+  assert.match(checkout, /Split tender/);
+  assert.match(checkout, /Take one real tender at a time until remaining reaches zero/);
+  assert.match(checkout, /data-cash-change-workflow="true"/);
+  assert.match(checkout, /Cash received/);
+  assert.match(checkout, /Change/);
+  assert.match(checkout, /tenderedAmount/);
+  assert.match(checkout, /paidAmount/);
+  assert.match(checkout, /numericAmount > remainingBalance \+ 0\.01/);
+  assert.doesNotMatch(checkout, /value:\s*"MIXED"/);
+});
+
 test("floor handoff targets the stationary POS with exact table context", async () => {
   const floor = await source(paths.floor);
   const checkout = await source(paths.checkout);

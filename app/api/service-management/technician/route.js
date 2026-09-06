@@ -9,6 +9,7 @@ import {
 import { listServiceOccurrences } from "@/lib/service-management/repositories/ServicePlanRepository";
 import { reconcileServiceOccurrence } from "@/lib/service-management/runtime/ServiceCompletionReconciliationRuntime";
 import { assertServiceMonitoringComplete } from "@/lib/service-management/runtime/ServiceMonitoringRoundRuntime";
+import { assertServiceTechnicianEligibility } from "@/lib/service-management/runtime/ServiceTechnicianEligibilityRuntime";
 import {
   assertServiceTreatmentReady,
   projectServiceTreatmentReadiness,
@@ -28,6 +29,7 @@ function responseError(error, status = 500) {
   return Response.json({
     success: false,
     error: error?.message || error || "Technician execution failed.",
+    technician_eligibility: error?.technician_eligibility || undefined,
     monitoring_round: error?.monitoring_round || undefined,
     treatment_readiness: error?.treatment_readiness || undefined,
     service_exception: error?.service_exception || undefined,
@@ -39,6 +41,15 @@ function serviceDelivery(occurrence = {}, workOrder = {}) {
 }
 function protocolFor(occurrence = {}, workOrder = {}) { return serviceDelivery(occurrence, workOrder).execution_protocol || null; }
 function staffExecution(workOrder = {}) { return workOrder.attributes?.staff_execution || {}; }
+function currentTechnicianIds(resolved = {}) {
+  return [resolved.currentPartyId, resolved.access?.staff?.party_id, resolved.access?.staff?.id]
+    .map(text)
+    .filter(Boolean);
+}
+function assignedToCurrentTechnician(workOrder = {}, resolved = {}) {
+  const assigned = text(workOrder.assigned_to);
+  return Boolean(assigned && currentTechnicianIds(resolved).includes(assigned));
+}
 
 function isPresent(value, field) {
   if (field?.type === "checkbox") return value === true;
@@ -186,9 +197,8 @@ export async function GET(request) {
       status: input.status || null,
       limit: Math.min(Number(input.limit) || 250, 500),
     });
-    const visible = rows.filter((row) => row.work_order_id);
-    const workOrderIds = [...new Set(visible.map((row) => row.work_order_id).filter(Boolean))];
-    const occurrenceIds = [...new Set(visible.map((row) => row.id).filter(Boolean))];
+    const candidateOccurrences = rows.filter((row) => row.work_order_id);
+    const workOrderIds = [...new Set(candidateOccurrences.map((row) => row.work_order_id).filter(Boolean))];
 
     let workOrders = [];
     if (workOrderIds.length) {
@@ -197,8 +207,12 @@ export async function GET(request) {
       if (resolved.context.entity_id) query = query.or(`entity_id.eq.${resolved.context.entity_id},entity_id.is.null`);
       const result = await query;
       if (result.error) throw result.error;
-      workOrders = result.data || [];
+      workOrders = (result.data || []).filter((row) => assignedToCurrentTechnician(row, resolved));
     }
+
+    const assignedWorkOrderIds = new Set(workOrders.map((row) => row.id));
+    const visible = candidateOccurrences.filter((row) => assignedWorkOrderIds.has(row.work_order_id));
+    const occurrenceIds = [...new Set(visible.map((row) => row.id).filter(Boolean))];
 
     let evidenceRows = [];
     if (occurrenceIds.length) {
@@ -252,6 +266,14 @@ export async function POST(request) {
       period_id: workOrder.period_id || null,
     };
 
+    const technicianEligibility = await assertServiceTechnicianEligibility({
+      resolved,
+      workOrder,
+      service: delivery,
+      action,
+      now: new Date(now),
+    });
+
     if (action === "start") {
       if (!(workOrder.allowed_commands || []).includes("start")) {
         const error = new Error("This work order cannot be started from its current lifecycle state."); error.status = 409; throw error;
@@ -264,8 +286,9 @@ export async function POST(request) {
             ...(workOrder.attributes || {}),
             staff_execution: {
               ...existingExecution,
-              staff_id: workOrder.assigned_to || delivery.preferred_staff_id || null,
-              technician_name: delivery.preferred_staff_name || existingExecution.technician_name || null,
+              staff_id: technicianEligibility.actor.staff_id,
+              technician_name: technicianEligibility.actor.name || existingExecution.technician_name || null,
+              qualification_preflight: technicianEligibility,
               started: { ...(existingExecution.started || {}), at: now },
             },
           },
@@ -274,7 +297,12 @@ export async function POST(request) {
       if (response.status >= 400 || !response.body?.ok) {
         const error = new Error(response.body?.error || "Service could not be started."); error.status = response.status || 500; throw error;
       }
-      return Response.json({ success: true, action, work_order: response.body.execution?.result || null });
+      return Response.json({
+        success: true,
+        action,
+        technician_eligibility: technicianEligibility,
+        work_order: response.body.execution?.result || null,
+      });
     }
 
     if (!(workOrder.allowed_commands || []).includes("complete")) {
@@ -366,8 +394,9 @@ export async function POST(request) {
           ...(workOrder.attributes || {}),
           staff_execution: {
             ...existingExecution,
-            staff_id: workOrder.assigned_to || delivery.preferred_staff_id || null,
-            technician_name: delivery.preferred_staff_name || existingExecution.technician_name || null,
+            staff_id: technicianEligibility.actor.staff_id,
+            technician_name: technicianEligibility.actor.name || existingExecution.technician_name || null,
+            qualification_preflight: technicianEligibility,
             protocol_submission: protocolSubmission,
             completed: {
               ...(existingExecution.completed || {}),
@@ -403,6 +432,7 @@ export async function POST(request) {
     return Response.json({
       success: true,
       action,
+      technician_eligibility: technicianEligibility,
       work_order: response.body.execution?.result || null,
       treatment_readiness: treatmentReadiness,
       monitoring_round: monitoringRound,

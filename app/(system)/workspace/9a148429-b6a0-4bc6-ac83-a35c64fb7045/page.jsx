@@ -1,3 +1,4 @@
+import PlatformCustomerLifecyclePanel from "@/components/platform/PlatformCustomerLifecyclePanel";
 import PlatformGrowthTrajectoryPanel from "@/components/platform/PlatformGrowthTrajectoryPanel";
 import PlatformIntelligenceProgressPanel from "@/components/platform/PlatformIntelligenceProgressPanel";
 import PlatformOwnerHome from "@/components/platform/PlatformOwnerHome";
@@ -8,6 +9,7 @@ export default function AvantiqoPlatformWorkspacePage() {
     <div className={styles.root}>
       <PlatformOwnerHome />
       <PlatformGrowthTrajectoryPanel />
+      <PlatformCustomerLifecyclePanel />
       <PlatformIntelligenceProgressPanel />
     </div>
   );

@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 
 import { supabase } from "@/lib/shared/supabase/client";
 
@@ -36,6 +37,18 @@ const EMPTY_STATE = {
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function workspaceOrganizationId(pathname) {
+  const match = String(pathname || "").match(/^\/workspace\/([^/]+)/);
+  const candidate = text(match?.[1]);
+  if (!candidate || candidate.toLowerCase() === "platform") return null;
+
+  try {
+    return decodeURIComponent(candidate);
+  } catch {
+    return candidate;
+  }
 }
 
 function emailLocalPart(value) {
@@ -76,6 +89,11 @@ function canonicalStaff(user, staff) {
 }
 
 export function BusinessContextProvider({ children }) {
+  const pathname = usePathname();
+  const routeOrganizationId = useMemo(
+    () => workspaceOrganizationId(pathname),
+    [pathname],
+  );
   const [state, setState] = useState(EMPTY_STATE);
 
   useEffect(() => {
@@ -98,6 +116,34 @@ export function BusinessContextProvider({ children }) {
           return;
         }
 
+        setState((previous) => ({
+          ...previous,
+          ready: false,
+          loading: true,
+          error: null,
+        }));
+
+        // The organization encoded in /workspace/:organizationId is the
+        // authoritative navigation context. Re-select it server-side before
+        // bootstrap so direct links and client-side organization switches cannot
+        // retain a previous organization's entity, period, branding or modules.
+        if (routeOrganizationId) {
+          const selectionResponse = await fetch("/api/session/organization", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ organizationId: routeOrganizationId }),
+            cache: "no-store",
+            credentials: "same-origin",
+          });
+          const selectionData = await selectionResponse.json().catch(() => ({}));
+
+          if (!selectionResponse.ok || !selectionData?.success) {
+            throw new Error(
+              selectionData?.error || "Unable to select workspace organization",
+            );
+          }
+        }
+
         const response = await fetch("/api/session/bootstrap", {
           method: "GET",
           cache: "no-store",
@@ -118,6 +164,10 @@ export function BusinessContextProvider({ children }) {
             organizations: [],
             organization_id: null,
             is_platform_operator_workspace: false,
+            entity: null,
+            entity_id: null,
+            period: null,
+            period_id: null,
             entities: [],
             modules: [],
             permissions: [],
@@ -132,6 +182,10 @@ export function BusinessContextProvider({ children }) {
           data.staff?.active_organization_id ||
           null;
         const staff = canonicalStaff(user, data.staff || null);
+
+        if (routeOrganizationId && organizationId !== routeOrganizationId) {
+          throw new Error("Workspace organization did not synchronize correctly");
+        }
 
         setState({
           ready: true,
@@ -180,9 +234,16 @@ export function BusinessContextProvider({ children }) {
           ...previous,
           ready: true,
           loading: false,
+          organization: null,
+          organization_id: null,
+          entity: null,
+          entity_id: null,
+          period: null,
+          period_id: null,
           organizations: [],
           entities: [],
           modules: [],
+          permissions: [],
           is_platform_operator_workspace: false,
           error: error.message,
         }));
@@ -194,7 +255,7 @@ export function BusinessContextProvider({ children }) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [routeOrganizationId]);
 
   const value = useMemo(() => state, [state]);
 

@@ -22,6 +22,8 @@ const bookingReinstate = fs.readFileSync("app/api/hotel/bookings/reinstate/route
 const stayControl = fs.readFileSync("app/api/hotel/stays/route.js", "utf8");
 const frontDesk = fs.readFileSync("components/workspace/hotel/HotelFrontDeskWorkBoard.jsx", "utf8");
 const billingWebhook = fs.readFileSync("app/api/billing/webhook/route.js", "utf8");
+const shiftHandover = fs.readFileSync("app/api/hotel/shift-handover/route.js", "utf8");
+const nightAudit = fs.readFileSync("app/api/hotel/night-audit/route.js", "utf8");
 
 test("Hotel readiness Realtime is receive-only and organization scoped", () => {
   assert.match(migration, /on realtime\.messages\s+for select\s+to authenticated/i);
@@ -111,4 +113,15 @@ test("verified gateway settlement wakes Hotel departure readiness without exposi
   assert.ok(billingWebhook.indexOf('rpc("hotel_finalize_gateway_refund_with_finance"') < billingWebhook.indexOf('"REFUND_SETTLED"'));
   assert.ok(billingWebhook.indexOf('status: "FAILED"') < billingWebhook.indexOf('"PAYMENT_FAILED"'));
   assert.doesNotMatch(broadcaster, /amount|currency|payment|refund|finance_payment_id|provider_payment_id/);
+});
+
+test("shift collaboration and property day close wake other Hotel work surfaces", () => {
+  assert.match(shiftHandover, /broadcastHotelReadinessChanged/);
+  assert.match(shiftHandover, /source: "shift-handover-context"/);
+  assert.ok(shiftHandover.indexOf('from("hotel_shift_handover_context")') < shiftHandover.lastIndexOf("broadcastHotelReadinessChanged"));
+
+  assert.match(nightAudit, /broadcastHotelReadinessChanged/);
+  assert.match(nightAudit, /source: "night-audit"/);
+  assert.ok(nightAudit.indexOf('from("hotel_night_audits").upsert') < nightAudit.lastIndexOf("broadcastHotelReadinessChanged"));
+  assert.ok(nightAudit.indexOf('status: "CLOSED"') < nightAudit.indexOf('action: "CLOSE"'));
 });

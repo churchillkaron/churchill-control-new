@@ -52,6 +52,11 @@ function normalized(value) {
   return text(value).toLowerCase().replace(/[\s-]+/g, "_");
 }
 
+function numeric(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function isTerminal(status) {
   return TERMINAL_STATUSES.has(normalized(status));
 }
@@ -85,6 +90,75 @@ function dueTime(row) {
   if (!row?.due_at) return null;
   const due = new Date(row.due_at);
   return Number.isNaN(due.getTime()) ? null : due;
+}
+
+function scheduledDurationMinutes(row) {
+  const start = row?.scheduled_start ? new Date(row.scheduled_start) : null;
+  const end = row?.scheduled_end ? new Date(row.scheduled_end) : null;
+  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
+  return minutes > 0 ? minutes : null;
+}
+
+function dispatchContext(row = {}) {
+  const attributes = row.attributes || {};
+  const service = attributes.service_delivery || attributes.service_follow_up || {};
+  const monitoring = attributes.monitoring_follow_up || {};
+  const latitude = numeric(
+    service.latitude
+    ?? service.lat
+    ?? service.customer_location_latitude
+    ?? attributes.customer_location_latitude
+    ?? monitoring.latitude,
+  );
+  const longitude = numeric(
+    service.longitude
+    ?? service.lng
+    ?? service.lon
+    ?? service.customer_location_longitude
+    ?? attributes.customer_location_longitude
+    ?? monitoring.longitude,
+  );
+  const preferredWindow = service.preferred_window || {};
+  const durationMinutes = numeric(service.duration_minutes) || scheduledDurationMinutes(row);
+  const occurrenceId = text(
+    service.occurrence_id
+    || attributes.corrective_service?.corrective_occurrence_id
+    || attributes.corrective_service?.occurrence_id,
+  ) || null;
+
+  const hasServiceContext = Boolean(
+    row.source_domain === "service-management"
+    || service.service_plan_id
+    || service.customer_party_id
+    || service.customer_location_id
+    || occurrenceId,
+  );
+
+  if (!hasServiceContext) return null;
+
+  return {
+    customer_name: text(service.customer_name || monitoring.customer_name) || null,
+    customer_party_id: text(service.customer_party_id || monitoring.customer_party_id) || null,
+    customer_location_name: text(service.customer_location_name || monitoring.customer_location_name) || null,
+    customer_location_id: text(service.customer_location_id || monitoring.customer_location_id) || null,
+    service_name: text(service.service_name || monitoring.service_name || row.name) || null,
+    service_category: text(service.service_category) || null,
+    industry_key: text(service.industry_key) || null,
+    occurrence_id: occurrenceId,
+    duration_minutes: durationMinutes,
+    preferred_staff_id: text(service.preferred_staff_id) || null,
+    preferred_staff_name: text(service.preferred_staff_name) || null,
+    preferred_window: {
+      start_time: text(preferredWindow.start_time) || null,
+      end_time: text(preferredWindow.end_time) || null,
+    },
+    area: text(service.area || monitoring.area) || null,
+    corrective_service: Boolean(service.corrective_service || attributes.corrective_service),
+    latitude,
+    longitude,
+    geospatial_ready: latitude !== null && longitude !== null,
+  };
 }
 
 function actionability(row, now, timezone) {
@@ -242,6 +316,15 @@ function compareTodayRows(a, b) {
   return compareRankedRows(a, b);
 }
 
+function publicOperationsRow(row, state) {
+  const { attributes: _attributes, ...publicRow } = row;
+  return {
+    ...publicRow,
+    ...state,
+    dispatch_context: dispatchContext(row),
+  };
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -298,7 +381,7 @@ export async function GET(request) {
     let query = supabaseAdmin
       .from("operations_records")
       .select(
-        "id, capability_id, record_type, code, name, description, status, priority, assigned_to, scheduled_start, scheduled_end, due_at, completed_at, source_domain, source_type, source_id, created_at, updated_at",
+        "id, capability_id, record_type, code, name, description, status, priority, assigned_to, scheduled_start, scheduled_end, due_at, completed_at, source_domain, source_type, source_id, attributes, created_at, updated_at",
       )
       .in("capability_id", capabilityIds)
       .order("updated_at", { ascending: false })
@@ -314,10 +397,10 @@ export async function GET(request) {
     const timezone = resolved.context.timezone || "UTC";
     const todayKey = localDateKey(now, timezone);
     const activeRows = rows.filter((row) => !isTerminal(row.status));
-    const rankedRows = activeRows.map((row) => ({
-      ...row,
-      ...actionability(row, now, timezone),
-    }));
+    const rankedRows = activeRows.map((row) => publicOperationsRow(
+      row,
+      actionability(row, now, timezone),
+    ));
 
     const attention = rankedRows
       .filter((row) => row.needs_intervention)
@@ -333,8 +416,6 @@ export async function GET(request) {
       .sort(compareTodayRows)
       .slice(0, 24);
 
-    const rowStates = rankedRows.map((row) => row);
-
     return NextResponse.json({
       success: true,
       context: {
@@ -345,13 +426,13 @@ export async function GET(request) {
       },
       metrics: {
         active: activeRows.length,
-        attention: rowStates.filter((row) => row.needs_intervention).length,
-        overdue: rowStates.filter((row) => row.overdue).length,
-        due_today: rowStates.filter((row) => row.due_today).length,
-        due_soon: rowStates.filter((row) => row.due_soon).length,
+        attention: rankedRows.filter((row) => row.needs_intervention).length,
+        overdue: rankedRows.filter((row) => row.overdue).length,
+        due_today: rankedRows.filter((row) => row.due_today).length,
+        due_soon: rankedRows.filter((row) => row.due_soon).length,
         scheduled_today: activeRows.filter((row) => localDateKey(row.scheduled_start, timezone) === todayKey).length,
-        unassigned: rowStates.filter((row) => row.unassigned).length,
-        high_priority: rowStates.filter((row) => row.high_priority).length,
+        unassigned: rankedRows.filter((row) => row.unassigned).length,
+        high_priority: rankedRows.filter((row) => row.high_priority).length,
         completed_today: rows.filter((row) => localDateKey(row.completed_at, timezone) === todayKey).length,
       },
       capabilities: capabilitySummary(rows, capabilityIds, now, timezone),

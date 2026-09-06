@@ -1,0 +1,51 @@
+{
+  "contract": "AVANTIQO_INVESTOR_FILM_DOMAIN_CHAPTER_LOCK_V1",
+  "source_repository": "churchillkaron/churchill-control-new",
+  "authority": "OWNER_EXPLICIT_DIRECTION_2026_09_06",
+  "applies_to": "AVANTIQO_INVESTOR_FILM_9MIN_MASTER_LOCK_V1",
+  "master_structure": "DOMAIN_CHAPTERS_WITH_STANDALONE_CUTS",
+  "rules": {
+    "full_film_duration_seconds": 540,
+    "chapters_must_be_domain_based": true,
+    "every_major_avantiqo_domain_must_be_shown_for_what_it_actually_does": true,
+    "each_domain_chapter_must_work_inside_the_full_9_minute_film": true,
+    "each_domain_chapter_must_also_be_cuttable_as_a_short_standalone_video": true,
+    "chapter_boundaries_must_be_edit_safe": true,
+    "standalone_chapters_must_not_depend_on_unseen_previous_context": true,
+    "cross_domain_continuity_is_allowed_but_must_not_prevent_clean_cuts": true,
+    "product_ui_must_match_the_domain_being_explained": true,
+    "real_business_context_and_role_correct_device_required": true,
+    "exact_current_avantiqo_ui_and_behavior_required": true,
+    "fake_ui_and_screenshot_overlay_compositing_forbidden": true,
+    "generic_feature_grid_montage_forbidden": true,
+    "each_chapter_must_show_real_work_product_interaction_and_business_consequence": true,
+    "billion_dollar_cinematic_quality_required": true
+  },
+  "domain_coverage_target": [
+    "Dashboard",
+    "Finance",
+    "Operations",
+    "Supply Chain",
+    "Commercial",
+    "People",
+    "Projects",
+    "Documents",
+    "Analytics",
+    "AI",
+    "Solutions",
+    "Administration",
+    "Compliance",
+    "Creative"
+  ],
+  "chapter_pattern": [
+    "DOMAIN_HUMAN_JOB",
+    "REAL_BUSINESS_ACTION",
+    "ROLE_CORRECT_DEVICE",
+    "IDENTICAL_CURRENT_AVANTIQO_DOMAIN_UI",
+    "MEANINGFUL_PRODUCT_INTERACTION",
+    "VISIBLE_BUSINESS_CONSEQUENCE",
+    "EDIT_SAFE_EXIT"
+  ],
+  "production_rule": "The 9-minute investor film is a premium modular master built from domain chapters. Every chapter proves what one Avantiqo domain actually does through real work and exact current product behavior, while remaining independently usable as a shorter domain film.",
+  "status": "OWNER_LOCKED"
+}

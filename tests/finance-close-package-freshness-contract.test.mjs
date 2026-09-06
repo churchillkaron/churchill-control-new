@@ -65,6 +65,16 @@ test("Month-end and year-end close record freshness only after the governed atom
   }
 });
 
+test("A retry can never silently rebaseline a previously fingerprinted close", () => {
+  const existingIndex = freshnessRuntime.indexOf("const existingFingerprint = closeRun.result?.package_fingerprint");
+  const updateIndex = freshnessRuntime.indexOf(".update({ result: nextResult");
+  assert.ok(existingIndex >= 0 && updateIndex > existingIndex, "Existing baseline must be checked before any close-run update");
+  assert.match(freshnessRuntime, /if \(existingFingerprint\?\.digest\)/);
+  assert.match(freshnessRuntime, /fingerprint: existingFingerprint/);
+  assert.match(freshnessRuntime, /baseline_preserved: true/);
+  assert.match(freshnessRuntime, /candidateFingerprint/);
+});
+
 test("Freshness read fails closed when the complete accounting population cannot be re-read", () => {
   assert.match(freshnessRoute, /buildFinanceClosePackageSnapshot/);
   assert.match(freshnessRoute, /evaluateFinanceClosePackageFreshness/);

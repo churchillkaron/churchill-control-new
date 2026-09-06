@@ -49,8 +49,8 @@ test("floor handoff targets the stationary POS with exact table context", async 
   const floor = await source(paths.floor);
   const checkout = await source(paths.checkout);
 
-  assert.match(floor, /view=stationary/);
-  assert.match(floor, /table=\$\{encodeURIComponent\(/);
+  assert.match(floor, /new URLSearchParams\(\{[\s\S]*view: "stationary",[\s\S]*table: String\(tableReference\)/);
+  assert.match(floor, /router\.push\(`\/workspace\/\$\{organizationId\}\/operations\/pos\?\$\{query\.toString\(\)\}`\)/);
   assert.match(checkout, /preferredContextReference = null/);
   assert.match(checkout, /contextMatchesReference\(context, preferredContextReference\)/);
   assert.match(checkout, /requestedEntry\?\.context/);

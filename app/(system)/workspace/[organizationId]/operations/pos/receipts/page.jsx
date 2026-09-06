@@ -37,6 +37,14 @@ function receiptCurrency(receipt, fallback) {
   );
 }
 
+function receiptItemAdjustmentLabel(item) {
+  const adjustment = String(item?.adjustment_type || "").trim().toUpperCase();
+  if (!adjustment) return null;
+  if (["VOID", "VOIDED"].includes(adjustment)) return "Voided · not charged";
+  if (["CANCELLED", "CANCELED"].includes(adjustment)) return "Cancelled · not charged";
+  return `${adjustment} · not charged`;
+}
+
 export default function ReceiptsPage({
   posConfiguration,
   posRuntime,
@@ -210,20 +218,42 @@ export default function ReceiptsPage({
                 </div>
 
                 <div className="mt-8 space-y-3">
-                  {(receipt.items || []).map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex justify-between gap-4 border-b border-white/10 pb-3"
-                    >
-                      <div>
-                        <div>{item.item_name || item.name || "Item"}</div>
-                        <div className="mt-1 text-xs text-white/35">
-                          {Number(item.quantity || 1)} × {formatMoney(item.price, selectedCurrencyCode)}
+                  {(receipt.items || []).map((item) => {
+                    const adjustmentLabel = receiptItemAdjustmentLabel(item);
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex justify-between gap-4 border-b border-white/10 pb-3"
+                        data-receipt-item-billable={item.billable === false ? "false" : "true"}
+                      >
+                        <div>
+                          <div className={item.billable === false ? "line-through opacity-55" : ""}>
+                            {item.item_name || item.name || "Item"}
+                          </div>
+                          <div className="mt-1 text-xs text-white/35">
+                            {Number(item.quantity || 1)} × {formatMoney(item.price, selectedCurrencyCode)}
+                          </div>
+                          {adjustmentLabel ? (
+                            <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-red-300">
+                              {adjustmentLabel}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className={item.billable === false ? "text-white/40" : ""}>
+                          {item.billable === false ? (
+                            <>
+                              <span className="mr-2 line-through">
+                                {formatMoney(item.original_total, selectedCurrencyCode)}
+                              </span>
+                              {formatMoney(0, selectedCurrencyCode)}
+                            </>
+                          ) : (
+                            formatMoney(item.total, selectedCurrencyCode)
+                          )}
                         </div>
                       </div>
-                      <div>{formatMoney(item.total, selectedCurrencyCode)}</div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="mt-8 space-y-3 border-t border-white/10 pt-5">

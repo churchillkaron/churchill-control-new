@@ -2,9 +2,9 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { CheckCircle2, Play, RefreshCw } from "lucide-react";
+import { CheckCircle2, Clock3, Play, RefreshCw, Wrench } from "lucide-react";
 
 import {
   HotelEmptyState,
@@ -18,151 +18,183 @@ import {
   hotelWorkspaceHref,
 } from "@/components/workspace/hotel/HotelWorkspaceUI";
 
-const STATUS_ORDER = Object.freeze(["AWAITING_INSPECTION", "IN_PROGRESS", "PENDING", "COMPLETED"]);
-const ACTIVE_STATUS_PRIORITY = Object.freeze({ AWAITING_INSPECTION: 0, IN_PROGRESS: 1, PENDING: 2 });
-
 function normalizeStatus(task) {
   return String(task?.task_status || "PENDING").toUpperCase();
 }
 
-function roomLabel(task) {
-  const room = task?.hotel_rooms;
-  return room?.room_number || room?.name || task?.room_id || "Unassigned room";
+function roomLabel(item) {
+  return item?.room?.room_number || item?.task?.room_id || "Unassigned room";
 }
 
-function elapsedLabel(value) {
-  const timestamp = value ? new Date(value).getTime() : NaN;
-  if (!Number.isFinite(timestamp)) return null;
-  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ${minutes % 60}m ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+function etaLabel(arrival) {
+  if (!arrival) return null;
+  if (arrival.minutesUntilEta === null || arrival.minutesUntilEta === undefined) return "ETA not recorded";
+  if (arrival.minutesUntilEta <= 0) return "Guest due now";
+  if (arrival.minutesUntilEta < 60) return `${arrival.minutesUntilEta} min to ETA`;
+  const hours = Math.floor(arrival.minutesUntilEta / 60);
+  const minutes = arrival.minutesUntilEta % 60;
+  return `${hours}h ${minutes}m to ETA`;
 }
 
-function stageDetail(task) {
-  const taskStatus = normalizeStatus(task);
-  if (taskStatus === "IN_PROGRESS") return `Cleaning started ${elapsedLabel(task?.updated_at) || "recently"}`;
-  if (taskStatus === "AWAITING_INSPECTION") return `Cleaning finished ${elapsedLabel(task?.updated_at) || "recently"} · QC required`;
-  if (taskStatus === "COMPLETED") return `Released ${elapsedLabel(task?.completed_at || task?.updated_at) || "recently"}`;
-  return task?.scheduled_at ? `Scheduled ${new Date(task.scheduled_at).toLocaleString()}` : "Waiting to be started";
+function urgencyTone(value) {
+  if (["GUEST_DUE_NOW", "ARRIVAL_WITHIN_60_MIN"].includes(value)) return "critical";
+  if (["VIP_QC_REQUIRED", "QC_BLOCKING_ARRIVAL", "VIP_ARRIVAL_TODAY", "ARRIVAL_TODAY"].includes(value)) return "attention";
+  return undefined;
 }
 
-function activePriority(task) {
-  const arrivalPriority = task?.arrival_waiting ? 0 : 1;
-  const stagePriority = ACTIVE_STATUS_PRIORITY[normalizeStatus(task)] ?? 9;
-  const scheduled = task?.scheduled_at ? new Date(task.scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
-  return [arrivalPriority, stagePriority, Number.isFinite(scheduled) ? scheduled : Number.MAX_SAFE_INTEGER];
+function urgencyLabel(value) {
+  const labels = {
+    GUEST_DUE_NOW: "GUEST DUE NOW",
+    ARRIVAL_WITHIN_60_MIN: "ARRIVAL < 60 MIN",
+    VIP_QC_REQUIRED: "VIP · QC NEXT",
+    QC_BLOCKING_ARRIVAL: "QC BLOCKING ARRIVAL",
+    VIP_ARRIVAL_TODAY: "VIP ARRIVAL",
+    ARRIVAL_TODAY: "ARRIVAL TODAY",
+    ROUTINE: "ROUTINE",
+  };
+  return labels[value] || value || "ROUTINE";
 }
 
 export default function OperationsHousekeepingPage() {
   const params = useParams();
   const organizationId = params?.organizationId || null;
-  const [tasks, setTasks] = useState([]);
+  const [plan, setPlan] = useState({ items: [], summary: {} });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyTaskId, setBusyTaskId] = useState(null);
   const [error, setError] = useState(null);
 
-  const loadTasks = useCallback(async ({ silent = false } = {}) => {
+  const loadPlan = useCallback(async ({ silent = false } = {}) => {
     if (!organizationId) return;
     if (silent) setRefreshing(true); else setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/hotel/housekeeping/list?organizationId=${encodeURIComponent(organizationId)}`, { cache: "no-store", credentials: "include" });
+      const response = await fetch(`/api/hotel/housekeeping/priority-plan?organizationId=${encodeURIComponent(organizationId)}`, {
+        cache: "no-store",
+        credentials: "include",
+      });
       const result = await response.json();
-      if (!response.ok || result.success === false) throw new Error(result.error || "Unable to load housekeeping tasks");
-      setTasks(result.tasks || []);
+      if (!response.ok || result.success === false) throw new Error(result.error || "Unable to build Housekeeping priority plan");
+      setPlan(result);
     } catch (loadError) {
-      setError(loadError?.message || "Unable to load housekeeping tasks");
+      setError(loadError?.message || "Unable to build Housekeeping priority plan");
     } finally {
-      setLoading(false); setRefreshing(false);
+      setLoading(false);
+      setRefreshing(false);
     }
   }, [organizationId]);
 
-  useEffect(() => { loadTasks(); }, [loadTasks]);
-
-  const groupedTasks = useMemo(() => Object.fromEntries(STATUS_ORDER.map((taskStatus) => [taskStatus, tasks.filter((task) => normalizeStatus(task) === taskStatus)])), [tasks]);
-  const activeTasks = useMemo(() => tasks
-    .filter((task) => ["PENDING", "IN_PROGRESS", "AWAITING_INSPECTION"].includes(normalizeStatus(task)))
-    .sort((a, b) => {
-      const left = activePriority(a);
-      const right = activePriority(b);
-      return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
-    }), [tasks]);
-  const today = new Date().toISOString().slice(0, 10);
-  const releasedToday = (groupedTasks.COMPLETED || []).filter((task) => String(task?.completed_at || task?.updated_at || "").slice(0, 10) === today).length;
-  const arrivalsWaiting = activeTasks.filter((task) => task?.arrival_waiting).length;
+  useEffect(() => { loadPlan(); }, [loadPlan]);
 
   async function transition(taskId, action) {
-    if (!organizationId || !taskId) return;
-    setBusyTaskId(taskId); setError(null);
+    if (!taskId) return;
+    setBusyTaskId(taskId);
+    setError(null);
     try {
       const response = await fetch("/api/hotel/housekeeping/update", {
-        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organizationId, taskId, action }),
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId, action }),
       });
       const result = await response.json();
       if (!response.ok || result.success === false) throw new Error(result.error || "Housekeeping transition failed");
-      await loadTasks({ silent: true });
+      await loadPlan({ silent: true });
     } catch (transitionError) {
       setError(transitionError?.message || "Housekeeping transition failed");
-    } finally { setBusyTaskId(null); }
+    } finally {
+      setBusyTaskId(null);
+    }
   }
+
+  const items = plan?.items || [];
+  const summary = plan?.summary || {};
+  const configuredOperationalDays = items.filter((item) => item?.operationalDay?.configured).length;
+  const unconfiguredOperationalDays = items.filter((item) => item?.operationalDay && !item.operationalDay.configured).length;
 
   return (
     <HotelWorkspaceShell
       organizationId={organizationId}
       active="housekeeping"
       title="Housekeeping"
-      subtitle="Turn rooms safely from dirty to cleaning to clean/QC to guest-ready inventory. Rooms blocking an arrival are prioritized before routine turnover; only explicit inspection releases a cleaned room to Front Desk."
+      subtitle="A live clean-next and inspect-next plan derived from guest risk, property business day, recorded arrival ETA, VIP evidence, room state and maintenance. Avantiqo recommends the next physical move; people still execute and confirm the work."
       actions={<>
         <HotelPrimaryAction href={hotelWorkspaceHref(organizationId, "front-desk")}>Front Desk</HotelPrimaryAction>
-        <HotelSecondaryAction onClick={() => loadTasks({ silent: true })} disabled={refreshing}><RefreshCw size={9} className={refreshing ? "animate-spin" : ""} />Refresh</HotelSecondaryAction>
+        <HotelSecondaryAction onClick={() => loadPlan({ silent: true })} disabled={refreshing}><RefreshCw size={9} className={refreshing ? "animate-spin" : ""} />Refresh</HotelSecondaryAction>
       </>}
     >
       <HotelError>{error}</HotelError>
 
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <HotelMetric label="Waiting" value={groupedTasks.PENDING?.length || 0} detail={`${arrivalsWaiting} active task(s) block an arrival`} attention={(groupedTasks.PENDING?.length || 0) > 0} />
-        <HotelMetric label="Cleaning" value={groupedTasks.IN_PROGRESS?.length || 0} detail="Rooms actively being turned" attention={(groupedTasks.IN_PROGRESS?.length || 0) > 0} />
-        <HotelMetric label="QC required" value={groupedTasks.AWAITING_INSPECTION?.length || 0} detail="Clean, not yet guest-ready" attention={(groupedTasks.AWAITING_INSPECTION?.length || 0) > 0} />
-        <HotelMetric label="Released today" value={releasedToday} detail="Inspected and AVAILABLE" />
+        <HotelMetric label="Active room work" value={summary.active || 0} detail="Live physical readiness tasks" attention={(summary.active || 0) > 0} />
+        <HotelMetric label="Arrival critical" value={summary.arrivalCritical || 0} detail="Priority proven from property-day truth" attention={(summary.arrivalCritical || 0) > 0} />
+        <HotelMetric label="Maintenance blocked" value={summary.maintenanceBlocked || 0} detail="Cleaning alone cannot release these rooms" attention={(summary.maintenanceBlocked || 0) > 0} />
+        <HotelMetric label="Inspect next" value={summary.inspectionReady || 0} detail="Shortest safe path to AVAILABLE" attention={(summary.inspectionReady || 0) > 0} />
       </section>
 
-      <HotelSection eyebrow="Room readiness" title="Priority turnover queue" detail="Arrival-blocking rooms come first. Within the queue, clean rooms awaiting inspection are surfaced before cleaning work because QC is the shortest safe path back to guest-ready inventory.">
-        {loading ? <HotelEmptyState>Loading housekeeping…</HotelEmptyState> : activeTasks.length ? (
+      {unconfiguredOperationalDays > 0 ? (
+        <HotelSection eyebrow="Clock authority" title="Arrival urgency is intentionally fail-closed" detail="The property operational-day configuration is not yet applied for one or more rooms. Avantiqo will rank physical work, but it will not use browser time or server UTC to fabricate who is due today.">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div className="flex items-center gap-2 text-[8px] font-semibold text-[#765A3F]"><Clock3 size={12} />{unconfiguredOperationalDays} task(s) waiting for governed property-clock authority · {configuredOperationalDays} configured</div>
+            <HotelSecondaryAction href={hotelWorkspaceHref(organizationId, "configuration")}>Configure property clock</HotelSecondaryAction>
+          </div>
+        </HotelSection>
+      ) : null}
+
+      <HotelSection eyebrow="Live orchestration" title="What Housekeeping should do next" detail="Rank is re-derived on every refresh. A guest due now outranks routine turnover; an inspection that can release an arrival room outranks starting another clean; unresolved maintenance never masquerades as Housekeeping completion.">
+        {loading ? <HotelEmptyState>Building live Housekeeping priority…</HotelEmptyState> : items.length ? (
           <div className="divide-y divide-black/[0.055]">
-            <div className="hidden grid-cols-[110px_minmax(190px,1fr)_130px_150px_145px] gap-3 bg-[#FCFBF8] px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#969087] md:grid"><span>Room</span><span>Operational priority</span><span>Room state</span><span>Housekeeping</span><span>Next move</span></div>
-            {activeTasks.map((task) => {
+            <div className="hidden grid-cols-[54px_105px_minmax(250px,1fr)_140px_155px] gap-3 bg-[#FCFBF8] px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#969087] md:grid"><span>Rank</span><span>Room</span><span>Why now</span><span>State</span><span>Next move</span></div>
+            {items.map((item) => {
+              const task = item.task || {};
+              const room = item.room || {};
               const taskStatus = normalizeStatus(task);
-              const room = task?.hotel_rooms || {};
               const busy = busyTaskId === task.id;
+              const blocked = item.nextAction === "RESOLVE_MAINTENANCE";
               return (
-                <div key={task.id} className="grid gap-2 px-4 py-3 md:grid-cols-[110px_minmax(190px,1fr)_130px_150px_145px] md:items-center md:gap-3 md:px-5">
+                <div key={task.id} className="grid gap-2 px-4 py-4 md:grid-cols-[54px_105px_minmax(250px,1fr)_140px_155px] md:items-start md:gap-3 md:px-5">
+                  <div className="text-[18px] font-light text-[#B9A184]">#{item.rank}</div>
                   <div>
-                    <div className="text-[10px] font-semibold text-[#403C37]">{roomLabel(task)}</div>
-                    <div className="mt-0.5 text-[7px] text-[#9A948B]">{room?.room_type || "Room"}</div>
+                    <div className="text-[10px] font-semibold text-[#403C37]">{roomLabel(item)}</div>
+                    <div className="mt-0.5 text-[7px] text-[#9A948B]">{room.room_type || "Room"}</div>
+                    <div className="mt-1"><HotelStatusPill value={room.status || "UNKNOWN"} /></div>
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[8px] font-semibold text-[#5F5952]">{task?.task_type || "Room turnover"}</span>
-                      {task?.arrival_waiting ? <HotelStatusPill value="ARRIVAL WAITING" tone="critical" /> : null}
+                      <HotelStatusPill value={urgencyLabel(item.urgencyBand)} tone={urgencyTone(item.urgencyBand)} />
+                      {item.arrival?.vipStatus && String(item.arrival.vipStatus).toUpperCase() !== "STANDARD" ? <HotelStatusPill value={item.arrival.vipStatus} tone="attention" /> : null}
+                      {item.maintenance ? <HotelStatusPill value="MAINTENANCE BLOCK" tone="critical" /> : null}
                     </div>
-                    <div className="mt-0.5 text-[7px] leading-3 text-[#9A948B]">{stageDetail(task)}</div>
-                    {task?.arrival_waiting ? <div className="mt-0.5 text-[7px] font-semibold text-[#8A633C]">Guest due {task.arrival_waiting.check_in_date || "today"} · release or move from Front Desk</div> : null}
+                    {item.arrival ? (
+                      <div className="mt-1 text-[8px] font-semibold text-[#5F5952]">
+                        {item.arrival.guestName || "Assigned arrival"} · {etaLabel(item.arrival)}
+                      </div>
+                    ) : null}
+                    <div className="mt-1.5 space-y-0.5">
+                      {(item.why || []).map((reason, index) => <div key={`${task.id}-${index}`} className="text-[7px] leading-3 text-[#8F887F]">{reason}</div>)}
+                    </div>
+                    {item.maintenance ? <div className="mt-1 text-[7px] font-semibold text-[#8B5E50]">{item.maintenance.title || "Maintenance issue"} · {item.maintenance.priority || "priority unknown"}</div> : null}
                   </div>
-                  <HotelStatusPill value={room?.status || "UNKNOWN"} />
-                  <HotelStatusPill value={taskStatus} tone={taskStatus === "AWAITING_INSPECTION" ? "attention" : undefined} />
+                  <div className="space-y-1">
+                    <HotelStatusPill value={taskStatus} tone={taskStatus === "AWAITING_INSPECTION" ? "attention" : undefined} />
+                    <div className="text-[7px] text-[#9A948B]">{item.operationalDay?.configured ? `Business day ${item.operationalDay.businessDate}` : "Business day authority unavailable"}</div>
+                  </div>
                   <div>
-                    {taskStatus === "PENDING" ? <HotelPrimaryAction onClick={() => transition(task.id, "START")} disabled={busy}><Play size={9} />{busy ? "Starting" : "Start cleaning"}</HotelPrimaryAction> : taskStatus === "IN_PROGRESS" ? <HotelPrimaryAction onClick={() => transition(task.id, "COMPLETE")} disabled={busy}><CheckCircle2 size={9} />{busy ? "Updating" : "Mark clean"}</HotelPrimaryAction> : <HotelPrimaryAction onClick={() => transition(task.id, "INSPECT")} disabled={busy}><CheckCircle2 size={9} />{busy ? "Releasing" : "Inspect & release"}</HotelPrimaryAction>}
+                    {blocked ? (
+                      <HotelPrimaryAction href={hotelWorkspaceHref(organizationId, "maintenance")}><Wrench size={9} />Resolve maintenance</HotelPrimaryAction>
+                    ) : taskStatus === "PENDING" ? (
+                      <HotelPrimaryAction onClick={() => transition(task.id, "START")} disabled={busy}><Play size={9} />{busy ? "Starting" : "Start cleaning"}</HotelPrimaryAction>
+                    ) : taskStatus === "IN_PROGRESS" ? (
+                      <HotelPrimaryAction onClick={() => transition(task.id, "COMPLETE")} disabled={busy}><CheckCircle2 size={9} />{busy ? "Updating" : "Mark clean"}</HotelPrimaryAction>
+                    ) : (
+                      <HotelPrimaryAction onClick={() => transition(task.id, "INSPECT")} disabled={busy}><CheckCircle2 size={9} />{busy ? "Releasing" : "Inspect & release"}</HotelPrimaryAction>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
-        ) : <HotelEmptyState>No active housekeeping tasks. Guest-ready turnover is clear.</HotelEmptyState>}
+        ) : <HotelEmptyState>No active room-readiness work. Housekeeping is clear.</HotelEmptyState>}
       </HotelSection>
     </HotelWorkspaceShell>
   );

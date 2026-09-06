@@ -1,9 +1,10 @@
-"""Governed generated-human renderer for Avantiqo Studio investor footage.
+"""Governed generated-human wrapper over Avantiqo's proven fast LTX-2.5 engine.
 
-This is deliberately separate from the generic single-reference renderer. Human
-shots require 3-8 approved, byte-bound images of one generated character before
-paid LTX-2.5 inference is allowed. The native master remains unreleased until
-post-generation QC and final visual review pass the investor human release gate.
+Human shots use the same distilled two-stage worker, cache, resolution, cadence and
+inference budget as the working investor T2V lane. The only difference is 3-8
+approved same-identity keyframe conditions plus stricter human realism prompts.
+Generation cannot authorize release; byte-bound QC and exact-master visual review
+remain mandatory.
 """
 from __future__ import annotations
 
@@ -18,31 +19,41 @@ from pathlib import Path
 from typing import Any
 
 from modal_app import (
-    LTX_FPS,
     LTX_GEMMA_REALPATH_ENV,
-    LTX_GEMMA_SUFFIX_COMPAT_ENTRYPOINT,
     LTX_GPU,
-    LTX_HARD_TIMEOUT_SECONDS,
-    LTX_MAX_BATCH_SIZE,
-    LTX_MASTER_HEIGHT,
-    LTX_MASTER_WIDTH,
-    LTX_NUM_INFERENCE_STEPS,
+    LTX_GPU_USD_PER_SECOND,
     LTX_PIPELINE_ROOT,
     LTX_REQUIRED,
-    LTX_RUNTIME_CONTRACT,
+    LTX_RUNTIME_IMAGE,
     LTX_SOURCE_REPO,
-    LTX_SUBPROCESS_TIMEOUT_SECONDS,
-    LTX_QUALITY_CONTRACT,
-    _ltx_frame_count,
-    _ltx_snapshot,
-    _sanitize,
+    NATIVE_ENGINE_CONTRACT,
     app,
-    ltx_worker_image,
     model_volume,
-    seed_ltx_cache,
+)
+from modal_investor_t2v import (
+    CONTRACT as FAST_ENGINE_CONTRACT,
+    DISTILLED_GEMMA_SUFFIX_COMPAT_ENTRYPOINT,
+    DISTILLED_TRANSFORMER,
+    DISTILLED_UPSAMPLER,
+    FPS,
+    HARD_TIMEOUT_SECONDS,
+    HEIGHT,
+    QUALITY_CONTRACT as FAST_QUALITY_CONTRACT,
+    STAGE1_HEIGHT,
+    STAGE1_STEPS,
+    STAGE1_WIDTH,
+    STAGE2_STEPS,
+    SUBPROCESS_TIMEOUT_SECONDS,
+    WIDTH,
+    _frames,
+    _prompt,
+    _sanitize,
+    _snapshot,
+    investor_ltx_worker_image,
+    seed_investor_t2v_cache,
 )
 
-CONTRACT = "AVANTIQO_VIDEO_HUMAN_MULTI_KEYFRAME_NATIVE_MASTER_V1"
+CONTRACT = "AVANTIQO_VIDEO_HUMAN_FAST_DISTILLED_MULTI_KEYFRAME_V1"
 SOURCE_REPOSITORY = "churchillkaron/churchill-control-new"
 MIN_KEYFRAMES = 3
 MAX_KEYFRAMES = 8
@@ -62,7 +73,7 @@ def _sha256(path: Path) -> str:
 
 
 def _validate_keyframes(raw: Any, total_frames: int) -> list[dict[str, Any]]:
-    if not isinstance(raw, list) or not (MIN_KEYFRAMES <= len(raw) <= MAX_KEYFRAMES):
+    if not isinstance(raw, list) or not MIN_KEYFRAMES <= len(raw) <= MAX_KEYFRAMES:
         raise RuntimeError(f"{CONTRACT}_KEYFRAME_COUNT_INVALID")
     normalized: list[dict[str, Any]] = []
     character_ids: set[str] = set()
@@ -86,9 +97,9 @@ def _validate_keyframes(raw: Any, total_frames: int) -> list[dict[str, Any]]:
             raise RuntimeError(f"{CONTRACT}_KEYFRAME_SHA256_INVALID:{index}")
         if frame < 0 or frame >= total_frames:
             raise RuntimeError(f"{CONTRACT}_KEYFRAME_FRAME_INVALID:{index}:{frame}")
-        if not (0.05 <= strength <= 1.0):
+        if not 0.05 <= strength <= 1.0:
             raise RuntimeError(f"{CONTRACT}_KEYFRAME_STRENGTH_INVALID:{index}")
-        if crf < 0 or crf > 51:
+        if crf < 0 or crf > 63:
             raise RuntimeError(f"{CONTRACT}_KEYFRAME_CRF_INVALID:{index}")
         character_ids.add(character_id)
         frames.append(frame)
@@ -107,8 +118,7 @@ def _validate_keyframes(raw: Any, total_frames: int) -> list[dict[str, Any]]:
         raise RuntimeError(f"{CONTRACT}_KEYFRAME_ORDER_INVALID")
     if frames[-1] < int((total_frames - 1) * 0.65):
         raise RuntimeError(f"{CONTRACT}_LATE_IDENTITY_ANCHOR_REQUIRED")
-    middle = [frame for frame in frames[1:-1] if frame >= int((total_frames - 1) * 0.25)]
-    if not middle:
+    if not any(frame >= int((total_frames - 1) * 0.25) for frame in frames[1:-1]):
         raise RuntimeError(f"{CONTRACT}_MID_IDENTITY_ANCHOR_REQUIRED")
     return normalized
 
@@ -116,28 +126,25 @@ def _validate_keyframes(raw: Any, total_frames: int) -> list[dict[str, Any]]:
 def _human_prompt(instruction: str) -> str:
     if not _text(instruction):
         raise RuntimeError(f"{CONTRACT}_INSTRUCTION_REQUIRED")
-    return _text(instruction) + (
-        " Preserve the exact approved person's facial identity, age, facial proportions, hair, body proportions and wardrobe across the entire shot. "
-        "Natural human micro-expression, blinking, breathing, posture and weight transfer. Real skin texture with pores and subtle asymmetry. "
-        "Hands remain anatomically correct whenever visible. Physically plausible eye direction, joints, fingers, gait, cloth and hair motion. "
-        "Candid feature-film documentary realism, never model posing. Full-bleed cinematic image only; no text, captions, logos or letterbox bars."
-    )
-
-
-def _human_negative_prompt() -> str:
-    return (
-        "identity drift, different person, changing age, face morphing, facial warping, wax skin, plastic skin, beauty filter, doll face, "
-        "asymmetric broken eyes, crossed eyes, dead eyes, duplicate face, extra person, duplicate person, extra limb, missing limb, fused limb, "
-        "broken joints, malformed hands, extra fingers, missing fingers, fused fingers, rubber fingers, deformed feet, impossible gait, body morphing, "
-        "flicker, frame collapse, temporal inconsistency, sudden wardrobe change, melted cloth, impossible hair motion, text, typography, logo, watermark"
+    return _prompt(
+        _text(instruction)
+        + (
+            " Preserve the exact approved person across every frame: same facial identity, age, face geometry, skin tone, "
+            "hairline, body proportions and distinguishing features. Natural pores and subtle skin asymmetry; stable eyes with "
+            "physically plausible gaze, catchlights and blinks; realistic facial-muscle motion and micro-expression; anatomically "
+            "correct hands, fingers, wrists, limbs and joints; grounded weight transfer, breathing, cloth-body interaction and hair "
+            "motion. The person must read as live-action cinema, not an AI model or beauty-filter render. Avoid identity drift, face "
+            "morphing, wax/plastic skin, doll face, eye divergence, fused/duplicate/missing fingers, extra digits or limbs, broken "
+            "wrists, rubber motion, floating feet, frozen expression, duplicated people and temporal anatomy changes."
+        )
     )
 
 
 @app.function(
-    image=ltx_worker_image,
+    image=investor_ltx_worker_image,
     gpu=LTX_GPU,
     volumes={"/models": model_volume},
-    timeout=LTX_HARD_TIMEOUT_SECONDS,
+    timeout=HARD_TIMEOUT_SECONDS,
     min_containers=0,
     max_containers=1,
     buffer_containers=0,
@@ -151,13 +158,15 @@ def generate_human_native_master(
     duration_seconds: int = 4,
     seed: int = 91827,
 ) -> dict[str, Any]:
+    """Compatibility name; implementation is the proven fast distilled lane."""
     function_started = time.perf_counter()
-    if int(duration_seconds) <= 0 or int(duration_seconds) > 12:
+    duration = int(duration_seconds)
+    if duration <= 0 or duration > 12:
         raise RuntimeError(f"{CONTRACT}_DURATION_INVALID")
-    total_frames = _ltx_frame_count(int(duration_seconds))
+    total_frames = _frames(duration)
     approved = _validate_keyframes(keyframes, total_frames)
     model_volume.reload()
-    root = _ltx_snapshot()
+    root = _snapshot()
     output = Path("/models") / output_relative.lstrip("/")
     output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -171,35 +180,28 @@ def generate_human_native_master(
             raise RuntimeError(f"{CONTRACT}_REFERENCE_DIGEST_MISMATCH:{index}")
         resolved_references.append((path, item))
 
-    transformer = root / LTX_REQUIRED[0]
     text_encoder = root / LTX_REQUIRED[1]
-    video_vae = root / LTX_REQUIRED[2]
-    audio_vae = root / LTX_REQUIRED[3]
     text_encoder_real = text_encoder.resolve(strict=True)
     if not text_encoder_real.is_file() or text_encoder_real.stat().st_size <= 0:
         raise RuntimeError(f"{CONTRACT}_GEMMA_REALPATH_INVALID")
 
     command = [
-        "python", "-c", LTX_GEMMA_SUFFIX_COMPAT_ENTRYPOINT,
-        "--transformer-path", str(transformer),
+        "python", "-c", DISTILLED_GEMMA_SUFFIX_COMPAT_ENTRYPOINT,
+        "--transformer-path", str(root / DISTILLED_TRANSFORMER),
         "--text-encoder-path", str(text_encoder),
-        "--video-vae-path", str(video_vae),
-        "--audio-vae-path", str(audio_vae),
+        "--video-vae-path", str(root / LTX_REQUIRED[2]),
+        "--audio-vae-path", str(root / LTX_REQUIRED[3]),
+        "--spatial-upsampler-path", str(root / DISTILLED_UPSAMPLER),
         "--num-frames", str(total_frames),
-        "--width", str(LTX_MASTER_WIDTH),
-        "--height", str(LTX_MASTER_HEIGHT),
-        "--frame-rate", str(LTX_FPS),
-        "--num-inference-steps", str(LTX_NUM_INFERENCE_STEPS),
+        "--width", str(WIDTH),
+        "--height", str(HEIGHT),
+        "--frame-rate", str(FPS),
         "--seed", str(int(seed)),
-        "--max-batch-size", str(LTX_MAX_BATCH_SIZE),
         "--output-path", str(output),
         "--prompt", _human_prompt(instruction),
-        "--negative-prompt", _human_negative_prompt(),
     ]
     for path, item in resolved_references:
-        command.extend([
-            "--image", str(path), str(item["frame"]), str(item["strength"]), str(item["crf"]),
-        ])
+        command.extend(["--image", str(path), str(item["frame"]), str(item["strength"]), str(item["crf"])])
 
     env = os.environ.copy()
     env[LTX_GEMMA_REALPATH_ENV] = str(text_encoder_real)
@@ -208,21 +210,29 @@ def generate_human_native_master(
         str(LTX_PIPELINE_ROOT / "packages/ltx-pipelines/src"),
         env.get("PYTHONPATH", ""),
     ])
+    env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    env["CUDA_MODULE_LOADING"] = "LAZY"
+
     generation_started = time.perf_counter()
-    completed = subprocess.run(
-        command,
-        cwd=str(LTX_PIPELINE_ROOT),
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        timeout=LTX_SUBPROCESS_TIMEOUT_SECONDS,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=str(LTX_PIPELINE_ROOT),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=SUBPROCESS_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        detail = _sanitize(getattr(exc, "stdout", "") or getattr(exc, "output", ""))
+        raise RuntimeError(f"{CONTRACT}_TIMEOUT:{detail}") from exc
+
     generation_seconds = round(time.perf_counter() - generation_started, 3)
     if completed.returncode != 0:
         raise RuntimeError(f"{CONTRACT}_COMMAND_FAILED:{completed.returncode}:{_sanitize(completed.stdout)}")
-    if not output.is_file() or output.stat().st_size <= 1_000_000:
+    if not output.is_file() or output.stat().st_size <= 500_000:
         raise RuntimeError(f"{CONTRACT}_OUTPUT_INVALID")
     output_sha256 = _sha256(output)
     model_volume.commit()
@@ -232,12 +242,16 @@ def generate_human_native_master(
         "status": "completed_qc_pending",
         "contract": CONTRACT,
         "source_repository": SOURCE_REPOSITORY,
-        "base_runtime_contract": LTX_RUNTIME_CONTRACT,
-        "quality_contract": LTX_QUALITY_CONTRACT,
+        "fast_engine_contract": FAST_ENGINE_CONTRACT,
+        "engine_contract": NATIVE_ENGINE_CONTRACT,
+        "quality_contract": FAST_QUALITY_CONTRACT,
         "provider": "avantiqo-video",
         "model": "avantiqo-ltx-2.5",
         "foundation_model": LTX_SOURCE_REPO,
         "foundation_revision": root.name,
+        "pipeline": "DISTILLED_TWO_STAGE_I2V_MULTI_KEYFRAME_BF16",
+        "runtime_image": LTX_RUNTIME_IMAGE,
+        "modal_gpu": LTX_GPU,
         "human_mode": True,
         "conditioning_mode": "approved_same_identity_multi_keyframe",
         "character_id": approved[0]["character_id"],
@@ -248,18 +262,24 @@ def generate_human_native_master(
             for item in approved
         ],
         "identity_keyframes_byte_verified": True,
-        "width": LTX_MASTER_WIDTH,
-        "height": LTX_MASTER_HEIGHT,
-        "fps": LTX_FPS,
+        "width": WIDTH,
+        "height": HEIGHT,
+        "stage_1_width": STAGE1_WIDTH,
+        "stage_1_height": STAGE1_HEIGHT,
+        "fps": FPS,
+        "stage_1_steps": STAGE1_STEPS,
+        "stage_2_steps": STAGE2_STEPS,
         "frame_count": total_frames,
-        "duration_seconds_requested": int(duration_seconds),
+        "duration_seconds_requested": duration,
         "seed": int(seed),
         "output_relative": output_relative,
         "output_size_bytes": output.stat().st_size,
         "output_sha256": output_sha256,
         "generation_seconds": generation_seconds,
         "modal_function_seconds": function_seconds,
-        "native_master_generated": True,
+        "estimated_supplier_gpu_cost_usd": round(function_seconds * LTX_GPU_USD_PER_SECOND, 8),
+        "fast_engine_runtime_reused": True,
+        "general_t2v_engine_modified": False,
         "master_is_exact_model_output": True,
         "automatic_paid_retry": False,
         "external_provider_contacted": False,
@@ -323,11 +343,10 @@ def main() -> None:
     manifest = _load_manifest(manifest_path)
     instruction = _text(manifest.get("instruction"))
     run_id = uuid.uuid4().hex[:16]
-    output_remote = f"human-multikey/{run_id}/native-master-3840x2176.mp4"
-    staged: list[dict[str, Any]] = []
+    output_remote = f"human-multikey/{run_id}/fast-master-1920x1088.mp4"
     transient: list[str] = []
     try:
-        cache = seed_ltx_cache.remote()
+        cache = seed_investor_t2v_cache.remote()
         if not isinstance(cache, dict) or cache.get("success") is not True:
             raise RuntimeError(f"{CONTRACT}_CACHE_NOT_READY")
         staged, transient = _stage_keyframes(manifest, run_id)
@@ -348,19 +367,18 @@ def main() -> None:
             raise RuntimeError(f"{CONTRACT}_DOWNLOADED_MASTER_DIGEST_MISMATCH")
         report = {
             "success": True,
+            "status": "QC_PENDING",
             "contract": CONTRACT,
             "source_repository": SOURCE_REPOSITORY,
             "generation": result,
-            "output": str(output),
             "release_authorized": False,
-            "next_required_gate": "AVANTIQO_INVESTOR_HUMAN_RELEASE_V1",
         }
         output.with_suffix(".json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(f"{CONTRACT}=PASS_QC_PENDING", flush=True)
     finally:
-        for remote in [*transient, output_remote]:
+        for path in [*transient, output_remote]:
             try:
-                model_volume.remove_file(remote)
+                model_volume.remove_file(path)
             except Exception:
                 pass
 

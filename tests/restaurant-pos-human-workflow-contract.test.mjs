@@ -154,6 +154,23 @@ test("restaurant stationary POS is a dedicated desktop workstation", async () =>
   assert.doesNotMatch(stationary, /onMouseDown=\{\(\) => startHold/);
 });
 
+test("restaurant stationary POS never silently drops unsent drafts", async () => {
+  const stationary = await source(paths.stationary);
+
+  assert.match(stationary, /data-stationary-draft-switch-guard="true"/);
+  assert.match(stationary, /Keep current draft/);
+  assert.match(stationary, /Discard draft & switch/);
+  assert.match(stationary, /setPendingSwitch\(\{ kind: "zone", zoneId \}\)/);
+  assert.match(stationary, /setPendingSwitch\(\{ kind: "table", tableId: table\.id \}\)/);
+  assert.match(stationary, /Table moved · unsent draft kept with this service/);
+  assert.match(stationary, /function tableIsFreeForTransfer\(table\)/);
+  assert.match(stationary, /Empty · available/);
+  assert.match(stationary, /Use Merge tables if you are joining an occupied service/);
+  assert.doesNotMatch(stationary, /function chooseZone\(zoneId\) \{[\s\S]{0,220}setCart\(\[\]\)/);
+  assert.doesNotMatch(stationary, /function chooseTable\(table\) \{[\s\S]{0,260}setCart\(\[\]\)/);
+  assert.doesNotMatch(stationary, /async function confirmTransfer\(\) \{[\s\S]{0,700}setCart\(\[\]\)/);
+});
+
 test("stationary checkout uses real split tenders and cash change", async () => {
   const checkout = await source(paths.checkout);
 

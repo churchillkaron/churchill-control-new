@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import FinanceTaxLegacyWorkCenter from "./FinanceTaxLegacyWorkCenter";
 import FinanceTaxReturnCloseSheet from "./FinanceTaxReturnCloseSheet";
 import FinanceTaxCalendarRail from "./FinanceTaxCalendarRail";
@@ -12,11 +13,31 @@ import FinanceTaxDependencyWorkRail from "./FinanceTaxDependencyWorkRail";
 import FinanceTaxClientRequestBridgeRail from "./FinanceTaxClientRequestBridgeRail";
 import FinanceTaxWorkflowNavigator from "./FinanceTaxWorkflowNavigator";
 
+const TAX_STAGES = new Set(["RETURN", "FIX", "EVIDENCE", "AFTER"]);
+
+function normalizedStage(value) {
+  const stage = String(value || "").trim().toUpperCase();
+  return TAX_STAGES.has(stage) ? stage : "RETURN";
+}
+
 export default function FinanceTaxWorkCenter(props) {
+  const searchParams = useSearchParams();
+  const requestedVatReturnId = String(searchParams?.get("vatReturnId") || "").trim() || null;
+  const requestedStage = normalizedStage(searchParams?.get("stage"));
+  const requestedDependencyCode = String(searchParams?.get("dependencyCode") || "").trim().toUpperCase() || null;
+  const taxSourceReturn = searchParams?.get("source") === "tax-source-return";
+
   // One filing selection is authoritative for every entity-level Tax control below.
-  const [selectedVatReturnId, setSelectedVatReturnIdState] = useState(null);
-  const [activeStage, setActiveStage] = useState("RETURN");
-  const [evidenceFocusCode, setEvidenceFocusCode] = useState(null);
+  const [selectedVatReturnId, setSelectedVatReturnIdState] = useState(requestedVatReturnId);
+  const [activeStage, setActiveStage] = useState(requestedVatReturnId ? requestedStage : "RETURN");
+  const [evidenceFocusCode, setEvidenceFocusCode] = useState(requestedStage === "EVIDENCE" ? requestedDependencyCode : null);
+
+  useEffect(() => {
+    if (!taxSourceReturn || !requestedVatReturnId) return;
+    setSelectedVatReturnIdState(requestedVatReturnId);
+    setActiveStage(requestedStage);
+    setEvidenceFocusCode(requestedStage === "EVIDENCE" ? requestedDependencyCode : null);
+  }, [taxSourceReturn, requestedVatReturnId, requestedStage, requestedDependencyCode]);
 
   function setSelectedVatReturnId(nextId) {
     setSelectedVatReturnIdState(nextId);
@@ -26,7 +47,7 @@ export default function FinanceTaxWorkCenter(props) {
 
   function changeStage(nextStage) {
     setEvidenceFocusCode(null);
-    setActiveStage(nextStage);
+    setActiveStage(normalizedStage(nextStage));
   }
 
   function openEvidence(dependencyCode = null) {
@@ -48,6 +69,12 @@ export default function FinanceTaxWorkCenter(props) {
         onStageChange={changeStage}
         selectedVatReturnId={selectedVatReturnId}
       />
+
+      {taxSourceReturn && selectedVatReturnId ? <div className="mx-auto mt-3 max-w-[1760px] px-4 sm:px-5 lg:px-6">
+        <div className="rounded-xl border border-emerald-700/15 bg-emerald-50 px-3.5 py-2.5 text-[9px] leading-4 text-emerald-900">
+          <b>Returned to the same VAT filing.</b> Live Tax evidence is being rebuilt from the corrected source record{requestedDependencyCode ? ` for ${requestedDependencyCode.replaceAll("_", " ").toLowerCase()}` : ""}. The blocker only clears if current accounting truth now passes preflight.
+        </div>
+      </div> : null}
 
       {activeStage === "RETURN" ? <>
         <FinanceTaxCalendarRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />

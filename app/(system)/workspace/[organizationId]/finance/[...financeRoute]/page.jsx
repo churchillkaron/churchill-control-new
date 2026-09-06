@@ -2,88 +2,45 @@
 
 import { notFound } from "next/navigation";
 
+import FinanceSourceReturnRail from "@/components/workspace/finance/FinanceSourceReturnRail";
 import ERPEngine from "@/lib/platform/erp-engine/ERPRuntime";
-
-
-import {
-  getWorkspaceItemByRoute,
-} from "@/lib/platform/registry/erpRegistry";
-
-import {
-  serializeCapability,
-} from "@/lib/platform/registry/serializeCapability";
-
-import {
-  useBusinessContext,
-} from "@/app/providers/BusinessContextProvider";
-
+import { getWorkspaceItemByRoute } from "@/lib/platform/registry/erpRegistry";
+import { serializeCapability } from "@/lib/platform/registry/serializeCapability";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 export const dynamic = "force-dynamic";
 
+export default function FinanceDynamicCapabilityPage({ params }) {
+  const businessContext = useBusinessContext() || {};
+  const routeParts = params.financeRoute || [];
+  const route = `/finance/${routeParts.join("/")}`;
+  const capability = serializeCapability(getWorkspaceItemByRoute(route));
 
-export default function FinanceDynamicCapabilityPage({
-  params,
-}) {
+  if (!capability) notFound();
 
-  const businessContext =
-    useBusinessContext() || {};
+  const organizationId =
+    businessContext.organization_id ||
+    businessContext.organization?.id ||
+    params.organizationId ||
+    null;
+  const entityId =
+    businessContext.entity_id ||
+    businessContext.entity?.id ||
+    null;
+  const periodId =
+    businessContext.period_id ||
+    businessContext.period?.id ||
+    null;
 
- 
-
-  const routeParts =
-    params.financeRoute || [];
-
-
-  const route =
-    `/finance/${routeParts.join("/")}`;
-
-
-  const capability =
-    serializeCapability(
-      getWorkspaceItemByRoute(route)
-    );
-
-
-  if (!capability) {
-
-    notFound();
-
-  }
-
-
-  return (
-
+  return <>
+    <FinanceSourceReturnRail organizationId={organizationId} capability={capability} />
     <ERPEngine
-
-      renderer={
-        capability?.runtime?.renderer ||
-        capability?.renderer
-      }
-
+      renderer={capability?.runtime?.renderer || capability?.renderer}
       capability={capability}
-
       workspaceId="finance"
-
-      organizationId={
-        businessContext.organization_id ||
-        businessContext.organization?.id ||
-        params.organizationId ||
-        null
-      }
-
-      entityId={
-        businessContext.entity_id ||
-        businessContext.entity?.id ||
-        null
-      }
-
-      periodId={
-        businessContext.period_id ||
-        businessContext.period?.id ||
-        null
-      }
-
+      organizationId={organizationId}
+      entityId={entityId}
+      periodId={periodId}
     />
-
-  );
+  </>;
 }

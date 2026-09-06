@@ -378,7 +378,12 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
       }
 
       const decision = result?.decision || {};
-      const responseText = decision?.response_text || "Done.";
+      const responseText = text(decision?.response_text);
+      if (!responseText) {
+        throw new Error(
+          "Avantiqo returned no reliable response. No action was assumed complete.",
+        );
+      }
       agreementStateRef.current =
         result?.agreement_state ||
         decision?.agreement_state ||

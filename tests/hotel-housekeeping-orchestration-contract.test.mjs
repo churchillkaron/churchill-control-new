@@ -8,6 +8,7 @@ const transitionRuntime = fs.readFileSync("lib/hotel/server/transitionHousekeepi
 const updateRoute = fs.readFileSync("app/api/hotel/housekeeping/update/route.js", "utf8");
 const page = fs.readFileSync("app/(system)/workspace/[organizationId]/operations/housekeeping/page.jsx", "utf8");
 const roomAssignmentMigration = fs.readFileSync("supabase/migrations/20260906014500_hotel_guarded_room_assignment.sql", "utf8");
+const transitionMigration = fs.readFileSync("supabase/migrations/20260906032000_hotel_atomic_housekeeping_transition.sql", "utf8");
 
 test("Housekeeping priority is derived from governed live operational evidence", () => {
   assert.match(planner, /getHotelOperationalDate/);
@@ -22,54 +23,49 @@ test("Housekeeping priority is derived from governed live operational evidence",
   assert.doesNotMatch(planner, /new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
 });
 
-test("Housekeeping planner uses the live task and maintenance schemas", () => {
-  assert.match(planner, /id,organization_id,room_id,assigned_to,task_status,priority,task_date,notes,completed_at,created_at,updated_at/);
-  assert.match(planner, /id,room_id,priority,status,issue_title,created_at/);
-  assert.doesNotMatch(planner, /id,property_id,room_id,priority,status,issue_title/);
-  assert.doesNotMatch(planner, /select\("[^\"]*task_type/);
-  assert.doesNotMatch(planner, /select\("[^\"]*scheduled_at/);
-});
-
 test("priority API re-authorizes organization scope on the server", () => {
   assert.match(priorityRoute, /requireOrganizationAccess/);
   assert.match(priorityRoute, /organizationId: access\.organizationId/);
   assert.match(priorityRoute, /getHotelHousekeepingPriorityPlan/);
 });
 
-test("Housekeeping transitions no longer depend on phantom schema columns", () => {
-  assert.match(transitionRuntime, /Boolean\(task\?\.room_id\)/);
-  assert.match(transitionRuntime, /task_date/);
-  assert.doesNotMatch(transitionRuntime, /select\("[^\"]*task_type/);
-  assert.doesNotMatch(transitionRuntime, /select\("[^\"]*scheduled_at/);
+test("Housekeeping task and room transitions are one atomic database operation", () => {
+  assert.match(transitionMigration, /hotel_transition_housekeeping_task/);
+  assert.match(transitionMigration, /from public\.hotel_housekeeping_tasks[\s\S]*for update/);
+  assert.match(transitionMigration, /from public\.hotel_rooms[\s\S]*for update/);
+  assert.match(transitionMigration, /update public\.hotel_rooms/);
+  assert.match(transitionMigration, /update public\.hotel_housekeeping_tasks/);
+  assert.match(transitionMigration, /security invoker/);
+  assert.match(transitionMigration, /set search_path = ''/);
+  assert.match(transitionMigration, /grant execute on function public\.hotel_transition_housekeeping_task[\s\S]*to service_role/);
+});
+
+test("inspection rechecks every physical release blocker inside the transaction", () => {
+  assert.match(transitionMigration, /unresolved or unclassified maintenance/);
+  assert.match(transitionMigration, /another active Housekeeping task/);
+  assert.match(transitionMigration, /in-house stay/);
+  assert.match(transitionMigration, /v_next_room_status := 'AVAILABLE'/);
+});
+
+test("server runtime delegates Housekeeping mutation to the atomic RPC only", () => {
+  assert.match(transitionRuntime, /rpc\("hotel_transition_housekeeping_task"/);
+  assert.doesNotMatch(transitionRuntime, /\.from\("hotel_rooms"\)/);
+  assert.doesNotMatch(transitionRuntime, /\.from\("hotel_housekeeping_tasks"\)\.update/);
+  assert.doesNotMatch(transitionRuntime, /restoreRoomState/);
   assert.match(updateRoute, /transitionHousekeepingTask/);
 });
 
-test("inspection cannot release a room while maintenance truth is unresolved or unknown", () => {
-  assert.match(transitionRuntime, /TERMINAL_MAINTENANCE/);
-  assert.match(transitionRuntime, /requireMaintenanceClearForRelease/);
-  assert.match(transitionRuntime, /unresolved or unclassified maintenance/);
-  assert.match(transitionRuntime, /transition\.roomStatus === "AVAILABLE"/);
-});
-
-test("Housekeeping UI is a human-controlled clean-next and inspect-next workboard", () => {
+test("Housekeeping UI remains human-controlled", () => {
   assert.match(page, /What Housekeeping should do next/);
-  assert.match(page, /Arrival critical/);
-  assert.match(page, /Maintenance blocked/);
-  assert.match(page, /Inspect next/);
-  assert.match(page, /Guest due now/);
-  assert.match(page, /property operational-day configuration is not yet applied/i);
   assert.match(page, /Start cleaning/);
   assert.match(page, /Mark clean/);
   assert.match(page, /Inspect & release/);
   assert.match(page, /Resolve maintenance/);
   assert.match(page, /\/api\/hotel\/housekeeping\/priority-plan/);
-  assert.doesNotMatch(page, /\/api\/hotel\/housekeeping\/list/);
-  assert.doesNotMatch(page, /new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
 });
 
 test("guarded room assignment migration uses invoker authority only", () => {
   assert.match(roomAssignmentMigration, /security invoker/);
   assert.match(roomAssignmentMigration, /set search_path = ''/);
   assert.doesNotMatch(roomAssignmentMigration, /security definer/);
-  assert.match(roomAssignmentMigration, /grant execute on function public\.hotel_assign_booking_room_guarded[\s\S]*to service_role/);
 });

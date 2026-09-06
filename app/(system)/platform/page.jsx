@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import PlatformAdminConsole from "@/components/platform/PlatformAdminConsole";
 import PlatformCommercialRuntimeControl from "@/components/platform/PlatformCommercialRuntimeControl";
 import PlatformOperatorControlTower from "@/components/platform/PlatformOperatorControlTower";
@@ -178,12 +179,30 @@ function AccessDenied({ status, error }) {
   );
 }
 
+function AcquisitionControlEntry() {
+  return (
+    <div className="-mx-5 bg-[#F7F6F3] px-5 pb-4 lg:-mx-7 lg:px-7">
+      <div className="mx-auto flex max-w-[1800px] flex-col gap-3 rounded-[18px] border border-[#A37849]/16 bg-[#FFFDF9] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">Customer acquisition</div>
+          <div className="mt-1 text-[13px] font-semibold tracking-[-0.02em] text-[#322E29]">Operate prospect → commitment → customer → first value with evidence and one owned next action.</div>
+          <div className="mt-1 text-[8px] leading-4 text-[#918B83]">Owner-only control. Customer workspaces remain separate.</div>
+        </div>
+        <Link href="/control/acquisition" className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-lg border border-[#B98A57]/25 bg-[#FBF7F1] px-3 text-[9px] font-semibold text-[#8A643C] transition hover:border-[#B98A57]/45 hover:bg-white">
+          Open acquisition control
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default async function PlatformPage() {
   const runtime = await loadPlatformAdminConsole();
   if (!runtime.access?.success) return <AccessDenied status={runtime.access?.status} error={runtime.access?.error} />;
 
   return (
     <>
+      <AcquisitionControlEntry />
       <PlatformOperatorControlTower control={runtime.operatorControl} />
       <PlatformAdminConsole
         organizations={runtime.organizations}

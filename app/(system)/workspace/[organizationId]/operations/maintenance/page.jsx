@@ -6,6 +6,7 @@ import { RefreshCw, Wrench } from "lucide-react";
 
 import HotelArrivalReadinessOwnership from "@/components/workspace/hotel/HotelArrivalReadinessOwnership";
 import { HotelEmptyState, HotelError, HotelField, HotelMetric, HotelPrimaryAction, HotelSecondaryAction, HotelSection, HotelStatusPill, HotelWorkspaceShell, hotelInputClass, hotelTextareaClass } from "@/components/workspace/hotel/HotelWorkspaceUI";
+import { notifyHotelReadinessChanged } from "@/lib/hotel/client/readinessInvalidation";
 
 const TASK_TYPES = ["REPAIR", "INSPECTION", "PREVENTIVE", "SAFETY"];
 const TERMINAL_REQUESTS = new Set(["RESOLVED", "CLOSED", "COMPLETED", "CANCELLED"]);
@@ -114,6 +115,7 @@ export default function OperationsMaintenancePage() {
       const data = await response.json();
       if (!response.ok || data.success === false) throw new Error(data.error || "Unable to update room defect");
       await load();
+      notifyHotelReadinessChanged({ source: "maintenance", requestId, action });
     } catch (transitionError) {
       setError(transitionError?.message || "Unable to update room defect");
     } finally {

@@ -246,12 +246,12 @@ export async function GET(request) {
       access:
         resolved.access.access,
 
+      ...applicationRuntime,
+
       capabilities: {
         ...(applicationRuntime?.capabilities || {}),
         actions: actionCapabilities,
       },
-
-      ...applicationRuntime,
 
       // Compatibility fields for existing POS clients.
       posSettings: {

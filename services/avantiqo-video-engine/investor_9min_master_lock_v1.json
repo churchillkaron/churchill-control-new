@@ -2,6 +2,7 @@
   "contract": "AVANTIQO_INVESTOR_FILM_9MIN_MASTER_LOCK_V1",
   "source_repository": "churchillkaron/churchill-control-new",
   "story_authority": "services/avantiqo-video-engine/INVESTOR_FILM_9MIN_MASTER_V1.md",
+  "owner_production_grammar_authority": "services/avantiqo-video-engine/investor_9min_owner_production_grammar_v1.json",
   "target_duration_seconds": 540,
   "target_duration_timecode": "09:00",
   "frame_rate": 24,
@@ -18,6 +19,7 @@
     "exact_master_human_qc_release",
     "canonical_product_truth_binding",
     "voice_visual_semantic_lock",
+    "authentic_product_capture_and_device_compositing",
     "audio_mastering",
     "deterministic_assembly"
   ],
@@ -35,6 +37,97 @@
   ],
   "core_event": "TIME_CRITICAL_SUPPLIER_EXCEPTION",
   "signature_visual_system": "THE_CAUSAL_THREAD",
+  "owner_visual_grammar": "VOICE_TO_REAL_BUSINESS_TO_PHYSICAL_DEVICE_TO_IDENTICAL_AVANTIQO_TO_INTERACTION_TO_BUSINESS_CONSEQUENCE",
+  "authentic_device_ui_policy": {
+    "real_business_footage_required": true,
+    "physical_device_ui_required_for_product_proof": true,
+    "supported_physical_devices": ["laptop", "desktop_pos", "phone", "tablet", "kiosk_when_role_correct"],
+    "current_identical_avantiqo_ui_required": true,
+    "authenticated_current_product_state_required": true,
+    "camera_push_into_device_allowed": true,
+    "camera_push_out_of_device_allowed": true,
+    "camera_may_continue_inside_product": true,
+    "scroll_write_click_navigation_allowed": true,
+    "natural_screen_inside_screen_allowed": true,
+    "real_product_capture_allowed": true,
+    "real_product_capture_may_be_perspective_mapped_to_device": true,
+    "fake_ui_forbidden": true,
+    "generic_dashboard_only_exposition_forbidden": true,
+    "voice_visual_semantic_match_required": true,
+    "product_interaction_must_match_spoken_domain": true,
+    "return_to_real_business_consequence_required": true
+  },
+  "semantic_visual_contract": {
+    "Operations": {
+      "required": [
+        "real operations in materially different industries",
+        "role-correct device use in the real business scene",
+        "current Avantiqo Operations screen matching the spoken work",
+        "visible interaction where interaction improves proof",
+        "real-world operating consequence"
+      ],
+      "industries": ["hotel", "restaurant", "field_service", "construction_projects", "artist_agency"]
+    },
+    "Finance": {
+      "required": [
+        "real finance/accounting work in different industries",
+        "current Avantiqo Finance on a laptop or appropriate workstation",
+        "evidence, reconciliation, VAT/tax, close or another exact current Finance workflow matching narration",
+        "accounting-firm use with many client organizations",
+        "return from the number to the operating cause and human advisory consequence"
+      ],
+      "accounting_firm_many_clients_is_mandatory": true
+    },
+    "Creative Studio": {
+      "required": [
+        "show Avantiqo Creative Studio itself on a physical device",
+        "show the business objective becoming strategy, concept, storyboard, production and output where current product truth supports it",
+        "use the investor film itself as meta-proof of Studio capability",
+        "show multiple real Studio cinematic capabilities and effects verified from the repository",
+        "include the owner-specified drone effect once its canonical implementation path is verified",
+        "let finished creative output take over the entire frame rather than remaining inside software"
+      ],
+      "this_film_is_studio_proof": true
+    },
+    "Business Partner": {
+      "required": [
+        "human business situation first",
+        "natural spoken or typed question",
+        "evidence-backed current Avantiqo recommendation",
+        "visible authority boundary",
+        "governed action or approval",
+        "real outcome"
+      ]
+    },
+    "Intelligence": {
+      "required": [
+        "show understanding through business consequence rather than abstract AI graphics",
+        "show causal evidence and context",
+        "show learning or foresight only when grounded in history already shown"
+      ]
+    }
+  },
+  "editing_dynamics": {
+    "boring_software_video_forbidden": true,
+    "meaningful_visual_or_narrative_change_interval_seconds_max": 6,
+    "target_change_interval_seconds": "2-5",
+    "allowed_change_dimensions": [
+      "real_business_action",
+      "industry",
+      "human_role",
+      "camera_language",
+      "physical_device",
+      "product_state",
+      "product_interaction",
+      "transition_or_effect",
+      "sound_detail",
+      "business_consequence"
+    ],
+    "long_static_ui_holds_forbidden": true,
+    "feature_grid_montage_forbidden": true,
+    "cinematic_transitions_must_advance_story": true,
+    "studio_effects_must_demonstrate_real_capability_not_decorate_empty_time": true
+  },
   "chapters": [
     {"id":"C01","start":0,"end":45,"title":"THE BUSINESS BEFORE SOFTWARE"},
     {"id":"C02","start":45,"end":95,"title":"ONE EVENT BECOMES FIVE PROBLEMS"},
@@ -53,6 +146,8 @@
     "generic_stock_people_forbidden": true,
     "generic_ai_people_forbidden": true,
     "fake_product_ui_forbidden": true,
+    "authentic_avantiqo_on_real_devices_required": true,
+    "voice_domain_visual_mismatch_forbidden": true,
     "static_dashboard_exposition_forbidden": true,
     "feature_grid_montage_forbidden": true,
     "science_fiction_ui_forbidden": true,
@@ -60,6 +155,8 @@
     "unsupported_investor_metrics_forbidden": true,
     "prompt_box_as_studio_hero_forbidden": true,
     "human_governance_boundary_required": true,
+    "accounting_firm_many_client_finance_proof_required": true,
+    "studio_capability_meta_proof_required": true,
     "final_picture_lock_requires_owner_review": true
   }
 }

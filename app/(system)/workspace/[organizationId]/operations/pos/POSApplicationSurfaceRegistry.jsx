@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import POSInlineCheckout from "./POSInlineCheckout";
@@ -27,6 +27,11 @@ function RestaurantSaleSurface(props) {
   const requestedTable = String(searchParams.get("table") || "").trim() || null;
   const waiterMode = requestedView === "waiter" || requestedView === "service";
   const [checkoutVersion, setCheckoutVersion] = useState(0);
+  const [activeTableReference, setActiveTableReference] = useState(requestedTable);
+
+  useEffect(() => {
+    setActiveTableReference(requestedTable);
+  }, [requestedTable]);
 
   if (waiterMode) {
     return (
@@ -111,6 +116,7 @@ function RestaurantSaleSurface(props) {
           <POSFinalUI
             {...props}
             surfaceMode="stationary"
+            onActiveContextChange={setActiveTableReference}
           />
         </div>
 
@@ -118,7 +124,7 @@ function RestaurantSaleSurface(props) {
           <POSInlineCheckout
             key={checkoutVersion}
             posConfiguration={props.posConfiguration}
-            preferredContextReference={requestedTable}
+            preferredContextReference={activeTableReference}
             compact
             onRefresh={props.refreshPOSRuntime}
             onPaymentComplete={() => {

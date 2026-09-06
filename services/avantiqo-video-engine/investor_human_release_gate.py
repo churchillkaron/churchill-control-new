@@ -1,8 +1,10 @@
 """Fail-closed release gate for investor footage containing generated humans.
 
 Generation evidence is never sufficient for release. Each human clip must prove
-approved same-identity multi-keyframe generation, automated sampled-frame QC,
-and a byte-bound final visual review of the exact video master.
+approved same-identity multi-keyframe generation, byte-bound machine preflight on
+the dimensions that current evaluators can actually measure, and an exact-master
+visual review for the fine human details that automated benchmarks cannot safely
+certify on their own.
 """
 from __future__ import annotations
 
@@ -17,15 +19,33 @@ GENERATION_CONTRACT = "AVANTIQO_VIDEO_HUMAN_MULTI_KEYFRAME_NATIVE_MASTER_V1"
 MIN_KEYFRAMES = 3
 MAX_KEYFRAMES = 8
 MIN_SAMPLED_FRAMES = 12
+
+# These are intentionally limited to dimensions with defensible automated
+# evaluators. Eyes, hands and skin remain mandatory exact-master visual-review
+# dimensions instead of receiving fabricated proxy scores.
 REQUIRED_AUTOMATED_CHECKS = (
     "face_identity",
-    "face_temporal_stability",
+    "anatomy",
+    "subject_consistency",
+    "motion_physics",
+    "imaging_quality",
+)
+REQUIRED_VISUAL_REVIEW_DIMENSIONS = (
+    "identity",
+    "face",
     "eyes",
     "hands",
     "anatomy",
-    "skin_texture",
-    "motion_physics",
+    "skin",
+    "motion",
 )
+ALLOWED_AUTOMATED_EVALUATORS = {
+    "face_identity": {"VBENCH2_HUMAN_IDENTITY"},
+    "anatomy": {"VBENCH2_HUMAN_ANATOMY"},
+    "subject_consistency": {"VBENCH_I2V_SUBJECT_CONSISTENCY", "VBENCH_I2V_I2V_SUBJECT"},
+    "motion_physics": {"VBENCH_I2V_MOTION_SMOOTHNESS"},
+    "imaging_quality": {"VBENCH_I2V_IMAGING_QUALITY"},
+}
 
 
 def _text(value: Any) -> str:
@@ -82,13 +102,31 @@ def _validate_automated_qc(clip_id: str, qc: dict[str, Any], video_sha256: str, 
     sampled = qc.get("sampled_frames")
     _require(isinstance(sampled, int) and sampled >= MIN_SAMPLED_FRAMES, f"{prefix}:insufficient_frame_sampling", failures)
     _require(qc.get("video_sha256") == video_sha256, f"{prefix}:video_digest_mismatch", failures)
+    _require(qc.get("fine_detail_visual_review_required") is True, f"{prefix}:fine_detail_review_flag_required", failures)
     checks = _obj(qc.get("checks"))
     for name in REQUIRED_AUTOMATED_CHECKS:
         evidence = _obj(checks.get(name))
         _require(evidence.get("status") == "PASS", f"{prefix}:{name}:not_pass", failures)
         _require(bool(_text(evidence.get("evidence_id"))), f"{prefix}:{name}:evidence_missing", failures)
+        evaluator = _text(evidence.get("evaluator"))
+        _require(
+            evaluator in ALLOWED_AUTOMATED_EVALUATORS[name],
+            f"{prefix}:{name}:evaluator_invalid",
+            failures,
+        )
+        _require(evidence.get("video_sha256") == video_sha256, f"{prefix}:{name}:video_digest_mismatch", failures)
         score = evidence.get("score")
         _require(isinstance(score, (int, float)) and 0.0 <= float(score) <= 1.0, f"{prefix}:{name}:score_invalid", failures)
+
+    # Fine-detail categories must never be smuggled through as benchmark scores.
+    for unsupported in ("eyes", "hands", "skin_texture"):
+        if unsupported in checks:
+            evidence = _obj(checks.get(unsupported))
+            _require(
+                evidence.get("status") in {"VISUAL_REVIEW_REQUIRED", "NOT_MACHINE_CERTIFIED"},
+                f"{prefix}:{unsupported}:false_machine_certification",
+                failures,
+            )
 
 
 def _validate_visual_review(clip_id: str, review: dict[str, Any], video_sha256: str, failures: list[str]) -> None:
@@ -98,8 +136,9 @@ def _validate_visual_review(clip_id: str, review: dict[str, Any], video_sha256: 
     _require(bool(_text(review.get("reviewer_id"))), f"{prefix}:reviewer_required", failures)
     _require(bool(_text(review.get("reviewed_at"))), f"{prefix}:timestamp_required", failures)
     _require(_valid_sha256(review.get("contact_sheet_sha256")), f"{prefix}:contact_sheet_digest_required", failures)
+    _require(review.get("exact_master_reviewed") is True, f"{prefix}:exact_master_review_required", failures)
     dimensions = _obj(review.get("dimensions"))
-    for category in ("identity", "face", "eyes", "hands", "anatomy", "skin", "motion"):
+    for category in REQUIRED_VISUAL_REVIEW_DIMENSIONS:
         _require(dimensions.get(category) == "PASS", f"{prefix}:{category}:not_pass", failures)
 
 
@@ -130,6 +169,9 @@ def evaluate(manifest: dict[str, Any]) -> dict[str, Any]:
         "contract": CONTRACT,
         "source_repository": SOURCE_REPOSITORY,
         "human_clip_count": human_clip_count,
+        "automated_qc_scope": list(REQUIRED_AUTOMATED_CHECKS),
+        "visual_review_scope": list(REQUIRED_VISUAL_REVIEW_DIMENSIONS),
+        "fine_detail_machine_certification_forbidden": True,
         "release_authorized": not failures,
         "release_status": "AUTHORIZED" if not failures else "BLOCKED",
         "failures": failures,

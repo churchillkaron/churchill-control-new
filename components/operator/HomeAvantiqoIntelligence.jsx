@@ -66,6 +66,64 @@ function projectStatusLabel(value) {
   return "In progress";
 }
 
+function executionEvidence(result) {
+  const execution = result?.execution || {};
+  const agreementState =
+    result?.agreement_state || result?.decision?.agreement_state || {};
+  const pendingExecution = agreementState?.pending_execution || {};
+  const status = text(execution?.status).toLowerCase();
+  const verificationStatus = text(
+    execution?.post_action_verification?.status,
+  ).toLowerCase();
+  const capabilityKey = text(
+    execution?.capability?.key ||
+      execution?.capability?.capability_key ||
+      execution?.capability_key ||
+      pendingExecution?.capability_key,
+  );
+
+  if (
+    execution?.business_effect_verified === true ||
+    verificationStatus === "completed"
+  ) {
+    return {
+      tone: "verified",
+      label: "Verified complete",
+      detail: capabilityKey
+        ? `${capabilityKey} · business effect verified`
+        : "The business effect was independently verified.",
+    };
+  }
+
+  if (status === "blocked") {
+    return {
+      tone: "blocked",
+      label: "Not completed",
+      detail:
+        "Execution is blocked or verification failed. No action is assumed complete.",
+    };
+  }
+
+  if (text(pendingExecution?.capability_key)) {
+    return {
+      tone: "pending",
+      label: "Awaiting approval",
+      detail: `${text(pendingExecution.capability_key)} is prepared only. Nothing has executed yet.`,
+    };
+  }
+
+  if (status === "completed") {
+    return {
+      tone: "checked",
+      label: "Completed check",
+      detail:
+        "This turn completed without implying an unverified business mutation.",
+    };
+  }
+
+  return null;
+}
+
 function thesisAttentionLabel(value) {
   const level = text(value).toLowerCase();
   if (level === "urgent") return "Urgent change";
@@ -396,6 +454,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           options: Array.isArray(decision?.clarification?.options)
             ? decision.clarification.options
             : [],
+          governance: executionEvidence(result),
         }),
       ]);
 
@@ -664,6 +723,26 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
               {message.content}
             </div>
 
+            {message.role === "assistant" && message.governance ? (
+              <div
+                data-avantiqo-execution-state={message.governance.tone}
+                className={
+                  message.governance.tone === "blocked"
+                    ? "mt-3 rounded-xl border border-red-400/25 bg-red-500/[0.06] px-3 py-2.5"
+                    : message.governance.tone === "verified"
+                      ? "mt-3 rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/[0.07] px-3 py-2.5"
+                      : "mt-3 rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2.5"
+                }
+              >
+                <div className="text-[9px] uppercase tracking-[0.16em] text-white/45">
+                  {message.governance.label}
+                </div>
+                <div className="mt-1 text-[11px] leading-4 text-white/50">
+                  {message.governance.detail}
+                </div>
+              </div>
+            ) : null}
+
             {Array.isArray(message.options) && message.options.length ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 {message.options.map((option) => (
@@ -685,7 +764,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         {busy ? (
           <div className="mr-16 flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-3 text-xs text-white/45">
             <Loader2 size={14} className="animate-spin text-[#D6A66A]" />
-            Thinking, checking context and connected capabilities…
+            Working in governed mode. No business action is complete until its effect is verified.
           </div>
         ) : null}
       </div>

@@ -1,4 +1,5 @@
 import { ArrowUpRight } from "lucide-react";
+import FinanceTaxExchangeRateEvidenceReview, { isFinanceTaxExchangeRateIssue } from "@/components/workspace/finance/FinanceTaxExchangeRateEvidenceReview";
 
 const POSTING_ISSUE_CODES = new Set([
   "OUTPUT_NOT_POSTED",
@@ -29,7 +30,7 @@ function money(value) {
 }
 
 export function isFinanceTaxPostingIssue(code) {
-  return POSTING_ISSUE_CODES.has(upper(code));
+  return POSTING_ISSUE_CODES.has(upper(code)) || isFinanceTaxExchangeRateIssue(code);
 }
 
 function postingFailureLabel(code) {
@@ -58,7 +59,10 @@ function postingRepairText(code) {
 }
 
 export default function FinanceTaxPostingEvidenceReview({ issue, source, journal, navigation }) {
-  if (!isFinanceTaxPostingIssue(issue?.code)) return null;
+  if (isFinanceTaxExchangeRateIssue(issue?.code)) {
+    return <FinanceTaxExchangeRateEvidenceReview issue={issue} source={source} journal={journal} navigation={navigation}/>;
+  }
+  if (!POSTING_ISSUE_CODES.has(upper(issue?.code))) return null;
 
   const output = upper(issue?.code).startsWith("OUTPUT_");
   const sourceLabel = output ? "Customer invoice" : "Vendor invoice";

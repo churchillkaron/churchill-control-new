@@ -12,6 +12,7 @@ on:
       - "lib/creative/post-production/runtime/AvantiqoInvestorProductProofPlan.js"
       - "lib/creative/post-production/runtime/AvantiqoInvestorFinalActPlan.js"
       - "lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js"
+      - "services/avantiqo-image-engine/modal_character_keyframe_runtime.py"
       - "services/avantiqo-video-engine/investor_human_release_gate.py"
       - "services/avantiqo-video-engine/modal_human_multi_keyframe_render.py"
       - "scripts/test_investor_human_release_gate.py"
@@ -29,6 +30,7 @@ on:
       - "lib/creative/post-production/runtime/AvantiqoInvestorProductProofPlan.js"
       - "lib/creative/post-production/runtime/AvantiqoInvestorFinalActPlan.js"
       - "lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js"
+      - "services/avantiqo-image-engine/modal_character_keyframe_runtime.py"
       - "services/avantiqo-video-engine/investor_human_release_gate.py"
       - "services/avantiqo-video-engine/modal_human_multi_keyframe_render.py"
       - "scripts/test_investor_human_release_gate.py"
@@ -67,6 +69,7 @@ jobs:
           node --check lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js
           node --check scripts/avantiqo-investor-studio-scenes.mjs
           node --check scripts/investor-studio-film-generation-audit.mjs
+          python -m py_compile services/avantiqo-image-engine/modal_character_keyframe_runtime.py
           python -m py_compile services/avantiqo-video-engine/investor_human_release_gate.py
           python -m py_compile services/avantiqo-video-engine/modal_human_multi_keyframe_render.py
       - name: Test fail-closed investor human contract

@@ -1,4 +1,4 @@
-# trigger: live-diagnostic-1
+# trigger: investor-modal-repair-2026-09-06-1
 name: Avantiqo Investor Modal Live Diagnostic Once
 
 on:
@@ -15,11 +15,13 @@ env:
   MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
 
 jobs:
-  diagnose:
-    if: github.event.head_commit.message == 'Run Avantiqo investor Modal live diagnostic'
+  repair-and-verify:
+    if: github.event.head_commit.message == 'Deploy Avantiqo investor Modal repair'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -32,14 +34,39 @@ jobs:
           test -n "${MODAL_TOKEN_SECRET:-}"
           python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
 
-      - name: Inspect Avantiqo video app containers and recent logs
+      - name: Deploy repaired Avantiqo video app
         shell: bash
         run: |
           set -euo pipefail
-          echo '===== MODAL APP LIST ====='
-          modal app list --json || true
-          echo '===== MODAL CONTAINER LIST ====='
-          modal container list --json || true
-          echo '===== AVANTIQO VIDEO APP LOGS LAST 30M ====='
-          modal app logs avantiqo-video-owned --since 30m --tail 500 --timestamps --show-function-id --show-function-call-id --show-container-id || true
-          echo 'AVANTIQO_INVESTOR_MODAL_LIVE_DIAGNOSTIC=PASS'
+          modal deploy services/avantiqo-video-engine/modal_investor_t2v.py
+
+      - name: Invoke investor seed function once
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import modal
+
+          fn = modal.Function.from_name(
+              "avantiqo-video-owned",
+              "modal_investor_t2v.seed_investor_t2v_cache",
+          )
+          result = fn.remote()
+          print(json.dumps(result, sort_keys=True))
+          if not isinstance(result, dict) or result.get("success") is not True:
+              raise SystemExit("INVESTOR_SEED_PROBE_FAILED")
+          print("AVANTIQO_INVESTOR_SEED_PROBE=PASS")
+          PY
+
+      - name: Check repaired app logs for crash-loop signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          modal app logs avantiqo-video-owned --since 10m --tail 500 --timestamps --show-function-id --show-function-call-id --show-container-id > /tmp/modal.log 2>&1 || true
+          cat /tmp/modal.log
+          if grep -F "ModuleNotFoundError: No module named 'modal_app'" /tmp/modal.log; then
+            echo 'AVANTIQO_INVESTOR_MODAL_CRASH_LOOP=FAIL'
+            exit 1
+          fi
+          echo 'AVANTIQO_INVESTOR_MODAL_CRASH_LOOP=PASS'

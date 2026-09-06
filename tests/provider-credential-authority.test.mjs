@@ -32,15 +32,18 @@ test("Intelligence credentials are repository selected, broker resolved and shap
   assert.match(provider, /opaque_secret_reference_passthrough_allowed:\s*false/);
 });
 
-test("Vault broker migration is service-role-only and row bound", () => {
-  const migration = source("supabase/migrations/20260906013924_provider_credential_vault_secret_broker.sql");
+test("Vault broker is service-role-only, security-invoker and row bound", () => {
+  const migration = source("supabase/migrations/20260906023230_provider_credential_vault_broker_security_invoker.sql");
 
-  assert.match(migration, /request\.jwt\.claim\.role/);
-  assert.match(migration, /service_role/);
+  assert.match(migration, /security invoker/i);
+  assert.doesNotMatch(migration, /security definer/i);
+  assert.match(migration, /set search_path = ''/i);
+  assert.match(migration, /current_user <> 'service_role'/i);
   assert.match(migration, /pc\.id = p_credential_id/);
   assert.match(migration, /v_provider_id/);
   assert.match(migration, /v_scoped_organization_id/);
   assert.match(migration, /PROVIDER_CREDENTIAL_VAULT_REFERENCE_REQUIRED/);
+  assert.match(migration, /vault\.decrypted_secrets/);
   assert.match(migration, /revoke all on function public\.resolve_provider_credential_vault_secret\(uuid, text, uuid\) from public/i);
   assert.match(migration, /from anon/i);
   assert.match(migration, /from authenticated/i);

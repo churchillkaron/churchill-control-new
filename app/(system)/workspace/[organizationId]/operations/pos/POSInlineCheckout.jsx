@@ -60,6 +60,22 @@ function contextKey(context) {
   return text(context?.id) || `${text(context?.type) || "context"}:${text(context?.reference)}`;
 }
 
+function contextMatchesReference(context, preferredReference) {
+  const preferred = text(preferredReference).toLowerCase();
+  if (!preferred) return false;
+
+  const values = [
+    context?.id,
+    context?.reference,
+    context?.label,
+  ]
+    .map((value) => text(value).toLowerCase())
+    .filter(Boolean);
+
+  if (values.includes(preferred)) return true;
+  return values.some((value) => value === `table ${preferred}`);
+}
+
 function itemAmount(item) {
   const remaining = Number(item?.remaining_amount);
   if (Number.isFinite(remaining)) return remaining;
@@ -89,6 +105,7 @@ export default function POSInlineCheckout({
   onPaymentComplete,
   onRefresh,
   compact = false,
+  preferredContextReference = null,
 }) {
   const params = useParams();
   const businessContext = useBusinessContext() || {};
@@ -195,7 +212,10 @@ export default function POSInlineCheckout({
       const selectedEntry = preserveSelection && currentKey
         ? nextContexts.find(({ context }) => contextKey(context) === currentKey)
         : null;
-      const nextContext = selectedEntry?.context || nextContexts[0]?.context || null;
+      const requestedEntry = !selectedEntry && preferredContextReference
+        ? nextContexts.find(({ context }) => contextMatchesReference(context, preferredContextReference))
+        : null;
+      const nextContext = selectedEntry?.context || requestedEntry?.context || nextContexts[0]?.context || null;
 
       if (!nextContext) {
         setSelectedContext(null);
@@ -210,7 +230,7 @@ export default function POSInlineCheckout({
     } catch (loadError) {
       setError(loadError?.message || "Unable to load checkout");
     }
-  }, [loadContexts, loadPaymentState, organizationId, selectedContext]);
+  }, [loadContexts, loadPaymentState, organizationId, preferredContextReference, selectedContext]);
 
   useEffect(() => {
     let cancelled = false;
@@ -225,7 +245,7 @@ export default function POSInlineCheckout({
     return () => {
       cancelled = true;
     };
-  }, [organizationId, applicationId]);
+  }, [organizationId, applicationId, preferredContextReference]);
 
   const realtimeStatus = usePOSRealtime({
     organizationId,

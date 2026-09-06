@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { getHotelShiftHandover } from "@/lib/hotel/server/getHotelShiftHandover";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -128,6 +129,12 @@ export async function POST(request) {
       .select()
       .single();
     if (error) throw error;
+
+    await broadcastHotelReadinessChanged({
+      organizationId: access.organizationId,
+      source: "shift-handover-context",
+      action,
+    });
 
     const refreshed = await currentHandover(access.organizationId, propertyId);
     return NextResponse.json({ success: true, context: data, handover: refreshed });

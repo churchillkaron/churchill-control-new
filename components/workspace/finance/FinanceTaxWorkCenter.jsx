@@ -84,6 +84,7 @@ export default function FinanceTaxWorkCenter(props) {
           entityId={props.entityId}
           selectedVatReturnId={selectedVatReturnId}
           onStageChange={changeStage}
+          onEvidenceFocus={openEvidence}
         />
 
         <details className="mx-auto mt-3 max-w-[1760px] overflow-hidden rounded-xl border border-black/[0.07] bg-white shadow-[0_6px_24px_rgba(35,31,27,0.025)]">

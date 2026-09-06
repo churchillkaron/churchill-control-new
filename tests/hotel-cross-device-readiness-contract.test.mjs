@@ -11,6 +11,13 @@ const inspection = fs.readFileSync("app/api/hotel/housekeeping/inspect/route.js"
 const recovery = fs.readFileSync("app/api/hotel/housekeeping/restore-arrival-work/route.js", "utf8");
 const maintenance = fs.readFileSync("app/api/hotel/maintenance/requests/route.js", "utf8");
 const assignment = fs.readFileSync("app/api/hotel/bookings/assign-room/route.js", "utf8");
+const checkIn = fs.readFileSync("app/api/hotel/bookings/check-in/route.js", "utf8");
+const checkOut = fs.readFileSync("app/api/hotel/bookings/check-out/route.js", "utf8");
+const extension = fs.readFileSync("app/api/hotel/bookings/extend/route.js", "utf8");
+const noShow = fs.readFileSync("app/api/hotel/bookings/no-show/route.js", "utf8");
+const earlyDeparture = fs.readFileSync("app/api/hotel/bookings/early-departure/route.js", "utf8");
+const stayControl = fs.readFileSync("app/api/hotel/stays/route.js", "utf8");
+const frontDesk = fs.readFileSync("components/workspace/hotel/HotelFrontDeskWorkBoard.jsx", "utf8");
 
 test("Hotel readiness Realtime is receive-only and organization scoped", () => {
   assert.match(migration, /on realtime\.messages\s+for select\s+to authenticated/i);
@@ -58,4 +65,23 @@ test("room-readiness mutation boundaries broadcast only after governed writes", 
   assert.ok(recovery.indexOf('rpc("hotel_restore_housekeeping_work_for_arrival"') < recovery.lastIndexOf("broadcastHotelReadinessChanged"));
   assert.ok(maintenance.indexOf('rpc("hotel_transition_maintenance_request"') < maintenance.lastIndexOf("broadcastHotelReadinessChanged"));
   assert.ok(assignment.indexOf('rpc("hotel_assign_booking_room_guarded"') < assignment.lastIndexOf("broadcastHotelReadinessChanged"));
+});
+
+test("live Front Desk mutations invalidate other Hotel devices after governed writes", () => {
+  for (const source of [checkIn, checkOut, extension, noShow, earlyDeparture, stayControl]) {
+    assert.match(source, /broadcastHotelReadinessChanged/);
+  }
+
+  assert.ok(checkIn.indexOf("transitionHotelBooking") < checkIn.lastIndexOf("broadcastHotelReadinessChanged"));
+  assert.ok(checkOut.indexOf("transitionHotelBooking") < checkOut.lastIndexOf("broadcastHotelReadinessChanged"));
+  assert.ok(extension.indexOf('rpc(\n      "hotel_extend_checked_in_stay_guarded"') < extension.lastIndexOf("broadcastHotelReadinessChanged"));
+  assert.ok(noShow.indexOf('status: "NO_SHOW"') < noShow.lastIndexOf("broadcastHotelReadinessChanged"));
+
+  assert.ok(earlyDeparture.indexOf('early_departure_review_status: "REVIEW_REQUIRED"') < earlyDeparture.indexOf('action: "EARLY_DEPARTURE_PREPARE"'));
+  assert.ok(earlyDeparture.indexOf('early_departure_review_status: "CONFIRMED"') < earlyDeparture.indexOf('action: "EARLY_DEPARTURE_CONFIRM"'));
+
+  assert.match(frontDesk, /hotelApi\("\/api\/hotel\/stays"/);
+  assert.ok(stayControl.indexOf('rpc("hotel_assign_booking_room_guarded"') < stayControl.indexOf('source: "stay-control-room-assignment"'));
+  assert.ok(stayControl.indexOf('from("hotel_folio_lines").insert') < stayControl.indexOf('action: "ADD_FOLIO_LINE"'));
+  assert.ok(stayControl.indexOf('update({ status: "CLOSED"') < stayControl.indexOf('action: "CLOSE_FOLIO"'));
 });

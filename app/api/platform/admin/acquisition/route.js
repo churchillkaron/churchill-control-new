@@ -41,7 +41,7 @@ async function requireLead(leadId) {
   if (!leadId) return null;
   const { data, error } = await supabaseAdmin
     .from("organization_leads")
-    .select("id,status,organization_id,created_at")
+    .select("id,status,organization_id,email,company,contact,created_at")
     .eq("id", leadId)
     .maybeSingle();
   if (error) throw error;
@@ -56,7 +56,7 @@ async function requireLead(leadId) {
 async function readAcquisition(acquisitionId) {
   const { data, error } = await supabaseAdmin
     .from("platform_acquisition_records")
-    .select("id,seller_organization_id,lead_id,subscription_id,customer_organization_id,stage,first_value_at")
+    .select("id,seller_organization_id,lead_id,subscription_id,customer_organization_id,stage,prospect_company,prospect_contact,prospect_email,first_value_at")
     .eq("id", acquisitionId)
     .eq("seller_organization_id", PLATFORM_ORGANIZATION_ID)
     .maybeSingle();
@@ -67,7 +67,7 @@ async function readAcquisition(acquisitionId) {
 async function requireSubscription(subscriptionId, acquisition) {
   const { data, error } = await supabaseAdmin
     .from("subscriptions")
-    .select("id,lead_id,organization_id,status,created_at")
+    .select("id,lead_id,organization_id,email,status,created_at")
     .eq("id", subscriptionId)
     .maybeSingle();
   if (error) throw error;
@@ -75,6 +75,11 @@ async function requireSubscription(subscriptionId, acquisition) {
     const missing = new Error("ACQUISITION_SUBSCRIPTION_NOT_FOUND");
     missing.status = 400;
     throw missing;
+  }
+  if (!data.lead_id) {
+    const missingLead = new Error("ACQUISITION_SUBSCRIPTION_LEAD_REQUIRED");
+    missingLead.status = 409;
+    throw missingLead;
   }
   if (acquisition.lead_id && data.lead_id !== acquisition.lead_id) {
     const conflict = new Error("ACQUISITION_SUBSCRIPTION_LEAD_MISMATCH");
@@ -140,9 +145,23 @@ function rpcErrorStatus(error) {
   const message = text(error?.message);
   if (message.includes("ACQUISITION_STAGE_CONFLICT")) return 409;
   if (message.includes("ACQUISITION_TRANSITION_NOT_ALLOWED")) return 409;
+  if (message.includes("_MISMATCH") || message.includes("_NOT_PROVEN")) return 409;
   if (message.includes("ACQUISITION_NOT_FOUND")) return 404;
   if (message.includes("ACQUISITION_") && message.includes("REQUIRED")) return 400;
   return Number(error?.status || 500);
+}
+
+function requireManualEvidence({ evidenceReference, note, label }) {
+  if (!evidenceReference) {
+    const error = new Error(`${label} evidence reference is required`);
+    error.status = 400;
+    throw error;
+  }
+  if (!note) {
+    const error = new Error(`${label} evidence note is required`);
+    error.status = 400;
+    throw error;
+  }
 }
 
 export async function POST(request) {
@@ -226,15 +245,42 @@ export async function PATCH(request) {
     }
 
     let subscriptionId = uuidOrNull(body.subscriptionId || body.subscription_id) || acquisition.subscription_id;
-    let customerOrganizationId = uuidOrNull(body.customerOrganizationId || body.customer_organization_id) || acquisition.customer_organization_id;
+    let customerOrganizationId = acquisition.customer_organization_id;
     let firstValueAt = null;
     let evidenceType = text(body.evidenceType || body.evidence_type);
     let evidenceReference = text(body.evidenceReference || body.evidence_reference) || null;
     let note = text(body.note) || null;
+    const prospectCompany = text(body.prospectCompany || body.prospect_company) || acquisition.prospect_company || null;
+    const prospectContact = text(body.prospectContact || body.prospect_contact) || acquisition.prospect_contact || null;
+    const prospectEmail = text(body.prospectEmail || body.prospect_email).toLowerCase() || acquisition.prospect_email || null;
+
+    if (toStage === "QUALIFIED") {
+      if (!prospectCompany || !prospectContact || !prospectEmail) {
+        return Response.json(
+          { success: false, error: "Company, contact, and email are required to qualify a prospect" },
+          { status: 400 },
+        );
+      }
+      requireManualEvidence({ evidenceReference, note, label: "Qualification" });
+      evidenceType = "QUALIFICATION_EVIDENCE_RECORDED";
+    }
+
+    if (toStage === "COMMITMENT_PENDING") {
+      requireManualEvidence({ evidenceReference, note, label: "Commitment" });
+      evidenceType = "COMMITMENT_EVIDENCE_RECORDED";
+    }
+
+    if (toStage === "LOST") {
+      requireManualEvidence({ evidenceReference, note, label: "Loss" });
+      evidenceType = "ACQUISITION_LOSS_RECORDED";
+    }
 
     if (toStage === "COMMITTED") {
       if (!subscriptionId) {
         return Response.json({ success: false, error: "Subscription evidence is required for COMMITTED" }, { status: 400 });
+      }
+      if (!prospectEmail) {
+        return Response.json({ success: false, error: "Qualified prospect identity is required before commitment" }, { status: 409 });
       }
       const subscription = await requireSubscription(subscriptionId, acquisition);
       evidenceType = "SUBSCRIPTION_RECORD_VERIFIED";
@@ -242,16 +288,29 @@ export async function PATCH(request) {
       note = note || `Subscription status: ${text(subscription.status) || "unknown"}`;
     }
 
-    if (["CUSTOMER_CREATED", "HUMAN_ACTIVE", "FIRST_VALUE"].includes(toStage)) {
+    if (toStage === "CUSTOMER_CREATED") {
+      if (!acquisition.subscription_id) {
+        return Response.json({ success: false, error: "A committed subscription is required before customer creation" }, { status: 409 });
+      }
+      const subscription = await requireSubscription(acquisition.subscription_id, acquisition);
+      if (!subscription.organization_id) {
+        return Response.json(
+          { success: false, error: "The committed subscription is not linked to a customer organization yet" },
+          { status: 409 },
+        );
+      }
+      customerOrganizationId = subscription.organization_id;
+      const organization = await requireCustomerOrganization(customerOrganizationId);
+      evidenceType = "CUSTOMER_ORGANIZATION_VERIFIED";
+      evidenceReference = organization.id;
+      note = note || `Customer organization verified from committed subscription: ${text(organization.name) || organization.id}`;
+    }
+
+    if (["HUMAN_ACTIVE", "FIRST_VALUE"].includes(toStage)) {
       if (!customerOrganizationId) {
         return Response.json({ success: false, error: `Customer organization evidence is required for ${toStage}` }, { status: 400 });
       }
-      const organization = await requireCustomerOrganization(customerOrganizationId);
-      if (toStage === "CUSTOMER_CREATED") {
-        evidenceType = "CUSTOMER_ORGANIZATION_VERIFIED";
-        evidenceReference = organization.id;
-        note = note || `Customer organization verified: ${text(organization.name) || organization.id}`;
-      }
+      await requireCustomerOrganization(customerOrganizationId);
     }
 
     if (toStage === "HUMAN_ACTIVE") {
@@ -274,7 +333,7 @@ export async function PATCH(request) {
       return Response.json({ success: false, error: "Evidence type is required for this transition" }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin.rpc("platform_transition_acquisition", {
+    const { data, error } = await supabaseAdmin.rpc("platform_transition_acquisition_v2", {
       p_acquisition_id: acquisitionId,
       p_seller_organization_id: PLATFORM_ORGANIZATION_ID,
       p_expected_from_stage: expectedFromStage,
@@ -282,6 +341,9 @@ export async function PATCH(request) {
       p_evidence_type: evidenceType,
       p_evidence_reference: evidenceReference,
       p_note: note,
+      p_prospect_company: prospectCompany,
+      p_prospect_contact: prospectContact,
+      p_prospect_email: prospectEmail,
       p_subscription_id: subscriptionId,
       p_customer_organization_id: customerOrganizationId,
       p_first_value_at: firstValueAt,
@@ -291,7 +353,7 @@ export async function PATCH(request) {
     return Response.json({
       success: true,
       acquisition: data,
-      authority: "AVANTIQO_PLATFORM_ATOMIC_ACQUISITION_TRANSITION",
+      authority: "AVANTIQO_PLATFORM_ATOMIC_ACQUISITION_TRANSITION_V2",
     });
   } catch (error) {
     console.error("PLATFORM_ACQUISITION_TRANSITION_ERROR", error);

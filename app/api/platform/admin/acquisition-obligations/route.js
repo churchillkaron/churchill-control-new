@@ -2,6 +2,7 @@ import { requirePlatformOperatorWorkspaceAccess } from "@/lib/platform/security/
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const PLATFORM_ORGANIZATION_ID = "9a148429-b6a0-4bc6-ac83-a35c64fb7045";
+const PLATFORM_TIME_ZONE_OFFSET = "+07:00";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -10,6 +11,17 @@ function text(value) {
 function uuidOrNull(value) {
   const normalized = text(value);
   return normalized || null;
+}
+
+function platformOwnerDueAt(value) {
+  const raw = text(value);
+  if (!raw) return null;
+  const hasExplicitZone = /(?:z|[+-]\d{2}:\d{2})$/i.test(raw);
+  const normalized = hasExplicitZone
+    ? raw
+    : `${raw}${/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(raw) ? ":00" : ""}${PLATFORM_TIME_ZONE_OFFSET}`;
+  const timestamp = new Date(normalized).getTime();
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
 }
 
 async function requireOperator(request) {
@@ -91,14 +103,11 @@ export async function POST(request) {
     const acquisitionId = uuidOrNull(body.acquisitionId || body.acquisition_id);
     const expectedStage = text(body.expectedStage || body.expected_stage).toUpperCase();
     const title = text(body.title);
-    const dueAt = text(body.dueAt || body.due_at);
+    const dueAt = platformOwnerDueAt(body.dueAt || body.due_at);
     const scheduleNote = text(body.scheduleNote || body.schedule_note);
     const rescheduleReason = text(body.rescheduleReason || body.reschedule_reason) || null;
     if (!acquisitionId || !expectedStage || !title || !dueAt || !scheduleNote) {
-      return Response.json({ success: false, error: "Acquisition, expected stage, next action, due time, and schedule note are required" }, { status: 400 });
-    }
-    if (!Number.isFinite(new Date(dueAt).getTime())) {
-      return Response.json({ success: false, error: "A valid due time is required" }, { status: 400 });
+      return Response.json({ success: false, error: "Acquisition, expected stage, next action, valid due time, and schedule note are required" }, { status: 400 });
     }
 
     const { data, error } = await supabaseAdmin.rpc("platform_set_acquisition_obligation", {
@@ -106,7 +115,7 @@ export async function POST(request) {
       p_seller_organization_id: PLATFORM_ORGANIZATION_ID,
       p_expected_stage: expectedStage,
       p_title: title,
-      p_due_at: new Date(dueAt).toISOString(),
+      p_due_at: dueAt,
       p_schedule_note: scheduleNote,
       p_owner_staff_account_id: access.staff.id,
       p_reschedule_reason: rescheduleReason,

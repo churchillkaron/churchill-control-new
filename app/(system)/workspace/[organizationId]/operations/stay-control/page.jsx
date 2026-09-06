@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
+import HotelEarlyDepartureControl from "@/components/workspace/hotel/HotelEarlyDepartureControl";
 import {
   HotelEmptyState, HotelError, HotelField, HotelMetric, HotelPrimaryAction, HotelSecondaryAction,
   HotelSection, HotelStatusPill, HotelSuccess, HotelWorkspaceShell, hotelInputClass, hotelTextareaClass,
@@ -193,6 +194,8 @@ export default function StayControlPage() {
               <div className="space-y-3 p-4 md:p-5"><div className="flex flex-wrap gap-2"><HotelStatusPill value={selected.pre_arrival_status} /><HotelStatusPill value={selected.registration_status} /><HotelStatusPill value={selected.mobile_arrival_status} /></div><HotelPrimaryAction disabled={saving || selected.status !== "RESERVED"} onClick={createArrival}>Create secure arrival link</HotelPrimaryAction>{arrivalLink ? <div className="rounded-xl border border-black/[0.07] bg-[#FBFAF7] p-3"><div className="break-all text-[8px] leading-4 text-[#675F57]">{arrivalLink}</div><button className="mt-2 text-[8px] font-semibold text-[#76583A]" onClick={() => navigator.clipboard?.writeText(arrivalLink)}>Copy link</button></div> : null}</div>
             </HotelSection>
           </div>
+
+          <HotelEarlyDepartureControl booking={selected} organizationId={organizationId} onChanged={load} />
 
           <HotelSection eyebrow="Guest folio" title={folio ? `${folio.status} · Balance ${money(folioTotal, folio.currency_code)}` : "Open on first charge"} detail="Charges stay in Hotel. Enter payment/deposit amounts as positive values; Avantiqo posts them as governed credits against the folio. Raw card data is never stored here.">
             <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 md:p-5">

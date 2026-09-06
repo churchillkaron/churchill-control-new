@@ -16,6 +16,20 @@ import {
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { groupMenuByCategory } from "@/lib/restaurant/pos/waiter/groupMenuByCategory";
 
+const TRANSFER_UNAVAILABLE_STATUSES = new Set([
+  "OCCUPIED",
+  "IN_SERVICE",
+  "ACTIVE",
+  "SEATED",
+  "ORDERING",
+  "ORDERED",
+  "RESERVED",
+  "MERGED",
+  "OUT_OF_SERVICE",
+  "BLOCKED",
+  "UNAVAILABLE",
+]);
+
 function tableName(table) {
   return table?.table_name || table?.table_number || table?.name || "Table";
 }
@@ -32,6 +46,16 @@ function matchesTableReference(table, reference) {
     .map((value) => String(value || "").trim().toLowerCase())
     .filter(Boolean)
     .some((value) => value === preferred || `table ${value}` === preferred);
+}
+
+function tableIsFreeForTransfer(table) {
+  const status = String(table?.status || "").trim().toUpperCase();
+  return Boolean(
+    table &&
+      !table.active_session_id &&
+      Number(table.current_guests || 0) <= 0 &&
+      !TRANSFER_UNAVAILABLE_STATUSES.has(status)
+  );
 }
 
 function normalizeModifierGroups(settings = {}) {
@@ -161,6 +185,7 @@ export default function RestaurantStationaryOrderSurface({
   const [dishDraft, setDishDraft] = useState(null);
   const [modifierDraft, setModifierDraft] = useState({});
   const [modal, setModal] = useState(null);
+  const [pendingSwitch, setPendingSwitch] = useState(null);
   const [targetTableId, setTargetTableId] = useState(null);
   const [mergeTargetIds, setMergeTargetIds] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -195,6 +220,12 @@ export default function RestaurantStationaryOrderSurface({
       .sort((a, b) => String(tableName(a)).localeCompare(String(tableName(b)), undefined, { numeric: true })),
     [activeZoneId, tables],
   );
+  const transferTargets = useMemo(
+    () => tables
+      .filter((table) => table.id !== activeTableId && tableIsFreeForTransfer(table))
+      .sort((a, b) => String(tableName(a)).localeCompare(String(tableName(b)), undefined, { numeric: true })),
+    [activeTableId, tables],
+  );
   const menuGroups = useMemo(() => groupMenuByCategory(dishes), [dishes]);
   const categories = Object.keys(menuGroups || {});
   const currentCategory = activeCategory || categories[0] || null;
@@ -221,6 +252,13 @@ export default function RestaurantStationaryOrderSurface({
     const match = tables.find((table) => matchesTableReference(table, preferred));
     if (!match) return;
     preferredApplied.current = preferred;
+
+    if (cart.length && activeTableId && match.id !== activeTableId) {
+      setPendingSwitch({ kind: "table", tableId: match.id });
+      setModal("DRAFT_SWITCH");
+      return;
+    }
+
     setActiveZoneId(match.zone_id || activeZoneId);
     setActiveTableId(match.id);
     setSelectedSeat(1);
@@ -252,10 +290,9 @@ export default function RestaurantStationaryOrderSurface({
     return result;
   }
 
-  function chooseZone(zoneId) {
+  function applyZoneSelection(zoneId) {
     setActiveZoneId(zoneId);
     setActiveTableId(null);
-    setCart([]);
     setSelectedSeat(1);
     setMessage(null);
     setError(null);
@@ -263,22 +300,65 @@ export default function RestaurantStationaryOrderSurface({
     onActiveContextChange?.(null);
   }
 
-  function chooseTable(table) {
-    if (String(table.status || "").toUpperCase() === "MERGED") return;
-    if (table.id !== activeTableId) {
-      setCart([]);
-      orderKey.current = null;
-    }
+  function applyTableSelection(table) {
+    if (!table || String(table.status || "").toUpperCase() === "MERGED") return;
     setActiveTableId(table.id);
     setActiveZoneId(table.zone_id || activeZoneId);
     setSelectedSeat(1);
     setMessage(null);
     setError(null);
+    orderKey.current = null;
     onActiveContextChange?.(tableReference(table));
 
     if (!guestsFor(table)) {
       setGuestDraft(1);
       setModal("GUESTS");
+    }
+  }
+
+  function chooseZone(zoneId) {
+    if (zoneId === activeZoneId && !activeTableId) return;
+    if (cart.length && activeTableId) {
+      setPendingSwitch({ kind: "zone", zoneId });
+      setModal("DRAFT_SWITCH");
+      return;
+    }
+    applyZoneSelection(zoneId);
+  }
+
+  function chooseTable(table) {
+    if (!table || String(table.status || "").toUpperCase() === "MERGED") return;
+    if (table.id === activeTableId) return;
+    if (cart.length && activeTableId) {
+      setPendingSwitch({ kind: "table", tableId: table.id });
+      setModal("DRAFT_SWITCH");
+      return;
+    }
+    applyTableSelection(table);
+  }
+
+  function cancelDraftSwitch() {
+    setPendingSwitch(null);
+    setModal(null);
+  }
+
+  function confirmDraftSwitch() {
+    const next = pendingSwitch;
+    if (!next) return;
+
+    setCart([]);
+    orderKey.current = null;
+    setPendingSwitch(null);
+    setModal(null);
+
+    if (next.kind === "zone") {
+      applyZoneSelection(next.zoneId);
+      return;
+    }
+
+    if (next.kind === "table") {
+      const table = tables.find((candidate) => candidate.id === next.tableId) || null;
+      if (table) applyTableSelection(table);
     }
   }
 
@@ -445,7 +525,6 @@ export default function RestaurantStationaryOrderSurface({
       const next = tables.find((table) => table.id === targetTableId) || null;
       setModal(null);
       setTargetTableId(null);
-      setCart([]);
       orderKey.current = null;
       if (next) {
         setActiveTableId(next.id);
@@ -453,7 +532,7 @@ export default function RestaurantStationaryOrderSurface({
         onActiveContextChange?.(tableReference(next));
       }
       await refreshRuntime();
-      setMessage("Table moved.");
+      setMessage(cart.length ? "Table moved · unsent draft kept with this service." : "Table moved.");
     } catch (actionError) {
       setError(actionError?.message || "Unable to move table");
     } finally {
@@ -697,6 +776,34 @@ export default function RestaurantStationaryOrderSurface({
         </aside>
       </div>
 
+      {modal === "DRAFT_SWITCH" && pendingSwitch && activeTable ? (
+        <Modal
+          title="Unsent order on this table"
+          subtitle={`${cartUnits} unsent item${cartUnits === 1 ? "" : "s"} belong to Table ${tableName(activeTable)}.`}
+          onClose={cancelDraftSwitch}
+        >
+          <div className="space-y-3" data-stationary-draft-switch-guard="true">
+            <div className="rounded-2xl border border-amber-300/25 bg-amber-300/[0.07] px-4 py-3 text-xs leading-5 text-amber-100">
+              Switching now would leave this draft behind. Keep working here, or explicitly discard the draft before switching.
+            </div>
+            <button
+              type="button"
+              onClick={cancelDraftSwitch}
+              className="w-full rounded-2xl bg-[#25231F] px-4 py-3.5 text-sm font-semibold text-white"
+            >
+              Keep current draft
+            </button>
+            <button
+              type="button"
+              onClick={confirmDraftSwitch}
+              className="w-full rounded-2xl border border-red-400/25 bg-red-500/[0.06] px-4 py-3.5 text-sm font-semibold text-red-200"
+            >
+              Discard draft & switch
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
       {modal === "GUESTS" && activeTable ? (
         <Modal title={`Guests · Table ${tableName(activeTable)}`} subtitle="Set covers before adding items." onClose={() => setModal(null)}>
           <div className="grid grid-cols-5 gap-2">
@@ -786,9 +893,9 @@ export default function RestaurantStationaryOrderSurface({
       ) : null}
 
       {modal === "TRANSFER" && activeTable ? (
-        <Modal title="Move whole table" subtitle={`Move Table ${tableName(activeTable)} and its open service to another table.`} onClose={() => setModal(null)}>
+        <Modal title="Move whole table" subtitle={`Move Table ${tableName(activeTable)} and its open service to an empty available table.`} onClose={() => setModal(null)}>
           <div className="max-h-[340px] space-y-2 overflow-y-auto pr-1">
-            {tables.filter((table) => table.id !== activeTable.id && String(table.status || "").toUpperCase() !== "MERGED").map((table) => (
+            {transferTargets.map((table) => (
               <button
                 key={table.id}
                 type="button"
@@ -798,9 +905,14 @@ export default function RestaurantStationaryOrderSurface({
                   : "w-full rounded-2xl border border-white/10 px-4 py-3 text-left text-white/60"}
               >
                 <div className="text-sm font-medium">Table {tableName(table)}</div>
-                <div className="mt-1 text-[10px] opacity-50">{guestsFor(table)} guests</div>
+                <div className="mt-1 text-[10px] opacity-50">Empty · available</div>
               </button>
             ))}
+            {!transferTargets.length ? (
+              <div className="rounded-2xl border border-dashed border-white/10 px-4 py-5 text-center text-xs text-white/35">
+                No empty available tables. Use Merge tables if you are joining an occupied service.
+              </div>
+            ) : null}
           </div>
           <button type="button" disabled={busy || !targetTableId} onClick={confirmTransfer} className="mt-4 w-full rounded-2xl bg-[#D6A66A] py-3.5 text-sm font-bold text-black disabled:opacity-30">
             {busy ? "Moving..." : "Move table"}

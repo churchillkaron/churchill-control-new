@@ -299,6 +299,7 @@ export default function RestaurantKitchenDisplay() {
                       const status = statusOf(item.status);
                       const busy = actionId === `${entry.id}:${itemId}`;
                       const ready = READY.has(status);
+                      const cooking = COOKING.has(status);
                       const closed = CLOSED.has(status);
                       const modifiers = modifierValues(item);
                       return (
@@ -322,19 +323,19 @@ export default function RestaurantKitchenDisplay() {
                             <div className="mt-3 grid grid-cols-2 gap-2">
                               <button
                                 type="button"
-                                disabled={busy || COOKING.has(status) || ready}
+                                disabled={busy || cooking || ready}
                                 onClick={() => updateItem(entry, item, "PREPARING")}
                                 className="rounded-xl border border-white/15 py-2.5 text-xs font-semibold disabled:opacity-25"
                               >
-                                {COOKING.has(status) ? "Cooking" : "Start"}
+                                {cooking ? "Cooking" : "Start"}
                               </button>
                               <button
                                 type="button"
-                                disabled={busy || ready}
+                                disabled={busy || ready || !cooking}
                                 onClick={() => updateItem(entry, item, "READY")}
                                 className="rounded-xl bg-[#D6A66A] py-2.5 text-xs font-bold text-black disabled:opacity-30"
                               >
-                                {busy ? "Saving..." : "Ready"}
+                                {busy ? "Saving..." : ready ? "Ready" : cooking ? "Mark ready" : "Start first"}
                               </button>
                             </div>
                           ) : null}

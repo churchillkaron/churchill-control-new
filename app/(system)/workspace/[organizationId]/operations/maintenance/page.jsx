@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { RefreshCw, Wrench } from "lucide-react";
+import { RefreshCw, RotateCcw, Wrench } from "lucide-react";
 
 import HotelArrivalReadinessOwnership from "@/components/workspace/hotel/HotelArrivalReadinessOwnership";
 import { HotelEmptyState, HotelError, HotelField, HotelMetric, HotelPrimaryAction, HotelSecondaryAction, HotelSection, HotelStatusPill, HotelWorkspaceShell, hotelInputClass, hotelTextareaClass } from "@/components/workspace/hotel/HotelWorkspaceUI";
@@ -21,6 +21,7 @@ const TERMINAL_REQUESTS = new Set(["RESOLVED", "CLOSED", "COMPLETED", "CANCELLED
 const statusOf = (task) => String(task?.status || "PENDING").toUpperCase();
 const propertyName = (task) => task?.hotel_properties?.name || task?.property_id || "Property";
 const roomName = (request) => request?.hotel_rooms?.room_number ? `Room ${request.hotel_rooms.room_number}` : request?.room_id || "Room";
+const latestResolution = (request) => (request?.maintenance_events || []).find((event) => String(event?.action || "").toUpperCase() === "RESOLVE") || null;
 
 export default function OperationsMaintenancePage() {
   const params = useParams();
@@ -33,6 +34,7 @@ export default function OperationsMaintenancePage() {
   const [error, setError] = useState(null);
   const [form, setForm] = useState({ propertyId: "", taskType: "REPAIR", scheduledAt: "", notes: "" });
   const [resolutionDrafts, setResolutionDrafts] = useState({});
+  const [reopenDrafts, setReopenDrafts] = useState({});
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -69,6 +71,7 @@ export default function OperationsMaintenancePage() {
   }), [tasks]);
   const activeTasks = [...groups.PENDING, ...groups.IN_PROGRESS];
   const activeRoomRequests = useMemo(() => roomRequests.filter((request) => !TERMINAL_REQUESTS.has(statusOf(request))), [roomRequests]);
+  const resolvedRoomRequests = useMemo(() => roomRequests.filter((request) => statusOf(request) === "RESOLVED").slice(0, 20), [roomRequests]);
 
   async function createTask() {
     setBusyId("create");
@@ -121,6 +124,7 @@ export default function OperationsMaintenancePage() {
 
   async function transitionRequest(requestId, action) {
     const draft = draftFor(requestId);
+    const reopenReason = String(reopenDrafts[requestId] || "").trim();
     setBusyId(requestId);
     setError(null);
     try {
@@ -132,7 +136,7 @@ export default function OperationsMaintenancePage() {
           requestId,
           action,
           outcomeCode: action === "RESOLVE" ? draft.outcomeCode : null,
-          resolutionNotes: action === "RESOLVE" ? draft.resolutionNotes : null,
+          resolutionNotes: action === "RESOLVE" ? draft.resolutionNotes : action === "REOPEN" ? reopenReason : null,
           evidenceReference: action === "RESOLVE" ? draft.evidenceReference : null,
         }),
       });
@@ -140,6 +144,13 @@ export default function OperationsMaintenancePage() {
       if (!response.ok || data.success === false) throw new Error(data.error || "Unable to update room defect");
       if (action === "RESOLVE") {
         setResolutionDrafts((current) => {
+          const next = { ...current };
+          delete next[requestId];
+          return next;
+        });
+      }
+      if (action === "REOPEN") {
+        setReopenDrafts((current) => {
           const next = { ...current };
           delete next[requestId];
           return next;
@@ -168,9 +179,9 @@ export default function OperationsMaintenancePage() {
 
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <HotelMetric label="Room defects" value={activeRoomRequests.length} detail="Canonical room blockers" attention={activeRoomRequests.length > 0} />
+        <HotelMetric label="Recent resolved" value={resolvedRoomRequests.length} detail="Repair evidence retained" />
         <HotelMetric label="Planned pending" value={groups.PENDING.length} detail="Property/preventive work" attention={groups.PENDING.length > 0} />
         <HotelMetric label="Planned in progress" value={groups.IN_PROGRESS.length} detail="Non-room work underway" attention={groups.IN_PROGRESS.length > 0} />
-        <HotelMetric label="Planned completed" value={groups.COMPLETED.length} detail="Closed planning tasks" />
       </section>
 
       <HotelSection eyebrow="Guest readiness" title="Room defects blocking release" detail="Start the physical repair, then close it with recorded repair evidence. Maintenance resolution never changes room availability; Housekeeping inspection or the remaining room state still owns release to Front Desk.">
@@ -222,6 +233,43 @@ export default function OperationsMaintenancePage() {
             })}
           </div>
         ) : <HotelEmptyState>No unresolved room defects are blocking guest readiness.</HotelEmptyState>}
+      </HotelSection>
+
+      <HotelSection eyebrow="Correction control" title="Recent resolved room repairs" detail="Resolution history is immutable evidence. If a repair was closed too early or the defect reappears, reopen the canonical request with a reason instead of editing or deleting the original closure.">
+        {loading ? <HotelEmptyState>Loading repair history…</HotelEmptyState> : resolvedRoomRequests.length ? (
+          <div className="divide-y divide-black/[0.055]">
+            {resolvedRoomRequests.map((request) => {
+              const resolution = latestResolution(request);
+              const busy = busyId === request.id;
+              const reopenReason = reopenDrafts[request.id] || "";
+              return (
+                <div key={request.id} className="px-4 py-4 md:px-5">
+                  <div className="grid gap-2 md:grid-cols-[110px_minmax(220px,1fr)_120px_minmax(220px,1fr)] md:items-start">
+                    <div>
+                      <div className="text-[10px] font-semibold text-[#403C37]">{roomName(request)}</div>
+                      <div className="mt-0.5 text-[7px] text-[#9A948B]">Resolved {request.resolved_at ? new Date(request.resolved_at).toLocaleString() : "time recorded"}</div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] font-semibold text-[#5F5952]">{request.issue_title || "Room defect"}</div>
+                      <div className="mt-1 text-[7px] leading-3 text-[#928B82]">{resolution?.resolution_notes || "Resolution evidence is unavailable until the maintenance migration is applied."}</div>
+                      {resolution?.evidence_reference ? <div className="mt-1 text-[7px] font-semibold text-[#6E645B]">Evidence: {resolution.evidence_reference}</div> : null}
+                    </div>
+                    <div className="space-y-1"><HotelStatusPill value={resolution?.outcome_code || "RESOLVED"} /><HotelStatusPill value="HISTORY KEPT" /></div>
+                    <div className="grid gap-2 md:grid-cols-[1fr_130px] md:items-end">
+                      <HotelField label="Why reopen this repair">
+                        <textarea className={hotelTextareaClass} value={reopenReason} onChange={(event) => setReopenDrafts((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Required: what is still wrong, what returned, or why the closure was incorrect" />
+                      </HotelField>
+                      <div>
+                        <HotelPrimaryAction onClick={() => transitionRequest(request.id, "REOPEN")} disabled={busy || !reopenReason.trim()}><RotateCcw size={9} />{busy ? "Reopening" : "Reopen defect"}</HotelPrimaryAction>
+                        <div className="mt-1 text-[7px] leading-3 text-[#9A948B]">Original repair evidence stays intact.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : <HotelEmptyState>No resolved room repairs are available for correction.</HotelEmptyState>}
       </HotelSection>
 
       <HotelSection eyebrow="Planned maintenance" title="New property maintenance task" detail="Use this for preventive, inspection, safety and general property work. It is intentionally separate from canonical room-readiness defects.">

@@ -69,6 +69,7 @@ test("Business Partner owned cognition preserves Operator and Code execution gov
 
 test("Business Partner never converts missing response evidence into false completion", () => {
   const route = source("app/api/operator/turn/route.js");
+  const client = source("components/operator/HomeAvantiqoIntelligence.jsx");
 
   assert.doesNotMatch(
     route,
@@ -87,4 +88,17 @@ test("Business Partner never converts missing response evidence into false compl
     /const normalizedResult = \{[\s\S]*decision:\s*normalizedDecision/,
   );
   assert.match(route, /\.\.\.normalizedResult/);
+
+  assert.doesNotMatch(
+    client,
+    /decision\?\.response_text\s*\|\|\s*"Done\."/,
+  );
+  assert.match(
+    client,
+    /const responseText = text\(decision\?\.response_text\)/,
+  );
+  assert.match(
+    client,
+    /if \(!responseText\) \{[\s\S]*No action was assumed complete\./,
+  );
 });

@@ -71,7 +71,8 @@ export async function GET(request) {
     if (error) throw error;
 
     const rows = Array.isArray(data) ? data : [];
-    const now = Date.now();
+    const observedAt = new Date();
+    const now = observedAt.getTime();
     const open = rows.filter((row) => row.status === "OPEN");
     const overdue = open.filter((row) => {
       const due = new Date(row.due_at).getTime();
@@ -80,7 +81,7 @@ export async function GET(request) {
 
     return Response.json({
       success: true,
-      observedAt: new Date().toISOString(),
+      observedAt: observedAt.toISOString(),
       obligations: rows,
       summary: { total: rows.length, open: open.length, overdue: overdue.length },
       authority: "AVANTIQO_PLATFORM_ACQUISITION_OWNER_OBLIGATIONS",

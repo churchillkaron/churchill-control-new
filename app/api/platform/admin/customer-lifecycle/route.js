@@ -95,9 +95,9 @@ function aggregateRecentUsage({ successRows, failureRows, organizations, windows
     if (inWindow(row.created_at, windows.previous7Start, windows.current7Start)) current.successPrevious7d += 1;
     if (inWindow(row.created_at, windows.current30Start, windows.observedAt)) {
       current.success30d += 1;
-      const module = text(row.module);
+      const moduleName = text(row.module);
       const capability = text(row.capability);
-      if (module) current.modules30d.add(module);
+      if (moduleName) current.modules30d.add(moduleName);
       if (capability) current.capabilities30d.add(capability);
     }
     if (inWindow(row.created_at, windows.previous30Start, windows.current30Start)) {

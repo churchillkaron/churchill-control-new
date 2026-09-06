@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, CircleAlert, ShieldCheck } from "lucide-react";
+import { Activity, CircleAlert, Scissors, ShieldCheck } from "lucide-react";
 
 import ProductionWorkspace from "./ProductionWorkspace";
 
@@ -18,7 +18,7 @@ function nestedEvidence(value, seen = new Set(), depth = 0) {
   seen.add(value);
   const candidate = object(value);
   const keys = Object.keys(candidate);
-  if (keys.some((key) => /identity_score|anatomy_score|temporal_identity_consistency_score|hand_integrity|limb_topology|identity_drift|malformed_hands/.test(key))) {
+  if (keys.some((key) => /identity_score|anatomy_score|temporal_identity_consistency_score|camera_score|performance_score|story_score|hand_integrity|limb_topology|identity_drift|malformed_hands/.test(key))) {
     return candidate;
   }
   for (const key of ["validation_evidence", "validation", "review", "result", "output", "data", "raw"]) {
@@ -37,6 +37,7 @@ function humanTask(task = {}) {
     metadata.person_expected === true ||
     metadata.identity_profile_id ||
     object(generation.identity_lock).required === true ||
+    metadata.human_temporal_span_repair_bound === true ||
     /IDENTITY|LIPSYNC|MOTION_PLATE/.test(String(metadata.contract || ""));
 }
 
@@ -53,13 +54,45 @@ function issueList(task = {}) {
   return [...new Set(issues)];
 }
 
+function cinematicMerit(evidence = {}) {
+  const dimensions = [
+    ["story_score", 0.22],
+    ["camera_score", 0.18],
+    ["performance_score", 0.18],
+    ["environment_score", 0.10],
+    ["continuity_score", 0.10],
+    ["physics_score", 0.07],
+    ["artifact_score", 0.05],
+    ["identity_score", 0.05],
+    ["anatomy_score", 0.03],
+    ["temporal_identity_consistency_score", 0.02],
+    ["overall_score", 0.15],
+  ];
+  let weighted = 0;
+  let total = 0;
+  for (const [field, weight] of dimensions) {
+    const score = finite(evidence[field]);
+    if (score === null) continue;
+    weighted += score * weight;
+    total += weight;
+  }
+  return total ? weighted / total : null;
+}
+
 function scoreSummary(task = {}) {
   const evidence = nestedEvidence(task.output);
   return {
     identity: finite(evidence.identity_score ?? evidence.identityScore),
     anatomy: finite(evidence.anatomy_score ?? evidence.anatomyScore),
     temporal: finite(evidence.temporal_identity_consistency_score ?? evidence.temporalIdentityConsistencyScore),
+    cinematic: cinematicMerit(evidence),
   };
+}
+
+function surgicalSpanCount(task = {}) {
+  const scope = object(task.input?.repair_specification?.temporal_scope);
+  const count = finite(scope.span_count ?? task.metadata?.human_temporal_span_count);
+  return count === null ? 0 : Math.max(0, Math.round(count));
 }
 
 function Score({ label, value }) {
@@ -78,9 +111,10 @@ export default function ProductionWorkspaceV2({ runtime, editor }) {
   const review = active.filter((task) => String(task.status || "").toUpperCase() === "REVIEW");
   const approved = active.filter((task) => task.review?.approved === true && task.metadata?.human_review_approved === true);
   const latestEvidenceTask = [...active].reverse().find((task) => Object.keys(nestedEvidence(task.output)).length) || null;
-  const scores = latestEvidenceTask ? scoreSummary(latestEvidenceTask) : { identity: null, anatomy: null, temporal: null };
+  const scores = latestEvidenceTask ? scoreSummary(latestEvidenceTask) : { identity: null, anatomy: null, temporal: null, cinematic: null };
   const blockers = blocked.flatMap(issueList);
   const blockerText = [...new Set(blockers)].join(" · ");
+  const repairSpans = active.reduce((total, task) => total + surgicalSpanCount(task), 0);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#F6F3EE]">
@@ -105,6 +139,12 @@ export default function ProductionWorkspaceV2({ runtime, editor }) {
                       ? `Identity, anatomy and temporal continuity clear on ${approved.length}/${active.length} approved human tasks`
                       : "No governed human-generation tasks in this production yet"}
               </div>
+              {repairSpans > 0 ? (
+                <div className="mt-1 flex items-center gap-1 text-[8px] font-medium text-[#8A633C]">
+                  <Scissors className="h-3 w-3" />
+                  {repairSpans} failed temporal span{repairSpans === 1 ? "" : "s"} isolated for surgical repair; unaffected frames stay preserved
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-lg border border-black/[0.06] bg-white/70 px-3 py-1.5">
@@ -113,6 +153,8 @@ export default function ProductionWorkspaceV2({ runtime, editor }) {
             <Score label="Anatomy" value={scores.anatomy} />
             <div className="h-3 w-px bg-black/[0.08]" />
             <Score label="Temporal" value={scores.temporal} />
+            <div className="h-3 w-px bg-black/[0.08]" />
+            <Score label="Cinema" value={scores.cinematic} />
           </div>
         </div>
       </div>

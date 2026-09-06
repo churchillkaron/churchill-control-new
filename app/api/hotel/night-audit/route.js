@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { getHotelOperationalDate } from "@/lib/hotel/server/getHotelOperationalDate";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
 const clean = (value) => String(value ?? "").trim();
 const fail = (error, status = 400, details = undefined) => NextResponse.json({ success: false, error, ...(details ? { details } : {}) }, { status });
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 async function buildPreflight(organizationId, propertyId, businessDate) {
   const [{ data: bookings, error: bookingsError }, { data: folios, error: foliosError }, { data: syncJobs, error: syncError }] = await Promise.all([
@@ -52,17 +49,30 @@ export async function GET(request) {
   try {
     const organizationId = clean(request.nextUrl.searchParams.get("organizationId"));
     const propertyId = clean(request.nextUrl.searchParams.get("propertyId"));
-    const businessDate = clean(request.nextUrl.searchParams.get("businessDate")) || todayIso();
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return fail(access.error, access.status);
     if (!propertyId) return fail("propertyId required");
 
+    const operationalDate = await getHotelOperationalDate({ organizationId: access.organizationId, propertyId });
+    const businessDate = operationalDate.businessDate;
     const [preflight, auditResult] = await Promise.all([
       buildPreflight(access.organizationId, propertyId, businessDate),
       supabaseAdmin.from("hotel_night_audits").select("*").eq("organization_id", access.organizationId).eq("property_id", propertyId).eq("business_date", businessDate).maybeSingle(),
     ]);
     if (auditResult.error) throw auditResult.error;
-    return NextResponse.json({ success: true, preflight, audit: auditResult.data || null });
+    return NextResponse.json({
+      success: true,
+      operationalDate: {
+        businessDate: operationalDate.businessDate,
+        propertyDate: operationalDate.propertyDate,
+        timezone: operationalDate.timezone,
+        cutoffMinutes: operationalDate.cutoffMinutes,
+        configured: operationalDate.configured,
+        compatibilityFallback: operationalDate.compatibilityFallback,
+      },
+      preflight,
+      audit: auditResult.data || null,
+    });
   } catch (error) {
     console.error("HOTEL_NIGHT_AUDIT_PREFLIGHT_ERROR", error);
     return fail(error?.message || "Unable to run night audit preflight", 500);
@@ -74,13 +84,14 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const organizationId = clean(body.organizationId);
     const propertyId = clean(body.propertyId);
-    const businessDate = clean(body.businessDate) || todayIso();
     const action = clean(body.action || "CLOSE").toUpperCase();
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return fail(access.error, access.status);
     if (!propertyId) return fail("propertyId required");
     if (action !== "CLOSE") return fail("Unsupported night audit action");
 
+    const operationalDate = await getHotelOperationalDate({ organizationId: access.organizationId, propertyId });
+    const businessDate = operationalDate.businessDate;
     const preflight = await buildPreflight(access.organizationId, propertyId, businessDate);
     if (!preflight.ready) return fail("Night audit is blocked until operating exceptions are resolved", 409, preflight);
 
@@ -90,12 +101,33 @@ export async function POST(request) {
       property_id: propertyId,
       business_date: businessDate,
       status: "CLOSED",
-      control_summary: preflight,
+      control_summary: {
+        ...preflight,
+        operationalDate: {
+          propertyDate: operationalDate.propertyDate,
+          timezone: operationalDate.timezone,
+          cutoffMinutes: operationalDate.cutoffMinutes,
+          configured: operationalDate.configured,
+          compatibilityFallback: operationalDate.compatibilityFallback,
+        },
+      },
       closed_at: now,
       updated_at: now,
     }, { onConflict: "organization_id,property_id,business_date" }).select().single();
     if (error) throw error;
-    return NextResponse.json({ success: true, audit: data, preflight });
+    return NextResponse.json({
+      success: true,
+      audit: data,
+      preflight,
+      operationalDate: {
+        businessDate: operationalDate.businessDate,
+        propertyDate: operationalDate.propertyDate,
+        timezone: operationalDate.timezone,
+        cutoffMinutes: operationalDate.cutoffMinutes,
+        configured: operationalDate.configured,
+        compatibilityFallback: operationalDate.compatibilityFallback,
+      },
+    });
   } catch (error) {
     console.error("HOTEL_NIGHT_AUDIT_CLOSE_ERROR", error);
     return fail(error?.message || "Unable to close night audit", 500);

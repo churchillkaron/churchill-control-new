@@ -1,3 +1,4 @@
+import PlatformAcquisitionControlPanel from "@/components/platform/PlatformAcquisitionControlPanel";
 import PlatformCommercialPipelinePanel from "@/components/platform/PlatformCommercialPipelinePanel";
 import PlatformCustomerLifecyclePanel from "@/components/platform/PlatformCustomerLifecyclePanel";
 import PlatformGrowthTrajectoryPanel from "@/components/platform/PlatformGrowthTrajectoryPanel";
@@ -12,6 +13,7 @@ export default function AvantiqoPlatformWorkspacePage() {
       <PlatformGrowthTrajectoryPanel />
       <PlatformCustomerLifecyclePanel />
       <PlatformCommercialPipelinePanel />
+      <PlatformAcquisitionControlPanel />
       <PlatformIntelligenceProgressPanel />
     </div>
   );

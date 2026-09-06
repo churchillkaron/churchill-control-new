@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { getHotelOperationalDate } from "@/lib/hotel/server/getHotelOperationalDate";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -153,6 +154,13 @@ export async function POST(request) {
       updated_at: now,
     }, { onConflict: "organization_id,property_id,business_date" }).select().single();
     if (error) throw error;
+
+    await broadcastHotelReadinessChanged({
+      organizationId: access.organizationId,
+      source: "night-audit",
+      action: "CLOSE",
+    });
+
     return NextResponse.json({ success: true, audit: data, preflight, operationalDate: publicOperationalDate(operationalDate) });
   } catch (error) {
     console.error("HOTEL_NIGHT_AUDIT_CLOSE_ERROR", error);

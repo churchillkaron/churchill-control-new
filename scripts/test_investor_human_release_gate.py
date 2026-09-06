@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib.util
-from copy import deepcopy
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +13,14 @@ spec.loader.exec_module(gate)
 
 VIDEO_SHA = "a" * 64
 CONTACT_SHEET_SHA = "b" * 64
+
+EVALUATORS = {
+    "face_identity": "VBENCH2_HUMAN_IDENTITY",
+    "anatomy": "VBENCH2_HUMAN_ANATOMY",
+    "subject_consistency": "VBENCH_I2V_SUBJECT_CONSISTENCY",
+    "motion_physics": "VBENCH_I2V_MOTION_SMOOTHNESS",
+    "imaging_quality": "VBENCH_I2V_IMAGING_QUALITY",
+}
 
 
 def approved_generation() -> dict:
@@ -39,11 +46,21 @@ def approved_generation() -> dict:
 def approved_qc() -> dict:
     checks = {}
     for name in gate.REQUIRED_AUTOMATED_CHECKS:
-        checks[name] = {"status": "PASS", "evidence_id": f"evidence-{name}", "score": 0.99}
+        checks[name] = {
+            "status": "PASS",
+            "evidence_id": f"evidence-{name}",
+            "score": 0.99,
+            "evaluator": EVALUATORS[name],
+            "video_sha256": VIDEO_SHA,
+        }
+    checks["eyes"] = {"status": "VISUAL_REVIEW_REQUIRED"}
+    checks["hands"] = {"status": "VISUAL_REVIEW_REQUIRED"}
+    checks["skin_texture"] = {"status": "VISUAL_REVIEW_REQUIRED"}
     return {
         "status": "PASS",
         "sampled_frames": gate.MIN_SAMPLED_FRAMES,
         "video_sha256": VIDEO_SHA,
+        "fine_detail_visual_review_required": True,
         "checks": checks,
     }
 
@@ -55,6 +72,7 @@ def approved_review() -> dict:
         "reviewer_id": "investor-human-reviewer",
         "reviewed_at": "2026-09-06T00:00:00Z",
         "contact_sheet_sha256": CONTACT_SHEET_SHA,
+        "exact_master_reviewed": True,
         "dimensions": {
             "identity": "PASS",
             "face": "PASS",
@@ -96,6 +114,7 @@ def test_valid_manifest_authorizes() -> None:
     assert result["success"] is True, result
     assert result["release_authorized"] is True, result
     assert result["release_status"] == "AUTHORIZED", result
+    assert result["fine_detail_machine_certification_forbidden"] is True
 
 
 def test_missing_qc_blocks() -> None:
@@ -116,10 +135,31 @@ def test_wrong_repository_blocks() -> None:
     require_blocked(manifest, "generation:repository_invalid")
 
 
-def test_hands_failure_blocks() -> None:
+def test_anatomy_machine_failure_blocks() -> None:
     manifest = valid_manifest()
-    manifest["clips"][0]["automated_qc"]["checks"]["hands"]["status"] = "FAIL"
-    require_blocked(manifest, "automated_qc:hands:not_pass")
+    manifest["clips"][0]["automated_qc"]["checks"]["anatomy"]["status"] = "FAIL"
+    require_blocked(manifest, "automated_qc:anatomy:not_pass")
+
+
+def test_fake_machine_hands_pass_blocks() -> None:
+    manifest = valid_manifest()
+    manifest["clips"][0]["automated_qc"]["checks"]["hands"] = {
+        "status": "PASS",
+        "score": 1.0,
+    }
+    require_blocked(manifest, "automated_qc:hands:false_machine_certification")
+
+
+def test_hands_visual_failure_blocks() -> None:
+    manifest = valid_manifest()
+    manifest["clips"][0]["visual_review"]["dimensions"]["hands"] = "FAIL"
+    require_blocked(manifest, "visual_review:hands:not_pass")
+
+
+def test_exact_master_review_required() -> None:
+    manifest = valid_manifest()
+    manifest["clips"][0]["visual_review"]["exact_master_reviewed"] = False
+    require_blocked(manifest, "visual_review:exact_master_review_required")
 
 
 def test_generation_cannot_self_authorize() -> None:
@@ -134,7 +174,10 @@ def main() -> None:
         test_missing_qc_blocks,
         test_video_digest_mismatch_blocks,
         test_wrong_repository_blocks,
-        test_hands_failure_blocks,
+        test_anatomy_machine_failure_blocks,
+        test_fake_machine_hands_pass_blocks,
+        test_hands_visual_failure_blocks,
+        test_exact_master_review_required,
         test_generation_cannot_self_authorize,
     ]
     for test in tests:

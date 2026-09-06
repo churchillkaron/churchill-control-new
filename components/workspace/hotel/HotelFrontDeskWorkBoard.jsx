@@ -115,18 +115,6 @@ export default function HotelFrontDeskWorkBoard({ organizationId }) {
     finally { setBusyId(null); }
   }
 
-  async function inspectRoom(booking) {
-    if (!booking?.room_turnover?.id) return;
-    setBusyId(booking.id); setError("");
-    try {
-      await hotelApi("/api/hotel/housekeeping/update", {
-        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ organizationId, taskId: booking.room_turnover.id, action: "INSPECT" }),
-      });
-      await load();
-    } catch (reason) { setError(reason?.message || "Room inspection failed"); }
-    finally { setBusyId(null); }
-  }
-
   async function closeFolio(booking) {
     setBusyId(booking.id); setError("");
     try {
@@ -198,7 +186,7 @@ export default function HotelFrontDeskWorkBoard({ organizationId }) {
   function arrivalActions(booking) {
     const code = firstArrivalCode(booking);
     if (booking?.arrival_readiness?.can_check_in === true) return <HotelPrimaryAction onClick={() => transition(booking, "CHECK_IN")} disabled={busyId === booking.id}><LogIn size={9} />{busyId === booking.id ? "Checking in…" : "Check in"}</HotelPrimaryAction>;
-    if (code === "ROOM_NOT_AVAILABLE" && status(booking?.hotel_rooms?.status) === "CLEAN" && status(booking?.room_turnover?.task_status) === "AWAITING_INSPECTION") return <><HotelPrimaryAction onClick={() => inspectRoom(booking)} disabled={busyId === booking.id}><CheckCircle2 size={9} />Inspect & release</HotelPrimaryAction><HotelSecondaryAction onClick={() => toggleRoomResolver(booking)}>Choose another</HotelSecondaryAction></>;
+    if (code === "ROOM_NOT_AVAILABLE" && status(booking?.hotel_rooms?.status) === "CLEAN" && status(booking?.room_turnover?.task_status) === "AWAITING_INSPECTION") return <><HotelPrimaryAction href={hotelWorkspaceHref(organizationId, "housekeeping")}>Housekeeping QC</HotelPrimaryAction><HotelSecondaryAction onClick={() => toggleRoomResolver(booking)}>Choose another</HotelSecondaryAction></>;
     if (["ROOM_UNASSIGNED", "ROOM_NOT_FOUND", "ROOM_NOT_AVAILABLE"].includes(code)) return <><HotelSecondaryAction onClick={() => toggleRoomResolver(booking)}>Choose ready room</HotelSecondaryAction>{booking?.room_turnover ? <HotelSecondaryAction href={hotelWorkspaceHref(organizationId, "housekeeping")}>Housekeeping</HotelSecondaryAction> : null}</>;
     if (code === "DEPOSIT_OUTSTANDING") return <HotelSecondaryAction href={stayHref(organizationId, "hotel-payments", booking)}>Collect deposit</HotelSecondaryAction>;
     return <HotelSecondaryAction href={stayHref(organizationId, "stay-control", booking)}>Review guest</HotelSecondaryAction>;

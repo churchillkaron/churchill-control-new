@@ -40,9 +40,16 @@ function receiptCurrency(receipt, fallback) {
 function receiptItemAdjustmentLabel(item) {
   const adjustment = String(item?.adjustment_type || "").trim().toUpperCase();
   if (!adjustment) return null;
+  if (adjustment === "COMP") return "Comped · not charged";
   if (["VOID", "VOIDED"].includes(adjustment)) return "Voided · not charged";
   if (["CANCELLED", "CANCELED"].includes(adjustment)) return "Cancelled · not charged";
   return `${adjustment} · not charged`;
+}
+
+function settlementStatusLabel(receipt) {
+  if (receipt?.status === "NO_PAYMENT_DUE") return "No payment due";
+  if (receipt?.status === "PAID") return "Paid";
+  return String(receipt?.status || "Open").replaceAll("_", " ");
 }
 
 export default function ReceiptsPage({
@@ -99,7 +106,7 @@ export default function ReceiptsPage({
       );
       const result = await response.json();
       if (!response.ok || result.success === false) {
-        throw new Error(result.error || "Unable to load receipts");
+        throw new Error(result.error || "Unable to load settlement records");
       }
       const rows = result.receipts || [];
       setReceipts(rows);
@@ -120,6 +127,7 @@ export default function ReceiptsPage({
   const receipt = receipts.find((row) => row.order_id === selectedOrderId) || null;
   const effectiveContextLabel = presentation?.contextSingular || contextSingular;
   const selectedCurrencyCode = receiptCurrency(receipt, currencyCode);
+  const isNoPaymentDue = receipt?.status === "NO_PAYMENT_DUE";
 
   return (
     <main className="min-h-screen bg-black px-6 py-8 text-white">
@@ -138,9 +146,9 @@ export default function ReceiptsPage({
               <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">
                 {presentation?.receiptEyebrow || receiptEyebrow}
               </p>
-              <h1 className="mt-3 text-4xl font-semibold">Receipts</h1>
+              <h1 className="mt-3 text-4xl font-semibold">Settlement Records</h1>
               <p className="mt-2 text-sm text-white/45">
-                Paid transactions, receipt preview and reprint.
+                Paid receipts and governed no-payment-due adjustment records.
               </p>
             </div>
             <button
@@ -160,11 +168,11 @@ export default function ReceiptsPage({
         <section className="mt-6 grid gap-6 xl:grid-cols-[0.65fr_1.35fr]">
           <div className="receipt-navigation rounded-[30px] border border-white/10 bg-white/[0.025] p-5">
             <div className="text-xs uppercase tracking-[0.2em] text-white/35">
-              Paid transactions
+              Settled transactions
             </div>
             <div className="mt-4 max-h-[720px] space-y-2 overflow-y-auto">
               {loading ? (
-                <div className="p-8 text-center text-sm text-white/35">Loading receipts...</div>
+                <div className="p-8 text-center text-sm text-white/35">Loading settlement records...</div>
               ) : receipts.length ? receipts.map((row) => (
                 <button
                   key={row.order_id}
@@ -177,6 +185,9 @@ export default function ReceiptsPage({
                       <div className="mt-1 text-xs text-white/35">
                         {contextLabel(row, effectiveContextLabel)}
                       </div>
+                      <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D6A66A]">
+                        {settlementStatusLabel(row)}
+                      </div>
                     </div>
                     <div className="text-sm text-white/60">
                       {formatMoney(row.total, receiptCurrency(row, currencyCode))}
@@ -188,7 +199,7 @@ export default function ReceiptsPage({
                 </button>
               )) : (
                 <div className="p-8 text-center text-sm text-white/35">
-                  No paid receipts found.
+                  No settlement records found.
                 </div>
               )}
             </div>
@@ -200,7 +211,7 @@ export default function ReceiptsPage({
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h2 className="text-3xl font-semibold">
-                      {organization?.name || "Receipt"}
+                      {organization?.name || (isNoPaymentDue ? "Settlement Record" : "Receipt")}
                     </h2>
                     <div className="mt-2 text-sm text-white/40">
                       {receipt.receipt_number}
@@ -208,12 +219,20 @@ export default function ReceiptsPage({
                     <div className="mt-1 text-sm text-white/40">
                       {contextLabel(receipt, effectiveContextLabel)}
                     </div>
+                    <div className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#D6A66A]">
+                      {settlementStatusLabel(receipt)}
+                    </div>
+                    {isNoPaymentDue ? (
+                      <div className="mt-2 max-w-xl text-xs leading-5 text-white/45" data-no-payment-due-record="true">
+                        No payment was collected. The payable amount was reduced to zero by governed item COMP corrections retained below for audit.
+                      </div>
+                    ) : null}
                   </div>
                   <button
                     onClick={() => window.print()}
                     className="receipt-actions inline-flex items-center gap-2 rounded-xl bg-[#D6A66A] px-4 py-3 text-sm font-semibold text-black"
                   >
-                    <Printer size={16} /> Print Receipt
+                    <Printer size={16} /> {isNoPaymentDue ? "Print Record" : "Print Receipt"}
                   </button>
                 </div>
 
@@ -238,6 +257,9 @@ export default function ReceiptsPage({
                               {adjustmentLabel}
                             </div>
                           ) : null}
+                          {item.correction?.reason ? (
+                            <div className="mt-1 text-[11px] text-white/35">{item.correction.reason}</div>
+                          ) : null}
                         </div>
                         <div className={item.billable === false ? "text-white/40" : ""}>
                           {item.billable === false ? (
@@ -245,7 +267,7 @@ export default function ReceiptsPage({
                               <span className="mr-2 line-through">
                                 {formatMoney(item.original_total, selectedCurrencyCode)}
                               </span>
-                              {formatMoney(0, selectedCurrencyCode)}
+                              {formatMoney(item.total || 0, selectedCurrencyCode)}
                             </>
                           ) : (
                             formatMoney(item.total, selectedCurrencyCode)
@@ -266,29 +288,35 @@ export default function ReceiptsPage({
                       <span>{formatMoney(receipt.service_charge, selectedCurrencyCode)}</span>
                     </div>
                   ) : null}
-                  <div className="flex justify-between text-2xl font-semibold"><span>Total</span><span>{formatMoney(receipt.total, selectedCurrencyCode)}</span></div>
+                  <div className="flex justify-between text-2xl font-semibold"><span>Total due</span><span>{formatMoney(receipt.total, selectedCurrencyCode)}</span></div>
                 </div>
 
                 <div className="mt-8 border-t border-white/10 pt-5">
                   <div className="text-xs uppercase tracking-[0.2em] text-white/35">
-                    Payment breakdown
+                    {isNoPaymentDue ? "Payment evidence" : "Payment breakdown"}
                   </div>
-                  <div className="mt-4 space-y-2">
-                    {(receipt.payment_breakdown || []).map((payment) => (
-                      <div
-                        key={payment.id}
-                        className="flex justify-between rounded-xl border border-white/10 p-3 text-sm"
-                      >
-                        <span>{payment.payment_method || payment.method || "Payment"}</span>
-                        <span>{formatMoney(payment.amount, receiptCurrency(payment, selectedCurrencyCode))}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {isNoPaymentDue ? (
+                    <div className="mt-4 rounded-xl border border-white/10 p-3 text-sm text-white/45">
+                      No payment collected.
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-2">
+                      {(receipt.payment_breakdown || []).map((payment) => (
+                        <div
+                          key={payment.id}
+                          className="flex justify-between rounded-xl border border-white/10 p-3 text-sm"
+                        >
+                          <span>{payment.payment_method || payment.method || "Payment"}</span>
+                          <span>{formatMoney(payment.amount, receiptCurrency(payment, selectedCurrencyCode))}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
               <div className="flex min-h-[500px] items-center justify-center text-sm text-white/35">
-                Select a receipt to preview it.
+                Select a settlement record to preview it.
               </div>
             )}
           </div>

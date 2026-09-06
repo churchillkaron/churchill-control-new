@@ -204,6 +204,10 @@ export default function RestaurantStationaryOrderSurface({
   const tables = runtime?.tables || [];
   const dishes = runtime?.dishes || [];
   const settings = runtime?.posSettings || runtime?.settings || {};
+  const actionCapabilities = runtime?.capabilities?.actions || {};
+  const canMoveGuests = actionCapabilities.move_guests === true;
+  const canTransferTable = actionCapabilities.transfer_table === true;
+  const canMergeTables = actionCapabilities.merge_tables === true;
   const modifierGroups = useMemo(() => normalizeModifierGroups(settings), [settings]);
   const activeTable = tables.find((table) => table.id === activeTableId) || null;
 
@@ -364,11 +368,18 @@ export default function RestaurantStationaryOrderSurface({
 
   async function confirmGuests() {
     if (!activeTable) return;
+    const persistedService = activeTable.active_session_id || Number(activeTable.current_guests || 0) > 0;
+    if (persistedService && !canMoveGuests) {
+      setModal(null);
+      setError("Your role cannot change the guest count for an active table.");
+      return;
+    }
+
     const next = Math.max(1, Number(guestDraft || 1));
     setBusy(true);
     setError(null);
     try {
-      if (activeTable.active_session_id || Number(activeTable.current_guests || 0) > 0) {
+      if (persistedService) {
         await posAction("MOVE_GUESTS", { tableId: activeTable.id, guestCount: next });
         await refreshRuntime();
       } else {
@@ -514,6 +525,11 @@ export default function RestaurantStationaryOrderSurface({
   }
 
   async function confirmTransfer() {
+    if (!canTransferTable) {
+      setModal(null);
+      setError("Supervisor authority is required to move a whole table.");
+      return;
+    }
     if (!activeTable || !targetTableId) return;
     setBusy(true);
     setError(null);
@@ -541,6 +557,11 @@ export default function RestaurantStationaryOrderSurface({
   }
 
   async function confirmMerge() {
+    if (!canMergeTables) {
+      setModal(null);
+      setError("Supervisor authority is required to merge tables.");
+      return;
+    }
     if (!activeTable || !mergeTargetIds.length) return;
     setBusy(true);
     setError(null);
@@ -884,15 +905,26 @@ export default function RestaurantStationaryOrderSurface({
 
       {modal === "TABLE_ACTIONS" && activeTable ? (
         <Modal title={`Table ${tableName(activeTable)}`} subtitle="Operational changes only. Settlement remains in the payment rail." onClose={() => setModal(null)}>
-          <div className="grid gap-2">
-            <button type="button" onClick={() => { setGuestDraft(Math.max(1, guestCount)); setModal("GUESTS"); }} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Users size={16} className="text-[#D6A66A]" /> Change guest count</button>
-            <button type="button" onClick={() => { setTargetTableId(null); setModal("TRANSFER"); }} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><ArrowRightLeft size={16} className="text-[#D6A66A]" /> Move whole table</button>
-            <button type="button" onClick={() => { setMergeTargetIds([]); setModal("MERGE"); }} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Layers3 size={16} className="text-[#D6A66A]" /> Merge tables</button>
+          <div className="grid gap-2" data-stationary-authorized-table-actions="true">
+            {canMoveGuests ? (
+              <button type="button" onClick={() => { setGuestDraft(Math.max(1, guestCount)); setModal("GUESTS"); }} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Users size={16} className="text-[#D6A66A]" /> Change guest count</button>
+            ) : null}
+            {canTransferTable ? (
+              <button type="button" onClick={() => { setTargetTableId(null); setModal("TRANSFER"); }} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><ArrowRightLeft size={16} className="text-[#D6A66A]" /> Move whole table</button>
+            ) : null}
+            {canMergeTables ? (
+              <button type="button" onClick={() => { setMergeTargetIds([]); setModal("MERGE"); }} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Layers3 size={16} className="text-[#D6A66A]" /> Merge tables</button>
+            ) : null}
           </div>
+          {!canTransferTable || !canMergeTables ? (
+            <div className="mt-3 rounded-xl border border-[#A37849]/20 bg-[#A37849]/[0.06] px-3 py-2 text-[10px] leading-4 text-[#9A744B]" data-stationary-supervisor-boundary="true">
+              Moving or merging a whole table is a supervisor action. Avantiqo only shows those controls when your signed-in role is authorized.
+            </div>
+          ) : null}
         </Modal>
       ) : null}
 
-      {modal === "TRANSFER" && activeTable ? (
+      {modal === "TRANSFER" && activeTable && canTransferTable ? (
         <Modal title="Move whole table" subtitle={`Move Table ${tableName(activeTable)} and its open service to an empty available table.`} onClose={() => setModal(null)}>
           <div className="max-h-[340px] space-y-2 overflow-y-auto pr-1">
             {transferTargets.map((table) => (
@@ -920,7 +952,7 @@ export default function RestaurantStationaryOrderSurface({
         </Modal>
       ) : null}
 
-      {modal === "MERGE" && activeTable ? (
+      {modal === "MERGE" && activeTable && canMergeTables ? (
         <Modal title="Merge tables" subtitle={`Table ${tableName(activeTable)} remains the master table.`} onClose={() => setModal(null)}>
           <div className="max-h-[340px] space-y-2 overflow-y-auto pr-1">
             {tables.filter((table) => table.id !== activeTable.id && String(table.status || "").toUpperCase() !== "MERGED").map((table) => {

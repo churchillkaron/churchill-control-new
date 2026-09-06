@@ -15,7 +15,12 @@ from typing import Any
 
 CONTRACT = "AVANTIQO_INVESTOR_HUMAN_RELEASE_V1"
 SOURCE_REPOSITORY = "churchillkaron/churchill-control-new"
-GENERATION_CONTRACT = "AVANTIQO_VIDEO_HUMAN_MULTI_KEYFRAME_NATIVE_MASTER_V1"
+FAST_GENERATION_CONTRACT = "AVANTIQO_VIDEO_HUMAN_FAST_DISTILLED_MULTI_KEYFRAME_V1"
+LEGACY_NATIVE_GENERATION_CONTRACT = "AVANTIQO_VIDEO_HUMAN_MULTI_KEYFRAME_NATIVE_MASTER_V1"
+ALLOWED_GENERATION_CONTRACTS = {
+    FAST_GENERATION_CONTRACT,
+    LEGACY_NATIVE_GENERATION_CONTRACT,
+}
 MIN_KEYFRAMES = 3
 MAX_KEYFRAMES = 8
 MIN_SAMPLED_FRAMES = 12
@@ -69,7 +74,7 @@ def _require(condition: bool, code: str, failures: list[str]) -> None:
 def _validate_generation(clip_id: str, generation: dict[str, Any], failures: list[str]) -> None:
     prefix = f"{clip_id}:generation"
     _require(generation.get("success") is True, f"{prefix}:success_required", failures)
-    _require(generation.get("contract") == GENERATION_CONTRACT, f"{prefix}:contract_invalid", failures)
+    _require(generation.get("contract") in ALLOWED_GENERATION_CONTRACTS, f"{prefix}:contract_invalid", failures)
     _require(generation.get("source_repository") == SOURCE_REPOSITORY, f"{prefix}:repository_invalid", failures)
     _require(generation.get("human_mode") is True, f"{prefix}:human_mode_required", failures)
     _require(
@@ -168,6 +173,8 @@ def evaluate(manifest: dict[str, Any]) -> dict[str, Any]:
         "success": not failures,
         "contract": CONTRACT,
         "source_repository": SOURCE_REPOSITORY,
+        "allowed_generation_contracts": sorted(ALLOWED_GENERATION_CONTRACTS),
+        "preferred_generation_contract": FAST_GENERATION_CONTRACT,
         "human_clip_count": human_clip_count,
         "automated_qc_scope": list(REQUIRED_AUTOMATED_CHECKS),
         "visual_review_scope": list(REQUIRED_VISUAL_REVIEW_DIMENSIONS),

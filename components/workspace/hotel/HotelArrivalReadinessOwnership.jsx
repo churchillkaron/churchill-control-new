@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, RefreshCw } from "lucide-react";
+import { ArrowRight, RefreshCw, RotateCcw } from "lucide-react";
 
 import {
   HotelEmptyState,
@@ -28,6 +28,7 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [busyBookingId, setBusyBookingId] = useState(null);
   const [error, setError] = useState(null);
 
   const load = useCallback(async ({ silent = false } = {}) => {
@@ -48,6 +49,27 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
   }, [organizationId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const restoreHousekeepingWork = useCallback(async (bookingId) => {
+    if (!bookingId) return;
+    setBusyBookingId(bookingId);
+    setError(null);
+    try {
+      const response = await fetch("/api/hotel/housekeeping/restore-arrival-work", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) throw new Error(result.error || "Unable to restore Housekeeping work");
+      await load({ silent: true });
+    } catch (restoreError) {
+      setError(restoreError?.message || "Unable to restore Housekeeping work");
+    } finally {
+      setBusyBookingId(null);
+    }
+  }, [load]);
 
   const items = useMemo(() => {
     const all = data?.items || [];
@@ -88,6 +110,8 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
           {items.map((item) => {
             const owner = item.owner;
             const ownerRoute = owner ? OWNER_ROUTE[owner] : null;
+            const canRestoreHousekeeping = owner === "HOUSEKEEPING" && item.nextAction?.code === "CREATE_HOUSEKEEPING_WORK";
+            const restoring = busyBookingId === item.booking.id;
             return (
               <div key={item.booking.id} className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(170px,1fr)_100px_120px_minmax(190px,1.4fr)_150px] md:items-center md:px-5">
                 <div>
@@ -103,9 +127,18 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
                   <div className="text-[8px] font-semibold text-[#5D5750]">{item.nextAction?.label || "Continue arrival"}</div>
                   <div className="mt-0.5 text-[7px] leading-3 text-[#928B82]">{item.blocker?.detail || "Assigned room is guest-ready."}</div>
                   {item.sourceEvidence?.maintenanceRequestId ? <div className="mt-1 text-[7px] text-[#A1744B]">Canonical maintenance request {String(item.sourceEvidence.maintenanceRequestId).slice(0, 8)}</div> : null}
+                  {item.sourceEvidence?.housekeepingTaskId ? <div className="mt-1 text-[7px] text-[#8D8173]">Housekeeping task {String(item.sourceEvidence.housekeepingTaskId).slice(0, 8)}</div> : null}
                 </div>
                 <div>
-                  {ownerRoute ? <HotelPrimaryAction href={hotelWorkspaceHref(organizationId, ownerRoute)}>{owner === focusOwner ? "Open work" : `Go to ${OWNER_LABEL[owner]}`}<ArrowRight size={9} /></HotelPrimaryAction> : <HotelPrimaryAction href={hotelWorkspaceHref(organizationId, "front-desk")}>Continue check-in<ArrowRight size={9} /></HotelPrimaryAction>}
+                  {canRestoreHousekeeping ? (
+                    <HotelPrimaryAction onClick={() => restoreHousekeepingWork(item.booking.id)} disabled={restoring}>
+                      <RotateCcw size={9} />{restoring ? "Restoring" : "Restore work"}
+                    </HotelPrimaryAction>
+                  ) : ownerRoute ? (
+                    <HotelPrimaryAction href={hotelWorkspaceHref(organizationId, ownerRoute)}>{owner === focusOwner ? "Open work" : `Go to ${OWNER_LABEL[owner]}`}<ArrowRight size={9} /></HotelPrimaryAction>
+                  ) : (
+                    <HotelPrimaryAction href={hotelWorkspaceHref(organizationId, "front-desk")}>Continue check-in<ArrowRight size={9} /></HotelPrimaryAction>
+                  )}
                 </div>
               </div>
             );

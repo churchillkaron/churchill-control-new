@@ -2,8 +2,8 @@
 
 This utility never approves a video. It fingerprints the exact MP4, probes its
 technical properties, extracts deterministic sampled frames, builds a contact
-sheet, and writes PENDING automated-QC and visual-review manifests that are
-cryptographically tied to the same video bytes.
+sheet, and writes honest PENDING machine-QC plus exact-master visual-review
+manifests tied to the same video bytes.
 """
 from __future__ import annotations
 
@@ -18,15 +18,14 @@ from typing import Any
 CONTRACT = "AVANTIQO_INVESTOR_HUMAN_QC_PACK_V1"
 SOURCE_REPOSITORY = "churchillkaron/churchill-control-new"
 SAMPLE_COUNT = 16
-REQUIRED_CHECKS = (
+MACHINE_CHECKS = (
     "face_identity",
-    "face_temporal_stability",
-    "eyes",
-    "hands",
     "anatomy",
-    "skin_texture",
+    "subject_consistency",
     "motion_physics",
+    "imaging_quality",
 )
+VISUAL_ONLY_CHECKS = ("eyes", "hands", "skin_texture")
 VISUAL_DIMENSIONS = ("identity", "face", "eyes", "hands", "anatomy", "skin", "motion")
 
 
@@ -124,11 +123,34 @@ def build_contact_sheet(frame_paths: list[Path], output: Path) -> None:
 
 
 def pending_automated_qc(video_sha: str) -> dict[str, Any]:
+    checks: dict[str, Any] = {
+        name: {
+            "status": "PENDING",
+            "evidence_id": None,
+            "score": None,
+            "evaluator": None,
+            "video_sha256": video_sha,
+        }
+        for name in MACHINE_CHECKS
+    }
+    checks.update({
+        name: {
+            "status": "VISUAL_REVIEW_REQUIRED",
+            "evidence_id": None,
+            "score": None,
+            "evaluator": None,
+            "video_sha256": video_sha,
+        }
+        for name in VISUAL_ONLY_CHECKS
+    })
     return {
         "status": "PENDING",
         "video_sha256": video_sha,
         "sampled_frames": SAMPLE_COUNT,
-        "checks": {name: {"status": "PENDING", "evidence_id": None, "score": None} for name in REQUIRED_CHECKS},
+        "fine_detail_visual_review_required": True,
+        "machine_certified_dimensions": list(MACHINE_CHECKS),
+        "visual_only_dimensions": list(VISUAL_ONLY_CHECKS),
+        "checks": checks,
     }
 
 
@@ -137,6 +159,7 @@ def pending_visual_review(video_sha: str, contact_sheet_sha: str) -> dict[str, A
         "status": "PENDING",
         "video_sha256": video_sha,
         "contact_sheet_sha256": contact_sheet_sha,
+        "exact_master_reviewed": False,
         "reviewer_id": None,
         "reviewed_at": None,
         "dimensions": {name: "PENDING" for name in VISUAL_DIMENSIONS},
@@ -171,6 +194,9 @@ def main() -> None:
         "video_probe": probe,
         "sample_count": SAMPLE_COUNT,
         "sample_timestamps_seconds": timestamps,
+        "machine_certified_dimensions": list(MACHINE_CHECKS),
+        "visual_only_dimensions": list(VISUAL_ONLY_CHECKS),
+        "fine_detail_machine_certification_forbidden": True,
         "frames": [
             {"index": i, "timestamp_seconds": timestamps[i], "path": str(path.relative_to(output_dir)), "sha256": sha256(path)}
             for i, path in enumerate(frame_paths)

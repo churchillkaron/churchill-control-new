@@ -27,6 +27,8 @@ import {
 
 const TERMINAL_STATUSES = new Set(["complete", "completed", "cancelled", "canceled"]);
 const ACTIVE_STATUSES = new Set(["assigned", "released", "in_progress", "paused"]);
+const RESCHEDULABLE_STATUSES = new Set(["draft", "assigned", "released"]);
+const SERVICE_WORK_SOURCES = new Set(["service_plan_occurrence", "service_follow_up_work_request"]);
 const STATUS_ORDER = Object.freeze({
   draft: 0,
   assigned: 1,
@@ -52,6 +54,13 @@ function createIdempotencyKey() {
 function dateValue(value) {
   const date = value ? new Date(value) : null;
   return date && !Number.isNaN(date.getTime()) ? date : null;
+}
+
+function toLocalDateTimeInput(value) {
+  const date = dateValue(value);
+  if (!date) return "";
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
 function sameDay(a, b = new Date()) {
@@ -112,10 +121,15 @@ function sourceLabel(row) {
   const source = normalized(row?.source_type);
   if (source === "monitoring_corrective_action") return "Monitoring follow-up";
   if (source === "service_occurrence") return "Scheduled service";
-  if (source === "service_follow_up") return "Service follow-up";
+  if (source === "service_follow_up" || source === "service_follow_up_work_request") return "Corrective service";
   if (source === "service_plan") return "Planned service";
   if (source === "service_plan_occurrence") return "Scheduled service";
   return text(row?.source_type).replaceAll("-", " ") || "Operational work";
+}
+
+function serviceManagedWork(row = {}) {
+  return text(row.source_domain) === "service-management"
+    && SERVICE_WORK_SOURCES.has(normalized(row.source_type));
 }
 
 function workContext(row = {}) {
@@ -137,6 +151,7 @@ function workContext(row = {}) {
   const scheduledAt = row.scheduled_at
     || row.scheduled_start
     || attributes.scheduled_at
+    || service.current_scheduled_start
     || service.scheduled_at
     || service.service_date
     || service.occurrence_at
@@ -144,15 +159,18 @@ function workContext(row = {}) {
   const arrivalStart = row.window_start
     || row.scheduled_start
     || attributes.window_start
+    || service.current_scheduled_start
     || service.window_start
     || service.arrival_window_start
     || null;
   const arrivalEnd = row.window_end
     || row.scheduled_end
     || attributes.window_end
+    || service.current_scheduled_end
     || service.window_end
     || service.arrival_window_end
     || null;
+  const sourceOccurrenceId = normalized(row.source_type) === "service_plan_occurrence" ? row.source_id : null;
 
   return {
     monitoring,
@@ -165,7 +183,10 @@ function workContext(row = {}) {
     scheduledAt,
     arrivalStart,
     arrivalEnd,
-    occurrenceId: service.occurrence_id || row.source_id || null,
+    occurrenceId: service.occurrence_id || sourceOccurrenceId || null,
+    preferredStaffId: service.preferred_staff_id || null,
+    preferredStaffName: service.preferred_staff_name || null,
+    durationMinutes: Number(service.duration_minutes) || null,
     area: monitoring?.area || service.area || null,
     placement: monitoring?.placement || null,
     pointCode: monitoring?.point_code || null,
@@ -173,7 +194,15 @@ function workContext(row = {}) {
     signals: Array.isArray(monitoring?.signals) ? monitoring.signals : [],
     recommendation: monitoring?.recommendation || row.description || null,
     followUp: Boolean(monitoring),
+    corrective: normalized(row.source_type) === "service_follow_up_work_request" || Boolean(service.corrective_service),
   };
+}
+
+function existingDurationMinutes(row, context) {
+  const start = dateValue(row?.scheduled_start || context?.arrivalStart);
+  const end = dateValue(row?.scheduled_end || context?.arrivalEnd);
+  if (start && end && end.getTime() > start.getTime()) return Math.round((end.getTime() - start.getTime()) / 60000);
+  return Number(context?.durationMinutes) > 0 ? Number(context.durationMinutes) : 60;
 }
 
 function needsAttention(row) {
@@ -240,6 +269,8 @@ export default function PestControlWorkControl({ organizationId }) {
   const [notice, setNotice] = useState("");
   const [commandModal, setCommandModal] = useState(null);
   const [commandValues, setCommandValues] = useState({});
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [rescheduleValues, setRescheduleValues] = useState({ scheduledStart: "", durationMinutes: "60", reason: "" });
   const [assignees, setAssignees] = useState([]);
   const [assigneesLoading, setAssigneesLoading] = useState(false);
 
@@ -337,6 +368,18 @@ export default function PestControlWorkControl({ organizationId }) {
   const selected = filteredRows.find((row) => row.id === selectedId) || filteredRows[0] || null;
   const selectedContext = selected ? workContext(selected) : null;
   const allowedCommands = Array.isArray(selected?.allowed_commands) ? selected.allowed_commands : [];
+  const canReschedule = Boolean(selected && selectedContext && serviceManagedWork(selected) && RESCHEDULABLE_STATUSES.has(normalized(selected.status)));
+
+  const orderedAssignees = useMemo(() => {
+    const preferredId = text(selectedContext?.preferredStaffId);
+    if (!preferredId) return assignees;
+    return [...assignees]
+      .map((option) => {
+        const preferred = [option.value, option.party_id, option.staff_id].some((value) => text(value) === preferredId);
+        return preferred ? { ...option, preferred: true, label: `${option.label} · Preferred for this service` } : option;
+      })
+      .sort((a, b) => Number(Boolean(b.preferred)) - Number(Boolean(a.preferred)) || a.label.localeCompare(b.label));
+  }, [assignees, selectedContext?.preferredStaffId]);
 
   useEffect(() => {
     if (!selected && filteredRows.length) setSelectedId(filteredRows[0].id);
@@ -379,6 +422,18 @@ export default function PestControlWorkControl({ organizationId }) {
     if (schema.fields.some((field) => field.optionsSource === "assignable-users")) await loadAssignees();
   }
 
+  function openReschedule() {
+    if (!selected || !selectedContext || !canReschedule) return;
+    const currentStart = selected.scheduled_start || selectedContext.arrivalStart || selectedContext.scheduledAt;
+    setRescheduleValues({
+      scheduledStart: toLocalDateTimeInput(currentStart),
+      durationMinutes: String(existingDurationMinutes(selected, selectedContext)),
+      reason: "",
+    });
+    setError("");
+    setRescheduleOpen(true);
+  }
+
   async function submitCommand() {
     if (!selected || !commandModal) return;
     const missing = validateOperationsCommand(commandModal, commandValues);
@@ -399,7 +454,7 @@ export default function PestControlWorkControl({ organizationId }) {
           ...contextPayload,
           id: selected.id,
           record_id: selected.id,
-          ...buildOperationsCommandPayload(commandModal, commandValues, { assignees }),
+          ...buildOperationsCommandPayload(commandModal, commandValues, { assignees: orderedAssignees }),
           idempotency_key: idempotencyKey,
           idempotencyKey,
         }),
@@ -412,6 +467,46 @@ export default function PestControlWorkControl({ organizationId }) {
       await load();
     } catch (commandError) {
       setError(commandError.message || "Work command failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitReschedule() {
+    if (!selected || !selectedContext || !canReschedule) return;
+    const start = dateValue(rescheduleValues.scheduledStart);
+    const durationMinutes = Number(rescheduleValues.durationMinutes);
+    const reason = text(rescheduleValues.reason);
+    if (!start) { setError("Choose the new arrival time."); return; }
+    if (!Number.isFinite(durationMinutes) || durationMinutes < 15 || durationMinutes > 720) { setError("Service duration must be between 15 minutes and 12 hours."); return; }
+    if (!reason) { setError("Tell us why the visit is moving."); return; }
+
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const idempotencyKey = createIdempotencyKey();
+      const end = new Date(start.getTime() + durationMinutes * 60000);
+      const response = await fetch("/api/service-management/visit-reschedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify({
+          ...contextPayload,
+          workOrderId: selected.id,
+          occurrenceId: selectedContext.occurrenceId || null,
+          scheduledStart: start.toISOString(),
+          scheduledEnd: end.toISOString(),
+          reason,
+          idempotencyKey,
+        }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.success) throw new Error(json.error || "Service visit could not be rescheduled.");
+      setNotice(`Visit moved to ${formatDateTime(json.visit?.scheduled_start || start)}.`);
+      setRescheduleOpen(false);
+      await load();
+    } catch (rescheduleError) {
+      setError(rescheduleError.message || "Service visit could not be rescheduled.");
     } finally {
       setSaving(false);
     }
@@ -538,6 +633,7 @@ export default function PestControlWorkControl({ organizationId }) {
                       <div className="mt-1 text-[10px] text-[#777069]">{selectedContext.customerName} · {selectedContext.siteName}</div>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      {canReschedule ? <button onClick={openReschedule} className="rounded-xl border border-black/[0.08] bg-[#FBFAF8] px-3 py-2 text-[8px] font-medium text-[#6B645C]">Reschedule visit</button> : null}
                       {selectedContext.followUp ? <Link href={`${base}/field-service/monitoring-points/scan`} className="rounded-xl border border-black/[0.08] bg-[#FBFAF8] px-3 py-2 text-[8px] font-medium text-[#6B645C]">Recheck point</Link> : null}
                       <Link href={technicianHref} className="inline-flex items-center gap-1.5 rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/[0.07] px-3 py-2 text-[8px] font-medium text-[#725434]">Technician workspace <ArrowRight size={9} /></Link>
                     </div>
@@ -591,6 +687,7 @@ export default function PestControlWorkControl({ organizationId }) {
                         <div className="flex items-center gap-2 text-[8px] uppercase tracking-[0.1em] text-[#958D84]"><UserRound size={10} />Responsibility</div>
                         <div className="mt-2 text-[11px] font-medium">{selectedContext.assigneeName || (selected.assigned_to ? "Assigned technician" : "Unassigned")}</div>
                         <div className="mt-1 text-[9px] text-[#777069]">{selected.assigned_to || "Assign an accountable owner before release."}</div>
+                        {selectedContext.preferredStaffName ? <div className="mt-2 text-[8px] text-[#9A744B]">Preferred for this service: {selectedContext.preferredStaffName}</div> : null}
                       </div>
                     </div>
                   </div>
@@ -610,8 +707,10 @@ export default function PestControlWorkControl({ organizationId }) {
                         {allowedCommands.map((command) => (
                           <button key={command} disabled={saving} onClick={() => openCommand(command)} className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-left text-[9px] disabled:opacity-40 ${command === primaryCommand ? "border-[#D6A66A]/30 bg-[#D6A66A]/[0.06] text-[#725434]" : "border-black/[0.07] bg-white text-[#625C55]"}`}><span>{getOperationsCommandSchema(command).title}</span><ArrowRight size={9} /></button>
                         ))}
-                        {!allowedCommands.length ? <div className="rounded-xl bg-[#FBFAF8] px-3 py-3 text-[9px] text-[#8F877F]">No lifecycle actions available.</div> : null}
+                        {canReschedule ? <button disabled={saving} onClick={openReschedule} className="flex items-center justify-between rounded-xl border border-black/[0.07] bg-white px-3 py-2.5 text-left text-[9px] text-[#625C55] disabled:opacity-40"><span>Reschedule visit</span><CalendarClock size={10} /></button> : null}
+                        {!allowedCommands.length && !canReschedule ? <div className="rounded-xl bg-[#FBFAF8] px-3 py-3 text-[9px] text-[#8F877F]">No lifecycle actions available.</div> : null}
                       </div>
+                      {serviceManagedWork(selected) ? <div className="mt-3 border-t border-black/[0.05] pt-3 text-[8px] leading-4 text-[#8A837A]">Field start and completion happen only in the technician workspace, where treatment, monitoring and evidence gates can be revalidated.</div> : null}
                     </div>
 
                     <div className="rounded-2xl border border-black/[0.07] p-4">
@@ -628,21 +727,57 @@ export default function PestControlWorkControl({ organizationId }) {
         </section>
       </div>
 
-      {commandModal ? (
+      {commandModal && selected && selectedContext ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-[2px]">
           <div className="w-full max-w-lg rounded-2xl border border-black/[0.08] bg-[#F9F8F5] shadow-2xl">
             <div className="flex items-start justify-between border-b border-black/[0.07] p-5">
-              <div><div className="text-[8px] uppercase tracking-[0.12em] text-[#9A744B]">Governed work action</div><div className="mt-1 text-[17px] font-medium tracking-[-0.02em]">{commandModal.title}</div><div className="mt-1 text-[9px] leading-4 text-[#7D766E]">{commandModal.description}</div></div>
+              <div><div className="text-[8px] uppercase tracking-[0.12em] text-[#9A744B]">{selectedContext.serviceName}</div><div className="mt-1 text-[17px] font-medium tracking-[-0.02em]">{commandModal.title}</div><div className="mt-1 text-[9px] leading-4 text-[#7D766E]">{commandModal.description}</div></div>
               <button onClick={() => setCommandModal(null)} className="rounded-lg border border-black/[0.07] bg-white p-2" aria-label="Close"><X size={12} /></button>
             </div>
             <div className="space-y-4 p-5">
-              {commandModal.fields.map((field) => <Field key={field.name} field={field} value={commandValues[field.name]} onChange={(name, value) => setCommandValues((current) => ({ ...current, [name]: value }))} lookupOptions={field.optionsSource === "assignable-users" ? assignees : []} />)}
+              <div className="grid gap-2 rounded-xl border border-black/[0.07] bg-white p-3.5 sm:grid-cols-2">
+                <div><div className="text-[7px] uppercase tracking-[0.1em] text-[#9A938A]">Customer & site</div><div className="mt-1 text-[9px] font-medium text-[#504A44]">{selectedContext.customerName} · {selectedContext.siteName}</div></div>
+                <div><div className="text-[7px] uppercase tracking-[0.1em] text-[#9A938A]">Appointment</div><div className="mt-1 text-[9px] font-medium text-[#504A44]">{selectedContext.arrivalStart ? `${formatDateTime(selectedContext.arrivalStart)}${selectedContext.arrivalEnd ? ` – ${formatTime(selectedContext.arrivalEnd)}` : ""}` : formatDateTime(selectedContext.scheduledAt)}</div></div>
+                <div><div className="text-[7px] uppercase tracking-[0.1em] text-[#9A938A]">Current technician</div><div className="mt-1 text-[9px] font-medium text-[#504A44]">{selectedContext.assigneeName || (selected.assigned_to ? "Assigned" : "Unassigned")}</div></div>
+                <div><div className="text-[7px] uppercase tracking-[0.1em] text-[#9A938A]">Preferred technician</div><div className="mt-1 text-[9px] font-medium text-[#504A44]">{selectedContext.preferredStaffName || "No preference recorded"}</div></div>
+              </div>
+              {commandModal.command === "release" ? <div className="rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.05] p-3 text-[9px] leading-4 text-[#725434]">Release makes this visit ready for the assigned technician. Starting and completing the service still happen in the technician workspace.</div> : null}
+              {commandModal.fields.map((field) => <Field key={field.name} field={field} value={commandValues[field.name]} onChange={(name, value) => setCommandValues((current) => ({ ...current, [name]: value }))} lookupOptions={field.optionsSource === "assignable-users" ? orderedAssignees : []} />)}
               {commandModal.fields.some((field) => field.optionsSource === "assignable-users") && assigneesLoading ? <div className="text-[8px] text-[#948D84]">Loading assignable people…</div> : null}
               {error ? <div className="rounded-xl border border-[#B7654C]/20 bg-[#B7654C]/[0.05] p-3 text-[9px] text-[#914B38]"><AlertTriangle size={11} className="mr-1 inline" />{error}</div> : null}
             </div>
             <div className="flex justify-end gap-2 border-t border-black/[0.07] p-4">
               <button onClick={() => setCommandModal(null)} className="rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-[9px] text-[#6E675F]">Cancel</button>
               <button disabled={saving} onClick={submitCommand} className="rounded-xl bg-[#2E2A25] px-4 py-2.5 text-[9px] font-medium text-white disabled:opacity-40">{saving ? "Working…" : commandModal.confirmLabel}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {rescheduleOpen && selected && selectedContext ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-lg rounded-2xl border border-black/[0.08] bg-[#F9F8F5] shadow-2xl">
+            <div className="flex items-start justify-between border-b border-black/[0.07] p-5">
+              <div><div className="text-[8px] uppercase tracking-[0.12em] text-[#9A744B]">Customer commitment</div><div className="mt-1 text-[17px] font-medium tracking-[-0.02em]">Reschedule visit</div><div className="mt-1 text-[9px] leading-4 text-[#7D766E]">Move the executable appointment while keeping the original recurring service occurrence and audit trail intact.</div></div>
+              <button onClick={() => setRescheduleOpen(false)} className="rounded-lg border border-black/[0.07] bg-white p-2" aria-label="Close"><X size={12} /></button>
+            </div>
+            <div className="space-y-4 p-5">
+              <div className="rounded-xl border border-black/[0.07] bg-white p-3.5">
+                <div className="text-[10px] font-medium text-[#49443E]">{selectedContext.serviceName}</div>
+                <div className="mt-1 text-[9px] text-[#7B746C]">{selectedContext.customerName} · {selectedContext.siteName}</div>
+                <div className="mt-2 text-[8px] text-[#968F86]">Current: {selectedContext.arrivalStart ? `${formatDateTime(selectedContext.arrivalStart)}${selectedContext.arrivalEnd ? ` – ${formatTime(selectedContext.arrivalEnd)}` : ""}` : formatDateTime(selectedContext.scheduledAt)}</div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block"><span className="text-[8px] uppercase tracking-[0.12em] text-[#8F877E]">New arrival *</span><input type="datetime-local" value={rescheduleValues.scheduledStart} onChange={(event) => setRescheduleValues((current) => ({ ...current, scheduledStart: event.target.value }))} className="mt-2 w-full rounded-xl border border-black/[0.09] bg-white px-3.5 py-3 text-[11px] outline-none focus:border-[#D6A66A]/70" /></label>
+                <label className="block"><span className="text-[8px] uppercase tracking-[0.12em] text-[#8F877E]">Service duration *</span><select value={rescheduleValues.durationMinutes} onChange={(event) => setRescheduleValues((current) => ({ ...current, durationMinutes: event.target.value }))} className="mt-2 w-full rounded-xl border border-black/[0.09] bg-white px-3.5 py-3 text-[11px] outline-none focus:border-[#D6A66A]/70"><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60">1 hour</option><option value="90">1.5 hours</option><option value="120">2 hours</option><option value="180">3 hours</option><option value="240">4 hours</option></select></label>
+              </div>
+              <label className="block"><span className="text-[8px] uppercase tracking-[0.12em] text-[#8F877E]">Why is the visit moving? *</span><textarea value={rescheduleValues.reason} onChange={(event) => setRescheduleValues((current) => ({ ...current, reason: event.target.value }))} placeholder="Customer requested another time, technician unavailable, site access changed…" className="mt-2 min-h-24 w-full resize-y rounded-xl border border-black/[0.09] bg-white px-3.5 py-3 text-[11px] outline-none focus:border-[#D6A66A]/70" /></label>
+              <div className="rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.05] p-3 text-[9px] leading-4 text-[#725434]">Avantiqo changes the service appointment and work-order timing together. Once field execution has started, the visit cannot be silently rescheduled.</div>
+              {error ? <div className="rounded-xl border border-[#B7654C]/20 bg-[#B7654C]/[0.05] p-3 text-[9px] text-[#914B38]"><AlertTriangle size={11} className="mr-1 inline" />{error}</div> : null}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-black/[0.07] p-4">
+              <button onClick={() => setRescheduleOpen(false)} className="rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-[9px] text-[#6E675F]">Keep current time</button>
+              <button disabled={saving} onClick={submitReschedule} className="rounded-xl bg-[#2E2A25] px-4 py-2.5 text-[9px] font-medium text-white disabled:opacity-40">{saving ? "Moving visit…" : "Confirm new time"}</button>
             </div>
           </div>
         </div>

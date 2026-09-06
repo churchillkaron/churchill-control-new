@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
 
+import { getHotelOperationalDate } from "@/lib/hotel/server/getHotelOperationalDate";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function errorResponse(error, status = 500) {
   return NextResponse.json({ success: false, error }, { status });
@@ -17,7 +14,6 @@ export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
     const bookingId = String(body.bookingId || body.booking_id || "").trim();
-    const businessDate = todayIso();
 
     if (!bookingId) return errorResponse("bookingId required", 400);
 
@@ -36,13 +32,19 @@ export async function POST(request) {
     });
 
     if (!access.success) return errorResponse(access.error, access.status);
+    if (!existing.property_id) return errorResponse("Booking has no governed Hotel property", 409);
     if (String(existing.status || "").toUpperCase() !== "RESERVED") {
       return errorResponse("Only a reserved arrival can be recorded as a no-show", 409);
     }
 
+    const operationalDate = await getHotelOperationalDate({
+      organizationId: access.organizationId,
+      propertyId: existing.property_id,
+    });
+    const businessDate = operationalDate.businessDate;
     const arrivalDate = String(existing.check_in_date || "").slice(0, 10);
     if (!arrivalDate || arrivalDate >= businessDate) {
-      return errorResponse("No-show can be recorded only after the reserved arrival date has passed", 409);
+      return errorResponse("No-show can be recorded only after the reserved arrival date has passed in the property's operational day", 409);
     }
 
     const now = new Date().toISOString();
@@ -62,6 +64,14 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       booking,
+      operationalDate: {
+        businessDate: operationalDate.businessDate,
+        propertyDate: operationalDate.propertyDate,
+        timezone: operationalDate.timezone,
+        cutoffMinutes: operationalDate.cutoffMinutes,
+        configured: operationalDate.configured,
+        compatibilityFallback: operationalDate.compatibilityFallback,
+      },
       stayInventoryReleased: true,
       groupInventoryStillProtected: Boolean(booking.group_id),
       financialReviewRequired: true,

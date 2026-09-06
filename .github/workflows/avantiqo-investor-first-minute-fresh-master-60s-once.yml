@@ -1,0 +1,266 @@
+name: Avantiqo Investor First Minute Fresh Master 60s Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-first-minute-fresh-master-60s-once.yml
+
+permissions:
+  contents: read
+
+env:
+  MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+  MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+  RUN_KEY: avantiqo-investor-master-first-minute-20260906-v1
+
+jobs:
+  contract:
+    if: github.event.head_commit.message == 'Run fresh investor first-minute master production once'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Lock exact first-minute authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          MASTER='services/avantiqo-video-engine/INVESTOR_FILM_9MIN_MASTER_V1.md'
+          test -s "$MASTER"
+          grep -Fq '## 00:00–00:45 — CHAPTER 1: THE BUSINESS BEFORE SOFTWARE' "$MASTER"
+          grep -Fq '**00:30–00:45 — The truck arrives.**' "$MASTER"
+          grep -Fq '## 00:45–01:35 — CHAPTER 2: ONE EVENT BECOMES FIVE PROBLEMS' "$MASTER"
+          grep -Fq '**00:45–00:57 — Operations learns first.**' "$MASTER"
+          grep -Fq 'All previously rendered Avantiqo investor films, 24-second proofs, 60-second proofs' "$MASTER"
+          echo 'FIRST_MINUTE_MASTER_AUTHORITY=PASS'
+          echo 'ACTIVE_SCOPE=00:00-01:00'
+          echo 'OLD_RENDERED_ASSET_REUSE=false'
+          echo 'STORY_REDESIGN=false'
+
+  video_cache:
+    needs: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install owned runtime tooling
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+      - name: Prove fresh T2V cache readiness
+        run: |
+          set -euo pipefail
+          modal run services/avantiqo-video-engine/modal_investor_t2v.py::seed_investor_t2v_cache
+
+  human_sources:
+    needs: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - role: operations_receiver
+            seed: 26090621
+            prompt: >-
+              Candid live-action documentary photograph of an experienced Southeast Asian hospitality operations receiver in their late thirties at a real premium tropical hotel loading bay before service. Medium three-quarter framing, face shoulders torso both forearms and both natural hands fully visible, quietly inspecting an incoming sealed delivery without posing. Practical dark work shirt, realistic fabric folds, ordinary professional grooming, real skin pores and facial asymmetry, natural eyes and teeth, anatomically correct fingers and knuckles, warm practical loading-bay light mixed with humid dawn daylight, cinema-camera realism, restrained contrast, natural color, no screen, phone, text, logo, paper, CGI or futuristic styling.
+          - role: hotel_operations_lead
+            seed: 26090622
+            prompt: >-
+              Candid live-action documentary photograph of a Southeast Asian hotel operations lead in their early forties walking a real premium tropical hotel corridor before guests arrive. Medium three-quarter framing with face torso both arms and both hands visible, calm focused working expression, one physical room key card held naturally but no readable text. Practical tailored work clothing, authentic skin texture and asymmetry, anatomically correct fingers, believable posture, soft dawn window light and warm practical lamps, real wood stone and linen, cinema-camera depth, natural color, no screen, phone, logo, signage, CGI or futuristic styling.
+          - role: chef_service_lead
+            seed: 26090623
+            prompt: >-
+              Candid live-action documentary photograph of an experienced Southeast Asian chef and service leader in their early forties during quiet pre-service preparation in a real premium restaurant kitchen. Medium three-quarter framing with face shoulders torso both forearms and both hands clearly visible, checking fresh mise en place naturally without posing. Dark practical chef jacket without branding, realistic fabric and slight work wear, real skin pores, facial asymmetry, natural eyes, anatomically correct hands and fingers, warm practical kitchen light, stainless steel and wood rendered naturally, cinema-camera realism, no text, logo, paper, screen, phone, CGI or futuristic styling.
+          - role: field_technician
+            seed: 26090624
+            prompt: >-
+              Candid live-action documentary photograph of a Southeast Asian field service technician in their late thirties beside a clean service van at dawn, naturally closing the rear door after loading ordinary professional equipment. Medium three-quarter framing with face torso both arms and both hands visible, practical dark work uniform without branding, real skin texture and asymmetry, correct hands and fingers, believable posture and weight, humid tropical morning light, restrained cinematic contrast, natural color science, no text, logo, screen, phone, CGI or futuristic styling.
+          - role: accountant
+            seed: 26090625
+            prompt: >-
+              Candid live-action documentary photograph of an experienced Southeast Asian accountant in their early forties at a real quiet accounting desk before the workday, waiting for an operating explanation rather than posing. Medium three-quarter framing with face torso both forearms and both hands clearly visible resting naturally beside closed physical source documents with no readable text. Professional understated clothing, authentic skin pores and facial asymmetry, natural eyes and teeth, anatomically correct hands, warm window light with a practical desk lamp, tactile paper wood and glass, cinema-camera realism, no computer screen, phone, logo, readable text, CGI or futuristic styling.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install owned runtime tooling
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+      - name: Generate fresh owned human source candidate
+        env:
+          ROLE: ${{ matrix.role }}
+          SEED: ${{ matrix.seed }}
+          PROMPT: ${{ matrix.prompt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="local-audit-output/${RUN_KEY}/human-sources/${ROLE}"
+          REMOTE="investor-first-minute-fresh/${RUN_KEY}/human-sources/${ROLE}.png"
+          mkdir -p "$OUT"
+          modal run services/avantiqo-image-engine/modal_app.py::generate_investor_keyframe \
+            --output-relative "$REMOTE" \
+            --instruction "$PROMPT" \
+            --width 1920 \
+            --height 1088 \
+            --seed "$SEED"
+          modal volume get avantiqo-image-models "$REMOTE" "$OUT/source.png" --force
+          test -s "$OUT/source.png"
+          ROLE="$ROLE" SEED="$SEED" OUT="$OUT" python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          out = Path(os.environ['OUT'])
+          source = out / 'source.png'
+          digest = hashlib.sha256(source.read_bytes()).hexdigest()
+          report = {
+              'success': True,
+              'contract': 'AVANTIQO_INVESTOR_FIRST_MINUTE_HUMAN_SOURCE_PENDING_V1',
+              'run_key': os.environ['RUN_KEY'],
+              'role': os.environ['ROLE'],
+              'seed': int(os.environ['SEED']),
+              'sha256': digest,
+              'character_id': f"investor-{os.environ['ROLE']}-{digest[:16]}",
+              'approval_id': None,
+              'approval_status': 'PENDING',
+              'animation_authorized': False,
+              'human_visual_review_required': True,
+              'newly_generated_asset': True,
+              'external_provider_contacted': False,
+              'prior_visual_asset_reused': False,
+          }
+          (out / 'source.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+          print('HUMAN_SOURCE=PASS_APPROVAL_PENDING')
+          print('SOURCE_SHA256=' + digest)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: first-minute-human-source-${{ matrix.role }}
+          path: local-audit-output/${{ env.RUN_KEY }}/human-sources/${{ matrix.role }}/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  nonhuman_shots:
+    needs: [contract, video_cache]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: s01_dawn_city
+            duration: 8
+            seed: 26090631
+            prompt: >-
+              Dawn before a tropical city becomes impressive. Begin almost black with humid predawn atmosphere, then a restrained cinematic move across ordinary low-rise streets toward the service side of a premium hotel and restaurant district waking up. Loading bays, closed service doors, parked delivery vehicles and warm practical lights coming alive. No visible people close enough to identify, no text, logos, signage, screens or futuristic elements. Feature-film documentary realism, physical materials, subtle camera weight, natural dawn color and quiet anticipation.
+          - id: s02_fragmented_evidence
+            duration: 6
+            seed: 26090632
+            prompt: >-
+              Intimate macro documentary cinema of disconnected physical business evidence before anyone reconciles it: an unlabeled delivery seal, an unreadable receipt edge, a key card with no readable markings, a closed service work-order folder and a calculator on a real accounting desk. Slow motivated lateral camera movement, tactile paper plastic metal and wood, warm practical light, deep readable shadows. No visible people, no readable text, no logos, no screens, no UI, no CGI, no futuristic styling. Premium live-action realism.
+          - id: s03_truck_arrival
+            duration: 8
+            seed: 26090633
+            prompt: >-
+              A time-critical supplier truck turns naturally into the service loading bay of a premium tropical hotel restaurant in late dawn light and settles into position. Camera stays low and observational with crates and loading architecture in foreground, believable suspension and tire motion, humid air and restrained warm practical light. No visible identifiable people, no readable text, logos, branding, screens or futuristic elements. High-budget live-action documentary cinema, natural color, no stock-footage gloss.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install owned runtime tooling
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+      - name: Generate fresh owned non-human master shot
+        env:
+          SHOT_ID: ${{ matrix.id }}
+          DURATION: ${{ matrix.duration }}
+          SEED: ${{ matrix.seed }}
+          PROMPT: ${{ matrix.prompt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="local-audit-output/${RUN_KEY}/nonhuman/${SHOT_ID}"
+          REMOTE="investor-first-minute-fresh/${RUN_KEY}/nonhuman/${SHOT_ID}.mp4"
+          mkdir -p "$OUT"
+          modal run services/avantiqo-video-engine/modal_investor_t2v.py::generate_investor_t2v_master \
+            --output-relative "$REMOTE" \
+            --instruction "$PROMPT" \
+            --duration-seconds "$DURATION" \
+            --seed "$SEED"
+          modal volume get avantiqo-video-models "$REMOTE" "$OUT/master.mp4" --force
+          test -s "$OUT/master.mp4"
+          SHOT_ID="$SHOT_ID" DURATION="$DURATION" SEED="$SEED" OUT="$OUT" python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          out = Path(os.environ['OUT'])
+          master = out / 'master.mp4'
+          digest = hashlib.sha256(master.read_bytes()).hexdigest()
+          report = {
+              'success': True,
+              'contract': 'AVANTIQO_INVESTOR_FIRST_MINUTE_FRESH_NONHUMAN_V1',
+              'run_key': os.environ['RUN_KEY'],
+              'shot_id': os.environ['SHOT_ID'],
+              'duration_seconds': int(os.environ['DURATION']),
+              'seed': int(os.environ['SEED']),
+              'sha256': digest,
+              'newly_generated_asset': True,
+              'source_visual_asset_count': 0,
+              'prior_visual_asset_reused': False,
+              'external_provider_contacted': False,
+          }
+          (out / 'master.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+          print('FRESH_NONHUMAN_MASTER=PASS')
+          print('MASTER_SHA256=' + digest)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: first-minute-fresh-${{ matrix.id }}
+          path: local-audit-output/${{ env.RUN_KEY }}/nonhuman/${{ matrix.id }}/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  checkpoint:
+    needs: [human_sources, nonhuman_shots]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Preserve exact production boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "RUN_KEY=${RUN_KEY}"
+          echo 'ACTIVE_SCOPE=00:00-01:00'
+          echo 'CHAPTER_1=00:00-00:45 BUSINESS BEFORE SOFTWARE'
+          echo 'CHAPTER_2_TRANSITION=00:45-01:00 SUPPLIER EXCEPTION BEGINS SPREADING'
+          echo 'FRESH_ASSETS_ONLY=true'
+          echo 'OLD_24S_60S_PROOF_ASSETS_USED=false'
+          echo 'STORY_REDESIGNED=false'
+          echo 'HUMAN_MOTION_REQUIRES_APPROVED_IDENTITY_ANATOMY_REFERENCE=true'
+          echo 'PRODUCTION_VERCEL_DEPLOY_TRIGGERED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'

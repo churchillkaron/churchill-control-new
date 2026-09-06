@@ -57,6 +57,7 @@ function resolveActionCapabilities(access) {
     merge_tables: can("MERGE_TABLES"),
     close_table: can("CLOSE_TABLE"),
     void_order_item: can("VOID_ORDER_ITEM"),
+    comp_order_item: can("COMP_ORDER_ITEM"),
   });
 }
 

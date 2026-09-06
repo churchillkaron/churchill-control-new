@@ -5,8 +5,6 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -19,11 +17,9 @@ export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
     const bookingId = String(body.bookingId || body.booking_id || "").trim();
-    const businessDate = String(body.businessDate || body.business_date || todayIso()).trim();
+    const businessDate = todayIso();
 
     if (!bookingId) return errorResponse("bookingId required", 400);
-    if (!ISO_DATE.test(businessDate)) return errorResponse("businessDate must be YYYY-MM-DD", 400);
-    if (businessDate > todayIso()) return errorResponse("Future business dates cannot be used to record a no-show", 409);
 
     const { data: existing, error: existingError } = await supabaseAdmin
       .from("hotel_bookings")

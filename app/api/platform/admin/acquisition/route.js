@@ -2,6 +2,7 @@ import { requirePlatformOperatorWorkspaceAccess } from "@/lib/platform/security/
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const PLATFORM_ORGANIZATION_ID = "9a148429-b6a0-4bc6-ac83-a35c64fb7045";
+const PLATFORM_TIME_ZONE_OFFSET = "+07:00";
 const TERMINAL_STAGES = new Set(["FIRST_VALUE", "LOST"]);
 
 function text(value) {
@@ -15,6 +16,17 @@ function uuidOrNull(value) {
 
 function executionStateFilter(state) {
   return `execution_status.eq.${state},and(execution_status.is.null,status.eq.${state})`;
+}
+
+function platformOwnerDueAt(value) {
+  const raw = text(value);
+  if (!raw) return null;
+  const hasExplicitZone = /(?:z|[+-]\d{2}:\d{2})$/i.test(raw);
+  const normalized = hasExplicitZone
+    ? raw
+    : `${raw}${/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(raw) ? ":00" : ""}${PLATFORM_TIME_ZONE_OFFSET}`;
+  const timestamp = new Date(normalized).getTime();
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
 }
 
 async function requireOperator(request) {
@@ -42,16 +54,15 @@ async function readBody(request) {
 }
 
 function requireNextObligation(body) {
-  const nextDueAt = text(body.nextDueAt || body.next_due_at);
+  const nextDueAt = platformOwnerDueAt(body.nextDueAt || body.next_due_at);
   const nextScheduleNote = text(body.nextScheduleNote || body.next_schedule_note);
   if (!nextDueAt) {
-    const error = new Error("Next owner obligation due date is required");
+    const error = new Error("Next owner obligation due date must be a valid time");
     error.status = 400;
     throw error;
   }
-  const timestamp = new Date(nextDueAt).getTime();
-  if (!Number.isFinite(timestamp) || timestamp <= Date.now()) {
-    const error = new Error("Next owner obligation due date must be a valid future time");
+  if (new Date(nextDueAt).getTime() <= Date.now()) {
+    const error = new Error("Next owner obligation due date must be a future time");
     error.status = 400;
     throw error;
   }
@@ -60,7 +71,7 @@ function requireNextObligation(body) {
     error.status = 400;
     throw error;
   }
-  return { nextDueAt: new Date(timestamp).toISOString(), nextScheduleNote };
+  return { nextDueAt, nextScheduleNote };
 }
 
 async function requireLead(leadId) {

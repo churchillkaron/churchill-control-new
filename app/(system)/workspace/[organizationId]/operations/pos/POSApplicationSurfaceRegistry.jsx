@@ -28,6 +28,7 @@ function RestaurantSaleSurface(props) {
   const requestedView = String(searchParams.get("view") || "").trim().toLowerCase();
   const requestedTable = String(searchParams.get("table") || "").trim() || null;
   const waiterMode = requestedView === "waiter" || requestedView === "service";
+  const canSettle = props.posRuntime?.capabilities?.actions?.payment === true;
   const [checkoutVersion, setCheckoutVersion] = useState(0);
   const [activeTableReference, setActiveTableReference] = useState(requestedTable);
 
@@ -84,19 +85,34 @@ function RestaurantSaleSurface(props) {
           </div>
 
           <aside className="min-w-0 xl:sticky xl:top-[124px] xl:self-start">
-            <POSInlineCheckout
-              key={checkoutVersion}
-              posConfiguration={props.posConfiguration}
-              preferredContextReference={activeTableReference}
-              compact
-              onRefresh={props.refreshPOSRuntime}
-              onPaymentComplete={refreshStationary}
-            />
-            <RestaurantPaymentCorrections
-              posConfiguration={props.posConfiguration}
-              refreshKey={checkoutVersion}
-              onCorrected={refreshStationary}
-            />
+            {canSettle ? (
+              <>
+                <POSInlineCheckout
+                  key={checkoutVersion}
+                  posConfiguration={props.posConfiguration}
+                  preferredContextReference={activeTableReference}
+                  compact
+                  onRefresh={props.refreshPOSRuntime}
+                  onPaymentComplete={refreshStationary}
+                />
+                <RestaurantPaymentCorrections
+                  posConfiguration={props.posConfiguration}
+                  refreshKey={checkoutVersion}
+                  onCorrected={refreshStationary}
+                />
+              </>
+            ) : (
+              <div
+                className="rounded-[22px] border border-[#A37849]/20 bg-white p-5 text-[#191919]"
+                data-stationary-payment-authority-boundary="true"
+              >
+                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#9A744B]">Settlement</div>
+                <div className="mt-2 text-sm font-semibold">Cashier authority required</div>
+                <div className="mt-2 text-xs leading-5 text-[#6C6963]">
+                  Order entry can remain visible, but payment and payment corrections are hidden because the signed-in role is not authorized to settle checks.
+                </div>
+              </div>
+            )}
           </aside>
         </div>
       </div>

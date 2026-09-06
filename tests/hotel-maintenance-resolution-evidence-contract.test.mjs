@@ -41,3 +41,16 @@ test("maintenance UI requires a real repair lifecycle", () => {
   assert.match(page, /Record repair & resolve/);
   assert.match(page, /resolutionNotes\.trim/);
 });
+
+test("resolved room defects can be reopened without erasing repair history", () => {
+  assert.match(migration, /REOPEN/);
+  assert.match(migration, /Only a RESOLVED maintenance request can be reopened/);
+  assert.match(migration, /Maintenance reopen reason is required/);
+  assert.match(migration, /insert into public\.hotel_maintenance_resolution_events/);
+  assert.match(route, /maintenance_events/);
+  assert.match(route, /\["RESOLVE", "REOPEN"\]\.includes\(action\)/);
+  assert.match(page, /Recent resolved room repairs/);
+  assert.match(page, /Why reopen this repair/);
+  assert.match(page, /Reopen defect/);
+  assert.match(page, /Original repair evidence stays intact/);
+});

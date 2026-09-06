@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -65,6 +66,12 @@ export async function POST(request) {
       if (governed) return fail(governed, governed.includes("not found") ? 404 : 409);
       throw error;
     }
+
+    await broadcastHotelReadinessChanged({
+      organizationId: access.organizationId,
+      source: "housekeeping-inspection",
+      action: outcome,
+    });
 
     return NextResponse.json({
       success: true,

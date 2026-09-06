@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, RefreshCw, RotateCcw } from "lucide-react";
+import { ArrowRight, BedDouble, RefreshCw, RotateCcw } from "lucide-react";
 
 import {
   HotelEmptyState,
@@ -82,6 +82,33 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
     }
   }, []);
 
+  const assignRecommendedRoom = useCallback(async (item) => {
+    const bookingId = item?.booking?.id;
+    const roomId = item?.recommendedRoom?.id;
+    if (!bookingId || !roomId) return;
+    setBusyBookingId(bookingId);
+    setError(null);
+    try {
+      const response = await fetch("/api/hotel/bookings/assign-room", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId,
+          roomId,
+          reason: item?.room ? "Front Desk fastest safe arrival reassignment" : "Front Desk fastest safe arrival assignment",
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success === false) throw new Error(result.error || "Recommended room is no longer safe to assign");
+      notifyHotelReadinessChanged({ source: "arrival-fast-path", bookingId, roomId });
+    } catch (assignError) {
+      setError(assignError?.message || "Unable to assign recommended room");
+    } finally {
+      setBusyBookingId(null);
+    }
+  }, []);
+
   const items = useMemo(() => {
     const all = data?.items || [];
     if (!focusOwner) return all;
@@ -95,7 +122,7 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
     <HotelSection
       eyebrow="Arrival ownership"
       title={focusOwner ? `${OWNER_LABEL[focusOwner] || focusOwner} — what you own now` : "Who owns every blocked arrival"}
-      detail="Derived live from the reservation, assigned room, physical room state, Housekeeping and canonical Maintenance requests. Ownership moves automatically when the underlying blocker changes; there is no duplicate queue to maintain."
+      detail="Derived live from the reservation, assigned room, physical room state, Housekeeping and canonical Maintenance requests. If another room is safely ready now, Front Desk owns the faster guest path instead of waiting on the blocked room."
       action={<HotelSecondaryAction onClick={() => load({ silent: true })} disabled={refreshing}><RefreshCw size={9} className={refreshing ? "animate-spin" : ""} />Refresh</HotelSecondaryAction>}
     >
       <HotelError>{error}</HotelError>
@@ -106,9 +133,10 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
       ) : null}
 
       {!compact ? (
-        <div className="grid grid-cols-2 gap-3 border-b border-black/[0.055] p-4 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 border-b border-black/[0.055] p-4 xl:grid-cols-7">
           <HotelMetric label="Due arrivals" value={summary.dueArrivals || 0} detail="Property business day" />
           <HotelMetric label="Ready" value={summary.ready || 0} detail="No physical blocker" />
+          <HotelMetric label="Fast room path" value={summary.fastPathReadyRooms || 0} detail="Ready alternative now" attention={(summary.fastPathReadyRooms || 0) > 0} />
           <HotelMetric label="Blocked" value={summary.blocked || 0} detail="Needs an owner" attention={(summary.blocked || 0) > 0} />
           <HotelMetric label="Front Desk" value={summary.frontDeskOwned || 0} detail="Assignment / room decision" attention={(summary.frontDeskOwned || 0) > 0} />
           <HotelMetric label="Housekeeping" value={summary.housekeepingOwned || 0} detail="Clean / inspect" attention={(summary.housekeepingOwned || 0) > 0} />
@@ -122,13 +150,15 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
             const owner = item.owner;
             const ownerRoute = owner ? OWNER_ROUTE[owner] : null;
             const canRestoreHousekeeping = owner === "HOUSEKEEPING" && item.nextAction?.code === "CREATE_HOUSEKEEPING_WORK";
-            const restoring = busyBookingId === item.booking.id;
+            const canAssignFastPath = owner === "FRONT_DESK" && Boolean(item.recommendedRoom?.id) && ["ASSIGN_READY_ALTERNATIVE", "REASSIGN_READY_ALTERNATIVE"].includes(item.nextAction?.code);
+            const busy = busyBookingId === item.booking.id;
             return (
-              <div key={item.booking.id} className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(170px,1fr)_100px_120px_minmax(190px,1.4fr)_150px] md:items-center md:px-5">
+              <div key={item.booking.id} className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(170px,1fr)_100px_120px_minmax(190px,1.4fr)_165px] md:items-center md:px-5">
                 <div>
                   <div className="text-[10px] font-semibold text-[#403C37]">{item.guest?.name || item.booking.reference || "Arrival"}</div>
                   <div className="mt-0.5 text-[7px] text-[#938D84]">{item.booking.checkInDate || "No arrival date"} · {etaLabel(item.booking.estimatedArrivalAt, item.operationalDay?.timeZone)}</div>
                   <div className="mt-0.5 text-[7px] text-[#AAA39A]">{item.room ? `Room ${item.room.number} · ${item.room.type || "Room"}` : "No room assigned"}</div>
+                  {item.recommendedRoom ? <div className="mt-1 text-[7px] font-semibold text-[#6C815A]">Ready alternative: Room {item.recommendedRoom.roomNumber} · {item.recommendedRoom.roomType || "Room"}</div> : null}
                 </div>
                 <HotelStatusPill value={item.state} tone={item.state === "BLOCKED" ? "critical" : undefined} />
                 <div>
@@ -137,13 +167,18 @@ export default function HotelArrivalReadinessOwnership({ organizationId, focusOw
                 <div>
                   <div className="text-[8px] font-semibold text-[#5D5750]">{item.nextAction?.label || "Continue arrival"}</div>
                   <div className="mt-0.5 text-[7px] leading-3 text-[#928B82]">{item.blocker?.detail || "Assigned room is guest-ready."}</div>
+                  {item.underlyingBlocker ? <div className="mt-1 text-[7px] text-[#9B7D61]">Underlying blocked-room owner: {OWNER_LABEL[item.underlyingOwner] || item.underlyingOwner || "Operational team"} · {item.underlyingBlocker.code}</div> : null}
                   {item.sourceEvidence?.maintenanceRequestId ? <div className="mt-1 text-[7px] text-[#A1744B]">Canonical maintenance request {String(item.sourceEvidence.maintenanceRequestId).slice(0, 8)}</div> : null}
                   {item.sourceEvidence?.housekeepingTaskId ? <div className="mt-1 text-[7px] text-[#8D8173]">Housekeeping task {String(item.sourceEvidence.housekeepingTaskId).slice(0, 8)}</div> : null}
                 </div>
                 <div>
-                  {canRestoreHousekeeping ? (
-                    <HotelPrimaryAction onClick={() => restoreHousekeepingWork(item.booking.id)} disabled={restoring}>
-                      <RotateCcw size={9} />{restoring ? "Restoring" : "Restore work"}
+                  {canAssignFastPath ? (
+                    <HotelPrimaryAction onClick={() => assignRecommendedRoom(item)} disabled={busy}>
+                      <BedDouble size={9} />{busy ? "Rechecking…" : item.nextAction.label}
+                    </HotelPrimaryAction>
+                  ) : canRestoreHousekeeping ? (
+                    <HotelPrimaryAction onClick={() => restoreHousekeepingWork(item.booking.id)} disabled={busy}>
+                      <RotateCcw size={9} />{busy ? "Restoring" : "Restore work"}
                     </HotelPrimaryAction>
                   ) : ownerRoute ? (
                     <HotelPrimaryAction href={hotelWorkspaceHref(organizationId, ownerRoute)}>{owner === focusOwner ? "Open work" : `Go to ${OWNER_LABEL[owner]}`}<ArrowRight size={9} /></HotelPrimaryAction>

@@ -13,6 +13,11 @@ function tableName(table) {
   return table?.table_name || table?.table_number || table?.name || "--";
 }
 
+function tableReference(table) {
+  const value = table?.table_number || table?.table_name || table?.name || null;
+  return value === null || value === undefined ? null : String(value);
+}
+
 function seatOf(item) {
   return item?.seat_position || item?.seat_number || item?.modifiers?.seat || null;
 }
@@ -149,6 +154,7 @@ function SecondaryButton({ children, ...props }) {
 export default function POSFinalUI({
   posRuntime,
   refreshPOSRuntime,
+  onActiveContextChange,
 }) {
   const businessContext = useBusinessContext() || {};
   const organization = businessContext.organization || null;
@@ -504,6 +510,7 @@ export default function POSFinalUI({
     clearCustomerDraft();
     setActiveZoneId(zoneId);
     setActiveTableId(null);
+    onActiveContextChange?.(null);
     setCart([]);
     resetCartIdentity();
   }
@@ -522,6 +529,7 @@ export default function POSFinalUI({
     }
 
     setActiveTableId(table.id);
+    onActiveContextChange?.(tableReference(table));
 
     if (!Number(table.current_guests || 0)) {
       setModalTableId(table.id);
@@ -631,6 +639,7 @@ export default function POSFinalUI({
       });
       setDraftSetupTableId(table.id);
       setActiveTableId(table.id);
+      onActiveContextChange?.(tableReference(table));
       closeModal();
       return;
     }
@@ -656,6 +665,7 @@ export default function POSFinalUI({
       });
 
       setActiveTableId(table.id);
+      onActiveContextChange?.(tableReference(table));
       clearCustomerDraft();
       closeModal();
       await refreshRuntime();
@@ -793,6 +803,7 @@ export default function POSFinalUI({
       setDraftGroups([]);
       setModal("OPEN_TABLE");
       setModalTableId(table.id);
+      onActiveContextChange?.(tableReference(table));
     } catch (error) {
       alert(error.message);
     }
@@ -894,17 +905,6 @@ export default function POSFinalUI({
     } catch (error) {
       alert(error.message);
     }
-  }
-
-  function goToPayment(table) {
-    const number = table?.table_number || table?.table_name || null;
-    if (!organizationId || number === null || number === undefined) return;
-
-    window.location.assign(
-      `/workspace/${organizationId}/operations/pos/payments?table=${encodeURIComponent(
-        String(number)
-      )}`
-    );
   }
 
   if (runtimeError) {
@@ -1059,12 +1059,6 @@ export default function POSFinalUI({
             className="mb-2 w-full rounded-2xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-4 py-4 text-left text-sm font-black text-[#E2C48A]"
           >
             Open Table
-          </button>
-          <button
-            onClick={() => goToPayment(modalTable)}
-            className="mb-2 w-full rounded-2xl bg-[#D6A66A] px-4 py-4 text-left text-sm font-black text-black"
-          >
-            Go to Payment
           </button>
           <SecondaryButton
             onClick={() => {
@@ -1428,12 +1422,9 @@ export default function POSFinalUI({
                 </button>
               </div>
             </div>
-            <button
-              onClick={() => goToPayment(openTable)}
-              className="rounded-xl bg-[#D6A66A] px-3 py-2 text-xs font-black text-black"
-            >
-              Payment
-            </button>
+            <div className="rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E2C48A]">
+              Payment stays visible at right
+            </div>
           </div>
 
           <div className="mt-4 border-t border-white/10 pt-3">
@@ -1578,6 +1569,7 @@ export default function POSFinalUI({
           <button
             onClick={() => {
               setActiveTableId(openTable.id);
+              onActiveContextChange?.(tableReference(openTable));
               setModal(null);
             }}
             className="mt-4 w-full rounded-xl bg-[#D6A66A] py-3 text-xs font-semibold text-black"

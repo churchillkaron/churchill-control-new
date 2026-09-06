@@ -10,6 +10,13 @@ import usePOSRealtime from "@/lib/operations/commerce/realtime/usePOSRealtime";
 
 const FALLBACK_REFRESH_MS = 10000;
 const PRE_PRODUCTION_STATUSES = new Set(["NEW", "PENDING"]);
+const POST_PRODUCTION_STATUSES = new Set([
+  "PREPARING",
+  "IN_PROGRESS",
+  "READY",
+  "SERVED",
+  "COMPLETED",
+]);
 
 function formatMoney(value, currencyCode) {
   const amount = Number(value || 0);
@@ -49,6 +56,16 @@ function realtimeLabel(status, refreshing) {
 
 function itemStatus(item) {
   return String(item?.status || "NEW").trim().toUpperCase();
+}
+
+function adjustmentType(item) {
+  return String(item?.adjustment_type || "").trim().toUpperCase();
+}
+
+function orderIsUnpaid(order) {
+  const paid = Number(order?.paid_amount ?? order?.amount_paid ?? 0);
+  const paymentStatus = String(order?.payment_status || "").trim().toUpperCase();
+  return paid <= 0.001 && !["PAID", "PARTIALLY_PAID", "PARTIAL"].includes(paymentStatus);
 }
 
 export default function POSOrdersPage({ posConfiguration, posRuntime }) {
@@ -97,12 +114,21 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
   const [voidingItemId, setVoidingItemId] = useState(null);
   const [voidReason, setVoidReason] = useState("");
   const [voidBusy, setVoidBusy] = useState(false);
+  const [compingItemId, setCompingItemId] = useState(null);
+  const [compReason, setCompReason] = useState("");
+  const [compBusy, setCompBusy] = useState(false);
 
   const canVoidItems = Boolean(
     isRestaurant &&
       entityId &&
       posRuntime?.capabilities?.actions?.void_order_item === true &&
       posRuntime?.capabilities?.item_corrections_ready === true
+  );
+  const canCompItems = Boolean(
+    isRestaurant &&
+      entityId &&
+      posRuntime?.capabilities?.actions?.comp_order_item === true &&
+      posRuntime?.capabilities?.comp_ready === true
   );
 
   const loadOrders = useCallback(async ({ silent = false } = {}) => {
@@ -237,7 +263,9 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
   }
 
   function beginVoid(item) {
-    if (!canVoidItems || !PRE_PRODUCTION_STATUSES.has(itemStatus(item))) return;
+    if (!canVoidItems || !PRE_PRODUCTION_STATUSES.has(itemStatus(item)) || adjustmentType(item)) return;
+    setCompingItemId(null);
+    setCompReason("");
     setVoidingItemId(item.id);
     setVoidReason("");
     setMessage(null);
@@ -249,35 +277,66 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
     setVoidReason("");
   }
 
+  function beginComp(item) {
+    if (
+      !canCompItems ||
+      !selectedOrder ||
+      !orderIsUnpaid(selectedOrder) ||
+      !POST_PRODUCTION_STATUSES.has(itemStatus(item)) ||
+      adjustmentType(item)
+    ) return;
+    setVoidingItemId(null);
+    setVoidReason("");
+    setCompingItemId(item.id);
+    setCompReason("");
+    setMessage(null);
+    setError(null);
+  }
+
+  function cancelComp() {
+    setCompingItemId(null);
+    setCompReason("");
+  }
+
+  async function submitItemCorrection({ item, correctionType, reason }) {
+    if (!selectedOrder || !item?.id || !reason.trim()) return;
+    const idempotencyKey = `restaurant-item-${correctionType.toLowerCase()}:${selectedOrder.id}:${item.id}:${crypto.randomUUID()}`;
+    const response = await fetch("/api/pos/item-corrections", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify({
+        organizationId,
+        entityId,
+        applicationId: "restaurant",
+        orderId: selectedOrder.id,
+        orderItemId: item.id,
+        correctionType,
+        reason: reason.trim(),
+        idempotencyKey,
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.success === false) {
+      throw new Error(result.error || `Unable to ${correctionType.toLowerCase()} restaurant item`);
+    }
+    return result;
+  }
+
   async function confirmVoid(item) {
-    if (!selectedOrder || !item?.id || !canVoidItems || !voidReason.trim()) return;
-    const idempotencyKey = `restaurant-item-void:${selectedOrder.id}:${item.id}:${crypto.randomUUID()}`;
+    if (!canVoidItems || !voidReason.trim()) return;
     setVoidBusy(true);
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch("/api/pos/item-corrections", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey,
-        },
-        body: JSON.stringify({
-          organizationId,
-          entityId,
-          applicationId: "restaurant",
-          orderId: selectedOrder.id,
-          orderItemId: item.id,
-          correctionType: "VOID",
-          reason: voidReason.trim(),
-          idempotencyKey,
-        }),
+      const result = await submitItemCorrection({
+        item,
+        correctionType: "VOID",
+        reason: voidReason,
       });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok || result.success === false) {
-        throw new Error(result.error || "Unable to void restaurant item");
-      }
       cancelVoid();
       setMessage(
         result.dispatch_pending
@@ -289,6 +348,31 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
       setError(voidError?.message || "Unable to void restaurant item");
     } finally {
       setVoidBusy(false);
+    }
+  }
+
+  async function confirmComp(item) {
+    if (!canCompItems || !selectedOrder || !orderIsUnpaid(selectedOrder) || !compReason.trim()) return;
+    setCompBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await submitItemCorrection({
+        item,
+        correctionType: "COMP",
+        reason: compReason,
+      });
+      cancelComp();
+      setMessage(
+        result.dispatch_pending
+          ? "Item comped · downstream event dispatch pending"
+          : "Item comped · production history preserved"
+      );
+      await loadOrders({ silent: true });
+    } catch (compError) {
+      setError(compError?.message || "Unable to comp restaurant item");
+    } finally {
+      setCompBusy(false);
     }
   }
 
@@ -443,29 +527,46 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                   {selectedItems.length ? (
                     selectedItems.map((item) => {
                       const status = itemStatus(item);
-                      const voidEligible = canVoidItems && PRE_PRODUCTION_STATUSES.has(status);
+                      const adjustment = adjustmentType(item);
+                      const voidEligible =
+                        canVoidItems &&
+                        !adjustment &&
+                        PRE_PRODUCTION_STATUSES.has(status) &&
+                        orderIsUnpaid(selectedOrder);
+                      const compEligible =
+                        canCompItems &&
+                        !adjustment &&
+                        POST_PRODUCTION_STATUSES.has(status) &&
+                        orderIsUnpaid(selectedOrder);
                       const voidOpen = voidingItemId === item.id;
+                      const compOpen = compingItemId === item.id;
 
                       return (
                         <div
                           key={item.id}
                           className="rounded-xl border border-white/10 bg-black/20 p-4"
                           data-restaurant-order-item={item.id}
+                          data-restaurant-item-adjustment={adjustment || undefined}
                         >
                           <div className="flex items-center justify-between gap-4">
                             <div className="min-w-0">
-                              <div className="font-medium">
+                              <div className={adjustment ? "font-medium line-through opacity-60" : "font-medium"}>
                                 {item.item_name || item.name || "Item"}
                               </div>
                               <div className={`mt-1 text-xs ${statusClass(status)}`}>
                                 {status}
                               </div>
+                              {adjustment ? (
+                                <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-red-300">
+                                  {adjustment === "COMP" ? "Comped · not charged" : `${adjustment} · not charged`}
+                                </div>
+                              ) : null}
                             </div>
                             <div className="flex shrink-0 items-center gap-3">
-                              <div className="text-sm text-white/55">
+                              <div className={adjustment ? "text-sm text-white/35 line-through" : "text-sm text-white/55"}>
                                 {Number(item.quantity || 1)} × {formatMoney(item.price, currencyCode)}
                               </div>
-                              {voidEligible && !voidOpen ? (
+                              {voidEligible && !voidOpen && !compOpen ? (
                                 <button
                                   type="button"
                                   onClick={() => beginVoid(item)}
@@ -473,6 +574,16 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                                   data-restaurant-item-void-action="true"
                                 >
                                   <ShieldAlert size={12} /> Void
+                                </button>
+                              ) : null}
+                              {compEligible && !voidOpen && !compOpen ? (
+                                <button
+                                  type="button"
+                                  onClick={() => beginComp(item)}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-2.5 py-1.5 text-[10px] font-semibold text-amber-700"
+                                  data-restaurant-item-comp-action="true"
+                                >
+                                  <ShieldAlert size={12} /> Comp
                                 </button>
                               ) : null}
                             </div>
@@ -503,6 +614,35 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                                 className="mt-2 w-full rounded-xl bg-[#25231F] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-30"
                               >
                                 {voidBusy ? "Voiding..." : "Confirm void"}
+                              </button>
+                            </div>
+                          ) : null}
+
+                          {compOpen ? (
+                            <div className="mt-3 rounded-xl border border-amber-500/15 bg-amber-500/[0.04] p-3" data-restaurant-item-comp-editor="true">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-700">Manager comp</div>
+                                  <div className="mt-1 text-[11px] leading-4 text-white/45">Use only after production or service has started. The item stays in Kitchen/Expo history but becomes non-billable. Reason is required.</div>
+                                </div>
+                                <button type="button" onClick={cancelComp} className="rounded-lg p-1 text-white/35" aria-label="Cancel item comp">
+                                  <X size={14} />
+                                </button>
+                              </div>
+                              <textarea
+                                value={compReason}
+                                onChange={(event) => setCompReason(event.target.value)}
+                                rows={2}
+                                placeholder="Why is this item being comped?"
+                                className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-white px-3 py-2 text-xs text-[#191919] outline-none"
+                              />
+                              <button
+                                type="button"
+                                disabled={!compReason.trim() || compBusy}
+                                onClick={() => confirmComp(item)}
+                                className="mt-2 w-full rounded-xl bg-[#25231F] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-30"
+                              >
+                                {compBusy ? "Comping..." : "Confirm comp"}
                               </button>
                             </div>
                           ) : null}

@@ -32,10 +32,21 @@ function ticketLabel(entry) {
   );
 }
 
+function stationLabel(entry) {
+  return entry.work_center?.name || entry.queue_name || "Kitchen";
+}
+
 function ageClass(minutes) {
   if (minutes >= 20) return "border-red-400/45 bg-red-500/[0.07] text-red-100";
   if (minutes >= 12) return "border-amber-300/35 bg-amber-300/[0.06] text-amber-100";
   return "border-white/10 bg-white/[0.025] text-white";
+}
+
+function modifierValues(item) {
+  const source = item?.modifiers && typeof item.modifiers === "object" ? item.modifiers : {};
+  return Object.entries(source)
+    .filter(([key, value]) => value && !["seat", "notes"].includes(String(key).toLowerCase()))
+    .map(([key, value]) => ({ key, value: String(value) }));
 }
 
 export default function RestaurantKitchenDisplay() {
@@ -51,6 +62,7 @@ export default function RestaurantKitchenDisplay() {
   const [entries, setEntries] = useState([]);
   const [applicationId, setApplicationId] = useState(null);
   const [filter, setFilter] = useState("ACTIVE");
+  const [station, setStation] = useState("ALL");
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState(null);
   const [error, setError] = useState(null);
@@ -103,9 +115,14 @@ export default function RestaurantKitchenDisplay() {
     [entries],
   );
 
+  const stations = useMemo(
+    () => ["ALL", ...new Set(activeTickets.map((entry) => stationLabel(entry)).filter(Boolean))],
+    [activeTickets],
+  );
+
   const visibleTickets = useMemo(() => {
     const source = filter === "ALL" ? entries : activeTickets;
-    const filtered = filter === "READY"
+    const byStatus = filter === "READY"
       ? source.filter(
           (entry) =>
             READY.has(statusOf(entry.status)) ||
@@ -117,10 +134,14 @@ export default function RestaurantKitchenDisplay() {
           )
         : source;
 
-    return [...filtered].sort(
+    const byStation = station === "ALL"
+      ? byStatus
+      : byStatus.filter((entry) => stationLabel(entry) === station);
+
+    return [...byStation].sort(
       (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime(),
     );
-  }, [activeTickets, entries, filter]);
+  }, [activeTickets, entries, filter, station]);
 
   const metrics = useMemo(() => ({
     active: activeTickets.length,
@@ -227,6 +248,25 @@ export default function RestaurantKitchenDisplay() {
             </div>
           </div>
 
+          {stations.length > 2 ? (
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+              {stations.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setStation(value)}
+                  className={
+                    station === value
+                      ? "shrink-0 rounded-xl bg-white px-3 py-2 text-[10px] font-semibold text-black"
+                      : "shrink-0 rounded-xl border border-white/10 px-3 py-2 text-[10px] text-white/42"
+                  }
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           {error ? (
             <div className="mt-4 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-100">{error}</div>
           ) : null}
@@ -244,7 +284,7 @@ export default function RestaurantKitchenDisplay() {
                 <article key={entry.id} className={`rounded-[24px] border p-4 ${ageClass(minutes)}`}>
                   <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
                     <div>
-                      <div className="text-[9px] uppercase tracking-[0.18em] opacity-50">{entry.work_center?.name || "Kitchen"}</div>
+                      <div className="text-[9px] uppercase tracking-[0.18em] opacity-50">{stationLabel(entry)}</div>
                       <h2 className="mt-1 text-2xl font-semibold">{ticketLabel(entry)}</h2>
                       <div className="mt-1 text-[10px] opacity-35">{entry.demand?.reference || entry.demand?.id || entry.id}</div>
                     </div>
@@ -260,12 +300,20 @@ export default function RestaurantKitchenDisplay() {
                       const busy = actionId === `${entry.id}:${itemId}`;
                       const ready = READY.has(status);
                       const closed = CLOSED.has(status);
+                      const modifiers = modifierValues(item);
                       return (
                         <div key={itemId || item.name} className="rounded-2xl border border-white/10 bg-black/25 p-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <div className="text-base font-semibold">{Number(item.quantity || 1)} × {item.name || "Item"}</div>
-                              {item.notes ? <div className="mt-1 text-xs font-medium text-amber-100/80">{item.notes}</div> : null}
+                              {item.notes ? <div className="mt-1 rounded-lg border border-amber-300/15 bg-amber-300/[0.05] px-2.5 py-2 text-xs font-medium text-amber-100/85">{item.notes}</div> : null}
+                              {modifiers.length ? (
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  {modifiers.map(({ key, value }) => (
+                                    <span key={`${key}:${value}`} className="rounded-lg border border-white/10 px-2 py-1 text-[10px] text-white/52">{value}</span>
+                                  ))}
+                                </div>
+                              ) : null}
                             </div>
                             <div className="text-[9px] font-semibold uppercase tracking-[0.12em] opacity-40">{status}</div>
                           </div>
@@ -286,7 +334,7 @@ export default function RestaurantKitchenDisplay() {
                                 onClick={() => updateItem(entry, item, "READY")}
                                 className="rounded-xl bg-[#D6A66A] py-2.5 text-xs font-bold text-black disabled:opacity-30"
                               >
-                                {busy ? "Saving..." : ready ? "Ready" : "Ready"}
+                                {busy ? "Saving..." : "Ready"}
                               </button>
                             </div>
                           ) : null}

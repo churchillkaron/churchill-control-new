@@ -49,12 +49,31 @@ async function financeSnapshotFetcher([, organizationId, entityId, periodId]) {
 
 export function FinanceLandingRuntimeProvider({ organizationId, children }) {
   const businessContext = useBusinessContext() || {};
-  const entityId = businessContext.entity_id || businessContext.entity?.id || null;
-  const periodId = businessContext.period_id || businessContext.period?.id || null;
-  const entity = businessContext.entity || null;
-  const period = businessContext.period || null;
-  const organization = businessContext.organization || null;
-  const key = buildSnapshotKey(organizationId, entityId, periodId);
+  const contextOrganizationId =
+    businessContext.organization_id || businessContext.organization?.id || null;
+  const contextMatchesOrganization =
+    !organizationId ||
+    !contextOrganizationId ||
+    organizationId === contextOrganizationId;
+  const contextReadyForOrganization =
+    businessContext.ready === true &&
+    contextMatchesOrganization &&
+    Boolean(contextOrganizationId);
+
+  const entityId = contextReadyForOrganization
+    ? businessContext.entity_id || businessContext.entity?.id || null
+    : null;
+  const periodId = contextReadyForOrganization
+    ? businessContext.period_id || businessContext.period?.id || null
+    : null;
+  const entity = contextReadyForOrganization ? businessContext.entity || null : null;
+  const period = contextReadyForOrganization ? businessContext.period || null : null;
+  const organization = contextReadyForOrganization
+    ? businessContext.organization || null
+    : null;
+  const key = contextReadyForOrganization
+    ? buildSnapshotKey(organizationId, entityId, periodId)
+    : null;
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(key, financeSnapshotFetcher, {
     dedupingInterval: 2000,
@@ -83,9 +102,14 @@ export function FinanceLandingRuntimeProvider({ organizationId, children }) {
       entity?.currency ||
       organization?.default_currency ||
       null,
-    loading: Boolean(key) && isLoading,
+    loading:
+      !contextReadyForOrganization ||
+      (Boolean(key) && isLoading),
     refreshing: Boolean(key) && isValidating,
-    error: error?.message || "",
+    error:
+      !contextMatchesOrganization && contextOrganizationId
+        ? "Finance is synchronizing the selected organization"
+        : error?.message || "",
     stale: Boolean(error && data),
     generatedAt: data?.generatedAt || null,
     refresh,
@@ -101,6 +125,9 @@ export function FinanceLandingRuntimeProvider({ organizationId, children }) {
     key,
     isLoading,
     isValidating,
+    contextReadyForOrganization,
+    contextMatchesOrganization,
+    contextOrganizationId,
     refresh,
   ]);
 

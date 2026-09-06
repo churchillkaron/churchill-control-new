@@ -8,6 +8,7 @@ const read = relativePath => fs.readFileSync(path.join(root, relativePath), "utf
 const runtime = read("lib/finance/tax/FinanceTaxEvidenceDrilldownRuntime.js");
 const rail = read("components/workspace/finance/FinanceTaxEvidenceDrilldownRail.jsx");
 const posting = read("components/workspace/finance/FinanceTaxPostingEvidenceReview.jsx");
+const exchangeRate = read("components/workspace/finance/FinanceTaxExchangeRateEvidenceReview.jsx");
 
 test("VAT posting evidence stays bound to the existing live posting predicates", () => {
   assert.match(runtime, /dependencyCode === "OUTPUT_POSTING" && eligibleVatLines\.length/);
@@ -51,4 +52,43 @@ test("Posting repair stays on the exact governed source record with no manual co
   assert.match(posting, /Fix this purchase posting/);
   assert.match(posting, /navigation\?\.href/);
   assert.doesNotMatch(posting, /Mark posting fixed|Acknowledge posting|Resolve posting|Dismiss posting/);
+});
+
+test("VAT exchange-rate evidence stays bound to the existing live missing-or-zero FX predicate", () => {
+  assert.match(runtime, /function missingExchangeRate\(row, functionalCurrency\)/);
+  assert.match(runtime, /currency === functionalCurrency/);
+  assert.match(runtime, /!Number\.isFinite\(rate\) \|\| rate === 0/);
+  assert.match(runtime, /dependencyCode === "EXCHANGE_RATES" && eligibleVatLines\.length && missingExchangeRate\(invoice, functionalCurrency\)/);
+  assert.match(runtime, /OUTPUT_EXCHANGE_RATE_MISSING/);
+  assert.match(runtime, /INPUT_EXCHANGE_RATE_MISSING/);
+  assert.match(runtime, /Foreign-currency output VAT cannot use an implicit 1\.0 rate against \$\{functionalCurrency\}/);
+  assert.match(runtime, /Foreign-currency input VAT cannot use an implicit 1\.0 rate against \$\{functionalCurrency\}/);
+});
+
+test("FX blockers render exact accountant evidence without inventing a replacement rate or second authority", () => {
+  for (const marker of ["OUTPUT_EXCHANGE_RATE_MISSING", "INPUT_EXCHANGE_RATE_MISSING"]) {
+    assert.match(exchangeRate, new RegExp(marker));
+  }
+  assert.match(posting, /FinanceTaxExchangeRateEvidenceReview/);
+  assert.match(posting, /isFinanceTaxExchangeRateIssue/);
+  assert.match(posting, /return POSTING_ISSUE_CODES\.has\(upper\(code\)\) \|\| isFinanceTaxExchangeRateIssue\(code\)/);
+  assert.match(exchangeRate, /VAT exchange-rate proof/);
+  assert.match(exchangeRate, /exact foreign-currency source document/);
+  assert.match(exchangeRate, /Document currency/);
+  assert.match(exchangeRate, /Stored exchange rate/);
+  assert.match(exchangeRate, /VAT amount affected/);
+  assert.match(exchangeRate, /Governed functional-currency requirement/);
+  assert.match(exchangeRate, /Evidence does not create a second exchange-rate rule or infer a replacement rate/);
+  assert.match(exchangeRate, /deliberately does not parse or re-derive that accounting context/);
+  assert.match(exchangeRate, /Do not substitute an implicit 1\.0 rate/);
+  assert.match(exchangeRate, /Evidence cannot write, approve or infer an exchange rate/);
+});
+
+test("FX repair stays on the exact governed customer or vendor invoice and cannot be manually completed", () => {
+  assert.match(exchangeRate, /Fix this sales exchange rate/);
+  assert.match(exchangeRate, /Fix this purchase exchange rate/);
+  assert.match(exchangeRate, /navigation\?\.href/);
+  assert.match(exchangeRate, /Blocking · only corrected source accounting truth can clear this FX control/);
+  assert.match(exchangeRate, /Live Tax preflight re-evaluates the source document after the governed accounting record changes/);
+  assert.doesNotMatch(exchangeRate, /Mark FX fixed|Acknowledge FX|Resolve FX|Dismiss FX|Approve rate/);
 });

@@ -15,7 +15,7 @@ const STEPS = [
     id: 1,
     label: "Business",
     title: "Your organization",
-    detail: "Core business identity",
+    detail: "Identity and Finance context",
     icon: Building2,
   },
   {
@@ -41,11 +41,23 @@ const INDUSTRIES = [
   { value: "agency", label: "Agency" },
 ];
 
+const ACCOUNTING_STANDARDS = [
+  { value: "IFRS", label: "IFRS" },
+  { value: "TFRS", label: "TFRS — Thailand" },
+  { value: "US_GAAP", label: "US GAAP" },
+  { value: "LOCAL_GAAP", label: "Local GAAP / other" },
+];
+
 const fieldClass =
   "h-11 w-full rounded-xl border border-black/[0.09] bg-white px-3.5 text-[12px] text-[#3E3A34] outline-none transition placeholder:text-[#AAA69E] hover:border-black/[0.14] focus:border-[#D6A66A]/70 focus:ring-2 focus:ring-[#D6A66A]/10";
 
 function clean(value) {
   return String(value ?? "").trim();
+}
+
+function isThailand(value) {
+  const normalized = clean(value).toLowerCase();
+  return normalized === "thailand" || normalized === "th" || normalized === "tha";
 }
 
 function Field({ label, hint, children }) {
@@ -79,6 +91,8 @@ export default function OnboardingPage() {
     name: "",
     industry: "",
     country: "",
+    currency: "",
+    accountingStandard: "IFRS",
     ownerName: "",
     ownerEmail: "",
     ownerPhone: "",
@@ -92,9 +106,19 @@ export default function OnboardingPage() {
     () => INDUSTRIES.find((item) => item.value === form.industry)?.label || form.industry,
     [form.industry],
   );
+  const accountingStandardLabel = useMemo(
+    () =>
+      ACCOUNTING_STANDARDS.find((item) => item.value === form.accountingStandard)?.label ||
+      form.accountingStandard,
+    [form.accountingStandard],
+  );
 
   const businessReady = Boolean(
-    clean(form.name) && clean(form.industry) && clean(form.country),
+    clean(form.name) &&
+      clean(form.industry) &&
+      clean(form.country) &&
+      /^[A-Za-z]{3}$/.test(clean(form.currency)) &&
+      clean(form.accountingStandard),
   );
   const ownerReady = Boolean(clean(form.ownerName) && clean(form.ownerEmail));
 
@@ -102,6 +126,30 @@ export default function OnboardingPage() {
     setError("");
     setResult(null);
     setForm((previous) => ({ ...previous, [key]: value }));
+  }
+
+  function updateCountry(value) {
+    setError("");
+    setResult(null);
+    setForm((previous) => {
+      const thai = isThailand(value);
+      const wasThai = isThailand(previous.country);
+
+      return {
+        ...previous,
+        country: value,
+        currency: thai
+          ? "THB"
+          : wasThai && previous.currency === "THB"
+            ? ""
+            : previous.currency,
+        accountingStandard: thai
+          ? "TFRS"
+          : wasThai && previous.accountingStandard === "TFRS"
+            ? "IFRS"
+            : previous.accountingStandard,
+      };
+    });
   }
 
   async function submit() {
@@ -115,7 +163,10 @@ export default function OnboardingPage() {
       const response = await fetch("/api/onboarding/provision", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          currency: clean(form.currency).toUpperCase(),
+        }),
       });
 
       const data = await response.json();
@@ -149,7 +200,7 @@ export default function OnboardingPage() {
                 Set up your organization
               </h1>
               <p className="mt-2 max-w-2xl text-[12px] leading-5 text-[#777169]">
-                Give Avantiqo the business context it needs to create the right organization and workspace.
+                Give Avantiqo the business and Finance context it needs to create the right organization, legal entity and workspace.
               </p>
             </div>
             <div className="min-w-[190px] lg:w-[230px]">
@@ -169,7 +220,7 @@ export default function OnboardingPage() {
 
         <section className="mt-6 overflow-hidden rounded-[22px] border border-black/[0.07] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
           <div className="grid lg:grid-cols-[270px_minmax(0,1fr)]">
-            <aside className="border-b border-black/[0.06] bg-[#FBF8F3] p-5 lg:min-h-[560px] lg:border-b-0 lg:border-r lg:p-6">
+            <aside className="border-b border-black/[0.06] bg-[#FBF8F3] p-5 lg:min-h-[600px] lg:border-b-0 lg:border-r lg:p-6">
               <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[#8A633C]">
                 Setup
               </div>
@@ -217,7 +268,7 @@ export default function OnboardingPage() {
               </div>
 
               <div className="mt-6 border-t border-black/[0.06] pt-5 text-[9px] leading-4 text-[#918B83] lg:mt-8">
-                You can refine legal entities, Finance settings and operating configuration from the workspace after setup.
+                Country and currency become real Finance configuration. Thailand receives the governed Thailand tax baseline; other countries remain tax-unconfigured until a country-specific regime is selected.
               </div>
             </aside>
 
@@ -237,7 +288,7 @@ export default function OnboardingPage() {
                       Tell us about the organization
                     </h2>
                     <p className="mt-1.5 text-[11px] leading-5 text-[#817B73]">
-                      This becomes the organization context Avantiqo uses across the workspace.
+                      These values become the organization and default legal-entity context used across Avantiqo.
                     </p>
 
                     <div className="mt-7 grid gap-5">
@@ -273,10 +324,38 @@ export default function OnboardingPage() {
                           <input
                             required
                             value={form.country}
-                            onChange={(event) => update("country", event.target.value)}
+                            onChange={(event) => updateCountry(event.target.value)}
                             placeholder="Country"
                             className={fieldClass}
                           />
+                        </Field>
+                      </div>
+
+                      <div className="grid gap-5 md:grid-cols-2">
+                        <Field label="Base currency" hint="ISO code">
+                          <input
+                            required
+                            maxLength={3}
+                            value={form.currency}
+                            onChange={(event) => update("currency", event.target.value.toUpperCase())}
+                            placeholder="THB, USD, EUR…"
+                            className={fieldClass}
+                          />
+                        </Field>
+
+                        <Field label="Accounting standard">
+                          <select
+                            required
+                            value={form.accountingStandard}
+                            onChange={(event) => update("accountingStandard", event.target.value)}
+                            className={fieldClass}
+                          >
+                            {ACCOUNTING_STANDARDS.map((item) => (
+                              <option key={item.value} value={item.value}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
                         </Field>
                       </div>
                     </div>
@@ -309,7 +388,7 @@ export default function OnboardingPage() {
                       Primary owner contact
                     </h2>
                     <p className="mt-1.5 text-[11px] leading-5 text-[#817B73]">
-                      The owner email is used to connect the organization to an existing Avantiqo account when available.
+                      The owner must already have an Avantiqo account. The contact becomes the organization’s canonical owner Party and access record.
                     </p>
 
                     <div className="mt-7 grid gap-5">
@@ -378,7 +457,7 @@ export default function OnboardingPage() {
                       Confirm the organization
                     </h2>
                     <p className="mt-1.5 text-[11px] leading-5 text-[#817B73]">
-                      Check the setup before Avantiqo creates the organization and its workspace.
+                      Check the setup before Avantiqo creates the organization, owner Party, Finance baseline and workspace.
                     </p>
 
                     <div className="mt-6 overflow-hidden rounded-2xl border border-black/[0.07] bg-[#FCFBF8] px-4">
@@ -386,6 +465,12 @@ export default function OnboardingPage() {
                         <ReviewRow label="Organization" value={form.name} />
                         <ReviewRow label="Industry" value={industryLabel} />
                         <ReviewRow label="Country" value={form.country} />
+                        <ReviewRow label="Currency" value={clean(form.currency).toUpperCase()} />
+                        <ReviewRow label="Accounting" value={accountingStandardLabel} />
+                        <ReviewRow
+                          label="Tax setup"
+                          value={isThailand(form.country) ? "Thailand baseline" : "Country-specific setup required"}
+                        />
                         <ReviewRow label="Owner" value={form.ownerName} />
                         <ReviewRow label="Email" value={form.ownerEmail} />
                         <ReviewRow label="Phone" value={form.ownerPhone || "Not provided"} />

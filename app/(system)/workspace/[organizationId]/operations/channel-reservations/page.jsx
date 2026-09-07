@@ -51,6 +51,7 @@ const FILTERS = Object.freeze([
 
 function workLabel(item) {
   switch (item.workState) {
+    case "DAY_CLOSED_REVIEW": return "Day closed";
     case "CANONICAL_REVIEW": return "Hotel review";
     case "PROVIDER_RETRY": return "Provider retry";
     case "AWAITING_ACK": return "Awaiting ACK";
@@ -60,7 +61,7 @@ function workLabel(item) {
 }
 
 function workTone(item) {
-  if (["CANONICAL_REVIEW", "PROVIDER_RETRY"].includes(item.workState)) return "critical";
+  if (["DAY_CLOSED_REVIEW", "CANONICAL_REVIEW", "PROVIDER_RETRY"].includes(item.workState)) return "critical";
   if (item.workState === "AWAITING_ACK" || item.workState === "PROCESSING") return "warning";
   if (item.workState === "SETTLED") return "good";
   return "neutral";
@@ -100,6 +101,7 @@ function ReservationRow({ item, organizationId, retryingEventId, onRetryProvider
   const canonicalAmount = item.booking?.totalAmount ?? item.providerStay?.amount;
   const currency = item.booking?.currencyCode || item.providerStay?.currencyCode || "THB";
   const retryable = ["PROVIDER_RETRY", "AWAITING_ACK"].includes(item.workState);
+  const closedDayReview = item.workState === "DAY_CLOSED_REVIEW";
   const retrying = retryingEventId === item.id;
   return (
     <div className={`grid gap-3 px-4 py-4 md:px-5 xl:grid-cols-[minmax(250px,1.25fr)_minmax(180px,0.8fr)_minmax(220px,1fr)_minmax(190px,0.85fr)_auto] ${item.needsAttention ? "bg-[#FFF9F5]" : "bg-white"}`}>
@@ -137,6 +139,7 @@ function ReservationRow({ item, organizationId, retryingEventId, onRetryProvider
       </div>
 
       <div className="flex flex-wrap content-start gap-2 xl:justify-end">
+        {closedDayReview ? <HotelSecondaryAction href={`/workspace/${organizationId}/operations/night-audit`}>Review Day Close</HotelSecondaryAction> : null}
         {retryable ? <HotelSecondaryAction onClick={() => onRetryProviderHandoff(item.id)} disabled={Boolean(retryingEventId)}>{retrying ? "Retrying…" : "Retry OTA handoff"}</HotelSecondaryAction> : null}
         {item.booking?.id ? <HotelSecondaryAction href={`/workspace/${organizationId}/operations/stay-control?bookingId=${encodeURIComponent(item.booking.id)}`}>Open stay</HotelSecondaryAction> : null}
         <HotelSecondaryAction href={`/workspace/${organizationId}/operations/channel-manager`}>Channel setup</HotelSecondaryAction>
@@ -230,7 +233,7 @@ export default function ChannelReservationsPage() {
       <HotelError>{error}</HotelError>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <HotelMetric label="Needs attention" value={summary.needsAttention || 0} detail="Inventory, mapping, in-house or provider retry" attention={(summary.needsAttention || 0) > 0} />
+        <HotelMetric label="Needs attention" value={summary.needsAttention || 0} detail={`${summary.dayClosedReview || 0} day-close exception${summary.dayClosedReview === 1 ? "" : "s"} · inventory, mapping, in-house or provider work`} attention={(summary.needsAttention || 0) > 0} />
         <HotelMetric label="Awaiting OTA ACK" value={summary.awaitingAck || 0} detail="Hotel accepted; provider handoff still unproven" attention={(summary.awaitingAck || 0) > 0} />
         <HotelMetric label="Settled events" value={summary.settled || 0} detail={`${summary.total || 0} inbound room-stay events recorded`} />
         <HotelMetric label="Latest inbound" value={latest ? new Date(latest).toLocaleDateString() : "—"} detail={latest ? when(latest) : "No OTA reservation evidence yet"} />
@@ -260,11 +263,11 @@ export default function ChannelReservationsPage() {
         {loading ? <HotelEmptyState>Loading governed OTA reservation evidence…</HotelEmptyState> : groups.length === 0 ? <HotelEmptyState>{connections.length ? (filter === "ATTENTION" ? "Nothing needs attention. New OTA reservations and exceptions will appear here automatically." : "No reservation events match this view yet.") : "No inbound OTA reservation evidence exists yet."}</HotelEmptyState> : <div className="divide-y divide-black/[0.06]">{groups.map((group) => <div key={group.key}><div className="flex flex-wrap items-center justify-between gap-2 bg-[#FAF8F4] px-4 py-2.5 md:px-5"><div><div className="text-[8px] font-semibold uppercase tracking-[0.08em] text-[#6E655C]">{group.provider?.name || group.provider?.id || "OTA"} · reservation #{group.reservationId}</div><div className="mt-0.5 text-[7px] text-[#A09990]">{group.items.length} room-stay event{group.items.length === 1 ? "" : "s"} · latest first</div></div><HotelStatusPill value={group.provider?.connectionStatus || "UNKNOWN"} /></div><div className="divide-y divide-black/[0.05]">{group.items.map((item) => <ReservationRow key={item.id} item={item} organizationId={organizationId} retryingEventId={retryingEventId} onRetryProviderHandoff={retryProviderHandoff} />)}</div></div>)}</div>}
       </HotelSection>
 
-      <HotelSection eyebrow="03 · Operating rule" title="Automation stops before it can damage an in-house stay" detail="Mapping conflicts, protected inventory and checked-in changes remain explicit operator work. Only a reconciled stay with a pending provider handoff can be retried here; the retry refetches provider truth before acknowledgement.">
+      <HotelSection eyebrow="03 · Operating rule" title="Automation stops before it can rewrite certified Hotel truth" detail="Mapping conflicts, protected inventory, checked-in changes and closed business days remain explicit operator work. Provider retry is available only after canonical Hotel acceptance is already safe.">
         <div className="grid gap-3 p-4 md:grid-cols-3 md:p-5">
           <div className="rounded-xl border border-black/[0.06] bg-[#FBFAF7] p-3"><div className="text-[8px] font-semibold text-[#4B453F]">Hotel accepted</div><div className="mt-1 text-[8px] leading-4 text-[#8A837B]">The exact room-stay event is persisted, mapped to a physical room and reconciled to its canonical booking.</div></div>
           <div className="rounded-xl border border-black/[0.06] bg-[#FBFAF7] p-3"><div className="text-[8px] font-semibold text-[#4B453F]">Provider acknowledged</div><div className="mt-1 text-[8px] leading-4 text-[#8A837B]">A separate ACK state proves Booking.com accepted the exact message. Stale versions are marked superseded, never falsely acknowledged.</div></div>
-          <div className="rounded-xl border border-black/[0.06] bg-[#FBFAF7] p-3"><div className="text-[8px] font-semibold text-[#4B453F]">Human intervention</div><div className="mt-1 text-[8px] leading-4 text-[#8A837B]">If an OTA change would break inventory or alter a checked-in stay, Avantiqo stops and surfaces the reason instead of silently forcing the change.</div></div>
+          <div className="rounded-xl border border-black/[0.06] bg-[#FBFAF7] p-3"><div className="text-[8px] font-semibold text-[#4B453F]">Certified day protected</div><div className="mt-1 text-[8px] leading-4 text-[#8A837B]">An OTA change blocked by Day Close is not retried blindly. Staff review Day Close; only the current day can be explicitly reopened with evidence, while historical days stay immutable.</div></div>
         </div>
       </HotelSection>
     </HotelWorkspaceShell>

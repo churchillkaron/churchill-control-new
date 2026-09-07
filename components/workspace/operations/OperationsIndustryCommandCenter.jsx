@@ -31,6 +31,11 @@ function hrefFor(organizationId, route) {
   return `/workspace/${encodeURIComponent(organizationId)}${route.startsWith("/") ? route : `/${route}`}`;
 }
 
+function capabilityHref(organizationId, profile, capabilityId) {
+  const route = profile?.capabilityRoutes?.[capabilityId] || `/operations/${capabilityId}`;
+  return hrefFor(organizationId, route);
+}
+
 function capabilityCount(source, capabilityIds = []) {
   return capabilityIds.reduce(
     (sum, capabilityId) => sum + Number(source?.[capabilityId]?.active || 0),
@@ -288,7 +293,7 @@ export default function OperationsIndustryCommandCenter({
               ) : null}
 
               {attention.slice(0, 10).map((item) => {
-                const href = hrefFor(organizationId, `/operations/${item.capability_id}`);
+                const href = capabilityHref(organizationId, profile, item.capability_id);
                 const move = moveFor(item);
                 return (
                   <Link
@@ -337,7 +342,7 @@ export default function OperationsIndustryCommandCenter({
                   <div className="py-6 text-[10px] text-[#8E8981]">No scheduled or due work is surfaced for today.</div>
                 ) : null}
                 {today.slice(0, 6).map((item) => {
-                  const href = hrefFor(organizationId, `/operations/${item.capability_id}`);
+                  const href = capabilityHref(organizationId, profile, item.capability_id);
                   const start = item.scheduled_start || item.due_at;
                   return (
                     <Link key={`today-${item.id}`} href={href} className="group grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 py-3">

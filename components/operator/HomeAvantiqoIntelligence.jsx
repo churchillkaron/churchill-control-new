@@ -11,9 +11,21 @@ import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 const OPERATOR_TURN_TIMEOUT_MS = 12 * 60 * 1000;
 const CODE_PREWARM_POLL_MS = 5000;
 const CODE_PREWARM_MAX_POLLS = 90;
+const CODE_COMMIT_CAPABILITY_KEY = "platform.code_ai_commit.execute";
+const CODE_COMMIT_VERIFY_CAPABILITY_KEY = "platform.code_ai_commit_status.verify";
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
+}
+
+function list(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 async function fetchWithTimeout(
@@ -66,6 +78,41 @@ function projectStatusLabel(value) {
   return "In progress";
 }
 
+function pendingCodeCommitIntent(pendingExecution = {}) {
+  const pending = object(pendingExecution);
+  const payload = object(pending.payload);
+  const resume = object(payload.resume);
+  const steps = list(payload.steps);
+  const currentStepId = text(resume.current_step_id);
+  const currentStep =
+    steps.find((step) => text(step?.id) === currentStepId) ||
+    steps.find(
+      (step) => text(step?.capability_key) === CODE_COMMIT_CAPABILITY_KEY,
+    ) ||
+    null;
+
+  if (text(currentStep?.capability_key) !== CODE_COMMIT_CAPABILITY_KEY) {
+    return null;
+  }
+
+  const verifyAfter = object(currentStep?.verify_after);
+  if (
+    text(verifyAfter.capability_key) !== CODE_COMMIT_VERIFY_CAPABILITY_KEY
+  ) {
+    return null;
+  }
+
+  const stepPayload = object(currentStep?.payload);
+  const executionKey = text(stepPayload.execution_key);
+  if (!executionKey) return null;
+
+  return {
+    executionKey,
+    commitMessage: text(stepPayload.commit_message) || null,
+    verificationCapabilityKey: CODE_COMMIT_VERIFY_CAPABILITY_KEY,
+  };
+}
+
 function executionEvidence(result) {
   const execution = result?.execution || {};
   const agreementState =
@@ -81,17 +128,66 @@ function executionEvidence(result) {
       execution?.capability_key ||
       pendingExecution?.capability_key,
   );
+  const codeEvidence = object(
+    execution?.code_execution_evidence ||
+      execution?.post_action_verification?.code_execution_evidence ||
+      result?.code_execution_evidence ||
+      result?.provider_evidence?.code_execution_evidence ||
+      result?.evidence?.code_execution_evidence,
+  );
+  const pendingCommit = pendingCodeCommitIntent(pendingExecution);
+
+  if (text(pendingExecution?.capability_key)) {
+    if (pendingCommit) {
+      const proof = [
+        `Code ${pendingCommit.executionKey}`,
+        text(codeEvidence.repository_url) || null,
+        text(codeEvidence.base_commit)
+          ? `base ${text(codeEvidence.base_commit).slice(0, 12)}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return {
+        tone: "pending",
+        label: "Awaiting confirmation",
+        detail: `${proof}. Engineering is verified locally; the governed commit to main is prepared only and has not executed.`,
+      };
+    }
+
+    return {
+      tone: "pending",
+      label: "Awaiting approval",
+      detail: `${text(pendingExecution.capability_key)} is prepared only. Nothing has executed yet.`,
+    };
+  }
 
   if (
     execution?.business_effect_verified === true ||
     verificationStatus === "completed"
   ) {
+    const codeProof = [
+      text(codeEvidence.execution_key)
+        ? `Code ${text(codeEvidence.execution_key)}`
+        : null,
+      text(codeEvidence.repository_url) || null,
+      text(codeEvidence.base_commit)
+        ? `base ${text(codeEvidence.base_commit).slice(0, 12)}`
+        : null,
+      text(codeEvidence.commit_sha)
+        ? `commit ${text(codeEvidence.commit_sha).slice(0, 12)}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
     return {
       tone: "verified",
       label: "Verified complete",
-      detail: capabilityKey
-        ? `${capabilityKey} · business effect verified`
-        : "The business effect was independently verified.",
+      detail: codeProof
+        ? `${codeProof} · independently verified`
+        : capabilityKey
+          ? `${capabilityKey} · business effect verified`
+          : "The business effect was independently verified.",
     };
   }
 
@@ -101,14 +197,6 @@ function executionEvidence(result) {
       label: "Not completed",
       detail:
         "Execution is blocked or verification failed. No action is assumed complete.",
-    };
-  }
-
-  if (text(pendingExecution?.capability_key)) {
-    return {
-      tone: "pending",
-      label: "Awaiting approval",
-      detail: `${text(pendingExecution.capability_key)} is prepared only. Nothing has executed yet.`,
     };
   }
 

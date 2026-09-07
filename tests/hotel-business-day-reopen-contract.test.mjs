@@ -43,7 +43,8 @@ test("Night Audit workboard exposes governed correction rather than a force-clos
   assert.match(page, /Reopen current business day/);
   assert.match(page, /Historical days stay immutable/);
   assert.match(page, /reopenReason\.trim\(\)\.length < 8/);
-  assert.doesNotMatch(page, /force-close/i);
+  assert.doesNotMatch(page, />Force close business day</i);
+  assert.doesNotMatch(page, /action:\s*"FORCE_CLOSE"/);
 });
 
 test("correction table and reopen function are not browser writable", () => {

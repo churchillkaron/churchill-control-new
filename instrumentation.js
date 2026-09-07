@@ -13,6 +13,12 @@ export async function register() {
       "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
     );
     await import(
+      "@/lib/creative/director/runtime/CreativeDirectingIntelligencePlanningBootstrap"
+    );
+    await import(
+      "@/lib/creative/director/runtime/CreativeDirectingIntelligenceExecutionGate"
+    );
+    await import(
       "@/lib/creative/performance/runtime/CreativeHumanPerformancePlanningBootstrap"
     );
     await import(

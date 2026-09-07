@@ -213,7 +213,12 @@ function validateJournal(values = {}) {
 
 function validateInvoice(values = {}) {
   const lines = Array.isArray(values.lines) ? values.lines : [];
-  if (!values.customer || !values.invoice_date || !values.due_date) return false;
+  const customer = values.customer && typeof values.customer === "object" ? values.customer : {};
+  const customerReady = Boolean(
+    customer.party_id ||
+    (customer.new_customer_confirmed === true && String(customer.customer_name || "").trim())
+  );
+  if (!customerReady || !values.invoice_date || !values.due_date) return false;
   if (!values.currency_code && !values.currency) return false;
   const exchangeRate = Number(values.exchange_rate);
   if (!Number.isFinite(exchangeRate) || exchangeRate <= 0 || lines.length < 1) return false;

@@ -61,12 +61,39 @@ export default function LoginCallback() {
     const run = async () => {
       try {
         const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token || !session?.refresh_token) {
+          clearBrowserBrandIntent();
+          router.push("/login");
+          return;
+        }
+
+        const syncResponse = await fetch("/api/auth/session/sync", {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          }),
+        });
+
+        if (!syncResponse.ok) {
+          clearBrowserBrandIntent();
+          router.push("/login");
+          return;
+        }
+
+        const {
           data: { user },
         } = await supabase.auth.getUser();
 
         if (!user) {
           clearBrowserBrandIntent();
-          router.push("/");
+          router.push("/login");
           return;
         }
 

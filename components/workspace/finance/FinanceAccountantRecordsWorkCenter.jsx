@@ -177,6 +177,7 @@ export default function FinanceAccountantRecordsWorkCenter({
   const contextScope = capability?.contextScope || presentation.scope || "entity";
   const requiresEntity = contextScope === "entity";
   const contextReady = Boolean(organizationId && (!requiresEntity || entityId));
+  const customerInvoiceWorkspace = capability?.id === "customer_invoices";
   const api = config.api || capability?.runtime?.listApi || null;
   const create = capability?.create?.enabled === true ? capability.create : null;
   const createEngine = useCreateEngine();
@@ -354,7 +355,7 @@ export default function FinanceAccountantRecordsWorkCenter({
   }
 
   function openCreate() {
-    if (!create) return;
+    if (!create || !contextReady) return;
     setSubmissionKey(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
     setForm({});
     createEngine.show();
@@ -525,12 +526,14 @@ export default function FinanceAccountantRecordsWorkCenter({
               </div>
               <h1 className="mt-1.5 text-[27px] font-semibold tracking-[-0.035em] text-[#1B1A18] sm:text-[30px]">{capability?.name || "Finance Records"}</h1>
               <p className="mt-1 max-w-4xl text-[12px] leading-5 text-[#777169]">{capability?.description || presentation.review_label || "Review accounting records and supporting evidence."}</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                <ContextChip>{presentation.review_label}</ContextChip>
-                <ContextChip>{requiresEntity ? "Legal entity scoped" : "Organization scoped"}</ContextChip>
-                {periodId ? <ContextChip>Accounting period selected</ContextChip> : null}
-                <ContextChip>↑ ↓ navigate · / search</ContextChip>
-              </div>
+              {!customerInvoiceWorkspace ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <ContextChip>{presentation.review_label}</ContextChip>
+                  <ContextChip>{requiresEntity ? "Legal entity scoped" : "Organization scoped"}</ContextChip>
+                  {periodId ? <ContextChip>Accounting period selected</ContextChip> : null}
+                  <ContextChip>↑ ↓ navigate · / search</ContextChip>
+                </div>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -548,14 +551,22 @@ export default function FinanceAccountantRecordsWorkCenter({
                 </div>
               ) : null}
               {create ? (
-                <button type="button" onClick={openCreate} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3.5 text-[11px] font-semibold text-white transition hover:bg-black"><Plus size={13} /> {create.label || `New ${capability?.document || "record"}`}</button>
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  disabled={!contextReady}
+                  title={!contextReady ? "Preparing company accounting context…" : undefined}
+                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3.5 text-[11px] font-semibold text-white transition hover:bg-black disabled:cursor-wait disabled:opacity-45"
+                >
+                  <Plus size={13} /> {create.label || `New ${capability?.document || "record"}`}
+                </button>
               ) : null}
             </div>
           </div>
         </header>
 
         {!contextReady ? (
-          <section className="mt-4 rounded-xl border border-amber-700/15 bg-amber-50 p-4 text-[12px] text-amber-900">Select the required legal entity before working with this Finance capability.</section>
+          <section className="mt-4 rounded-xl border border-amber-700/15 bg-amber-50 p-4 text-[12px] text-amber-900">Finance is preparing the company accounting context. If this remains here, complete the legal company setup before creating financial documents.</section>
         ) : (
           <>
             <section className="mt-4 grid gap-2 rounded-xl border border-black/[0.07] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.02)] lg:grid-cols-[minmax(260px,1fr)_180px_200px_auto]">

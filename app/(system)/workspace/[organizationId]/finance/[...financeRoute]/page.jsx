@@ -38,8 +38,9 @@ export default function FinanceDynamicCapabilityPage({ params }) {
   const periodId = contextMatchesRoute
     ? businessContext.period_id || businessContext.period?.id || null
     : null;
+  const contextLoading = businessContext.loading === true || businessContext.ready !== true;
 
-  if (routeOrganizationId && contextOrganizationId && !contextMatchesRoute) {
+  if (contextLoading || (routeOrganizationId && contextOrganizationId && !contextMatchesRoute)) {
     return (
       <div className="flex min-h-[240px] items-center justify-center bg-[#F7F6F3] px-6 text-sm text-[#6C6963]">
         Loading the selected organization...

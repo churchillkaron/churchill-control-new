@@ -14,6 +14,10 @@ const actionMenu = read("components/workspace/actions/MasterActionMenu.jsx");
 const topBar = read("components/workspace/WorkspaceTopBar.jsx");
 const presentation = read("lib/finance/ui/FinanceCapabilityPresentation.js");
 const reviewPanel = read("components/workspace/finance/FinanceRecordReviewPanel.jsx");
+const createEngine = read("components/workspace/engines/CreateEngine.jsx");
+const customerField = read("components/workspace/engines/DynamicCustomerField.jsx");
+const tableField = read("components/workspace/engines/DynamicTableField.jsx");
+const dynamicPage = read("app/(system)/workspace/[organizationId]/finance/[...financeRoute]/page.jsx");
 
 test("customer invoice row lifecycle exposes only executable accounting actions", () => {
   const marker = '{ id: "customer_invoices", name: "Customer Invoices", route: "/finance/customer-invoices", description: "Create, review, post and send customer invoices."';
@@ -114,4 +118,29 @@ test("canonical route ownership wins when another workspace links to the same ro
   assert.match(registry, /if \(leftId === routeWorkspaceId\) return -1/);
   assert.match(registry, /if \(rightId === routeWorkspaceId\) return 1/);
   assert.match(registry, /workspaceId: workspace\.id \|\| workspaceKey/);
+});
+
+
+test("customer selection requires an intentional existing or new-customer choice", () => {
+  assert.match(createEngine, /customer\.party_id/);
+  assert.match(createEngine, /customer\.new_customer_confirmed === true/);
+  assert.match(customerField, /Create “\{search\.trim\(\)\}” as a new customer/);
+  assert.match(customerField, /new_customer_confirmed: true/);
+  assert.match(customerField, /Customer selected/);
+});
+
+test("invoice lines keep accounting detail secondary and automate common entry", () => {
+  assert.match(forms, /label: "VAT \/ Tax"/);
+  assert.match(forms, /name: payable \? "expense_account_id" : "revenue_account_id"[\s\S]{0,220}advanced: true/);
+  assert.match(tableField, /Show accounting details/);
+  assert.match(tableField, /source\.sale_price/);
+  assert.match(tableField, /nextRow\.tax_amount = calculateTax\(nextRow\)/);
+  assert.match(tableField, /Subtotal[\s\S]{0,220}VAT \/ Tax[\s\S]{0,220}Total/);
+  assert.match(tableField, /function calculateLineTotal[\s\S]{0,260}return quantity \* unitPrice - discount;/);
+});
+
+test("Finance waits for synchronized business context instead of flashing an entity blocker", () => {
+  assert.match(dynamicPage, /businessContext\.loading === true \|\| businessContext\.ready !== true/);
+  assert.match(records, /disabled=\{!contextReady\}/);
+  assert.match(topBar, /relative hidden md:block/);
 });

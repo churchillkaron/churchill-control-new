@@ -24,8 +24,23 @@ function calculateLineTotal(row) {
   const quantity = Number(row?.quantity || 0);
   const unitPrice = Number(row?.unit_price || 0);
   const discount = Number(row?.discount_amount || 0);
-  const tax = Number(row?.tax_amount || 0);
-  return quantity * unitPrice - discount + tax;
+  return quantity * unitPrice - discount;
+}
+
+function taxRateFraction(value) {
+  const rate = Number(value);
+  if (!Number.isFinite(rate) || rate < 0) return null;
+  return Math.abs(rate) <= 1 ? rate : rate / 100;
+}
+
+function calculateTax(row) {
+  const rate = taxRateFraction(row?.tax_rate);
+  if (rate === null) return Number(row?.tax_amount || 0);
+  const base = Math.max(
+    0,
+    Number(row?.quantity || 0) * Number(row?.unit_price || 0) - Number(row?.discount_amount || 0)
+  );
+  return Math.round(base * rate * 100) / 100;
 }
 
 function money(value) {
@@ -117,7 +132,7 @@ function TypedLookupCell({ column, row, value, organizationId, entityId, onChang
         const next = current.filter((option) => String(option?.value ?? option) !== String(payload.option.value));
         return [payload.option, ...next];
       });
-      onChange(payload.option.value);
+      onChange(payload.option.value, payload.option);
       setCreateName("");
       setCreateCode("");
       setCreating(false);
@@ -133,7 +148,11 @@ function TypedLookupCell({ column, row, value, organizationId, entityId, onChang
       <select
         value={value || ""}
         required={column.required}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          const selected = options.find((option) => String(option?.value ?? option) === nextValue) || null;
+          onChange(nextValue, selected);
+        }}
         className={INPUT_CLASS}
       >
         <option value="">
@@ -310,10 +329,18 @@ export default function DynamicTableField({
   organizationId,
   entityId,
 }) {
-  const columns = Array.isArray(field.columns) ? field.columns : [];
-  const rows = Array.isArray(value) ? value : [];
+  const columns = useMemo(
+    () => (Array.isArray(field.columns) ? field.columns : []),
+    [field.columns]
+  );
+  const rows = useMemo(
+    () => (Array.isArray(value) ? value : []),
+    [value]
+  );
   const minimumRows = Number(field.minimumRows ?? (field.required ? 1 : 0));
   const isDebitCredit = field.balanceMode === "debit-credit";
+  const hasAdvancedColumns = columns.some((column) => column?.advanced === true);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     if (minimumRows <= 0 || rows.length >= minimumRows) return;
@@ -333,6 +360,16 @@ export default function DynamicTableField({
     };
   }, [isDebitCredit, rows]);
 
+  const invoiceTotals = useMemo(() => {
+    if (isDebitCredit || !columns.some((column) => column.name === "unit_price")) return null;
+    const subtotal = rows.reduce((sum, row) => {
+      const gross = Number(row?.quantity || 0) * Number(row?.unit_price || 0);
+      return sum + Math.max(0, gross - Number(row?.discount_amount || 0));
+    }, 0);
+    const tax = rows.reduce((sum, row) => sum + Number(row?.tax_amount || 0), 0);
+    return { subtotal, tax, total: subtotal + tax };
+  }, [columns, isDebitCredit, rows]);
+
   function writeRows(nextRows) {
     const reconciled = nextRows.map((row) => ({
       ...row,
@@ -343,14 +380,35 @@ export default function DynamicTableField({
     onChange(field.name, reconciled);
   }
 
-  function updateRow(index, key, nextValue) {
+  function updateRow(index, key, nextValue, selectedOption = null) {
     writeRows(
       rows.map((row, rowIndex) => {
         if (rowIndex !== index) return row;
         const nextRow = { ...row, [key]: nextValue };
         if (isDebitCredit && key === "debit" && Number(nextValue || 0) > 0) nextRow.credit = 0;
         if (isDebitCredit && key === "credit" && Number(nextValue || 0) > 0) nextRow.debit = 0;
-        if (key === "tax_code_id" && !nextValue) nextRow.tax_amount = 0;
+        if (key === "item_id" && nextValue && selectedOption) {
+          const source = selectedOption.raw || {};
+          if (!String(nextRow.description || "").trim()) {
+            nextRow.description = source.description || selectedOption.label || "";
+          }
+          const salePrice = Number(source.sale_price);
+          if (Number.isFinite(salePrice) && Number(nextRow.unit_price || 0) === 0) {
+            nextRow.unit_price = salePrice;
+          }
+        }
+        if (key === "tax_code_id") {
+          if (!nextValue) {
+            nextRow.tax_rate = null;
+            nextRow.tax_amount = 0;
+          } else {
+            nextRow.tax_rate = selectedOption?.raw?.tax_rate ?? null;
+            nextRow.tax_amount = calculateTax(nextRow);
+          }
+        }
+        if (["quantity", "unit_price", "discount_amount"].includes(key) && nextRow.tax_code_id) {
+          nextRow.tax_amount = calculateTax(nextRow);
+        }
         return nextRow;
       })
     );
@@ -393,7 +451,7 @@ export default function DynamicTableField({
             </div>
 
             <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {columns.map((column) => (
+              {columns.filter((column) => showAdvanced || column?.advanced !== true).map((column) => (
                 <div
                   key={column.name}
                   className={`min-w-0 ${column.name === "description" ? "sm:col-span-2" : ""}`}
@@ -406,7 +464,7 @@ export default function DynamicTableField({
                     row={row}
                     organizationId={organizationId}
                     entityId={entityId}
-                    onChange={(nextValue) => updateRow(index, column.name, nextValue)}
+                    onChange={(nextValue, selectedOption) => updateRow(index, column.name, nextValue, selectedOption)}
                   />
                 </div>
               ))}
@@ -414,6 +472,24 @@ export default function DynamicTableField({
           </section>
         ))}
       </div>
+
+      {hasAdvancedColumns ? (
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((current) => !current)}
+          className="mt-3 text-[11px] font-medium text-[#D6A66A] hover:text-[#E9C18E]"
+        >
+          {showAdvanced ? "Hide accounting details" : "Show accounting details"}
+        </button>
+      ) : null}
+
+      {invoiceTotals ? (
+        <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/70 sm:flex sm:items-center sm:justify-end sm:gap-5">
+          <span>Subtotal <strong className="ml-1 tabular-nums text-white">{money(invoiceTotals.subtotal)}</strong></span>
+          <span>VAT / Tax <strong className="ml-1 tabular-nums text-white">{money(invoiceTotals.tax)}</strong></span>
+          <span>Total <strong className="ml-1 tabular-nums text-[#E8BE88]">{money(invoiceTotals.total)}</strong></span>
+        </div>
+      ) : null}
 
       {totals ? (
         <div className={`mt-3 rounded-xl border px-3 py-3 text-sm sm:flex sm:items-center sm:justify-between sm:px-4 ${totals.difference === 0 && totals.debit > 0 ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200" : "border-red-400/25 bg-red-500/10 text-red-200"}`}>

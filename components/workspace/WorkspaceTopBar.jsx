@@ -250,7 +250,7 @@ function EntitySelector({ entity, entities }) {
   if (!available.length) return null;
 
   return (
-    <div className="relative hidden lg:block">
+    <div className="relative hidden md:block">
       <button
         type="button"
         onClick={() => {

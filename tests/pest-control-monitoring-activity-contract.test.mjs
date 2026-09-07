@@ -18,6 +18,15 @@ test("visit monitoring API rejects anonymous pest activity", async () => {
   assert.match(route, /activityLevel !== "none" && !pestName/);
   assert.match(route, /Identify the pest before recording observed activity/);
   assert.match(route, /pest_name: activityLevel === "none" \? null : pestName/);
+  assert.match(route, /count: activityLevel === "none" \? 0/);
+});
+
+test("general monitoring API enforces the same pest identity contract", async () => {
+  const route = await source("app/api/service-management/monitoring-points/route.js");
+  assert.match(route, /activityLevel !== "none" && !pestName/);
+  assert.match(route, /Identify the pest before recording observed activity/);
+  assert.match(route, /pest_name: activityLevel === "none" \? null : pestName/);
+  assert.match(route, /const count = activityLevel === "none" \? 0/);
 });
 
 test("Pest Control exposes People qualification authority as a governed cross-domain tool", async () => {

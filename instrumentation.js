@@ -13,7 +13,16 @@ export async function register() {
       "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
     );
     await import(
+      "@/lib/creative/director/runtime/CreativeStoryEscalationPlanningBootstrap"
+    );
+    await import(
       "@/lib/creative/director/runtime/CreativeDirectingIntelligencePlanningBootstrap"
+    );
+    await import(
+      "@/lib/creative/director/runtime/CreativeBudgetQualityPlanningBootstrap"
+    );
+    await import(
+      "@/lib/creative/director/runtime/CreativeAudienceVersioningPlanningBootstrap"
     );
     await import(
       "@/lib/creative/director/runtime/CreativeDirectingIntelligenceExecutionGate"
@@ -137,6 +146,9 @@ export async function register() {
     );
     await import(
       "@/lib/creative/quality/runtime/CreativePerceptualCandidateSelectionBridgeBootstrap"
+    );
+    await import(
+      "@/lib/creative/quality/runtime/CreativeAutonomousShotSelectionBootstrap"
     );
     await import(
       "@/lib/creative/quality/runtime/CreativeShotCandidateQualityGateBootstrap"

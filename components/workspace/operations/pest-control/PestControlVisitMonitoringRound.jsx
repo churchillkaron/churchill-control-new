@@ -39,6 +39,7 @@ function Metric({ label, value, detail, attention = false }) {
 
 export default function PestControlVisitMonitoringRound({ organizationId, occurrenceId }) {
   const [state, setState] = useState({ loading: true, error: "", round: null });
+  const [returnContext, setReturnContext] = useState("technician");
   const load = useCallback(async () => {
     if (!organizationId || !occurrenceId) return;
     setState((current) => ({ ...current, loading: true, error: "" }));
@@ -53,10 +54,18 @@ export default function PestControlVisitMonitoringRound({ organizationId, occurr
   }, [occurrenceId, organizationId]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setReturnContext(new URLSearchParams(window.location.search).get("from") === "rounds" ? "rounds" : "technician");
+  }, []);
+
   const round = state.round;
   const required = useMemo(() => (round?.points || []).filter((point) => point.required_for_visit), [round]);
   const optional = useMemo(() => (round?.points || []).filter((point) => !point.required_for_visit), [round]);
-  const technicianHref = `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/technician`;
+  const technicianHref = `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/technician?occurrenceId=${encodeURIComponent(occurrenceId)}`;
+  const roundsHref = `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/monitoring-rounds`;
+  const returnHref = returnContext === "rounds" ? roundsHref : technicianHref;
+  const returnLabel = returnContext === "rounds" ? "Monitoring rounds" : "Technician execution";
 
   function scanHref(point) {
     const params = new URLSearchParams({ occurrenceId, lookup: point.barcode || point.code });
@@ -68,12 +77,12 @@ export default function PestControlVisitMonitoringRound({ organizationId, occurr
       <div className="mx-auto max-w-[1420px]">
         <header className="flex flex-col gap-4 border-b border-black/[0.07] pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <Link href={technicianHref} className="inline-flex items-center gap-1.5 text-[9px] text-[#8D867E] hover:text-[#79593A]"><ArrowLeft size={10} /> Technician execution</Link>
+            <Link href={returnHref} className="inline-flex items-center gap-1.5 text-[9px] text-[#8D867E] hover:text-[#79593A]"><ArrowLeft size={10} /> {returnLabel}</Link>
             <div className="mt-3 text-[10px] font-medium uppercase tracking-[0.18em] text-[#9A744B]">Visit monitoring round</div>
             <h1 className="mt-1 text-[27px] font-medium tracking-[-0.04em] text-[#201E1B]">Required monitoring coverage</h1>
             <p className="mt-1 max-w-3xl text-[11px] leading-5 text-[#777169]">Check every point that is due, overdue or has never been inspected at this exact customer site. Upcoming points stay visible but do not force unnecessary service.</p>
           </div>
-          <button type="button" onClick={load} className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#806143]" aria-label="Refresh monitoring round"><RefreshCw size={11} className={state.loading ? "animate-spin" : ""} /></button>
+          <div className="flex items-center gap-2">{returnContext === "rounds" ? <Link href={technicianHref} className="rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[8px] font-medium text-[#625D56]">Technician execution</Link> : null}<button type="button" onClick={load} className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#806143]" aria-label="Refresh monitoring round"><RefreshCw size={11} className={state.loading ? "animate-spin" : ""} /></button></div>
         </header>
 
         {state.error ? <div className="mt-4 flex items-start gap-2 rounded-xl border border-[#B36B52]/20 bg-[#B36B52]/[0.05] px-4 py-3 text-[10px] text-[#8B4937]"><AlertTriangle size={12} className="mt-0.5" />{state.error}</div> : null}

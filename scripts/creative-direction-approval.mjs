@@ -282,6 +282,12 @@ async function directionEstimate(organizationId, shape) {
   const maximumCustomerPrice = Number((
     Number(pricing.customer_price) * maximumCalls
   ).toFixed(6));
+  // Direction calls are token-priced and their prompt/output size varies by operation.
+  // The human approves the total direction budget, not a fictitious identical-call price.
+  // Keep a per-call field for the approval contract, but cap any single call by the
+  // already-approved total budget; the runtime independently enforces remaining spend
+  // and maximum call count before every execution.
+  const maximumPerCallCustomerPrice = maximumCustomerPrice;
   const supplierCost = Number((
     Number(pricing.supplier_cost || 0) * maximumCalls
   ).toFixed(6));
@@ -301,7 +307,7 @@ async function directionEstimate(organizationId, shape) {
     model: selected.model || null,
     pricing_id: selected.pricing_id,
     maximum_calls: maximumCalls,
-    maximum_per_call_customer_price: pricing.customer_price,
+    maximum_per_call_customer_price: maximumPerCallCustomerPrice,
     maximum_customer_price: maximumCustomerPrice,
     supplier_cost_estimate: supplierCost,
     currency: pricing.currency,

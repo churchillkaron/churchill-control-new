@@ -42,13 +42,15 @@ for (const expected of [
   'evidenceMatchesOrganization',
   'validateEvidenceBinding',
   'RESEARCH_SOURCE_NOT_IN_WEB_EVIDENCE',
-  'AUTONOMOUS_COMPANY_MARKET_RESEARCH_V4_WEB_EVIDENCE',
+  'collectDynamicPublicEvidence',
+  'CREATIVE_DYNAMIC_PUBLIC_EVIDENCE_V1',
+  'DUCKDUCKGO_LITE',
+  'runOperatorWebSourceRead',
+  'awaitResearchExecution',
   'AUTONOMOUS_COMPANY_MARKET_RESEARCH_V4_STRUCTURED_SYNTHESIS',
   'response_format: { type: "json_object" }',
   'cost_guard:',
-  'maximum_customer_price: budgetBeforeEvidence.remaining',
   'maximum_customer_price: budgetBeforeSynthesis.remaining',
-  'research_phase: "WEB_EVIDENCE"',
   'research_phase: "STRUCTURED_SYNTHESIS"',
   'evidence_reused: evidenceReused',
   'creative_grounding',
@@ -77,8 +79,8 @@ forbidText(worker, 'RESEARCH_TRANSPORT_VERSION = "WEB_SEARCH_AUTO_V2"', "worker"
 
 console.log("CREATIVE_RESEARCH_GROUNDING_V5_AUDIT=PASS");
 console.log("RESEARCH_TRANSPORT=WEB_EVIDENCE_STRUCTURED_V5");
-console.log("RESEARCH_EVIDENCE=REUSABLE_AND_IDENTITY_GATED");
-console.log("RESEARCH_SYNTHESIS=JSON_OBJECT_NO_WEB_TOOL");
+console.log("RESEARCH_EVIDENCE=DYNAMIC_PUBLIC_DISCOVERY_PLUS_IDENTITY_GATE");
+console.log("RESEARCH_SYNTHESIS=OWNED_JSON_OBJECT_NO_WEB_TOOL");
 console.log("RESEARCH_COST_GUARD=PRE_PROVIDER_CALL");
 console.log("RESEARCH_IDEMPOTENCY=creative-project-research-v5");
 console.log("RESEARCH_MAXIMUM_ATTEMPTS=1");

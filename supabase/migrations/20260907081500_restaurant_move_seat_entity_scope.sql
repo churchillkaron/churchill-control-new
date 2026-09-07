@@ -346,6 +346,10 @@ begin
 end;
 $$;
 
+-- Retire the organization-only SECURITY DEFINER path now that Move Seat is entity-scoped.
+revoke all on function public.restaurant_move_seat_atomic(uuid,uuid,uuid,integer,uuid)
+  from public, anon, authenticated, service_role;
+
 revoke all on function public.restaurant_move_seat_entity_atomic(uuid,uuid,uuid,uuid,integer,uuid) from public, anon, authenticated;
 grant execute on function public.restaurant_move_seat_entity_atomic(uuid,uuid,uuid,uuid,integer,uuid) to service_role;
 

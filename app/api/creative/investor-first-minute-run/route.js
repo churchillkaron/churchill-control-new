@@ -9,7 +9,7 @@ import { ProductionRuntime } from "@/lib/creative/production/runtime/ProductionR
 const ORGANIZATION_ID = "9a148429-b6a0-4bc6-ac83-a35c64fb7045";
 const PROJECT_ID = "0f906cec-2329-46f1-a62e-2dff9ef41f2e";
 const MISSION_ID = "bde23d52-9a95-40be-b667-d263a67542ab";
-const TOKEN_SHA256 = "8024afcb8747f19e75ce573b4c6dbdee56884017983972a426b2c451119424ce";
+const TOKEN_SHA256 = "b2e46fa9fa3c1361c72c97528c20cb65ba9a56e175324bf0e67f6e4575413b9d";
 const MASTER_PLAN_HASH = "eb2a0c8762150f00be3fb91bbeabcc6aea954671e0be8b685aa1efc1c8122e36";
 const STORY_CONTRACT_HASH = "2c6c41af87e813f5d3dfc9478b3b1e76911b7f9fdb3653aea1d67391b4a94968";
 const COUNCIL_HASH = "6c92182a8f3df8045cc947fc243035f2dfd6488b64fd44d36b98f368894b7f54";

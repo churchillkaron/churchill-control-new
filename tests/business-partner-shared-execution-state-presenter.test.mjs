@@ -38,6 +38,8 @@ test("shared execution-state presenter remains presentation-only", () => {
   assert.match(presenter, /authorization_effect:\s*"NONE"/);
   assert.match(presenter, /label:\s*"Awaiting confirmation"/);
   assert.match(presenter, /label:\s*"Awaiting approval"/);
+  assert.match(presenter, /label:\s*"Executing"/);
+  assert.match(presenter, /label:\s*"Verifying"/);
   assert.match(presenter, /label:\s*"Verified complete"/);
   assert.match(presenter, /label:\s*"Not completed"/);
   assert.match(presenter, /label:\s*"Completed check"/);
@@ -55,5 +57,22 @@ test("Verified complete requires an explicit server-owned business-effect verdic
   assert.match(
     presenter,
     /verification read completed, but no business mutation is presented as verified/,
+  );
+});
+
+test("pending execution presentation follows durable governed run phase", () => {
+  assert.match(
+    presenter,
+    /const runStatus = text\(run\.status\)\.toLowerCase\(\)/,
+  );
+  assert.match(presenter, /runStatus === "awaiting_confirmation"/);
+  assert.match(presenter, /runStatus === "awaiting_approval"/);
+  assert.match(presenter, /runStatus === "executing"/);
+  assert.match(presenter, /runStatus === "verifying"/);
+  assert.match(presenter, /runStatus === "blocked"/);
+  assert.match(
+    presenter,
+    /The write will not be replayed/,
+    "post-write verification must never imply automatic replay authority",
   );
 });

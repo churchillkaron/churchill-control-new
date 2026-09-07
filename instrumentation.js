@@ -55,10 +55,10 @@ export async function register() {
       "@/lib/creative/world/runtime/CreativeWorldConsistencyExecutionGate"
     );
     await import(
-      "@/lib/creative/director/runtime/CreativeAerialCinematographyExecutionGate"
+      "@/lib/creative/director/runtime/CreativeCameraGrammarExecutionGate"
     );
     await import(
-      "@/lib/creative/director/runtime/CreativeCameraGrammarExecutionGate"
+      "@/lib/creative/director/runtime/CreativeAerialCinematographyExecutionGate"
     );
     await import(
       "@/lib/creative/identity/runtime/CreativeHumanContinuityQualityBootstrap"

@@ -12,6 +12,8 @@ const rowEngine = read("components/workspace/engines/RowActionEngine.jsx");
 const forms = read("lib/platform/forms/FinanceFormContract.js");
 const actionMenu = read("components/workspace/actions/MasterActionMenu.jsx");
 const topBar = read("components/workspace/WorkspaceTopBar.jsx");
+const presentation = read("lib/finance/ui/FinanceCapabilityPresentation.js");
+const reviewPanel = read("components/workspace/finance/FinanceRecordReviewPanel.jsx");
 
 test("customer invoice row lifecycle exposes only executable accounting actions", () => {
   const marker = '{ id: "customer_invoices", name: "Customer Invoices", route: "/finance/customer-invoices", description: "Create, review, post and send customer invoices."';
@@ -85,6 +87,23 @@ test("an organization with available entities can recover from an empty active e
   assert.match(topBar, /!entity && available\.length === 1/);
   assert.match(topBar, /switchEntity\(available\[0\]\)/);
   assert.match(topBar, /fetch\("\/api\/session\/entity"/);
+});
+
+test("customer invoice list presents invoice total separately from outstanding balance", () => {
+  assert.match(presentation, /customer_invoice:\s*\[/);
+  assert.match(presentation, /label: "Invoice total"[\s\S]{0,120}keys: \["total_amount"/);
+  assert.match(presentation, /label: "Outstanding"[\s\S]{0,140}"outstanding_balance"/);
+  assert.match(presentation, /default_sort_index: capabilityId === "customer_invoices" \? 2 : 0/);
+  assert.match(presentation, /default_sort_direction: capabilityId === "customer_invoices" \? "desc" : "asc"/);
+  assert.match(presentation, /capabilityId === "customer_invoices"[\s\S]{0,120}COLUMN_SETS\.customer_invoice/);
+  assert.match(records, /presentation\.default_sort_direction === "desc" \? "desc" : "asc"/);
+});
+
+test("record review counts invoice line items and displays their line totals", () => {
+  assert.match(reviewPanel, /const collectionItemCount = useMemo/);
+  assert.match(reviewPanel, /collections\.reduce\(\(total, \[, items\]\) => total \+ items\.length, 0\)/);
+  assert.match(reviewPanel, /Lines \{collectionItemCount \? `\(\$\{collectionItemCount\}\)`/);
+  assert.match(reviewPanel, /item\?\.line_total \?\? item\?\.amount/);
 });
 
 test("canonical route ownership wins when another workspace links to the same route", () => {

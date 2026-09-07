@@ -188,8 +188,12 @@ export default function FinanceAccountantRecordsWorkCenter({
   const [rows, setRows] = useState([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [sortIndex, setSortIndex] = useState(0);
-  const [sortDirection, setSortDirection] = useState("asc");
+  const [sortIndex, setSortIndex] = useState(() =>
+    Number.isInteger(presentation.default_sort_index) ? presentation.default_sort_index : 0
+  );
+  const [sortDirection, setSortDirection] = useState(() =>
+    presentation.default_sort_direction === "desc" ? "desc" : "asc"
+  );
   const [selectedId, setSelectedId] = useState(null);
   const [menuId, setMenuId] = useState(null);
   const [activeEngine, setActiveEngine] = useState(null);

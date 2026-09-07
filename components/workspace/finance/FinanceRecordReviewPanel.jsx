@@ -140,6 +140,10 @@ export default function FinanceRecordReviewPanel({
       : [],
     [selected]
   );
+  const collectionItemCount = useMemo(
+    () => collections.reduce((total, [, items]) => total + items.length, 0),
+    [collections]
+  );
 
   async function loadReview() {
     if (!selected || !recordKey || !organizationId || !capability?.id) {
@@ -255,7 +259,7 @@ export default function FinanceRecordReviewPanel({
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <div className="flex gap-4 overflow-x-auto border-b border-black/[0.06]">
           <TabButton active={tab === "overview"} onClick={() => setTab("overview")}>Overview</TabButton>
-          <TabButton active={tab === "lines"} onClick={() => setTab("lines")}>Lines {collections.length ? `(${collections.length})` : ""}</TabButton>
+          <TabButton active={tab === "lines"} onClick={() => setTab("lines")}>Lines {collectionItemCount ? `(${collectionItemCount})` : ""}</TabButton>
           <TabButton active={tab === "review"} onClick={() => setTab("review")}>Review {openNotes.length ? `(${openNotes.length})` : ""}</TabButton>
           <TabButton active={tab === "documents"} onClick={() => setTab("documents")}>Documents {reviewData.documents.length ? `(${reviewData.documents.length})` : ""}</TabButton>
           <TabButton active={tab === "audit"} onClick={() => setTab("audit")}>Audit</TabButton>
@@ -283,7 +287,7 @@ export default function FinanceRecordReviewPanel({
                 <div className="overflow-x-auto rounded-lg border border-black/[0.07]">
                   <table className="min-w-full text-[9px]"><tbody className="divide-y divide-black/[0.05]">
                     {items.slice(0, 50).map((item, itemIndex) => (
-                      <tr key={item?.id || itemIndex}><td className="px-2.5 py-2 text-[#5D5750]">{recordTitle(item || {}, capability)}</td><td className="px-2.5 py-2 text-right text-[#7D766D]">{display(item?.amount ?? item?.debit ?? item?.credit ?? item?.total)}</td></tr>
+                      <tr key={item?.id || itemIndex}><td className="px-2.5 py-2 text-[#5D5750]">{recordTitle(item || {}, capability)}</td><td className="px-2.5 py-2 text-right text-[#7D766D]">{display(item?.line_total ?? item?.amount ?? item?.debit ?? item?.credit ?? item?.total)}</td></tr>
                     ))}
                   </tbody></table>
                 </div>

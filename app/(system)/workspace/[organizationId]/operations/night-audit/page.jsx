@@ -53,6 +53,7 @@ export default function NightAuditPage() {
   const [operationalDate, setOperationalDate] = useState(null);
   const [preflight, setPreflight] = useState(null);
   const [audit, setAudit] = useState(null);
+  const [reopenReason, setReopenReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -97,9 +98,29 @@ export default function NightAuditPage() {
       setAudit(payload.audit || null);
       setPreflight(payload.preflight || null);
       setOperationalDate(payload.operationalDate || null);
+      setReopenReason("");
       setSuccess(`Business day ${payload.operationalDate?.businessDate || ""} closed from live operating evidence.`);
     } catch (reason) {
       if (reason.details) setPreflight(reason.details);
+      setError(reason.message);
+    } finally { setSaving(false); }
+  }
+
+  async function reopenAudit() {
+    if (!propertyId || reopenReason.trim().length < 8) return;
+    setSaving(true); setError(""); setSuccess("");
+    try {
+      const payload = await api("/api/hotel/night-audit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ organizationId, propertyId, action: "REOPEN", reason: reopenReason.trim() }),
+      });
+      setAudit(payload.audit || null);
+      setOperationalDate(payload.operationalDate || null);
+      setReopenReason("");
+      setSuccess(`Business day ${payload.operationalDate?.businessDate || ""} reopened with governed correction evidence. Prior close evidence remains preserved.`);
+      await load();
+    } catch (reason) {
       setError(reason.message);
     } finally { setSaving(false); }
   }
@@ -108,17 +129,19 @@ export default function NightAuditPage() {
   const blockers = preflight?.blockers || [];
   const warnings = preflight?.warnings || [];
   const closed = audit?.status === "CLOSED";
+  const reopened = audit?.status === "REOPENED";
   const configured = operationalDate?.configured === true && operationalDate?.compatibilityFallback !== true;
   const unresolved = blockers.length;
   const propertyName = properties.find((property) => property.id === propertyId)?.name || "Choose property";
-  const closeState = closed ? "CLOSED" : preflight?.ready ? "READY" : "BLOCKED";
+  const closeState = closed ? "CLOSED" : reopened ? "REOPENED" : preflight?.ready ? "READY" : "BLOCKED";
   const closeSummary = useMemo(() => {
     if (closed) return "The day is closed and the exact preflight evidence is stored.";
+    if (reopened) return "The current business day was reopened through governed correction evidence. Resolve the correction, then close again from fresh source truth.";
     if (loading) return "Re-evaluating live hotel work.";
     if (!configured) return "Set the property's real timezone and day cutoff before a business day can close.";
     if (unresolved) return `${unresolved} human decision${unresolved === 1 ? "" : "s"} remain before the day can close.`;
     return "No hard operating exceptions remain. The day can be closed from current evidence.";
-  }, [closed, loading, configured, unresolved]);
+  }, [closed, reopened, loading, configured, unresolved]);
 
   return (
     <HotelWorkspaceShell
@@ -126,7 +149,7 @@ export default function NightAuditPage() {
       active="night-audit"
       eyebrow="Property day control"
       title="Day Close"
-      subtitle="No report ritual and no force-close. Avantiqo continuously turns the property day into exact human work, then closes only when every blocking guest, stay, folio and property-time decision is resolved."
+      subtitle="No report ritual and no force-close. Avantiqo turns the property day into exact human work, closes only when clean, and permits current-day reopening only through explicit governed correction evidence."
       context={propertyName}
       actions={<HotelSecondaryAction onClick={load} disabled={loading}>{loading ? "Refreshing…" : "Refresh live work"}</HotelSecondaryAction>}
     >
@@ -135,7 +158,7 @@ export default function NightAuditPage() {
       <HotelSection eyebrow="Live operating day" title={operationalDate?.businessDate || "Operational day unavailable"} detail={configured ? `${operationalDate.timezone} · Property date ${operationalDate.propertyDate} · Day rolls at ${cutoffLabel(operationalDate.cutoffMinutes)}` : "Operational date is not certified until this property has a real IANA timezone and business-day cutoff."} action={<HotelStatusPill value={configured ? "CONFIGURED" : "BLOCKED"} tone={configured ? "good" : "critical"} />}>
         <div className="grid gap-3 p-4 sm:grid-cols-[minmax(220px,360px)_1fr] md:p-5">
           <HotelField label="Property"><select className={hotelInputClass} value={propertyId} onChange={(event) => setPropertyId(event.target.value)}><option value="">Choose property</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}</select></HotelField>
-          <div className="self-end text-[8px] leading-4 text-[#817B73]">The business date is server-owned. Staff choose the property, never the date. If the property clock is wrong, fix the property clock instead of overriding the operating day.</div>
+          <div className="self-end text-[8px] leading-4 text-[#817B73]">The business date is server-owned. Staff choose the property, never the date. Historical closed days cannot be reopened from this workspace.</div>
         </div>
       </HotelSection>
 
@@ -160,12 +183,18 @@ export default function NightAuditPage() {
           {warnings.length ? <div className="border-t border-black/[0.05] bg-amber-50/50"><div className="px-4 pt-3 text-[7px] font-semibold uppercase tracking-[0.1em] text-amber-800 md:px-5">Visible follow-up — not a false hard block</div>{warnings.map((warning, index) => { const href = resolutionHref(organizationId, warning); return <div key={warning.jobId || index} className="grid gap-2 px-4 py-3 md:grid-cols-[1fr_auto] md:items-center md:px-5"><div><div className="text-[8px] font-semibold text-amber-900">{warning.label}</div><div className="mt-0.5 text-[7px] leading-4 text-amber-900/80">{warning.detail}</div></div>{href ? <HotelSecondaryAction href={href}>{warning.resolution?.label || "Review"}</HotelSecondaryAction> : null}</div>; })}</div> : null}
         </HotelSection>
 
-        <HotelSection eyebrow="Governed close" title={closed ? "Day closed" : preflight?.ready ? "Ready to close" : "Close follows the work"} detail={audit?.closed_at ? `Closed ${new Date(audit.closed_at).toLocaleString()}` : closeSummary}>
+        <HotelSection eyebrow="Governed close" title={closed ? "Day closed" : reopened ? "Correction window open" : preflight?.ready ? "Ready to close" : "Close follows the work"} detail={audit?.closed_at && closed ? `Closed ${new Date(audit.closed_at).toLocaleString()}` : closeSummary}>
           <div className="space-y-4 p-4 md:p-5">
-            <HotelStatusPill value={closeState} tone={closed || preflight?.ready ? "good" : "critical"} />
-            <div className="rounded-xl border border-black/[0.06] bg-[#FBFAF7] p-3 text-[8px] leading-4 text-[#817B73]">Avantiqo re-runs the server preflight at the instant of close. A stale green screen cannot close a property after the underlying guest or financial state has changed.</div>
-            <HotelPrimaryAction disabled={saving || closed || !preflight?.ready || !propertyId} onClick={closeAudit}>{saving ? "Rechecking live work…" : closed ? "Closed" : "Close clean business day"}</HotelPrimaryAction>
+            <HotelStatusPill value={closeState} tone={closed || preflight?.ready ? "good" : reopened ? "warning" : "critical"} />
+            <div className="rounded-xl border border-black/[0.06] bg-[#FBFAF7] p-3 text-[8px] leading-4 text-[#817B73]">Avantiqo re-runs source truth at close. Reopening never deletes the previous close: it creates correction evidence, keeps the original close timestamp and summary, and is restricted to the current property business day.</div>
+            <HotelPrimaryAction disabled={saving || closed || !preflight?.ready || !propertyId} onClick={closeAudit}>{saving ? "Rechecking live work…" : closed ? "Closed" : reopened ? "Close corrected business day" : "Close clean business day"}</HotelPrimaryAction>
             {!configured ? <HotelSecondaryAction href={hotelWorkspaceHref(organizationId, "operational-day")}>Configure property clock</HotelSecondaryAction> : null}
+
+            {closed ? <div className="space-y-3 border-t border-black/[0.06] pt-4">
+              <div><div className="text-[8px] font-semibold text-[#403C37]">Governed correction</div><div className="mt-1 text-[7px] leading-4 text-[#817B73]">Only use this when the current business day was closed with a genuine operating error that must be corrected. Historical days stay immutable.</div></div>
+              <HotelField label="Why must this day be reopened?"><textarea className={hotelInputClass} rows={3} value={reopenReason} onChange={(event) => setReopenReason(event.target.value)} placeholder="Describe the exact operational correction and why an adjustment is not sufficient." /></HotelField>
+              <HotelSecondaryAction disabled={saving || reopenReason.trim().length < 8} onClick={reopenAudit}>{saving ? "Reopening…" : "Reopen current business day"}</HotelSecondaryAction>
+            </div> : null}
           </div>
         </HotelSection>
       </div>

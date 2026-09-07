@@ -69,6 +69,26 @@ class SfxEngine:
             device="cuda",
         )
 
+    def _render_to_path(self, *, instruction: str, seconds: float, steps: int, cfg_scale: float, output: Path) -> int:
+        audio = self.pipe(
+            prompt=instruction,
+            seconds=seconds,
+            num_inference_steps=steps,
+            cfg_scale=cfg_scale,
+        )
+        self.pipe.save_audio(audio, str(output))
+        if not output.is_file() or output.stat().st_size <= 1024:
+            raise RuntimeError("AVANTIQO_SFX_OUTPUT_INVALID")
+        return output.stat().st_size
+
+    @modal.method()
+    def certify_sample(self, instruction: str, seconds: float = 4.0) -> bytes:
+        seconds = max(0.5, min(MAX_SECONDS, float(seconds)))
+        with tempfile.TemporaryDirectory(prefix="avantiqo-sfx-cert-") as tmp:
+            output = Path(tmp) / "cert.wav"
+            self._render_to_path(instruction=instruction, seconds=seconds, steps=100, cfg_scale=4.0, output=output)
+            return output.read_bytes()
+
     @modal.method()
     def generate(self, data: dict[str, Any]) -> dict[str, Any]:
         import requests
@@ -93,17 +113,9 @@ class SfxEngine:
         cfg_scale = max(1.0, min(8.0, _number(params.get("cfg_scale"), 4.0)))
 
         started = time.perf_counter()
-        audio = self.pipe(
-            prompt=instruction,
-            seconds=seconds,
-            num_inference_steps=steps,
-            cfg_scale=cfg_scale,
-        )
         with tempfile.TemporaryDirectory(prefix="avantiqo-sfx-") as tmp:
             output = Path(tmp) / "sfx.wav"
-            self.pipe.save_audio(audio, str(output))
-            if not output.is_file() or output.stat().st_size <= 1024:
-                raise RuntimeError("AVANTIQO_SFX_OUTPUT_INVALID")
+            self._render_to_path(instruction=instruction, seconds=seconds, steps=steps, cfg_scale=cfg_scale, output=output)
             with output.open("rb") as handle:
                 response = requests.put(
                     signed_url,
@@ -151,3 +163,11 @@ def generate_endpoint(data: dict[str, Any]) -> dict[str, Any]:
             "error_code": _text(exc).split(":", 1)[0][:180],
             "error_detail": _text(exc)[:1200],
         }
+
+
+@app.local_entrypoint()
+def certify_local(output_path: str = "/tmp/avantiqo-sfx-cert.wav") -> None:
+    prompt = "A harsh digital bedside alarm clock ringing repeatedly at 06:00 in a dark quiet bedroom, urgent electronic beeps with realistic small-room reflections, no music and no voice."
+    audio = SfxEngine().certify_sample.remote(prompt, 4.0)
+    Path(output_path).write_bytes(audio)
+    print(f"AVANTIQO_SFX_CERT_SAMPLE={output_path}")

@@ -1,0 +1,159 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(here, "..");
+
+function source(relativePath) {
+  return fs.readFileSync(path.join(root, relativePath), "utf8");
+}
+
+async function evidenceRuntime() {
+  const code = source(
+    "lib/operator/runtime/OperatorCodeExecutionEvidenceRuntime.js",
+  );
+  const url = `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
+  return import(url);
+}
+
+function verifiedAutonomousResult(overrides = {}) {
+  return {
+    execution: {
+      status: "completed",
+      capability: {
+        key: "platform.product_engineering_cycle.execute",
+        mode: "write",
+      },
+      result: {
+        mission: {
+          steps: [
+            {
+              id: "engineer_next_gap",
+              status: "completed",
+              verification: {
+                status: "VERIFIED_COMPLETED",
+                verified: true,
+                execution_key: "product-cycle:12345678-1234-1234-1234-123456789abc",
+                execution_state: {
+                  contract: "AVANTIQO_CODE_AI_AUTONOMOUS_EXECUTION_STATE_V1",
+                  attestation_verified: true,
+                  result_success: true,
+                  result_status: "completed",
+                  state_status: "completed",
+                  mission_id: "mission-verified-1",
+                  objective: "Repair the selected repository-grounded gap",
+                  repository_url:
+                    "https://github.com/churchillkaron/churchill-control-new.git",
+                  ref: "main",
+                  base_commit: "1111111111111111111111111111111111111111",
+                  files_changed: {
+                    total_count: 2,
+                    showing: 2,
+                    sample: ["lib/example.js", "tests/example.test.mjs"],
+                  },
+                  source_change_count: 2,
+                  verification_passed: true,
+                  product_completion_criteria_count: 2,
+                  product_completion_criteria_verified: true,
+                  failure_count: 0,
+                  ...overrides,
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+    provider_evidence: {},
+    operator_catalog: {},
+  };
+}
+
+test("verified Code AI read-back becomes the Operator business-effect receipt", async () => {
+  const { withOperatorCodeExecutionEvidence } = await evidenceRuntime();
+  const projected = withOperatorCodeExecutionEvidence(
+    verifiedAutonomousResult(),
+  );
+
+  assert.equal(projected.execution.business_effect_verified, true);
+  assert.equal(projected.execution.post_action_verification.status, "completed");
+  assert.equal(
+    projected.execution.post_action_verification.assertion.method,
+    "code_autonomous_server_state_readback",
+  );
+  assert.equal(
+    projected.execution.code_execution_evidence.execution_key,
+    "product-cycle:12345678-1234-1234-1234-123456789abc",
+  );
+  assert.equal(
+    projected.execution.code_execution_evidence.repository_url,
+    "https://github.com/churchillkaron/churchill-control-new.git",
+  );
+  assert.equal(
+    projected.execution.code_execution_evidence.mission_id,
+    "mission-verified-1",
+  );
+  assert.deepEqual(
+    projected.execution.code_execution_evidence.files_changed,
+    ["lib/example.js", "tests/example.test.mjs"],
+  );
+});
+
+test("unattested or incompletely verified Code evidence never earns completion", async () => {
+  const { withOperatorCodeExecutionEvidence } = await evidenceRuntime();
+
+  const unattested = withOperatorCodeExecutionEvidence(
+    verifiedAutonomousResult({ attestation_verified: false }),
+  );
+  assert.equal(unattested.execution.business_effect_verified, undefined);
+  assert.equal(unattested.execution.post_action_verification, undefined);
+
+  const unverifiedChange = withOperatorCodeExecutionEvidence(
+    verifiedAutonomousResult({ verification_passed: false }),
+  );
+  assert.equal(unverifiedChange.execution.business_effect_verified, undefined);
+  assert.equal(unverifiedChange.execution.post_action_verification, undefined);
+
+  const unverifiedCriteria = withOperatorCodeExecutionEvidence(
+    verifiedAutonomousResult({ product_completion_criteria_verified: false }),
+  );
+  assert.equal(unverifiedCriteria.execution.business_effect_verified, undefined);
+  assert.equal(unverifiedCriteria.execution.post_action_verification, undefined);
+});
+
+test("Code-looking evidence from an unrelated capability is ignored", async () => {
+  const { withOperatorCodeExecutionEvidence } = await evidenceRuntime();
+  const unrelated = verifiedAutonomousResult();
+  unrelated.execution.capability.key = "finance.invoice.create";
+
+  const projected = withOperatorCodeExecutionEvidence(unrelated);
+  assert.equal(projected.execution.business_effect_verified, undefined);
+  assert.equal(projected.code_execution_evidence, undefined);
+});
+
+test("Business Partner projects Code evidence before generic deterministic completion", () => {
+  const runtime = source("lib/operator/runtime/OperatorTurnRuntime.js");
+  assert.match(
+    runtime,
+    /const result = await runGovernedOperatorTurn\(effectiveOptions\);[\s\S]*const evidencedResult = withOperatorCodeExecutionEvidence\(result\);[\s\S]*const verifiedResult = withVerifiedMutationOutcome\(\s*evidencedResult,/,
+  );
+});
+
+test("Code evidence remains inside persisted execution and survives conversation restore", () => {
+  const route = source("app/api/operator/turn/route.js");
+  const conversation = source(
+    "lib/operator/runtime/IntelligenceConversationRuntime.js",
+  );
+  const home = source("components/operator/HomeAvantiqoIntelligence.jsx");
+
+  assert.match(route, /execution:\s*object\(result\?\.execution\)/);
+  assert.match(
+    conversation,
+    /\.select\("id, role, source, content, decision, evidence, execution, navigation, created_at"\)/,
+  );
+  assert.match(home, /execution:\s*turn\?\.execution\s*\|\|\s*\{\}/);
+  assert.match(home, /governance:\s*turn\.role === "assistant"\s*\? executionEvidence\(turn\)\s*:\s*null/);
+});

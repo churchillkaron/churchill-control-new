@@ -235,6 +235,7 @@ export default function MasterActionMenu({
   workspaceId,
   moduleKey,
   variant = "dropdown",
+  surface = "dark",
   onSelect,
   onCreate,
   onAction,
@@ -402,10 +403,17 @@ export default function MasterActionMenu({
                   : "text-white/55 hover:text-white/80",
               ].join(" ")
             : [
-                "block w-full rounded-xl px-3 py-2.5 text-left text-[12px] transition hover:bg-white/[0.07]",
+                "block w-full rounded-xl px-3 py-2.5 text-left text-[12px] transition",
+                surface === "light"
+                  ? "hover:bg-black/[0.045]"
+                  : "hover:bg-white/[0.07]",
                 action.danger
-                  ? "text-red-300 hover:text-red-200"
-                  : "text-white/65 hover:text-white",
+                  ? surface === "light"
+                    ? "text-red-700 hover:text-red-800"
+                    : "text-red-300 hover:text-red-200"
+                  : surface === "light"
+                    ? "text-[#4E4942] hover:text-[#1F1E1B]"
+                    : "text-white/65 hover:text-white",
               ].join(" ")
         }
       >

@@ -14,6 +14,7 @@ import {
 import CapabilityActionResolver from "@/components/workspace/master-data/CapabilityActionResolver";
 import MasterActionMenu from "@/components/workspace/actions/MasterActionMenu";
 import RowActionEngine from "@/components/workspace/engines/RowActionEngine";
+import PreviewEngine from "@/components/workspace/engines/PreviewEngine";
 import WorkspaceEventHub from "@/components/workspace/WorkspaceEventHub";
 import useCreateEngine from "@/components/workspace/engines/useCreateEngine";
 import FinanceRecordReviewPanel from "@/components/workspace/finance/FinanceRecordReviewPanel";
@@ -212,6 +213,25 @@ export default function FinanceAccountantRecordsWorkCenter({
     });
   }, [capability, config.topMenu]);
   const rowMenu = useMemo(() => list(capability?.rowMenu || config.rowMenu), [capability, config.rowMenu]);
+
+  useEffect(() => {
+    function handleWorkspaceEngine(event) {
+      const detail = event?.detail || {};
+      const action = detail.action || detail.props?.action || null;
+      if (!action?.engine) return;
+      if (action.engine === "preview") {
+        setActiveEngine({
+          action,
+          row: detail.props?.payload || detail.context?.row || null,
+          engine: "preview",
+          props: detail.props || {},
+        });
+      }
+    }
+
+    window.addEventListener("workspace:engine", handleWorkspaceEngine);
+    return () => window.removeEventListener("workspace:engine", handleWorkspaceEngine);
+  }, []);
 
   useEffect(() => {
     if (!api || !contextReady) {
@@ -466,7 +486,7 @@ export default function FinanceAccountantRecordsWorkCenter({
                   <button type="button" onClick={() => setMenuId(menuId === "__top__" ? null : "__top__")} className="inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.09] bg-white px-3 text-[11px] font-medium text-[#56514A]">Actions <MoreHorizontal size={14} /></button>
                   {menuId === "__top__" ? (
                     <div className="absolute right-0 top-11 z-40 w-72 rounded-xl border border-black/[0.1] bg-white p-2 shadow-[0_18px_50px_rgba(31,27,20,0.15)]">
-                      <MasterActionMenu actions={topMenu} row={selected} organizationId={organizationId} entityId={entityId} periodId={periodId} workspaceId="finance" moduleKey={capability?.id} onCreate={openCreate} onAction={({ action, row }) => runAction(action, row)} onClose={() => setMenuId(null)} onRefresh={refresh} />
+                      <MasterActionMenu surface="light" actions={topMenu} row={selected} organizationId={organizationId} entityId={entityId} periodId={periodId} workspaceId="finance" moduleKey={capability?.id} onCreate={openCreate} onAction={({ action, row }) => runAction(action, row)} onClose={() => setMenuId(null)} onRefresh={refresh} />
                     </div>
                   ) : null}
                 </div>
@@ -559,7 +579,7 @@ export default function FinanceAccountantRecordsWorkCenter({
                                 {rowMenu.length ? <button type="button" onClick={(event) => { event.stopPropagation(); setMenuId(menuId === rowKey ? null : rowKey); }} className="rounded-md p-1.5 text-[#8D877E] opacity-60 transition hover:bg-black/[0.05] hover:text-[#3F3B35] group-hover:opacity-100" aria-label="Record actions"><MoreHorizontal size={14} /></button> : null}
                                 {menuId === rowKey ? (
                                   <div className="absolute right-2 top-9 z-30 w-64 rounded-xl border border-black/[0.1] bg-white p-2 text-left shadow-[0_18px_50px_rgba(31,27,20,0.16)]">
-                                    <MasterActionMenu actions={rowMenu} row={row} organizationId={organizationId} entityId={row?.entity_id || entityId} periodId={row?.period_id || periodId} workspaceId="finance" moduleKey={capability?.id} onSelect={() => setSelectedId(row.id || null)} onCreate={openCreate} onAction={({ action, row: actionRow }) => runAction(action, actionRow || row)} onClose={() => setMenuId(null)} onRefresh={refresh} />
+                                    <MasterActionMenu surface="light" actions={rowMenu} row={row} organizationId={organizationId} entityId={row?.entity_id || entityId} periodId={row?.period_id || periodId} workspaceId="finance" moduleKey={capability?.id} onSelect={() => setSelectedId(row.id || null)} onCreate={openCreate} onAction={({ action, row: actionRow }) => runAction(action, actionRow || row)} onClose={() => setMenuId(null)} onRefresh={refresh} />
                                   </div>
                                 ) : null}
                               </td>
@@ -590,7 +610,19 @@ export default function FinanceAccountantRecordsWorkCenter({
       </div>
 
       {activeEngine ? (
-        <RowActionEngine action={activeEngine.action} row={activeEngine.row} organizationId={organizationId} entityId={activeEngine.row?.entity_id || entityId || null} periodId={activeEngine.row?.period_id || periodId || null} workspaceId="finance" moduleKey={capability?.id} onComplete={() => { setActiveEngine(null); refresh(); }} onClose={() => setActiveEngine(null)} />
+        activeEngine.engine === "preview" ? (
+          <PreviewEngine
+            {...activeEngine.props}
+            action={activeEngine.action}
+            payload={activeEngine.row || {}}
+            documentType={activeEngine.action?.document || capability?.document || "CustomerInvoice"}
+            organizationId={organizationId}
+            entityId={activeEngine.row?.entity_id || entityId || null}
+            onClose={() => setActiveEngine(null)}
+          />
+        ) : (
+          <RowActionEngine action={activeEngine.action} row={activeEngine.row} organizationId={organizationId} entityId={activeEngine.row?.entity_id || entityId || null} periodId={activeEngine.row?.period_id || periodId || null} workspaceId="finance" moduleKey={capability?.id} onComplete={() => { setActiveEngine(null); refresh(); }} onClose={() => setActiveEngine(null)} />
+        )
       ) : null}
 
       <CapabilityActionResolver open={createEngine.open} saving={createEngine.saving} action={create} fallbackLabel={create?.label || create?.title || `New ${capability?.document || "record"}`} schema={create?.schema || getForm(create?.form || capability?.id)} values={form} onChange={(name, value) => setForm((current) => ({ ...current, [name]: value }))} onClose={createEngine.hide} onSave={() => createEngine.save(saveCreate)} organizationId={organizationId} entityId={entityId} periodId={periodId} currency={currencyCode} moduleKey={capability?.id} onComplete={refresh} />

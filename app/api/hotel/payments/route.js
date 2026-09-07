@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { getStripe } from "@/lib/billing/stripe";
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -15,6 +16,14 @@ async function authorize(request, organizationId) {
   const access = await requireOrganizationAccess({ organizationId, request });
   if (!access.success) return { error: fail(access.error, access.status) };
   return { organizationId: access.organizationId };
+}
+
+async function broadcastPaymentReadiness(organizationId, action) {
+  return broadcastHotelReadinessChanged({
+    organizationId,
+    source: "hotel-payment-action",
+    action,
+  });
 }
 
 function toMinorUnits(currency, amount) {
@@ -80,6 +89,49 @@ async function getPaymentContext(organizationId, bookingId) {
   }
 
   return { booking, property, guest, folio };
+}
+
+async function getRefundContext(organizationId, parent) {
+  const [{ data: booking, error: bookingError }, { data: folio, error: folioError }] = await Promise.all([
+    supabaseAdmin
+      .from("hotel_bookings")
+      .select("id,status,property_id,actual_check_out_business_date")
+      .eq("organization_id", organizationId)
+      .eq("id", parent.booking_id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("hotel_folios")
+      .select("id,status,booking_id,property_id")
+      .eq("organization_id", organizationId)
+      .eq("id", parent.folio_id)
+      .maybeSingle(),
+  ]);
+  if (bookingError) throw bookingError;
+  if (folioError) throw folioError;
+  if (!booking) return { error: "Refund booking not found", status: 409, blocker: "REFUND_BOOKING_MISSING" };
+  if (!folio) return { error: "Refund folio not found", status: 409, blocker: "REFUND_FOLIO_MISSING" };
+  if (folio.booking_id !== booking.id || booking.property_id !== parent.property_id || folio.property_id !== parent.property_id) {
+    return { error: "Refund booking, folio and payment no longer share the same Hotel property scope", status: 409, blocker: "REFUND_SCOPE_MISMATCH" };
+  }
+
+  const folioStatus = clean(folio.status).toUpperCase();
+  const bookingStatus = clean(booking.status).toUpperCase();
+  if (folioStatus === "CLOSED" && bookingStatus !== "CHECKED_OUT") {
+    return {
+      error: "A closed folio can only be refunded after the stay is checked out. Correct the stay through the governed Hotel workflow before moving money.",
+      status: 409,
+      blocker: "CLOSED_FOLIO_STAY_NOT_CHECKED_OUT",
+    };
+  }
+  if (!["OPEN", "CLOSED"].includes(folioStatus)) {
+    return { error: "This folio is not in a refundable state", status: 409, blocker: "FOLIO_NOT_REFUNDABLE" };
+  }
+
+  return {
+    booking,
+    folio,
+    postCheckoutAdjustment: folioStatus === "CLOSED" && bookingStatus === "CHECKED_OUT",
+  };
 }
 
 export async function GET(request) {
@@ -212,6 +264,7 @@ export async function POST(request) {
         }, { idempotencyKey: `hotel-checkout:${transaction.id}` });
       } catch (providerError) {
         await supabaseAdmin.from("hotel_payment_transactions").update({ status: "FAILED", failure_reason: providerError?.message || "Checkout provider failure", updated_at: new Date().toISOString() }).eq("organization_id", auth.organizationId).eq("id", transaction.id).eq("status", "PENDING");
+        await broadcastPaymentReadiness(auth.organizationId, "PAYMENT_FAILED");
         throw providerError;
       }
 
@@ -225,6 +278,7 @@ export async function POST(request) {
         .single();
       if (saveError) throw saveError;
 
+      await broadcastPaymentReadiness(auth.organizationId, "PAYMENT_PENDING");
       return NextResponse.json({ success: true, transaction: saved, checkoutUrl: session.url, financePostingStatus: "PENDING_PROVIDER_CONFIRMATION" });
     }
 
@@ -247,6 +301,9 @@ export async function POST(request) {
       if (!parent.finance_payment_id) return fail("This payment has no posted Finance prepayment and cannot be refunded safely", 409);
       const refundable = Number(parent.amount || 0) - Number(parent.refunded_amount || 0);
       if (amount > refundable + 0.005) return fail(`Refund exceeds remaining refundable amount ${refundable.toFixed(2)} ${parent.currency_code}`, 409);
+
+      const refundContext = await getRefundContext(auth.organizationId, parent);
+      if (refundContext.error) return fail(refundContext.error, refundContext.status, { blocker: refundContext.blocker });
 
       const { data: existing, error: existingError } = await supabaseAdmin.from("hotel_payment_transactions").select("*").eq("organization_id", auth.organizationId).eq("idempotency_key", idempotencyKey).maybeSingle();
       if (existingError) throw existingError;
@@ -276,7 +333,11 @@ export async function POST(request) {
         idempotency_key: idempotencyKey,
         provider: "STRIPE",
         description: clean(body.description) || `Hotel refund · ${parent.external_reference || parent.id}`,
-        metadata: { finance_posting_status: "PENDING_PROVIDER_CONFIRMATION", raw_credentials_stored: false },
+        metadata: {
+          finance_posting_status: "PENDING_PROVIDER_CONFIRMATION",
+          raw_credentials_stored: false,
+          post_checkout_adjustment: refundContext.postCheckoutAdjustment,
+        },
       }).select().single();
       if (refundTxError) throw refundTxError;
 
@@ -290,10 +351,19 @@ export async function POST(request) {
         }, { idempotencyKey: `hotel-refund:${refundTx.id}` });
       } catch (providerError) {
         await supabaseAdmin.from("hotel_payment_transactions").update({ status: "FAILED", failure_reason: providerError?.message || "Refund provider failure", updated_at: new Date().toISOString() }).eq("id", refundTx.id).eq("organization_id", auth.organizationId);
+        await broadcastPaymentReadiness(auth.organizationId, "REFUND_FAILED");
         throw providerError;
       }
 
-      await supabaseAdmin.from("hotel_payment_transactions").update({ provider_refund_id: stripeRefund.id, external_reference: stripeRefund.id, updated_at: new Date().toISOString() }).eq("id", refundTx.id).eq("organization_id", auth.organizationId);
+      const { error: refundReferenceError } = await supabaseAdmin
+        .from("hotel_payment_transactions")
+        .update({ provider_refund_id: stripeRefund.id, external_reference: stripeRefund.id, updated_at: new Date().toISOString() })
+        .eq("id", refundTx.id)
+        .eq("organization_id", auth.organizationId);
+      if (refundReferenceError) throw refundReferenceError;
+
+      await broadcastPaymentReadiness(auth.organizationId, "REFUND_PENDING");
+
       if (stripeRefund.status === "succeeded") {
         const { data: reconciled, error: reconcileError } = await supabaseAdmin.rpc("hotel_finalize_gateway_refund_with_finance", {
           p_transaction_id: refundTx.id,
@@ -301,10 +371,11 @@ export async function POST(request) {
           p_provider_refund_id: stripeRefund.id,
         });
         if (reconcileError) throw reconcileError;
-        return NextResponse.json({ success: true, transactionId: refundTx.id, refund: { id: stripeRefund.id, status: stripeRefund.status }, reconciliation: reconciled, financePostingStatus: "POSTED" });
+        await broadcastPaymentReadiness(auth.organizationId, "REFUND_SETTLED");
+        return NextResponse.json({ success: true, transactionId: refundTx.id, refund: { id: stripeRefund.id, status: stripeRefund.status }, reconciliation: reconciled, financePostingStatus: "POSTED", postCheckoutAdjustment: refundContext.postCheckoutAdjustment });
       }
 
-      return NextResponse.json({ success: true, transactionId: refundTx.id, refund: { id: stripeRefund.id, status: stripeRefund.status }, financePostingStatus: "PENDING_PROVIDER_CONFIRMATION" });
+      return NextResponse.json({ success: true, transactionId: refundTx.id, refund: { id: stripeRefund.id, status: stripeRefund.status }, financePostingStatus: "PENDING_PROVIDER_CONFIRMATION", postCheckoutAdjustment: refundContext.postCheckoutAdjustment });
     }
 
     return fail("Unsupported Hotel payment action");

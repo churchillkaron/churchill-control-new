@@ -142,6 +142,9 @@ export async function register() {
       "@/lib/creative/post-production/runtime/CreativeEditorialAssemblyRenderBootstrap"
     );
     await import(
+      "@/lib/creative/motion-graphics/runtime/CreativeMotionGraphicsRenderBootstrap"
+    );
+    await import(
       "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
     );
     await import(

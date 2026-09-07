@@ -203,13 +203,6 @@ export async function POST(request) {
         throw assignmentError;
       }
       const row = Array.isArray(assigned) ? assigned[0] : assigned;
-      const { data: target, error: targetError } = await supabaseAdmin
-        .from("hotel_rooms")
-        .select("id,room_number")
-        .eq("organization_id", auth.organizationId)
-        .eq("id", toRoomId)
-        .maybeSingle();
-      if (targetError) throw targetError;
 
       await broadcastHotelReadinessChanged({
         organizationId: auth.organizationId,
@@ -217,7 +210,22 @@ export async function POST(request) {
         action,
       });
 
-      return NextResponse.json({ success: true, booking: row || null, roomId: toRoomId, roomNumber: target?.room_number || null });
+      let target = null;
+      let projectionWarning = null;
+      const { data: targetData, error: targetError } = await supabaseAdmin
+        .from("hotel_rooms")
+        .select("id,room_number")
+        .eq("organization_id", auth.organizationId)
+        .eq("id", toRoomId)
+        .maybeSingle();
+      if (targetError) {
+        projectionWarning = "Room assignment committed, but the updated room label could not be reloaded. Refresh to see the canonical room projection.";
+        console.warn("HOTEL_ROOM_ASSIGNMENT_PROJECTION_READ_FAILED", { organizationId: auth.organizationId, bookingId: booking.id, roomId: toRoomId, error: targetError.message });
+      } else {
+        target = targetData || null;
+      }
+
+      return NextResponse.json({ success: true, booking: row || null, roomId: toRoomId, roomNumber: target?.room_number || null, projectionWarning });
     }
 
     if (action === "ADD_FOLIO_LINE") {
@@ -260,15 +268,23 @@ export async function POST(request) {
       }).select().single();
       if (lineError) throw lineError;
 
-      const next = await getFolioBalance(auth.organizationId, booking.id);
-
       await broadcastHotelReadinessChanged({
         organizationId: auth.organizationId,
         source: "stay-control-folio",
         action: "ADD_FOLIO_LINE",
       });
 
-      return NextResponse.json({ success: true, folio, line, balance: next.balance });
+      let balance = null;
+      let projectionWarning = null;
+      try {
+        const next = await getFolioBalance(auth.organizationId, booking.id);
+        balance = next.balance;
+      } catch (projectionError) {
+        projectionWarning = "Folio line committed, but the updated balance could not be reloaded. Refresh to see the canonical folio balance.";
+        console.warn("HOTEL_FOLIO_PROJECTION_READ_FAILED", { organizationId: auth.organizationId, bookingId: booking.id, folioId: folio.id, error: projectionError?.message || String(projectionError) });
+      }
+
+      return NextResponse.json({ success: true, folio, line, balance, projectionWarning });
     }
 
     if (action === "CLOSE_FOLIO") {
@@ -315,6 +331,13 @@ export async function POST(request) {
       if (error) throw error;
       const { error: bookingError } = await supabaseAdmin.from("hotel_bookings").update({ pre_arrival_status: "INVITED", updated_at: new Date().toISOString() }).eq("organization_id", auth.organizationId).eq("id", booking.id);
       if (bookingError) throw bookingError;
+
+      await broadcastHotelReadinessChanged({
+        organizationId: auth.organizationId,
+        source: "stay-control-pre-arrival",
+        action: "PRE_ARRIVAL_INVITED",
+      });
+
       return NextResponse.json({ success: true, session, token: rawToken });
     }
 

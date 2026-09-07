@@ -23,3 +23,10 @@ test("legacy completion evidence detail route resolves to canonical Pest proof w
   assert.match(route, /from=technician/);
   assert.match(route, /redirect\(/);
 });
+
+test("visit-bound monitoring search params remain behind a Suspense boundary", () => {
+  const route = read("app/(system)/workspace/[organizationId]/operations/field-service/monitoring-points/visit-scan/page.jsx");
+  assert.match(route, /import\s*\{[^}]*Suspense[^}]*\}\s*from\s*["']react["']/s);
+  assert.match(route, /<Suspense[\s\S]*<VisitMonitoringScannerRoute\s*\/>[\s\S]*<\/Suspense>/);
+  assert.match(route, /const\s+searchParams\s*=\s*useSearchParams\(\)/);
+});

@@ -27,6 +27,13 @@ export default function useCreateEngine() {
         }
 
         setOpen(false);
+      } catch (error) {
+        const message = error?.message || "Unable to create this record";
+        console.error("CREATE ENGINE SAVE FAILED", error);
+        if (typeof window !== "undefined") {
+          window.alert(message);
+        }
+        throw error;
       } finally {
         setSaving(false);
       }

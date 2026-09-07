@@ -419,6 +419,11 @@ export async function POST(request) {
       effectiveProjectState,
       normalizedResult,
     );
+    const persistedDecision = {
+      ...normalizedDecision,
+      agreement_state: object(nextAgreementState),
+      project_state: object(nextProjectState),
+    };
 
     const assistantPersistStartedAt = Date.now();
     const persisted = await persistAssistantTurnAndConversationState({
@@ -427,7 +432,7 @@ export async function POST(request) {
       partyId,
       source,
       content: responseText,
-      decision: normalizedDecision,
+      decision: persistedDecision,
       evidence: object(result?.provider_evidence),
       execution: object(result?.execution),
       navigation: object(result?.navigation),

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -53,10 +54,6 @@ export async function POST(request) {
     if (resolved.error) return fail(resolved.error, resolved.status);
     const session = resolved.session;
 
-    const { data: booking, error: bookingError } = await supabaseAdmin.from("hotel_bookings").select("id,guest_id").eq("organization_id", session.organization_id).eq("id", session.booking_id).maybeSingle();
-    if (bookingError) throw bookingError;
-    if (!booking) return fail("Stay not found", 404);
-
     const fullName = clean(body.fullName);
     const email = clean(body.email);
     const phone = clean(body.phone);
@@ -65,23 +62,30 @@ export async function POST(request) {
     if (!fullName) return fail("Guest name required");
     if (!body.registrationConsent) return fail("Registration consent required");
 
-    if (booking.guest_id) {
-      const { error: guestError } = await supabaseAdmin.from("hotel_guests").update({ full_name: fullName, email: email || null, phone: phone || null, preferred_language: preferredLanguage || null }).eq("organization_id", session.organization_id).eq("id", booking.guest_id);
-      if (guestError) throw guestError;
-    }
+    const { data: completion, error: completionError } = await supabaseAdmin.rpc("hotel_complete_pre_arrival_guarded", {
+      p_session_id: session.id,
+      p_full_name: fullName,
+      p_email: email || null,
+      p_phone: phone || null,
+      p_preferred_language: preferredLanguage || null,
+      p_estimated_arrival_at: estimatedArrivalAt,
+      p_marketing_consent: Boolean(body.marketingConsent),
+    });
+    if (completionError) throw completionError;
 
-    const completedAt = new Date().toISOString();
-    const registrationData = { full_name: fullName, email: email || null, phone: phone || null, preferred_language: preferredLanguage || null, estimated_arrival_at: estimatedArrivalAt };
-    const consentData = { registration_consent: true, marketing_consent: Boolean(body.marketingConsent), completed_at: completedAt };
-    const { error: sessionError } = await supabaseAdmin.from("hotel_pre_arrival_sessions").update({ status: "COMPLETED", registration_data: registrationData, consent_data: consentData, completed_at: completedAt }).eq("id", session.id).eq("status", "OPEN");
-    if (sessionError) throw sessionError;
+    const row = Array.isArray(completion) ? completion[0] : completion;
 
-    const { error: updateError } = await supabaseAdmin.from("hotel_bookings").update({ pre_arrival_status: "COMPLETED", registration_status: "COMPLETED", mobile_arrival_status: "READY_FOR_FRONT_DESK", estimated_arrival_at: estimatedArrivalAt, updated_at: completedAt }).eq("organization_id", session.organization_id).eq("id", booking.id);
-    if (updateError) throw updateError;
+    await broadcastHotelReadinessChanged({
+      organizationId: row?.organization_id || session.organization_id,
+      source: "pre-arrival-public",
+      action: "PRE_ARRIVAL_COMPLETED",
+    });
 
-    return NextResponse.json({ success: true, status: "READY_FOR_FRONT_DESK" });
+    return NextResponse.json({ success: true, status: row?.status || "READY_FOR_FRONT_DESK", completion: row || null });
   } catch (error) {
     console.error("HOTEL_PUBLIC_PREARRIVAL_COMPLETE_ERROR", error);
-    return fail("Unable to complete arrival registration", 500);
+    const message = clean(error?.message);
+    const conflict = /PREARRIVAL_(SESSION|BOOKING|GUEST)|BUSINESS_DAY_CLOSED/.test(message);
+    return fail(conflict ? message : "Unable to complete arrival registration", conflict ? 409 : 500);
   }
 }

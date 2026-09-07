@@ -341,11 +341,13 @@ export async function POST(request) {
       const condition = normalized(body.condition || "good");
       const activityLevel = normalized(body.activityLevel || body.activity_level || "none");
       const actionTaken = normalized(body.actionTaken || body.action_taken || "inspected");
+      const pestName = text(body.pestName || body.pest_name, 120);
       if (!CONDITIONS.has(condition)) return responseError("Unsupported monitoring point condition.", 400);
       if (!ACTIVITY_LEVELS.has(activityLevel)) return responseError("Unsupported pest activity level.", 400);
       if (!ACTIONS.has(actionTaken)) return responseError("Unsupported monitoring point service action.", 400);
+      if (activityLevel !== "none" && !pestName) return responseError("Identify the pest before recording observed activity.", 400);
       const checkedAt = dateValue(body.checkedAt || body.checked_at)?.toISOString() || new Date().toISOString();
-      const count = boundedNumber(body.count, 0, 100000, 0);
+      const count = activityLevel === "none" ? 0 : boundedNumber(body.count, 0, 100000, 0);
       const check = {
         schema_version: 1,
         monitoring_point_id: record.id,
@@ -356,7 +358,7 @@ export async function POST(request) {
         checked_at: checkedAt,
         condition,
         activity_level: activityLevel,
-        pest_name: text(body.pestName || body.pest_name, 120) || null,
+        pest_name: activityLevel === "none" ? null : pestName,
         count,
         action_taken: actionTaken,
         notes: text(body.notes, 1200) || null,

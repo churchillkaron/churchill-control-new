@@ -70,13 +70,21 @@ class SfxEngine:
         )
 
     def _render_to_path(self, *, instruction: str, seconds: float, steps: int, cfg_scale: float, output: Path) -> int:
+        import soundfile as sf
+
         audio = self.pipe(
             prompt=instruction,
             seconds=seconds,
             num_inference_steps=steps,
             cfg_scale=cfg_scale,
         )
-        self.pipe.save_audio(audio, str(output))
+        wav = audio.detach().cpu()
+        if wav.ndim == 3:
+            wav = wav[0]
+        elif wav.ndim == 1:
+            wav = wav.unsqueeze(0)
+        wav = wav.to(dtype=__import__("torch").float32).transpose(0, 1).contiguous().numpy()
+        sf.write(str(output), wav, SAMPLE_RATE, subtype="PCM_24")
         if not output.is_file() or output.stat().st_size <= 1024:
             raise RuntimeError("AVANTIQO_SFX_OUTPUT_INVALID")
         return output.stat().st_size

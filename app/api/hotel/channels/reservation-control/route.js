@@ -27,9 +27,15 @@ function providerGuestName(event) {
   return clean(payload?.guest?.full_name || payload?.booker?.full_name) || null;
 }
 
+function eventIssueCode(event) {
+  return clean(event?.provider_ack_error_code || event?.error_code).toUpperCase() || null;
+}
+
 function workState(event) {
   const status = clean(event?.status).toUpperCase();
   const ackStatus = clean(event?.provider_ack_status).toUpperCase() || 'PENDING';
+  const errorCode = eventIssueCode(event);
+  if (errorCode?.includes('HOTEL_BUSINESS_DAY_CLOSED')) return 'DAY_CLOSED_REVIEW';
   if (status === 'MANUAL_REVIEW' || status === 'REJECTED') return 'CANONICAL_REVIEW';
   if (ackStatus === 'RETRY_REQUIRED') return 'PROVIDER_RETRY';
   if (status === 'RECONCILED' && ackStatus === 'PENDING') return 'AWAITING_ACK';
@@ -38,8 +44,9 @@ function workState(event) {
 }
 
 function operatorIssue(event) {
-  const code = clean(event?.provider_ack_error_code || event?.error_code).toUpperCase();
+  const code = eventIssueCode(event) || '';
   const message = clean(event?.provider_ack_error_message || event?.error_message);
+  if (/HOTEL_BUSINESS_DAY_CLOSED/.test(code) || /HOTEL_BUSINESS_DAY_CLOSED/.test(message)) return 'This OTA change reached Avantiqo after the property business day was certified closed. Review Day Close instead of retrying the provider handoff. Only the current property day may be explicitly reopened with a reason; historical days remain immutable and require governed adjustment evidence.';
   if (/CHECKED_IN/.test(code) || /CHECKED_IN/.test(message)) return 'The guest is already checked in. Review the OTA change against the live stay before making any manual correction.';
   if (/INVENTORY/.test(code) || /INVENTORY/.test(message)) return 'The requested room type cannot be placed safely without breaking physical inventory or a protected group block.';
   if (/MAPPING/.test(code) || /MAPPING/.test(message)) return 'The OTA room/rate combination does not have one exact active Avantiqo mapping.';
@@ -61,7 +68,7 @@ export async function GET(request) {
 
     let connectionQuery = supabaseAdmin
       .from('hotel_channel_connections')
-      .select('id,property_id,provider,display_name,external_property_id,status,provider_certified,enabled,last_sync_at,last_success_at,last_error')
+      .select('id,property_id,provider,display_name,external_property_id,status,credential_secret_ref,provider_certified,enabled,last_sync_at,last_success_at,last_error')
       .eq('organization_id', access.organizationId)
       .order('display_name', { ascending: true });
     if (propertyId) connectionQuery = connectionQuery.eq('property_id', propertyId);
@@ -136,7 +143,8 @@ export async function GET(request) {
         providerAckStatus: event.provider_ack_status || 'PENDING',
         providerAcknowledgedAt: event.provider_acknowledged_at,
         workState: state,
-        needsAttention: ['CANONICAL_REVIEW', 'PROVIDER_RETRY'].includes(state),
+        needsAttention: ['DAY_CLOSED_REVIEW', 'CANONICAL_REVIEW', 'PROVIDER_RETRY'].includes(state),
+        issueCode: eventIssueCode(event),
         issue: operatorIssue(event),
         provider: {
           id: event.provider,
@@ -193,6 +201,7 @@ export async function GET(request) {
     const summary = {
       total: items.length,
       needsAttention: items.filter((item) => item.needsAttention).length,
+      dayClosedReview: items.filter((item) => item.workState === 'DAY_CLOSED_REVIEW').length,
       awaitingAck: items.filter((item) => item.workState === 'AWAITING_ACK').length,
       settled: items.filter((item) => item.workState === 'SETTLED').length,
       newReservations: items.filter((item) => clean(item.eventType).toUpperCase() === 'NEW').length,

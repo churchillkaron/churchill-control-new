@@ -22,6 +22,9 @@ export async function register() {
       "@/lib/creative/simulation/runtime/CreativeSimulationPlanningBootstrap"
     );
     await import(
+      "@/lib/creative/compositing/runtime/CreativeCompositingPlanningBootstrap"
+    );
+    await import(
       "@/lib/creative/performance/runtime/CreativeHumanPerformanceExecutionGate"
     );
     await import(
@@ -122,6 +125,9 @@ export async function register() {
     );
     await import(
       "@/lib/creative/quality/runtime/CreativeShotCandidateQualityGateBootstrap"
+    );
+    await import(
+      "@/lib/creative/compositing/runtime/CreativeProjectCompositingBootstrap"
     );
     await import(
       "@/lib/creative/post-production/runtime/CreativeEditorialAssemblyRenderBootstrap"

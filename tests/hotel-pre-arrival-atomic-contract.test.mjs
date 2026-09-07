@@ -26,8 +26,8 @@ test("public route cannot complete guest, session and booking with independent w
 
 test("Front Desk invalidation only happens after atomic completion returns", () => {
   const rpc = route.indexOf('rpc("hotel_complete_pre_arrival_guarded"');
-  const broadcast = route.indexOf("broadcastHotelReadinessChanged");
-  const action = route.indexOf('action: "PRE_ARRIVAL_COMPLETED"');
+  const broadcast = route.indexOf("await broadcastHotelReadinessChanged", rpc);
+  const action = route.indexOf('action: "PRE_ARRIVAL_COMPLETED"', broadcast);
   assert.ok(rpc >= 0);
   assert.ok(broadcast > rpc);
   assert.ok(action > broadcast);

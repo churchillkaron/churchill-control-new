@@ -104,7 +104,7 @@ export default function PestControlEvidenceHub({ organizationId }) {
             {!state.loading && rows.length === 0 ? <div className="px-4 py-12 text-center text-[10px] text-[#8D877F]">No service visits in this evidence view.</div> : null}
             {rows.map((row) => {
               const evidenceId = row.latest_completion_evidence_id || row.completion?.completion_evidence_id || null;
-              const route = `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/evidence/${encodeURIComponent(row.occurrence_id)}`;
+              const route = `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/evidence/${encodeURIComponent(row.occurrence_id)}?from=proof-queue`;
               return (
                 <Link key={row.occurrence_id} href={route} className="grid gap-3 px-3 py-4 transition hover:bg-[#FBFAF8] md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_160px_130px] md:items-center">
                   <div className="min-w-0">

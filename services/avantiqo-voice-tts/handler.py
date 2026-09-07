@@ -76,6 +76,17 @@ VOICE_PROFILES = {
         "paragraph_pause_ms": 190,
         "delivery": "calm_executive",
     },
+    "avantiqo-storyteller-v1": {
+        "exaggeration": 0.18,
+        "cfg_weight": 0.70,
+        "temperature": 0.58,
+        "repetition_penalty": 1.34,
+        "min_p": 0.03,
+        "top_p": 0.88,
+        "pause_ms": 360,
+        "paragraph_pause_ms": 850,
+        "delivery": "dark_cinematic_storyteller",
+    },
     "avantiqo-warm-v1": {
         "exaggeration": 0.46,
         "cfg_weight": 0.50,
@@ -103,6 +114,8 @@ VOICE_PROFILE_ALIASES = {
     "default": "avantiqo-secretary-v1",
     "secretary": "avantiqo-secretary-v1",
     "executive": "avantiqo-executive-v1",
+    "storyteller": "avantiqo-storyteller-v1",
+    "cinematic": "avantiqo-storyteller-v1",
     "warm": "avantiqo-warm-v1",
     "neutral": "avantiqo-neutral-v1",
 }
@@ -349,6 +362,9 @@ def _validated(job: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
 
     profile_name = _profile_name(workload)
     profile = VOICE_PROFILES[profile_name]
+    speech_rate = float(workload.get("speech_rate") or 1.0)
+    if not 0.65 <= speech_rate <= 1.20:
+        raise ValueError(f"AVANTIQO_VOICE_TTS_SPEECH_RATE_NOT_CERTIFIED:{speech_rate}")
     reference = _reference_metadata(workload.get("voice_reference"))
     chunks = _split_speech(speech, profile)
 
@@ -359,6 +375,7 @@ def _validated(job: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         "response_format": response_format,
         "voice_profile": profile_name,
         "profile": profile,
+        "speech_rate": speech_rate,
         "voice_reference": reference,
         "chunks": chunks,
     }
@@ -426,6 +443,26 @@ def _generate_segment(model: Any, segment: str, language: str, profile: dict[str
     )
 
 
+def _apply_speech_rate(wav: torch.Tensor, sample_rate: int, speech_rate: float) -> torch.Tensor:
+    if abs(speech_rate - 1.0) < 0.001:
+        return wav
+    with tempfile.TemporaryDirectory(prefix="avantiqo-voice-rate-") as directory:
+        source = Path(directory) / "source.wav"
+        target = Path(directory) / "target.wav"
+        ta.save(str(source), wav.detach().cpu(), sample_rate, format="wav")
+        command = [
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+            "-i", str(source), "-filter:a", f"atempo={speech_rate:.6f}", str(target),
+        ]
+        result = subprocess.run(command, capture_output=True, text=True, timeout=60, check=False)
+        if result.returncode != 0:
+            raise RuntimeError("AVANTIQO_VOICE_TTS_SPEECH_RATE_PROCESSING_FAILED")
+        rendered, rendered_rate = ta.load(str(target))
+        if int(rendered_rate) != int(sample_rate):
+            raise RuntimeError("AVANTIQO_VOICE_TTS_SPEECH_RATE_SAMPLE_RATE_MISMATCH")
+        return rendered.to(device=wav.device, dtype=wav.dtype)
+
+
 def _render(job: dict[str, Any], model: Any, workload: dict[str, Any], reference_path: str | None) -> torch.Tensor:
     global _DEFAULT_CONDS
     profile = workload["profile"]
@@ -453,6 +490,9 @@ def _render(job: dict[str, Any], model: Any, workload: dict[str, Any], reference
                         workload["language"],
                         profile,
                     )
+                )
+                segment_wav = _apply_speech_rate(
+                    segment_wav, sample_rate, workload["speech_rate"]
                 )
                 generated.append(segment_wav)
                 pause_ms = int(chunk["pause_ms"])
@@ -516,6 +556,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "language": workload["language"],
         "voice_profile": workload["voice_profile"],
         "delivery": workload["profile"]["delivery"],
+        "speech_rate": workload["speech_rate"],
         "segments_generated": len(workload["chunks"]),
         "long_form_chunking": len(workload["chunks"]) > 1,
         "audio_health": audio_health,

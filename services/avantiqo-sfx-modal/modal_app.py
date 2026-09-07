@@ -98,6 +98,21 @@ class SfxEngine:
             return output.read_bytes()
 
     @modal.method()
+    def certify_batch(self, jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
+        with tempfile.TemporaryDirectory(prefix="avantiqo-sfx-batch-") as tmp:
+            for index, job in enumerate(jobs):
+                name = _text(job.get("name")) or f"sfx-{index:02d}"
+                instruction = _text(job.get("instruction"))
+                seconds = max(0.5, min(MAX_SECONDS, _number(job.get("seconds"), 4.0)))
+                if len(instruction) < 4:
+                    raise ValueError(f"AVANTIQO_SFX_BATCH_INSTRUCTION_REQUIRED:{name}")
+                output = Path(tmp) / f"{index:02d}.wav"
+                self._render_to_path(instruction=instruction, seconds=seconds, steps=100, cfg_scale=4.0, output=output)
+                results.append({"name": name, "seconds": seconds, "audio": output.read_bytes()})
+        return results
+
+    @modal.method()
     def generate(self, data: dict[str, Any]) -> dict[str, Any]:
         import requests
 
@@ -179,3 +194,21 @@ def certify_local(output_path: str = "/tmp/avantiqo-sfx-cert.wav") -> None:
     audio = SfxEngine().certify_sample.remote(prompt, 4.0)
     Path(output_path).write_bytes(audio)
     print(f"AVANTIQO_SFX_CERT_SAMPLE={output_path}")
+
+
+@app.local_entrypoint()
+def certify_investor_batch(output_dir: str = "/tmp/avantiqo-investor-sfx") -> None:
+    jobs = [
+        {"name": "alarm-0600", "seconds": 4.0, "instruction": "A harsh digital bedside alarm clock ringing repeatedly at 06:00 in a dark quiet bedroom, urgent electronic beeps with realistic small-room reflections, no music and no voice."},
+        {"name": "subway-arrival", "seconds": 6.0, "instruction": "A real underground subway train approaching a platform at morning rush hour: deep rail rumble grows rapidly, steel wheel resonance, air pressure, brake squeal, then train doors open with a pneumatic release. No announcements, no music, no voice."},
+        {"name": "rushing-footsteps", "seconds": 5.0, "instruction": "Many hurried adult footsteps in business shoes and work shoes moving across hard city pavement and station flooring, layered natural heel and sole impacts, purposeful morning urgency, no running panic, no music and no voice."},
+        {"name": "car-traffic-door", "seconds": 5.0, "instruction": "Early city morning traffic close by, an ordinary car pulls to the curb, engine idles briefly, a solid car door closes with weight, footsteps move away while traffic passes. Realistic urban reflections, no horns, no music, no voice."},
+        {"name": "access-door-badge", "seconds": 4.0, "instruction": "A staff access badge taps an electronic reader, one clean confirmation beep, magnetic door lock releases, heavy service door opens and closes, footsteps cross the threshold. Quiet back-of-house room tone, no music, no voice."},
+        {"name": "intelligence-boom", "seconds": 7.0, "instruction": "A colossal cinematic science-fiction pressure event: deep subsonic energy gathers from silence, dense electrical intelligence rises, then one enormous physical low-frequency impact and expanding pressure wave tears through a vast space, with metallic energy fragments and a long controlled reverberant tail. No melody, no voice, no generic whoosh."},
+    ]
+    target = Path(output_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    for result in SfxEngine().certify_batch.remote(jobs):
+        path = target / f"{result['name']}.wav"
+        path.write_bytes(result["audio"])
+        print(f"AVANTIQO_SFX_BATCH_FILE={path}")

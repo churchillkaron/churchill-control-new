@@ -263,6 +263,11 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
                   options: Array.isArray(turn?.decision?.clarification?.options)
                     ? turn.decision.clarification.options
                     : [],
+                  execution: turn?.execution || {},
+                  evidence: turn?.evidence || {},
+                  navigation: turn?.navigation || {},
+                  governance:
+                    turn.role === "assistant" ? executionEvidence(turn) : null,
                 }),
               )
           : [];
@@ -454,6 +459,9 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           options: Array.isArray(decision?.clarification?.options)
             ? decision.clarification.options
             : [],
+          execution: result?.execution || {},
+          evidence: result?.provider_evidence || {},
+          navigation: result?.navigation || {},
           governance: executionEvidence(result),
         }),
       ]);

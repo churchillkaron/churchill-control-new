@@ -123,6 +123,14 @@ function isGuardedCloseConflict(error) {
   ].some((code) => message.includes(code));
 }
 
+function isGuardedReopenConflict(error) {
+  const message = clean(error?.message);
+  return [
+    "HOTEL_DAY_REOPEN",
+    "HOTEL_BUSINESS_DAY_UNCONFIGURED",
+  ].some((code) => message.includes(code));
+}
+
 export async function GET(request) {
   try {
     const organizationId = clean(request.nextUrl.searchParams.get("organizationId"));
@@ -150,12 +158,45 @@ export async function POST(request) {
     const organizationId = clean(body.organizationId);
     const propertyId = clean(body.propertyId);
     const action = clean(body.action || "CLOSE").toUpperCase();
-    const access = await requireOrganizationAccess({ organizationId, request });
+    const requiredPermission = action === "REOPEN" ? "hotel.night_audit.reopen" : null;
+    const access = await requireOrganizationAccess({ organizationId, request, requiredPermission });
     if (!access.success) return fail(access.error, access.status);
     if (!propertyId) return fail("propertyId required");
-    if (action !== "CLOSE") return fail("Unsupported night audit action");
+    if (!["CLOSE", "REOPEN"].includes(action)) return fail("Unsupported night audit action");
 
     const operationalDate = await getHotelOperationalDate({ organizationId: access.organizationId, propertyId });
+
+    if (action === "REOPEN") {
+      const reason = clean(body.reason);
+      if (reason.length < 8) return fail("A specific correction reason is required to reopen the business day", 400);
+
+      const { data: reopenResult, error: reopenError } = await supabaseAdmin.rpc("hotel_reopen_business_day_guarded", {
+        p_organization_id: access.organizationId,
+        p_property_id: propertyId,
+        p_business_date: operationalDate.businessDate,
+        p_reason: reason,
+        p_performed_by_staff_account_id: access.access?.staffAccountId || null,
+      });
+      if (reopenError) {
+        if (isGuardedReopenConflict(reopenError)) return fail(reopenError.message || "Business day cannot be reopened", 409);
+        throw reopenError;
+      }
+
+      await broadcastHotelReadinessChanged({
+        organizationId: access.organizationId,
+        source: "night-audit",
+        action: "REOPEN",
+      });
+
+      return NextResponse.json({
+        success: true,
+        audit: reopenResult?.audit || null,
+        correction: reopenResult?.correction || null,
+        alreadyReopened: reopenResult?.already_reopened === true,
+        operationalDate: publicOperationalDate(operationalDate),
+      });
+    }
+
     const preflight = await buildPreflight(access.organizationId, propertyId, operationalDate);
     if (!preflight.ready) return fail("Business day cannot close until the remaining work is resolved", 409, preflight);
 
@@ -203,7 +244,7 @@ export async function POST(request) {
       alreadyClosed: closeResult?.already_closed === true,
     });
   } catch (error) {
-    console.error("HOTEL_NIGHT_AUDIT_CLOSE_ERROR", error);
-    return fail(error?.message || "Unable to close night audit", 500);
+    console.error("HOTEL_NIGHT_AUDIT_ACTION_ERROR", error);
+    return fail(error?.message || "Unable to update night audit", 500);
   }
 }

@@ -123,3 +123,30 @@ test("project status renders historical Code proof only when no action is pendin
     /historical_evidence_authorization_effect:\s*"NONE"/,
   );
 });
+
+test("live governed run status takes precedence over project history", () => {
+  const fast = source(
+    "lib/operator/runtime/OperatorFastConversationRuntime.js",
+  );
+  const statusFunction = fast.indexOf("function activeGovernedRunStatusReply");
+  const projectFunction = fast.indexOf("export function projectContinuityReply");
+  const liveCall = fast.indexOf(
+    "const activeRunReply = activeGovernedRunStatusReply(agreementState)",
+  );
+  const historyRead = fast.indexOf(
+    "projectState?.last_verified_code_persistence",
+  );
+
+  assert.ok(statusFunction >= 0, "live governed run renderer must exist");
+  assert.ok(projectFunction > statusFunction, "project continuity must be able to use live run renderer");
+  assert.ok(liveCall > projectFunction, "project continuity must check live run status");
+  assert.ok(historyRead > liveCall, "live run status must be checked before historical proof");
+  assert.match(
+    fast,
+    /if \(activeRunReply\) return activeRunReply/,
+  );
+  assert.match(
+    fast,
+    /verification[\s\S]*write will not be replayed/i,
+  );
+});

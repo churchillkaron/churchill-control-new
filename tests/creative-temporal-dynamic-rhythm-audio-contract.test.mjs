@@ -49,3 +49,13 @@ test('master film review blocks flat or disconnected final audio', () => {
   assert.match(review, /require_picture_locked_audio_review:\s*true/);
   assert.match(review, /require_spatial_soundfield_review:\s*true/);
 });
+
+test('whole-film review rejects AI-montage rhythm and brand contamination', () => {
+  const semanticReview = read('lib/creative/quality/runtime/CreativeAutonomousSemanticReviewRuntime.js');
+  assert.match(semanticReview, /Reject metronomic pacing/);
+  assert.match(semanticReview, /Reject decorative face holds/);
+  assert.match(semanticReview, /Constant-bed scoring/);
+  assert.match(semanticReview, /extra generated globes/);
+  assert.match(review, /canonical_brand_lockup_exclusive/);
+  assert.match(review, /generated_brand_substitution_detected/);
+});

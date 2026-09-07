@@ -19,10 +19,16 @@ export async function register() {
       "@/lib/creative/vfx/runtime/CreativeVfxPlanningBootstrap"
     );
     await import(
+      "@/lib/creative/simulation/runtime/CreativeSimulationPlanningBootstrap"
+    );
+    await import(
       "@/lib/creative/performance/runtime/CreativeHumanPerformanceExecutionGate"
     );
     await import(
       "@/lib/creative/vfx/runtime/CreativeVfxExecutionGate"
+    );
+    await import(
+      "@/lib/creative/simulation/runtime/CreativeSimulationExecutionGate"
     );
     await import(
       "@/lib/creative/director/runtime/CreativeAerialCinematographyExecutionGate"
@@ -65,6 +71,9 @@ export async function register() {
     );
     await import(
       "@/lib/creative/vfx/runtime/CreativeVfxQualityGateBootstrap"
+    );
+    await import(
+      "@/lib/creative/simulation/runtime/CreativeSimulationQualityGateBootstrap"
     );
     await import(
       "@/lib/creative/continuity/runtime/CreativeContinuityQualityGateBootstrap"

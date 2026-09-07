@@ -151,6 +151,9 @@ export async function register() {
       "@/lib/creative/post-production/runtime/CreativeProfessionalFinishingBootstrap"
     );
     await import(
+      "@/lib/creative/color/runtime/CreativeColorFinishingBootstrap"
+    );
+    await import(
       "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
     );
     await import(

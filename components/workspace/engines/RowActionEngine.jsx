@@ -340,18 +340,43 @@ export default function RowActionEngine({
   onClose,
   onComplete,
 }) {
-  const [values, setValues] = useState(() => ({
-    ...(row || {}),
-    ...(action?.id === "duplicate" ? { id: null } : {}),
-    customer_id: row?.customer_id || row?.id || null,
-    customer: row?.customer_name || null,
-    party_id: row?.party_id || null,
-    vendor_party_id: row?.vendor_party_id || row?.party_id || null,
-    vendor: row?.vendor_name || null,
-    journal_id: row?.id || null,
-    bank_account_id: row?.id || null,
-    transaction_id: row?.id || null,
-  }));
+  const [values, setValues] = useState(() => {
+    const today = new Date();
+    const localDate = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, "0"),
+      String(today.getDate()).padStart(2, "0"),
+    ].join("-");
+    const isCustomerInvoice = moduleKey === "customer_invoices";
+    const partyId = row?.party_id || null;
+
+    return {
+      ...(row || {}),
+      ...(action?.id === "duplicate" ? { id: null } : {}),
+      customer_id: row?.customer_id || null,
+      customer: partyId
+        ? {
+            existing_customer: true,
+            party_id: partyId,
+            customer_name: row?.customer_name || "",
+          }
+        : row?.customer_name || null,
+      party_id: partyId,
+      customer_invoice_id: row?.customer_invoice_id || (isCustomerInvoice ? row?.id : null),
+      amount: isCustomerInvoice
+        ? Number(row?.outstanding_amount ?? row?.outstanding_balance ?? row?.total_amount ?? 0)
+        : row?.amount,
+      payment_date: row?.payment_date || localDate,
+      currency_code: row?.currency_code || null,
+      exchange_rate: Number(row?.exchange_rate || 1),
+      idempotency_key: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+      vendor_party_id: row?.vendor_party_id || partyId,
+      vendor: row?.vendor_name || null,
+      journal_id: row?.id || null,
+      bank_account_id: row?.bank_account_id || null,
+      transaction_id: row?.id || null,
+    };
+  });
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");

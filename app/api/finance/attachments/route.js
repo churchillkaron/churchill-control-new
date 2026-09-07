@@ -36,6 +36,10 @@ function normalizeRecordType(value) {
     return "general_ledger";
   }
 
+  if (["customer_invoice", "customer_invoices", "invoice", "invoices"].includes(normalized)) {
+    return "customer_invoice";
+  }
+
   throw new Error("Unsupported finance attachment record type");
 }
 
@@ -59,7 +63,9 @@ function attachmentPrefix(organizationId, recordType, recordId) {
 async function requireRecord({ organizationId, entityId, recordType, recordId }) {
   const table = recordType === "journal_entry"
     ? "journal_entries"
-    : "general_ledger";
+    : recordType === "customer_invoice"
+      ? "customer_invoices"
+      : "general_ledger";
 
   let query = supabaseAdmin
     .from(table)

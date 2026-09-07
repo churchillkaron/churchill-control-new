@@ -36,6 +36,7 @@ function financeAttachmentHref(context) {
       "journal_entries",
       "journal_entry",
       "general_ledger",
+      "customer_invoices",
     ].includes(normalizedModule)
   ) {
     return null;
@@ -45,7 +46,12 @@ function financeAttachmentHref(context) {
   const isJournal = ["journals", "journal_entries", "journal_entry"].includes(
     normalizedModule
   );
-  const recordType = isJournal ? "journal_entry" : "general_ledger";
+  const isCustomerInvoice = normalizedModule === "customer_invoices";
+  const recordType = isJournal
+    ? "journal_entry"
+    : isCustomerInvoice
+      ? "customer_invoice"
+      : "general_ledger";
   const recordId = isJournal
     ? row.journal_id || row.id
     : row.id;
@@ -61,6 +67,7 @@ function financeAttachmentHref(context) {
       row.entry_number ||
       row.reference ||
       row.code ||
+      row.invoice_number ||
       "Finance record"
     ),
   });

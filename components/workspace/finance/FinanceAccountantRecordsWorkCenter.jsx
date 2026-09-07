@@ -399,6 +399,55 @@ export default function FinanceAccountantRecordsWorkCenter({
   function runAction(rawAction, row = null) {
     const action = resolveFinanceActionPresentation(rawAction);
     if (!action) return;
+
+    if (capability?.id === "customer_invoices" && action?.id === "duplicate" && row) {
+      const now = new Date();
+      const localDate = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        String(now.getDate()).padStart(2, "0"),
+      ].join("-");
+      const due = new Date(now);
+      due.setDate(due.getDate() + 30);
+      const dueDate = [
+        due.getFullYear(),
+        String(due.getMonth() + 1).padStart(2, "0"),
+        String(due.getDate()).padStart(2, "0"),
+      ].join("-");
+      const duplicateLines = Array.isArray(row.lines)
+        ? row.lines.map((line) => ({
+            item_id: line.item_id || null,
+            description: line.description || "",
+            quantity: Number(line.quantity || 1),
+            unit_price: Number(line.unit_price || 0),
+            discount_amount: Number(line.discount_amount || 0),
+            tax_rule_id: line.tax_rule_id || null,
+            tax_code_id: line.tax_rule_id || null,
+            tax_amount: Number(line.tax_amount || 0),
+            revenue_account_id: line.revenue_account_id || null,
+            cost_center_id: line.cost_center_id || null,
+            department_id: line.department_id || null,
+            project_id: line.project_id || null,
+          }))
+        : [];
+
+      setSubmissionKey(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
+      setForm({
+        customer: {
+          existing_customer: true,
+          party_id: row.party_id || row.customer_id || null,
+          customer_name: row.customer_name || "",
+        },
+        invoice_date: localDate,
+        due_date: dueDate,
+        currency_code: row.currency_code || currencyCode || null,
+        exchange_rate: Number(row.exchange_rate || 1),
+        notes: row.notes || "",
+        lines: duplicateLines.length ? duplicateLines : [{ description: "", quantity: 1, unit_price: 0 }],
+      });
+      createEngine.show();
+      return;
+    }
     if (action?.type === "create") return openCreate();
     if (action?.href) return window.location.assign(action.href);
     if (action?.type === "report" || action?.type === "reports") {

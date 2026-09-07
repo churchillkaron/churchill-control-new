@@ -15,8 +15,15 @@ assert.match(login, /hostBrand\?\.id !== brand\.id/);
 assert.match(login, /PASSWORD_RECOVERY/);
 assert.match(login, /supabase\.auth\.updateUser\(\{ password \}\)/);
 
+assert.match(activation, /resolveRecoveryOrganizationId/);
+assert.match(activation, /requestPlatformHostname/);
+assert.match(activation, /resolvePlatformHostContext/);
+assert.match(activation, /organizationIds\.length !== 1/);
+assert.match(activation, /organizationId,/);
+assert.match(activation, /brandId:\s*recoveryBrandId\(organizationId\)/);
 assert.match(activation, /eligible:\s*false/);
 assert.match(activation, /eligible:\s*true/);
+assert.doesNotMatch(activation, /body\?\.organizationId/);
 assert.doesNotMatch(activation, /resetPasswordForEmail/);
 assert.doesNotMatch(activation, /NEXT_PUBLIC_APP_URL/);
 assert.doesNotMatch(activation, /resolveRedirectOrigin/);

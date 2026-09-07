@@ -3,14 +3,68 @@ export const dynamic = "force-dynamic";
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 
+import {
+  CHURCHILL_ORGANIZATION_ID,
+  COLE_LEY_ORGANIZATION_ID,
+  requestPlatformHostname,
+  resolvePlatformHostContext,
+} from "@/lib/platform/context/resolvePlatformHostContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeId(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
+}
+
 function randomPassword() {
   return randomBytes(32).toString("base64url");
+}
+
+function uniqueOrganizationIds(staffRows) {
+  return [
+    ...new Set(
+      (staffRows || [])
+        .map((row) => normalizeId(row?.active_organization_id))
+        .filter(Boolean),
+    ),
+  ];
+}
+
+function recoveryBrandId(organizationId) {
+  if (organizationId === COLE_LEY_ORGANIZATION_ID) return "coleley";
+  if (organizationId === CHURCHILL_ORGANIZATION_ID) return "churchill";
+  return null;
+}
+
+function resolveRecoveryOrganizationId(request, staffRows) {
+  const organizationIds = uniqueOrganizationIds(staffRows);
+
+  if (!organizationIds.length) {
+    throw new Error("Active staff organisation is not configured");
+  }
+
+  const hostContext = resolvePlatformHostContext(requestPlatformHostname(request));
+  const hostOrganizationId = normalizeId(hostContext?.organizationId);
+
+  if (hostOrganizationId) {
+    if (!organizationIds.includes(hostOrganizationId)) {
+      throw new Error("This login belongs to a different organisation");
+    }
+
+    return hostOrganizationId;
+  }
+
+  if (organizationIds.length !== 1) {
+    throw new Error(
+      "Password recovery cannot safely choose between multiple organisations",
+    );
+  }
+
+  return organizationIds[0];
 }
 
 async function findAuthUserByEmail(email) {
@@ -68,6 +122,7 @@ export async function POST(request) {
       });
     }
 
+    const organizationId = resolveRecoveryOrganizationId(request, staff);
     const linkedAuthIds = [
       ...new Set(staff.map((row) => row.auth_user_id).filter(Boolean)),
     ];
@@ -130,6 +185,8 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       eligible: true,
+      organizationId,
+      brandId: recoveryBrandId(organizationId),
       message: "Password recovery is ready.",
     });
   } catch (error) {

@@ -146,6 +146,7 @@ export default function PeopleCommandCenter({ organizationId: organizationIdProp
     { label: "Schedule", route: "/people/scheduling" },
     { label: "Attendance", route: "/people/attendance" },
     { label: "Requests", route: "/people/requests" },
+    { label: "Qualifications", route: "/people/qualifications" },
     { label: "Payroll", route: "/people/payroll" },
     { label: "Employees", route: "/people/directory" },
   ];

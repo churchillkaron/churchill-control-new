@@ -11,11 +11,25 @@ async function invalidateHotelSettlement(organizationId, action) {
   });
 }
 
+async function getHotelTransactionScope(transactionId) {
+  if (!transactionId) throw new Error("Hotel payment transaction id is required");
+  const { data, error } = await supabaseAdmin
+    .from("hotel_payment_transactions")
+    .select("id,organization_id,status,transaction_type")
+    .eq("id", transactionId)
+    .eq("processor_mode", "AVANTIQO_GATEWAY")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.organization_id) throw new Error("Hotel payment transaction scope could not be resolved");
+  return data;
+}
+
 async function finalizeHotelPayment(event, session) {
   const transactionId = session?.metadata?.hotelTransactionId;
   if (!transactionId) throw new Error("Hotel payment webhook is missing transaction metadata");
   if (session.payment_status !== "paid") return;
 
+  const scope = await getHotelTransactionScope(transactionId);
   const { data, error } = await supabaseAdmin.rpc("hotel_finalize_gateway_payment_with_finance", {
     p_transaction_id: transactionId,
     p_provider_event_id: event.id,
@@ -23,12 +37,13 @@ async function finalizeHotelPayment(event, session) {
   });
   if (error) throw error;
 
-  await invalidateHotelSettlement(session?.metadata?.organizationId, "PAYMENT_SETTLED");
+  await invalidateHotelSettlement(scope.organization_id, "PAYMENT_SETTLED");
   return data;
 }
 
-async function failHotelTransaction(transactionId, reason, providerEventId, organizationId) {
+async function failHotelTransaction(transactionId, reason, providerEventId) {
   if (!transactionId) return;
+  const scope = await getHotelTransactionScope(transactionId);
   const { error } = await supabaseAdmin
     .from("hotel_payment_transactions")
     .update({
@@ -38,11 +53,12 @@ async function failHotelTransaction(transactionId, reason, providerEventId, orga
       updated_at: new Date().toISOString(),
     })
     .eq("id", transactionId)
+    .eq("organization_id", scope.organization_id)
     .eq("processor_mode", "AVANTIQO_GATEWAY")
     .eq("status", "PENDING");
   if (error) throw error;
 
-  await invalidateHotelSettlement(organizationId, "PAYMENT_FAILED");
+  await invalidateHotelSettlement(scope.organization_id, scope.transaction_type === "REFUND" ? "REFUND_FAILED" : "PAYMENT_FAILED");
 }
 
 async function reconcileHotelRefund(event, refund) {
@@ -51,6 +67,7 @@ async function reconcileHotelRefund(event, refund) {
   if (!transactionId) throw new Error("Hotel refund webhook is missing transaction metadata");
 
   if (refund.status === "succeeded") {
+    const scope = await getHotelTransactionScope(transactionId);
     const { data, error } = await supabaseAdmin.rpc("hotel_finalize_gateway_refund_with_finance", {
       p_transaction_id: transactionId,
       p_provider_event_id: event.id,
@@ -58,7 +75,7 @@ async function reconcileHotelRefund(event, refund) {
     });
     if (error) throw error;
 
-    await invalidateHotelSettlement(refund?.metadata?.organizationId, "REFUND_SETTLED");
+    await invalidateHotelSettlement(scope.organization_id, "REFUND_SETTLED");
     return data;
   }
 
@@ -67,7 +84,6 @@ async function reconcileHotelRefund(event, refund) {
       transactionId,
       `Stripe refund ${refund.status}`,
       event.id,
-      refund?.metadata?.organizationId,
     );
   }
 }
@@ -115,7 +131,6 @@ export async function POST(req) {
           session.metadata.hotelTransactionId,
           event.type === "checkout.session.expired" ? "Stripe Checkout session expired" : "Stripe asynchronous payment failed",
           event.id,
-          session.metadata.organizationId,
         );
       }
     }

@@ -45,7 +45,7 @@ export default function PestControlEvidenceHub({ organizationId }) {
     if (!organizationId) return;
     setState((current) => ({ ...current, loading: true, error: "" }));
     try {
-      const response = await fetch(`/api/service-management/technician?organizationId=${encodeURIComponent(organizationId)}&limit=500`, {
+      const response = await fetch(`/api/service-management/evidence-register?organizationId=${encodeURIComponent(organizationId)}&limit=500`, {
         cache: "no-store",
         credentials: "include",
       });

@@ -150,3 +150,29 @@ test("live governed run status takes precedence over project history", () => {
     /verification[\s\S]*write will not be replayed/i,
   );
 });
+
+test("verified Code persistence history is scoped to the current project objective", () => {
+  const projectState = source(
+    "lib/operator/contracts/OperatorProjectState.js",
+  );
+
+  assert.match(
+    projectState,
+    /const objectiveChanged =\s*\n?\s*hasProposedObjective && proposedObjective !== previousObjective/,
+  );
+  assert.match(
+    projectState,
+    /operatorCodePersistenceHistoryFromExecution\(nextActivity\.last_execution\)/,
+    "a fresh verified receipt must be allowed to establish history for the new objective",
+  );
+  assert.match(
+    projectState,
+    /objectiveChanged\s*\n?\s*\? null\s*\n?\s*: normalizeOperatorCodePersistenceHistory\(/,
+    "old verified history must be dropped when a materially new objective replaces the current one",
+  );
+  assert.match(
+    projectState,
+    /delete merged\.last_verified_code_persistence/,
+    "stale history must be removed from the merged project state rather than merely hidden in the UI",
+  );
+});

@@ -15,6 +15,7 @@ import {
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import AvantiqoVoiceLibraryPanel from "@/components/operator/AvantiqoVoiceLibraryPanel";
+import { operatorExecutionStatePresentation } from "@/lib/operator/presentation/OperatorExecutionStatePresentation";
 import { transcribeRecordedAudio } from "@/lib/operator/voice/AsyncRecordedTranscriptionClient";
 import { requestAsyncSpeechBlob } from "@/lib/operator/voice/AsyncSpeechClient";
 
@@ -41,14 +42,6 @@ function userMessage(content) {
     role: "user",
     content: text(content),
   };
-}
-
-function resultCount(execution) {
-  const result = execution?.result?.result;
-  if (Array.isArray(result)) return result.length;
-  if (Array.isArray(result?.rows)) return result.rows.length;
-  if (Array.isArray(result?.items)) return result.items.length;
-  return null;
 }
 
 function preferredAudioMimeType() {
@@ -344,8 +337,6 @@ export default function AvantiqoOperator() {
 
       const decision = result?.decision || {};
       const assistantText = text(decision?.response_text) || "Done.";
-      const executionCount = resultCount(result?.execution);
-      const executionLabel = result?.execution?.capability?.key || null;
 
       setAgreementState(result?.agreement_state || decision?.agreement_state || {});
       setMessages((current) => [
@@ -353,13 +344,9 @@ export default function AvantiqoOperator() {
         assistantMessage(assistantText, {
           options: decision?.clarification?.options || [],
           navigation: result?.navigation || null,
-          execution: executionLabel
-            ? {
-                key: executionLabel,
-                status: result?.execution?.status || null,
-                count: executionCount,
-              }
-            : null,
+          execution: result?.execution || {},
+          evidence: result?.provider_evidence || {},
+          governance: operatorExecutionStatePresentation(result),
         }),
       ]);
 
@@ -628,6 +615,10 @@ export default function AvantiqoOperator() {
                     options: Array.isArray(turn?.decision?.clarification?.options)
                       ? turn.decision.clarification.options
                       : [],
+                    execution: turn?.execution || {},
+                    evidence: turn?.evidence || {},
+                    navigation: turn?.navigation || {},
+                    governance: operatorExecutionStatePresentation(turn),
                   })
                 : { ...userMessage(turn.content), id: turn.id || undefined },
             )
@@ -786,14 +777,23 @@ export default function AvantiqoOperator() {
                   {message.content}
                 </div>
 
-                {message.execution ? (
-                  <div className="mt-3 rounded-xl border border-emerald-400/15 bg-emerald-400/[0.05] px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-emerald-200/70">
-                    {message.execution.status === "completed" ? "Executed" : "Prepared"}
-                    {" · "}
-                    {message.execution.key}
-                    {Number.isFinite(message.execution.count)
-                      ? ` · ${message.execution.count} records`
-                      : ""}
+                {message.role === "assistant" && message.governance ? (
+                  <div
+                    data-avantiqo-execution-state={message.governance.tone}
+                    className={
+                      message.governance.tone === "blocked"
+                        ? "mt-3 rounded-xl border border-red-400/25 bg-red-500/[0.06] px-3 py-2.5"
+                        : message.governance.tone === "verified"
+                          ? "mt-3 rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/[0.07] px-3 py-2.5"
+                          : "mt-3 rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2.5"
+                    }
+                  >
+                    <div className="text-[9px] uppercase tracking-[0.16em] text-white/45">
+                      {message.governance.label}
+                    </div>
+                    <div className="mt-1 text-[11px] leading-4 text-white/50">
+                      {message.governance.detail}
+                    </div>
                   </div>
                 ) : null}
 

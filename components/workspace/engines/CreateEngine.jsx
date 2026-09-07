@@ -44,6 +44,18 @@ const ORGANIZATION_PROFILE_FIELDS = Object.freeze([
   { name: "website", label: "Website", type: "text", width: "full", placeholder: "https://example.com" },
 ]);
 
+function localDateInput(date = new Date()) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+function addDays(dateValue, days) {
+  const base = dateValue ? new Date(`${dateValue}T12:00:00`) : new Date();
+  if (Number.isNaN(base.getTime())) return localDateInput();
+  base.setDate(base.getDate() + days);
+  return localDateInput(base);
+}
+
 function isJournalForm(fields) {
   const names = new Set(fields.map((field) => field?.name));
   const linesField = fields.find((field) => field?.name === "lines");
@@ -58,6 +70,24 @@ function isJournalForm(fields) {
     names.has("posting_date") &&
     lineNames.has("debit") &&
     lineNames.has("credit")
+  );
+}
+
+function isInvoiceForm(fields, moduleKey) {
+  if (moduleKey === "customer_invoices") return true;
+  const names = new Set(fields.map((field) => field?.name));
+  const linesField = fields.find((field) => field?.name === "lines");
+  const lineNames = new Set(
+    (Array.isArray(linesField?.columns) ? linesField.columns : []).map(
+      (column) => column?.name
+    )
+  );
+  return (
+    names.has("customer") &&
+    names.has("invoice_date") &&
+    names.has("due_date") &&
+    lineNames.has("quantity") &&
+    lineNames.has("unit_price")
   );
 }
 
@@ -181,6 +211,33 @@ function validateJournal(values = {}) {
   return debit > 0 && Math.round(debit * 100) === Math.round(credit * 100);
 }
 
+function validateInvoice(values = {}) {
+  const lines = Array.isArray(values.lines) ? values.lines : [];
+  if (!values.customer || !values.invoice_date || !values.due_date) return false;
+  if (!values.currency_code && !values.currency) return false;
+  const exchangeRate = Number(values.exchange_rate);
+  if (!Number.isFinite(exchangeRate) || exchangeRate <= 0 || lines.length < 1) return false;
+  if (String(values.due_date) < String(values.invoice_date)) return false;
+
+  let total = 0;
+  for (const line of lines) {
+    const description = String(line?.description || "").trim();
+    const quantity = Number(line?.quantity);
+    const unitPrice = Number(line?.unit_price);
+    const discount = Number(line?.discount_amount || 0);
+    const tax = Number(line?.tax_amount || 0);
+    if (!description) return false;
+    if (!Number.isFinite(quantity) || quantity <= 0) return false;
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) return false;
+    if (!Number.isFinite(discount) || discount < 0) return false;
+    if (!Number.isFinite(tax) || tax < 0) return false;
+    const gross = quantity * unitPrice;
+    if (discount > gross) return false;
+    total += gross - discount + tax;
+  }
+  return total > 0;
+}
+
 function validateApprovalWorkflow(values = {}) {
   if (!String(values.name || "").trim()) return false;
   if (!values.document_type || !values.approver_role || !values.currency_code || !values.effective_from) return false;
@@ -231,6 +288,7 @@ export default function CreateEngine({
   saving = false,
   organizationId,
   entityId,
+  currency,
   moduleKey,
   action,
 }) {
@@ -254,9 +312,12 @@ export default function CreateEngine({
   }, [baseFields, approvalWorkflowForm, accountingSettingsForm, organizationProfileForm, values]);
 
   const journalForm = useMemo(() => isJournalForm(fields), [fields]);
+  const invoiceForm = useMemo(() => isInvoiceForm(fields, moduleKey), [fields, moduleKey]);
 
   useEffect(() => {
     if (!open || typeof onChange !== "function") return;
+
+    const today = localDateInput();
 
     fields.forEach((field) => {
       let resolvedDefault = field.defaultValue !== undefined
@@ -270,6 +331,11 @@ export default function CreateEngine({
       if (journalForm && field.name === "document_date" && values.posting_date) {
         resolvedDefault = values.posting_date;
       }
+
+      if (invoiceForm && field.name === "invoice_date") resolvedDefault = today;
+      if (invoiceForm && field.name === "due_date") resolvedDefault = addDays(values.invoice_date || today, 30);
+      if (invoiceForm && field.name === "exchange_rate") resolvedDefault = 1;
+      if (invoiceForm && field.name === "currency_code" && currency) resolvedDefault = currency;
 
       if (values[field.name] === undefined && resolvedDefault !== undefined) {
         onChange(field.name, resolvedDefault);
@@ -285,7 +351,7 @@ export default function CreateEngine({
         onChange("value_json", JSON.stringify({ value: definition.defaultValue }));
       }
     }
-  }, [open, fields, values, onChange, journalForm, accountingSettingsForm]);
+  }, [open, fields, values, onChange, journalForm, invoiceForm, accountingSettingsForm, currency]);
 
   if (!open) return null;
 
@@ -299,20 +365,23 @@ export default function CreateEngine({
   );
 
   const journalReady = !journalForm || validateJournal(values);
+  const invoiceReady = !invoiceForm || validateInvoice(values);
   const approvalReady = !approvalWorkflowForm || validateApprovalWorkflow(values);
   const accountingSettingsReady = !accountingSettingsForm || validateAccountingSettings(values);
   const organizationProfileReady = !organizationProfileForm || validateOrganizationProfile(values);
-  const saveDisabled = saving || !journalReady || !approvalReady || !accountingSettingsReady || !organizationProfileReady;
+  const saveDisabled = saving || !journalReady || !invoiceReady || !approvalReady || !accountingSettingsReady || !organizationProfileReady;
 
   const saveLabel = journalForm
     ? saving ? "Posting..." : "Post Journal"
-    : approvalWorkflowForm
-      ? saving ? "Saving..." : "Create Approval Rule"
-      : accountingSettingsForm
-        ? saving ? "Saving..." : "Save Accounting Policy"
-        : organizationProfileForm
-          ? saving ? "Saving..." : "Save Organisation Profile"
-          : saving ? "Saving..." : action?.submitLabel || "Create";
+    : invoiceForm
+      ? saving ? "Creating..." : "Create Invoice"
+      : approvalWorkflowForm
+        ? saving ? "Saving..." : "Create Approval Rule"
+        : accountingSettingsForm
+          ? saving ? "Saving..." : "Save Accounting Policy"
+          : organizationProfileForm
+            ? saving ? "Saving..." : "Save Organisation Profile"
+            : saving ? "Saving..." : action?.submitLabel || "Create";
 
   const modeLabel = journalForm
     ? "Post"
@@ -321,17 +390,17 @@ export default function CreateEngine({
       : "Create";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-5xl rounded-[30px] border border-white/10 bg-[#0b0b0b] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
-          <div>
-            <div className="text-xs uppercase tracking-[0.3em] text-amber-300/70">{modeLabel}</div>
-            <h2 className="mt-2 text-3xl font-light text-white">{title}</h2>
+    <div className="fixed inset-0 z-[100] flex items-stretch justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="flex h-[100dvh] w-full max-w-5xl flex-col border border-white/10 bg-[#0b0b0b] shadow-2xl sm:h-auto sm:max-h-[94dvh] sm:rounded-[30px]">
+        <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-4 sm:items-center sm:px-6 sm:py-5">
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-[0.24em] text-amber-300/70 sm:text-xs sm:tracking-[0.3em]">{modeLabel}</div>
+            <h2 className="mt-1 truncate text-xl font-light text-white sm:mt-2 sm:text-3xl">{title}</h2>
           </div>
-          <button onClick={onClose} className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60 hover:bg-white/5">Close</button>
+          <button type="button" onClick={onClose} className="shrink-0 rounded-xl border border-white/10 px-3 py-2 text-xs text-white/60 hover:bg-white/5 sm:px-4 sm:text-sm">Close</button>
         </div>
 
-        <div className="max-h-[72vh] overflow-auto p-6">
+        <div className="min-h-0 flex-1 overflow-auto p-4 sm:max-h-[72vh] sm:p-6">
           {visibleFields.length > 0 ? (
             <DynamicForm
               schema={visibleFields}
@@ -345,33 +414,37 @@ export default function CreateEngine({
           ) : children}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-white/10 px-6 py-5">
-          <div className="text-xs text-white/40">
+        <div className="border-t border-white/10 px-4 py-4 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:py-5">
+          <div className="mb-3 text-[11px] leading-5 text-white/45 sm:mb-0 sm:text-xs">
             {journalForm && !journalReady
               ? "Complete all required fields and balance debit and credit before posting."
               : journalForm
                 ? "Posting creates an immutable accounting journal. Use reversal for later corrections."
-                : approvalWorkflowForm && !approvalReady
-                  ? "Complete the scope, threshold, approver role and valid effective dates."
-                  : approvalWorkflowForm
-                    ? "The most specific active rule with the highest applicable threshold will govern approval."
-                    : accountingSettingsForm && !accountingSettingsReady
-                      ? "Select a supported policy value and a valid effective date range."
-                      : accountingSettingsForm
-                        ? "Effective-dated policies govern system-generated Finance journals."
-                        : organizationProfileForm && !organizationProfileReady
-                          ? "Complete the statutory identity, registered address, currency, fiscal year, timezone and locale."
-                          : organizationProfileForm
-                            ? "This profile supplies Finance defaults and document identity when legal-entity data is unavailable."
-                            : null}
+                : invoiceForm && !invoiceReady
+                  ? "Choose a customer and complete at least one invoice line with description, quantity and price."
+                  : invoiceForm
+                    ? "No VAT is allowed. Optional dimensions and saved services can be added directly from each line."
+                    : approvalWorkflowForm && !approvalReady
+                      ? "Complete the scope, threshold, approver role and valid effective dates."
+                      : approvalWorkflowForm
+                        ? "The most specific active rule with the highest applicable threshold will govern approval."
+                        : accountingSettingsForm && !accountingSettingsReady
+                          ? "Select a supported policy value and a valid effective date range."
+                          : accountingSettingsForm
+                            ? "Effective-dated policies govern system-generated Finance journals."
+                            : organizationProfileForm && !organizationProfileReady
+                              ? "Complete the statutory identity, registered address, currency, fiscal year, timezone and locale."
+                              : organizationProfileForm
+                                ? "This profile supplies Finance defaults and document identity when legal-entity data is unavailable."
+                                : null}
           </div>
 
-          <div className="flex justify-end gap-3">
-            <button onClick={onClose} className="rounded-xl border border-white/10 px-5 py-3 text-sm text-white/60">Cancel</button>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3">
+            <button type="button" onClick={onClose} className="rounded-xl border border-white/10 px-4 py-3 text-sm text-white/60 sm:px-5">Cancel</button>
             {previewEnabled ? (
-              <button onClick={onPreview} className="rounded-xl border border-amber-300/30 px-5 py-3 text-sm text-amber-200">Preview</button>
+              <button type="button" onClick={onPreview} className="rounded-xl border border-amber-300/30 px-4 py-3 text-sm text-amber-200 sm:px-5">Preview</button>
             ) : null}
-            <button onClick={onSave} disabled={saveDisabled} className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-35">
+            <button type="button" onClick={onSave} disabled={saveDisabled} className={`${previewEnabled ? "col-span-2" : ""} rounded-xl bg-amber-400 px-4 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-35 sm:px-5`}>
               {saveLabel}
             </button>
           </div>

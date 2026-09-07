@@ -10,6 +10,8 @@ const housekeeping = fs.readFileSync("app/api/hotel/housekeeping/update/route.js
 const inspection = fs.readFileSync("app/api/hotel/housekeeping/inspect/route.js", "utf8");
 const recovery = fs.readFileSync("app/api/hotel/housekeeping/restore-arrival-work/route.js", "utf8");
 const maintenance = fs.readFileSync("app/api/hotel/maintenance/requests/route.js", "utf8");
+const maintenancePlanningCreate = fs.readFileSync("app/api/hotel/maintenance/create/route.js", "utf8");
+const maintenancePlanningUpdate = fs.readFileSync("app/api/hotel/maintenance/update/route.js", "utf8");
 const assignment = fs.readFileSync("app/api/hotel/bookings/assign-room/route.js", "utf8");
 const checkIn = fs.readFileSync("app/api/hotel/bookings/check-in/route.js", "utf8");
 const checkOut = fs.readFileSync("app/api/hotel/bookings/check-out/route.js", "utf8");
@@ -71,6 +73,24 @@ test("room-readiness mutation boundaries broadcast only after governed writes", 
   assert.ok(recovery.indexOf('rpc("hotel_restore_housekeeping_work_for_arrival"') < recovery.lastIndexOf("broadcastHotelReadinessChanged"));
   assert.ok(maintenance.indexOf('rpc("hotel_transition_maintenance_request"') < maintenance.lastIndexOf("broadcastHotelReadinessChanged"));
   assert.ok(assignment.indexOf('rpc("hotel_assign_booking_room_guarded"') < assignment.lastIndexOf("broadcastHotelReadinessChanged"));
+});
+
+test("maintenance planning queue wakes other Hotel devices only after committed planning writes", () => {
+  for (const source of [maintenancePlanningCreate, maintenancePlanningUpdate]) {
+    assert.match(source, /broadcastHotelReadinessChanged/);
+    assert.match(source, /source: "maintenance-planning"/);
+  }
+
+  assert.ok(
+    maintenancePlanningCreate.indexOf("const task = await createHotelMaintenanceTask({") <
+      maintenancePlanningCreate.lastIndexOf("broadcastHotelReadinessChanged"),
+  );
+  assert.ok(
+    maintenancePlanningUpdate.indexOf("const task = await transitionHotelMaintenanceTask({") <
+      maintenancePlanningUpdate.lastIndexOf("broadcastHotelReadinessChanged"),
+  );
+  assert.match(maintenancePlanningCreate, /action: "CREATE"/);
+  assert.match(maintenancePlanningUpdate, /action,\n    \}\);/);
 });
 
 test("live Front Desk mutations invalidate other Hotel devices after governed writes", () => {

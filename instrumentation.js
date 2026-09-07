@@ -88,6 +88,9 @@ export async function register() {
       "@/lib/creative/continuity/runtime/CreativeCinematicStateMemoryBootstrap"
     );
     await import(
+      "@/lib/creative/continuity/runtime/CreativeContinuityQcAuthorityGuardBootstrap"
+    );
+    await import(
       "@/lib/creative/continuity/runtime/CreativeCinematicContinuityConflictGate"
     );
     await import(

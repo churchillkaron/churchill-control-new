@@ -13,10 +13,16 @@ export async function register() {
       "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
     );
     await import(
-      "@/lib/creative/director/runtime/CreativeCameraGrammarExecutionGate"
+      "@/lib/creative/performance/runtime/CreativeHumanPerformancePlanningBootstrap"
+    );
+    await import(
+      "@/lib/creative/performance/runtime/CreativeHumanPerformanceExecutionGate"
     );
     await import(
       "@/lib/creative/director/runtime/CreativeAerialCinematographyExecutionGate"
+    );
+    await import(
+      "@/lib/creative/director/runtime/CreativeCameraGrammarExecutionGate"
     );
     await import(
       "@/lib/creative/identity/runtime/CreativeHumanContinuityQualityBootstrap"

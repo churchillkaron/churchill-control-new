@@ -25,6 +25,9 @@ export async function register() {
       "@/lib/creative/compositing/runtime/CreativeCompositingPlanningBootstrap"
     );
     await import(
+      "@/lib/creative/world/runtime/CreativeWorldConsistencyPlanningBootstrap"
+    );
+    await import(
       "@/lib/creative/performance/runtime/CreativeHumanPerformanceExecutionGate"
     );
     await import(
@@ -32,6 +35,9 @@ export async function register() {
     );
     await import(
       "@/lib/creative/simulation/runtime/CreativeSimulationExecutionGate"
+    );
+    await import(
+      "@/lib/creative/world/runtime/CreativeWorldConsistencyExecutionGate"
     );
     await import(
       "@/lib/creative/director/runtime/CreativeAerialCinematographyExecutionGate"
@@ -77,6 +83,9 @@ export async function register() {
     );
     await import(
       "@/lib/creative/simulation/runtime/CreativeSimulationQualityGateBootstrap"
+    );
+    await import(
+      "@/lib/creative/world/runtime/CreativeWorldConsistencyQualityGateBootstrap"
     );
     await import(
       "@/lib/creative/continuity/runtime/CreativeContinuityQualityGateBootstrap"

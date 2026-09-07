@@ -42,3 +42,18 @@ test("shared execution-state presenter remains presentation-only", () => {
   assert.match(presenter, /label:\s*"Not completed"/);
   assert.match(presenter, /label:\s*"Completed check"/);
 });
+
+test("Verified complete requires an explicit server-owned business-effect verdict", () => {
+  assert.match(
+    presenter,
+    /if \(execution\?\.business_effect_verified === true\)/,
+  );
+  assert.doesNotMatch(
+    presenter,
+    /business_effect_verified === true\s*\|\|\s*verificationStatus === "completed"/,
+  );
+  assert.match(
+    presenter,
+    /verification read completed, but no business mutation is presented as verified/,
+  );
+});

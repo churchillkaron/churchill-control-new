@@ -13,20 +13,6 @@ function randomPassword() {
   return randomBytes(32).toString("base64url");
 }
 
-function resolveRedirectOrigin(request) {
-  const configuredOrigin = String(process.env.NEXT_PUBLIC_APP_URL || "").trim();
-
-  if (configuredOrigin) {
-    try {
-      return new URL(configuredOrigin).origin;
-    } catch {
-      // Fall back to the request origin.
-    }
-  }
-
-  return new URL(request.url).origin;
-}
-
 async function findAuthUserByEmail(email) {
   const normalizedEmail = normalizeEmail(email);
   const perPage = 200;
@@ -49,16 +35,6 @@ async function findAuthUserByEmail(email) {
   }
 
   throw new Error("Unable to resolve authentication user safely");
-}
-
-async function rollbackNewLinks(staffIds, authUserId) {
-  if (!staffIds.length || !authUserId) return;
-
-  await supabaseAdmin
-    .from("staff_accounts")
-    .update({ auth_user_id: null })
-    .in("id", staffIds)
-    .eq("auth_user_id", authUserId);
 }
 
 export async function POST(request) {
@@ -87,6 +63,7 @@ export async function POST(request) {
     if (!staff.length) {
       return NextResponse.json({
         success: true,
+        eligible: false,
         message: "If this email has active staff access, a password link will be sent.",
       });
     }
@@ -150,29 +127,10 @@ export async function POST(request) {
       }
     }
 
-    const redirectTo = new URL(
-      "/login#type=recovery",
-      resolveRedirectOrigin(request)
-    ).toString();
-
-    const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(
-      email,
-      { redirectTo }
-    );
-
-    if (resetError) {
-      await rollbackNewLinks(unlinkedStaffIds, authUserId);
-
-      if (createdAuthUser) {
-        await supabaseAdmin.auth.admin.deleteUser(authUserId).catch(() => null);
-      }
-
-      throw resetError;
-    }
-
     return NextResponse.json({
       success: true,
-      message: "Check your email for a secure link to create or reset your password.",
+      eligible: true,
+      message: "Password recovery is ready.",
     });
   } catch (error) {
     console.error("STAFF_AUTH_ACTIVATION_ERROR", error);
@@ -180,7 +138,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Unable to send the password email.",
+        error: error?.message || "Unable to prepare password recovery.",
       },
       { status: 500 }
     );

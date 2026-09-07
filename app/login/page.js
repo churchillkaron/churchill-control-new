@@ -161,20 +161,45 @@ export default function LoginPage() {
       setError("");
       setMessage("");
 
+      const normalizedEmail = email.trim().toLowerCase();
       const response = await fetch("/api/auth/activate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          hostname:
-            typeof window !== "undefined" ? window.location.hostname : "",
-        }),
+        body: JSON.stringify({ email: normalizedEmail }),
       });
 
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        setError(result.error || "Unable to send the password email.");
+        setError(result.error || "Unable to prepare password recovery.");
+        return;
+      }
+
+      if (!result.eligible) {
+        setMessage(
+          "If this email has active staff access, a password link will be sent."
+        );
+        return;
+      }
+
+      const recoveryUrl = new URL("/login", window.location.origin);
+      const hostBrand = resolvePlatformLoginContext(window.location.hostname);
+
+      if (
+        brand?.id &&
+        brand.id !== "avantiqo" &&
+        hostBrand?.id !== brand.id
+      ) {
+        recoveryUrl.searchParams.set("brand", brand.id);
+      }
+
+      const { error: recoveryError } = await supabase.auth.resetPasswordForEmail(
+        normalizedEmail,
+        { redirectTo: recoveryUrl.toString() },
+      );
+
+      if (recoveryError) {
+        setError("Unable to send the password email.");
         return;
       }
 

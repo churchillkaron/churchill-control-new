@@ -170,7 +170,10 @@ export default function FinanceAccountantRecordsWorkCenter({
 }) {
   const config = capability?.ui || {};
   const presentation = config.financePresentation || capability?.runtime?.financePresentation || {};
-  const columns = Array.isArray(presentation.columns) ? presentation.columns : [];
+  const columns = useMemo(
+    () => (Array.isArray(presentation.columns) ? presentation.columns : []),
+    [presentation.columns]
+  );
   const contextScope = capability?.contextScope || presentation.scope || "entity";
   const requiresEntity = contextScope === "entity";
   const contextReady = Boolean(organizationId && (!requiresEntity || entityId));

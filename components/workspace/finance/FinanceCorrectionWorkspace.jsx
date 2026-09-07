@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, BadgeCheck, CheckCircle2, FileCheck2, LoaderCircle, RefreshCw, Search, Send, ShieldCheck } from "lucide-react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { useFinanceLandingRuntime } from "@/components/workspace/finance/FinanceLandingRuntimeProvider";
@@ -32,7 +32,7 @@ export default function FinanceCorrectionWorkspace({ organizationId }) {
   const [evidenceQuery, setEvidenceQuery] = useState("");
   const [form, setForm] = useState({ resolutionMode: "CONTROL", summary: "", rationale: "", evidenceBasis: "", documentIds: [], postingDate: "", description: "", lines: [] });
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !entityId || !periodId) return;
     try {
       setState((current) => ({ ...current, loading: true, error: "" }));
@@ -45,8 +45,8 @@ export default function FinanceCorrectionWorkspace({ organizationId }) {
       setState({ loading: false, error: "", corrections, accounts: body.accounts || [], documents: body.documents || [] });
       setSelectedId((current) => corrections.some((row) => row.id === current) ? current : corrections[0]?.id || null);
     } catch (error) { setState((current) => ({ ...current, loading: false, error: error?.message || "Unable to load correction workflow" })); }
-  }
-  useEffect(() => { load(); }, [organizationId, entityId, periodId]);
+  }, [organizationId, entityId, periodId]);
+  useEffect(() => { load(); }, [load]);
 
   const health = landing.accountHealth;
   const exceptions = useMemo(() => (health?.health?.accounts || []).filter((row) => ["BLOCKED", "ACTION_REQUIRED"].includes(row.state)), [health]);
@@ -75,7 +75,7 @@ export default function FinanceCorrectionWorkspace({ organizationId }) {
     const meta = selected.metadata || {}; const draft = meta.journal_draft || {};
     setForm({ resolutionMode: meta.resolution_mode || "CONTROL", summary: meta.treatment?.summary || "", rationale: meta.treatment?.rationale || "", evidenceBasis: meta.treatment?.evidence_basis || "", documentIds: Array.isArray(meta.evidence?.document_ids) ? meta.evidence.document_ids : [], postingDate: draft.posting_date || health?.context?.as_of || "", description: draft.description || "", lines: Array.isArray(draft.lines) ? draft.lines : [] });
     setEvidenceQuery("");
-  }, [selectedId, health?.context?.as_of]);
+  }, [selected, health?.context?.as_of]);
 
   async function refreshAll() { await Promise.all([load(), landing.refresh()]); }
 
@@ -121,7 +121,7 @@ export default function FinanceCorrectionWorkspace({ organizationId }) {
           {!selected ? <div className="flex min-h-[260px] items-center justify-center text-center text-[9px] text-[#8B857D]">Choose an exception to open a governed correction case.</div> : <>
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-black/[0.06] pb-3"><div><div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#8A633C]">Correction case</div><div className="mt-1 text-[14px] font-semibold">{selected.metadata?.exception?.account_code} · {selected.metadata?.exception?.account_name}</div><div className="mt-1 text-[8px] text-[#8F8981]">Observed {money(selected.metadata?.exception?.closing_amount, selected.currency_code || currency)} · {selected.metadata?.exception?.reason}</div></div><span className={`rounded-full border px-2 py-1 text-[7px] font-semibold uppercase ${tone(selected.status)}`}>{selected.status}</span></div>
             {selected.metadata?.recheck ? <div className={`mt-3 rounded-xl border p-3 text-[8px] ${selected.metadata.recheck.resolved ? "border-emerald-700/15 bg-emerald-50 text-emerald-800" : "border-amber-700/15 bg-amber-50 text-amber-800"}`}><div className="font-semibold">Exception re-check: {selected.metadata.recheck.resolved ? "original structural exception cleared" : label(selected.metadata.recheck.resulting_state)}</div><div className="mt-1">{selected.metadata.recheck.reason}</div></div> : null}
-            <div className="mt-3 grid gap-3 lg:grid-cols-2"><label className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#8A867F]">Resolution mode<select disabled={!['DRAFT','REJECTED'].includes(selected.status)} value={form.resolutionMode} onChange={(e) => setForm((c) => ({ ...c, resolutionMode: e.target.value }))} className="mt-1 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-2 text-[9px] normal-case"><option value="CONTROL">Control / configuration</option><option value="JOURNAL">Journal correction</option></select></label><div className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3"><div className="flex items-center gap-1.5 text-[7px] font-semibold uppercase text-[#8A867F]"><FileCheck2 size={9}/> Evidence discipline</div><div className="mt-1 text-[8px] leading-4 text-[#777169]">Journal corrections require at least one selected source document. Control corrections may use a documented evidence basis when no governed file exists.</div></div></div>
+            <div className="mt-3 grid gap-3 lg:grid-cols-2"><label className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#8A867F]">Resolution mode<select disabled={!['DRAFT','REJECTED'].includes(selected.status)} value={form.resolutionMode} onChange={(e) => setForm((c) => ({ ...c, resolutionMode: e.target.value }))} className="mt-1 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-2 text-[9px] normal-case"><option value="CONTROL">Control / configuration</option><option value="JOURNAL">Journal correction</option></select></label><div className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3"><div className="flex items-center gap-1.5 text-[7px] font-semibold uppercase text-[#8A867F]"><FileCheck2 size={9}/> Evidence discipline</div><div className="mt-1 text-[8px] leading-4 text-[#777169]">Journal corrections require at least one selected source document. Enter only evidence-supported correcting lines; Avantiqo never invents the balancing amount or account. Control corrections may use a documented evidence basis when no governed file exists.</div></div></div>
             <div className="mt-3 grid gap-2"><textarea disabled={!['DRAFT','REJECTED'].includes(selected.status)} value={form.summary} onChange={(e) => setForm((c) => ({ ...c, summary: e.target.value }))} className="min-h-16 rounded-lg border border-black/[0.08] p-2 text-[8px]" placeholder="Accounting treatment"/><textarea disabled={!['DRAFT','REJECTED'].includes(selected.status)} value={form.rationale} onChange={(e) => setForm((c) => ({ ...c, rationale: e.target.value }))} className="min-h-14 rounded-lg border border-black/[0.08] p-2 text-[8px]" placeholder="Why this treatment is correct"/><textarea disabled={!['DRAFT','REJECTED'].includes(selected.status)} value={form.evidenceBasis} onChange={(e) => setForm((c) => ({ ...c, evidenceBasis: e.target.value }))} className="min-h-14 rounded-lg border border-black/[0.08] p-2 text-[8px]" placeholder="Evidence basis / source documents"/></div>
             <div className="mt-3 rounded-xl border border-black/[0.07] bg-[#FCFBF9] p-3">
               <div className="flex flex-wrap items-center justify-between gap-2"><div className="text-[8px] font-semibold uppercase tracking-[0.08em] text-[#8A633C]">Governed source evidence</div><div className="text-[7px] text-[#8B857D]">{form.documentIds.length} selected · {state.documents.length} available</div></div>

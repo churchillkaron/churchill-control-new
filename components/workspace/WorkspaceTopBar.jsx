@@ -247,14 +247,20 @@ function EntitySelector({ entity, entities }) {
     }
   }
 
-  if (!entity || !available.length) return null;
+  if (!available.length) return null;
 
   return (
     <div className="relative hidden lg:block">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
-        disabled={switching || available.length < 2}
+        onClick={() => {
+          if (!entity && available.length === 1) {
+            switchEntity(available[0]);
+            return;
+          }
+          setOpen((value) => !value);
+        }}
+        disabled={switching || (Boolean(entity) && available.length < 2)}
         className="flex h-9 min-w-0 max-w-[190px] items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-3 text-left text-[#5E5A54] transition hover:border-[#D6A66A]/45 hover:bg-white disabled:cursor-default"
       >
         <Building2 size={13} className="shrink-0 text-[#A37849]" />

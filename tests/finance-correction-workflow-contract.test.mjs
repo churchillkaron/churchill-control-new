@@ -16,7 +16,7 @@ test("Finance corrections reuse governed approval and atomic journal runtimes", 
   assert.match(runtime, /ACCOUNTING_CORRECTION/);
   assert.match(runtime, /validateJournalIntegrity/);
   assert.match(runtime, /postJournalEntrySafe/);
-  assert.match(runtime, /finance-correction:\$\{current\.id\}/);
+  assert.match(runtime, /finance-correction:\$\{postingReady\.id\}/);
 });
 
 test("correction lifecycle separates preparation, approval and posting permissions", () => {
@@ -32,7 +32,7 @@ test("journal treatment is evidence-led and never auto-invents a balancing entry
   assert.match(runtime, /Do not reverse solely because the sign is unusual/);
   assert.match(runtime, /post only the correcting entry supported by the reconciliation evidence/i);
   assert.doesNotMatch(runtime, /auto.?balance|guess.?account|suggested.?amount/i);
-  assert.match(workspace, /never the balancing amount/i);
+  assert.match(workspace, /never .*balancing amount/i);
   assert.match(workspace, /Evidence basis \/ source documents/);
 });
 

@@ -38,6 +38,15 @@ function topLevelObjectEntries(source, constName) {
   return result;
 }
 
+function stringMapEntries(source, constName) {
+  const block = boundedConstSource(source, constName);
+  const result = new Map();
+  for (const match of block.matchAll(/\b([a-z0-9_]+)\s*:\s*["']([^"']+)["']/g)) {
+    result.set(match[1], match[0]);
+  }
+  return result;
+}
+
 function policyMode(segment) {
   return segment?.match(/\bmode\s*:\s*["'](none|create|action)["']/)?.[1] || null;
 }
@@ -70,8 +79,8 @@ export async function auditFinanceWorldclassWorkflow() {
     records: "components/workspace/finance/FinanceAccountantRecordsWorkCenter.jsx",
     reviewPanel: "components/workspace/finance/FinanceRecordReviewPanel.jsx",
     reviewApi: "app/api/finance/review/route.js",
-    commandCenter: "components/workspace/finance/FinanceCommandCenter.jsx",
-    practiceControl: "components/workspace/finance/FinancePracticeControlTower.jsx",
+    commandCenter: "app/(system)/workspace/[organizationId]/finance/page.jsx",
+    practiceControl: "components/workspace/finance/FinancePracticePortfolioFocus.jsx",
     practiceApi: "app/api/workspace/finance/practice-control/route.js",
     migration: "supabase/migrations/20260902083500_finance_accountant_review_workflow.sql",
     reviewHistoryMigration: "supabase/migrations/20260902164500_finance_review_signoff_history.sql",
@@ -86,7 +95,7 @@ export async function auditFinanceWorldclassWorkflow() {
   const manifestIds = Object.keys(manifest);
   if (manifestIds.length !== 67) fail(`Expected 67 Finance runtime capabilities, found ${manifestIds.length}`, failures);
 
-  const presentationEntries = topLevelObjectEntries(read(files.presentation), "FAMILY_BY_CAPABILITY");
+  const presentationEntries = stringMapEntries(read(files.presentation), "FAMILY_BY_CAPABILITY");
   const policySource = read(files.policy);
   const policyEntries = topLevelObjectEntries(policySource, "FINANCE_PRIMARY_ACTION_POLICY");
 
@@ -154,12 +163,12 @@ export async function auditFinanceWorldclassWorkflow() {
   }
 
   const commandCenterSource = read(files.commandCenter);
-  for (const token of ["FinancePracticeControlTower", "Accounting Control Center", "Review queue", "Overdue review", "Needs attention", "Finish the period with evidence", "Daily accounting", "Specialist capabilities"]) {
-    if (!commandCenterSource.includes(token)) fail(`Finance command-center accounting-firm workflow missing: ${token}`, failures);
+  for (const token of ["FinancePracticePortfolioFocus", "FinanceContinuousCloseRail", "FinanceAccountHealthPanel", "FinanceCorrectionWorkspace", "FinanceAccountantOverview"]) {
+    if (!commandCenterSource.includes(token)) fail(`Finance landing workflow missing: ${token}`, failures);
   }
 
   const practiceControlSource = read(files.practiceControl);
-  for (const token of ["Practice control tower", "Accounting firm portfolio", "Ready", "Partner", "Overdue", "Review points", "Next deadline", "assigned_accountant", "assigned_reviewer"]) {
+  for (const token of ["Firm portfolio", "Exceptions across clients, before dashboards", "Next human move", "Owner", "Deadline", "WAITING_SAFELY", "assigned_accountant", "assigned_reviewer"]) {
     if (!practiceControlSource.includes(token)) fail(`Finance practice-control UX missing: ${token}`, failures);
   }
 

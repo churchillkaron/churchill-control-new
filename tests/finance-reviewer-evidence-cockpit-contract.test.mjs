@@ -8,12 +8,17 @@ function read(path) {
 
 const reviewPage = read("app/(system)/workspace/[organizationId]/finance/review/page.jsx");
 const cockpit = read("components/workspace/finance/FinanceReviewerEvidenceCockpit.jsx");
+const workspace = read("components/workspace/finance/FinanceReviewerWorkspace.jsx");
+const panel = read("components/workspace/finance/FinanceReviewerEvidencePanel.jsx");
 const route = read("app/api/workspace/finance/reviewer-evidence/route.js");
 const runtime = read("lib/finance/practice/FinanceReviewerEvidenceRuntime.js");
 
-test("review page surfaces the evidence cockpit before the decision workspace", () => {
-  assert.match(reviewPage, /FinanceReviewerEvidenceCockpit/);
-  assert.ok(reviewPage.indexOf("<FinanceReviewerEvidenceCockpit") < reviewPage.indexOf("<FinanceReviewerWorkspace"));
+test("review page uses one decision workspace with evidence embedded before the governed action", () => {
+  assert.match(reviewPage, /FinanceReviewerWorkspace/);
+  assert.doesNotMatch(reviewPage, /FinanceReviewerEvidenceCockpit/);
+  assert.match(workspace, /FinanceReviewerEvidencePanel/);
+  assert.ok(workspace.indexOf("<FinanceReviewerEvidencePanel") < workspace.indexOf("Governed action"));
+  assert.match(panel, /Evidence before judgment/);
 });
 
 test("reviewer evidence cockpit compresses source evidence, ledger impact and prior-period context", () => {

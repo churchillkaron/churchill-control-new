@@ -153,7 +153,7 @@ export default function FinanceContinuousCloseRail({ organizationId }) {
       </div>
 
       <div className="flex flex-col gap-1 border-t border-black/[0.05] bg-[#FCFBF8] px-4 py-2 text-[7px] text-[#938C84] sm:flex-row sm:items-center sm:justify-between md:px-5">
-        <span>Close readiness is derived from the same synchronized Finance snapshot as account health and the accountant workspace.</span>
+        <span>Close readiness is derived from live accounting controls in the same synchronized Finance snapshot as account health and the accountant workspace, not a manually maintained progress score.</span>
         <span>{error ? `${stale ? "Refresh delayed" : "Finance snapshot unavailable"} · ${error}` : "Every action remains subject to normal approval, review and final-close gates."}</span>
       </div>
     </section>

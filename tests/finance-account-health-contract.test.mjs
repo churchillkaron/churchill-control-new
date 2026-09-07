@@ -11,6 +11,7 @@ const panel = read("components/workspace/finance/FinanceAccountHealthPanel.jsx")
 const closeRail = read("components/workspace/finance/FinanceContinuousCloseRail.jsx");
 const route = read("app/api/workspace/finance/account-health/route.js");
 const engine = read("lib/finance/ui/FinanceAccountHealth.js");
+const runtime = read("lib/finance/ui/loadFinanceAccountHealthRuntime.js");
 
 test("Finance landing places account health inside the close-to-work hierarchy", () => {
   assert.match(financePage, /FinanceAccountHealthPanel/);
@@ -41,20 +42,22 @@ test("movement signals are watches, not invented audit materiality", () => {
 });
 
 test("account health uses the existing ledger, bank mapping and reconciliation truth", () => {
-  assert.match(route, /loadLedgerAccountBalances/);
-  assert.match(route, /from\("bank_accounts"\)/);
-  assert.match(route, /finance_account_id/);
-  assert.match(route, /from\("finance_bank_reconciliation_runs"\)/);
-  assert.match(route, /periodStart/);
-  assert.match(route, /asOfDate/);
+  assert.match(route, /loadFinanceAccountHealthRuntime/);
+  assert.match(runtime, /loadLedgerAccountBalances/);
+  assert.match(runtime, /from\("bank_accounts"\)/);
+  assert.match(runtime, /finance_account_id/);
+  assert.match(runtime, /from\("finance_bank_reconciliation_runs"\)/);
+  assert.match(runtime, /periodStart/);
+  assert.match(runtime, /asOfDate/);
   assert.match(route, /finance\.accounting\.view/);
 });
 
 test("continuous close consumes account integrity instead of creating an isolated dashboard", () => {
-  assert.match(closeRail, /account-health/);
+  assert.match(closeRail, /useFinanceLandingRuntime/);
+  assert.match(closeRail, /accountHealth/);
   assert.match(closeRail, /Account integrity/);
   assert.match(closeRail, /account-level blocker/);
-  assert.match(closeRail, /account integrity, not a manually maintained progress score/);
+  assert.match(closeRail, /not a manually maintained progress score/);
   assert.doesNotMatch(panel, /MetricCard/);
   assert.doesNotMatch(panel, /recharts|chart\.js|react-chartjs/i);
 });

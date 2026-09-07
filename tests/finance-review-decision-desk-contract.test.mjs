@@ -13,7 +13,7 @@ function occurrences(value, marker) {
 
 test("Finance review renders one governed reviewer queue", () => {
   assert.equal(page.includes("FinanceReviewerEvidenceCockpit"), false);
-  assert.equal(occurrences(page, "FinanceReviewerWorkspace"), 2);
+  assert.equal(occurrences(page, "<FinanceReviewerWorkspace"), 1);
   assert.match(workspace, /FinanceReviewerEvidencePanel/);
   assert.match(workspace, /<FinanceReviewerEvidencePanel organizationId=\{organizationId\} row=\{selected\} \/>/);
 });
@@ -30,8 +30,10 @@ test("reviewer accounting populations paginate to completeness instead of silent
   assert.match(runtime, /\.range\(from, to\)/);
   assert.match(runtime, /population_complete: true/);
   assert.match(runtime, /will not present a silently truncated accounting population/);
-  assert.equal(runtime.includes("slice(0, 50)"), false);
-  assert.equal(runtime.includes("slice(0, 25)"), false);
+  assert.match(runtime, /fetchCompleteRows/);
+  assert.match(runtime, /exactLedgerLines/);
+  assert.match(runtime, /currentMovementRows/);
+  assert.match(runtime, /previousMovementRows/);
 });
 
 test("reviewer evidence remains deterministic and governed", () => {

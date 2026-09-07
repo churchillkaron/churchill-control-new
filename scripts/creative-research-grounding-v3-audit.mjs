@@ -25,9 +25,9 @@ const director = read(directorPath);
 const worker = read(workerPath);
 
 for (const expected of [
-  'RESEARCH_TRANSPORT_VERSION = "WEB_EVIDENCE_STRUCTURED_V4"',
-  'RESEARCH_CONTEXT_CONTRACT = "CREATIVE_RESEARCH_CONTEXT_V4"',
-  'RESEARCH_REPORT_CONTRACT = "CREATIVE_AUTONOMOUS_RESEARCH_V4"',
+  'RESEARCH_TRANSPORT_VERSION = "WEB_EVIDENCE_STRUCTURED_V5"',
+  'RESEARCH_CONTEXT_CONTRACT = "CREATIVE_RESEARCH_CONTEXT_V5"',
+  'RESEARCH_REPORT_CONTRACT = "CREATIVE_AUTONOMOUS_RESEARCH_V5"',
   'RESEARCH_IDENTITY_CONTRACT = "CREATIVE_RESEARCH_ORGANIZATION_IDENTITY_V3"',
   'ServiceExecutionCostGuardRuntime',
   'resolveActiveLegalEntitySelection',
@@ -51,6 +51,8 @@ for (const expected of [
   'research_phase: "WEB_EVIDENCE"',
   'research_phase: "STRUCTURED_SYNTHESIS"',
   'evidence_reused: evidenceReused',
+  'creative_grounding',
+  'MISSION-GROUNDING DUTY',
 ]) {
   requireText(director, expected, "director-v4");
 }
@@ -59,7 +61,7 @@ for (const expected of [
   'AutonomousResearchDirectorV4Runtime',
   'RESEARCH_TRANSPORT_VERSION',
   'RESEARCH_IDENTITY_CONTRACT',
-  'creative-project-research-v4:',
+  'creative-project-research-v5:',
   'maximum_attempts: 1',
   'job.job_type === JOB_TYPES.PROJECT_RESEARCH ||',
   'production_authorized: false',
@@ -69,17 +71,20 @@ for (const expected of [
 
 forbidText(worker, 'creative-project-research-v2:', "worker");
 forbidText(worker, 'creative-project-research-v3:', "worker");
+forbidText(worker, 'creative-project-research-v4:', "worker");
 forbidText(worker, 'AutonomousResearchDirectorRuntime.run', "worker");
 forbidText(worker, 'RESEARCH_TRANSPORT_VERSION = "WEB_SEARCH_AUTO_V2"', "worker");
 
-console.log("CREATIVE_RESEARCH_GROUNDING_V4_AUDIT=PASS");
-console.log("RESEARCH_TRANSPORT=WEB_EVIDENCE_STRUCTURED_V4");
+console.log("CREATIVE_RESEARCH_GROUNDING_V5_AUDIT=PASS");
+console.log("RESEARCH_TRANSPORT=WEB_EVIDENCE_STRUCTURED_V5");
 console.log("RESEARCH_EVIDENCE=REUSABLE_AND_IDENTITY_GATED");
 console.log("RESEARCH_SYNTHESIS=JSON_OBJECT_NO_WEB_TOOL");
 console.log("RESEARCH_COST_GUARD=PRE_PROVIDER_CALL");
-console.log("RESEARCH_IDEMPOTENCY=creative-project-research-v4");
+console.log("RESEARCH_IDEMPOTENCY=creative-project-research-v5");
 console.log("RESEARCH_MAXIMUM_ATTEMPTS=1");
 console.log("RESEARCH_IDENTITY=ORGANIZATION_AND_LEGAL_ENTITY_GROUNDED");
 console.log("RESEARCH_WRONG_COMPANY_FAILS_CLOSED=true");
 console.log("RESEARCH_PRODUCTION_AUTHORIZED=false");
 console.log("RESEARCH_RELEASE_GATE=PREBUILD");
+console.log("RESEARCH_DYNAMIC_CREATIVE_GROUNDING=true");
+console.log("RESEARCH_REFERENCE_DISCOVERY=MISSION_DERIVED_NOT_CATEGORY_HARDCODED");

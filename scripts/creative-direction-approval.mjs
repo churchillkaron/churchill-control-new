@@ -19,6 +19,7 @@ const [
   { OrganizationServiceRuntime },
   { resolveProvider },
   { PricingRuntime },
+  { listProviderPricing },
   { resolveServiceCapabilities },
   { resolvePrimaryExecutionCapability },
 ] = await Promise.all([
@@ -29,6 +30,7 @@ const [
   import("@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime"),
   import("@/lib/platform/service-runtime/providers/ProviderResolver"),
   import("@/lib/platform/service-runtime/pricing/PricingRuntime"),
+  import("@/lib/platform/service-runtime/pricing/repositories/ProviderPricingRepository"),
   import("@/lib/platform/service-runtime/services/resolver/ServiceCapabilityResolver"),
   import("@/lib/platform/service-runtime/services/resolver/CapabilityExecutionResolver"),
 ]);
@@ -278,9 +280,30 @@ async function directionEstimate(organizationId, shape) {
     currency: selected.currency || null,
     usage: { quantity: 1 },
   });
+  const providerPricingRows = await listProviderPricing({
+    provider: selected.provider,
+    currency: pricing.currency || selected.currency || null,
+  });
+  const allowedPricingRows = providerPricingRows.filter((row) =>
+    ["ai.reasoning.execute", "ai.text.generate"].includes(text(row.capability)) &&
+    row.metadata?.owned_inference === true &&
+    row.metadata?.production_certified === true &&
+    row.metadata?.production_routing_allowed !== false
+  );
+  const allowedPricings = [];
+  for (const row of allowedPricingRows) {
+    const resolved = await PricingRuntime.resolveById({
+      pricing_id: row.id,
+      currency: pricing.currency || null,
+      usage: { quantity: 1 },
+    });
+    allowedPricings.push(resolved);
+  }
+  if (!allowedPricings.length) allowedPricings.push(pricing);
   const maximumCalls = Number(shape.maximum_calls);
+  const referencePerCall = Math.max(...allowedPricings.map((item) => Number(item.customer_price || 0)));
   const maximumCustomerPrice = Number((
-    Number(pricing.customer_price) * maximumCalls
+    referencePerCall * maximumCalls
   ).toFixed(6));
   // Direction calls are token-priced and their prompt/output size varies by operation.
   // The human approves the total direction budget, not a fictitious identical-call price.
@@ -309,6 +332,9 @@ async function directionEstimate(organizationId, shape) {
     maximum_calls: maximumCalls,
     maximum_per_call_customer_price: maximumPerCallCustomerPrice,
     maximum_customer_price: maximumCustomerPrice,
+    allowed_models: [...new Set(allowedPricings.map((item) => item.model).filter(Boolean))],
+    allowed_pricing_ids: [...new Set(allowedPricings.map((item) => item.pricing_id).filter(Boolean))],
+    allowed_capabilities: [...new Set(allowedPricings.map((item) => item.capability).filter(Boolean))],
     supplier_cost_estimate: supplierCost,
     currency: pricing.currency,
     estimated_input_tokens:
@@ -467,6 +493,9 @@ const approval = {
   estimated_input_tokens: estimate.estimated_input_tokens,
   estimated_output_tokens: estimate.estimated_output_tokens,
   allowed_operations: estimate.allowed_operations,
+  allowed_models: estimate.allowed_models,
+  allowed_pricing_ids: estimate.allowed_pricing_ids,
+  allowed_capabilities: estimate.allowed_capabilities,
   budget_calculation: estimate.calculation,
   maximum_scene_direction_calls:
     estimate.maximum_scene_direction_calls,

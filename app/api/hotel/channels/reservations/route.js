@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { HotelChannelReservationIngestRuntime } from '@/lib/hotel/channels/HotelChannelReservationIngestRuntime';
+import { broadcastHotelReadinessChanged } from '@/lib/hotel/server/broadcastHotelReadinessChanged';
 import { requireOrganizationAccess } from '@/lib/platform/security/requireOrganizationAccess';
 import { supabaseAdmin } from '@/lib/shared/supabase/admin';
 
@@ -28,6 +29,15 @@ export async function POST(request) {
       organizationId: access.organizationId,
       connectionId,
     });
+
+    if (Number(result?.processedCount || 0) > 0) {
+      await broadcastHotelReadinessChanged({
+        organizationId: access.organizationId,
+        source: 'channel-reservation-ingest',
+        action: 'RESERVATIONS_PROCESSED',
+      });
+    }
+
     return NextResponse.json(result);
   } catch (error) {
     console.error('HOTEL_CHANNEL_RESERVATION_INGEST_ERROR', error);

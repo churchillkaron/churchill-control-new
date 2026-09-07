@@ -72,6 +72,105 @@ function verifiedAutonomousResult(overrides = {}) {
   };
 }
 
+function verifiedCommitReceipt({
+  executionKey,
+  baseCommit,
+  commitSha,
+} = {}) {
+  return {
+    status: "VERIFIED_COMMITTED",
+    verified: true,
+    execution_key: executionKey,
+    verification_source: "SERVER_OWNED_COMMIT_EXECUTION_STATE",
+    commit: {
+      contract: "AVANTIQO_CODE_AI_COMMIT_EXECUTION_STATE_V1",
+      success: true,
+      verified: true,
+      repository: "churchillkaron/churchill-control-new",
+      branch: "main",
+      previous_commit: baseCommit,
+      commit_sha: commitSha,
+      tree_sha: "3333333333333333333333333333333333333333",
+      file_count: 2,
+    },
+  };
+}
+
+function verifiedCommitMission({
+  executionKey = "product-cycle:12345678-1234-1234-1234-123456789abc",
+  baseCommit = "1111111111111111111111111111111111111111",
+  commitSha = "2222222222222222222222222222222222222222",
+  verifierExecutionKey = executionKey,
+  verifierBaseCommit = baseCommit,
+  verifierCommitSha = commitSha,
+  verifyCapabilityKey = "platform.code_ai_commit_status.verify",
+} = {}) {
+  return {
+    execution: {
+      status: "completed",
+      capability: {
+        key: "platform.operator_mission.execute",
+        mode: "write",
+      },
+      result: {
+        status: "completed",
+        mission_mode: "durable_registered_sequence",
+        mission_state: {
+          status: "completed",
+          steps: [
+            {
+              id: "commit_verified_changes",
+              capability_key: "platform.code_ai_commit.execute",
+              payload: { execution_key: executionKey },
+              verify_after: {
+                capability_key: verifyCapabilityKey,
+                payload: { execution_key: executionKey },
+              },
+            },
+            {
+              id: "reassess_verified_main",
+              capability_key: "platform.product_autonomy_continuation.assess",
+              payload: { execution_key: executionKey },
+            },
+          ],
+        },
+        steps: [
+          {
+            id: "commit_verified_changes",
+            capability_key: "platform.code_ai_commit.execute",
+            status: "action_completed",
+            result: {
+              verified: true,
+              branch: "main",
+              execution_key: executionKey,
+              previous_commit: baseCommit,
+              commit_sha: commitSha,
+            },
+          },
+          {
+            id: "commit_verified_changes",
+            capability_key: "platform.code_ai_commit.execute",
+            status: "completed",
+            verification: verifiedCommitReceipt({
+              executionKey: verifierExecutionKey,
+              baseCommit: verifierBaseCommit,
+              commitSha: verifierCommitSha,
+            }),
+          },
+          {
+            id: "reassess_verified_main",
+            capability_key: "platform.product_autonomy_continuation.assess",
+            status: "completed",
+            result: { status: "ASSESSED" },
+          },
+        ],
+      },
+    },
+    provider_evidence: {},
+    operator_catalog: {},
+  };
+}
+
 test("verified Code AI read-back becomes the Operator business-effect receipt", async () => {
   const { withOperatorCodeExecutionEvidence } = await evidenceRuntime();
   const projected = withOperatorCodeExecutionEvidence(
@@ -218,4 +317,81 @@ test("Business Partner keeps pending Code commit confirmation visible ahead of p
   assert.match(home, /pendingCommit\.executionKey/);
   assert.match(home, /codeEvidence\.repository_url/);
   assert.match(home, /codeEvidence\.base_commit/);
+});
+
+test("verified Code commit mission earns completion only from its exact commit and verifier pair", async () => {
+  const { withOperatorCodeExecutionEvidence } = await evidenceRuntime();
+  const projected = withOperatorCodeExecutionEvidence(verifiedCommitMission());
+
+  assert.equal(projected.execution.business_effect_verified, true);
+  assert.equal(projected.execution.post_action_verification.status, "completed");
+  assert.equal(projected.execution.code_execution_evidence.kind, "commit");
+  assert.equal(
+    projected.execution.code_execution_evidence.execution_key,
+    "product-cycle:12345678-1234-1234-1234-123456789abc",
+  );
+  assert.equal(
+    projected.execution.code_execution_evidence.repository_url,
+    "churchillkaron/churchill-control-new",
+  );
+  assert.equal(
+    projected.execution.code_execution_evidence.base_commit,
+    "1111111111111111111111111111111111111111",
+  );
+  assert.equal(
+    projected.execution.code_execution_evidence.previous_commit,
+    "1111111111111111111111111111111111111111",
+  );
+  assert.equal(
+    projected.execution.code_execution_evidence.commit_sha,
+    "2222222222222222222222222222222222222222",
+  );
+  assert.equal(
+    projected.operator_catalog.code_commit_mission_binding_verified,
+    true,
+  );
+});
+
+test("mismatched Code commit mission evidence never earns Verified complete", async () => {
+  const { withOperatorCodeExecutionEvidence } = await evidenceRuntime();
+
+  const wrongVerifier = withOperatorCodeExecutionEvidence(
+    verifiedCommitMission({
+      verifyCapabilityKey: "platform.unrelated.verify",
+    }),
+  );
+  assert.equal(wrongVerifier.execution.business_effect_verified, undefined);
+  assert.equal(wrongVerifier.execution.code_execution_evidence, undefined);
+
+  const wrongExecutionKey = withOperatorCodeExecutionEvidence(
+    verifiedCommitMission({
+      verifierExecutionKey:
+        "product-cycle:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    }),
+  );
+  assert.equal(wrongExecutionKey.execution.business_effect_verified, undefined);
+  assert.equal(wrongExecutionKey.execution.code_execution_evidence, undefined);
+
+  const wrongCommitSha = withOperatorCodeExecutionEvidence(
+    verifiedCommitMission({
+      verifierCommitSha: "4444444444444444444444444444444444444444",
+    }),
+  );
+  assert.equal(wrongCommitSha.execution.business_effect_verified, undefined);
+  assert.equal(wrongCommitSha.execution.code_execution_evidence, undefined);
+});
+
+test("Business Partner verified Code badge renders durable base and resulting commit proof", () => {
+  const home = source("components/operator/HomeAvantiqoIntelligence.jsx");
+  const evidence = source(
+    "lib/operator/runtime/OperatorCodeExecutionEvidenceRuntime.js",
+  );
+
+  assert.match(home, /label:\s*"Verified complete"/);
+  assert.match(home, /codeEvidence\.base_commit/);
+  assert.match(home, /codeEvidence\.commit_sha/);
+  assert.match(evidence, /base_commit:\s*baseCommit/);
+  assert.match(evidence, /function missionCommitReceiptMatches\(/);
+  assert.match(evidence, /platform\.code_ai_commit\.execute/);
+  assert.match(evidence, /platform\.code_ai_commit_status\.verify/);
 });

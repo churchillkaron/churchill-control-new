@@ -5,7 +5,17 @@ import { useEffect, useMemo, useState } from "react";
 const INPUT_CLASS =
   "h-10 min-w-0 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-[#D6A66A]/50";
 
+const CREATABLE_LOOKUPS = Object.freeze({
+  items: "Item / Service",
+  cost_centers: "Cost Centre",
+  departments: "Department",
+  projects: "Project",
+});
+
 function initialValue(column) {
+  if (column.defaultValue !== undefined) return column.defaultValue;
+  if (column.name === "quantity") return 1;
+  if (column.name === "discount_amount" || column.name === "tax_amount") return 0;
   if (column.type === "number" || column.type === "calculated-money") return 0;
   return "";
 }
@@ -25,10 +35,15 @@ function money(value) {
   });
 }
 
-function TypedLookupCell({ column, value, organizationId, entityId, onChange }) {
+function TypedLookupCell({ column, row, value, organizationId, entityId, onChange }) {
   const [options, setOptions] = useState(Array.isArray(column.options) ? column.options : []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createCode, setCreateCode] = useState("");
+  const [createSaving, setCreateSaving] = useState(false);
+  const createLabel = CREATABLE_LOOKUPS[column.lookup] || null;
 
   useEffect(() => {
     let active = true;
@@ -71,6 +86,47 @@ function TypedLookupCell({ column, value, organizationId, entityId, onChange }) 
   }, [column.lookup, column.options, organizationId, entityId]);
 
   const emptyItemCatalogue = column.lookup === "items" && !loading && !error && options.length === 0;
+  const noVatLookup = column.lookup === "tax_codes";
+
+  async function createOption() {
+    const name = createName.trim();
+    if (!name || !createLabel) return;
+
+    try {
+      setCreateSaving(true);
+      setError("");
+      const response = await fetch("/api/platform/lookups", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lookup: column.lookup,
+          organizationId,
+          entityId,
+          name,
+          code: createCode.trim() || undefined,
+          salePrice: column.lookup === "items" ? Number(row?.unit_price || 0) : undefined,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.success === false || !payload?.option?.value) {
+        throw new Error(payload?.error || `Unable to create ${createLabel}`);
+      }
+
+      setOptions((current) => {
+        const next = current.filter((option) => String(option?.value ?? option) !== String(payload.option.value));
+        return [payload.option, ...next];
+      });
+      onChange(payload.option.value);
+      setCreateName("");
+      setCreateCode("");
+      setCreating(false);
+    } catch (createError) {
+      setError(createError?.message || `Unable to create ${createLabel}`);
+    } finally {
+      setCreateSaving(false);
+    }
+  }
 
   return (
     <div className="min-w-0">
@@ -83,26 +139,90 @@ function TypedLookupCell({ column, value, organizationId, entityId, onChange }) 
         <option value="">
           {loading
             ? "Loading…"
-            : emptyItemCatalogue
-              ? "No catalogue — use Description"
-              : options.length
-                ? "Select…"
-                : "No options available"}
+            : noVatLookup
+              ? "No VAT"
+              : emptyItemCatalogue
+                ? "No saved items or services"
+                : options.length
+                  ? "Select…"
+                  : "No options available"}
         </option>
         {options.map((option) => {
           const item = typeof option === "string" ? { value: option, label: option } : option;
+          const optionLabel = item.description && column.lookup === "tax_codes"
+            ? `${item.label} · ${item.description}`
+            : item.label;
           return (
             <option key={item.value} value={item.value}>
-              {item.label}
+              {optionLabel}
             </option>
           );
         })}
       </select>
+
+      {createLabel ? (
+        <div className="mt-1.5">
+          {!creating ? (
+            <button
+              type="button"
+              onClick={() => {
+                setCreating(true);
+                setCreateName(column.lookup === "items" ? String(row?.description || "") : "");
+              }}
+              className="text-[10px] font-medium text-[#D6A66A] hover:text-[#E9C18E]"
+            >
+              + Create new {createLabel}
+            </button>
+          ) : (
+            <div className="space-y-2 rounded-lg border border-[#D6A66A]/20 bg-[#D6A66A]/[0.05] p-2.5">
+              <input
+                autoFocus
+                value={createName}
+                onChange={(event) => setCreateName(event.target.value)}
+                placeholder={`${createLabel} name`}
+                className={INPUT_CLASS}
+              />
+              <input
+                value={createCode}
+                onChange={(event) => setCreateCode(event.target.value)}
+                placeholder="Code (optional)"
+                className={INPUT_CLASS}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={createOption}
+                  disabled={createSaving || !createName.trim()}
+                  className="h-8 rounded-lg bg-[#D6A66A] px-3 text-[10px] font-semibold text-black disabled:opacity-40"
+                >
+                  {createSaving ? "Saving…" : `Save ${createLabel}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreating(false);
+                    setCreateName("");
+                    setCreateCode("");
+                    setError("");
+                  }}
+                  className="h-8 rounded-lg border border-white/10 px-3 text-[10px] text-white/60"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+
       {error ? <p className="mt-1 text-[10px] text-red-300">{error}</p> : null}
-      {emptyItemCatalogue ? (
+      {emptyItemCatalogue && !creating ? (
         <p className="mt-1 text-[10px] leading-4 text-white/35">
-          Optional. Enter the service or item directly in Description.
+          Create the service here once and it will be available on future invoices.
         </p>
+      ) : null}
+      {noVatLookup && !value ? (
+        <p className="mt-1 text-[10px] leading-4 text-white/35">No VAT selected.</p>
       ) : null}
     </div>
   );
@@ -123,6 +243,7 @@ function TableCell({ column, row, organizationId, entityId, onChange }) {
     return (
       <TypedLookupCell
         column={column}
+        row={row}
         value={value}
         organizationId={organizationId}
         entityId={entityId}
@@ -191,7 +312,7 @@ export default function DynamicTableField({
 }) {
   const columns = Array.isArray(field.columns) ? field.columns : [];
   const rows = Array.isArray(value) ? value : [];
-  const minimumRows = Number(field.minimumRows || 0);
+  const minimumRows = Number(field.minimumRows ?? (field.required ? 1 : 0));
   const isDebitCredit = field.balanceMode === "debit-credit";
 
   useEffect(() => {
@@ -229,6 +350,7 @@ export default function DynamicTableField({
         const nextRow = { ...row, [key]: nextValue };
         if (isDebitCredit && key === "debit" && Number(nextValue || 0) > 0) nextRow.credit = 0;
         if (isDebitCredit && key === "credit" && Number(nextValue || 0) > 0) nextRow.debit = 0;
+        if (key === "tax_code_id" && !nextValue) nextRow.tax_amount = 0;
         return nextRow;
       })
     );

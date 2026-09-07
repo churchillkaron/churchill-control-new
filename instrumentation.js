@@ -106,6 +106,9 @@ export async function register() {
       "@/lib/creative/quality/runtime/CreativeShotCandidateQualityGateBootstrap"
     );
     await import(
+      "@/lib/creative/post-production/runtime/CreativeEditorialAssemblyRenderBootstrap"
+    );
+    await import(
       "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
     );
     await import(

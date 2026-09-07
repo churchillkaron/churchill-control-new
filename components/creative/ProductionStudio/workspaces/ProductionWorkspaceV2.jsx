@@ -3,6 +3,7 @@
 import { Activity, CircleAlert, Scissors, ShieldCheck } from "lucide-react";
 
 import ProductionWorkspace from "./ProductionWorkspace";
+import CreativeMissionControlPanel from "../status/CreativeMissionControlPanel";
 
 function object(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -118,6 +119,7 @@ export default function ProductionWorkspaceV2({ runtime, editor }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#F6F3EE]">
+      <CreativeMissionControlPanel runtime={runtime} />
       <div className="border-b border-black/[0.07] bg-[#FBF9F5] px-4 py-2.5 lg:px-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">

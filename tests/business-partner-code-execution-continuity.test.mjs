@@ -157,3 +157,65 @@ test("Code evidence remains inside persisted execution and survives conversation
   assert.match(home, /execution:\s*turn\?\.execution\s*\|\|\s*\{\}/);
   assert.match(home, /governance:\s*turn\.role === "assistant"\s*\? executionEvidence\(turn\)\s*:\s*null/);
 });
+
+test("embedded Code persistence is promoted into server-authoritative resumable mission state", () => {
+  const legacy = source("lib/operator/runtime/OperatorTurnRuntimeLegacy.js");
+  const route = source("app/api/operator/turn/route.js");
+  const conversation = source(
+    "lib/operator/runtime/IntelligenceConversationRuntime.js",
+  );
+
+  assert.match(
+    legacy,
+    /pending_execution:\s*\{[\s\S]*capability_key:\s*OPERATOR_MISSION_KEY,[\s\S]*payload:\s*object\(mission\.resume_payload\),[\s\S]*resume_kind:\s*"mission"/,
+  );
+  assert.match(
+    route,
+    /const agreementState = object\(memory\.agreementState\)/,
+  );
+  assert.match(
+    conversation,
+    /p_agreement_state:\s*persistedAgreementState/,
+  );
+  assert.match(
+    conversation,
+    /agreementState:\s*object\(conversation\.agreement_state\)/,
+  );
+});
+
+test("post-refresh commit confirmation resumes the exact stored mission payload", () => {
+  const core = source("lib/operator/runtime/OperatorTurnRuntimeCore.js");
+
+  assert.match(
+    core,
+    /pending\?\.resume_kind === "mission"[\s\S]*missionResumeProjectionMatches\(pending, activeRun\)/,
+  );
+  assert.match(
+    core,
+    /payload:\s*pending\.payload,[\s\S]*runtimeMetadata:\s*missionResume[\s\S]*operatorMissionResume:\s*true,[\s\S]*operatorMissionConfirmed:\s*isAffirmative\(message\)/,
+  );
+});
+
+test("Business Partner keeps pending Code commit confirmation visible ahead of prior verified engineering", () => {
+  const home = source("components/operator/HomeAvantiqoIntelligence.jsx");
+  const pendingBranch = home.indexOf(
+    "if (text(pendingExecution?.capability_key))",
+  );
+  const verifiedBranch = home.indexOf(
+    "execution?.business_effect_verified === true",
+  );
+
+  assert.ok(pendingBranch >= 0, "pending execution branch must exist");
+  assert.ok(verifiedBranch >= 0, "verified execution branch must exist");
+  assert.ok(
+    pendingBranch < verifiedBranch,
+    "pending persistence must render before prior verified engineering state",
+  );
+  assert.match(home, /function pendingCodeCommitIntent\(/);
+  assert.match(home, /platform\.code_ai_commit\.execute/);
+  assert.match(home, /platform\.code_ai_commit_status\.verify/);
+  assert.match(home, /label:\s*"Awaiting confirmation"/);
+  assert.match(home, /pendingCommit\.executionKey/);
+  assert.match(home, /codeEvidence\.repository_url/);
+  assert.match(home, /codeEvidence\.base_commit/);
+});

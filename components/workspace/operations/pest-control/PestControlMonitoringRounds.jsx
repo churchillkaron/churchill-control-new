@@ -18,7 +18,7 @@ export default function PestControlMonitoringRounds({ organizationId }) {
     if (!organizationId) return;
     setState((current) => ({ ...current, loading: true, error: "" }));
     try {
-      const response = await fetch(`/api/service-management/technician?organizationId=${encodeURIComponent(organizationId)}&limit=500`, { cache: "no-store", credentials: "include" });
+      const response = await fetch(`/api/service-management/monitoring-rounds-register?organizationId=${encodeURIComponent(organizationId)}&limit=500`, { cache: "no-store", credentials: "include" });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body.success) throw new Error(body.error || "Monitoring rounds could not be loaded.");
       setState({ loading: false, error: "", rows: (body.rows || []).filter((row) => !isTerminal(row) && normalized(row.industry_key) === "pest_control") });

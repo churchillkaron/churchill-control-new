@@ -22,6 +22,15 @@ test("Business Partner snapshot returns persisted execution proof required after
   );
 });
 
+test("Business Partner persists the exact per-turn agreement state used by pending approval badges", () => {
+  const route = source("app/api/operator/turn/route.js");
+
+  assert.match(route, /const persistedDecision = \{/);
+  assert.match(route, /agreement_state:\s*object\(nextAgreementState\)/);
+  assert.match(route, /project_state:\s*object\(nextProjectState\)/);
+  assert.match(route, /decision:\s*persistedDecision/);
+});
+
 test("Business Partner restores proof and reuses the live governance classifier", () => {
   const home = source("components/operator/HomeAvantiqoIntelligence.jsx");
 

@@ -99,10 +99,10 @@ export default function CorrectiveServiceControlPage() {
     if (row.stage === "needs_review") return { label: "Send for approval", action: () => runRequestCommand(row, "submit") };
     if (row.stage === "needs_approval") return { label: "Approve follow-up", action: () => runRequestCommand(row, "approve") };
     if (row.stage === "ready_for_corrective_visit") return { label: "Create corrective visit", action: () => createCorrectiveVisit(row) };
-    if (row.corrective_work_order_id && ["needs_assignment", "assigned"].includes(row.stage)) return { label: row.stage === "assigned" ? "Release / manage visit" : "Assign technician", href: `/workspace/${encodeURIComponent(organizationId)}/operations/work-control?workOrderId=${encodeURIComponent(row.corrective_work_order_id)}` };
+    if (row.corrective_work_order_id && ["needs_assignment", "assigned"].includes(row.stage)) return { label: row.stage === "assigned" ? "Release / manage visit" : "Assign technician", href: `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/work-control?workOrderId=${encodeURIComponent(row.corrective_work_order_id)}` };
     if (row.corrective_work_order_id && row.corrective_occurrence_id && ["released_to_technician", "corrective_in_progress"].includes(row.stage)) return { label: row.stage === "corrective_in_progress" ? "Continue corrective visit" : "Open technician visit", href: `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/technician?workOrderId=${encodeURIComponent(row.corrective_work_order_id)}&occurrenceId=${encodeURIComponent(row.corrective_occurrence_id)}` };
     if (row.stage === "resolved") return { label: "Resolved", disabled: true };
-    if (status === "approved" && row.corrective_work_order_id) return { label: "Open Work Control", href: `/workspace/${encodeURIComponent(organizationId)}/operations/work-control?workOrderId=${encodeURIComponent(row.corrective_work_order_id)}` };
+    if (status === "approved" && row.corrective_work_order_id) return { label: "Open Work Control", href: `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/work-control?workOrderId=${encodeURIComponent(row.corrective_work_order_id)}` };
     return null;
   }
 

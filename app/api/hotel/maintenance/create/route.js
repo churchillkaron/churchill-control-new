@@ -1,6 +1,7 @@
 import { createServerSupabase } from "@/lib/shared/supabase/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getActiveOrganization } from "@/lib/workspace/getActiveOrganization";
+import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import {
   createHotelMaintenanceTask,
 } from "@/lib/hotel/server/createHotelMaintenanceTask";
@@ -40,6 +41,12 @@ export async function POST(req) {
       scheduledAt: body.scheduledAt,
       notes: body.notes,
       assignedStaffId: body.assignedStaffId,
+    });
+
+    await broadcastHotelReadinessChanged({
+      organizationId: organization.id,
+      source: "maintenance-planning",
+      action: "CREATE",
     });
 
     return Response.json({

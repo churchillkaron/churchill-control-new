@@ -42,4 +42,24 @@ assert.ok(intelligence.includes("CREATIVE_INTELLIGENCE_EVIDENCE_DECISION_TRACE_R
 assert.ok(intelligence.includes("CREATIVE_INTELLIGENCE_RESEARCH_BOUND_REASONING_FAILED"));
 assert.ok(intelligence.includes("research_bound: Object.keys(researchPacket).length > 0"));
 
+
+assert.match(director, /grounding\.canonical_name \|\| metadata\.organization_name/);
+assert.match(director, /public_identity_scope/);
+assert.match(director, /organization\.canonical_name, organization\.official_website/);
+assert.match(director, /site:\$\{officialHost\}/);
+assert.match(director, /NOT_REQUIRED_FOR_BRAND_SCOPE/);
+
+assert.match(director, /company_resolution\.status MUST be exactly RESOLVED/);
+
+assert.match(director, /audience MUST be an object containing evidence_source_ids/);
+
+assert.match(director, /competitors array/);
+
+assert.match(director, /identity collisions, not products, affiliates or competitors/);
+
+assert.match(director, /never copy a webpage URL into media_url/);
+
+assert.match(director, /researchSafeMetadata/);
+assert.match(director, /approval\|billing\|wallet\|pricing\|credential\|secret\|token\|spend\|reservation/);
+
 console.log("AVANTIQO_CREATIVE_RESEARCH_STRATEGIC_UNDERSTANDING=PASS");

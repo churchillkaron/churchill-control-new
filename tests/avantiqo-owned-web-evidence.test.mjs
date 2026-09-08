@@ -16,6 +16,7 @@ test("registers at least three policy-approved primary sources for every continu
     "projects",
     "integrations",
     "intelligence",
+    "energy-offshore",
   ]) {
     const registered = listAvantiqoOwnedResearchSources({ domain });
     assert.equal(registered.domain, domain);
@@ -146,4 +147,15 @@ test("fails closed when no owned source registry covers the question", async () 
     }),
     /AVANTIQO_OWNED_WEB_EVIDENCE_SOURCE_REGISTRY_INSUFFICIENT/,
   );
+});
+
+
+test("infers the owned energy-offshore source domain for Norway Studio grounding", () => {
+  const registered = listAvantiqoOwnedResearchSources({
+    query: "Norway offshore helicopter rotor North Sea oil rig helideck",
+  });
+  assert.equal(registered.domain, "energy-offshore");
+  assert.ok(registered.sources.length >= 5);
+  assert.ok(registered.sources.some((source) => source.url.includes("equinor.com/energy/johan-sverdrup")));
+  assert.ok(registered.sources.some((source) => source.url.includes("offshorenorge.no")));
 });

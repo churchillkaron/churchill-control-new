@@ -340,9 +340,10 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(generation, dict) or generation.get("success") is not True:
             raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_RESULT_INVALID")
         controlled_evidence = _controlled_generation_evidence(job, generation)
-        if not output_path.exists() or output_path.stat().st_size < 1024 * 1024:
+        minimum_output_bytes = 500_000 if candidate_t2v else 1024 * 1024
+        if not output_path.exists() or output_path.stat().st_size < minimum_output_bytes:
             model_volume.reload()
-        if not output_path.exists() or output_path.stat().st_size < 1024 * 1024:
+        if not output_path.exists() or output_path.stat().st_size < minimum_output_bytes:
             raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_OUTPUT_MISSING")
         _upload_master(output_path, job["signed_url"])
         lineage = _object(job.get("studio_lineage"))

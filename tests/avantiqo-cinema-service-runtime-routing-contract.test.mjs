@@ -44,12 +44,14 @@ const ownedCertification = fs.readFileSync(
 );
 
 test("Creative Cinema routing delegates vendor selection to Service Runtime", () => {
-  assert.match(router, /CREATIVE_VIDEO_EXECUTION_ROUTE_V3/);
-  assert.match(router, /SERVICE_RUNTIME_OWNED_FIRST_CAPABILITY_SELECTION/);
+  assert.match(router, /CREATIVE_VIDEO_EXECUTION_ROUTE_V4/);
+  assert.match(router, /SERVICE_RUNTIME_AVANTIQO_OWNED_ONLY_CAPABILITY_SELECTION/);
   assert.match(router, /provider_selection_boundary:\s*"SERVICE_RUNTIME_ONLY"/);
   assert.match(router, /owned_first_required:\s*true/);
+  assert.match(router, /owned_only_required:\s*true/);
+  assert.match(router, /external_fallback_allowed:\s*false/);
   assert.match(router, /creative_provider_selection_forbidden:\s*true/);
-  assert.match(router, /external_provider_role:\s*"SUPPLEMENTAL_OR_FALLBACK_ONLY"/);
+  assert.match(router, /external_provider_role:\s*"FORBIDDEN"/);
   assert.match(router, /CREATIVE_VIDEO_PROVIDER_SELECTION_FORBIDDEN/);
 
   for (const vendor of [
@@ -184,6 +186,8 @@ test("Cinema requirements are filtered before owned-first ranking", () => {
     providerResolver,
     /ownedCandidates\.length \? ownedCandidates : candidates/,
   );
+  assert.match(providerResolver, /ownedOnlyRequired/);
+  assert.match(providerResolver, /AVANTIQO_OWNED_PROVIDER_REQUIRED/);
   assert.match(providerResolver, /ownedExecutionCertification/);
 });
 

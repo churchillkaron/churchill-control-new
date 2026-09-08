@@ -1,0 +1,15 @@
+{
+  "success": false,
+  "contract": "AVANTIQO_INVESTOR_SCENE9_OWNED_PREVIEW_EXECUTION_V2",
+  "status": "ALREADY_IN_PROGRESS",
+  "duplicate_generation_prevented": true,
+  "existing_generation_job_id": "9f82cfd1-be23-4d2a-b610-463406b67b4b",
+  "existing_generation_job_status": "failed",
+  "provider_job_id": null,
+  "asset_node_id": null,
+  "storage_reference": null,
+  "scene": 9,
+  "provider": "avantiqo-video",
+  "external_ai_provider_used": false,
+  "production_certified": false
+}

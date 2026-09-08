@@ -124,7 +124,7 @@ test("visible production control preflights, auto-polls active work, and continu
 });
 
 test("provider registry matches the native Studio B200 master path", () => {
-  assert.match(registration, /MODAL_FUNCTION_NAME = "generate_native_job"/);
+  assert.match(registration, /MODAL_FUNCTION_NAME = "generate_native_job_v2"/);
   assert.match(registration, /NATIVE_MASTER_MODEL = "avantiqo-ltx-2\.5"/);
   assert.match(registration, /NATIVE_MASTER_RESOLUTION = "3840x2176"/);
   assert.match(registration, /NATIVE_MASTER_FPS = 24/);

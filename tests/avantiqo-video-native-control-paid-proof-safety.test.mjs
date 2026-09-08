@@ -80,7 +80,7 @@ test("live zero-GPU preflight checks all named deployed Video execution surfaces
   assert.match(preflight, /modal\.Function\.from_name\(DEPLOYED_APP, name\)/);
   assert.match(preflight, /current = fn\.get_current_stats\(\)/);
   assert.match(preflight, /"stats_source": "named_deployed_app"/);
-  assert.match(preflight, /"transport": _stats\("generate_native_job"\)/);
+  assert.match(preflight, /"transport": _stats\("generate_native_job_v2"\)/);
   assert.match(preflight, /"controlled_master": _stats\("generate_native_controlled_master"\)/);
   assert.match(preflight, /"legacy_master": _stats\("generate_native_master"\)/);
   assert.match(preflight, /VIDEO_ALREADY_ACTIVE/);

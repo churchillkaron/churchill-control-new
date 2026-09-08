@@ -94,3 +94,10 @@ test("research reservation uses the approved deep-lane token ceiling", async () 
   assert.match(source, /estimated_output_tokens:\s*Number\(approval\.estimated_output_tokens \|\| 8000\)/);
   assert.equal(source.includes("estimated_input_tokens: 12000,\n          estimated_output_tokens: 8000,"), false);
 });
+
+test("creative grounding deterministically repairs evidence-bound entities before validation", () => {
+  const source = fs.readFileSync("lib/creative/research/runtime/ResearchEvidenceContractRuntime.js", "utf8");
+  assert.match(source, /MISSION_GROUNDING_SUBJECT/);
+  assert.match(source, /rather than collapsing into generic imagery/);
+  assert.match(source, /repairedGrounding\.evidence_targets/);
+});

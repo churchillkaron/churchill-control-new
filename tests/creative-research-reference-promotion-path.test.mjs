@@ -18,3 +18,11 @@ test('temporal orchestrator resolves research before creating temporal direction
  assert.ok(researchIndex > 0 && directionIndex > researchIndex);
  assert.match(orchestrator,/assets: directionAssets/);
 });
+
+test("selected page references are expanded into visual candidates before promotion", async () => {
+  const source = fs.readFileSync("lib/creative/research/runtime/CreativeResearchReferencePromotionRuntime.js", "utf8");
+  assert.match(source, /pageVisualCandidates/);
+  assert.match(source, /_next\/image/);
+  assert.match(source, /derived_from_page/);
+  assert.match(source, /await resolvedSelectedReferences\(research\)/);
+});

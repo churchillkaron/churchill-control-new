@@ -24,6 +24,7 @@ from modal_native_controlled_master import (
     CONTROL_CONTRACT,
     generate_native_controlled_master,
 )
+from modal_investor_t2v import generate_investor_t2v_master
 
 JOB_CONTRACT = "AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_JOB_V2"
 STUDIO_LINEAGE_CONTRACT = "AVANTIQO_VIDEO_STUDIO_LINEAGE_V1"
@@ -57,6 +58,7 @@ transport_image = (
     .pip_install("requests==2.32.4")
     .add_local_python_source("modal_app")
     .add_local_python_source("modal_native_controlled_master")
+    .add_local_python_source("modal_investor_t2v")
 )
 
 
@@ -312,7 +314,8 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
     organization = _path_token(job["organization_id"], "organization")
     usage = _path_token(job["usage_id"], "usage")
     relative_root = Path("runtime-jobs") / organization / usage / job_id
-    output_relative = str(relative_root / "native-master-3840x2176.mp4")
+    candidate_t2v = job["capability"] == "ai.video.generate" and not job["native_control"] and not job["source_urls"]
+    output_relative = str(relative_root / ("candidate-master-1920x1088.mp4" if candidate_t2v else "native-master-3840x2176.mp4"))
     output_path = Path("/models") / output_relative
     staged_paths: list[Path] = []
     reference_bytes = 0
@@ -330,7 +333,9 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
             model_volume.commit()
             generation = generate_native_master.remote(reference_relative, output_relative, job["instruction"], job["duration_seconds"], job["seed"])
         else:
-            generation = generate_native_master.remote("", output_relative, job["instruction"], job["duration_seconds"], job["seed"])
+            if job["duration_seconds"] > 12:
+                raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_CANDIDATE_DURATION_INVALID")
+            generation = generate_investor_t2v_master.remote(output_relative, job["instruction"], job["duration_seconds"], job["seed"])
 
         if not isinstance(generation, dict) or generation.get("success") is not True:
             raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_RESULT_INVALID")
@@ -350,11 +355,14 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
             "runtime_contract": LTX_RUNTIME_CONTRACT,
             "gpu": LTX_GPU,
             "modal_gpu": _text(generation.get("modal_gpu")) or LTX_GPU,
-            "width": LTX_MASTER_WIDTH,
-            "height": LTX_MASTER_HEIGHT,
-            "fps": 24,
-            "steps": LTX_NUM_INFERENCE_STEPS,
-            "num_inference_steps": int(generation.get("num_inference_steps") or LTX_NUM_INFERENCE_STEPS),
+            "width": int(generation.get("width") or LTX_MASTER_WIDTH),
+            "height": int(generation.get("height") or LTX_MASTER_HEIGHT),
+            "fps": int(generation.get("fps") or 24),
+            "steps": int(generation.get("num_inference_steps") or generation.get("stage_1_steps") or LTX_NUM_INFERENCE_STEPS),
+            "num_inference_steps": int(generation.get("num_inference_steps") or generation.get("stage_1_steps") or LTX_NUM_INFERENCE_STEPS),
+            "candidate_foundation": candidate_t2v,
+            "candidate_foundation_resolution": "1920x1088" if candidate_t2v else None,
+            "master_promotion_required": candidate_t2v,
             "duration_seconds": job["duration_seconds"],
             "seed": job["seed"],
             "supplier_gpu_cost_usd": generation.get("supplier_gpu_cost_usd") or generation.get("estimated_supplier_gpu_cost_usd"),

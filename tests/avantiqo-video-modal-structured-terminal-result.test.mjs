@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const worker=fs.readFileSync('services/avantiqo-video-engine/modal_native_job.py','utf8');
+const provider=fs.readFileSync('lib/platform/service-runtime/providers/avantiqo-owned/AvantiqoOwnedModalWorker.js','utf8');
+assert.match(worker,/def _generate_native_job_impl/);
+assert.match(worker,/"status": "failed"/);
+assert.match(worker,/"error_code": error_code/);
+assert.match(worker,/"raw_reasoning_persisted": False/);
+assert.match(provider,/result\?\.success === false/);
+assert.match(provider,/modalStatus\(result\?\.status\) === "failed"/);
+console.log('AVANTIQO_VIDEO_MODAL_STRUCTURED_TERMINAL_RESULT=PASS');

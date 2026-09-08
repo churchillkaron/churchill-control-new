@@ -52,3 +52,7 @@ assert.ok(benchmark.includes("minimum_overall_score: 94"));
 assert.ok(benchmark.includes("maximum_pairwise_direction_similarity: 0.55"));
 
 console.log("AVANTIQO_REFERENCE_CALIBRATED_AGENCY_CRAFT=PASS");
+
+assert.match(coverage, /AVANTIQO_FUTURISTIC_MYSTERY_TENSION_FILM_LANGUAGE_V1/);
+assert.match(coverage, /WITHHOLD_ESCALATE_EARNED_REVEAL/);
+assert.match(coverage, /Mystery must remain legible|mystery_must_remain_legible/);

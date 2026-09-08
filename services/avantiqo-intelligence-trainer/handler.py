@@ -5,7 +5,10 @@ import re
 from pathlib import Path
 from typing import Any
 
-import runpod
+try:
+    import runpod
+except ImportError:
+    runpod = None
 import torch
 from peft import LoraConfig, get_peft_model
 from torch.nn.utils.rnn import pad_sequence
@@ -509,4 +512,6 @@ def handler(event):
 
 if __name__ == "__main__":
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    if runpod is None:
+        raise RuntimeError("RUNPOD_RUNTIME_NOT_INSTALLED_FOR_LEGACY_ENTRYPOINT")
     runpod.serverless.start({"handler": handler})

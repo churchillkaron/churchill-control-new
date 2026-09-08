@@ -96,24 +96,23 @@ test("trainer benchmark and candidate use distinct governed lease identities", (
 });
 
 test("all paid model improvement paths are statically Safe Lease bound", async () => {
-  const [policy, trainer, benchmark, candidate, benchmarkWorker, trainerLocal, benchmarkLocal, promotion] =
+  const [policy, trainer, benchmark, candidate, benchmarkWorker, benchmarkLocal, promotion] =
     await Promise.all([
       readFile("config/avantiqo-runpod-safe-lease-policy.json", "utf8"),
       readFile("lib/intelligence/runtime/AvantiqoModelTrainingExecutionRuntime.js", "utf8"),
       readFile("lib/intelligence/runtime/AvantiqoModelBenchmarkExecutionRuntime.js", "utf8"),
       readFile("lib/intelligence/runtime/AvantiqoModelCandidateCanaryRuntime.js", "utf8"),
       readFile("services/avantiqo-intelligence-benchmark/handler.py", "utf8"),
-      readFile("scripts/run-avantiqo-model-training-execution-local.mjs", "utf8"),
       readFile("scripts/run-avantiqo-model-benchmark-submission-local.mjs", "utf8"),
       readFile("lib/intelligence/runtime/AvantiqoModelPromotionRuntime.js", "utf8"),
     ]);
 
   assert.match(policy, /"max_jobs_per_lease"\s*:\s*1/);
-  assert.match(policy, /"intelligence-trainer"\s*:\s*"avantiqo-intelligence-trainer-v1"/);
-  assert.match(policy, /"intelligence-benchmark"\s*:\s*"avantiqo-intelligence-trainer-v1"/);
-  assert.match(policy, /"intelligence-candidate"\s*:\s*"avantiqo-intelligence-candidate-v1"/);
 
-  assert.match(trainer, /requireAvantiqoModelImprovementSafeLease\("trainer"/);
+  assert.doesNotMatch(trainer, /requireAvantiqoModelImprovementSafeLease/);
+  assert.match(trainer, /MODAL_H100_OWNED_TRAINER_V1/);
+  assert.match(trainer, /worker\.spawn\(\[payload\]\)/);
+  assert.match(trainer, /runpod_used: false/);
   assert.match(benchmark, /requireAvantiqoModelImprovementSafeLease\("benchmark"/);
   assert.match(candidate, /requireAvantiqoModelImprovementSafeLease\("candidate"/);
 
@@ -125,9 +124,6 @@ test("all paid model improvement paths are statically Safe Lease bound", async (
   assert.match(benchmarkWorker, /"baseline_outputs": baseline_outputs/);
   assert.match(benchmarkWorker, /"candidate_outputs": candidate_outputs/);
 
-  assert.match(trainerLocal, /SAFE_LEASE_LANE = "intelligence-trainer"/);
-  assert.match(trainerLocal, /refreshAvantiqoModelTrainingJob/);
-  assert.match(trainerLocal, /SAFE_LEASE_EXPIRY_BEFORE_TERMINAL_STATE/);
   assert.match(benchmarkLocal, /SAFE_LEASE_LANE = "intelligence-benchmark"/);
   assert.match(benchmarkLocal, /refreshAvantiqoModelBenchmark/);
   assert.match(benchmarkLocal, /provider_jobs_submitted: 1/);

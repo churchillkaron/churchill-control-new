@@ -17,6 +17,7 @@ const compiler = read("lib/intelligence/runtime/AvantiqoTrainingExampleCompilerR
 const improvement = read("lib/intelligence/runtime/AvantiqoModelImprovementRuntime.js");
 const execution = read("lib/intelligence/runtime/AvantiqoModelTrainingExecutionRuntime.js");
 const handler = read("services/avantiqo-intelligence-trainer/handler.py");
+const modalTrainer = read("services/avantiqo-intelligence-trainer/modal_app.py");
 const dockerfile = read("services/avantiqo-intelligence-trainer/Dockerfile.runpod");
 const requirements = read("services/avantiqo-intelligence-trainer/requirements.txt");
 const index = read("lib/intelligence/index.js");
@@ -34,7 +35,7 @@ assert(dataset.includes("AVANTIQO_TRAINING_DATASET_V1"), "TRAINING_DATASET_CONTR
 assert(dataset.includes("MIN_READY_CANDIDATES = 8"), "TRAINING_DATASET_MIN_READY_REQUIRED");
 assert(dataset.includes("deterministic_holdout_split: true"), "TRAINING_DATASET_HOLDOUT_REQUIRED");
 assert(dataset.includes('TRAINING_METHOD = "LORA_BF16_PEFT_QWEN3_MOE"'), "TRAINING_DATASET_BF16_MOE_METHOD_REQUIRED");
-assert(dataset.includes('TRAINING_BACKEND = "RUNPOD_SERVERLESS_DEDICATED_TRAINER"'), "TRAINING_DATASET_DEDICATED_TRAINER_REQUIRED");
+assert(dataset.includes('TRAINING_BACKEND = "MODAL_H100_OWNED_TRAINER_V1"'), "TRAINING_DATASET_DEDICATED_TRAINER_REQUIRED");
 assert(dataset.includes("preferred_method: TRAINING_METHOD"), "TRAINING_DATASET_METHOD_BINDING_REQUIRED");
 assert(dataset.includes('base_precision: "BF16"'), "TRAINING_DATASET_BF16_BASE_REQUIRED");
 assert(dataset.includes("base_quantized: false"), "TRAINING_DATASET_UNQUANTIZED_BASE_REQUIRED");
@@ -55,7 +56,7 @@ assert(compiler.includes("memory or prior success grants authorization"), "TRAIN
 assert(improvement.includes("AVANTIQO_MODEL_IMPROVEMENT_V1"), "MODEL_IMPROVEMENT_CONTRACT_REQUIRED");
 assert(improvement.includes('FOUNDATION_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507"'), "MODEL_IMPROVEMENT_FOUNDATION_REQUIRED");
 assert(improvement.includes('TRAINING_METHOD = "LORA_BF16_PEFT_QWEN3_MOE"'), "MODEL_IMPROVEMENT_BF16_MOE_METHOD_REQUIRED");
-assert(improvement.includes('TRAINING_BACKEND = "RUNPOD_SERVERLESS_DEDICATED_TRAINER"'), "MODEL_IMPROVEMENT_DEDICATED_TRAINER_REQUIRED");
+assert(improvement.includes('TRAINING_BACKEND = "MODAL_H100_OWNED_TRAINER_V1"'), "MODEL_IMPROVEMENT_DEDICATED_TRAINER_REQUIRED");
 assert(improvement.includes("MIN_BF16_GPU_MEMORY_BYTES = 78 * 1024 * 1024 * 1024"), "MODEL_IMPROVEMENT_80GB_CLASS_REQUIRED");
 assert(improvement.includes("DEFAULT_SEQUENCE_LENGTH = 1024"), "MODEL_IMPROVEMENT_DEFAULT_SEQUENCE_REQUIRED");
 assert(improvement.includes("MAX_SEQUENCE_LENGTH = 2048"), "MODEL_IMPROVEMENT_MAX_SEQUENCE_REQUIRED");
@@ -78,13 +79,17 @@ assert(improvement.includes("TOOL_USE_FAILED"), "MODEL_IMPROVEMENT_TOOL_GATE_REQ
 assert(improvement.includes("AUTHORIZATION_FAILED"), "MODEL_IMPROVEMENT_AUTHORIZATION_GATE_REQUIRED");
 assert(improvement.includes("automatic_production_promotion: false"), "MODEL_IMPROVEMENT_AUTO_PROMOTION_FORBIDDEN");
 
-assert(execution.includes("AVANTIQO_MODEL_TRAINING_EXECUTION_V1"), "TRAINING_EXECUTION_CONTRACT_REQUIRED");
+assert(execution.includes("AVANTIQO_MODEL_TRAINING_EXECUTION_V2"), "TRAINING_EXECUTION_CONTRACT_REQUIRED");
 assert(execution.includes('TRAINING_METHOD = "LORA_BF16_PEFT_QWEN3_MOE"'), "TRAINING_EXECUTION_BF16_MOE_METHOD_REQUIRED");
 assert(execution.includes("DEFAULT_SEQUENCE_LENGTH = 1024"), "TRAINING_EXECUTION_DEFAULT_SEQUENCE_BOUND_REQUIRED");
 assert(execution.includes("MAX_SEQUENCE_LENGTH = 2048"), "TRAINING_EXECUTION_MAX_SEQUENCE_BOUND_REQUIRED");
 assert(execution.includes('DENSE_LORA_TARGET_MODULES = ["q_proj", "v_proj"]'), "TRAINING_EXECUTION_OFFICIAL_DENSE_TARGETS_REQUIRED");
 assert(execution.includes("AVANTIQO_INTELLIGENCE_TRAINER_ENABLED"), "TRAINING_EXECUTION_ENABLE_GATE_REQUIRED");
-assert(execution.includes("RUNPOD_AVANTIQO_INTELLIGENCE_TRAINER_ENDPOINT_ID"), "TRAINING_EXECUTION_DEDICATED_ENDPOINT_REQUIRED");
+assert(execution.includes("MODAL_H100_OWNED_TRAINER_V1"), "TRAINING_EXECUTION_MODAL_H100_REQUIRED");
+assert(execution.includes("worker.spawn([payload])"), "TRAINING_EXECUTION_MODAL_DIRECT_SPAWN_REQUIRED");
+assert(execution.includes("public_training_endpoint_used: false"), "TRAINING_EXECUTION_PUBLIC_ENDPOINT_FORBIDDEN");
+assert(execution.includes("runpod_used: false"), "TRAINING_EXECUTION_RUNPOD_FORBIDDEN");
+assert(!execution.includes("RUNPOD_AVANTIQO_INTELLIGENCE_TRAINER_ENDPOINT_ID"), "TRAINING_EXECUTION_RUNPOD_ENDPOINT_FORBIDDEN");
 assert(execution.includes("approved !== true"), "TRAINING_EXECUTION_EXPLICIT_APPROVAL_REQUIRED");
 assert(execution.includes("execute_training: true"), "TRAINING_EXECUTION_WORKER_APPROVAL_REQUIRED");
 assert(execution.includes("foundation_weights_mutated !== false"), "TRAINING_EXECUTION_BASE_WEIGHT_INVARIANT_REQUIRED");
@@ -95,10 +100,19 @@ assert(execution.includes("output.base_precision !== \"BF16\""), "TRAINING_EXECU
 assert(execution.includes("output.base_quantized !== false"), "TRAINING_EXECUTION_UNQUANTIZED_BASE_REQUIRED");
 assert(execution.includes("78 * 1024 * 1024 * 1024"), "TRAINING_EXECUTION_80GB_CLASS_GPU_REQUIRED");
 assert(execution.includes("Number(output.max_sequence_length || 0) > MAX_SEQUENCE_LENGTH"), "TRAINING_EXECUTION_RESULT_SEQUENCE_BOUND_REQUIRED");
-assert(execution.includes("outputDenseTargets.some"), "TRAINING_EXECUTION_RESULT_DENSE_TARGET_GATE_REQUIRED");
+assert(execution.includes("targets.some"), "TRAINING_EXECUTION_RESULT_DENSE_TARGET_GATE_REQUIRED");
 assert(execution.includes("AVANTIQO_INTELLIGENCE_TRAINER_MOE_ADAPTER_INVARIANT_FAILED"), "TRAINING_EXECUTION_MOE_COMPLETION_GATE_REQUIRED");
-assert(execution.includes("moe_adapter_attachment_verified !== true"), "TRAINING_EXECUTION_MOE_ATTACHMENT_REQUIRED");
-assert(execution.includes("moe_fused_expert_layout_verified !== true"), "TRAINING_EXECUTION_MOE_FUSED_LAYOUT_REQUIRED");
+assert(execution.includes("output.moe_adapter_attachment_verified !== true"), "TRAINING_EXECUTION_MOE_ATTACHMENT_REQUIRED");
+assert(execution.includes("output.moe_fused_expert_layout_verified !== true"), "TRAINING_EXECUTION_MOE_FUSED_LAYOUT_REQUIRED");
+
+assert(modalTrainer.includes('APP_NAME = "avantiqo-intelligence-trainer-owned"'), "TRAINER_MODAL_APP_REQUIRED");
+assert(modalTrainer.includes('FUNCTION_NAME = "train"'), "TRAINER_MODAL_FUNCTION_REQUIRED");
+assert(modalTrainer.includes('GPU = "H100"'), "TRAINER_MODAL_H100_REQUIRED");
+assert(modalTrainer.includes("modal.Volume.from_name"), "TRAINER_MODAL_PRIVATE_VOLUME_REQUIRED");
+assert(modalTrainer.includes("max_containers=1"), "TRAINER_MODAL_SINGLE_CONTAINER_REQUIRED");
+assert(modalTrainer.includes("foundation_weights_mutated"), "TRAINER_MODAL_BASE_WEIGHT_GUARD_REQUIRED");
+assert(!modalTrainer.includes("fastapi_endpoint"), "TRAINER_MODAL_PUBLIC_HTTP_FORBIDDEN");
+assert(!modalTrainer.includes("runpod=="), "TRAINER_MODAL_RUNPOD_DEPENDENCY_FORBIDDEN");
 
 assert(handler.includes('CONTRACT = "AVANTIQO_INTELLIGENCE_TRAINER_V1"'), "TRAINER_WORKER_CONTRACT_REQUIRED");
 assert(handler.includes('FOUNDATION_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507"'), "TRAINER_FOUNDATION_ALLOWLIST_REQUIRED");
@@ -158,7 +172,7 @@ console.log("AVANTIQO_INTELLIGENCE_TRAINING_RAW_CUSTOMER_DATA=FORBIDDEN");
 console.log("AVANTIQO_INTELLIGENCE_TRAINING_RAW_REASONING=FORBIDDEN");
 console.log("AVANTIQO_INTELLIGENCE_TRAINING_METHOD=LORA_BF16_PEFT_QWEN3_MOE");
 console.log("AVANTIQO_INTELLIGENCE_TRAINING_DATASET_METHOD=LORA_BF16_PEFT_QWEN3_MOE");
-console.log("AVANTIQO_INTELLIGENCE_TRAINING_DATASET_BACKEND=RUNPOD_SERVERLESS_DEDICATED_TRAINER");
+console.log("AVANTIQO_INTELLIGENCE_TRAINING_DATASET_BACKEND=MODAL_H100_OWNED_TRAINER_V1");
 console.log("AVANTIQO_INTELLIGENCE_TRAINING_PREPARED_RECIPE=BOUND");
 console.log("AVANTIQO_INTELLIGENCE_TRAINING_BASE_QUANTIZED=NO");
 console.log("AVANTIQO_INTELLIGENCE_TRAINING_GPU_CLASS=80GB");

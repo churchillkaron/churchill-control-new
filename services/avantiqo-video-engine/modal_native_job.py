@@ -397,7 +397,7 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
             pass
 
 @app.function(image=transport_image, volumes={"/models": model_volume}, timeout=LTX_HARD_TIMEOUT_SECONDS + 10 * 60, min_containers=0, max_containers=4, scaledown_window=5, retries=0)
-def generate_native_job(data: dict[str, Any]) -> dict[str, Any]:
+def generate_native_job_v2(data: dict[str, Any]) -> dict[str, Any]:
     try:
         return _generate_native_job_impl(data)
     except Exception as exc:

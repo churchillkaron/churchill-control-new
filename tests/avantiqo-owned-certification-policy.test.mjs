@@ -110,6 +110,26 @@ test("ACE-Step XL plus 1.7B LM is runtime compatible for owned music only", () =
   assert.equal(sfx.eligible, false);
 });
 
+
+test("owned LTX 2.5 foundation model is bound to canonical Studio video capabilities", () => {
+  const catalog = AVANTIQO_OWNED_MODEL_CATALOG["avantiqo-video"].models["Lightricks/LTX-2.5"];
+  assert.equal(catalog.runtime_compatible, true);
+  assert.equal(catalog.license, "ltx-2.x-community-license-agreement");
+  assert.equal(catalog.commercial_use_terms_require_eligibility_or_separate_license, true);
+  for (const capability of [
+    "ai.video.generate",
+    "ai.video.image_to_video",
+    "ai.video.first_last_frame_to_video",
+  ]) {
+    const result = ownedModelCertification({
+      provider: provider("avantiqo-video", "Lightricks/LTX-2.5"),
+      capability,
+    });
+    assert.equal(result.eligible, true);
+    assert.deepEqual(result.approved_models, ["Lightricks/LTX-2.5"]);
+  }
+});
+
 test("market-parity owned pricing cannot route before benchmark economics certification", () => {
   const result = ownedPricingCertification({
     provider: "avantiqo-audio",

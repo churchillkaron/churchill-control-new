@@ -50,6 +50,10 @@ test("materialization is idempotent by full master hash and canonical master ids
   assert.match(runtime, /existingScenes\.find/);
   assert.match(runtime, /existingShots\.find/);
   assert.match(runtime, /existing\.filter\(\(task\) => task\.metadata\?\.execution_node_id\)/);
+  assert.match(runtime, /ProductionGraphRuntime\.list/);
+  assert.match(runtime, /productionGraphResumed/);
+  assert.match(runtime, /candidate\.metadata\?\.full_master_hash/);
+  assert.match(runtime, /candidate\.metadata\?\.master_plan_hash/);
   assert.match(runtime, /master_plan_scene_id/);
   assert.match(runtime, /master_plan_shot_id/);
 });

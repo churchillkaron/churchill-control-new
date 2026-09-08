@@ -24,23 +24,25 @@ CONTRACT = "AVANTIQO_INTELLIGENCE_TRAINER_MODAL_V1"
 app = modal.App(APP_NAME)
 training_volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 
+VENV = "/opt/avantiqo-intelligence-trainer-venv"
+
 trainer_image = (
     modal.Image.from_registry(
         "pytorch/pytorch:2.11.0-cuda12.8-cudnn9-runtime",
         add_python=None,
     )
     .entrypoint([])
-    .pip_install(
-        "transformers==5.15.0",
-        "peft==0.20.0",
-        "accelerate==1.14.0",
-        "safetensors==0.8.0",
+    .run_commands(
+        "apt-get update && apt-get install -y --no-install-recommends python3-venv && rm -rf /var/lib/apt/lists/*",
+        f"python -m venv --system-site-packages {VENV}",
+        f"{VENV}/bin/python -m pip install --upgrade pip",
+        f"{VENV}/bin/python -m pip install transformers==5.15.0 peft==0.20.0 accelerate==1.14.0 safetensors==0.8.0",
+        f"{VENV}/bin/python -c \"import torch; assert torch.__version__.startswith('2.11.0'); assert torch.version.cuda == '12.8'; print('AVANTIQO_MODAL_TRAINER_TORCH_INHERITANCE=PASS')\"",
     )
-    .add_local_file(
-        "services/avantiqo-intelligence-trainer/handler.py",
-        "/root/avantiqo_intelligence_trainer_handler.py",
-        copy=False,
-    )
+    .env({
+        "VIRTUAL_ENV": VENV,
+        "PATH": f"{VENV}/bin:/usr/local/bin:/usr/bin:/bin",
+    })
     .env({
         "AVANTIQO_INTELLIGENCE_TRAINER_ENABLED": "true",
         "AVANTIQO_INTELLIGENCE_TRAINER_OUTPUT_ROOT": OUTPUT_ROOT,
@@ -48,6 +50,11 @@ trainer_image = (
         "TRANSFORMERS_CACHE": HF_HOME,
         "TOKENIZERS_PARALLELISM": "false",
     })
+    .add_local_file(
+        "services/avantiqo-intelligence-trainer/handler.py",
+        "/root/avantiqo_intelligence_trainer_handler.py",
+        copy=False,
+    )
 )
 
 

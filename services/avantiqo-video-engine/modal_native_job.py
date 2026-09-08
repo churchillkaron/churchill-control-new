@@ -169,8 +169,9 @@ def _validate_job(data: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_JOB_OBJECT_REQUIRED")
     capability = _text(data.get("capability"))
+    print(f"AVANTIQO_VIDEO_JOB_VALIDATE capability={capability or 'MISSING'} source_count={len(_source_urls(data))}", flush=True)
     if capability not in SUPPORTED_CAPABILITIES:
-        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_CAPABILITY_INVALID")
+        raise ValueError(f"AVANTIQO_VIDEO_LTX25_MODAL_CAPABILITY_INVALID:{capability or 'MISSING'}")
     organization_id = _text(data.get("organization_id"))
     usage_id = _text(data.get("usage_id"))
     instruction = _text(data.get("instruction"))
@@ -180,7 +181,7 @@ def _validate_job(data: dict[str, Any]) -> dict[str, Any]:
     control = _native_control(data)
     sources = _source_urls(data)
     if capability != "ai.video.generate" and (not sources or not sources[0].startswith("https://")):
-        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_STUDIO_REFERENCE_REQUIRED")
+        raise ValueError(f"AVANTIQO_VIDEO_LTX25_MODAL_STUDIO_REFERENCE_REQUIRED:{capability}")
     if sources and not all(source.startswith("https://") for source in sources):
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_STUDIO_REFERENCE_INVALID")
     storage = _object(data.get("storage_upload"))

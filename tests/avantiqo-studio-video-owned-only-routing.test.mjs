@@ -17,6 +17,10 @@ test("Studio Cinema is Avantiqo-owned only and external video fallback is imposs
   assert.match(dispatch, /owned_only_required:\s*true/);
   assert.match(dispatch, /external_provider_fallback_forbidden:\s*true/);
   assert.match(resolver, /AVANTIQO_OWNED_PROVIDER_REQUIRED/);
+  assert.match(resolver, /AVANTIQO_OWNED_ONLY_VIDEO_CAPABILITIES/);
+  assert.match(resolver, /ai\.video\.generate/);
+  assert.match(resolver, /ai\.video\.image_to_video/);
+  assert.match(resolver, /ai\.video\.first_last_frame_to_video/);
 });
 
 test("Avantiqo Cinema generation is Modal-native", () => {

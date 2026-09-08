@@ -35,3 +35,12 @@ test('page visual promotion rejects tiny/decorative media and binds child assets
  assert.match(promotion,/extracted_visual_asset_ids/);
  assert.match(promotion,/PROMOTED_PAGE_VISUALS_REFERENCE_ONLY/);
 });
+
+test('creative grounding marks promoted references as exclusive real-world subject authority',()=>{
+ const runtime=fs.readFileSync('lib/creative/research/runtime/ResearchRuntime.js','utf8');
+ const temporal=fs.readFileSync('lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js','utf8');
+ assert.match(runtime,/CREATIVE_GROUNDING_REFERENCE_AUTHORITY_V1/);
+ assert.match(runtime,/unrelated_project_assets_are_subject_authority: false/);
+ assert.match(temporal,/only ids listed there may serve as SUBJECT_REFERENCE, LOCATION_REFERENCE/);
+ assert.match(temporal,/Never use an unrelated organization asset as visual evidence/);
+});

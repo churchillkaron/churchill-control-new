@@ -381,6 +381,7 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
             "external_provider_used": False,
             "runpod_inference_performed": generation.get("runpod_inference_performed", False),
             "external_provider_contacted": generation.get("external_provider_contacted", False),
+            "raw_reasoning_persisted": False,
             **controlled_evidence,
         }
     finally:

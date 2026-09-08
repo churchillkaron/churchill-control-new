@@ -81,7 +81,13 @@ export async function GET(request) {
       };
     });
 
-    return NextResponse.json({ success: true, invoices, rows: invoices });
+    return NextResponse.json({
+      success: true,
+      invoices,
+      rows: invoices,
+      currencyCode: entity?.currency || null,
+      currency_code: entity?.currency || null,
+    });
   } catch (error) {
     const message = error.message || "Customer invoice list failed";
     return NextResponse.json({ success: false, error: message, invoices: [] }, { status: statusFor(message) });

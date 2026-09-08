@@ -22,9 +22,7 @@ export default function DynamicCustomerField({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [editingDetails, setEditingDetails] = useState(
-    !value?.existing_customer || !value?.party_id
-  );
+  const [editingDetails, setEditingDetails] = useState(false);
   const requestId = useRef(0);
 
   function update(name, val) {

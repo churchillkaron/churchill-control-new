@@ -220,8 +220,7 @@ function validateInvoice(values = {}) {
   );
   if (!customerReady || !values.invoice_date || !values.due_date) return false;
   if (!values.currency_code && !values.currency) return false;
-  const exchangeRate = Number(values.exchange_rate);
-  if (!Number.isFinite(exchangeRate) || exchangeRate <= 0 || lines.length < 1) return false;
+  if (lines.length < 1) return false;
   if (String(values.due_date) < String(values.invoice_date)) return false;
 
   let total = 0;
@@ -339,7 +338,6 @@ export default function CreateEngine({
 
       if (invoiceForm && field.name === "invoice_date") resolvedDefault = today;
       if (invoiceForm && field.name === "due_date") resolvedDefault = addDays(values.invoice_date || today, 30);
-      if (invoiceForm && field.name === "exchange_rate") resolvedDefault = 1;
       if (invoiceForm && field.name === "currency_code" && currency) resolvedDefault = currency;
 
       if (values[field.name] === undefined && resolvedDefault !== undefined) {
@@ -358,11 +356,26 @@ export default function CreateEngine({
     }
   }, [open, fields, values, onChange, journalForm, invoiceForm, accountingSettingsForm, currency]);
 
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscroll = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscroll;
+    };
+  }, [open]);
+
   if (!open) return null;
 
-  const visibleFields = fields.filter(
-    (field) => field.type !== "hidden" && field.name !== "template_source_url"
-  );
+  const visibleFields = fields.filter((field) => {
+    if (field.type === "hidden" || field.name === "template_source_url") return false;
+    if (invoiceForm && field.name === "exchange_rate") return false;
+    if (invoiceForm && currency && field.name === "currency_code") return false;
+    return true;
+  });
 
   const previewEnabled = Boolean(
     typeof onPreview === "function" &&
@@ -395,9 +408,9 @@ export default function CreateEngine({
       : "Create";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-stretch justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="flex h-[100dvh] w-full max-w-5xl flex-col border border-white/10 bg-[#0b0b0b] shadow-2xl sm:h-auto sm:max-h-[94dvh] sm:rounded-[30px]">
-        <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-4 sm:items-center sm:px-6 sm:py-5">
+    <div className="fixed inset-0 z-[100] flex items-stretch justify-center overflow-hidden overscroll-none bg-black/70 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="flex h-[100dvh] w-full max-w-5xl min-w-0 flex-col overflow-hidden border border-white/10 bg-[#0b0b0b] shadow-2xl sm:h-auto sm:max-h-[94dvh] sm:rounded-[30px]">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] sm:items-center sm:px-6 sm:py-5">
           <div className="min-w-0">
             <div className="text-[10px] uppercase tracking-[0.24em] text-amber-300/70 sm:text-xs sm:tracking-[0.3em]">{modeLabel}</div>
             <h2 className="mt-1 truncate text-xl font-light text-white sm:mt-2 sm:text-3xl">{title}</h2>
@@ -405,7 +418,7 @@ export default function CreateEngine({
           <button type="button" onClick={onClose} className="shrink-0 rounded-xl border border-white/10 px-3 py-2 text-xs text-white/60 hover:bg-white/5 sm:px-4 sm:text-sm">Close</button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto p-4 sm:max-h-[72vh] sm:p-6">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:max-h-[72vh] sm:p-6">
           {visibleFields.length > 0 ? (
             <DynamicForm
               schema={visibleFields}
@@ -419,7 +432,7 @@ export default function CreateEngine({
           ) : children}
         </div>
 
-        <div className="border-t border-white/10 px-4 py-4 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:py-5">
+        <div className="shrink-0 border-t border-white/10 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:py-5">
           <div className="mb-3 text-[11px] leading-5 text-white/45 sm:mb-0 sm:text-xs">
             {journalForm && !journalReady
               ? "Complete all required fields and balance debit and credit before posting."
@@ -428,7 +441,7 @@ export default function CreateEngine({
                 : invoiceForm && !invoiceReady
                   ? "Choose a customer and complete at least one invoice line with description, quantity and price."
                   : invoiceForm
-                    ? "No VAT is allowed. Optional dimensions and saved services can be added directly from each line."
+                    ? `${currency ? `Currency ${currency}. ` : ""}VAT / tax is optional and calculated from the selected tax code. Exchange rates are resolved automatically when needed.`
                     : approvalWorkflowForm && !approvalReady
                       ? "Complete the scope, threshold, approver role and valid effective dates."
                       : approvalWorkflowForm

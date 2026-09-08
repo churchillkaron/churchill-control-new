@@ -60,7 +60,7 @@ export async function POST(request) {
       invoice_date: body.invoice_date,
       due_date: body.due_date,
       currency_code: currencyCode,
-      exchange_rate: body.exchange_rate ?? 1,
+      exchange_rate: body.exchange_rate ?? null,
       lines: Array.isArray(body.lines) ? body.lines : [],
       tax_amount: body.tax_amount,
       notes: body.notes,

@@ -86,3 +86,11 @@ test("platform Intelligence policy is owned-only with no external fallback", () 
   assert.match(ownedGuard, /external_intelligence_fallback_allowed/);
   assert.match(ownedGuard, /provider <> 'avantiqo-intelligence'/);
 });
+
+
+test("research reservation uses the approved deep-lane token ceiling", async () => {
+  const source = fs.readFileSync("lib/creative/research/runtime/AutonomousResearchDirectorV4Runtime.js", "utf8");
+  assert.match(source, /estimated_input_tokens:\s*Number\(approval\.estimated_input_tokens \|\| 12000\)/);
+  assert.match(source, /estimated_output_tokens:\s*Number\(approval\.estimated_output_tokens \|\| 8000\)/);
+  assert.equal(source.includes("estimated_input_tokens: 12000,\n          estimated_output_tokens: 8000,"), false);
+});

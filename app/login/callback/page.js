@@ -44,6 +44,15 @@ function normalizeRole(value) {
   return String(value || "").trim().toUpperCase();
 }
 
+function requestedWorkspaceDestination(organizationId) {
+  if (typeof window === "undefined") return null;
+  const next = new URLSearchParams(window.location.search).get("next");
+  if (!next || !next.startsWith(`/workspace/${organizationId}`) || next.startsWith("//")) {
+    return null;
+  }
+  return next;
+}
+
 function postLoginDestination(data, organizationId) {
   const role = normalizeRole(data?.role || data?.staff?.role);
 
@@ -51,7 +60,7 @@ function postLoginDestination(data, organizationId) {
     return "/staff";
   }
 
-  return `/workspace/${organizationId}`;
+  return requestedWorkspaceDestination(organizationId) || `/workspace/${organizationId}`;
 }
 
 export default function LoginCallback() {

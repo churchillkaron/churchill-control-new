@@ -56,6 +56,16 @@ function PlatformIdentity({ brand }) {
   );
 }
 
+function callbackPath() {
+  if (typeof window === "undefined") return "/login/callback";
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get("next");
+  if (!next || !next.startsWith("/workspace") || next.startsWith("//")) {
+    return "/login/callback";
+  }
+  return `/login/callback?next=${encodeURIComponent(next)}`;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [brand, setBrand] = useState(null);
@@ -142,7 +152,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/login/callback");
+      router.push(callbackPath());
     } catch {
       setError("Login failed.");
     } finally {
@@ -237,7 +247,7 @@ export default function LoginPage() {
       }
 
       setMessage("Password saved successfully. Opening your workspace...");
-      router.replace("/login/callback");
+      router.replace(callbackPath());
     } catch {
       setError("Unable to save the new password.");
     } finally {
@@ -253,7 +263,7 @@ export default function LoginPage() {
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/login/callback`,
+        redirectTo: `${window.location.origin}${callbackPath()}`,
       },
     });
 

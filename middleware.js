@@ -16,6 +16,10 @@ function isWorkforcePath(pathname) {
     pathname === "/staff" || pathname.startsWith("/staff/");
 }
 
+function isProtectedWorkspacePath(pathname) {
+  return pathname === "/workspace" || pathname.startsWith("/workspace/");
+}
+
 function hasSupabaseSessionCookie(request) {
   return request.cookies.getAll().some(({ name }) =>
     name.startsWith("sb-") && name.includes("-auth-token")
@@ -118,6 +122,14 @@ export async function middleware(request, event) {  if (request.nextUrl.pathname
     const localUrl = request.nextUrl.clone();
     localUrl.hostname = "localhost";
     return NextResponse.redirect(localUrl, 307);
+  }
+
+  if (isProtectedWorkspacePath(request.nextUrl.pathname) && !hasSupabaseSessionCookie(request)) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.search = "";
+    loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+    return NextResponse.redirect(loginUrl, 307);
   }
 
   const sessionResponse = await refreshSupabaseSession(request);

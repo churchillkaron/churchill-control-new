@@ -26,4 +26,14 @@ test("middleware refreshes Supabase cookies without changing custom-host routing
   assert.match(middleware, /request\.nextUrl\.hostname === "127\.0\.0\.1"/);
   assert.match(middleware, /localUrl\.hostname = "localhost"/);
   assert.match(middleware, /_next\/static/);
+  assert.match(middleware, /isProtectedWorkspacePath/);
+  assert.match(middleware, /loginUrl\.searchParams\.set\("next"/);
+});
+
+test("login returns authenticated users to the requested workspace", () => {
+  const login = read("app/login/page.js");
+  assert.match(login, /function callbackPath/);
+  assert.match(login, /next\.startsWith\("\/workspace"\)/);
+  assert.match(callback, /function requestedWorkspaceDestination/);
+  assert.match(callback, /requestedWorkspaceDestination\(organizationId\)/);
 });

@@ -179,8 +179,10 @@ def _validate_job(data: dict[str, Any]) -> dict[str, Any]:
     lineage = _studio_lineage(data)
     control = _native_control(data)
     sources = _source_urls(data)
-    if not sources or not sources[0].startswith("https://"):
+    if capability != "ai.video.generate" and (not sources or not sources[0].startswith("https://")):
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_STUDIO_REFERENCE_REQUIRED")
+    if sources and not all(source.startswith("https://") for source in sources):
+        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_STUDIO_REFERENCE_INVALID")
     storage = _object(data.get("storage_upload"))
     signed_url = _text(storage.get("signed_url"))
     storage_reference = _text(storage.get("storage_reference"))
@@ -320,13 +322,15 @@ def generate_native_job(data: dict[str, Any]) -> dict[str, Any]:
             staged_paths = [Path("/models") / item["reference_relative"] for item in conditions]
             model_volume.commit()
             generation = generate_native_controlled_master.remote(conditions, output_relative, job["instruction"], job["duration_seconds"], job["seed"])
-        else:
+        elif job["source_urls"]:
             reference_relative = str(relative_root / "studio-reference.jpg")
             reference_path = Path("/models") / reference_relative
             staged_paths = [reference_path]
             reference_bytes = _download_reference(job["source_urls"][0], reference_path)
             model_volume.commit()
             generation = generate_native_master.remote(reference_relative, output_relative, job["instruction"], job["duration_seconds"], job["seed"])
+        else:
+            generation = generate_native_master.remote("", output_relative, job["instruction"], job["duration_seconds"], job["seed"])
 
         if not isinstance(generation, dict) or generation.get("success") is not True:
             raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_RESULT_INVALID")

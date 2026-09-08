@@ -372,9 +372,9 @@ def generate_native_master(
     function_started = time.perf_counter()
     model_volume.reload()
     root = _ltx_snapshot()
-    reference = Path("/models") / reference_relative.lstrip("/")
+    reference = Path("/models") / reference_relative.lstrip("/") if reference_relative else None
     output = Path("/models") / output_relative.lstrip("/")
-    if not reference.is_file() or reference.stat().st_size < 20_000:
+    if reference is not None and (not reference.is_file() or reference.stat().st_size < 20_000):
         raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_STUDIO_REFERENCE_INVALID")
     if int(duration_seconds) <= 0 or int(duration_seconds) > 20:
         raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_DURATION_INVALID")
@@ -404,8 +404,9 @@ def generate_native_master(
         "--output-path", str(output),
         "--prompt", _ltx_prompt(instruction),
         "--negative-prompt", _ltx_negative_prompt(),
-        "--image", str(reference), "0", "1.0", "0",
     ]
+    if reference is not None:
+        command.extend(["--image", str(reference), "0", "1.0", "0"])
     env = os.environ.copy()
     env[LTX_GEMMA_REALPATH_ENV] = str(text_encoder_real)
     env["PYTHONPATH"] = ":".join([
@@ -450,7 +451,7 @@ def generate_native_master(
         "model": "avantiqo-ltx-2.5",
         "foundation_model": LTX_SOURCE_REPO,
         "foundation_revision": root.name,
-        "pipeline": "TI2VID_ONE_STAGE_FULL_DEV_BF16",
+        "pipeline": "TI2VID_ONE_STAGE_FULL_DEV_BF16" if reference is not None else "T2VID_ONE_STAGE_FULL_DEV_BF16",
         "precision": "BF16",
         "quantization": "NONE",
         "modal_gpu": LTX_GPU,
@@ -470,7 +471,7 @@ def generate_native_master(
         "hard_timeout_seconds": LTX_HARD_TIMEOUT_SECONDS,
         "native_master_generated": True,
         "master_is_exact_model_output": True,
-        "studio_reference_required": True,
+        "studio_reference_required": reference is not None,
         "model_cpu_offload_used": False,
         "pixel_upscale_used": False,
         "learned_latent_upsampler_used": False,

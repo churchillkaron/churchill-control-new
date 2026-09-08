@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const job=fs.readFileSync("services/avantiqo-video-engine/modal_native_job.py","utf8");
+const app=fs.readFileSync("services/avantiqo-video-engine/modal_app.py","utf8");
+assert.match(job,/capability != "ai\.video\.generate"/);
+assert.match(job,/elif job\["source_urls"\]/);
+assert.match(job,/generate_native_master\.remote\("", output_relative/);
+assert.match(app,/reference = Path\("\/models"\).*if reference_relative else None/);
+assert.match(app,/T2VID_ONE_STAGE_FULL_DEV_BF16/);
+assert.match(app,/studio_reference_required": reference is not None/);
+console.log("AVANTIQO_VIDEO_MODAL_T2V_NO_REFERENCE_CONTRACT=PASS");

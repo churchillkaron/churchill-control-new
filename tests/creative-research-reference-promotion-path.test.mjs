@@ -27,9 +27,11 @@ test("selected page references are expanded into visual candidates before promot
   assert.match(source, /await resolvedSelectedReferences\(research\)/);
 });
 
-test('page visual promotion rejects small decorative media and binds child assets to parent reference',()=>{
- assert.match(promotion,/width > 0 && width < 480/);
- assert.match(promotion,/height > 0 && height < 360/);
+test('page visual promotion rejects tiny/decorative media and binds child assets to parent reference',()=>{
+ assert.match(promotion,/ansatte\|employees\?\|staff\|people/);
+ assert.match(promotion,/width > 0 && width < 640/);
+ assert.match(promotion,/height > 0 && height < 480/);
  assert.match(promotion,/visual_reference_assets/);
+ assert.match(promotion,/extracted_visual_asset_ids/);
  assert.match(promotion,/PROMOTED_PAGE_VISUALS_REFERENCE_ONLY/);
 });

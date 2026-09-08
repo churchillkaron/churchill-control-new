@@ -44,6 +44,8 @@ assert.ok(directing.includes("DIRECTING_INTELLIGENCE_SCENE_AGENCY_CRAFT_REQUIRED
 assert.ok(directing.includes("agency_craft: agencyCraft"));
 assert.ok(directing.includes("beautiful_but_disconnected_shot_forbidden: true"));
 assert.ok(directing.includes("generated_feel_forbidden: true"));
+assert.ok(directing.includes("DIRECTING_INTELLIGENCE_AGENCY_CRAFT_DISPATCH_REQUIRED"));
+assert.ok(directing.includes("DIRECTING_INTELLIGENCE_AGENCY_CRAFT_DISPATCH_FIELD_REQUIRED"));
 
 assert.ok(benchmark.includes("minimum_case_score: 94"));
 assert.ok(benchmark.includes("minimum_overall_score: 94"));

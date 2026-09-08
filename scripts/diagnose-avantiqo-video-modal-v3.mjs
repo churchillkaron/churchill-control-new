@@ -5,7 +5,7 @@ import * as modal from "modal";
 const CONTRACT = "AVANTIQO_VIDEO_DEPLOYED_MODAL_SCHEDULING_DIAGNOSTIC_V2";
 const APP = "avantiqo-video-owned";
 const FUNCTION_NAMES = [
-  "generate_native_job_v2",
+  "generate_native_job_v3",
   "generate_native_controlled_master",
   "generate_native_master",
 ];
@@ -44,7 +44,7 @@ async function tailLogs(manager, entries = 100, source = undefined) {
 }
 
 function classify(stats, callState, callSystemLogs = []) {
-  const transport = stats.generate_native_job_v2;
+  const transport = stats.generate_native_job_v3;
   const controlled = stats.generate_native_controlled_master;
   const logText = callSystemLogs.map((entry) => entry.message).join("\n").toLowerCase();
   if (callState === "terminal_success") return "EXISTING_CALL_TERMINAL_SUCCESS";
@@ -95,8 +95,8 @@ async function main() {
 
   const callSystemLogs = await tailLogs(existing.logs, 200, "system");
   const callAllLogs = await tailLogs(existing.logs, 200);
-  const transportSystemLogs = await tailLogs(functions.generate_native_job_v2.logs, 200, "system");
-  const transportAllLogs = await tailLogs(functions.generate_native_job_v2.logs, 200);
+  const transportSystemLogs = await tailLogs(functions.generate_native_job_v3.logs, 200, "system");
+  const transportAllLogs = await tailLogs(functions.generate_native_job_v3.logs, 200);
 
   const report = {
     success: true,

@@ -4,9 +4,9 @@ const worker=fs.readFileSync('services/avantiqo-video-engine/modal_native_job.py
 const provider=fs.readFileSync('lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js','utf8');
 const registration=fs.readFileSync('lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderRegistration.js','utf8');
 const readiness=fs.readFileSync('lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoReadinessRuntime.js','utf8');
-assert.match(worker,/def generate_native_job_v2\(/);
+assert.match(worker,/def generate_native_job_v3\(/);
 assert.doesNotMatch(worker,/def generate_native_job\(/);
-assert.match(provider,/MODAL_VIDEO_FUNCTION_NAME = "generate_native_job_v2"/);
-assert.match(registration,/MODAL_FUNCTION_NAME = "generate_native_job_v2"/);
-assert.match(readiness,/FUNCTION_NAME = "generate_native_job_v2"/);
+assert.match(provider,/MODAL_VIDEO_FUNCTION_NAME = "generate_native_job_v3"/);
+assert.match(registration,/MODAL_FUNCTION_NAME = "generate_native_job_v3"/);
+assert.match(readiness,/FUNCTION_NAME = "generate_native_job_v3"/);
 console.log('AVANTIQO_VIDEO_MODAL_FUNCTION_NAME_ALIGNMENT=PASS');

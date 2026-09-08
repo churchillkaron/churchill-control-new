@@ -36,6 +36,6 @@ test("Avantiqo Cinema generation is Modal-native", () => {
   assert.match(registration, /NATIVE_MASTER_FOUNDATION_MODEL = "Lightricks\/LTX-2\.5"/);
   assert.match(registration, /configured_foundation_model:\s*NATIVE_MASTER_FOUNDATION_MODEL/);
   assert.match(provider, /createAvantiqoOwnedModalWorker/);
-  assert.match(provider, /MODAL_VIDEO_FUNCTION_NAME = "generate_native_job_v2"/);
+  assert.match(provider, /MODAL_VIDEO_FUNCTION_NAME = "generate_native_job_v3"/);
   assert.match(provider, /return modalVideoWorker\.execute\(advancedInput\(input\)\)/);
 });

@@ -416,3 +416,23 @@ def generate_native_job_v2(data: dict[str, Any]) -> dict[str, Any]:
             "external_provider_used": False,
             "raw_reasoning_persisted": False,
         }
+
+@app.function(image=transport_image, volumes={"/models": model_volume}, timeout=LTX_HARD_TIMEOUT_SECONDS + 10 * 60, min_containers=0, max_containers=4, scaledown_window=5, retries=0)
+def generate_native_job_v3(data: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return _generate_native_job_impl(data)
+    except Exception as exc:
+        message = _text(exc)
+        match = re.search(r"AVANTIQO_[A-Z0-9_]+(?::[A-Za-z0-9._-]+)*", message)
+        error_code = match.group(0) if match else "AVANTIQO_VIDEO_LTX25_MODAL_EXECUTION_FAILED"
+        return {
+            "success": False,
+            "status": "failed",
+            "contract": JOB_CONTRACT,
+            "error_code": error_code,
+            "engine": "avantiqo-owned",
+            "model": "avantiqo-ltx-2.5",
+            "runpod_used": False,
+            "external_provider_used": False,
+            "raw_reasoning_persisted": False,
+        }

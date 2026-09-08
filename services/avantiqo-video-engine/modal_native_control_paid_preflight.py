@@ -62,7 +62,7 @@ def preflight() -> None:
         "maximum_paid_gpu_jobs": 1,
         "automatic_paid_retry": False,
         "gpu_requested": False,
-        "transport": _stats("generate_native_job_v2"),
+        "transport": _stats("generate_native_job_v3"),
         "controlled_master": _stats("generate_native_controlled_master"),
         "legacy_master": _stats("generate_native_master"),
     }

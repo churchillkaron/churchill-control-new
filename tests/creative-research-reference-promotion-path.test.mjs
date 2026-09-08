@@ -44,3 +44,9 @@ test('creative grounding marks promoted references as exclusive real-world subje
  assert.match(temporal,/only ids listed there may serve as SUBJECT_REFERENCE, LOCATION_REFERENCE/);
  assert.match(temporal,/Never use an unrelated organization asset as visual evidence/);
 });
+
+test('project direction accepts a completed report materialized from existing paid usage',()=>{
+ const source=fs.readFileSync('lib/creative/director/runtime/CreativeProjectDirectionRuntime.js','utf8');
+ assert.match(source,/COMPLETED_FROM_EXISTING_USAGE/);
+
+});

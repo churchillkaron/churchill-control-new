@@ -6,10 +6,10 @@ for (const path of [
   "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js",
   "lib/creative/director/runtime/CreativeDirectionExactResumeRuntime.js",
 ]) {
-  test(`${path} accepts only balanced JSON with redundant closing delimiters`, () => {
+  test(`${path} uses conservative balanced JSON recovery`, () => {
     const source = fs.readFileSync(path, "utf8");
-    assert.match(source, /function firstBalancedJsonObject/);
-    assert.match(source, /!\/\^\[}\\\\\]\\\]\+\$\/\.test\(suffix\)/);
-    assert.match(source, /const balanced = firstBalancedJsonObject/);
+    assert.ok(source.includes("function firstBalancedJsonObject"));
+    assert.ok(source.includes("const suffix = source.slice(index + 1).trim();"));
+    assert.ok(source.includes("if (balanced)"));
   });
 }

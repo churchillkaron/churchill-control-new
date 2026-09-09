@@ -31,6 +31,7 @@ test("failed write verification is never classified as verified completion", () 
     business_effect_verified: false,
     cognitive_binding_required: false,
     cognitive_verification_attested: false,
+    cognitive_verification_provenance: null,
   });
   assert.equal(shouldLearnCompletedExecutionMemory(execution), false);
   assert.equal(shouldRetireExecutionBlockerMemory(execution), false);
@@ -73,6 +74,7 @@ test("cognitive mutation memory requires its sealed verification attestation", (
     plan_id: "plan-1",
     step_id: "step-1",
     capability_key: "example.write",
+    execution_scope: { organization_id: "org-1", entity_id: "entity-1" },
     payload_fingerprint: "a".repeat(64),
     verification_capability_key: "example.read",
     business_effect_verified: true,

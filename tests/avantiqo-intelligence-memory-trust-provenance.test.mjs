@@ -62,10 +62,42 @@ test("cognitive execution history cannot become trusted from a bare verified fla
       business_effect_verified: true,
       cognitive_binding_required: true,
       cognitive_verification_attested: true,
+      cognitive_verification_provenance: {
+        contract: "AVANTIQO_COGNITIVE_MUTATION_VERIFICATION_ATTESTATION_V1",
+        plan_id: "plan-1",
+        step_id: "step-1",
+        capability_key: "example.write",
+        execution_scope: { organization_id: "org-1", entity_id: "entity-1" },
+        payload_fingerprint: "b".repeat(64),
+        verification_capability_key: "example.read",
+        authorization_effect: "NONE",
+      },
     },
   });
   assert.equal(sealed.class, "verified_history");
   assert.equal(sealed.requires_live_read, false);
+
+  const wrongIdentity = classifyIntelligenceMemoryTrust({
+    type: "completed_step",
+    confidence: 1,
+    metadata: {
+      business_effect_verified: true,
+      cognitive_binding_required: true,
+      cognitive_verification_attested: true,
+      cognitive_verification_provenance: {
+        contract: "AVANTIQO_COGNITIVE_MUTATION_VERIFICATION_ATTESTATION_V1",
+        plan_id: "plan-1",
+        step_id: "step-1",
+        capability_key: "example.write",
+        execution_scope: { organization_id: "org-1" },
+        payload_fingerprint: "not-a-fingerprint",
+        verification_capability_key: "example.read",
+        authorization_effect: "NONE",
+      },
+    },
+  });
+  assert.equal(wrongIdentity.class, "execution_history");
+  assert.equal(wrongIdentity.requires_live_read, true);
 });
 
 test("unverified execution history is forced through current evidence before reuse", () => {
@@ -117,6 +149,11 @@ test("recall bridge preserves structured verification provenance and relevance",
     source,
     /cognitive_verification_attested:[\s\S]*memory\.cognitive_verification_attested\s*===\s*true/,
     "bounded cognition memory must preserve cognitive verification attestation provenance",
+  );
+  assert.match(
+    source,
+    /cognitive_verification_provenance:[\s\S]*memory\.cognitive_verification_provenance/,
+    "bounded cognition memory must preserve exact cognitive verification identity",
   );
   assert.match(
     source,

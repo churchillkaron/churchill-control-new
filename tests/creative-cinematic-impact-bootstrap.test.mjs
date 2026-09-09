@@ -64,3 +64,13 @@ test("short-form hero impact quality allows coherent camera support without gami
   assert.match(source, /if \(!shortFormHero && shots\.length >= 6 && new Set\(lensIntents\)\.size < 3\)/);
   assert.match(source, /if \(!shortFormHero && cameraSignatures\[index\] === cameraSignatures\[index - 1\]\)/);
 });
+
+
+test("short-form semantic critique uses a compact evidence packet and bounded output budget",()=>{
+  const source=fs.readFileSync("lib/creative/director/runtime/CreativeCinematicImpactRuntime.js","utf8");
+  assert.match(source,/function critiqueEvidencePacket/);
+  assert.match(source,/if \(duration <= 10\) return 1800/);
+  assert.match(source,/COMPACT REVIEW EVIDENCE/);
+  assert.doesNotMatch(source,/PLAN TO REVIEW\n\$\{JSON\.stringify\(plan\)\}/);
+  assert.doesNotMatch(source,/maxOutputTokens: 9000/);
+});

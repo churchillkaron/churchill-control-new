@@ -9,6 +9,10 @@ const coreSource = await readFile(
   "lib/operator/runtime/OperatorTurnRuntimeCore.js",
   "utf8",
 );
+const proofSource = await readFile(
+  "lib/operator/runtime/OperatorDeterministicBusinessEffectRuntime.js",
+  "utf8",
+);
 
 assert.match(
   source,
@@ -66,22 +70,22 @@ assert.match(
   "post-action verification must have a deterministic proof function",
 );
 assert.match(
-  source,
+  proofSource,
   /stable_business_identity_match/,
   "fresh read-back must be matched to stable business identity",
 );
 assert.match(
-  source,
+  proofSource,
   /verificationIdentities\.has\(identity\)/,
   "successful read status alone must not prove the business effect",
 );
 assert.match(
-  source,
+  proofSource,
   /POST_ACTION_VERIFICATION_ASSERTION_FAILED/,
   "identity mismatch must fail closed",
 );
 assert.match(
-  source,
+  proofSource,
   /POST_ACTION_VERIFICATION_IDENTITY_NOT_AVAILABLE/,
   "missing stable identity must fail closed",
 );

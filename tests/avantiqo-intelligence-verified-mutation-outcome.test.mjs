@@ -66,10 +66,10 @@ test("successful reads remain completed without mutation verification semantics"
 });
 
 test("Operator outward truth blocks completed mutations whose verification failed", () => {
-  assert.match(operatorTurn, /AVANTIQO_OPERATOR_VERIFIED_MUTATION_OUTCOME_V1/);
+  assert.match(operatorTurn, /AVANTIQO_OPERATOR_VERIFIED_MUTATION_OUTCOME_V3/);
   assert.match(
     operatorTurn,
-    /const verifiedResult = withVerifiedMutationOutcome\([\s\S]*result,[\s\S]*effectiveOptions\.projectState/,
+    /const verifiedResult = withVerifiedMutationOutcome\([\s\S]*evidencedResult,[\s\S]*effectiveOptions\.projectState/,
   );
   assert.match(operatorTurn, /status:\s*"blocked"/);
   assert.match(operatorTurn, /action_call_completed:\s*true/);

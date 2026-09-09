@@ -35,6 +35,7 @@ test("receipt output carries original historical receipt facts", () => {
   assert.match(receiptRenderer, /historical\?\.paid_date/);
   assert.match(receiptRenderer, /historical\?\.amount/);
   assert.match(receiptRenderer, /historical\?\.payment_method/);
+  assert.match(receiptRenderer, /Tax ID: \$\{text\(party\.tax_id\)\}/);
 });
 
 test("Cole Ley backfill is tenant-scoped and cardinality-locked", () => {

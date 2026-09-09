@@ -167,7 +167,14 @@ function sceneCountRange(duration) {
   };
 }
 
-function operationDefinitions(sceneCount) {
+function cinematicCritiqueOutputTokens(duration) {
+  if (duration <= 10) return 1800;
+  if (duration <= 30) return 4200;
+  if (duration <= 90) return 6000;
+  return 8000;
+}
+
+function operationDefinitions(sceneCount, duration) {
   return [
     { operation: "TEMPORAL_MASTER_PLAN_BASE_V1", count: 1, max_output_tokens: 16000, stage: "BASE_PLAN" },
     { operation: "TEMPORAL_SCENE_ARCHITECTURE_V1", count: 1, max_output_tokens: 14000, stage: "SCENE_ARCHITECTURE" },
@@ -186,13 +193,13 @@ function operationDefinitions(sceneCount) {
     { operation: "CREATIVE_COMMERCIAL_NARRATIVE_SYNTHESIS_V1", count: 1, max_output_tokens: 18000, stage: "COMMERCIAL_NARRATIVE_SYNTHESIS" },
     { operation: "CREATIVE_CINEMATIC_AUDIENCE_UNDERSTANDING_V1", count: 1, max_output_tokens: 12000, stage: "CINEMATIC_AUDIENCE_UNDERSTANDING" },
     { operation: "CREATIVE_CINEMATIC_IMPACT_DESIGN_V2", count: 1, max_output_tokens: 18000, stage: "CINEMATIC_DESIGN" },
-    { operation: "CREATIVE_CINEMATIC_IMPACT_CRITIQUE_V1", count: 3, max_output_tokens: 9000, stage: "CINEMATIC_CRITIQUE_MAX" },
+    { operation: "CREATIVE_CINEMATIC_IMPACT_CRITIQUE_V1", count: 3, max_output_tokens: cinematicCritiqueOutputTokens(duration), stage: "CINEMATIC_CRITIQUE_MAX" },
     { operation: "CREATIVE_CINEMATIC_IMPACT_REPAIR_V1", count: 2, max_output_tokens: 18000, stage: "CINEMATIC_REPAIR_MAX" },
   ];
 }
 
-function workload(sceneCount) {
-  const operations = operationDefinitions(sceneCount);
+function workload(sceneCount, duration) {
+  const operations = operationDefinitions(sceneCount, duration);
   return {
     scene_count: sceneCount,
     call_count: operations.reduce((sum, item) => sum + item.count, 0),
@@ -340,9 +347,9 @@ if (!currency) {
 const duration = temporalDuration(project, brief);
 const range = sceneCountRange(duration);
 const workloads = {
-  minimum: workload(range.minimum),
-  preferred: workload(range.preferred),
-  maximum: workload(range.maximum),
+  minimum: workload(range.minimum, duration),
+  preferred: workload(range.preferred, duration),
+  maximum: workload(range.maximum, duration),
 };
 const sources = sourceEvidence();
 const markers = assertMarkers(sources);

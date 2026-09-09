@@ -24,5 +24,5 @@ test("repair prompt preserves film master output spec", () => {
     source,
     /source\/reference image's dimensions are never the film output specification/i,
   );
-  assert.match(source, /Do not invent claims about safety procedures/);
+  assert.match(source, /Do not invent procedures, operational documents, measurements or KPIs/);
 });

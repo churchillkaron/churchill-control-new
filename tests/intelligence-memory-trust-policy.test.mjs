@@ -41,6 +41,9 @@ test("verified completed step is historical evidence only", () => {
   });
 
   assert.equal(trust.class, "verified_history");
+  assert.equal(trust.historical_business_effect, true);
+  assert.equal(trust.current_state_authority, false);
+  assert.equal(trust.requires_live_read_for_current_state, true);
   assert.equal(trust.may_authorize, false);
 });
 
@@ -115,4 +118,21 @@ test("stale blocker cannot outrank explicit durable instruction", () => {
 
   assert.equal(ranked[0].trust_class, "explicit_user_continuity");
   assert.equal(ranked[1].trust_class, "transient_recheck");
+});
+
+
+test("verified history remains usable retrospectively but has no current-state authority", () => {
+  const memory = trustedMemoryEnvelope({
+    type: "completed_step",
+    content: "Invoice was created and independently verified.",
+    business_effect_verified: true,
+    confidence: 1,
+  });
+
+  assert.equal(memory.trust_class, "verified_history");
+  assert.equal(memory.requires_live_read, false);
+  assert.equal(memory.historical_business_effect, true);
+  assert.equal(memory.current_state_authority, false);
+  assert.equal(memory.requires_live_read_for_current_state, true);
+  assert.equal(memory.may_authorize, false);
 });

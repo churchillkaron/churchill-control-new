@@ -18,6 +18,9 @@ test("memory wording cannot spoof verified execution history", () => {
     class: "execution_history",
     weight: 0.58,
     requires_live_read: true,
+    historical_business_effect: false,
+    current_state_authority: false,
+    requires_live_read_for_current_state: true,
     may_authorize: false,
     reason: "UNVERIFIED_EXECUTION_HISTORY_REQUIRES_CURRENT_EVIDENCE",
   });
@@ -37,6 +40,9 @@ test("only structured verification provenance upgrades completed history", () =>
     class: "verified_history",
     weight: 0.92,
     requires_live_read: false,
+    historical_business_effect: true,
+    current_state_authority: false,
+    requires_live_read_for_current_state: true,
     may_authorize: false,
     reason: "STRUCTURALLY_VERIFIED_COMPLETED_STEP",
   });
@@ -78,6 +84,8 @@ test("cognitive execution history cannot become trusted from a bare verified fla
   });
   assert.equal(sealed.class, "verified_history");
   assert.equal(sealed.requires_live_read, false);
+  assert.equal(sealed.current_state_authority, false);
+  assert.equal(sealed.requires_live_read_for_current_state, true);
 
   const wrongIdentity = classifyIntelligenceMemoryTrust({
     type: "completed_step",
@@ -171,6 +179,8 @@ test("structured top-level verification flag is also accepted", () => {
 
   assert.equal(trust.class, "verified_history");
   assert.equal(trust.requires_live_read, false);
+  assert.equal(trust.current_state_authority, false);
+  assert.equal(trust.requires_live_read_for_current_state, true);
 });
 
 test("recall bridge preserves structured verification provenance and relevance", async () => {
@@ -219,4 +229,15 @@ test("recall bridge preserves structured verification provenance and relevance",
     /relevance:\s*Number\(memory\.relevance\s*\|\|\s*0\)/,
     "bounded cognition memory must preserve relevance for trust ranking",
   );
+});
+
+
+test("cognitive context exposes current-state freshness semantics explicitly", async () => {
+  const source = await readFile(
+    new URL("../lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /current-state-live-read-required/);
+  assert.match(source, /current_state_authority=false/);
+  assert.match(source, /requires_live_read_for_current_state=true/);
 });

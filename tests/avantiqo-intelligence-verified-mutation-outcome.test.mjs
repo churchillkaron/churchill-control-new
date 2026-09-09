@@ -69,6 +69,8 @@ test("cognitive mutation memory requires its sealed verification attestation", (
   assert.equal(shouldRetireExecutionBlockerMemory(base), false);
 
   const attested = structuredClone(base);
+  attested.post_action_verification.cognitive_verification_audit_receipt_id =
+    "audit-log-1";
   attested.post_action_verification.cognitive_verification_attestation = {
     contract: "AVANTIQO_COGNITIVE_MUTATION_VERIFICATION_ATTESTATION_V1",
     plan_id: "plan-1",

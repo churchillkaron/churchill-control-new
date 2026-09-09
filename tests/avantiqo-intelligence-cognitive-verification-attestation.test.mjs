@@ -37,6 +37,7 @@ test("cognitive mutation verification audit is sealed to the execution binding",
   assert.match(core, /payload_fingerprint: cognitiveExecutionBinding\.payload_fingerprint/);
   assert.match(core, /verification_capability_key: verificationCapability\.key/);
   assert.match(core, /business_effect_verified: deterministicProof\.passed === true/);
+  assert.match(core, /cognitive_verification_audit_receipt_id/);
   assert.match(core, /authorization_effect: "NONE"/);
   assert.match(governance, /cognitive_verification_attestation: verificationAttestation \|\| null/);
 });

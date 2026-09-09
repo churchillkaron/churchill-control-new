@@ -74,3 +74,10 @@ test("short-form semantic critique uses a compact evidence packet and bounded ou
   assert.doesNotMatch(source,/PLAN TO REVIEW\n\$\{JSON\.stringify\(plan\)\}/);
   assert.doesNotMatch(source,/maxOutputTokens: 9000/);
 });
+
+test("cinematic impact reasoning unwraps owned provider JSON text envelopes",()=>{
+  const source=fs.readFileSync("lib/creative/director/runtime/CreativeCinematicImpactRuntime.js","utf8");
+  assert.match(source,/\["output", "result", "data", "response", "raw", "provider_result"\]/);
+  assert.match(source,/current\.text \|\| current\.content/);
+  assert.match(source,/parseReasoningJson\(candidate\)/);
+});

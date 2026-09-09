@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
@@ -79,7 +80,43 @@ export async function POST(request) {
       idempotency_key: idempotencyKey,
     });
 
-    return NextResponse.json({ success: true, ...result });
+    const exactInvoiceId = allocations.length === 1
+      ? String(allocations[0]?.customer_invoice_id || "").trim()
+      : "";
+    let verifiedInvoice = null;
+    if (exactInvoiceId) {
+      const verification = await supabaseAdmin
+        .from("customer_invoices")
+        .select("id,invoice_number,status,outstanding_balance,total_amount")
+        .eq("organization_id", access.organizationId)
+        .eq("entity_id", entity.id)
+        .eq("id", exactInvoiceId)
+        .maybeSingle();
+      if (verification.error) throw verification.error;
+      verifiedInvoice = verification.data || null;
+    }
+    const receiptVerified = Boolean(
+      verifiedInvoice &&
+      String(verifiedInvoice.status || "").toUpperCase() === "PAID" &&
+      Number(verifiedInvoice.outstanding_balance || 0) <= 0.005
+    );
+    const artifacts = receiptVerified
+      ? [{
+          url: `/api/finance/customer-invoices/${exactInvoiceId}/pdf?organizationId=${access.organizationId}&entityId=${entity.id}&mode=receipt`,
+          label: `Paid Receipt PDF · ${verifiedInvoice.invoice_number || exactInvoiceId}`,
+          mime_type: "application/pdf",
+          asset_id: exactInvoiceId,
+        }]
+      : [];
+
+    return NextResponse.json({
+      success: true,
+      ...result,
+      receipt_verification: exactInvoiceId
+        ? { verified: receiptVerified, invoice: verifiedInvoice }
+        : null,
+      artifacts,
+    });
   } catch (error) {
     const message = error.message || "Customer receipt failed";
     return NextResponse.json({ success: false, error: message }, { status: statusFor(message) });

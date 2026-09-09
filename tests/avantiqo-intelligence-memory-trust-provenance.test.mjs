@@ -62,6 +62,7 @@ test("cognitive execution history cannot become trusted from a bare verified fla
       business_effect_verified: true,
       cognitive_binding_required: true,
       cognitive_verification_attested: true,
+      cognitive_audit_receipt_verified: true,
       cognitive_verification_provenance: {
         contract: "AVANTIQO_COGNITIVE_MUTATION_VERIFICATION_ATTESTATION_V1",
         plan_id: "plan-1",
@@ -85,6 +86,7 @@ test("cognitive execution history cannot become trusted from a bare verified fla
       business_effect_verified: true,
       cognitive_binding_required: true,
       cognitive_verification_attested: true,
+      cognitive_audit_receipt_verified: true,
       cognitive_verification_provenance: {
         contract: "AVANTIQO_COGNITIVE_MUTATION_VERIFICATION_ATTESTATION_V1",
         plan_id: "plan-1",
@@ -122,6 +124,29 @@ test("cognitive execution history cannot become trusted from a bare verified fla
   });
   assert.equal(orphaned.class, "execution_history");
   assert.equal(orphaned.requires_live_read, true);
+
+  const unattestedByAudit = classifyIntelligenceMemoryTrust({
+    type: "completed_step",
+    confidence: 1,
+    metadata: {
+      business_effect_verified: true,
+      cognitive_binding_required: true,
+      cognitive_verification_attested: true,
+      cognitive_verification_provenance: {
+        contract: "AVANTIQO_COGNITIVE_MUTATION_VERIFICATION_ATTESTATION_V1",
+        plan_id: "plan-1",
+        step_id: "step-1",
+        capability_key: "example.write",
+        execution_scope: { organization_id: "org-1" },
+        payload_fingerprint: "d".repeat(64),
+        verification_capability_key: "example.read",
+        audit_receipt_id: "audit-log-3",
+        authorization_effect: "NONE",
+      },
+    },
+  });
+  assert.equal(unattestedByAudit.class, "execution_history");
+  assert.equal(unattestedByAudit.requires_live_read, true);
 });
 
 test("unverified execution history is forced through current evidence before reuse", () => {
@@ -178,6 +203,16 @@ test("recall bridge preserves structured verification provenance and relevance",
     source,
     /cognitive_verification_provenance:[\s\S]*memory\.cognitive_verification_provenance/,
     "bounded cognition memory must preserve exact cognitive verification identity",
+  );
+  assert.match(
+    source,
+    /\.from\("audit_logs"\)[\s\S]*cognitiveAuditReceiptMatchesMemory/,
+    "recall must re-read and validate the durable verification audit receipt",
+  );
+  assert.match(
+    source,
+    /cognitive_audit_receipt_verified:[\s\S]*verifiedAuditReceiptMemoryIds\.has/,
+    "verified-history trust must be based on live audit receipt validation",
   );
   assert.match(
     source,

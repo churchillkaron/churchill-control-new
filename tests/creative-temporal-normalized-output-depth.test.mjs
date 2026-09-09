@@ -7,9 +7,9 @@ const source = fs.readFileSync(
   "utf8",
 );
 
-test("temporal direction unwraps bounded nested execution envelopes", () => {
-  assert.match(source, /const queue = \[result\]/);
-  assert.match(source, /depth < 12/);
-  assert.match(source, /\["output", "result", "data", "response"\]/);
-  assert.match(source, /Array\.isArray\(current\.scenes\) \|\| Array\.isArray\(current\.shots\)/);
+test("temporal direction unwraps nested execution envelopes by branch depth", () => {
+  assert.match(source, /const queue = \[\{ value: result, depth: 0 \}\]/);
+  assert.match(source, /branchDepth > 12/);
+  assert.match(source, /queue\.push\(\{ value: nested, depth: branchDepth \+ 1 \}\)/);
+  assert.doesNotMatch(source, /while \(queue\.length && depth < 12\)/);
 });

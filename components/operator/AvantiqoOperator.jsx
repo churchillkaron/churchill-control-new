@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import OperatorExecutionArtifacts from "@/components/operator/OperatorExecutionArtifacts";
 import AvantiqoVoiceLibraryPanel from "@/components/operator/AvantiqoVoiceLibraryPanel";
 import { operatorExecutionStatePresentation } from "@/lib/operator/presentation/OperatorExecutionStatePresentation";
 import { transcribeRecordedAudio } from "@/lib/operator/voice/AsyncRecordedTranscriptionClient";
@@ -776,6 +777,10 @@ export default function AvantiqoOperator() {
                 <div className="whitespace-pre-wrap text-[13px] font-light leading-6 text-white/85">
                   {message.content}
                 </div>
+
+                {message.role === "assistant" ? (
+                  <OperatorExecutionArtifacts execution={message.execution || {}} />
+                ) : null}
 
                 {message.role === "assistant" && message.governance ? (
                   <div

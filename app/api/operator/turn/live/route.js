@@ -75,14 +75,14 @@ export async function POST(request) {
           context,
           event: {
             lane: "intelligence",
-            phase: "COGNITIVE_PLANNING",
+            phase: "REQUEST_ROUTING",
             status: "running",
             description:
-              "Intelligence is building the execution brief. It may use registered read-only evidence tools before choosing an action.",
+              "Resolving the request against current business context and registered capabilities.",
             read_only: true,
             mutation_possible: false,
-            paid_execution_possible: true,
-            paid_execution_running: true,
+            paid_execution_possible: false,
+            paid_execution_running: false,
           },
         }).catch(() => null);
       }

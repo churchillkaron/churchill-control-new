@@ -5,6 +5,7 @@ import { AlertTriangle, Loader2, Send, Sparkles } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import OperatorExecutionArtifacts from "@/components/operator/OperatorExecutionArtifacts";
 import {
   operatorExecutionStatePresentation,
 } from "@/lib/operator/presentation/OperatorExecutionStatePresentation";
@@ -759,6 +760,10 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
             <div className="whitespace-pre-wrap text-sm font-light leading-6 text-white/80">
               {message.content}
             </div>
+
+            {message.role === "assistant" ? (
+              <OperatorExecutionArtifacts execution={message.execution || {}} />
+            ) : null}
 
             {message.role === "assistant" && message.governance ? (
               <div

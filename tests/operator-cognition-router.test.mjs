@@ -52,9 +52,53 @@ for (const message of [
     });
 
     assert.equal(result.path, "deep");
-    assert.equal(result.reason, "CONSEQUENTIAL_IMPERATIVE");
+    assert.equal(result.reason, "CONSEQUENTIAL_IMPERATIVE_UNRESOLVED");
   });
 }
+
+
+const customerReceiptCapability = {
+  key: "finance.customer_receipt.post",
+  name: "Post customer receipt",
+  domain: "Finance",
+  capability: "Customer Receipt",
+  action: "Post",
+  mode: "execute",
+  risk: "high",
+  transactional: true,
+  requires_confirmation: true,
+  operator_aliases: [
+    "mark invoice paid",
+    "record invoice payment",
+    "post customer receipt",
+    "receive customer payment",
+  ],
+  operator_examples: [
+    "mark the latest invoice paid",
+    "mark invoice paid on 8 sep 2026",
+  ],
+};
+
+test("routes one clear governed invoice payment action to fast structured selection", () => {
+  const result = routeOperatorCognition({
+    message: "mark invoice paid on 8 sep 2026",
+    source: "text",
+    capabilities: [customerReceiptCapability],
+  });
+
+  assert.equal(result.path, "fast");
+  assert.equal(result.reason, "REGISTERED_ROUTINE_ACTION");
+});
+
+test("keeps uncertain invoice payment decision on deep cognition", () => {
+  const result = routeOperatorCognition({
+    message: "I am not sure, should we mark this invoice paid?",
+    source: "text",
+    capabilities: [customerReceiptCapability],
+  });
+
+  assert.equal(result.path, "deep");
+});
 
 test("routes uncertain high-consequence request to deep cognition", () => {
   const result = routeOperatorCognition({

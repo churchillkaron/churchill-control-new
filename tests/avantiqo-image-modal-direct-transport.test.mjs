@@ -69,3 +69,12 @@ test("Image direct transport preserves private Avantiqo output storage", () => {
   assert.match(sharedWorker, /resolveCreativeProviderAssetUrl/);
   assert.match(registration, /output_storage:\s*"AVANTIQO_PRIVATE_CREATIVE_STORAGE"/);
 });
+
+test("Image direct transport prefers cinematic generation instructions over task labels", () => {
+  assert.match(sharedWorker, /input\.generation\?\.instructions \|\| input\.description \|\| input\.title/);
+});
+
+test("Image direct transport promotes nested output and provider controls to engine spec", () => {
+  assert.match(sharedWorker, /output_spec: input\.output_spec \|\| input\.generation\?\.output_spec \|\| input\.requirements\?\.output_spec/);
+  assert.match(sharedWorker, /provider_parameters: \{ \.\.\.object\(input\.generation\?\.provider_parameters\), \.\.\.object\(input\.provider_parameters\) \}/);
+});

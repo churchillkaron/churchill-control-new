@@ -79,7 +79,9 @@ test("explicit single-shot recovery collapses multi-scene plan and applies paid 
   assert.equal(result.plan.scenes[0].duration_seconds, 5);
   assert.equal(result.plan.scenes[0].shots[0].duration_seconds, 5);
   assert.match(result.plan.scenes[0].shots[0].camera.movement_path, /0\.8°\/sec/);
-  assert.match(result.plan.scenes[0].shots[0].frame_plan.opening_frame, /20% larger/);
+  assert.equal(result.plan.scenes[0].shots[0].visual_repairs.opening_subject_scale_adjustment_percent, 20);
+  assert.equal(result.plan.scenes[0].shots[0].visual_repairs.opening_subject_scale_multiplier, 1.2);
+  assert.doesNotMatch(result.plan.scenes[0].shots[0].frame_plan.opening_frame, /approved critique adjustment/i);
   assert.doesNotMatch(result.plan.scenes[0].shots[0].action, /stationary/i);
   assert.equal(result.plan.deliverables[0].output_spec.audio, "Authentic physical source sound only; music disabled.");
 });

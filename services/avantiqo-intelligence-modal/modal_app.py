@@ -240,6 +240,30 @@ def _tool_calls(raw: str) -> tuple[str, list[dict[str, Any]]]:
     return content, calls
 
 
+
+
+def _excerpt(value: Any, limit: int = 16000) -> str:
+    source = _text(value)
+    if len(source) <= limit:
+        return source
+    half = max(1, (limit - 64) // 2)
+    return f"{source[:half]}\n...[middle omitted for structured finalization]...\n{source[-half:]}"
+
+
+def _json_object(value: str) -> dict[str, Any] | None:
+    try:
+        parsed = json.loads(value)
+    except Exception:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _latest_user_contract(messages: list[dict[str, Any]]) -> str:
+    for message in reversed(messages):
+        if _text(message.get("role"), 32).lower() == "user":
+            return _excerpt(message.get("content"))
+    return _excerpt(messages[-1].get("content") if messages else "")
+
 def _sanitize_deep(raw: str) -> tuple[str, bool]:
     source = raw or ""
     reasoning_detected = "<think>" in source.lower() or "</think>" in source.lower()
@@ -361,9 +385,66 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
     if not final_text and not tool_calls:
         raise RuntimeError("AVANTIQO_INTELLIGENCE_MODAL_FINAL_OUTPUT_REQUIRED")
 
+    structured_json_finalization_performed = False
+    structured_input_tokens = 0
+    structured_output_tokens = 0
+    json_object_required = (
+        isinstance(response_format, dict)
+        and response_format.get("type") == "json_object"
+    )
+    if json_object_required and _json_object(final_text) is None:
+        from vllm.sampling_params import StructuredOutputsParams
+
+        contract_excerpt = _latest_user_contract(messages)
+        draft_excerpt = _excerpt(final_text)
+        finalize_messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are Avantiqo's structured-output finalizer. The prior Deep pass has already "
+                    "done the creative reasoning. Preserve its supported meaning. Return exactly one "
+                    "complete JSON object satisfying the original contract. Do not add commentary, "
+                    "markdown, chain-of-thought, unsupported facts, new creative claims or new evidence."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"ORIGINAL OUTPUT CONTRACT AND MISSION EXCERPT:\n{contract_excerpt}\n\n"
+                    f"DEEP DRAFT TO SERIALIZE:\n{draft_excerpt}"
+                ),
+            },
+        ]
+        finalize_sampling = SamplingParams(
+            temperature=0.0,
+            top_p=1.0,
+            max_tokens=max_tokens,
+            structured_outputs=StructuredOutputsParams(json_object=True),
+        )
+        finalize_results = engine.chat(
+            finalize_messages,
+            sampling_params=finalize_sampling,
+            use_tqdm=False,
+            tools=None,
+        )
+        if not finalize_results or not finalize_results[0].outputs:
+            raise RuntimeError("AVANTIQO_INTELLIGENCE_STRUCTURED_FINALIZATION_OUTPUT_REQUIRED")
+        finalize_request_output = finalize_results[0]
+        finalize_generated = finalize_request_output.outputs[0]
+        repaired_text = _text(finalize_generated.text)
+        if "<think>" in repaired_text.lower() or "</think>" in repaired_text.lower():
+            raise RuntimeError("AVANTIQO_INTELLIGENCE_STRUCTURED_FINALIZATION_REASONING_LEAK")
+        repaired_object = _json_object(repaired_text)
+        if repaired_object is None:
+            raise RuntimeError("AVANTIQO_INTELLIGENCE_STRUCTURED_FINALIZATION_JSON_REQUIRED")
+        final_text = json.dumps(repaired_object, ensure_ascii=False, separators=(",", ":"))
+        structured_input_tokens = len(finalize_request_output.prompt_token_ids or [])
+        structured_output_tokens = len(finalize_generated.token_ids or [])
+        structured_json_finalization_performed = True
+
     usage = {
-        "input_tokens": len(request_output.prompt_token_ids or []),
-        "output_tokens": len(generated.token_ids or []),
+        "input_tokens": len(request_output.prompt_token_ids or []) + structured_input_tokens,
+        "output_tokens": len(generated.token_ids or []) + structured_output_tokens,
     }
     usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
     return {
@@ -379,6 +460,12 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         "reasoning_mode": "thinking" if lane == "deep" else "non_thinking",
         "sampling_policy": sampling_policy,
         "reasoning_transport_detected": reasoning_detected,
+        "structured_json_finalization_performed": structured_json_finalization_performed,
+        "structured_json_finalization_contract": (
+            "AVANTIQO_DEEP_REASON_THEN_STRUCTURED_JSON_V1"
+            if structured_json_finalization_performed
+            else None
+        ),
         "warm_engine_reused": warm_engine_reused,
         "raw_reasoning_persisted": False,
         "infrastructure_provider": "MODAL_H100_ASYNC_V1",

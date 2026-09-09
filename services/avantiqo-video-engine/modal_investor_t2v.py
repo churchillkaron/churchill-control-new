@@ -394,6 +394,7 @@ def generate_investor_t2v_job(data: dict[str, Any]) -> dict[str, Any]:
             "newly_generated_asset": True,
             "external_provider_used": False,
             "automatic_paid_retry": False,
+            "raw_reasoning_persisted": False,
         }
     finally:
         try:

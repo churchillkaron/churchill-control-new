@@ -29,13 +29,15 @@ test("Studio Cinema is Avantiqo-owned only and external video fallback is imposs
   assert.match(resolver, /ai\.video\.first_last_frame_to_video/);
 });
 
-test("Avantiqo Cinema generation is Modal-native", () => {
+test("Avantiqo Cinema review generation defaults to fast distilled and native master cannot be selected accidentally", () => {
   assert.match(registration, /infrastructure_provider:\s*"MODAL_DIRECT_ASYNC_V1"/);
   assert.match(registration, /external_provider_fallback_allowed:\s*false/);
   assert.match(registration, /runpod_generation_routing:\s*false/);
   assert.match(registration, /NATIVE_MASTER_FOUNDATION_MODEL = "Lightricks\/LTX-2\.5"/);
   assert.match(registration, /configured_foundation_model:\s*NATIVE_MASTER_FOUNDATION_MODEL/);
   assert.match(provider, /createAvantiqoOwnedModalWorker/);
-  assert.match(provider, /MODAL_VIDEO_FUNCTION_NAME = "generate_native_job_v3"/);
-  assert.match(provider, /return modalVideoWorker\.execute\(advancedInput\(input\)\)/);
+  assert.match(provider, /FAST_PREVIEW_FUNCTION_NAME = "generate_investor_t2v_job"/);
+  assert.match(provider, /return fastPreviewVideoWorker\.execute\(advancedInput\(input\)\)/);
+  assert.match(provider, /AVANTIQO_VIDEO_NATIVE_MASTER_ROUTE_DISABLED/);
+  assert.match(provider, /AVANTIQO_VIDEO_FAST_CONDITIONED_LANE_REQUIRED/);
 });

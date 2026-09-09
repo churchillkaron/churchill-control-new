@@ -80,3 +80,42 @@ test("alias reflex requires exact phrase rather than fuzzy or extended intent", 
     assert.equal(result, null);
   }
 });
+
+
+test("explicit current organization and legal-entity context routes directly to registered organizational context read", () => {
+  const capability = {
+    key: "platform.organizational_context.read",
+    mode: "read",
+    risk: "low",
+    auto_execute: true,
+    requires_confirmation: false,
+    input_schema: { type: "object", properties: { focus: { type: "string" } }, additionalProperties: false },
+  };
+  const result = resolveOperatorBusinessDataReflex({
+    message: "What is the current organization and legal entity context, and what can you verify live right now? Read only.",
+    capabilities: [capability],
+    entityId: "entity-1",
+  });
+  assert.equal(result?.matched, true);
+  assert.equal(result?.execute, true);
+  assert.equal(result?.capability_key, "platform.organizational_context.read");
+  assert.match(result?.payload?.focus || "", /current organization and legal entity context/i);
+  assert.equal(result?.provider_evidence?.provider, "avantiqo-local");
+});
+
+test("generic current wording does not hijack organizational context read", () => {
+  const capability = {
+    key: "platform.organizational_context.read",
+    mode: "read",
+    risk: "low",
+    auto_execute: true,
+    requires_confirmation: false,
+    input_schema: { type: "object", properties: { focus: { type: "string" } }, additionalProperties: false },
+  };
+  const result = resolveOperatorBusinessDataReflex({
+    message: "What is the current weather outside?",
+    capabilities: [capability],
+    entityId: "entity-1",
+  });
+  assert.equal(result, null);
+});

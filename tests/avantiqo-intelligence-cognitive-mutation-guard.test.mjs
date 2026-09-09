@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import {
   evaluateOperatorIntelligenceExecutionGuard,
@@ -16,12 +17,35 @@ const governanceSource = fs.readFileSync(
   "utf8",
 );
 
+const SCOPE = {
+  organization_id: "org-1",
+  entity_id: "entity-1",
+  period_id: null,
+  party_id: null,
+};
+
+function fingerprint(payload = {}) {
+  const canonical = Object.fromEntries(
+    Object.entries(payload).sort(([left], [right]) => left.localeCompare(right)),
+  );
+  return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
+}
+
 function briefMessage(overrides = {}) {
   const brief = {
     planning_complete: true,
     execution_guidance_allowed: true,
     cognitive_plan: { status: "PLAN_VALIDATED" },
-    governed_plan: { valid: true },
+    governed_plan: {
+      valid: true,
+      execution_scope: SCOPE,
+      steps: [{
+        id: "create-invoice",
+        mutates: true,
+        capability_key: "finance.invoice.create",
+        payload_fingerprint: fingerprint({ customer_id: "customer-1" }),
+      }],
+    },
     ...overrides,
   };
   return {
@@ -84,7 +108,16 @@ test("validated governed cognitive plan permits normal downstream mutation gover
 
   runWithOperatorIntelligenceExecutionGuard(guard, () => {
     assert.equal(
-      operatorIntelligenceMutationBlock({ key: "finance.invoice.create", mode: "write" }),
+      operatorIntelligenceMutationBlock(
+        { key: "finance.invoice.create", mode: "write" },
+        {
+          organizationId: "org-1",
+          entityId: "entity-1",
+          periodId: null,
+          partyId: null,
+          payload: { customer_id: "customer-1" },
+        },
+      ),
       null,
     );
   });
@@ -95,7 +128,7 @@ test("canonical Operator wrapper and execution governance enforce the guard befo
   assert.match(operatorWrapperSource, /runWithOperatorIntelligenceExecutionGuard/);
   assert.match(operatorWrapperSource, /stagedMutationRequiresCognitiveBlock/);
   assert.match(operatorWrapperSource, /pending_execution_created:\s*false/);
-  assert.match(governanceSource, /enforceOperatorIntelligenceMutationGuard\(capability\)/);
+  assert.match(governanceSource, /enforceOperatorIntelligenceMutationGuard\(capability, \{/);
 
   const approvalFunctionStart = governanceSource.indexOf(
     "export async function resolveOperatorExecutionApproval",
@@ -111,7 +144,7 @@ test("canonical Operator wrapper and execution governance enforce the guard befo
     auditFunctionStart,
   );
   const guardIndex = approvalFunctionSource.indexOf(
-    "enforceOperatorIntelligenceMutationGuard(capability)",
+    "enforceOperatorIntelligenceMutationGuard(capability, {",
   );
   const durableApprovalIndex = approvalFunctionSource.indexOf(
     "if (!requiresDurableApproval(capability))",

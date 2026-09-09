@@ -103,3 +103,45 @@ test("Synthetic Intelligence V4 compiles model plan steps before Operator handof
   assert.match(source, /cognitive_plan_execution_guidance_allowed/);
   assert.match(source, /execution_governance_bypassed:\s*false/);
 });
+
+test("cognitive plan seals server scope and mutation payload without persisting raw payload", () => {
+  const result = compileOwnedCognitivePlan({
+    goal: "Create exactly one scoped invoice",
+    execution_scope: {
+      organization_id: "org-1",
+      entity_id: "entity-1",
+      period_id: "period-1",
+      party_id: "party-1",
+    },
+    plan_steps: [{
+      id: "create-invoice",
+      title: "Create the invoice",
+      kind: "action_candidate",
+      depends_on: [],
+      capability_key: "finance.invoice.create",
+      payload: { customer_id: "customer-1", amount: 1250 },
+      mutates: true,
+      reversible: true,
+      candidate_validation: {
+        validated: true,
+        payload_complete: true,
+      },
+      verification: {
+        required: true,
+        criteria: ["The exact invoice can be read back."],
+      },
+      rollback: { available: true, strategy: "Void the draft invoice." },
+    }],
+  });
+
+  assert.equal(result.status, "PLAN_VALIDATED");
+  assert.deepEqual(result.governed_plan.execution_scope, {
+    organization_id: "org-1",
+    entity_id: "entity-1",
+    period_id: "period-1",
+    party_id: "party-1",
+  });
+  const mutation = result.governed_plan.steps[0];
+  assert.match(mutation.payload_fingerprint, /^[a-f0-9]{64}$/);
+  assert.equal(Object.hasOwn(mutation, "payload"), false);
+});

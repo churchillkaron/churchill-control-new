@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import {
   evaluateOperatorIntelligenceExecutionGuard,
@@ -6,30 +7,72 @@ import {
   runWithOperatorIntelligenceExecutionGuard,
 } from "../lib/operator/runtime/OperatorIntelligenceExecutionGuardRuntime.js";
 
-function cognitiveBriefConversation(steps) {
+const SCOPE = Object.freeze({
+  organization_id: "org-1",
+  entity_id: "entity-1",
+  period_id: "period-1",
+  party_id: "party-1",
+});
+
+const SCOPE_KEYS = new Set([
+  "organizationId", "organization_id", "entityId", "entity_id",
+  "periodId", "period_id", "partyId", "party_id",
+]);
+
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (!value || typeof value !== "object") return value ?? null;
+  return Object.fromEntries(
+    Object.keys(value).sort().map((key) => [key, canonicalValue(value[key])]),
+  );
+}
+
+function fingerprint(payload = {}) {
+  const businessPayload = Object.fromEntries(
+    Object.entries(payload).filter(([key]) => !SCOPE_KEYS.has(key)),
+  );
+  return createHash("sha256")
+    .update(JSON.stringify(canonicalValue(businessPayload)))
+    .digest("hex");
+}
+
+function cognitiveBriefConversation(steps, scope = SCOPE) {
+  const normalizedSteps = steps.map((step) => ({
+    ...step,
+    ...(step.mutates === true
+      ? { payload_fingerprint: fingerprint(step.payload || {}) }
+      : {}),
+  }));
   const brief = {
     planning_complete: true,
     execution_guidance_allowed: true,
-    cognitive_plan: {
-      status: "PLAN_VALIDATED",
-    },
+    cognitive_plan: { status: "PLAN_VALIDATED" },
     governed_plan: {
       valid: true,
-      steps,
+      execution_scope: scope,
+      steps: normalizedSteps,
     },
   };
-  return [
-    {
-      role: "assistant",
-      content: `AVANTIQO_OWNED_COGNITIVE_BRIEF_V4\nServer-generated planning context.\n${JSON.stringify(brief)}`,
-    },
-  ];
+  return [{
+    role: "assistant",
+    content: `AVANTIQO_OWNED_COGNITIVE_BRIEF_V4\nServer-generated planning context.\n${JSON.stringify(brief)}`,
+  }];
 }
 
-function guardedBlock(guard, capability) {
+function execution(payload = {}) {
+  return {
+    organizationId: SCOPE.organization_id,
+    entityId: SCOPE.entity_id,
+    periodId: SCOPE.period_id,
+    partyId: SCOPE.party_id,
+    payload,
+  };
+}
+
+function guardedBlock(guard, capability, executionContext = execution()) {
   return runWithOperatorIntelligenceExecutionGuard(
     guard,
-    () => operatorIntelligenceMutationBlock(capability),
+    () => operatorIntelligenceMutationBlock(capability, executionContext),
   );
 }
 
@@ -46,6 +89,7 @@ test("validated cognitive plan binds mutation authority to the exact planned cap
         id: "post",
         mutates: true,
         capability_key: "finance.invoice.post",
+        payload: { invoice_id: "inv-1", status: "posted" },
       },
     ]),
   });
@@ -57,10 +101,11 @@ test("validated cognitive plan binds mutation authority to the exact planned cap
     "finance.invoice.post",
   ]);
   assert.equal(
-    guardedBlock(guard, {
-      key: "finance.invoice.post",
-      mode: "write",
-    }),
+    guardedBlock(
+      guard,
+      { key: "finance.invoice.post", mode: "write" },
+      execution({ invoice_id: "inv-1", status: "posted" }),
+    ),
     null,
   );
 });
@@ -73,6 +118,7 @@ test("a different mutation cannot ride on another capability's validated cogniti
         id: "post",
         mutates: true,
         capability_key: "finance.invoice.post",
+        payload: { invoice_id: "inv-1" },
       },
     ]),
   });
@@ -111,6 +157,65 @@ test("a read-only cognitive plan cannot later authorize a mutation", () => {
   });
   assert.equal(blocked.blocked, true);
   assert.equal(blocked.reason, "COGNITIVE_PLAN_MUTATION_NOT_VALIDATED");
+});
+
+
+test("same capability cannot cross the server-stamped legal-entity scope", () => {
+  const payload = { invoice_id: "inv-1" };
+  const guard = evaluateOperatorIntelligenceExecutionGuard({
+    required: true,
+    conversation: cognitiveBriefConversation([{
+      id: "post",
+      mutates: true,
+      capability_key: "finance.invoice.post",
+      payload,
+    }]),
+  });
+
+  const blocked = guardedBlock(
+    guard,
+    { key: "finance.invoice.post", mode: "write" },
+    { ...execution(payload), entityId: "entity-2" },
+  );
+  assert.equal(blocked.reason, "COGNITIVE_PLAN_EXECUTION_SCOPE_BINDING_MISMATCH");
+  assert.equal(blocked.exact_cognitive_plan_scope_binding_matched, false);
+  assert.equal(blocked.authorization_effect, "NONE");
+});
+
+test("same capability and scope cannot execute a different mutation payload", () => {
+  const guard = evaluateOperatorIntelligenceExecutionGuard({
+    required: true,
+    conversation: cognitiveBriefConversation([{
+      id: "post",
+      mutates: true,
+      capability_key: "finance.invoice.post",
+      payload: { invoice_id: "inv-1", amount: 100 },
+    }]),
+  });
+
+  const blocked = guardedBlock(
+    guard,
+    { key: "finance.invoice.post", mode: "write" },
+    execution({ invoice_id: "inv-1", amount: 999 }),
+  );
+  assert.equal(blocked.reason, "COGNITIVE_PLAN_MUTATION_PAYLOAD_BINDING_MISMATCH");
+  assert.equal(blocked.exact_cognitive_plan_payload_binding_matched, false);
+  assert.equal(blocked.authorization_effect, "NONE");
+});
+
+test("mutation plans without a server execution scope fail closed", () => {
+  const guard = evaluateOperatorIntelligenceExecutionGuard({
+    required: true,
+    conversation: cognitiveBriefConversation([{
+      id: "post",
+      mutates: true,
+      capability_key: "finance.invoice.post",
+      payload: { invoice_id: "inv-1" },
+    }], {}),
+  });
+
+  assert.equal(guard.mutating_execution_allowed, false);
+  assert.equal(guard.reason, "COGNITIVE_PLAN_EXECUTION_SCOPE_NOT_BOUND");
 });
 
 test("read-only execution remains available regardless of mutation binding", () => {

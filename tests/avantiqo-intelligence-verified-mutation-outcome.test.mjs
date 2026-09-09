@@ -29,6 +29,8 @@ test("failed write verification is never classified as verified completion", () 
     verification_present: true,
     verification_status: "failed",
     business_effect_verified: false,
+    cognitive_binding_required: false,
+    cognitive_verification_attested: false,
   });
   assert.equal(shouldLearnCompletedExecutionMemory(execution), false);
   assert.equal(shouldRetireExecutionBlockerMemory(execution), false);
@@ -38,11 +40,48 @@ test("verified write may become durable completed execution memory", () => {
   const execution = {
     status: "completed",
     capability: { mode: "write", key: "example.write" },
-    post_action_verification: { status: "completed" },
+    post_action_verification: {
+      status: "completed",
+      business_effect_verified: true,
+      assertion: { passed: true, method: "stable_business_identity_match" },
+    },
   };
 
   assert.equal(shouldLearnCompletedExecutionMemory(execution), true);
   assert.equal(shouldRetireExecutionBlockerMemory(execution), true);
+});
+
+test("cognitive mutation memory requires its sealed verification attestation", () => {
+  const base = {
+    status: "completed",
+    capability: { mode: "write", key: "example.write" },
+    post_action_verification: {
+      status: "completed",
+      capability_key: "example.read",
+      business_effect_verified: true,
+      assertion: { passed: true, method: "stable_business_identity_match" },
+      cognitive_execution_binding_required: true,
+    },
+  };
+
+  assert.equal(shouldLearnCompletedExecutionMemory(base), false);
+  assert.equal(shouldRetireExecutionBlockerMemory(base), false);
+
+  const attested = structuredClone(base);
+  attested.post_action_verification.cognitive_verification_attestation = {
+    contract: "AVANTIQO_COGNITIVE_MUTATION_VERIFICATION_ATTESTATION_V1",
+    plan_id: "plan-1",
+    step_id: "step-1",
+    capability_key: "example.write",
+    payload_fingerprint: "a".repeat(64),
+    verification_capability_key: "example.read",
+    business_effect_verified: true,
+    assertion: { passed: true },
+    authorization_effect: "NONE",
+  };
+
+  assert.equal(shouldLearnCompletedExecutionMemory(attested), true);
+  assert.equal(shouldRetireExecutionBlockerMemory(attested), true);
 });
 
 test("unverified mutation call is not durable business-effect proof", () => {

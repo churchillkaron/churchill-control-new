@@ -42,6 +42,32 @@ test("only structured verification provenance upgrades completed history", () =>
   });
 });
 
+test("cognitive execution history cannot become trusted from a bare verified flag", () => {
+  const unsealed = classifyIntelligenceMemoryTrust({
+    type: "completed_step",
+    confidence: 1,
+    metadata: {
+      business_effect_verified: true,
+      cognitive_binding_required: true,
+      cognitive_verification_attested: false,
+    },
+  });
+  assert.equal(unsealed.class, "execution_history");
+  assert.equal(unsealed.requires_live_read, true);
+
+  const sealed = classifyIntelligenceMemoryTrust({
+    type: "completed_step",
+    confidence: 1,
+    metadata: {
+      business_effect_verified: true,
+      cognitive_binding_required: true,
+      cognitive_verification_attested: true,
+    },
+  });
+  assert.equal(sealed.class, "verified_history");
+  assert.equal(sealed.requires_live_read, false);
+});
+
 test("unverified execution history is forced through current evidence before reuse", () => {
   const memory = trustedMemoryEnvelope({
     type: "completed_step",
@@ -86,6 +112,11 @@ test("recall bridge preserves structured verification provenance and relevance",
     source,
     /business_effect_verified:\s*memory\.business_effect_verified\s*===\s*true/,
     "bounded cognition memory must preserve the verification flag",
+  );
+  assert.match(
+    source,
+    /cognitive_verification_attested:[\s\S]*memory\.cognitive_verification_attested\s*===\s*true/,
+    "bounded cognition memory must preserve cognitive verification attestation provenance",
   );
   assert.match(
     source,

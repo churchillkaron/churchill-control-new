@@ -37,6 +37,7 @@ test("verified completed step is historical evidence only", () => {
     type: "completed_step",
     content: "Executed finance.invoice.create successfully and verified the business effect.",
     confidence: 1,
+    metadata: { business_effect_verified: true },
   });
 
   assert.equal(trust.class, "verified_history");

@@ -42,9 +42,9 @@ test("current authorization and approval are re-read before the selected mutatio
   assert.match(core, /source: "AVANTIQO_OPERATOR"/);
   assert.match(core, /conversationallyConfirmed: true/);
 
-  assert.match(governance, /operator_approval_requests/);
-  assert.match(governance, /assertApprovalAuthorizationFresh/);
-  assert.match(governance, /approval_request_id/i);
+  assert.match(governance, /\.from\("approval_requests"\)/);
+  assert.match(governance, /resolveExistingApprovalRequest/);
+  assert.match(governance, /approvalRequestId/);
 });
 
 test("registered post-action verification remains read-only and memory never learns unverified mutation effects", () => {
@@ -57,7 +57,8 @@ test("registered post-action verification remains read-only and memory never lea
   assert.match(core, /resume_kind: "verification"/);
   assert.match(core, /I will not replay the write/);
 
-  assert.match(memory, /business_effect_verified:\s*verificationStatus === "completed"/);
+  assert.match(memory, /verification\.business_effect_verified === true && assertionPassed/);
+  assert.match(memory, /validCognitiveVerificationAttestation/);
   assert.match(memory, /return state\.business_effect_verified === true/);
 });
 

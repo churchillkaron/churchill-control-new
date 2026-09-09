@@ -81,3 +81,10 @@ test("cinematic impact reasoning unwraps owned provider JSON text envelopes",()=
   assert.match(source,/current\.text \|\| current\.content/);
   assert.match(source,/parseReasoningJson\(candidate\)/);
 });
+
+
+test("one-shot cinematic understanding requires one substantial action instead of three artificial actions",()=>{
+  const source=fs.readFileSync("lib/creative/director/runtime/CreativeCinematicImpactRuntime.js","utf8");
+  assert.match(source,/minimumHighValueActions = 3/);
+  assert.match(source,/Math\.max\(1, Math\.min\(3, bootstrapShotCount \|\| 1\)\)/);
+});

@@ -129,6 +129,7 @@ test("canonical Operator wrapper and execution governance enforce the guard befo
   assert.match(operatorWrapperSource, /stagedMutationRequiresCognitiveBlock/);
   assert.match(operatorWrapperSource, /pending_execution_created:\s*false/);
   assert.match(governanceSource, /enforceOperatorIntelligenceMutationGuard\(capability, \{/);
+  assert.match(governanceSource, /cognitive_execution_binding:/);
 
   const approvalFunctionStart = governanceSource.indexOf(
     "export async function resolveOperatorExecutionApproval",

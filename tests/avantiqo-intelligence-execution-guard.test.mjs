@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import {
   evaluateOperatorIntelligenceExecutionGuard,
+  operatorIntelligenceMutationBindingProof,
   operatorIntelligenceMutationBlock,
   runWithOperatorIntelligenceExecutionGuard,
 } from "../lib/operator/runtime/OperatorIntelligenceExecutionGuardRuntime.js";
@@ -216,6 +217,35 @@ test("mutation plans without a server execution scope fail closed", () => {
 
   assert.equal(guard.mutating_execution_allowed, false);
   assert.equal(guard.reason, "COGNITIVE_PLAN_EXECUTION_SCOPE_NOT_BOUND");
+});
+
+
+test("successful binding emits a durable proof identity without granting authority", () => {
+  const payload = { invoice_id: "inv-1", amount: 100 };
+  const guard = evaluateOperatorIntelligenceExecutionGuard({
+    required: true,
+    conversation: cognitiveBriefConversation([{
+      id: "post",
+      mutates: true,
+      capability_key: "finance.invoice.post",
+      payload,
+    }]),
+  });
+
+  const proof = runWithOperatorIntelligenceExecutionGuard(guard, () =>
+    operatorIntelligenceMutationBindingProof(
+      { key: "finance.invoice.post", mode: "write" },
+      execution(payload),
+    ),
+  );
+
+  assert.equal(proof.contract, "AVANTIQO_COGNITIVE_MUTATION_BINDING_PROOF_V1");
+  assert.equal(proof.step_id, "post");
+  assert.equal(proof.capability_key, "finance.invoice.post");
+  assert.match(proof.payload_fingerprint, /^[a-f0-9]{64}$/);
+  assert.deepEqual(proof.execution_scope, SCOPE);
+  assert.equal(proof.matched, true);
+  assert.equal(proof.authorization_effect, "NONE");
 });
 
 test("read-only execution remains available regardless of mutation binding", () => {

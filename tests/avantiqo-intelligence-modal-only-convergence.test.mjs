@@ -7,6 +7,11 @@ const route = fs.readFileSync(new URL("../app/api/operator/turn/route.js", impor
 const learning = fs.readFileSync(new URL("../lib/intelligence/runtime/AvantiqoMechanismFirstLearningRuntime.js", import.meta.url), "utf8");
 const child = fs.readFileSync(new URL("../scripts/run-avantiqo-learning-mechanism-synthesis-modal-child-local.mjs", import.meta.url), "utf8");
 
+const providerExecutor = fs.readFileSync(new URL("../lib/platform/service-runtime/providers/ProviderExecutor.js", import.meta.url), "utf8");
+const providerV2 = fs.readFileSync(new URL("../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js", import.meta.url), "utf8");
+const providerRegistration = fs.readFileSync(new URL("../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderRegistration.js", import.meta.url), "utf8");
+const studioReasoning = fs.readFileSync(new URL("../lib/creative/reasoning/CreativeReasoningService.js", import.meta.url), "utf8");
+
 test("Operator Deep is owned in production while benchmark metadata is development-only", () => {
   assert.match(operator, /if \(text\(process\.env\.NODE_ENV\)\.toLowerCase\(\) !== "development"\) return null/);
   assert.match(operator, /service_id: "ai\.reasoning\.execute"[\s\S]*?\.\.\.ownedOperatorIntelligenceSelectionPolicy\(\)/);
@@ -35,4 +40,16 @@ test("Learning synthesis cannot bypass Service Runtime", () => {
 
 test("legacy direct RunPod Learning child is absent", () => {
   assert.equal(fs.existsSync(new URL("../scripts/run-avantiqo-learning-mechanism-synthesis-child-local.mjs", import.meta.url)), false);
+});
+
+test("canonical owned Intelligence execution is Modal-only for Business Partner and Studio", () => {
+  assert.match(providerV2, /executeIntelligenceModalDirect/);
+  assert.match(providerV2, /getIntelligenceModalDirectStatus/);
+  assert.doesNotMatch(providerV2, /RunPod|runpod|OwnedIntelligence.*Pod/);
+  assert.doesNotMatch(providerExecutor, /RunPod|runpod|OwnedIntelligence.*Pod/);
+  assert.match(providerRegistration, /infrastructure_provider:\s*"MODAL_H100_ASYNC_V1"/);
+  assert.match(providerRegistration, /modal_only:\s*true/);
+  assert.match(providerRegistration, /infrastructure_fallback:\s*null/);
+  assert.match(studioReasoning, /AvantiqoStructuredIntelligenceSupervisorRuntime/);
+  assert.match(studioReasoning, /service_id:\s*"ai\.reasoning\.execute"/);
 });

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   classifyIntelligenceMemoryTrust,
+  currentStateSensitiveMemorySources,
   rankTrustedMemories,
   trustedMemoryEnvelope,
 } from "../lib/operator/runtime/IntelligenceMemoryTrustPolicy.js";
@@ -135,4 +136,58 @@ test("verified history remains usable retrospectively but has no current-state a
   assert.equal(memory.current_state_authority, false);
   assert.equal(memory.requires_live_read_for_current_state, true);
   assert.equal(memory.may_authorize, false);
+});
+
+
+test("unrelated high-importance verified history does not create a freshness obligation", () => {
+  const selection = currentStateSensitiveMemorySources([
+    {
+      type: "completed_step",
+      content: "Hotel room 402 was closed and verified.",
+      business_effect_verified: true,
+      cognitive_audit_receipt_verified: true,
+      relevance: 0.44,
+      semantic_relevance: 0.01,
+      importance: 1,
+      confidence: 1,
+    },
+  ], { message: "Send invoice INV-1" });
+
+  assert.equal(selection.selected.length, 0);
+  assert.equal(selection.relevance_policy, "SEMANTIC_RELEVANCE");
+});
+
+test("semantically relevant verified history creates a current-state freshness obligation", () => {
+  const selection = currentStateSensitiveMemorySources([
+    {
+      type: "completed_step",
+      content: "Invoice INV-1 was created and verified.",
+      business_effect_verified: true,
+      relevance: 0.42,
+      semantic_relevance: 0.51,
+      importance: 0.9,
+      confidence: 1,
+    },
+  ], { message: "Send invoice INV-1" });
+
+  assert.equal(selection.selected.length, 1);
+  assert.equal(selection.selected[0].requires_live_read_for_current_state, true);
+});
+
+test("continuity turns preserve recalled completed-step freshness even with weak semantic overlap", () => {
+  const selection = currentStateSensitiveMemorySources([
+    {
+      type: "completed_step",
+      content: "Latest governed work completed and verified.",
+      business_effect_verified: true,
+      relevance: 0.24,
+      semantic_relevance: 0.02,
+      importance: 0.9,
+      confidence: 1,
+    },
+  ], { message: "continue" });
+
+  assert.equal(selection.selected.length, 1);
+  assert.equal(selection.continuity_sensitive_turn, true);
+  assert.equal(selection.relevance_policy, "CONTINUITY_RECALL_RELEVANCE");
 });

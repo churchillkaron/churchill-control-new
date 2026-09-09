@@ -77,6 +77,32 @@ function thesisAttentionLabel(value) {
   return "Current thesis";
 }
 
+function busyRequestStatus(message, entityId, liveExecution, elapsedSeconds, startedAt) {
+  const request = text(message).replace(/\s+/g, " ").slice(0, 180);
+  const elapsed = Math.max(0, Number(elapsedSeconds || 0));
+  const updatedAt = Date.parse(text(liveExecution?.updated_at));
+  const freshLiveExecution =
+    liveExecution &&
+    Number.isFinite(updatedAt) &&
+    Number.isFinite(Number(startedAt)) &&
+    updatedAt >= Number(startedAt) - 2000;
+  const event = freshLiveExecution ? liveExecution?.latest_event || null : null;
+  const description = text(event?.description);
+  const capability = text(event?.capability_key);
+  const phase = text(event?.phase).replaceAll("_", " ");
+
+  if (description) {
+    return `${description}${capability ? ` - ${capability}` : phase ? ` - ${phase}` : ""} - ${elapsed}s`;
+  }
+
+  const scope = entityId ? "legal entity scoped" : "organization scoped";
+  if (elapsed < 2) return `${request || "Request"} - Matching registered capability - ${scope} - ${elapsed}s`;
+  if (elapsed < 6) return `Reading current business data - ${scope} - ${elapsed}s`;
+  if (elapsed < 15) return `Waiting for the governed read to return - ${elapsed}s`;
+  if (elapsed < 30) return `Still waiting for the server response - ${elapsed}s`;
+  return `This is taking unusually long - ${elapsed}s - the blocker will be surfaced instead of claiming progress`;
+}
+
 function thesisInterruptionSpeech(thesis) {
   const reason = text(thesis?.interruption?.reason);
   const summary = text(thesis?.summary);
@@ -107,6 +133,10 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   const [error, setError] = useState("");
   const [messages, setMessages] = useState([greetingMessage()]);
   const [projectState, setProjectState] = useState({});
+  const [activeRequest, setActiveRequest] = useState("");
+  const [activeRequestStartedAt, setActiveRequestStartedAt] = useState(null);
+  const [busyElapsedSeconds, setBusyElapsedSeconds] = useState(0);
+  const [liveExecution, setLiveExecution] = useState(null);
 
   const organizationId =
     organizationIdProp ||
@@ -125,6 +155,54 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    if (!busy || !organizationId || !activeRequestStartedAt) {
+      if (!busy) {
+        setBusyElapsedSeconds(0);
+        setLiveExecution(null);
+      }
+      return undefined;
+    }
+
+    let cancelled = false;
+    let polling = false;
+
+    const updateElapsed = () => {
+      setBusyElapsedSeconds(
+        Math.max(0, Math.floor((Date.now() - activeRequestStartedAt) / 1000)),
+      );
+    };
+
+    const loadLiveExecution = async () => {
+      if (polling || cancelled) return;
+      polling = true;
+      try {
+        const response = await fetch(
+          `/api/operator/live-execution?organizationId=${encodeURIComponent(organizationId)}`,
+          { credentials: "same-origin", cache: "no-store" },
+        );
+        const result = await response.json().catch(() => ({}));
+        if (!cancelled && response.ok && result?.success !== false) {
+          setLiveExecution(result?.live_execution || null);
+        }
+      } catch {
+        // Progress polling is advisory and must never fail the authoritative turn.
+      } finally {
+        polling = false;
+      }
+    };
+
+    updateElapsed();
+    loadLiveExecution();
+    const elapsedTimer = window.setInterval(updateElapsed, 1000);
+    const liveTimer = window.setInterval(loadLiveExecution, 1500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(elapsedTimer);
+      window.clearInterval(liveTimer);
+    };
+  }, [busy, organizationId, activeRequestStartedAt]);
 
   useEffect(() => {
     if (!organizationId) return undefined;
@@ -353,6 +431,10 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     setInput("");
     setError("");
     setBusy(true);
+    setActiveRequest(message);
+    setActiveRequestStartedAt(Date.now());
+    setBusyElapsedSeconds(0);
+    setLiveExecution(null);
     busyRef.current = true;
 
     try {
@@ -719,7 +801,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         {busy ? (
           <div className="mr-16 flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-3 text-xs text-white/45">
             <Loader2 size={14} className="animate-spin text-[#D6A66A]" />
-            Working in governed mode. No business action is complete until its effect is verified.
+            {busyRequestStatus(activeRequest, entityId, liveExecution, busyElapsedSeconds, activeRequestStartedAt)}
           </div>
         ) : null}
       </div>

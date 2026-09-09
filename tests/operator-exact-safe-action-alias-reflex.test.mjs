@@ -119,3 +119,65 @@ test("generic current wording does not hijack organizational context read", () =
   });
   assert.equal(result, null);
 });
+
+
+test("legal entity used only as domain scope does not hijack another registered read", () => {
+  const organizationalContext = {
+    key: "platform.organizational_context.read",
+    mode: "read",
+    risk: "low",
+    auto_execute: true,
+    requires_confirmation: false,
+    input_schema: { type: "object", properties: { focus: { type: "string" } }, additionalProperties: false },
+  };
+  const invoiceRead = {
+    key: "finance.customer_invoices.read",
+    mode: "read",
+    risk: "low",
+    auto_execute: true,
+    requires_confirmation: false,
+    description: "Read Customer Invoices in finance Order to Cash.",
+    input_schema: { type: "object", properties: {}, additionalProperties: true },
+  };
+  const result = resolveOperatorBusinessDataReflex({
+    message: "Show me the current customer invoices for this legal entity. Read only.",
+    capabilities: [organizationalContext, invoiceRead],
+    entityId: "entity-1",
+  });
+  assert.notEqual(result?.capability_key, "platform.organizational_context.read");
+});
+
+test("explicit registered business object read routes without Intelligence", () => {
+  const capabilities = [
+    {
+      key: "finance.customer_invoices.read",
+      domain: "finance",
+      capability: "customer_invoices",
+      action: "read",
+      mode: "read",
+      context_scope: "entity",
+      auto_execute: true,
+      requires_confirmation: false,
+      input_schema: { type: "object", properties: {}, additionalProperties: true },
+    },
+    {
+      key: "finance.customer_payments.read",
+      domain: "finance",
+      capability: "customer_payments",
+      action: "read",
+      mode: "read",
+      context_scope: "entity",
+      auto_execute: true,
+      requires_confirmation: false,
+      input_schema: { type: "object", properties: {}, additionalProperties: true },
+    },
+  ];
+  const result = resolveOperatorBusinessDataReflex({
+    message: "Show me the current customer invoices for this legal entity. Read only.",
+    capabilities,
+    entityId: "entity-1",
+  });
+  assert.equal(result?.capability_key, "finance.customer_invoices.read");
+  assert.equal(result?.execute, true);
+  assert.equal(result?.provider_evidence?.provider, "avantiqo-local");
+});

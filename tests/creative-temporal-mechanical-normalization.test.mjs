@@ -22,3 +22,20 @@ test("normalizes repaired temporal timing and rejects reference-image dimensions
     assert.ok(Array.isArray(shot.negative_constraints));
   }
 });
+
+test("completes governance-only temporal roles and evidence-derived repair detail without another creative inference", () => {
+  const plan = normalizeTemporalMechanicalContract({
+    temporal_contract:{duration_seconds:5},
+    concept:{creative_thesis:"A researched offshore helicopter approach proves industrial precision.",refused_devices:["No text or logos in generated pixels"]},
+    story:{observable_proof:"Readable rotor motion, platform scale and North Sea atmosphere."},
+    creative_review:{craft_risks:["Rotor motion may read static"],finishing_requirements:["Preserve rotor readability and platform scale"]},
+    quality:{version:"AVANTIQO_CREATIVE_QUALITY_WORLD_CLASS_V3"},asset_manifest:[{asset_id:"ref-1"}],role_decisions:{},
+    deliverables:[{output_spec:{duration_seconds:5,aspect_ratio:"16:9",resolution:"1920x1080",frame_rate:24}}],
+    scenes:[{id:"s1",duration_seconds:5,actors:[],products:[{name:"helicopter"}],location:{name:"North Sea"},shots:[{id:"x1",duration_seconds:5,subject:"helicopter",action:"approaches platform",frame_plan:{opening_frame:"Helicopter starts distant on the horizon under Nordic light.",progression:"Static.",closing_frame:"Helicopter and platform resolve together with readable rotor motion."},camera:{framing:"Low-angle wide shot",focus_target:"helicopter"},generation:{service:"ai.video.generate",capability:"ai.video.generate",output_spec:{}}}]}]
+  });
+  for (const id of ["sound_director","motion_design_director","vfx_director","quality_director","rights_safety_director","release_director","performance_director"]) {
+    assert.equal(plan.role_decisions[id].status,"ACTIVE"); assert.ok(plan.role_decisions[id].decision.length >= 20); assert.ok(plan.role_decisions[id].evidence.length);
+  }
+  const shot=plan.scenes[0].shots[0];
+  assert.ok(shot.negative_constraints.length); assert.ok(shot.known_failure_modes.length); assert.ok(shot.repair_instructions.length); assert.ok(shot.frame_plan.progression.length >= 40);
+});

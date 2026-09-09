@@ -6,7 +6,9 @@ const source = fs.readFileSync("lib/creative/director/runtime/CreativeTemporalMa
 
 test("temporal repair batches failures instead of re-emitting the whole plan", () => {
   assert.match(source, /MAXIMUM_CONTRACT_REPAIR_FAILURES_PER_PASS = 12/);
-  assert.match(source, /\.slice\(0, MAXIMUM_CONTRACT_REPAIR_FAILURES_PER_PASS\)/);
+  assert.match(source, /const roleFailures = allFailures\.filter/);
+  assert.match(source, /const otherFailures = allFailures\.filter/);
+  assert.match(source, /MAXIMUM_CONTRACT_REPAIR_FAILURES_PER_PASS - roleFailures\.length/);
   assert.match(source, /TARGETED CURRENT PLAN CONTEXT/);
   assert.doesNotMatch(source, /CURRENT PLAN\n\$\{JSON\.stringify\(plan/);
 });

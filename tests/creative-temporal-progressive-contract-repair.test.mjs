@@ -19,5 +19,5 @@ test("temporal repair normalizes numeric scene maps and scalar repair lists", ()
 
 test("applicable temporal agency roles cannot be waived as not required", () => {
   assert.match(validator, /AGENCY_ROLE_ACTIVE_REQUIRED/);
-  assert.match(temporal, /registry applies_to contains ALL or TEMPORAL must be ACTIVE/);
+  assert.match(temporal, /Every role in APPLICABLE TEMPORAL ROLES below MUST be ACTIVE/);
 });

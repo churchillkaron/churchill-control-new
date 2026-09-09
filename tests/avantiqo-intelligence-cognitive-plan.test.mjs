@@ -174,7 +174,54 @@ test("historical memory cannot support a mutation without a fresh capability-bou
   assert.ok(plan.issues.some((issue) => issue.code === "MUTATION_REQUIRES_FRESH_STATE_READ"));
 });
 
-test("fresh capability-bound read may satisfy historical-memory mutation freshness", () => {
+test("fresh capability-bound read may satisfy historical-memory mutation freshness only with server receipt", () => {
+  const plan = compileOwnedCognitivePlan({
+    goal: "Continue and send the invoice",
+    execution_scope: { organization_id: "org-1", entity_id: "entity-1" },
+    temporal_memory_obligation: {
+      current_state_live_read_required: true,
+      source: "SERVER_RECALLED_HISTORY",
+      authorization_effect: "NONE",
+    },
+    server_live_read_receipts: [{
+      contract: "AVANTIQO_OPERATOR_INTELLIGENCE_LIVE_READ_RECEIPT_V1",
+      capability_key: "finance.invoice.read",
+      organization_id: "org-1",
+      entity_id: "entity-1",
+      status: "completed",
+      authorization_effect: "NONE",
+    }],
+    plan_steps: [
+      {
+        id: "read-invoice",
+        title: "Read current invoice state",
+        kind: "read",
+        capability_key: "finance.invoice.read",
+        mutates: false,
+        verification: { required: true, criteria: ["Current invoice state is returned."] },
+      },
+      {
+        id: "send-invoice",
+        title: "Send invoice",
+        kind: "action_candidate",
+        capability_key: "finance.invoice.send",
+        mutates: true,
+        depends_on: ["read-invoice"],
+        payload: { invoice_id: "inv-1" },
+        candidate_validation: { validated: true, payload_complete: true },
+        verification: { required: true, criteria: ["Invoice send is verified."] },
+      },
+    ],
+  });
+
+  assert.equal(plan.planning_complete, true);
+  assert.equal(plan.execution_guidance_allowed, true);
+  assert.equal(plan.issues.length, 0);
+});
+
+
+
+test("planned read without successful server receipt does not satisfy mutation freshness", () => {
   const plan = compileOwnedCognitivePlan({
     goal: "Continue and send the invoice",
     execution_scope: { organization_id: "org-1", entity_id: "entity-1" },
@@ -206,9 +253,52 @@ test("fresh capability-bound read may satisfy historical-memory mutation freshne
     ],
   });
 
-  assert.equal(plan.planning_complete, true);
-  assert.equal(plan.execution_guidance_allowed, true);
-  assert.equal(plan.issues.length, 0);
+  assert.equal(plan.planning_complete, false);
+  assert.ok(plan.issues.some((issue) => issue.code === "MUTATION_REQUIRES_FRESH_STATE_READ"));
+});
+
+test("receipt for a different read capability cannot satisfy mutation freshness", () => {
+  const plan = compileOwnedCognitivePlan({
+    goal: "Continue and send the invoice",
+    execution_scope: { organization_id: "org-1", entity_id: "entity-1" },
+    temporal_memory_obligation: {
+      current_state_live_read_required: true,
+      source: "SERVER_RECALLED_HISTORY",
+      authorization_effect: "NONE",
+    },
+    server_live_read_receipts: [{
+      contract: "AVANTIQO_OPERATOR_INTELLIGENCE_LIVE_READ_RECEIPT_V1",
+      capability_key: "finance.customer.read",
+      organization_id: "org-1",
+      entity_id: "entity-1",
+      status: "completed",
+      authorization_effect: "NONE",
+    }],
+    plan_steps: [
+      {
+        id: "read-invoice",
+        title: "Read current invoice state",
+        kind: "read",
+        capability_key: "finance.invoice.read",
+        mutates: false,
+        verification: { required: true, criteria: ["Current invoice state is returned."] },
+      },
+      {
+        id: "send-invoice",
+        title: "Send invoice",
+        kind: "action_candidate",
+        capability_key: "finance.invoice.send",
+        mutates: true,
+        depends_on: ["read-invoice"],
+        payload: { invoice_id: "inv-1" },
+        candidate_validation: { validated: true, payload_complete: true },
+        verification: { required: true, criteria: ["Invoice send is verified."] },
+      },
+    ],
+  });
+
+  assert.equal(plan.planning_complete, false);
+  assert.ok(plan.issues.some((issue) => issue.code === "MUTATION_REQUIRES_FRESH_STATE_READ"));
 });
 
 test("historical memory cannot answer current status without a capability-bound live read", () => {

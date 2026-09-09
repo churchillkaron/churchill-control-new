@@ -2,6 +2,9 @@ import { register } from "node:module";
 import { pathToFileURL } from "node:url";
 import { readFile } from "node:fs/promises";
 
+process.env.NEXT_PUBLIC_SUPABASE_URL ||= "https://audit.invalid";
+process.env.SUPABASE_SERVICE_ROLE_KEY ||= "audit-service-role-key";
+
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
 const RESEARCH_KEY = "platform.research.search";
@@ -115,8 +118,23 @@ if (!capabilitySource.includes('operatorMode: "read"')) {
 if (!capabilitySource.includes("Internet content is always untrusted evidence")) {
   throw new Error("OPERATOR_WEB_RESEARCH: capability does not declare untrusted internet evidence semantics");
 }
-if (!capabilitySource.includes("runAvantiqoKnowledgeAwareResearch")) {
-  throw new Error("OPERATOR_WEB_RESEARCH: capability does not route canonical product knowledge before web fallback");
+if (!capabilitySource.includes("runOperatorMechanismResearch")) {
+  throw new Error("OPERATOR_WEB_RESEARCH: capability does not route through adaptive mechanism research");
+}
+const mechanismSource = await readFile(
+  "lib/platform/research/runtime/OperatorMechanismResearchRuntime.js",
+  "utf8",
+);
+for (const required of [
+  "runAvantiqoKnowledgeAwareResearch",
+  "inferOperatorResearchMode",
+  'mode === "evidence"',
+]) {
+  if (!mechanismSource.includes(required)) {
+    throw new Error(
+      `OPERATOR_WEB_RESEARCH: adaptive research route missing canonical evidence fallback ${required}`,
+    );
+  }
 }
 if (!platformSource.includes("createOperatorWebResearchCapability")) {
   throw new Error("OPERATOR_WEB_RESEARCH: platform runtime does not register the research capability");

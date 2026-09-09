@@ -44,12 +44,13 @@ fi
 
 cd "$WT" || exit 1
 
-node scripts/code-ai-seeded-implementation-lock-selftest.mjs || exit 1
-node scripts/code-ai-operator-prewarm-audit.mjs || exit 1
-node scripts/code-ai-work-package-recovery-selftest.mjs || exit 1
 
-if git grep -n '\[deploy-production-final\]' -- ':!scripts/vercel-ignore-build.mjs' ':!scripts/run-code-ai-latency-local-audit.sh' >/tmp/avantiqo-code-latency-production-marker-$$.txt 2>/dev/null; then
-  echo "${CONTRACT}_UNEXPECTED_PRODUCTION_MARKER=true"
+node --env-file="$ROOT/.env.local" --import ./scripts/register-node-next-alias-hooks.mjs scripts/code-ai-seeded-implementation-lock-selftest.mjs || exit 1
+node --env-file="$ROOT/.env.local" --import ./scripts/register-node-next-alias-hooks.mjs scripts/code-ai-operator-prewarm-audit.mjs || exit 1
+node --env-file="$ROOT/.env.local" --import ./scripts/register-node-next-alias-hooks.mjs scripts/code-ai-work-package-recovery-selftest.mjs || exit 1
+
+if git grep -n '\[deploy-production-final\]' -- lib/code/runtime app/api/operator/code components/operator/HomeAvantiqoIntelligence.jsx >/tmp/avantiqo-code-latency-production-marker-$$.txt 2>/dev/null; then
+  echo "${CONTRACT}_UNEXPECTED_CODE_EXECUTION_PRODUCTION_MARKER=true"
   cat /tmp/avantiqo-code-latency-production-marker-$$.txt
   rm -f /tmp/avantiqo-code-latency-production-marker-$$.txt
   exit 1

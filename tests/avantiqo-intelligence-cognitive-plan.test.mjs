@@ -500,3 +500,52 @@ test("different stable identity value cannot satisfy mutation freshness", () => 
   assert.equal(plan.planning_complete, false);
   assert.ok(plan.issues.some((issue) => issue.code === "MUTATION_REQUIRES_FRESH_STATE_READ"));
 });
+
+
+test("shared contextual customer identity cannot substitute for primary invoice identity", () => {
+  const plan = compileOwnedCognitivePlan({
+    goal: "Continue and send invoice INV-1 for customer CUST-1",
+    execution_scope: { organization_id: "org-1", entity_id: "entity-1" },
+    temporal_memory_obligation: { current_state_live_read_required: true, source: "SERVER_RECALLED_HISTORY", authorization_effect: "NONE" },
+    server_live_read_receipts: [{
+      contract: "AVANTIQO_OPERATOR_INTELLIGENCE_LIVE_READ_RECEIPT_V1",
+      capability_key: "finance.customer.read",
+      plan_step_id: "read-customer",
+      payload_fingerprint: fingerprint({ customer_id: "cust-1" }),
+      result_fingerprint: fingerprint({ customer_id: "cust-1" }),
+      evidence_semantics: "VALID_OBSERVATION",
+      organization_id: "org-1", entity_id: "entity-1", period_id: null, party_id: null,
+      status: "completed", authorization_effect: "NONE",
+    }],
+    plan_steps: [
+      { id: "read-customer", title: "Read customer", kind: "read", capability_key: "finance.customer.read", payload: { customer_id: "cust-1" }, mutates: false, verification: { required: true, criteria: ["Customer returned"] } },
+      { id: "send-invoice", title: "Send invoice", kind: "action_candidate", capability_key: "finance.invoice.send", mutates: true, depends_on: ["read-customer"], payload: { invoice_id: "inv-1", customer_id: "cust-1" }, candidate_validation: { validated: true, payload_complete: true }, verification: { required: true, criteria: ["Invoice send verified"] } },
+    ],
+  });
+  assert.equal(plan.planning_complete, false);
+  assert.ok(plan.issues.some((issue) => issue.code === "MUTATION_REQUIRES_FRESH_STATE_READ"));
+});
+
+test("primary invoice identity wins even when mutation carries additional contextual identities", () => {
+  const plan = compileOwnedCognitivePlan({
+    goal: "Continue and send invoice INV-1 for customer CUST-1",
+    execution_scope: { organization_id: "org-1", entity_id: "entity-1" },
+    temporal_memory_obligation: { current_state_live_read_required: true, source: "SERVER_RECALLED_HISTORY", authorization_effect: "NONE" },
+    server_live_read_receipts: [{
+      contract: "AVANTIQO_OPERATOR_INTELLIGENCE_LIVE_READ_RECEIPT_V1",
+      capability_key: "finance.invoice.read",
+      plan_step_id: "read-invoice",
+      payload_fingerprint: fingerprint({ invoice_id: "inv-1" }),
+      result_fingerprint: fingerprint({ invoice_id: "inv-1", customer_id: "cust-1", status: "draft" }),
+      evidence_semantics: "VALID_OBSERVATION",
+      organization_id: "org-1", entity_id: "entity-1", period_id: null, party_id: null,
+      status: "completed", authorization_effect: "NONE",
+    }],
+    plan_steps: [
+      { id: "read-invoice", title: "Read invoice", kind: "read", capability_key: "finance.invoice.read", payload: { invoice_id: "inv-1" }, mutates: false, verification: { required: true, criteria: ["Invoice returned"] } },
+      { id: "send-invoice", title: "Send invoice", kind: "action_candidate", capability_key: "finance.invoice.send", mutates: true, depends_on: ["read-invoice"], payload: { invoice_id: "inv-1", customer_id: "cust-1" }, candidate_validation: { validated: true, payload_complete: true }, verification: { required: true, criteria: ["Invoice send verified"] } },
+    ],
+  });
+  assert.equal(plan.planning_complete, true);
+  assert.equal(plan.execution_guidance_allowed, true);
+});

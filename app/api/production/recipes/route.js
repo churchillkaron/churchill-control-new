@@ -43,6 +43,7 @@ export async function GET(request) {
 
     const result = await listProductionRecipes({
       organizationId: access.organizationId,
+      entityId: searchParams.get("entityId") || searchParams.get("entity_id") || null,
     });
 
     return NextResponse.json({
@@ -79,6 +80,7 @@ export async function POST(request) {
     const result = await createRecipe({
       organizationId: access.organizationId, entityId,
       actorId: access.user?.id, dish_id: body.dish_id, items: body.items,
+      output_quantity: body.output_quantity, output_uom_id: body.output_uom_id,
     });
 
     return NextResponse.json(result);

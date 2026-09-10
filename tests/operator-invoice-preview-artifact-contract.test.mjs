@@ -19,3 +19,10 @@ test("live read receipts preserve only sanitized presentation artifacts for chat
   assert.match(bridge, /reference\.startsWith\("storage:\/\/"\)/);
   assert.match(bridge, /\^https\?:\\\/\\\//i);
 });
+
+
+test("live read presentation evidence recognizes existing Avantiqo media URL aliases", () => {
+  for (const signal of ["playback_url", "primary_url", "master_signed_url", "uri", "output_reference"]) {
+    assert.match(bridge, new RegExp(`\\"${signal}\\"`));
+  }
+});

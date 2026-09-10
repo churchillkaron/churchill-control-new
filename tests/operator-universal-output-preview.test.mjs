@@ -7,7 +7,7 @@ const home = fs.readFileSync(new URL("../components/operator/HomeAvantiqoIntelli
 const panel = fs.readFileSync(new URL("../components/operator/AvantiqoOperator.jsx", import.meta.url), "utf8");
 
 test("Business Partner has one universal output preview for documents and media", () => {
-  for (const signal of ["file_url", "preview_url", "image_url", "video_url", "audio_url", "generated_media_url", "storage_reference"]) {
+  for (const signal of ["file_url", "preview_url", "image_url", "video_url", "audio_url", "generated_media_url", "storage_reference", "playback_url", "primary_url", "master_signed_url", "uri", "output_reference"]) {
     assert.match(renderer, new RegExp(`\\"${signal}\\"`));
   }
   assert.match(renderer, /<Image /);

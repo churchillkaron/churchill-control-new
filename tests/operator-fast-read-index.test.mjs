@@ -12,6 +12,7 @@ for (const [message, expected] of [
   ["hotel arrivals today", "solutions.hotel_bookings.read"],
   ["show latest studio video", "creative.assets.read"],
   ["show documents", "documents.documents.read"],
+  ["show latest quotation", "commercial.quotations.read"],
 ]) {
   test(`${message} resolves through lightweight Fast Read Index`, () => {
     const ranked = rankOperatorCapabilities({ message, capabilities: reads, modes: ["read"], limit: 3 });

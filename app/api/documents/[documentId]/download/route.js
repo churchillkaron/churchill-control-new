@@ -27,7 +27,9 @@ export async function GET(request, { params }) {
       );
     }
 
-    const versionValue = clean(url.searchParams.get("version"));
+    const versionValue = clean(
+      url.searchParams.get("versionNumber") || url.searchParams.get("version"),
+    );
     const signed = await createDocumentSignedUrl({
       organizationId: context.organizationId,
       documentId,
@@ -42,6 +44,9 @@ export async function GET(request, { params }) {
       accessType: "DOWNLOAD",
       metadata: { version_number: signed.version_number },
     }).catch(() => null);
+
+    const redirect = ["1", "true", "yes"].includes(clean(url.searchParams.get("redirect")).toLowerCase());
+    if (redirect && signed?.url) return NextResponse.redirect(signed.url, 307);
 
     return NextResponse.json({ success: true, ...signed });
   } catch (error) {

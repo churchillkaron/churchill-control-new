@@ -60,6 +60,7 @@ import {
 import {
   prepareSupplierAttachment,
 } from "@/lib/inventory/procurement/suppliers/SupplierAttachmentPreparationRuntime";
+import { prepareRecipeAttachment } from "@/lib/inventory/production/RecipeAttachmentPreparationRuntime";
 import {
   routeAnalyzedAttachment,
 } from "@/lib/platform/runtime/UniversalAttachmentRoutingRuntime";
@@ -409,6 +410,8 @@ export async function POST(request) {
         if (purchaseOrder.recognized === true) {
           return { ...file, prepared_candidate: { type: "purchase_order", ...purchaseOrder } };
         }
+        const recipe = await prepareRecipeAttachment({ file, organizationId: businessContext.organizationId, entityId: businessContext.entityId });
+        if (recipe.recognized === true) return { ...file, prepared_candidate: { type: "recipe", ...recipe } };
         const supplierPrice = await prepareSupplierPriceAttachment({
           file,
           organizationId: businessContext.organizationId,

@@ -4,6 +4,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import { createRecipe } from "@/lib/inventory/production/createRecipe";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import {
   listProductionRecipes,
 } from "@/lib/inventory/production/recipes/listProductionRecipes";
@@ -72,10 +73,12 @@ export async function POST(request) {
       return accessFailure(access);
     }
 
+    const entityId = body.entityId || body.entity_id;
+    if (!entityId) return NextResponse.json({ success:false, error:"entityId required" }, { status:400 });
+    await checkFinancePermission({ organizationId:access.organizationId, userId:access.user?.id, permissionKey:"production.manage", fullAccess:access.permissions?.includes("*")===true });
     const result = await createRecipe({
-      organizationId: access.organizationId,
-      dish_id: body.dish_id,
-      items: body.items,
+      organizationId: access.organizationId, entityId,
+      actorId: access.user?.id, dish_id: body.dish_id, items: body.items,
     });
 
     return NextResponse.json(result);

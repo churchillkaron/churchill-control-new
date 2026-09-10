@@ -32,6 +32,12 @@ jobs:
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: python -m modal run services/avantiqo-image-engine/modal_app.py::seed_cache
 
+      - name: Capture Modal workspace billing rates
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: python -m modal billing rates --json > modal-billing-rates.json
+
       - name: Run ephemeral owned document vision benchmark
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
@@ -70,6 +76,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: avantiqo-document-vision-${{ github.run_id }}
-          path: document-vision-certification.json
+          path: |
+            document-vision-certification.json
+            modal-billing-rates.json
           if-no-files-found: warn
           retention-days: 14

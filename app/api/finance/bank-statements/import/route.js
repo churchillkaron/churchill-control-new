@@ -132,9 +132,37 @@ export async function POST(request) {
 
     if (error) throw new Error(error.message);
 
+    const imported = data && typeof data === "object" ? data : { result: data };
+    const statementImportId = imported?.statement_import_id || imported?.record?.id || null;
+    let reconciliation = null;
+    if (statementImportId) {
+      const reconciled = await supabaseAdmin.rpc(
+        "finance_reconcile_bank_statement_import_exact_atomic",
+        {
+          p_organization_id: access.organizationId,
+          p_entity_id: entityId,
+          p_bank_account_id: bankAccountId,
+          p_statement_import_id: statementImportId,
+          p_reconciled_by: access.user?.id || null,
+        }
+      );
+      if (reconciled.error) {
+        console.error("BANK_STATEMENT_AUTO_RECONCILIATION_FAILED", reconciled.error);
+        reconciliation = {
+          success: false,
+          status: "REVIEW_REQUIRED",
+          error: reconciled.error.message,
+        };
+      } else {
+        reconciliation = reconciled.data || null;
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      ...(data && typeof data === "object" ? data : { result: data }),
+      imported: true,
+      ...imported,
+      reconciliation,
     });
   } catch (error) {
     const message = error?.message || "Bank statement import failed";

@@ -78,7 +78,9 @@ test("research preparation preserves only registry-proven authoritative classifi
   assert.match(runtime, /proof\.authority_purpose === "completion"/);
   assert.match(runtime, /proof\.explicit_incomplete_status === true/);
   assert.match(runtime, /authority_source:\s*"ERP_REGISTRY"/);
-  assert.match(runtime, /authoritativePreparedClassification\(payload\) \|\| classifyPlatformSelfHealingFailure\(payload\)/);
+  assert.match(runtime, /resolvePrivilegedSelfHealingClassification\(/);
+  assert.match(runtime, /authoritativePreparedClassification\(payload\)/);
+  assert.match(runtime, /classifyPlatformSelfHealingFailure\(payload\)/);
   assert.match(runtime, /classification_authority_source:\s*classification\.authority_source \|\| null/);
 });
 

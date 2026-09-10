@@ -47,10 +47,10 @@ test('Operator context preserves logical object identity and evidence span', () 
   assert.match(runtime, /evidence_span=/);
 });
 
-test('analysis V3 requires objects array and distinct-object splitting', () => {
+test('current analysis contract requires objects array and distinct-object splitting', () => {
   const analysis = readFileSync('lib/platform/runtime/ConversationAttachmentAnalysisRuntime.js','utf8');
   const contract = readFileSync('lib/platform/runtime/ConversationAttachmentAnalysisContract.js','utf8');
-  assert.match(contract, /ATTACHMENT_ANALYSIS_V3/);
+  assert.match(contract, /ATTACHMENT_ANALYSIS_V4/);
   assert.match(analysis, /objects array/);
   assert.match(analysis, /Split distinct business objects instead of merging them/);
   assert.match(analysis, /evidence_span/);

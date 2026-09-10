@@ -22,7 +22,7 @@ test("cache only accepts successful versioned analysis for the exact file bytes"
   assert.match(attachmentRuntime, /file\.analysis\.analysis_version/);
   assert.match(attachmentRuntime, /source\.id.*source\.sha256/);
   assert.match(analysisRuntime, /AVANTIQO_ATTACHMENT_ANALYSIS_VERSION/);
-  assert.match(analysisContract, /AVANTIQO_BUSINESS_PARTNER_ATTACHMENT_ANALYSIS_V3/);
+  assert.match(analysisContract, /AVANTIQO_BUSINESS_PARTNER_ATTACHMENT_ANALYSIS_V4/);
 });
 test("current-version analysis is reused while stale analysis is reprocessed", () => {
   assert.match(analysisRuntime, /currentAnalysis\(file\)/);

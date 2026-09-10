@@ -68,7 +68,7 @@ test("objective retirement requires explicit independently verified persistence"
     portfolioCapability,
     /persistence_decision\?\.engineering_evidence\?\.current_main_head/,
   );
-  assert.match(portfolioRuntime, /PRODUCT_ENGINEERING_PORTFOLIO_VERIFIED_COMMIT_REQUIRED/);
+  assert.match(portfolioRuntime, /assertProductPortfolioProgressIntegrity/);
   assert.match(portfolioRuntime, /completePortfolioNodeAfterVerifiedPersistence/);
   assert.match(portfolioCapability, /fresh_main_reranking_after_verified_persistence:\s*true/);
 });

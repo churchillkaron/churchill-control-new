@@ -187,3 +187,21 @@ test('exact controlled-document or exact-file duplicate is never filed again', (
     assert.match(result.response_text, /have not created a duplicate record/i);
   }
 });
+
+test('prepared attachment clarifications are intelligence-driven across business domains', () => {
+  const reasoning = readFileSync('lib/operator/runtime/OperatorReasoningRuntime.js', 'utf8');
+  const intelligence = readFileSync('lib/operator/runtime/PreparedAttachmentClarificationIntelligenceRuntime.js', 'utf8');
+  assert.match(reasoning, /preparedAttachmentNeedsIntelligence/);
+  assert.match(reasoning, /reasonPreparedAttachmentClarification/);
+  assert.doesNotMatch(reasoning, /reasonRecipeClarification/);
+  assert.match(intelligence, /CLARIFICATION_REQUIRED/);
+  assert.match(intelligence, /PARTIAL_OR_UNVERIFIED/);
+  assert.match(intelligence, /inventory_import/);
+  assert.match(intelligence, /AMBIGUOUS_MATCH/);
+  assert.match(intelligence, /businessMatch\.clarification_required/);
+  assert.match(intelligence, /ALWAYS_REVIEW_READY=new Set\(\["recipe"\]\)/);
+  assert.match(intelligence, /not a fixed questionnaire/i);
+  assert.match(intelligence, /Do not weaken, override, bypass/);
+  assert.match(intelligence, /authorization_effect:"NONE"/);
+  assert.match(intelligence, /execution_lane:"fast"/);
+});

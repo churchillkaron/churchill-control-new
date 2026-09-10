@@ -2,13 +2,10 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import {
-  withOwnedIntelligenceRequestLease,
-} from "@/lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime";
-import {
-  prewarmAvantiqoIntelligenceFastEndpoint,
-} from "@/lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider";
+  getAvantiqoIntelligenceRuntimeConfiguration,
+} from "@/lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider";
 
-const CONTRACT = "AVANTIQO_INTELLIGENCE_OPERATOR_PREWARM_V1";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_OPERATOR_PREWARM_V2";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -27,26 +24,18 @@ export async function POST(request) {
       return Response.json({ success: false, error: access.error }, { status: access.status || 403 });
     }
 
-    const result = await withOwnedIntelligenceRequestLease({
-      provider: "avantiqo-intelligence",
-      organizationId,
-      capability: "ai.text.generate",
-      payload: { execution_lane: "fast" },
-      execute: async (leaseContext) => prewarmAvantiqoIntelligenceFastEndpoint({
-        context: {
-          organization_id: organizationId,
-          ...leaseContext,
-        },
-      }),
-    });
-
+    const runtime = getAvantiqoIntelligenceRuntimeConfiguration();
     return Response.json({
-      success: result?.success === true,
+      success: true,
       contract: CONTRACT,
-      status: result?.status || "warming",
-      ready: result?.status === "ready",
-      already_warm: result?.already_warm === true,
-      warmup_latency_ms: Number(result?.latency_ms || 0),
+      status: "prewarm_not_required",
+      ready: runtime.runtime_ready === true,
+      already_warm: false,
+      warmup_latency_ms: 0,
+      infrastructure_provider: runtime.infrastructure_provider,
+      modal_only: runtime.modal_only === true,
+      scale_to_zero: runtime.scale_to_zero === true,
+      prewarm_required: false,
       customer_inference_performed: false,
       wallet_mutation_performed: false,
       source_mutation_performed: false,
@@ -58,7 +47,7 @@ export async function POST(request) {
       contract: CONTRACT,
       status: "failed",
       ready: false,
-      error: text(error?.message || error).slice(0, 700) || "INTELLIGENCE_PREWARM_FAILED",
+      error: text(error?.message || error).slice(0, 700) || "INTELLIGENCE_PREWARM_STATUS_FAILED",
       customer_inference_performed: false,
       wallet_mutation_performed: false,
       source_mutation_performed: false,

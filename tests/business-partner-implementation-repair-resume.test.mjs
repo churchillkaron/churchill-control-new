@@ -3,10 +3,13 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = await readFile("lib/operator/runtime/OperatorTurnRuntimeCore.js", "utf8");
+const bindingSource = await readFile("lib/operator/runtime/OperatorImplementationRepairResumeBinding.js", "utf8");
 
 test("verified implementation repair remains bound to the exact original action", () => {
-  assert.match(source, /AVANTIQO_IMPLEMENTATION_REPAIR_RESUME_V1/);
-  assert.match(source, /authorization_effect\) !== "SAME_ACTION_ONLY"/);
+  assert.match(source, /buildImplementationRepairResumeBinding/);
+  assert.match(source, /validateImplementationRepairResumeBinding/);
+  assert.match(bindingSource, /authorization_effect\) !== "SAME_ACTION_ONLY"/);
+  assert.match(bindingSource, /IMPLEMENTATION_REPAIR_RESUME_BINDING_MISMATCH/);
   assert.match(source, /resume_kind: "implementation_repair"/);
   assert.match(source, /payload: object\(candidate\.payload\)/);
   assert.match(source, /original_message: text\(candidate\.original_message\)/);

@@ -12,6 +12,7 @@ const LIVE_POLL_MS = 900;
 const LIVE_STALE_MS = 45_000;
 const MAX_DEVELOPER_FILES = 8;
 const MAX_DEVELOPER_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_DEVELOPER_TOTAL_BYTES = 60 * 1024 * 1024;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -87,18 +88,64 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
   const rootRef = useRef(null);
   const fileInputRef = useRef(null);
   const developerAttachmentSetRef = useRef(null);
+  const developerAttachmentAnalysisPromiseRef = useRef(null);
   const [liveExecution, setLiveExecution] = useState(null);
   const [stopPending, setStopPending] = useState(false);
   const [developerAttachmentSet, setDeveloperAttachmentSet] = useState(null);
   const [developerAttachmentPending, setDeveloperAttachmentPending] = useState(false);
+  const [developerAttachmentAnalyzing, setDeveloperAttachmentAnalyzing] = useState(false);
   const [developerAttachmentError, setDeveloperAttachmentError] = useState("");
   const [composerToolsTarget, setComposerToolsTarget] = useState(null);
 
   function clearDeveloperAttachments() {
     developerAttachmentSetRef.current = null;
+    developerAttachmentAnalysisPromiseRef.current = null;
     setDeveloperAttachmentSet(null);
+    setDeveloperAttachmentAnalyzing(false);
     setDeveloperAttachmentError("");
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function beginDeveloperAttachmentAnalysis(attachmentSet) {
+    const attachmentSetId = text(attachmentSet?.attachment_set_id);
+    if (!organizationId || !attachmentSetId) return null;
+    setDeveloperAttachmentAnalyzing(true);
+    const promise = fetch("/api/operator/attachments/analyze", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationId, attachment_set_id: attachmentSetId }),
+    })
+      .then(async (response) => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result?.success !== true) {
+          throw new Error(result?.error || "Could not analyze the selected files.");
+        }
+        if (developerAttachmentSetRef.current?.attachment_set_id === attachmentSetId) {
+          const next = {
+            ...developerAttachmentSetRef.current,
+            files: Array.isArray(result.files) ? result.files : developerAttachmentSetRef.current.files,
+            analysis_version: result.analysis_version || null,
+            analysis_complete: true,
+          };
+          developerAttachmentSetRef.current = next;
+          setDeveloperAttachmentSet(next);
+        }
+        return result;
+      })
+      .catch((error) => {
+        if (developerAttachmentSetRef.current?.attachment_set_id === attachmentSetId) {
+          setDeveloperAttachmentError(text(error?.message || error) || "Could not pre-analyze the selected files. Business Partner can retry when you send.");
+        }
+        return null;
+      })
+      .finally(() => {
+        if (developerAttachmentSetRef.current?.attachment_set_id === attachmentSetId) {
+          setDeveloperAttachmentAnalyzing(false);
+        }
+      });
+    developerAttachmentAnalysisPromiseRef.current = promise;
+    return promise;
   }
 
   async function selectDeveloperAttachments(event) {
@@ -107,6 +154,10 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
     setDeveloperAttachmentPending(true);
     setDeveloperAttachmentError("");
     try {
+      const totalBytes = files.reduce((sum, file) => sum + Number(file?.size || 0), 0);
+      if (totalBytes > MAX_DEVELOPER_TOTAL_BYTES) {
+        throw new Error("Selected files are larger than 60 MB in total.");
+      }
       const formData = new FormData();
       formData.append("organizationId", organizationId);
       for (const file of files) {
@@ -131,6 +182,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       };
       developerAttachmentSetRef.current = next;
       setDeveloperAttachmentSet(next);
+      beginDeveloperAttachmentAnalysis(next);
     } catch (error) {
       clearDeveloperAttachments();
       setDeveloperAttachmentError(text(error?.message || error) || "Could not attach the selected files.");
@@ -149,6 +201,9 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         const attachmentSetId = text(
           developerAttachmentSetRef.current?.attachment_set_id,
         );
+        if (attachmentSetId && developerAttachmentAnalysisPromiseRef.current) {
+          await developerAttachmentAnalysisPromiseRef.current.catch(() => null);
+        }
         const headers = new Headers(init?.headers || {});
         if (attachmentSetId) {
           headers.set("x-avantiqo-attachment-set", attachmentSetId);
@@ -479,8 +534,13 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       ) : null}
 
       {developerAttachmentSet ? (
-        <span className="text-[9px] text-white/25">
-          Analyzed context · next turn only
+        <span className="flex items-center gap-1 text-[9px] text-white/25">
+          {developerAttachmentAnalyzing ? <Loader2 size={9} className="animate-spin" /> : null}
+          {developerAttachmentAnalyzing
+            ? "Understanding files…"
+            : developerAttachmentSet.analysis_complete
+              ? "Understood · next turn only"
+              : "Ready · analysis retries on send"}
         </span>
       ) : null}
     </div>

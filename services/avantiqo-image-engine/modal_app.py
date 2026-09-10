@@ -139,7 +139,6 @@ def certify_document_vision(source_url: str) -> dict[str, Any]:
     os.chdir("/app")
     import handler_v9 as image_engine
 
-    image_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
     cases = [
         ("ai.image.analyze", "Inspect this document. Return strict JSON with visible_title, certification_id, document_type, account_name, date, opening_balance, credit, closing_balance, confidence."),
         ("document.ocr", "Extract every visible line faithfully. Return strict JSON with text, fields, and confidence. Preserve numbers and dates exactly."),

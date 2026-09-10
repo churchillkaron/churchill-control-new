@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { buildStatementPaymentEvidenceReport } from "@/lib/finance/bank-statements/BankStatementPaymentEvidenceRuntime";
 
 function required(value, field) {
   if (value === undefined || value === null || String(value).trim() === "") {
@@ -158,11 +159,31 @@ export async function POST(request) {
       }
     }
 
+    let paymentEvidence = null;
+    if (statementImportId) {
+      try {
+        paymentEvidence = await buildStatementPaymentEvidenceReport({
+          organizationId: access.organizationId,
+          entityId,
+          bankAccountId,
+          statementImportId,
+        });
+      } catch (evidenceError) {
+        console.error("BANK_STATEMENT_PAYMENT_EVIDENCE_MATCH_FAILED", evidenceError);
+        paymentEvidence = {
+          contract: "BANK_STATEMENT_PAYMENT_EVIDENCE_MATCH_V1",
+          success: false,
+          reconciliation_authority: false,
+        };
+      }
+    }
+
     return NextResponse.json({
       success: true,
       imported: true,
       ...imported,
       reconciliation,
+      payment_evidence: paymentEvidence,
     });
   } catch (error) {
     const message = error?.message || "Bank statement import failed";

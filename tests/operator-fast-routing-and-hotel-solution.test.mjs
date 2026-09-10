@@ -24,7 +24,7 @@ test("Fast conversation lazy-loads the heavy read bridge only on evidence turns"
   const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorFastConversationRuntime.js", import.meta.url), "utf8");
   assert.match(source, /from "\.\/OperatorResearchRoutingPolicy"/);
   assert.doesNotMatch(source, /import \{[\s\S]{0,100}createOperatorIntelligenceReadTools[\s\S]{0,100}from "\.\/OperatorIntelligenceToolBridgeRuntime"/);
-  assert.match(source, /await import\(\s*"\.\/OperatorIntelligenceToolBridgeRuntime"\s*\)/);
+  assert.match(source, /Promise\.all\(\[\s*import\("\.\/OperatorIntelligenceToolBridgeRuntime"\)/);
 });
 test("Hotel solution is registered under canonical Solutions with a read-only booking surface", () => {
   const registry = fs.readFileSync(new URL("../lib/ubte/runtime/domains/DomainRuntimeRegistry.js", import.meta.url), "utf8");
@@ -44,4 +44,13 @@ test("hotel reservation language outranks neutral reservation primitives", () =>
   ];
   const ranked = rankOperatorCapabilities({ message: "what hotel reservations need attention today", capabilities, modes: ["read"], limit: 3 });
   assert.equal(ranked[0]?.capability?.key, "solutions.hotel_bookings.read");
+});
+
+test("Fast startup does not statically import heavy execution runtimes", () => {
+  const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorFastConversationRuntime.js", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /^import[\s\S]{0,180}ServiceExecutionRuntime/m);
+  assert.doesNotMatch(source, /^import[\s\S]{0,180}AvantiqoIntelligenceReasoningRuntime/m);
+  assert.doesNotMatch(source, /^import[\s\S]{0,220}OperatorOwnedIntelligenceServiceRuntime/m);
+  assert.match(source, /Promise\.all\(\[\s*import\("\.\/OperatorIntelligenceToolBridgeRuntime"\)/);
+  assert.match(source, /import\("@\/lib\/platform\/service-runtime\/execution\/ServiceExecutionRuntime"\)/);
 });

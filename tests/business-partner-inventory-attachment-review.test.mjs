@@ -45,16 +45,17 @@ test('review separates new existing ambiguous and invalid inventory rows', () =>
   assert.equal(reviewed[2].disposition, 'INVALID');
 });
 
-test('inventory attachment path remains review-only until an atomic bulk importer exists', () => {
+test('inventory attachment path becomes ready only through the governed atomic bulk importer', () => {
   const runtime = readFileSync('lib/inventory/runtime/InventoryAttachmentPreparationRuntime.js','utf8');
   const route = readFileSync('app/api/operator/turn/route.js','utf8');
   const reflex = readFileSync('lib/operator/runtime/OperatorPreparedAttachmentReflex.js','utf8');
-  assert.match(runtime, /REVIEW_ONLY_NO_GOVERNED_BULK_IMPORT/);
-  assert.match(runtime, /write_capability_available: false/);
+  assert.match(runtime, /READY_FOR_GOVERNED_BULK_IMPORT/);
+  assert.match(runtime, /write_capability_available: true/);
   assert.match(runtime, /authorization_effect: "NONE"/);
   assert.doesNotMatch(runtime, /\.insert\(|\.upsert\(|\.update\(|\.delete\(/);
   assert.match(route, /prepareInventoryAttachment/);
-  assert.match(reflex, /does not yet have a governed atomic bulk-import capability/);
+  assert.match(reflex, /supply-chain\.inventory_items\.import/);
+  assert.match(reflex, /Import requires your confirmation/);
 });
 
 test('stale single-item inventory endpoint is not used by Business Partner intake', () => {

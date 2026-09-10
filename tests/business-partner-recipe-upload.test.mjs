@@ -76,7 +76,7 @@ test('manual recipe API converges on atomic writer and production permission',()
 test('owned attachment analysis preserves recipe SKU quantity and UOM without inventing codes',()=>{
   const source=read('lib/platform/runtime/ConversationAttachmentAnalysisRuntime.js');
   assert.match(source,/For recipes or recipe cards/);
-  assert.match(source,/Never invent an inventory code from an ingredient name/);
+  assert.match(source,/Never invent an inventory or component recipe code from a name/);
 });
 test('recipe costing and menu engineering use one canonical live recipe model',()=>{
   const costing=read('lib/inventory/production/recipes/capabilities/calculateRecipeCost.js');
@@ -85,8 +85,8 @@ test('recipe costing and menu engineering use one canonical live recipe model',(
   assert.match(costing,/\.from\("recipe_items"\)/);
   assert.match(costing,/\.from\("inventory_items"\)/);
   assert.match(costing,/inventory_item_uom_conversions/);
-  assert.match(costing,/CURRENT_OPERATIONAL_ITEM_COST_WITH_YIELD_V2/);
-  assert.match(costing,/purchaseQuantity=\(quantity\*factor\)\/\(yieldPercent\/100\)/);
+  assert.match(costing,/CANONICAL_RECIPE_GRAPH_WITH_YIELD_V3/);
+  assert.match(costing,/purchaseQuantity = \(quantity \* factor\) \/ \(yieldPercent \/ 100\)/);
   assert.doesNotMatch(costing,/recipe_cost_snapshots/);
   assert.doesNotMatch(costing,/weighted_average_cost/);
   assert.doesNotMatch(oldDish,/ingredients\s*\(/);
@@ -110,4 +110,96 @@ test('recipe yield migration grosses usable quantity into purchase-cost quantity
   assert.match(sql,/insert into public\.recipe_items[\s\S]*yield_percent/);
   assert.match(sql,/update public\.dishes set cost=round\(v_total,4\)/);
   assert.match(sql,/CURRENT_OPERATIONAL_ITEM_COST_WITH_YIELD_V2/);
+});
+
+test('nested recipe graph supports reusable preparations without a second costing model',()=>{
+  const costing=read('lib/inventory/production/recipes/capabilities/calculateRecipeCost.js');
+  assert.match(costing,/component_dish_id/);
+  assert.match(costing,/component_recipe/);
+  assert.match(costing,/recipe_output_quantity/);
+  assert.match(costing,/recipe_output_uom_id/);
+  assert.match(costing,/recipe component cycle detected/);
+  assert.match(costing,/recipe component depth exceeds 12/);
+  assert.match(costing,/CANONICAL_RECIPE_GRAPH_WITH_YIELD_V3/);
+  assert.doesNotMatch(costing,/prepared_inventory/);
+});
+
+test('recipe component migration is tenant scoped recursive and fail closed',()=>{
+  const sql=read('supabase/migrations/20260910180000_production_recipe_components.sql');
+  assert.match(sql,/add column if not exists recipe_output_quantity/);
+  assert.match(sql,/add column if not exists recipe_output_uom_id/);
+  assert.match(sql,/add column if not exists component_dish_id/);
+  assert.match(sql,/production_recipe_cost_total_internal/);
+  assert.match(sql,/p_path\|\|p_dish_id/);
+  assert.match(sql,/recipe component cycle detected/);
+  assert.match(sql,/component recipe unavailable for organization\/entity/);
+  assert.match(sql,/component recipe .* needs output quantity and UOM/);
+  assert.match(sql,/drop function if exists public\.production_upsert_recipe_atomic\(uuid,uuid,uuid,jsonb,uuid\)/);
+  assert.match(sql,/security invoker/);
+  assert.match(sql,/revoke all on function[\s\S]*from public,anon,authenticated/);
+  assert.match(sql,/grant execute on function[\s\S]*to service_role/);
+});
+
+test('recipe uploads preserve exact reusable preparation references and batch output',()=>{
+  const preparer=read('lib/inventory/production/RecipeAttachmentPreparationRuntime.js');
+  const analysis=read('lib/platform/runtime/ConversationAttachmentAnalysisRuntime.js');
+  assert.match(preparer,/component_recipe_code\|\|r\.sub_recipe_code\|\|r\.preparation_code/);
+  assert.match(preparer,/Boolean\(code\)===Boolean\(componentCode\)/);
+  assert.match(preparer,/recipe_output_quantity/);
+  assert.match(preparer,/resolveFactorBetweenUoms/);
+  assert.doesNotMatch(preparer,/\.ilike\(/);
+  assert.match(analysis,/component_recipe_code\/sub_recipe_code\/preparation_code/);
+  assert.match(analysis,/Never invent an inventory or component recipe code from a name/);
+  assert.match(analysis,/never invent a yield percentage or batch output/i);
+});
+
+test('manual recipe writer uses one RPC for inventory and component lines plus output yield',()=>{
+  const writer=read('lib/inventory/production/createRecipe.js');
+  const capabilitySource=read('lib/inventory/production/RecipeOperatorCapability.js');
+  const route=read('app/api/production/recipes/route.js');
+  assert.match(writer,/component_dish_id/);
+  assert.match(writer,/p_output_quantity/);
+  assert.match(writer,/p_output_uom_id/);
+  assert.match(capabilitySource,/component_dish_id/);
+  assert.match(capabilitySource,/reusable preparations\/sub-recipes/);
+  assert.match(route,/output_quantity: body\.output_quantity/);
+  assert.match(route,/output_uom_id: body\.output_uom_id/);
+});
+
+test('prepared inventory converges on costed BATCH production instead of legacy prepared_inventory',()=>{
+  const prepared=read('lib/inventory/production/prepared/listPreparedInventory.js');
+  const batches=read('lib/inventory/production/batches/listProductionBatches.js');
+  assert.match(prepared,/\.from\("production_batches"\)/);
+  assert.match(prepared,/production_type === "BATCH"/);
+  assert.match(prepared,/remaining_quantity/);
+  assert.doesNotMatch(prepared,/\.from\("prepared_inventory"\)/);
+  assert.match(batches,/entity_id/);
+  assert.match(batches,/recipe_batch_count/);
+  assert.match(batches,/cost_basis/);
+});
+
+test('costed batch creation is governed and derives cost from the canonical recipe graph',()=>{
+  const capabilitySource=read('lib/inventory/production/ProductionBatchOperatorCapability.js');
+  const domain=read('lib/inventory/runtime/InventoryDomainRuntime.js');
+  const sql=read('supabase/migrations/20260910180000_production_recipe_components.sql');
+  assert.match(capabilitySource,/production\.manage/);
+  assert.match(capabilitySource,/operatorRequiresConfirmation:true/);
+  assert.match(capabilitySource,/production_create_costed_batch_atomic/);
+  assert.match(domain,/production_batches/);
+  assert.match(domain,/createProductionBatchCapability/);
+  assert.match(sql,/v_total_cost := public\.production_recipe_cost_total_internal/);
+  assert.match(sql,/v_output_quantity := v_dish\.recipe_output_quantity\*p_recipe_batch_count/);
+  assert.match(sql,/remaining_quantity,total_cost,cost_per_unit/);
+  assert.match(sql,/production_type<>'BATCH'/);
+  assert.match(sql,/CANONICAL_RECIPE_GRAPH_WITH_YIELD_V3/);
+});
+
+test('recipe listing exposes component recipes and batch output metadata in the canonical UI model',()=>{
+  const source=read('lib/inventory/production/recipes/listProductionRecipes.js');
+  assert.match(source,/component_dish_id/);
+  assert.match(source,/COMPONENT_RECIPE/);
+  assert.match(source,/recipe_output_quantity/);
+  assert.match(source,/recipe_output_uom_id/);
+  assert.match(source,/yield_percent/);
+  assert.match(source,/entity_id/);
 });

@@ -52,6 +52,25 @@ function base64(value) {
   return Buffer.from(value, "utf8").toString("base64");
 }
 
+function verifiedTreeEntries(changes) {
+  return changes
+    .filter((change) => change.operation !== "delete")
+    .map((change, index) => ({
+      path: change.path,
+      mode: "100644",
+      type: "blob",
+      sha: `${index + 1}`.repeat(40).slice(0, 40),
+    }));
+}
+
+function verifiedBlobResponse(url, changes) {
+  const entries = verifiedTreeEntries(changes);
+  const entry = entries.find((item) => url.endsWith(`/git/blobs/${item.sha}`));
+  if (!entry) return null;
+  const change = changes.find((item) => item.path === entry.path);
+  return response({ encoding: "base64", content: base64(change.content) });
+}
+
 test("Code AI GitHub commit is atomic, fast-forward only, attested, and post-verified", async () => {
   const calls = [];
   let refReads = 0;
@@ -95,6 +114,11 @@ test("Code AI GitHub commit is atomic, fast-forward only, attested, and post-ver
     if (url.endsWith(`/git/commits/${COMMIT}`)) {
       return response({ sha: COMMIT, tree: { sha: NEW_TREE }, parents: [{ sha: BASE }] });
     }
+    if (url.endsWith(`/git/trees/${NEW_TREE}?recursive=1`)) {
+      return response({ truncated: false, tree: verifiedTreeEntries(missionState().source_changes) });
+    }
+    const blob = verifiedBlobResponse(url, missionState().source_changes);
+    if (blob) return blob;
     throw new Error(`Unexpected request: ${options.method || "GET"} ${url}`);
   };
 
@@ -236,20 +260,6 @@ test("Code AI commit recovery verifies exact paths and exact file contents witho
         files: expectedChanges.map((change) => ({ filename: change.path })),
       });
     }
-    if (url.includes("/contents/lib/example.js?ref=")) {
-      return response({
-        type: "file",
-        encoding: "base64",
-        content: base64(expectedChanges[0].content),
-      });
-    }
-    if (url.includes("/contents/scripts/new-example.mjs?ref=")) {
-      return response({
-        type: "file",
-        encoding: "base64",
-        content: base64(expectedChanges[1].content),
-      });
-    }
     if (url.endsWith(`/git/commits/${COMMIT}`)) {
       return response({
         sha: COMMIT,
@@ -257,6 +267,11 @@ test("Code AI commit recovery verifies exact paths and exact file contents witho
         parents: [{ sha: BASE }],
       });
     }
+    if (url.endsWith(`/git/trees/${NEW_TREE}?recursive=1`)) {
+      return response({ truncated: false, tree: verifiedTreeEntries(expectedChanges) });
+    }
+    const blob = verifiedBlobResponse(url, expectedChanges);
+    if (blob) return blob;
     throw new Error(`Unexpected request: ${options.method || "GET"} ${url}`);
   };
 
@@ -340,13 +355,22 @@ test("Code AI commit recovery rejects a candidate whose resulting file content d
         files: state.source_changes.map((change) => ({ filename: change.path })),
       });
     }
-    if (url.includes("/contents/lib/example.js?ref=")) {
+    if (url.endsWith(`/git/commits/${COMMIT}`)) {
       return response({
-        type: "file",
-        encoding: "base64",
-        content: base64("export const value = 999;\n"),
+        sha: COMMIT,
+        tree: { sha: NEW_TREE },
+        parents: [{ sha: BASE }],
       });
     }
+    if (url.endsWith(`/git/trees/${NEW_TREE}?recursive=1`)) {
+      return response({ truncated: false, tree: verifiedTreeEntries(state.source_changes) });
+    }
+    const entries = verifiedTreeEntries(state.source_changes);
+    if (url.endsWith(`/git/blobs/${entries[0].sha}`)) {
+      return response({ encoding: "base64", content: base64("export const value = 999;\n") });
+    }
+    const blob = verifiedBlobResponse(url, state.source_changes);
+    if (blob) return blob;
     throw new Error(`Unexpected request: ${url}`);
   };
 

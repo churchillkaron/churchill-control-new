@@ -152,7 +152,16 @@ def _validate_report(repo: Path) -> dict[str, Any]:
 
 def main() -> None:
     repo = Path.cwd().resolve()
-    _require((repo / ".git").is_dir(), "REPOSITORY_ROOT_REQUIRED")
+    git_check = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=repo,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    _require(git_check.returncode == 0, "REPOSITORY_ROOT_REQUIRED")
+    _require(Path(git_check.stdout.strip()).resolve() == repo, "REPOSITORY_ROOT_MISMATCH")
     _require((repo / MODAL_APP).is_file(), "MODAL_APP_REQUIRED")
     token_id = _text(os.environ.get("MODAL_TOKEN_ID") or os.environ.get("AVANTIQO_MODAL_TOKEN_ID"))
     token_secret = _text(os.environ.get("MODAL_TOKEN_SECRET") or os.environ.get("AVANTIQO_MODAL_TOKEN_SECRET"))

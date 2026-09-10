@@ -26,6 +26,10 @@ const liveCard = await readFile(
   "components/operator/CodeEngineeringIntelligenceLiveCard.jsx",
   "utf8",
 );
+const progressProvider = await readFile(
+  "components/operator/CodeProgressFeedProvider.jsx",
+  "utf8",
+);
 const missionRoute = await readFile(
   "app/api/operator/code/mission/route.js",
   "utf8",
@@ -117,7 +121,8 @@ test("live progress and mission receipt expose the same inspectable engineering 
 test("Business Partner and Code Studio share the same plan feed", () => {
   assert.match(businessPartnerSurface, /CodeEngineeringIntelligenceLiveCard/);
   assert.match(studioPage, /CodeEngineeringIntelligenceLiveCard/);
-  assert.match(liveCard, /\/api\/operator\/code\/progress/);
+  assert.match(liveCard, /useCodeProgressFeed/);
+  assert.match(progressProvider, /\/api\/operator\/code\/progress/);
 });
 
 test("engineering plan never becomes execution, commit, deploy or governance authority", () => {

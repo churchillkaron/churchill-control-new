@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { withOperatorCodeExecutionEvidence } from "../lib/operator/runtime/OperatorCodeExecutionEvidenceRuntime.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
@@ -12,11 +13,7 @@ function source(relativePath) {
 }
 
 async function evidenceRuntime() {
-  const code = source(
-    "lib/operator/runtime/OperatorCodeExecutionEvidenceRuntime.js",
-  );
-  const url = `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
-  return import(url);
+  return { withOperatorCodeExecutionEvidence };
 }
 
 function verifiedAutonomousResult(overrides = {}) {
@@ -254,7 +251,7 @@ test("Code evidence remains inside persisted execution and survives conversation
     /\.select\("id, role, source, content, decision, evidence, execution, navigation, created_at"\)/,
   );
   assert.match(home, /execution:\s*turn\?\.execution\s*\|\|\s*\{\}/);
-  assert.match(home, /governance:\s*turn\.role === "assistant"\s*\? executionEvidence\(turn\)\s*:\s*null/);
+  assert.match(home, /governance:\s*turn\.role === "assistant"\s*\? operatorExecutionStatePresentation\(turn\)\s*:\s*null/);
 });
 
 test("embedded Code persistence is promoted into server-authoritative resumable mission state", () => {
@@ -297,10 +294,13 @@ test("post-refresh commit confirmation resumes the exact stored mission payload"
 
 test("Business Partner keeps pending Code commit confirmation visible ahead of prior verified engineering", () => {
   const home = source("components/operator/HomeAvantiqoIntelligence.jsx");
-  const pendingBranch = home.indexOf(
+  const presentation = source(
+    "lib/operator/presentation/OperatorExecutionStatePresentation.js",
+  );
+  const pendingBranch = presentation.indexOf(
     "if (text(pendingExecution?.capability_key))",
   );
-  const verifiedBranch = home.indexOf(
+  const verifiedBranch = presentation.indexOf(
     "execution?.business_effect_verified === true",
   );
 
@@ -310,13 +310,13 @@ test("Business Partner keeps pending Code commit confirmation visible ahead of p
     pendingBranch < verifiedBranch,
     "pending persistence must render before prior verified engineering state",
   );
-  assert.match(home, /function pendingCodeCommitIntent\(/);
-  assert.match(home, /platform\.code_ai_commit\.execute/);
-  assert.match(home, /platform\.code_ai_commit_status\.verify/);
-  assert.match(home, /label:\s*"Awaiting confirmation"/);
-  assert.match(home, /pendingCommit\.executionKey/);
-  assert.match(home, /codeEvidence\.repository_url/);
-  assert.match(home, /codeEvidence\.base_commit/);
+  assert.match(presentation, /function pendingCodeCommitIntent\(/);
+  assert.match(presentation, /platform\.code_ai_commit\.execute/);
+  assert.match(presentation, /platform\.code_ai_commit_status\.verify/);
+  assert.match(presentation, /label:\s*"Awaiting confirmation"/);
+  assert.match(presentation, /pendingCommit\.executionKey/);
+  assert.match(presentation, /codeEvidence\.repository_url/);
+  assert.match(presentation, /codeEvidence\.base_commit/);
 });
 
 test("verified Code commit mission earns completion only from its exact commit and verifier pair", async () => {
@@ -387,9 +387,12 @@ test("Business Partner verified Code badge renders durable base and resulting co
     "lib/operator/runtime/OperatorCodeExecutionEvidenceRuntime.js",
   );
 
-  assert.match(home, /label:\s*"Verified complete"/);
-  assert.match(home, /codeEvidence\.base_commit/);
-  assert.match(home, /codeEvidence\.commit_sha/);
+  const presentation = source(
+    "lib/operator/presentation/OperatorExecutionStatePresentation.js",
+  );
+  assert.match(presentation, /label:\s*"Verified complete"/);
+  assert.match(presentation, /codeEvidence\.base_commit/);
+  assert.match(presentation, /codeEvidence\.commit_sha/);
   assert.match(evidence, /base_commit:\s*baseCommit/);
   assert.match(evidence, /function missionCommitReceiptMatches\(/);
   assert.match(evidence, /platform\.code_ai_commit\.execute/);

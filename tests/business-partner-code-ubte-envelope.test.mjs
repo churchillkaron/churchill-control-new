@@ -3,17 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { withOperatorCodeExecutionEvidence } from "../lib/operator/runtime/OperatorCodeExecutionEvidenceRuntime.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 
 async function evidenceRuntime() {
-  const code = fs.readFileSync(
-    path.join(root, "lib/operator/runtime/OperatorCodeExecutionEvidenceRuntime.js"),
-    "utf8",
-  );
-  const url = `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
-  return import(url);
+  return { withOperatorCodeExecutionEvidence };
 }
 
 function ubteEnvelope({ domain, capability, action, result }) {

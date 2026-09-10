@@ -241,3 +241,19 @@ test("cognitive context exposes current-state freshness semantics explicitly", a
   assert.match(source, /current_state_authority=false/);
   assert.match(source, /requires_live_read_for_current_state=true/);
 });
+
+
+test("recall candidates are scope-balanced while final memory stays bounded", async () => {
+  const source = await readFile(
+    new URL("../lib/operator/runtime/IntelligenceMemoryRuntime.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /const MAX_RECALL = 12/);
+  assert.match(source, /const MAX_CANDIDATES_PER_SCOPE = 100/);
+  assert.match(source, /Promise\.all\([\s\S]*scopes\.map\(\(scope\)/);
+  assert.match(source, /\.eq\("memory_scope", scope\)/);
+  assert.match(source, /const candidatesById = new Map\(\)/);
+  assert.doesNotMatch(source, /\.in\("memory_scope", scopes\)[\s\S]{0,300}\.limit\(100\)/);
+  assert.match(source, /Math\.max\(1, Math\.min\(MAX_RECALL/);
+});

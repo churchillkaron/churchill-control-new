@@ -156,3 +156,34 @@ test('document create never passes a signed URL and multi-object source is not a
   const result = resolvePreparedAttachmentReflex({ message:'File this', attachments:[file], capabilities:[{key:'documents.files.create'}] });
   assert.equal(result.execution.capability_key, null);
 });
+
+test('supporting evidence can be filed against one strong existing record without duplicating it', () => {
+  const file = {
+    id:'file_1', attachment_set_id:'11111111-1111-1111-1111-111111111111', name:'training-cert.pdf', logical_object_count:1,
+    analysis:{ status:'ANALYZED', evidence:{ object_type:'certificate', document_type:'training_certificate', candidate_domains:['People','Documents'], key_fields:{ employee_email:'worker@example.com' } } },
+    business_match:{ status:'UNIQUE_MATCH', candidates:[{record_type:'employee',record_id:'staff-1',label:'Worker',match_basis:['employee_email','organization_membership']}], authorization_effect:'NONE' },
+    prepared_candidate:{ type:'universal_destination', status:'CLARIFICATION_REQUIRED', destination:null, authorization_effect:'NONE' },
+  };
+  const result = resolvePreparedAttachmentReflex({ message:'Attach this certificate to the employee', attachments:[file], capabilities:[{key:'documents.files.create'}] });
+  assert.equal(result.intent, 'execute');
+  assert.equal(result.execution.capability_key, 'documents.files.create');
+  assert.equal(result.execution.payload.reference_type, 'employee');
+  assert.equal(result.execution.payload.reference_id, 'staff-1');
+  assert.match(result.response_text, /linked to that existing record/i);
+});
+
+test('exact controlled-document or exact-file duplicate is never filed again', () => {
+  const base = {
+    id:'file_1', attachment_set_id:'11111111-1111-1111-1111-111111111111', name:'same.pdf', logical_object_count:1,
+    analysis:{ status:'ANALYZED', evidence:{ object_type:'document', candidate_domains:['Documents'] } },
+    prepared_candidate:{ type:'universal_destination', status:'DESTINATION_RESOLVED', destination:{domain:'Documents',domain_id:'documents',route:'/documents',label:'Documents'} },
+  };
+  for (const file of [
+    {...base, business_match:{status:'UNIQUE_MATCH',candidates:[{record_type:'enterprise_document',record_id:'doc-1',label:'DOC-1'}]}},
+    {...base, exact_duplicate:{exact_bytes:true}, business_match:{status:'UNIQUE_MATCH',candidates:[{record_type:'project',record_id:'p-1',label:'P-1'}]}},
+  ]) {
+    const result = resolvePreparedAttachmentReflex({ message:'File this', attachments:[file], capabilities:[{key:'documents.files.create'}] });
+    assert.equal(result.execution.capability_key, null);
+    assert.match(result.response_text, /have not created a duplicate record/i);
+  }
+});

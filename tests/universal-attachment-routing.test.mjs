@@ -109,3 +109,13 @@ test('router fails closed when canonical registry has no destination', () => {
   assert.equal(routed.status, 'CLARIFICATION_REQUIRED');
   assert.equal(routed.destination, null);
 });
+
+test('employee or training certificate is not misrouted as a digital asset', () => {
+  const routed = routeAnalyzedAttachment(analyzed({
+    object_type:'certificate', document_type:'training certificate',
+    candidate_domains:['People','Documents'], confidence:0.97,
+  }), { registry });
+  assert.equal(routed.status, 'CLARIFICATION_REQUIRED');
+  assert.equal(routed.destination, null);
+  assert.doesNotMatch(routed.clarification_question, /Digital Assets/);
+});

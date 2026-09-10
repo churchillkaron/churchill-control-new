@@ -378,39 +378,62 @@ export async function POST(request) {
     const memoryMs = Date.now() - memoryStartedAt;
 
     const continuityStartedAt = Date.now();
-    let continuity = {
-      recovered: false,
-      ambiguous: false,
-      reason: "NOT_CHECKED",
-    };
-    try {
-      continuity = await recoverCrossConversationProject({
-        organizationId: businessContext.organizationId,
-        partyId,
-        message,
-        currentProjectState: memory.projectState,
-      });
-    } catch (continuityError) {
-      console.error("OPERATOR_CROSS_CONVERSATION_CONTINUITY_FAILED", continuityError);
-    }
+    const longTermMemoryStartedAt = Date.now();
+    const continuityPromise = recoverCrossConversationProject({
+      organizationId: businessContext.organizationId,
+      partyId,
+      message,
+      currentProjectState: memory.projectState,
+    }).catch((continuityError) => {
+      console.error(
+        "OPERATOR_CROSS_CONVERSATION_CONTINUITY_FAILED",
+        continuityError,
+      );
+      return {
+        recovered: false,
+        ambiguous: false,
+        reason: "RECOVERY_FAILED",
+      };
+    });
+    const currentProjectMemoryPromise = recallIntelligenceMemory({
+      organizationId: businessContext.organizationId,
+      partyId,
+      entityId: businessContext.entityId,
+      message,
+      projectState: object(memory.projectState),
+    }).catch((memoryError) => {
+      console.error("OPERATOR_LONG_TERM_MEMORY_RECALL_FAILED", memoryError);
+      return [];
+    });
+
+    const [continuity, currentProjectMemory] = await Promise.all([
+      continuityPromise,
+      currentProjectMemoryPromise,
+    ]);
     const continuityMs = Date.now() - continuityStartedAt;
 
     const effectiveProjectState = continuity.recovered === true
       ? object(continuity.project_state)
       : object(memory.projectState);
 
-    const longTermMemoryStartedAt = Date.now();
-    let longTermMemory = [];
-    try {
-      longTermMemory = await recallIntelligenceMemory({
-        organizationId: businessContext.organizationId,
-        partyId,
-        entityId: businessContext.entityId,
-        message,
-        projectState: effectiveProjectState,
-      });
-    } catch (memoryError) {
-      console.error("OPERATOR_LONG_TERM_MEMORY_RECALL_FAILED", memoryError);
+    let longTermMemory = currentProjectMemory;
+    let longTermMemoryReread = false;
+    if (continuity.recovered === true) {
+      longTermMemoryReread = true;
+      try {
+        longTermMemory = await recallIntelligenceMemory({
+          organizationId: businessContext.organizationId,
+          partyId,
+          entityId: businessContext.entityId,
+          message,
+          projectState: effectiveProjectState,
+        });
+      } catch (memoryError) {
+        console.error(
+          "OPERATOR_RECOVERED_PROJECT_MEMORY_RECALL_FAILED",
+          memoryError,
+        );
+      }
     }
     const longTermMemoryMs = Date.now() - longTermMemoryStartedAt;
 
@@ -532,7 +555,9 @@ export async function POST(request) {
     };
 
     const assistantPersistStartedAt = Date.now();
-    const persisted = await persistAssistantTurnAndConversationState({
+    const longTermLearnStartedAt = Date.now();
+    let longTermLearned = 0;
+    const assistantPersistPromise = persistAssistantTurnAndConversationState({
       organizationId: businessContext.organizationId,
       conversationId: memory.conversation.id,
       partyId,
@@ -545,25 +570,28 @@ export async function POST(request) {
       agreementState: nextAgreementState,
       projectState: nextProjectState,
     });
-    const assistantPersistMs = Date.now() - assistantPersistStartedAt;
-    const persistedState = object(persisted.conversation);
-
-    const longTermLearnStartedAt = Date.now();
-    let longTermLearned = 0;
-    try {
-      const learned = await learnProjectStateMemories({
-        organizationId: businessContext.organizationId,
-        partyId,
-        entityId: businessContext.entityId,
-        conversationId: memory.conversation.id,
-        previousProjectState: effectiveProjectState,
-        nextProjectState,
+    const longTermLearnPromise = learnProjectStateMemories({
+      organizationId: businessContext.organizationId,
+      partyId,
+      entityId: businessContext.entityId,
+      conversationId: memory.conversation.id,
+      previousProjectState: effectiveProjectState,
+      nextProjectState,
+    })
+      .then((learned) => {
+        longTermLearned = Number(learned?.learned || 0);
+      })
+      .catch((memoryError) => {
+        console.error("OPERATOR_LONG_TERM_MEMORY_LEARN_FAILED", memoryError);
       });
-      longTermLearned = Number(learned?.learned || 0);
-    } catch (memoryError) {
-      console.error("OPERATOR_LONG_TERM_MEMORY_LEARN_FAILED", memoryError);
-    }
+
+    const [persisted] = await Promise.all([
+      assistantPersistPromise,
+      longTermLearnPromise,
+    ]);
+    const assistantPersistMs = Date.now() - assistantPersistStartedAt;
     const longTermLearnMs = Date.now() - longTermLearnStartedAt;
+    const persistedState = object(persisted.conversation);
     const totalMs = Date.now() - turnStartedAt;
 
     const latency = {
@@ -591,6 +619,7 @@ export async function POST(request) {
         execution_status: text(result?.execution?.status) || null,
         capability_key: text(result?.execution?.capability?.key) || null,
         long_term_memory_recalled: longTermMemory.length,
+        long_term_memory_reread_after_recovery: longTermMemoryReread,
         long_term_memory_learned: longTermLearned,
         project_continuity_recovered: continuity.recovered === true,
         project_continuity_ambiguous: continuity.ambiguous === true,

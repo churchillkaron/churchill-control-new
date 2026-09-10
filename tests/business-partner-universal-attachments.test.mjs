@@ -42,3 +42,14 @@ test("document vision economics remain measurement only until explicit activatio
   assert.match(source, /pricing_activation_performed:\s*false/);
   assert.match(source, /MODAL_WORKSPACE_RATE_X_MEASURED_WORKER_SECONDS/);
 });
+
+test('attachment set enforces 60 MB aggregate limit before any storage write', async () => {
+  const runtime = await read('lib/platform/runtime/ConversationAttachmentRuntime.js');
+  assert.match(runtime, /MAX_TOTAL_BYTES = 60 \* 1024 \* 1024/);
+  assert.match(runtime, /ATTACHMENT_SET_TOO_LARGE/);
+  assert.match(runtime, /total_size_bytes: totalBytes/);
+  const totalGuard = runtime.indexOf('if (totalBytes > MAX_TOTAL_BYTES)');
+  const admin = runtime.indexOf('const supabaseAdmin = await adminClient()', totalGuard);
+  const upload = runtime.indexOf('.upload(path, buffer', totalGuard);
+  assert.ok(totalGuard >= 0 && admin > totalGuard && upload > admin);
+});

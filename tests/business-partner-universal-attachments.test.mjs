@@ -15,7 +15,12 @@ test("Business Partner accepts universal binary attachments without decoding Exc
   assert.match(dock, /image\/\*/);
   assert.match(dock, /video\/\*/);
   assert.match(runtime, /CONTENT_ANALYSIS_REQUIRED/);
-  assert.doesNotMatch(runtime, /"xlsx"/);
+  assert.match(runtime, /exceljs/);
+  assert.match(runtime, /STRUCTURE_EXTRACTED/);
+  assert.match(runtime, /papaparse/);
+  assert.match(runtime, /pdfjs-dist\/legacy\/build\/pdf\.mjs/);
+  assert.match(runtime, /pdf_text_layer_detected/);
+  assert.match(runtime, /owned_document_vision/);
 });
 test("attachment context is organization scoped and never authorization", async () => {
   const [turn, synthetic] = await Promise.all([

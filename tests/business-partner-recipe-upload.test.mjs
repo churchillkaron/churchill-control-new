@@ -74,3 +74,25 @@ test('owned attachment analysis preserves recipe SKU quantity and UOM without in
   assert.match(source,/For recipes or recipe cards/);
   assert.match(source,/Never invent an inventory code from an ingredient name/);
 });
+test('recipe costing and menu engineering use one canonical live recipe model',()=>{
+  const costing=read('lib/inventory/production/recipes/capabilities/calculateRecipeCost.js');
+  const menu=read('lib/inventory/production/costing/capabilities/runMenuEngineering.js');
+  const oldDish=read('lib/inventory/production/costing/capabilities/calculateDishCost.js');
+  assert.match(costing,/\.from\("recipe_items"\)/);
+  assert.match(costing,/\.from\("inventory_items"\)/);
+  assert.match(costing,/inventory_item_uom_conversions/);
+  assert.match(costing,/CURRENT_OPERATIONAL_ITEM_COST_V1/);
+  assert.doesNotMatch(costing,/recipe_cost_snapshots/);
+  assert.doesNotMatch(costing,/weighted_average_cost/);
+  assert.doesNotMatch(oldDish,/ingredients\s*\(/);
+  assert.match(menu,/calculateRecipeCost/);
+  assert.doesNotMatch(menu,/menu_engineering_scores/);
+  assert.doesNotMatch(menu,/recipe_cost_snapshots/);
+});
+
+test('costing routes accept canonical dish id while preserving legacy request alias',()=>{
+  const calculate=read('app/api/production/recipe-costing/calculate/route.js');
+  const menu=read('app/api/production/recipe-costing/menu-engineering/route.js');
+  assert.match(calculate,/body\.dishId \|\| body\.dish_id \|\| body\.recipeId \|\| body\.recipe_id/);
+  assert.match(menu,/body\.dishId \|\| body\.dish_id \|\| body\.recipeId \|\| body\.recipe_id/);
+});

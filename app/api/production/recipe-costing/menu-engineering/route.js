@@ -28,9 +28,8 @@ export async function POST(request) {
           body.entityId ||
           body.entity_id ||
           null,
-        recipeId:
-          body.recipeId ||
-          body.recipe_id,
+        dishId:
+          body.dishId || body.dish_id || body.recipeId || body.recipe_id,
         popularityScore:
           body.popularityScore ||
           body.popularity_score,

@@ -11,14 +11,18 @@ os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = "600"
 os.environ["HF_HUB_ETAG_TIMEOUT"] = "60"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
+import io
 import json
 import re
 import shutil
 import time
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Any
 
 import torch
+import fitz
+import requests
 from diffusers.utils import load_image
 from huggingface_hub import constants as hf_hub_constants
 from huggingface_hub import snapshot_download
@@ -501,6 +505,43 @@ def _upscale_pipeline():
     return _SPECIAL_PIPELINES[UPSCALE_MODEL]
 
 
+def _analysis_source(value: str) -> tuple[str, dict[str, Any]]:
+    parsed = urlparse(_text(value))
+    if not parsed.path.lower().endswith(".pdf"):
+        return value, {"source_document_rendered": False, "source_page_count": None}
+    response = requests.get(value, timeout=45)
+    response.raise_for_status()
+    if len(response.content) > 25 * 1024 * 1024:
+        raise ValueError("AVANTIQO_DOCUMENT_VISION_PDF_TOO_LARGE")
+    document = fitz.open(stream=response.content, filetype="pdf")
+    if document.page_count < 1:
+        raise ValueError("AVANTIQO_DOCUMENT_VISION_PDF_EMPTY")
+    rendered = []
+    for page_index in range(min(document.page_count, 3)):
+        page = document.load_page(page_index)
+        pixmap = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
+        image = Image.open(io.BytesIO(pixmap.tobytes("png"))).convert("RGB")
+        if image.width > 1400:
+            ratio = 1400 / image.width
+            image = image.resize((1400, max(1, int(image.height * ratio))))
+        rendered.append(image)
+    width = max(image.width for image in rendered)
+    height = sum(image.height for image in rendered)
+    if height > 4800:
+        ratio = 4800 / height
+        rendered = [image.resize((max(1, int(image.width * ratio)), max(1, int(image.height * ratio)))) for image in rendered]
+        width = max(image.width for image in rendered)
+        height = sum(image.height for image in rendered)
+    canvas = Image.new("RGB", (width, height), "white")
+    y = 0
+    for image in rendered:
+        canvas.paste(image, (0, y))
+        y += image.height
+    target = _OUTPUT_DIR / f"document-vision-{time.time_ns()}.png"
+    canvas.save(target, format="PNG", optimize=False)
+    return str(target), {"source_document_rendered": True, "source_page_count": document.page_count, "source_pages_rendered": len(rendered)}
+
+
 def _analysis_pipeline():
     if ANALYZE_MODEL not in _SPECIAL_PIPELINES:
         _SPECIAL_PIPELINES[ANALYZE_MODEL] = pipeline(
@@ -553,11 +594,12 @@ def _analyze(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
         "evaluation contract exactly. Return one strict JSON object only, without markdown. "
         "When scores are requested, use integers from 0 to 100."
     )
+    analysis_source, source_metadata = _analysis_source(data["resolved_source_image"])
     messages = [
         {
             "role": "user",
             "content": [
-                {"type": "image", "url": data["resolved_source_image"]},
+                {"type": "image", "url": analysis_source},
                 {"type": "text", "text": f"{system_contract}\n\nTASK:\n{data['instruction']}"},
             ],
         }
@@ -585,6 +627,7 @@ def _analyze(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
         "result": parsed,
         "source_asset_count": len(data.get("source_assets") or []),
         "structured_visual_evidence": True,
+        **source_metadata,
         "certification_execution": data.get("certification_execution") is True,
         "raw_reasoning_persisted": False,
     }

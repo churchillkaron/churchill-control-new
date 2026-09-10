@@ -78,6 +78,8 @@ worker_image = (
         ],
     )
     .entrypoint([])
+    .pip_install("pymupdf==1.26.4")
+    .add_local_dir(Path(__file__).parent, remote_path="/app", copy=True, ignore=["__pycache__", "*.pyc"])
     .env({
         "AVANTIQO_IMAGE_HF_CACHE_ROOT": HF_CACHE_ROOT,
         "AVANTIQO_IMAGE_NETWORK_VOLUME_ROOT": "/models",

@@ -10,6 +10,10 @@ const productCycle = fs.readFileSync(
   new URL("../lib/platform/capabilities/createProductEngineeringCycleCapability.js", import.meta.url),
   "utf8",
 );
+const ownedService = fs.readFileSync(
+  new URL("../lib/operator/runtime/OperatorOwnedIntelligenceServiceRuntime.js", import.meta.url),
+  "utf8",
+);
 
 test("Operator reasoning uses the complete-decision parser for fast and deep responses", () => {
   assert.match(runtime, /parseOperatorReasoningResponse/);
@@ -27,13 +31,14 @@ test("deep Operator reasoning is owned-only in local development review scope", 
     runtime,
     /process\.env\.NODE_ENV\)\.toLowerCase\(\) !== "development"\) return null/,
   );
-  assert.match(runtime, /provider_id: OWNED_INTELLIGENCE_PROVIDER/);
-  assert.match(runtime, /allowed_providers: \[OWNED_INTELLIGENCE_PROVIDER\]/);
-  assert.match(runtime, /execution_scope: LOCAL_REVIEW_SCOPE/);
-  assert.match(runtime, /benchmark_only: true/);
-  assert.match(runtime, /owned_only_required: true/);
-  assert.match(runtime, /external_fallback_allowed: false/);
-  assert.match(runtime, /production_certified: false/);
+  assert.match(runtime, /ownedOperatorIntelligenceSelectionPolicy/);
+  assert.match(ownedService, /provider_id: OWNED_PROVIDER/);
+  assert.match(ownedService, /allowed_providers: \[OWNED_PROVIDER\]/);
+  assert.match(ownedService, /execution_scope: LOCAL_REVIEW_SCOPE/);
+  assert.match(ownedService, /benchmark_only: true/);
+  assert.match(ownedService, /owned_only_required: true/);
+  assert.match(ownedService, /external_fallback_allowed: false/);
+  assert.match(ownedService, /assertOwnedProvider\(execution\?\.provider, "EXECUTION"\)/);
 });
 
 test("Product cycle owns the canonical repository and main defaults", () => {

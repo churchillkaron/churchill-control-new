@@ -27,3 +27,14 @@ test("fast evidence policy recognizes current and public fact questions", () => 
   assert.match(fast, /address\|located\|location\|where is\|who is\|when is/);
   assert.match(fast, /externalResearchRequested\(input\)/);
 });
+
+test("governed research promotion covers common public-current questions", () => {
+  const bridge = fs.readFileSync(
+    new URL("../lib/operator/runtime/OperatorIntelligenceToolBridgeRuntime.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(bridge, /PUBLIC_CURRENT_FACT_PATTERN/);
+  assert.match(bridge, /weather\|forecast\|exchange rate/);
+  assert.match(bridge, /opening hours\|business hours\|address\|located\|location/);
+  assert.match(bridge, /PUBLIC_CURRENT_FACT_PATTERN\.test\(message\)/);
+});

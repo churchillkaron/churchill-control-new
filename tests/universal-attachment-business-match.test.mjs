@@ -47,3 +47,12 @@ test("business match evidence reaches Operator context before governed action", 
   const prepareIndex = route.indexOf("const preparedConversationAttachments");
   assert.ok(matchIndex >= 0 && prepareIndex > matchIndex);
 });
+
+test("ambiguous existing-record match blocks prepared attachment execution", () => {
+  const reflex = fs.readFileSync("lib/operator/runtime/OperatorPreparedAttachmentReflex.js", "utf8");
+  assert.match(reflex, /ambiguousBusinessMatches/);
+  const ambiguityIndex = reflex.indexOf('match.status === "AMBIGUOUS_MATCH"');
+  const bankExecuteIndex = reflex.indexOf('capability_key: BANK_STATEMENT_CAPABILITY');
+  assert.ok(ambiguityIndex >= 0 && bankExecuteIndex > ambiguityIndex);
+  assert.match(reflex, /Which existing record should I use for this upload\?/);
+});

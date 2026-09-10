@@ -47,3 +47,14 @@ test("vision classification alone does not invent missing transaction lines", ()
   assert.equal(result.status, "CLARIFICATION_OR_EXTRACTION_REQUIRED");
   assert.ok(result.missing_fields.includes("transaction_lines"));
 });
+
+test("bank account preparation is evidence matched and never defaults blindly", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(new URL("../lib/finance/bank-statements/BankStatementAttachmentPreparationRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /\.eq\("organization_id", organizationId\)/);
+  assert.match(source, /\.eq\("entity_id", entityId\)/);
+  assert.match(source, /accountScore/);
+  assert.match(source, /score > 0/);
+  assert.match(source, /CLARIFICATION_REQUIRED/);
+  assert.match(source, /authorization_effect: "NONE"/);
+});

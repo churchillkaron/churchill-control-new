@@ -69,3 +69,23 @@ test('Supply Chain runtime exposes vendor invoice cost projection capability', (
   assert.match(source, /apply_vendor_invoice/);
   assert.match(source, /createVendorInvoiceCostProjectionCapability/);
 });
+
+test('confirmed vendor bill stages a separate governed food-cost refresh', () => {
+  const source = read('lib/operator/runtime/OperatorTurnRuntimeCore.js');
+  assert.match(source, /FINANCE_VENDOR_BILL_KEY = "finance\.vendor_bills\.create"/);
+  assert.match(source, /SUPPLY_CHAIN_VENDOR_INVOICE_COST_KEY = "supply-chain\.purchase_costs\.apply_vendor_invoice"/);
+  assert.match(source, /object\(result\?\.cost_evidence\)\.persisted !== true/);
+  assert.match(source, /result\?\.invoice\?\.id \|\| result\?\.vendor_invoice\?\.id/);
+  assert.match(source, /hasResolvedCostEvidence/);
+  assert.match(source, /agreementWithPendingConfirmationRun/);
+  assert.match(source, /separate Supply Chain write and requires your confirmation/);
+  assert.match(source, /Yes, update food costs/);
+});
+
+test('Finance vendor bill execution never directly invokes the Supply Chain cost projector', () => {
+  const ap = read('lib/finance/accounts-payable/documents/createVendorInvoice.js');
+  assert.doesNotMatch(ap, /supply_chain_apply_vendor_invoice_costs_atomic/);
+  const capability = read('lib/inventory/costing/VendorInvoiceCostProjectionCapability.js');
+  assert.match(capability, /operatorRequiresConfirmation:true/);
+  assert.match(capability, /procurement\.manage/);
+});

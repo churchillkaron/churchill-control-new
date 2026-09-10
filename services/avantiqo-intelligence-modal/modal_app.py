@@ -32,8 +32,9 @@ MODEL_PATHS = {FAST_MODEL: FAST_MODEL_PATH, DEEP_MODEL: DEEP_MODEL_PATH}
 GPU = "H100"
 MAX_MODEL_LEN = 32768
 MAX_OUTPUT_TOKENS = 16384
-FAST_SCALEDOWN_WINDOW_SECONDS = 10 * 60
+FAST_SCALEDOWN_WINDOW_SECONDS = 10
 DEEP_SCALEDOWN_WINDOW_SECONDS = 5
+FAST_SNAPSHOT_CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_GPU_SNAPSHOT_V1"
 PRIVATE_KEYS = {
     "reasoning", "reasoning_content", "chain_of_thought", "chainofthought",
     "cot", "thoughts", "scratchpad", "analysis",
@@ -480,17 +481,68 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
     }
 
 
-@app.function(
+@app.cls(
     image=fast_image,
     gpu=GPU,
     timeout=30 * 60,
+    startup_timeout=10 * 60,
     min_containers=0,
     max_containers=1,
     buffer_containers=0,
     scaledown_window=FAST_SCALEDOWN_WINDOW_SECONDS,
+    enable_memory_snapshot=True,
+    experimental_options={"enable_gpu_snapshot": True},
 )
-def fast(data: dict[str, Any]) -> dict[str, Any]:
-    return _run(data, model=FAST_MODEL, lane="fast")
+class FastSnapshotWorker:
+    @modal.enter(snap=True)
+    def initialize_for_snapshot(self) -> None:
+        from vllm import LLM, SamplingParams
+
+        started = time.perf_counter()
+        engine = LLM(
+            model=FAST_MODEL_PATH,
+            dtype="bfloat16",
+            max_model_len=MAX_MODEL_LEN,
+            tensor_parallel_size=1,
+            gpu_memory_utilization=0.90,
+            trust_remote_code=False,
+            enforce_eager=False,
+            safetensors_load_strategy="prefetch",
+            enable_sleep_mode=True,
+        )
+        tokenizer = engine.get_tokenizer()
+        rendered = tokenizer.apply_chat_template(
+            [{"role": "user", "content": "Reply only READY."}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        engine.generate(
+            [rendered],
+            SamplingParams(temperature=0.0, max_tokens=8, skip_special_tokens=True),
+            use_tqdm=False,
+        )
+        _LLM_CACHE[FAST_MODEL] = engine
+        engine.sleep(level=1)
+        self.snapshot_init_seconds = round(time.perf_counter() - started, 3)
+
+    @modal.enter(snap=False)
+    def wake_after_restore(self) -> None:
+        engine = _LLM_CACHE.get(FAST_MODEL)
+        if engine is None:
+            raise RuntimeError(f"{FAST_SNAPSHOT_CONTRACT}_ENGINE_MISSING_AFTER_RESTORE")
+        started = time.perf_counter()
+        engine.wake_up()
+        self.snapshot_wake_seconds = round(time.perf_counter() - started, 3)
+
+    @modal.method()
+    def invoke(self, data: dict[str, Any]) -> dict[str, Any]:
+        result = dict(_run(data, model=FAST_MODEL, lane="fast"))
+        result["snapshot_contract"] = FAST_SNAPSHOT_CONTRACT
+        result["snapshot_wake_seconds"] = self.snapshot_wake_seconds
+        result["snapshot_init_seconds"] = self.snapshot_init_seconds
+        result["warm_retention_seconds"] = FAST_SCALEDOWN_WINDOW_SECONDS
+        result["gpu_memory_snapshot_enabled"] = True
+        return result
 
 
 @app.function(

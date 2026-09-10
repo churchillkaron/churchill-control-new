@@ -34,6 +34,9 @@ import {
 import {
   analyzeConversationAttachments,
 } from "@/lib/platform/runtime/ConversationAttachmentAnalysisRuntime";
+import {
+  normalizeBankStatementAttachment,
+} from "@/lib/finance/bank-statements/BankStatementAttachmentNormalizer";
 
 function readValue(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -292,6 +295,12 @@ export async function POST(request) {
           },
         })
       : [];
+    const preparedConversationAttachments = analyzedConversationAttachments.map((file) => {
+      const bankStatement = normalizeBankStatementAttachment(file);
+      return bankStatement.recognized === true
+        ? { ...file, prepared_candidate: { type: "bank_statement", ...bankStatement } }
+        : file;
+    });
 
     const memoryStartedAt = Date.now();
     const memory = await loadOrCreateIntelligenceConversation({
@@ -389,7 +398,7 @@ export async function POST(request) {
           projectState: effectiveProjectState,
           conversation,
           longTermMemory,
-          conversationAttachments: analyzedConversationAttachments,
+          conversationAttachments: preparedConversationAttachments,
           callerRequest: request,
         })
           .then((value) => {

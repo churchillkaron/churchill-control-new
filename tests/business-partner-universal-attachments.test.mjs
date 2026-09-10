@@ -29,7 +29,8 @@ test("attachment context is organization scoped and never authorization", async 
   ]);
   assert.match(turn, /conversationAttachmentSetIdFromRequest/);
   assert.match(turn, /loadConversationAttachmentSet/);
-  assert.match(turn, /conversationAttachments:\s*analyzedConversationAttachments/);
+  assert.match(turn, /normalizeBankStatementAttachment/);
+  assert.match(turn, /conversationAttachments:\s*preparedConversationAttachments/);
   assert.match(synthetic, /AVANTIQO_CURRENT_TURN_ATTACHMENT_CONTEXT_V1/);
   assert.match(synthetic, /authorization_effect=NONE/);
   assert.match(synthetic, /Do not infer document type from filename or MIME type alone/);

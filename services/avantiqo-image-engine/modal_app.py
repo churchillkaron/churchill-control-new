@@ -14,6 +14,7 @@ APP_NAME = "avantiqo-image-owned"
 ENGINE_CONTRACT = "AVANTIQO_IMAGE_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-image-v1"
 FOUNDATION_MODEL = "Tongyi-MAI/Z-Image"
+ANALYZE_MODEL = "Qwen/Qwen2.5-VL-7B-Instruct"
 WORKER_IMAGE = (
     "ghcr.io/churchillkaron/avantiqo-image-worker@"
     "sha256:dba91ed34b53d69db5e9edb0894293bd0837ece2676be14184b0bda61296f905"
@@ -27,26 +28,32 @@ app = modal.App(APP_NAME)
 model_volume = modal.Volume.from_name(MODEL_VOLUME_NAME, create_if_missing=False)
 
 
-def _seed_model() -> None:
+def _seed_one_model(model_id: str, marker_name: str) -> Path:
     from huggingface_hub import snapshot_download
 
     resolved = Path(snapshot_download(
-        repo_id=FOUNDATION_MODEL,
+        repo_id=model_id,
         cache_dir=HF_CACHE_ROOT,
         token=os.environ.get("HF_TOKEN") or None,
         max_workers=8,
     ))
     if not resolved.is_dir():
-        raise RuntimeError("AVANTIQO_IMAGE_MODAL_MODEL_SNAPSHOT_MISSING")
-    marker = resolved / ".avantiqo-photoreal-cache-complete.json"
+        raise RuntimeError(f"AVANTIQO_IMAGE_MODAL_MODEL_SNAPSHOT_MISSING:{model_id}")
+    marker = resolved / marker_name
     marker.write_text(json.dumps({
-        "contract": "AVANTIQO_IMAGE_PHOTOREAL_CACHE_COMPLETION_V1",
-        "target_model": FOUNDATION_MODEL,
+        "contract": "AVANTIQO_IMAGE_MODAL_CACHE_COMPLETION_V2",
+        "target_model": model_id,
         "snapshot_revision": resolved.name,
         "snapshot_download_completed": True,
         "modal_volume": MODEL_VOLUME_NAME,
     }, separators=(",", ":"), sort_keys=True), encoding="utf-8")
-    print(f"AVANTIQO_IMAGE_MODAL_CACHE_READY={resolved}", flush=True)
+    print(f"AVANTIQO_IMAGE_MODAL_CACHE_READY={model_id}:{resolved}", flush=True)
+    return resolved
+
+
+def _seed_model() -> None:
+    _seed_one_model(FOUNDATION_MODEL, ".avantiqo-photoreal-cache-complete.json")
+    _seed_one_model(ANALYZE_MODEL, ".avantiqo-vision-cache-complete.json")
 
 seed_image = modal.Image.debian_slim(python_version="3.12").pip_install("huggingface_hub")
 
@@ -76,6 +83,8 @@ worker_image = (
         "AVANTIQO_IMAGE_NETWORK_VOLUME_ROOT": "/models",
         "AVANTIQO_IMAGE_NETWORK_VOLUME_QUOTA_GB": "80",
         "AVANTIQO_IMAGE_FOUNDATION_MODEL": FOUNDATION_MODEL,
+        "AVANTIQO_IMAGE_ANALYZE_MODEL": ANALYZE_MODEL,
+        "AVANTIQO_IMAGE_CERTIFIED_CAPABILITIES": "ai.image.generate,ai.image.analyze",
         "AVANTIQO_IMAGE_DEVICE": "cuda",
         "HF_HUB_OFFLINE": "1",
         "TRANSFORMERS_OFFLINE": "1",

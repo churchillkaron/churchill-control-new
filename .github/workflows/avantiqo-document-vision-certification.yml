@@ -1,0 +1,54 @@
+name: Avantiqo Document Vision Certification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-document-vision-certification
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install runtime dependencies
+        run: npm ci --ignore-scripts
+      - name: Run owned document vision benchmark
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          AVANTIQO_DOCUMENT_VISION_BENCHMARK_OUTPUT: ${{ github.workspace }}/document-vision-certification.json
+        run: node scripts/benchmark-avantiqo-document-vision.mjs
+
+      - name: Verify no activation occurred
+        if: always()
+        run: |
+          if [ ! -f document-vision-certification.json ]; then exit 0; fi
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile("document-vision-certification.json", "utf8"));
+          if (report.activation_allowed !== false) throw new Error("ACTIVATION_GUARD_FAILED");
+          if (report.pricing_activation_performed !== false) throw new Error("PRICING_GUARD_FAILED");
+          console.log("Owned document vision no-activation guard passed.");
+          NODE
+
+      - name: Upload benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-document-vision-${{ github.run_id }}
+          path: document-vision-certification.json
+          if-no-files-found: warn
+          retention-days: 14

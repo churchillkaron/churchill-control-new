@@ -292,7 +292,15 @@ async function requestResearchApproval(estimate) {
   console.log("============================================================");
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error("CREATIVE_INTERACTIVE_RESEARCH_APPROVAL_REQUIRED");
+    const headlessPhrase = text(process.env.CREATIVE_RESEARCH_APPROVAL_PHRASE);
+    if (!headlessPhrase) {
+      throw new Error("CREATIVE_INTERACTIVE_RESEARCH_APPROVAL_REQUIRED");
+    }
+    if (normalized(headlessPhrase) !== normalized(phrase)) {
+      throw new Error("CREATIVE_HEADLESS_RESEARCH_APPROVAL_MISMATCH");
+    }
+    console.log("RESEARCH_APPROVAL_MODE=HEADLESS_EXACT_PHRASE");
+    return true;
   }
 
   const terminal = createInterface({
@@ -417,6 +425,7 @@ try {
   let updatedProject = await CreativeProjectRuntime.update(projectId, {
     metadata: {
       ...(project.metadata || {}),
+      organization_name: organization.name,
       command_identity: identity,
       target_duration: duration,
       selected_asset_ids: selectedIds,

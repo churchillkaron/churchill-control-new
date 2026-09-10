@@ -60,6 +60,9 @@ EXPORT_QUALITY = float(os.getenv("AVANTIQO_VIDEO_EXPORT_QUALITY", "9.0"))
 MAX_SOURCE_RANGE_SECONDS = float(
     os.getenv("AVANTIQO_VIDEO_MAX_SOURCE_RANGE_SECONDS", "600")
 )
+MAX_CINEMATIC_CONTROL_BYTES = int(
+    os.getenv("AVANTIQO_VIDEO_MAX_CINEMATIC_CONTROL_BYTES", str(64 * 1024))
+)
 HF_CACHE_ROOT = Path(
     os.getenv(
         "AVANTIQO_VIDEO_HF_CACHE_ROOT",
@@ -248,7 +251,16 @@ def _validate_control(data: dict[str, Any]) -> None:
         raise ValueError("AVANTIQO_VIDEO_CINEMATIC_CONTROL_INVALID")
     if control and _text(control.get("contract")) != CINEMATIC_CONTROL_CONTRACT:
         raise ValueError("AVANTIQO_VIDEO_CINEMATIC_CONTROL_CONTRACT_INVALID")
-    data["cinematic_control"] = control
+    control_bytes = len(json.dumps(control, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+    if control_bytes > MAX_CINEMATIC_CONTROL_BYTES:
+        raise ValueError("AVANTIQO_VIDEO_CINEMATIC_CONTROL_TOO_LARGE")
+    governed_control = {
+        **control,
+        "shot_specification": _object(control.get("shot_specification")),
+        "continuity": _object(control.get("continuity")),
+    }
+    data["cinematic_control"] = governed_control
+    control = governed_control
     identity_lock = control.get("identity_lock") or data.get("identity_lock") or {}
     if not isinstance(identity_lock, dict):
         raise ValueError("AVANTIQO_VIDEO_IDENTITY_LOCK_INVALID")
@@ -347,30 +359,61 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+def _clean_visual_phrase(value: Any) -> str:
+    phrase = _text(value)
+    if not phrase:
+        return ""
+    forbidden = (
+        "previous_", "previous ", "purpose:", "camera:", "continuity:",
+        "shot_specification", "identity_lock", "negative_constraints",
+        "reject", "rejection", "json", "uuid", "metadata", "no text",
+        "no typography", "no captions",
+    )
+    lowered = phrase.lower()
+    if any(token in lowered for token in forbidden):
+        return ""
+    if any(ch in phrase for ch in "{}[]"):
+        return ""
+    if len(phrase) > 420:
+        phrase = phrase[:420].rsplit(" ", 1)[0]
+    return " ".join(phrase.split())
+
+
 def _cinematic_instruction(data: dict[str, Any]) -> str:
-    base = _text(data.get("instruction"))
+    base = _clean_visual_phrase(data.get("instruction"))
     control = _object(data.get("cinematic_control"))
     if not control:
         return base
-    bounded = _bounded_control({
-        "camera": _object(control.get("camera")),
-        "continuity": _object(control.get("continuity")),
-        "frame_contract": _object(control.get("frame_contract")),
-        "shot_specification": _object(control.get("shot_specification")),
-        "identity_lock": _object(control.get("identity_lock")),
-        "negative_constraints": control.get("negative_constraints")
-        if isinstance(control.get("negative_constraints"), list)
-        else [],
-    })
-    serialized = json.dumps(bounded, separators=(",", ":"), ensure_ascii=True)
-    if len(serialized) > 6000:
-        raise ValueError("AVANTIQO_VIDEO_CINEMATIC_CONTROL_TOO_LARGE")
-    return (
-        f"{base}\n\n"
-        "GOVERNED CINEMATIC CONTROL: Treat the following structured continuity, camera, frame and identity constraints as binding. "
-        "Preserve approved identity and source geometry; execute the requested camera move only; reach the specified closing state without temporal drift.\n"
-        f"{serialized}"
-    )
+
+    camera = _object(control.get("camera"))
+    frame = _object(control.get("frame_contract"))
+    shot = _object(control.get("shot_specification"))
+    visual_candidates = [
+        camera.get("movement"), camera.get("move"), camera.get("motion"),
+        camera.get("framing"), camera.get("composition"), camera.get("lens"),
+        shot.get("visual_direction"), shot.get("description"), shot.get("action"),
+        shot.get("lighting"), shot.get("production_design"),
+        frame.get("opening"), frame.get("opening_frame"),
+        frame.get("closing"), frame.get("closing_frame"),
+        control.get("beauty_intent"), control.get("focal_path"), control.get("depth_layers"),
+        control.get("reveal_stage"), control.get("mystery_function"),
+    ]
+    phrases = []
+    for candidate in visual_candidates:
+        if isinstance(candidate, dict):
+            for child in candidate.values():
+                cleaned = _clean_visual_phrase(child)
+                if cleaned and cleaned not in phrases:
+                    phrases.append(cleaned)
+        else:
+            cleaned = _clean_visual_phrase(candidate)
+            if cleaned and cleaned not in phrases:
+                phrases.append(cleaned)
+        if len(phrases) >= 8:
+            break
+
+    parts = [part for part in [base, *phrases] if part]
+    return ". ".join(parts)[:2200].strip(" .") + ("." if parts else "")
 
 
 def _identity_anchor_url(data: dict[str, Any]) -> str | None:

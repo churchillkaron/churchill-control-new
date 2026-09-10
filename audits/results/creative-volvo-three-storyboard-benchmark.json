@@ -1,0 +1,739 @@
+{
+  "contract": "CREATIVE_CINEMATIC_PUBLIC_STORYBOARD_BENCHMARK_V1",
+  "generated_at": "2026-09-10T04:01:03.903Z",
+  "measurement_mode": "PUBLIC_YOUTUBE_STORYBOARD_VISUAL_SAMPLING",
+  "evidence_grade": "PARTIAL_VISUAL_ONLY",
+  "visual_measurements_verified": true,
+  "full_reference_measurements_verified": false,
+  "audio_measurements_verified": false,
+  "maximum_sample_interval_seconds": 2,
+  "provider_calls_executed": 0,
+  "media_generation_executed": 0,
+  "shared_visual_envelope": {
+    "minimum_luminance_range": 93.463,
+    "minimum_contrast_range": 70.15,
+    "minimum_adjacent_visual_change_mean": 26.232,
+    "minimum_adjacent_visual_change_p75": 35.325,
+    "maximum_longest_low_change_run_seconds": 8,
+    "minimum_dark_to_bright_transition_count": 2
+  },
+  "references": [
+    {
+      "id": "tqrCGf9DwxU",
+      "role": "DOCUMENTARY_IDENTITY_NATIONAL_MYTH",
+      "title": "Volvo XC70 & Zlatan Ibrahimović #MADEBYSWEDEN",
+      "duration_seconds": 90,
+      "source_kind": "YOUTUBE_PUBLIC_STORYBOARD",
+      "evidence_grade": "PARTIAL_VISUAL_2S_SAMPLING",
+      "sample_interval_seconds": 1,
+      "sample_count": 91,
+      "brightness": {
+        "count": 91,
+        "min": 0.153,
+        "max": 209.747,
+        "mean": 77.825,
+        "median": 74.204,
+        "stdev": 43.58,
+        "p25": 38.494,
+        "p75": 118.128,
+        "p90": 134.46
+      },
+      "contrast": {
+        "count": 91,
+        "min": 0.564,
+        "max": 83.638,
+        "mean": 39.099,
+        "median": 37.542,
+        "stdev": 14.773,
+        "p25": 30.854,
+        "p75": 46.728,
+        "p90": 58.136
+      },
+      "adjacent_visual_change": {
+        "count": 90,
+        "min": 2.149,
+        "max": 105.139,
+        "mean": 48.093,
+        "median": 47.967,
+        "stdev": 28.734,
+        "p25": 24.924,
+        "p75": 71.312,
+        "p90": 89.474
+      },
+      "strong_visual_change_count": 23,
+      "strong_visual_changes": [
+        {
+          "at_seconds": 3,
+          "score": 99.627
+        },
+        {
+          "at_seconds": 5,
+          "score": 84.655
+        },
+        {
+          "at_seconds": 7,
+          "score": 72.824
+        },
+        {
+          "at_seconds": 15,
+          "score": 93.555
+        },
+        {
+          "at_seconds": 19,
+          "score": 92.484
+        },
+        {
+          "at_seconds": 41,
+          "score": 71.916
+        },
+        {
+          "at_seconds": 47,
+          "score": 71.991
+        },
+        {
+          "at_seconds": 48,
+          "score": 95.09
+        },
+        {
+          "at_seconds": 50,
+          "score": 82.155
+        },
+        {
+          "at_seconds": 51,
+          "score": 83.272
+        },
+        {
+          "at_seconds": 53,
+          "score": 78.359
+        },
+        {
+          "at_seconds": 54,
+          "score": 89.359
+        },
+        {
+          "at_seconds": 55,
+          "score": 75.614
+        },
+        {
+          "at_seconds": 56,
+          "score": 84.138
+        },
+        {
+          "at_seconds": 63,
+          "score": 82.742
+        },
+        {
+          "at_seconds": 66,
+          "score": 105.139
+        },
+        {
+          "at_seconds": 67,
+          "score": 90.51
+        },
+        {
+          "at_seconds": 68,
+          "score": 97.894
+        },
+        {
+          "at_seconds": 74,
+          "score": 94.95
+        },
+        {
+          "at_seconds": 75,
+          "score": 98.144
+        },
+        {
+          "at_seconds": 81,
+          "score": 83.552
+        },
+        {
+          "at_seconds": 83,
+          "score": 78.558
+        },
+        {
+          "at_seconds": 84,
+          "score": 72.405
+        }
+      ],
+      "low_change_threshold": 8,
+      "longest_low_change_run_samples": 2,
+      "longest_low_change_run_seconds": 2,
+      "dark_to_bright_transition_count": 2,
+      "luminance_range": 209.594,
+      "contrast_range": 83.074,
+      "sampled_black_frame_count": 7,
+      "sampled_black_frames": [
+        {
+          "at_seconds": 10,
+          "brightness": 15.566
+        },
+        {
+          "at_seconds": 36,
+          "brightness": 9.973
+        },
+        {
+          "at_seconds": 37,
+          "brightness": 11.699
+        },
+        {
+          "at_seconds": 38,
+          "brightness": 15.284
+        },
+        {
+          "at_seconds": 88,
+          "brightness": 0.153
+        },
+        {
+          "at_seconds": 89,
+          "brightness": 13.264
+        },
+        {
+          "at_seconds": 90,
+          "brightness": 14.688
+        }
+      ]
+    },
+    {
+      "id": "4PIQMVtMZA8",
+      "role": "INTIMATE_CHARACTER_PLACE_PROLOGUE",
+      "title": "Volvo V90 - Made by Sweden - ”Prolog” Zlatan Ibrahimović",
+      "duration_seconds": 200,
+      "source_kind": "YOUTUBE_PUBLIC_STORYBOARD",
+      "evidence_grade": "PARTIAL_VISUAL_2S_SAMPLING",
+      "sample_interval_seconds": 2,
+      "sample_count": 102,
+      "brightness": {
+        "count": 102,
+        "min": 1,
+        "max": 94.463,
+        "mean": 35.317,
+        "median": 32.428,
+        "stdev": 15.626,
+        "p25": 27.064,
+        "p75": 42.104,
+        "p90": 52.965
+      },
+      "contrast": {
+        "count": 102,
+        "min": 0,
+        "max": 76.68,
+        "mean": 34.976,
+        "median": 31.661,
+        "stdev": 14.611,
+        "p25": 24.977,
+        "p75": 42.935,
+        "p90": 56.137
+      },
+      "adjacent_visual_change": {
+        "count": 101,
+        "min": 0,
+        "max": 73.429,
+        "mean": 26.232,
+        "median": 23.702,
+        "stdev": 15.297,
+        "p25": 15.689,
+        "p75": 35.325,
+        "p90": 44.765
+      },
+      "strong_visual_change_count": 26,
+      "strong_visual_changes": [
+        {
+          "at_seconds": 54,
+          "score": 35.325
+        },
+        {
+          "at_seconds": 60,
+          "score": 45.921
+        },
+        {
+          "at_seconds": 62,
+          "score": 49.876
+        },
+        {
+          "at_seconds": 66,
+          "score": 40.292
+        },
+        {
+          "at_seconds": 68,
+          "score": 73.429
+        },
+        {
+          "at_seconds": 70,
+          "score": 66.986
+        },
+        {
+          "at_seconds": 80,
+          "score": 44.765
+        },
+        {
+          "at_seconds": 82,
+          "score": 67.201
+        },
+        {
+          "at_seconds": 84,
+          "score": 42.256
+        },
+        {
+          "at_seconds": 88,
+          "score": 70.303
+        },
+        {
+          "at_seconds": 90,
+          "score": 43.98
+        },
+        {
+          "at_seconds": 92,
+          "score": 40.46
+        },
+        {
+          "at_seconds": 112,
+          "score": 35.992
+        },
+        {
+          "at_seconds": 118,
+          "score": 49.057
+        },
+        {
+          "at_seconds": 122,
+          "score": 35.796
+        },
+        {
+          "at_seconds": 124,
+          "score": 36.682
+        },
+        {
+          "at_seconds": 132,
+          "score": 56.781
+        },
+        {
+          "at_seconds": 134,
+          "score": 51.148
+        },
+        {
+          "at_seconds": 150,
+          "score": 39.349
+        },
+        {
+          "at_seconds": 152,
+          "score": 39.865
+        },
+        {
+          "at_seconds": 160,
+          "score": 38.184
+        },
+        {
+          "at_seconds": 162,
+          "score": 38.908
+        },
+        {
+          "at_seconds": 188,
+          "score": 41.263
+        },
+        {
+          "at_seconds": 190,
+          "score": 47.063
+        },
+        {
+          "at_seconds": 192,
+          "score": 38.665
+        },
+        {
+          "at_seconds": 194,
+          "score": 36.438
+        }
+      ],
+      "low_change_threshold": 8,
+      "longest_low_change_run_samples": 4,
+      "longest_low_change_run_seconds": 8,
+      "dark_to_bright_transition_count": 2,
+      "luminance_range": 93.463,
+      "contrast_range": 76.68,
+      "sampled_black_frame_count": 9,
+      "sampled_black_frames": [
+        {
+          "at_seconds": 20,
+          "brightness": 16.655
+        },
+        {
+          "at_seconds": 22,
+          "brightness": 15.196
+        },
+        {
+          "at_seconds": 128,
+          "brightness": 17.494
+        },
+        {
+          "at_seconds": 130,
+          "brightness": 17.495
+        },
+        {
+          "at_seconds": 194,
+          "brightness": 10.526
+        },
+        {
+          "at_seconds": 196,
+          "brightness": 3.304
+        },
+        {
+          "at_seconds": 198,
+          "brightness": 5.038
+        },
+        {
+          "at_seconds": 200,
+          "brightness": 1
+        },
+        {
+          "at_seconds": 202,
+          "brightness": 1
+        }
+      ]
+    },
+    {
+      "id": "3KquHpO2VWI",
+      "role": "POETIC_GEOGRAPHY_WEATHER_HUMANITY",
+      "title": "Volvo - Made by Sweden - Vintersaga",
+      "duration_seconds": 255,
+      "source_kind": "YOUTUBE_PUBLIC_STORYBOARD",
+      "evidence_grade": "PARTIAL_VISUAL_2S_SAMPLING",
+      "sample_interval_seconds": 2,
+      "sample_count": 129,
+      "brightness": {
+        "count": 129,
+        "min": 0,
+        "max": 157.23,
+        "mean": 44.887,
+        "median": 34.863,
+        "stdev": 35.929,
+        "p25": 14.546,
+        "p75": 66.893,
+        "p90": 88.556
+      },
+      "contrast": {
+        "count": 129,
+        "min": 0,
+        "max": 70.15,
+        "mean": 29.676,
+        "median": 28.036,
+        "stdev": 15.894,
+        "p25": 18.798,
+        "p75": 36.806,
+        "p90": 53.305
+      },
+      "adjacent_visual_change": {
+        "count": 128,
+        "min": 0.87,
+        "max": 141.465,
+        "mean": 34.091,
+        "median": 30.096,
+        "stdev": 25.774,
+        "p25": 11.414,
+        "p75": 52.371,
+        "p90": 66.278
+      },
+      "strong_visual_change_count": 32,
+      "strong_visual_changes": [
+        {
+          "at_seconds": 12,
+          "score": 68.226
+        },
+        {
+          "at_seconds": 20,
+          "score": 66.369
+        },
+        {
+          "at_seconds": 32,
+          "score": 55.157
+        },
+        {
+          "at_seconds": 46,
+          "score": 66.759
+        },
+        {
+          "at_seconds": 48,
+          "score": 58.352
+        },
+        {
+          "at_seconds": 66,
+          "score": 53.667
+        },
+        {
+          "at_seconds": 70,
+          "score": 65.483
+        },
+        {
+          "at_seconds": 74,
+          "score": 62.46
+        },
+        {
+          "at_seconds": 76,
+          "score": 62.569
+        },
+        {
+          "at_seconds": 78,
+          "score": 69.126
+        },
+        {
+          "at_seconds": 80,
+          "score": 58.427
+        },
+        {
+          "at_seconds": 86,
+          "score": 64.769
+        },
+        {
+          "at_seconds": 88,
+          "score": 109.811
+        },
+        {
+          "at_seconds": 90,
+          "score": 56.9
+        },
+        {
+          "at_seconds": 96,
+          "score": 66.239
+        },
+        {
+          "at_seconds": 98,
+          "score": 54.31
+        },
+        {
+          "at_seconds": 102,
+          "score": 80.083
+        },
+        {
+          "at_seconds": 104,
+          "score": 54.822
+        },
+        {
+          "at_seconds": 106,
+          "score": 102.249
+        },
+        {
+          "at_seconds": 120,
+          "score": 73.445
+        },
+        {
+          "at_seconds": 122,
+          "score": 59.06
+        },
+        {
+          "at_seconds": 124,
+          "score": 66.64
+        },
+        {
+          "at_seconds": 126,
+          "score": 62.811
+        },
+        {
+          "at_seconds": 146,
+          "score": 63.055
+        },
+        {
+          "at_seconds": 166,
+          "score": 55.837
+        },
+        {
+          "at_seconds": 170,
+          "score": 59.717
+        },
+        {
+          "at_seconds": 180,
+          "score": 63.388
+        },
+        {
+          "at_seconds": 186,
+          "score": 141.465
+        },
+        {
+          "at_seconds": 190,
+          "score": 73.619
+        },
+        {
+          "at_seconds": 200,
+          "score": 63.896
+        },
+        {
+          "at_seconds": 220,
+          "score": 82.276
+        },
+        {
+          "at_seconds": 222,
+          "score": 74.91
+        }
+      ],
+      "low_change_threshold": 8,
+      "longest_low_change_run_samples": 3,
+      "longest_low_change_run_seconds": 6,
+      "dark_to_bright_transition_count": 7,
+      "luminance_range": 157.23,
+      "contrast_range": 70.15,
+      "sampled_black_frame_count": 41,
+      "sampled_black_frames": [
+        {
+          "at_seconds": 30,
+          "brightness": 16.733
+        },
+        {
+          "at_seconds": 40,
+          "brightness": 10.773
+        },
+        {
+          "at_seconds": 42,
+          "brightness": 6.28
+        },
+        {
+          "at_seconds": 44,
+          "brightness": 2.039
+        },
+        {
+          "at_seconds": 48,
+          "brightness": 11.741
+        },
+        {
+          "at_seconds": 50,
+          "brightness": 10.05
+        },
+        {
+          "at_seconds": 52,
+          "brightness": 3.739
+        },
+        {
+          "at_seconds": 54,
+          "brightness": 3.319
+        },
+        {
+          "at_seconds": 56,
+          "brightness": 13.27
+        },
+        {
+          "at_seconds": 58,
+          "brightness": 17.261
+        },
+        {
+          "at_seconds": 70,
+          "brightness": 16.931
+        },
+        {
+          "at_seconds": 72,
+          "brightness": 17.964
+        },
+        {
+          "at_seconds": 86,
+          "brightness": 16.834
+        },
+        {
+          "at_seconds": 106,
+          "brightness": 3.731
+        },
+        {
+          "at_seconds": 108,
+          "brightness": 9.065
+        },
+        {
+          "at_seconds": 116,
+          "brightness": 9.208
+        },
+        {
+          "at_seconds": 122,
+          "brightness": 4.886
+        },
+        {
+          "at_seconds": 146,
+          "brightness": 9.196
+        },
+        {
+          "at_seconds": 148,
+          "brightness": 7.443
+        },
+        {
+          "at_seconds": 150,
+          "brightness": 6.103
+        },
+        {
+          "at_seconds": 152,
+          "brightness": 5.504
+        },
+        {
+          "at_seconds": 156,
+          "brightness": 12.454
+        },
+        {
+          "at_seconds": 162,
+          "brightness": 4.719
+        },
+        {
+          "at_seconds": 164,
+          "brightness": 4.471
+        },
+        {
+          "at_seconds": 180,
+          "brightness": 3.504
+        },
+        {
+          "at_seconds": 182,
+          "brightness": 4.033
+        },
+        {
+          "at_seconds": 224,
+          "brightness": 6.351
+        },
+        {
+          "at_seconds": 226,
+          "brightness": 13.037
+        },
+        {
+          "at_seconds": 228,
+          "brightness": 16.505
+        },
+        {
+          "at_seconds": 230,
+          "brightness": 8.664
+        },
+        {
+          "at_seconds": 232,
+          "brightness": 9.109
+        },
+        {
+          "at_seconds": 234,
+          "brightness": 8.894
+        },
+        {
+          "at_seconds": 236,
+          "brightness": 6.328
+        },
+        {
+          "at_seconds": 238,
+          "brightness": 10.175
+        },
+        {
+          "at_seconds": 240,
+          "brightness": 0
+        },
+        {
+          "at_seconds": 246,
+          "brightness": 12.434
+        },
+        {
+          "at_seconds": 248,
+          "brightness": 14.793
+        },
+        {
+          "at_seconds": 250,
+          "brightness": 17.065
+        },
+        {
+          "at_seconds": 252,
+          "brightness": 14.546
+        },
+        {
+          "at_seconds": 254,
+          "brightness": 10.526
+        },
+        {
+          "at_seconds": 256,
+          "brightness": 11.147
+        }
+      ]
+    }
+  ]
+}

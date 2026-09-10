@@ -1,0 +1,182 @@
+{
+  "contract": "CREATIVE_CINEMATIC_REFERENCE_MEASUREMENT_V1",
+  "generated_at": "2026-09-10T03:47:21.142Z",
+  "measurement_mode": "LOCAL_FFMPEG_OBJECTIVE_EDITORIAL_METRICS",
+  "measurements_verified": false,
+  "provider_calls_executed": 0,
+  "media_generation_executed": 0,
+  "references": [
+    {
+      "id": "sitXeGjm4Mc",
+      "role": "MYSTERY_REVEAL_EFFECTS",
+      "available": true,
+      "source_file": "sitXeGjm4Mc.mp4",
+      "duration_seconds": 118.4,
+      "detected_cut_count": 48,
+      "cuts_seconds": [
+        1.8,
+        3.56,
+        6.28,
+        23.36,
+        25.32,
+        28.44,
+        30.52,
+        30.64,
+        44.6,
+        44.96,
+        47.48,
+        48.8,
+        61.56,
+        62.36,
+        62.48,
+        62.68,
+        62.8,
+        62.84,
+        63.16,
+        63.32,
+        65.56,
+        66.4,
+        66.56,
+        66.6,
+        68.64,
+        68.88,
+        69.44,
+        71.72,
+        71.84,
+        74.8,
+        78.04,
+        82.76,
+        83.2,
+        83.28,
+        83.72,
+        84.52,
+        86.84,
+        87.24,
+        87.4,
+        89.56,
+        90.28,
+        92.04,
+        92.88,
+        99.56,
+        99.76,
+        103.68,
+        104.2,
+        116.92
+      ],
+      "shot_duration_distribution": {
+        "count": 49,
+        "min": 0.04,
+        "max": 17.08,
+        "mean": 2.416,
+        "median": 0.84
+      },
+      "short_punctuation_ratio": 0.551,
+      "long_hold_ratio": 0.122,
+      "black_segments": [
+        {
+          "start": 22.84,
+          "end": 22.96,
+          "duration": 0.12
+        },
+        {
+          "start": 23,
+          "end": 23.08,
+          "duration": 0.08
+        },
+        {
+          "start": 30.04,
+          "end": 30.48,
+          "duration": 0.44
+        },
+        {
+          "start": 54.32,
+          "end": 54.48,
+          "duration": 0.16
+        },
+        {
+          "start": 54.52,
+          "end": 54.64,
+          "duration": 0.12
+        },
+        {
+          "start": 54.92,
+          "end": 55.2,
+          "duration": 0.28
+        },
+        {
+          "start": 56.4,
+          "end": 57.28,
+          "duration": 0.88
+        },
+        {
+          "start": 61.56,
+          "end": 62.24,
+          "duration": 0.68
+        },
+        {
+          "start": 69.2,
+          "end": 69.28,
+          "duration": 0.08
+        },
+        {
+          "start": 86.76,
+          "end": 86.84,
+          "duration": 0.08
+        },
+        {
+          "start": 101.28,
+          "end": 101.4,
+          "duration": 0.12
+        },
+        {
+          "start": 101.68,
+          "end": 102,
+          "duration": 0.32
+        },
+        {
+          "start": 102.12,
+          "end": 102.48,
+          "duration": 0.36
+        },
+        {
+          "start": 116.08,
+          "end": 116.76,
+          "duration": 0.68
+        }
+      ],
+      "black_total_seconds": 4.4,
+      "silence_segments": [
+        {
+          "start": 118.235104,
+          "end": 118.366667,
+          "duration": 0.13156299999999987
+        }
+      ],
+      "silence_total_seconds": 0.132
+    },
+    {
+      "id": "5wjBHDogyko",
+      "role": "LUXURY_CONTINUITY_REVEAL",
+      "available": false,
+      "blocker": "REFERENCE_FILE_NOT_AVAILABLE"
+    },
+    {
+      "id": "vr8NwCFjGa0",
+      "role": "ENGINEERED_MOTION_SCALE",
+      "available": false,
+      "blocker": "REFERENCE_FILE_NOT_AVAILABLE"
+    },
+    {
+      "id": "Slz3lJcqfd4",
+      "role": "TACTILE_MECHANICAL_DETAIL",
+      "available": false,
+      "blocker": "REFERENCE_FILE_NOT_AVAILABLE"
+    },
+    {
+      "id": "lnjSaGxfZ1g",
+      "role": "DOCUMENTARY_TRUTH_PLACE_HUMANITY",
+      "available": false,
+      "blocker": "REFERENCE_FILE_NOT_AVAILABLE"
+    }
+  ]
+}

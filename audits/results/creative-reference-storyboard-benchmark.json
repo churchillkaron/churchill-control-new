@@ -1,0 +1,1041 @@
+{
+  "contract": "CREATIVE_CINEMATIC_PUBLIC_STORYBOARD_BENCHMARK_V1",
+  "generated_at": "2026-09-10T03:18:16.559Z",
+  "measurement_mode": "PUBLIC_YOUTUBE_STORYBOARD_VISUAL_SAMPLING",
+  "evidence_grade": "PARTIAL_VISUAL_ONLY",
+  "visual_measurements_verified": true,
+  "full_reference_measurements_verified": false,
+  "audio_measurements_verified": false,
+  "maximum_sample_interval_seconds": 2,
+  "provider_calls_executed": 0,
+  "media_generation_executed": 0,
+  "shared_visual_envelope": {
+    "minimum_luminance_range": 91.343,
+    "minimum_contrast_range": 63.835,
+    "minimum_adjacent_visual_change_mean": 26.09,
+    "minimum_adjacent_visual_change_p75": 34.947,
+    "maximum_longest_low_change_run_seconds": 14,
+    "minimum_dark_to_bright_transition_count": 0
+  },
+  "references": [
+    {
+      "id": "sitXeGjm4Mc",
+      "role": "MYSTERY_REVEAL_EFFECTS",
+      "title": "Lamborghini Revuelto – From Now On",
+      "duration_seconds": 136,
+      "source_kind": "YOUTUBE_PUBLIC_STORYBOARD",
+      "evidence_grade": "PARTIAL_VISUAL_2S_SAMPLING",
+      "sample_interval_seconds": 2,
+      "sample_count": 70,
+      "brightness": {
+        "count": 70,
+        "min": 0,
+        "max": 97.601,
+        "mean": 31.783,
+        "median": 30.336,
+        "stdev": 17.837,
+        "p25": 19.392,
+        "p75": 42.348,
+        "p90": 55.237
+      },
+      "contrast": {
+        "count": 70,
+        "min": 0,
+        "max": 72.489,
+        "mean": 31.29,
+        "median": 31.977,
+        "stdev": 15.064,
+        "p25": 20.672,
+        "p75": 39.619,
+        "p90": 51.571
+      },
+      "adjacent_visual_change": {
+        "count": 69,
+        "min": 6.329,
+        "max": 65.247,
+        "mean": 26.93,
+        "median": 24.879,
+        "stdev": 12.499,
+        "p25": 17.777,
+        "p75": 36.06,
+        "p90": 45.851
+      },
+      "strong_visual_change_count": 18,
+      "strong_visual_changes": [
+        {
+          "at_seconds": 2,
+          "score": 65.247
+        },
+        {
+          "at_seconds": 8,
+          "score": 38.965
+        },
+        {
+          "at_seconds": 26,
+          "score": 48.561
+        },
+        {
+          "at_seconds": 40,
+          "score": 38.407
+        },
+        {
+          "at_seconds": 48,
+          "score": 39.086
+        },
+        {
+          "at_seconds": 50,
+          "score": 40.423
+        },
+        {
+          "at_seconds": 60,
+          "score": 46.772
+        },
+        {
+          "at_seconds": 66,
+          "score": 37.155
+        },
+        {
+          "at_seconds": 68,
+          "score": 37.645
+        },
+        {
+          "at_seconds": 86,
+          "score": 47.693
+        },
+        {
+          "at_seconds": 88,
+          "score": 36.868
+        },
+        {
+          "at_seconds": 92,
+          "score": 46.075
+        },
+        {
+          "at_seconds": 98,
+          "score": 45.796
+        },
+        {
+          "at_seconds": 100,
+          "score": 38.884
+        },
+        {
+          "at_seconds": 106,
+          "score": 36.06
+        },
+        {
+          "at_seconds": 108,
+          "score": 39.03
+        },
+        {
+          "at_seconds": 110,
+          "score": 53.277
+        },
+        {
+          "at_seconds": 112,
+          "score": 54.597
+        }
+      ],
+      "low_change_threshold": 8,
+      "longest_low_change_run_samples": 2,
+      "longest_low_change_run_seconds": 4,
+      "dark_to_bright_transition_count": 2,
+      "luminance_range": 97.601,
+      "contrast_range": 72.489,
+      "sampled_black_frame_count": 14,
+      "sampled_black_frames": [
+        {
+          "at_seconds": 60,
+          "brightness": 8.644
+        },
+        {
+          "at_seconds": 64,
+          "brightness": 10.128
+        },
+        {
+          "at_seconds": 72,
+          "brightness": 4.5
+        },
+        {
+          "at_seconds": 76,
+          "brightness": 11.981
+        },
+        {
+          "at_seconds": 84,
+          "brightness": 5.299
+        },
+        {
+          "at_seconds": 88,
+          "brightness": 16.174
+        },
+        {
+          "at_seconds": 100,
+          "brightness": 9.217
+        },
+        {
+          "at_seconds": 114,
+          "brightness": 13.898
+        },
+        {
+          "at_seconds": 118,
+          "brightness": 12.333
+        },
+        {
+          "at_seconds": 120,
+          "brightness": 7.07
+        },
+        {
+          "at_seconds": 122,
+          "brightness": 11.658
+        },
+        {
+          "at_seconds": 134,
+          "brightness": 5.844
+        },
+        {
+          "at_seconds": 136,
+          "brightness": 10.754
+        },
+        {
+          "at_seconds": 138,
+          "brightness": 0
+        }
+      ]
+    },
+    {
+      "id": "5wjBHDogyko",
+      "role": "LUXURY_CONTINUITY_REVEAL",
+      "title": "Ferrari Roma - Official Video",
+      "duration_seconds": 182,
+      "source_kind": "YOUTUBE_PUBLIC_STORYBOARD",
+      "evidence_grade": "PARTIAL_VISUAL_2S_SAMPLING",
+      "sample_interval_seconds": 2,
+      "sample_count": 92,
+      "brightness": {
+        "count": 92,
+        "min": 0,
+        "max": 114.009,
+        "mean": 45.022,
+        "median": 43.149,
+        "stdev": 26.357,
+        "p25": 31.395,
+        "p75": 59.52,
+        "p90": 76.123
+      },
+      "contrast": {
+        "count": 92,
+        "min": 0,
+        "max": 84.146,
+        "mean": 42.783,
+        "median": 42.208,
+        "stdev": 19.634,
+        "p25": 30.415,
+        "p75": 53.516,
+        "p90": 74.907
+      },
+      "adjacent_visual_change": {
+        "count": 91,
+        "min": 0.017,
+        "max": 63.684,
+        "mean": 29.956,
+        "median": 30.42,
+        "stdev": 14.339,
+        "p25": 22.542,
+        "p75": 38.428,
+        "p90": 47.563
+      },
+      "strong_visual_change_count": 23,
+      "strong_visual_changes": [
+        {
+          "at_seconds": 4,
+          "score": 53.127
+        },
+        {
+          "at_seconds": 18,
+          "score": 58.477
+        },
+        {
+          "at_seconds": 20,
+          "score": 44.061
+        },
+        {
+          "at_seconds": 24,
+          "score": 49.109
+        },
+        {
+          "at_seconds": 26,
+          "score": 47.563
+        },
+        {
+          "at_seconds": 38,
+          "score": 39.59
+        },
+        {
+          "at_seconds": 42,
+          "score": 46.343
+        },
+        {
+          "at_seconds": 44,
+          "score": 39.112
+        },
+        {
+          "at_seconds": 52,
+          "score": 45.259
+        },
+        {
+          "at_seconds": 54,
+          "score": 50.431
+        },
+        {
+          "at_seconds": 58,
+          "score": 45.671
+        },
+        {
+          "at_seconds": 62,
+          "score": 41.774
+        },
+        {
+          "at_seconds": 74,
+          "score": 42.374
+        },
+        {
+          "at_seconds": 86,
+          "score": 38.816
+        },
+        {
+          "at_seconds": 88,
+          "score": 44.42
+        },
+        {
+          "at_seconds": 110,
+          "score": 42.938
+        },
+        {
+          "at_seconds": 130,
+          "score": 40.542
+        },
+        {
+          "at_seconds": 138,
+          "score": 57.707
+        },
+        {
+          "at_seconds": 140,
+          "score": 42.594
+        },
+        {
+          "at_seconds": 146,
+          "score": 55.114
+        },
+        {
+          "at_seconds": 148,
+          "score": 63.684
+        },
+        {
+          "at_seconds": 150,
+          "score": 58.879
+        },
+        {
+          "at_seconds": 162,
+          "score": 51.134
+        }
+      ],
+      "low_change_threshold": 8,
+      "longest_low_change_run_samples": 6,
+      "longest_low_change_run_seconds": 12,
+      "dark_to_bright_transition_count": 3,
+      "luminance_range": 114.009,
+      "contrast_range": 84.146,
+      "sampled_black_frame_count": 15,
+      "sampled_black_frames": [
+        {
+          "at_seconds": 0,
+          "brightness": 0
+        },
+        {
+          "at_seconds": 2,
+          "brightness": 2.34
+        },
+        {
+          "at_seconds": 18,
+          "brightness": 11.448
+        },
+        {
+          "at_seconds": 72,
+          "brightness": 7.109
+        },
+        {
+          "at_seconds": 78,
+          "brightness": 16.062
+        },
+        {
+          "at_seconds": 96,
+          "brightness": 10.782
+        },
+        {
+          "at_seconds": 114,
+          "brightness": 17.62
+        },
+        {
+          "at_seconds": 118,
+          "brightness": 7.895
+        },
+        {
+          "at_seconds": 170,
+          "brightness": 0.143
+        },
+        {
+          "at_seconds": 172,
+          "brightness": 2.084
+        },
+        {
+          "at_seconds": 174,
+          "brightness": 2.762
+        },
+        {
+          "at_seconds": 176,
+          "brightness": 1.917
+        },
+        {
+          "at_seconds": 178,
+          "brightness": 0.648
+        },
+        {
+          "at_seconds": 180,
+          "brightness": 2.048
+        },
+        {
+          "at_seconds": 182,
+          "brightness": 2.052
+        }
+      ]
+    },
+    {
+      "id": "vr8NwCFjGa0",
+      "role": "ENGINEERED_MOTION_SCALE",
+      "title": "The Ferrari F80 knows no limits",
+      "duration_seconds": 90,
+      "source_kind": "YOUTUBE_PUBLIC_STORYBOARD",
+      "evidence_grade": "PARTIAL_VISUAL_2S_SAMPLING",
+      "sample_interval_seconds": 1,
+      "sample_count": 91,
+      "brightness": {
+        "count": 91,
+        "min": 0.721,
+        "max": 180.941,
+        "mean": 58.32,
+        "median": 60.064,
+        "stdev": 31.068,
+        "p25": 34.96,
+        "p75": 80.047,
+        "p90": 90.618
+      },
+      "contrast": {
+        "count": 91,
+        "min": 10.134,
+        "max": 103.6,
+        "mean": 46.292,
+        "median": 48.91,
+        "stdev": 15.709,
+        "p25": 34.966,
+        "p75": 56.496,
+        "p90": 63.445
+      },
+      "adjacent_visual_change": {
+        "count": 90,
+        "min": 0,
+        "max": 137.149,
+        "mean": 29.549,
+        "median": 29.7,
+        "stdev": 22.777,
+        "p25": 11.585,
+        "p75": 41.592,
+        "p90": 53.133
+      },
+      "strong_visual_change_count": 23,
+      "strong_visual_changes": [
+        {
+          "at_seconds": 4,
+          "score": 60.402
+        },
+        {
+          "at_seconds": 5,
+          "score": 45.955
+        },
+        {
+          "at_seconds": 7,
+          "score": 47.262
+        },
+        {
+          "at_seconds": 8,
+          "score": 50.63
+        },
+        {
+          "at_seconds": 20,
+          "score": 52.541
+        },
+        {
+          "at_seconds": 21,
+          "score": 44.803
+        },
+        {
+          "at_seconds": 34,
+          "score": 60.541
+        },
+        {
+          "at_seconds": 36,
+          "score": 41.613
+        },
+        {
+          "at_seconds": 41,
+          "score": 47.213
+        },
+        {
+          "at_seconds": 43,
+          "score": 137.149
+        },
+        {
+          "at_seconds": 44,
+          "score": 73.782
+        },
+        {
+          "at_seconds": 45,
+          "score": 64.944
+        },
+        {
+          "at_seconds": 46,
+          "score": 49.482
+        },
+        {
+          "at_seconds": 47,
+          "score": 52.103
+        },
+        {
+          "at_seconds": 51,
+          "score": 44.256
+        },
+        {
+          "at_seconds": 53,
+          "score": 58.464
+        },
+        {
+          "at_seconds": 54,
+          "score": 62.628
+        },
+        {
+          "at_seconds": 56,
+          "score": 48.877
+        },
+        {
+          "at_seconds": 57,
+          "score": 45.51
+        },
+        {
+          "at_seconds": 58,
+          "score": 47.043
+        },
+        {
+          "at_seconds": 61,
+          "score": 51.028
+        },
+        {
+          "at_seconds": 62,
+          "score": 64.735
+        },
+        {
+          "at_seconds": 77,
+          "score": 78.98
+        }
+      ],
+      "low_change_threshold": 8,
+      "longest_low_change_run_samples": 10,
+      "longest_low_change_run_seconds": 10,
+      "dark_to_bright_transition_count": 0,
+      "luminance_range": 180.22,
+      "contrast_range": 93.466,
+      "sampled_black_frame_count": 15,
+      "sampled_black_frames": [
+        {
+          "at_seconds": 41,
+          "brightness": 15.971
+        },
+        {
+          "at_seconds": 77,
+          "brightness": 0.721
+        },
+        {
+          "at_seconds": 78,
+          "brightness": 0.727
+        },
+        {
+          "at_seconds": 79,
+          "brightness": 0.727
+        },
+        {
+          "at_seconds": 80,
+          "brightness": 15.993
+        },
+        {
+          "at_seconds": 81,
+          "brightness": 15.912
+        },
+        {
+          "at_seconds": 82,
+          "brightness": 15.919
+        },
+        {
+          "at_seconds": 83,
+          "brightness": 15.919
+        },
+        {
+          "at_seconds": 84,
+          "brightness": 16.025
+        },
+        {
+          "at_seconds": 85,
+          "brightness": 16.025
+        },
+        {
+          "at_seconds": 86,
+          "brightness": 16.025
+        },
+        {
+          "at_seconds": 87,
+          "brightness": 16.034
+        },
+        {
+          "at_seconds": 88,
+          "brightness": 16.014
+        },
+        {
+          "at_seconds": 89,
+          "brightness": 16.018
+        },
+        {
+          "at_seconds": 90,
+          "brightness": 15.918
+        }
+      ]
+    },
+    {
+      "id": "Slz3lJcqfd4",
+      "role": "TACTILE_MECHANICAL_DETAIL",
+      "title": "Ferrari 458 Spider - Official Video",
+      "duration_seconds": 185,
+      "source_kind": "YOUTUBE_PUBLIC_STORYBOARD",
+      "evidence_grade": "PARTIAL_VISUAL_2S_SAMPLING",
+      "sample_interval_seconds": 2,
+      "sample_count": 94,
+      "brightness": {
+        "count": 94,
+        "min": 0,
+        "max": 121.997,
+        "mean": 57.814,
+        "median": 61.737,
+        "stdev": 34.315,
+        "p25": 27.001,
+        "p75": 83.613,
+        "p90": 99.733
+      },
+      "contrast": {
+        "count": 94,
+        "min": 0,
+        "max": 88.6,
+        "mean": 40.146,
+        "median": 41.898,
+        "stdev": 18.336,
+        "p25": 26.503,
+        "p75": 52.744,
+        "p90": 59.151
+      },
+      "adjacent_visual_change": {
+        "count": 93,
+        "min": 0.045,
+        "max": 104.87,
+        "mean": 41.372,
+        "median": 42.721,
+        "stdev": 26.658,
+        "p25": 17.518,
+        "p75": 58.626,
+        "p90": 73.502
+      },
+      "strong_visual_change_count": 24,
+      "strong_visual_changes": [
+        {
+          "at_seconds": 10,
+          "score": 65.846
+        },
+        {
+          "at_seconds": 12,
+          "score": 64.559
+        },
+        {
+          "at_seconds": 14,
+          "score": 72.286
+        },
+        {
+          "at_seconds": 44,
+          "score": 82.301
+        },
+        {
+          "at_seconds": 46,
+          "score": 99.676
+        },
+        {
+          "at_seconds": 48,
+          "score": 68.68
+        },
+        {
+          "at_seconds": 50,
+          "score": 67.444
+        },
+        {
+          "at_seconds": 52,
+          "score": 83.736
+        },
+        {
+          "at_seconds": 54,
+          "score": 68.229
+        },
+        {
+          "at_seconds": 58,
+          "score": 58.626
+        },
+        {
+          "at_seconds": 60,
+          "score": 93.924
+        },
+        {
+          "at_seconds": 76,
+          "score": 89.163
+        },
+        {
+          "at_seconds": 78,
+          "score": 104.87
+        },
+        {
+          "at_seconds": 88,
+          "score": 70.209
+        },
+        {
+          "at_seconds": 90,
+          "score": 80.851
+        },
+        {
+          "at_seconds": 104,
+          "score": 60.526
+        },
+        {
+          "at_seconds": 106,
+          "score": 71.792
+        },
+        {
+          "at_seconds": 116,
+          "score": 84.32
+        },
+        {
+          "at_seconds": 118,
+          "score": 61.816
+        },
+        {
+          "at_seconds": 122,
+          "score": 64.246
+        },
+        {
+          "at_seconds": 124,
+          "score": 73.806
+        },
+        {
+          "at_seconds": 136,
+          "score": 59.653
+        },
+        {
+          "at_seconds": 152,
+          "score": 74.074
+        },
+        {
+          "at_seconds": 154,
+          "score": 68.876
+        }
+      ],
+      "low_change_threshold": 8,
+      "longest_low_change_run_samples": 7,
+      "longest_low_change_run_seconds": 14,
+      "dark_to_bright_transition_count": 4,
+      "luminance_range": 121.997,
+      "contrast_range": 88.6,
+      "sampled_black_frame_count": 21,
+      "sampled_black_frames": [
+        {
+          "at_seconds": 0,
+          "brightness": 0
+        },
+        {
+          "at_seconds": 2,
+          "brightness": 2.303
+        },
+        {
+          "at_seconds": 4,
+          "brightness": 2.307
+        },
+        {
+          "at_seconds": 6,
+          "brightness": 7.887
+        },
+        {
+          "at_seconds": 8,
+          "brightness": 15.379
+        },
+        {
+          "at_seconds": 12,
+          "brightness": 16.281
+        },
+        {
+          "at_seconds": 60,
+          "brightness": 12.863
+        },
+        {
+          "at_seconds": 156,
+          "brightness": 9.225
+        },
+        {
+          "at_seconds": 158,
+          "brightness": 9.307
+        },
+        {
+          "at_seconds": 160,
+          "brightness": 4.256
+        },
+        {
+          "at_seconds": 162,
+          "brightness": 11.983
+        },
+        {
+          "at_seconds": 164,
+          "brightness": 12.048
+        },
+        {
+          "at_seconds": 166,
+          "brightness": 1.721
+        },
+        {
+          "at_seconds": 168,
+          "brightness": 15.281
+        },
+        {
+          "at_seconds": 170,
+          "brightness": 15.351
+        },
+        {
+          "at_seconds": 172,
+          "brightness": 3.299
+        },
+        {
+          "at_seconds": 174,
+          "brightness": 9.614
+        },
+        {
+          "at_seconds": 176,
+          "brightness": 9.51
+        },
+        {
+          "at_seconds": 178,
+          "brightness": 1.243
+        },
+        {
+          "at_seconds": 184,
+          "brightness": 9.621
+        },
+        {
+          "at_seconds": 186,
+          "brightness": 0
+        }
+      ]
+    },
+    {
+      "id": "lnjSaGxfZ1g",
+      "role": "DOCUMENTARY_TRUTH_PLACE_HUMANITY",
+      "title": "Volvo V90 - Made by Sweden ft. Zlatan Ibrahimović",
+      "duration_seconds": 200,
+      "source_kind": "YOUTUBE_PUBLIC_STORYBOARD",
+      "evidence_grade": "PARTIAL_VISUAL_2S_SAMPLING",
+      "sample_interval_seconds": 2,
+      "sample_count": 101,
+      "brightness": {
+        "count": 101,
+        "min": 2.805,
+        "max": 94.148,
+        "mean": 35.345,
+        "median": 32.258,
+        "stdev": 15.146,
+        "p25": 26.959,
+        "p75": 41.905,
+        "p90": 53.22
+      },
+      "contrast": {
+        "count": 101,
+        "min": 13.334,
+        "max": 77.169,
+        "mean": 35.402,
+        "median": 31.777,
+        "stdev": 13.946,
+        "p25": 24.827,
+        "p75": 42.918,
+        "p90": 56.281
+      },
+      "adjacent_visual_change": {
+        "count": 100,
+        "min": 1.617,
+        "max": 73.048,
+        "mean": 26.09,
+        "median": 23.728,
+        "stdev": 15.079,
+        "p25": 15.727,
+        "p75": 34.947,
+        "p90": 44.893
+      },
+      "strong_visual_change_count": 25,
+      "strong_visual_changes": [
+        {
+          "at_seconds": 54,
+          "score": 35.414
+        },
+        {
+          "at_seconds": 60,
+          "score": 46.042
+        },
+        {
+          "at_seconds": 62,
+          "score": 49.943
+        },
+        {
+          "at_seconds": 64,
+          "score": 35.139
+        },
+        {
+          "at_seconds": 66,
+          "score": 40.213
+        },
+        {
+          "at_seconds": 68,
+          "score": 73.048
+        },
+        {
+          "at_seconds": 70,
+          "score": 66.781
+        },
+        {
+          "at_seconds": 80,
+          "score": 44.766
+        },
+        {
+          "at_seconds": 82,
+          "score": 66.353
+        },
+        {
+          "at_seconds": 84,
+          "score": 41.106
+        },
+        {
+          "at_seconds": 88,
+          "score": 68.868
+        },
+        {
+          "at_seconds": 90,
+          "score": 42.444
+        },
+        {
+          "at_seconds": 92,
+          "score": 40.389
+        },
+        {
+          "at_seconds": 118,
+          "score": 47.814
+        },
+        {
+          "at_seconds": 124,
+          "score": 35.3
+        },
+        {
+          "at_seconds": 132,
+          "score": 56.679
+        },
+        {
+          "at_seconds": 134,
+          "score": 50.888
+        },
+        {
+          "at_seconds": 150,
+          "score": 39.382
+        },
+        {
+          "at_seconds": 152,
+          "score": 39.906
+        },
+        {
+          "at_seconds": 160,
+          "score": 38.224
+        },
+        {
+          "at_seconds": 162,
+          "score": 39.161
+        },
+        {
+          "at_seconds": 188,
+          "score": 41.107
+        },
+        {
+          "at_seconds": 190,
+          "score": 46.931
+        },
+        {
+          "at_seconds": 192,
+          "score": 38.614
+        },
+        {
+          "at_seconds": 194,
+          "score": 36.006
+        }
+      ],
+      "low_change_threshold": 8,
+      "longest_low_change_run_samples": 3,
+      "longest_low_change_run_seconds": 6,
+      "dark_to_bright_transition_count": 2,
+      "luminance_range": 91.343,
+      "contrast_range": 63.835,
+      "sampled_black_frame_count": 8,
+      "sampled_black_frames": [
+        {
+          "at_seconds": 20,
+          "brightness": 16.601
+        },
+        {
+          "at_seconds": 22,
+          "brightness": 15.143
+        },
+        {
+          "at_seconds": 128,
+          "brightness": 17.53
+        },
+        {
+          "at_seconds": 130,
+          "brightness": 17.554
+        },
+        {
+          "at_seconds": 194,
+          "brightness": 10.438
+        },
+        {
+          "at_seconds": 196,
+          "brightness": 2.805
+        },
+        {
+          "at_seconds": 198,
+          "brightness": 5.035
+        },
+        {
+          "at_seconds": 200,
+          "brightness": 5.529
+        }
+      ]
+    }
+  ]
+}

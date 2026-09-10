@@ -1,0 +1,340 @@
+{
+  "generated_at": "2026-09-10T08:24:24.750Z",
+  "mode": "OFFLINE_ZERO_MEDIA_GENERATION",
+  "provider_calls_executed": 0,
+  "media_generation_executed": 0,
+  "readiness": {
+    "contract": "AVANTIQO_STUDIO_VISUAL_GENERATION_CERTIFICATION_V1",
+    "passed": false,
+    "score": 0,
+    "required_score": 100,
+    "disciplines": [
+      {
+        "id": "prompt_transport_clean",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "real fast-preview compiler strips structured continuity metadata and preserves visual anchors"
+        ]
+      },
+      {
+        "id": "subject_class_fidelity",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "physical subject signature plus candidate-review subject-class hard check"
+        ]
+      },
+      {
+        "id": "mechanical_system_plausibility",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "structured mechanical assemblies, connections and motion constraints plus hard review check"
+        ]
+      },
+      {
+        "id": "camera_path_feasibility",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "impossible camera fixture rejected: SHOT_CAMERA_PATH_CANNOT_REACH_CLOSING_FRAME"
+        ]
+      },
+      {
+        "id": "persistent_subject_identity",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "subject signature drift rejected: SHOT_SUBJECT_SIGNATURE_DRIFT:1"
+        ]
+      },
+      {
+        "id": "persistent_world_geometry",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "sequence preflight enforces inherited world identity/topology"
+        ]
+      },
+      {
+        "id": "geography_truth",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "master-plan geography proof contract plus reference grammar geography check"
+        ]
+      },
+      {
+        "id": "temporal_continuity",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "identity/topology continuity and shot invariants reject drift before generation"
+        ]
+      },
+      {
+        "id": "no_hidden_reset",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "same-label signature drift and impossible frame progression are rejected"
+        ]
+      },
+      {
+        "id": "no_unintended_generated_text",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "provider prompt sanitization plus zero-tolerance candidate review check"
+        ]
+      },
+      {
+        "id": "cinematic_authoring_specificity",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "generic repeated coverage fails while authored reveal grammar passes"
+        ]
+      },
+      {
+        "id": "reveal_progression",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "three-stage reveal/payoff fixture passes and flat reveal fixture fails"
+        ]
+      },
+      {
+        "id": "beauty_weakest_link",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "candidate review contains explicit cinematic beauty weakest-link threshold"
+        ]
+      },
+      {
+        "id": "deterministic_frame_dynamics",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "real frame-dynamics runtime passes authored dynamics and rejects flat/stasis fixtures"
+        ]
+      },
+      {
+        "id": "elite_department_orchestration",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "elite temporal production is covered by explicit creative, cinematography, production, editorial, VFX/CG, color/DI and sound departments"
+        ]
+      },
+      {
+        "id": "sealed_previsualization",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "every complex visual shot can be sealed into a deterministic physics/geography/camera/continuity blueprint before provider spend"
+        ]
+      },
+      {
+        "id": "sealed_department_handoff",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "active film departments inherit one hash-chained authoritative shot truth from sealed previz through post and quality"
+        ]
+      },
+      {
+        "id": "hero_asset_truth_boundary",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "exact hero geometry is source-locked only; research-grounded synthetic subjects cannot claim manufacturer-exact identity"
+        ]
+      },
+      {
+        "id": "subject_motion_choreography",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "moving hero subjects require a continuous physical start/path/speed/direction/clearance/end-state trajectory and impossible emergence is rejected before generation"
+        ]
+      },
+      {
+        "id": "virtual_camera_state",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "camera-led shots carry measurable focal length, subject distance, camera height, roll, focus and perspective state; hidden lens resets fail before generation"
+        ]
+      },
+      {
+        "id": "deterministic_audio_dynamics",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "final-film audio dynamics are measured deterministically and constant-bed mixes fail independently of semantic review"
+        ]
+      },
+      {
+        "id": "technical_subject_truth",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "reference-grounded real technical subjects require multiple source claims, distinguishing physical facts and prohibited lookalikes before previz"
+        ]
+      },
+      {
+        "id": "human_place_patience_truth",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "premium temporal direction requires evidence-backed task truth, lived human observation, place pressure and an earned cut trigger; generic soul/geography/patience language fails closed"
+        ]
+      },
+      {
+        "id": "product_capability_truth",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "product or technical capability must become observable proof through intent, action, visible response and felt advantage; decorative hero imagery fails closed"
+        ]
+      },
+      {
+        "id": "virtual_production_specialist_depth",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "twenty production workstreams currently activate 128 specialist functions beneath accountable agency roles"
+        ]
+      },
+      {
+        "id": "research_technical_scout_truth",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "validated multi-source research must carry location, culture, technical and weather/daylight evidence, and Technical Scout independently proves shot geography, technical subject, materials and physical lighting before Previs"
+        ]
+      },
+      {
+        "id": "creative_floor_concept_competition",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "Creative Floor requires evidence-backed human/place/patience foundations and Concept Competition requires three distinct concepts, five independent critics and a valid selected winner"
+        ]
+      },
+      {
+        "id": "production_office_orchestration",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "the production office exposes the current room, completed and missing workstreams, accountable parallel specialist lanes and exact production gate without provider or media execution"
+        ]
+      },
+      {
+        "id": "production_work_order_orchestration",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "production work orders carry owner, specialists, required outputs and cross-workstream dependencies; completion is revalidated, weak evidence returns repair routing, durable completion persists its workstream report, and no work order grants provider or media authority"
+        ]
+      },
+      {
+        "id": "durable_production_state_concurrency",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "production-room state and workstream reports persist on the existing ProductionGraph and parallel writes use compare-and-swap against updated_at so stale departments cannot overwrite newer production state"
+        ]
+      },
+      {
+        "id": "owned_production_specialist_execution",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "production specialists execute only through owned Avantiqo reasoning with external fallback disabled; their structured evidence is deterministically revalidated and carries no media-generation authority"
+        ]
+      },
+      {
+        "id": "parallel_specialist_wave_orchestration",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "bounded specialist waves execute independent ready work in parallel, preserve pass/repair results separately, batch-merge one durable production state, and remain organization/project bound with no media authority"
+        ]
+      },
+      {
+        "id": "production_dependency_deadlock_free",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "stage-aware production dependencies are statically simulated across all fifteen rooms and no required specialist workstream is allowed to depend on work that can only happen in a later room"
+        ]
+      },
+      {
+        "id": "production_room_pipeline",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "research-to-release production rooms are ordered, staffed and hash-sealed; stage skipping is rejected"
+        ]
+      },
+      {
+        "id": "virtual_rehearsal_production_gate",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "visual provider execution remains blocked until the specific production has sealed Research Room through Virtual Rehearsal"
+        ]
+      },
+      {
+        "id": "production_unit_take_governance",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "every governed visual execution must bind one bounded planned take to owning production units, continuity keys, editorial purpose and the sealed rehearsal digest"
+        ]
+      },
+      {
+        "id": "dailies_post_release_chain",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "dailies reject a weak department, editorial forbids rejected takes, and release fails without master QC, rights evidence and delivery approval"
+        ]
+      },
+      {
+        "id": "reference_grammar_alignment",
+        "passed": false,
+        "score": 0,
+        "evidence": [
+          "BLOCKED: five-reference public visual storyboard benchmark verified, but full-reference/audio measurement remains unverified"
+        ]
+      },
+      {
+        "id": "known_failure_preflight_rejection",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "hostile deterministic fixtures all rejected before provider execution"
+        ]
+      },
+      {
+        "id": "zero_paid_media_generation",
+        "passed": true,
+        "score": 100,
+        "evidence": [
+          "task, common provider, video provider and image provider master locks are all closed"
+        ]
+      }
+    ],
+    "failed_disciplines": [
+      "reference_grammar_alignment"
+    ],
+    "zero_paid_media_generation": true,
+    "known_failure_suite_passed": true
+  },
+  "certification": null
+}

@@ -147,28 +147,61 @@ def negative_prompt(data: dict[str, Any]) -> str:
     return ", ".join(text(value) for value in values if text(value))[:6000]
 
 
+def _clean_visual_phrase(value: Any) -> str:
+    phrase = text(value)
+    if not phrase:
+        return ""
+    forbidden = (
+        "previous_", "previous ", "purpose:", "camera:", "continuity:",
+        "shot_specification", "identity_lock", "negative_constraints",
+        "reject", "rejection", "json", "uuid", "metadata", "no text",
+        "no typography", "no captions",
+    )
+    lowered = phrase.lower()
+    if any(token in lowered for token in forbidden):
+        return ""
+    if any(ch in phrase for ch in "{}[]"):
+        return ""
+    if len(phrase) > 420:
+        phrase = phrase[:420].rsplit(" ", 1)[0]
+    return " ".join(phrase.split())
+
+
 def cinematic_instruction(data: dict[str, Any]) -> str:
-    base = text(data.get("instruction"))
+    base = _clean_visual_phrase(data.get("instruction"))
     control = object_value(data.get("cinematic_control"))
     if not control:
         return base
-    bounded = {
-        "camera": object_value(control.get("camera")),
-        "continuity": object_value(control.get("continuity")),
-        "frame_contract": object_value(control.get("frame_contract")),
-        "shot_specification": object_value(control.get("shot_specification")),
-        "identity_lock": object_value(control.get("identity_lock")),
-        "negative_constraints": control.get("negative_constraints") if isinstance(control.get("negative_constraints"), list) else [],
-    }
-    serialized = json.dumps(bounded, separators=(",", ":"), ensure_ascii=True)
-    if len(serialized) > 6000:
-        raise ValueError("AVANTIQO_VIDEO_CINEMATIC_CONTROL_TOO_LARGE")
-    return (
-        f"{base}\n\n"
-        "GOVERNED CINEMATIC CONTROL: Treat the following structured continuity, camera, frame and identity constraints as binding. "
-        "Preserve approved identity and source geometry; execute the requested camera move only; reach the specified closing state without temporal drift.\n"
-        f"{serialized}"
-    )
+
+    camera = object_value(control.get("camera"))
+    frame = object_value(control.get("frame_contract"))
+    shot = object_value(control.get("shot_specification"))
+    visual_candidates = [
+        camera.get("movement"), camera.get("move"), camera.get("motion"),
+        camera.get("framing"), camera.get("composition"), camera.get("lens"),
+        shot.get("visual_direction"), shot.get("description"), shot.get("action"),
+        shot.get("lighting"), shot.get("production_design"),
+        frame.get("opening"), frame.get("opening_frame"),
+        frame.get("closing"), frame.get("closing_frame"),
+        control.get("beauty_intent"), control.get("focal_path"), control.get("depth_layers"),
+        control.get("reveal_stage"), control.get("mystery_function"),
+    ]
+    phrases = []
+    for candidate in visual_candidates:
+        if isinstance(candidate, dict):
+            for child in candidate.values():
+                cleaned = _clean_visual_phrase(child)
+                if cleaned and cleaned not in phrases:
+                    phrases.append(cleaned)
+        else:
+            cleaned = _clean_visual_phrase(candidate)
+            if cleaned and cleaned not in phrases:
+                phrases.append(cleaned)
+        if len(phrases) >= 8:
+            break
+
+    parts = [part for part in [base, *phrases] if part]
+    return ". ".join(parts)[:2200].strip(" .") + ("." if parts else "")
 
 
 def as_rgb_image(frame: Any) -> Image.Image:

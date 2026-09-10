@@ -1,0 +1,312 @@
+{
+  "contract": "CREATIVE_CINEMATIC_PUBLIC_STORYBOARD_BENCHMARK_V1",
+  "generated_at": "2026-09-10T04:17:46.219Z",
+  "measurement_mode": "PUBLIC_YOUTUBE_STORYBOARD_VISUAL_SAMPLING",
+  "evidence_grade": "PARTIAL_VISUAL_ONLY",
+  "visual_measurements_verified": true,
+  "full_reference_measurements_verified": false,
+  "audio_measurements_verified": false,
+  "maximum_sample_interval_seconds": 5,
+  "provider_calls_executed": 0,
+  "media_generation_executed": 0,
+  "shared_visual_envelope": {
+    "minimum_luminance_range": 158.761,
+    "minimum_contrast_range": 82.453,
+    "minimum_adjacent_visual_change_mean": 48.794,
+    "minimum_adjacent_visual_change_p75": 65.064,
+    "maximum_longest_low_change_run_seconds": 5,
+    "minimum_dark_to_bright_transition_count": 1
+  },
+  "references": [
+    {
+      "id": "YhS_kCgAHEc",
+      "role": "ENGINEERING_TRUTH_TO_DESIGN_MEANING",
+      "title": "Mercedes-AMG ONE DEEP DIVE | Design",
+      "duration_seconds": 349,
+      "source_kind": "YOUTUBE_PUBLIC_STORYBOARD",
+      "evidence_grade": "PARTIAL_VISUAL_2S_SAMPLING",
+      "sample_interval_seconds": 5,
+      "sample_count": 71,
+      "brightness": {
+        "count": 71,
+        "min": 0.156,
+        "max": 173.391,
+        "mean": 84.472,
+        "median": 90.271,
+        "stdev": 39.661,
+        "p25": 55.847,
+        "p75": 112.692,
+        "p90": 137.176
+      },
+      "contrast": {
+        "count": 71,
+        "min": 0.838,
+        "max": 87.163,
+        "mean": 49.374,
+        "median": 51.595,
+        "stdev": 17.466,
+        "p25": 41.195,
+        "p75": 61.141,
+        "p90": 67.138
+      },
+      "adjacent_visual_change": {
+        "count": 70,
+        "min": 0.753,
+        "max": 120.041,
+        "mean": 62.077,
+        "median": 60.734,
+        "stdev": 21.648,
+        "p25": 51.974,
+        "p75": 73.641,
+        "p90": 85.266
+      },
+      "strong_visual_change_count": 18,
+      "strong_visual_changes": [
+        {
+          "at_seconds": 20,
+          "score": 111.412
+        },
+        {
+          "at_seconds": 40,
+          "score": 120.041
+        },
+        {
+          "at_seconds": 65,
+          "score": 95.11
+        },
+        {
+          "at_seconds": 75,
+          "score": 84.816
+        },
+        {
+          "at_seconds": 80,
+          "score": 78.665
+        },
+        {
+          "at_seconds": 90,
+          "score": 84.025
+        },
+        {
+          "at_seconds": 95,
+          "score": 82.795
+        },
+        {
+          "at_seconds": 125,
+          "score": 89.316
+        },
+        {
+          "at_seconds": 195,
+          "score": 77.812
+        },
+        {
+          "at_seconds": 200,
+          "score": 73.874
+        },
+        {
+          "at_seconds": 215,
+          "score": 102.795
+        },
+        {
+          "at_seconds": 220,
+          "score": 100.05
+        },
+        {
+          "at_seconds": 235,
+          "score": 90.961
+        },
+        {
+          "at_seconds": 250,
+          "score": 82.946
+        },
+        {
+          "at_seconds": 295,
+          "score": 75.709
+        },
+        {
+          "at_seconds": 300,
+          "score": 78.666
+        },
+        {
+          "at_seconds": 310,
+          "score": 84.044
+        },
+        {
+          "at_seconds": 315,
+          "score": 76.358
+        }
+      ],
+      "low_change_threshold": 8,
+      "longest_low_change_run_samples": 1,
+      "longest_low_change_run_seconds": 5,
+      "dark_to_bright_transition_count": 1,
+      "luminance_range": 173.235,
+      "contrast_range": 86.325,
+      "sampled_black_frame_count": 5,
+      "sampled_black_frames": [
+        {
+          "at_seconds": 25,
+          "brightness": 16.317
+        },
+        {
+          "at_seconds": 35,
+          "brightness": 3.382
+        },
+        {
+          "at_seconds": 100,
+          "brightness": 16.4
+        },
+        {
+          "at_seconds": 345,
+          "brightness": 0.833
+        },
+        {
+          "at_seconds": 350,
+          "brightness": 0.156
+        }
+      ]
+    },
+    {
+      "id": "5jf-Eb4u5Ks",
+      "role": "PERFORMANCE_DESIRE_HERO_AUTHORITY",
+      "title": "2026 Mercedes-AMG GT 63 PRO 4MATIC+ Coupe “It Belongs To You” Commercial​",
+      "duration_seconds": 62,
+      "source_kind": "YOUTUBE_PUBLIC_STORYBOARD",
+      "evidence_grade": "PARTIAL_VISUAL_2S_SAMPLING",
+      "sample_interval_seconds": 1,
+      "sample_count": 64,
+      "brightness": {
+        "count": 64,
+        "min": 0.034,
+        "max": 158.795,
+        "mean": 60.174,
+        "median": 60.791,
+        "stdev": 34.621,
+        "p25": 31.616,
+        "p75": 80.998,
+        "p90": 108.137
+      },
+      "contrast": {
+        "count": 64,
+        "min": 0,
+        "max": 82.453,
+        "mean": 39.06,
+        "median": 37.158,
+        "stdev": 19.115,
+        "p25": 25.886,
+        "p75": 52.955,
+        "p90": 63.632
+      },
+      "adjacent_visual_change": {
+        "count": 63,
+        "min": 0.202,
+        "max": 117.197,
+        "mean": 48.794,
+        "median": 49.73,
+        "stdev": 27.78,
+        "p25": 27.243,
+        "p75": 65.064,
+        "p90": 86.882
+      },
+      "strong_visual_change_count": 16,
+      "strong_visual_changes": [
+        {
+          "at_seconds": 5,
+          "score": 101.386
+        },
+        {
+          "at_seconds": 6,
+          "score": 81.253
+        },
+        {
+          "at_seconds": 11,
+          "score": 65.524
+        },
+        {
+          "at_seconds": 22,
+          "score": 65.194
+        },
+        {
+          "at_seconds": 24,
+          "score": 75.989
+        },
+        {
+          "at_seconds": 27,
+          "score": 80.246
+        },
+        {
+          "at_seconds": 33,
+          "score": 117.197
+        },
+        {
+          "at_seconds": 34,
+          "score": 103.314
+        },
+        {
+          "at_seconds": 38,
+          "score": 72.533
+        },
+        {
+          "at_seconds": 42,
+          "score": 93.003
+        },
+        {
+          "at_seconds": 48,
+          "score": 90.588
+        },
+        {
+          "at_seconds": 49,
+          "score": 100.86
+        },
+        {
+          "at_seconds": 51,
+          "score": 83.959
+        },
+        {
+          "at_seconds": 52,
+          "score": 87.612
+        },
+        {
+          "at_seconds": 57,
+          "score": 74.55
+        },
+        {
+          "at_seconds": 59,
+          "score": 67.835
+        }
+      ],
+      "low_change_threshold": 8,
+      "longest_low_change_run_samples": 3,
+      "longest_low_change_run_seconds": 3,
+      "dark_to_bright_transition_count": 1,
+      "luminance_range": 158.761,
+      "contrast_range": 82.453,
+      "sampled_black_frame_count": 6,
+      "sampled_black_frames": [
+        {
+          "at_seconds": 4,
+          "brightness": 14.421
+        },
+        {
+          "at_seconds": 59,
+          "brightness": 13.151
+        },
+        {
+          "at_seconds": 60,
+          "brightness": 1.237
+        },
+        {
+          "at_seconds": 61,
+          "brightness": 1.069
+        },
+        {
+          "at_seconds": 62,
+          "brightness": 0.034
+        },
+        {
+          "at_seconds": 63,
+          "brightness": 1
+        }
+      ]
+    }
+  ]
+}

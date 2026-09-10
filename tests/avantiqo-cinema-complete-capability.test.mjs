@@ -31,7 +31,7 @@ test("owned Cinema implements all nine target capabilities without default over-
   }
   assert.match(registration, /IMPLEMENTED_CAPABILITIES = Object\.freeze\(\[\.\.\.TARGET_CAPABILITIES\]\)/);
   assert.match(registration, /DEFAULT_CERTIFIED_CAPABILITIES = Object\.freeze\(\[\s*"ai\.video\.generate",\s*"ai\.video\.image_to_video",\s*\]\)/s);
-  assert.match(registration, /PROVIDER_VIDEO_CAPABILITY_CONFIGURATION_V2/);
+  assert.match(registration, /PROVIDER_VIDEO_CAPABILITY_CONFIGURATION_V3/);
 });
 
 test("Cinema extend continues from the exact source tail under governed cinematic control", () => {

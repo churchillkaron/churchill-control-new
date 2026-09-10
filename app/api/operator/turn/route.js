@@ -37,6 +37,9 @@ import {
 import {
   prepareBankStatementAttachment,
 } from "@/lib/finance/bank-statements/BankStatementAttachmentPreparationRuntime";
+import {
+  routeAnalyzedAttachment,
+} from "@/lib/platform/runtime/UniversalAttachmentRoutingRuntime";
 
 function readValue(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -302,8 +305,12 @@ export async function POST(request) {
           organizationId: businessContext.organizationId,
           entityId: businessContext.entityId,
         });
-        return bankStatement.recognized === true
-          ? { ...file, prepared_candidate: { type: "bank_statement", ...bankStatement } }
+        if (bankStatement.recognized === true) {
+          return { ...file, prepared_candidate: { type: "bank_statement", ...bankStatement } };
+        }
+        const destination = routeAnalyzedAttachment(file);
+        return destination
+          ? { ...file, prepared_candidate: destination }
           : file;
       }),
     );

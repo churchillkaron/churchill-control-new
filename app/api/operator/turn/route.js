@@ -40,6 +40,9 @@ import {
   prepareBankStatementAttachment,
 } from "@/lib/finance/bank-statements/BankStatementAttachmentPreparationRuntime";
 import {
+  prepareInventoryAttachment,
+} from "@/lib/inventory/runtime/InventoryAttachmentPreparationRuntime";
+import {
   routeAnalyzedAttachment,
 } from "@/lib/platform/runtime/UniversalAttachmentRoutingRuntime";
 import { ERP_REGISTRY } from "@/lib/platform/registry/erpRegistry";
@@ -347,6 +350,14 @@ export async function POST(request) {
         });
         if (bankStatement.recognized === true) {
           return { ...file, prepared_candidate: { type: "bank_statement", ...bankStatement } };
+        }
+        const inventoryImport = await prepareInventoryAttachment({
+          file,
+          organizationId: businessContext.organizationId,
+          entityId: businessContext.entityId,
+        });
+        if (inventoryImport.recognized === true) {
+          return { ...file, prepared_candidate: inventoryImport };
         }
         const destination = routeAnalyzedAttachment(file, { registry: ERP_REGISTRY });
         return destination

@@ -43,6 +43,9 @@ import {
   prepareInventoryAttachment,
 } from "@/lib/inventory/runtime/InventoryAttachmentPreparationRuntime";
 import {
+  prepareGoodsReceiptAttachment,
+} from "@/lib/inventory/procurement/receiving/GoodsReceiptAttachmentPreparationRuntime";
+import {
   preparePaidExpenseReceiptAttachment,
 } from "@/lib/finance/expense-receipts/PaidExpenseReceiptAttachmentPreparationRuntime";
 import {
@@ -367,6 +370,14 @@ export async function POST(request) {
         });
         if (inventoryImport.recognized === true) {
           return { ...file, prepared_candidate: inventoryImport };
+        }
+        const goodsReceipt = await prepareGoodsReceiptAttachment({
+          file,
+          organizationId: businessContext.organizationId,
+          entityId: businessContext.entityId,
+        });
+        if (goodsReceipt.recognized === true) {
+          return { ...file, prepared_candidate: { type: "goods_receipt", ...goodsReceipt } };
         }
         const paidExpense = await preparePaidExpenseReceiptAttachment({
           file,

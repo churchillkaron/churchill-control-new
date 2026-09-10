@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowUpRight, Download, FileText, Folder, ImageIcon, Music2, Video } from "lucide-react";
+import { ArrowUpRight, Download, FileSpreadsheet, FileText, Folder, ImageIcon, Music2, Video } from "lucide-react";
 
 const URL_KEYS = new Set([
   "url", "href", "file_url", "signed_url", "inspection_url", "asset_url",
@@ -9,6 +9,8 @@ const URL_KEYS = new Set([
   "audio_url", "package_url", "screenshot_url", "thumbnail_url", "document_url",
   "pdf_url", "receipt_url", "download_url", "master_url", "media_url", "storage_reference",
   "playback_url", "primary_url", "master_signed_url", "uri", "output_reference",
+  "final_url", "render_url", "final_render_url", "build_artifact_url", "output_storage_reference",
+  "provider_receipt_url", "waveform_url",
 ]);
 
 function text(value) {
@@ -38,6 +40,7 @@ function mediaKind(value, mimeType = "", key = "") {
   if (mime.startsWith("video/") || /video|master/.test(field) || /\.(mp4|webm|mov|m4v)$/.test(source)) return "video";
   if (mime.startsWith("audio/") || /audio/.test(field) || /\.(mp3|wav|m4a|aac|ogg|flac)$/.test(source)) return "audio";
   if (mime === "application/pdf" || /pdf|receipt|document/.test(field) || /\.pdf$/.test(source)) return "document";
+  if (/spreadsheet|excel|csv/.test(mime) || /\.(xlsx?|csv)$/.test(source)) return "spreadsheet";
   return "file";
 }
 
@@ -52,7 +55,7 @@ function folderLabel(value, parent, kind) {
   return text(
     value?.folder || value?.folder_name || value?.filing_folder || value?.group || value?.section ||
     parent?.folder || parent?.folder_name || parent?.filing_folder || parent?.group || parent?.section,
-  ) || (kind === "image" ? "Images" : kind === "video" ? "Videos" : kind === "audio" ? "Audio" : kind === "document" ? "Documents" : "Files");
+  ) || (kind === "image" ? "Images" : kind === "video" ? "Videos" : kind === "audio" ? "Audio" : kind === "document" ? "Documents" : kind === "spreadsheet" ? "Spreadsheets" : "Files");
 }
 
 export function operatorExecutionArtifacts({ execution = {}, evidence = {}, organizationId = null } = {}) {
@@ -72,6 +75,7 @@ export function operatorExecutionArtifacts({ execution = {}, evidence = {}, orga
       mime_type: mimeType || null,
       label: itemLabel(owner, parent, kind, items.length),
       folder: folderLabel(owner, parent, kind),
+      preview_rows: Array.isArray(owner?.rows) ? owner.rows.slice(0, 20) : Array.isArray(owner?.data) ? owner.data.slice(0, 20) : null,
     });
   }
 
@@ -98,7 +102,41 @@ function KindIcon({ kind }) {
   if (kind === "image") return <ImageIcon size={13} />;
   if (kind === "video") return <Video size={13} />;
   if (kind === "audio") return <Music2 size={13} />;
+  if (kind === "spreadsheet") return <FileSpreadsheet size={13} />;
   return <FileText size={13} />;
+}
+
+function SpreadsheetPreview({ rows = [] }) {
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const objectRows = rows.every((row) => row && typeof row === "object" && !Array.isArray(row));
+  const columns = objectRows
+    ? [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 12)
+    : [];
+
+  return (
+    <div className="max-h-[360px] overflow-auto border-b border-white/[0.06] bg-black/15">
+      <table className="min-w-full border-collapse text-left text-[9px] text-white/65">
+        {objectRows && columns.length ? (
+          <>
+            <thead className="sticky top-0 bg-[#151411] text-[#E5C28D]">
+              <tr>{columns.map((column) => <th key={column} className="border-b border-white/10 px-2 py-2 font-medium">{column}</th>)}</tr>
+            </thead>
+            <tbody>{rows.map((row, index) => (
+              <tr key={index} className="border-b border-white/[0.05]">
+                {columns.map((column) => <td key={column} className="max-w-[240px] truncate px-2 py-2">{text(row?.[column])}</td>)}
+              </tr>
+            ))}</tbody>
+          </>
+        ) : (
+          <tbody>{rows.map((row, index) => (
+            <tr key={index} className="border-b border-white/[0.05]">
+              {(Array.isArray(row) ? row : [row]).slice(0, 12).map((cell, cellIndex) => <td key={cellIndex} className="max-w-[240px] truncate px-2 py-2">{text(cell)}</td>)}
+            </tr>
+          ))}</tbody>
+        )}
+      </table>
+    </div>
+  );
 }
 
 function ArtifactPreview({ artifact }) {
@@ -113,6 +151,9 @@ function ArtifactPreview({ artifact }) {
   }
   if (artifact.kind === "document") {
     return <iframe src={artifact.url} title={artifact.label} loading="lazy" className="h-[420px] w-full bg-white" />;
+  }
+  if (artifact.kind === "spreadsheet") {
+    return <SpreadsheetPreview rows={artifact.preview_rows || []} />;
   }
   return null;
 }

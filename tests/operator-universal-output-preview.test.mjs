@@ -30,3 +30,13 @@ test("universal preview keeps unsafe URL schemes out", () => {
   assert.match(renderer, /url\.startsWith\("storage:\/\/"\)/);
   assert.doesNotMatch(renderer, /javascript:/i);
 });
+
+
+test("universal preview treats Excel and CSV as spreadsheet outputs with download preserved", () => {
+  assert.match(renderer, /spreadsheet\|excel\|csv/);
+  assert.match(renderer, /\\.\(xlsx\?\|csv\)\$/);
+  assert.match(renderer, /FileSpreadsheet/);
+  assert.match(renderer, /SpreadsheetPreview/);
+  assert.match(renderer, /preview_rows/);
+  assert.match(renderer, /<a href=\{artifact\.url\} download/);
+});

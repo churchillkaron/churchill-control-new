@@ -55,6 +55,9 @@ import {
   preparePurchaseOrderAttachment,
 } from "@/lib/inventory/procurement/purchase-orders/runtime/PurchaseOrderAttachmentPreparationRuntime";
 import {
+  prepareSupplierAttachment,
+} from "@/lib/inventory/procurement/suppliers/SupplierAttachmentPreparationRuntime";
+import {
   routeAnalyzedAttachment,
 } from "@/lib/platform/runtime/UniversalAttachmentRoutingRuntime";
 import { ERP_REGISTRY } from "@/lib/platform/registry/erpRegistry";
@@ -402,6 +405,13 @@ export async function POST(request) {
         });
         if (purchaseOrder.recognized === true) {
           return { ...file, prepared_candidate: { type: "purchase_order", ...purchaseOrder } };
+        }
+        const supplier = await prepareSupplierAttachment({
+          file,
+          organizationId: businessContext.organizationId,
+        });
+        if (supplier.recognized === true) {
+          return { ...file, prepared_candidate: { type: "supplier", ...supplier } };
         }
         const destination = routeAnalyzedAttachment(file, { registry: ERP_REGISTRY });
         return destination

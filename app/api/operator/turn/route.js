@@ -49,6 +49,9 @@ import {
   prepareVendorBillAttachment,
 } from "@/lib/finance/accounts-payable/runtime/VendorBillAttachmentPreparationRuntime";
 import {
+  preparePurchaseOrderAttachment,
+} from "@/lib/inventory/procurement/purchase-orders/runtime/PurchaseOrderAttachmentPreparationRuntime";
+import {
   routeAnalyzedAttachment,
 } from "@/lib/platform/runtime/UniversalAttachmentRoutingRuntime";
 import { ERP_REGISTRY } from "@/lib/platform/registry/erpRegistry";
@@ -380,6 +383,14 @@ export async function POST(request) {
         });
         if (vendorBill.recognized === true) {
           return { ...file, prepared_candidate: { type: "vendor_bill", ...vendorBill } };
+        }
+        const purchaseOrder = await preparePurchaseOrderAttachment({
+          file,
+          organizationId: businessContext.organizationId,
+          entityId: businessContext.entityId,
+        });
+        if (purchaseOrder.recognized === true) {
+          return { ...file, prepared_candidate: { type: "purchase_order", ...purchaseOrder } };
         }
         const destination = routeAnalyzedAttachment(file, { registry: ERP_REGISTRY });
         return destination

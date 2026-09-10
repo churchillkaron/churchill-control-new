@@ -55,6 +55,9 @@ import {
   preparePurchaseOrderAttachment,
 } from "@/lib/inventory/procurement/purchase-orders/runtime/PurchaseOrderAttachmentPreparationRuntime";
 import {
+  prepareSupplierPriceAttachment,
+} from "@/lib/inventory/procurement/suppliers/SupplierPriceAttachmentPreparationRuntime";
+import {
   prepareSupplierAttachment,
 } from "@/lib/inventory/procurement/suppliers/SupplierAttachmentPreparationRuntime";
 import {
@@ -405,6 +408,14 @@ export async function POST(request) {
         });
         if (purchaseOrder.recognized === true) {
           return { ...file, prepared_candidate: { type: "purchase_order", ...purchaseOrder } };
+        }
+        const supplierPrice = await prepareSupplierPriceAttachment({
+          file,
+          organizationId: businessContext.organizationId,
+          entityId: businessContext.entityId,
+        });
+        if (supplierPrice.recognized === true) {
+          return { ...file, prepared_candidate: { type: "supplier_price", ...supplierPrice } };
         }
         const supplier = await prepareSupplierAttachment({
           file,

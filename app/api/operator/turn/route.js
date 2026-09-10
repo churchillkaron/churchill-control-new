@@ -42,9 +42,11 @@ import {
 import {
   routeAnalyzedAttachment,
 } from "@/lib/platform/runtime/UniversalAttachmentRoutingRuntime";
+import { ERP_REGISTRY } from "@/lib/platform/registry/erpRegistry";
 import {
   matchAnalyzedAttachmentToBusiness,
 } from "@/lib/platform/runtime/UniversalAttachmentBusinessMatchRuntime";
+import { attachmentLogicalObjects } from "@/lib/platform/runtime/ConversationAttachmentObjectRuntime";
 
 function readValue(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -316,8 +318,12 @@ export async function POST(request) {
       }
     }
 
+    const logicalConversationAttachments = analyzedConversationAttachments.flatMap((file) =>
+      attachmentLogicalObjects(file),
+    );
+
     const matchedConversationAttachments = await Promise.all(
-      analyzedConversationAttachments.map(async (file) => {
+      logicalConversationAttachments.map(async (file) => {
         try {
           const businessMatch = await matchAnalyzedAttachmentToBusiness({
             file,
@@ -342,7 +348,7 @@ export async function POST(request) {
         if (bankStatement.recognized === true) {
           return { ...file, prepared_candidate: { type: "bank_statement", ...bankStatement } };
         }
-        const destination = routeAnalyzedAttachment(file);
+        const destination = routeAnalyzedAttachment(file, { registry: ERP_REGISTRY });
         return destination
           ? { ...file, prepared_candidate: destination }
           : file;

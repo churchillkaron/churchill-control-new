@@ -30,7 +30,10 @@ FAST_MODEL_PATH = f"{MODEL_ROOT}/fast"
 DEEP_MODEL_PATH = f"{MODEL_ROOT}/deep"
 MODEL_PATHS = {FAST_MODEL: FAST_MODEL_PATH, DEEP_MODEL: DEEP_MODEL_PATH}
 GPU = "H100"
-MAX_MODEL_LEN = 32768
+FAST_MAX_MODEL_LEN = 32768
+DEEP_MAX_MODEL_LEN = 131072
+FAST_MAX_INPUT_CHARACTERS = 100000
+DEEP_MAX_INPUT_CHARACTERS = 500000
 MAX_OUTPUT_TOKENS = 16384
 FAST_SCALEDOWN_WINDOW_SECONDS = 10
 DEEP_SCALEDOWN_WINDOW_SECONDS = 5
@@ -143,10 +146,21 @@ def _safe(value: Any, depth: int = 0) -> Any:
     }
 
 
-def _messages(data: dict[str, Any]) -> list[dict[str, Any]]:
+def _bounded_input_text(value: Any, *, limit: int, field: str) -> str:
+    content = str(value or "").strip()
+    if len(content) > limit:
+        raise ValueError(
+            f"AVANTIQO_INTELLIGENCE_INPUT_CONTEXT_TOO_LARGE:{field}:{len(content)}:{limit}"
+        )
+    return content
+
+
+def _messages(data: dict[str, Any], lane: str) -> list[dict[str, Any]]:
+    input_limit = DEEP_MAX_INPUT_CHARACTERS if lane == "deep" else FAST_MAX_INPUT_CHARACTERS
     supplied = data.get("messages")
     if isinstance(supplied, list) and supplied:
         result = []
+        total_characters = 0
         for message in supplied[:200]:
             if not isinstance(message, dict):
                 continue
@@ -155,15 +169,29 @@ def _messages(data: dict[str, Any]) -> list[dict[str, Any]]:
             if role not in {"system", "user", "assistant", "tool"}:
                 continue
             if isinstance(content, str):
-                content = content[:100000]
+                content = _bounded_input_text(content, limit=input_limit, field=f"message_{role}")
+                total_characters += len(content)
+                if total_characters > input_limit:
+                    raise ValueError(
+                        f"AVANTIQO_INTELLIGENCE_INPUT_CONTEXT_TOO_LARGE:messages:{total_characters}:{input_limit}"
+                    )
             result.append({**_safe(message), "role": role, "content": content})
         if result:
             return result
-    system = _text(
+    system = _bounded_input_text(
         data.get("system_prompt") or data.get("systemPrompt") or data.get("instructions_text"),
-        100000,
+        limit=input_limit,
+        field="system_prompt",
     )
-    prompt = _text(data.get("prompt") or data.get("input") or data.get("text"), 100000)
+    prompt = _bounded_input_text(
+        data.get("prompt") or data.get("input") or data.get("text"),
+        limit=input_limit,
+        field="prompt",
+    )
+    if len(system) + len(prompt) > input_limit:
+        raise ValueError(
+            f"AVANTIQO_INTELLIGENCE_INPUT_CONTEXT_TOO_LARGE:combined:{len(system) + len(prompt)}:{input_limit}"
+        )
     result = []
     if system:
         result.append({"role": "system", "content": system})
@@ -301,9 +329,9 @@ def _llm(model: str) -> Any:
     options: dict[str, Any] = {
         "model": str(local_model),
         "dtype": "bfloat16",
-        "max_model_len": MAX_MODEL_LEN,
+        "max_model_len": DEEP_MAX_MODEL_LEN if model == DEEP_MODEL else FAST_MAX_MODEL_LEN,
         "tensor_parallel_size": 1,
-        "gpu_memory_utilization": 0.90,
+        "gpu_memory_utilization": 0.97 if model == DEEP_MODEL else 0.90,
         "trust_remote_code": False,
     }
     if model == FAST_MODEL:
@@ -327,7 +355,7 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
     if not _text(data.get("usage_id"), 200):
         raise ValueError("AVANTIQO_INTELLIGENCE_USAGE_ID_REQUIRED")
 
-    messages = _messages(data)
+    messages = _messages(data, lane)
     supplied_tools = _safe(data.get("tools")) if isinstance(data.get("tools"), list) else None
     tools, tool_instruction, tool_required = _tool_policy(data, supplied_tools)
     if tool_instruction:
@@ -502,7 +530,7 @@ class FastSnapshotWorker:
         engine = LLM(
             model=FAST_MODEL_PATH,
             dtype="bfloat16",
-            max_model_len=MAX_MODEL_LEN,
+            max_model_len=FAST_MAX_MODEL_LEN,
             tensor_parallel_size=1,
             gpu_memory_utilization=0.90,
             trust_remote_code=False,

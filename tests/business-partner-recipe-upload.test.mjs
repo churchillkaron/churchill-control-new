@@ -12,8 +12,8 @@ const capability = { key:'supply-chain.recipes.upsert', mode:'write', requires_c
 function readyRecipe(){
   return { name:'recipe.pdf', prepared_candidate:{ type:'recipe', recognized:true, status:'READY_FOR_REVIEW',
     dish:{id:'dish-1',dish_code:'D-001',name:'Beef Burger'},
-    recipe_items:[{item_id:'item-1',quantity:150,uom_id:'uom-g',item_code:'BEEF-001'}],
-    import_payload:{dish_id:'dish-1',items:[{item_id:'item-1',quantity:150,uom_id:'uom-g'}]}, authorization_effect:'NONE' } };
+    recipe_items:[{item_id:'item-1',quantity:150,uom_id:'uom-g',item_code:'BEEF-001',yield_percent:82}],
+    import_payload:{dish_id:'dish-1',items:[{item_id:'item-1',quantity:150,uom_id:'uom-g',yield_percent:82}]}, authorization_effect:'NONE' } };
 }
 
 test('ready recipe upload stages governed atomic recipe replacement',()=>{
@@ -23,6 +23,7 @@ test('ready recipe upload stages governed atomic recipe replacement',()=>{
   assert.equal(result.intent,'execute');
   assert.equal(result.execution.capability_key,'supply-chain.recipes.upsert');
   assert.equal(result.execution.payload.dish_id,'dish-1');
+  assert.equal(result.execution.payload.items[0].yield_percent,82);
   assert.match(result.response_text,/requires your confirmation/i);
 });
 
@@ -57,6 +58,8 @@ test('recipe preparer requires strong dish target exact item codes and UOM conve
   assert.match(source,/Please select the dish or provide its dish code/);
   assert.match(source,/item_code\|\|r\.sku\|\|r\.ingredient_code/);
   assert.match(source,/resolveFactorToItemBase/);
+  assert.match(source,/yield_percent/);
+  assert.match(source,/usable yield percentage/);
   assert.doesNotMatch(source,/\.ilike\(/);
 });
 
@@ -66,6 +69,7 @@ test('manual recipe API converges on atomic writer and production permission',()
   assert.match(api,/permissionKey:"production\.manage"/);
   assert.match(api,/entityId required/);
   assert.match(writer,/production_upsert_recipe_atomic/);
+  assert.match(writer,/yield_percent/);
   assert.doesNotMatch(writer,/\.from\("recipe_items"\)\.delete/);
 });
 
@@ -81,7 +85,8 @@ test('recipe costing and menu engineering use one canonical live recipe model',(
   assert.match(costing,/\.from\("recipe_items"\)/);
   assert.match(costing,/\.from\("inventory_items"\)/);
   assert.match(costing,/inventory_item_uom_conversions/);
-  assert.match(costing,/CURRENT_OPERATIONAL_ITEM_COST_V1/);
+  assert.match(costing,/CURRENT_OPERATIONAL_ITEM_COST_WITH_YIELD_V2/);
+  assert.match(costing,/purchaseQuantity=\(quantity\*factor\)\/\(yieldPercent\/100\)/);
   assert.doesNotMatch(costing,/recipe_cost_snapshots/);
   assert.doesNotMatch(costing,/weighted_average_cost/);
   assert.doesNotMatch(oldDish,/ingredients\s*\(/);
@@ -95,4 +100,14 @@ test('costing routes accept canonical dish id while preserving legacy request al
   const menu=read('app/api/production/recipe-costing/menu-engineering/route.js');
   assert.match(calculate,/body\.dishId \|\| body\.dish_id \|\| body\.recipeId \|\| body\.recipe_id/);
   assert.match(menu,/body\.dishId \|\| body\.dish_id \|\| body\.recipeId \|\| body\.recipe_id/);
+});
+
+test('recipe yield migration grosses usable quantity into purchase-cost quantity and remains atomic',()=>{
+  const sql=read('supabase/migrations/20260910173000_production_recipe_yield_costing.sql');
+  assert.match(sql,/add column if not exists yield_percent/);
+  assert.match(sql,/yield_percent > 0 and yield_percent <= 100/);
+  assert.match(sql,/\(v_quantity\*v_factor\)\/\(v_yield_percent\/100\)/);
+  assert.match(sql,/insert into public\.recipe_items[\s\S]*yield_percent/);
+  assert.match(sql,/update public\.dishes set cost=round\(v_total,4\)/);
+  assert.match(sql,/CURRENT_OPERATIONAL_ITEM_COST_WITH_YIELD_V2/);
 });

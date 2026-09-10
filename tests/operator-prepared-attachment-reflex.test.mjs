@@ -125,3 +125,34 @@ test('ambiguous existing business match asks before any prepared write', () => {
   assert.equal(result.execution.capability_key, null);
   assert.equal(result.clarification.question, 'Which existing record should I use?');
 });
+
+test('single understood document stages canonical controlled-document create', () => {
+  const file = {
+    id:'file_1', attachment_set_id:'11111111-1111-1111-1111-111111111111', name:'agreement.pdf', logical_object_count:1,
+    analysis:{ status:'ANALYZED', evidence:{ object_type:'document', document_type:'service agreement', candidate_domains:['Documents'], key_fields:{ document_number:'AGR-22' } } },
+    business_match:{ status:'NO_MATCH', candidates:[], authorization_effect:'NONE' },
+    prepared_candidate:{ type:'universal_destination', status:'DESTINATION_RESOLVED', destination:{ domain:'Documents', domain_id:'documents', route:'/documents/contracts', label:'Contracts' }, evidence_classification:{ object_type:'document', document_type:'service agreement', confidence:0.96 }, authorization_effect:'NONE' },
+  };
+  const result = resolvePreparedAttachmentReflex({
+    message:'File this in the correct place', attachments:[file], capabilities:[{ key:'documents.files.create', mode:'write', requires_confirmation:true }],
+  });
+  assert.equal(result.intent, 'execute');
+  assert.equal(result.execution.capability_key, 'documents.files.create');
+  assert.equal(result.execution.payload.attachment_set_id, file.attachment_set_id);
+  assert.equal(result.execution.payload.file_id, 'file_1');
+  assert.equal(result.execution.payload.document_number, 'AGR-22');
+  assert.match(result.response_text, /requires your confirmation/i);
+});
+
+test('document create never passes a signed URL and multi-object source is not auto-filed whole', () => {
+  const source = readFileSync('lib/operator/runtime/OperatorPreparedAttachmentReflex.js','utf8');
+  assert.doesNotMatch(source, /payload:\s*\{[^}]*url:/s);
+  assert.match(source, /logical_object_count/);
+  const file = {
+    id:'file_1', attachment_set_id:'set-1', name:'pack.pdf', logical_object_count:2,
+    analysis:{ status:'ANALYZED', evidence:{ object_type:'document', document_type:'contract', candidate_domains:['Documents'] } },
+    prepared_candidate:{ type:'universal_destination', status:'DESTINATION_RESOLVED', destination:{domain:'Documents',domain_id:'documents',route:'/documents/contracts',label:'Contracts'}, evidence_classification:{object_type:'document',document_type:'contract'} },
+  };
+  const result = resolvePreparedAttachmentReflex({ message:'File this', attachments:[file], capabilities:[{key:'documents.files.create'}] });
+  assert.equal(result.execution.capability_key, null);
+});

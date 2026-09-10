@@ -90,3 +90,38 @@ test('bank statement preparation requires entity before scoped account query', (
   assert.ok(guard >= 0 && query > guard);
   assert.match(preparation, /Which legal entity should I use for this bank statement\?/);
 });
+
+test('unique existing business match blocks accidental duplicate creation', () => {
+  const file = readyFile();
+  file.business_match = {
+    status:'UNIQUE_MATCH',
+    candidates:[{ record_type:'customer_invoice', record_id:'invoice-1', label:'INV-26090001' }],
+    match_basis:['invoice_number','entity_id'],
+    authorization_effect:'NONE',
+  };
+  assert.equal(hasPreparedAttachmentReflexCandidate([file], 'Import this'), true);
+  const result = resolvePreparedAttachmentReflex({
+    message:'Import this', entityId:'entity-1', attachments:[file], capabilities:[capability],
+  });
+  assert.equal(result.intent, 'answer');
+  assert.equal(result.execution.capability_key, null);
+  assert.match(result.response_text, /already in Avantiqo/i);
+  assert.match(result.response_text, /not created a duplicate/i);
+});
+
+test('ambiguous existing business match asks before any prepared write', () => {
+  const file = readyFile();
+  file.business_match = {
+    status:'AMBIGUOUS_MATCH',
+    candidates:[{record_id:'a'},{record_id:'b'}],
+    clarification_required:true,
+    clarification_question:'Which existing record should I use?',
+    authorization_effect:'NONE',
+  };
+  const result = resolvePreparedAttachmentReflex({
+    message:'Import this', entityId:'entity-1', attachments:[file], capabilities:[capability],
+  });
+  assert.equal(result.intent, 'clarify');
+  assert.equal(result.execution.capability_key, null);
+  assert.equal(result.clarification.question, 'Which existing record should I use?');
+});

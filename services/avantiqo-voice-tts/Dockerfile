@@ -131,13 +131,11 @@ COPY bootstrap.sh ./bootstrap.sh
 
 RUN python - <<'PY'
 import inspect
-import runpod
 import torch
 import torchaudio
 from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 import handler
 
-assert hasattr(runpod.serverless, "register_fitness_check")
 assert torch.version.cuda, "AVANTIQO_VOICE_TTS_CUDA_ENABLED_TORCH_REQUIRED"
 assert torch.__version__.startswith("2.7.0"), f"AVANTIQO_VOICE_TTS_TORCH_27_REQUIRED:{torch.__version__}"
 assert torchaudio.__version__.startswith("2.7.0"), f"AVANTIQO_VOICE_TTS_TORCHAUDIO_27_REQUIRED:{torchaudio.__version__}"

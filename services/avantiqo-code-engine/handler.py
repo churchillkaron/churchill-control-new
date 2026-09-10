@@ -8,6 +8,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
+_progress_update = lambda *_args, **_kwargs: None
 # Certification-critical vLLM process behavior is source-owned. A stale RunPod
 # endpoint environment must never be able to re-enable fork after CUDA setup or
 # the FlashInfer sampler path that currently requires boot-time JIT support on
@@ -16,7 +17,6 @@ from typing import Any
 os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
 os.environ["VLLM_USE_FLASHINFER_SAMPLER"] = "0"
 
-import runpod
 from vllm import LLM, SamplingParams
 
 ENGINE_CONTRACT = "AVANTIQO_CODE_ENGINE_V1"
@@ -178,7 +178,7 @@ def _cache_runtime_model(data: dict[str, Any], job: dict[str, Any]) -> dict[str,
             f"AVANTIQO_CODE_CACHE_VOLUME_FREE_SPACE_REQUIRED:free_bytes={disk_before.free}:minimum_bytes={MIN_CACHE_FREE_BYTES}"
         )
 
-    runpod.serverless.progress_update(job, "caching Avantiqo Code FP8 runtime model")
+    _progress_update(job, "caching Avantiqo Code FP8 runtime model")
     from huggingface_hub import snapshot_download
 
     snapshot_download(
@@ -320,7 +320,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         return cache_result
 
     started = time.perf_counter()
-    runpod.serverless.progress_update(job, "loading Avantiqo Code")
+    _progress_update(job, "loading Avantiqo Code")
     try:
         tokenizer, engine = _load_engine()
     except Exception as error:
@@ -352,7 +352,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     runtime_prompt_tokens = int(len(tokenizer.encode(rendered, add_special_tokens=False)))
     billable_input_tokens = _billable_input_tokens(tokenizer, data)
 
-    runpod.serverless.progress_update(job, "executing bounded code task")
+    _progress_update(job, "executing bounded code task")
     outputs = engine.generate(
         [rendered],
         SamplingParams(
@@ -399,7 +399,6 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@runpod.serverless.register_fitness_check
 def check_worker():
     _validate_runtime_contract()
 
@@ -424,4 +423,4 @@ if __name__ == "__main__":
         ),
         flush=True,
     )
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

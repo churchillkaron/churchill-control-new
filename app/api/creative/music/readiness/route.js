@@ -67,7 +67,6 @@ function musicRuntimeHealth() {
     engine_enabled: configuration.enabled === true,
     endpoint_configured: configuration.runpod_endpoint_configured === true,
     api_key_configured: configuration.runpod_api_key_configured === true,
-    management_api_key_configured: Boolean(text(process.env.RUNPOD_MANAGEMENT_API_KEY)),
     foundation_model_configured: configuration.foundation_model_configured === true,
     model_variant_configured: configuration.model_variant_configured === true,
     lm_enabled: configuration.lm_enabled === true,

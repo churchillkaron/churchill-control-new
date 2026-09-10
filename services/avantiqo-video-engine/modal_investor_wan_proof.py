@@ -55,9 +55,9 @@ def generate_investor_wan_proof_master(
     os.chdir("/app")
     import handler_v4 as video_engine
 
-    video_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
-    video_engine.v3.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
-    video_engine.v3.legacy.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    video_engine._progress_update = lambda *_args, **_kwargs: None
+    video_engine.v3._progress_update = lambda *_args, **_kwargs: None
+    video_engine.v3.legacy._progress_update = lambda *_args, **_kwargs: None
 
     def _capture(path: Path, _storage_upload: dict[str, Any]) -> None:
         source = Path(path)

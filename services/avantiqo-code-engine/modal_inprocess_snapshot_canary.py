@@ -45,7 +45,7 @@ class CodeInprocessSnapshotCanary:
         import handler as code_engine
         from vllm import LLM, SamplingParams
 
-        code_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+        code_engine._progress_update = lambda *_args, **_kwargs: None
         cached_path = code_engine._cached_model_path(code_engine.RUNTIME_MODEL)
         if not cached_path:
             raise RuntimeError(f"{CONTRACT}_CACHED_MODEL_REQUIRED")

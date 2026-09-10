@@ -41,7 +41,7 @@ class CodeSnapshotCanary:
         import handler as code_engine
         from vllm import LLM, SamplingParams
 
-        code_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+        code_engine._progress_update = lambda *_args, **_kwargs: None
         total_started = time.perf_counter()
         cached_path = code_engine._cached_model_path(code_engine.RUNTIME_MODEL)
         if not cached_path:

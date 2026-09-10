@@ -2,7 +2,6 @@ import contextvars
 import os
 from typing import Any
 
-import runpod
 import torch
 from diffusers import AutoencoderKLWan, DiffusionPipeline
 
@@ -241,7 +240,6 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     return _annotate_generation(output, quality, capability)
 
 
-@runpod.serverless.register_fitness_check
 def check_quality_runtime():
     if MIN_CINEMA_FPS < 16:
         raise RuntimeError("AVANTIQO_VIDEO_CINEMA_MIN_FPS_INVALID")
@@ -258,4 +256,4 @@ def check_quality_runtime():
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

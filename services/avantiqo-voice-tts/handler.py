@@ -11,9 +11,9 @@ import time
 from pathlib import Path
 from typing import Any
 
+_progress_update = lambda *_args, **_kwargs: None
 print('{"event":"AVANTIQO_VOICE_TTS_PYTHON_PROCESS","phase":"process_started","secrets_printed":false}', flush=True)
 
-import runpod
 import torch
 import torchaudio as ta
 from chatterbox.mtl_tts import ChatterboxMultilingualTTS
@@ -479,7 +479,7 @@ def _render(job: dict[str, Any], model: Any, workload: dict[str, Any], reference
     try:
         with torch.inference_mode():
             for index, chunk in enumerate(workload["chunks"], start=1):
-                runpod.serverless.progress_update(
+                _progress_update(
                     job,
                     f"generating Avantiqo voice segment {index}/{len(workload['chunks'])}",
                 )
@@ -515,7 +515,7 @@ def _render(job: dict[str, Any], model: Any, workload: dict[str, Any], reference
 def handler(job: dict[str, Any]) -> dict[str, Any]:
     data, workload = _validated(job)
     started = time.perf_counter()
-    runpod.serverless.progress_update(job, "loading Avantiqo voice model")
+    _progress_update(job, "loading Avantiqo voice model")
     model = _model()
     sample_rate = int(model.sr)
     reference = workload["voice_reference"]
@@ -573,7 +573,6 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@runpod.serverless.register_fitness_check
 def check_worker():
     if FOUNDATION_MODEL != EXPECTED_FOUNDATION_MODEL:
         raise RuntimeError("AVANTIQO_VOICE_TTS_FOUNDATION_MODEL_UNSUPPORTED")
@@ -603,4 +602,4 @@ if __name__ == "__main__":
         '"recorded_reference_voice_implemented":true,"secrets_printed":false}',
         flush=True,
     )
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

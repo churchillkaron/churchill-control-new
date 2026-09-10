@@ -4,8 +4,6 @@ import stat
 from pathlib import Path
 from typing import Any
 
-import runpod
-
 import handler_v5 as v5
 
 v4 = v5.v4
@@ -218,4 +216,4 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

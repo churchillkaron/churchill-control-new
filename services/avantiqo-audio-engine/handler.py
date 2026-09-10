@@ -6,13 +6,13 @@ from typing import Any
 from urllib.parse import urlparse
 
 import requests
-import runpod
 import torch
 from acestep.handler import AceStepHandler
 from acestep.inference import GenerationConfig, GenerationParams, generate_music
 from acestep.llm_inference import LLMHandler
 from acestep.model_downloader import ensure_lm_model
 
+_progress_update = lambda *_args, **_kwargs: None
 ENGINE_CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1"
 CERTIFICATION_JOB_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_JOB_V1"
 SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2"
@@ -500,7 +500,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     request = _generation_request(data)
     started = time.perf_counter()
 
-    runpod.serverless.progress_update(job, "loading Avantiqo Music")
+    _progress_update(job, "loading Avantiqo Music")
     dit_handler = _dit_handler()
     lm_handler = _llm_handler() if request["task_type"] == "text2music" else None
     use_lm = lm_handler is not None
@@ -512,7 +512,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
     try:
         if request["task_type"] != "text2music":
-            runpod.serverless.progress_update(job, "preparing private source audio")
+            _progress_update(job, "preparing private source audio")
             source_path = _download_source_audio(data, job_output_dir)
 
         params = GenerationParams(
@@ -556,7 +556,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             "cover": "creating owned remix",
             "repaint": "repairing selected audio region",
         }[request["task_type"]]
-        runpod.serverless.progress_update(job, progress)
+        _progress_update(job, progress)
         result = generate_music(
             dit_handler,
             lm_handler,
@@ -588,7 +588,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         if resolved_seed is None:
             resolved_seed = _integer(audio_params.get("seed"), None)
 
-        runpod.serverless.progress_update(job, "storing private Avantiqo asset")
+        _progress_update(job, "storing private Avantiqo asset")
         _upload(path, data["storage_upload"])
         size_bytes = path.stat().st_size
         certification_access = _object(data.get("certification_access"))
@@ -630,7 +630,6 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         _cleanup_job_dir(job_output_dir)
 
 
-@runpod.serverless.register_fitness_check
 def check_worker():
     _validate_model_contract()
     if not torch.cuda.is_available():
@@ -641,4 +640,4 @@ def check_worker():
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

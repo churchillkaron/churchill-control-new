@@ -3,11 +3,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-import runpod
-
 import handler as base
 from acestep.inference import GenerationConfig, GenerationParams, generate_music
 
+_progress_update = lambda *_args, **_kwargs: None
 TEMPORAL_EXTEND_CAPABILITY = "ai.audio.extend"
 TEMPORAL_EXTEND_STRATEGY = "XL_TURBO_REPAINT_RIGHT_OUTPAINT"
 DEFAULT_EXTENSION_SECONDS = 30.0
@@ -105,7 +104,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     request = base._generation_request(data)
     started = time.perf_counter()
 
-    runpod.serverless.progress_update(job, "loading Avantiqo Music")
+    _progress_update(job, "loading Avantiqo Music")
     dit_handler = base._dit_handler()
     lm_handler = base._llm_handler() if request["task_type"] == "text2music" else None
     use_lm = lm_handler is not None
@@ -117,14 +116,14 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
     try:
         if request["task_type"] != "text2music":
-            runpod.serverless.progress_update(job, "preparing private source audio")
+            _progress_update(job, "preparing private source audio")
             source_path = base._download_source_audio(data, job_output_dir)
 
         if data["capability"] == TEMPORAL_EXTEND_CAPABILITY:
             if source_path is None:
                 raise ValueError("AVANTIQO_AUDIO_EXTEND_SOURCE_AUDIO_REQUIRED")
             request = _configure_temporal_extend(data, request, source_path)
-            runpod.serverless.progress_update(job, "outpainting continuation beyond source ending")
+            _progress_update(job, "outpainting continuation beyond source ending")
 
         params = GenerationParams(
             task_type=request["task_type"],
@@ -168,7 +167,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "cover": "creating owned remix",
                 "repaint": "repairing selected audio region",
             }[request["task_type"]]
-            runpod.serverless.progress_update(job, progress)
+            _progress_update(job, progress)
 
         result = generate_music(
             dit_handler,
@@ -201,7 +200,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         if resolved_seed is None:
             resolved_seed = base._integer(audio_params.get("seed"), None)
 
-        runpod.serverless.progress_update(job, "storing private Avantiqo asset")
+        _progress_update(job, "storing private Avantiqo asset")
         base._upload(path, data["storage_upload"])
         size_bytes = path.stat().st_size
         certification_access = base._object(data.get("certification_access"))
@@ -262,4 +261,4 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 # Do not register a second check here; handler_v2 reuses the same CUDA/model validation.
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

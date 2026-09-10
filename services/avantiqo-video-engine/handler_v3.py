@@ -3,9 +3,9 @@ import os
 from pathlib import Path
 from typing import Any
 
+_progress_update = lambda *_args, **_kwargs: None
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
-import runpod
 from huggingface_hub import snapshot_download
 
 import handler as legacy
@@ -300,7 +300,7 @@ def _cache_foundation_model(job: dict[str, Any], data: dict[str, Any]) -> dict[s
             f"free={physical_free}:required={CACHE_MIN_FREE_BEFORE_DOWNLOAD_BYTES}"
         )
 
-    runpod.serverless.progress_update(job, f"caching Avantiqo Cinema foundation {target}")
+    _progress_update(job, f"caching Avantiqo Cinema foundation {target}")
     downloaded = snapshot_download(
         repo_id=target,
         cache_dir=str(legacy.HF_CACHE_ROOT),
@@ -380,4 +380,4 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

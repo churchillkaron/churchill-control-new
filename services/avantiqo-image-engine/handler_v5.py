@@ -3,8 +3,6 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-import runpod
-
 import handler_v4 as v4
 
 v3 = v4.v3
@@ -131,4 +129,4 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

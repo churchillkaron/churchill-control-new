@@ -9,13 +9,13 @@ from urllib.parse import urlparse
 import imageio.v3 as iio
 import numpy as np
 import requests
-import runpod
 import torch
 from diffusers import DiffusionPipeline
 from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
 from diffusers.utils import export_to_video, load_image
 from PIL import Image
 
+_progress_update = lambda *_args, **_kwargs: None
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V1"
 CINEMATIC_CONTROL_CONTRACT = "AVANTIQO_CINEMATIC_CONTROL_V1"
 MASK_PRESERVATION_CONTRACT = "AVANTIQO_MASKED_SOURCE_PRESERVATION_V1"
@@ -523,7 +523,7 @@ def _scheduler_flow_shift(pipe: Any) -> float | None:
 def handler(job: dict[str, Any]) -> dict[str, Any]:
     data = _validated_input(job)
     started_at = time.perf_counter()
-    runpod.serverless.progress_update(job, "loading Avantiqo Cinema")
+    _progress_update(job, "loading Avantiqo Cinema")
     model_id = _foundation_model(data)
     pipe = _pipeline(model_id)
     width, height = _dimensions(data.get("aspect_ratio", "16:9"))
@@ -602,7 +602,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             or "low quality, blurry, malformed, duplicate anatomy, subtitles, watermark"
         )
 
-    runpod.serverless.progress_update(job, "generating cinematic frames")
+    _progress_update(job, "generating cinematic frames")
     try:
         result = pipe(**kwargs)
         video_frames = result.frames[0]
@@ -630,7 +630,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         fps=fps,
         quality=max(0.0, min(10.0, EXPORT_QUALITY)),
     )
-    runpod.serverless.progress_update(job, "storing private Avantiqo asset")
+    _progress_update(job, "storing private Avantiqo asset")
     _upload_video(output_path, data["storage_upload"])
     elapsed = time.perf_counter() - started_at
     size_bytes = output_path.stat().st_size
@@ -699,7 +699,6 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@runpod.serverless.register_fitness_check
 def check_worker():
     if not T2V_MODEL:
         raise RuntimeError("AVANTIQO_VIDEO_T2V_MODEL_REQUIRED")
@@ -736,4 +735,4 @@ def check_worker():
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

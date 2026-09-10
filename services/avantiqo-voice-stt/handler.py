@@ -5,11 +5,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-import runpod
 import torch
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 from transformers.models.whisper.tokenization_whisper import TO_LANGUAGE_CODE
 
+_progress_update = lambda *_args, **_kwargs: None
 ENGINE_CONTRACT = "AVANTIQO_VOICE_ENGINE_V1"
 CAPABILITY = "ai.speech.to.text"
 PRODUCT_MODEL = "avantiqo-voice-stt-v1"
@@ -215,7 +215,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             prompt_ids = torch.as_tensor(prompt_ids, dtype=torch.long, device=model_device)
             generate_kwargs["prompt_ids"] = prompt_ids
 
-        runpod.serverless.progress_update(job, "transcribing Avantiqo voice")
+        _progress_update(job, "transcribing Avantiqo voice")
         result = recognizer(
             path,
             generate_kwargs=generate_kwargs,
@@ -258,7 +258,6 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             Path(path).unlink(missing_ok=True)
 
 
-@runpod.serverless.register_fitness_check
 def check_worker():
     _local_model_path()
     if not torch.cuda.is_available():
@@ -266,4 +265,4 @@ def check_worker():
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

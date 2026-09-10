@@ -41,7 +41,7 @@ def generate(data: dict[str, Any]) -> dict[str, Any]:
 
     import handler as code_engine
 
-    code_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    code_engine._progress_update = lambda *_args, **_kwargs: None
     _INVOCATION_SEQUENCE += 1
     engine_loaded_before = code_engine._ENGINE is not None
     started = time.perf_counter()

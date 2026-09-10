@@ -85,12 +85,6 @@
     "app/api/internal/secretary/meeting-coordination/process/route.js": {
       "maxDuration": 300
     },
-    "app/api/internal/voice/runpod-leases/process/route.js": {
-      "maxDuration": 300
-    },
-    "app/api/internal/video/runpod-pods/process/route.js": {
-      "maxDuration": 300
-    },
     "app/api/internal/code/worker-session/process/route.js": {
       "maxDuration": 300
     }
@@ -223,14 +217,6 @@
     {
       "path": "/api/internal/intelligence/model-improvement/readiness/process",
       "schedule": "27 * * * *"
-    },
-    {
-      "path": "/api/internal/voice/runpod-leases/process",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/internal/video/runpod-pods/process",
-      "schedule": "* * * * *"
     },
     {
       "path": "/api/internal/code/worker-session/process",

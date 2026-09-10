@@ -159,7 +159,7 @@ def generate(data: dict[str, Any]) -> dict[str, Any]:
     # On Modal the inference contract is unchanged, so replace only that
     # transport-specific telemetry call; model loading/generation stay exactly
     # inside the certified handler.
-    code_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    code_engine._progress_update = lambda *_args, **_kwargs: None
 
     started = time.perf_counter()
     output = code_engine.handler(

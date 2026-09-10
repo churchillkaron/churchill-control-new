@@ -3,10 +3,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-import runpod
-
 import handler_v2 as v2
 
+_progress_update = lambda *_args, **_kwargs: None
 CACHE_COMPLETION_CONTRACT = "AVANTIQO_IMAGE_CACHE_COMPLETION_V1"
 CACHE_COMPLETION_MARKER = ".avantiqo-cache-complete.json"
 RUNTIME_PROBE_OPERATION = "runtime_probe"
@@ -390,7 +389,7 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
             "raw_reasoning_persisted": False,
         }
 
-    runpod.serverless.progress_update(
+    _progress_update(
         job,
         " ".join(
             [
@@ -505,4 +504,4 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

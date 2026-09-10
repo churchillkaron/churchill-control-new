@@ -5,13 +5,13 @@ from pathlib import Path
 from typing import Any
 
 import imageio.v3 as iio
-import runpod
 import torch
 from PIL import Image
 from transformers import pipeline
 
 import handler as legacy
 
+_progress_update = lambda *_args, **_kwargs: None
 EXTEND_CAPABILITY = "ai.video.extend"
 UPSCALE_CAPABILITY = "ai.video.upscale"
 SPECIAL_CAPABILITIES = {EXTEND_CAPABILITY, UPSCALE_CAPABILITY}
@@ -287,9 +287,9 @@ def _extend(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("AVANTIQO_VIDEO_SEED_INVALID")
         generator_device = "cuda" if legacy.DEVICE.startswith("cuda") else legacy.DEVICE
         generator = torch.Generator(device=generator_device).manual_seed(seed)
-        runpod.serverless.progress_update(job, "loading Avantiqo Cinema continuation")
+        _progress_update(job, "loading Avantiqo Cinema continuation")
         pipe = legacy._pipeline(legacy.I2V_MODEL)
-        runpod.serverless.progress_update(job, "generating governed continuation")
+        _progress_update(job, "generating governed continuation")
         result = pipe(
             prompt=legacy._cinematic_instruction(data),
             image=boundary.resize((width, height), Image.Resampling.LANCZOS),
@@ -307,7 +307,7 @@ def _extend(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
             fps=fps,
             quality=max(0.0, min(10.0, legacy.EXPORT_QUALITY)),
         )
-        runpod.serverless.progress_update(job, "joining source and continuation")
+        _progress_update(job, "joining source and continuation")
         _join_extension(source_path, continuation_path, output_path, width, height)
         legacy._upload_video(output_path, data["storage_upload"])
         size_bytes = output_path.stat().st_size
@@ -356,7 +356,7 @@ def _upscale(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
     output_width = 0
     output_height = 0
     try:
-        runpod.serverless.progress_update(job, "upscaling cinematic frames")
+        _progress_update(job, "upscaling cinematic frames")
         for frame in iio.imiter(source_path, plugin="FFMPEG", fps=fps):
             if frame_count >= max_frames:
                 raise ValueError("AVANTIQO_VIDEO_UPSCALE_SOURCE_DURATION_EXCEEDED")
@@ -458,7 +458,6 @@ def _required_cached_models(capabilities: set[str]) -> set[str]:
     return {model_id for model_id in required_models if model_id}
 
 
-@runpod.serverless.register_fitness_check
 def check_worker():
     if not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_VIDEO_CUDA_REQUIRED")
@@ -473,4 +472,4 @@ def check_worker():
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

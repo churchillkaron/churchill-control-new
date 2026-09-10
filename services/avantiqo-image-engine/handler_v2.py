@@ -1,5 +1,6 @@
 import os
 
+_progress_update = lambda *_args, **_kwargs: None
 # huggingface_hub reads these settings at import time. Force the safe cache transport
 # before importing RunPod, Diffusers, Transformers, or huggingface_hub itself so a
 # runtime/template environment override cannot silently re-enable Xet reconstruction.
@@ -17,7 +18,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-import runpod
 import torch
 from diffusers.utils import load_image
 from huggingface_hub import constants as hf_hub_constants
@@ -285,7 +285,7 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
             "raw_reasoning_persisted": False,
         }
 
-    runpod.serverless.progress_update(
+    _progress_update(
         job,
         " ".join(
             [
@@ -365,7 +365,7 @@ def _generate_quality_foundation(job: dict[str, Any]) -> dict[str, Any]:
 
     generator_device = "cuda" if legacy.DEVICE.startswith("cuda") else legacy.DEVICE
     generator = torch.Generator(device=generator_device).manual_seed(seed)
-    runpod.serverless.progress_update(job, "loading Avantiqo Image 2512 quality foundation")
+    _progress_update(job, "loading Avantiqo Image 2512 quality foundation")
     pipe = legacy._pipeline(QUALITY_FOUNDATION_MODEL)
     guidance_kwargs, guidance_metadata = legacy._generation_guidance(pipe, params)
     if guidance_metadata.get("mode") != "TRUE_CFG":
@@ -379,7 +379,7 @@ def _generate_quality_foundation(job: dict[str, Any]) -> dict[str, Any]:
         "quality_policy": "QWEN_IMAGE_2512_REALISM_V1",
     }
 
-    runpod.serverless.progress_update(job, "generating Avantiqo Image 2512 quality image")
+    _progress_update(job, "generating Avantiqo Image 2512 quality image")
     result = pipe(
         prompt=data["instruction"],
         width=width,
@@ -393,7 +393,7 @@ def _generate_quality_foundation(job: dict[str, Any]) -> dict[str, Any]:
     job_id = _text(job.get("id")) or str(int(time.time() * 1000))
     path = _OUTPUT_DIR / f"{job_id}-qwen-2512.png"
     image.save(path, format="PNG")
-    runpod.serverless.progress_update(job, "storing private Avantiqo 2512 asset")
+    _progress_update(job, "storing private Avantiqo 2512 asset")
     legacy._upload(path, data["storage_upload"])
     size_bytes = path.stat().st_size
     path.unlink(missing_ok=True)
@@ -545,7 +545,7 @@ def _generated_text(result: Any) -> str:
 
 
 def _analyze(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
-    runpod.serverless.progress_update(job, "loading Avantiqo Image visual critic")
+    _progress_update(job, "loading Avantiqo Image visual critic")
     critic = _analysis_pipeline()
     system_contract = (
         "You are Avantiqo's owned visual analysis and perceptual quality intelligence. "
@@ -562,7 +562,7 @@ def _analyze(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
             ],
         }
     ]
-    runpod.serverless.progress_update(job, "analyzing visual evidence")
+    _progress_update(job, "analyzing visual evidence")
     result = critic(
         text=messages,
         max_new_tokens=MAX_ANALYSIS_TOKENS,
@@ -601,9 +601,9 @@ def _upscale(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
     if source_pixels * 16 > MAX_UPSCALE_OUTPUT_PIXELS:
         raise ValueError("AVANTIQO_IMAGE_UPSCALE_OUTPUT_PIXEL_BUDGET_EXCEEDED")
 
-    runpod.serverless.progress_update(job, "loading Avantiqo Image super-resolution")
+    _progress_update(job, "loading Avantiqo Image super-resolution")
     upscaler = _upscale_pipeline()
-    runpod.serverless.progress_update(job, "upscaling image")
+    _progress_update(job, "upscaling image")
     result = upscaler(source)
     if isinstance(result, dict):
         result = result.get("image") or result.get("images") or result.get("output")
@@ -622,7 +622,7 @@ def _upscale(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
     job_id = _text(job.get("id")) or str(int(time.time() * 1000))
     path = _OUTPUT_DIR / f"{job_id}-upscale.png"
     image.save(path, format="PNG")
-    runpod.serverless.progress_update(job, "storing private Avantiqo upscale")
+    _progress_update(job, "storing private Avantiqo upscale")
     legacy._upload(path, data["storage_upload"])
     size_bytes = path.stat().st_size
     path.unlink(missing_ok=True)
@@ -680,7 +680,6 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     return output
 
 
-@runpod.serverless.register_fitness_check
 def check_worker():
     if not legacy.FOUNDATION_MODEL:
         raise RuntimeError("AVANTIQO_IMAGE_FOUNDATION_MODEL_REQUIRED")
@@ -705,4 +704,4 @@ def check_worker():
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

@@ -69,12 +69,10 @@ RUN python - <<'PY'
 import os
 from pathlib import Path
 
-import runpod
 import torch
 import transformers
 import handler
 
-assert hasattr(runpod.serverless, "register_fitness_check")
 assert torch.version.cuda, "AVANTIQO_VOICE_STT_CUDA_ENABLED_TORCH_REQUIRED"
 assert handler.FOUNDATION_MODEL == "openai/whisper-large-v3-turbo"
 assert handler.LOCAL_MODEL_PATH == Path(os.environ["AVANTIQO_VOICE_STT_LOCAL_MODEL_PATH"])

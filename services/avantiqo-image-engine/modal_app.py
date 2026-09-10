@@ -105,7 +105,7 @@ def generate(data: dict[str, Any]) -> dict[str, Any]:
     os.chdir("/app")
     import handler_v9 as image_engine
 
-    image_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    image_engine._progress_update = lambda *_args, **_kwargs: None
     started = time.perf_counter()
     output = image_engine.handler({
         "id": f"modal-{uuid.uuid4()}",

@@ -7,12 +7,12 @@ from typing import Any
 from urllib.parse import urlparse
 
 import requests
-import runpod
 import torch
 from diffusers import DiffusionPipeline
 from diffusers.utils import load_image
 from PIL import Image
 
+_progress_update = lambda *_args, **_kwargs: None
 ENGINE_CONTRACT = "AVANTIQO_IMAGE_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-image-v1"
 IMPLEMENTED_CAPABILITIES = {
@@ -348,7 +348,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     started = time.perf_counter()
     capability = data["capability"]
     model_id = _foundation_model(capability)
-    runpod.serverless.progress_update(job, "loading Avantiqo Image")
+    _progress_update(job, "loading Avantiqo Image")
     pipe = _pipeline(model_id)
     spec = data.get("structured_specification") or {}
     params = spec.get("provider_parameters") or {}
@@ -374,7 +374,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "negative_prompt_has_content": False,
     }
 
-    runpod.serverless.progress_update(job, "generating image")
+    _progress_update(job, "generating image")
     if capability == "ai.image.edit":
         source_image = load_image(data["resolved_source_image"]).convert("RGB")
         result = pipe(
@@ -440,7 +440,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     job_id = _text(job.get("id")) or str(int(time.time() * 1000))
     path = OUTPUT_DIR / f"{job_id}.png"
     image.save(path, format="PNG")
-    runpod.serverless.progress_update(job, "storing private Avantiqo asset")
+    _progress_update(job, "storing private Avantiqo asset")
     _upload(path, data["storage_upload"])
     size_bytes = path.stat().st_size
     path.unlink(missing_ok=True)
@@ -473,7 +473,6 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@runpod.serverless.register_fitness_check
 def check_worker():
     if not FOUNDATION_MODEL:
         raise RuntimeError("AVANTIQO_IMAGE_FOUNDATION_MODEL_REQUIRED")
@@ -494,4 +493,4 @@ def check_worker():
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

@@ -107,7 +107,7 @@ def transcribe(data: dict[str, Any]) -> dict[str, Any]:
     os.chdir("/app")
     import handler as voice_engine
 
-    voice_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    voice_engine._progress_update = lambda *_args, **_kwargs: None
     started = time.perf_counter()
     output = voice_engine.handler({
         "id": f"modal-stt-{uuid.uuid4()}",
@@ -135,7 +135,7 @@ def speak(data: dict[str, Any]) -> dict[str, Any]:
     os.chdir("/app")
     import handler as voice_engine
 
-    voice_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    voice_engine._progress_update = lambda *_args, **_kwargs: None
     started = time.perf_counter()
     output = voice_engine.handler({
         "id": f"modal-tts-{uuid.uuid4()}",

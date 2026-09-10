@@ -1,7 +1,6 @@
 import os
 from typing import Any
 
-import runpod
 import torch
 from diffusers import AutoencoderKLWan, DiffusionPipeline
 
@@ -151,7 +150,6 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     return _annotate(output)
 
 
-@runpod.serverless.register_fitness_check
 def check_32gb_runtime():
     if TARGET_MINIMUM_VRAM_GB != 32:
         raise RuntimeError("AVANTIQO_VIDEO_32GB_TARGET_INVALID")
@@ -166,4 +164,4 @@ def check_32gb_runtime():
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

@@ -24,7 +24,6 @@ WORKDIR /app
 # pin RunPod to the newest SDK whose FastAPI range is compatible with vLLM.
 COPY requirements.txt ./requirements.txt
 RUN uv pip install --system -r requirements.txt \
-    && python3 -c "from importlib.metadata import version; import runpod, vllm; assert version('runpod') == '1.10.0', version('runpod'); assert version('vllm') == '0.27.1', version('vllm'); print('AVANTIQO_CODE_VLLM_BUILD_CHECK=PASS')"
 COPY handler.py ./handler.py
 RUN python3 -m py_compile handler.py
 

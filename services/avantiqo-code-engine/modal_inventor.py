@@ -143,7 +143,7 @@ def invent(data: dict[str, Any]) -> dict[str, Any]:
     os.chdir("/app")
     import handler as code_engine
 
-    code_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    code_engine._progress_update = lambda *_args, **_kwargs: None
     started = time.perf_counter()
     stage_outputs: list[dict[str, Any]] = []
 

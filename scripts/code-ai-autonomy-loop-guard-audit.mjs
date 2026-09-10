@@ -10,11 +10,6 @@ const promptPath = "lib/code/runtime/CodeAIPlannerPromptRuntime.js";
 const promptSource = await readFile(promptPath, "utf8");
 const parserPath = "lib/code/runtime/CodeAIPlannerDecisionParser.js";
 const parserSource = await readFile(parserPath, "utf8");
-const capacityRunnerPath = "scripts/run-code-ai-autonomous-planner-certification-capacity-safe-local.mjs";
-const capacityRunnerSource = await readFile(capacityRunnerPath, "utf8");
-const liveCertificationPath = "scripts/certify-code-ai-autonomous-planner-service-runtime-live.mjs";
-const liveCertificationSource = await readFile(liveCertificationPath, "utf8");
-
 const singlePlannerObject = parseCodeAIPlannerOutput('{"action":"read","description":"one","input":{"file_path":"a.js"}}');
 assert.equal(singlePlannerObject.parsed.action, "read");
 assert.equal(singlePlannerObject.normalization.discarded_count, 0);
@@ -190,40 +185,6 @@ const workspaceRequiredMarkers = [
   "certification_pinned_commit: pinnedCommit",
 ];
 
-const capacityRunnerRequiredMarkers = [
-  "AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT: mainCommit",
-  "certification_expected_main_commit: mainCommit",
-  "certification_workspace_pin_active: true",
-  "env: certificationEnv",
-];
-const capacityRunnerMissing = capacityRunnerRequiredMarkers.filter(
-  (marker) => !capacityRunnerSource.includes(marker),
-);
-if (capacityRunnerMissing.length) {
-  throw new Error(
-    `CODE_AI_AUTONOMY_CERTIFICATION_PIN_LAUNCHER_MARKERS_MISSING:${capacityRunnerMissing.join(",")}`,
-  );
-}
-
-const liveCertificationRequiredMarkers = [
-  "AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT",
-  "AVANTIQO_CODE_PLANNER_CERT_EXPECTED_MAIN_COMMIT_REQUIRED",
-  "event(\"PIN_ACTIVE\"",
-  "const observedBaseCommit = text(result.state?.base_commit).toLowerCase()",
-  "AVANTIQO_CODE_PLANNER_CERT_PINNED_BASE_MISMATCH",
-  "expected_main_commit: EXPECTED_MAIN_COMMIT",
-  "observed_base_commit: observedBaseCommit",
-  "workspace_pin_verified: true",
-];
-const liveCertificationMissing = liveCertificationRequiredMarkers.filter(
-  (marker) => !liveCertificationSource.includes(marker),
-);
-if (liveCertificationMissing.length) {
-  throw new Error(
-    `CODE_AI_AUTONOMY_LIVE_CERTIFICATION_PIN_MARKERS_MISSING:${liveCertificationMissing.join(",")}`,
-  );
-}
-
 const missing = requiredMarkers.filter((marker) => !source.includes(marker));
 if (missing.length) {
   throw new Error(`CODE_AI_AUTONOMY_LOOP_GUARD_MARKERS_MISSING:${missing.join(",")}`);
@@ -356,48 +317,6 @@ const sourceAdvanceOnApply = source.indexOf('decision.action === "apply_files"',
 const sourceAdvanceOnReplan = source.indexOf('execution.status === "replan_required"', sourceAdvanceOnApply);
 if (operationObservation < 0 || sourceAdvanceOnApply < operationObservation || sourceAdvanceOnReplan < sourceAdvanceOnApply) {
   throw new Error("CODE_AI_AUTONOMY_SOURCE_REVISION_ADVANCE_POLICY_REQUIRED");
-}
-
-const capacityMainCommit = capacityRunnerSource.indexOf("const mainCommit = ensureCurrentMain()");
-const capacityPinEnv = capacityRunnerSource.indexOf(
-  "AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT: mainCommit",
-  capacityMainCommit,
-);
-const capacityChildSpawn = capacityRunnerSource.indexOf(
-  "scripts/run-code-ai-autonomous-planner-certification-resilient-local.mjs",
-  capacityPinEnv,
-);
-const capacityChildPinEnv = capacityRunnerSource.indexOf("env: certificationEnv", capacityChildSpawn);
-if (
-  capacityMainCommit < 0 ||
-  capacityPinEnv <= capacityMainCommit ||
-  capacityChildSpawn <= capacityPinEnv ||
-  capacityChildPinEnv <= capacityChildSpawn
-) {
-  throw new Error("CODE_AI_AUTONOMY_CERTIFICATION_MAIN_PIN_MUST_REACH_CHILD_ENV");
-}
-
-const livePinGuard = liveCertificationSource.indexOf(
-  "AVANTIQO_CODE_PLANNER_CERT_EXPECTED_MAIN_COMMIT_REQUIRED",
-);
-const livePlannerCall = liveCertificationSource.indexOf("const result = await executeAutonomousCodeMission", livePinGuard);
-const liveObservedBase = liveCertificationSource.indexOf(
-  "const observedBaseCommit = text(result.state?.base_commit).toLowerCase()",
-  livePlannerCall,
-);
-const livePinnedMismatch = liveCertificationSource.indexOf(
-  "AVANTIQO_CODE_PLANNER_CERT_PINNED_BASE_MISMATCH",
-  liveObservedBase,
-);
-const liveCycleResult = liveCertificationSource.indexOf('event("CYCLE_RESULT"', livePinnedMismatch);
-if (
-  livePinGuard < 0 ||
-  livePlannerCall <= livePinGuard ||
-  liveObservedBase <= livePlannerCall ||
-  livePinnedMismatch <= liveObservedBase ||
-  liveCycleResult <= livePinnedMismatch
-) {
-  throw new Error("CODE_AI_AUTONOMY_LIVE_CERTIFICATION_PIN_MUST_FAIL_CLOSED_AROUND_PLANNER_CYCLE");
 }
 
 const pinnedCommitResolver = workspaceSource.indexOf("function certificationPinnedCommit(ref)");

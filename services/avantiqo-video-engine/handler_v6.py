@@ -7,12 +7,12 @@ from typing import Any
 
 import numpy as np
 import requests
-import runpod
 import torch
 from diffusers.utils import load_image
 
 import gpu_core as core
 
+_progress_update = lambda *_args, **_kwargs: None
 RUNTIME_ENTRYPOINT = "handler_v6.py"
 RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_VIDEO_HANDLER_V6_GPU_ONLY_FRAME_EGRESS_V1"
 RUNTIME_REVISION = "AVANTIQO_VIDEO_WAN22_A14B_GPU_ONLY_FRAME_EGRESS_V1"
@@ -177,7 +177,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     if capability == "ai.video.image_to_video":
         kwargs["image"] = load_image(data["reference_images"][0])
 
-    runpod.serverless.progress_update(job, "gpu inference")
+    _progress_update(job, "gpu inference")
     result = pipe(**kwargs)
     video_frames = result.frames[0]
     if not isinstance(video_frames, list):
@@ -186,7 +186,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="avantiqo-video-gpu-result-") as root:
         path = Path(root) / "frames.npy"
         shape = _write_frame_tensor(video_frames, path)
-        runpod.serverless.progress_update(job, "minimal gpu result egress")
+        _progress_update(job, "minimal gpu result egress")
         _upload_intermediate(path, data["intermediate_upload"]["signed_url"])
         size_bytes = path.stat().st_size
 
@@ -224,7 +224,6 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@runpod.serverless.register_fitness_check
 def check_gpu_only_runtime():
     if not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_VIDEO_GPU_ONLY_CUDA_REQUIRED")
@@ -235,4 +234,4 @@ def check_gpu_only_runtime():
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

@@ -6,11 +6,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-import runpod
 import torch
 
 import handler_v3 as v3
 
+_progress_update = lambda *_args, **_kwargs: None
 v2 = v3.v2
 legacy = v2.legacy
 
@@ -240,7 +240,7 @@ def _cache_photoreal_foundation(job: dict[str, Any]) -> dict[str, Any]:
             "raw_reasoning_persisted": False,
         }
 
-    runpod.serverless.progress_update(job, f"caching Avantiqo photoreal candidate {PHOTOREAL_FOUNDATION_MODEL} generation=false")
+    _progress_update(job, f"caching Avantiqo photoreal candidate {PHOTOREAL_FOUNDATION_MODEL} generation=false")
     downloaded = v2.snapshot_download(
         repo_id=PHOTOREAL_FOUNDATION_MODEL,
         cache_dir=str(legacy.HF_CACHE_ROOT),
@@ -334,11 +334,11 @@ def _generate_photoreal_candidate(job: dict[str, Any]) -> dict[str, Any]:
 
     generator_device = "cuda" if legacy.DEVICE.startswith("cuda") else legacy.DEVICE
     generator = torch.Generator(device=generator_device).manual_seed(seed)
-    runpod.serverless.progress_update(job, "loading Avantiqo photoreal candidate")
+    _progress_update(job, "loading Avantiqo photoreal candidate")
     pipe = legacy._pipeline(PHOTOREAL_FOUNDATION_MODEL)
     guidance_kwargs, guidance_metadata = _photoreal_guidance(pipe, params)
     instruction = data["instruction"]
-    runpod.serverless.progress_update(job, "generating Avantiqo photoreal candidate image")
+    _progress_update(job, "generating Avantiqo photoreal candidate image")
     result = pipe(
         prompt=instruction,
         width=width,
@@ -352,7 +352,7 @@ def _generate_photoreal_candidate(job: dict[str, Any]) -> dict[str, Any]:
     job_id = _text(job.get("id")) or str(int(time.time() * 1000))
     path = Path(os.getenv("AVANTIQO_IMAGE_OUTPUT_DIR", "/tmp/avantiqo-image")) / f"{job_id}-z-image.png"
     image.save(path, format="PNG")
-    runpod.serverless.progress_update(job, "storing private Avantiqo photoreal candidate asset")
+    _progress_update(job, "storing private Avantiqo photoreal candidate asset")
     legacy._upload(path, data["storage_upload"])
     size_bytes = path.stat().st_size
     path.unlink(missing_ok=True)
@@ -440,4 +440,4 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

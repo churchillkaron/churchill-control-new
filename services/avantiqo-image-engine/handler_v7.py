@@ -1,8 +1,6 @@
 import inspect
 from typing import Any
 
-import runpod
-
 import handler_v6 as v6
 
 v4 = v6.v4
@@ -133,4 +131,4 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

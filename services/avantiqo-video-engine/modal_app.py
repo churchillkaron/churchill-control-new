@@ -282,9 +282,9 @@ def generate(data: dict[str, Any]) -> dict[str, Any]:
     os.chdir("/app")
     import handler_v4 as video_engine
 
-    video_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
-    video_engine.v3.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
-    video_engine.v3.legacy.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    video_engine._progress_update = lambda *_args, **_kwargs: None
+    video_engine.v3._progress_update = lambda *_args, **_kwargs: None
+    video_engine.v3.legacy._progress_update = lambda *_args, **_kwargs: None
     started = time.perf_counter()
     output = video_engine.handler({
         "id": f"modal-{uuid.uuid4()}",

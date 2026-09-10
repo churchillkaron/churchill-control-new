@@ -29,8 +29,9 @@ test("Voice Service Runtime loads direct-first V2 provider", () => {
   assert.match(provider, /voiceModalDirectConfigured\(\)/);
   assert.match(provider, /executeVoiceModalDirect/);
   assert.match(provider, /getVoiceModalDirectStatus/);
-  assert.match(provider, /LegacyVoiceProvider\.execute\(input\)/);
-  assert.match(provider, /LegacyVoiceProvider\.getStatus\(input\)/);
+  assert.match(provider, /AVANTIQO_VOICE_MODAL_DIRECT_CONFIGURATION_REQUIRED/);
+  assert.match(provider, /AVANTIQO_VOICE_LEGACY_JOB_TRANSPORT_RETIRED/);
+  assert.doesNotMatch(provider, /LegacyVoiceProvider/);
 });
 
 test("Voice primary lane uses direct Modal named functions with no CPU gateway", () => {
@@ -110,5 +111,6 @@ test("Voice registration treats direct Modal credentials as primary readiness", 
   assert.match(registration, /direct_async_function_call:\s*true/);
   assert.match(registration, /tts_final_artifact_persistence:\s*"AVANTIQO_SERVICE_RUNTIME"/);
   assert.match(registration, /legacy_modal_gateway_migration_debt:\s*true/);
-  assert.match(registration, /simultaneous_modal_runpod_execution_forbidden:\s*true/);
+  assert.match(registration, /modal_only_execution:\s*true/);
+  assert.doesNotMatch(registration, /RUNPOD_API_KEY|RUNPOD_MANAGEMENT_API_KEY|RUNPOD_SERVERLESS/);
 });

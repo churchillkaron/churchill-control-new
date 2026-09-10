@@ -207,7 +207,7 @@ def run_hard_cert_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
     os.chdir("/app")
     import handler as code_engine
 
-    code_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    code_engine._progress_update = lambda *_args, **_kwargs: None
     code_engine._prompt = cert._quality_prompt
 
     if not _LLM_PATCHED:

@@ -5,10 +5,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-try:
-    import runpod
-except ImportError:
-    runpod = None
 import torch
 from peft import LoraConfig, get_peft_model
 from torch.nn.utils.rnn import pad_sequence
@@ -19,7 +15,7 @@ CONTRACT = "AVANTIQO_INTELLIGENCE_TRAINER_V1"
 FOUNDATION_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507"
 OUTPUT_ROOT = Path(os.getenv(
     "AVANTIQO_INTELLIGENCE_TRAINER_OUTPUT_ROOT",
-    "/runpod-volume/avantiqo-intelligence-training",
+    "/mnt/training/artifacts",
 ))
 MAX_TRAIN_EXAMPLES = 512
 MAX_HOLDOUT_EXAMPLES = 128
@@ -512,6 +508,4 @@ def handler(event):
 
 if __name__ == "__main__":
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-    if runpod is None:
-        raise RuntimeError("RUNPOD_RUNTIME_NOT_INSTALLED_FOR_LEGACY_ENTRYPOINT")
-    runpod.serverless.start({"handler": handler})
+    pass  # Modal invokes the handler directly.

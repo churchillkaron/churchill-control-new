@@ -209,7 +209,7 @@ def generate(data: dict[str, Any]) -> dict[str, Any]:
     capability = str(data.get("capability") or "").strip()
     if capability not in CAPABILITIES:
         raise ValueError(f"AVANTIQO_AUDIO_MODAL_CAPABILITY_NOT_IMPLEMENTED:{capability}")
-    audio_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    audio_engine._progress_update = lambda *_args, **_kwargs: None
     started = time.perf_counter()
     output = audio_engine.handler({
         "id": f"modal-audio-{uuid.uuid4()}",

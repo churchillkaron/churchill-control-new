@@ -28,6 +28,9 @@ test("server-owned ERP registry proof is required before Code engineering", () =
   assert.match(registry, /getCapabilitySearchIndex/);
   assert.match(registry, /ERP_REGISTRY_CAPABILITY_AMBIGUOUS/);
   assert.match(registry, /authority_purpose: "repair"/);
+  assert.match(capability, /action: capability\.action/);
+  assert.match(registry, /ERP_REGISTRY_ACTION_MISMATCH/);
+  assert.match(registry, /registered_action_match/);
 });
 
 test("canonical self-healing research and Code runtimes are reused and release stays separately permissioned", () => {

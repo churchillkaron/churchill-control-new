@@ -30,9 +30,11 @@ import {
 import {
   conversationAttachmentSetIdFromRequest,
   loadConversationAttachmentSet,
+  persistConversationAttachmentAnalysis,
 } from "@/lib/platform/runtime/ConversationAttachmentRuntime";
 import {
   analyzeConversationAttachments,
+  AVANTIQO_ATTACHMENT_ANALYSIS_VERSION,
 } from "@/lib/platform/runtime/ConversationAttachmentAnalysisRuntime";
 import {
   prepareBankStatementAttachment,
@@ -298,6 +300,19 @@ export async function POST(request) {
           },
         })
       : [];
+    if (attachmentSetId) {
+      try {
+        await persistConversationAttachmentAnalysis({
+          context: { organizationId: businessContext.organizationId, actor },
+          attachment_set_id: attachmentSetId,
+          files: analyzedConversationAttachments,
+          analysis_version: AVANTIQO_ATTACHMENT_ANALYSIS_VERSION,
+        });
+      } catch (cacheError) {
+        console.error("OPERATOR_ATTACHMENT_ANALYSIS_CACHE_FAILED", cacheError);
+      }
+    }
+
     const preparedConversationAttachments = await Promise.all(
       analyzedConversationAttachments.map(async (file) => {
         const bankStatement = await prepareBankStatementAttachment({

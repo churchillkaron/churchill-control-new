@@ -46,6 +46,9 @@ import {
   preparePaidExpenseReceiptAttachment,
 } from "@/lib/finance/expense-receipts/PaidExpenseReceiptAttachmentPreparationRuntime";
 import {
+  prepareVendorBillAttachment,
+} from "@/lib/finance/accounts-payable/runtime/VendorBillAttachmentPreparationRuntime";
+import {
   routeAnalyzedAttachment,
 } from "@/lib/platform/runtime/UniversalAttachmentRoutingRuntime";
 import { ERP_REGISTRY } from "@/lib/platform/registry/erpRegistry";
@@ -369,6 +372,14 @@ export async function POST(request) {
         });
         if (paidExpense.recognized === true) {
           return { ...file, prepared_candidate: { type: "paid_expense_receipt", ...paidExpense } };
+        }
+        const vendorBill = await prepareVendorBillAttachment({
+          file,
+          organizationId: businessContext.organizationId,
+          entityId: businessContext.entityId,
+        });
+        if (vendorBill.recognized === true) {
+          return { ...file, prepared_candidate: { type: "vendor_bill", ...vendorBill } };
         }
         const destination = routeAnalyzedAttachment(file, { registry: ERP_REGISTRY });
         return destination

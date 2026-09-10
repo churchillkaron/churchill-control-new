@@ -1,0 +1,299 @@
+{
+  "contract": "AVANTIQO_CODE_FRONTIER_ENGINEERING_SUITE_V1",
+  "minimum_cases": 20,
+  "case_count": 30,
+  "same_case_ids_required_for_all_providers": true,
+  "production_runtime_effect": "NONE",
+  "cases": [
+    {
+      "case_id": "repo_bug_localize",
+      "category": "repository",
+      "title": "Localize a regression from symptoms across a large repo",
+      "required_evidence": [
+        "relevant_files_identified",
+        "root_cause_explained",
+        "minimal_fix"
+      ]
+    },
+    {
+      "case_id": "repo_cross_file_refactor",
+      "category": "repository",
+      "title": "Perform a cross-file refactor without stale callers",
+      "required_evidence": [
+        "all_callers_updated",
+        "tests_updated",
+        "no_orphan_reference"
+      ]
+    },
+    {
+      "case_id": "repo_instruction_scope",
+      "category": "repository",
+      "title": "Respect nested repository instructions and conventions",
+      "required_evidence": [
+        "scoped_instructions_applied",
+        "system_governance_preserved"
+      ]
+    },
+    {
+      "case_id": "next_app_router_boundary",
+      "category": "nextjs",
+      "title": "Repair server/client boundary misuse in Next.js App Router",
+      "required_evidence": [
+        "boundary_correct",
+        "build_pass"
+      ]
+    },
+    {
+      "case_id": "next_dynamic_route",
+      "category": "nextjs",
+      "title": "Repair dynamic route/static generation conflict",
+      "required_evidence": [
+        "runtime_semantics_correct",
+        "build_pass"
+      ]
+    },
+    {
+      "case_id": "react_mobile_layout",
+      "category": "frontend",
+      "title": "Repair mobile layout movement without desktop regression",
+      "required_evidence": [
+        "mobile_stable",
+        "desktop_preserved",
+        "accessibility_preserved"
+      ]
+    },
+    {
+      "case_id": "auth_tenant_scope",
+      "category": "security",
+      "title": "Close cross-organization authorization leakage",
+      "required_evidence": [
+        "organization_bound",
+        "entity_bound_when_required",
+        "negative_test"
+      ]
+    },
+    {
+      "case_id": "security_definer_rpc",
+      "category": "security",
+      "title": "Replace unsafe SECURITY DEFINER mutation path",
+      "required_evidence": [
+        "invoker_or_equivalent_guard",
+        "legacy_access_revoked",
+        "cross_entity_test"
+      ]
+    },
+    {
+      "case_id": "permission_least_privilege",
+      "category": "security",
+      "title": "Preserve least privilege while enabling required workflow",
+      "required_evidence": [
+        "permission_exact",
+        "no_role_broadening"
+      ]
+    },
+    {
+      "case_id": "secret_boundary",
+      "category": "security",
+      "title": "Prevent credential/secret leakage in logs and outputs",
+      "required_evidence": [
+        "no_secret_output",
+        "redaction_test"
+      ]
+    },
+    {
+      "case_id": "finance_decimal",
+      "category": "finance",
+      "title": "Repair monetary decimal/tax rounding correctness",
+      "required_evidence": [
+        "decimal_correct",
+        "rounding_cases",
+        "currency_preserved"
+      ]
+    },
+    {
+      "case_id": "finance_idempotency",
+      "category": "finance",
+      "title": "Make financial write retry-safe",
+      "required_evidence": [
+        "idempotency_key",
+        "duplicate_prevented",
+        "retry_test"
+      ]
+    },
+    {
+      "case_id": "finance_paid_receipt",
+      "category": "finance",
+      "title": "Preserve invoice identity while issuing paid receipt",
+      "required_evidence": [
+        "invoice_lineage_preserved",
+        "paid_date",
+        "payment_account"
+      ]
+    },
+    {
+      "case_id": "db_migration_backward",
+      "category": "database",
+      "title": "Design backward-compatible migration with existing data",
+      "required_evidence": [
+        "migration_safe",
+        "rollback_or_fail_closed",
+        "existing_rows_handled"
+      ]
+    },
+    {
+      "case_id": "db_concurrency",
+      "category": "database",
+      "title": "Repair race condition in concurrent state mutation",
+      "required_evidence": [
+        "locking_or_atomicity",
+        "concurrency_test"
+      ]
+    },
+    {
+      "case_id": "api_error_contract",
+      "category": "backend",
+      "title": "Repair API error semantics without hiding failures",
+      "required_evidence": [
+        "status_correct",
+        "machine_code",
+        "no_false_success"
+      ]
+    },
+    {
+      "case_id": "async_job_resume",
+      "category": "runtime",
+      "title": "Resume an asynchronous job without duplicate provider work",
+      "required_evidence": [
+        "job_reused",
+        "no_duplicate_submission",
+        "terminal_verification"
+      ]
+    },
+    {
+      "case_id": "provider_fail_closed",
+      "category": "runtime",
+      "title": "Fail closed when owned provider evidence is missing",
+      "required_evidence": [
+        "owned_provider_required",
+        "external_fallback_false"
+      ]
+    },
+    {
+      "case_id": "tool_read_write_boundary",
+      "category": "agent",
+      "title": "Keep research/read tools from gaining mutation authority",
+      "required_evidence": [
+        "read_only_enforced",
+        "write_not_exposed",
+        "authorization_effect_none"
+      ]
+    },
+    {
+      "case_id": "planner_evidence_binding",
+      "category": "agent",
+      "title": "Bind final mutation to evidence-backed planned capability",
+      "required_evidence": [
+        "plan_binding",
+        "capability_binding",
+        "mutation_rejected_if_mismatch"
+      ]
+    },
+    {
+      "case_id": "planner_repair_loop",
+      "category": "agent",
+      "title": "Recover from failed verification and repair before completion",
+      "required_evidence": [
+        "failure_recorded",
+        "repair_performed",
+        "reverify_pass"
+      ]
+    },
+    {
+      "case_id": "stale_main_rebase",
+      "category": "agent",
+      "title": "Handle main moving during autonomous engineering",
+      "required_evidence": [
+        "stale_base_detected",
+        "fresh_main_reassessment",
+        "stale_patch_not_replayed"
+      ]
+    },
+    {
+      "case_id": "test_regression_minimal",
+      "category": "quality",
+      "title": "Fix failing behavior while preserving unrelated tests",
+      "required_evidence": [
+        "target_test_pass",
+        "regression_suite_pass",
+        "minimal_diff"
+      ]
+    },
+    {
+      "case_id": "build_warning_vs_failure",
+      "category": "quality",
+      "title": "Distinguish non-blocking warnings from actual build failure",
+      "required_evidence": [
+        "exit_code_used",
+        "failure_not_misreported",
+        "warnings_preserved"
+      ]
+    },
+    {
+      "case_id": "performance_parallel_io",
+      "category": "performance",
+      "title": "Remove serial independent I/O from interactive request path",
+      "required_evidence": [
+        "parallelized",
+        "semantic_equivalence",
+        "latency_measurement"
+      ]
+    },
+    {
+      "case_id": "memory_freshness",
+      "category": "intelligence",
+      "title": "Use durable memory without treating mutable facts as current",
+      "required_evidence": [
+        "memory_context_only",
+        "live_read_for_mutable_fact"
+      ]
+    },
+    {
+      "case_id": "external_research_freshness",
+      "category": "intelligence",
+      "title": "Use current external evidence for changing public facts",
+      "required_evidence": [
+        "current_source_used",
+        "stale_model_memory_not_asserted"
+      ]
+    },
+    {
+      "case_id": "attachment_duplicate",
+      "category": "documents",
+      "title": "Avoid duplicate record creation from repeated attachment",
+      "required_evidence": [
+        "duplicate_detected",
+        "existing_record_reused_or_reviewed"
+      ]
+    },
+    {
+      "case_id": "multi_object_attachment",
+      "category": "documents",
+      "title": "Route one upload containing multiple business objects safely",
+      "required_evidence": [
+        "objects_separated",
+        "domain_routing_correct",
+        "no_ambiguous_auto_write"
+      ]
+    },
+    {
+      "case_id": "autonomous_completion_truth",
+      "category": "agent",
+      "title": "Refuse completion until observed verification proves result",
+      "required_evidence": [
+        "verification_required",
+        "diff_reviewed",
+        "no_false_complete"
+      ]
+    }
+  ]
+}

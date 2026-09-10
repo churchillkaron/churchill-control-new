@@ -36,15 +36,29 @@ export async function GET(request) {
       fullAccess: access.permissions?.includes("*") === true,
     });
 
-    const { data, error } = await supabaseAdmin
+    const entityId = searchParams.get("entityId") || searchParams.get("entity_id");
+    let query = supabaseAdmin
       .from("customer_invoices")
       .select("*")
-      .eq("organization_id", access.organizationId)
-      .order("created_at", { ascending: false });
+      .eq("organization_id", access.organizationId);
+    if (entityId) query = query.eq("entity_id", entityId);
 
+    const { data, error } = await query.order("created_at", { ascending: false });
     if (error) throw error;
 
-    return NextResponse.json({ success: true, invoices: data || [] });
+    const invoices = (data || []).map((invoice) => {
+      const base = `/api/finance/customer-invoices/${invoice.id}/pdf?organizationId=${encodeURIComponent(access.organizationId)}${entityId ? `&entityId=${encodeURIComponent(entityId)}` : ""}`;
+      return {
+        ...invoice,
+        preview_url: base,
+        pdf_url: base,
+        ...(String(invoice.status || "").toUpperCase() === "PAID"
+          ? { receipt_url: `${base}&mode=receipt` }
+          : {}),
+      };
+    });
+
+    return NextResponse.json({ success: true, invoices });
   } catch (error) {
     const message = error.message || "Customer invoice list failed";
     return NextResponse.json(

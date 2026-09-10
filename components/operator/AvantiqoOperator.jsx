@@ -779,7 +779,7 @@ export default function AvantiqoOperator() {
                 </div>
 
                 {message.role === "assistant" ? (
-                  <OperatorExecutionArtifacts execution={message.execution || {}} />
+                  <OperatorExecutionArtifacts execution={message.execution || {}} evidence={message.evidence || {}} organizationId={organizationId} />
                 ) : null}
 
                 {message.role === "assistant" && message.governance ? (

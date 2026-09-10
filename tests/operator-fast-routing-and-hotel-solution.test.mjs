@@ -54,3 +54,40 @@ test("Fast startup does not statically import heavy execution runtimes", () => {
   assert.match(source, /Promise\.all\(\[\s*import\("\.\/OperatorIntelligenceToolBridgeRuntime"\)/);
   assert.match(source, /import\("@\/lib\/platform\/service-runtime\/execution\/ServiceExecutionRuntime"\)/);
 });
+
+
+test("routine business reads and contextual previews enter the Fast evidence lane", async () => {
+  const { shouldUseOwnedFastFirst } = await import("../lib/operator/runtime/OperatorFastFirstPolicy.js");
+  const { fastConversationNeedsEvidence } = await import("../lib/operator/runtime/OperatorFastEvidencePolicy.js");
+
+  for (const message of [
+    "can you show me latest invoice",
+    "customer invoice moonshine",
+    "what is our bank balance",
+    "who is absent today",
+    "yes show me the preview",
+  ]) {
+    assert.equal(shouldUseOwnedFastFirst({ source: "text", message }), true, message);
+    assert.equal(fastConversationNeedsEvidence(message), true, message);
+  }
+});
+
+test("mutating invoice instructions never use conversational Fast-first bypass", async () => {
+  const { shouldUseOwnedFastFirst } = await import("../lib/operator/runtime/OperatorFastFirstPolicy.js");
+  for (const message of [
+    "create customer invoice",
+    "mark invoice paid",
+    "send invoice to customer",
+    "delete invoice",
+  ]) {
+    assert.equal(shouldUseOwnedFastFirst({ source: "text", message }), false, message);
+  }
+});
+
+test("Fast evidence tool selection includes recent context for preview follow-ups", () => {
+  const runtime = fs.readFileSync(new URL("../lib/operator/runtime/OperatorFastConversationRuntime.js", import.meta.url), "utf8");
+  assert.match(runtime, /evidenceRoutingMessage/);
+  assert.match(runtime, /recent\.slice\(-2\)/);
+  assert.match(runtime, /message: evidenceRoutingMessage/);
+  assert.match(runtime, /live_read_receipts/);
+});

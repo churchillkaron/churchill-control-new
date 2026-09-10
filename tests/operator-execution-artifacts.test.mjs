@@ -23,7 +23,9 @@ test("Business Partner renders execution artifacts on both chat surfaces", () =>
 });
 
 test("artifact renderer supports verified receipt PDFs and rejects unsafe schemes", () => {
-  assert.match(artifactUi, /result\?\.artifacts/);
+  assert.match(artifactUi, /execution\?\.result/);
+  assert.match(artifactUi, /preview_url/);
+  assert.match(artifactUi, /generated_media_url/);
   assert.match(artifactUi, /application\/pdf/);
   assert.match(artifactUi, /target="_blank"/);
   assert.match(artifactUi, /rel="noreferrer noopener"/);

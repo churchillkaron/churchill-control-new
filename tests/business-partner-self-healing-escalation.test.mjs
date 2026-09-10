@@ -30,11 +30,14 @@ test("server-owned ERP registry proof is required before Code engineering", () =
   assert.match(registry, /authority_purpose: "repair"/);
 });
 
-test("canonical self-healing research and Code runtimes are reused with zero release authority", () => {
+test("canonical self-healing research and Code runtimes are reused and release stays separately permissioned", () => {
   assert.match(capability, /preparePlatformSelfHealingCodeMission/);
   assert.match(capability, /executePlatformSelfHealingCodeMission/);
-  assert.match(capability, /commit_performed: false/);
-  assert.match(capability, /production_deploy_performed: false/);
+  assert.match(capability, /decideAvantiqoProductPersistence/);
+  assert.match(capability, /automaticReleaseAllowed/);
+  assert.match(capability, /capability: "product_production_release"/);
+  assert.match(capability, /commit_performed: productionRelease\?\.commit_completed === true/);
+  assert.match(capability, /production_deploy_performed: productionRelease\?\.production_deployed === true/);
   assert.match(capability, /migration_performed: false/);
   assert.match(capability, /replay_required: true/);
 });
@@ -43,7 +46,7 @@ test("exact failed action remains bound through engineering for later continuati
   assert.match(synthetic, /business_partner_recovery/);
   assert.match(synthetic, /failed_action: failedAction/);
   assert.match(synthetic, /originalGoalPreserved: true/);
-  assert.match(synthetic, /resume_authorized: false/);
+  assert.match(synthetic, /resume_authorized: selfHealing\.production_deploy_performed === true && selfHealing\.activation_verified === true/);
   assert.match(capability, /original_action: failed/);
   assert.match(capability, /authorization_effect: "SAME_ACTION_ONLY"/);
 });

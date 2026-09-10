@@ -4,7 +4,6 @@ import test from 'node:test';
 
 const benchmark = readFileSync('scripts/benchmark-avantiqo-document-vision.mjs', 'utf8');
 const modalApp = readFileSync('services/avantiqo-image-engine/modal_app.py', 'utf8');
-const suite = readFileSync('scripts/benchmark-avantiqo-owned-engines.mjs', 'utf8');
 
 test('document vision benchmark proves all owned analysis semantics', () => {
   for (const capability of ['ai.image.analyze', 'document.ocr', 'document.classify']) {
@@ -20,6 +19,7 @@ test('Modal image volume seeds the owned Qwen VL model offline', () => {
   assert.match(modalApp, /AVANTIQO_IMAGE_CERTIFIED_CAPABILITIES/);
 });
 
-test('legacy image suite does not falsely mark document vision measured', () => {
-  assert.match(suite, /measured_capabilities:\["ai\.image\.generate"\]/);
+test('document vision certification remains separate from retired RunPod suite', () => {
+  assert.match(benchmark, /AVANTIQO_DOCUMENT_VISION_CERTIFICATION_V1/);
+  assert.match(modalApp, /runpod_inference_performed.*False/);
 });

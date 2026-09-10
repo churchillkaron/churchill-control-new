@@ -27,6 +27,13 @@ import {
 import {
   mergeOperatorProjectState,
 } from "@/lib/operator/contracts/OperatorProjectState";
+import {
+  conversationAttachmentSetIdFromRequest,
+  loadConversationAttachmentSet,
+} from "@/lib/platform/runtime/ConversationAttachmentRuntime";
+import {
+  analyzeConversationAttachments,
+} from "@/lib/platform/runtime/ConversationAttachmentAnalysisRuntime";
 
 function readValue(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -261,6 +268,31 @@ export async function POST(request) {
       role: access.role || null,
     };
 
+    const attachmentSetId = conversationAttachmentSetIdFromRequest(request);
+    const conversationAttachments = attachmentSetId
+      ? await loadConversationAttachmentSet({
+          context: { organizationId: businessContext.organizationId, actor },
+          attachment_set_id: attachmentSetId,
+        })
+      : { found: false, files: [] };
+    if (conversationAttachments.expired === true) {
+      return errorResponse("Attachment set expired. Please attach the files again.", 410);
+    }
+    if (attachmentSetId && conversationAttachments.found !== true) {
+      return errorResponse("Attachment set not found.", 404);
+    }
+
+    const analyzedConversationAttachments = attachmentSetId
+      ? await analyzeConversationAttachments({
+          files: conversationAttachments.files || [],
+          context: {
+            organizationId: businessContext.organizationId,
+            entityId: businessContext.entityId,
+            partyId,
+          },
+        })
+      : [];
+
     const memoryStartedAt = Date.now();
     const memory = await loadOrCreateIntelligenceConversation({
       organizationId: businessContext.organizationId,
@@ -357,6 +389,7 @@ export async function POST(request) {
           projectState: effectiveProjectState,
           conversation,
           longTermMemory,
+          conversationAttachments: analyzedConversationAttachments,
           callerRequest: request,
         })
           .then((value) => {

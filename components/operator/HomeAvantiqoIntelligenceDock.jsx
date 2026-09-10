@@ -10,8 +10,8 @@ const LATEST_THRESHOLD_PX = 96;
 const VOICE_REPLY_INTENT_TTL_MS = 120_000;
 const LIVE_POLL_MS = 900;
 const LIVE_STALE_MS = 45_000;
-const MAX_DEVELOPER_FILES = 4;
-const MAX_DEVELOPER_FILE_BYTES = 128 * 1024;
+const MAX_DEVELOPER_FILES = 8;
+const MAX_DEVELOPER_FILE_BYTES = 25 * 1024 * 1024;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -107,24 +107,18 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
     setDeveloperAttachmentPending(true);
     setDeveloperAttachmentError("");
     try {
+      const formData = new FormData();
+      formData.append("organizationId", organizationId);
       for (const file of files) {
         if (file.size > MAX_DEVELOPER_FILE_BYTES) {
-          throw new Error(`${file.name} is too large for live Code context.`);
+          throw new Error(`${file.name} is larger than 25 MB.`);
         }
+        formData.append("files", file, file.name);
       }
-      const attachments = await Promise.all(
-        files.map(async (file) => ({
-          name: file.name,
-          type: file.type || "text/plain",
-          size: file.size,
-          content: await file.text(),
-        })),
-      );
-      const response = await fetch("/api/operator/developer-attachments", {
+      const response = await fetch("/api/operator/attachments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ organizationId, attachments }),
+        body: formData,
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.success !== true || !result?.attachment_set_id) {
@@ -157,7 +151,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         );
         const headers = new Headers(init?.headers || {});
         if (attachmentSetId) {
-          headers.set("x-avantiqo-developer-attachment-set", attachmentSetId);
+          headers.set("x-avantiqo-attachment-set", attachmentSetId);
         }
         const response = await originalFetch("/api/operator/turn/live", {
           ...init,
@@ -441,7 +435,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         type="file"
         multiple
         className="hidden"
-        accept=".txt,.md,.mdx,.js,.jsx,.ts,.tsx,.mjs,.cjs,.json,.yaml,.yml,.toml,.ini,.cfg,.conf,.css,.scss,.html,.xml,.sql,.py,.go,.rs,.java,.kt,.rb,.php,.swift,.c,.cc,.cpp,.h,.hpp,.sh,.zsh,.fish,.log,.csv,.tsv,text/*,application/json"
+        accept="image/*,video/*,audio/*,.pdf,.txt,.md,.mdx,.csv,.tsv,.xls,.xlsx,.xlsm,.doc,.docx,.ppt,.pptx,.json,.yaml,.yml,.js,.jsx,.ts,.tsx,.mjs,.cjs,.sql,.py,.html,.css,text/*,application/pdf,application/json"
         onChange={selectDeveloperAttachments}
       />
       <button
@@ -455,7 +449,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         ) : (
           <Paperclip size={11} />
         )}
-        {developerAttachmentPending ? "Attaching" : "Attach files"}
+        {developerAttachmentPending ? "Uploading" : "Attach files"}
       </button>
 
       {developerAttachmentSet?.files?.map((file) => (
@@ -486,7 +480,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
 
       {developerAttachmentSet ? (
         <span className="text-[9px] text-white/25">
-          Read-only evidence · next turn only
+          Analyzed context · next turn only
         </span>
       ) : null}
     </div>

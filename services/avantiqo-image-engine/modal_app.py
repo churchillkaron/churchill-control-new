@@ -133,6 +133,74 @@ def generate(data: dict[str, Any]) -> dict[str, Any]:
     scaledown_window=5,
     retries=0,
 )
+def certify_document_vision(source_url: str) -> dict[str, Any]:
+    os.chdir("/app")
+    import handler_v9 as image_engine
+
+    image_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    cases = [
+        ("ai.image.analyze", "Inspect this document. Return strict JSON with visible_title, certification_id, document_type, account_name, date, opening_balance, credit, closing_balance, confidence."),
+        ("document.ocr", "Extract every visible line faithfully. Return strict JSON with text, fields, and confidence. Preserve numbers and dates exactly."),
+        ("document.classify", "Classify this document from visible evidence. Return strict JSON with document_type, confidence, candidate_domains, and key_fields. Use bank_statement only if the evidence proves it."),
+    ]
+    expected = ["AVQ-DOC-2026-0910", "CERTIFICATION TEST COMPANY", "2026-09-10", "1250"]
+    observations = []
+    for requested_capability, instruction in cases:
+        started = time.perf_counter()
+        output = image_engine.handler({
+            "id": f"modal-cert-{uuid.uuid4()}",
+            "input": {
+                "contract": ENGINE_CONTRACT,
+                "capability": "ai.image.analyze",
+                "instruction": instruction,
+                "source_assets": [source_url],
+                "source_asset_roles": {"source_image": source_url},
+                "organization_id": "benchmark-only",
+                "usage_id": f"benchmark-{requested_capability}",
+            },
+        })
+        evidence = output.get("result") if isinstance(output, dict) else None
+        flattened = json.dumps(evidence or {}, sort_keys=True).lower()
+        passed = all(value.lower() in flattened for value in expected)
+        if requested_capability == "document.classify":
+            passed = passed and ("bank_statement" in flattened or "bank statement" in flattened)
+        observations.append({
+            "requested_capability": requested_capability,
+            "execution_capability": "ai.image.analyze",
+            "foundation_model": output.get("foundation_model") if isinstance(output, dict) else None,
+            "elapsed_seconds": round(time.perf_counter() - started, 3),
+            "structured_visual_evidence": bool(output.get("structured_visual_evidence")) if isinstance(output, dict) else False,
+            "raw_reasoning_persisted": output.get("raw_reasoning_persisted") if isinstance(output, dict) else None,
+            "passed": passed and output.get("raw_reasoning_persisted") is False,
+            "evidence": evidence,
+        })
+    report = {
+        "contract": "AVANTIQO_DOCUMENT_VISION_CERTIFICATION_V1",
+        "provider": "avantiqo-image",
+        "model": ANALYZE_MODEL,
+        "measured_capabilities": [item[0] for item in cases],
+        "summary": {"passed": all(item["passed"] for item in observations), "runs": len(observations)},
+        "observations": observations,
+        "activation_allowed": False,
+        "pricing_activation_performed": False,
+        "production_deploy_performed": False,
+        "raw_reasoning_persisted": False,
+    }
+    print("AVANTIQO_DOCUMENT_VISION_CERTIFICATION_RESULT=" + json.dumps(report, separators=(",", ":"), sort_keys=True), flush=True)
+    return report
+
+
+@app.function(
+    image=worker_image,
+    gpu="A100-80GB",
+    volumes={"/models": model_volume},
+    timeout=20 * 60,
+    min_containers=0,
+    max_containers=1,
+    buffer_containers=0,
+    scaledown_window=5,
+    retries=0,
+)
 def generate_investor_keyframe(
     output_relative: str,
     instruction: str,

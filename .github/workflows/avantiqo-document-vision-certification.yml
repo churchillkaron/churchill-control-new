@@ -13,24 +13,45 @@ concurrency:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version-file: .nvmrc
+          python-version: "3.12"
 
-      - name: Install runtime dependencies
-        run: npm ci --ignore-scripts
-      - name: Run owned document vision benchmark
+      - name: Install Modal CLI
+        run: python -m pip install --disable-pip-version-check modal
+
+      - name: Seed owned vision model cache
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-          AVANTIQO_DOCUMENT_VISION_BENCHMARK_OUTPUT: ${{ github.workspace }}/document-vision-certification.json
-        run: node scripts/benchmark-avantiqo-document-vision.mjs
+        run: python -m modal run services/avantiqo-image-engine/modal_app.py::seed_cache
+
+      - name: Run ephemeral owned document vision benchmark
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: |
+          FIXTURE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/tests/fixtures/avantiqo-document-vision-certification.png"
+          python -m modal run services/avantiqo-image-engine/modal_app.py::certify_document_vision --source-url "$FIXTURE_URL" | tee /tmp/document-vision.log
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          prefix = "AVANTIQO_DOCUMENT_VISION_CERTIFICATION_RESULT="
+          lines = Path("/tmp/document-vision.log").read_text(encoding="utf-8").splitlines()
+          matches = [line.split(prefix, 1)[1] for line in lines if prefix in line]
+          if not matches:
+              raise SystemExit("DOCUMENT_VISION_CERTIFICATION_RESULT_MISSING")
+          report = json.loads(matches[-1])
+          Path("document-vision-certification.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+          if report.get("summary", {}).get("passed") is not True:
+              raise SystemExit("DOCUMENT_VISION_CERTIFICATION_FAILED")
+          PY
 
       - name: Verify no activation occurred
         if: always()

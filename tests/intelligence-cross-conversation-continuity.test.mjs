@@ -5,6 +5,7 @@ import {
   crossConversationAmbiguityTurn,
   isCrossConversationContinuationRequest,
   matchContinuityProjectSelection,
+  isPotentialContinuitySelectionReply,
   selectContinuityProjectCandidates,
 } from "../lib/operator/runtime/IntelligenceCrossConversationContinuityRuntime.js";
 
@@ -120,4 +121,61 @@ test("ambiguous project recovery never emits execution", () => {
   assert.equal(result.execution, null);
   assert.equal(result.decision.execution.capability_key, null);
   assert.deepEqual(result.decision.execution.payload, {});
+});
+
+
+test("recognizes subject-aware continuation requests", () => {
+  for (const message of [
+    "continue Cole Ley invoice",
+    "resume the Studio video",
+    "continue with hotel work",
+  ]) {
+    assert.equal(isCrossConversationContinuationRequest(message), true, message);
+  }
+});
+
+test("named continuation selects the clearly matching recent project", () => {
+  const now = Date.parse("2026-09-10T06:00:00.000Z");
+  const result = selectContinuityProjectCandidates([
+    {
+      conversation_id: "studio",
+      updated_at_ms: now - 60_000,
+      project_state: {
+        objective: "Finish Avantiqo Studio investor film",
+        progress_summary: "Rendering Norway helicopter and oil rig chapter",
+        next_step: "Continue video quality work",
+      },
+    },
+    {
+      conversation_id: "cole",
+      updated_at_ms: now - 120_000,
+      project_state: {
+        objective: "Finish Cole Ley finance migration and invoice workflow",
+        progress_summary: "Customer invoices and receipt flow",
+        next_step: "Verify Cole Ley invoice creation",
+      },
+    },
+  ], { message: "continue Cole Ley invoice" });
+
+  assert.equal(result.ambiguous, false);
+  assert.equal(result.selected?.conversation_id, "cole");
+  assert.equal(result.reason, "SUBJECT_MATCHED_ACTIVE_PROJECT_RECOVERED");
+});
+
+
+test("pending project selection classifier skips ordinary questions", () => {
+  assert.equal(isPotentialContinuitySelectionReply("1"), true);
+  assert.equal(isPotentialContinuitySelectionReply("second"), true);
+  assert.equal(isPotentialContinuitySelectionReply("Finish investor film"), true);
+  assert.equal(isPotentialContinuitySelectionReply("What is revenue today?"), false);
+  assert.equal(isPotentialContinuitySelectionReply("Create a new customer invoice"), false);
+});
+
+test("continuity module lazy-loads Supabase after cheap routing", async () => {
+  const source = await import("node:fs/promises").then(({ readFile }) =>
+    readFile(new URL("../lib/operator/runtime/IntelligenceCrossConversationContinuityRuntime.js", import.meta.url), "utf8"),
+  );
+  assert.doesNotMatch(source, /^import \{ supabaseAdmin \}/m);
+  assert.match(source, /async function supabaseClient\(\)/);
+  assert.match(source, /if \(!continuationRequest && !potentialSelection\)/);
 });

@@ -426,6 +426,7 @@ export async function POST(request) {
     const continuityPromise = recoverCrossConversationProject({
       organizationId: businessContext.organizationId,
       partyId,
+      currentConversationId: memory.conversation.id,
       message,
       currentProjectState: memory.projectState,
     }).catch((continuityError) => {

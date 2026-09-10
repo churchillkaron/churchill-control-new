@@ -24,3 +24,8 @@ test("assistant persistence and durable project learning share the response crit
   assert.match(route, /const longTermLearnPromise = learnProjectStateMemories/);
   assert.match(route, /const \[persisted\] = await Promise\.all\(\[\s*assistantPersistPromise,\s*longTermLearnPromise/);
 });
+
+
+test("continuity recovery is scoped to the current conversation for pending selection", () => {
+  assert.match(route, /currentConversationId:\s*memory\.conversation\.id/);
+});

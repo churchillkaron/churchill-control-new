@@ -42,6 +42,9 @@ import {
 import {
   routeAnalyzedAttachment,
 } from "@/lib/platform/runtime/UniversalAttachmentRoutingRuntime";
+import {
+  matchAnalyzedAttachmentToBusiness,
+} from "@/lib/platform/runtime/UniversalAttachmentBusinessMatchRuntime";
 
 function readValue(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -313,8 +316,24 @@ export async function POST(request) {
       }
     }
 
-    const preparedConversationAttachments = await Promise.all(
+    const matchedConversationAttachments = await Promise.all(
       analyzedConversationAttachments.map(async (file) => {
+        try {
+          const businessMatch = await matchAnalyzedAttachmentToBusiness({
+            file,
+            organizationId: businessContext.organizationId,
+            entityId: businessContext.entityId,
+          });
+          return { ...file, business_match: businessMatch };
+        } catch (matchError) {
+          console.error("OPERATOR_ATTACHMENT_BUSINESS_MATCH_FAILED", matchError);
+          return { ...file, business_match: { status: "MATCH_UNAVAILABLE", authorization_effect: "NONE" } };
+        }
+      }),
+    );
+
+    const preparedConversationAttachments = await Promise.all(
+      matchedConversationAttachments.map(async (file) => {
         const bankStatement = await prepareBankStatementAttachment({
           file,
           organizationId: businessContext.organizationId,

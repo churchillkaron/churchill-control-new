@@ -9,7 +9,7 @@ const source = fs.readFileSync(
 
 test("Intelligence reasoning loop settles pending owned Modal jobs before parsing output", () => {
   assert.match(source, /async function settlePendingReasoningExecution/);
-  assert.match(source, /if \(execution\?\.pending !== true\) return execution/);
+  assert.match(source, /if \(execution\?\.pending !== true\) \{[\s\S]*intelligence_owned_provider_verified: true/);
   assert.match(source, /ServiceExecutionRuntime\.settle\(\{/);
   assert.match(source, /provider_job_id:\s*providerJobId/);
   assert.match(source, /usage_id:\s*usageId/);

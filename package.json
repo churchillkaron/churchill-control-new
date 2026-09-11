@@ -50,7 +50,8 @@
     "certify:business-partner:verification-catalog-coverage:local": "node scripts/certify-business-partner-verification-catalog-coverage-local.mjs",
     "certify:business-partner:generated-id-verification:local": "node scripts/certify-business-partner-generated-id-verification-local.mjs",
     "certify:business-partner:supply-chain-result-verification:local": "node scripts/certify-business-partner-supply-chain-result-verification-local.mjs",
-    "certify:business-partner:secretary-commercial-verification:local": "node scripts/certify-business-partner-secretary-commercial-verification-local.mjs"
+    "certify:business-partner:secretary-commercial-verification:local": "node scripts/certify-business-partner-secretary-commercial-verification-local.mjs",
+    "certify:business-partner:cross-domain-write-verification:local": "node scripts/certify-business-partner-cross-domain-write-verification-local.mjs"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.5",

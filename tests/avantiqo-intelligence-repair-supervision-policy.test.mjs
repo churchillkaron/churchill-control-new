@@ -12,6 +12,10 @@ const runtime = fs.readFileSync(
   "lib/operator/runtime/OperatorRepairSupervisionRuntime.js",
   "utf8",
 );
+const liveReadEvidenceRuntime = fs.readFileSync(
+  "lib/operator/runtime/OperatorRepairLiveReadEvidenceRuntime.js",
+  "utf8",
+);
 
 test("repair supervision activates when an independent post-action verification fails", () => {
   const result = {
@@ -91,11 +95,19 @@ test("verification failure supervision explicitly forbids blind write replay", (
 
 
 test("automatic Code repair requires server-observed current live-read evidence", () => {
-  assert.match(runtime, /successfulLiveReadEvidence/);
-  assert.match(runtime, /call\?\.name[\s\S]{0,120}operator_live_read/);
-  assert.match(runtime, /call\?\.outcome[\s\S]{0,120}succeeded/);
+  assert.match(runtime, /assessOperatorRepairLiveReadEvidence/);
+  assert.match(liveReadEvidenceRuntime, /call\?\.name[\s\S]{0,120}operator_live_read/);
+  assert.match(liveReadEvidenceRuntime, /call\?\.outcome[\s\S]{0,120}succeeded/);
   assert.match(runtime, /currentDefectEvidenceConfirmed[\s\S]{0,500}parsedRepair\.repairable === true/);
   assert.match(runtime, /live_read_evidence_observed: liveReadEvidence\.observed/);
   assert.match(runtime, /successful_live_read_count: liveReadEvidence\.successful_call_count/);
   assert.match(runtime, /perform at least one successful operator_live_read/i);
+});
+
+
+test("automatic Code repair requires a relevant live read bound to the failed capability surface", () => {
+  assert.match(runtime, /relevant_live_read_evidence_observed/);
+  assert.match(runtime, /verification_capability_key/);
+  assert.match(liveReadEvidenceRuntime, /capabilitySurface\(readKey\) === failedSurface/);
+  assert.match(liveReadEvidenceRuntime, /readKey === verificationCapabilityKey/);
 });

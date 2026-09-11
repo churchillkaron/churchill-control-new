@@ -21,7 +21,7 @@ test("workflow can resume from an approved Council without replaying Council", (
 test("resume forwards settled Tribunal review state only after Master repair", () => {
   const resume = workflow.match(/async resumeApprovedCouncil[\s\S]*$/)?.[0] || "";
   const repairAt = resume.indexOf("resumeApprovedCouncilPlan");
-  const tribunalAt = resume.indexOf("CreativeDynamicTribunalRuntime.review");
+  const tribunalAt = resume.indexOf("reviewWithDurableResume");
   assert.ok(repairAt >= 0 && tribunalAt > repairAt);
   assert.match(resume, /settled_reviews: input\.settled_reviews \|\| tribunalResume\.settled_reviews \|\| \[\]/);
   assert.match(resume, /settled_review_plan_hash: input\.settled_review_plan_hash \|\| tribunalResume\.settled_review_plan_hash \|\| null/);

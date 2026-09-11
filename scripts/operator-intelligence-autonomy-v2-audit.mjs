@@ -146,7 +146,7 @@ const SOURCE_REQUIREMENTS = {
   ],
   "lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime.js": [
     "AVANTIQO_PRODUCT_REPOSITORY_ASSESSMENT_V1",
-    "CodeWorkspaceSandboxRuntime.open",
+    "CodeWorkspaceRuntime.open",
     "current_main_head",
     "main_advanced_after_verified_commit",
     "MAX_OBJECTIVE_CANDIDATES = 4",
@@ -349,13 +349,23 @@ const SOURCE_REQUIREMENTS = {
     "commit_requested",
     "commit_completed",
     "automaticRecursionAllowed: false",
-    "production_deployed: false",
+    "release_to_production",
+    'capability: "product_production_release"',
+    'persistenceState === "REQUEST_COMMIT_CONFIRMATION"',
+    "databaseMigrationExecutionAllowed: false",
+    "productionRelease?.production_deployed === true",
     "database_migrations_applied: false",
   ],
   "lib/operator/runtime/IntelligenceMemoryRuntime.js": [
     'const scopes = ["organization"]',
     'scope: "party"',
     'scope: "entity"',
+  ],
+  "lib/code/runtime/CodeWorkspaceRuntime.js": [
+    "AVANTIQO_CODE_WORKSPACE_RUNTIME_V1",
+    "const target = requested || \"SANDBOX\"",
+    "CodeWorkspaceSandboxRuntime",
+    "CodeWorkspaceLocalRuntime",
   ],
   "lib/platform/runtime/PlatformDomainRuntime.js": [
     "createOperatorBindingAwareMissionCapability",
@@ -683,4 +693,4 @@ console.log("OPERATOR_PRODUCT_PERSISTENCE_CONVERSATION=ONE_CONFIRMATION_EXACT_MI
 console.log("OPERATOR_PRODUCT_AUTONOMY_CONTINUATION=VERIFIED_COMMIT_ONE_REPOSITORY_GROUNDED_BOUNDED_REASSESSMENT");
 console.log("OPERATOR_PRODUCT_AUTONOMY_CONTINUATION_CONVERSATION=NEXT_CONTINUE_DO_IT_EXECUTE_EXACT_PENDING_RECOMMENDATION");
 console.log("OPERATOR_PRODUCT_AUTONOMY_RECURSION=DISABLED");
-console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_PRODUCTION=NO_DEPLOY_NO_MIGRATION");
+console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_PRODUCTION=NO_DIRECT_DEPLOY_GOVERNED_VERIFIED_RELEASE_AVAILABLE_NO_MIGRATION");

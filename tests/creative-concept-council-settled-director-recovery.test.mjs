@@ -9,6 +9,7 @@ test("concept council recovers latest settled director output before new inferen
   assert.match(source, /entries\.at\(-1\)/);
   assert.match(source, /UsageRuntime\.get\(entry\.usage_id\)/);
   assert.match(source, /recovered_from_settled_usage: true/);
+  assert.match(source, /providerResult\.output\?\.text/);
   const start = source.indexOf("async function generateIndependentConcepts");
   const end = source.indexOf("const strategicResearch", start);
   const block = source.slice(start, end);

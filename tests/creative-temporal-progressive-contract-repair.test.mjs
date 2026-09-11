@@ -17,7 +17,8 @@ test("temporal repair normalizes numeric scene maps and scalar repair lists", ()
   assert.match(temporal, /numericKeys/);
 });
 
-test("applicable temporal agency roles cannot be waived as not required", () => {
-  assert.match(validator, /AGENCY_ROLE_ACTIVE_REQUIRED/);
-  assert.match(temporal, /Every role in APPLICABLE TEMPORAL ROLES below MUST be ACTIVE/);
+test("mandatory governance roles remain active while unused disciplines may be waived accountably", () => {
+  assert.match(validator, /MANDATORY_ACTIVE_GOVERNANCE_ROLES/);
+  assert.match(validator, /Governance role .* is mandatory and cannot be waived/);
+  assert.match(temporal, /Quality, rights\/safety and release governance MUST be ACTIVE/);
 });

@@ -25,3 +25,11 @@ test("existing master repair uses the canonical bounded validation and repair lo
   assert.match(master, /MAXIMUM_CONTRACT_REPAIR_ATTEMPTS/);
   assert.match(master, /settled_result: settledRepairResults\[attempt\] \|\| null/);
 });
+
+test("approved Council plan can resume without rerunning Council", () => {
+  assert.match(council, /async function resumeApprovedCouncilPlan\(input = \{\}\)/);
+  assert.match(council, /CREATIVE_APPROVED_CONCEPT_COUNCIL_REQUIRED/);
+  assert.match(council, /repair_results:\s*list\(input\.repair_results\)/);
+  assert.match(council, /resumed_from_approved_council:\s*true/);
+  assert.match(council, /resumeApprovedCouncilPlan,/);
+});

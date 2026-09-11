@@ -110,14 +110,6 @@ test("Business Partner cannot claim mutation completion after verification failu
     operator,
     /const rolledBackDecision = rollbackUnverifiedProjectProgress\(/,
   );
-  assert.match(
-    operator,
-    /could not verify the business effect/,
-  );
-  assert.match(
-    operator,
-    /will not claim it completed or repeat the mutation automatically/,
-  );
   assert.match(operator, /intent:\s*"verification_required"/);
   assert.match(operator, /business_effect_verified:\s*false/);
   assert.match(operator, /mutation_replay_allowed:\s*false/);

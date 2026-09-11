@@ -67,3 +67,13 @@ test("director prompt gives explicit mission authority over research interpretat
   assert.match(source, /mission_contract as the highest creative authority/);
   assert.match(source, /resolve any conflict in favor of EVIDENCE\.mission_contract/);
 });
+
+
+test("generic proposition language is not treated as a governing device", () => {
+  const start = source.indexOf("function governingDeviceCorpus");
+  const end = source.indexOf("function phraseSet", start);
+  const block = source.slice(start, end);
+  assert.doesNotMatch(block, /concept\.central_proposition/);
+  assert.match(block, /concept\.title/);
+  assert.match(block, /concept\.motif_system/);
+});

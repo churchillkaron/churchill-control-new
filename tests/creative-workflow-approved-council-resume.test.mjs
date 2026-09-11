@@ -23,6 +23,6 @@ test("resume forwards settled Tribunal review state only after Master repair", (
   const repairAt = resume.indexOf("resumeApprovedCouncilPlan");
   const tribunalAt = resume.indexOf("CreativeDynamicTribunalRuntime.review");
   assert.ok(repairAt >= 0 && tribunalAt > repairAt);
-  assert.match(resume, /settled_reviews: input\.settled_reviews \|\| \[\]/);
-  assert.match(resume, /settled_review_plan_hash: input\.settled_review_plan_hash \|\| null/);
+  assert.match(resume, /settled_reviews: input\.settled_reviews \|\| tribunalResume\.settled_reviews \|\| \[\]/);
+  assert.match(resume, /settled_review_plan_hash: input\.settled_review_plan_hash \|\| tribunalResume\.settled_review_plan_hash \|\| null/);
 });

@@ -29,5 +29,5 @@ test("accepted Tribunal repairs reuse unchanged immediately prior reviewer rows"
 });
 
 test("workflow resume forwards the exact legacy reviewed source plan explicitly", () => {
-  assert.match(workflow, /settled_review_source_plan: input\.settled_review_source_plan \|\| null/);
+  assert.match(workflow, /settled_review_source_plan: input\.settled_review_source_plan \|\| tribunalResume\.settled_review_source_plan \|\| null/);
 });

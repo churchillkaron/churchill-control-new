@@ -13,5 +13,5 @@ test("full structural repair can explicitly reorder scenes", () => {
 
 test("Tribunal unwraps plan repair envelope before merge", () => {
   const source=fs.readFileSync(new URL("../lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js",import.meta.url),"utf8");
-  assert.match(source,/object\(repair\.output\)\.plan \|\| repair\.output/);
+  assert.match(source,/normalizedRepairPatch\(repair\.output, plan\)/);
 });

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { register } from "node:module";
 
 import { readFile } from "node:fs/promises";
 import {
@@ -8,6 +9,8 @@ import {
 import {
   runCodeAIParallelSpecialistReview,
 } from "../lib/code/runtime/CodeAIParallelSpecialistReviewRuntime.js";
+
+register("../scripts/next-alias-loader.mjs", import.meta.url);
 
 function operation(operation_id, action, result = {}) {
   return { kind: "operation", operation_id, action, status: "completed", result };
@@ -133,4 +136,26 @@ test("high-risk commit cannot bypass the strategic review gate", async () => {
     }),
     /CODE_AI_COMMIT_STRATEGIC_REVIEW_REQUIRED/,
   );
+});
+
+test("employee strategic review uses freshly computed world-class risk", async () => {
+  const { assessCodeAIEmployeeCompletion } = await import("../lib/code/runtime/CodeAIEmployeeRuntime.js");
+  const completion = assessCodeAIEmployeeCompletion({
+    status: "completed",
+    objective: "Make the requested bounded repository change.",
+    files_changed: ["supabase/migrations/20990101000000_example.sql"],
+    source_changes: [{
+      path: "supabase/migrations/20990101000000_example.sql",
+      operation: "write",
+      content: "select 1;\n",
+    }],
+    tests: [],
+    verification: [],
+    patch: "diff --git a/supabase/migrations/example.sql b/supabase/migrations/example.sql",
+    evidence: [],
+  });
+  assert.equal(completion.worldclass_quality.risk, "critical");
+  assert.equal(completion.strategic_review.required, true);
+  assert.equal(completion.strategic_review.verified, false);
+  assert.ok(completion.blockers.includes("CODE_AI_EMPLOYEE_STRATEGIC_REVIEW_REQUIRED"));
 });

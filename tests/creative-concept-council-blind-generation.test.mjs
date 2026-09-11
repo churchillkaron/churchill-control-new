@@ -48,3 +48,22 @@ test("concept distinctness rejects shared governing-device phrases before critic
   assert.match(source, /INDEPENDENT_CONCEPTS_GOVERNING_DEVICE_COLLISION/);
   assert.match(source, /shared_governing_device_phrases/);
 });
+
+
+test("blind research keeps facts but strips advisory creative constraints", () => {
+  assert.match(source, /function blindResearchEvidence/);
+  assert.match(source, /company_truth: source\.company_truth/);
+  assert.match(source, /claims: list\(source\.claims\)/);
+  assert.match(source, /sources: list\(source\.sources\)/);
+  assert.match(source, /strategic_synthesis: strategic/);
+  for (const key of ["must_not_do", "misuse_risk", "creative_consequence", "continuity_constraints"]) {
+    assert.match(source, new RegExp(`"${key}"`));
+  }
+  assert.match(source, /creative_interpretation: "ADVISORY_ONLY"/);
+  assert.match(source, /mission_contract: "HIGHEST"/);
+});
+
+test("director prompt gives explicit mission authority over research interpretation", () => {
+  assert.match(source, /mission_contract as the highest creative authority/);
+  assert.match(source, /resolve any conflict in favor of EVIDENCE\.mission_contract/);
+});

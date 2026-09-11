@@ -21,8 +21,9 @@ test("vendor bill create declares a result-bound verifier", () => {
   assert.match(vendor, /payload_from_result/);
   assert.match(vendor, /vendor_invoice\.id/);
 });
-test("catalog preserves explicit verifier declarations", () => {
-  assert.match(catalog, /declared_operator_verification/);
+test("catalog normalizes explicit verifier declarations and strips raw config", () => {
+  assert.match(catalog, /normalizeOperatorVerificationDeclaration/);
+  assert.match(catalog, /declared_operator_verification: _rawDeclaration/);
   assert.match(catalog, /manifest\?\.operatorVerification/);
 });
 

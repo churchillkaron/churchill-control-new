@@ -88,3 +88,14 @@ test("verification failure supervision explicitly forbids blind write replay", (
   assert.match(runtime, /Never replay the write merely because verification failed/i);
   assert.match(runtime, /accidental write replay/i);
 });
+
+
+test("automatic Code repair requires server-observed current live-read evidence", () => {
+  assert.match(runtime, /successfulLiveReadEvidence/);
+  assert.match(runtime, /call\?\.name[\s\S]{0,120}operator_live_read/);
+  assert.match(runtime, /call\?\.outcome[\s\S]{0,120}succeeded/);
+  assert.match(runtime, /currentDefectEvidenceConfirmed[\s\S]{0,500}parsedRepair\.repairable === true/);
+  assert.match(runtime, /live_read_evidence_observed: liveReadEvidence\.observed/);
+  assert.match(runtime, /successful_live_read_count: liveReadEvidence\.successful_call_count/);
+  assert.match(runtime, /perform at least one successful operator_live_read/i);
+});

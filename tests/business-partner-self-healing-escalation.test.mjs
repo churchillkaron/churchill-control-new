@@ -53,3 +53,10 @@ test("exact failed action remains bound through engineering for later continuati
   assert.match(capability, /original_action: failed/);
   assert.match(capability, /authorization_effect: "SAME_ACTION_ONLY"/);
 });
+
+
+test("stale or unconfirmed defects cannot enter automatic self-healing", () => {
+  assert.match(synthetic, /current_defect_evidence_confirmed !== true/);
+  assert.match(synthetic, /live_read_evidence_observed !== true/);
+  assert.match(synthetic, /code_engineering_candidate !== true/);
+});

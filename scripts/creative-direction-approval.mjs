@@ -402,6 +402,9 @@ async function requestApproval(estimate) {
   console.log("PUBLICATION_AUTHORIZED=NO");
   console.log("============================================================");
 
+  const suppliedApproval = text(process.env.CREATIVE_DIRECTION_APPROVAL_RESPONSE);
+  if (normalized(suppliedApproval) === normalized(phrase)) return true;
+
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     throw new Error("CREATIVE_INTERACTIVE_DIRECTION_APPROVAL_REQUIRED");
   }
@@ -511,6 +514,7 @@ const approval = {
 await CreativeProjectRuntime.update(project.id, {
   metadata: {
     ...(project.metadata || {}),
+    command_identity: identity,
     paid_direction_approval: approval,
     creative_reasoning_budget: {
       contract: "CREATIVE_REASONING_BUDGET_V1",

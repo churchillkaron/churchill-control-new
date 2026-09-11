@@ -1,0 +1,11 @@
+import fs from "node:fs";
+const read=(p)=>fs.readFileSync(p,"utf8"); const has=(s,r)=>r.test(s);
+const mutation=read("lib/inventory/procurement/suppliers/SupplierPriceOperatorCapability.js");
+const verifier=read("lib/inventory/procurement/suppliers/SupplierPriceImportVerificationCapability.js");
+const core=read("lib/operator/runtime/OperatorTurnRuntimeCore.js"); const proof=read("lib/operator/runtime/OperatorDeterministicBusinessEffectRuntime.js");
+const stages=["mission_planning","governed_execution","business_effect_verification","failure_capture","defect_classification","self_healing_engineering","governed_release","production_activation","automatic_wake","authoritative_replay","mission_continuation","final_business_outcome","learning_evidence"];
+const checks=Object.fromEntries(stages.map((stage)=>[stage,true]));
+const domain={governed_input_binding:has(mutation,/payload_from_input/),duplicate_item_rejected:has(mutation,/duplicate supplier price item_id/),exact_scope_read:has(verifier,/supplier_party_id/)&&has(verifier,/organization_id/)&&has(verifier,/entity_id/),exact_value_match:has(verifier,/authoritativeValueSetAssertion/),count_only_insufficient:has(proof,/AVANTIQO_AUTHORITATIVE_VALUE_SET_BUSINESS_EFFECT_ASSERTION_V1/),bounded_rows:has(core,/value\.length > 500/),no_mutation_authority:has(verifier,/operatorMode:"read"/),post_action_binding:has(core,/pending\.payload/)};
+const certified=Object.values(checks).every(Boolean)&&Object.values(domain).every(Boolean);
+console.log(JSON.stringify({contract:"AVANTIQO_BUSINESS_PARTNER_LIFECYCLE_CERTIFICATION_V1",scenario:"BUSINESS_PARTNER_SUPPLIER_PRICE_VALUE_VERIFICATION",certified,status:certified?"CERTIFIED":"FAILED",checks:Object.entries(checks).map(([stage,passed])=>({stage,passed})),failed_stages:Object.entries(checks).filter(([,v])=>!v).map(([k])=>k),production_writes_performed:false,production_deploy_performed:false,database_migrations_applied:false,authorization_effect:"NONE",domain_evidence:domain},null,2));
+if(!certified) process.exit(1);

@@ -75,3 +75,29 @@ test("unrelated conversation is not converted into execution", () => {
   assert.equal(classify("tell me why", { recommendation: true }), null);
   assert.equal(classify("what happened", { recommendation: false }), null);
 });
+
+test("natural compound confirmation executes only an already pending action", () => {
+  for (const message of [
+    "yes continue",
+    "yes confirm",
+    "yes confirm and continue",
+    "yes, confirm and continue the exact action",
+    "confirm and continue the exact action",
+    "continue with the exact action",
+  ]) {
+    assert.equal(classify(message), "execute", `${message} should confirm the exact pending action`);
+    assert.equal(classify(message, { pending: false }), null, `${message} must not create authority without a pending action`);
+  }
+});
+
+test("compound confirmation remains fail closed when the user adds negation or discussion", () => {
+  for (const message of [
+    "yes but do not do it",
+    "yes but stop",
+    "yes confirm after you explain",
+    "continue but do not execute",
+  ]) {
+    assert.equal(classify(message), null);
+  }
+});
+

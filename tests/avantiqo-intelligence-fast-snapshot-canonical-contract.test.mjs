@@ -16,6 +16,9 @@ test("canonical Fast Intelligence uses reliable warm-function scale-to-zero tran
   assert.match(direct, /client\.functions\.fromName/);
   assert.match(direct, /FAST_FUNCTION_NAME/);
   assert.match(direct, /FAST_RUNTIME_CONTRACT/);
+  assert.match(direct, /DEFAULT_APP_NAME = "avantiqo-intelligence-owned"/);
+  assert.match(direct, /NODE_ENV[^\n]+development/);
+  assert.match(direct, /AVANTIQO_INTELLIGENCE_MODAL_APP_NAME/);
   assert.doesNotMatch(direct, /FAST_SNAPSHOT_CONTRACT/);
   assert.match(provider, /function_name: "fast"/);
   assert.match(provider, /gpu_memory_snapshot: false/);

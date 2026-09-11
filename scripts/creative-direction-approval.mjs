@@ -139,9 +139,9 @@ function directionBudgetShape(productionType, duration) {
   const maximumSceneCalls = maximumTemporalSceneCalls(duration);
   return {
     // One synthesis + base plan + scene architecture + one call per maximum
-    // scene + three independent directors + four independent critics +
+    // scene + three independent directors + five independent critics +
     // executive selection + selected-plan revision.
-    maximum_calls: 12 + maximumSceneCalls,
+    maximum_calls: 13 + maximumSceneCalls,
     maximum_scene_direction_calls: maximumSceneCalls,
     allowed_operations: [...TEMPORAL_OPERATIONS],
     calculation: "UNIVERSAL_TEMPORAL_COUNCIL_AND_SCENE_MAXIMUM",

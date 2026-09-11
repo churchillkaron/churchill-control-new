@@ -246,7 +246,7 @@ const currentSynthesisCalls =
 const hardenedSynthesisCalls =
   sourceAudioIntent ? 1 : 0;
 const temporalFixedCalls = 2;
-const councilCalls = 9;
+const councilCalls = 10;
 
 function callRange(synthesisCalls) {
   return {

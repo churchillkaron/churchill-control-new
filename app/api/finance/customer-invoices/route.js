@@ -42,6 +42,8 @@ export async function GET(request) {
       .select("*")
       .eq("organization_id", access.organizationId);
     if (entityId) query = query.eq("entity_id", entityId);
+    const invoiceId = searchParams.get("id") || searchParams.get("invoice_id");
+    if (invoiceId) query = query.eq("id", invoiceId);
 
     const { data, error } = await query.order("created_at", { ascending: false });
     if (error) throw error;

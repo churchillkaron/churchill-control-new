@@ -111,6 +111,14 @@ test("take selection binds only a planned take after virtual rehearsal", () => {
 
 test("production graph materializes unit ownership and planned takes", () => {
   const roomPipeline = createProductionRoomPlan({ project_id: "project-a", master_plan_digest: "master-a" });
+  const gatedRoomPipeline = {
+    ...roomPipeline,
+    stages: roomPipeline.stages.map((stage) => {
+      if (stage.id === "VIRTUAL_REHEARSAL") return { ...stage, status: "SEALED", sealed_digest: "rehearsal-digest-a" };
+      if (stage.id === "PRODUCTION_UNITS") return { ...stage, status: "READY" };
+      return stage;
+    }),
+  };
   const breakdown = buildDepartmentBreakdown({
     shots: [{
       id: "shot-a",
@@ -136,7 +144,7 @@ test("production graph materializes unit ownership and planned takes", () => {
     creative_plan: {
       workflow_kind: "TEMPORAL",
       story_lineage: { story_contract_hash: "story-a", master_plan_hash: "master-a" },
-      production_room_pipeline: roomPipeline,
+      production_room_pipeline: gatedRoomPipeline,
       production_room_bootstrap: { stage_inputs: { DEPARTMENT_BREAKDOWN: { report: breakdown } } },
     },
   });

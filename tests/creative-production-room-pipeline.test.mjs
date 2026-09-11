@@ -27,6 +27,9 @@ function evidenceFor(stage) {
   if (["CREATIVE_FLOOR", "CONCEPT_COMPETITION"].includes(stage.id)) {
     evidence.room_report = { contract: "CREATIVE_FRONT_PRODUCTION_ROOMS_V1", room: stage.id, passed: true };
   }
+  if (stage.id === "TRIBUNAL") {
+    evidence.room_report = { contract: "CREATIVE_DYNAMIC_TRIBUNAL_V1", passed: true, verdict: { passed: true } };
+  }
   if (stage.id === "TECHNICAL_SCOUT") {
     evidence.room_report = { contract: "CREATIVE_TECHNICAL_SCOUT_V1", passed: true, zero_provider_calls: true, zero_media_generation: true };
   }
@@ -49,13 +52,13 @@ test("all twenty production workstreams exist with accountable owners and specia
     assert.ok(workstream.specialists.length >= 5);
   }
 });
-test("fifteen production rooms are ordered from research to release", () => {
-  assert.equal(CREATIVE_PRODUCTION_ROOM_STAGES.length, 15);
+test("seventeen production rooms are ordered from research to release", () => {
+  assert.equal(CREATIVE_PRODUCTION_ROOM_STAGES.length, 17);
   assert.equal(CREATIVE_PRODUCTION_ROOM_STAGES[0].id, "RESEARCH_ROOM");
   assert.equal(CREATIVE_PRODUCTION_ROOM_STAGES.at(-1).id, "RELEASE");
   assert.deepEqual(
     CREATIVE_PRODUCTION_ROOM_STAGES.map((stage) => stage.order),
-    Array.from({ length: 15 }, (_, index) => index + 1),
+    Array.from({ length: 17 }, (_, index) => index + 1),
   );
 });
 
@@ -84,7 +87,7 @@ test("production remains blocked until virtual rehearsal is sealed", () => {
   let plan = createProductionRoomPlan({ project_id: "project-c", master_plan_digest: "master-c" });
   assert.equal(productionEntryGate(plan).passed, false);
   let previous = null;
-  for (const stage of plan.stages.filter((item) => item.order <= 7)) {
+  for (const stage of plan.stages.filter((item) => item.order <= 8)) {
     plan = sealProductionRoomStage({
       plan,
       stage_id: stage.id,

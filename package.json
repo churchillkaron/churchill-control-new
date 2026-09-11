@@ -44,7 +44,8 @@
     "certify:business-partner:data-recovery:local": "node scripts/certify-business-partner-data-recovery-local.mjs",
     "certify:business-partner:verification-recovery:local": "node scripts/certify-business-partner-verification-recovery-local.mjs",
     "certify:business-partner:ambiguous-write-recovery:local": "node scripts/certify-business-partner-ambiguous-write-recovery-local.mjs",
-    "certify:business-partner:human-gate-recovery:local": "node scripts/certify-business-partner-human-gate-recovery-local.mjs"
+    "certify:business-partner:human-gate-recovery:local": "node scripts/certify-business-partner-human-gate-recovery-local.mjs",
+    "certify:business-partner:external-backoff-recovery:local": "node scripts/certify-business-partner-external-backoff-recovery-local.mjs"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.5",

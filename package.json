@@ -39,7 +39,8 @@
     "certify:business-partner:secretary-commercial:local": "node scripts/certify-business-partner-secretary-commercial-lifecycle-local.mjs",
     "certify:business-partner:approval-continuation:local": "node scripts/certify-business-partner-approval-continuation-local.mjs",
     "certify:business-partner:configuration-recovery:local": "node scripts/certify-business-partner-configuration-recovery-local.mjs",
-    "certify:business-partner:transient-recovery:local": "node scripts/certify-business-partner-transient-recovery-local.mjs"
+    "certify:business-partner:transient-recovery:local": "node scripts/certify-business-partner-transient-recovery-local.mjs",
+    "certify:business-partner:diagnosis-resolution:local": "node scripts/certify-business-partner-diagnosis-resolution-local.mjs"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.5",

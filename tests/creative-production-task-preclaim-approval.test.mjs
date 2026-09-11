@@ -15,9 +15,14 @@ test("graph-backed READY task requires approval before execution claim", () => {
   assert.ok(approval < claim, "approval guard must run before execution claim");
 });
 
-test("preclaim guard is limited to graph-backed tasks", () => {
-  assert.match(
-    source,
-    /current\.production_graph_id\s*&&\s*current\.cost\?\.approved !== true/,
-  );
+test("graph-backed task also requires verified execution authorization before claim", () => {
+  const authorization = source.indexOf('throw new Error("PRODUCTION_TASK_EXECUTION_AUTHORIZATION_REQUIRED")');
+  const claim = source.indexOf("Repository.claimForExecution(id");
+  assert.ok(authorization > 0, "authorization guard must exist");
+  assert.ok(authorization < claim, "authorization guard must run before execution claim");
+  assert.match(source, /current\.metadata\?\.production_dossier_gate_passed !== true/);
+});
+
+test("preclaim guards are limited to graph-backed tasks", () => {
+  assert.match(source, /if \(current\.production_graph_id\) \{/);
 });

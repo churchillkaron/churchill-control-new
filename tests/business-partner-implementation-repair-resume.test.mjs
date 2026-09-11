@@ -30,3 +30,11 @@ test("old server activation does not discard a verified repair continuation", ()
 test("completed or cancelled continuations clear the repair resume binding", () => {
   assert.match(source, /delete next\.pending_execution;\s*delete next\.implementation_repair_resume;/);
 });
+
+test("declared implementation repair preserves conversation identity through Code handoff and exact retry", () => {
+  assert.match(source, /async function attemptDeclaredImplementationRepair\(\{[\s\S]*conversationId = null/);
+  assert.ok((source.match(/attemptDeclaredImplementationRepair\(\{/g) || []).length >= 3);
+  assert.ok((source.match(/callerRequest,\s*conversationId,\s*\}\);/g) || []).length >= 2);
+  assert.match(source, /operatorImplementationRepair: true[\s\S]*failedCapabilityKey/);
+  assert.match(source, /operatorImplementationRepairRetry: true/);
+});

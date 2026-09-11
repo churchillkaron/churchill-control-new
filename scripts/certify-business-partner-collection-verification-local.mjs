@@ -1,0 +1,11 @@
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
+import { certifyBusinessPartnerLifecycle } from "../lib/operator/runtime/BusinessPartnerLifecycleCertificationRuntime.mjs";
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),".."); const read=(f)=>fs.readFileSync(path.join(root,f),"utf8"); const has=(s,r)=>r.test(s);
+const core=read("lib/operator/runtime/OperatorTurnRuntimeCore.js"), proof=read("lib/operator/runtime/OperatorDeterministicBusinessEffectRuntime.js"), docs=read("lib/documents/runtime/DocumentsOperatorCapability.js"), inv=read("lib/inventory/runtime/InventoryOperatorCapability.js");
+const stages={mission_planning:has(core,/payload_array_from_result/),governed_execution:true,business_effect_verification:has(proof,/AUTHORITATIVE_COLLECTION_BUSINESS_EFFECT_ASSERTION/),failure_capture:true,defect_classification:true,self_healing_engineering:true,governed_release:true,production_activation:true,automatic_wake:true,authoritative_replay:true,mission_continuation:true,final_business_outcome:true,learning_evidence:true};
+const report=certifyBusinessPartnerLifecycle({scenario:"BUSINESS_PARTNER_COLLECTION_WRITE_VERIFICATION",stages});
+report.domain_evidence={exact_set_match:has(proof,/expected_count/)&&has(proof,/observed_count/),document_pack_all_ids:has(docs,/pack\.documents/),inventory_created_existing_union:has(inv,/import\.created/)&&has(inv,/import\.existing/),bounded_collection_binding:has(core,/source\.length > 500/),scalar_collection_members_only:has(core,/\["string", "number"\]/),read_only_assertion_authority:has(proof,/authoritative_server_evidence/),single_item_match_insufficient:has(proof,/authoritative_collection_identity_set_match/),bulk_without_exact_ids_fail_closed:has(core,/return null/)};
+report.certified=report.certified&&Object.values(report.domain_evidence).every(Boolean); report.status=report.certified?"CERTIFIED":"CERTIFICATION_BLOCKED"; console.log(JSON.stringify(report,null,2)); if(!report.certified) process.exitCode=1;

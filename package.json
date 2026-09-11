@@ -37,7 +37,8 @@
     "certify:business-partner:finance:database:local": "bash scripts/run-business-partner-finance-database-certification-local.sh",
     "certify:business-partner:supply-chain:local": "node scripts/certify-business-partner-supply-chain-lifecycle-local.mjs",
     "certify:business-partner:secretary-commercial:local": "node scripts/certify-business-partner-secretary-commercial-lifecycle-local.mjs",
-    "certify:business-partner:approval-continuation:local": "node scripts/certify-business-partner-approval-continuation-local.mjs"
+    "certify:business-partner:approval-continuation:local": "node scripts/certify-business-partner-approval-continuation-local.mjs",
+    "certify:business-partner:configuration-recovery:local": "node scripts/certify-business-partner-configuration-recovery-local.mjs"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.5",

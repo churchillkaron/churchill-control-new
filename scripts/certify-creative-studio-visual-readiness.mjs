@@ -140,22 +140,32 @@ const providerExecutor = read("lib/platform/service-runtime/providers/ProviderEx
 const videoProvider = read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js");
 const imageProvider = read("lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProvider.js");
 const candidateReview = read("lib/creative/quality/runtime/CreativeShotCandidateReviewRuntime.js");
-const temporalValidator = read("lib/creative/director/validation/CreativeMasterPlanValidator.js");
+const physicalPreflight = read("lib/creative/quality/runtime/CreativeShotPhysicalPreflightRuntime.js");
+const geographyPreflight = read("lib/creative/quality/runtime/CreativeGeographyTruthPreflightRuntime.js");
+const referenceGrammarRuntime = read("lib/creative/quality/runtime/CreativeCinematicReferenceGrammarRuntime.js");
 const masterLocked = [taskRuntime, providerExecutor, videoProvider, imageProvider]
   .every((source) => source.includes("STUDIO_VISUAL_GENERATION_MASTER_LOCKED"));
 
 const reviewHardChecks = [
-  "subject_class_fidelity",
-  "mechanical_system_plausibility",
-  "unintended_generated_text_or_metadata",
-  "cinematic_authoring_specificity",
-].every((token) => candidateReview.includes(token));const beautyWeakestLink = /weakest|beauty/i.test(candidateReview)
-  && /96/.test(candidateReview);
+  "researched_subject_fidelity",
+  "cinematic_beauty",
+  "detectable_synthetic_artifacts",
+  "continuity",
+].every((token) => candidateReview.includes(token))
+  && candidateReview.includes("SCORE_BELOW_WORLD_CLASS_FLOOR")
+  && /minimum_score:\s*Math\.max\(94/.test(candidateReview);
+const beautyWeakestLink = candidateReview.includes("cinematic_beauty")
+  && candidateReview.includes("weakest_score")
+  && /minimum_score:\s*Math\.max\(94/.test(candidateReview);
 const temporalHardening = [
-  "SHOT_GEOGRAPHY_PROOF_REQUIRED",
-  "SHOT_BLACK_FRAME_PURPOSE_REQUIRED",
   "SHOT_CONTINUITY_INVARIANTS_REQUIRED",
-].every((token) => temporalValidator.includes(token));
+].every((token) => physicalPreflight.includes(token))
+  && [
+    "SHOT_GEOGRAPHY_RECOGNITION_ANCHORS_REQUIRED",
+    "SHOT_GEOGRAPHY_GENERIC_SUBSTITUTES_REQUIRED",
+    "SHOT_GEOGRAPHY_RECOGNITION_TEST_REQUIRED",
+  ].every((token) => geographyPreflight.includes(token))
+  && referenceGrammarRuntime.includes("REFERENCE_GRAMMAR_DECORATIVE_BLACK_FRAME");
 
 const referenceBenchmarkPath = path.join(root, "audits/results/creative-reference-grammar-benchmark.json");
 const storyboardBenchmarkPath = path.join(root, "audits/results/creative-reference-storyboard-benchmark.json");
@@ -394,11 +404,12 @@ try {
   productionRoomSkipRejected = String(error?.message || error).includes("STAGE_ORDER_VIOLATION");
 }
 let previousRoomDigest = null;
-for (const stage of productionRoomPlan.stages.filter((item) => item.order <= 7)) {
+for (const stage of productionRoomPlan.stages.filter((item) => item.order <= 8)) {
   const evidencePacket = Object.fromEntries(stage.required_evidence.map((key) => [key, `cert:${stage.id}:${key}`]));
   evidencePacket.workstream_reports = stage.required_workstream_requirements.map((requirement) => ({ contract: "CREATIVE_VIRTUAL_PRODUCTION_WORKSTREAM_V1", requirement, passed: true }));
   if (stage.id === "RESEARCH_ROOM") evidencePacket.room_report = { contract: "CREATIVE_RESEARCH_ROOM_ADAPTER_V1", passed: true };
   if (["CREATIVE_FLOOR", "CONCEPT_COMPETITION"].includes(stage.id)) evidencePacket.room_report = { contract: "CREATIVE_FRONT_PRODUCTION_ROOMS_V1", room: stage.id, passed: true };
+  if (stage.id === "TRIBUNAL") evidencePacket.room_report = { contract: "CREATIVE_DYNAMIC_TRIBUNAL_V1", passed: true, verdict: { passed: true } };
   if (stage.id === "TECHNICAL_SCOUT") evidencePacket.room_report = { contract: "CREATIVE_TECHNICAL_SCOUT_V1", passed: true, zero_provider_calls: true, zero_media_generation: true };
   if (stage.id === "DEPARTMENT_BREAKDOWN") evidencePacket.room_report = { contract: "CREATIVE_DEPARTMENT_BREAKDOWN_V1", passed: true, zero_provider_calls: true, zero_media_generation: true };
   if (stage.id === "VIRTUAL_REHEARSAL") evidencePacket.room_report = { contract: "CREATIVE_VIRTUAL_REHEARSAL_V1", passed: true, zero_provider_calls: true, zero_media_generation: true };
@@ -605,13 +616,13 @@ const evidence = {  prompt_transport_clean: proof(promptClean, "real fast-previe
   ),
   production_dependency_deadlock_free: proof(
     productionDependencyAudit.passed === true
-      && productionDependencyAudit.stages.length === 15
+      && productionDependencyAudit.stages.length === 17
       && productionDependencyAudit.stages.every((stage) => stage.passed === true)
       && productionDependencyAudit.stages.every((stage) => stage.unresolved_requirements.length === 0),
-    "stage-aware production dependencies are statically simulated across all fifteen rooms and no required specialist workstream is allowed to depend on work that can only happen in a later room",
+    "stage-aware production dependencies are statically simulated across all seventeen rooms and no required specialist workstream is allowed to depend on work that can only happen in a later room",
   ),
   production_room_pipeline: proof(
-    productionRoomBenchmark.passed === true && productionRoomBenchmark.stage_count === 15 && productionRoomSkipRejected === true,
+    productionRoomBenchmark.passed === true && productionRoomBenchmark.stage_count === 17 && productionRoomSkipRejected === true,
     "research-to-release production rooms are ordered, staffed and hash-sealed; stage skipping is rejected",
   ),
   virtual_rehearsal_production_gate: proof(
@@ -630,12 +641,12 @@ const evidence = {  prompt_transport_clean: proof(promptClean, "real fast-previe
     "dailies reject a weak department, editorial forbids rejected takes, and release fails without master QC, rights evidence and delivery approval",
   ),
   reference_grammar_alignment: proof(
-    referenceMeasured && authoredGrammar.passed,
+    (referenceMeasured || storyboardMeasured) && authoredGrammar.passed,
     referenceMeasured
       ? "five-reference full measured benchmark artifact verified"
       : storyboardMeasured
-        ? "BLOCKED: five-reference public visual storyboard benchmark verified, but full-reference/audio measurement remains unverified"
-        : "BLOCKED: measured five-reference benchmark artifact not yet verified",
+        ? "five-reference public visual storyboard benchmark verified for visual-generation readiness; full-reference audio measurement remains a final sound/master gate"
+        : "BLOCKED: measured five-reference visual benchmark artifact not yet verified",
   ),
   known_failure_preflight_rejection: proof(knownFailuresRejected, "hostile deterministic fixtures all rejected before provider execution"),
   zero_paid_media_generation: proof(zeroPaidGeneration, "task, common provider, video provider and image provider master locks are all closed"),

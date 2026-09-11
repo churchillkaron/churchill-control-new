@@ -245,8 +245,18 @@ def _tool_calls(raw: str) -> tuple[str, list[dict[str, Any]]]:
     for index, match in enumerate(TOOL_CALL_RE.finditer(raw), start=1):
         try:
             parsed = json.loads(match.group(1))
-        except json.JSONDecodeError as exc:
-            raise RuntimeError("AVANTIQO_INTELLIGENCE_MODAL_TOOL_CALL_JSON_INVALID") from exc
+        except json.JSONDecodeError:
+            calls.append({
+                "id": f"call_{index}",
+                "type": "function",
+                "function": {
+                    "name": "__avantiqo_invalid_tool_call__",
+                    "arguments": json.dumps({
+                        "code": "AVANTIQO_INTELLIGENCE_MODAL_TOOL_CALL_JSON_INVALID"
+                    }, separators=(",", ":")),
+                },
+            })
+            continue
         if not isinstance(parsed, dict):
             raise RuntimeError("AVANTIQO_INTELLIGENCE_MODAL_TOOL_CALL_OBJECT_REQUIRED")
         name = _text(parsed.get("name") or parsed.get("function"), 200)

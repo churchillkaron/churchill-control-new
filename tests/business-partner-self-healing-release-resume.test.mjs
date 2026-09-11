@@ -25,9 +25,10 @@ test("automatic production release requires both existing privileged permissions
 
 test("Business Partner never authorizes replay before exact production activation is verified", () => {
   assert.match(synthetic, /resume_authorized: selfHealing\.production_deploy_performed === true && selfHealing\.activation_verified === true/);
-  assert.match(core, /recovery\.production_deploy_performed !== true/);
-  assert.match(core, /recovery\.activation_verified !== true/);
-  assert.match(core, /recovery\.authorization_effect\) !== "SAME_ACTION_ONLY"/);
+  assert.match(core, /const verifiedSelfHealing =\s*[\s\S]*recovery\.production_deploy_performed === true &&\s*recovery\.activation_verified === true &&\s*recovery\.replay_required === true/);
+  assert.match(core, /text\(recovery\.authorization_effect\) !== "SAME_ACTION_ONLY"/);
+  assert.match(core, /verifyPlatformSelfHealingReplay/);
+  assert.match(core, /selfHealingReplayVerification\.fixed !== true/);
 });
 
 test("post-release continuation reuses only the exact failed capability and payload through current governance", () => {

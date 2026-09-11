@@ -19,7 +19,7 @@ function requireAll(label, source, fragments) {
 }
 
 requireAll("MISSION_REGISTRATION", platformRuntimeSource, [
-  "createOperatorMissionCapability",
+  "createOperatorBindingAwareMissionCapability",
   "operator_mission",
 ]);
 
@@ -33,24 +33,28 @@ requireAll("MISSION_BOUNDARY", missionSource, [
 
 requireAll("MISSION_PREFLIGHT", missionSource, [
   "const preflight = []",
-  "const blocked = preflight.find((entry) => !entry.ok)",
+  "const invalid = preflight.find((entry) => !entry.ok)",
   "OPERATOR_MISSION_OPERATOR_CAPABILITY_REQUIRED",
   "OPERATOR_MISSION_PERMISSION_REQUIRED",
   "OPERATOR_ENTITY_CONTEXT_REQUIRED",
 ]);
 
 requireAll("MISSION_ACTION_GOVERNANCE", missionSource, [
-  "OPERATOR_MISSION_CONFIRMATION_STEP_BLOCKED",
-  "OPERATOR_MISSION_ACTION_REQUIRES_LOW_RISK",
-  "OPERATOR_MISSION_ACTION_REQUIRES_AUTO_EXECUTE",
-  "OPERATOR_MISSION_DURABLE_APPROVAL_STEP_BLOCKED",
-  "requiresDurableApproval(normalizedCapability)",
+  "requires_confirmation",
+  "durable_approval_required",
+  "confirmationSatisfied",
+  "CONFIRMATION_REQUIRED",
+  "requiresDurableApproval(capability)",
+  "resolveOperatorExecutionApproval",
   "recordOperatorExecutionAudit",
 ]);
 
 requireAll("MISSION_FAILURE_POLICY", missionSource, [
-  "stopped_on_first_failure: failedSteps > 0",
-  "remaining_steps: Math.max(0, normalized.steps.length - results.length)",
+  "return blocked({",
+  "failureEvidence: missionStepFailureEvidence(error, entry, \"read\")",
+  "failureEvidence: missionStepFailureEvidence(error, entry, \"action\")",
+  "remaining_steps: Math.max(0, steps.length - completedIds.length)",
+  "remaining_steps: 0",
 ]);
 
 requireAll("GOVERNANCE_SOURCE", governanceSource, [
@@ -61,7 +65,7 @@ requireAll("GOVERNANCE_SOURCE", governanceSource, [
 console.log("OPERATOR_AUTONOMOUS_MISSION_AUDIT=PASS");
 console.log("OPERATOR_MISSION_STEPS=2_TO_6");
 console.log("OPERATOR_MISSION_PREFLIGHT=ALL_CHILDREN_BEFORE_SIDE_EFFECTS");
-console.log("OPERATOR_MISSION_ACTIONS=LOW_RISK_AUTO_EXECUTE_CONFIRMATION_FREE_APPROVAL_FREE");
+console.log("OPERATOR_MISSION_ACTIONS=MANIFEST_DRIVEN_CONFIRMATION_APPROVAL_VERIFICATION");
 console.log("OPERATOR_MISSION_DYNAMIC_CHAINING=BLOCKED");
 console.log("OPERATOR_MISSION_CHILD_AUDIT=REQUIRED_FOR_NON_READS");
 console.log("OPERATOR_MISSION_EXTERNAL_RETRY=FORBIDDEN");

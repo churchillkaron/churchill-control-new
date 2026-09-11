@@ -189,6 +189,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/internal/operator/external-waits/process",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/internal/secretary/due-work/process",
       "schedule": "* * * * *"
     },

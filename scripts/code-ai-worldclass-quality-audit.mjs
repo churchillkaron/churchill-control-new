@@ -18,8 +18,8 @@ const files = Object.freeze({
   mission: "lib/code/runtime/CodeAIMissionRuntime.js",
   workspace: "lib/code/runtime/CodeWorkspaceSandboxRuntime.js",
   commit: "lib/code/runtime/CodeGitHubCommitRuntime.js",
-  lease: "scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs",
-  leasePolicy: "config/avantiqo-runpod-safe-lease-policy.json",
+  computePolicy: "config/avantiqo-compute-cost-policy.json",
+  autonomyAudit: "scripts/code-ai-autonomy-audit-current.mjs",
 });
 
 async function source(path) {
@@ -48,8 +48,8 @@ const [
   mission,
   workspace,
   commit,
-  lease,
-  leasePolicySource,
+  computePolicySource,
+  autonomyAudit,
 ] = await Promise.all(Object.values(files).map(source));
 
 requireMarkers("QUALITY_POLICY", qualityPolicy, [
@@ -235,31 +235,26 @@ requireMarkers("COMMIT", commit, [
   "assertCodeProductCompletionCriteriaVerified",
 ]);
 
-requireMarkers("LEASE", lease, [
-  "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
-  "workersMin: 0",
-  "workersMax",
-  "laneRestingWorkersMax",
-  "intentionalIdleCapacity",
-  "LANE_RESTING_CAPACITY",
-  "waitForRestingState",
-  "zero_paid_gpu_when_no_active_worker: true",
-  "max_concurrent_paid_leases",
-  "default_max_account_hourly_usd",
-  "max_jobs_per_lease",
-  "production_deploy_performed: false",
+requireMarkers("AUTONOMY_AUDIT", autonomyAudit, [
+  "AVANTIQO_CODE_AI_AUTONOMY_MODAL_AUDIT_V1",
+  "MODAL_H100_ASYNC_V1",
+  "modal_only_execution: true",
+  "external_provider_fallback_allowed: false",
+  "owned_only_required: true",
 ]);
 
-const leasePolicy = JSON.parse(leasePolicySource);
-if (leasePolicy.contract !== "AVANTIQO_RUNPOD_SAFE_LEASE_POLICY_V2") throw new Error(`${CONTRACT}_LEASE_POLICY_CONTRACT_INVALID`);
-if (leasePolicy.resting_workers_min !== 0 || leasePolicy.resting_workers_max !== 0) throw new Error(`${CONTRACT}_GLOBAL_LEASE_REST_STATE_MUST_BE_0_0`);
-if (Number(leasePolicy?.lane_resting_workers_max?.code ?? leasePolicy.resting_workers_max) !== 0) throw new Error(`${CONTRACT}_CODE_LEASE_REST_STATE_MUST_BE_0_0`);
-if (Object.values(leasePolicy?.lane_resting_workers_max || {}).some((value) => ![0, 1].includes(Number(value)))) {
-  throw new Error(`${CONTRACT}_LANE_REST_STATE_UNBOUNDED`);
-}
-if (leasePolicy.workers_min_one_allowed !== false) throw new Error(`${CONTRACT}_WORKERS_MIN_ONE_MUST_BE_FORBIDDEN`);
-if (leasePolicy.parallel_work_allowed !== true || leasePolicy.max_concurrent_paid_leases < 2) throw new Error(`${CONTRACT}_BOUNDED_PARALLEL_WORK_REQUIRED`);
-if (!leasePolicy.lanes?.code) throw new Error(`${CONTRACT}_CODE_LEASE_LANE_REQUIRED`);
+const computePolicy = JSON.parse(computePolicySource);
+if (computePolicy.contract !== "AVANTIQO_COMPUTE_COST_ARCHITECTURE_V1") throw new Error(`${CONTRACT}_COMPUTE_POLICY_CONTRACT_INVALID`);
+if (computePolicy?.rules?.modal_role !== "ELASTIC_GPU_ACCELERATOR_ONLY") throw new Error(`${CONTRACT}_MODAL_ROLE_INVALID`);
+if (computePolicy?.rules?.modal_general_cpu_backend_forbidden !== true) throw new Error(`${CONTRACT}_MODAL_CPU_BACKEND_MUST_BE_FORBIDDEN`);
+if (computePolicy?.rules?.duplicate_paid_execution_forbidden !== true) throw new Error(`${CONTRACT}_DUPLICATE_PAID_EXECUTION_MUST_BE_FORBIDDEN`);
+if (computePolicy?.rules?.speculative_gpu_prewarm_forbidden !== true) throw new Error(`${CONTRACT}_SPECULATIVE_GPU_PREWARM_MUST_BE_FORBIDDEN`);
+if (
+  Number(computePolicy?.modal_gpu_defaults?.min_containers) !== 0 ||
+  Number(computePolicy?.modal_gpu_defaults?.max_containers) !== 1 ||
+  computePolicy?.modal_gpu_defaults?.scale_to_zero !== true
+) throw new Error(`${CONTRACT}_MODAL_SCALE_TO_ZERO_BOUNDS_INVALID`);
+if (computePolicy?.modal_gpu_defaults?.parallel_candidate_fanout !== false) throw new Error(`${CONTRACT}_PARALLEL_PAID_CANDIDATE_FANOUT_MUST_BE_FORBIDDEN`);
 
 const durableFastStartImport = autonomousCapability.indexOf("executeCodeAIEmployeeFastStartMission");
 const zeroIdleFastStartImport = autonomousCapability.indexOf("executeCodeAIEmployeeZeroIdleFastStartMission");
@@ -267,19 +262,14 @@ const fastStartSelector = autonomousCapability.indexOf("const executeFastStart =
 const executionCall = autonomousCapability.indexOf("const result = await executeFastStart({");
 const attestationCall = autonomousCapability.indexOf("result.state = attestCodeMissionState");
 if (
-  durableFastStartImport < 0 ||
-  zeroIdleFastStartImport < 0 ||
-  fastStartSelector < 0 ||
-  executionCall <= fastStartSelector ||
-  attestationCall <= executionCall
-) {
-  throw new Error(`${CONTRACT}_FAST_START_EMPLOYEE_WORLDCLASS_GATE_MUST_PRECEDE_ATTESTATION`);
-}
+  durableFastStartImport < 0 || zeroIdleFastStartImport < 0 || fastStartSelector < 0 ||
+  executionCall <= fastStartSelector || attestationCall <= executionCall
+) throw new Error(`${CONTRACT}_FAST_START_EMPLOYEE_WORLDCLASS_GATE_MUST_PRECEDE_ATTESTATION`);
+
 const workerGate = fastStart.indexOf("if (worker?.ready !== true)");
 const fastStartEmployeeCall = fastStart.indexOf("await executeCodeAIEmployeeMission({");
-if (workerGate < 0 || fastStartEmployeeCall <= workerGate) {
-  throw new Error(`${CONTRACT}_WORKER_READINESS_MUST_PRECEDE_EMPLOYEE_REASONING`);
-}
+if (workerGate < 0 || fastStartEmployeeCall <= workerGate) throw new Error(`${CONTRACT}_WORKER_READINESS_MUST_PRECEDE_EMPLOYEE_REASONING`);
+
 const employeeQualityImport = employee.indexOf("assessCodeAIWorldClassQuality");
 const employeeQualityCall = employee.indexOf("const worldClass = assessCodeAIWorldClassQuality(source)");
 const employeeBehavioralCall = employee.indexOf("const behavioralVerification = assessCodeAIBehavioralVerificationCoverage({");
@@ -287,16 +277,10 @@ const employeeProvenanceCall = employee.indexOf("const testProvenance = assessCo
 const employeeRepairClosureCall = employee.indexOf("const repairClosure = assessCodeAIRepairClosure(source)");
 const employeeCompletionDecision = employee.indexOf("completion.complete === true");
 if (
-  employeeQualityImport < 0 ||
-  employeeQualityCall < 0 ||
-  employeeBehavioralCall <= employeeQualityCall ||
-  employeeProvenanceCall <= employeeBehavioralCall ||
-  employeeRepairClosureCall <= employeeProvenanceCall ||
+  employeeQualityImport < 0 || employeeQualityCall < 0 || employeeBehavioralCall <= employeeQualityCall ||
+  employeeProvenanceCall <= employeeBehavioralCall || employeeRepairClosureCall <= employeeProvenanceCall ||
   employeeCompletionDecision <= employeeRepairClosureCall
-) {
-  throw new Error(`${CONTRACT}_EMPLOYEE_COMPLETION_MUST_FOLLOW_ALL_PROOF_ASSESSMENTS`);
-}
-if (/workersMin\s*:\s*1/.test(leasePolicySource)) throw new Error(`${CONTRACT}_POLICY_MUST_NEVER_SET_WORKERS_MIN_1`);
+) throw new Error(`${CONTRACT}_EMPLOYEE_COMPLETION_MUST_FOLLOW_ALL_PROOF_ASSESSMENTS`);
 
 console.log(JSON.stringify({
   success: true,
@@ -329,11 +313,11 @@ console.log(JSON.stringify({
     production_side_effect_commands_blocked: true,
     governed_non_force_github_commit_separated: true,
     concurrent_main_replan_guard_present: true,
-    bounded_parallel_runpod_leases: true,
-    global_runpod_resting_state_zero_zero: true,
-    code_runpod_resting_state_zero_zero: true,
-    code_idle_schedulable_capacity_required: false,
-    workers_min_one_forbidden: true,
+    modal_h100_owned_only_execution: true,
+    modal_scale_to_zero: true,
+    modal_max_containers_one: true,
+    duplicate_paid_execution_forbidden: true,
+    speculative_gpu_prewarm_forbidden: true,
   },
   provider_calls_executed: false,
   provider_spend_performed: false,

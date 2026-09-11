@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 import test from "node:test";
 
 register("../scripts/next-alias-loader.mjs", import.meta.url);
-const { resolveExplicitWriteActionRequest } = await import(
+const { resolveExplicitWriteActionRequest, fastVoiceFallbackReason } = await import(
   "../lib/operator/runtime/OperatorReasoningRuntime.js"
 );
 
@@ -45,4 +45,23 @@ test("polite action request resolves but informational questions do not", () => 
   assert.equal(resolveExplicitWriteActionRequest({ message: "Can you create a stock movement", capabilities: [stock, item] })?.capability?.key, stock.key);
   assert.equal(resolveExplicitWriteActionRequest({ message: "How do I create a stock movement?", capabilities: [stock, item] }), null);
   assert.equal(resolveExplicitWriteActionRequest({ message: "What is a stock movement?", capabilities: [stock, item] }), null);
+});
+
+
+test("fast shortlist cannot hide a strong full-catalog write action", () => {
+  const parsed = {
+    response_text: "Creating stock movement with the supplied details",
+    intent: "answer",
+    confidence: 0.99,
+    clarification: { required: false, question: null, options: [] },
+    execution: { capability_key: null, payload: {}, reason: null },
+  };
+  const fastRequest = {
+    user_input: { message: "Create one stock movement for certification. Quantity 1." },
+    executable_capabilities: [item],
+  };
+  assert.equal(
+    fastVoiceFallbackReason(parsed, fastRequest, [stock, item]),
+    "explicit_write_action_requires_deep",
+  );
 });

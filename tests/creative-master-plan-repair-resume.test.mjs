@@ -14,4 +14,6 @@ test("master plan contract repair compacts evidence and can resume a paid result
   assert.match(source, /async resumeFromResult\(\{/);
   assert.match(source, /const modelPlan = normalizedPlan\(result\)/);
   assert.match(source, /resumed_from_result: true/);
+  assert.ok(source.includes("if (suffix && !/^[}\\]]+$/.test(suffix)) return null;"));
+  assert.match(source, /Return only the repair patch needed for the listed validation failures/);
 });

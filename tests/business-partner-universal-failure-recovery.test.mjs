@@ -27,6 +27,9 @@ test("recovery routing separates missing truth, dependencies, transient faults a
   const defect = classifyOperatorFailureRecovery(failed({ code: "FINANCE_POSTING_RUNTIME_FAILURE", status: 500 }));
   assert.equal(defect.classification, "PRODUCT_DEFECT_CANDIDATE");
   assert.equal(defect.code_engineering_candidate, true);
+  const unknown = classifyOperatorFailureRecovery(failed({ code: "UNCLASSIFIED_FAILURE", status: 418 }));
+  assert.equal(unknown.classification, "DIAGNOSIS_REQUIRED");
+  assert.equal(unknown.code_engineering_candidate, false);
 });
 
 test("verification failure remains read-repair first and never becomes automatic code mutation authority", () => {
@@ -38,6 +41,7 @@ test("verification failure remains read-repair first and never becomes automatic
 
 test("owned repair Intelligence receives the deterministic routing guard", () => {
   assert.match(repair, /recovery_classification/);
+  assert.match(repair, /DIAGNOSIS_REQUIRED must gather current read-only evidence/);
   assert.match(repair, /PRODUCT_DEFECT_CANDIDATE may recommend governed Product Engineering/);
   assert.match(repair, /code_engineering_candidate/);
   assert.match(repair, /Do not retry or execute writes in this phase/);

@@ -281,11 +281,33 @@ def _excerpt(value: Any, limit: int = 16000) -> str:
 
 
 def _json_object(value: str) -> dict[str, Any] | None:
-    try:
-        parsed = json.loads(value)
-    except Exception:
+    source = _text(value)
+    if not source:
         return None
-    return parsed if isinstance(parsed, dict) else None
+    try:
+        parsed = json.loads(source)
+        return parsed if isinstance(parsed, dict) else None
+    except Exception:
+        pass
+
+    # Structured-output engines can occasionally wrap otherwise valid JSON in a
+    # markdown fence or emit a harmless prefix/suffix. Extract exactly one balanced
+    # JSON object, while leaving reasoning-leak rejection to the caller.
+    fenced = re.fullmatch(r"\s*```(?:json)?\s*(\{.*\})\s*```\s*", source, re.I | re.S)
+    candidate = fenced.group(1) if fenced else source
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(candidate):
+        if char != "{":
+            continue
+        try:
+            parsed, end = decoder.raw_decode(candidate[index:])
+        except Exception:
+            continue
+        if isinstance(parsed, dict):
+            trailing = candidate[index + end:].strip()
+            if not trailing or trailing.startswith("```"):
+                return parsed
+    return None
 
 
 def _latest_user_contract(messages: list[dict[str, Any]]) -> str:

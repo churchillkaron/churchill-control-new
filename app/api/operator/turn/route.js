@@ -556,6 +556,7 @@ export async function POST(request) {
           longTermMemory,
           conversationAttachments: preparedConversationAttachments,
           callerRequest: request,
+          conversationId: memory.conversation.id,
         })
           .then((value) => {
             operatorMs = Date.now() - operatorStartedAt;

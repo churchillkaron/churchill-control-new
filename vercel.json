@@ -55,6 +55,9 @@
     "app/api/internal/operator/autonomous-watch/process/route.js": {
       "maxDuration": 300
     },
+    "app/api/internal/operator/external-waits/process/route.js": {
+      "maxDuration": 300
+    },
     "app/api/internal/intelligence/continuous-learning/process/route.js": {
       "maxDuration": 300
     },

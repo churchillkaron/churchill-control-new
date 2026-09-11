@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+const run = fs.readFileSync("lib/operator/contracts/OperatorAutonomousRun.js","utf8");
+const wait = fs.readFileSync("lib/operator/runtime/BusinessPartnerExternalWaitRuntime.js","utf8");
+const provider = fs.readFileSync("lib/platform/service-runtime/events/runtime/ProviderEventRuntime.js","utf8");
+const migration = fs.readFileSync("supabase/migrations/20260911002750_business_partner_external_waits.sql","utf8");
+test("Business Partner run model supports durable waiting external state",()=>assert.match(run,/"waiting_external"/));
+test("external waits are organization and exact event correlation scoped",()=>{ assert.match(wait,/organization_id/); assert.match(wait,/event_source/); assert.match(wait,/event_type/); assert.match(wait,/correlation_key/); assert.match(wait,/WAITING_EXTERNAL/); });
+test("external event consumption is idempotent and does not authorize mutations",()=>{ assert.match(wait,/\.eq\("status","WAITING_EXTERNAL"\)/); assert.match(wait,/authorization_effect:"NONE"/); assert.match(wait,/EVENT_RECEIVED/); });
+test("provider events feed the Business Partner wait matcher without replacing provider processing",()=>{ assert.match(provider,/consumeBusinessPartnerExternalEvent/); assert.match(provider,/event_source: `provider:\$\{args\.provider_id\}`/); assert.match(provider,/await attributeProviderEvent/); });
+test("wait ledger is service role only",()=>{ assert.match(migration,/enable row level security/); assert.match(migration,/revoke all .* authenticated/); assert.match(migration,/grant select, insert, update .* service_role/); });

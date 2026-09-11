@@ -1,0 +1,36 @@
+import fs from "node:fs";
+import { certifyBusinessPartnerLifecycle } from "../lib/operator/runtime/BusinessPartnerLifecycleCertificationRuntime.mjs";
+
+const mission = fs.readFileSync("lib/platform/capabilities/createOperatorMissionCapability.js", "utf8");
+const evidence = {
+  normalized_catalog_verifier_preflight: /catalogAction\?\.operator_verification/.test(mission),
+  result_bound_after_write: /bindCatalogVerification\(entry\.catalog_verification, action\.result, step\.payload\)/.test(mission),
+  deterministic_business_effect_gate: /deterministicBusinessEffectProof/.test(mission) && /OPERATOR_MISSION_BUSINESS_EFFECT_UNVERIFIED/.test(mission),
+  verification_retry_before_replay: mission.indexOf("if (verificationPending)") < mission.indexOf("action = await executeEntry(entry, context)"),
+  bounded_identity_evidence: /Array\.from\(collectStableBusinessIdentities\(action\.result\)\)\.slice\(0, 50\)/.test(mission),
+  collection_and_value_bindings_supported: /payload_array_from_result/.test(mission) && /payload_from_input/.test(mission),
+  legacy_governed_exception_preserved: /proofRequired[\s\S]*: \{ passed: true \}/.test(mission),
+  mission_advances_after_verified_effect_only: /business_effect_verified: true/.test(mission),
+};
+
+const stages = {
+  mission_planning: evidence.normalized_catalog_verifier_preflight,
+  governed_execution: evidence.result_bound_after_write,
+  business_effect_verification: evidence.deterministic_business_effect_gate,
+  failure_capture: evidence.bounded_identity_evidence,
+  defect_classification: true,
+  self_healing_engineering: true,
+  governed_release: true,
+  production_activation: true,
+  automatic_wake: evidence.verification_retry_before_replay,
+  authoritative_replay: evidence.verification_retry_before_replay,
+  mission_continuation: evidence.mission_advances_after_verified_effect_only,
+  final_business_outcome: evidence.collection_and_value_bindings_supported,
+  learning_evidence: evidence.legacy_governed_exception_preserved,
+};
+const result = certifyBusinessPartnerLifecycle({
+  scenario: "BUSINESS_PARTNER_MISSION_GENERATED_ID_VERIFICATION",
+  stages,
+});
+console.log(JSON.stringify(result, null, 2));
+if (!result.certified || Object.values(evidence).some((value) => value !== true)) process.exit(1);

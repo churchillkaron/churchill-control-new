@@ -38,6 +38,7 @@ test("a new verified commit is accepted as genuine portfolio progress", () => {
     node: { base_commit: "base123" },
     completed_objectives: [{ verified_commit_sha: "older111" }],
     verified_commit_sha: "new789",
+    repository_ancestry_verified: true,
   });
   assert.equal(result.verified, true);
   assert.equal(result.repository_head_advanced_from_engineering_base, true);

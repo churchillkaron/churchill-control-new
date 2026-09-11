@@ -21,6 +21,13 @@ const migration = fs.readFileSync(
   ),
   "utf8",
 );
+const privilegeHardeningMigration = fs.readFileSync(
+  path.join(
+    root,
+    "supabase/migrations/20260911124500_operator_mission_dispatch_journal_privilege_hardening.sql",
+  ),
+  "utf8",
+);
 
 test("mission mutation journal is claimed before capability dispatch", () => {
   const claim = executionEngine.indexOf("await claimOperatorMissionDispatch");
@@ -60,4 +67,16 @@ test("database contract provides one claim per organization and dispatch key", (
     migration,
     /revoke all on table public\.operator_mission_dispatches from anon, authenticated/,
   );
+});
+
+test("dispatch journal service role cannot delete or truncate claimed dispatches", () => {
+  assert.match(
+    privilegeHardeningMigration,
+    /revoke all on table public\.operator_mission_dispatches from anon, authenticated, service_role/,
+  );
+  assert.match(
+    privilegeHardeningMigration,
+    /grant select, insert, update on table public\.operator_mission_dispatches to service_role/,
+  );
+  assert.doesNotMatch(privilegeHardeningMigration, /grant[^;]*(?:delete|truncate)/i);
 });

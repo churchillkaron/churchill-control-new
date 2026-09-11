@@ -3,9 +3,9 @@ import fs from "node:fs";
 import test from "node:test";
 import { normalizeOperatorVerificationDeclaration, safeVerificationPath } from "../lib/operator/runtime/OperatorCapabilityVerificationDeclaration.mjs";
 
-function cap({ key, mode="write", scope="entity", input={}, enabled=true }) {
+function cap({ key, mode="write", scope="entity", input={}, required=[], enabled=true }) {
   const [domain, capability, action] = key.split(".");
-  return { key, domain, capability, action, mode, context_scope:scope, operator_enabled:enabled, input_schema:{type:"object",properties:input,additionalProperties:false} };
+  return { key, domain, capability, action, mode, context_scope:scope, operator_enabled:enabled, input_schema:{type:"object",properties:input,required,additionalProperties:false} };
 }
 const write=cap({key:"finance.invoice.create",input:{customer_id:{type:"string"},rows:{type:"array"}}});
 const read=cap({key:"finance.invoice.read",mode:"read",input:{id:{type:"string"},rows:{type:"array"}}});
@@ -33,4 +33,30 @@ test("core accepts only scalar result identities and safe bounded paths",()=>{
   assert.match(core,/\["string", "number"\]\.includes\(typeof item\)/);
   assert.match(core,/keys\.length > 8/);
   assert.match(core,/"__proto__", "prototype", "constructor"/);
+});
+
+
+test("rejects cross-domain verifier even when schema and scope match",()=>{
+  const external={...read,key:"documents.invoice.read",domain:"documents"};
+  assert.equal(normalizeOperatorVerificationDeclaration({capability_key:external.key,payload_from_result:{id:["id"]}},write,[write,external]),null);
+});
+
+test("requires every verifier required input to be satisfiable",()=>{
+  const strictRead=cap({key:"finance.invoice.read",mode:"read",input:{id:{type:"string"},tenant_key:{type:"string"}},required:["id","tenant_key"]});
+  assert.equal(normalizeOperatorVerificationDeclaration({capability_key:strictRead.key,payload_from_result:{id:["id"]}},write,[write,strictRead]),null);
+  const writeWithTenant=cap({key:"finance.invoice.create",input:{customer_id:{type:"string"},tenant_key:{type:"string"}}});
+  assert.deepEqual(normalizeOperatorVerificationDeclaration({capability_key:strictRead.key,payload_from_result:{id:["id"]},payload_keys:["tenant_key"]},writeWithTenant,[writeWithTenant,strictRead]),{capability_key:strictRead.key,payload_keys:["tenant_key"],payload_from_result:{id:["id"]}});
+});
+
+test("payload_keys must exist on mutation input as well as verifier input",()=>{
+  const strictRead=cap({key:"finance.invoice.read",mode:"read",input:{id:{type:"string"}},required:["id"]});
+  assert.equal(normalizeOperatorVerificationDeclaration({capability_key:strictRead.key,payload_keys:["id"]},write,[write,strictRead]),null);
+});
+
+test("catalog blocks invalid explicit declarations instead of inferring replacement",()=>{
+  const source=fs.readFileSync("lib/operator/runtime/OperatorCapabilityCatalog.js","utf8");
+  assert.match(source,/hasExplicitVerification/);
+  assert.match(source,/hasExplicitVerification\s*\?\s*explicit\s*:\s*inferredVerificationDeclaration/);
+  assert.match(source,/INVALID_DECLARATION_BLOCKED/);
+  assert.doesNotMatch(source,/const operatorVerification = explicit \|\| inferredVerificationDeclaration/);
 });

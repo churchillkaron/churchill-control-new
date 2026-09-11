@@ -56,7 +56,8 @@
     "certify:business-partner:supplier-price-value-verification:local": "node scripts/certify-business-partner-supplier-price-value-verification-local.mjs",
     "certify:business-partner:mission-generated-id-verification:local": "node scripts/certify-business-partner-mission-generated-id-verification-local.mjs",
     "certify:business-partner:action-identity-recovery:local": "node scripts/certify-business-partner-action-identity-recovery-local.mjs",
-    "certify:business-partner:finance-money-write-verification:local": "node scripts/certify-business-partner-finance-money-write-verification-local.mjs"
+    "certify:business-partner:finance-money-write-verification:local": "node scripts/certify-business-partner-finance-money-write-verification-local.mjs",
+    "certify:business-partner:explicit-verifier-fail-closed:local": "node scripts/certify-business-partner-verifier-declaration-trust-local.mjs"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.5",

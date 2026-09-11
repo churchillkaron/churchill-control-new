@@ -12,6 +12,10 @@ const has=(s,r)=>r.test(s);
 const domainEvidence={
   raw_declaration_stripped: has(catalog,/declared_operator_verification: _rawDeclaration/),
   explicit_declaration_normalized: has(catalog,/normalizeOperatorVerificationDeclaration\(item\.declared_operator_verification/),
+  invalid_explicit_fail_closed: has(catalog,/INVALID_DECLARATION_BLOCKED/) && has(catalog,/hasExplicitVerification\s*\?\s*explicit\s*:\s*inferredVerificationDeclaration/),
+  verifier_required_inputs_complete: has(declaration,/requiredVerifierKeys/) && has(declaration,/satisfiedKeys/),
+  same_domain_verifier_required: has(declaration,/item\.domain !== verifier\.domain/),
+  payload_keys_source_owned: has(declaration,/!mutationKeys\.has\(key\)/),
   exact_read_target_required: has(declaration,/verifier\.mode !== "read"/),
   same_context_scope_required: has(declaration,/item\.context_scope !== verifier\.context_scope/),
   verifier_schema_keys_required: has(declaration,/!verifierKeys\.has\(key\)/),

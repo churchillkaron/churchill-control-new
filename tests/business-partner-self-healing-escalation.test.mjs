@@ -60,3 +60,8 @@ test("stale or unconfirmed defects cannot enter automatic self-healing", () => {
   assert.match(synthetic, /live_read_evidence_observed !== true/);
   assert.match(synthetic, /code_engineering_candidate !== true/);
 });
+
+
+test("self-healing rejects unrelated successful live reads", () => {
+  assert.match(synthetic, /relevant_live_read_evidence_observed !== true/);
+});

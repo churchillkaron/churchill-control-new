@@ -99,3 +99,11 @@ test("automatic Code repair requires server-observed current live-read evidence"
   assert.match(runtime, /successful_live_read_count: liveReadEvidence\.successful_call_count/);
   assert.match(runtime, /perform at least one successful operator_live_read/i);
 });
+
+
+test("automatic Code repair requires a relevant live read bound to the failed capability surface", () => {
+  assert.match(runtime, /relevant_live_read_evidence_observed/);
+  assert.match(runtime, /verification_capability_key/);
+  assert.match(runtime, /capabilitySurface\(readKey\) === failedSurface/);
+  assert.match(runtime, /readKey === verificationCapabilityKey/);
+});

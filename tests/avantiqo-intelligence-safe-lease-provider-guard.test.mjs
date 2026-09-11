@@ -45,13 +45,17 @@ test("Intelligence text-only Modal payload omits all tool fields", () => {
 });
 
 test("Intelligence direct transport mirrors working Audio Modal SDK pattern", () => {
-  assert.match(directRuntimeSource, /const APP_NAME = "avantiqo-intelligence-owned"/);
+  assert.match(directRuntimeSource, /const DEFAULT_APP_NAME = "avantiqo-intelligence-owned"/);
+  assert.match(directRuntimeSource, /process\.env\.NODE_ENV[\s\S]*DEVELOPMENT_APP_NAME[\s\S]*DEFAULT_APP_NAME/);
   assert.match(directRuntimeSource, /const DIRECT_TRANSPORT = "modal-js-sdk-function-call-v1"/);
   assert.match(directRuntimeSource, /new sdk\.ModalClient/);
-  assert.match(directRuntimeSource, /client\.functions\.fromName\(APP_NAME, lane, lookupOptions\)/);
+  assert.match(directRuntimeSource, /client\.functions\.fromName\([\s\S]*lane === "fast" \? FAST_FUNCTION_NAME : lane[\s\S]*lookupOptions/);
   assert.match(directRuntimeSource, /worker\.spawn\(\[payload\]\)/);
   assert.match(directRuntimeSource, /client\.functionCalls\.fromId\(callId\)/);
-  assert.match(directRuntimeSource, /call\.get\(\{ timeoutMs: 0 \}\)/);
+  assert.match(directRuntimeSource, /const STATUS_POLL_TIMEOUT_MS = 50/);
+  assert.match(directRuntimeSource, /call\.get\(\{ timeoutMs: STATUS_POLL_TIMEOUT_MS \}\)/);
+  assert.match(directRuntimeSource, /error instanceof sdk\.FunctionTimeoutError/);
+  assert.doesNotMatch(directRuntimeSource, /timeoutMs: 0/);
   assert.match(directRuntimeSource, /modal_gateway_used:\s*false/);
   assert.match(directRuntimeSource, /modal_gpu:\s*"H100"/);
   assert.match(directRuntimeSource, /modal_volume_created:\s*false/);
@@ -71,7 +75,8 @@ test("active Intelligence provider is Modal-only and fails closed through govern
 
   assert.match(canonicalProviderSource, /infrastructure_fallback:\s*null/);
   assert.match(canonicalProviderSource, /modal_only:\s*true/);
-  assert.match(canonicalProviderSource, /runtime_ready:\s*modalConfigured/);
+  assert.match(canonicalProviderSource, /runtime_ready:\s*enabled/);
+  assert.match(canonicalProviderSource, /runtime_credentials_required_at_execution:\s*true/);
   assert.doesNotMatch(canonicalProviderSource, /Runpod|RunPod|RUNPOD/);
 });
 

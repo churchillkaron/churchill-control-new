@@ -280,3 +280,94 @@ test("adaptive reasoning budgets can escalate after strategic evidence while cal
   assert.match(strategic, /effective_reasoning_call_budget/);
   assert.match(strategic, /caller_reasoning_budget_preserved/);
 });
+
+test("causal graph observes imported symbol calls and alias consumers without claiming compiler authority", () => {
+  const graph = deriveCodeAICausalGraph({
+    files_changed: ["lib/core/runtime.js"],
+    source_changes: [{
+      path: "lib/core/runtime.js",
+      operation: "write",
+      content: [
+        "export function runMission() { return true; }",
+        "export default function createRuntime() { return {}; }",
+        "export const helper = () => true;",
+      ].join("\n"),
+    }],
+    evidence: [
+      {
+        action: "read",
+        result: {
+          file_path: "lib/consumer/service.js",
+          content: [
+            'import createRuntime, { runMission as invokeMission, helper } from "../core/runtime.js";',
+            "invokeMission();",
+            "helper();",
+            "createRuntime();",
+          ].join("\n"),
+        },
+      },
+      {
+        action: "read",
+        result: {
+          file_path: "lib/consumer/namespace.js",
+          content: [
+            'import * as runtime from "../core/runtime.js";',
+            "runtime.runMission();",
+          ].join("\n"),
+        },
+      },
+    ],
+  });
+
+  assert.equal(graph.authoritative_call_graph, false);
+  assert.equal(graph.bounded_symbol_call_analysis, true);
+  assert.ok(graph.imported_symbol_call_edges_observed >= 4);
+  assert.ok(graph.edges.some((edge) =>
+    edge.relation === "calls_imported_symbol" &&
+    edge.from === "lib/consumer/service.js" &&
+    edge.to === "lib/core/runtime.js" &&
+    edge.local_binding === "invokeMission" &&
+    edge.target_symbol === "runMission" &&
+    edge.target_export_observed === true
+  ));
+  assert.ok(graph.edges.some((edge) =>
+    edge.relation === "calls_imported_symbol" &&
+    edge.local_binding === "createRuntime" &&
+    edge.target_symbol === "default" &&
+    edge.target_export_observed === true
+  ));
+  assert.ok(graph.edges.some((edge) =>
+    edge.relation === "calls_imported_symbol" &&
+    edge.local_binding === "runtime.runMission" &&
+    edge.target_symbol === "runMission"
+  ));
+
+  const changed = graph.changed_path_consumers.find((entry) => entry.path === "lib/core/runtime.js");
+  assert.ok(changed);
+  assert.ok(changed.observed_exports.includes("runMission"));
+  assert.ok(changed.observed_exports.includes("default"));
+  assert.ok(changed.observed_symbol_calls.some((call) =>
+    call.caller === "lib/consumer/service.js" && call.target_symbol === "runMission"
+  ));
+  assert.equal(graph.incomplete_evidence_must_not_be_treated_as_no_dependency, true);
+});
+
+test("causal graph keeps symbol-call analysis bounded", () => {
+  const calls = Array.from({ length: 120 }, (_, index) => `run${index % 10}();`).join("\n");
+  const imports = Array.from({ length: 10 }, (_, index) => `run${index}`).join(", ");
+  const exports = Array.from({ length: 10 }, (_, index) => `export function run${index}(){ return ${index}; }`).join("\n");
+  const graph = deriveCodeAICausalGraph({
+    files_changed: ["lib/core/many.js"],
+    source_changes: [{ path: "lib/core/many.js", operation: "write", content: exports }],
+    evidence: [{
+      action: "read",
+      result: {
+        file_path: "lib/consumer/many.js",
+        content: `import { ${imports} } from "../core/many.js";\n${calls}`,
+      },
+    }],
+  });
+  assert.ok(graph.imported_symbol_call_edges_observed <= 80);
+  assert.ok(graph.edge_count <= 200);
+  assert.equal(graph.authoritative_call_graph, false);
+});

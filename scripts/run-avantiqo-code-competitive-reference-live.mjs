@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import OpenAI from "openai";
@@ -13,6 +14,22 @@ const text = (value) => String(value ?? "").trim();
 const approved = (value) => ["YES", "TRUE", "1", "APPROVED", "ON"].includes(text(value).toUpperCase());
 const sha256 = (value) => createHash("sha256").update(String(value ?? ""), "utf8").digest("hex");
 const number = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
+
+function git(args, label) {
+  const result = spawnSync("git", args, { cwd: process.cwd(), encoding: "utf8" });
+  if (result.status !== 0) throw new Error(`${label}:${text(result.stderr || result.stdout)}`);
+  return text(result.stdout);
+}
+
+function currentCleanMainProvenance() {
+  git(["fetch", "origin", "main"], "AVANTIQO_CODE_COMPETITIVE_REFERENCE_GIT_FETCH_FAILED");
+  const head = git(["rev-parse", "HEAD"], "AVANTIQO_CODE_COMPETITIVE_REFERENCE_GIT_HEAD_FAILED");
+  const remote = git(["rev-parse", "origin/main"], "AVANTIQO_CODE_COMPETITIVE_REFERENCE_GIT_REMOTE_FAILED");
+  if (head !== remote) throw new Error("AVANTIQO_CODE_COMPETITIVE_REFERENCE_CURRENT_MAIN_REQUIRED");
+  const dirty = git(["status", "--porcelain"], "AVANTIQO_CODE_COMPETITIVE_REFERENCE_GIT_STATUS_FAILED");
+  if (dirty) throw new Error("AVANTIQO_CODE_COMPETITIVE_REFERENCE_CLEAN_REPOSITORY_REQUIRED");
+  return { source_commit: head, ref: "main", repository_clean: true };
+}
 
 if (!approved(process.env.AVANTIQO_CODE_COMPETITIVE_LIVE_REFERENCE_APPROVED)) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_LIVE_REFERENCE_APPROVED=YES_REQUIRED");
@@ -29,6 +46,7 @@ if (!(inputUsdPer1m >= 0) || !(outputUsdPer1m >= 0)) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_REFERENCE_PRICING_REQUIRED");
 }
 
+const runnerProvenance = currentCleanMainProvenance();
 const suiteSource = await readFile(SUITE_PATH, "utf8");
 const promptSource = await readFile(PROMPT_PATH, "utf8");
 const suite = JSON.parse(suiteSource);
@@ -105,6 +123,7 @@ const attested = await runCodeAICompetitiveReferenceLiveBenchmark({
   provider,
   model,
   execute_provider: executeProvider,
+  runner_provenance: runnerProvenance,
 });
 await writeFile(OUTPUT_PATH, `${JSON.stringify(attested, null, 2)}\n`, "utf8");
 
@@ -115,6 +134,7 @@ console.log(JSON.stringify({
   output_path: OUTPUT_PATH,
   provider,
   model,
+  runner_source_commit: attested?.runner_source_commit || null,
   case_count: Number(attested?.summary?.completed_runs || 0),
   pass_rate: Number(attested?.summary?.pass_rate || 0),
   estimated_supplier_cost_usd: Number(attested?.economics?.estimated_supplier_cost_usd || 0),

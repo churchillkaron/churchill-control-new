@@ -42,6 +42,7 @@ test("controlled live reference runner uses the canonical prompt contract and si
     provider: "mock-reference",
     model: "mock-frontier-model",
     attestation_env: env,
+    runner_provenance: { source_commit: "2".repeat(40), ref: "main", repository_clean: true },
     execute_provider: async ({ prompt, case_id }) => {
       seenPrompts.push(prompt);
       return {
@@ -71,6 +72,24 @@ test("controlled live reference runner uses the canonical prompt contract and si
     prompt_contract_sha256: sha256(promptSource),
     required_case_ids: suite.cases.map((item) => item.case_id),
   }), true);
+});
+
+test("live runner rejects unclean or non-main provenance before provider execution", async () => {
+  const suiteSource = await readFile("benchmarks/avantiqo-code-frontier-engineering-suite.json", "utf8");
+  const promptSource = await readFile("benchmarks/avantiqo-code-frontier-prompt-contract.json", "utf8");
+  let calls = 0;
+  await assert.rejects(() => runCodeAICompetitiveReferenceLiveBenchmark({
+    suite: JSON.parse(suiteSource),
+    prompt_contract: JSON.parse(promptSource),
+    suite_sha256: sha256(suiteSource),
+    prompt_contract_sha256: sha256(promptSource),
+    provider: "mock-reference",
+    model: "mock-model",
+    runner_provenance: { source_commit: "3".repeat(40), ref: "main", repository_clean: false },
+    attestation_env: env,
+    execute_provider: async () => { calls += 1; return {}; },
+  }), /CODE_AI_COMPETITIVE_REFERENCE_CURRENT_CLEAN_MAIN_REQUIRED/);
+  assert.equal(calls, 0);
 });
 
 test("live provider script fails closed before network execution without explicit approval", () => {

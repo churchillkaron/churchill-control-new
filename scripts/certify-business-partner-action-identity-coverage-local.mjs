@@ -25,6 +25,16 @@ const secretaryNoReplay = secretaryWrites.filter((item) => item.ambiguous_write_
 const secretaryInvalidRecovery = secretaryWrites.filter((item) => item.ambiguous_write_recovery_status === "INVALID_DECLARATION_BLOCKED");
 const expectedSecretaryPrebound = new Set([
   "platform.secretary_appointment_attendance_stewardship.start",
+  "platform.secretary_document_preparation.prepare",
+  "platform.secretary_event_coordination.start",
+  "platform.secretary_event_guest_coordination.start",
+  "platform.secretary_executive_notes.capture",
+  "platform.secretary_mail_courier.start",
+  "platform.secretary_office_administration.start",
+  "platform.secretary_office_reproduction.start",
+  "platform.secretary_records_retrieval.request",
+  "platform.secretary_signature_routing.start",
+  "platform.secretary_staff_delegation.delegate",
   "platform.secretary_document_transmittal.start",
   "platform.secretary_hospitality_coordination.start",
   "platform.secretary_meeting_pack_coordination.start",
@@ -45,8 +55,8 @@ const evidence = {
   secretary_ambiguous_writes_never_auto_replay: fullSecretaryCatalogAvailable ? secretaryWrites.length >= 247 && secretaryRecoveryUnsafe.length === 0 : true,
   no_production_write: true,
   secretary_recovery_catalog_loaded: secretaryWrites.length > 0,
-  secretary_prebound_exact_recovery: secretaryPrebound.length === 8 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
-  secretary_remaining_fail_closed: secretaryNoReplay.length === secretaryWrites.length - 8,
+  secretary_prebound_exact_recovery: secretaryPrebound.length === 18 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
+  secretary_remaining_fail_closed: secretaryNoReplay.length === secretaryWrites.length - 18,
   secretary_no_invalid_recovery: secretaryInvalidRecovery.length === 0,
 };
 const stages = {

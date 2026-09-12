@@ -1,6 +1,8 @@
 """CPU-only governed job adapter for the native Avantiqo LTX-2.5 Video worker."""
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import uuid
 from pathlib import Path
@@ -30,6 +32,7 @@ JOB_CONTRACT = "AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_JOB_V2"
 STUDIO_LINEAGE_CONTRACT = "AVANTIQO_VIDEO_STUDIO_LINEAGE_V1"
 SHOT_BIBLE_CONTRACT = "CREATIVE_SHOT_BIBLE_V1"
 NATIVE_CONTROL_CONTRACT = "CREATIVE_VIDEO_NATIVE_CONTROL_V1"
+GENERATION_ENVELOPE_CONTRACT = "CREATIVE_VIDEO_GENERATION_ENVELOPE_V1"
 SUPPORTED_CAPABILITIES = {"ai.video.generate", "ai.video.image_to_video", "ai.video.first_last_frame_to_video"}
 MAX_REFERENCE_BYTES = 100 * 1024 * 1024
 MIN_REFERENCE_BYTES = 1024
@@ -127,8 +130,10 @@ def _native_control(data: dict[str, Any]) -> dict[str, Any] | None:
     if _text(control.get("contract")) != NATIVE_CONTROL_CONTRACT:
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_CONTROL_CONTRACT_INVALID")
     raw_conditions = _list(control.get("reference_conditions"))
-    if not raw_conditions or len(raw_conditions) > MAX_REFERENCE_CONDITIONS:
+    if len(raw_conditions) > MAX_REFERENCE_CONDITIONS:
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_CONTROL_REFERENCE_COUNT_INVALID")
+    if not raw_conditions:
+        return None
     conditions = []
     for index, raw in enumerate(raw_conditions):
         item = _object(raw)
@@ -149,6 +154,33 @@ def _native_control(data: dict[str, Any]) -> dict[str, Any] | None:
         })
     return {**control, "reference_conditions": conditions}
 
+
+
+def _canonical(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_canonical(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _canonical(value[key]) for key in sorted(value)}
+    return value
+
+def _envelope(data: dict[str, Any], lineage: dict[str, Any] | None) -> dict[str, Any] | None:
+    specification = _object(data.get("structured_specification"))
+    envelope = _object(specification.get("generation_envelope"))
+    if not lineage:
+        return envelope or None
+    if _text(envelope.get("contract")) != GENERATION_ENVELOPE_CONTRACT:
+        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_GENERATION_ENVELOPE_REQUIRED")
+    if envelope.get("source_of_truth") != "STRUCTURED_ONLY" or envelope.get("provider_prompt_is_source_of_truth") is not False:
+        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_GENERATION_ENVELOPE_AUTHORITY_INVALID")
+    provided = _text(envelope.get("envelope_hash"))
+    body = {key: value for key, value in envelope.items() if key != "envelope_hash"}
+    encoded = json.dumps(_canonical(body), separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    expected = hashlib.sha256(encoded).hexdigest()
+    if not provided or provided != expected:
+        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_GENERATION_ENVELOPE_HASH_INVALID")
+    if _text(envelope.get("shot_id")) != _text(lineage.get("shot_id")):
+        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_GENERATION_ENVELOPE_SHOT_MISMATCH")
+    return envelope
 
 def _source_urls(data: dict[str, Any]) -> list[str]:
     specification = _object(data.get("structured_specification"))
@@ -181,6 +213,7 @@ def _validate_job(data: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_GOVERNED_CONTEXT_REQUIRED")
     lineage = _studio_lineage(data)
     control = _native_control(data)
+    envelope = _envelope(data, lineage)
     sources = _source_urls(data)
     if capability != "ai.video.generate" and (not sources or not sources[0].startswith("https://")):
         raise ValueError(f"AVANTIQO_VIDEO_LTX25_MODAL_STUDIO_REFERENCE_REQUIRED:{capability}")
@@ -204,6 +237,7 @@ def _validate_job(data: dict[str, Any]) -> dict[str, Any]:
         "seed": seed,
         "studio_lineage": lineage,
         "native_control": control,
+        "generation_envelope": envelope,
     }
 
 
@@ -314,7 +348,8 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
     organization = _path_token(job["organization_id"], "organization")
     usage = _path_token(job["usage_id"], "usage")
     relative_root = Path("runtime-jobs") / organization / usage / job_id
-    candidate_t2v = job["capability"] == "ai.video.generate" and not job["native_control"] and not job["source_urls"]
+    structured_studio_master = bool(job.get("generation_envelope"))
+    candidate_t2v = job["capability"] == "ai.video.generate" and not structured_studio_master and not job["native_control"] and not job["source_urls"]
     output_relative = str(relative_root / ("candidate-master-1920x1088.mp4" if candidate_t2v else "native-master-3840x2176.mp4"))
     output_path = Path("/models") / output_relative
     staged_paths: list[Path] = []
@@ -333,9 +368,12 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
             model_volume.commit()
             generation = generate_native_master.remote(reference_relative, output_relative, job["instruction"], job["duration_seconds"], job["seed"])
         else:
-            if job["duration_seconds"] > 12:
-                raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_CANDIDATE_DURATION_INVALID")
-            generation = generate_investor_t2v_master.remote(output_relative, job["instruction"], job["duration_seconds"], job["seed"])
+            if structured_studio_master:
+                generation = generate_native_master.remote("", output_relative, job["instruction"], job["duration_seconds"], job["seed"])
+            else:
+                if job["duration_seconds"] > 12:
+                    raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_CANDIDATE_DURATION_INVALID")
+                generation = generate_investor_t2v_master.remote(output_relative, job["instruction"], job["duration_seconds"], job["seed"])
 
         if not isinstance(generation, dict) or generation.get("success") is not True:
             raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_RESULT_INVALID")
@@ -374,6 +412,8 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
             "studio_lineage_validated": bool(lineage),
             "shot_id": _text(lineage.get("shot_id")) or None,
             "native_control": job["native_control"],
+            "generation_envelope_contract": _text(_object(job.get("generation_envelope")).get("contract")) or None,
+            "generation_envelope_hash": _text(_object(job.get("generation_envelope")).get("envelope_hash")) or None,
             "gpu_generation_calls": 1,
             "automatic_generation_retries": 0,
             "automatic_paid_retry": generation.get("automatic_paid_retry", False),

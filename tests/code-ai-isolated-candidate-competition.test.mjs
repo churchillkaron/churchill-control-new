@@ -59,11 +59,17 @@ test("isolated candidate competition executes two ephemeral candidates and selec
   assert.match(seen[1].resume_state.mission_id, /candidate:2$/);
   assert.equal(seen[0].reasoning_call_budget, 1);
   assert.equal(seen[1].reasoning_call_budget, 1);
+  assert.equal(seen[0].context.metadata.codeAIIsolatedCandidateTrial, true);
+  assert.equal(seen[1].context.metadata.codeAIIsolatedCandidateTrial, true);
+  assert.equal(seen[0].context.metadata.codeAIIsolatedCandidateParentMissionId, "mission-123");
+  assert.equal(seen[1].context.metadata.codeAIIsolatedCandidateParentMissionId, "mission-123");
   assert.equal(result.executed, true);
   assert.equal(result.concurrent_execution, true);
   assert.equal(result.winner_index, 1);
   assert.equal(result.fallback_to_single_writer_required, false);
   assert.equal(result.main_branch_parallel_mutation_forbidden, true);
+  assert.equal(result.shared_live_progress_suppressed_for_candidates, true);
+  assert.equal(result.parent_mission_progress_authoritative, true);
   assert.equal(result.commit_authority, false);
   assert.equal(result.deploy_authority, false);
 });
@@ -108,4 +114,16 @@ test("strategic runtime invokes isolated competition only through the governed p
   assert.match(strategic, /runCodeAIIsolatedCandidateCompetition/);
   assert.match(strategic, /selectedCandidateResult/);
   assert.match(strategic, /fallback_to_single_writer_required|winner_result/);
+});
+
+
+test("isolated candidate trials cannot overwrite shared parent live progress", async () => {
+  const live = await readFile("lib/code/runtime/CodeAIWorkPackageRuntimeLive.js", "utf8");
+  assert.match(live, /codeAIIsolatedCandidateTrial === true/);
+  assert.match(live, /CODE_AI_ISOLATED_CANDIDATE_LIVE_PROGRESS_SUPPRESSED/);
+  assert.match(live, /await publishCodeAILiveProgress/);
+  assert.ok(
+    live.indexOf("codeAIIsolatedCandidateTrial === true") <
+      live.indexOf("await publishCodeAILiveProgress"),
+  );
 });

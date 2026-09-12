@@ -19,14 +19,14 @@ test("Business Partner fast lane uses an interactive settlement budget", () => {
   assert.match(owned, /DEFAULT_DEEP_MAX_POLLS/);
 });
 
-test("Business Partner retries a stalled fast reasoning job once inside the same turn", () => {
+test("Business Partner stops a stalled evidence job and preserves a persistent answer", () => {
   const fast = source("lib/operator/runtime/OperatorFastConversationRuntime.js");
   assert.match(fast, /function fastIntelligenceTimeout/);
   assert.match(fast, /FAST_INTELLIGENCE_RETRY/);
-  assert.match(fast, /liveReadReceipts\.length = 0/);
-  assert.match(fast, /evidenceExecution = await runEvidenceTurn\(\)/);
-  assert.match(fast, /execution = await runFastGeneration\(\)/);
-  assert.match(fast, /No business action is being replayed/);
+  assert.match(fast, /persistent answer instead of making you wait through another long retry/);
+  assert.match(fast, /FRONT_EVIDENCE_TIMEOUT_FALLBACK/);
+  assert.match(fast, /persistent_timeout_fallback: true/);
+  assert.doesNotMatch(fast, /liveReadReceipts\.length = 0;[\s\S]{0,180}evidenceExecution = await runEvidenceTurn\(\)/);
 });
 
 test("terminal fast timeout returns recoverable conversation instead of a generic dead end", () => {

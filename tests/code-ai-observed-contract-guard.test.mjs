@@ -137,3 +137,41 @@ test("guard accepts coherent same-package returned-field migration", () => {
   assert.equal(result.compatible, true);
   assert.ok(result.coherent_contract_migrations.some((item) => item.kind === "COHERENT_RETURN_FIELD_MIGRATION" && item.from_field === "invoice_id" && item.to_field === "receipt_id"));
 });
+
+test("guard preserves statically observed Next route response fields", () => {
+  const state = { evidence: [read("app/api/orders/route.ts", "export async function GET(){ return Response.json({ ok: true, invoice_id: 'x' }); }")] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "app/api/orders/route.ts", content: "export async function GET(){ return Response.json({ ok: true }); }" }] });
+  assert.equal(result.compatible, false);
+  assert.ok(result.violations.some((item) => item.kind === "NEXT_ROUTE_RESPONSE_FIELD_REMOVED" && item.field === "invoice_id"));
+});
+
+test("guard preserves observed Supabase tenant filter keys", () => {
+  const state = { evidence: [read("lib/orders/repository.js", "export async function load(db, organization_id){ return db.from('orders').select('id,total').eq('organization_id', organization_id); }")] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders/repository.js", content: "export async function load(db){ return db.from('orders').select('id,total'); }" }] });
+  assert.equal(result.compatible, false);
+  assert.ok(result.violations.some((item) => item.kind === "SUPABASE_FILTER_KEY_REMOVED" && item.key === "organization_id"));
+});
+
+test("guard preserves observed Supabase mutation payload fields", () => {
+  const state = { evidence: [read("lib/orders/repository.js", "export async function save(db, order){ return db.from('orders').update({ total: order.total, organization_id: order.organization_id }).eq('id', order.id); }")] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders/repository.js", content: "export async function save(db, order){ return db.from('orders').update({ total: order.total }).eq('id', order.id); }" }] });
+  assert.equal(result.compatible, false);
+  assert.ok(result.violations.some((item) => item.kind === "SUPABASE_MUTATION_FIELD_REMOVED" && item.field === "organization_id"));
+});
+
+test("guard preserves observed Supabase RPC argument keys", () => {
+  const state = { evidence: [read("lib/orders/repository.js", "export async function post(db, order){ return db.rpc('post_order', { order_id: order.id, organization_id: order.organization_id }); }")] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders/repository.js", content: "export async function post(db, order){ return db.rpc('post_order', { order_id: order.id }); }" }] });
+  assert.equal(result.compatible, false);
+  assert.ok(result.violations.some((item) => item.kind === "SUPABASE_RPC_ARGUMENT_KEY_REMOVED" && item.key === "organization_id"));
+});
+
+test("guard respects TypeScript optional parameters when checking observed call arity", () => {
+  const state = { evidence: [
+    read("lib/orders/runtime.ts", "export function settleOrder(order: unknown, context?: unknown){ return { ok: true }; }"),
+    read("lib/orders/service.ts", 'import { settleOrder } from "./runtime"; export function settle(order: unknown){ return settleOrder(order); }'),
+  ] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders/runtime.ts", content: "export function settleOrder(order: unknown, context?: unknown){ return { ok: true }; }" }] });
+  assert.equal(result.compatible, true);
+  assert.ok(result.obligations.some((item) => item.kind === "OBSERVED_CALL_ARITY" && item.observed_argument_count === 1));
+});

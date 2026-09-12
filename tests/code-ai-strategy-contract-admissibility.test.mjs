@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { filterCodeAIStrategyCompetitionByObservedContracts } from "../lib/code/runtime/CodeAIStrategyContractAdmissibilityRuntime.js";
+import { deriveCodeAIObservedStrategyContracts, filterCodeAIStrategyCompetitionByObservedContracts } from "../lib/code/runtime/CodeAIStrategyContractAdmissibilityRuntime.js";
 
 function read(path, content) {
   return { kind: "operation", action: "read", status: "completed", result: { file_path: path, content } };
@@ -35,4 +35,26 @@ test("strategy filter never invents a contradiction without observed evidence", 
   assert.equal(result.contract_rejected_count, 0);
   assert.equal(result.selected.id, "candidate");
   assert.equal(result.contract_admissibility.obligation_count, 0);
+});
+
+test("strategy filter rejects explicit removal of observed tenant filters route fields and RPC keys", () => {
+  const state = { evidence: [
+    { action: "read", status: "completed", result: { file_path: "lib/orders/repository.js", content: "export async function work(db, org){ await db.from('orders').update({ organization_id: org }).eq('organization_id', org); return db.rpc('post_order', { organization_id: org }); }" } },
+    { action: "read", status: "completed", result: { file_path: "app/api/orders/route.js", content: "export async function GET(){ return Response.json({ ok: true, invoice_id: 'x' }); }" } },
+  ] };
+  const competition = { ranked: [
+    { id: "bad-filter", direction: "Remove organization_id filter from the orders repository.", score: 90 },
+    { id: "bad-route", direction: "Drop invoice_id from the route response.", score: 80 },
+    { id: "safe", direction: "Refactor implementation while preserving observed contracts.", score: 70 },
+  ] };
+  const result = filterCodeAIStrategyCompetitionByObservedContracts({ state, competition });
+  assert.equal(result.contract_rejected_count, 2);
+  assert.equal(result.ranked.length, 1);
+  assert.equal(result.ranked[0].id, "safe");
+  const kinds = result.contract_rejected_candidates.flatMap((item) => item.contract_conflicts.map((conflict) => conflict.kind));
+  assert.ok(kinds.includes("SUPABASE_FILTER_KEY"));
+  assert.ok(kinds.includes("NEXT_ROUTE_RESPONSE_FIELD"));
+  const contracts = deriveCodeAIObservedStrategyContracts(state);
+  assert.ok(contracts.obligations.some((item) => item.kind === "SUPABASE_RPC_ARGUMENT_KEY" && item.token === "organization_id"));
+  assert.ok(contracts.obligations.some((item) => item.kind === "SUPABASE_MUTATION_FIELD" && item.token === "organization_id"));
 });

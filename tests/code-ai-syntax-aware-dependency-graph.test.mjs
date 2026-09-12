@@ -174,3 +174,46 @@ test("syntax-aware parser captures explicit Supabase selected columns", () => {
   assert.ok(ref);
   assert.deepEqual(ref.selected_columns, ["id", "organization_id", "total"]);
 });
+
+test("syntax-aware parser captures Next route response fields and TypeScript optional arity", () => {
+  const analysis = analyzeCodeAISourceDependencies("app/api/orders/route.ts", [
+    "export async function GET(request: Request, context?: unknown) {",
+    "  return Response.json({ ok: true, invoice_id: 'x' });",
+    "}",
+  ].join("\n"));
+  const contract = analysis.function_contracts.find((item) => item.name === "GET");
+  assert.ok(contract);
+  assert.equal(contract.min_arity, 1);
+  assert.equal(contract.max_arity, 2);
+  assert.deepEqual(contract.response_fields, ["ok", "invoice_id"]);
+});
+
+test("syntax-aware parser captures literal Supabase filters mutation fields and RPC argument keys", () => {
+  const analysis = analyzeCodeAISourceDependencies("lib/repository.ts", [
+    "export async function save(db, organization_id) {",
+    "  await db.from('orders').update({ total: 10, organization_id }).eq('organization_id', organization_id);",
+    "  await db.from('orders').upsert({ id: 'x', organization_id });",
+    "  return db.rpc('post_order', { order_id: 'x', organization_id });",
+    "}",
+  ].join("\n"));
+  const table = analysis.schema_references.find((item) => item.kind === "table" && item.name === "orders");
+  const rpc = analysis.schema_references.find((item) => item.kind === "rpc" && item.name === "post_order");
+  assert.ok(table);
+  assert.ok(table.filter_keys.includes("organization_id"));
+  assert.ok(table.mutation_fields.includes("total"));
+  assert.ok(table.mutation_fields.includes("organization_id"));
+  assert.ok(table.mutation_fields.includes("id"));
+  assert.ok(rpc);
+  assert.deepEqual(rpc.argument_keys, ["order_id", "organization_id"]);
+});
+
+test("dynamic Supabase payloads do not invent static mutation contracts", () => {
+  const analysis = analyzeCodeAISourceDependencies("lib/repository.ts", [
+    "export async function save(db, payload) {",
+    "  return db.from('orders').update({ ...payload });",
+    "}",
+  ].join("\n"));
+  const table = analysis.schema_references.find((item) => item.kind === "table" && item.name === "orders");
+  assert.ok(table);
+  assert.deepEqual(table.mutation_fields || [], []);
+});

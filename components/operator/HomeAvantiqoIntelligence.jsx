@@ -15,6 +15,7 @@ import {
 const OPERATOR_TURN_TIMEOUT_MS = 12 * 60 * 1000;
 const CODE_PREWARM_POLL_MS = 5000;
 const CODE_PREWARM_MAX_POLLS = 90;
+const INTELLIGENCE_PREWARM_TIMEOUT_MS = 30 * 1000;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -213,6 +214,30 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
       window.clearInterval(liveTimer);
     };
   }, [busy, organizationId, activeRequestStartedAt]);
+
+  useEffect(() => {
+    if (!organizationId) return undefined;
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), INTELLIGENCE_PREWARM_TIMEOUT_MS);
+
+    fetch("/api/operator/intelligence/prewarm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      signal: controller.signal,
+      body: JSON.stringify({ organizationId }),
+    }).catch((prewarmError) => {
+      if (prewarmError?.name !== "AbortError") {
+        console.debug("AVANTIQO_INTELLIGENCE_FRONT_PREWARM_ADVISORY_FAILURE", prewarmError?.message || prewarmError);
+      }
+    }).finally(() => window.clearTimeout(timer));
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [organizationId]);
 
   useEffect(() => {
     if (!organizationId) return undefined;

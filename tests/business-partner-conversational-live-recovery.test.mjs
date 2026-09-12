@@ -12,8 +12,11 @@ test("Business Partner fast lane uses an interactive settlement budget", () => {
   const owned = source("lib/operator/runtime/OperatorOwnedIntelligenceServiceRuntime.js");
   assert.match(reasoning, /FAST_PENDING_SETTLEMENT_DEADLINE_MS = 35_000/);
   assert.match(reasoning, /FAST_PENDING_QUEUE_GRACE_MS = 10_000/);
+  assert.match(owned, /DEFAULT_FRONT_MAX_POLLS = 20/);
   assert.match(owned, /DEFAULT_FAST_MAX_POLLS = 45/);
-  assert.match(owned, /executionLane === "fast" \? DEFAULT_FAST_MAX_POLLS : DEFAULT_DEEP_MAX_POLLS/);
+  assert.match(owned, /executionLane === "front"/);
+  assert.match(owned, /DEFAULT_FRONT_MAX_POLLS/);
+  assert.match(owned, /DEFAULT_DEEP_MAX_POLLS/);
 });
 
 test("Business Partner retries a stalled fast reasoning job once inside the same turn", () => {

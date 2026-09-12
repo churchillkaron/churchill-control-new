@@ -29,7 +29,7 @@ const runtimeFiles = [
   "SecretaryDocumentFilingRuntime.js",
 ].map((name) => fs.readFileSync(`lib/operator/secretary/${name}`, "utf8"));
 
-test("thirty two Secretary mutations use prebound exact recovery", () => {
+test("thirty three Secretary mutations use prebound exact recovery", () => {
   assert.equal((platform.match(/ambiguousWriteRecovery: "PREBOUND_EXACT_ID"/g) || []).length, 12);
   assert.match(platform, /function withPreboundSecretaryRecovery/);
 });
@@ -88,11 +88,11 @@ test("job and outbound request creation prebind exact UUIDs before mutation", ()
   assert.match(platform, /secretary_outbound_call: \{ place: async \(\) => withPreboundSecretaryRecovery\(createSecretaryOutboundCallCapability\("place"\), "platform\.secretary_outbound_call_request\.read", "request_id"\)/);
 });
 
-test("action identity cert locks thirty two prebound Secretary mutations", () => {
+test("action identity cert locks thirty three prebound Secretary mutations", () => {
   const cert = fs.readFileSync("scripts/certify-business-partner-action-identity-coverage-local.mjs", "utf8");
   assert.match(cert, /secretary_prebound_exact_recovery/);
   assert.match(cert, /secretary_remaining_fail_closed/);
-  assert.match(cert, /secretaryPrebound\.length === 32/);
+  assert.match(cert, /secretaryPrebound\.length === 33/);
 });
 
 test("meeting coordination prebinds the atomic RPC identity", () => {
@@ -126,4 +126,20 @@ test("decision and directive registers prebind exact durable IDs", () => {
   assert.match(directive, /directive_id: directiveId/);
   assert.match(platform, /secretary_decision_register:[^\n]*withPreboundSecretaryRecovery[^\n]*secretary_decision_register\.read[^\n]*decision_id/);
   assert.match(platform, /secretary_directive_register:[^\n]*withPreboundSecretaryRecovery[^\n]*secretary_directive_register\.read[^\n]*directive_id/);
+});
+
+
+test("recurring meeting create prebinds the atomic series identity", () => {
+  const runtime = fs.readFileSync("lib/operator/secretary/SecretaryRecurringMeetingRuntime.js", "utf8");
+  const migration = fs.readFileSync("supabase/migrations/20260912141000_secretary_recurring_meeting_prebound_identity.sql", "utf8");
+  assert.match(runtime, /const seriesId = randomUUID\(\)/);
+  assert.match(runtime, /p_series_id: seriesId/);
+  assert.match(runtime, /secretaryPreboundMutationResult/);
+  assert.match(runtime, /"series_id",\s*seriesId/);
+  assert.match(runtime, /series_id: series\.id/);
+  assert.match(platform, /secretary_recurring_meeting:[^\n]*withPreboundSecretaryRecovery[^\n]*secretary_recurring_meeting\.read[^\n]*series_id/);
+  assert.match(migration, /p_series_id uuid/);
+  assert.match(migration, /insert into public\.secretary_recurring_meeting_series \(\s*id,/);
+  assert.match(migration, /select\s+p_series_id,/);
+  assert.match(migration, /drop function public\.secretary_create_recurring_meeting_series/);
 });

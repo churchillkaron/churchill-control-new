@@ -29,7 +29,7 @@ const runtimeFiles = [
   "SecretaryDocumentFilingRuntime.js",
 ].map((name) => fs.readFileSync(`lib/operator/secretary/${name}`, "utf8"));
 
-test("twenty five Secretary mutations use prebound exact recovery", () => {
+test("twenty seven Secretary mutations use prebound exact recovery", () => {
   assert.equal((platform.match(/ambiguousWriteRecovery: "PREBOUND_EXACT_ID"/g) || []).length, 12);
   assert.match(platform, /function withPreboundSecretaryRecovery/);
 });
@@ -76,9 +76,21 @@ test("prebound helper preserves fail-closed mutation semantics", async () => {
   assert.equal(success.data.id, "abc-123");
 });
 
-test("action identity cert locks twenty five prebound Secretary mutations", () => {
+
+test("job and outbound request creation prebind exact UUIDs before mutation", () => {
+  const job = fs.readFileSync("lib/operator/secretary/SecretaryJobIntakeRuntime.js", "utf8");
+  const call = fs.readFileSync("lib/operator/secretary/SecretaryOutboundCallRuntime.js", "utf8");
+  assert.match(job, /const jobId = randomUUID\(\);[\s\S]*secretaryPreboundMutationResult\(supabaseAdmin[\s\S]*\.insert\(\{[\s\S]*id: jobId,[\s\S]*\.single\(\), "job_id", jobId\)/);
+  assert.match(job, /job_id: job\.id/);
+  assert.match(call, /const requestId = randomUUID\(\);[\s\S]*secretaryPreboundMutationResult\(supabaseAdmin[\s\S]*\.insert\(\{[\s\S]*id: requestId,[\s\S]*\.single\(\), "request_id", requestId\)/);
+  assert.match(call, /request_id: request\.id/);
+  assert.match(platform, /secretary_job: \{ delegate: async \(\) => withPreboundSecretaryRecovery\(createSecretaryJobCapability\("delegate"\), "platform\.secretary_job_record\.read", "job_id"\)/);
+  assert.match(platform, /secretary_outbound_call: \{ place: async \(\) => withPreboundSecretaryRecovery\(createSecretaryOutboundCallCapability\("place"\), "platform\.secretary_outbound_call_request\.read", "request_id"\)/);
+});
+
+test("action identity cert locks twenty seven prebound Secretary mutations", () => {
   const cert = fs.readFileSync("scripts/certify-business-partner-action-identity-coverage-local.mjs", "utf8");
   assert.match(cert, /secretary_prebound_exact_recovery/);
   assert.match(cert, /secretary_remaining_fail_closed/);
-  assert.match(cert, /secretaryPrebound\.length === 25/);
+  assert.match(cert, /secretaryPrebound\.length === 27/);
 });

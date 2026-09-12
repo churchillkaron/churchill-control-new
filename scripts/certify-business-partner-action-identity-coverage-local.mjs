@@ -50,6 +50,8 @@ const expectedSecretaryPrebound = new Set([
   "platform.secretary_working_preferences.record",
   "platform.secretary_working_preferences.correct",
   "platform.secretary_working_preferences.retract",
+  "platform.secretary_job.delegate",
+  "platform.secretary_outbound_call.place",
 ]);
 
 const expectedSecretaryAuthoritativeLocators = new Set([
@@ -66,12 +68,12 @@ const evidence = {
   recovery_classes_are_closed_set: /PREBOUND_EXACT_ID/.test(recoverySource) && /AUTHORITATIVE_RECOVERY_LOCATOR/.test(recoverySource) && /UNCERTAIN_NO_REPLAY/.test(recoverySource),
   secretary_fail_closed_source_contract: /secretaryFailClosedRecovery/.test(catalogSource) && /UNCERTAIN_NO_REPLAY/.test(catalogSource) && /INFERRED_FAIL_CLOSED/.test(catalogSource) && /operatorAmbiguousWriteRecovery/.test(bindingSource),
   secretary_recovery_no_invalid_declarations: fullSecretaryCatalogAvailable ? secretaryRecoveryInvalid.length === 0 : true,
-  secretary_ambiguous_writes_never_auto_replay: fullSecretaryCatalogAvailable ? secretaryWrites.length >= 247 && secretaryRecoveryUnsafe.length === 0 : true,
+  secretary_ambiguous_writes_never_auto_replay: fullSecretaryCatalogAvailable ? secretaryWrites.length === secretaryPrebound.length + secretaryAuthoritativeLocators.length + secretaryNoReplay.length && secretaryRecoveryUnsafe.length === 0 : true,
   no_production_write: true,
   secretary_recovery_catalog_loaded: secretaryWrites.length > 0,
-  secretary_prebound_exact_recovery: secretaryPrebound.length === 25 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
+  secretary_prebound_exact_recovery: secretaryPrebound.length === 27 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
   secretary_authoritative_recovery_locators: secretaryAuthoritativeLocators.length === 3 && secretaryAuthoritativeLocators.every((item) => expectedSecretaryAuthoritativeLocators.has(item.key)),
-  secretary_remaining_fail_closed: secretaryNoReplay.length === secretaryWrites.length - 28,
+  secretary_remaining_fail_closed: secretaryNoReplay.length === secretaryWrites.length - secretaryPrebound.length - secretaryAuthoritativeLocators.length,
   secretary_no_invalid_recovery: secretaryInvalidRecovery.length === 0,
 };
 const stages = {

@@ -9,6 +9,7 @@ import {
   prepareCodeAIWorldClassMission,
   finalizeCodeAIWorldClassMission,
   formatCodeAISolutionStrategyCompetitionForObjective,
+  deriveCodeAIEngineeringHotspots,
 } from "../lib/code/runtime/CodeAIWorldClassIntelligenceRuntime.js";
 
 test("world-class controller covers all ten intelligence layers without mutation authority", () => {
@@ -54,6 +55,63 @@ test("world-class controller covers all ten intelligence layers without mutation
   assert.ok(control.negative_engineering_memory.length >= 1);
   assert.equal(control.cross_domain_business_recovery.active, true);
   assert.match(prepared.options.objective, /AVANTIQO WORLD-CLASS ENGINEERING CONTROL V1/);
+});
+
+
+test("engineering hotspots rank evidence-backed prevention opportunities without mutation authority", () => {
+  const hotspots = deriveCodeAIEngineeringHotspots({
+    causalGraph: {
+      node_count: 24,
+      static_import_edges_observed: 32,
+      unresolved_relative_import_count: 3,
+      nodes: ["lib/shared.js", "app/a.js", "app/b.js"],
+      changed_path_consumers: [{
+        path: "lib/shared.js",
+        observed_consumers: ["app/a.js", "app/b.js", "app/c.js", "app/d.js"],
+        observed_symbol_calls: [
+          { caller: "app/a.js", target_symbol: "run" },
+          { caller: "app/b.js", target_symbol: "run" },
+          { caller: "app/c.js", target_symbol: "run" },
+          { caller: "app/d.js", target_symbol: "run" },
+        ],
+      }],
+    },
+    scoreboard: {
+      verification_failed: 1,
+      repair_count: 2,
+      controller_retry_count: 1,
+      candidate_assisted_completion: true,
+    },
+    negative: ["a", "b", "c", "d"],
+  });
+
+  assert.equal(hotspots.contract, "AVANTIQO_CODE_AI_ENGINEERING_HOTSPOT_PROJECTION_V1");
+  assert.equal(hotspots.items[0].priority, "P0");
+  assert.equal(hotspots.items[0].area, "verification_failure");
+  const fanout = hotspots.items.find((item) => item.area === "caller_fanout");
+  assert.ok(fanout);
+  assert.match(fanout.evidence, /lib\/shared\.js/);
+  assert.ok(fanout.affected_paths.includes("lib/shared.js"));
+  assert.ok(hotspots.items.some((item) => item.area === "dependency_uncertainty"));
+  assert.equal(hotspots.automatic_source_mutation_authority, false);
+  assert.equal(hotspots.commit_authority, false);
+  assert.equal(hotspots.deploy_authority, false);
+});
+
+test("world-class control exposes structured engineering hotspots and derives proactive text from them", () => {
+  const prepared = prepareCodeAIWorldClassMission({
+    objective: "Repair a shared runtime",
+    objective_context: { negative_engineering_memory: ["a", "b", "c", "d"] },
+    resume_state: {
+      files_changed: ["lib/shared.js"],
+      verification: [{ passed: false }],
+      failures: [{ message: "failed once" }, { message: "failed twice" }],
+      repairs: [{}, {}],
+    },
+  });
+  assert.equal(prepared.control.engineering_hotspots.contract, "AVANTIQO_CODE_AI_ENGINEERING_HOTSPOT_PROJECTION_V1");
+  assert.ok(prepared.control.engineering_hotspots.hotspot_count >= 1);
+  assert.ok(prepared.control.proactive_improvement_opportunities.every((item) => /^\[P[012]\]/.test(item)));
 });
 
 test("strategy competition is deterministic and adds no reasoning calls", () => {

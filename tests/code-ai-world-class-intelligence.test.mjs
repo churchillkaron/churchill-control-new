@@ -182,3 +182,44 @@ test("world-class finalizer scores the completed mission rather than only missio
   assert.equal(finalized.benchmark_scorecard.first_pass_success, true);
   assert.equal(finalized.solution_strategy_competition.candidate_count, 2);
 });
+
+test("causal graph resolves observed static imports and reverse consumers", () => {
+  const graph = deriveCodeAICausalGraph({
+    files_changed: ["lib/core/runtime.js"],
+    source_changes: [{
+      path: "lib/core/runtime.js",
+      operation: "write",
+      content: "export function run() { return true; }\n",
+    }],
+    evidence: [
+      {
+        action: "read",
+        result: {
+          file_path: "lib/consumer/service.js",
+          content: 'import { run } from "../core/runtime.js";\nexport const value = run();\n',
+        },
+      },
+      {
+        action: "read",
+        result: {
+          file_path: "tests/runtime.test.mjs",
+          content: 'import { run } from "../lib/core/runtime.js";\n',
+        },
+      },
+    ],
+  });
+
+  assert.equal(graph.bounded_static_dependency_analysis, true);
+  assert.equal(graph.authoritative_dependency_parser, false);
+  assert.ok(graph.static_import_edges_observed >= 2);
+  assert.ok(graph.edges.some((edge) =>
+    edge.from === "lib/consumer/service.js" &&
+    edge.to === "lib/core/runtime.js" &&
+    edge.relation === "static_relative_import"
+  ));
+  const changed = graph.changed_path_consumers.find((entry) => entry.path === "lib/core/runtime.js");
+  assert.ok(changed);
+  assert.ok(changed.observed_consumers.includes("lib/consumer/service.js"));
+  assert.ok(changed.observed_consumers.includes("tests/runtime.test.mjs"));
+  assert.equal(graph.incomplete_evidence_must_not_be_treated_as_no_dependency, true);
+});

@@ -39,7 +39,7 @@ test("prebound Secretary task inserts attach identity only on insert failure", (
 });
 
 
-test("authoritative Secretary recovery locators remain a closed six action set", () => {
+test("authoritative Secretary recovery locators remain a closed seven action set", () => {
   assert.equal((platform.match(/withSecretaryRecoveryLocator\(createSecretary/g) || []).length, 3);
   assert.match(platform, /secretary_meeting_agenda:[^\n]*withSecretaryRecoveryLocator/);
   assert.match(platform, /secretary_meeting_closeout:[^\n]*withSecretaryRecoveryLocator/);
@@ -171,4 +171,18 @@ test("travel document readiness binds truncation-safe semantic recovery", () => 
   for (const action of ["start", "addRequirement", "reopen"]) {
     assert.match(platform, new RegExp(`secretary_travel_document_readiness:[^\n]*${action}:[^\n]*AUTHORITATIVE_RECOVERY_LOCATOR`));
   }
+});
+
+
+test("calendar protection recovers by exact deterministic protection key", () => {
+  const runtime = fs.readFileSync("lib/operator/secretary/SecretaryExecutiveCalendarStewardshipRuntime.js", "utf8");
+  const verifier = fs.readFileSync("lib/platform/capabilities/createSecretaryCoreVerificationCapability.js", "utf8");
+  assert.match(runtime, /function protectionKey/);
+  assert.match(runtime, /protection_key: key/);
+  assert.match(runtime, /attachActionIdentityEvidence\(error/);
+  assert.match(runtime, /owner_party_id:\$\{auth\.owner\}/);
+  assert.match(verifier, /secretary_calendar_protection/);
+  assert.match(verifier, /duplicate_match_count/);
+  assert.match(verifier, /state: exact \? "COMPLETED" : definitelyAbsent \? "NOT_COMPLETED" : "UNCERTAIN"/);
+  assert.match(platform, /secretary_calendar_stewardship:[^\n]*protect:[^\n]*AUTHORITATIVE_RECOVERY_LOCATOR/);
 });

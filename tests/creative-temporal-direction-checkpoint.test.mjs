@@ -9,3 +9,12 @@ test('validated temporal direction is durable and tied to tribunal identity', ()
   assert.match(source, /durableTemporalMaster \|\| await CreativeUniversalTemporalDirectionRuntime\.create/);
   assert.match(source, /if \(!durableTemporalMaster\)/);
 });
+
+
+test('workflow resolution resumes validated temporal direction before council or tribunal work', async () => {
+  const workflowSource = await readFile(new URL('../lib/creative/director/runtime/CreativeWorkflowResolutionRuntime.js', import.meta.url), 'utf8');
+  assert.match(workflowSource, /creative_temporal_direction_checkpoint/);
+  assert.match(workflowSource, /const temporalCheckpoint = storedTemporalDirectionCheckpoint\(context\.project, context\)/);
+  assert.match(workflowSource, /if \(temporalCheckpoint\) \{/);
+  assert.match(workflowSource, /resumed_temporal_direction_checkpoint: true/);
+});

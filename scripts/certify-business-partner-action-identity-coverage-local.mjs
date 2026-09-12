@@ -56,6 +56,7 @@ const expectedSecretaryPrebound = new Set([
   "platform.secretary_paperwork.coordinate",
   "platform.secretary_travel.coordinate",
   "platform.secretary_recurring_meeting.create",
+  "platform.secretary_important_date_stewardship.register",
   "platform.secretary_decision_register.record",
   "platform.secretary_directive_register.record",
 ]);
@@ -64,6 +65,9 @@ const expectedSecretaryAuthoritativeLocators = new Set([
   "platform.secretary_meeting_agenda.start",
   "platform.secretary_meeting_closeout.start",
   "platform.secretary_visitor_coordination.start",
+  "platform.secretary_travel_document_readiness.start",
+  "platform.secretary_travel_document_readiness.addRequirement",
+  "platform.secretary_travel_document_readiness.reopen",
 ]);
 
 const evidence = {
@@ -77,8 +81,8 @@ const evidence = {
   secretary_ambiguous_writes_never_auto_replay: fullSecretaryCatalogAvailable ? secretaryWrites.length === secretaryPrebound.length + secretaryAuthoritativeLocators.length + secretaryNoReplay.length && secretaryRecoveryUnsafe.length === 0 : true,
   no_production_write: true,
   secretary_recovery_catalog_loaded: secretaryWrites.length > 0,
-  secretary_prebound_exact_recovery: secretaryPrebound.length === 33 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
-  secretary_authoritative_recovery_locators: secretaryAuthoritativeLocators.length === 3 && secretaryAuthoritativeLocators.every((item) => expectedSecretaryAuthoritativeLocators.has(item.key)),
+  secretary_prebound_exact_recovery: secretaryPrebound.length === 34 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
+  secretary_authoritative_recovery_locators: secretaryAuthoritativeLocators.length === 6 && secretaryAuthoritativeLocators.every((item) => expectedSecretaryAuthoritativeLocators.has(item.key)),
   secretary_remaining_fail_closed: secretaryNoReplay.length === secretaryWrites.length - secretaryPrebound.length - secretaryAuthoritativeLocators.length,
   secretary_no_invalid_recovery: secretaryInvalidRecovery.length === 0,
 };

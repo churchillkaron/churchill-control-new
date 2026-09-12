@@ -29,8 +29,8 @@ const runtimeFiles = [
   "SecretaryDocumentFilingRuntime.js",
 ].map((name) => fs.readFileSync(`lib/operator/secretary/${name}`, "utf8"));
 
-test("thirty three Secretary mutations use prebound exact recovery", () => {
-  assert.equal((platform.match(/ambiguousWriteRecovery: "PREBOUND_EXACT_ID"/g) || []).length, 12);
+test("thirty four Secretary mutations use prebound exact recovery", () => {
+  assert.equal((platform.match(/ambiguousWriteRecovery: "PREBOUND_EXACT_ID"/g) || []).length, 13);
   assert.match(platform, /function withPreboundSecretaryRecovery/);
 });
 
@@ -39,7 +39,7 @@ test("prebound Secretary task inserts attach identity only on insert failure", (
 });
 
 
-test("authoritative Secretary recovery locators remain a closed three action set", () => {
+test("authoritative Secretary recovery locators remain a closed six action set", () => {
   assert.equal((platform.match(/withSecretaryRecoveryLocator\(createSecretary/g) || []).length, 3);
   assert.match(platform, /secretary_meeting_agenda:[^\n]*withSecretaryRecoveryLocator/);
   assert.match(platform, /secretary_meeting_closeout:[^\n]*withSecretaryRecoveryLocator/);
@@ -88,11 +88,11 @@ test("job and outbound request creation prebind exact UUIDs before mutation", ()
   assert.match(platform, /secretary_outbound_call: \{ place: async \(\) => withPreboundSecretaryRecovery\(createSecretaryOutboundCallCapability\("place"\), "platform\.secretary_outbound_call_request\.read", "request_id"\)/);
 });
 
-test("action identity cert locks thirty three prebound Secretary mutations", () => {
+test("action identity cert locks thirty four prebound Secretary mutations", () => {
   const cert = fs.readFileSync("scripts/certify-business-partner-action-identity-coverage-local.mjs", "utf8");
   assert.match(cert, /secretary_prebound_exact_recovery/);
   assert.match(cert, /secretary_remaining_fail_closed/);
-  assert.match(cert, /secretaryPrebound\.length === 33/);
+  assert.match(cert, /secretaryPrebound\.length === 34/);
 });
 
 test("meeting coordination prebinds the atomic RPC identity", () => {
@@ -142,4 +142,33 @@ test("recurring meeting create prebinds the atomic series identity", () => {
   assert.match(migration, /insert into public\.secretary_recurring_meeting_series \(\s*id,/);
   assert.match(migration, /select\s+p_series_id,/);
   assert.match(migration, /drop function public\.secretary_create_recurring_meeting_series/);
+});
+
+
+test("important date registration binds exact semantic history recovery", () => {
+  const runtime = fs.readFileSync("lib/operator/secretary/SecretaryImportantDateStewardshipRuntime.js", "utf8");
+  const verifier = fs.readFileSync("lib/platform/capabilities/createSecretaryCoreVerificationCapability.js", "utf8");
+  assert.match(runtime, /const dateId = deterministicUuid/);
+  assert.match(runtime, /secretaryRecoveryMutationResult/);
+  assert.match(runtime, /\["date_id", dateId\]/);
+  assert.match(runtime, /payload_sha256: hash/);
+  assert.match(verifier, /secretary_important_date_event/);
+  assert.match(verifier, /IMPORTANT_DATE_REGISTERED/);
+  assert.match(verifier, /payload_sha256/);
+  assert.match(platform, /secretary_important_date_stewardship:[^\n]*PREBOUND_EXACT_ID/);
+});
+
+
+test("travel document readiness binds truncation-safe semantic recovery", () => {
+  const runtime = fs.readFileSync("lib/operator/secretary/SecretaryTravelDocumentReadinessRuntime.js", "utf8");
+  const verifier = fs.readFileSync("lib/platform/capabilities/createSecretaryCoreVerificationCapability.js", "utf8");
+  assert.match(runtime, /secretaryRecoveryMutationResult/);
+  assert.match(runtime, /\["event", eventName\]/);
+  assert.match(runtime, /TRAVEL_DOCUMENT_READINESS_STARTED/);
+  assert.match(verifier, /secretary_travel_document_event/);
+  assert.match(verifier, /history\.length >= 500/);
+  assert.match(verifier, /state: exact \? "COMPLETED" : definitelyAbsent \? "NOT_COMPLETED" : "UNCERTAIN"/);
+  for (const action of ["start", "addRequirement", "reopen"]) {
+    assert.match(platform, new RegExp(`secretary_travel_document_readiness:[^\n]*${action}:[^\n]*AUTHORITATIVE_RECOVERY_LOCATOR`));
+  }
 });

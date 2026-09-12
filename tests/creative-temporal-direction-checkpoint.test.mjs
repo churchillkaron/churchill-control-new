@@ -7,7 +7,7 @@ test('validated temporal direction is durable and tied to tribunal identity', ()
   assert.match(source, /CREATIVE_TEMPORAL_DIRECTION_CHECKPOINT_V1/);
   assert.match(source, /source_tribunal_hash/);
   assert.match(source, /durableTemporalMaster \|\| await CreativeUniversalTemporalDirectionRuntime\.create/);
-  assert.match(source, /if \(!durableTemporalMaster\)/);
+  assert.match(source, /if \(!durableTemporalMaster \|\| resolvedMaster !== durableTemporalMaster\)/);
 });
 
 

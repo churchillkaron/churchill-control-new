@@ -13,6 +13,7 @@
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "persist:code:competitive-evidence:local": "node scripts/persist-avantiqo-code-competitive-evidence-local.mjs",
     "attest:code:competitive-reference:local": "node scripts/attest-avantiqo-code-competitive-reference-local.mjs",
+    "benchmark:code:competitive-reference:live": "node scripts/run-avantiqo-code-competitive-reference-live.mjs",
     "audit:operator-mechanism-research": "node scripts/operator-mechanism-research-audit.mjs && node scripts/operator-mechanism-research-selftest.mjs",
     "audit:code-repository-mutations": "node scripts/code-ai-source-change-selftest.mjs",
     "audit:code-ai-autonomy": "node scripts/code-ai-autonomy-audit-current.mjs && node scripts/code-ai-autonomy-loop-guard-audit.mjs && node scripts/code-ai-worldclass-quality-selftest.mjs && node scripts/code-ai-deterministic-verification-plan-selftest.mjs && node scripts/code-ai-unsolved-challenge-selftest.mjs && npm run audit:code-repository-mutations && npm run audit:operator-mechanism-research",

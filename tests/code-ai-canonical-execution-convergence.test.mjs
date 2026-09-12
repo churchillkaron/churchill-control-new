@@ -19,7 +19,7 @@ test("Code Studio and Business Partner self-healing share one canonical Code Emp
 });
 
 test("canonical selector keeps final review even when fast-start infrastructure is unavailable", () => {
-  assert.match(canonical, /executeCodeAIEmployeeFinalReviewMission\(options\)/);
+  assert.match(canonical, /executeCodeAIEmployeeFinalReviewMission\((?:options|executionOptions)\)/);
   assert.match(canonical, /canonical_execution_contract/);
   assert.match(canonical, /execution_transport_mode/);
 });

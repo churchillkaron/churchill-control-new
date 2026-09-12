@@ -7,6 +7,8 @@ import {
   competeCodeAISolutionStrategies,
   resolveCodeAIAdaptiveReasoningBudget,
   prepareCodeAIWorldClassMission,
+  finalizeCodeAIWorldClassMission,
+  formatCodeAISolutionStrategyCompetitionForObjective,
 } from "../lib/code/runtime/CodeAIWorldClassIntelligenceRuntime.js";
 
 test("world-class controller covers all ten intelligence layers without mutation authority", () => {
@@ -117,4 +119,66 @@ test("canonical Code employee applies world-class intelligence for both Code Stu
   assert.match(canonical, /world_class_intelligence/);
   assert.match(capability, /executeCanonicalCodeAIEmployeeMission/);
   assert.match(healing, /executeCanonicalCodeAIEmployeeMission/);
+});
+
+
+test("specialist strategy competition is formatted into the implementation objective", async () => {
+  const strategic = await readFile(
+    "lib/code/runtime/CodeAIStrategicReasoningRuntime.js",
+    "utf8",
+  );
+  assert.match(strategic, /const solutionStrategyCompetition = competeCodeAISolutionStrategies/);
+  assert.match(strategic, /solution_strategy_competition: solutionStrategyCompetition/);
+  assert.match(strategic, /formatCodeAISolutionStrategyCompetitionForObjective/);
+
+  const competition = competeCodeAISolutionStrategies({
+    repository_impact: { risk: "high" },
+    specialist_review: {
+      reviews: [{
+        success: true,
+        role: "architecture_performance",
+        recommendation: "Reuse the canonical queue settlement boundary and verify runtime behavior.",
+        alternative: "Patch one caller with a duplicate timeout workaround.",
+        confidence: 0.94,
+        verification: ["queue test", "runtime replay"],
+        risks: [],
+      }],
+    },
+  });
+  const formatted = formatCodeAISolutionStrategyCompetitionForObjective(competition);
+  assert.match(formatted, /Selected direction:/);
+  assert.match(formatted, /canonical/i);
+  assert.match(formatted, /Strongest rejected alternative:/);
+});
+
+test("world-class finalizer scores the completed mission rather than only mission start", () => {
+  const prepared = prepareCodeAIWorldClassMission({
+    objective: "Repair the runtime",
+    resume_state: { repository_impact: { risk: "standard" } },
+  });
+  const finalized = finalizeCodeAIWorldClassMission({
+    prepared_control: prepared.control,
+    result: {
+      state: {
+        files_changed: ["lib/runtime.js"],
+        tests: [{ exit_code: 0 }],
+        verification: [{ passed: true }],
+        repairs: [{ action: "apply_files" }],
+        failures: [],
+        solution_strategy_competition: {
+          contract: "AVANTIQO_CODE_AI_SOLUTION_STRATEGY_COMPETITION_V1",
+          candidate_count: 2,
+          selected: { direction: "canonical repair" },
+          strongest_rejected: { direction: "caller workaround" },
+          selection_margin: 10,
+        },
+      },
+    },
+    options: prepared.options,
+  });
+  assert.equal(finalized.finalized_from_execution_result, true);
+  assert.equal(finalized.benchmark_scorecard.tests_observed, 1);
+  assert.equal(finalized.benchmark_scorecard.verification_passed, 1);
+  assert.equal(finalized.benchmark_scorecard.first_pass_success, true);
+  assert.equal(finalized.solution_strategy_competition.candidate_count, 2);
 });

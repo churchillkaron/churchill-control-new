@@ -161,7 +161,7 @@ test("Code-focused Product Engineering portfolio consumes measured performance o
   assert.match(portfolio, /codeEngineeringImprovementGoal/);
   assert.match(portfolio, /ATTESTED CODE MISSION PERFORMANCE EVIDENCE/);
   assert.match(portfolio, /current-main repository evidence supports a concrete improvement/);
-  assert.match(portfolio, /Metrics have no mutation, commit, deployment or governance authority/);
+  assert.match(portfolio, /Metrics have no mutation, commit, deployment, provider-routing or governance authority/);
   assert.match(panel, /data-avantiqo-code-improvement-backlog="true"/);
   assert.match(panel, /Next measured improvement:/);
   assert.match(route, /performance_trend: history\.performance_trend/);

@@ -29,8 +29,8 @@ const runtimeFiles = [
   "SecretaryDocumentFilingRuntime.js",
 ].map((name) => fs.readFileSync(`lib/operator/secretary/${name}`, "utf8"));
 
-test("twenty two internal Secretary create actions use prebound exact recovery", () => {
-  assert.equal((platform.match(/ambiguousWriteRecovery: "PREBOUND_EXACT_ID"/g) || []).length, 9);
+test("twenty five Secretary mutations use prebound exact recovery", () => {
+  assert.equal((platform.match(/ambiguousWriteRecovery: "PREBOUND_EXACT_ID"/g) || []).length, 12);
   assert.match(platform, /function withPreboundSecretaryRecovery/);
 });
 
@@ -44,6 +44,16 @@ test("authoritative Secretary recovery locators remain a closed three action set
   assert.match(platform, /secretary_meeting_agenda:[^\n]*withSecretaryRecoveryLocator/);
   assert.match(platform, /secretary_meeting_closeout:[^\n]*withSecretaryRecoveryLocator/);
   assert.match(platform, /secretary_visitor_coordination:[^\n]*withSecretaryRecoveryLocator/);
+});
+
+
+test("working preference recovery binds exact semantic history identity", () => {
+  const source = fs.readFileSync("lib/operator/secretary/SecretaryWorkingPreferencesRuntime.js", "utf8");
+  assert.match(source, /recoveryEntry = object\(produced\.output\?\.preference \|\| produced\.output\?\.history_entry\)/);
+  assert.match(source, /\[\["entry_id", recoveryEntry\.entry_id\], \["domain", recoveryEntry\.domain\], \["key", recoveryEntry\.key\]\]/);
+  for (const action of ["record", "correct", "retract"]) {
+    assert.match(platform, new RegExp(`secretary_working_preferences:[^\n]*${action}:[^\n]*PREBOUND_EXACT_ID`));
+  }
 });
 
 test("multi-key recovery evidence is attached only when the mutation result errors", async () => {
@@ -66,9 +76,9 @@ test("prebound helper preserves fail-closed mutation semantics", async () => {
   assert.equal(success.data.id, "abc-123");
 });
 
-test("action identity cert locks twenty two prebound Secretary creates", () => {
+test("action identity cert locks twenty five prebound Secretary mutations", () => {
   const cert = fs.readFileSync("scripts/certify-business-partner-action-identity-coverage-local.mjs", "utf8");
   assert.match(cert, /secretary_prebound_exact_recovery/);
   assert.match(cert, /secretary_remaining_fail_closed/);
-  assert.match(cert, /secretaryPrebound\.length === 22/);
+  assert.match(cert, /secretaryPrebound\.length === 25/);
 });

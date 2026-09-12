@@ -19,7 +19,7 @@ const catalog = await listOperatorCapabilities({ includeUnsafe: true });
 const secretaryWrites = catalog.filter((item) => item.operator_enabled === true && item.mode !== "read" && item.key.startsWith("platform.secretary"));
 const fullSecretaryCatalogAvailable = secretaryWrites.length > 0;
 const secretaryRecoveryInvalid = secretaryWrites.filter((item) => item.ambiguous_write_recovery_status === "INVALID_DECLARATION_BLOCKED");
-const secretaryRecoveryUnsafe = secretaryWrites.filter((item) => !["UNCERTAIN_NO_REPLAY", "PREBOUND_EXACT_ID"].includes(item.ambiguous_write_recovery));
+const secretaryRecoveryUnsafe = secretaryWrites.filter((item) => !["UNCERTAIN_NO_REPLAY", "PREBOUND_EXACT_ID", "AUTHORITATIVE_RECOVERY_LOCATOR"].includes(item.ambiguous_write_recovery));
 const secretaryPrebound = secretaryWrites.filter((item) => item.ambiguous_write_recovery === "PREBOUND_EXACT_ID");
 const secretaryNoReplay = secretaryWrites.filter((item) => item.ambiguous_write_recovery === "UNCERTAIN_NO_REPLAY");
 const secretaryAuthoritativeLocators = secretaryWrites.filter((item) => item.ambiguous_write_recovery === "AUTHORITATIVE_RECOVERY_LOCATOR");
@@ -47,6 +47,9 @@ const expectedSecretaryPrebound = new Set([
   "platform.secretary_physical_key_badge_custody.register",
   "platform.secretary_physical_records_custody.register",
   "platform.secretary_written_action_administration.start",
+  "platform.secretary_working_preferences.record",
+  "platform.secretary_working_preferences.correct",
+  "platform.secretary_working_preferences.retract",
 ]);
 
 const expectedSecretaryAuthoritativeLocators = new Set([
@@ -66,9 +69,9 @@ const evidence = {
   secretary_ambiguous_writes_never_auto_replay: fullSecretaryCatalogAvailable ? secretaryWrites.length >= 247 && secretaryRecoveryUnsafe.length === 0 : true,
   no_production_write: true,
   secretary_recovery_catalog_loaded: secretaryWrites.length > 0,
-  secretary_prebound_exact_recovery: secretaryPrebound.length === 22 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
+  secretary_prebound_exact_recovery: secretaryPrebound.length === 25 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
   secretary_authoritative_recovery_locators: secretaryAuthoritativeLocators.length === 3 && secretaryAuthoritativeLocators.every((item) => expectedSecretaryAuthoritativeLocators.has(item.key)),
-  secretary_remaining_fail_closed: secretaryNoReplay.length === secretaryWrites.length - 25,
+  secretary_remaining_fail_closed: secretaryNoReplay.length === secretaryWrites.length - 28,
   secretary_no_invalid_recovery: secretaryInvalidRecovery.length === 0,
 };
 const stages = {

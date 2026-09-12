@@ -27,3 +27,9 @@ test('mechanical normalization expands placeholder camera direction into executa
   assert.match(mechanicalSource, /Camera moves at a \$\{authoredSpeed\.toLowerCase\(\)\} controlled pace/);
   assert.match(mechanicalSource, /focus_target: focusTarget/);
 });
+
+
+test('approved temporal master reuse reapplies final quality normalization after mechanical normalization', () => {
+  assert.match(source, /if \(tribunalSeeded && list\(approvedMasterPlan\.scenes\)\.length\) \{/);
+  assert.match(source, /approvedPlan = normalizeTemporalQualityContract\(\s*normalizeTemporalMechanicalContract\(approvedPlan/);
+});

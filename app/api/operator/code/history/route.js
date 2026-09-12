@@ -94,6 +94,7 @@ export async function GET(request) {
       sessions: history.sessions,
       count: history.count,
       search: history.search,
+      performance: history.performance || null,
     });
   } catch (error) {
     return response({

@@ -34,6 +34,7 @@ export default function CodeMissionHistoryPanel({
 }) {
   const [sessions, setSessions] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [performance, setPerformance] = useState(null);
   const [query, setQuery] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -64,6 +65,9 @@ export default function CodeMissionHistoryPanel({
         throw new Error(body?.error || "Could not load Code mission history");
       }
       setSessions(Array.isArray(body.sessions) ? body.sessions : []);
+      setPerformance(body?.performance && typeof body.performance === "object"
+        ? body.performance
+        : null);
       setSelected((current) => {
         if (!current) return null;
         return body.sessions?.some((session) => session.mission_id === current.mission_id)
@@ -188,6 +192,20 @@ export default function CodeMissionHistoryPanel({
           {sessions.length} {searchActive ? "matches" : "saved"}
         </span>
       </div>
+
+      {performance?.mission_count ? (
+        <div
+          data-avantiqo-code-engineering-performance="true"
+          className={compact
+            ? "mt-3 grid grid-cols-2 gap-1.5 text-[9px] text-[#77716A] sm:grid-cols-4"
+            : "mt-4 grid grid-cols-2 gap-2 text-[10px] text-white/40 sm:grid-cols-4"}
+        >
+          <span>Verified {Math.round((performance.verified_completion_rate || 0) * 100)}%</span>
+          <span>First pass {Math.round((performance.first_pass_success_rate || 0) * 100)}%</span>
+          <span>Reasoning avg {performance.average_reasoning_calls || 0}</span>
+          <span>Efficiency {performance.engineering_efficiency_score || 0}/100</span>
+        </div>
+      ) : null}
 
       <div data-avantiqo-code-mission-search="true" className="mt-3 flex flex-col gap-2 sm:flex-row">
         <label className={compact

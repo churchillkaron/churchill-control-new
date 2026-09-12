@@ -223,3 +223,33 @@ test("causal graph resolves observed static imports and reverse consumers", () =
   assert.ok(changed.observed_consumers.includes("tests/runtime.test.mjs"));
   assert.equal(graph.incomplete_evidence_must_not_be_treated_as_no_dependency, true);
 });
+
+test("verified prior mission lessons become durable negative engineering memory", async () => {
+  const history = await readFile("lib/code/runtime/CodeAIMissionHistoryRuntime.js", "utf8");
+  const memory = await readFile("lib/code/runtime/CodeAIVerifiedEngineeringMemoryRuntime.js", "utf8");
+  assert.match(history, /safeStrategyDecision/);
+  assert.match(history, /strategy_decision: safeStrategyDecision\(state\)/);
+  assert.match(history, /rejected_direction/);
+  assert.match(memory, /negative_engineering_lessons/);
+  assert.match(memory, /Previously rejected strategy:/);
+  assert.match(memory, /Previously observed failure:/);
+
+  const prepared = prepareCodeAIWorldClassMission({
+    objective: "Repair the queue runtime using verified engineering history.",
+    resume_state: {
+      verified_engineering_memory: {
+        matches: [{
+          negative_engineering_lessons: [
+            "Previously rejected strategy: duplicate timeout in every caller",
+            "Previously observed failure: queue settlement raced cancellation",
+          ],
+        }],
+      },
+    },
+  });
+  assert.ok(prepared.control.negative_engineering_memory.some((item) =>
+    item.includes("duplicate timeout")
+  ));
+  assert.match(prepared.options.objective, /KNOWN FAILED\/NEGATIVE APPROACHES/);
+  assert.match(prepared.options.objective, /queue settlement raced cancellation/);
+});

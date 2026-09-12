@@ -70,8 +70,41 @@ test("isolated candidate competition executes two ephemeral candidates and selec
   assert.equal(result.main_branch_parallel_mutation_forbidden, true);
   assert.equal(result.shared_live_progress_suppressed_for_candidates, true);
   assert.equal(result.parent_mission_progress_authoritative, true);
+  assert.equal(result.reasoning_calls_consumed, 2);
+  assert.equal(result.parent_reasoning_calls_after_competition, 2);
   assert.equal(result.commit_authority, false);
   assert.equal(result.deploy_authority, false);
+});
+
+
+
+test("isolated candidate competition never overspends the parent reasoning budget", async () => {
+  let calls = 0;
+  const result = await runCodeAIIsolatedCandidateCompetition({
+    policy: { enabled: true },
+    strategy_competition: competition(),
+    input: {
+      objective: "Repair high-risk runtime",
+      repository_url: "https://github.com/example/repo",
+      reasoning_call_budget: 2,
+    },
+    resume_state: {
+      mission_id: "mission-budget",
+      work_package_control: { reasoning_calls_used: 1 },
+    },
+    dependencies: {
+      executeCandidate: async () => {
+        calls += 1;
+        return { success: true, status: "completed", state: {} };
+      },
+    },
+  });
+  assert.equal(calls, 0);
+  assert.equal(result.executed, false);
+  assert.equal(result.status, "NOT_RUN_INSUFFICIENT_REASONING_BUDGET");
+  assert.equal(result.reasoning_calls_required_for_competition, 2);
+  assert.equal(result.reasoning_calls_consumed, 0);
+  assert.equal(result.fallback_to_single_writer_required, true);
 });
 
 test("candidate competition falls back when neither isolated implementation proves completion", async () => {
@@ -114,16 +147,28 @@ test("strategic runtime invokes isolated competition only through the governed p
   assert.match(strategic, /runCodeAIIsolatedCandidateCompetition/);
   assert.match(strategic, /selectedCandidateResult/);
   assert.match(strategic, /fallback_to_single_writer_required|winner_result/);
+  assert.match(strategic, /trialReasoningCallsConsumed/);
+  assert.match(strategic, /parentReasoningCallsAfterCompetition/);
+  assert.match(strategic, /reasoning_calls_used: parentReasoningCallsAfterCompetition/);
 });
 
 
 test("isolated candidate trials cannot overwrite shared parent live progress", async () => {
   const live = await readFile("lib/code/runtime/CodeAIWorkPackageRuntimeLive.js", "utf8");
+  const deterministic = await readFile(
+    "lib/code/runtime/CodeAIWorkPackageDeterministicConvergenceRuntime.js",
+    "utf8",
+  );
   assert.match(live, /codeAIIsolatedCandidateTrial === true/);
   assert.match(live, /CODE_AI_ISOLATED_CANDIDATE_LIVE_PROGRESS_SUPPRESSED/);
-  assert.match(live, /await publishCodeAILiveProgress/);
+  assert.match(deterministic, /codeAIIsolatedCandidateTrial === true/);
+  assert.match(deterministic, /CODE_AI_ISOLATED_CANDIDATE_DETERMINISTIC_PROGRESS_SUPPRESSED/);
   assert.ok(
     live.indexOf("codeAIIsolatedCandidateTrial === true") <
       live.indexOf("await publishCodeAILiveProgress"),
+  );
+  assert.ok(
+    deterministic.indexOf("codeAIIsolatedCandidateTrial === true") <
+      deterministic.indexOf("await publishCodeAILiveProgress"),
   );
 });

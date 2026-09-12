@@ -14,7 +14,9 @@ test("post-release replay is certified only by the canonical Platform self-heali
   assert.match(core, /verifyPlatformSelfHealingReplay/);
   assert.match(core, /repaired_commit:\s*text\(commit\.commit_sha/);
   assert.match(core, /observed_commit:\s*text\(deployment\.observed_commit_sha/);
-  assert.match(core, /original_action_replayed:\s*true/);
+  assert.match(core, /original_action_replayed:\s*exactReplayBindingVerified/);
+  assert.match(core, /replay_binding_verified:\s*exactReplayBindingVerified/);
+  assert.match(core, /validateBusinessPartnerRecoveryReplayBinding/);
   assert.match(core, /authoritative_server_evidence:\s*authoritativeBusinessOutcome/);
 });
 

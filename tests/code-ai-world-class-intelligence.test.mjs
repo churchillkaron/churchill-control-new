@@ -179,7 +179,8 @@ test("world-class finalizer scores the completed mission rather than only missio
   assert.equal(finalized.finalized_from_execution_result, true);
   assert.equal(finalized.benchmark_scorecard.tests_observed, 1);
   assert.equal(finalized.benchmark_scorecard.verification_passed, 1);
-  assert.equal(finalized.benchmark_scorecard.first_pass_success, true);
+  assert.equal(finalized.benchmark_scorecard.first_pass_success, false);
+  assert.equal(finalized.benchmark_scorecard.repair_count, 1);
   assert.equal(finalized.solution_strategy_competition.candidate_count, 2);
 });
 

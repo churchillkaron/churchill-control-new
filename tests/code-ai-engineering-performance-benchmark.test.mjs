@@ -20,6 +20,9 @@ test("real mission performance metrics measure quality, first-pass rate, reasoni
         repair_count: 0,
         owner_intervention_count: 0,
         isolated_candidate_competition_used: false,
+        candidate_assisted_verified_completion: false,
+        final_review_repair_count: 0,
+        employee_continuation_count: 0,
         runtime_evidence_required: true,
         runtime_evidence_verified: true,
         wall_ms: 1000,
@@ -35,6 +38,9 @@ test("real mission performance metrics measure quality, first-pass rate, reasoni
         repair_count: 1,
         owner_intervention_count: 1,
         isolated_candidate_competition_used: true,
+        candidate_assisted_verified_completion: true,
+        final_review_repair_count: 1,
+        employee_continuation_count: 1,
         runtime_evidence_required: true,
         runtime_evidence_verified: true,
         wall_ms: 4000,
@@ -50,6 +56,9 @@ test("real mission performance metrics measure quality, first-pass rate, reasoni
         repair_count: 1,
         owner_intervention_count: 0,
         isolated_candidate_competition_used: false,
+        candidate_assisted_verified_completion: false,
+        final_review_repair_count: 0,
+        employee_continuation_count: 1,
         runtime_evidence_required: false,
         runtime_evidence_verified: false,
         wall_ms: 8000,
@@ -64,6 +73,11 @@ test("real mission performance metrics measure quality, first-pass rate, reasoni
   assert.equal(metrics.average_employee_passes, 2);
   assert.equal(metrics.human_intervention_rate, 0.3333);
   assert.equal(metrics.isolated_candidate_mission_count, 1);
+  assert.equal(metrics.isolated_candidate_mission_rate, 0.3333);
+  assert.equal(metrics.candidate_assisted_verified_completion_count, 1);
+  assert.equal(metrics.candidate_assisted_verified_completion_rate, 0.3333);
+  assert.equal(metrics.average_final_review_repair_count, 0.33);
+  assert.equal(metrics.average_employee_continuation_count, 0.67);
   assert.equal(metrics.runtime_evidence_verified_rate, 1);
   assert.equal(metrics.p50_wall_ms, 4000);
   assert.equal(metrics.p95_wall_ms, 8000);
@@ -78,11 +92,15 @@ test("mission history, API and shared UI expose one longitudinal performance pro
   const benchmark = await readFile("lib/code/runtime/CodeAIEngineeringPerformanceBenchmarkRuntime.js", "utf8");
 
   assert.match(history, /missionPerformanceProjection/);
+  assert.match(history, /reasoningCalls <= 1/);
+  assert.match(history, /candidate_assisted_verified_completion/);
+  assert.match(history, /final_independent_review_controller/);
+  assert.match(history, /state\.created_at \|\| row\.created_at/);
   assert.match(history, /aggregateCodeAIEngineeringPerformance/);
   assert.match(history, /performance,/);
   assert.match(route, /performance: history\.performance/);
   assert.match(panel, /data-avantiqo-code-engineering-performance="true"/);
-  assert.match(panel, /First pass/);
+  assert.match(panel, /Direct first pass/);
   assert.match(panel, /Reasoning avg/);
   assert.match(panel, /Efficiency/);
   assert.match(benchmark, /measured_from_attested_mission_history: true/);

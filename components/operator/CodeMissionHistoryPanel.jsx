@@ -205,7 +205,7 @@ export default function CodeMissionHistoryPanel({
             : "mt-4 grid grid-cols-2 gap-2 text-[10px] text-white/40 sm:grid-cols-4"}
         >
           <span>Verified {Math.round((performance.verified_completion_rate || 0) * 100)}%</span>
-          <span>First pass {Math.round((performance.first_pass_success_rate || 0) * 100)}%</span>
+          <span>Direct first pass {Math.round((performance.first_pass_success_rate || 0) * 100)}%</span>
           <span>Reasoning avg {performance.average_reasoning_calls || 0}</span>
           <span>Efficiency {performance.engineering_efficiency_score || 0}/100</span>
         </div>

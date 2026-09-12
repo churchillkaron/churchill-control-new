@@ -151,4 +151,8 @@ test("production graph materializes unit ownership and planned takes", () => {
   assert.ok(graph.nodes.some((node) => node.type === "UNIT" && node.metadata?.unit_id === "PRIMARY_UNIT"));
   assert.equal(graph.nodes.filter((node) => node.type === "TAKE").length, 2);
   assert.ok(graph.edges.some((edge) => edge.from.includes("PRIMARY_UNIT") && edge.to === "shot-a"));
+  const shotNode = graph.nodes.find((node) => node.id === "shot-a");
+  assert.equal(shotNode.requirements?.cinematic_dna?.contract, "CREATIVE_SHOT_CINEMATIC_DNA_V1");
+  assert.equal(shotNode.requirements?.cinematic_dna?.visual_quality_floor, 94);
+  assert.equal(shotNode.requirements?.cinematic_dna_gate?.passed, true);
 });

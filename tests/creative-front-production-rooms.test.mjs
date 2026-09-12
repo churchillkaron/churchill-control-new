@@ -6,10 +6,27 @@ import {
   evaluateConceptCompetition,
 } from "../lib/creative/production-room/runtime/CreativeFrontProductionRoomsRuntime.js";
 
+
+function validBenchmarkLab() {
+  const analysis = Object.fromEntries(["narrative","editing","cinematography","visual_beauty","humanity","place","sound","production_craft"].map((key) => [key, `Detailed ${key} analysis explains observable craft mechanisms and the downstream decision they should change without copying execution.`]));
+  return {
+    contract: "CREATIVE_BENCHMARK_LAB_V1",
+    studies: ["reference-a","reference-b","reference-c"].map((title, index) => ({ title, source_ref: `source-${index + 1}`, analysis })),
+    craft_dna: {
+      transferable_principles: Array.from({ length: 8 }, (_, index) => `transferable principle ${index + 1}`),
+      anti_copy_rules: ["no shot copying","no script copying","no branded composition copying"],
+      sound_principles: ["dynamic range","diegetic causality","silence has structure"],
+      editorial_principles: ["duration contrast","earned cuts","protect payoff time"],
+      cinematography_principles: ["scale contrast","depth","motivated movement"],
+    },
+  };
+}
+
 function validCreativeFloorPlan() {
   return {
     temporal_contract: { human_place_patience_required: true },
     concept: {
+      signature_images: ["hero macro", "hero human", "hero place", "hero scale", "hero reveal"],
       task_truth: {
         real_problem: "Fragmented daily operations steal attention from people doing meaningful work across many industries.",
         human_tension: "People remain responsible for outcomes while scattered systems force them to carry coordination in their heads.",
@@ -53,6 +70,7 @@ test("creative floor passes evidence-backed human place patience and bounded tas
   const result = evaluateCreativeFloor({
     plan: validCreativeFloorPlan(),
     reference_strategy: { benchmark_archetypes: ["DOCUMENTARY_TRUTH_PLACE_HUMANITY"] },
+    benchmark_lab: validBenchmarkLab(),
     taste_learning: { authority: "ADVISORY_ONLY" },
   });
   assert.equal(result.passed, true, result.failures.join(","));

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-import { secretaryPreboundMutationResult } from "../lib/operator/secretary/SecretaryPreboundMutationRuntime.mjs";
+import { secretaryPreboundMutationResult, secretaryRecoveryMutationResult } from "../lib/operator/secretary/SecretaryPreboundMutationRuntime.mjs";
 
 const platform = fs.readFileSync("lib/platform/runtime/PlatformDomainRuntime.js", "utf8");
 const runtimeFiles = [
@@ -23,15 +23,37 @@ const runtimeFiles = [
   "SecretaryAccessMediaCustodyRuntime.js",
   "SecretaryPhysicalRecordsCustodyRuntime.js",
   "SecretaryWrittenActionAdministrationRuntime.js",
+  "SecretaryExpensePackRuntime.js",
+  "SecretaryAbsenceCoverageRuntime.js",
+  "SecretaryDeadlineCoordinationRuntime.js",
+  "SecretaryDocumentFilingRuntime.js",
 ].map((name) => fs.readFileSync(`lib/operator/secretary/${name}`, "utf8"));
 
-test("eighteen internal Secretary create actions use prebound exact recovery", () => {
+test("twenty two internal Secretary create actions use prebound exact recovery", () => {
   assert.equal((platform.match(/ambiguousWriteRecovery: "PREBOUND_EXACT_ID"/g) || []).length, 9);
   assert.match(platform, /function withPreboundSecretaryRecovery/);
 });
 
 test("prebound Secretary task inserts attach identity only on insert failure", () => {
-  assert.equal(runtimeFiles.filter((src) => /secretaryPreboundMutationResult/.test(src)).length, 18);
+  assert.equal(runtimeFiles.filter((src) => /secretaryPreboundMutationResult/.test(src)).length, 22);
+});
+
+
+test("authoritative Secretary recovery locators remain a closed three action set", () => {
+  assert.equal((platform.match(/withSecretaryRecoveryLocator\(createSecretary/g) || []).length, 3);
+  assert.match(platform, /secretary_meeting_agenda:[^\n]*withSecretaryRecoveryLocator/);
+  assert.match(platform, /secretary_meeting_closeout:[^\n]*withSecretaryRecoveryLocator/);
+  assert.match(platform, /secretary_visitor_coordination:[^\n]*withSecretaryRecoveryLocator/);
+});
+
+test("multi-key recovery evidence is attached only when the mutation result errors", async () => {
+  const error = new Error("response lost");
+  await assert.rejects(
+    secretaryRecoveryMutationResult(Promise.resolve({ error }), [["calendar_event_id", "event-1"], ["visitor_party_id", "party-1"]]),
+    (caught) => caught.action_identity_evidence?.includes("calendar_event_id:event-1") && caught.action_identity_evidence?.includes("visitor_party_id:party-1") && caught.mutation_completion_proven === false,
+  );
+  const success = await secretaryRecoveryMutationResult(Promise.resolve({ data: { id: "x" }, error: null }), [["meeting_id", "meeting-1"]]);
+  assert.equal(success.data.id, "x");
 });
 
 test("prebound helper preserves fail-closed mutation semantics", async () => {
@@ -44,9 +66,9 @@ test("prebound helper preserves fail-closed mutation semantics", async () => {
   assert.equal(success.data.id, "abc-123");
 });
 
-test("action identity cert locks eighteen prebound Secretary creates", () => {
+test("action identity cert locks twenty two prebound Secretary creates", () => {
   const cert = fs.readFileSync("scripts/certify-business-partner-action-identity-coverage-local.mjs", "utf8");
   assert.match(cert, /secretary_prebound_exact_recovery/);
   assert.match(cert, /secretary_remaining_fail_closed/);
-  assert.match(cert, /secretaryPrebound\.length === 18/);
+  assert.match(cert, /secretaryPrebound\.length === 22/);
 });

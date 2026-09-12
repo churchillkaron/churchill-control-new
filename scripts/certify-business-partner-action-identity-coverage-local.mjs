@@ -22,8 +22,13 @@ const secretaryRecoveryInvalid = secretaryWrites.filter((item) => item.ambiguous
 const secretaryRecoveryUnsafe = secretaryWrites.filter((item) => !["UNCERTAIN_NO_REPLAY", "PREBOUND_EXACT_ID"].includes(item.ambiguous_write_recovery));
 const secretaryPrebound = secretaryWrites.filter((item) => item.ambiguous_write_recovery === "PREBOUND_EXACT_ID");
 const secretaryNoReplay = secretaryWrites.filter((item) => item.ambiguous_write_recovery === "UNCERTAIN_NO_REPLAY");
+const secretaryAuthoritativeLocators = secretaryWrites.filter((item) => item.ambiguous_write_recovery === "AUTHORITATIVE_RECOVERY_LOCATOR");
 const secretaryInvalidRecovery = secretaryWrites.filter((item) => item.ambiguous_write_recovery_status === "INVALID_DECLARATION_BLOCKED");
 const expectedSecretaryPrebound = new Set([
+  "platform.secretary_expense_pack.start",
+  "platform.secretary_document_filing.register",
+  "platform.secretary_deadline_coordination.register",
+  "platform.secretary_absence_coverage.start",
   "platform.secretary_appointment_attendance_stewardship.start",
   "platform.secretary_document_preparation.prepare",
   "platform.secretary_event_coordination.start",
@@ -44,6 +49,12 @@ const expectedSecretaryPrebound = new Set([
   "platform.secretary_written_action_administration.start",
 ]);
 
+const expectedSecretaryAuthoritativeLocators = new Set([
+  "platform.secretary_meeting_agenda.start",
+  "platform.secretary_meeting_closeout.start",
+  "platform.secretary_visitor_coordination.start",
+]);
+
 const evidence = {
   prebound_identity: /const paymentId = randomUUID\(\)/.test(capability) && /payment_id: paymentId/.test(capability),
   ambiguous_failure_identity: /mutationAttempted = true/.test(service) && /attachActionIdentityEvidence\(error, \[`payment_id:\$\{paymentId\}`\]\)/.test(service),
@@ -55,8 +66,9 @@ const evidence = {
   secretary_ambiguous_writes_never_auto_replay: fullSecretaryCatalogAvailable ? secretaryWrites.length >= 247 && secretaryRecoveryUnsafe.length === 0 : true,
   no_production_write: true,
   secretary_recovery_catalog_loaded: secretaryWrites.length > 0,
-  secretary_prebound_exact_recovery: secretaryPrebound.length === 18 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
-  secretary_remaining_fail_closed: secretaryNoReplay.length === secretaryWrites.length - 18,
+  secretary_prebound_exact_recovery: secretaryPrebound.length === 22 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
+  secretary_authoritative_recovery_locators: secretaryAuthoritativeLocators.length === 3 && secretaryAuthoritativeLocators.every((item) => expectedSecretaryAuthoritativeLocators.has(item.key)),
+  secretary_remaining_fail_closed: secretaryNoReplay.length === secretaryWrites.length - 25,
   secretary_no_invalid_recovery: secretaryInvalidRecovery.length === 0,
 };
 const stages = {

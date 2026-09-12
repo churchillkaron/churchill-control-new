@@ -64,8 +64,8 @@ test("virtual rehearsal passes only with executable coverage lighting and editab
 });
 
 test("dailies rejects one weak department even when the others pass", () => {
-  const families = ["DIRECTING", "CINEMATOGRAPHY", "CONTINUITY", "TECHNICAL_TRUTH", "PERCEPTUAL_QUALITY"];
-  const reviews = families.map((family) => ({ reviewer_id: family.toLowerCase(), family, score: family === "CONTINUITY" ? 91 : 97, passed: family !== "CONTINUITY", evidence: ["frame review"] }));
+  const families = ["DIRECTING", "CINEMATOGRAPHY", "CONTINUITY", "TECHNICAL_TRUTH", "PERCEPTUAL_QUALITY", "INTENT_FIDELITY"];
+  const reviews = families.map((family) => ({ reviewer_id: family.toLowerCase(), family, score: family === "CONTINUITY" ? 91 : 97, passed: family !== "CONTINUITY", evidence: ["frame review"], ...(family === "INTENT_FIDELITY" ? { rendered_against_authored_contracts: true, comparison: { frame_design: 97, dp_intent: 97, physical_world: 97, visual_journey: 97, benchmark_craft: 97 } } : {}) }));
   const report = evaluateDailiesTake({ take: { id: "take-a" }, reviews });
   assert.equal(report.passed, false);
   assert.match(report.failures.join(" "), /CONTINUITY|continuity/i);
@@ -96,4 +96,13 @@ test("vfx color sound master and release rooms enforce specialist approvals", ()
     rights: { cleared: true, evidence: ["rights manifest"] },
     delivery: { approved: true, profile_id: "master-prores", master_digest: "master123" },
   }).passed, true);
+});
+
+test("dailies rejects beautiful take that drifts from authored intent", () => {
+  const families = ["DIRECTING", "CINEMATOGRAPHY", "CONTINUITY", "TECHNICAL_TRUTH", "PERCEPTUAL_QUALITY"];
+  const reviews = families.map((family) => ({ reviewer_id: family.toLowerCase(), family, score: 98, passed: true, evidence: ["strong rendered result"] }));
+  reviews.push({ reviewer_id: "intent", family: "INTENT_FIDELITY", score: 98, passed: true, evidence: ["render compared with shot bible"], rendered_against_authored_contracts: true, comparison: { frame_design: 98, dp_intent: 98, physical_world: 98, visual_journey: 91, benchmark_craft: 98 } });
+  const report = evaluateDailiesTake({ take: { id: "take-drift" }, reviews });
+  assert.equal(report.passed, false);
+  assert.match(report.failures.join(" "), /visual_journey/i);
 });

@@ -13,7 +13,9 @@ function value(source, camelKey, snakeKey) {
 }
 
 function errorResponse(error, status = 500) {
-  return Response.json({ success: false, error }, { status });
+  const message = typeof error === "string" ? error : error?.message || String(error || "Request failed");
+  const actionIdentityEvidence = Array.isArray(error?.action_identity_evidence) ? error.action_identity_evidence : [];
+  return Response.json({ success: false, error: message, ...(actionIdentityEvidence.length ? { action_identity_evidence: actionIdentityEvidence } : {}) }, { status });
 }
 
 async function accessForBody(request, body) {
@@ -48,11 +50,16 @@ export async function GET(request) {
       return errorResponse(access.error, access.status || 403);
     }
 
+    const quotationId = searchParams.get("quotation_id") || searchParams.get("id");
+    const idempotencyKey = searchParams.get("idempotency_key");
+    const exactLookup = Boolean(quotationId || idempotencyKey);
     const quotations = await listQuotations({
       organizationId: access.organizationId,
       entityId,
       status: searchParams.get("status"),
       limit: searchParams.get("limit"),
+      quotationId,
+      idempotencyKey,
     });
 
     return Response.json({
@@ -61,6 +68,19 @@ export async function GET(request) {
       entity_id: entityId,
       quotations,
       rows: quotations,
+      ...(exactLookup ? {
+        business_effect_outcome: {
+          contract: "AVANTIQO_AUTHORITATIVE_BUSINESS_EFFECT_OUTCOME_V1",
+          state: quotations.length ? "COMPLETED" : "NOT_COMPLETED",
+          authoritative_server_evidence: true,
+          exact_business_scope_matched: true,
+          business_effect_observed: quotations.length > 0,
+          business_effect_absent: quotations.length === 0,
+          safe_to_retry: quotations.length === 0,
+          matched_identity: quotations.length ? `quotation_id:${quotations[0].id}` : null,
+          derivation: idempotencyKey ? "COMMERCIAL_QUOTATION_IDEMPOTENCY_REINSPECTION" : "COMMERCIAL_QUOTATION_EXACT_ID_REINSPECTION",
+        },
+      } : {}),
     });
   } catch (error) {
     return errorResponse(
@@ -100,7 +120,7 @@ export async function POST(request) {
     );
   } catch (error) {
     return errorResponse(
-      error?.message || "Unable to create quotation",
+      error,
       error?.status || 500
     );
   }

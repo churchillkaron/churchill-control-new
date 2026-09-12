@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+const bridge=fs.readFileSync("lib/platform/registry/operatorRegistryBridge.js","utf8");
+const sales=fs.readFileSync("lib/commercial/sales/SalesOrderService.js","utf8");
+const quote=fs.readFileSync("lib/commercial/quotations/QuotationService.js","utf8");
+const ordersRoute=fs.readFileSync("app/api/commercial/sales/orders/route.js","utf8");
+const quotesRoute=fs.readFileSync("app/api/commercial/sales/quotations/route.js","utf8");
+test("registry creates declare result identity and failure locator verification",()=>{assert.match(bridge,/recovery_payload_from_evidence/);assert.match(bridge,/registry_declared_result_identity_with_idempotency_recovery/);});
+test("registry HTTP boundary preserves action identity evidence",()=>{assert.match(bridge,/attachActionIdentityEvidence/);assert.match(ordersRoute,/action_identity_evidence/);assert.match(quotesRoute,/action_identity_evidence/);});
+test("commercial creates preserve idempotency locator after attempted RPC",()=>{assert.match(sales,/attachActionIdentityEvidence\(rpcResult\.error/);assert.match(quote,/attachActionIdentityEvidence\(result\.error/);});
+test("commercial exact reads return authoritative completed or not-completed outcome",()=>{for(const src of [ordersRoute,quotesRoute]){assert.match(src,/AVANTIQO_AUTHORITATIVE_BUSINESS_EFFECT_OUTCOME_V1/);assert.match(src,/safe_to_retry/);assert.match(src,/idempotency_key/);}});

@@ -14,7 +14,9 @@ function value(source, camelKey, snakeKey) {
 }
 
 function errorResponse(error, status = 500) {
-  return Response.json({ success: false, error }, { status });
+  const message = typeof error === "string" ? error : error?.message || String(error || "Request failed");
+  const actionIdentityEvidence = Array.isArray(error?.action_identity_evidence) ? error.action_identity_evidence : [];
+  return Response.json({ success: false, error: message, ...(actionIdentityEvidence.length ? { action_identity_evidence: actionIdentityEvidence } : {}) }, { status });
 }
 
 async function accessForBody(request, body) {
@@ -42,16 +44,34 @@ export async function GET(request) {
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return errorResponse(access.error, access.status || 403);
 
+    const salesOrderId = searchParams.get("sales_order_id") || searchParams.get("id");
+    const idempotencyKey = searchParams.get("idempotency_key");
+    const exactLookup = Boolean(salesOrderId || idempotencyKey);
     const orders = await listSalesOrders({
       organizationId: access.organizationId,
       entityId,
       limit: searchParams.get("limit"),
+      salesOrderId,
+      idempotencyKey,
     });
     return Response.json({
       success: true,
       organization_id: access.organizationId,
       entity_id: entityId,
       orders,
+      ...(exactLookup ? {
+        business_effect_outcome: {
+          contract: "AVANTIQO_AUTHORITATIVE_BUSINESS_EFFECT_OUTCOME_V1",
+          state: orders.length ? "COMPLETED" : "NOT_COMPLETED",
+          authoritative_server_evidence: true,
+          exact_business_scope_matched: true,
+          business_effect_observed: orders.length > 0,
+          business_effect_absent: orders.length === 0,
+          safe_to_retry: orders.length === 0,
+          matched_identity: orders.length ? `sales_order_id:${orders[0].id}` : null,
+          derivation: idempotencyKey ? "COMMERCIAL_SALES_ORDER_IDEMPOTENCY_REINSPECTION" : "COMMERCIAL_SALES_ORDER_EXACT_ID_REINSPECTION",
+        },
+      } : {}),
     });
   } catch (error) {
     return errorResponse(
@@ -90,7 +110,7 @@ export async function POST(request) {
     );
   } catch (error) {
     return errorResponse(
-      error?.message || "Unable to create sales order draft",
+      error,
       error?.status || 500
     );
   }

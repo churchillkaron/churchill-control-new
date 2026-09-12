@@ -154,6 +154,10 @@ const owned = JSON.parse(await readFile(ownedPath, "utf8"));
 if (owned?.summary?.passed !== true || owned?.summary?.complete_suite !== true) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_OWNED_BENCHMARK_MUST_PASS");
 }
+const ownedRunnerCommit = text(owned?.runner_source_commit);
+if (!/^[a-f0-9]{40}$/i.test(ownedRunnerCommit) || text(owned?.runner_ref) !== "main" || owned?.runner_repository_clean !== true) {
+  throw new Error("AVANTIQO_CODE_COMPETITIVE_OWNED_CURRENT_CLEAN_MAIN_REQUIRED");
+}
 const suiteSha256 = sha256(suiteSource);
 const promptContractSource = await readFile(promptContractPath, "utf8");
 const promptContract = JSON.parse(promptContractSource);
@@ -176,6 +180,9 @@ for (const reference of references) {
     prompt_contract_sha256: promptContractSha256,
     required_case_ids: requiredCaseIds,
   });
+  if (text(reference?.runner_source_commit).toLowerCase() !== ownedRunnerCommit.toLowerCase()) {
+    throw new Error("AVANTIQO_CODE_COMPETITIVE_RUNNER_SOURCE_COMMIT_MISMATCH");
+  }
 }
 const comparisons = references.map((reference) => compareReference(owned, reference, requiredCaseIds));
 const competitiveCertified = comparisons.length >= 2 && comparisons.every((item) => item.passed);
@@ -202,6 +209,7 @@ const report = {
     exact_suite_sha256_binding_required: true,
     exact_prompt_contract_sha256_binding_required: true,
     live_reference_provider_execution_required: true,
+    exact_runner_source_commit_required: true,
   },
   comparisons,
   competitive_certified: competitiveCertified,

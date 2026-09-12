@@ -63,6 +63,9 @@ async function fixture() {
   await writeFile(ownedPath, JSON.stringify({
     generated_at: new Date().toISOString(),
     model: { provider: "avantiqo-code", product_model: "avantiqo-code-v1" },
+    runner_source_commit: "1".repeat(40),
+    runner_ref: "main",
+    runner_repository_clean: true,
     prompt_contract: "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1",
     prompt_contract_sha256: promptSha,
     summary: { passed: true, complete_suite: true },

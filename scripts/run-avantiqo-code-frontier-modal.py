@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import time
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,25 @@ PROMPT_CONTRACT = "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1"
 def text(value: Any) -> str:
     return str(value or "").strip()
 
+
+
+def shell(name: str, args: list[str], label: str) -> str:
+    result = subprocess.run([name, *args], cwd=Path.cwd(), env=None, text=True, capture_output=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"{label}:{text(result.stderr or result.stdout)}")
+    return text(result.stdout)
+
+
+def current_clean_main_provenance() -> dict[str, Any]:
+    shell("git", ["fetch", "origin", "main"], f"{CONTRACT}_GIT_FETCH_FAILED")
+    head = shell("git", ["rev-parse", "HEAD"], f"{CONTRACT}_GIT_HEAD_FAILED")
+    remote = shell("git", ["rev-parse", "origin/main"], f"{CONTRACT}_GIT_REMOTE_FAILED")
+    if head != remote:
+        raise RuntimeError(f"{CONTRACT}_CURRENT_MAIN_REQUIRED")
+    dirty = shell("git", ["status", "--porcelain"], f"{CONTRACT}_GIT_STATUS_FAILED")
+    if dirty:
+        raise RuntimeError(f"{CONTRACT}_CLEAN_REPOSITORY_REQUIRED")
+    return {"source_commit": head, "ref": "main", "repository_clean": True}
 
 def load_suite(path: Path) -> dict[str, Any]:
     suite = json.loads(path.read_text(encoding="utf-8"))
@@ -144,6 +164,7 @@ def main() -> None:
     parser.add_argument("--full", action="store_true")
     args = parser.parse_args()
 
+    provenance = current_clean_main_provenance()
     suite = load_suite(Path(args.suite))
     prompt_contract, prompt_sha256 = load_prompt_contract(Path(args.prompt_contract))
     cases = suite["cases"]
@@ -197,6 +218,9 @@ def main() -> None:
         "prompt_contract_sha256": prompt_sha256,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "model": {"provider": "avantiqo-code", "product_model": PRODUCT_MODEL},
+        "runner_source_commit": provenance["source_commit"],
+        "runner_ref": provenance["ref"],
+        "runner_repository_clean": provenance["repository_clean"],
         "execution": {"infrastructure": "MODAL_GPU_SNAPSHOT", "snapshot_contract": batch.get("contract"), "snapshot_wake_seconds": batch.get("snapshot_wake_seconds"), "batch_elapsed_seconds": batch.get("batch_elapsed_seconds"), "runpod_used": False, "persistent_storage_created": False},
         "observations": observations,
         "summary": {

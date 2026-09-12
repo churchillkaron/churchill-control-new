@@ -10,7 +10,12 @@ const executor = fs.readFileSync("lib/platform/service-runtime/providers/Provide
 test("owned Intelligence settlement has real lane-specific wall-clock deadlines", () => {
   assert.match(reasoning, /FAST_PENDING_SETTLEMENT_DEADLINE_MS\s*=\s*210_000/);
   assert.match(reasoning, /DEEP_PENDING_SETTLEMENT_DEADLINE_MS\s*=\s*300_000/);
-  assert.match(reasoning, /const deadlineAt = startedAt \+ deadlineMs/);
+  assert.match(reasoning, /let deadlineAt = startedAt \+ deadlineMs/);
+  assert.match(reasoning, /FAST_PENDING_QUEUE_GRACE_MS\s*=\s*180_000/);
+  assert.match(reasoning, /DEEP_PENDING_QUEUE_GRACE_MS\s*=\s*120_000/);
+  assert.match(reasoning, /providerStatus === "queued"/);
+  assert.match(reasoning, /deadlineAt \+= queueGraceMs/);
+  assert.match(reasoning, /queueGraceApplied = true/);
   assert.match(reasoning, /Math\.min\(remainingMs, SETTLEMENT_CALL_MAX_MS\)/);
 });
 

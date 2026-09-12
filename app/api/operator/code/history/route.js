@@ -4,6 +4,9 @@ import {
   loadCodeAIMissionHistoryDetail,
   CODE_AI_MISSION_HISTORY_CONTRACT,
 } from "@/lib/code/runtime/CodeAIMissionHistoryRuntime";
+import {
+  loadLatestCodeAICompetitiveBenchmarkEvidence,
+} from "@/lib/code/runtime/CodeAICompetitiveBenchmarkEvidenceRuntime";
 
 export const runtime = "nodejs";
 
@@ -23,6 +26,22 @@ function contextFor(access, organizationId) {
     organization_id: organizationId,
     actor: { id: text(access.user?.id || access.userId, 200) },
   };
+}
+
+
+async function loadCompetitiveEvidence() {
+  try {
+    const loaded = await loadLatestCodeAICompetitiveBenchmarkEvidence();
+    return loaded?.found === true ? loaded.evidence : null;
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "AVANTIQO_CODE_HISTORY_COMPETITIVE_EVIDENCE_LOAD_FAILED",
+      reason: text(error?.message || error, 500),
+      history_load_blocked: false,
+      authorization_effect: "NONE",
+    }));
+    return null;
+  }
 }
 
 function response(payload = {}, status = 200) {
@@ -80,15 +99,18 @@ export async function GET(request) {
       return response({ success: true, ...detail });
     }
 
-    const history = await listCodeAIMissionHistory({
-      context,
-      limit,
-      query: query || null,
-      file: file || null,
-      verifiedOnly,
-      repositoryUrl: repositoryUrl || null,
-      ref: ref || null,
-    });
+    const [history, competitiveEvidence] = await Promise.all([
+      listCodeAIMissionHistory({
+        context,
+        limit,
+        query: query || null,
+        file: file || null,
+        verifiedOnly,
+        repositoryUrl: repositoryUrl || null,
+        ref: ref || null,
+      }),
+      loadCompetitiveEvidence(),
+    ]);
     return response({
       success: true,
       sessions: history.sessions,
@@ -97,6 +119,7 @@ export async function GET(request) {
       performance: history.performance || null,
       performance_trend: history.performance_trend || null,
       improvement_backlog: history.improvement_backlog || null,
+      competitive_evidence: competitiveEvidence,
     });
   } catch (error) {
     return response({

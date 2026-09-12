@@ -6,6 +6,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= "test-service-role-key";
 
 const {
   projectCodeAICompetitiveBenchmarkEvidence,
+  refreshCodeAICompetitiveBenchmarkEvidenceFreshness,
 } = await import("../lib/code/runtime/CodeAICompetitiveBenchmarkEvidenceRuntime.js");
 
 function comparison(provider, model, lossCase) {
@@ -84,6 +85,15 @@ test("competitive evidence is current and superiority remains fail-closed", () =
   assert.equal(stale.competitive_certified, true);
   assert.equal(stale.evidence_current, false);
   assert.equal(stale.superiority_claim_allowed, false);
+
+  const current = projectCodeAICompetitiveBenchmarkEvidence({ report: report(), backlog });
+  const future = refreshCodeAICompetitiveBenchmarkEvidenceFreshness(current, {
+    now_ms: Date.parse(current.generated_at) + 31 * 86400000,
+  });
+  assert.equal(future.competitive_certified, true);
+  assert.equal(future.evidence_current, false);
+  assert.equal(future.superiority_claim_allowed, false);
+  assert.equal(future.freshness_recomputed_at_read, true);
 });
 
 test("competitive benchmark evidence persists globally but remains advisory to current main", async () => {
@@ -97,6 +107,8 @@ test("competitive benchmark evidence persists globally but remains advisory to c
   assert.match(runtime, /platform_code_competitive_benchmark_evidence/);
   assert.match(runtime, /ordinary_memory_recall: false/);
   assert.match(runtime, /provider_routing_authority: false/);
+  assert.match(runtime, /refreshCodeAICompetitiveBenchmarkEvidenceFreshness/);
+  assert.match(runtime, /freshness_recomputed_at_read/);
   assert.match(benchmark, /loadLatestCodeAICompetitiveBenchmarkEvidence/);
   assert.match(benchmark, /competitive_evidence: competitiveEvidence/);
   assert.match(portfolio, /GLOBAL CODE COMPETITIVE BENCHMARK EVIDENCE/);
@@ -105,4 +117,21 @@ test("competitive benchmark evidence persists globally but remains advisory to c
   assert.match(script, /CODE_COMPETITIVE_EVIDENCE_CURRENT_MAIN_REQUIRED/);
   assert.match(script, /persistCodeAICompetitiveBenchmarkEvidence/);
   assert.match(pkg, /persist:code:competitive-evidence:local/);
+});
+
+
+test("shared Code history API and UI expose competitive evidence without making it authoritative", async () => {
+  const route = await readFile("app/api/operator/code/history/route.js", "utf8");
+  const panel = await readFile("components/operator/CodeMissionHistoryPanel.jsx", "utf8");
+
+  assert.match(route, /loadLatestCodeAICompetitiveBenchmarkEvidence/);
+  assert.match(route, /Promise\.all\(\[/);
+  assert.match(route, /competitive_evidence: competitiveEvidence/);
+  assert.match(route, /history_load_blocked: false/);
+  assert.match(panel, /setCompetitiveEvidence/);
+  assert.match(panel, /data-avantiqo-code-competitive-evidence="true"/);
+  assert.match(panel, /Competitive evidence/);
+  assert.match(panel, /benchmark certified/);
+  assert.match(panel, /no superiority claim/);
+  assert.match(panel, /Next competitive gap:/);
 });

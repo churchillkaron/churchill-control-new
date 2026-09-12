@@ -4,10 +4,19 @@ import test from "node:test";
 
 const mission = fs.readFileSync("lib/platform/capabilities/createOperatorMissionCapability.js", "utf8");
 
-test("mission preflight prefers normalized catalog verifier over planner verify_after", () => {
+test("mission preflight requires server-owned verification and ignores planner verify_after", () => {
   assert.match(mission, /listOperatorCapabilities/);
   assert.match(mission, /catalogAction\?\.operator_verification/);
-  assert.match(mission, /registeredKey[\s\S]*step\.verify_after/);
+  assert.match(mission, /OPERATOR_MISSION_SERVER_VERIFICATION_REQUIRED/);
+  assert.doesNotMatch(mission, /:\s*step\.verify_after/);
+});
+
+test("only exact Code AI commit retains a server-owned special-governed verifier", () => {
+  assert.match(mission, /SPECIAL_GOVERNED_MISSION_VERIFIERS/);
+  assert.match(mission, /"platform\.code_ai_commit\.execute"/);
+  assert.match(mission, /"platform\.code_ai_commit_status\.verify"/);
+  assert.match(mission, /payload_from_input:[\s\S]*execution_key/);
+  assert.doesNotMatch(mission, /product_production_release[^\n]*SPECIAL_GOVERNED_MISSION_VERIFIERS/);
 });
 
 test("mission resolves generated verifier payload only after write result exists", () => {

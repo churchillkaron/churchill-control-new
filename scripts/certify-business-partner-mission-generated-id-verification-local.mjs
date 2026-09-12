@@ -6,10 +6,12 @@ const evidence = {
   normalized_catalog_verifier_preflight: /catalogAction\?\.operator_verification/.test(mission),
   result_bound_after_write: /bindCatalogVerification\(entry\.catalog_verification, action\.result, step\.payload\)/.test(mission),
   deterministic_business_effect_gate: /deterministicBusinessEffectProof/.test(mission) && /OPERATOR_MISSION_BUSINESS_EFFECT_UNVERIFIED/.test(mission),
+  planner_verify_after_fallback_removed: !/:\s*step\.verify_after/.test(mission),
+  server_owned_special_governed_exception: /SPECIAL_GOVERNED_MISSION_VERIFIERS/.test(mission) && /platform\.code_ai_commit\.execute/.test(mission) && /platform\.code_ai_commit_status\.verify/.test(mission),
   verification_retry_before_replay: mission.indexOf("if (verificationPending)") < mission.indexOf("action = await executeEntry(entry, context)"),
   bounded_identity_evidence: /Array\.from\(collectStableBusinessIdentities\(action\.result\)\)\.slice\(0, 50\)/.test(mission),
   collection_and_value_bindings_supported: /payload_array_from_result/.test(mission) && /payload_from_input/.test(mission),
-  legacy_governed_exception_preserved: /LEGACY_GOVERNED_VERIFICATION_READ/.test(mission),
+  special_governed_verification_named_server_owned: /SERVER_OWNED_SPECIAL_GOVERNED_VERIFICATION_READ/.test(mission),
   mission_advances_after_verified_effect_only: /businessEffectOutcome\.state !== "COMPLETED"/.test(mission) && /business_effect_verified: true/.test(mission),
   canonical_business_effect_outcome: /normalizeAuthoritativeBusinessEffectOutcome/.test(mission) && /business_effect_outcome: businessEffectOutcome/.test(mission),
   pending_outcome_uncertain: /MISSION_VERIFICATION_PENDING/.test(mission) && /state: "UNCERTAIN"/.test(mission),
@@ -28,7 +30,7 @@ const stages = {
   authoritative_replay: evidence.verification_retry_before_replay,
   mission_continuation: evidence.mission_advances_after_verified_effect_only,
   final_business_outcome: evidence.collection_and_value_bindings_supported,
-  learning_evidence: evidence.legacy_governed_exception_preserved && evidence.canonical_business_effect_outcome && evidence.pending_outcome_uncertain,
+  learning_evidence: evidence.special_governed_verification_named_server_owned && evidence.canonical_business_effect_outcome && evidence.pending_outcome_uncertain,
 };
 const result = certifyBusinessPartnerLifecycle({
   scenario: "BUSINESS_PARTNER_MISSION_GENERATED_ID_VERIFICATION",

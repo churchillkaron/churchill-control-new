@@ -66,10 +66,10 @@ test("Supabase table and RPC references become explicit schema graph edges", () 
   });
   assert.equal(graph.structured_schema_dependency_analysis, true);
   assert.ok(graph.edges.some((edge) =>
-    edge.relation === "references_database_table" && edge.schema_name === "customer_invoices"
+    edge.relation === "references_database_table" && edge.schema_name === "public.customer_invoices"
   ));
   assert.ok(graph.edges.some((edge) =>
-    edge.relation === "calls_database_rpc" && edge.schema_name === "post_customer_invoice"
+    edge.relation === "calls_database_rpc" && edge.schema_name === "public.post_customer_invoice"
   ));
 });
 
@@ -146,4 +146,31 @@ test("changed migrations produce observed application schema compatibility oblig
   assert.match(prepared.options.objective, /OBSERVED SCHEMA COMPATIBILITY OBLIGATIONS/);
   assert.match(prepared.options.objective, /lib\/finance\/invoices\.ts/);
   assert.match(prepared.options.objective, /finance\.customer_invoices/);
+});
+
+test("syntax-aware parser captures imported call arity and consumed result fields", () => {
+  const analysis = analyzeCodeAISourceDependencies("lib/consumer.ts", [
+    'import { settleOrder } from "./runtime";',
+    'const result = settleOrder(order, context);',
+    'return result.invoice_id;',
+  ].join("\n"));
+  assert.equal(analysis.calls[0].argument_count, 2);
+  assert.ok(analysis.result_field_reads.some((item) => item.imported === "settleOrder" && item.field === "invoice_id"));
+});
+
+test("syntax-aware parser captures exported function context and static return fields", () => {
+  const analysis = analyzeCodeAISourceDependencies("lib/runtime.ts", 'export function settleOrder(context){ if (!context.organization_id) throw new Error("missing"); return { invoice_id: "x", ok: true }; }');
+  const contract = analysis.function_contracts.find((item) => item.name === "settleOrder");
+  assert.ok(contract);
+  assert.equal(contract.min_arity, 1);
+  assert.ok(contract.context_keys.includes("organization_id"));
+  assert.ok(contract.return_fields.includes("invoice_id"));
+});
+
+
+test("syntax-aware parser captures explicit Supabase selected columns", () => {
+  const analysis = analyzeCodeAISourceDependencies("lib/repository.ts", 'export async function load(db){ return db.from("orders").select("id,organization_id,total"); }');
+  const ref = analysis.schema_references.find((item) => item.kind === "table" && item.name === "orders");
+  assert.ok(ref);
+  assert.deepEqual(ref.selected_columns, ["id", "organization_id", "total"]);
 });

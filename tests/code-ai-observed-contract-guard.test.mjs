@@ -21,7 +21,8 @@ test("guard accepts implementation changes that preserve observed exported contr
   ] };
   const result = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders/runtime.js", content: "export function settleOrder(){ return { ok: true }; }" }] });
   assert.equal(result.compatible, true);
-  assert.equal(result.obligation_count, 1);
+  assert.ok(result.obligations.some((item) => item.kind === "OBSERVED_IMPORTED_SYMBOL" && item.symbol === "settleOrder"));
+  assert.ok(result.obligations.some((item) => item.kind === "OBSERVED_CALL_ARITY" && item.symbol === "settleOrder"));
 });
 
 test("Next.js route handler method exports are preserved when current route source is observed", () => {
@@ -46,4 +47,39 @@ test("mission runtime enforces observed contracts before workspace mutation", as
   const mutation = source.indexOf("workspace.applyFiles(classified.writes)");
   assert.ok(guard >= 0);
   assert.ok(mutation > guard);
+});
+
+test("guard rejects arity changes incompatible with an observed caller", () => {
+  const state = { evidence: [
+    read("lib/orders/runtime.js", "export function settleOrder(order, context){ return { id: order.id }; }"),
+    read("lib/orders/service.js", 'import { settleOrder } from "./runtime.js"; export function settle(order, ctx){ return settleOrder(order, ctx); }'),
+  ] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders/runtime.js", content: "export function settleOrder(order, context, requiredThird){ return { id: order.id }; }" }] });
+  assert.equal(result.compatible, false);
+  assert.ok(result.violations.some((item) => item.kind === "OBSERVED_CALL_ARITY_INCOMPATIBLE"));
+});
+
+test("guard rejects removal of statically returned fields consumed by callers", () => {
+  const state = { evidence: [
+    read("lib/orders/runtime.js", "export function settleOrder(){ return { invoice_id: 'x', ok: true }; }"),
+    read("lib/orders/service.js", 'import { settleOrder } from "./runtime.js"; export function settle(){ const result = settleOrder(); return result.invoice_id; }'),
+  ] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders/runtime.js", content: "export function settleOrder(){ return { ok: true }; }" }] });
+  assert.equal(result.compatible, false);
+  assert.ok(result.violations.some((item) => item.kind === "OBSERVED_RETURN_FIELD_REMOVED" && item.field === "invoice_id"));
+});
+
+test("guard preserves observed business context invariants", () => {
+  const state = { evidence: [read("lib/orders/runtime.js", "export function settleOrder(context){ if (!context.organization_id) throw new Error('missing'); return { ok: true }; }")] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders/runtime.js", content: "export function settleOrder(context){ return { ok: true }; }" }] });
+  assert.equal(result.compatible, false);
+  assert.ok(result.violations.some((item) => item.kind === "BUSINESS_CONTEXT_INVARIANT_REMOVED" && item.key === "organization_id"));
+});
+
+
+test("guard preserves observed Supabase selected columns", () => {
+  const state = { evidence: [read("lib/orders/repository.js", 'export async function load(db){ return db.from("orders").select("id,organization_id,total"); }')] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders/repository.js", content: 'export async function load(db){ return db.from("orders").select("id,total"); }' }] });
+  assert.equal(result.compatible, false);
+  assert.ok(result.violations.some((item) => item.kind === "SUPABASE_SELECTED_COLUMN_REMOVED" && item.column === "organization_id"));
 });

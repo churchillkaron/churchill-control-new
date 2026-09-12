@@ -30,3 +30,20 @@ test("verification retry persists bounded identity evidence and runs before acti
   const action = mission.indexOf("action = await executeEntry(entry, context)");
   assert.ok(retry > 0 && action > retry);
 });
+
+
+test("mission emits canonical authoritative business-effect outcome", () => {
+  assert.match(mission, /normalizeAuthoritativeBusinessEffectOutcome/);
+  assert.match(mission, /business_effect_outcome: businessEffectOutcome/);
+  assert.match(mission, /AVANTIQO_AUTHORITATIVE_BUSINESS_EFFECT_OUTCOME_V1/);
+  assert.match(mission, /businessEffectOutcome\.state !== "COMPLETED"/);
+  assert.match(mission, /safe_to_retry: false/);
+});
+
+test("verification pending preserves canonical uncertain outcome without replay authority", () => {
+  assert.match(mission, /derivation: "MISSION_VERIFICATION_PENDING"/);
+  assert.match(mission, /state: "UNCERTAIN"/);
+  assert.match(mission, /business_effect_observed: false/);
+  assert.match(mission, /business_effect_absent: false/);
+  assert.match(mission, /safe_to_retry: false/);
+});

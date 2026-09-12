@@ -50,6 +50,7 @@ const platformRuntimeSource=fs.readFileSync("lib/platform/runtime/PlatformDomain
 const creativeRuntimeSource=fs.readFileSync("lib/creative/runtime/CreativeRuntime.js","utf8");
 const domainRuntimeSource=fs.readFileSync("lib/ubte/runtime/domains/DomainRuntimeRegistry.js","utf8");
 const staticBoundaryRegistrations=(platformRuntimeSource.match(/withOperatorExecutionBoundary/g)||[]).length + (creativeRuntimeSource.match(/loadWithOperatorExecutionBoundary/g)||[]).length + (domainRuntimeSource.match(/withOperatorExecutionBoundary/g)||[]).length;
+const staticSecretaryVerificationBindings=(platformRuntimeSource.match(/withOperatorVerification/g)||[]).length;
 
 const evidence={
   source_operator_writes_scanned:writes.length>0,
@@ -66,6 +67,8 @@ const evidence={
   execution_boundary_never_grants_replay:executionBoundaryWrites.every((item)=>item.operator_execution_boundary?.mutation_replay_authority===false && item.operator_execution_boundary?.authorization_effect==="NONE"),
   no_unclassified_non_secretary_writes:ordinaryUnknown.length===0,
   remaining_unverified_are_secretary_records_only:unresolvedWrites.every((item)=>item.key.startsWith("platform.secretary")),
+  secretary_workflow_verification_registration_contract_present:staticSecretaryVerificationBindings>=79,
+  full_runtime_has_no_unverified_secretary_writes:fullSecretaryCoreCatalogAvailable ? secretaryRecordBacklog.length===0 : true,
   secretary_core_static_verification_contract_present:secretaryCoreStaticContract,
   secretary_core_mutations_have_exact_verification:fullSecretaryCoreCatalogAvailable ? secretaryCoreWrites.length===8 && secretaryCoreWrites.every((item)=>item.operator_verification_status==="EXPLICIT_VALID") : true,
   secretary_read_list_actions_are_not_writes:secretaryReadListMisclassified.length===0,
@@ -74,7 +77,7 @@ const result=certifyBusinessPartnerLifecycle({
   scenario:"BUSINESS_PARTNER_WRITE_VERIFICATION_COVERAGE",
   stages:{mission_planning:true,governed_execution:true,business_effect_verification:Object.values(evidence).every(Boolean),failure_capture:true,defect_classification:true,self_healing_engineering:true,governed_release:true,production_activation:true,automatic_wake:true,authoritative_replay:true,mission_continuation:true,final_business_outcome:true,learning_evidence:true},
   productionWritesPerformed:false,productionDeployPerformed:false,databaseMigrationsApplied:false,authorizationEffect:"NONE",
-  domainEvidence:{...evidence,total_source_operator_writes:writes.length,source_verified:writes.filter(x=>x.verified).length,source_special_governed:writes.filter(x=>x.special&&!x.verified).length,source_unknown:sourceUnknown.map(x=>x.file),resolved_catalog_size:catalog.length,resolved_writes:resolvedWrites.length,resolved_verification_statuses:resolvedWrites.reduce((a,x)=>(a[x.operator_verification_status]=(a[x.operator_verification_status]||0)+1,a),{}),resolved_full_orchestration_catalog_available:fullOrchestrationCatalogAvailable,resolved_execution_boundary_count:executionBoundaryWrites.length,static_execution_boundary_registration_count:staticBoundaryRegistrations,resolved_execution_boundaries:executionBoundaryWrites.map(x=>x.key),resolved_secretary_record_backlog:secretaryRecordBacklog.map(x=>x.key),resolved_full_secretary_core_catalog_available:fullSecretaryCoreCatalogAvailable,secretary_core_verified:secretaryCoreWrites.map(x=>x.key),secretary_read_list_misclassified:secretaryReadListMisclassified.map(x=>x.key),resolved_ordinary_unknown:ordinaryUnknown.map(x=>x.key),resolved_invalid_declarations:invalidDeclarations.map(x=>x.key),resolved_invalid_execution_boundaries:invalidExecutionBoundaries.map(x=>x.key)},
+  domainEvidence:{...evidence,total_source_operator_writes:writes.length,source_verified:writes.filter(x=>x.verified).length,source_special_governed:writes.filter(x=>x.special&&!x.verified).length,source_unknown:sourceUnknown.map(x=>x.file),resolved_catalog_size:catalog.length,resolved_writes:resolvedWrites.length,resolved_verification_statuses:resolvedWrites.reduce((a,x)=>(a[x.operator_verification_status]=(a[x.operator_verification_status]||0)+1,a),{}),resolved_full_orchestration_catalog_available:fullOrchestrationCatalogAvailable,resolved_execution_boundary_count:executionBoundaryWrites.length,static_execution_boundary_registration_count:staticBoundaryRegistrations,static_secretary_verification_binding_count:staticSecretaryVerificationBindings,resolved_execution_boundaries:executionBoundaryWrites.map(x=>x.key),resolved_secretary_record_backlog:secretaryRecordBacklog.map(x=>x.key),resolved_full_secretary_core_catalog_available:fullSecretaryCoreCatalogAvailable,secretary_core_verified:secretaryCoreWrites.map(x=>x.key),secretary_read_list_misclassified:secretaryReadListMisclassified.map(x=>x.key),resolved_ordinary_unknown:ordinaryUnknown.map(x=>x.key),resolved_invalid_declarations:invalidDeclarations.map(x=>x.key),resolved_invalid_execution_boundaries:invalidExecutionBoundaries.map(x=>x.key)},
 });
 console.log(JSON.stringify(result,null,2));
 if(!result.certified) process.exit(1);

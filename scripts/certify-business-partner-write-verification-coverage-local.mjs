@@ -50,7 +50,7 @@ const platformRuntimeSource=fs.readFileSync("lib/platform/runtime/PlatformDomain
 const creativeRuntimeSource=fs.readFileSync("lib/creative/runtime/CreativeRuntime.js","utf8");
 const domainRuntimeSource=fs.readFileSync("lib/ubte/runtime/domains/DomainRuntimeRegistry.js","utf8");
 const staticBoundaryRegistrations=(platformRuntimeSource.match(/withOperatorExecutionBoundary/g)||[]).length + (creativeRuntimeSource.match(/loadWithOperatorExecutionBoundary/g)||[]).length + (domainRuntimeSource.match(/withOperatorExecutionBoundary/g)||[]).length;
-const staticSecretaryVerificationBindings=(platformRuntimeSource.match(/withOperatorVerification/g)||[]).length;
+const staticSecretaryVerificationBindings=(platformRuntimeSource.match(/withOperatorVerification/g)||[]).length + (platformRuntimeSource.match(/withPreboundSecretaryRecovery/g)||[]).length + (platformRuntimeSource.match(/withSecretaryRecoveryLocator/g)||[]).length;
 
 const evidence={
   source_operator_writes_scanned:writes.length>0,

@@ -29,7 +29,7 @@ const runtimeFiles = [
   "SecretaryDocumentFilingRuntime.js",
 ].map((name) => fs.readFileSync(`lib/operator/secretary/${name}`, "utf8"));
 
-test("twenty seven Secretary mutations use prebound exact recovery", () => {
+test("thirty Secretary mutations use prebound exact recovery", () => {
   assert.equal((platform.match(/ambiguousWriteRecovery: "PREBOUND_EXACT_ID"/g) || []).length, 12);
   assert.match(platform, /function withPreboundSecretaryRecovery/);
 });
@@ -88,9 +88,26 @@ test("job and outbound request creation prebind exact UUIDs before mutation", ()
   assert.match(platform, /secretary_outbound_call: \{ place: async \(\) => withPreboundSecretaryRecovery\(createSecretaryOutboundCallCapability\("place"\), "platform\.secretary_outbound_call_request\.read", "request_id"\)/);
 });
 
-test("action identity cert locks twenty seven prebound Secretary mutations", () => {
+test("action identity cert locks thirty prebound Secretary mutations", () => {
   const cert = fs.readFileSync("scripts/certify-business-partner-action-identity-coverage-local.mjs", "utf8");
   assert.match(cert, /secretary_prebound_exact_recovery/);
   assert.match(cert, /secretary_remaining_fail_closed/);
-  assert.match(cert, /secretaryPrebound\.length === 27/);
+  assert.match(cert, /secretaryPrebound\.length === 30/);
+});
+
+test("meeting coordination prebinds the atomic RPC identity", () => {
+  const runtime = fs.readFileSync("lib/operator/secretary/SecretaryMeetingCoordinationRuntime.js", "utf8");
+  const migration = fs.readFileSync("supabase/migrations/20260912125500_secretary_meeting_coordination_prebound_identity.sql", "utf8");
+  assert.match(runtime, /const coordinationId = randomUUID\(\)/);
+  assert.match(runtime, /p_coordination_id: coordinationId/);
+  assert.match(runtime, /secretaryPreboundMutationResult/);
+  assert.match(runtime, /coordination_id: result\.data\.id/);
+  assert.match(migration, /p_coordination_id uuid/);
+  assert.match(migration, /p_coordination_id, p_organization_id/);
+  assert.match(migration, /caller-prebound coordination UUID/);
+});
+
+test("paperwork and travel reuse prebound Secretary job identity", () => {
+  assert.match(platform, /secretary_paperwork:[^\n]*withPreboundSecretaryRecovery[^\n]*secretary_job_record\.read[^\n]*job_id/);
+  assert.match(platform, /secretary_travel:[^\n]*withPreboundSecretaryRecovery[^\n]*secretary_job_record\.read[^\n]*job_id/);
 });

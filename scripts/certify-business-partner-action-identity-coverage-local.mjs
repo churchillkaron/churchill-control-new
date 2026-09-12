@@ -52,6 +52,9 @@ const expectedSecretaryPrebound = new Set([
   "platform.secretary_working_preferences.retract",
   "platform.secretary_job.delegate",
   "platform.secretary_outbound_call.place",
+  "platform.secretary_meeting_coordination.coordinate",
+  "platform.secretary_paperwork.coordinate",
+  "platform.secretary_travel.coordinate",
 ]);
 
 const expectedSecretaryAuthoritativeLocators = new Set([
@@ -71,7 +74,7 @@ const evidence = {
   secretary_ambiguous_writes_never_auto_replay: fullSecretaryCatalogAvailable ? secretaryWrites.length === secretaryPrebound.length + secretaryAuthoritativeLocators.length + secretaryNoReplay.length && secretaryRecoveryUnsafe.length === 0 : true,
   no_production_write: true,
   secretary_recovery_catalog_loaded: secretaryWrites.length > 0,
-  secretary_prebound_exact_recovery: secretaryPrebound.length === 27 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
+  secretary_prebound_exact_recovery: secretaryPrebound.length === 30 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
   secretary_authoritative_recovery_locators: secretaryAuthoritativeLocators.length === 3 && secretaryAuthoritativeLocators.every((item) => expectedSecretaryAuthoritativeLocators.has(item.key)),
   secretary_remaining_fail_closed: secretaryNoReplay.length === secretaryWrites.length - secretaryPrebound.length - secretaryAuthoritativeLocators.length,
   secretary_no_invalid_recovery: secretaryInvalidRecovery.length === 0,

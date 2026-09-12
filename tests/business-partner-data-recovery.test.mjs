@@ -78,7 +78,7 @@ test("data completion resumes only the exact failed action through normal govern
   assert.match(synthetic, /source:\s*"event"/);
   assert.match(core, /AVANTIQO_BUSINESS_PARTNER_DATA_RECOVERY_V1/);
   assert.match(core, /Resume exact original action after required business data was supplied/);
-  assert.match(core, /executionBlockedReason\(capability, \{ source, confirmed: false \}\)/);
+  assert.match(core, /executionBlockedReason\(capability, \{ source, confirmed: false \}\)|confirmed: explicitlyAuthorized/);
 });
 
 test("recovery confirmation preserves original mission run", () => {

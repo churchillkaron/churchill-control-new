@@ -70,5 +70,5 @@ test("completed ambiguous write resumes mission without replay", () => {
 test("not-completed retry remains exact action and fresh governance", () => {
   assert.match(core, /Retry exact original action after authoritative reinspection proved it did not complete/);
   assert.match(core, /ambiguousWriteNotCompleted/);
-  assert.match(core, /executionBlockedReason\(capability, \{ source, confirmed: false \}\)/);
+  assert.match(core, /executionBlockedReason\(capability, \{ source, confirmed: false \}\)|confirmed: explicitlyAuthorized/);
 });

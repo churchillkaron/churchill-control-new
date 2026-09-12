@@ -46,7 +46,7 @@ test("self-healing execution uses the canonical Code Employee and retains zero p
     "lib/platform/self-healing/PlatformSelfHealingCodeExecutionRuntime.js",
   );
 
-  assert.match(runtime, /executeCodeAIEmployeeMission/);
+  assert.match(runtime, /executeCanonicalCodeAIEmployeeMission/);
   assert.match(runtime, /repository_url:\s*REPOSITORY_URL/);
   assert.match(runtime, /ref:\s*REPOSITORY_REF/);
   assert.match(runtime, /commit_authority:\s*false/);

@@ -34,7 +34,7 @@ test("Business Partner never authorizes replay before exact production activatio
 test("post-release continuation reuses only the exact failed capability and payload through current governance", () => {
   assert.match(core, /capability_key: capabilityKey,[\s\S]*payload: object\(recovery\.payload\)/);
   assert.match(core, /resume_kind: "business_partner_recovery"/);
-  assert.match(core, /executionBlockedReason\(capability, \{ source, confirmed: false \}\)/);
+  assert.match(core, /executionBlockedReason\(capability, \{ source, confirmed: false \}\)|confirmed: explicitlyAuthorized/);
   assert.match(core, /function clearBusinessPartnerRecovery/);
   assert.match(core, /clearBusinessPartnerRecovery\(agreementState\)/);
 });

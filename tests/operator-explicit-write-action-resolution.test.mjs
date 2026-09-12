@@ -65,3 +65,13 @@ test("fast shortlist cannot hide a strong full-catalog write action", () => {
     "explicit_write_action_requires_deep",
   );
 });
+
+
+test("explicit direct action authorization remains bounded to exact low-risk action requests", async () => {
+  const core = await import("node:fs").then(({ readFileSync }) => readFileSync("lib/operator/runtime/OperatorTurnRuntimeCore.js", "utf8"));
+  assert.match(core, /explicitDirectActionAuthorization/);
+  assert.match(core, /mode === "approve" \|\| \["high", "critical"\]\.includes\(risk\)/);
+  assert.match(core, /resolveExplicitWriteActionRequest\(\{ message, capabilities \}\)/);
+  assert.match(core, /text\(resolution\.capability\.key\) === text\(capability\.key\)/);
+  assert.match(core, /confirmed: explicitlyAuthorized/);
+});

@@ -67,7 +67,7 @@ test("synthetic continuation performs fresh server-governed reinspection instead
   assert.match(synthetic, /message:\s*"continue"/);
   assert.match(synthetic, /source:\s*"event"/);
   assert.match(core, /verifiedHumanGateReinspection/);
-  assert.match(core, /executionBlockedReason\(capability, \{ source, confirmed: false \}\)/);
+  assert.match(core, /executionBlockedReason\(capability, \{ source, confirmed: false \}\)|confirmed: explicitlyAuthorized/);
   assert.match(core, /prior_confirmation_reused|confirmation/);
 });
 

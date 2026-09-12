@@ -371,3 +371,46 @@ test("causal graph keeps symbol-call analysis bounded", () => {
   assert.ok(graph.edge_count <= 200);
   assert.equal(graph.authoritative_call_graph, false);
 });
+
+test("observed symbol callers become explicit compatibility obligations and measurable evidence", () => {
+  const resumeState = {
+    files_changed: ["lib/core/runtime.js"],
+    source_changes: [{
+      path: "lib/core/runtime.js",
+      operation: "write",
+      content: "export function runMission() { return true; }\n",
+    }],
+    evidence: [{
+      action: "read",
+      result: {
+        file_path: "lib/consumer/service.js",
+        content: 'import { runMission as invokeMission } from "../core/runtime.js";\ninvokeMission();\n',
+      },
+    }],
+  };
+  const prepared = prepareCodeAIWorldClassMission({
+    objective: "Repair runtime behavior without breaking callers.",
+    resume_state: resumeState,
+  });
+  assert.match(prepared.options.objective, /OBSERVED CALLER COMPATIBILITY OBLIGATIONS/);
+  assert.match(prepared.options.objective, /lib\/consumer\/service\.js -> lib\/core\/runtime\.js#runMission/);
+  assert.match(prepared.options.objective, /via invokeMission/);
+
+  const finalized = finalizeCodeAIWorldClassMission({
+    prepared_control: prepared.control,
+    result: {
+      state: {
+        ...resumeState,
+        tests: [{ exit_code: 0 }],
+        verification: [{ passed: true }],
+        failures: [],
+        repairs: [],
+        work_package_control: { reasoning_calls_used: 1 },
+      },
+    },
+    options: prepared.options,
+  });
+  assert.equal(finalized.benchmark_scorecard.caller_awareness_evidence_present, true);
+  assert.equal(finalized.benchmark_scorecard.observed_imported_symbol_call_edges, 1);
+  assert.equal(finalized.benchmark_scorecard.changed_modules_with_observed_symbol_callers, 1);
+});

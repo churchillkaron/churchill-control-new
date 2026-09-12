@@ -111,3 +111,52 @@ test("Fast route publishes deterministic escalation policy", () => {
   assert.ok(route.escalation.never_downgrade_if.includes("irreversible_action"));
   assert.equal(route.governance.deterministic_pre_model_routing, true);
 });
+
+test("short hard business decision routes Deep", () => {
+  const route = routeAvantiqoCognition({
+    goal: "Should we reduce inventory to improve cash flow?",
+    requested_mode: "auto",
+  });
+  assert.equal(route.mode, "deep");
+  assert.equal(route.requirements.specialist_depth_required, true);
+  assert.ok(route.specialist.domains.includes("business"));
+});
+
+test("short Avantiqo architecture request routes Deep", () => {
+  const route = routeAvantiqoCognition({
+    goal: "Refactor Avantiqo provider routing without breaking Safe Lease.",
+    requested_mode: "auto",
+  });
+  assert.equal(route.mode, "deep");
+  assert.equal(route.requirements.specialist_depth_required, true);
+  assert.ok(route.specialist.domains.includes("avantiqo"));
+});
+
+test("short code debugging request routes Deep", () => {
+  const route = routeAvantiqoCognition({
+    goal: "Debug this Node.js runtime regression.",
+    requested_mode: "auto",
+  });
+  assert.equal(route.mode, "deep");
+  assert.equal(route.requirements.specialist_depth_required, true);
+  assert.ok(route.specialist.domains.includes("code"));
+});
+
+test("trivial specialist edit can stay Fast", () => {
+  const route = routeAvantiqoCognition({
+    goal: "Fix this JavaScript typo.",
+    requested_mode: "auto",
+  });
+  assert.equal(route.mode, "fast");
+  assert.equal(route.specialist.trivial_fast_path, true);
+});
+
+test("explicit specialist context can deepen an otherwise terse goal", () => {
+  const route = routeAvantiqoCognition({
+    goal: "Find the best approach.",
+    requested_mode: "auto",
+    context: { intelligence_domain: "business", multi_step_execution: true },
+  });
+  assert.equal(route.mode, "deep");
+  assert.ok(route.specialist.domains.includes("business"));
+});

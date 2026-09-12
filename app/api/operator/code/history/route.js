@@ -95,6 +95,8 @@ export async function GET(request) {
       count: history.count,
       search: history.search,
       performance: history.performance || null,
+      performance_trend: history.performance_trend || null,
+      improvement_backlog: history.improvement_backlog || null,
     });
   } catch (error) {
     return response({

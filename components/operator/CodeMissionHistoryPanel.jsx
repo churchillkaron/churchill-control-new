@@ -35,6 +35,7 @@ export default function CodeMissionHistoryPanel({
   const [sessions, setSessions] = useState([]);
   const [selected, setSelected] = useState(null);
   const [performance, setPerformance] = useState(null);
+  const [improvementBacklog, setImprovementBacklog] = useState(null);
   const [query, setQuery] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -67,6 +68,9 @@ export default function CodeMissionHistoryPanel({
       setSessions(Array.isArray(body.sessions) ? body.sessions : []);
       setPerformance(body?.performance && typeof body.performance === "object"
         ? body.performance
+        : null);
+      setImprovementBacklog(body?.improvement_backlog && typeof body.improvement_backlog === "object"
+        ? body.improvement_backlog
         : null);
       setSelected((current) => {
         if (!current) return null;
@@ -204,6 +208,17 @@ export default function CodeMissionHistoryPanel({
           <span>First pass {Math.round((performance.first_pass_success_rate || 0) * 100)}%</span>
           <span>Reasoning avg {performance.average_reasoning_calls || 0}</span>
           <span>Efficiency {performance.engineering_efficiency_score || 0}/100</span>
+        </div>
+      ) : null}
+
+      {improvementBacklog?.items?.[0] ? (
+        <div
+          data-avantiqo-code-improvement-backlog="true"
+          className={compact
+            ? "mt-2 text-[9px] text-[#8F8A82]"
+            : "mt-2 text-[10px] text-white/35"}
+        >
+          Next measured improvement: {improvementBacklog.items[0].area.replaceAll("_", " ")} — {improvementBacklog.items[0].target}
         </div>
       ) : null}
 

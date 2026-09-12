@@ -39,7 +39,7 @@ test("prebound Secretary task inserts attach identity only on insert failure", (
 });
 
 
-test("authoritative Secretary recovery locators remain a closed seven action set", () => {
+test("authoritative Secretary recovery locators remain a closed eight action set", () => {
   assert.equal((platform.match(/withSecretaryRecoveryLocator\(createSecretary/g) || []).length, 3);
   assert.match(platform, /secretary_meeting_agenda:[^\n]*withSecretaryRecoveryLocator/);
   assert.match(platform, /secretary_meeting_closeout:[^\n]*withSecretaryRecoveryLocator/);
@@ -185,4 +185,17 @@ test("calendar protection recovers by exact deterministic protection key", () =>
   assert.match(verifier, /duplicate_match_count/);
   assert.match(verifier, /state: exact \? "COMPLETED" : definitelyAbsent \? "NOT_COMPLETED" : "UNCERTAIN"/);
   assert.match(platform, /secretary_calendar_stewardship:[^\n]*protect:[^\n]*AUTHORITATIVE_RECOVERY_LOCATOR/);
+});
+
+
+test("calendar protection release verifies exact persisted release evidence", () => {
+  const runtime = fs.readFileSync("lib/operator/secretary/SecretaryExecutiveCalendarStewardshipRuntime.js", "utf8");
+  const verifier = fs.readFileSync("lib/platform/capabilities/createSecretaryCoreVerificationCapability.js", "utf8");
+  assert.match(runtime, /secretaryRecoveryMutationResult/);
+  assert.match(runtime, /\[\["event_id", protectionId\], \["evidence_id", evidenceId\], \["released_at", releasedAt\]\]/);
+  assert.match(runtime, /event_id: protectionId/);
+  assert.match(verifier, /secretary_calendar_protection_release/);
+  assert.match(verifier, /release_evidence_id/);
+  assert.match(verifier, /conflicting_release/);
+  assert.match(platform, /secretary_calendar_stewardship:[^\n]*release:[^\n]*secretary_calendar_protection_release\.read[^\n]*AUTHORITATIVE_RECOVERY_LOCATOR/);
 });

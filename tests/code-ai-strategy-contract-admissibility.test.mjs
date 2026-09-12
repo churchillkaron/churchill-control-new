@@ -58,3 +58,21 @@ test("strategy filter rejects explicit removal of observed tenant filters route 
   assert.ok(contracts.obligations.some((item) => item.kind === "SUPABASE_RPC_ARGUMENT_KEY" && item.token === "organization_id"));
   assert.ok(contracts.obligations.some((item) => item.kind === "SUPABASE_MUTATION_FIELD" && item.token === "organization_id"));
 });
+
+test("strategy filter rejects explicit TypeScript public contract removal and optional tightening", () => {
+  const state = { evidence: [read("lib/orders.ts", [
+    "export interface OrderInput { organization_id: string; note?: string; }",
+    "export function save(input: OrderInput): { id: string } { return { id: input.organization_id }; }",
+  ].join("\n"))] };
+  const result = filterCodeAIStrategyCompetitionByObservedContracts({
+    state,
+    competition: { ranked: [
+      { id: "drop", score: 100, direction: "Remove organization_id from OrderInput." },
+      { id: "tighten", score: 99, direction: "Make note required on OrderInput." },
+      { id: "safe", score: 90, direction: "Refactor implementation while preserving OrderInput compatibility." },
+    ] },
+  });
+  assert.equal(result.contract_rejected_count, 2);
+  assert.deepEqual(result.contract_rejected_candidates.map((item) => item.id).sort(), ["drop", "tighten"]);
+  assert.equal(result.selected.id, "safe");
+});

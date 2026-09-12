@@ -175,3 +175,39 @@ test("guard respects TypeScript optional parameters when checking observed call 
   assert.equal(result.compatible, true);
   assert.ok(result.obligations.some((item) => item.kind === "OBSERVED_CALL_ARITY" && item.observed_argument_count === 1));
 });
+
+test("guard preserves exported TypeScript interface properties and optionality", () => {
+  const state = { evidence: [read("lib/orders.ts", "export interface OrderInput { organization_id: string; note?: string; }")] };
+  const removed = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders.ts", content: "export interface OrderInput { note?: string; }" }] });
+  assert.equal(removed.compatible, false);
+  assert.ok(removed.violations.some((item) => item.kind === "TS_EXPORTED_TYPE_PROPERTY_REMOVED" && item.property === "organization_id"));
+  const tightened = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders.ts", content: "export interface OrderInput { organization_id: string; note: string; }" }] });
+  assert.equal(tightened.compatible, false);
+  assert.ok(tightened.violations.some((item) => item.kind === "TS_EXPORTED_TYPE_PROPERTY_OPTIONALITY_CHANGED" && item.property === "note"));
+});
+
+test("guard blocks TypeScript parameter object property removal and optional tightening", () => {
+  const state = { evidence: [read("lib/orders.ts", "export function save(input: { organization_id: string; note?: string }) { return input.organization_id; }")] };
+  const removed = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders.ts", content: "export function save(input: { note?: string }) { return true; }" }] });
+  assert.equal(removed.compatible, false);
+  assert.ok(removed.violations.some((item) => item.kind === "TS_PARAMETER_PROPERTY_REMOVED" && item.property === "organization_id"));
+  const tightened = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders.ts", content: "export function save(input: { organization_id: string; note: string }) { return input.organization_id; }" }] });
+  assert.equal(tightened.compatible, false);
+  assert.ok(tightened.violations.some((item) => item.kind === "TS_PARAMETER_OPTIONAL_PROPERTY_TIGHTENED" && item.property === "note"));
+});
+
+test("guard preserves typed return properties and required guarantees", () => {
+  const state = { evidence: [read("lib/orders.ts", "export function save(): { id: string; receipt_id?: string } { return { id: 'x' }; }")] };
+  const removed = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders.ts", content: "export function save(): { receipt_id?: string } { return {}; }" }] });
+  assert.equal(removed.compatible, false);
+  assert.ok(removed.violations.some((item) => item.kind === "TS_RETURN_PROPERTY_REMOVED" && item.property === "id"));
+  const weakened = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders.ts", content: "export function save(): { id?: string; receipt_id?: string } { return {}; }" }] });
+  assert.equal(weakened.compatible, false);
+  assert.ok(weakened.violations.some((item) => item.kind === "TS_RETURN_REQUIRED_PROPERTY_WEAKENED" && item.property === "id"));
+});
+
+test("guard allows safe TypeScript input widening and return strengthening", () => {
+  const state = { evidence: [read("lib/orders.ts", "export function save(input: { organization_id: string; note: string }): { id?: string } { return {}; }")] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders.ts", content: "export function save(input: { organization_id: string; note?: string }): { id: string } { return { id: 'x' }; }" }] });
+  assert.equal(result.compatible, true);
+});

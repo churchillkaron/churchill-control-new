@@ -217,3 +217,21 @@ test("dynamic Supabase payloads do not invent static mutation contracts", () => 
   assert.ok(table);
   assert.deepEqual(table.mutation_fields || [], []);
 });
+
+test("syntax-aware parser captures exported TypeScript object contracts and resolves local references", () => {
+  const analysis = analyzeCodeAISourceDependencies("lib/orders.ts", [
+    "export interface OrderInput { organization_id: string; note?: string; }",
+    "export type OrderResult = { id: string; receipt_id?: string };",
+    "export function save(input: OrderInput): OrderResult { return { id: input.organization_id }; }",
+  ].join("\n"));
+  const input = analysis.type_contracts.find((item) => item.name === "OrderInput");
+  const result = analysis.type_contracts.find((item) => item.name === "OrderResult");
+  const fn = analysis.function_contracts.find((item) => item.name === "save");
+  assert.equal(input.exported, true);
+  assert.deepEqual(input.properties.map((item) => [item.name, item.optional]), [["organization_id", false], ["note", true]]);
+  assert.equal(result.exported, true);
+  assert.ok(fn.parameter_object_shapes[0].resolved_local_type);
+  assert.ok(fn.parameter_object_shapes[0].properties.some((item) => item.name === "organization_id"));
+  assert.ok(fn.typed_return_shape.resolved_local_type);
+  assert.ok(fn.typed_return_shape.properties.some((item) => item.name === "id" && item.optional === false));
+});

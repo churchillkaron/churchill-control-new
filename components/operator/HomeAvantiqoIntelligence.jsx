@@ -858,7 +858,6 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           >
             <Loader2 size={12} className="animate-spin text-white/25" />
             <span>{conversationalProgressStatus(liveExecution, busyElapsedSeconds, activeRequestStartedAt)}</span>
-            <span className="text-white/20">· {busyElapsedSeconds}s</span>
           </div>
         ) : null}
       </div>

@@ -8,6 +8,7 @@ import {
 
 const SECRET = "competitive-reference-secret-0123456789abcdef";
 const SUITE_SHA = "a".repeat(64);
+const PROMPT_SHA = "c".repeat(64);
 const CASES = ["case_a", "case_b"];
 
 function report(overrides = {}) {
@@ -21,6 +22,8 @@ function report(overrides = {}) {
     model: { product_model: "reference-model" },
     suite_contract: "AVANTIQO_CODE_FRONTIER_ENGINEERING_SUITE_V1",
     suite_sha256: SUITE_SHA,
+    prompt_contract: "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1",
+    prompt_contract_sha256: PROMPT_SHA,
     customer_private_content_included: false,
     raw_customer_content_included: false,
     raw_reasoning_persisted: false,
@@ -39,6 +42,8 @@ const verifyOptions = {
   env,
   suite_contract: "AVANTIQO_CODE_FRONTIER_ENGINEERING_SUITE_V1",
   suite_sha256: SUITE_SHA,
+  prompt_contract: "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1",
+  prompt_contract_sha256: PROMPT_SHA,
   required_case_ids: CASES,
 };
 
@@ -61,6 +66,14 @@ test("wrong canonical suite binding fails closed", () => {
   assert.throws(
     () => verifyCodeAICompetitiveReferenceReport(signed, { ...verifyOptions, suite_sha256: "b".repeat(64) }),
     /CODE_AI_COMPETITIVE_REFERENCE_SUITE_SHA256_MISMATCH/,
+  );
+});
+
+test("mismatched prompt contract fails closed", () => {
+  const signed = attestCodeAICompetitiveReferenceReport(report(), { env });
+  assert.throws(
+    () => verifyCodeAICompetitiveReferenceReport(signed, { ...verifyOptions, prompt_contract_sha256: "d".repeat(64) }),
+    /CODE_AI_COMPETITIVE_REFERENCE_PROMPT_SHA256_MISMATCH/,
   );
 });
 

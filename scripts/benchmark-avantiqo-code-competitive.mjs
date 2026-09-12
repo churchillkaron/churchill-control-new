@@ -7,7 +7,9 @@ const CONTRACT = "AVANTIQO_CODE_COMPETITIVE_BENCHMARK_V1";
 const DEFAULT_OWNED = "/tmp/avantiqo-code-certification-benchmark.json";
 const DEFAULT_OUTPUT = "/tmp/avantiqo-code-competitive-benchmark.json";
 const DEFAULT_SUITE = "benchmarks/avantiqo-code-frontier-engineering-suite.json";
+const DEFAULT_PROMPT_CONTRACT = "benchmarks/avantiqo-code-frontier-prompt-contract.json";
 const SUITE_CONTRACT = "AVANTIQO_CODE_FRONTIER_ENGINEERING_SUITE_V1";
+const PROMPT_CONTRACT = "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1";
 const MIN_CASES = 20;
 const MAX_REFERENCE_AGE_DAYS = 30;
 const MIN_WIN_RATE = 0.55;
@@ -133,6 +135,7 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
 
 const ownedPath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_OWNED || DEFAULT_OWNED);
 const suitePath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_SUITE || DEFAULT_SUITE);
+const promptContractPath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_PROMPT_CONTRACT || DEFAULT_PROMPT_CONTRACT);
 const referencePaths = text(process.env.AVANTIQO_CODE_COMPETITIVE_REFERENCES)
   .split(",")
   .map((item) => text(item))
@@ -152,11 +155,25 @@ if (owned?.summary?.passed !== true || owned?.summary?.complete_suite !== true) 
   throw new Error("AVANTIQO_CODE_COMPETITIVE_OWNED_BENCHMARK_MUST_PASS");
 }
 const suiteSha256 = sha256(suiteSource);
+const promptContractSource = await readFile(promptContractPath, "utf8");
+const promptContract = JSON.parse(promptContractSource);
+if (text(promptContract?.contract) !== PROMPT_CONTRACT) {
+  throw new Error("AVANTIQO_CODE_COMPETITIVE_PROMPT_CONTRACT_INVALID");
+}
+const promptContractSha256 = sha256(promptContractSource);
+if (
+  text(owned?.prompt_contract) !== PROMPT_CONTRACT ||
+  text(owned?.prompt_contract_sha256).toLowerCase() !== promptContractSha256.toLowerCase()
+) {
+  throw new Error("AVANTIQO_CODE_COMPETITIVE_OWNED_PROMPT_CONTRACT_MISMATCH");
+}
 const references = await Promise.all(referencePaths.map(async (path) => JSON.parse(await readFile(path, "utf8"))));
 for (const reference of references) {
   verifyCodeAICompetitiveReferenceReport(reference, {
     suite_contract: SUITE_CONTRACT,
     suite_sha256: suiteSha256,
+    prompt_contract: PROMPT_CONTRACT,
+    prompt_contract_sha256: promptContractSha256,
     required_case_ids: requiredCaseIds,
   });
 }
@@ -183,6 +200,7 @@ const report = {
     canonical_suite_exact_match_required: true,
     cryptographic_reference_attestation_required: true,
     exact_suite_sha256_binding_required: true,
+    exact_prompt_contract_sha256_binding_required: true,
     live_reference_provider_execution_required: true,
   },
   comparisons,

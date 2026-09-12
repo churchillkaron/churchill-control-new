@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import time
 from datetime import datetime, timezone
@@ -16,7 +17,9 @@ PRODUCT_MODEL = "avantiqo-code-v1"
 APP_NAME = "avantiqo-code-snapshot-canary-v1"
 CLS_NAME = "CodeSnapshotCanary"
 DEFAULT_SUITE = Path("benchmarks/avantiqo-code-frontier-engineering-suite.json")
+DEFAULT_PROMPT_CONTRACT = Path("benchmarks/avantiqo-code-frontier-prompt-contract.json")
 DEFAULT_OUTPUT = Path("/tmp/avantiqo-code-frontier-owned.json")
+PROMPT_CONTRACT = "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1"
 
 
 def text(value: Any) -> str:
@@ -36,21 +39,36 @@ def load_suite(path: Path) -> dict[str, Any]:
     return suite
 
 
-def request_for_case(case: dict[str, Any]) -> dict[str, Any]:
+def load_prompt_contract(path: Path) -> tuple[dict[str, Any], str]:
+    source = path.read_text(encoding="utf-8")
+    contract = json.loads(source)
+    if text(contract.get("contract")) != PROMPT_CONTRACT:
+        raise RuntimeError(f"{CONTRACT}_PROMPT_CONTRACT_INVALID")
+    lines = contract.get("template_lines") if isinstance(contract.get("template_lines"), list) else []
+    if not lines:
+        raise RuntimeError(f"{CONTRACT}_PROMPT_TEMPLATE_REQUIRED")
+    return contract, hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+
+def render_prompt(prompt_contract: dict[str, Any], case: dict[str, Any]) -> str:
     required = [text(v) for v in case.get("required_evidence", []) if text(v)]
-    prompt = "\n".join([
-        "You are being evaluated on one provider-neutral senior software engineering scenario.",
-        f"Scenario: {text(case.get('title'))}",
-        f"Category: {text(case.get('category'))}",
-        "Return ONLY strict JSON; no markdown.",
-        "The JSON must have exactly: case_id, diagnosis, solution, verification, evidence.",
-        f"case_id must equal {text(case.get('case_id'))!r}.",
-        "diagnosis, solution, and verification must be concise but technically specific strings.",
-        "evidence must be an object containing every required evidence key below with a concise concrete string value, not booleans or generic claims.",
-        "Do not claim a test, build, migration, deployment, source inspection, or provider call actually happened unless the scenario explicitly supplies observed evidence. Describe what must be verified instead.",
-        "Prefer the smallest safe change, preserve unrelated behavior, and fail closed when evidence or authorization is missing.",
-        f"Required evidence keys: {json.dumps(required)}",
-    ])
+    replacements = {
+        "{{title}}": text(case.get("title")),
+        "{{category}}": text(case.get("category")),
+        "{{case_id_json}}": json.dumps(text(case.get("case_id"))),
+        "{{required_evidence_json}}": json.dumps(required),
+    }
+    rendered = []
+    for raw in prompt_contract.get("template_lines", []):
+        line = text(raw)
+        for needle, value in replacements.items():
+            line = line.replace(needle, value)
+        rendered.append(line)
+    return "\n".join(rendered)
+
+
+def request_for_case(case: dict[str, Any], prompt_contract: dict[str, Any], prompt_sha256: str) -> dict[str, Any]:
+    prompt = render_prompt(prompt_contract, case)
     return {
         "contract": ENGINE_CONTRACT,
         "capability": "ai.code.review",
@@ -61,8 +79,10 @@ def request_for_case(case: dict[str, Any]) -> dict[str, Any]:
         "structured_specification": {
             "benchmark_contract": CONTRACT,
             "suite_contract": SUITE_CONTRACT,
+            "prompt_contract": PROMPT_CONTRACT,
+            "prompt_contract_sha256": prompt_sha256,
             "case": case,
-            "output_contract": "STRICT_JSON_ENGINEERING_ASSESSMENT_V1",
+            "output_contract": text(prompt_contract.get("output_contract")),
             "raw_reasoning_must_not_persist": True,
         },
     }
@@ -119,11 +139,13 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--suite", default=str(DEFAULT_SUITE))
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    parser.add_argument("--prompt-contract", default=str(DEFAULT_PROMPT_CONTRACT))
     parser.add_argument("--limit", type=int, default=3)
     parser.add_argument("--full", action="store_true")
     args = parser.parse_args()
 
     suite = load_suite(Path(args.suite))
+    prompt_contract, prompt_sha256 = load_prompt_contract(Path(args.prompt_contract))
     cases = suite["cases"]
     if not args.full:
         cases = cases[: max(1, min(args.limit, len(cases)))]
@@ -131,7 +153,7 @@ def main() -> None:
     Snapshot = modal.Cls.from_name(APP_NAME, CLS_NAME)
     worker = Snapshot()
     batch_started = time.perf_counter()
-    batch = worker.invoke_batch.remote([request_for_case(case) for case in cases])
+    batch = worker.invoke_batch.remote([request_for_case(case, prompt_contract, prompt_sha256) for case in cases])
     batch_wall_ms = round((time.perf_counter() - batch_started) * 1000)
     if not isinstance(batch, dict):
         raise RuntimeError(f"{CONTRACT}_SNAPSHOT_BATCH_OBJECT_REQUIRED")
@@ -171,6 +193,8 @@ def main() -> None:
     report = {
         "contract": CONTRACT,
         "suite_contract": SUITE_CONTRACT,
+        "prompt_contract": PROMPT_CONTRACT,
+        "prompt_contract_sha256": prompt_sha256,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "model": {"provider": "avantiqo-code", "product_model": PRODUCT_MODEL},
         "execution": {"infrastructure": "MODAL_GPU_SNAPSHOT", "snapshot_contract": batch.get("contract"), "snapshot_wake_seconds": batch.get("snapshot_wake_seconds"), "batch_elapsed_seconds": batch.get("batch_elapsed_seconds"), "runpod_used": False, "persistent_storage_created": False},

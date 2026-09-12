@@ -16,6 +16,8 @@ test("competitive benchmark requires substantial identical current reference evi
   assert.match(source, /verifyCodeAICompetitiveReferenceReport/);
   assert.match(source, /cryptographic_reference_attestation_required: true/);
   assert.match(source, /exact_suite_sha256_binding_required: true/);
+  assert.match(source, /exact_prompt_contract_sha256_binding_required: true/);
+  assert.match(source, /AVANTIQO_CODE_COMPETITIVE_OWNED_PROMPT_CONTRACT_MISMATCH/);
 });
 
 test("competitive benchmark measures quality latency and cost", () => {

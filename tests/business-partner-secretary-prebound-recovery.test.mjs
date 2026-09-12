@@ -29,7 +29,7 @@ const runtimeFiles = [
   "SecretaryDocumentFilingRuntime.js",
 ].map((name) => fs.readFileSync(`lib/operator/secretary/${name}`, "utf8"));
 
-test("thirty Secretary mutations use prebound exact recovery", () => {
+test("thirty two Secretary mutations use prebound exact recovery", () => {
   assert.equal((platform.match(/ambiguousWriteRecovery: "PREBOUND_EXACT_ID"/g) || []).length, 12);
   assert.match(platform, /function withPreboundSecretaryRecovery/);
 });
@@ -88,11 +88,11 @@ test("job and outbound request creation prebind exact UUIDs before mutation", ()
   assert.match(platform, /secretary_outbound_call: \{ place: async \(\) => withPreboundSecretaryRecovery\(createSecretaryOutboundCallCapability\("place"\), "platform\.secretary_outbound_call_request\.read", "request_id"\)/);
 });
 
-test("action identity cert locks thirty prebound Secretary mutations", () => {
+test("action identity cert locks thirty two prebound Secretary mutations", () => {
   const cert = fs.readFileSync("scripts/certify-business-partner-action-identity-coverage-local.mjs", "utf8");
   assert.match(cert, /secretary_prebound_exact_recovery/);
   assert.match(cert, /secretary_remaining_fail_closed/);
-  assert.match(cert, /secretaryPrebound\.length === 30/);
+  assert.match(cert, /secretaryPrebound\.length === 32/);
 });
 
 test("meeting coordination prebinds the atomic RPC identity", () => {
@@ -110,4 +110,20 @@ test("meeting coordination prebinds the atomic RPC identity", () => {
 test("paperwork and travel reuse prebound Secretary job identity", () => {
   assert.match(platform, /secretary_paperwork:[^\n]*withPreboundSecretaryRecovery[^\n]*secretary_job_record\.read[^\n]*job_id/);
   assert.match(platform, /secretary_travel:[^\n]*withPreboundSecretaryRecovery[^\n]*secretary_job_record\.read[^\n]*job_id/);
+});
+
+
+test("decision and directive registers prebind exact durable IDs", () => {
+  const decision = fs.readFileSync("lib/operator/secretary/SecretaryExecutiveDecisionRegisterRuntime.js", "utf8");
+  const directive = fs.readFileSync("lib/operator/secretary/SecretaryExecutiveDirectiveRegisterRuntime.js", "utf8");
+  assert.match(decision, /const decisionId = deterministicUuid/);
+  assert.match(decision, /id: decisionId/);
+  assert.match(decision, /secretaryPreboundMutationResult[\s\S]*"decision_id",[\s\S]*decisionId/);
+  assert.match(decision, /decision_id: decisionId/);
+  assert.match(directive, /const directiveId = deterministicUuid/);
+  assert.match(directive, /id: directiveId/);
+  assert.match(directive, /secretaryPreboundMutationResult[\s\S]*"directive_id",[\s\S]*directiveId/);
+  assert.match(directive, /directive_id: directiveId/);
+  assert.match(platform, /secretary_decision_register:[^\n]*withPreboundSecretaryRecovery[^\n]*secretary_decision_register\.read[^\n]*decision_id/);
+  assert.match(platform, /secretary_directive_register:[^\n]*withPreboundSecretaryRecovery[^\n]*secretary_directive_register\.read[^\n]*directive_id/);
 });

@@ -26,11 +26,18 @@ const { clearOperatorCapabilityCatalogCache, listOperatorCapabilities } = await 
 clearOperatorCapabilityCatalogCache();
 const catalog=await listOperatorCapabilities({includeUnsafe:true});
 const resolvedWrites=catalog.filter((item)=>item.operator_enabled===true && item.mode!=="read");
-const resolvedUnknown=resolvedWrites.filter((item)=>!["EXPLICIT_VALID","INFERRED"].includes(item.operator_verification_status));
 const invalidDeclarations=resolvedWrites.filter((item)=>item.operator_verification_status==="INVALID_DECLARATION_BLOCKED");
-const resolvedSpecial=(item)=> item.key.startsWith("creative.") || item.key.startsWith("platform.secretary") || item.key.startsWith("platform.code_ai") || item.key.startsWith("platform.product_") || ["platform.business_partner_external_wait.execute","platform.operator_mission.execute"].includes(item.key);
-const resolvedOrdinaryUnknown=resolvedUnknown.filter((item)=>!resolvedSpecial(item));
-const resolvedSpecialUnknown=resolvedUnknown.filter(resolvedSpecial);
+const invalidExecutionBoundaries=resolvedWrites.filter((item)=>item.operator_execution_boundary_status==="INVALID_DECLARATION_BLOCKED");
+const validExecutionBoundary=(item)=>item.operator_execution_boundary_status==="EXPLICIT_VALID" && item.operator_execution_boundary?.contract==="AVANTIQO_OPERATOR_EXECUTION_BOUNDARY_V1" && item.operator_execution_boundary?.mutation_replay_authority===false && item.operator_execution_boundary?.authorization_effect==="NONE";
+const unresolvedWrites=resolvedWrites.filter((item)=>!["EXPLICIT_VALID","INFERRED"].includes(item.operator_verification_status) && !validExecutionBoundary(item));
+const secretaryRecordBacklog=unresolvedWrites.filter((item)=>item.key.startsWith("platform.secretary"));
+const ordinaryUnknown=unresolvedWrites.filter((item)=>!item.key.startsWith("platform.secretary"));
+const executionBoundaryWrites=resolvedWrites.filter(validExecutionBoundary);
+const fullOrchestrationCatalogAvailable=["creative.production.run","platform.code_ai_commit.execute","platform.product_engineering_portfolio.execute","platform.operator_mission.execute"].every((key)=>resolvedWrites.some((item)=>item.key===key));
+const platformRuntimeSource=fs.readFileSync("lib/platform/runtime/PlatformDomainRuntime.js","utf8");
+const creativeRuntimeSource=fs.readFileSync("lib/creative/runtime/CreativeRuntime.js","utf8");
+const domainRuntimeSource=fs.readFileSync("lib/ubte/runtime/domains/DomainRuntimeRegistry.js","utf8");
+const staticBoundaryRegistrations=(platformRuntimeSource.match(/withOperatorExecutionBoundary/g)||[]).length + (creativeRuntimeSource.match(/loadWithOperatorExecutionBoundary/g)||[]).length + (domainRuntimeSource.match(/withOperatorExecutionBoundary/g)||[]).length;
 
 const evidence={
   source_operator_writes_scanned:writes.length>0,
@@ -40,15 +47,19 @@ const evidence={
   registry_generated_writes_fail_closed_without_identity:registryFailClosed,
   registry_generated_writes_declare_verification:registryVerification,
   resolved_catalog_loaded:catalog.length>0 && resolvedWrites.length>0,
-  resolved_catalog_no_unverified_ordinary_writes:resolvedOrdinaryUnknown.length===0,
-  resolved_catalog_no_invalid_declarations:invalidDeclarations.length===0,
-  resolved_unverified_are_explicit_orchestration_only:resolvedUnknown.every(resolvedSpecial),
+  resolved_catalog_no_invalid_verifier_declarations:invalidDeclarations.length===0,
+  resolved_catalog_no_invalid_execution_boundaries:invalidExecutionBoundaries.length===0,
+  true_orchestration_registration_contract_present:staticBoundaryRegistrations>=18,
+  true_orchestration_requires_explicit_execution_boundary:fullOrchestrationCatalogAvailable ? executionBoundaryWrites.length>=15 : true,
+  execution_boundary_never_grants_replay:executionBoundaryWrites.every((item)=>item.operator_execution_boundary?.mutation_replay_authority===false && item.operator_execution_boundary?.authorization_effect==="NONE"),
+  no_unclassified_non_secretary_writes:ordinaryUnknown.length===0,
+  remaining_unverified_are_secretary_records_only:unresolvedWrites.every((item)=>item.key.startsWith("platform.secretary")),
 };
 const result=certifyBusinessPartnerLifecycle({
   scenario:"BUSINESS_PARTNER_WRITE_VERIFICATION_COVERAGE",
   stages:{mission_planning:true,governed_execution:true,business_effect_verification:Object.values(evidence).every(Boolean),failure_capture:true,defect_classification:true,self_healing_engineering:true,governed_release:true,production_activation:true,automatic_wake:true,authoritative_replay:true,mission_continuation:true,final_business_outcome:true,learning_evidence:true},
   productionWritesPerformed:false,productionDeployPerformed:false,databaseMigrationsApplied:false,authorizationEffect:"NONE",
-  domainEvidence:{...evidence,total_source_operator_writes:writes.length,source_verified:writes.filter(x=>x.verified).length,source_special_governed:writes.filter(x=>x.special&&!x.verified).length,source_unknown:sourceUnknown.map(x=>x.file),resolved_catalog_size:catalog.length,resolved_writes:resolvedWrites.length,resolved_verification_statuses:resolvedWrites.reduce((a,x)=>(a[x.operator_verification_status]=(a[x.operator_verification_status]||0)+1,a),{}),resolved_ordinary_unknown:resolvedOrdinaryUnknown.map(x=>x.key),resolved_special_governed:resolvedSpecialUnknown.map(x=>x.key),resolved_invalid_declarations:invalidDeclarations.map(x=>x.key)},
+  domainEvidence:{...evidence,total_source_operator_writes:writes.length,source_verified:writes.filter(x=>x.verified).length,source_special_governed:writes.filter(x=>x.special&&!x.verified).length,source_unknown:sourceUnknown.map(x=>x.file),resolved_catalog_size:catalog.length,resolved_writes:resolvedWrites.length,resolved_verification_statuses:resolvedWrites.reduce((a,x)=>(a[x.operator_verification_status]=(a[x.operator_verification_status]||0)+1,a),{}),resolved_full_orchestration_catalog_available:fullOrchestrationCatalogAvailable,resolved_execution_boundary_count:executionBoundaryWrites.length,static_execution_boundary_registration_count:staticBoundaryRegistrations,resolved_execution_boundaries:executionBoundaryWrites.map(x=>x.key),resolved_secretary_record_backlog:secretaryRecordBacklog.map(x=>x.key),resolved_ordinary_unknown:ordinaryUnknown.map(x=>x.key),resolved_invalid_declarations:invalidDeclarations.map(x=>x.key),resolved_invalid_execution_boundaries:invalidExecutionBoundaries.map(x=>x.key)},
 });
 console.log(JSON.stringify(result,null,2));
 if(!result.certified) process.exit(1);

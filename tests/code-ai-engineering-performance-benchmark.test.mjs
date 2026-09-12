@@ -6,6 +6,7 @@ import {
   aggregateCodeAIEngineeringPerformance,
   compareCodeAIEngineeringPerformanceWindows,
   deriveCodeAIEngineeringImprovementBacklog,
+  aggregateCodeAIEngineeringHotspotBacklog,
 } from "../lib/code/runtime/CodeAIEngineeringPerformanceMetricsRuntime.js";
 
 test("real mission performance metrics measure quality, first-pass rate, reasoning and intervention", () => {
@@ -85,6 +86,28 @@ test("real mission performance metrics measure quality, first-pass rate, reasoni
   assert.ok(metrics.engineering_efficiency_score <= 100);
 });
 
+
+test("recurring mission hotspots become a ranked advisory engineering backlog", () => {
+  const backlog = aggregateCodeAIEngineeringHotspotBacklog([
+    { engineering_hotspots: { items: [
+      { priority: "P1", area: "caller_fanout", score: 82, evidence: "shared runtime", recommendation: "Review shared boundary", affected_paths: ["lib/shared.js"] },
+      { priority: "P2", area: "dependency_uncertainty", score: 55, evidence: "2 unresolved imports", recommendation: "Resolve dependency uncertainty", affected_paths: [] },
+    ] } },
+    { engineering_hotspots: { items: [
+      { priority: "P0", area: "caller_fanout", score: 95, evidence: "fanout increased", recommendation: "Review shared boundary", affected_paths: ["lib/shared.js", "app/a.js"] },
+      { priority: "P1", area: "convergence_debt", score: 70, evidence: "repair loops", recommendation: "Add deterministic preflight", affected_paths: [] },
+    ] } },
+  ]);
+
+  assert.equal(backlog.contract, "AVANTIQO_CODE_AI_ENGINEERING_HOTSPOT_BACKLOG_V1");
+  assert.equal(backlog.items[0].area, "caller_fanout");
+  assert.equal(backlog.items[0].priority, "P0");
+  assert.equal(backlog.items[0].occurrence_count, 2);
+  assert.equal(backlog.repeated_hotspot_count, 1);
+  assert.ok(backlog.items[0].affected_paths.includes("lib/shared.js"));
+  assert.equal(backlog.automatic_source_mutation_authority, false);
+});
+
 test("mission history, API and shared UI expose one longitudinal performance projection", async () => {
   const history = await readFile("lib/code/runtime/CodeAIMissionHistoryRuntime.js", "utf8");
   const route = await readFile("app/api/operator/code/history/route.js", "utf8");
@@ -106,6 +129,7 @@ test("mission history, API and shared UI expose one longitudinal performance pro
   assert.match(benchmark, /measured_from_attested_mission_history: true/);
   assert.match(benchmark, /AVANTIQO_CODE_COMPETITIVE_BENCHMARK_V1/);
   assert.match(benchmark, /external_superiority_claim_effect: "NONE"/);
+  assert.match(benchmark, /engineering_hotspot_backlog: history\.engineering_hotspot_backlog/);
 });
 
 
@@ -161,6 +185,7 @@ test("Code-focused Product Engineering portfolio consumes measured performance o
   assert.match(portfolio, /codeEngineeringImprovementGoal/);
   assert.match(portfolio, /ATTESTED CODE MISSION PERFORMANCE EVIDENCE/);
   assert.match(portfolio, /current-main repository evidence supports a concrete improvement/);
+  assert.match(portfolio, /engineering_hotspot\[/);
   assert.match(portfolio, /Metrics have no mutation, commit, deployment, provider-routing or governance authority/);
   assert.match(panel, /data-avantiqo-code-improvement-backlog="true"/);
   assert.match(panel, /Next measured improvement:/);

@@ -82,23 +82,36 @@ function conversationalProgressStatus(liveExecution, elapsedSeconds, startedAt) 
   const elapsed = Math.max(0, Number(elapsedSeconds || 0));
   const started = Number(startedAt || 0);
   const events = Array.isArray(liveExecution?.events) ? liveExecution.events : [];
-  let status = "Understanding your request…";
+  let latest = null;
   for (const event of events) {
     const at = Date.parse(text(event?.at));
     if (started && Number.isFinite(at) && at < started - 2000) continue;
-    const phase = text(event?.phase).toUpperCase();
-    if (phase === "REQUEST_ROUTING") status = "Checking current business context…";
-    else if (phase === "LIVE_READ") status = "Reading current evidence…";
-    else if (phase === "LIVE_READ_COMPLETE") status = "Evidence received. Preparing the answer…";
-    else if (phase === "LIVE_READ_FAILED") status = "A live read failed. Recovering safely…";
-    else if (phase === "FAST_INTELLIGENCE_RETRY") status = "Fast Intelligence stalled. Retrying safely…";
-    else if (phase === "VERIFYING" || phase === "VERIFICATION") status = "Verifying the result…";
-    else if (text(event?.description)) status = text(event.description);
+    latest = event;
   }
-  if (elapsed >= 40) status = "Still working on the same request. Waiting for a verified result…";
-  else if (elapsed >= 20) status = "Still working. I’ll surface the blocker if one appears…";
-  else if (elapsed >= 8 && status === "Understanding your request…") status = "Still working on your request…";
-  return status;
+
+  if (!latest) return `Understanding your request… · ${elapsed}s`;
+
+  const description = text(latest?.description);
+  const capability = text(latest?.capability_key);
+  const action = text(latest?.action);
+  const command = text(latest?.command);
+  const files = Array.isArray(latest?.files_changed) ? latest.files_changed.filter(Boolean) : [];
+  const phase = text(latest?.phase).replaceAll("_", " ").toLowerCase();
+
+  let detail = description;
+  if (!detail && capability) detail = `${action === "read" ? "Reading" : "Working with"} ${capability}`;
+  if (!detail && command) detail = `Running ${command}`;
+  if (!detail && files.length) detail = `Updating ${files.slice(0, 2).join(", ")}`;
+  if (!detail && phase) detail = phase.charAt(0).toUpperCase() + phase.slice(1);
+  if (!detail) detail = "Working on the current request";
+
+  const context = [
+    capability && !detail.includes(capability) ? capability : "",
+    action && action !== "read" ? action : "",
+    files.length ? `${files.length} file${files.length === 1 ? "" : "s"}` : "",
+  ].filter(Boolean).join(" · ");
+
+  return `${detail}${context ? ` · ${context}` : ""} · ${elapsed}s`;
 }
 
 function thesisInterruptionSpeech(thesis) {

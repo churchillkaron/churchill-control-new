@@ -1,10 +1,9 @@
-"""Scale-to-zero Modal workers for owned Avantiqo Intelligence Fast + Deep.
+"""Owned Avantiqo Intelligence Fast + Deep Modal workers.
 
 No Modal Volume is created. Each exact Qwen snapshot is baked into its own
-immutable Modal Image layer. Deploying these worker definitions downloads the
-pinned public model snapshot once; invoking Fast/Deep is the only action that
-starts an H100. The gateway lives in modal_service.py and never imports this
-module. A warm container reuses its vLLM engine until Modal scales it to zero.
+immutable Modal Image layer. Fast reuses one H100 conversational container during active chat and scales
+to zero after two idle minutes; Deep remains scale-to-zero. The
+gateway lives in modal_service.py and never imports this module.
 """
 from __future__ import annotations
 
@@ -36,7 +35,7 @@ DEEP_MAX_MODEL_LEN = 131072
 FAST_MAX_INPUT_CHARACTERS = 100000
 DEEP_MAX_INPUT_CHARACTERS = 500000
 MAX_OUTPUT_TOKENS = 16384
-FAST_SCALEDOWN_WINDOW_SECONDS = 10
+FAST_SCALEDOWN_WINDOW_SECONDS = 2 * 60
 DEEP_SCALEDOWN_WINDOW_SECONDS = 5
 FAST_RUNTIME_CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_WARM_FUNCTION_V1"
 PRIVATE_KEYS = {
@@ -282,7 +281,7 @@ def _tool_calls(raw: str) -> tuple[str, list[dict[str, Any]]]:
 
 
 
-def _excerpt(value: Any, limit: int = 16000) -> str:
+def _excerpt(value: Any, limit: int = 11200) -> str:
     source = _text(value)
     if len(source) <= limit:
         return source

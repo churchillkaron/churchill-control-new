@@ -42,7 +42,10 @@ test("Business Partner renders live execution as ephemeral gray status only", ()
   assert.match(ui, /conversationalProgressStatus/);
   assert.match(ui, /data-avantiqo-live-status="true"/);
   assert.match(ui, /text-white\/35/);
-  assert.match(ui, /FAST_INTELLIGENCE_RETRY/);
+  assert.match(ui, /latest\?\.description/);
+  assert.match(ui, /latest\?\.capability_key/);
+  assert.match(ui, /latest\?\.command/);
+  assert.doesNotMatch(ui, /Still working on the same request\. Waiting for a verified result/);
   assert.match(ui, /result\?\.details\?\.conversation_response/);
   assert.doesNotMatch(ui, /data-avantiqo-conversation-progress="true"/);
   assert.doesNotMatch(ui, /busyRequestStatus\(/);

@@ -253,3 +253,29 @@ test("verified prior mission lessons become durable negative engineering memory"
   assert.match(prepared.options.objective, /KNOWN FAILED\/NEGATIVE APPROACHES/);
   assert.match(prepared.options.objective, /queue settlement raced cancellation/);
 });
+
+test("adaptive reasoning budgets can escalate after strategic evidence while caller budgets remain fixed", async () => {
+  const automatic = prepareCodeAIWorldClassMission({
+    objective: "Repair a bounded runtime defect.",
+    resume_state: { repository_impact: { risk: "standard" } },
+  });
+  assert.equal(automatic.options.objective_context.adaptive_reasoning_budget_applied, true);
+  assert.equal(automatic.options.objective_context.caller_reasoning_budget_preserved, false);
+
+  const explicit = prepareCodeAIWorldClassMission({
+    objective: "Repair a bounded runtime defect.",
+    reasoning_call_budget: 3,
+    resume_state: { repository_impact: { risk: "critical" } },
+  });
+  assert.equal(explicit.options.reasoning_call_budget, 3);
+  assert.equal(explicit.options.objective_context.adaptive_reasoning_budget_applied, false);
+  assert.equal(explicit.options.objective_context.caller_reasoning_budget_preserved, true);
+
+  const live = await readFile("lib/code/runtime/CodeAIWorkPackageRuntimeLive.js", "utf8");
+  const strategic = await readFile("lib/code/runtime/CodeAIStrategicReasoningRuntime.js", "utf8");
+  assert.match(live, /adaptiveBudgetApplied[\s\S]*Math\.max\(existingBudget \|\| 0, incomingBudget\)/);
+  assert.match(live, /workPackageControl\(state, reasoning_call_budget, objectiveContext\)/);
+  assert.match(strategic, /const effectiveReasoningBudget = adaptiveBudgetMayEscalate[\s\S]*Math\.max/);
+  assert.match(strategic, /effective_reasoning_call_budget/);
+  assert.match(strategic, /caller_reasoning_budget_preserved/);
+});

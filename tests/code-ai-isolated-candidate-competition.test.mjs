@@ -172,3 +172,36 @@ test("isolated candidate trials cannot overwrite shared parent live progress", a
       deterministic.indexOf("await publishCodeAILiveProgress"),
   );
 });
+
+test("contract-conflicting isolated strategy is rejected before consuming a trial reasoning call", async () => {
+  const seen = [];
+  const result = await runCodeAIIsolatedCandidateCompetition({
+    policy: { enabled: true },
+    strategy_competition: {
+      ranked: [
+        { id: "bad", score: 99, direction: "Remove organization_id from saveInvoice and simplify the runtime." },
+        { id: "good", score: 90, direction: "Preserve the existing business context and repair the canonical runtime." },
+      ],
+    },
+    input: { objective: "Repair invoice runtime", repository_url: "https://github.com/example/repo", reasoning_call_budget: 2 },
+    resume_state: {
+      mission_id: "mission-contract-filter",
+      work_package_control: { reasoning_calls_used: 0 },
+      evidence: [
+        { kind: "operation", action: "read", status: "completed", result: {
+          file_path: "lib/invoice.js",
+          content: "export function saveInvoice(context){ return context.organization_id; }",
+        } },
+      ],
+    },
+    dependencies: {
+      executeCandidate: async (input) => { seen.push(input); return completedResult(input, 0); },
+    },
+  });
+  assert.equal(seen.length, 0);
+  assert.equal(result.executed, false);
+  assert.equal(result.status, "NOT_RUN");
+  assert.equal(result.contract_rejected_candidate_count, 1);
+  assert.equal(result.contract_rejected_candidates[0].id, "bad");
+  assert.equal(result.reasoning_calls_consumed ?? 0, 0);
+});

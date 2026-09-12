@@ -185,7 +185,8 @@ test("specialist strategy competition is formatted into the implementation objec
     "lib/code/runtime/CodeAIStrategicReasoningRuntime.js",
     "utf8",
   );
-  assert.match(strategic, /const solutionStrategyCompetition = competeCodeAISolutionStrategies/);
+  assert.match(strategic, /const rawSolutionStrategyCompetition = competeCodeAISolutionStrategies/);
+  assert.match(strategic, /filterCodeAIStrategyCompetitionByObservedContracts/);
   assert.match(strategic, /solution_strategy_competition: solutionStrategyCompetition/);
   assert.match(strategic, /formatCodeAISolutionStrategyCompetitionForObjective/);
 

@@ -32,6 +32,9 @@ test("Business Partner never authorizes replay before exact production activatio
 });
 
 test("post-release continuation reuses only the exact failed capability and payload through current governance", () => {
+  assert.match(core, /const recoveryCapabilityKey = text\(recoveryCapability\.key\)/);
+  assert.match(core, /const recoveryPayload = object\(recovery\.payload\)/);
+  assert.match(core, /validateBusinessPartnerRecoveryReplayBinding\([\s\S]*recovery\.replay_binding[\s\S]*capabilityKey: recoveryCapabilityKey[\s\S]*payload: recoveryPayload/);
   assert.match(core, /capability_key: recoveryCapabilityKey,[\s\S]*payload: recoveryPayload/);
   assert.match(core, /resume_kind: "business_partner_recovery"/);
   assert.match(core, /validateBusinessPartnerRecoveryReplayBinding/);

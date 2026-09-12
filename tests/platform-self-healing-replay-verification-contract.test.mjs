@@ -33,6 +33,8 @@ function evidence(overrides = {}) {
     observed_commit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     original_action_replayed: true,
     replay_binding_verified: true,
+    original_action_binding_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    replayed_action_binding_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     safe_deterministic_equivalent: false,
     original_failure_absent: true,
     expected_outcome_observed: true,
@@ -134,4 +136,24 @@ test("unsafe actions may use deterministic equivalent only with required verific
   });
   assert.equal(rejected.success, false);
   assert.equal(rejected.reason, "SELF_HEALING_ORIGINAL_ACTION_REPLAY_REQUIRED");
+});
+
+
+test("exact replay requires the same captured and replayed business action binding", () => {
+  const missing = verifyPlatformSelfHealingReplay({
+    execution: execution(),
+    evidence: evidence({ original_action_binding_sha256: null }),
+  });
+  assert.equal(missing.success, false);
+  assert.equal(missing.reason, "SELF_HEALING_ORIGINAL_ACTION_BINDING_REQUIRED");
+
+  const mismatch = verifyPlatformSelfHealingReplay({
+    execution: execution(),
+    evidence: evidence({
+      replayed_action_binding_sha256: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    }),
+  });
+  assert.equal(mismatch.success, false);
+  assert.equal(mismatch.fixed, false);
+  assert.equal(mismatch.reason, "SELF_HEALING_ORIGINAL_ACTION_BINDING_MISMATCH");
 });

@@ -32,3 +32,11 @@ test("verified replay receipt survives recovery cleanup and permits larger missi
   assert.match(core, /clearBusinessPartnerRecovery\(nextAgreementState\)/);
   assert.match(core, /businessPartnerMissionContinuation/);
 });
+
+
+test("post-release replay passes independently recomputed exact-action binding hashes to Platform verification", () => {
+  assert.match(core, /replayedActionBinding\s*=\s*exactReplayBindingVerified/);
+  assert.match(core, /buildBusinessPartnerRecoveryReplayBinding\(\{[\s\S]*capabilityKey:\s*pending\.capability_key[\s\S]*payload:\s*pending\.payload/);
+  assert.match(core, /original_action_binding_sha256:\s*text\(recovery\?\.replay_binding\?\.binding_sha256/);
+  assert.match(core, /replayed_action_binding_sha256:\s*text\(replayedActionBinding\?\.binding_sha256/);
+});

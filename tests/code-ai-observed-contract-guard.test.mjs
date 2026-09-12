@@ -83,3 +83,57 @@ test("guard preserves observed Supabase selected columns", () => {
   assert.equal(result.compatible, false);
   assert.ok(result.violations.some((item) => item.kind === "SUPABASE_SELECTED_COLUMN_REMOVED" && item.column === "organization_id"));
 });
+
+test("guard accepts coherent same-package exported symbol migration", () => {
+  const state = { evidence: [
+    read("lib/orders/runtime.js", "export function settleOrder(){ return true; }"),
+    read("lib/orders/service.js", 'import { settleOrder } from "./runtime.js"; export function settle(){ return settleOrder(); }'),
+  ] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [
+    { path: "lib/orders/runtime.js", content: "export function settleOrderV2(){ return true; }" },
+    { path: "lib/orders/service.js", content: 'import { settleOrderV2 } from "./runtime.js"; export function settle(){ return settleOrderV2(); }' },
+  ] });
+  assert.equal(result.compatible, true);
+  assert.equal(result.requires_verification, true);
+  assert.ok(result.coherent_contract_migrations.some((item) => item.kind === "COHERENT_IMPORTED_SYMBOL_MIGRATION" && item.from_symbol === "settleOrder" && item.to_symbol === "settleOrderV2"));
+});
+
+test("guard rejects partial symbol migration when one observed caller is unchanged", () => {
+  const state = { evidence: [
+    read("lib/orders/runtime.js", "export function settleOrder(){ return true; }"),
+    read("lib/orders/service-a.js", 'import { settleOrder } from "./runtime.js"; export function settleA(){ return settleOrder(); }'),
+    read("lib/orders/service-b.js", 'import { settleOrder } from "./runtime.js"; export function settleB(){ return settleOrder(); }'),
+  ] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [
+    { path: "lib/orders/runtime.js", content: "export function settleOrderV2(){ return true; }" },
+    { path: "lib/orders/service-a.js", content: 'import { settleOrderV2 } from "./runtime.js"; export function settleA(){ return settleOrderV2(); }' },
+  ] });
+  assert.equal(result.compatible, false);
+  assert.ok(result.violations.some((item) => item.kind === "OBSERVED_IMPORTED_SYMBOL_REMOVED"));
+});
+
+test("guard accepts coherent same-package arity migration", () => {
+  const state = { evidence: [
+    read("lib/orders/runtime.js", "export function settleOrder(order){ return order.id; }"),
+    read("lib/orders/service.js", 'import { settleOrder } from "./runtime.js"; export function settle(order){ return settleOrder(order); }'),
+  ] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [
+    { path: "lib/orders/runtime.js", content: "export function settleOrder(order, context){ return order.id; }" },
+    { path: "lib/orders/service.js", content: 'import { settleOrder } from "./runtime.js"; export function settle(order, context){ return settleOrder(order, context); }' },
+  ] });
+  assert.equal(result.compatible, true);
+  assert.ok(result.coherent_contract_migrations.some((item) => item.kind === "COHERENT_CALL_ARITY_MIGRATION" && item.from_argument_count === 1 && item.to_argument_count === 2));
+});
+
+test("guard accepts coherent same-package returned-field migration", () => {
+  const state = { evidence: [
+    read("lib/orders/runtime.js", "export function settleOrder(){ return { invoice_id: 'x' }; }"),
+    read("lib/orders/service.js", 'import { settleOrder } from "./runtime.js"; export function settle(){ const result = settleOrder(); return result.invoice_id; }'),
+  ] };
+  const result = assessCodeAIObservedContractCompatibility({ state, writes: [
+    { path: "lib/orders/runtime.js", content: "export function settleOrder(){ return { receipt_id: 'x' }; }" },
+    { path: "lib/orders/service.js", content: 'import { settleOrder } from "./runtime.js"; export function settle(){ const result = settleOrder(); return result.receipt_id; }' },
+  ] });
+  assert.equal(result.compatible, true);
+  assert.ok(result.coherent_contract_migrations.some((item) => item.kind === "COHERENT_RETURN_FIELD_MIGRATION" && item.from_field === "invoice_id" && item.to_field === "receipt_id"));
+});

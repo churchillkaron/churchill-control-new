@@ -110,6 +110,25 @@ function boundedConversation(value) {
 function isInsufficientWalletBalance(error) {
   return text(error?.message || error).includes("INSUFFICIENT_WALLET_BALANCE");
 }
+function isFastIntelligenceSettlementTimeout(error) {
+  return /AVANTIQO_(?:INTELLIGENCE|OPERATOR_INTELLIGENCE)_PENDING_SETTLEMENT_TIMEOUT(?::fast)?/i.test(
+    text(error?.message || error),
+  );
+}
+
+function fastIntelligenceTimeoutDetails(error) {
+  const code = text(error?.message || error).split(" ")[0].slice(0, 240);
+  return {
+    code: code || "AVANTIQO_FAST_INTELLIGENCE_TIMEOUT",
+    recoverable: true,
+    retryable: true,
+    conversation_preserved: true,
+    business_action_replayed: false,
+    mutation_assumed_complete: false,
+    conversation_response:
+      "I’m still here, but my fast intelligence lane did not return within the conversational time limit even after one safe retry. I stopped the stalled provider job instead of leaving you waiting. Your conversation is preserved and I did not replay or assume any business action. The next turn can continue from the same context.",
+  };
+}
 
 function prepaidBalanceBlockedResult({ agreementState, projectState } = {}) {
   return {
@@ -747,6 +766,14 @@ export async function POST(request) {
 
     const status = Number.isInteger(error?.status) ? error.status : 500;
     const isClientError = status >= 400 && status < 500;
+
+    if (isFastIntelligenceSettlementTimeout(error)) {
+      return errorResponse(
+        "Fast Intelligence exceeded the conversational time limit.",
+        503,
+        fastIntelligenceTimeoutDetails(error),
+      );
+    }
 
     return errorResponse(
       isClientError

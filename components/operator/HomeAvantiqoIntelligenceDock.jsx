@@ -457,12 +457,11 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       const conversationRowsChanged = mutations.some(
         (mutation) =>
           mutation.type === "childList" &&
-          mutation.target === scroller &&
           (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0),
       );
       if (conversationRowsChanged) scheduleLatest("smooth");
     });
-    observer.observe(scroller, { childList: true });
+    observer.observe(scroller, { childList: true, subtree: true });
 
     markGenericThinkingRows();
     scheduleLatest("auto");

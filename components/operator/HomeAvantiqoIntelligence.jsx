@@ -78,30 +78,27 @@ function thesisAttentionLabel(value) {
   return "Current thesis";
 }
 
-function busyRequestStatus(message, entityId, liveExecution, elapsedSeconds, startedAt) {
-  const request = text(message).replace(/\s+/g, " ").slice(0, 180);
+function conversationalProgressStatus(liveExecution, elapsedSeconds, startedAt) {
   const elapsed = Math.max(0, Number(elapsedSeconds || 0));
-  const updatedAt = Date.parse(text(liveExecution?.updated_at));
-  const freshLiveExecution =
-    liveExecution &&
-    Number.isFinite(updatedAt) &&
-    Number.isFinite(Number(startedAt)) &&
-    updatedAt >= Number(startedAt) - 2000;
-  const event = freshLiveExecution ? liveExecution?.latest_event || null : null;
-  const description = text(event?.description);
-  const capability = text(event?.capability_key);
-  const phase = text(event?.phase).replaceAll("_", " ");
-
-  if (description) {
-    return `${description}${capability ? ` - ${capability}` : phase ? ` - ${phase}` : ""} - ${elapsed}s`;
+  const started = Number(startedAt || 0);
+  const events = Array.isArray(liveExecution?.events) ? liveExecution.events : [];
+  let status = "Understanding your request…";
+  for (const event of events) {
+    const at = Date.parse(text(event?.at));
+    if (started && Number.isFinite(at) && at < started - 2000) continue;
+    const phase = text(event?.phase).toUpperCase();
+    if (phase === "REQUEST_ROUTING") status = "Checking current business context…";
+    else if (phase === "LIVE_READ") status = "Reading current evidence…";
+    else if (phase === "LIVE_READ_COMPLETE") status = "Evidence received. Preparing the answer…";
+    else if (phase === "LIVE_READ_FAILED") status = "A live read failed. Recovering safely…";
+    else if (phase === "FAST_INTELLIGENCE_RETRY") status = "Fast Intelligence stalled. Retrying safely…";
+    else if (phase === "VERIFYING" || phase === "VERIFICATION") status = "Verifying the result…";
+    else if (text(event?.description)) status = text(event.description);
   }
-
-  const scope = entityId ? "legal entity scoped" : "organization scoped";
-  if (elapsed < 2) return `${request || "Request"} - Matching registered capability - ${scope} - ${elapsed}s`;
-  if (elapsed < 6) return `Reading current business data - ${scope} - ${elapsed}s`;
-  if (elapsed < 15) return `Waiting for the governed read to return - ${elapsed}s`;
-  if (elapsed < 30) return `Still waiting for the server response - ${elapsed}s`;
-  return `This is taking unusually long - ${elapsed}s - the blocker will be surfaced instead of claiming progress`;
+  if (elapsed >= 40) status = "Still working on the same request. Waiting for a verified result…";
+  else if (elapsed >= 20) status = "Still working. I’ll surface the blocker if one appears…";
+  else if (elapsed >= 8 && status === "Understanding your request…") status = "Still working on your request…";
+  return status;
 }
 
 function thesisInterruptionSpeech(thesis) {
@@ -134,7 +131,6 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   const [error, setError] = useState("");
   const [messages, setMessages] = useState([greetingMessage()]);
   const [projectState, setProjectState] = useState({});
-  const [activeRequest, setActiveRequest] = useState("");
   const [activeRequestStartedAt, setActiveRequestStartedAt] = useState(null);
   const [busyElapsedSeconds, setBusyElapsedSeconds] = useState(0);
   const [liveExecution, setLiveExecution] = useState(null);
@@ -432,7 +428,6 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     setInput("");
     setError("");
     setBusy(true);
-    setActiveRequest(message);
     setActiveRequestStartedAt(Date.now());
     setBusyElapsedSeconds(0);
     setLiveExecution(null);
@@ -467,6 +462,20 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
 
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.success === false) {
+        const conversationalFailure = text(
+          result?.details?.conversation_response || result?.conversation_response,
+        );
+        if (conversationalFailure) {
+          setError("");
+          setMessages((current) => [
+            ...current,
+            createMessage("assistant", conversationalFailure, {
+              recovery: result?.details || {},
+            }),
+          ]);
+          if (source === "voice") speakResponse(conversationalFailure);
+          return;
+        }
         throw new Error(result?.error || "Avantiqo could not complete the request");
       }
 
@@ -804,9 +813,14 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         ))}
 
         {busy ? (
-          <div className="mr-16 flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-3 text-xs text-white/45">
-            <Loader2 size={14} className="animate-spin text-[#D6A66A]" />
-            {busyRequestStatus(activeRequest, entityId, liveExecution, busyElapsedSeconds, activeRequestStartedAt)}
+          <div
+            data-avantiqo-live-status="true"
+            aria-live="polite"
+            className="mr-8 flex items-center gap-2 px-1 py-1 text-xs font-light text-white/35"
+          >
+            <Loader2 size={12} className="animate-spin text-white/25" />
+            <span>{conversationalProgressStatus(liveExecution, busyElapsedSeconds, activeRequestStartedAt)}</span>
+            <span className="text-white/20">· {busyElapsedSeconds}s</span>
           </div>
         ) : null}
       </div>

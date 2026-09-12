@@ -82,6 +82,49 @@ export default function ChannelConnectionEngine({
 
 
       if (
+        action.engine === "channel_provision"
+      ){
+        if (row.id !== "instagram") {
+          throw new Error("Account provisioning is only available for supported channels");
+        }
+
+        const response = await fetch("/api/meta/provision-instagram", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            organization_id: organizationId,
+          }),
+        });
+        const json = await response.json();
+        if (!response.ok || !json.success) {
+          throw new Error(json.error || "Instagram account provisioning failed");
+        }
+
+        if (json.status === "META_AUTHORIZATION_REQUIRED" && json.connect_url) {
+          window.location.href = json.connect_url;
+          return;
+        }
+
+        const handoffUrl = json.handoff?.url;
+        const continuationUrl = json.continuation?.url;
+        if (!handoffUrl || !continuationUrl) {
+          throw new Error("Instagram provisioning handoff is unavailable");
+        }
+
+        window.open(handoffUrl, "_blank", "noopener,noreferrer");
+        const completed = window.confirm(
+          "Instagram requires account ownership and identity verification on its own secure screen. Complete the new Professional account there, then press OK and Avantiqo will connect and discover it automatically."
+        );
+        if (completed) {
+          window.location.href = continuationUrl;
+          return;
+        }
+      }
+
+
+      if (
         action.engine === "channel_connect"
       ){
 

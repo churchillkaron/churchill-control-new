@@ -70,6 +70,9 @@ const expectedSecretaryAuthoritativeLocators = new Set([
   "platform.secretary_travel_document_readiness.reopen",
   "platform.secretary_calendar_stewardship.protect",
   "platform.secretary_calendar_stewardship.release",
+  "platform.secretary_meeting_coordination.cancel",
+  "platform.secretary_meeting_coordination.rescheduleBooked",
+  "platform.secretary_meeting_coordination.cancelBooked",
 ]);
 
 const evidence = {
@@ -84,7 +87,7 @@ const evidence = {
   no_production_write: true,
   secretary_recovery_catalog_loaded: secretaryWrites.length > 0,
   secretary_prebound_exact_recovery: secretaryPrebound.length === 34 && secretaryPrebound.every((item) => expectedSecretaryPrebound.has(item.key)),
-  secretary_authoritative_recovery_locators: secretaryAuthoritativeLocators.length === 8 && secretaryAuthoritativeLocators.every((item) => expectedSecretaryAuthoritativeLocators.has(item.key)),
+  secretary_authoritative_recovery_locators: secretaryAuthoritativeLocators.length === 11 && secretaryAuthoritativeLocators.every((item) => expectedSecretaryAuthoritativeLocators.has(item.key)),
   secretary_remaining_fail_closed: secretaryNoReplay.length === secretaryWrites.length - secretaryPrebound.length - secretaryAuthoritativeLocators.length,
   secretary_no_invalid_recovery: secretaryInvalidRecovery.length === 0,
 };

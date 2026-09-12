@@ -39,7 +39,7 @@ test("prebound Secretary task inserts attach identity only on insert failure", (
 });
 
 
-test("authoritative Secretary recovery locators remain a closed eight action set", () => {
+test("authoritative Secretary recovery locators remain a closed eleven action set", () => {
   assert.equal((platform.match(/withSecretaryRecoveryLocator\(createSecretary/g) || []).length, 3);
   assert.match(platform, /secretary_meeting_agenda:[^\n]*withSecretaryRecoveryLocator/);
   assert.match(platform, /secretary_meeting_closeout:[^\n]*withSecretaryRecoveryLocator/);
@@ -198,4 +198,28 @@ test("calendar protection release verifies exact persisted release evidence", ()
   assert.match(verifier, /release_evidence_id/);
   assert.match(verifier, /conflicting_release/);
   assert.match(platform, /secretary_calendar_stewardship:[^\n]*release:[^\n]*secretary_calendar_protection_release\.read[^\n]*AUTHORITATIVE_RECOVERY_LOCATOR/);
+});
+
+
+test("meeting coordination transitions persist exact evidence inside atomic RPC wrappers", () => {
+  const meeting = fs.readFileSync("lib/operator/secretary/SecretaryMeetingCoordinationRuntime.js", "utf8");
+  const booked = fs.readFileSync("lib/operator/secretary/SecretaryBookedMeetingChangeRuntime.js", "utf8");
+  const capability = fs.readFileSync("lib/platform/capabilities/createSecretaryMeetingCoordinationCapability.js", "utf8");
+  const verifier = fs.readFileSync("lib/platform/capabilities/createSecretaryCoreVerificationCapability.js", "utf8");
+  const migration = fs.readFileSync("supabase/migrations/20260912122305_secretary_meeting_transition_evidence.sql", "utf8");
+  assert.match(capability, /required: \["coordination_id", "starts_at", "ends_at", "evidence_id"\]/);
+  assert.match(capability, /required: \["coordination_id", "evidence_id"\]/);
+  assert.match(meeting, /p_evidence_id: evidenceId/);
+  assert.match(meeting, /\["transition_kind", "CANCEL_COORDINATION"\]/);
+  assert.match(booked, /\["transition_kind", "RESCHEDULE_BOOKED"\]/);
+  assert.match(booked, /\["transition_kind", "CANCEL_BOOKED"\]/);
+  assert.match(migration, /meeting_transition_evidence_history/);
+  assert.match(migration, /SECRETARY_MEETING_TRANSITION_EVIDENCE_REUSE_CONFLICT/);
+  assert.match(migration, /v_result := public\.secretary_reschedule_booked_meeting_coordination/);
+  assert.match(migration, /v_result := public\.secretary_cancel_booked_meeting_coordination/);
+  assert.match(verifier, /secretary_meeting_transition/);
+  assert.match(verifier, /currentStateAllowsRetry/);
+  for (const action of ["cancel", "rescheduleBooked", "cancelBooked"]) {
+    assert.match(platform, new RegExp(`secretary_meeting_coordination:[^\\n]*${action}:[^\\n]*secretary_meeting_transition\\.read[^\\n]*AUTHORITATIVE_RECOVERY_LOCATOR`));
+  }
 });

@@ -32,6 +32,7 @@ function evidence(overrides = {}) {
     repaired_commit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     observed_commit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     original_action_replayed: true,
+    replay_binding_verified: true,
     safe_deterministic_equivalent: false,
     original_failure_absent: true,
     expected_outcome_observed: true,
@@ -54,6 +55,17 @@ test("verified replay is the only state allowed to mark fixed and continue build
   assert.equal(result.replay_mode, "EXACT_ORIGINAL_ACTION");
   assert.equal(result.deploy_authority, false);
   assert.equal(result.promotion_authority, "NONE");
+});
+
+test("exact replay cannot be certified from a bare replay assertion without action binding", () => {
+  const result = verifyPlatformSelfHealingReplay({
+    execution: execution(),
+    evidence: evidence({ replay_binding_verified: false }),
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(result.fixed, false);
+  assert.equal(result.reason, "SELF_HEALING_REPLAY_ACTION_BINDING_REQUIRED");
 });
 
 test("different observed commit fails closed", () => {

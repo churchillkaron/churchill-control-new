@@ -94,3 +94,15 @@ test("operating health reports cache economics without changing pricing authorit
   assert.equal(result.metrics.stable_context_reuse_ratio, 0.8);
   assert.equal(result.governance.cache_pricing_changed, false);
 });
+test("cache economics compares observed hit and miss latency", () => {
+  const summary = summarizeIntelligenceUsage([
+    { module: "INTELLIGENCE", latency_ms: 900, metadata: { provider_usage: { input_tokens: 1000, output_tokens: 50, cached_input_tokens: 700 } } },
+    { module: "INTELLIGENCE", latency_ms: 1100, metadata: { provider_usage: { input_tokens: 900, output_tokens: 40, cached_input_tokens: 500 } } },
+    { module: "INTELLIGENCE", latency_ms: 1600, metadata: { provider_usage: { input_tokens: 800, output_tokens: 30, cached_input_tokens: 0 } } },
+  ]);
+  assert.equal(summary.cache_hit_latency_samples, 2);
+  assert.equal(summary.cache_miss_latency_samples, 1);
+  assert.equal(summary.cache_hit_latency_ms, 1000);
+  assert.equal(summary.cache_miss_latency_ms, 1600);
+  assert.equal(summary.cache_latency_delta_ms, -600);
+});

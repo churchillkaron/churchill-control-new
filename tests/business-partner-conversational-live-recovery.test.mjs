@@ -59,6 +59,17 @@ test("Business Partner renders live execution as ephemeral gray status only", ()
 
 test("Business Partner live status renders elapsed time exactly once", () => {
   const ui = source("components/operator/HomeAvantiqoIntelligence.jsx");
-  assert.match(ui, /replace\(\/\(\?:\\s\*·\\s\*\\d\+s\)\+\\s\*\$\/i, ""\)/);
-  assert.match(ui, /return `\$\{detail\}.*· \$\{elapsed\}s`/s);
+  assert.match(ui, /replace\(\/\\s\*·\\s\*\\d\+s\\b\/gi, ""\)/);
+  assert.doesNotMatch(ui, /return `\$\{detail\}.*\$\{busyElapsedSeconds\}s`/s);
+  assert.equal((ui.match(/aria-label="elapsed time"/g) || []).length, 1);
+  assert.match(ui, /<span aria-label="elapsed time">· \{busyElapsedSeconds\}s<\/span>/);
+});
+
+test("obvious UI code inspections start with Code Studio live status", () => {
+  const liveRoute = source("app/api/operator/turn/live/route.js");
+  assert.match(liveRoute, /function codeInspectionRequest/);
+  assert.match(liveRoute, /code\|ui\|user interface\|page\|pages/);
+  assert.match(liveRoute, /check\|inspect\|review\|audit\|fix\|repair/);
+  assert.match(liveRoute, /CODE_INSPECTION_ROUTING/);
+  assert.match(liveRoute, /relevant pages, components and verification path/);
 });

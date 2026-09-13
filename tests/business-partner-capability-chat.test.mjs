@@ -14,6 +14,6 @@ test("self and capability questions stay on immediate front conversation", () =>
 });
 
 test("live status renders elapsed time exactly once", () => {
-  assert.match(uiSource, /conversationalProgressStatus\(liveExecution, busyElapsedSeconds, activeRequestStartedAt\)/);
+  assert.match(uiSource, /conversationalProgressStatus\(liveExecution, activeRequestStartedAt\)/);
   assert.doesNotMatch(uiSource, /<span className="text-white\/20">· \{busyElapsedSeconds\}s<\/span>/);
 });

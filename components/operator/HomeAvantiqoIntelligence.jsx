@@ -79,10 +79,13 @@ function thesisAttentionLabel(value) {
   return "Current thesis";
 }
 
-function conversationalProgressStatus(liveExecution, elapsedSeconds, startedAt) {
-  const elapsed = Math.max(0, Number(elapsedSeconds || 0));
+function conversationalProgressStatus(liveExecution, startedAt) {
   const started = Number(startedAt || 0);
-  const events = Array.isArray(liveExecution?.events) ? liveExecution.events : [];
+  const events = Array.isArray(liveExecution?.events) && liveExecution.events.length
+    ? liveExecution.events
+    : liveExecution?.latest_event
+      ? [liveExecution.latest_event]
+      : [];
   let latest = null;
   for (const event of events) {
     const at = Date.parse(text(event?.at));
@@ -90,9 +93,9 @@ function conversationalProgressStatus(liveExecution, elapsedSeconds, startedAt) 
     latest = event;
   }
 
-  if (!latest) return `Understanding your request… · ${elapsed}s`;
+  if (!latest) return "Understanding your request…";
 
-  const description = text(latest?.description).replace(/(?:\s*·\s*\d+s)+\s*$/i, "");
+  const description = text(latest?.description).replace(/\s*·\s*\d+s\b/gi, "").trim();
   const capability = text(latest?.capability_key);
   const action = text(latest?.action);
   const command = text(latest?.command);
@@ -112,7 +115,7 @@ function conversationalProgressStatus(liveExecution, elapsedSeconds, startedAt) 
     files.length ? `${files.length} file${files.length === 1 ? "" : "s"}` : "",
   ].filter(Boolean).join(" · ");
 
-  return `${detail}${context ? ` · ${context}` : ""} · ${elapsed}s`;
+  return `${detail}${context ? ` · ${context}` : ""}`;
 }
 
 function thesisInterruptionSpeech(thesis) {
@@ -857,7 +860,8 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
             className="mr-8 flex items-center gap-2 px-1 py-1 text-xs font-light text-white/35"
           >
             <Loader2 size={12} className="animate-spin text-white/25" />
-            <span>{conversationalProgressStatus(liveExecution, busyElapsedSeconds, activeRequestStartedAt)}</span>
+            <span>{conversationalProgressStatus(liveExecution, activeRequestStartedAt)}</span>
+            <span aria-label="elapsed time">· {busyElapsedSeconds}s</span>
           </div>
         ) : null}
       </div>

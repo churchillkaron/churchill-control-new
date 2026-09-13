@@ -105,3 +105,26 @@ test("progress convergence does not add commit deploy or knowledge authority", (
   assert.match(lifecycleReceipt, /authorization_effect:\s*"NONE"/);
   assert.match(codeStudio, /Governed preview · no commit · no deploy/);
 });
+
+const businessPartnerLiveRoute = await readFile(
+  "app/api/operator/live-execution/route.js",
+  "utf8",
+);
+const liveWorkPackage = await readFile(
+  "lib/code/runtime/CodeAIWorkPackageRuntimeLive.js",
+  "utf8",
+);
+
+test("Business Partner receives concrete Code event history instead of generic routing only", () => {
+  assert.match(businessPartnerLiveRoute, /Array\.isArray\(progress\.events\)/);
+  assert.match(businessPartnerLiveRoute, /events: events\.length \? events : \[latestEvent\]/);
+  assert.doesNotMatch(businessPartnerLiveRoute, /events: \[\],/);
+});
+
+test("Code live operations identify the actual file search or command being inspected", () => {
+  assert.match(liveWorkPackage, /function operationProgressDescription/);
+  assert.match(liveWorkPackage, /Reading.*\$\{filePath\}/s);
+  assert.match(liveWorkPackage, /Searching repository code for/);
+  assert.match(liveWorkPackage, /Running \$\{\[command, \.\.\.args\]\.join\(" "\)\}/);
+  assert.match(liveWorkPackage, /description: operationProgressDescription\(operation, input\)/);
+});

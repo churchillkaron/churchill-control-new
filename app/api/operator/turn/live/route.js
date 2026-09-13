@@ -23,6 +23,12 @@ function object(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function codeInspectionRequest(message) {
+  const value = text(message);
+  return /\b(code|ui|user interface|page|pages|route|routes|component|components|file|files)\b/i.test(value) &&
+    /\b(check|inspect|review|audit|fix|repair|finished|complete|completed|missing|improve)\b/i.test(value);
+}
+
 function completionEvent(result, response) {
   const execution = object(result?.execution);
   const capability = object(execution.capability);
@@ -65,20 +71,23 @@ export async function POST(request) {
             id: access.user?.id || access.userId || null,
           },
         };
+        const codeInspection = codeInspectionRequest(body.message);
         await beginAvantiqoLiveExecution({
           context,
-          lane: "intelligence",
-          description:
-            "Understanding your request, checking current context and deciding which governed evidence or capability is needed.",
+          lane: codeInspection ? "code" : "intelligence",
+          description: codeInspection
+            ? "Preparing Code Studio to inspect the requested UI and code surface."
+            : "Understanding your request, checking current context and deciding which governed evidence or capability is needed.",
         }).catch(() => null);
         await publishAvantiqoLiveExecution({
           context,
           event: {
-            lane: "intelligence",
-            phase: "REQUEST_ROUTING",
+            lane: codeInspection ? "code" : "intelligence",
+            phase: codeInspection ? "CODE_INSPECTION_ROUTING" : "REQUEST_ROUTING",
             status: "running",
-            description:
-              "Resolving the request against current business context and registered capabilities.",
+            description: codeInspection
+              ? "Resolving the relevant pages, components and verification path for Code Studio inspection."
+              : "Resolving the request against current business context and registered capabilities.",
             read_only: true,
             mutation_possible: false,
             paid_execution_possible: false,

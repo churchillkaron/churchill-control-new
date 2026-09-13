@@ -192,3 +192,16 @@ test("Finance access verification is exact and read-only", async () => {
   assert.match(route, /allGrants\.filter/);
   assert.match(route, /allAssignments\.filter/);
 });
+
+
+test("High-impact Finance writes require high-risk confirmation and exact verification", async () => {
+  const invoice = await readFile(new URL("../lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js", import.meta.url), "utf8");
+  const statement = await readFile(new URL("../lib/finance/bank-statements/capabilities/importBankStatement.js", import.meta.url), "utf8");
+
+  for (const source of [invoice, statement]) {
+    assert.match(source, /operatorAutoExecute: false/);
+    assert.match(source, /operatorRequiresConfirmation: true/);
+    assert.match(source, /risk: "high"/);
+    assert.match(source, /operatorVerification:/);
+  }
+});

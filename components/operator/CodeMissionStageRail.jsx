@@ -48,8 +48,6 @@ export default function CodeMissionStageRail() {
 
   const current = currentStage(progress);
   const verified = progress?.latest_verification_passed === true;
-  const plan = progress?.engineering_plan || {};
-  const priority = text(plan.current_priority || progress?.latest_event?.description);
 
   return (
     <section
@@ -71,7 +69,6 @@ export default function CodeMissionStageRail() {
           );
         })}
       </div>
-      {priority ? <div className="mt-2 truncate text-[10px] leading-4 text-[#6F6A63]" title={priority}>Now: {priority}</div> : null}
     </section>
   );
 }

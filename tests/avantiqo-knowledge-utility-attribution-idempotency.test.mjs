@@ -144,23 +144,33 @@ test("deterministic observation key makes repeated utility recording idempotent"
   }
 });
 
-test("legacy recorder behavior remains non-idempotent when no observation key is supplied", async () => {
+test("anonymous utility observations reuse a bounded rolling daily bucket", async () => {
   const previousLearningOrganization = process.env.AVANTIQO_INTELLIGENCE_LEARNING_ORGANIZATION_ID;
   process.env.AVANTIQO_INTELLIGENCE_LEARNING_ORGANIZATION_ID =
     "11111111-1111-4111-8111-111111111111";
   try {
     const database = fakeDatabase();
-    const result = await recordAvantiqoKnowledgeUtilityObservation({
+    const first = await recordAvantiqoKnowledgeUtilityObservation({
+      decision: explicitReuseDecision(),
+      execution: verifiedExecution(),
+      database: database.client,
+    });
+    const second = await recordAvantiqoKnowledgeUtilityObservation({
       decision: explicitReuseDecision(),
       execution: verifiedExecution(),
       database: database.client,
     });
 
-    assert.equal(result.written, true);
-    assert.equal(result.idempotent_observation, false);
-    assert.equal(result.observation_key_fingerprint, null);
-    assert.equal(database.state.insert_count, 1);
-    assert.equal(database.state.upsert_count, 0);
+    assert.equal(first.written, true);
+    assert.equal(first.idempotent_observation, false);
+    assert.equal(first.observation_key_fingerprint, null);
+    assert.equal(first.memory_key, second.memory_key);
+    assert.equal(database.state.rows.size, 1);
+    assert.equal(database.state.insert_count, 0);
+    assert.equal(database.state.upsert_count, 2);
+    const row = [...database.state.rows.values()][0];
+    assert.equal(row.metadata.rolling_bucket, true);
+    assert.equal(row.metadata.retention_days, 365);
   } finally {
     if (previousLearningOrganization === undefined) {
       delete process.env.AVANTIQO_INTELLIGENCE_LEARNING_ORGANIZATION_ID;

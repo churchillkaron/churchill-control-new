@@ -22,5 +22,6 @@ test("project-state supersession can use reused replacement ids", () => {
   assert.match(runtime, /const effectiveRows = \[\.\.\.reusedRows, \.\.\.writtenRows\]/);
   assert.match(runtime, /const newGoal = effectiveRows\.find/);
   assert.match(runtime, /const replacementMemory = effectiveRows\.find/);
-  assert.match(runtime, /return \{ learned: writtenRows\.length \}/);
+  assert.match(runtime, /learned: writtenRows\.length/);
+  assert.match(runtime, /reused: reusedRows\.length/);
 });

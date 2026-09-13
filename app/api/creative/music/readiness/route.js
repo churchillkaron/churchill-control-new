@@ -101,12 +101,12 @@ export async function POST(request) {
       supabase
         .from("provider_pricing")
         .select("provider,capability,active,metadata")
-        .in("capability", ["ai.music.generate", "ai.sfx.generate"]),
+        .in("capability", ["ai.music.generate", "ai.audio.remix", "ai.audio.edit", "ai.audio.extend", "ai.sfx.generate"]),
       supabase
         .from("organization_services")
         .select("service_id,status,fallback_enabled,configuration")
         .eq("organization_id", organizationId)
-        .in("service_id", ["ai.music.generate", "ai.sfx.generate"]),
+        .in("service_id", ["ai.music.generate", "ai.audio.remix", "ai.audio.edit", "ai.audio.extend", "ai.sfx.generate"]),
     ]);
 
     if (pricingError) throw pricingError;
@@ -115,6 +115,9 @@ export async function POST(request) {
     const rows = Array.isArray(pricing) ? pricing : [];
     const organizationServices = Array.isArray(services) ? services : [];
     const music = ownedCapability(rows, "ai.music.generate");
+    const remix = ownedCapability(rows, "ai.audio.remix");
+    const edit = ownedCapability(rows, "ai.audio.edit");
+    const extend = ownedCapability(rows, "ai.audio.extend");
     const sfx = ownedCapability(rows, "ai.sfx.generate");
     const sfxService = organizationServices.find((entry) => entry.service_id === "ai.sfx.generate") || null;
     const externalSfxActive = rows.some((entry) => (
@@ -136,9 +139,9 @@ export async function POST(request) {
           runtime_ready: runtimeHealth.primary_audio_runtime_available === true,
           certification_ready: music.ready === true,
         },
-        remix: { capability: "ai.audio.remix", ready: false, status: "PLANNING_ONLY" },
-        edit: { capability: "ai.audio.edit", ready: false, status: "PLANNING_ONLY" },
-        extend: { capability: "ai.audio.extend", ready: false, status: "PLANNING_ONLY" },
+        remix: { ...remix, status: remix.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
+        edit: { ...edit, status: edit.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
+        extend: { ...extend, status: extend.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
         sfx: {
           ...sfx,
           ready: false,

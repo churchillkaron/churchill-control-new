@@ -503,7 +503,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         ) : (
           <Paperclip size={11} />
         )}
-        {developerAttachmentPending ? "Uploading" : "Attach files"}
+        {developerAttachmentPending ? "Uploading" : "Upload files"}
       </button>
 
       {developerAttachmentSet?.files?.map((file) => (
@@ -536,10 +536,10 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         <span className="flex items-center gap-1 text-[9px] text-white/25">
           {developerAttachmentAnalyzing ? <Loader2 size={9} className="animate-spin" /> : null}
           {developerAttachmentAnalyzing
-            ? "Understanding files…"
+            ? "Reading files…"
             : developerAttachmentSet.analysis_complete
-              ? "Understood · next turn only"
-              : "Ready · analysis retries on send"}
+              ? "Ready for your next request"
+              : "Ready to use"}
         </span>
       ) : null}
     </div>

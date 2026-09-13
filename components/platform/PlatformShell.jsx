@@ -93,91 +93,89 @@ export default function PlatformShell({ children }) {
 
       <style jsx global>{`
         [data-avantiqo-operations-light="true"] > main,
-        [data-avantiqo-finance-light="true"] > main {
+        main[data-avantiqo-finance-light="true"] {
           min-height: 0 !important;
           padding-top: 0 !important;
           color: #191919 !important;
         }
 
         [data-avantiqo-operations-light="true"] > main [class*="text-white"],
-        [data-avantiqo-finance-light="true"] main [class*="text-white"] {
+        main[data-avantiqo-finance-light="true"] [class*="text-white"] {
           color: #2b2926 !important;
         }
 
         [data-avantiqo-operations-light="true"] > main [class*="text-white/"],
-        [data-avantiqo-finance-light="true"] main [class*="text-white/"] {
+        main[data-avantiqo-finance-light="true"] [class*="text-white/"] {
           color: #77736c !important;
         }
 
         [data-avantiqo-operations-light="true"] > main [class*="border-white"],
-        [data-avantiqo-finance-light="true"] main [class*="border-white"] {
+        main[data-avantiqo-finance-light="true"] [class*="border-white"] {
           border-color: rgba(25, 25, 25, 0.08) !important;
         }
 
         [data-avantiqo-operations-light="true"] > main [class*="bg-black"],
-        [data-avantiqo-finance-light="true"] main [class*="bg-black"] {
+        main[data-avantiqo-finance-light="true"] [class*="bg-black"] {
           background: #fbfaf8 !important;
         }
 
         [data-avantiqo-operations-light="true"] > main [class*="bg-white/"],
-        [data-avantiqo-finance-light="true"] main [class*="bg-white/"] {
+        main[data-avantiqo-finance-light="true"] [class*="bg-white/"] {
           background: #ffffff !important;
         }
 
-        [data-avantiqo-finance-light="true"] > main[class*="bg-[#050505]"],
-        [data-avantiqo-finance-light="true"] main[class*="bg-[#050505]"] {
+        main[data-avantiqo-finance-light="true"][class*="bg-[#050505]"],
+        main[data-avantiqo-finance-light="true"][class*="bg-[#050505]"] {
           background: transparent !important;
           padding: 0 !important;
         }
 
         [data-avantiqo-operations-light="true"] > main [class*="shadow-black"],
-        [data-avantiqo-finance-light="true"] main [class*="shadow-black"] {
+        main[data-avantiqo-finance-light="true"] [class*="shadow-black"] {
           --tw-shadow-color: rgba(31, 27, 20, 0.06) !important;
         }
 
-        [data-avantiqo-finance-light="true"] main h1 {
+        main[data-avantiqo-finance-light="true"] h1 {
           color: #1b1a18 !important;
           font-size: clamp(1.8rem, 3vw, 2.25rem) !important;
           font-weight: 600 !important;
           letter-spacing: -0.04em !important;
         }
 
-        [data-avantiqo-finance-light="true"] main h2,
-        [data-avantiqo-finance-light="true"] main h3 {
+        main[data-avantiqo-finance-light="true"] h2,
+        main[data-avantiqo-finance-light="true"] h3 {
           color: #292723 !important;
         }
 
         [data-avantiqo-operations-light="true"] > main input,
-        [data-avantiqo-finance-light="true"] main input {
+        main[data-avantiqo-finance-light="true"] input {
           color: #2b2926 !important;
         }
 
         [data-avantiqo-operations-light="true"] > main input::placeholder,
-        [data-avantiqo-finance-light="true"] main input::placeholder {
+        main[data-avantiqo-finance-light="true"] input::placeholder {
           color: #aaa69e !important;
         }
 
-        [data-avantiqo-finance-light="true"] main table {
+        main[data-avantiqo-finance-light="true"] table {
           color: #4d4942 !important;
         }
 
-        [data-avantiqo-finance-light="true"] main thead,
-        [data-avantiqo-finance-light="true"] main tfoot {
+        main[data-avantiqo-finance-light="true"] thead,
+        main[data-avantiqo-finance-light="true"] tfoot {
           background: #faf9f7 !important;
           color: #77736c !important;
         }
 
         /* Finance record explorer: preserve the proven execution engine but remove
            controls that are not wired and make the working surface accountant-dense. */
-        [data-avantiqo-finance-light="true"]
-          main[class*="bg-[#050505]"]
+        main[data-avantiqo-finance-light="true"][class*="bg-[#050505]"]
           > div
           > div[class*="xl:grid-cols-[1fr_410px]"] {
           gap: 12px !important;
         }
 
-        [data-avantiqo-finance-light="true"]
-          main[class*="bg-[#050505]"]
+        main[data-avantiqo-finance-light="true"][class*="bg-[#050505]"]
           > div
           > div[class*="xl:grid-cols-[1fr_410px]"]
           > section
@@ -186,15 +184,13 @@ export default function PlatformShell({ children }) {
           display: none !important;
         }
 
-        [data-avantiqo-finance-light="true"]
-          main[class*="bg-[#050505]"]
+        main[data-avantiqo-finance-light="true"][class*="bg-[#050505]"]
           > div
           > section[class*="grid"] {
           gap: 10px !important;
         }
 
-        [data-avantiqo-finance-light="true"]
-          main[class*="bg-[#050505]"]
+        main[data-avantiqo-finance-light="true"][class*="bg-[#050505]"]
           > div
           > section[class*="grid"]
           > div {
@@ -202,8 +198,7 @@ export default function PlatformShell({ children }) {
           padding: 16px !important;
         }
 
-        [data-avantiqo-finance-light="true"]
-          main[class*="bg-[#050505]"]
+        main[data-avantiqo-finance-light="true"][class*="bg-[#050505]"]
           > div
           > div[class*="xl:grid-cols-[1fr_410px]"]
           > aside {
@@ -214,8 +209,7 @@ export default function PlatformShell({ children }) {
           border-radius: 20px !important;
         }
 
-        [data-avantiqo-finance-light="true"]
-          main[class*="bg-[#050505]"]
+        main[data-avantiqo-finance-light="true"][class*="bg-[#050505]"]
           > div
           > div[class*="xl:grid-cols-[1fr_410px]"]
           > section {

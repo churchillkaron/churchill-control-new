@@ -179,15 +179,15 @@ export default function FinancePracticePortfolioFocus({ organizationId }) {
     >
       <div className="flex flex-col gap-3 border-b border-black/[0.06] px-4 py-3.5 lg:flex-row lg:items-center lg:justify-between md:px-5">
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">
             <UsersRound size={10} /> Firm portfolio
           </div>
           <h2 className="mt-1 text-[15px] font-semibold tracking-[-0.02em]">Exceptions across clients, before dashboards</h2>
-          <p className="mt-0.5 max-w-3xl text-[8px] leading-4 text-[#918B83]">
+          <p className="mt-0.5 max-w-3xl text-[11px] leading-4 text-[#918B83]">
             One ranked view of the client files a person can move now. Review, blockers and decisions stay ahead of passive waiting.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[8px] text-[#8B847B]">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[11px] text-[#8B847B]">
           <span><strong className="font-semibold text-[#9A533D]">{number(summary.attention)}</strong> need attention</span>
           <span>·</span>
           <span><strong className="font-semibold text-[#9A533D]">{number(summary.overdue)}</strong> overdue</span>
@@ -213,7 +213,7 @@ export default function FinancePracticePortfolioFocus({ organizationId }) {
         </div>
       </div>
 
-      <div className="hidden grid-cols-[minmax(190px,0.9fr)_minmax(310px,1.45fr)_minmax(140px,0.65fr)_110px_120px] gap-4 border-b border-black/[0.05] bg-white/45 px-4 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#979087] md:grid md:px-5">
+      <div className="hidden grid-cols-[minmax(190px,0.9fr)_minmax(310px,1.45fr)_minmax(140px,0.65fr)_110px_120px] gap-4 border-b border-black/[0.05] bg-white/45 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#979087] md:grid md:px-5">
         <span>Client</span>
         <span>Next human move</span>
         <span>Owner</span>
@@ -230,21 +230,21 @@ export default function FinancePracticePortfolioFocus({ organizationId }) {
               className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(190px,0.9fr)_minmax(310px,1.45fr)_minmax(140px,0.65fr)_110px_120px] md:items-center md:gap-4 md:px-5"
             >
               <div className="min-w-0">
-                <div className="truncate text-[9px] font-semibold text-[#403C37]">{client.name || "Client organization"}</div>
-                <div className="mt-0.5 truncate text-[7px] uppercase tracking-[0.08em] text-[#A09A92]">
+                <div className="truncate text-[11px] font-semibold text-[#403C37]">{client.name || "Client organization"}</div>
+                <div className="mt-0.5 truncate text-[11px] uppercase tracking-[0.08em] text-[#A09A92]">
                   {client.service_package ? label(client.service_package) : "Active engagement"}
                 </div>
               </div>
               <div className="min-w-0">
-                <div className="truncate text-[9px] font-semibold text-[#3C3732]">{move.title}</div>
-                <div className="mt-0.5 truncate text-[8px] text-[#8D857D]">{move.detail}</div>
+                <div className="truncate text-[11px] font-semibold text-[#3C3732]">{move.title}</div>
+                <div className="mt-0.5 truncate text-[11px] text-[#8D857D]">{move.detail}</div>
               </div>
-              <div className="min-w-0 truncate text-[8px] font-semibold text-[#655F58]">{move.owner}</div>
-              <div className="flex items-center gap-1.5 text-[8px] text-[#817A72]">
+              <div className="min-w-0 truncate text-[11px] font-semibold text-[#655F58]">{move.owner}</div>
+              <div className="flex items-center gap-1.5 text-[11px] text-[#817A72]">
                 <Clock3 size={9} className="text-[#A69F97]" /> {shortDate(client.next_deadline)}
               </div>
               <div className="flex items-center gap-2">
-                <span className={`rounded-full border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.05em] ${stateTone(move.state)}`}>
+                <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.05em] ${stateTone(move.state)}`}>
                   {label(move.state)}
                 </span>
                 {move.state === "CLEAR" ? <CheckCircle2 size={10} className="text-emerald-700" /> : null}
@@ -254,7 +254,7 @@ export default function FinancePracticePortfolioFocus({ organizationId }) {
         })}
       </div>
 
-      <div className="flex flex-col gap-1 border-t border-black/[0.05] bg-white/55 px-4 py-2 text-[7px] text-[#938C84] sm:flex-row sm:items-center sm:justify-between md:px-5">
+      <div className="flex flex-col gap-1 border-t border-black/[0.05] bg-white/55 px-4 py-2 text-[11px] text-[#938C84] sm:flex-row sm:items-center sm:justify-between md:px-5">
         <span className="inline-flex items-center gap-1.5">
           <ShieldCheck size={9} className="text-[#66765F]" /> Portfolio is ranked by human actionability; it does not bypass preparation, review or partner controls.
         </span>

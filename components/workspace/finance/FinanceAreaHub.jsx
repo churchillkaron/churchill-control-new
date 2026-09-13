@@ -76,27 +76,27 @@ export default function FinanceAreaHub({ organizationId, area = "books" }) {
       <section className="rounded-[24px] border border-black/[0.07] bg-[#FBF8F3] p-4 md:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><Icon size={11} /> {copy.eyebrow}</div>
+            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><Icon size={11} /> {copy.eyebrow}</div>
             <h1 className="mt-1.5 text-[22px] font-semibold tracking-[-0.03em] text-[#2A2723]">{copy.title}</h1>
-            <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[#756F67]">{copy.description}</p>
+            <p className="mt-1 max-w-3xl text-[11px] leading-5 text-[#756F67]">{copy.description}</p>
           </div>
-          <label className="flex h-9 w-full items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 lg:w-[330px]"><Search size={12} className="text-[#A29D95]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Find in ${copy.title.toLowerCase()}…`} className="min-w-0 flex-1 bg-transparent text-[10px] text-[#403C37] outline-none placeholder:text-[#B2ADA5]" /></label>
+          <label className="flex h-9 w-full items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 lg:w-[330px]"><Search size={12} className="text-[#A29D95]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Find in ${copy.title.toLowerCase()}…`} className="min-w-0 flex-1 bg-transparent text-[11px] text-[#403C37] outline-none placeholder:text-[#B2ADA5]" /></label>
         </div>
 
-        <div className="mt-4 text-[8px] text-[#99938A]">{count} accounting capabilit{count === 1 ? "y" : "ies"}</div>
+        <div className="mt-4 text-[11px] text-[#99938A]">{count} accounting capabilit{count === 1 ? "y" : "ies"}</div>
 
         <div className="mt-3 grid gap-3 xl:grid-cols-3">
           {visibleGroups.map((group) => (
             <section key={group.id} className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
               <div className="border-b border-black/[0.055] px-4 py-3">
-                <div className="text-[10px] font-semibold text-[#45413C]">{group.name}</div>
-                {group.description ? <div className="mt-0.5 line-clamp-2 text-[8px] leading-4 text-[#99938A]">{group.description}</div> : null}
+                <div className="text-[11px] font-semibold text-[#45413C]">{group.name}</div>
+                {group.description ? <div className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-[#99938A]">{group.description}</div> : null}
               </div>
               <div className="divide-y divide-black/[0.05]">
                 {(group.items || []).map((item) => {
                   const disabled = unavailable(item);
                   const href = resolveWorkspaceRoute({ organizationId, workspaceId: "finance", moduleId: item.id, route: item.route });
-                  const row = <><div className="min-w-0"><div className="truncate text-[10px] font-medium text-[#4A4640]">{item.name}</div><div className="mt-0.5 line-clamp-1 text-[8px] text-[#99938A]">{item.description || "Finance capability"}</div></div>{disabled ? <span className="shrink-0 text-[7px] font-semibold uppercase tracking-[0.06em] text-[#A39D95]">{clean(item.status) || "Unavailable"}</span> : <ArrowRight size={10} className="shrink-0 text-[#B3ADA5]" />}</>;
+                  const row = <><div className="min-w-0"><div className="truncate text-[11px] font-medium text-[#4A4640]">{item.name}</div><div className="mt-0.5 line-clamp-1 text-[11px] text-[#99938A]">{item.description || "Finance capability"}</div></div>{disabled ? <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A39D95]">{clean(item.status) || "Unavailable"}</span> : <ArrowRight size={10} className="shrink-0 text-[#B3ADA5]" />}</>;
                   return disabled ? <div key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 opacity-50">{row}</div> : <Link key={item.id} href={href} className="group flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-[#FCFAF6] hover:text-[#76583A]">{row}</Link>;
                 })}
               </div>
@@ -104,7 +104,7 @@ export default function FinanceAreaHub({ organizationId, area = "books" }) {
           ))}
         </div>
 
-        {!visibleGroups.length ? <div className="mt-3 rounded-2xl border border-black/[0.07] bg-white p-8 text-center text-[9px] text-[#918B83]">No Finance capabilities match this view.</div> : null}
+        {!visibleGroups.length ? <div className="mt-3 rounded-2xl border border-black/[0.07] bg-white p-8 text-center text-[11px] text-[#918B83]">No Finance capabilities match this view.</div> : null}
       </section>
     </div>
   );

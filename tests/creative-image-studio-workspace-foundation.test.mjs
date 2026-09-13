@@ -30,3 +30,24 @@ test("migration creates durable editor-specific tables without duplicating canon
   assert.doesNotMatch(sql, /create table if not exists public\.studio_jobs/);
   assert.match(sql, /enable row level security/g);
 });
+test("workspace persistence commands cover references comments snapshots and exports", () => {
+  for (const type of ["add_reference", "create_comment", "resolve_comment", "snapshot_version", "export_artboard"]) {
+    assert.equal(validateImageStudioCommand({ type, organization_id: "o", project_id: "p" }).type, type);
+  }
+});
+
+test("Image Studio workspace API enforces organization access and project scope", () => {
+  const route = fs.readFileSync(new URL("../app/api/workspace/creative/image-studio/route.js", import.meta.url), "utf8");
+  assert.match(route, /requireOrganizationAccess/);
+  assert.match(route, /creative_projects/);
+  assert.match(route, /eq\("organization_id", organizationId\)/);
+  assert.match(route, /executeImageStudioWorkspaceAction/);
+});
+
+test("workspace repository scopes durable reads to organization and project", () => {
+  const source = fs.readFileSync(new URL("../lib/creative/stills/repositories/CreativeImageStudioWorkspaceRepository.js", import.meta.url), "utf8");
+  assert.match(source, /eq\("organization_id", organization_id\)/);
+  assert.match(source, /eq\("creative_project_id", creative_project_id\)/);
+  assert.match(source, /createImageStudioComment/);
+  assert.match(source, /createImageStudioExport/);
+});

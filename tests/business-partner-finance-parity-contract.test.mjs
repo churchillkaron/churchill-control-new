@@ -189,8 +189,12 @@ test("Finance access verification is exact and read-only", async () => {
   assert.match(verifier, /assignment_id or permission_grant_id required/);
   assert.match(route, /searchParams\.get\("assignment_id"\)/);
   assert.match(route, /searchParams\.get\("permission_grant_id"\)/);
-  assert.match(route, /allGrants\.filter/);
-  assert.match(route, /allAssignments\.filter/);
+  assert.match(verifier, /getFinanceRoleAssignmentById/);
+  assert.match(verifier, /getFinancePermissionGrantById/);
+  assert.match(route, /getFinanceRoleAssignmentById/);
+  assert.match(route, /getFinancePermissionGrantById/);
+  assert.doesNotMatch(route, /allGrants\.filter/);
+  assert.doesNotMatch(route, /allAssignments\.filter/);
 });
 
 

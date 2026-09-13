@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import {
+  getFinancePermissionGrantById,
+  getFinanceRoleAssignmentById,
   listFinancePermissionGrants,
   listFinancePermissions,
   listFinanceRoles,
@@ -60,19 +62,16 @@ export async function GET(request) {
     const permissionGrantId = searchParams.get("permission_grant_id") || searchParams.get("permissionGrantId") || null;
     const requestedUserId = searchParams.get("user_id") || searchParams.get("userId") || null;
 
-    const [availableRoles, permissions, allGrants, allAssignments] = await Promise.all([
+    const [availableRoles, permissions, grants, assignments] = await Promise.all([
       listFinanceRoles(organizationId),
       listFinancePermissions(organizationId),
-      listFinancePermissionGrants(organizationId),
-      listUserFinanceRoles({ organizationId, userId: requestedUserId }),
+      permissionGrantId
+        ? getFinancePermissionGrantById({ organizationId, permissionGrantId }).then((grant) => grant ? [grant] : [])
+        : listFinancePermissionGrants(organizationId),
+      assignmentId
+        ? getFinanceRoleAssignmentById({ organizationId, assignmentId }).then((assignment) => assignment ? [assignment] : [])
+        : listUserFinanceRoles({ organizationId, userId: requestedUserId }),
     ]);
-
-    const grants = permissionGrantId
-      ? allGrants.filter((grant) => String(grant.id) === String(permissionGrantId))
-      : allGrants;
-    const assignments = assignmentId
-      ? allAssignments.filter((assignment) => String(assignment.id) === String(assignmentId))
-      : allAssignments;
 
     const rows = assignments.map((assignment) => ({
       ...assignment,

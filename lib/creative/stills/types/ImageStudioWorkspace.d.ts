@@ -45,7 +45,7 @@ export interface ImageStudioWorkspaceState {
   exports: Record<string, unknown>[];
   selection: { artboard_id: string | null; layer_ids: string[] };
   viewport: { zoom: number; x: number; y: number };
-  ui: { panel: ImageStudioPanel; tool: ImageStudioTool; compare: boolean };
+  ui: { panel: ImageStudioPanel; tool: ImageStudioTool; compare: boolean; grid: boolean; region: Record<string, number> | null };
   dirty: boolean;
 }
 
@@ -60,6 +60,8 @@ export type ImageStudioCommandType =
   | "expand_canvas"
   | "replace_asset"
   | "create_variant"
+  | "add_reference"
+  | "create_comment"
   | "request_review"
   | "resolve_comment"
   | "snapshot_version"

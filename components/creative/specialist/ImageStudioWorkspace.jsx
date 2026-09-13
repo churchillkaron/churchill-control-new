@@ -18,6 +18,8 @@ import { buildCreativeImageStudioOperatingState } from "@/lib/creative/stills/ru
 import { useImageStudioWorkspaceStore } from "./useImageStudioWorkspaceStore";
 import { useImageStudioWorkspacePersistence } from "./useImageStudioWorkspacePersistence";
 import ImageStudioCanvasToolbar from "./ImageStudioCanvasToolbar";
+import ImageStudioFormatBar from "./ImageStudioFormatBar";
+import ImageStudioVersionCompare from "./ImageStudioVersionCompare";
 import ImageStudioCanvasSurface from "./ImageStudioCanvasSurface";
 import ImageStudioLayerPanel from "./ImageStudioLayerPanel";
 import ImageStudioLayerInspector from "./ImageStudioLayerInspector";
@@ -176,8 +178,9 @@ export default function ImageStudioWorkspace({ runtime }) {
           </div>
         </div>
 
+        <ImageStudioFormatBar workspace={workspace} />
         <div className="min-h-0 flex-1 overflow-auto p-4 lg:p-6">
-          <ImageStudioCanvasSurface workspace={workspace} assets={images} />
+          {workspace.ui.compare ? <ImageStudioVersionCompare workspace={workspace} assets={images} /> : <ImageStudioCanvasSurface workspace={workspace} assets={images} />}
         </div>
 
         {selected ? <div className="shrink-0 border-t border-white/[0.07] bg-[#080807] px-4 py-3 lg:px-5"><div className="flex items-center gap-3 overflow-x-auto"><div className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/24">Versions</div>{(siblingVersions.length ? siblingVersions : [selected]).map((version, index) => { const url = assetUrl(version); const active = version.id === selected.id; return <button key={version.id || index} type="button" onClick={() => setSelectedId(version.id)} className={`flex shrink-0 items-center gap-2 rounded-lg border px-2 py-1.5 ${active ? "border-[#D6A66A]/30 bg-[#D6A66A]/[0.06]" : "border-white/[0.07] bg-white/[0.02]"}`}>{url ? <Image src={url} alt="" width={28} height={28} className="h-7 w-7 rounded object-cover" /> : null}<span className="text-[10px] text-white/48">v{value(version.revision || version.version || index + 1)}</span></button>; })}<div className="ml-auto hidden items-center gap-1.5 text-[9px] text-white/22 xl:flex"><Maximize2 className="h-3 w-3" /> Original aspect ratio preserved</div></div></div> : null}

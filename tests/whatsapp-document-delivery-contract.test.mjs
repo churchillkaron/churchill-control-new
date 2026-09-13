@@ -5,19 +5,26 @@ import test from "node:test";
 const provider = fs.readFileSync(new URL("../lib/platform/service-runtime/providers/whatsapp/WhatsAppProvider.js", import.meta.url), "utf8");
 const delivery = fs.readFileSync(new URL("../lib/commercial/communications/CommunicationDeliveryRuntime.js", import.meta.url), "utf8");
 
-test("Communications preserves outbound attachments into governed service execution", () => {
-  assert.match(delivery, /const media = attachments\.map/);
+test("Communications preserves attachments and securely materializes canonical Finance PDFs", () => {
+  assert.match(delivery, /canonicalFinancePdf/);
+  assert.match(delivery, /renderCustomerInvoicePdf/);
+  assert.match(delivery, /COMMUNICATION_FINANCE_DOCUMENT_SCOPE_MISMATCH/);
+  assert.match(delivery, /data_base64: rendered\.buffer\.toString\("base64"\)/);
   assert.match(delivery, /attachments: media/);
   assert.match(delivery, /attachment_count: media\.length/);
 });
 
-test("WhatsApp sends one public PDF attachment as a native document", () => {
+test("WhatsApp sends one PDF attachment as a native document", () => {
   assert.match(provider, /attachments = \[\]/);
   assert.match(provider, /type: "document"/);
   assert.match(provider, /document,/);
   assert.match(provider, /document\.filename = filename\.slice/);
   assert.match(provider, /document\.caption = caption\.slice/);
-  assert.match(provider, /WHATSAPP_DOCUMENT_PUBLIC_URL_REQUIRED/);
+  assert.match(provider, /uploadDocument/);
+  assert.match(provider, /\/media`/);
+  assert.match(provider, /new Blob\(\[bytes\], \{ type: "application\/pdf" \}\)/);
+  assert.match(provider, /uploadedId \? \{ id: uploadedId \} : \{ link \}/);
+  assert.match(provider, /WHATSAPP_DOCUMENT_REFERENCE_REQUIRED/);
   assert.match(provider, /WHATSAPP_DOCUMENT_PDF_REQUIRED/);
 });
 

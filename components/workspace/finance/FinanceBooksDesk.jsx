@@ -142,7 +142,7 @@ export default function FinanceBooksDesk({ organizationId }) {
       <section className="rounded-[24px] border border-black/[0.07] bg-[#FBF8F3] p-4 md:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><BookOpenCheck size={11} /> Accounting records</div>
+            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><BookOpenCheck size={11} /> Accounting records</div>
             <h1 className="mt-1.5 text-[22px] font-semibold tracking-[-0.03em]">Books</h1>
             <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[#756F67]">Work directly in the accounting truth. Core books stay one click away; specialist records remain organized by accounting purpose.</p>
           </div>
@@ -151,15 +151,15 @@ export default function FinanceBooksDesk({ organizationId }) {
 
         <div className="mt-5 border-t border-black/[0.06] pt-4">
           <div className="flex items-center justify-between gap-3">
-            <div><div className="text-[9px] font-semibold text-[#4B4640]">Core desk</div><div className="mt-0.5 text-[8px] text-[#99938A]">The books accountants reach for most often.</div></div>
-            <span className="text-[8px] text-[#A09990]">{categorizedItems.length} book capabilities</span>
+            <div><div className="text-[11px] font-semibold text-[#4B4640]">Core desk</div><div className="mt-0.5 text-[11px] text-[#99938A]">The books accountants reach for most often.</div></div>
+            <span className="text-[11px] text-[#A09990]">{categorizedItems.length} book capabilities</span>
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {coreItems.map((item) => (
               <Link key={item.id} href={hrefFor(item)} onClick={() => remember(item.id)} className="group rounded-xl border border-black/[0.07] bg-white px-3 py-3 transition hover:border-[#D6A66A]/45 hover:bg-[#FFFCF7]">
                 <div className="flex items-start justify-between gap-2"><WalletCards size={12} className="text-[#9A7045]" /><ArrowRight size={10} className="text-[#B5AFA7] transition group-hover:translate-x-0.5 group-hover:text-[#9A7045]" /></div>
                 <div className="mt-2 text-[10px] font-semibold text-[#47423D]">{item.deskLabel}</div>
-                <div className="mt-0.5 truncate text-[8px] text-[#9A948B]">{item.groupName}</div>
+                <div className="mt-0.5 truncate text-[11px] text-[#9A948B]">{item.groupName}</div>
               </Link>
             ))}
           </div>
@@ -167,8 +167,8 @@ export default function FinanceBooksDesk({ organizationId }) {
 
         {recentItems.length ? (
           <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-black/[0.055] pt-3">
-            <span className="mr-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#9B948B]">Recent</span>
-            {recentItems.map((item) => <Link key={item.id} href={hrefFor(item)} onClick={() => remember(item.id)} className="rounded-lg border border-black/[0.065] bg-white px-2.5 py-1.5 text-[8px] font-medium text-[#625D56] transition hover:border-[#D6A66A]/40 hover:text-[#7A5838]">{item.name}</Link>)}
+            <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9B948B]">Recent</span>
+            {recentItems.map((item) => <Link key={item.id} href={hrefFor(item)} onClick={() => remember(item.id)} className="rounded-lg border border-black/[0.065] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#625D56] transition hover:border-[#D6A66A]/40 hover:text-[#7A5838]">{item.name}</Link>)}
           </div>
         ) : null}
 
@@ -177,21 +177,21 @@ export default function FinanceBooksDesk({ organizationId }) {
             {AREAS.map((area) => {
               const Icon = area.icon;
               const selected = !needle && activeArea === area.id;
-              return <button key={area.id} type="button" onClick={() => { setQuery(""); setActiveArea(area.id); }} className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left transition ${selected ? "bg-[#A37849]/[0.09] text-[#6F5032]" : "text-[#68625B] hover:bg-[#FAF8F4]"}`}><span className="flex items-center gap-2 text-[9px] font-semibold"><Icon size={11} />{area.label}</span><span className="text-[8px] tabular-nums text-[#A49E95]">{areaCounts[area.id] || 0}</span></button>;
+              return <button key={area.id} type="button" onClick={() => { setQuery(""); setActiveArea(area.id); }} className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left transition ${selected ? "bg-[#A37849]/[0.09] text-[#6F5032]" : "text-[#68625B] hover:bg-[#FAF8F4]"}`}><span className="flex items-center gap-2 text-[11px] font-semibold"><Icon size={11} />{area.label}</span><span className="text-[11px] tabular-nums text-[#A49E95]">{areaCounts[area.id] || 0}</span></button>;
             })}
           </aside>
 
           <section className="overflow-hidden rounded-2xl border border-black/[0.065] bg-white">
             <div className="flex items-center justify-between gap-3 border-b border-black/[0.055] px-4 py-3">
-              <div><div className="text-[10px] font-semibold text-[#45413C]">{needle ? "Search results" : AREAS.find((area) => area.id === activeArea)?.label}</div><div className="mt-0.5 text-[8px] text-[#99938A]">{visibleItems.length} capability{visibleItems.length === 1 ? "" : "ies"}</div></div>
-              {needle ? <button type="button" onClick={() => setQuery("")} className="text-[8px] font-medium text-[#8A633C]">Clear search</button> : null}
+              <div><div className="text-[10px] font-semibold text-[#45413C]">{needle ? "Search results" : AREAS.find((area) => area.id === activeArea)?.label}</div><div className="mt-0.5 text-[11px] text-[#99938A]">{visibleItems.length} capability{visibleItems.length === 1 ? "" : "ies"}</div></div>
+              {needle ? <button type="button" onClick={() => setQuery("")} className="text-[11px] font-medium text-[#8A633C]">Clear search</button> : null}
             </div>
             <div className="divide-y divide-black/[0.05]">
               {visibleItems.map((item) => {
-                const row = <><div className="min-w-0"><div className="truncate text-[10px] font-medium text-[#47423D]">{item.name}</div><div className="mt-0.5 line-clamp-1 text-[8px] text-[#99938A]">{item.description || item.groupName}</div></div><div className="flex shrink-0 items-center gap-3"><span className="hidden text-[8px] text-[#AAA39A] md:block">{item.groupName}</span>{item.disabled ? <span className="text-[7px] font-semibold uppercase tracking-[0.06em] text-[#A39D95]">{clean(item.status) || "Unavailable"}</span> : <ArrowRight size={10} className="text-[#B3ADA5]" />}</div></>;
+                const row = <><div className="min-w-0"><div className="truncate text-[10px] font-medium text-[#47423D]">{item.name}</div><div className="mt-0.5 line-clamp-1 text-[11px] text-[#99938A]">{item.description || item.groupName}</div></div><div className="flex shrink-0 items-center gap-3"><span className="hidden text-[11px] text-[#AAA39A] md:block">{item.groupName}</span>{item.disabled ? <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A39D95]">{clean(item.status) || "Unavailable"}</span> : <ArrowRight size={10} className="text-[#B3ADA5]" />}</div></>;
                 return item.disabled ? <div key={item.id} className="flex items-center justify-between gap-4 px-4 py-3 opacity-45">{row}</div> : <Link key={item.id} href={hrefFor(item)} onClick={() => remember(item.id)} className="group flex items-center justify-between gap-4 px-4 py-3 transition hover:bg-[#FCFAF6]">{row}</Link>;
               })}
-              {!visibleItems.length ? <div className="px-4 py-8 text-center text-[9px] text-[#918B83]">No book capabilities match this view.</div> : null}
+              {!visibleItems.length ? <div className="px-4 py-8 text-center text-[11px] text-[#918B83]">No book capabilities match this view.</div> : null}
             </div>
           </section>
         </div>

@@ -94,10 +94,10 @@ function HumanWorkflowRail({ stages, viewerRole, onSelect }) {
     <div className="mt-4 rounded-2xl border border-black/[0.07] bg-white p-3.5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="text-[8px] font-semibold uppercase tracking-[0.13em] text-[#918A82]">Human workflow</div>
-          <div className="mt-0.5 text-[9px] text-[#777069]">Preparation → client dependency → review → changes → partner clearance → close</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.13em] text-[#918A82]">Human workflow</div>
+          <div className="mt-0.5 text-[11px] text-[#777069]">Preparation → client dependency → review → changes → partner clearance → close</div>
         </div>
-        {viewerRole ? <div className="text-[8px] text-[#918B83]">Your role · <span className="font-semibold text-[#6E5540]">{label(viewerRole)}</span></div> : null}
+        {viewerRole ? <div className="text-[11px] text-[#918B83]">Your role · <span className="font-semibold text-[#6E5540]">{label(viewerRole)}</span></div> : null}
       </div>
       <div className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-6">
         {stages.map((stage, index) => {
@@ -110,10 +110,10 @@ function HumanWorkflowRail({ stages, viewerRole, onSelect }) {
               className="group relative rounded-xl border border-black/[0.06] bg-[#FCFBF8] px-3 py-2.5 text-left transition hover:border-[#A37849]/25 hover:bg-[#FFFCF8]"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[8px] font-semibold text-[#5E5851]">{stage.label}</span>
+                <span className="text-[11px] font-semibold text-[#5E5851]">{stage.label}</span>
                 <span className={`text-[14px] font-semibold tabular-nums ${attention ? "text-[#8A633C]" : "text-[#39342F]"}`}>{stage.count || 0}</span>
               </div>
-              <div className="mt-1 truncate text-[7px] uppercase tracking-[0.08em] text-[#AAA39B]">{stage.ownerRole}</div>
+              <div className="mt-1 truncate text-[11px] uppercase tracking-[0.08em] text-[#AAA39B]">{stage.ownerRole}</div>
               {index < stages.length - 1 ? <span className="absolute -right-[6px] top-1/2 z-10 hidden -translate-y-1/2 text-[#C8C1B8] xl:block">›</span> : null}
             </button>
           );
@@ -242,8 +242,8 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
     return (
       <section className="rounded-[24px] border border-[#A37849]/15 bg-[#FBF8F3] p-4 md:p-5">
         <div className="mb-4 flex items-center justify-between gap-3 border-b border-black/[0.06] pb-3">
-          <button type="button" onClick={() => setSelectedEngagementId(null)} className="text-[9px] font-semibold text-[#76583A] hover:text-[#4E3822]">← Back to my work</button>
-          <div className="text-[8px] text-[#99938A]">Client file · work · evidence · review · clearance</div>
+          <button type="button" onClick={() => setSelectedEngagementId(null)} className="text-[11px] font-semibold text-[#76583A] hover:text-[#4E3822]">← Back to my work</button>
+          <div className="text-[11px] text-[#99938A]">Client file · work · evidence · review · clearance</div>
         </div>
         <FinanceEngagementFile organizationId={organizationId} engagementId={selectedEngagementId} onClose={() => setSelectedEngagementId(null)} />
       </section>
@@ -255,17 +255,17 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
       <section className="rounded-[24px] border border-[#A37849]/15 bg-[#FBF8F3] p-4 md:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><UserRoundCheck size={11} /> Daily accounting work</div>
+            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><UserRoundCheck size={11} /> Daily accounting work</div>
             <h1 className="mt-1.5 text-[22px] font-semibold tracking-[-0.03em] text-[#2A2723]">{viewerId ? `${viewer.name || "Your"} work` : "Priority work"}</h1>
             <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[#756F67]">Work follows the real accounting handoff: prepare, obtain client evidence, review, resolve changes, clear at partner level, then close. Avantiqo keeps blocked and waiting work visible without letting it crowd out work a person can move now.</p>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setShowPracticeManagement((value) => !value)} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-black/[0.08] bg-white px-3 text-[8px] font-semibold text-[#706A63]"><Users size={10} /> {showPracticeManagement ? "Hide practice management" : "Practice management"}</button>
-            <button type="button" onClick={load} disabled={loading} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#A37849]/20 bg-white px-3 text-[8px] font-semibold text-[#76583A] disabled:opacity-50"><RefreshCw size={10} className={loading ? "animate-spin" : ""} /> Refresh</button>
+            <button type="button" onClick={() => setShowPracticeManagement((value) => !value)} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-black/[0.08] bg-white px-3 text-[11px] font-semibold text-[#706A63]"><Users size={10} /> {showPracticeManagement ? "Hide practice management" : "Practice management"}</button>
+            <button type="button" onClick={load} disabled={loading} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#A37849]/20 bg-white px-3 text-[11px] font-semibold text-[#76583A] disabled:opacity-50"><RefreshCw size={10} className={loading ? "animate-spin" : ""} /> Refresh</button>
           </div>
         </div>
 
-        {error ? <div className="mt-4 rounded-xl border border-red-700/15 bg-red-50 p-3 text-[9px] text-red-800"><div className="flex items-start gap-2"><AlertTriangle size={11} className="mt-0.5" />{error}</div></div> : null}
+        {error ? <div className="mt-4 rounded-xl border border-red-700/15 bg-red-50 p-3 text-[11px] text-red-800"><div className="flex items-start gap-2"><AlertTriangle size={11} className="mt-0.5" />{error}</div></div> : null}
         {loading && !programs ? <div className="mt-4"><LoadingState /></div> : null}
 
         {!loading && programs ? (
@@ -277,12 +277,12 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
                 <div className="flex min-w-0 items-start gap-3">
                   <div className={`mt-0.5 rounded-xl p-2 ${nextItem ? "bg-[#A37849]/[0.09] text-[#8A633C]" : "bg-emerald-50 text-emerald-700"}`}>{nextItem ? <Sparkles size={14} /> : <CheckCircle2 size={14} />}</div>
                   <div className="min-w-0">
-                    <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#9A948B]">Recommended next human action</div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9A948B]">Recommended next human action</div>
                     <div className="mt-1 truncate text-[12px] font-semibold text-[#39352F]">{nextAction.title}</div>
-                    <div className="mt-0.5 text-[9px] leading-4 text-[#817A72]">{nextAction.detail}</div>
+                    <div className="mt-0.5 text-[11px] leading-4 text-[#817A72]">{nextAction.detail}</div>
                   </div>
                 </div>
-                {nextItem ? <button type="button" onClick={() => setSelectedEngagementId(nextItem.engagement_id)} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-white">Open workpaper <ArrowRight size={9} /></button> : null}
+                {nextItem ? <button type="button" onClick={() => setSelectedEngagementId(nextItem.engagement_id)} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[11px] font-semibold text-white">Open workpaper <ArrowRight size={9} /></button> : null}
               </div>
             </div>
 
@@ -292,7 +292,7 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
                 const attention = ["overdue", "changes"].includes(view.id) && counts[view.id] > 0;
                 return (
                   <button key={view.id} type="button" onClick={() => setActiveView(view.id)} className={`rounded-xl border px-3 py-2.5 text-left transition ${active ? "border-[#A37849]/35 bg-[#A37849]/[0.08]" : "border-black/[0.07] bg-white hover:border-[#A37849]/25"}`}>
-                    <div className="text-[8px] font-medium text-[#817B73]">{view.label}</div>
+                    <div className="text-[11px] font-medium text-[#817B73]">{view.label}</div>
                     <div className={`mt-1 text-[18px] font-semibold tabular-nums ${attention ? "text-[#9A533D]" : "text-[#342F2A]"}`}>{counts[view.id] || 0}</div>
                   </button>
                 );
@@ -301,28 +301,28 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
 
             <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex gap-1 overflow-x-auto">
-                {VIEW_DEFS.map((view) => <button key={view.id} type="button" onClick={() => setActiveView(view.id)} className={`h-8 shrink-0 rounded-lg border px-2.5 text-[8px] font-semibold ${activeView === view.id ? "border-[#A37849]/25 bg-[#A37849]/[0.08] text-[#76583A]" : "border-black/[0.07] bg-white text-[#817D76]"}`}>{view.label} <span className="ml-1 tabular-nums opacity-70">{counts[view.id] || 0}</span></button>)}
+                {VIEW_DEFS.map((view) => <button key={view.id} type="button" onClick={() => setActiveView(view.id)} className={`h-8 shrink-0 rounded-lg border px-2.5 text-[11px] font-semibold ${activeView === view.id ? "border-[#A37849]/25 bg-[#A37849]/[0.08] text-[#76583A]" : "border-black/[0.07] bg-white text-[#817D76]"}`}>{view.label} <span className="ml-1 tabular-nums opacity-70">{counts[view.id] || 0}</span></button>)}
               </div>
-              <label className="flex h-9 w-full items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 xl:w-[310px]"><Search size={11} className="text-[#A29D95]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search client or procedure" className="min-w-0 flex-1 bg-transparent text-[9px] text-[#403C37] outline-none placeholder:text-[#B2ADA5]" /></label>
+              <label className="flex h-9 w-full items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 xl:w-[310px]"><Search size={11} className="text-[#A29D95]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search client or procedure" className="min-w-0 flex-1 bg-transparent text-[11px] text-[#403C37] outline-none placeholder:text-[#B2ADA5]" /></label>
             </div>
 
             <div className="mt-3 overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
-              <div className="hidden grid-cols-[82px_minmax(160px,0.9fr)_minmax(250px,1.5fr)_105px_120px_70px] gap-3 border-b border-black/[0.06] px-4 py-2.5 text-[7px] font-medium uppercase tracking-[0.12em] text-[#8A867F] md:grid"><span>Due</span><span>Client</span><span>Procedure</span><span>Role</span><span>Status</span><span></span></div>
+              <div className="hidden grid-cols-[82px_minmax(160px,0.9fr)_minmax(250px,1.5fr)_105px_120px_70px] gap-3 border-b border-black/[0.06] px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.12em] text-[#8A867F] md:grid"><span>Due</span><span>Client</span><span>Procedure</span><span>Role</span><span>Status</span><span></span></div>
               {visibleRows.slice(0, 250).map((item) => {
                 const due = dateKey(item.due_at);
                 const overdue = Boolean(due && due < today && String(item.status || "").toUpperCase() !== "WAITING_ON_CLIENT");
                 return (
                   <button key={item.id} type="button" onClick={() => setSelectedEngagementId(item.engagement_id)} className="group grid w-full gap-2 border-b border-black/[0.05] px-4 py-3 text-left last:border-0 hover:bg-[#FCFAF6] md:grid-cols-[82px_minmax(160px,0.9fr)_minmax(250px,1.5fr)_105px_120px_70px] md:items-center md:gap-3">
-                    <div className={`flex items-center gap-1.5 text-[9px] tabular-nums ${overdue ? "font-semibold text-[#9A533D]" : "text-[#686159]"}`}><CalendarClock size={9} />{shortDate(item.due_at)}</div>
-                    <div className="truncate text-[9px] font-semibold text-[#48423C]">{item.client_name}</div>
-                    <div className="min-w-0"><div className="truncate text-[10px] font-semibold text-[#37322D] group-hover:text-[#76583A]">{item.title}</div><div className="mt-0.5 truncate text-[8px] text-[#99928A]">{item.blocked_reason || item.description || (item.assigned_to === viewerId ? "Assigned to you" : item.assigned_accountant || "Unassigned")}</div></div>
-                    <div className="text-[8px] text-[#716A63]">{label(item.required_role)}</div>
-                    <div><span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.06em] ${statusTone(item.status)}`}>{String(item.status || "").toUpperCase() === "WAITING_ON_CLIENT" ? <Clock3 size={8} /> : <CircleDot size={8} />}{label(item.status)}</span></div>
-                    <div className="flex justify-end"><span className="inline-flex items-center gap-1 text-[8px] font-semibold text-[#8A633C]"><FolderOpen size={9} /> Open</span></div>
+                    <div className={`flex items-center gap-1.5 text-[11px] tabular-nums ${overdue ? "font-semibold text-[#9A533D]" : "text-[#686159]"}`}><CalendarClock size={9} />{shortDate(item.due_at)}</div>
+                    <div className="truncate text-[11px] font-semibold text-[#48423C]">{item.client_name}</div>
+                    <div className="min-w-0"><div className="truncate text-[10px] font-semibold text-[#37322D] group-hover:text-[#76583A]">{item.title}</div><div className="mt-0.5 truncate text-[11px] text-[#99928A]">{item.blocked_reason || item.description || (item.assigned_to === viewerId ? "Assigned to you" : item.assigned_accountant || "Unassigned")}</div></div>
+                    <div className="text-[11px] text-[#716A63]">{label(item.required_role)}</div>
+                    <div><span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] ${statusTone(item.status)}`}>{String(item.status || "").toUpperCase() === "WAITING_ON_CLIENT" ? <Clock3 size={8} /> : <CircleDot size={8} />}{label(item.status)}</span></div>
+                    <div className="flex justify-end"><span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#8A633C]"><FolderOpen size={9} /> Open</span></div>
                   </button>
                 );
               })}
-              {!visibleRows.length ? <div className="px-4 py-10 text-center"><Inbox size={17} className="mx-auto text-[#A7A097]" /><div className="mt-2 text-[10px] font-semibold text-[#4A443E]">Nothing in this view</div><div className="mt-1 text-[8px] text-[#928B83]">Your accounting queue is clear for this filter.</div></div> : null}
+              {!visibleRows.length ? <div className="px-4 py-10 text-center"><Inbox size={17} className="mx-auto text-[#A7A097]" /><div className="mt-2 text-[10px] font-semibold text-[#4A443E]">Nothing in this view</div><div className="mt-1 text-[11px] text-[#928B83]">Your accounting queue is clear for this filter.</div></div> : null}
             </div>
           </>
         ) : null}

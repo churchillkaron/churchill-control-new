@@ -65,8 +65,9 @@ function musicRuntimeHealth() {
 
   const checks = {
     engine_enabled: configuration.enabled === true,
-    endpoint_configured: configuration.runpod_endpoint_configured === true,
-    api_key_configured: configuration.runpod_api_key_configured === true,
+    modal_configured: configuration.modal_configured === true,
+    modal_token_id_configured: configuration.modal_token_id_configured === true,
+    modal_token_secret_configured: configuration.modal_token_secret_configured === true,
     foundation_model_configured: configuration.foundation_model_configured === true,
     model_variant_configured: configuration.model_variant_configured === true,
     lm_enabled: configuration.lm_enabled === true,
@@ -77,7 +78,6 @@ function musicRuntimeHealth() {
 
   return {
     ready: configuration.primary_audio_runtime_available === true &&
-      checks.management_api_key_configured === true &&
       Object.values(checks).every(Boolean),
     primary_audio_runtime_available: configuration.primary_audio_runtime_available === true,
     checks,
@@ -126,6 +126,9 @@ export async function POST(request) {
       entry.active === true
     ));
     const runtimeHealth = musicRuntimeHealth();
+    const providerSfxRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.sfx_runtime || {};
+    const sfxRuntimeReady = providerSfxRuntime.production_routing_allowed === true;
+    const sfxReady = sfx.ready === true && sfxRuntimeReady;
 
     return NextResponse.json({
       success: true,
@@ -144,8 +147,15 @@ export async function POST(request) {
         extend: { ...extend, status: extend.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
         sfx: {
           ...sfx,
-          ready: false,
-          status: "OWNED_RUNTIME_NOT_IMPLEMENTED",
+          ready: sfxReady,
+          status: sfxReady
+            ? "CERTIFIED"
+            : (sfxRuntimeReady ? "BENCHMARK_REQUIRED" : "CERTIFICATION_OR_CONFIGURATION_REQUIRED"),
+          runtime_ready: sfxRuntimeReady,
+          certification_ready: sfx.ready === true,
+          runtime_status: text(providerSfxRuntime.runtime_status) || null,
+          foundation_model: text(providerSfxRuntime.foundation_model) || null,
+          quality_profile: text(providerSfxRuntime.quality_profile) || null,
           external_fallback_enabled: sfxService?.fallback_enabled === true,
           external_provider_active: externalSfxActive,
         },

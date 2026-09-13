@@ -26,3 +26,20 @@ test("project checkpoint carries durable decisions when raw turns roll off", () 
   assert.deepEqual(context.project_checkpoint.decisions, ["Slow pacing", "Same helicopter continuity"]);
   assert.equal(context.project_checkpoint.next_step, "Develop reveal");
 });
+
+test("creative project context cannot bypass the hidden context budget", () => {
+  const hugeCreativeContext = Object.fromEntries(
+    Array.from({ length: 40 }, (_, index) => [
+      `department_${index}`,
+      Array.from({ length: 20 }, (_, item) => `detail-${index}-${item}-${"z".repeat(500)}`),
+    ]),
+  );
+  const context = buildIntelligenceContextBudget({
+    projectState: {
+      objective: "Keep Business Partner continuity",
+      creative_context: hugeCreativeContext,
+    },
+  });
+  assert.ok(context.telemetry.project_chars <= 5200);
+  assert.ok(JSON.stringify(context.project_checkpoint.creative_context).length < 5000);
+});

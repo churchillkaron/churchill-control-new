@@ -69,6 +69,7 @@ import {
   matchAnalyzedAttachmentToBusiness,
 } from "@/lib/platform/runtime/UniversalAttachmentBusinessMatchRuntime";
 import { attachmentLogicalObjects } from "@/lib/platform/runtime/ConversationAttachmentObjectRuntime";
+import { buildIntelligenceContextBudget } from "@/lib/operator/runtime/IntelligenceContextBudgetRuntime";
 import { collectOperatorPresentationArtifacts } from "@/lib/operator/runtime/OperatorPresentationArtifactRuntime";
 
 function readValue(source, camelKey, snakeKey) {
@@ -537,6 +538,22 @@ export async function POST(request) {
     // only; it never recovers agreement_state, pending confirmations, approvals,
     // or prior mutable business evidence.
     const agreementState = object(memory.agreementState);
+    const contextBudget = buildIntelligenceContextBudget({
+      conversation,
+      projectState: effectiveProjectState,
+      longTermMemory,
+      attachments: preparedConversationAttachments,
+      lane: "fast",
+    });
+    const boundedConversationContext = contextBudget.recent_conversation;
+    const boundedLongTermMemory = contextBudget.durable_memory;
+
+    console.info("OPERATOR_CONTEXT_BUDGET_V1", JSON.stringify({
+      organization_id: businessContext.organizationId,
+      entity_scoped: Boolean(businessContext.entityId),
+      source,
+      ...contextBudget.telemetry,
+    }));
 
     let operatorMs = 0;
     let userTurnPersistMs = 0;
@@ -572,9 +589,9 @@ export async function POST(request) {
           pathname: text(body.pathname) || null,
           agreementState,
           projectState: effectiveProjectState,
-          conversation,
-          longTermMemory,
-          conversationAttachments: preparedConversationAttachments,
+          conversation: boundedConversationContext,
+          longTermMemory: boundedLongTermMemory,
+          conversationAttachments: contextBudget.attachments,
           callerRequest: request,
           conversationId: memory.conversation.id,
         })
@@ -745,6 +762,11 @@ export async function POST(request) {
         key: persistedState.conversation_key,
         status: persistedState.status,
         persistent: true,
+      },
+      context_budget: {
+        contract: contextBudget.contract,
+        lane: contextBudget.lane,
+        ...contextBudget.telemetry,
       },
       context: {
         organization_id: businessContext.organizationId,

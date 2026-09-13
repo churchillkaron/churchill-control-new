@@ -116,3 +116,11 @@ test("Core Finance creates expose authoritative identities and exact verificatio
   assert.match(bankCreate, /bank_account_id: result\?\.bankAccount\?\.id/);
   assert.match(bankRead, /searchParams\.get\("bank_account_id"\)/);
 });
+
+test("Finance does not advertise create actions without an executable write contract", async () => {
+  const registry = await readFile(new URL("../lib/platform/registry/erpRegistry.base.js", import.meta.url), "utf8");
+  for (const item of ["accounts_receivable", "invoice_matching", "cash_flow", "tax", "audit_trail"]) {
+    const pattern = new RegExp(`id: "${item}"[\\s\\S]*?create:\\s*\\{[\\s\\S]*?enabled\\s*:\\s*false`);
+    assert.match(registry, pattern);
+  }
+});

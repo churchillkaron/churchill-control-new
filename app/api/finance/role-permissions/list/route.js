@@ -56,12 +56,23 @@ export async function GET(request) {
     });
 
     const organizationId = access.organizationId;
-    const [availableRoles, permissions, grants, assignments] = await Promise.all([
+    const assignmentId = searchParams.get("assignment_id") || searchParams.get("assignmentId") || null;
+    const permissionGrantId = searchParams.get("permission_grant_id") || searchParams.get("permissionGrantId") || null;
+    const requestedUserId = searchParams.get("user_id") || searchParams.get("userId") || null;
+
+    const [availableRoles, permissions, allGrants, allAssignments] = await Promise.all([
       listFinanceRoles(organizationId),
       listFinancePermissions(organizationId),
       listFinancePermissionGrants(organizationId),
-      listUserFinanceRoles({ organizationId }),
+      listUserFinanceRoles({ organizationId, userId: requestedUserId }),
     ]);
+
+    const grants = permissionGrantId
+      ? allGrants.filter((grant) => String(grant.id) === String(permissionGrantId))
+      : allGrants;
+    const assignments = assignmentId
+      ? allAssignments.filter((assignment) => String(assignment.id) === String(assignmentId))
+      : allAssignments;
 
     const rows = assignments.map((assignment) => ({
       ...assignment,

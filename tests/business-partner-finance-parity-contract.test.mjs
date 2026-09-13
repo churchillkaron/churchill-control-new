@@ -175,3 +175,20 @@ test("Invoices and bank statement imports preserve exact create verification", a
   assert.match(statementCreate, /statement_import_id: statementImportId/);
   assert.match(statementRead, /searchParams\.get\("statement_import_id"\)/);
 });
+
+
+test("Finance access verification is exact and read-only", async () => {
+  const runtime = await readFile(new URL("../lib/finance/FinanceRuntime.js", import.meta.url), "utf8");
+  const verifier = await readFile(new URL("../lib/finance/security/capabilities/readFinanceAccessEvidence.js", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/finance/role-permissions/list/route.js", import.meta.url), "utf8");
+
+  assert.match(runtime, /finance_access:[\s\S]*?read:/);
+  assert.match(verifier, /capability: "finance_access"/);
+  assert.match(verifier, /operatorMode: "read"/);
+  assert.match(verifier, /operatorRequiresConfirmation: false/);
+  assert.match(verifier, /assignment_id or permission_grant_id required/);
+  assert.match(route, /searchParams\.get\("assignment_id"\)/);
+  assert.match(route, /searchParams\.get\("permission_grant_id"\)/);
+  assert.match(route, /allGrants\.filter/);
+  assert.match(route, /allAssignments\.filter/);
+});

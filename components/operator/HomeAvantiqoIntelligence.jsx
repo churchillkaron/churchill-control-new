@@ -95,27 +95,24 @@ function conversationalProgressStatus(liveExecution, startedAt) {
 
   if (!latest) return "Understanding your request…";
 
-  const description = text(latest?.description).replace(/\s*·\s*\d+s\b/gi, "").trim();
-  const capability = text(latest?.capability_key);
-  const action = text(latest?.action);
-  const command = text(latest?.command);
-  const files = Array.isArray(latest?.files_changed) ? latest.files_changed.filter(Boolean) : [];
   const phase = text(latest?.phase).replaceAll("_", " ").toLowerCase();
+  const lane = text(latest?.lane).replaceAll("_", " ").toLowerCase();
+  const signal = `${phase} ${lane}`;
 
-  let detail = description;
-  if (!detail && capability) detail = `${action === "read" ? "Reading" : "Working with"} ${capability}`;
-  if (!detail && command) detail = `Running ${command}`;
-  if (!detail && files.length) detail = `Updating ${files.slice(0, 2).join(", ")}`;
-  if (!detail && phase) detail = phase.charAt(0).toUpperCase() + phase.slice(1);
-  if (!detail) detail = "Working on the current request";
+  if (/research|benchmark|external|market|compare|evidence/.test(signal)) {
+    return "I’m researching the relevant evidence and comparable systems, then I’ll bring it together into a recommendation…";
+  }
+  if (/verify|test|review|validate|quality/.test(signal)) {
+    return "I’ve made progress and I’m checking the full result now…";
+  }
+  if (/change|repair|fix|edit|execute|implement|build|write/.test(signal)) {
+    return "I found what needs attention and I’m working on the correction now…";
+  }
+  if (/inspect|diagnos|analy|understand|plan|read|gather/.test(signal)) {
+    return "I’m checking the relevant information and working out the best next step…";
+  }
 
-  const context = [
-    capability && !detail.includes(capability) ? capability : "",
-    action && action !== "read" ? action : "",
-    files.length ? `${files.length} file${files.length === 1 ? "" : "s"}` : "",
-  ].filter(Boolean).join(" · ");
-
-  return `${detail}${context ? ` · ${context}` : ""}`;
+  return "I’m working through your request now…";
 }
 
 function thesisInterruptionSpeech(thesis) {

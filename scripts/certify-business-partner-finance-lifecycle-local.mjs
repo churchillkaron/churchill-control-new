@@ -23,7 +23,7 @@ const learning = read("lib/operator/runtime/BusinessPartnerProductEvidenceRuntim
 const stages = {
   mission_planning:
     has(mission, /OPERATOR_MISSION_REQUIRES_2_TO_6_STEPS/) &&
-    has(mission, /ACTION_REQUIRES_VERIFY_AFTER/),
+    has(mission, /OPERATOR_MISSION_SERVER_VERIFICATION_REQUIRED/),
   governed_execution:
     has(invoice, /finance\.receivables\.manage/) &&
     has(invoice, /operatorRequiresConfirmation:\s*true/) &&

@@ -18,7 +18,7 @@ const messageSend = read("lib/commercial/communications/capabilities/sendDraftMe
 const messageRead = read("lib/commercial/communications/capabilities/readMessage.js");
 
 const stages = {
-  mission_planning: has(declaration, /same_capability_registered_read_result_locator/),
+  mission_planning: has(declaration, /if \(!locatorKeys\.length\) return null/),
   governed_execution: has(turn, /preflightSelectedRecommendationVerification/),
   business_effect_verification: has(core, /resultBoundVerification/),
   failure_capture: has(core, /post_action_verification/),
@@ -37,8 +37,8 @@ const report = certifyBusinessPartnerLifecycle({
   stages,
 });
 report.domain_evidence = {
-  exact_generated_locator_only: has(declaration, /requiredReadKeys\.length !== 1/),
-  no_result_guessing: has(declaration, /payload_from_result: \{ \[resultKey\]: \[resultKey\] \}/),
+  exact_generated_locator_only: has(declaration, /const locatorKeys = stableReadKeys\.filter/) && has(declaration, /if \(!locatorKeys\.length\) return null/),
+  no_result_guessing: !has(declaration, /same_capability_registered_read_result_locator/) && !has(declaration, /payload_from_result: \{ \[resultKey\]: \[resultKey\] \}/),
   customer_exact_read: has(customerRead, /getCustomer/) && has(customerRead, /required: \["party_id"\]/),
   customer_result_binding: has(customerCreate, /commercial\.customers\.read/) && has(customerCreate, /payload_from_result/),
   message_exact_read: has(messageRead, /getMessage/) && has(messageRead, /conversation_id/) && has(messageRead, /message_id/),

@@ -21,7 +21,7 @@ const menu=read("lib/inventory/production/costing/capabilities/runMenuEngineerin
 const learning=read("lib/operator/runtime/BusinessPartnerProductEvidenceRuntime.js");
 
 const stages={
-  mission_planning:has(mission,/OPERATOR_MISSION_REQUIRES_2_TO_6_STEPS/)&&has(mission,/ACTION_REQUIRES_VERIFY_AFTER/),
+  mission_planning:has(mission,/OPERATOR_MISSION_REQUIRES_2_TO_6_STEPS/)&&has(mission,/OPERATOR_MISSION_SERVER_VERIFICATION_REQUIRED/),
   governed_execution:has(vendorCost,/procurement\.manage/)&&has(vendorCost,/operatorRequiresConfirmation:true/)&&has(core,/separate Supply Chain write and requires your confirmation/),
   business_effect_verification:has(costSql,/update public\.inventory_items/)&&has(costSql,/update public\.dishes/)&&has(costSql,/supply_chain_apply_vendor_invoice_costs_atomic/),
   failure_capture:has(mission,/AVANTIQO_OPERATOR_MISSION_STEP_FAILURE_EVIDENCE_V1/)&&has(core,/AVANTIQO_BUSINESS_PARTNER_MISSION_RECOVERY_V1/),

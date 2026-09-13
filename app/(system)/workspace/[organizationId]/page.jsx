@@ -15,6 +15,9 @@ import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAlertBridge";
 import BusinessPartnerCodeMissionPanel from "@/components/operator/BusinessPartnerCodeMissionPanel";
 import HomeAvantiqoIntelligenceDock from "@/components/operator/HomeAvantiqoIntelligenceDock";
+import SyntheticIntelligenceControlCenter from "@/components/operator/SyntheticIntelligenceControlCenter";
+import SyntheticIntelligenceForecastTrackRecord from "@/components/operator/SyntheticIntelligenceForecastTrackRecord";
+import SyntheticIntelligenceDeliveryControl from "@/components/operator/SyntheticIntelligenceDeliveryControl";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 import { listOperatorNavigationTargets } from "@/lib/operator/runtime/OperatorNavigationCatalog";
 
@@ -43,7 +46,7 @@ function priorityDot(priority) {
 }
 
 export default function OrganizationWorkspacePage() {
-  const { runtime, organization, loading } = useOrganizationRuntime();
+  const { runtime, organization, loading, role } = useOrganizationRuntime();
   const businessContext = useBusinessContext() || {};
 
   const organizationId =
@@ -359,6 +362,12 @@ export default function OrganizationWorkspacePage() {
 
               <BusinessPartnerCodeMissionPanel organizationId={organizationId} />
               <HomeAvantiqoIntelligenceDock organizationId={organizationId} />
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <SyntheticIntelligenceControlCenter organizationId={organizationId} role={role} />
+              <SyntheticIntelligenceForecastTrackRecord organizationId={organizationId} />
+              <SyntheticIntelligenceDeliveryControl organizationId={organizationId} role={role} />
             </div>
           </aside>
         </div>

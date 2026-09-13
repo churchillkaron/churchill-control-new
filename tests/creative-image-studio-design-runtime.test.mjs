@@ -76,3 +76,12 @@ test("Image Studio multi-selection moves as a group", async () => {
   assert.match(canvas, /origins=new Map/);
   assert.match(canvas, /appliedDx/);
 });
+
+test("Image Studio export persists a canonical publishable Creative asset", () => {
+  const source = fs.readFileSync(new URL("../app/api/workspace/creative/image-studio/export/route.js", import.meta.url), "utf8");
+  assert.match(source, /CreativeAssetRepository\.create/);
+  assert.match(source, /storage:\/\/\$\{BUCKET\}/);
+  assert.match(source, /asset_id: asset\.id/);
+  assert.match(source, /x-avantiqo-creative-asset-id/);
+  assert.match(source, /createHash\("sha256"\)/);
+});

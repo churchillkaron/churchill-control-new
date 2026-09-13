@@ -77,9 +77,9 @@ const MODES = Object.freeze([
   { id: "arrange", label: "Arrangement", shortLabel: "Arrange", description: "Shape sections, structure and arrangement.", icon: LayoutGrid, section: "Create & shape" },
   { id: "midi", label: "MIDI", shortLabel: "MIDI", description: "Work with MIDI performance and composition tools.", icon: KeyboardMusic, section: "Create & shape" },
   { id: "elastic", label: "Time & Pitch", shortLabel: "Time & Pitch", description: "Adjust timing and pitch with elastic audio tools.", icon: Waves, section: "Edit" },
-  { id: "remix", label: "Remix", shortLabel: "Remix", description: "Create a governed remix from existing material.", icon: RefreshCw, section: "Edit", planningOnly: true },
-  { id: "edit", label: "AI Edit", shortLabel: "AI Edit", description: "Apply a governed AI music edit.", icon: Scissors, section: "Edit", planningOnly: true },
-  { id: "extend", label: "Extend", shortLabel: "Extend", description: "Extend an existing piece of music.", icon: RefreshCw, section: "Edit", planningOnly: true },
+  { id: "remix", label: "Remix", shortLabel: "Remix", description: "Create a governed remix from existing material.", icon: RefreshCw, section: "Edit" },
+  { id: "edit", label: "AI Edit", shortLabel: "AI Edit", description: "Apply a governed surgical music edit.", icon: Scissors, section: "Edit" },
+  { id: "extend", label: "Extend", shortLabel: "Extend", description: "Continue an existing piece with governed temporal outpainting.", icon: RefreshCw, section: "Edit" },
   { id: "stems", label: "Separate Stems", shortLabel: "Stems", description: "Separate vocals, drums, bass and other instruments.", icon: Scissors, section: "Finish" },
   { id: "vocal", label: "Vocals", shortLabel: "Vocals", description: "Work on vocal production and finishing.", icon: Mic2, section: "Finish" },
   { id: "mix", label: "Mix", shortLabel: "Mix", description: "Balance and finish the mix.", icon: SlidersHorizontal, section: "Finish" },
@@ -301,10 +301,13 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
   const composeStatus = readiness?.capabilities?.compose?.status || "CHECKING";
 
   const modeState = useMemo(() => Object.fromEntries(MODES.map((item) => {
-    if (item.planningOnly) return [item.id, { enabled: false, status: "PLANNING_ONLY" }];
     if (item.id === "compose") return [item.id, { enabled: true, status: composeStatus }];
+    if (["remix", "edit", "extend"].includes(item.id)) {
+      const capability = readiness?.capabilities?.[item.id] || {};
+      return [item.id, { enabled: true, status: capability.status || "BENCHMARK_REQUIRED", executable: capability.ready === true }];
+    }
     return [item.id, { enabled: true, status: "STUDIO_TOOL" }];
-  })), [composeStatus]);
+  })), [composeStatus, readiness]);
 
   const activeMode = MODES.find((item) => item.id === mode) || null;
 

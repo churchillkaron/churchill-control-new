@@ -56,6 +56,7 @@ export default function MusicRemixPanel({
   const [plan, setPlan] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [execution, setExecution] = useState(null);
 
   const executionReady = plan?.ready_for_execution === true && plan?.execution_route_enabled === true;
   const certification = plan?.plan?.certification || null;
@@ -81,6 +82,7 @@ export default function MusicRemixPanel({
 
   function resetPlan() {
     setPlan(null);
+    setExecution(null);
   }
 
   function chooseFile(selected) {
@@ -120,6 +122,37 @@ export default function MusicRemixPanel({
       setStorageReference(target.storage_reference);
     } catch (cause) {
       setError(cause?.message || "Source upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+
+  async function executePlan() {
+    if (!plan?.plan_fingerprint || !executionReady || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await request({
+        action: "execute",
+        operation: mode,
+        organization_id: organizationId,
+        creative_project_id: projectId,
+        creative_mission_id: missionId,
+        source_audio: storageReference,
+        source_rights_confirmed: true,
+        style,
+        mood,
+        energy,
+        instrumental: true,
+        expected_plan_fingerprint: plan.plan_fingerprint,
+        ...(mode === "remix" ? { audio_cover_strength: coverStrength } : {}),
+        ...(mode === "edit" ? { repainting_start: Number(editStart), repainting_end: Number(editEnd) } : {}),
+        ...(mode === "extend" ? { extension_seconds: Number(extensionSeconds), continuity_overlap_seconds: Number(continuityOverlapSeconds) } : {}),
+      });
+      setExecution(result);
+    } catch (cause) {
+      setError(cause?.message || `Could not execute ${mode}`);
     } finally {
       setBusy(false);
     }
@@ -191,10 +224,11 @@ export default function MusicRemixPanel({
         {mode === "extend" ? <><label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Extend by seconds</span><input type="number" min="5" max="120" step="1" value={extensionSeconds} onChange={(event) => { setExtensionSeconds(event.target.value); resetPlan(); }} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-3 py-2.5 text-xs text-white/70 outline-none" /></label><label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Continuity overlap</span><input type="number" min="1" max="12" step="0.5" value={continuityOverlapSeconds} onChange={(event) => { setContinuityOverlapSeconds(event.target.value); resetPlan(); }} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-3 py-2.5 text-xs text-white/70 outline-none" /><span className="mt-1 block text-[9px] leading-4 text-white/24">Seconds from the existing ending used to blend into the new continuation.</span></label></> : null}
       </div>
 
-      {plan ? <div className="mt-5 rounded-xl border border-white/8 bg-black/25 p-4"><div className="text-[9px] uppercase tracking-[0.18em] text-white/28">{config.label} plan</div><div className="mt-2 text-xs text-white/60">Avantiqo-owned Music engine{modelLane ? ` · ${modelLane}` : ""}</div><div className="mt-1 text-[10px] text-white/30">Status: {certification || "Pending certification"}</div>{mode === "extend" ? <div className="mt-2 text-[10px] text-amber-100/45">XL Turbo tail outpainting is implemented. Execution remains blocked until temporal extension is benchmark-certified and human-reviewed.</div> : null}</div> : null}
+      {plan ? <div className="mt-5 rounded-xl border border-white/8 bg-black/25 p-4"><div className="text-[9px] uppercase tracking-[0.18em] text-white/28">{config.label} plan</div><div className="mt-2 text-xs text-white/60">Avantiqo-owned Music engine{modelLane ? ` · ${modelLane}` : ""}</div><div className="mt-1 text-[10px] text-white/30">Status: {certification || "Pending certification"}</div><div className="mt-1 text-[9px] text-white/20">Plan {plan.plan_fingerprint?.slice(0, 12) || "—"}</div>{mode === "extend" ? <div className="mt-2 text-[10px] text-amber-100/45">XL Turbo tail outpainting is implemented. Execution remains blocked until temporal extension is benchmark-certified and human-reviewed.</div> : null}</div> : null}
+      {execution ? <div className="mt-4 rounded-xl border border-emerald-300/12 bg-emerald-300/[0.025] p-4 text-xs text-emerald-100/60">{execution.pending ? "Execution submitted to the governed owned Music runtime." : execution.failed ? "Execution failed." : "Execution completed."}{execution.usage_id ? ` Usage ${execution.usage_id}` : ""}</div> : null}
       {error ? <div className="mt-4 rounded-lg border border-red-400/15 bg-red-400/[0.05] px-3 py-2 text-xs text-red-200/70">{error}</div> : null}
 
-      <div className="mt-5 flex gap-3"><button type="button" disabled={!storageReference || !rightsConfirmed || busy} onClick={reviewPlan} className="rounded-lg border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-4 py-2.5 text-xs text-[#efd29f] disabled:opacity-35">{config.review}</button><button type="button" disabled={!executionReady} className="rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs text-white/55 disabled:opacity-30">{config.create}</button></div>
+      <div className="mt-5 flex gap-3"><button type="button" disabled={!storageReference || !rightsConfirmed || busy} onClick={reviewPlan} className="rounded-lg border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-4 py-2.5 text-xs text-[#efd29f] disabled:opacity-35">{config.review}</button><button type="button" disabled={!executionReady || busy} onClick={executePlan} className="rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs text-white/55 disabled:opacity-30">{busy && executionReady ? "Submitting…" : config.create}</button></div>
     </section>
   );
 }

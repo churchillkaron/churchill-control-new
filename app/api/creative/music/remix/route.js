@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import {
@@ -9,6 +9,7 @@ import {
   MUSIC_SOURCE_AUDIO_RIGHTS_ATTESTATION_CONTRACT,
 } from "@/lib/creative/runtime/engines/MusicEngine";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { executeService } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
 const EXECUTION_PERMISSIONS = Object.freeze([
@@ -24,6 +25,16 @@ const TEMPORAL_EXTEND_STRATEGY = "XL_TURBO_REPAINT_RIGHT_OUTPAINT";
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function stable(value) {
+  if (Array.isArray(value)) return value.map(stable);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
+}
+
+function fingerprint(value) {
+  return createHash("sha256").update(JSON.stringify(stable(value))).digest("hex");
 }
 
 function finite(value, fallback = null) {
@@ -165,13 +176,81 @@ function plan(body) {
     success: true,
     operation,
     plan: transformPlan,
+    plan_fingerprint: fingerprint(transformPlan),
     ready_for_execution: transformPlan.executable === true,
     production_certified: transformPlan.executable === true,
     execution_submitted: false,
-    execution_route_enabled: false,
+    execution_route_enabled: transformPlan.executable === true,
     rights_confirmation_required: true,
     content_restriction_policy: transformPlan.content_restriction_policy,
     blocking_certification: transformPlan.executable === true ? null : transformPlan.certification,
+  };
+}
+
+async function executeTransformation(body) {
+  const organizationId = text(body.organization_id);
+  const reviewed = plan(body);
+  const expected = text(body.expected_plan_fingerprint);
+  if (!expected) {
+    const error = new Error("CREATIVE_MUSIC_TRANSFORM_PLAN_FINGERPRINT_REQUIRED");
+    error.status = 409;
+    throw error;
+  }
+  if (expected !== reviewed.plan_fingerprint) {
+    const error = new Error("CREATIVE_MUSIC_TRANSFORM_PLAN_CHANGED");
+    error.status = 409;
+    throw error;
+  }
+  const transform = reviewed.plan;
+  if (transform.executable !== true || transform.certification !== "CERTIFIED") {
+    const error = new Error(`CREATIVE_MUSIC_TRANSFORM_NOT_CERTIFIED:${transform.certification || "NOT_READY"}`);
+    error.status = 503;
+    throw error;
+  }
+  const result = await executeService({
+    organization_id: organizationId,
+    bill_to_organization_id: organizationId,
+    entity_id: text(body.entity_id) || null,
+    service_id: transform.service_id,
+    capability: transform.capability,
+    input: {
+      title: transform.session?.title || `${reviewed.operation} music`,
+      description: transform.session?.direction || null,
+      quantity: transform.output_spec?.duration_seconds || transform.session?.duration_seconds || 0,
+      currency: text(body.currency || "THB"),
+      source_audio: transform.source_audio,
+      task_type: transform.task_type,
+      rights_attestation: transform.rights_attestation,
+      generation: transform.generation,
+      provider_parameters: transform.provider_parameters,
+      requirements: { output_spec: transform.output_spec },
+      output_spec: transform.output_spec,
+    },
+    metadata: {
+      module: "CREATIVE",
+      operation: `AVANTIQO_MUSIC_${reviewed.operation.toUpperCase()}_EXECUTE`,
+      creative_project_id: text(body.creative_project_id) || null,
+      creative_mission_id: text(body.creative_mission_id) || null,
+      transform_plan_fingerprint: reviewed.plan_fingerprint,
+      source_rights_attestation: transform.rights_attestation,
+      provider_selection_exposed: false,
+      user_prompt_surface: false,
+      preserve_source_asset: true,
+    },
+    provider_policy: { preferred_providers: ["avantiqo-audio"] },
+    category: "AI",
+  });
+  return {
+    success: result?.failed !== true,
+    operation: reviewed.operation,
+    plan_fingerprint: reviewed.plan_fingerprint,
+    pending: result?.pending === true,
+    failed: result?.failed === true,
+    provider_status: result?.provider_status || null,
+    provider_job_submitted: Boolean(result?.pending || result?.usage?.provider_request_id || result?.provider_job_id),
+    usage_id: result?.usage?.id || null,
+    result,
+    publication_authorized: false,
   };
 }
 
@@ -188,7 +267,9 @@ export async function POST(request) {
       ? await prepareSourceUpload(body)
       : action === "plan"
         ? plan(body)
-        : null;
+        : action === "execute"
+          ? await executeTransformation(body)
+          : null;
     if (!result) {
       return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_TRANSFORM_ACTION_INVALID" }, { status: 400 });
     }

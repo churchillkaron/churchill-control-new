@@ -25,6 +25,7 @@ test("Music Dailies create surgical repair brief without discarding approved dir
     family, score: family === "PERFORMANCE" ? 84 : 94,
     passed: family !== "PERFORMANCE", evidence: [`${family} evidence`],
     repair: family === "PERFORMANCE" ? ["Repair timing in the second chorus only."] : [],
+    regions: family === "PERFORMANCE" ? [{ start_seconds: 42, end_seconds: 58, evidence: "Second chorus loses timing and energy." }] : [],
   }));
   const report = evaluateMusicDailies({ intended, rendered, reviews });
   const brief = buildMusicDailiesRepairBrief({ report, reviews, binding: { direction_hash: "dir", preproduction_hash: "pre" } });
@@ -32,6 +33,9 @@ test("Music Dailies create surgical repair brief without discarding approved dir
   assert.equal(brief.preserve_approved_direction, true);
   assert.equal(brief.do_not_regenerate_unfailed_dimensions, true);
   assert.equal(brief.repairs.length, 1);
+  assert.equal(brief.regions.length, 1);
+  assert.equal(brief.regions[0].start_seconds, 42);
+  assert.equal(brief.exact_region_evidence_required_for_musical_repair, true);
 });
 
 test("Business Partner catalog exposes Music Dailies review", async () => {
@@ -46,4 +50,23 @@ test("world-class execution automatically runs Music Dailies after mastering", a
   assert.match(executionSource, /runMusicDailiesListening/);
   assert.match(executionSource, /dailies: dailies/);
   assert.match(finishingSource, /master_report: masterReport/);
+});
+
+test("Music Dailies persist exact failed time regions for surgical repair", async () => {
+  const listeningSource = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  const analysisSource = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicMusicalAnalysisRuntime.js", import.meta.url), "utf8");
+  assert.match(listeningSource, /regions:/);
+  assert.match(listeningSource, /dynamic_sections/);
+  assert.match(analysisSource, /AVANTIQO_MUSIC_DYNAMIC_SECTION_ANALYSIS_V1/);
+  assert.match(analysisSource, /section_analysis_ready: true/);
+});
+
+test("Business Partner exposes fail-closed surgical Music repair planning", async () => {
+  const runtimeSource = await readFile(new URL("../lib/creative/runtime/CreativeRuntime.js", import.meta.url), "utf8");
+  const repairSource = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicSurgicalRepairRuntime.js", import.meta.url), "utf8");
+  assert.match(runtimeSource, /planWorldClassSurgicalRepair/);
+  assert.match(repairSource, /EXACT_FAILED_REGION_REQUIRED/);
+  assert.match(repairSource, /AI_AUDIO_EDIT_/);
+  assert.match(repairSource, /preserve_outside_region: true/);
+  assert.match(repairSource, /rerun_dailies_after_execution: true/);
 });

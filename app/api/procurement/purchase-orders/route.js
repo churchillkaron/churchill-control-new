@@ -65,9 +65,10 @@ export async function POST(req) {
         }
       );
 
-    return NextResponse.json(
-      result
-    );
+    return NextResponse.json({
+      ...result,
+      purchase_order_id: result?.purchase_order?.id || null,
+    });
 
   } catch (error) {
 

@@ -94,7 +94,20 @@ export async function POST(req) {
       actor_id: actorId,
     });
 
-    return NextResponse.json(result, {
+    const goodsReceiptId =
+      result?.goods_receipt?.id ||
+      result?.goods_receipt_id ||
+      null;
+
+    return NextResponse.json({
+      ...result,
+      goods_receipt_id: goodsReceiptId,
+      purchase_order_id:
+        result?.purchase_order?.id ||
+        body.purchase_order_id ||
+        body.purchaseOrderId ||
+        null,
+    }, {
       status: result.success ? 200 : 400,
     });
   } catch (error) {

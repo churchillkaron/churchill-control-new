@@ -58,6 +58,23 @@ test("Registry create parity accepts both create.api and create.endpoint declara
   assert.match(registryBridge, /declaredCreateEndpoint\(item\) \|\| collectionCreateEndpoint\(item\)/);
 });
 
+test("Finance procurement creates are conversational and exactly verifiable", async () => {
+  const registry = await readFile(new URL("../lib/platform/registry/erpRegistry.base.js", import.meta.url), "utf8");
+  const purchaseOrders = await readFile(new URL("../app/api/procurement/purchase-orders/list/route.js", import.meta.url), "utf8");
+  const receiving = await readFile(new URL("../app/api/procurement/receiving/list/route.js", import.meta.url), "utf8");
+  const purchaseOrderCreate = await readFile(new URL("../app/api/procurement/purchase-orders/route.js", import.meta.url), "utf8");
+  const receiptCreate = await readFile(new URL("../app/api/procurement/receiving/route.js", import.meta.url), "utf8");
+
+  assert.match(registry, /id: "purchase_orders"[\s\S]*?api: "\/api\/procurement\/purchase-orders"[\s\S]*?contextScope:"entity"[\s\S]*?identity:"purchase_order_id"/);
+  assert.match(registry, /id: "goods_receipts"[\s\S]*?api: "\/api\/procurement\/receiving"[\s\S]*?contextScope:"entity"[\s\S]*?identity:"goods_receipt_id"/);
+  assert.match(purchaseOrderCreate, /purchase_order_id: result\?\.purchase_order\?\.id/);
+  assert.match(receiptCreate, /goods_receipt_id: goodsReceiptId/);
+  assert.match(purchaseOrders, /query = query\.eq\("entity_id", entityId\)/);
+  assert.match(purchaseOrders, /query = query\.eq\("id", purchaseOrderId\)/);
+  assert.match(receiving, /query = query\.eq\("entity_id", entityId\)/);
+  assert.match(receiving, /query = query\.eq\("id", goodsReceiptId\)/);
+});
+
 test("Common Finance reads stay on the low-cost deterministic path", () => {
   for (const key of [
     "finance.customer_invoices.read",

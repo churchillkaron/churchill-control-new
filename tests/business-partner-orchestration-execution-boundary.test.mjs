@@ -36,7 +36,7 @@ test("true orchestration is explicitly wrapped at domain registration", () => {
   }
   assert.match(domains, /withOperatorExecutionBoundary\(portfolioModule\.createProductEngineeringPortfolioCapability/);
   assert.match(domains, /withOperatorExecutionBoundary\(portfolioControlModule\.createProductEngineeringPortfolioControlCapability/);
-  assert.equal((creative.match(/loadWithOperatorExecutionBoundary/g) || []).length, 6);
+  assert.equal((creative.match(/=> loadWithOperatorExecutionBoundary\(/g) || []).length, 6);
 });
 
 test("write coverage cert no longer treats creative code product mission prefixes as sufficient", () => {

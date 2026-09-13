@@ -15,8 +15,21 @@ test("volatile turns do not change static context fingerprint", () => {
   const first = intelligenceContextFingerprint({ ...base, recentConversation: [{ role: "user", content: "hello" }] });
   const second = intelligenceContextFingerprint({ ...base, recentConversation: [{ role: "user", content: "different" }] });
   assert.equal(first.static_context_fingerprint, second.static_context_fingerprint);
-  assert.notEqual(first.volatile_context_fingerprint, second.volatile_context_fingerprint);
+  assert.equal(Object.hasOwn(first, "volatile_context_fingerprint"), false);
+  assert.equal(Object.hasOwn(second, "volatile_context_fingerprint"), false);
+  assert.notEqual(first.volatile_chars, second.volatile_chars);
 });
+
+test("static cache identity is isolated by organization scope", () => {
+  const stable = { projectCheckpoint: { objective: "Operate safely" }, durableMemory: [{ type: "decision", content: "Bound context" }] };
+  const first = intelligenceContextFingerprint({ ...stable, scope: { organization_id: "org-a", entity_id: "entity-1" } });
+  const same = intelligenceContextFingerprint({ ...stable, scope: { entity_id: "entity-1", organization_id: "org-a" } });
+  const otherOrg = intelligenceContextFingerprint({ ...stable, scope: { organization_id: "org-b", entity_id: "entity-1" } });
+  assert.equal(first.contract, "AVANTIQO_INTELLIGENCE_CONTEXT_FINGERPRINT_V2");
+  assert.equal(first.static_context_fingerprint, same.static_context_fingerprint);
+  assert.notEqual(first.static_context_fingerprint, otherOrg.static_context_fingerprint);
+});
+
 test("archived history growth does not change bounded static fingerprint", () => {
   const recent = Array.from({ length: 8 }, (_, index) => ({ role: index % 2 ? "assistant" : "user", content: `recent-${index}` }));
   const old = Array.from({ length: 5000 }, (_, index) => ({ role: index % 2 ? "assistant" : "user", content: `old-${index}` }));

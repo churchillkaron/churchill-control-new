@@ -26,4 +26,5 @@ test("Business Partner serializes stable context before volatile user text", () 
   const section = synthetic.slice(start, start + 900);
   assert.ok(section.indexOf("project_state") < section.indexOf("user_message"));
   assert.ok(section.indexOf("business_context") < section.indexOf("user_message"));
+  assert.ok(section.indexOf("organization_id") < section.indexOf("user_message"));
 });

@@ -545,6 +545,10 @@ export async function POST(request) {
       longTermMemory,
       attachments: preparedConversationAttachments,
       lane: "fast",
+      scope: {
+        organization_id: businessContext.organizationId,
+        entity_id: businessContext.entityId || null,
+      },
     });
     const boundedConversationContext = contextBudget.recent_conversation;
     const boundedLongTermMemory = contextBudget.durable_memory;

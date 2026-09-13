@@ -221,3 +221,30 @@ test("High-impact registry Finance creates use explicit closed input schemas", a
   assert.match(registry, /id: "journals"[\s\S]*?required:\["posting_date","currency_code","exchange_rate","lines","idempotency_key"\]/);
   assert.match(registry, /id: "intercompany"[\s\S]*?required:\["from_legal_entity_id","to_legal_entity_id"[\s\S]*?"idempotency_key"\]/);
 });
+
+
+test("Remaining generated Finance creates use closed canonical input schemas", async () => {
+  const registry = await readFile(new URL("../lib/platform/registry/erpRegistry.base.js", import.meta.url), "utf8");
+  const finance = registry.slice(registry.indexOf("    finance: {"));
+  for (const workspace of [
+    "customers", "vendors", "purchase_orders", "goods_receipts", "bank_accounts", "payment_terms",
+  ]) {
+    const match = finance.match(new RegExp(`id: "${workspace}"[\\s\\S]*?create:\\s*\\{([\\s\\S]*?)\\n\\}`));
+    assert.ok(match, `missing create block for ${workspace}`);
+    assert.match(match[1], /inputSchema:/, `${workspace} must declare inputSchema`);
+    assert.match(match[1], /additionalProperties:false/, `${workspace} must reject undeclared payload fields`);
+  }
+  assert.match(registry, /id: "customers"[\s\S]*?required:\["customer_name"\]/);
+  assert.match(registry, /id: "vendors"[\s\S]*?required:\["legal_name"\]/);
+  assert.match(registry, /id: "purchase_orders"[\s\S]*?required:\["supplier_party_id","items"\]/);
+  assert.match(registry, /id: "goods_receipts"[\s\S]*?required:\["purchase_order_id"\]/);
+  assert.match(registry, /id: "bank_accounts"[\s\S]*?required:\["bank_name","account_name","account_number","currency_code"\]/);
+  assert.match(registry, /id: "payment_terms"[\s\S]*?required:\["code","name","days"\]/);
+});
+
+test("Goods receipt actor identity is server-bound", async () => {
+  const route = await readFile(new URL("../app/api/procurement/receiving/route.js", import.meta.url), "utf8");
+  assert.match(route, /const actorId = access\.access\?\.staffAccountId \|\| null/);
+  assert.match(route, /actor_id: actorId/);
+  assert.doesNotMatch(route, /actor_id:\s*body\./);
+});

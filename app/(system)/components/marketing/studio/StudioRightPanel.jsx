@@ -7,7 +7,6 @@ export default function StudioRightPanel({
   queuedCampaigns,
   setQueuedCampaigns,
   recommendation,
-  promptPreview,
   generateCampaign,
   setActiveAsset,
 }) {
@@ -104,12 +103,6 @@ export default function StudioRightPanel({
           {recommendation?.summary ||
             "Use selected assets with the current brand profile to generate a campaign that matches the organization’s visual direction."}
         </div>
-      </Panel>
-
-      <Panel title="Prompt Preview">
-        <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-2xl border border-white/[0.08] bg-black/35 p-3 text-xs leading-5 text-white/45">
-          {promptPreview}
-        </pre>
       </Panel>
 
       <QueuePanel

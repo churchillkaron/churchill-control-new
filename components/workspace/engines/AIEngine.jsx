@@ -21,7 +21,7 @@ export default function AIEngine({
 }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(action?.defaultMode || "ask");
-  const [prompt, setPrompt] = useState("");
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   const executable =
@@ -39,7 +39,7 @@ export default function AIEngine({
     : DEFAULT_MODES;
 
   async function execute() {
-    if (!prompt.trim() && mode === "ask") {
+    if (!message.trim() && mode === "ask") {
       alert("Enter a question or instruction.");
       return;
     }
@@ -50,7 +50,8 @@ export default function AIEngine({
       const payload = {
         module: moduleKey,
         mode,
-        prompt: prompt.trim(),
+        message: message.trim(),
+        prompt: message.trim(),
         organizationId,
         organization_id: organizationId,
         entityId,
@@ -85,7 +86,7 @@ export default function AIEngine({
 
       onComplete?.(json);
       setOpen(false);
-      setPrompt("");
+      setMessage("");
     } catch (error) {
       alert(error.message || "AI execution failed");
     } finally {
@@ -136,8 +137,8 @@ export default function AIEngine({
             </div>
 
             <textarea
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
               placeholder="Ask about this workspace or give a specific instruction..."
               className="mt-6 h-52 w-full rounded-2xl border border-white/10 bg-black/35 p-4 text-[13px] text-white outline-none placeholder:text-white/25"
             />

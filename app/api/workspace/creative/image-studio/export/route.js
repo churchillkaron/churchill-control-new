@@ -13,6 +13,7 @@ import {
 } from "@/lib/creative/stills/repositories/CreativeImageStudioWorkspaceRepository.js";
 import { renderImageStudioMaster } from "@/lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js";
 import { assessImageStudioComposition } from "@/lib/creative/stills/runtime/CreativeImageStudioQualityPreflightRuntime.js";
+import { CreativeStillReleaseCertificationRuntime } from "@/lib/creative/stills/runtime/CreativeStillReleaseCertificationRuntime.js";
 
 const BUCKET = "creative-assets";
 const clean = (value) => String(value ?? "").trim();
@@ -73,6 +74,20 @@ async function persistMaster({ organizationId, projectId, artboard, rendered, pr
     creative_asset_ids: [asset.id],
   });
 
+  const stillRelease = await CreativeStillReleaseCertificationRuntime.certify({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+    creative_asset_id: asset.id,
+    storage_reference: storageReference,
+    checksum,
+    artboard_id: artboard.id,
+    name: asset.name,
+    mime_type: rendered.mime_type,
+    width: rendered.width,
+    height: rendered.height,
+    quality_preflight: preflight,
+  });
+
   await createImageStudioExport({
     id: exportId,
     organization_id: organizationId,
@@ -89,12 +104,22 @@ async function persistMaster({ organizationId, projectId, artboard, rendered, pr
       storage_reference: storageReference,
       creative_asset_id: asset.id,
       creative_asset_node_ids: graphNodes.map((node) => node.id),
+      still_release_certification: {
+        contract: stillRelease.contract,
+        passed: stillRelease.passed,
+        blocker: stillRelease.blocker || null,
+        master_asset_node_id: stillRelease.master?.id || null,
+        release_readiness_report_id: stillRelease.readiness?.id || null,
+        release_package_id: stillRelease.package?.id || null,
+        derivative_asset_node_ids: (stillRelease.derivatives || []).map((item) => item.render_asset_node_id),
+        channels: stillRelease.channels || [],
+      },
       quality_preflight: preflight,
     },
     completed_at: new Date().toISOString(),
   });
 
-  return { asset, graphNodes, exportId, checksum, storageReference };
+  return { asset, graphNodes, stillRelease, exportId, checksum, storageReference };
 }
 
 export async function POST(request) {

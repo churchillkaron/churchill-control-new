@@ -18,6 +18,7 @@ import {
 } from "@/lib/operator/runtime/IntelligenceConversationRuntime";
 import {
   learnProjectStateMemories,
+  consolidateOperatorMemory,
   recallIntelligenceMemory,
 } from "@/lib/operator/runtime/IntelligenceMemoryRuntime";
 import {
@@ -695,8 +696,17 @@ export async function POST(request) {
       previousProjectState: effectiveProjectState,
       nextProjectState,
     })
-      .then((learned) => {
+      .then(async (learned) => {
         longTermLearned = Number(learned?.learned || 0);
+        if (longTermLearned > 0) {
+          await consolidateOperatorMemory({
+            organizationId: businessContext.organizationId,
+            partyId,
+            entityId: businessContext.entityId,
+          }).catch((consolidationError) => {
+            console.error("OPERATOR_MEMORY_CONSOLIDATION_FAILED", consolidationError);
+          });
+        }
       })
       .catch((memoryError) => {
         console.error("OPERATOR_LONG_TERM_MEMORY_LEARN_FAILED", memoryError);

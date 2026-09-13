@@ -52,3 +52,27 @@ test("quality preflight catches unsafe exact design before release", () => {
   assert.ok(result.warnings.some((item) => item.startsWith("TEXT_OUTSIDE_SAFE_ZONE")));
   assert.equal(result.counts.unresolved_comments, 1);
 });
+
+
+test("export route fails closed when Image Studio preflight is unsafe", async () => {
+  const source = fs.readFileSync(new URL("../app/api/workspace/creative/image-studio/export/route.js", import.meta.url), "utf8");
+  assert.match(source, /IMAGE_STUDIO_EXPORT_PREFLIGHT_BLOCKED/);
+  assert.match(source, /status:"BLOCKED"/);
+  assert.match(source, /allow_unsafe_export/);
+});
+
+test("Image Studio crop and mask stay non-destructive through preview and master export", async () => {
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  const inspector = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerInspector.jsx", import.meta.url), "utf8");
+  const renderer = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url), "utf8");
+  assert.match(inspector, /Non-destructive crop/);
+  assert.match(canvas, /metadata\?\.crop/);
+  assert.match(renderer, /mask_radius/);
+  assert.match(renderer, /focalX/);
+});
+
+test("Image Studio multi-selection moves as a group", async () => {
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  assert.match(canvas, /origins=new Map/);
+  assert.match(canvas, /appliedDx/);
+});

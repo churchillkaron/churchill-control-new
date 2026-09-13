@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-import { buildMusicChangeSet } from "../lib/creative/music/runtime/CreativeMusicChangeSetRuntime.js";
+import { buildMusicChangeSet, resolveMusicChangeTarget } from "../lib/creative/music/runtime/CreativeMusicChangeSetRuntime.js";
 
 const context = {
   protected_ranges: [
@@ -79,4 +79,82 @@ test("Business Partner confirmed Music write boundary supports reviewed change s
   assert.match(source, /executeMusicIntentionalEdit/);
   assert.match(source, /const repair = text\(payload\.repair_plan_hash\)/);
   assert.doesNotMatch(source, /const repair = text\(payload\.repair_plan_hash\) \|\| text\(payload\.master_asset_id\)/);
+});
+
+test("Music change target resolves a unique remembered section", () => {
+  const resolved = resolveMusicChangeTarget({
+    instruction: "Make the bridge darker",
+    conversation_context: {
+      approved_sections: [{ start_seconds: 92, end_seconds: 108, label: "bridge" }],
+    },
+  });
+  assert.equal(resolved.status, "RESOLVED");
+  assert.equal(resolved.section, "bridge");
+  assert.deepEqual(resolved.target_range, {
+    start_seconds: 92,
+    end_seconds: 108,
+    label: "bridge",
+  });
+});
+
+test("Music change target selects an ordinal section when repeated", () => {
+  const resolved = resolveMusicChangeTarget({
+    instruction: "Make the second chorus darker",
+    conversation_context: {
+      approved_sections: [
+        { start_seconds: 40, end_seconds: 58, label: "chorus" },
+        { start_seconds: 96, end_seconds: 116, label: "chorus" },
+      ],
+    },
+  });
+  assert.equal(resolved.status, "RESOLVED_ORDINAL");
+  assert.equal(resolved.target_range.start_seconds, 96);
+  assert.equal(resolved.target_range.end_seconds, 116);
+});
+
+test("Music change target fails closed when a repeated section is ambiguous", () => {
+  const resolved = resolveMusicChangeTarget({
+    instruction: "Make the chorus darker",
+    conversation_context: {
+      approved_sections: [
+        { start_seconds: 40, end_seconds: 58, label: "chorus" },
+        { start_seconds: 96, end_seconds: 116, label: "chorus" },
+      ],
+    },
+  });
+  assert.equal(resolved.status, "SECTION_RANGE_AMBIGUOUS");
+  assert.equal(resolved.target_range, null);
+  assert.equal(resolved.candidates.length, 2);
+});
+
+test("Music change target fails closed when section timing is unknown", () => {
+  const resolved = resolveMusicChangeTarget({
+    instruction: "Make the bridge darker",
+    conversation_context: { approved_sections: [] },
+  });
+  assert.equal(resolved.status, "SECTION_RANGE_UNKNOWN");
+  assert.equal(resolved.target_range, null);
+});
+
+test("Music change set becomes executable from a unique remembered section", () => {
+  const plan = buildMusicChangeSet({
+    creative_project_id: "project-1",
+    master_asset_id: "master-v3",
+    instruction: "Make the bridge darker",
+    intended_delta: "Reduce harmonic brightness while preserving tempo",
+    conversation_context: {
+      approved_sections: [{ start_seconds: 92, end_seconds: 108, label: "bridge" }],
+      protected_ranges: [],
+    },
+  });
+  assert.equal(plan.execution_ready, true);
+  assert.equal(plan.target_resolution.status, "RESOLVED");
+  assert.equal(plan.target_range.start_seconds, 92);
+  assert.deepEqual(plan.blockers, []);
+});
+
+test("confirmed Music edit can re-resolve reviewed section without manual timestamps", () => {
+  const source = fs.readFileSync("lib/creative/music/capabilities/executeWorldClassMusicStudio.js", "utf8");
+  assert.doesNotMatch(source, /\|\| !payload\.target_range \|\|/);
+  assert.match(source, /payload\.intended_delta \|\| payload\.objective/);
 });

@@ -4,6 +4,7 @@ import {
   boundLongTermMemoryContext,
   boundRecentConversationTurns,
   estimateContextTokens,
+  shouldRefreshRecallTelemetry,
 } from "../lib/operator/runtime/IntelligenceMemoryGovernorPolicy.js";
 
 test("recent conversation keeps newest turns and restores chronological order", () => {
@@ -68,4 +69,11 @@ test("multibyte text is bounded conservatively", () => {
   assert.equal(bounded.length, 1);
   assert.ok(Buffer.byteLength(bounded[0].content, "utf8") <= 300);
   assert.ok(estimateContextTokens(bounded[0].content) <= 100);
+});
+
+test("recall telemetry is throttled inside the minimum interval", () => {
+  const now = Date.parse("2026-09-13T10:00:00Z");
+  assert.equal(shouldRefreshRecallTelemetry({}, now), true);
+  assert.equal(shouldRefreshRecallTelemetry({ last_recalled_at: "2026-09-13T09:30:00Z" }, now), false);
+  assert.equal(shouldRefreshRecallTelemetry({ last_recalled_at: "2026-09-13T08:30:00Z" }, now), true);
 });

@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import * as CreativeAssetRepository from "@/lib/creative/assets/repositories/CreativeAssetRepository.js";
+import { CreativeAssetGraphRuntime } from "@/lib/creative/assets/graph/runtime/CreativeAssetGraphRuntime.js";
 import {
   loadImageStudioWorkspace,
   createImageStudioExport,
@@ -61,7 +62,15 @@ async function persistMaster({ organizationId, projectId, artboard, rendered, pr
       deterministic_export_contract: rendered.contract,
       quality_preflight: preflight,
       publication_ready: preflight.release_ready === true,
+      verified: preflight.release_ready === true,
+      verification_status: preflight.release_ready === true ? "APPROVED" : "BLOCKED",
     },
+  });
+
+  const graphNodes = await CreativeAssetGraphRuntime.attachCanonicalAssets({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+    creative_asset_ids: [asset.id],
   });
 
   await createImageStudioExport({
@@ -79,12 +88,13 @@ async function persistMaster({ organizationId, projectId, artboard, rendered, pr
       checksum,
       storage_reference: storageReference,
       creative_asset_id: asset.id,
+      creative_asset_node_ids: graphNodes.map((node) => node.id),
       quality_preflight: preflight,
     },
     completed_at: new Date().toISOString(),
   });
 
-  return { asset, exportId, checksum, storageReference };
+  return { asset, graphNodes, exportId, checksum, storageReference };
 }
 
 export async function POST(request) {

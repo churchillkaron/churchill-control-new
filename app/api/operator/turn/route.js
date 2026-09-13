@@ -469,6 +469,16 @@ export async function POST(request) {
 
     const continuityStartedAt = Date.now();
     const longTermMemoryStartedAt = Date.now();
+    const memoryCostTelemetry = {
+      recall_passes: 0,
+      recall_scope_count: 0,
+      recall_candidate_limit: 0,
+      recall_candidate_rows: 0,
+      recall_unique_candidates: 0,
+      recall_selected_rows: 0,
+      recall_metadata_rows_hydrated: 0,
+      recall_telemetry_writes: 0,
+    };
     const continuityPromise = recoverCrossConversationProject({
       organizationId: businessContext.organizationId,
       partyId,
@@ -492,6 +502,7 @@ export async function POST(request) {
       entityId: businessContext.entityId,
       message,
       projectState: object(memory.projectState),
+      telemetry: memoryCostTelemetry,
     }).catch((memoryError) => {
       console.error("OPERATOR_LONG_TERM_MEMORY_RECALL_FAILED", memoryError);
       return [];
@@ -518,6 +529,7 @@ export async function POST(request) {
           entityId: businessContext.entityId,
           message,
           projectState: effectiveProjectState,
+          telemetry: memoryCostTelemetry,
         });
       } catch (memoryError) {
         console.error(
@@ -680,6 +692,7 @@ export async function POST(request) {
     const assistantPersistStartedAt = Date.now();
     const longTermLearnStartedAt = Date.now();
     let longTermLearned = 0;
+    let projectStateMemoryReused = 0;
     const assistantPersistPromise = persistAssistantTurnAndConversationState({
       organizationId: businessContext.organizationId,
       conversationId: memory.conversation.id,
@@ -703,6 +716,7 @@ export async function POST(request) {
     })
       .then(async (learned) => {
         longTermLearned = Number(learned?.learned || 0);
+        projectStateMemoryReused = Number(learned?.reused || 0);
         if (longTermLearned > 0) {
           await consolidateOperatorMemory({
             organizationId: businessContext.organizationId,
@@ -759,6 +773,25 @@ export async function POST(request) {
           continuity.source_conversation_id || null,
       }),
     );
+    console.info(
+      "OPERATOR_INTELLIGENCE_COST_V1",
+      JSON.stringify({
+        organization_id: businessContext.organizationId,
+        entity_scoped: Boolean(businessContext.entityId),
+        source,
+        ...memoryCostTelemetry,
+        context_estimated_input_tokens: contextBudget.telemetry.estimated_input_tokens,
+        context_estimated_bytes: contextBudget.telemetry.estimated_context_bytes,
+        context_source_turns: contextBudget.telemetry.source_turns,
+        context_dropped_turns: contextBudget.telemetry.dropped_turns,
+        context_source_memory_items: contextBudget.telemetry.source_memory_items,
+        context_dropped_memory_items: contextBudget.telemetry.dropped_memory_items,
+        project_state_memory_learned: longTermLearned,
+        project_state_memory_reused: projectStateMemoryReused,
+        continuity_memory_reread: longTermMemoryReread,
+      }),
+    );
+
 
     const response = Response.json({
       ...normalizedResult,

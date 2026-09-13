@@ -18,6 +18,7 @@ const createEngine = read("components/workspace/engines/CreateEngine.jsx");
 const customerField = read("components/workspace/engines/DynamicCustomerField.jsx");
 const tableField = read("components/workspace/engines/DynamicTableField.jsx");
 const dynamicPage = read("app/(system)/workspace/[organizationId]/finance/[...financeRoute]/page.jsx");
+const previewEngine = read("components/workspace/engines/PreviewEngine.jsx");
 
 test("customer invoice row lifecycle exposes only executable accounting actions", () => {
   const marker = '{ id: "customer_invoices", name: "Customer Invoices", route: "/finance/customer-invoices", description: "Create, review, post and send customer invoices."';
@@ -83,6 +84,15 @@ test("preview reaches the Finance PreviewEngine after the shared engine event", 
   assert.match(records, /addEventListener\("workspace:engine"/);
   assert.match(records, /activeEngine\.engine === "preview"/);
   assert.match(records, /<PreviewEngine/);
+});
+
+test("customer invoice preview uses the canonical scoped PDF route", () => {
+  assert.match(previewEngine, /documentType === "CustomerInvoice" && invoiceId && organizationId/);
+  assert.match(previewEngine, /\/api\/finance\/customer-invoices\/\$\{encodeURIComponent\(invoiceId\)\}\/pdf/);
+  assert.match(previewEngine, /organizationId=\$\{encodeURIComponent\(organizationId\)\}/);
+  assert.match(previewEngine, /entityId=\$\{encodeURIComponent\(entityId\)\}/);
+  assert.match(previewEngine, /title="Customer invoice PDF preview"/);
+  assert.match(previewEngine, /Open PDF/);
 });
 
 test("an organization with available entities can recover from an empty active entity", () => {

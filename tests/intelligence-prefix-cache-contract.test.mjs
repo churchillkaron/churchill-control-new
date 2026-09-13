@@ -19,6 +19,12 @@ test("cache identity crosses reasoning and Modal without raw content", () => {
   assert.match(reasoning, /raw_content_included: false/);
   assert.match(direct, /cache_context: input\.cache_context \|\| input\.cacheContext/);
   assert.match(direct, /cached_input_tokens/);
+  assert.match(worker, /engine_prepare_ms/);
+  assert.match(worker, /generation_ms/);
+  assert.match(worker, /structured_finalization_ms/);
+  assert.match(worker, /compute_ms/);
+  assert.match(direct, /generation_ms/);
+  assert.match(direct, /compute_ms/);
 });
 
 test("Business Partner serializes stable context before volatile user text", () => {

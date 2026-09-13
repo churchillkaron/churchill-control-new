@@ -126,3 +126,19 @@ test("health flags high reuse opportunity with persistently low real cache hits"
   assert.equal(result.status, "HEALTHY");
   assert.equal(result.governance.cache_pricing_changed, false);
 });
+
+test("cache economics compares real generation compute for hits and misses", () => {
+  const summary = summarizeIntelligenceUsage([
+    { module: "INTELLIGENCE", metadata: { provider_usage: { input_tokens: 1000, cached_input_tokens: 700, engine_prepare_ms: 20, generation_ms: 500, structured_finalization_ms: 50, compute_ms: 550 } } },
+    { module: "INTELLIGENCE", metadata: { provider_usage: { input_tokens: 900, cached_input_tokens: 400, engine_prepare_ms: 10, generation_ms: 600, structured_finalization_ms: 0, compute_ms: 600 } } },
+    { module: "INTELLIGENCE", metadata: { provider_usage: { input_tokens: 800, cached_input_tokens: 0, engine_prepare_ms: 30, generation_ms: 1000, structured_finalization_ms: 100, compute_ms: 1100 } } },
+  ]);
+  assert.equal(summary.cache_hit_generation_samples, 2);
+  assert.equal(summary.cache_miss_generation_samples, 1);
+  assert.equal(summary.cache_hit_generation_ms, 550);
+  assert.equal(summary.cache_miss_generation_ms, 1000);
+  assert.equal(summary.cache_generation_delta_ms, -450);
+  assert.equal(summary.engine_prepare_ms, 20);
+  assert.equal(summary.compute_ms, 750);
+  assert.equal(summary.structured_finalization_ms, 50);
+});

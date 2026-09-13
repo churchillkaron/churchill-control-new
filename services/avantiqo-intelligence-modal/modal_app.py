@@ -365,6 +365,7 @@ def _llm(model: str) -> Any:
         "tensor_parallel_size": 1,
         "gpu_memory_utilization": 0.97 if model == DEEP_MODEL else 0.90,
         "trust_remote_code": False,
+        "enable_prefix_caching": True,
     }
     if model == FAST_MODEL:
         # Match Code's proven warm vLLM path: CUDA graphs plus weight prefetch.
@@ -503,9 +504,11 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         structured_output_tokens = len(finalize_generated.token_ids or [])
         structured_json_finalization_performed = True
 
+    cached_input_tokens = max(0, int(getattr(request_output, "num_cached_tokens", 0) or 0))
     usage = {
         "input_tokens": len(request_output.prompt_token_ids or []) + structured_input_tokens,
         "output_tokens": len(generated.token_ids or []) + structured_output_tokens,
+        "cached_input_tokens": cached_input_tokens,
     }
     usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
     return {
@@ -528,6 +531,10 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
             else None
         ),
         "warm_engine_reused": warm_engine_reused,
+        "prefix_cache_enabled": True,
+        "prefix_cache_hit": cached_input_tokens > 0,
+        "cached_input_tokens": cached_input_tokens,
+        "cache_context": _safe(data.get("cache_context")),
         "raw_reasoning_persisted": False,
         "infrastructure_provider": "MODAL_H100_ASYNC_V1",
         "modal_gpu": GPU,

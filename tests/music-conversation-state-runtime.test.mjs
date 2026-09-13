@@ -81,3 +81,32 @@ test("Business Partner can inspect and plan with an existing Music project state
   assert.match(inspectCapability, /project_context: projectContext/);
   assert.match(inspectCapability, /loadMusicConversationState/);
 });
+
+test("automatic decision interpreter extracts bounded Music decisions", async () => {
+  const { interpretMusicProjectDecision } = await import("../lib/creative/music/runtime/CreativeMusicDecisionInterpreterRuntime.js");
+  const protectedDecision = interpretMusicProjectDecision("Keep the chorus from 1:03-1:21 exactly as it is.");
+  assert.equal(protectedDecision.recognized, true);
+  assert.equal(protectedDecision.patch.protected_ranges[0].start_seconds, 63);
+  assert.equal(protectedDecision.patch.protected_ranges[0].end_seconds, 81);
+  assert.match(protectedDecision.patch.approved_decisions[0], /chorus/i);
+  assert.equal(protectedDecision.raw_statement_persisted, false);
+});
+
+test("automatic decision interpreter distinguishes rejection and unresolved work", async () => {
+  const { interpretMusicProjectDecision } = await import("../lib/creative/music/runtime/CreativeMusicDecisionInterpreterRuntime.js");
+  const rejected = interpretMusicProjectDecision("Avoid festival EDM in this track.");
+  const unresolved = interpretMusicProjectDecision("We still need to decide the bridge instrumentation.");
+  assert.deepEqual(rejected.patch.rejected_ideas, ["festival EDM in this track"]);
+  assert.deepEqual(unresolved.patch.unresolved_decisions, ["the bridge instrumentation"]);
+  assert.match(rejected.decision_summary, /^Reject:/);
+  assert.match(unresolved.decision_summary, /^Unresolved:/);
+});
+
+test("planning previews decisions while confirmed execution persists interpreted state", () => {
+  assert.match(planCapability, /conversation_decision_preview/);
+  assert.match(planCapability, /interpretMusicProjectDecision/);
+  assert.match(executeCapability, /interpretMusicProjectDecision\(payload\.objective\)/);
+  assert.match(executeCapability, /interpretedDecision\.patch/);
+  assert.match(executeCapability, /music_conversation_interpretation/);
+  assert.match(executeCapability, /createHash/);
+});

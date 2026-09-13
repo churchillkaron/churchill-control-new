@@ -25,6 +25,7 @@ COPY handler_v6.py ./handler_v6.py
 COPY handler_v7.py ./handler_v7.py
 COPY handler_v8.py ./handler_v8.py
 COPY handler_v9.py ./handler_v9.py
+COPY still_blueprint_compiler.py ./still_blueprint_compiler.py
 
 RUN mkdir -p /tmp/avantiqo-image
 ENV AVANTIQO_IMAGE_OUTPUT_DIR=/tmp/avantiqo-image \

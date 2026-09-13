@@ -1,14 +1,15 @@
 from typing import Any
 
 import handler_v8 as v8
+from still_blueprint_compiler import COMPILER_CONTRACT, compile_still_blueprint_job
 
 v7 = v8.v7
 v6 = v8.v6
 v4 = v8.v4
 v3 = v8.v3
 
-RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V9_Z_IMAGE_DEFAULT_ROUTING_V1"
-RUNTIME_REVISION = "AVANTIQO_IMAGE_MULTI_FOUNDATION_PHYSICAL_VOLUME_USAGE_QUALITY_V4"
+RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V9_STILL_BLUEPRINT_COMPILER_V2"
+RUNTIME_REVISION = "AVANTIQO_IMAGE_MULTI_FOUNDATION_STILL_BLUEPRINT_QUALITY_V5"
 DEFAULT_GENERATION_FOUNDATION = v4.PHOTOREAL_FOUNDATION_MODEL
 DEFAULT_ROUTING_CONTRACT = "AVANTIQO_IMAGE_Z_IMAGE_DEFAULT_GENERATION_ROUTING_V1"
 
@@ -41,6 +42,9 @@ def _runtime_probe(job: dict[str, Any]) -> dict[str, Any]:
         "default_generation_routing_contract": DEFAULT_ROUTING_CONTRACT,
         "default_generation_routing_enabled": True,
         "automatic_production_routing_enabled": False,
+        "still_blueprint_compiler_contract": COMPILER_CONTRACT,
+        "still_blueprint_compiler_enabled": True,
+        "still_blueprint_compiler_zero_generation_probe": True,
         "photoreal_candidate": candidate,
     }
 
@@ -71,9 +75,17 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     if operation == v3.RUNTIME_PROBE_OPERATION:
         return _runtime_probe(job)
 
-    routed_job, default_routed = _route_default_generation(job)
+    compiled_job, still_blueprint_compiler = compile_still_blueprint_job(job)
+    routed_job, default_routed = _route_default_generation(compiled_job)
     output = v8.handler(routed_job)
-    if not default_routed or not isinstance(output, dict):
+    if not isinstance(output, dict):
+        return output
+    if still_blueprint_compiler is not None:
+        output = {
+            **output,
+            "still_blueprint_compiler": still_blueprint_compiler,
+        }
+    if not default_routed:
         return output
 
     selection = dict(output.get("foundation_selection") or {})

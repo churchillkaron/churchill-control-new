@@ -125,7 +125,7 @@ function statusTone(row) {
 function ContextChip({ children }) {
   if (!children) return null;
   return (
-    <span className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[10px] text-[#716D66]">
+    <span className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[11px] text-[#716D66]">
       {children}
     </span>
   );
@@ -140,11 +140,11 @@ function MetricCard({ label: metricLabel, value, detail, emphasis = false, posit
 
   return (
     <div className={`min-w-0 border-r border-black/[0.06] px-4 py-3 last:border-r-0 ${emphasis ? "bg-[#FBF7F0]" : ""}`}>
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#918B83]">{metricLabel}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#918B83]">{metricLabel}</div>
       <div className={`mt-1.5 truncate tabular-nums ${emphasis ? "text-[22px]" : "text-[18px]"} font-semibold tracking-[-0.025em] ${valueTone}`}>
         {value}
       </div>
-      <div className="mt-0.5 truncate text-[9px] text-[#989188]">{detail}</div>
+      <div className="mt-0.5 truncate text-[11px] text-[#989188]">{detail}</div>
     </div>
   );
 }
@@ -154,14 +154,14 @@ function QueueTab({ active, count, children, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-8 items-center gap-2 border-b-2 px-1 text-[10px] font-medium transition ${
+      className={`inline-flex h-8 items-center gap-2 border-b-2 px-1 text-[11px] font-medium transition ${
         active
           ? "border-[#B18150] text-[#403B35]"
           : "border-transparent text-[#8E887F] hover:text-[#5C5750]"
       }`}
     >
       {children}
-      <span className={`rounded-full px-1.5 py-0.5 text-[8px] ${active ? "bg-[#D6A66A]/15 text-[#7C5834]" : "bg-black/[0.045] text-[#8E887F]"}`}>
+      <span className={`rounded-full px-1.5 py-0.5 text-[11px] ${active ? "bg-[#D6A66A]/15 text-[#7C5834]" : "bg-black/[0.045] text-[#8E887F]"}`}>
         {count}
       </span>
     </button>
@@ -349,7 +349,7 @@ export default function FinanceBankReconciliationWorkCenter({
         <header className="sticky top-0 z-20 -mx-4 border-b border-black/[0.07] bg-[#F7F6F3]/95 px-4 pb-4 backdrop-blur sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.21em] text-[#9A7045]">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.21em] text-[#9A7045]">
                 <span>Finance</span><span className="text-black/20">/</span><span>{presentation.family_label || "Treasury"}</span>
               </div>
               <h1 className="mt-1.5 text-[27px] font-semibold tracking-[-0.035em] text-[#1B1A18] sm:text-[30px]">Bank Reconciliation</h1>
@@ -394,7 +394,7 @@ export default function FinanceBankReconciliationWorkCenter({
             {error ? (
               <section className="mt-4 flex items-start gap-3 rounded-xl border border-red-700/15 bg-red-50 p-4 text-red-900">
                 <AlertTriangle size={15} className="mt-0.5 shrink-0 text-red-700" />
-                <div><div className="text-[11px] font-semibold">Reconciliation data could not be loaded</div><div className="mt-1 text-[10px] leading-5 text-red-800/80">{error}</div></div>
+                <div><div className="text-[11px] font-semibold">Reconciliation data could not be loaded</div><div className="mt-1 text-[11px] leading-5 text-red-800/80">{error}</div></div>
               </section>
             ) : null}
 
@@ -440,7 +440,7 @@ export default function FinanceBankReconciliationWorkCenter({
                   <select
                     value={accountFilter}
                     onChange={(event) => setAccountFilter(event.target.value)}
-                    className="h-8 min-w-[190px] rounded-lg border border-black/[0.08] bg-[#FAF9F7] px-2.5 text-[10px] text-[#625D56] outline-none focus:border-[#B18150]/50"
+                    className="h-8 min-w-[190px] rounded-lg border border-black/[0.08] bg-[#FAF9F7] px-2.5 text-[11px] text-[#625D56] outline-none focus:border-[#B18150]/50"
                     aria-label="Filter by bank account"
                   >
                     <option value="">All bank accounts</option>
@@ -455,14 +455,14 @@ export default function FinanceBankReconciliationWorkCenter({
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
                       placeholder="Search account, date, status or note"
-                      className="w-full bg-transparent text-[10px] text-[#4E4942] outline-none placeholder:text-[#AAA49B]"
+                      className="w-full bg-transparent text-[11px] text-[#4E4942] outline-none placeholder:text-[#AAA49B]"
                     />
                   </label>
                 </div>
               </div>
 
               {loading ? (
-                <div className="flex min-h-[360px] items-center justify-center text-[10px] text-[#8B857D]">
+                <div className="flex min-h-[360px] items-center justify-center text-[11px] text-[#8B857D]">
                   <RefreshCw size={13} className="mr-2 animate-spin" /> Loading reconciliation evidence…
                 </div>
               ) : normalizedRows.length === 0 ? (
@@ -470,24 +470,24 @@ export default function FinanceBankReconciliationWorkCenter({
                   <div className="max-w-xl text-center">
                     <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl border border-black/[0.07] bg-[#FAF9F7] text-[#8D877E]"><Landmark size={17} /></div>
                     <h2 className="mt-4 text-[16px] font-semibold tracking-[-0.02em] text-[#38342E]">No reconciliation run yet</h2>
-                    <p className="mx-auto mt-1.5 max-w-md text-[10px] leading-5 text-[#817B73]">Choose the bank account, set the reconciliation date and statement closing balance, then Avantiqo calculates the posted-ledger balance and the difference.</p>
+                    <p className="mx-auto mt-1.5 max-w-md text-[11px] leading-5 text-[#817B73]">Choose the bank account, set the reconciliation date and statement closing balance, then Avantiqo calculates the posted-ledger balance and the difference.</p>
                     <button type="button" onClick={startReconciliation} disabled={!primaryAction} className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3.5 text-[11px] font-semibold text-white disabled:opacity-40"><Play size={12} /> Start Reconciliation</button>
                     <div className="mt-5 grid gap-2 text-left sm:grid-cols-3">
                       {["Select bank account", "Enter statement balance", "Review the difference"].map((step, index) => (
-                        <div key={step} className="rounded-lg border border-black/[0.06] bg-[#FAF9F7] px-3 py-2.5 text-[9px] text-[#716B63]"><span className="mr-2 font-semibold text-[#A27547]">{index + 1}</span>{step}</div>
+                        <div key={step} className="rounded-lg border border-black/[0.06] bg-[#FAF9F7] px-3 py-2.5 text-[11px] text-[#716B63]"><span className="mr-2 font-semibold text-[#A27547]">{index + 1}</span>{step}</div>
                       ))}
                     </div>
                   </div>
                 </div>
               ) : filteredRows.length === 0 ? (
-                <div className="flex min-h-[280px] items-center justify-center px-6 text-center text-[10px] text-[#8B857D]">
+                <div className="flex min-h-[280px] items-center justify-center px-6 text-center text-[11px] text-[#8B857D]">
                   No reconciliation runs match the selected queue, account and search filters.
                 </div>
               ) : (
                 <div className="grid min-h-[560px] xl:grid-cols-[minmax(0,1.58fr)_minmax(360px,0.72fr)]">
                   <div className="min-w-0 overflow-x-auto border-r border-black/[0.06]">
-                    <table className="min-w-[900px] w-full border-collapse text-[10px]">
-                      <thead className="sticky top-0 z-10 bg-[#FAF9F7] text-[9px] font-semibold uppercase tracking-[0.08em] text-[#8D877F]">
+                    <table className="min-w-[900px] w-full border-collapse text-[11px]">
+                      <thead className="sticky top-0 z-10 bg-[#FAF9F7] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8D877F]">
                         <tr className="border-b border-black/[0.06]">
                           <th className="px-3 py-2.5 text-left">Bank account</th>
                           <th className="px-3 py-2.5 text-left">Reconciliation date</th>
@@ -511,13 +511,13 @@ export default function FinanceBankReconciliationWorkCenter({
                               className={`cursor-pointer border-b border-black/[0.05] transition last:border-0 ${active ? "bg-[#D6A66A]/[0.09] shadow-[inset_3px_0_0_#B18150]" : "hover:bg-[#F8F6F1]"}`}
                             >
                               <td className="px-3 py-3">
-                                <div className="min-w-[180px]"><div className="truncate font-medium text-[#35322D]">{account ? accountTitle(account) : accountFallback(row)}</div><div className="mt-0.5 truncate text-[9px] text-[#99938A]">{account ? (accountSecondary(account) || "Linked Finance bank account") : "Linked bank account"}</div></div>
+                                <div className="min-w-[180px]"><div className="truncate font-medium text-[#35322D]">{account ? accountTitle(account) : accountFallback(row)}</div><div className="mt-0.5 truncate text-[11px] text-[#99938A]">{account ? (accountSecondary(account) || "Linked Finance bank account") : "Linked bank account"}</div></div>
                               </td>
                               <td className="px-3 py-3 text-[#615C54]">{formatDate(row?.reconciliation_date)}</td>
                               <td className="px-3 py-3 text-right tabular-nums text-[#514C45]">{formatMoney(row?.statement_closing_balance, currency)}</td>
                               <td className="px-3 py-3 text-right tabular-nums text-[#514C45]">{formatMoney(row?.book_closing_balance, currency)}</td>
                               <td className={`px-3 py-3 text-right font-semibold tabular-nums ${reconciled ? "text-emerald-800" : "text-amber-900"}`}>{formatMoney(difference, currency)}</td>
-                              <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-medium ${statusTone(row)}`}>{reconciled ? "Reconciled" : label(row?.status || "Open")}</span></td>
+                              <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusTone(row)}`}>{reconciled ? "Reconciled" : label(row?.status || "Open")}</span></td>
                             </tr>
                           );
                         })}
@@ -530,34 +530,34 @@ export default function FinanceBankReconciliationWorkCenter({
                       <div className="border-b border-black/[0.07] bg-[#FCFBF8] p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[#9A7045]">Selected reconciliation</div>
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#9A7045]">Selected reconciliation</div>
                             <div className="mt-1 truncate text-[15px] font-semibold text-[#37332E]">{selected?.account_name || accountFallback(selected)}</div>
-                            <div className="mt-0.5 text-[9px] text-[#918B83]">{formatDate(selected.reconciliation_date)}</div>
+                            <div className="mt-0.5 text-[11px] text-[#918B83]">{formatDate(selected.reconciliation_date)}</div>
                           </div>
-                          <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-medium ${statusTone(selected)}`}>
+                          <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusTone(selected)}`}>
                             {selectedReconciled ? <CheckCircle2 size={11} /> : <CircleAlert size={11} />}
                             {selectedReconciled ? "Reconciled" : "Needs attention"}
                           </span>
                         </div>
 
                         <div className={`mt-3 rounded-lg border p-3 ${selectedReconciled ? "border-emerald-700/12 bg-emerald-50/60" : "border-amber-700/12 bg-amber-50/70"}`}>
-                          <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#837A70]">Difference</div>
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#837A70]">Difference</div>
                           <div className={`mt-1 text-[23px] font-semibold tracking-[-0.03em] tabular-nums ${selectedReconciled ? "text-emerald-800" : "text-amber-950"}`}>{formatMoney(selectedDifference, selectedCurrency)}</div>
-                          <div className="mt-0.5 text-[9px] text-[#8F877D]">Statement balance minus posted ledger balance</div>
+                          <div className="mt-0.5 text-[11px] text-[#8F877D]">Statement balance minus posted ledger balance</div>
                         </div>
 
                         <dl className="mt-3 divide-y divide-black/[0.055] rounded-lg border border-black/[0.06] bg-white px-3">
-                          <div className="grid grid-cols-[1fr_auto] gap-3 py-2.5 text-[10px]"><dt className="text-[#918B83]">Statement closing balance</dt><dd className="font-medium tabular-nums text-[#4F4942]">{formatMoney(selected.statement_closing_balance, selectedCurrency)}</dd></div>
-                          <div className="grid grid-cols-[1fr_auto] gap-3 py-2.5 text-[10px]"><dt className="text-[#918B83]">Book closing balance</dt><dd className="font-medium tabular-nums text-[#4F4942]">{formatMoney(selected.book_closing_balance, selectedCurrency)}</dd></div>
-                          {selected.bank_statement_id ? <div className="grid grid-cols-[1fr_auto] gap-3 py-2.5 text-[10px]"><dt className="text-[#918B83]">Bank statement</dt><dd className="max-w-[160px] truncate font-medium text-[#4F4942]">{String(selected.bank_statement_id).slice(0, 12)}</dd></div> : null}
+                          <div className="grid grid-cols-[1fr_auto] gap-3 py-2.5 text-[11px]"><dt className="text-[#918B83]">Statement closing balance</dt><dd className="font-medium tabular-nums text-[#4F4942]">{formatMoney(selected.statement_closing_balance, selectedCurrency)}</dd></div>
+                          <div className="grid grid-cols-[1fr_auto] gap-3 py-2.5 text-[11px]"><dt className="text-[#918B83]">Book closing balance</dt><dd className="font-medium tabular-nums text-[#4F4942]">{formatMoney(selected.book_closing_balance, selectedCurrency)}</dd></div>
+                          {selected.bank_statement_id ? <div className="grid grid-cols-[1fr_auto] gap-3 py-2.5 text-[11px]"><dt className="text-[#918B83]">Bank statement</dt><dd className="max-w-[160px] truncate font-medium text-[#4F4942]">{String(selected.bank_statement_id).slice(0, 12)}</dd></div> : null}
                         </dl>
 
                         {!selectedReconciled ? (
-                          <div className="mt-3 flex gap-2 rounded-lg border border-amber-700/12 bg-amber-50 px-3 py-2.5 text-[9px] leading-4 text-amber-900">
+                          <div className="mt-3 flex gap-2 rounded-lg border border-amber-700/12 bg-amber-50 px-3 py-2.5 text-[11px] leading-4 text-amber-900">
                             <AlertTriangle size={12} className="mt-0.5 shrink-0" /> This run remains open because the statement and posted-ledger balances do not agree. Review the evidence before sign-off.
                           </div>
                         ) : (
-                          <div className="mt-3 flex gap-2 rounded-lg border border-emerald-700/12 bg-emerald-50 px-3 py-2.5 text-[9px] leading-4 text-emerald-900">
+                          <div className="mt-3 flex gap-2 rounded-lg border border-emerald-700/12 bg-emerald-50 px-3 py-2.5 text-[11px] leading-4 text-emerald-900">
                             <ShieldCheck size={12} className="mt-0.5 shrink-0" /> The balance difference is zero within the reconciliation tolerance. Review evidence remains available below.
                           </div>
                         )}

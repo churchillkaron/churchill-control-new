@@ -124,15 +124,15 @@ export default function FinanceEngagementClientDependencyPanel({ organizationId,
     <section className="rounded-2xl border border-[#A37849]/14 bg-[#FFFDF9] p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
-          <div className="flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.13em] text-[#8A633C]"><UserRoundCheck size={10} /> Client dependency intelligence</div>
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.13em] text-[#8A633C]"><UserRoundCheck size={10} /> Client dependency intelligence</div>
           <div className="mt-1 text-[13px] font-semibold text-[#37322D]">What is missing, what changed, and what to do next</div>
-          <div className="mt-1 text-[8px] leading-4 text-[#817A72]">This view interprets the governed client request beside the accounting work it blocks. A client response becomes evidence review, expired access must be restored before any chase, and recent contact stays quiet.</div>
+          <div className="mt-1 text-[11px] leading-4 text-[#817A72]">This view interprets the governed client request beside the accounting work it blocks. A client response becomes evidence review, expired access must be restored before any chase, and recent contact stays quiet.</div>
         </div>
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-          <div className="rounded-xl border border-black/[0.06] bg-white px-3 py-2"><div className="text-[16px] font-semibold tabular-nums text-[#36312C]">{actionRows.length}</div><div className="text-[7px] uppercase tracking-[0.08em] text-[#99928A]">Needs action</div></div>
-          <div className="rounded-xl border border-black/[0.06] bg-white px-3 py-2"><div className="text-[16px] font-semibold tabular-nums text-[#36312C]">{respondedRows.length}</div><div className="text-[7px] uppercase tracking-[0.08em] text-[#99928A]">Responded</div></div>
-          <div className="rounded-xl border border-black/[0.06] bg-white px-3 py-2"><div className="text-[16px] font-semibold tabular-nums text-[#36312C]">{accessRows.length}</div><div className="text-[7px] uppercase tracking-[0.08em] text-[#99928A]">Access issue</div></div>
-          <div className="rounded-xl border border-black/[0.06] bg-white px-3 py-2"><div className="text-[16px] font-semibold tabular-nums text-[#36312C]">{quietRows.length}</div><div className="text-[7px] uppercase tracking-[0.08em] text-[#99928A]">Do not chase</div></div>
+          <div className="rounded-xl border border-black/[0.06] bg-white px-3 py-2"><div className="text-[16px] font-semibold tabular-nums text-[#36312C]">{actionRows.length}</div><div className="text-[11px] uppercase tracking-[0.08em] text-[#99928A]">Needs action</div></div>
+          <div className="rounded-xl border border-black/[0.06] bg-white px-3 py-2"><div className="text-[16px] font-semibold tabular-nums text-[#36312C]">{respondedRows.length}</div><div className="text-[11px] uppercase tracking-[0.08em] text-[#99928A]">Responded</div></div>
+          <div className="rounded-xl border border-black/[0.06] bg-white px-3 py-2"><div className="text-[16px] font-semibold tabular-nums text-[#36312C]">{accessRows.length}</div><div className="text-[11px] uppercase tracking-[0.08em] text-[#99928A]">Access issue</div></div>
+          <div className="rounded-xl border border-black/[0.06] bg-white px-3 py-2"><div className="text-[16px] font-semibold tabular-nums text-[#36312C]">{quietRows.length}</div><div className="text-[11px] uppercase tracking-[0.08em] text-[#99928A]">Do not chase</div></div>
         </div>
       </div>
 
@@ -144,26 +144,26 @@ export default function FinanceEngagementClientDependencyPanel({ organizationId,
           return (
             <div key={item.id} className="grid gap-3 px-3 py-3 md:grid-cols-[minmax(180px,0.9fr)_minmax(260px,1.4fr)_minmax(250px,1.2fr)] md:items-start">
               <div className="min-w-0">
-                <div className="truncate text-[9px] font-semibold text-[#403C37]">{item.title || request?.title || "Client evidence request"}</div>
-                <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-[8px] text-[#99928A]"><span>Due {date(request?.due_at || item.due_at)}</span>{request?.sent_at ? <span>Sent {date(request.sent_at)}</span> : null}{request?.submitted_at ? <span>Submitted {date(request.submitted_at)}</span> : null}</div>
+                <div className="truncate text-[11px] font-semibold text-[#403C37]">{item.title || request?.title || "Client evidence request"}</div>
+                <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#99928A]"><span>Due {date(request?.due_at || item.due_at)}</span>{request?.sent_at ? <span>Sent {date(request.sent_at)}</span> : null}{request?.submitted_at ? <span>Submitted {date(request.submitted_at)}</span> : null}</div>
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2"><span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.05em] ${tone(analysis.state)}`}><Icon size={8} /> {label(analysis.state)}</span></div>
-                <div className="mt-1 text-[9px] font-semibold text-[#49423B]">{analysis.title}</div>
-                <div className="mt-0.5 text-[8px] leading-4 text-[#8D857D]">{analysis.detail}</div>
+                <div className="flex items-center gap-2"><span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.05em] ${tone(analysis.state)}`}><Icon size={8} /> {label(analysis.state)}</span></div>
+                <div className="mt-1 text-[11px] font-semibold text-[#49423B]">{analysis.title}</div>
+                <div className="mt-0.5 text-[11px] leading-4 text-[#8D857D]">{analysis.detail}</div>
               </div>
               <div className="min-w-0 rounded-lg bg-[#F8F6F2] px-3 py-2">
-                <div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#99928A]">Next safe action</div>
-                <div className="mt-1 text-[9px] font-semibold text-[#6E4D2D]">{analysis.nextAction}</div>
-                {analysis.blocks ? <div className="mt-1 text-[8px] leading-4 text-[#918B83]">{analysis.blocks}</div> : null}
-                {accessAction ? <button type="button" onClick={() => issueAccess(request, analysis)} disabled={action.loading || !accountingFirmId} className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-lg bg-[#2A2723] px-2.5 text-[8px] font-semibold text-white disabled:opacity-50">{action.loading ? <LoaderCircle size={9} className="animate-spin" /> : <ShieldCheck size={9} />}{analysis.state === "ACCESS_EXPIRED" ? "Restore secure access" : "Issue secure access"}</button> : null}
-                {action.error ? <div className="mt-2 rounded-lg border border-red-700/10 bg-red-50 px-2 py-1.5 text-[8px] text-red-800">{action.error}</div> : null}
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#99928A]">Next safe action</div>
+                <div className="mt-1 text-[11px] font-semibold text-[#6E4D2D]">{analysis.nextAction}</div>
+                {analysis.blocks ? <div className="mt-1 text-[11px] leading-4 text-[#918B83]">{analysis.blocks}</div> : null}
+                {accessAction ? <button type="button" onClick={() => issueAccess(request, analysis)} disabled={action.loading || !accountingFirmId} className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-lg bg-[#2A2723] px-2.5 text-[11px] font-semibold text-white disabled:opacity-50">{action.loading ? <LoaderCircle size={9} className="animate-spin" /> : <ShieldCheck size={9} />}{analysis.state === "ACCESS_EXPIRED" ? "Restore secure access" : "Issue secure access"}</button> : null}
+                {action.error ? <div className="mt-2 rounded-lg border border-red-700/10 bg-red-50 px-2 py-1.5 text-[11px] text-red-800">{action.error}</div> : null}
                 {action.clientPath ? <div className="mt-2 rounded-lg border border-emerald-700/10 bg-emerald-50 px-2.5 py-2">
-                  <div className="text-[8px] font-semibold text-emerald-900">Secure access issued</div>
-                  <div className="mt-0.5 text-[7px] leading-3 text-emerald-800/80">This link is returned once. Copy or open it now; Avantiqo has not sent it to the client. Expires {date(action.expiresAt)}.</div>
+                  <div className="text-[11px] font-semibold text-emerald-900">Secure access issued</div>
+                  <div className="mt-0.5 text-[11px] leading-3 text-emerald-800/80">This link is returned once. Copy or open it now; Avantiqo has not sent it to the client. Expires {date(action.expiresAt)}.</div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    <button type="button" onClick={() => copySecureLink(request.id, action.clientPath)} className="inline-flex h-7 items-center gap-1 rounded-lg border border-emerald-800/15 bg-white px-2 text-[8px] font-semibold text-emerald-900">{action.copied ? <Check size={9} /> : <Copy size={9} />}{action.copied ? "Copied" : "Copy link"}</button>
-                    <a href={action.clientPath} target="_blank" rel="noreferrer" className="inline-flex h-7 items-center gap-1 rounded-lg border border-emerald-800/15 bg-white px-2 text-[8px] font-semibold text-emerald-900"><ExternalLink size={9} /> Open link</a>
+                    <button type="button" onClick={() => copySecureLink(request.id, action.clientPath)} className="inline-flex h-7 items-center gap-1 rounded-lg border border-emerald-800/15 bg-white px-2 text-[11px] font-semibold text-emerald-900">{action.copied ? <Check size={9} /> : <Copy size={9} />}{action.copied ? "Copied" : "Copy link"}</button>
+                    <a href={action.clientPath} target="_blank" rel="noreferrer" className="inline-flex h-7 items-center gap-1 rounded-lg border border-emerald-800/15 bg-white px-2 text-[11px] font-semibold text-emerald-900"><ExternalLink size={9} /> Open link</a>
                   </div>
                 </div> : null}
               </div>
@@ -172,7 +172,7 @@ export default function FinanceEngagementClientDependencyPanel({ organizationId,
         })}
       </div>
 
-      <div className="mt-2 text-[8px] text-[#918B83]">Decision support and governed access only. Client communication, evidence acceptance, review and sign-off remain separate governed actions; this panel never sends a client message automatically.</div>
+      <div className="mt-2 text-[11px] text-[#918B83]">Decision support and governed access only. Client communication, evidence acceptance, review and sign-off remain separate governed actions; this panel never sends a client message automatically.</div>
     </section>
   );
 }

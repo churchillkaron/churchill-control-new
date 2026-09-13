@@ -90,3 +90,29 @@ test("Common Finance reads stay on the low-cost deterministic path", () => {
   assert.match(fastReads, /auto_execute: true/);
   assert.match(fastReads, /requires_confirmation: false/);
 });
+
+test("Core Finance creates expose authoritative identities and exact verification filters", async () => {
+  const registry = await readFile(new URL("../lib/platform/registry/erpRegistry.base.js", import.meta.url), "utf8");
+  const accountCreate = await readFile(new URL("../app/api/finance/chart-of-accounts/upsert/route.js", import.meta.url), "utf8");
+  const accountRead = await readFile(new URL("../app/api/finance/chart-of-accounts/route.js", import.meta.url), "utf8");
+  const journalCreate = await readFile(new URL("../app/api/finance/journals/create/route.js", import.meta.url), "utf8");
+  const journalRead = await readFile(new URL("../app/api/finance/journals/route.js", import.meta.url), "utf8");
+  const vendorCreate = await readFile(new URL("../app/api/finance/vendors/upsert/route.js", import.meta.url), "utf8");
+  const vendorRead = await readFile(new URL("../app/api/finance/vendors/route.js", import.meta.url), "utf8");
+  const bankCreate = await readFile(new URL("../app/api/finance/bank-accounts/upsert/route.js", import.meta.url), "utf8");
+  const bankRead = await readFile(new URL("../app/api/finance/bank-accounts/route.js", import.meta.url), "utf8");
+
+  assert.match(registry, /id: "chart_of_accounts"[\s\S]*?contextScope:"entity"[\s\S]*?identity:"account_id"/);
+  assert.match(registry, /id: "journals"[\s\S]*?contextScope:"entity"[\s\S]*?identity:"journal_id"/);
+  assert.match(registry, /id: "vendors"[\s\S]*?identity:"party_id"/);
+  assert.match(registry, /id: "bank_accounts"[\s\S]*?identity:"bank_account_id"/);
+
+  assert.match(accountCreate, /account_id: account\?\.id/);
+  assert.match(accountRead, /searchParams\.get\("account_id"\)/);
+  assert.match(journalCreate, /result\?\.journal\?\.id/);
+  assert.match(journalRead, /journalQuery = journalQuery\.eq\("id", journalId\)/);
+  assert.match(vendorCreate, /party_id: vendor\?\.party_id \|\| vendor\?\.id/);
+  assert.match(vendorRead, /query = query\.eq\("party_id", partyId\)/);
+  assert.match(bankCreate, /bank_account_id: result\?\.bankAccount\?\.id/);
+  assert.match(bankRead, /searchParams\.get\("bank_account_id"\)/);
+});

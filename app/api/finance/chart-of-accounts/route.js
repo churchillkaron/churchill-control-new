@@ -35,6 +35,11 @@ export async function GET(request) {
       );
     }
 
+    const accountId =
+      searchParams.get("account_id") ||
+      searchParams.get("id") ||
+      null;
+
     const accounts =
       await listAccountsCommand({
         organizationId:
@@ -44,8 +49,8 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
-      accounts,
-      rows: accounts,
+      accounts: accountId ? accounts.filter((account) => account?.id === accountId) : accounts,
+      rows: accountId ? accounts.filter((account) => account?.id === accountId) : accounts,
     });
   } catch (error) {
     return NextResponse.json(

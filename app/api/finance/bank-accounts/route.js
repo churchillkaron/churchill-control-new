@@ -33,14 +33,20 @@ export async function GET(request) {
       fullAccess: access.permissions?.includes("*") === true,
     });
 
+    const bankAccountId = searchParams.get("bank_account_id") || searchParams.get("id") || null;
+
     const rows = await listBankAccountsCommand({
       organization_id: access.organizationId,
     });
 
+    const filteredRows = bankAccountId
+      ? rows.filter((row) => row?.id === bankAccountId)
+      : rows;
+
     return NextResponse.json({
       success: true,
-      bankAccounts: rows,
-      rows,
+      bankAccounts: filteredRows,
+      rows: filteredRows,
     });
   } catch (error) {
     const message = error.message || "Bank accounts load failed";

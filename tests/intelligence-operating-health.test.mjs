@@ -142,3 +142,21 @@ test("cache economics compares real generation compute for hits and misses", () 
   assert.equal(summary.compute_ms, 750);
   assert.equal(summary.structured_finalization_ms, 50);
 });
+
+
+test("unit economics flag stale pricing basis against live runtime", () => {
+  const summary = summarizeIntelligenceUsage([
+    { module: "INTELLIGENCE", supplier_cost: 2.4, metadata: { provider_usage: { input_tokens: 1000, output_tokens: 100, cached_input_tokens: 600, compute_ms: 1200 }, settled_pricing: { pricing_metadata: { infrastructure_provider: "runpod_serverless" } }, result: { infrastructure_provider: "MODAL_H100_ASYNC_V1" } } },
+    { module: "INTELLIGENCE", supplier_cost: 1.2, metadata: { provider_usage: { input_tokens: 500, output_tokens: 50, cached_input_tokens: 0, compute_ms: 800 }, settled_pricing: { pricing_metadata: { infrastructure_provider: "runpod_serverless" } }, result: { infrastructure_provider: "MODAL_H100_ASYNC_V1" } } },
+    { module: "INTELLIGENCE", supplier_cost: 1.4, metadata: { provider_usage: { input_tokens: 500, output_tokens: 50, cached_input_tokens: 0, compute_ms: 1000 }, settled_pricing: { pricing_metadata: { infrastructure_provider: "runpod_serverless" } }, result: { infrastructure_provider: "MODAL_H100_ASYNC_V1" } } },
+  ]);
+  assert.equal(summary.pricing_basis_observed_calls, 3);
+  assert.equal(summary.pricing_basis_drift_calls, 3);
+  assert.equal(summary.pricing_basis_drift_ratio, 1);
+  assert.equal(summary.supplier_cost_per_compute_second, 1.666667);
+  assert.equal(summary.supplier_cost_per_effective_uncached_input_1k_tokens, 3.571429);
+  const health = assessIntelligenceOperatingHealth(summary, {}, {});
+  assert.ok(health.signals.includes("PRICING_BASIS_RUNTIME_DRIFT_HIGH"));
+  assert.equal(health.status, "REVIEW");
+  assert.equal(health.governance.cache_pricing_changed, false);
+});

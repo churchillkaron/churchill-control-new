@@ -424,13 +424,17 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
     )
     warm_engine_reused = model in _LLM_CACHE
     started = time.perf_counter()
+    engine_prepare_started = time.perf_counter()
     engine = _llm(model)
+    engine_prepare_ms = round((time.perf_counter() - engine_prepare_started) * 1000)
+    generation_started = time.perf_counter()
     results = engine.chat(
         messages,
         sampling_params=sampling,
         use_tqdm=False,
         tools=tools,
     )
+    generation_ms = round((time.perf_counter() - generation_started) * 1000)
     if not results or not results[0].outputs:
         raise RuntimeError("AVANTIQO_INTELLIGENCE_MODAL_OUTPUT_REQUIRED")
     request_output = results[0]
@@ -448,6 +452,7 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         raise RuntimeError("AVANTIQO_INTELLIGENCE_MODAL_FINAL_OUTPUT_REQUIRED")
 
     structured_json_finalization_performed = False
+    structured_finalization_ms = 0
     structured_input_tokens = 0
     structured_output_tokens = 0
     json_object_required = (
@@ -483,12 +488,14 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
             max_tokens=max_tokens,
             structured_outputs=StructuredOutputsParams(json_object=True),
         )
+        structured_finalization_started = time.perf_counter()
         finalize_results = engine.chat(
             finalize_messages,
             sampling_params=finalize_sampling,
             use_tqdm=False,
             tools=None,
         )
+        structured_finalization_ms = round((time.perf_counter() - structured_finalization_started) * 1000)
         if not finalize_results or not finalize_results[0].outputs:
             raise RuntimeError("AVANTIQO_INTELLIGENCE_STRUCTURED_FINALIZATION_OUTPUT_REQUIRED")
         finalize_request_output = finalize_results[0]
@@ -509,6 +516,10 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         "input_tokens": len(request_output.prompt_token_ids or []) + structured_input_tokens,
         "output_tokens": len(generated.token_ids or []) + structured_output_tokens,
         "cached_input_tokens": cached_input_tokens,
+        "engine_prepare_ms": engine_prepare_ms,
+        "generation_ms": generation_ms,
+        "structured_finalization_ms": structured_finalization_ms,
+        "compute_ms": generation_ms + structured_finalization_ms,
     }
     usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
     return {

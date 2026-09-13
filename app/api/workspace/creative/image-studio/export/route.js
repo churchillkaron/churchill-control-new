@@ -18,7 +18,12 @@ export async function POST(request){
   if(projectError)throw projectError; if(!project||project.archived)return NextResponse.json({success:false,error:"Creative project not found in organization"},{status:404});
   const workspace=await loadImageStudioWorkspace({organization_id:access.organizationId,creative_project_id:projectId});
   const artboard=workspace.artboards.find(x=>x.id===artboardId); if(!artboard)return NextResponse.json({success:false,error:"Artboard not found"},{status:404});
-  const layers=workspace.layers.filter(x=>x.artboard_id===artboardId); const preflight=assessImageStudioComposition({artboard,layers,comments:workspace.comments.filter(x=>x.artboard_id===artboardId)}); const rendered=await renderImageStudioMaster({organization_id:access.organizationId,creative_project_id:projectId,artboard,layers,format:body.format||"PNG"});
+  const layers=workspace.layers.filter(x=>x.artboard_id===artboardId); const preflight=assessImageStudioComposition({artboard,layers,comments:workspace.comments.filter(x=>x.artboard_id===artboardId)});
+  if(!preflight.release_ready && body.allow_unsafe_export!==true){
+   await createImageStudioExport({id:crypto.randomUUID(),organization_id:access.organizationId,creative_project_id:projectId,artboard_id:artboardId,export_type:String(body.format||"PNG").toUpperCase(),status:"BLOCKED",settings:{requested_format:body.format||"PNG"},evidence:{quality_preflight:preflight,blocked_by:"CREATIVE_IMAGE_STUDIO_QUALITY_PREFLIGHT_V1"}});
+   return NextResponse.json({success:false,error:"IMAGE_STUDIO_EXPORT_PREFLIGHT_BLOCKED",preflight},{status:409});
+  }
+  const rendered=await renderImageStudioMaster({organization_id:access.organizationId,creative_project_id:projectId,artboard,layers,format:body.format||"PNG"});
   await createImageStudioExport({id:crypto.randomUUID(),organization_id:access.organizationId,creative_project_id:projectId,artboard_id:artboardId,export_type:rendered.format,status:"COMPLETED",settings:{width:rendered.width,height:rendered.height,mime_type:rendered.mime_type},evidence:{contract:rendered.contract,deterministic:true,quality_preflight:preflight},completed_at:new Date().toISOString()});
   return new NextResponse(rendered.bytes,{status:200,headers:{"content-type":rendered.mime_type,"content-disposition":`attachment; filename="image-studio-${artboardId}.${rendered.file_extension}"`,"x-avantiqo-contract":rendered.contract,"x-avantiqo-quality-score":String(preflight.score)}});
  }catch(error){console.error("CREATIVE_IMAGE_STUDIO_EXPORT_FAILED",error);return NextResponse.json({success:false,error:error?.message||"Unable to export Image Studio master"},{status:500});}

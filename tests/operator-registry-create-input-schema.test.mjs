@@ -74,3 +74,50 @@ test("registry create risk defaults are stricter for Finance without changing ot
   assert.equal(finance.manifest.operatorAutoExecute, false);
   assert.equal(finance.manifest.operatorVerification.capability_key, "finance.tax_codes.read");
 });
+
+
+test("registry mission creates derive replay-stable idempotency only inside governed mission steps", async () => {
+  const calls = [];
+  const originalFetch = global.fetch;
+  global.fetch = async (_url, options) => {
+    calls.push(JSON.parse(options.body));
+    return { ok: true, status: 200, json: async () => ({ success: true, journal_id: "journal-1" }) };
+  };
+
+  try {
+    const { execute } = createRegistryCreateCapability({
+      domain: "finance",
+      item: {
+        id: "journals",
+        name: "Journals",
+        create: {
+          enabled: true,
+          api: "/api/finance/journals/create",
+          inputSchema: { type: "object", properties: { idempotency_key: { type: "string" } } },
+        },
+        data: { identity: "journal_id" },
+      },
+      endpoint: "/api/finance/journals/create",
+    });
+    const callerRequest = { url: "https://example.test/operator", headers: { get: () => null } };
+    const missionContext = {
+      organizationId: "org-1",
+      callerRequest,
+      metadata: {
+        parentCapabilityKey: "platform.operator_mission.execute",
+        operatorMissionExecutionId: "mission-1",
+        missionStepId: "step-1",
+        source: "AVANTIQO_OPERATOR_MISSION",
+      },
+    };
+    await execute({ context: missionContext, payload: { reference: "A" } });
+    await execute({ context: missionContext, payload: { reference: "A" } });
+    await execute({ context: { organizationId: "org-1", callerRequest, metadata: {} }, payload: { reference: "A" } });
+
+    assert.ok(calls[0].idempotency_key);
+    assert.equal(calls[0].idempotency_key, calls[1].idempotency_key);
+    assert.equal(calls[2].idempotency_key, undefined);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

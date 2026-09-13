@@ -64,6 +64,7 @@ export async function POST(request) {
       success: true,
       entity: decorateLegalEntity(data),
       record: decorateLegalEntity(data),
+      legal_entity_id: data?.id || null,
     });
   } catch (error) {
     return failure(error);

@@ -51,6 +51,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       data: budget,
+      budget_id: budget?.id || null,
     });
   } catch (error) {
     return NextResponse.json(

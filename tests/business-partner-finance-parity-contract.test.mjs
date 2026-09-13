@@ -124,3 +124,33 @@ test("Finance does not advertise create actions without an executable write cont
     assert.match(registry, pattern);
   }
 });
+
+test("Extended Finance document creates expose exact verification identities", async () => {
+  const registry = await readFile(new URL("../lib/platform/registry/erpRegistry.base.js", import.meta.url), "utf8");
+  const cases = [
+    ["tax_codes", "tax_code_id", "../app/api/finance/tax-codes/upsert/route.js", "../app/api/finance/tax-codes/route.js"],
+    ["fixed_assets", "asset_id", "../app/api/finance/fixed-assets/create/route.js", "../app/api/finance/fixed-assets/list/route.js"],
+    ["legal_entities", "legal_entity_id", "../app/api/finance/legal-entities/create/route.js", "../app/api/finance/legal-entities/list/route.js"],
+    ["cost_centers", "cost_center_id", "../app/api/finance/cost-centers/create/route.js", "../app/api/finance/cost-centers/list/route.js"],
+    ["currencies", "currency_id", "../app/api/finance/currencies/upsert/route.js", "../app/api/finance/currencies/route.js"],
+    ["intercompany", "intercompany_transaction_id", "../app/api/finance/intercompany/create/route.js", "../app/api/finance/intercompany/runtime/route.js"],
+    ["payment_terms", "payment_term_id", "../app/api/finance/payment-terms/upsert/route.js", "../app/api/finance/payment-terms/route.js"],
+    ["budgeting", "budget_id", "../app/api/finance/budgeting/create/route.js", "../app/api/finance/budgeting/runtime/route.js"],
+  ];
+
+  for (const [workspace, identity, createPath, readPath] of cases) {
+    const createRoute = await readFile(new URL(createPath, import.meta.url), "utf8");
+    const readRoute = await readFile(new URL(readPath, import.meta.url), "utf8");
+    assert.match(registry, new RegExp(`id: "${workspace}"[\\s\\S]*?identity:"${identity}"`));
+    assert.match(createRoute, new RegExp(`${identity}:`));
+    assert.match(readRoute, new RegExp(identity));
+  }
+
+  assert.match(registry, /id: "cost_centers"[\s\S]*?contextScope:"entity"[\s\S]*?identity:"cost_center_id"/);
+  assert.match(registry, /id: "budgeting"[\s\S]*?contextScope:"entity"[\s\S]*?identity:"budget_id"/);
+});
+
+test("Finance permissions are not exposed as an ambiguous generic Operator create", async () => {
+  const registry = await readFile(new URL("../lib/platform/registry/erpRegistry.base.js", import.meta.url), "utf8");
+  assert.match(registry, /id: "finance_permissions"[\s\S]*?create:\{[\s\S]*?enabled:false/);
+});

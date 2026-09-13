@@ -50,7 +50,9 @@ export async function GET(request) {
       );
     }
 
-    const entities = await loadEntities({ organizationId: access.organizationId });
+    const legalEntityId = searchParams.get("legal_entity_id") || searchParams.get("legalEntityId") || searchParams.get("id");
+    let entities = await loadEntities({ organizationId: access.organizationId });
+    if (legalEntityId) entities = entities.filter((entity) => String(entity.id) === String(legalEntityId));
 
     return NextResponse.json({
       success: true,

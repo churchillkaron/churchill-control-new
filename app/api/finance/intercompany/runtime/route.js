@@ -34,13 +34,16 @@ export async function GET(request) {
     });
 
     const organizationId = access.organizationId;
+    const transactionId = searchParams.get("intercompany_transaction_id") || searchParams.get("transactionId") || searchParams.get("id");
+    let transactionQuery = supabaseAdmin
+      .from("intercompany_transactions")
+      .select("*")
+      .eq("organization_id", organizationId);
+    if (transactionId) transactionQuery = transactionQuery.eq("id", transactionId);
+
     const [{ data: transactions, error }, { data: entities, error: entityError }] =
       await Promise.all([
-        supabaseAdmin
-          .from("intercompany_transactions")
-          .select("*")
-          .eq("organization_id", organizationId)
-          .order("created_at", { ascending: false }),
+        transactionQuery.order("created_at", { ascending: false }),
         supabaseAdmin
           .from("legal_entities")
           .select("id, code, legal_name, display_name, currency, base_currency")

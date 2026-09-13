@@ -44,7 +44,11 @@ export async function POST(request) {
       actorId: access.user?.id || access.userId,
     });
 
-    return NextResponse.json({ success: true, ...result });
+    return NextResponse.json({
+      success: true,
+      ...result,
+      intercompany_transaction_id: result?.transaction?.id || result?.id || null,
+    });
   } catch (error) {
     return failure(error);
   }

@@ -39,7 +39,7 @@ export async function POST(req) {
       },
     });
 
-    return NextResponse.json({ success: true, taxCode: result });
+    return NextResponse.json({ success: true, taxCode: result, tax_code_id: result?.id || null });
   } catch (error) {
     const message = error.message || "Tax code upsert failed";
     return NextResponse.json(

@@ -49,6 +49,7 @@ export async function POST(request) {
       success: true,
       currency,
       record: currency,
+      currency_id: currency?.id || null,
     });
   } catch (error) {
     return failure(error);

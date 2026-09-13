@@ -42,7 +42,10 @@ export async function POST(request) {
       organization_id: access.organizationId,
     });
 
-    return NextResponse.json(result, { status: result?.success === false ? 400 : 200 });
+    return NextResponse.json({
+      ...result,
+      asset_id: result?.asset?.id || result?.id || null,
+    }, { status: result?.success === false ? 400 : 200 });
   } catch (error) {
     const message = error.message || "Fixed asset creation failed";
     return NextResponse.json(

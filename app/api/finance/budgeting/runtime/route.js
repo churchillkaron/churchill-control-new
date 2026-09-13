@@ -36,7 +36,8 @@ export async function GET(request) {
       fullAccess: access.permissions?.includes("*") === true,
     });
 
-    const budgets = await listBudgetsCommand({
+    const budgetId = searchParams.get("budget_id") || searchParams.get("budgetId") || searchParams.get("id");
+    let budgets = await listBudgetsCommand({
       organization_id: access.organizationId,
       entity_id:
         searchParams.get("entityId") ||
@@ -46,6 +47,7 @@ export async function GET(request) {
         searchParams.get("period_id") ||
         null,
     });
+    if (budgetId) budgets = budgets.filter((budget) => String(budget.id) === String(budgetId));
 
     return NextResponse.json({
       success: true,

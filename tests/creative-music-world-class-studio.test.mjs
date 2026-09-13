@@ -85,3 +85,20 @@ test("Business Partner catalog exposes autonomous Music Creative Floor", async (
   assert.match(capability, /three independent musical concepts/i);
   assert.match(capability, /without starting paid media generation/i);
 });
+
+test("Business Partner music front door separates discussion from paid production", async () => {
+  const plan = await readFile(new URL("../lib/creative/music/capabilities/planWorldClassMusicStudio.js", import.meta.url), "utf8");
+  const inspect = await readFile(new URL("../lib/creative/music/capabilities/inspectWorldClassMusicStudio.js", import.meta.url), "utf8");
+  const develop = await readFile(new URL("../lib/creative/music/capabilities/developWorldClassMusicStudio.js", import.meta.url), "utf8");
+  const execute = await readFile(new URL("../lib/creative/music/capabilities/executeWorldClassMusicStudio.js", import.meta.url), "utf8");
+
+  assert.match(plan, /help me think through the music/i);
+  assert.match(plan, /what could we do with the music/i);
+  assert.match(inspect, /what can music studio do/i);
+  assert.match(develop, /give me three music directions/i);
+
+  assert.match(plan, /operatorMode:\s*"read"/);
+  assert.match(develop, /operatorMode:\s*"read"/);
+  assert.match(execute, /operatorMode:\s*"write"/);
+  assert.match(execute, /operatorRequiresConfirmation:\s*true/);
+});

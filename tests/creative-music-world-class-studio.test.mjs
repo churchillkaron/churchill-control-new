@@ -52,3 +52,26 @@ test("Business Partner catalog registration exposes Music planning and execution
   assert.match(executionSource, /operatorMode:\s*"write"/);
   assert.match(executionSource, /operatorRequiresConfirmation:\s*true/);
 });
+
+
+test("Business Partner attachment reflex binds one audio source to Music Studio", async () => {
+  const { hasPreparedAttachmentReflexCandidate, resolvePreparedAttachmentReflex } = await import("../lib/operator/runtime/OperatorPreparedAttachmentReflex.js");
+  const attachments = [{ id:"a1", name:"song.wav", mime_type:"audio/wav", url:"https://example.test/song.wav", attachment_set_id:"set1" }];
+  const message = "Remove the vocals and make a backing track";
+  assert.equal(hasPreparedAttachmentReflexCandidate(attachments, message), true);
+  const decision = resolvePreparedAttachmentReflex({ message, attachments, capabilities:[{key:"creative.music.executeWorldClassProduction"}] });
+  assert.equal(decision.intent, "execute");
+  assert.equal(decision.execution.capability_key, "creative.music.executeWorldClassProduction");
+  assert.equal(decision.execution.payload.source_audio, "https://example.test/song.wav");
+  assert.equal(decision.execution.payload.source_rights_confirmed, true);
+  assert.match(decision.response_text, /confirm that you have the rights/i);
+});
+
+test("Music execution capability can self-prepare a project and exposes broad aliases", async () => {
+  const source = await import("node:fs/promises").then((fs) => fs.readFile(new URL("../lib/creative/music/capabilities/executeWorldClassMusicStudio.js", import.meta.url), "utf8"));
+  assert.match(source, /ensureMusicProject/);
+  assert.match(source, /creative\.studio\.inspectProject/);
+  assert.match(source, /make a backing track/);
+  assert.match(source, /remove the vocals/);
+  assert.match(source, /separate the stems/);
+});

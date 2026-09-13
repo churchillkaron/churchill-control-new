@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 
 import {
   buildMusicIntendedVsRenderedReview,
@@ -49,4 +50,12 @@ test("world-class result passes only with complete 90+ review and hard gates", (
   assert.equal(tribunal.verdict, "PASS");
   assert.equal(tribunal.release_ready, true);
   assert.equal(tribunal.publication_authorized, false);
+});
+
+
+test("world-class execution cannot claim release-ready before tribunal", () => {
+  const source = fs.readFileSync(new URL("../lib/creative/music/runtime/CreativeMusicWorldClassExecutionRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /worldClassMusicQualityPending/);
+  assert.match(source, /release_ready: false/);
+  assert.match(source, /QUALITY_REVIEW_REQUIRED/);
 });

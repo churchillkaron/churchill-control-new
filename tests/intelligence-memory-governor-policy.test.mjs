@@ -4,6 +4,7 @@ import {
   boundLongTermMemoryContext,
   boundRecentConversationTurns,
   estimateContextTokens,
+  memoryRecallCandidateLimit,
   shouldRefreshRecallTelemetry,
 } from "../lib/operator/runtime/IntelligenceMemoryGovernorPolicy.js";
 
@@ -76,4 +77,11 @@ test("recall telemetry is throttled inside the minimum interval", () => {
   assert.equal(shouldRefreshRecallTelemetry({}, now), true);
   assert.equal(shouldRefreshRecallTelemetry({ last_recalled_at: "2026-09-13T09:30:00Z" }, now), false);
   assert.equal(shouldRefreshRecallTelemetry({ last_recalled_at: "2026-09-13T08:30:00Z" }, now), true);
+});
+
+test("recall candidate reads stay globally bounded across scopes", () => {
+  assert.equal(memoryRecallCandidateLimit(1), 100);
+  assert.equal(memoryRecallCandidateLimit(2), 100);
+  assert.equal(memoryRecallCandidateLimit(3), 66);
+  assert.ok(memoryRecallCandidateLimit(3) * 3 <= 200);
 });

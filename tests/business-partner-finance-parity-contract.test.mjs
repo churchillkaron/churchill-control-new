@@ -205,3 +205,19 @@ test("High-impact Finance writes require high-risk confirmation and exact verifi
     assert.match(source, /operatorVerification:/);
   }
 });
+
+
+test("High-impact registry Finance creates use explicit closed input schemas", async () => {
+  const registry = await readFile(new URL("../lib/platform/registry/erpRegistry.base.js", import.meta.url), "utf8");
+  for (const workspace of [
+    "chart_of_accounts", "journals", "tax_codes", "fixed_assets", "legal_entities",
+    "cost_centers", "currencies", "intercompany", "budgeting",
+  ]) {
+    const match = registry.match(new RegExp(`id: "${workspace}"[\\s\\S]*?create:\\s*\\{([\\s\\S]*?)\\n\\}`));
+    assert.ok(match, `missing create block for ${workspace}`);
+    assert.match(match[1], /inputSchema:/, `${workspace} must declare inputSchema`);
+    assert.match(match[1], /additionalProperties:false/, `${workspace} must reject undeclared payload fields`);
+  }
+  assert.match(registry, /id: "journals"[\s\S]*?required:\["posting_date","currency_code","exchange_rate","lines","idempotency_key"\]/);
+  assert.match(registry, /id: "intercompany"[\s\S]*?required:\["from_legal_entity_id","to_legal_entity_id"[\s\S]*?"idempotency_key"\]/);
+});

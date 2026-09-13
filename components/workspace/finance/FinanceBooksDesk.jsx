@@ -17,30 +17,43 @@ import {
 import { getWorkspaceGroups } from "@/lib/platform/registry/erpRegistry";
 import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
 
-const REPORT_WORDS = [
-  "report", "statement of cash flows", "financial statement", "analytics", "forecast", "budget", "insight", "kpi", "health", "dashboard",
-];
+const BOOK_AREA_BY_GROUP = Object.freeze({
+  accounting: "ledger",
+  order_to_cash: "receivables",
+  procure_to_pay: "payables",
+  treasury: "banking",
+  compliance: "tax",
+});
 
-const CONFIGURE_WORDS = [
-  "setting", "configuration", "configure", "fiscal period", "dimension", "currency", "exchange rate", "posting rule", "payment term", "template", "work program", "tax setup", "vat setup",
-];
+const BOOK_AREA_BY_ITEM = Object.freeze({
+  fixed_assets: "assets",
+  depreciation: "assets",
+});
+
+const BOOK_EXCLUDED_ITEMS = new Set([
+  "fiscal_periods",
+  "dimensions",
+  "audit_trail",
+  "period_close",
+  "year_end",
+]);
 
 const AREAS = [
-  { id: "ledger", label: "Ledger", icon: BookOpenCheck, words: ["ledger", "journal", "trial balance", "chart of account", "account balance", "opening balance", "accounting entry", "recurring journal"] },
-  { id: "receivables", label: "Receivables", icon: ReceiptText, words: ["receivable", "customer invoice", "customer payment", "customer credit", "customer statement", "collection", "dunning", "revenue recognition"] },
-  { id: "payables", label: "Payables", icon: Banknote, words: ["payable", "vendor bill", "vendor invoice", "supplier invoice", "vendor payment", "supplier payment", "vendor statement", "supplier statement", "expense claim"] },
-  { id: "banking", label: "Banking", icon: Landmark, words: ["bank", "reconciliation", "cash management", "treasury", "cash account", "payment run"] },
-  { id: "assets", label: "Assets", icon: Building2, words: ["fixed asset", "asset register", "depreciation", "asset"] },
-  { id: "tax", label: "Tax", icon: ShieldCheck, words: ["vat", "tax", "statutory", "withholding", "filing", "gst"] },
+  { id: "ledger", label: "Ledger", icon: BookOpenCheck },
+  { id: "receivables", label: "Receivables", icon: ReceiptText },
+  { id: "payables", label: "Payables", icon: Banknote },
+  { id: "banking", label: "Banking", icon: Landmark },
+  { id: "assets", label: "Assets", icon: Building2 },
+  { id: "tax", label: "Tax", icon: ShieldCheck },
 ];
 
 const CORE_DESK = [
-  { label: "Trial Balance", words: ["trial balance"] },
-  { label: "General Ledger", words: ["general ledger"] },
-  { label: "Customer Invoices", words: ["customer invoice"] },
-  { label: "Vendor Bills", words: ["vendor bill", "vendor invoice"] },
-  { label: "Bank Reconciliation", words: ["bank reconciliation"] },
-  { label: "Journals", words: ["journal"] },
+  { id: "trial_balance", label: "Trial Balance" },
+  { id: "general_ledger", label: "General Ledger" },
+  { id: "customer_invoices", label: "Customer Invoices" },
+  { id: "vendor_bills", label: "Vendor Bills" },
+  { id: "bank_reconciliation", label: "Bank Reconciliation" },
+  { id: "journals", label: "Journals" },
 ];
 
 function clean(value) {
@@ -65,20 +78,12 @@ function searchText(group, item) {
     .toLowerCase();
 }
 
-function isBooksItem(item) {
-  const haystack = capabilityText(item);
-  return !REPORT_WORDS.some((word) => haystack.includes(word)) && !CONFIGURE_WORDS.some((word) => haystack.includes(word));
+function isBooksItem(group, item) {
+  return Boolean(BOOK_AREA_BY_GROUP[group?.id]) && !BOOK_EXCLUDED_ITEMS.has(item?.id);
 }
 
 function resolveArea(item) {
-  for (const area of AREAS) {
-    if (area.words.some((word) => item.classificationText.includes(word))) return area.id;
-  }
-  return "ledger";
-}
-
-function firstMatch(items, words, used) {
-  return items.find((item) => !used.has(item.id) && words.some((word) => item.classificationText.includes(word)) && !item.disabled) || null;
+  return BOOK_AREA_BY_ITEM[item?.id] || BOOK_AREA_BY_GROUP[item?.groupId] || "ledger";
 }
 
 export default function FinanceBooksDesk({ organizationId }) {
@@ -88,26 +93,21 @@ export default function FinanceBooksDesk({ organizationId }) {
   const groups = useMemo(() => getWorkspaceGroups("finance"), []);
 
   const items = useMemo(() => groups.flatMap((group) => (group.items || [])
-    .filter((item) => isBooksItem(item))
+    .filter((item) => isBooksItem(group, item))
     .map((item) => ({
       ...item,
       groupId: group.id,
       groupName: group.name,
-      classificationText: capabilityText(item),
       searchText: searchText(group, item),
       disabled: unavailable(item),
     }))), [groups]);
 
   const categorizedItems = useMemo(() => items.map((item) => ({ ...item, area: resolveArea(item) })), [items]);
 
-  const coreItems = useMemo(() => {
-    const used = new Set();
-    return CORE_DESK.map((slot) => {
-      const item = firstMatch(categorizedItems, slot.words, used);
-      if (item) used.add(item.id);
-      return item ? { ...item, deskLabel: slot.label } : null;
-    }).filter(Boolean);
-  }, [categorizedItems]);
+  const coreItems = useMemo(() => CORE_DESK.map((slot) => {
+    const item = categorizedItems.find((candidate) => candidate.id === slot.id && !candidate.disabled);
+    return item ? { ...item, deskLabel: slot.label } : null;
+  }).filter(Boolean), [categorizedItems]);
 
   useEffect(() => {
     if (!organizationId) return;

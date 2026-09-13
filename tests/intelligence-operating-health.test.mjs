@@ -216,3 +216,27 @@ test("lane economics keep Fast and Deep compute independent", () => {
   assert.equal(health.metrics.deep_compute_ms, 2000);
   assert.equal(health.governance.authority_changed, false);
 });
+
+test("latency decomposition keeps observed timing separate by lane", () => {
+  const summary = summarizeIntelligenceUsage([
+    { module: "INTELLIGENCE", metadata: { intelligence_execution_lane: "fast", provider_usage: { request_queue_ms: 20, time_to_first_token_ms: 120, decode_ms: 400, scheduler_ms: 10, model_forward_ms: 300, model_execute_ms: 330 } } },
+    { module: "INTELLIGENCE", metadata: { intelligence_execution_lane: "fast", provider_usage: { request_queue_ms: 40, time_to_first_token_ms: 160, decode_ms: 500, scheduler_ms: 20, model_forward_ms: 350, model_execute_ms: 390 } } },
+    { module: "INTELLIGENCE", metadata: { intelligence_execution_lane: "deep", provider_usage: { request_queue_ms: 100, time_to_first_token_ms: 500, decode_ms: 1500, scheduler_ms: 50, model_forward_ms: 1200, model_execute_ms: 1300 } } },
+    { module: "INTELLIGENCE", metadata: { intelligence_execution_lane: "deep", provider_usage: {} } },
+  ]);
+  assert.equal(summary.latency_timing_observed_calls, 3);
+  assert.equal(summary.latency_timing_observation_coverage_ratio, 0.75);
+  assert.equal(summary.fast_latency_timing_observation_coverage_ratio, 1);
+  assert.equal(summary.deep_latency_timing_observation_coverage_ratio, 0.5);
+  assert.equal(summary.fast_request_queue_ms, 30);
+  assert.equal(summary.deep_request_queue_ms, 100);
+  assert.equal(summary.fast_time_to_first_token_ms, 140);
+  assert.equal(summary.deep_time_to_first_token_ms, 500);
+  assert.equal(summary.fast_decode_ms, 450);
+  assert.equal(summary.deep_decode_ms, 1500);
+  const health = assessIntelligenceOperatingHealth(summary, {}, {});
+  assert.equal(health.metrics.latency_timing_observation_coverage_ratio, 0.75);
+  assert.equal(health.metrics.fast_request_queue_ms, 30);
+  assert.equal(health.metrics.deep_decode_ms, 1500);
+  assert.equal(health.governance.authority_changed, false);
+});

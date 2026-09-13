@@ -378,6 +378,47 @@ def _llm(model: str) -> Any:
     return engine
 
 
+def _request_timing_usage(request_output: Any) -> dict[str, int]:
+    metrics = getattr(request_output, "metrics", None)
+    if metrics is None:
+        return {}
+
+    def seconds(name: str) -> float | None:
+        value = getattr(metrics, name, None)
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            return None
+        return parsed if parsed >= 0 else None
+
+    arrival = seconds("arrival_time")
+    scheduled = seconds("first_scheduled_time")
+    first_token = seconds("first_token_time")
+    finished = seconds("finished_time")
+    queue = seconds("time_in_queue")
+    if queue is None and arrival is not None and scheduled is not None and scheduled >= arrival:
+        queue = scheduled - arrival
+
+    values: dict[str, int] = {}
+    if queue is not None:
+        values["request_queue_ms"] = round(queue * 1000)
+    if arrival is not None and first_token is not None and first_token >= arrival:
+        values["time_to_first_token_ms"] = round((first_token - arrival) * 1000)
+    if scheduled is not None and first_token is not None and first_token >= scheduled:
+        values["prefill_ms"] = round((first_token - scheduled) * 1000)
+    if first_token is not None and finished is not None and finished >= first_token:
+        values["decode_ms"] = round((finished - first_token) * 1000)
+    for source, target in (
+        ("scheduler_time", "scheduler_ms"),
+        ("model_forward_time", "model_forward_ms"),
+        ("model_execute_time", "model_execute_ms"),
+    ):
+        value = seconds(source)
+        if value is not None:
+            values[target] = round(value * 1000)
+    return values
+
+
 def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
     from vllm import SamplingParams
 
@@ -521,6 +562,7 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         "structured_finalization_ms": structured_finalization_ms,
         "compute_ms": generation_ms + structured_finalization_ms,
     }
+    usage.update(_request_timing_usage(request_output))
     usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
     return {
         "status": "completed",

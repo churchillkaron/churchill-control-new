@@ -17,9 +17,12 @@ const ORGANIZATIONAL_CONTEXT_KEY = "platform.organizational_context.read";
 const ATTENTION_KEY = "platform.attention.scan";
 const GOVERNED_AUTONOMOUS_COMPOSITES = new Set([
   "platform.operator_mission.execute",
+  "platform.business_partner_external_wait.execute",
   "platform.code_ai_autonomous.execute",
   "platform.code_ai_mission.execute",
   "platform.product_engineering_cycle.execute",
+  "platform.product_engineering_portfolio.execute",
+  "platform.product_engineering_portfolio_control.execute",
   "platform.product_persistence_handoff.execute",
 ]);
 

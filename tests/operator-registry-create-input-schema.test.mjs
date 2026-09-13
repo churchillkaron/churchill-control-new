@@ -48,3 +48,29 @@ test("registry create stays backward-compatible when no schema is declared", () 
   assert.equal(schema.additionalProperties, true);
   assert.deepEqual(schema.properties, {});
 });
+
+
+test("registry create risk defaults are stricter for Finance without changing other domains", () => {
+  const finance = createRegistryCreateCapability({
+    domain: "finance",
+    item: { id: "tax_codes", name: "Tax Codes", create: { enabled: true, api: "/api/finance/tax-codes/upsert" }, data: { identity: "tax_code_id" } },
+    endpoint: "/api/finance/tax-codes/upsert",
+  });
+  const commercial = createRegistryCreateCapability({
+    domain: "commercial",
+    item: { id: "quotes", name: "Quotes", create: { enabled: true, api: "/api/commercial/quotes" }, data: { identity: "quote_id" } },
+    endpoint: "/api/commercial/quotes",
+  });
+  const explicit = createRegistryCreateCapability({
+    domain: "finance",
+    item: { id: "safe_config", name: "Safe Config", create: { enabled: true, api: "/api/finance/safe-config", risk: "low" }, data: { identity: "config_id" } },
+    endpoint: "/api/finance/safe-config",
+  });
+
+  assert.equal(finance.manifest.risk, "high");
+  assert.equal(commercial.manifest.risk, "medium");
+  assert.equal(explicit.manifest.risk, "low");
+  assert.equal(finance.manifest.operatorRequiresConfirmation, true);
+  assert.equal(finance.manifest.operatorAutoExecute, false);
+  assert.equal(finance.manifest.operatorVerification.capability_key, "finance.tax_codes.read");
+});

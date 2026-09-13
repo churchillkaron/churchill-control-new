@@ -39,3 +39,11 @@ test("Business Partner catalog exposes Music Dailies review", async () => {
   assert.match(source, /reviewWorldClassDailies/);
   assert.match(source, /reviewWorldClassMusicDailies/);
 });
+
+test("world-class execution automatically runs Music Dailies after mastering", async () => {
+  const executionSource = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicWorldClassExecutionRuntime.js", import.meta.url), "utf8");
+  const finishingSource = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicFinishingRuntime.js", import.meta.url), "utf8");
+  assert.match(executionSource, /runMusicDailiesListening/);
+  assert.match(executionSource, /dailies: dailies/);
+  assert.match(finishingSource, /master_report: masterReport/);
+});

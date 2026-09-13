@@ -106,3 +106,23 @@ test("cache economics compares observed hit and miss latency", () => {
   assert.equal(summary.cache_miss_latency_ms, 1600);
   assert.equal(summary.cache_latency_delta_ms, -600);
 });
+
+test("cache diagnostics expose structural reuse opportunity", () => {
+  const summary = summarizeIntelligenceUsage([
+    { module: "INTELLIGENCE", metadata: { intelligence_operator_context_fingerprint: { static_context_fingerprint: "a", cacheable_static_chars: 800, volatile_chars: 200 } } },
+    { module: "INTELLIGENCE", metadata: { intelligence_operator_context_fingerprint: { static_context_fingerprint: "a", cacheable_static_chars: 900, volatile_chars: 100 } } },
+    { module: "INTELLIGENCE", metadata: { intelligence_operator_context_fingerprint: { static_context_fingerprint: "b", cacheable_static_chars: 700, volatile_chars: 300 } } },
+  ]);
+  assert.equal(summary.unique_static_contexts, 2);
+  assert.equal(summary.cacheable_static_chars, 2400);
+  assert.equal(summary.volatile_chars, 600);
+  assert.equal(summary.structural_cacheable_ratio, 0.8);
+  assert.equal(summary.stable_context_reuse_ratio, 0.3333);
+});
+
+test("health flags high reuse opportunity with persistently low real cache hits", () => {
+  const result = assessIntelligenceOperatingHealth({ calls: 20, cache_observed_calls: 20, stable_context_reuse_ratio: 0.7, cache_hit_ratio: 0.1 }, {}, {});
+  assert.ok(result.signals.includes("CACHE_REUSE_UNDERPERFORMING"));
+  assert.equal(result.status, "HEALTHY");
+  assert.equal(result.governance.cache_pricing_changed, false);
+});

@@ -33,9 +33,10 @@ export async function GET(req) {
       fullAccess: access.permissions?.includes("*") === true,
     });
 
+    const taxCodeId = searchParams.get("tax_code_id") || searchParams.get("taxCodeId") || searchParams.get("id");
     const data = (await TaxCodeRepository.list({
       organizationId: access.organizationId,
-    })).filter((row) => row.is_active !== false);
+    })).filter((row) => row.is_active !== false && (!taxCodeId || String(row.id) === String(taxCodeId)));
 
     const taxCodes = data.map((t) => ({
       id: t.id,

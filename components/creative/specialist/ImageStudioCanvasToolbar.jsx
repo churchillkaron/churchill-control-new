@@ -1,10 +1,13 @@
 "use client";
 
 import {
+  Camera,
   GitCompare,
   Hand,
+  Loader2,
   MessageSquare,
   MousePointer2,
+  Save,
   Scan,
   Type,
   ZoomIn,
@@ -19,7 +22,8 @@ const TOOLS = [
   ["region", Scan],
 ];
 
-export default function ImageStudioCanvasToolbar({ workspace }) {
+export default function ImageStudioCanvasToolbar({ workspace, persistence }) {
+  const busy = persistence?.status === "SAVING" || persistence?.status === "LOADING";
   return (
     <div className="mx-4 hidden items-center gap-1 rounded-lg border border-white/[0.07] bg-black/25 p-1 lg:flex">
       {TOOLS.map(([tool, Icon]) => (
@@ -45,6 +49,17 @@ export default function ImageStudioCanvasToolbar({ workspace }) {
       <button type="button" title="Compare versions" onClick={workspace.toggleCompare}
         className={`rounded-md p-1.5 ${workspace.ui.compare ? "bg-[#D6A66A]/10 text-[#D6A66A]" : "text-white/30 hover:text-white/55"}`}>
         <GitCompare className="h-3.5 w-3.5" />
+      </button>
+      <span className="mx-1 h-4 w-px bg-white/[0.08]" />
+      <button type="button" title="Save artboard" disabled={busy}
+        onClick={() => persistence?.saveSelectedArtboard?.()}
+        className="rounded-md p-1.5 text-white/30 hover:text-[#D6A66A] disabled:opacity-30">
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+      </button>
+      <button type="button" title="Snapshot version" disabled={busy}
+        onClick={() => persistence?.snapshotSelectedArtboard?.()}
+        className="rounded-md p-1.5 text-white/30 hover:text-[#D6A66A] disabled:opacity-30">
+        <Camera className="h-3.5 w-3.5" />
       </button>
     </div>
   );

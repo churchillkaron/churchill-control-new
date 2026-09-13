@@ -35,11 +35,13 @@ export async function GET(request) {
       fullAccess: access.permissions?.includes("*") === true,
     });
 
-    const { data, error } = await supabaseAdmin
+    const paymentTermId = searchParams.get("payment_term_id") || searchParams.get("paymentTermId") || searchParams.get("id");
+    let query = supabaseAdmin
       .from("payment_terms")
       .select("*")
-      .eq("organization_id", access.organizationId)
-      .order("name", { ascending: true });
+      .eq("organization_id", access.organizationId);
+    if (paymentTermId) query = query.eq("id", paymentTermId);
+    const { data, error } = await query.order("name", { ascending: true });
 
     if (error) throw error;
 

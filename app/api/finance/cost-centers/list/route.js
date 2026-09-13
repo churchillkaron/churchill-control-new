@@ -32,6 +32,9 @@ async function respond(request, body = {}) {
       body.entity_id ||
       url.searchParams.get("entityId") ||
       url.searchParams.get("entity_id");
+    const costCenterId =
+      body.cost_center_id || body.costCenterId || body.id ||
+      url.searchParams.get("cost_center_id") || url.searchParams.get("costCenterId") || url.searchParams.get("id");
     const includeInactive =
       body.includeInactive === true ||
       body.include_inactive === true ||
@@ -49,10 +52,12 @@ async function respond(request, body = {}) {
       }),
     ]);
 
+    const filteredRows = costCenterId ? rows.filter((row) => String(row.id) === String(costCenterId)) : rows;
+
     return NextResponse.json({
       success: true,
-      costCenters: rows,
-      rows,
+      costCenters: filteredRows,
+      rows: filteredRows,
       active: rows.filter(row => row.is_active !== false).length,
       inactive: rows.filter(row => row.is_active === false).length,
       configuration,

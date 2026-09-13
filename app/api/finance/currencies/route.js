@@ -29,10 +29,12 @@ export async function GET(request) {
       access,
     });
 
-    const currencies = await listFinanceCurrencies({
+    const currencyId = searchParams.get("currency_id") || searchParams.get("currencyId") || searchParams.get("id");
+    let currencies = await listFinanceCurrencies({
       organizationId: access.organizationId,
       includeInactive: true,
     });
+    if (currencyId) currencies = currencies.filter((currency) => String(currency.id) === String(currencyId));
 
     return NextResponse.json({
       success: true,

@@ -33,9 +33,14 @@ export async function GET(request) {
       fullAccess: access.permissions?.includes("*") === true,
     });
 
+    const assetId = searchParams.get("asset_id") || searchParams.get("assetId") || searchParams.get("id");
     const result = await listFixedAssetsCommand({
       organization_id: access.organizationId,
+      entity_id: searchParams.get("entityId") || searchParams.get("entity_id") || null,
     });
+    if (assetId) {
+      result.assets = (result.assets || []).filter((asset) => String(asset.id) === String(assetId));
+    }
 
     const assets = (result.assets || []).map((asset) => ({
       ...asset,

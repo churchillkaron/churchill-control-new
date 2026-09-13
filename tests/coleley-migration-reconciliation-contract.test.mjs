@@ -30,6 +30,14 @@ test("historical receipt evidence is separate from live bank posting", () => {
   assert.match(receiptRenderer, /verified posted payment or migrated historical payment evidence/);
 });
 
+test("live receipt output carries exact paid-to bank evidence", () => {
+  assert.match(receiptRenderer, /bank_account_id/);
+  assert.match(receiptRenderer, /from\("bank_accounts"\)/);
+  assert.match(receiptRenderer, /Paid to bank:/);
+  assert.match(receiptRenderer, /Paid to account name:/);
+  assert.match(receiptRenderer, /Paid to account:/);
+});
+
 test("receipt output carries original historical receipt facts", () => {
   assert.match(receiptRenderer, /historical\?\.receipt_number/);
   assert.match(receiptRenderer, /historical\?\.paid_date/);

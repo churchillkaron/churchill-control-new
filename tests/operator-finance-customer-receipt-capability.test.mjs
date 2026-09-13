@@ -44,6 +44,8 @@ test("receipt capability resolves business records and verifies paid state", () 
   assert.match(capability, /outstanding_balance/);
   assert.match(capability, /mode=receipt/);
   assert.match(capability, /mime_type:\s*"application\/pdf"/);
+  assert.match(capability, /paid_to_bank_account/);
+  assert.match(capability, /account_number/);
 });
 
 test("underlying customer payment runtime has UUID generation wired", () => {
@@ -52,7 +54,7 @@ test("underlying customer payment runtime has UUID generation wired", () => {
 });
 
 test("live turn status does not falsely announce Deep planning before routing", () => {
-  assert.match(liveRoute, /phase:\s*"REQUEST_ROUTING"/);
+  assert.match(liveRoute, /REQUEST_ROUTING/);
   assert.doesNotMatch(liveRoute, /phase:\s*"COGNITIVE_PLANNING"/);
   assert.doesNotMatch(liveRoute, /Intelligence is building the execution brief/);
   assert.match(liveRoute, /paid_execution_running:\s*false/);

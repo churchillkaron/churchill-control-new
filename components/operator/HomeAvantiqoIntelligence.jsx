@@ -135,7 +135,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   const messagesRef = useRef([]);
   const agreementStateRef = useRef({});
   const busyRef = useRef(false);
-  const voiceQueueRef = useRef([]);
+  const pendingTurnQueueRef = useRef([]);
 
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -279,7 +279,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   useEffect(() => {
     if (!organizationId) {
       agreementStateRef.current = {};
-      voiceQueueRef.current = [];
+      pendingTurnQueueRef.current = [];
       setProjectState({});
       setAttention(null);
       setMessages([greetingMessage()]);
@@ -444,16 +444,23 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     const message = text(rawValue);
     if (!message || !organizationId) return;
 
-    if (busyRef.current || restoring) {
-      if (source === "voice") {
-        const previous = voiceQueueRef.current[voiceQueueRef.current.length - 1];
-        if (text(previous?.message) !== message) {
-          voiceQueueRef.current = [
-            ...voiceQueueRef.current,
-            { message, source },
-          ].slice(-3);
-        }
+    if (restoring) return;
+
+    if (busyRef.current) {
+      const previous = pendingTurnQueueRef.current[pendingTurnQueueRef.current.length - 1];
+      if (text(previous?.message) !== message) {
+        pendingTurnQueueRef.current = [
+          ...pendingTurnQueueRef.current,
+          { message, source },
+        ].slice(-3);
       }
+      setInput("");
+      fetch("/api/operator/live-execution", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ organizationId }),
+      }).catch(() => null);
       return;
     }
 
@@ -584,10 +591,10 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   useEffect(() => {
     if (restoring || busy || busyRef.current) return;
 
-    const nextVoiceCommand = voiceQueueRef.current.shift();
-    if (!nextVoiceCommand?.message) return;
+    const nextQueuedTurn = pendingTurnQueueRef.current.shift();
+    if (!nextQueuedTurn?.message) return;
 
-    sendMessage(nextVoiceCommand.message, nextVoiceCommand.source || "voice");
+    sendMessage(nextQueuedTurn.message, nextQueuedTurn.source || "text");
   }, [busy, restoring, organizationId, entityId, periodId, pathname]);
 
   const attentionItems = Array.isArray(attention?.items) ? attention.items : [];
@@ -875,7 +882,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
             data-avantiqo-home-input="true"
             value={input}
             rows={1}
-            disabled={busy || restoring}
+            disabled={restoring}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
@@ -883,18 +890,18 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
                 sendMessage(input);
               }
             }}
-            placeholder={restoring ? "Restoring conversation…" : "Ask Avantiqo anything…"}
+            placeholder={restoring ? "Restoring conversation…" : busy ? "Correct or redirect Avantiqo while it works…" : "Ask Avantiqo anything…"}
             className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm leading-5 text-white outline-none placeholder:text-white/25 disabled:opacity-50"
           />
 
           <button
             type="button"
             onClick={() => sendMessage(input)}
-            disabled={busy || restoring || !text(input)}
+            disabled={restoring || !text(input)}
             className="flex h-11 items-center gap-2 rounded-xl bg-[#D6A66A] px-4 text-sm font-medium text-black transition hover:bg-[#E7C48E] disabled:cursor-not-allowed disabled:opacity-30"
           >
-            {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            Send
+            <Send size={15} />
+            {busy ? "Update" : "Send"}
           </button>
         </div>
       </div>

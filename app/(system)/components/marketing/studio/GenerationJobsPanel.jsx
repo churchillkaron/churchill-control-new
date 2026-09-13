@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { supabase } from "@/lib/shared/supabase/client";
 
 export default function GenerationJobsPanel({
@@ -158,9 +160,11 @@ export default function GenerationJobsPanel({
                       "
                     />
                   ) : (
-                    <img
+                    <Image
                       src={mediaUrl}
-                      alt={job.name}
+                      alt={job.name || job.title || "Creative asset"}
+                      width={960}
+                      height={540}
                       className="
                         w-full
                         h-full
@@ -193,7 +197,7 @@ export default function GenerationJobsPanel({
               </div>
 
               <div className="text-white/50 text-sm mb-2">
-                {job.prompt || "No prompt"}
+                {job.objective || job.purpose || job.deliverable || "Creative production job"}
               </div>
 
               <div className="text-green-400 text-sm">

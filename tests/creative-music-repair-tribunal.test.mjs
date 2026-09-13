@@ -27,5 +27,5 @@ test("world-class execution connects Dailies to final tribunal", () => {
   const source = fs.readFileSync(new URL("../lib/creative/music/runtime/CreativeMusicWorldClassExecutionRuntime.js", import.meta.url), "utf8");
   assert.match(source, /runMusicDailiesListening/);
   assert.match(source, /runMusicFinalTribunal/);
-  assert.match(source, /repair: tribunal\?\.repair/);
+  assert.match(source, /repair: automaticRepair \|\| tribunal\?\.repair/);
 });

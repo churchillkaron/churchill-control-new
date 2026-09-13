@@ -194,3 +194,25 @@ test("cache generation conclusions require balanced evidence and compute coverag
   const sparse = summarizeIntelligenceUsage(rows.slice(0, 4));
   assert.equal(sparse.cache_generation_evidence, "INSUFFICIENT");
 });
+
+
+test("lane economics keep Fast and Deep compute independent", () => {
+  const summary = summarizeIntelligenceUsage([
+    { module: "INTELLIGENCE", supplier_cost: 1, metadata: { intelligence_execution_lane: "fast", provider_usage: { input_tokens: 500, output_tokens: 100, compute_ms: 500 } } },
+    { module: "INTELLIGENCE", supplier_cost: 1.5, metadata: { intelligence_execution_lane: "fast", provider_usage: { input_tokens: 700, output_tokens: 200, compute_ms: 700 } } },
+    { module: "INTELLIGENCE", supplier_cost: 2, metadata: { intelligence_execution_lane: "deep", provider_usage: { input_tokens: 900, output_tokens: 100, compute_ms: 1500 } } },
+    { module: "INTELLIGENCE", supplier_cost: 3, metadata: { intelligence_execution_lane: "deep", provider_usage: { input_tokens: 1200, output_tokens: 300, compute_ms: 2500 } } },
+  ]);
+  assert.equal(summary.fast_compute_observed_calls, 2);
+  assert.equal(summary.deep_compute_observed_calls, 2);
+  assert.equal(summary.fast_compute_ms, 600);
+  assert.equal(summary.deep_compute_ms, 2000);
+  assert.equal(summary.fast_compute_ms_per_output_1k_tokens, 4000);
+  assert.equal(summary.deep_compute_ms_per_output_1k_tokens, 10000);
+  assert.equal(summary.fast_supplier_cost_per_compute_second, 2.083333);
+  assert.equal(summary.deep_supplier_cost_per_compute_second, 1.25);
+  const health = assessIntelligenceOperatingHealth(summary, {}, {});
+  assert.equal(health.metrics.fast_compute_ms, 600);
+  assert.equal(health.metrics.deep_compute_ms, 2000);
+  assert.equal(health.governance.authority_changed, false);
+});

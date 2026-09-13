@@ -3,6 +3,7 @@
 import BusinessPartnerActiveCodeMissionPanel from "@/components/operator/BusinessPartnerActiveCodeMissionPanel";
 import CodeEngineeringIntelligenceLiveCard from "@/components/operator/CodeEngineeringIntelligenceLiveCard";
 import CodeMissionHistoryPanel from "@/components/operator/CodeMissionHistoryPanel";
+import CodeMissionStageRail from "@/components/operator/CodeMissionStageRail";
 import CodeProgressFeedProvider from "@/components/operator/CodeProgressFeedProvider";
 
 export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
@@ -13,6 +14,7 @@ export default function BusinessPartnerCodeMissionPanel({ organizationId }) {
         data-avantiqo-code-progress-poll-owner="shared-provider"
       >
         <BusinessPartnerActiveCodeMissionPanel organizationId={organizationId} />
+        <CodeMissionStageRail />
         <CodeEngineeringIntelligenceLiveCard
           organizationId={organizationId}
           theme="light"

@@ -76,8 +76,8 @@ export async function POST(request) {
           context,
           lane: codeInspection ? "code" : "intelligence",
           description: codeInspection
-            ? "Preparing Code Studio to inspect the requested UI and code surface."
-            : "Understanding your request, checking current context and deciding which governed evidence or capability is needed.",
+            ? "I’m checking the requested UI and code surface now."
+            : "I’m checking what you asked for and gathering the relevant business information now.",
         }).catch(() => null);
         await publishAvantiqoLiveExecution({
           context,
@@ -86,8 +86,8 @@ export async function POST(request) {
             phase: codeInspection ? "CODE_INSPECTION_ROUTING" : "REQUEST_ROUTING",
             status: "running",
             description: codeInspection
-              ? "Resolving the relevant pages, components and verification path for Code Studio inspection."
-              : "Resolving the request against current business context and registered capabilities.",
+              ? "I’m checking the relevant UI and code path before making any change."
+              : "I’m checking the relevant information and working out the next useful step.",
             read_only: true,
             mutation_possible: false,
             paid_execution_possible: false,

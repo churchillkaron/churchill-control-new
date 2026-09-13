@@ -18,3 +18,9 @@ test("tool evidence is capped by lane even when a tool asks for a larger result"
   assert.match(runtime, /Math\.min\(toolResultCeiling, requestedResultChars\)/);
   assert.match(runtime, /context_budget: contextBudgetTelemetry/);
 });
+
+test("tool descriptor context is bounded and observable", () => {
+  assert.match(runtime, /intelligence_tool_descriptor_budget: toolDescriptorBudget/);
+  assert.match(runtime, /tool_descriptor_budget: toolDescriptorBudget/);
+  assert.match(runtime, /AVANTIQO_INTELLIGENCE_TOOL_DESCRIPTOR_BUDGET_V1/);
+});

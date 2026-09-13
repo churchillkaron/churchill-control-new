@@ -18,6 +18,9 @@ import { buildCreativeImageStudioOperatingState } from "@/lib/creative/stills/ru
 import { useImageStudioWorkspaceStore } from "./useImageStudioWorkspaceStore";
 import { useImageStudioWorkspacePersistence } from "./useImageStudioWorkspacePersistence";
 import ImageStudioCanvasToolbar from "./ImageStudioCanvasToolbar";
+import ImageStudioCanvasSurface from "./ImageStudioCanvasSurface";
+import ImageStudioLayerPanel from "./ImageStudioLayerPanel";
+import ImageStudioLayerInspector from "./ImageStudioLayerInspector";
 
 function assetUrl(asset) {
   return asset?.image_url || asset?.thumbnail_url || asset?.file_url || asset?.uri || asset?.url || "";
@@ -90,7 +93,8 @@ export default function ImageStudioWorkspace({ runtime }) {
       sort_order: index,
       status: asset.approval_state || asset.status || "DRAFT",
     }));
-    workspace.hydrate({ project_id: projectId, organization_id: organizationId, artboards });
+    const layers = images.map((asset, index) => ({ id: `asset-layer-${asset.id || index + 1}`, artboard_id: artboards[index]?.id, parent_layer_id: null, source_asset_id: asset.id || null, layer_type: "IMAGE", name: label(asset, index), bounds: { x: 0, y: 0, width: artboards[index]?.width || 1080, height: artboards[index]?.height || 1350 }, transform: { rotation: 0 }, style: {}, content: {}, sort_order: 0, visible: true, locked: false, metadata: { bootstrap_source: true } }));
+    workspace.hydrate({ project_id: projectId, organization_id: organizationId, artboards, layers });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runtime.projectRuntime?.current?.id, images]);
   const [selectedId, setSelectedId] = useState(images[0]?.id || null);
@@ -173,9 +177,7 @@ export default function ImageStudioWorkspace({ runtime }) {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto p-4 lg:p-6">
-          <div className="flex min-h-full items-center justify-center rounded-2xl border border-white/[0.07] bg-black/60 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-            {previewUrl ? <Image src={previewUrl} alt={selected?.title || selected?.name || "Creative image"} width={1600} height={1200} className="h-auto max-h-[calc(100vh-260px)] w-auto max-w-full object-contain" /> : <div className="max-w-md text-center text-white/25"><ImageIcon className="mx-auto h-8 w-8" /><div className="mt-3 text-sm text-white/40">Image production canvas</div><div className="mt-2 text-[10px] leading-5">Tell Avantiqo the outcome in normal language. The studio dynamically builds direction, references, production and review; there is no prompt-engineering step. Generation is only one worker inside the system.</div></div>}
-          </div>
+          <ImageStudioCanvasSurface workspace={workspace} assets={images} />
         </div>
 
         {selected ? <div className="shrink-0 border-t border-white/[0.07] bg-[#080807] px-4 py-3 lg:px-5"><div className="flex items-center gap-3 overflow-x-auto"><div className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/24">Versions</div>{(siblingVersions.length ? siblingVersions : [selected]).map((version, index) => { const url = assetUrl(version); const active = version.id === selected.id; return <button key={version.id || index} type="button" onClick={() => setSelectedId(version.id)} className={`flex shrink-0 items-center gap-2 rounded-lg border px-2 py-1.5 ${active ? "border-[#D6A66A]/30 bg-[#D6A66A]/[0.06]" : "border-white/[0.07] bg-white/[0.02]"}`}>{url ? <Image src={url} alt="" width={28} height={28} className="h-7 w-7 rounded object-cover" /> : null}<span className="text-[10px] text-white/48">v{value(version.revision || version.version || index + 1)}</span></button>; })}<div className="ml-auto hidden items-center gap-1.5 text-[9px] text-white/22 xl:flex"><Maximize2 className="h-3 w-3" /> Original aspect ratio preserved</div></div></div> : null}
@@ -207,6 +209,9 @@ export default function ImageStudioWorkspace({ runtime }) {
             <Property label="Tags">{Array.isArray(selected?.tags) && selected.tags.length ? selected.tags.join(", ") : "—"}</Property>
           </div>
         </section>
+
+        <ImageStudioLayerInspector workspace={workspace} />
+        <ImageStudioLayerPanel workspace={workspace} />
 
         <section className="mt-5 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.035] p-3">
           <div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]/70">Production rule</div>

@@ -1,0 +1,30 @@
+"use client";
+import Image from "next/image";
+import { useMemo, useRef, useState } from "react";
+
+const n=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
+const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+function rect(layer){const b=layer.bounds||{};return{x:n(b.x),y:n(b.y),width:Math.max(24,n(b.width,240)),height:Math.max(24,n(b.height,180))};}
+function urlFor(layer,assets){const a=assets.find(x=>x.id===layer.source_asset_id);return a?.image_url||a?.thumbnail_url||a?.file_url||a?.url||"";}
+
+export default function ImageStudioCanvasSurface({workspace,assets=[]}){
+ const board=workspace.artboards.find(x=>x.id===workspace.selection.artboard_id)||workspace.artboards[0];
+ const layers=useMemo(()=>workspace.layers.filter(x=>x.artboard_id===board?.id).sort((a,b)=>a.sort_order-b.sort_order),[workspace.layers,board?.id]);
+ const shell=useRef(null); const drag=useRef(null); const [guide,setGuide]=useState(null); const [regionDraft,setRegionDraft]=useState(null);
+ if(!board)return <div className="flex min-h-[420px] items-center justify-center text-xs text-white/30">Create or save an artboard to start composing.</div>;
+ const scale=Math.min(1,workspace.viewport.zoom); const w=board.width*scale,h=board.height*scale;
+ const begin=(e,layer,mode="move")=>{if(layer.locked)return;e.stopPropagation();workspace.selectLayers([layer.id]);const r=rect(layer);drag.current={id:layer.id,mode,startX:e.clientX,startY:e.clientY,r};e.currentTarget.setPointerCapture?.(e.pointerId);};
+ const move=(e)=>{const d=drag.current;if(!d)return;const dx=(e.clientX-d.startX)/scale,dy=(e.clientY-d.startY)/scale;let next={...d.r};if(d.mode==="resize"){next.width=Math.max(24,d.r.width+dx);next.height=Math.max(24,d.r.height+dy);}else{next.x=clamp(d.r.x+dx,0,board.width-d.r.width);next.y=clamp(d.r.y+dy,0,board.height-d.r.height);const cx=next.x+next.width/2,cy=next.y+next.height/2;const snapX=Math.abs(cx-board.width/2)<8,snapY=Math.abs(cy-board.height/2)<8;if(snapX)next.x=board.width/2-next.width/2;if(snapY)next.y=board.height/2-next.height/2;setGuide({x:snapX,y:snapY});}workspace.updateLayerLocal(d.id,{bounds:next});};
+ const end=()=>{if(regionDraft){workspace.setRegion(regionDraft);setRegionDraft(null);}drag.current=null;setGuide(null);};
+ const regionStart=(e)=>{if(workspace.ui.tool!=="region")return;const box=e.currentTarget.getBoundingClientRect();const x=(e.clientX-box.left)/scale,y=(e.clientY-box.top)/scale;setRegionDraft({x,y,width:1,height:1,startX:x,startY:y});e.stopPropagation();};
+ const regionMove=(e)=>{if(!regionDraft)return;const box=e.currentTarget.getBoundingClientRect();const x=(e.clientX-box.left)/scale,y=(e.clientY-box.top)/scale;setRegionDraft({...regionDraft,x:Math.min(regionDraft.startX,x),y:Math.min(regionDraft.startY,y),width:Math.abs(x-regionDraft.startX),height:Math.abs(y-regionDraft.startY)});};
+ return <div ref={shell} className="relative flex min-h-full items-center justify-center overflow-auto rounded-2xl border border-white/[0.07] bg-black/60 p-12" onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
+  <div className="relative shrink-0 overflow-hidden bg-white shadow-[0_30px_100px_rgba(0,0,0,.55)]" style={{width:w,height:h}} onPointerDown={(e)=>{workspace.selectLayers([]);regionStart(e);}} onPointerMove={regionMove} onPointerUp={end}>
+   {(regionDraft||workspace.ui.region)?<div className="pointer-events-none absolute z-[60] border border-[#D6A66A] bg-[#D6A66A]/10" style={{left:(regionDraft||workspace.ui.region).x*scale,top:(regionDraft||workspace.ui.region).y*scale,width:(regionDraft||workspace.ui.region).width*scale,height:(regionDraft||workspace.ui.region).height*scale}}/>:null}{guide?.x?<div className="pointer-events-none absolute bottom-0 top-0 z-50 w-px bg-[#D6A66A]/80" style={{left:"50%"}}/>:null}{guide?.y?<div className="pointer-events-none absolute left-0 right-0 z-50 h-px bg-[#D6A66A]/80" style={{top:"50%"}}/>:null}
+   {layers.map(layer=>{if(!layer.visible)return null;const r=rect(layer),selected=workspace.selection.layer_ids.includes(layer.id),u=urlFor(layer,assets),rot=n(layer.transform?.rotation);const style={left:r.x*scale,top:r.y*scale,width:r.width*scale,height:r.height*scale,transform:`rotate(${rot}deg)`,zIndex:10+layer.sort_order};return <div key={layer.id} className={`absolute overflow-visible ${selected?"ring-1 ring-[#D6A66A]":""}`} style={style} onPointerDown={e=>begin(e,layer)}>
+    {layer.layer_type==="TEXT"?<div className="h-full w-full whitespace-pre-wrap" style={{fontSize:n(layer.style?.font_size,36)*scale,fontWeight:layer.style?.font_weight||500,color:layer.style?.color||"#111",lineHeight:layer.style?.line_height||1.05,textAlign:layer.style?.text_align||"left"}}>{layer.content?.text||"Text"}</div>:u?<Image src={u} alt={layer.name||"Layer"} fill sizes={`${Math.ceil(r.width)}px`} className="object-cover" draggable={false}/>:<div className="h-full w-full border border-dashed border-black/20 bg-black/5"/>}
+    {selected&&!layer.locked?<button aria-label="Resize layer" className="absolute -bottom-1.5 -right-1.5 z-50 h-3 w-3 rounded-full border border-black/60 bg-[#D6A66A]" onPointerDown={e=>begin(e,layer,"resize")}/>:null}
+   </div>;})}
+  </div>
+ </div>;
+}

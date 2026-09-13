@@ -11,6 +11,9 @@ export const useImageStudioWorkspaceStore = create((set) => ({
   selectLayers: (layer_ids) => set((state) => ({ selection: { ...state.selection, layer_ids: Array.isArray(layer_ids) ? layer_ids : [] } })),
   setViewport: (viewport) => set((state) => ({ viewport: { ...state.viewport, ...viewport } })),
   toggleCompare: () => set((state) => ({ ui: { ...state.ui, compare: !state.ui.compare } })),
+  setRegion: (region) => set((state) => ({ ui: { ...state.ui, region } })),
   updateLayerLocal: (id, patch) => set((state) => ({ layers: state.layers.map((layer) => layer.id === id ? { ...layer, ...patch } : layer), dirty: true })),
+  addLayerLocal: (layer) => set((state) => ({ layers: [...state.layers, layer], selection: { ...state.selection, layer_ids: [layer.id] }, dirty: true })),
+  reorderLayer: (id, delta) => set((state) => ({ layers: state.layers.map((layer) => layer.id === id ? { ...layer, sort_order: Math.max(0, Number(layer.sort_order || 0) + delta) } : layer), dirty: true })),
   markSaved: () => set({ dirty: false }),
 }));

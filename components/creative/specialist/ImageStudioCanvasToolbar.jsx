@@ -12,6 +12,7 @@ import {
   Type,
   ZoomIn,
   ZoomOut,
+  Plus,
 } from "lucide-react";
 
 const TOOLS = [
@@ -33,6 +34,9 @@ export default function ImageStudioCanvasToolbar({ workspace, persistence }) {
         </button>
       ))}
       <span className="mx-1 h-4 w-px bg-white/[0.08]" />
+      <button type="button" title="Add text" onClick={() => { const artboardId=workspace.selection.artboard_id; if(!artboardId)return; workspace.addLayerLocal({ id: crypto.randomUUID(), artboard_id: artboardId, parent_layer_id:null, source_asset_id:null, layer_type:"TEXT", name:"Text", bounds:{x:80,y:80,width:420,height:100}, transform:{rotation:0}, style:{font_size:52,font_weight:600,color:"#111111",line_height:1.05,text_align:"left"}, content:{text:"New text"}, sort_order:workspace.layers.length+1, visible:true, locked:false, metadata:{} }); }} className="rounded-md p-1.5 text-white/30 hover:text-[#D6A66A]">
+        <Plus className="h-3.5 w-3.5" />
+      </button>
       <button type="button" title="Zoom out"
         onClick={() => workspace.setViewport({ zoom: Math.max(0.2, workspace.viewport.zoom - 0.1) })}
         className="rounded-md p-1.5 text-white/30 hover:text-white/55">

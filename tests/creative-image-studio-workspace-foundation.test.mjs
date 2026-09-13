@@ -51,3 +51,26 @@ test("workspace repository scopes durable reads to organization and project", ()
   assert.match(source, /createImageStudioComment/);
   assert.match(source, /createImageStudioExport/);
 });
+
+test("Image Studio canvas is a structured composition editor, not a flat preview", () => {
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  const inspector = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerInspector.jsx", import.meta.url), "utf8");
+  const layers = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerPanel.jsx", import.meta.url), "utf8");
+  assert.match(canvas, /workspace\.updateLayerLocal/);
+  assert.match(canvas, /Resize layer/);
+  assert.match(canvas, /workspace\.setRegion/);
+  assert.match(canvas, /snapX/);
+  assert.match(inspector, /Font size/);
+  assert.match(inspector, /Rotate/);
+  assert.match(layers, /Visibility/);
+  assert.match(layers, /reorderLayer/);
+});
+
+test("Image Studio workspace bootstraps generated assets as editable source layers", () => {
+  const workspace = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioWorkspace.jsx", import.meta.url), "utf8");
+  const persistence = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspacePersistence.js", import.meta.url), "utf8");
+  assert.match(workspace, /source_asset_id: asset\.id/);
+  assert.match(workspace, /bootstrap_source: true/);
+  assert.match(persistence, /action\("update_layer"/);
+  assert.match(persistence, /await load\(\)/);
+});

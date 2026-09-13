@@ -55,6 +55,11 @@ export function useImageStudioWorkspacePersistence({ organizationId, projectId, 
     if (!current) throw new Error("No artboard selected");
     const id = UUID.test(current.id) ? current.id : crypto.randomUUID();
     const saved = await action(UUID.test(current.id) ? "update_artboard" : "create_artboard", { ...current, id });
+    workspace.selectArtboard(saved.id);
+    const activeLayers = workspace.layers.filter((item) => item.artboard_id === current.id || item.artboard_id === saved.id);
+    for (const layer of activeLayers) {
+      await action("update_layer", { ...layer, artboard_id: saved.id, id: UUID.test(layer.id) ? layer.id : crypto.randomUUID() });
+    }
     await load();
     workspace.selectArtboard(saved.id);
     workspace.markSaved();

@@ -160,3 +160,37 @@ test("unit economics flag stale pricing basis against live runtime", () => {
   assert.equal(health.status, "REVIEW");
   assert.equal(health.governance.cache_pricing_changed, false);
 });
+
+
+test("calibration readiness distinguishes provisional from certified aligned pricing", () => {
+  const provisional = summarizeIntelligenceUsage([{
+    module: "INTELLIGENCE", supplier_cost: 1,
+    metadata: { provider_usage: { input_tokens: 500, compute_ms: 500 }, settled_pricing: { pricing_metadata: { infrastructure_provider: "modal_h100", pricing_status: "PROVISIONAL_MEASURED_BASELINE", economics_certified: false, recalibration_required: true } }, result: { infrastructure_provider: "modal_h100" } },
+  }]);
+  assert.equal(provisional.pricing_calibration_state, "RECALIBRATION_REQUIRED");
+  assert.equal(provisional.pricing_calibration_ready_ratio, 0);
+  const provisionalHealth = assessIntelligenceOperatingHealth(provisional, {}, {});
+  assert.ok(provisionalHealth.signals.includes("PRICING_RECALIBRATION_REQUIRED"));
+  assert.equal(provisionalHealth.governance.unit_economics_certified, false);
+
+  const certified = summarizeIntelligenceUsage([{
+    module: "INTELLIGENCE", supplier_cost: 1,
+    metadata: { provider_usage: { input_tokens: 500, compute_ms: 500 }, settled_pricing: { pricing_metadata: { infrastructure_provider: "modal_h100", pricing_status: "PRODUCTION_CERTIFIED", economics_certified: true, recalibration_required: false } }, result: { infrastructure_provider: "modal_h100" } },
+  }]);
+  assert.equal(certified.pricing_calibration_state, "CERTIFIED_ALIGNED");
+  assert.equal(certified.pricing_calibration_ready_ratio, 1);
+  const certifiedHealth = assessIntelligenceOperatingHealth(certified, {}, {});
+  assert.equal(certifiedHealth.governance.unit_economics_certified, true);
+});
+
+test("cache generation conclusions require balanced evidence and compute coverage is explicit", () => {
+  const rows = [];
+  for (let index = 0; index < 5; index += 1) rows.push({ module: "INTELLIGENCE", metadata: { provider_usage: { input_tokens: 1000, cached_input_tokens: 500, generation_ms: 500, compute_ms: 500 } } });
+  for (let index = 0; index < 5; index += 1) rows.push({ module: "INTELLIGENCE", metadata: { provider_usage: { input_tokens: 1000, cached_input_tokens: 0, generation_ms: 800, compute_ms: 800 } } });
+  const sufficient = summarizeIntelligenceUsage(rows);
+  assert.equal(sufficient.compute_observed_calls, 10);
+  assert.equal(sufficient.compute_observation_coverage_ratio, 1);
+  assert.equal(sufficient.cache_generation_evidence, "SUFFICIENT");
+  const sparse = summarizeIntelligenceUsage(rows.slice(0, 4));
+  assert.equal(sparse.cache_generation_evidence, "INSUFFICIENT");
+});

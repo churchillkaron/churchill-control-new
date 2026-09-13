@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import {
   buildWorldClassMusicStudioPlan,
@@ -74,4 +75,13 @@ test("Music execution capability can self-prepare a project and exposes broad al
   assert.match(source, /make a backing track/);
   assert.match(source, /remove the vocals/);
   assert.match(source, /separate the stems/);
+});
+
+test("Business Partner catalog exposes autonomous Music Creative Floor", async () => {
+  const source = await readFile(new URL("../lib/creative/runtime/CreativeRuntime.js", import.meta.url), "utf8");
+  const capability = await readFile(new URL("../lib/creative/music/capabilities/developWorldClassMusicStudio.js", import.meta.url), "utf8");
+  assert.match(source, /developWorldClassProduction/);
+  assert.match(capability, /developWorldClassProduction/);
+  assert.match(capability, /three independent musical concepts/i);
+  assert.match(capability, /without starting paid media generation/i);
 });

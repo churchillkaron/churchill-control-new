@@ -68,3 +68,29 @@ test("economics measures stable context reuse without raw content", () => {
   assert.equal(summary.repeated_static_context_calls, 1);
   assert.equal(summary.stable_context_reuse_ratio, 0.3333);
 });
+
+test("economics measures observed prefix-cache savings", () => {
+  const summary = summarizeIntelligenceUsage([
+    { module: "INTELLIGENCE", metadata: { provider_usage: { input_tokens: 1000, output_tokens: 100, cached_input_tokens: 600 } } },
+    { module: "INTELLIGENCE", metadata: { provider_usage: { input_tokens: 500, output_tokens: 50, cached_input_tokens: 0 } } },
+  ]);
+  assert.equal(summary.input_tokens, 1500);
+  assert.equal(summary.cached_input_tokens, 600);
+  assert.equal(summary.effective_uncached_input_tokens, 900);
+  assert.equal(summary.cache_observed_calls, 2);
+  assert.equal(summary.cache_hit_calls, 1);
+  assert.equal(summary.cache_hit_ratio, 0.5);
+  assert.equal(summary.cached_input_ratio, 0.4);
+});
+
+test("operating health reports cache economics without changing pricing authority", () => {
+  const result = assessIntelligenceOperatingHealth(
+    { calls: 10, cache_hit_ratio: 0.7, cached_input_ratio: 0.45, stable_context_reuse_ratio: 0.8 },
+    {},
+    {},
+  );
+  assert.equal(result.metrics.cache_hit_ratio, 0.7);
+  assert.equal(result.metrics.cached_input_ratio, 0.45);
+  assert.equal(result.metrics.stable_context_reuse_ratio, 0.8);
+  assert.equal(result.governance.cache_pricing_changed, false);
+});

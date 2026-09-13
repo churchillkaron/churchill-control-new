@@ -55,3 +55,10 @@ test("Business Partner renders live execution as ephemeral gray status only", ()
   assert.match(route, /persistAssistantTurnAndConversationState/);
   assert.doesNotMatch(route, /persistAssistantTurnAndConversationState\([\s\S]{0,500}live_execution/);
 });
+
+
+test("Business Partner live status renders elapsed time exactly once", () => {
+  const ui = source("components/operator/HomeAvantiqoIntelligence.jsx");
+  assert.match(ui, /replace\(\/\(\?:\\s\*·\\s\*\\d\+s\)\+\\s\*\$\/i, ""\)/);
+  assert.match(ui, /return `\$\{detail\}.*· \$\{elapsed\}s`/s);
+});

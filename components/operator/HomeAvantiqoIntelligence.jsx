@@ -92,7 +92,7 @@ function conversationalProgressStatus(liveExecution, elapsedSeconds, startedAt) 
 
   if (!latest) return `Understanding your request… · ${elapsed}s`;
 
-  const description = text(latest?.description);
+  const description = text(latest?.description).replace(/(?:\s*·\s*\d+s)+\s*$/i, "");
   const capability = text(latest?.capability_key);
   const action = text(latest?.action);
   const command = text(latest?.command);

@@ -1,0 +1,41 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+
+import { evaluateMusicDailies } from "../lib/creative/music/runtime/CreativeMusicCreativeDevelopmentRuntime.js";
+import { buildMusicDailiesRepairBrief } from "../lib/creative/music/runtime/CreativeMusicDailiesContractRuntime.js";
+
+const intended = {
+  emotional_arc: "quiet to powerful", arrangement_arc: "sparse to wide",
+  motif_and_hook_system: "three-note motif", performance_direction: { feel: "human" },
+  sonic_identity: "organic futuristic", dynamic_arc: ["low", "high"],
+};
+const rendered = { ...intended };
+const families = ["MUSICALITY", "PERFORMANCE", "SONIC_IDENTITY", "TECHNICAL", "INTENT_FIDELITY"];
+
+test("Music Dailies approve only complete 90+ independent reviews", () => {
+  const reviews = families.map((family) => ({ family, score: 94, passed: true, evidence: [`${family} evidence`] }));
+  const report = evaluateMusicDailies({ intended, rendered, reviews });
+  assert.equal(report.passed, true);
+  assert.equal(report.status, "APPROVED_FOR_MIX");
+});
+
+test("Music Dailies create surgical repair brief without discarding approved direction", () => {
+  const reviews = families.map((family) => ({
+    family, score: family === "PERFORMANCE" ? 84 : 94,
+    passed: family !== "PERFORMANCE", evidence: [`${family} evidence`],
+    repair: family === "PERFORMANCE" ? ["Repair timing in the second chorus only."] : [],
+  }));
+  const report = evaluateMusicDailies({ intended, rendered, reviews });
+  const brief = buildMusicDailiesRepairBrief({ report, reviews, binding: { direction_hash: "dir", preproduction_hash: "pre" } });
+  assert.equal(report.passed, false);
+  assert.equal(brief.preserve_approved_direction, true);
+  assert.equal(brief.do_not_regenerate_unfailed_dimensions, true);
+  assert.equal(brief.repairs.length, 1);
+});
+
+test("Business Partner catalog exposes Music Dailies review", async () => {
+  const source = await readFile(new URL("../lib/creative/runtime/CreativeRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /reviewWorldClassDailies/);
+  assert.match(source, /reviewWorldClassMusicDailies/);
+});

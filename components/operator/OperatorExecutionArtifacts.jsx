@@ -120,7 +120,13 @@ function KindIcon({ kind }) {
 }
 
 function SpreadsheetPreview({ rows = [] }) {
-  if (!Array.isArray(rows) || !rows.length) return null;
+  if (!Array.isArray(rows) || !rows.length) {
+    return (
+      <div className="border-b border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[11px] leading-5 text-white/60">
+        Spreadsheet preview data is not embedded in this result yet. Open or download the file below.
+      </div>
+    );
+  }
   const objectRows = rows.every((row) => row && typeof row === "object" && !Array.isArray(row));
   const columns = objectRows
     ? [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 12)
@@ -128,7 +134,7 @@ function SpreadsheetPreview({ rows = [] }) {
 
   return (
     <div className="max-h-[360px] overflow-auto border-b border-white/[0.06] bg-black/15">
-      <table className="min-w-full border-collapse text-left text-[9px] text-white/65">
+      <table className="min-w-full border-collapse text-left text-[11px] text-white/65">
         {objectRows && columns.length ? (
           <>
             <thead className="sticky top-0 bg-[#151411] text-[#E5C28D]">
@@ -188,16 +194,16 @@ export default function OperatorExecutionArtifacts({ execution = {}, evidence = 
     <div data-avantiqo-execution-artifacts="true" data-avantiqo-universal-preview="true" className="mt-3 space-y-2">
       {[...folders.entries()].map(([folder, folderItems]) => (
         <details key={folder} open className="overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] font-medium text-[#E5C28D]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[11px] font-medium text-[#E5C28D]">
             <span className="flex items-center gap-2"><Folder size={13} />{folder}</span>
-            <span className="text-[9px] text-white/35">{folderItems.length}</span>
+            <span className="text-[11px] text-white/35">{folderItems.length}</span>
           </summary>
           <div className="space-y-2 border-t border-white/[0.06] p-2">
             {folderItems.map((artifact, index) => (
               <div key={`${artifact.url}-${index}`} className="overflow-hidden rounded-lg border border-white/[0.07] bg-black/25">
                 <ArtifactPreview artifact={artifact} />
                 <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-                  <span className="flex min-w-0 items-center gap-2 text-[10px] text-white/65">
+                  <span className="flex min-w-0 items-center gap-2 text-[11px] text-white/65">
                     <KindIcon kind={artifact.kind} />
                     <span className="truncate">{artifact.label}</span>
                   </span>

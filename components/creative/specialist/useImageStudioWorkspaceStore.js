@@ -10,6 +10,7 @@ export const useImageStudioWorkspaceStore = create((set) => ({
   setTool: (tool) => set((state) => ({ ui: { ...state.ui, tool } })),
   selectArtboard: (artboard_id) => set((state) => ({ selection: { ...state.selection, artboard_id, layer_ids: [] } })),
   selectLayers: (layer_ids) => set((state) => ({ selection: { ...state.selection, layer_ids: Array.isArray(layer_ids) ? layer_ids : [] } })),
+  toggleLayerSelection: (id) => set((state) => ({ selection: { ...state.selection, layer_ids: state.selection.layer_ids.includes(id) ? state.selection.layer_ids.filter((item) => item !== id) : [...state.selection.layer_ids, id] } })),
   setViewport: (viewport) => set((state) => ({ viewport: { ...state.viewport, ...viewport } })),
   toggleCompare: () => set((state) => ({ ui: { ...state.ui, compare: !state.ui.compare } })),
   toggleGrid: () => set((state) => ({ ui: { ...state.ui, grid: !state.ui.grid } })),
@@ -28,6 +29,9 @@ export const useImageStudioWorkspaceStore = create((set) => ({
   alignSelected: (mode) => set((state) => { const board = state.artboards.find((item) => item.id === state.selection.artboard_id); const chosen = state.layers.filter((layer) => state.selection.layer_ids.includes(layer.id)); const aligned = alignLayers(chosen, board, mode); const map = new Map(aligned.map((layer) => [layer.id, layer])); return { layers: state.layers.map((layer) => map.get(layer.id) || layer), dirty: true }; }),
   distributeSelected: (axis) => set((state) => { const chosen = state.layers.filter((layer) => state.selection.layer_ids.includes(layer.id)); const distributed = distributeLayers(chosen, axis); const map = new Map(distributed.map((layer) => [layer.id, layer])); return { layers: state.layers.map((layer) => map.get(layer.id) || layer), dirty: true }; }),
   addCommentLocal: (comment) => set((state) => ({ comments: [...state.comments, comment] })),
+  nudgeSelected: (dx, dy) => set((state) => ({ layers: state.layers.map((layer) => state.selection.layer_ids.includes(layer.id) && !layer.locked ? { ...layer, bounds: { ...layer.bounds, x: Number(layer.bounds?.x || 0) + dx, y: Number(layer.bounds?.y || 0) + dy } } : layer), dirty: true })),
+  deleteSelected: () => set((state) => ({ layers: state.layers.filter((layer) => !state.selection.layer_ids.includes(layer.id) || layer.locked), selection: { ...state.selection, layer_ids: [] }, dirty: true })),
+  duplicateSelected: () => set((state) => { const copies = state.layers.filter((layer) => state.selection.layer_ids.includes(layer.id)).map((layer) => ({ ...layer, id: crypto.randomUUID(), bounds: { ...layer.bounds, x: Number(layer.bounds?.x || 0) + 16, y: Number(layer.bounds?.y || 0) + 16 }, sort_order: Number(layer.sort_order || 0) + 1 })); return { layers: [...state.layers, ...copies], selection: { ...state.selection, layer_ids: copies.map((layer) => layer.id) }, dirty: true }; }),
   setCompareVersion: (version_id) => set((state) => ({ ui: { ...state.ui, compare_version_id: version_id } })),
   markSaved: () => set({ dirty: false }),
 }));

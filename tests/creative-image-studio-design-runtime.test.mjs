@@ -42,3 +42,13 @@ test("deterministic export runtime owns PNG JPEG and PDF master composition", ()
   assert.match(source, /await import\("pdf-lib"\)/);
   assert.match(source, /source_asset_id/);
 });
+
+import { assessImageStudioComposition } from "../lib/creative/stills/runtime/CreativeImageStudioQualityPreflightRuntime.js";
+
+test("quality preflight catches unsafe exact design before release", () => {
+  const result = assessImageStudioComposition({ artboard: { width: 1080, height: 1350 }, layers: [{ id: "headline", artboard_id: "a", layer_type: "TEXT", visible: true, bounds: { x: 2, y: 2, width: 500, height: 40 }, style: { font_size: 8 }, content: { text: "Headline" } }], comments: [{ status: "OPEN" }] });
+  assert.equal(result.contract, "CREATIVE_IMAGE_STUDIO_QUALITY_PREFLIGHT_V1");
+  assert.ok(result.warnings.some((item) => item.startsWith("TEXT_TOO_SMALL")));
+  assert.ok(result.warnings.some((item) => item.startsWith("TEXT_OUTSIDE_SAFE_ZONE")));
+  assert.equal(result.counts.unresolved_comments, 1);
+});

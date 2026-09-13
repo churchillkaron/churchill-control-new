@@ -25,6 +25,8 @@ import ImageStudioLayerPanel from "./ImageStudioLayerPanel";
 import ImageStudioExportPanel from "./ImageStudioExportPanel";
 import ImageStudioCommentComposer from "./ImageStudioCommentComposer";
 import ImageStudioLayerInspector from "./ImageStudioLayerInspector";
+import ImageStudioQualityPanel from "./ImageStudioQualityPanel";
+import ImageStudioKeyboardShortcuts from "./ImageStudioKeyboardShortcuts";
 
 function assetUrl(asset) {
   return asset?.image_url || asset?.thumbnail_url || asset?.file_url || asset?.uri || asset?.url || "";
@@ -117,6 +119,8 @@ export default function ImageStudioWorkspace({ runtime }) {
   const projectName = operating.project?.name || operating.mission?.title || operating.mission?.business_goal || "Active creative project";
 
   return (
+    <>
+    <ImageStudioKeyboardShortcuts workspace={workspace} persistence={persistence} />
     <div className="grid h-full min-h-0 bg-[#050505] lg:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[290px_minmax(0,1fr)_320px]">
       <aside className="min-h-0 overflow-y-auto border-r border-white/[0.08] bg-[#080807]">
         <div className="sticky top-0 z-10 border-b border-white/[0.06] bg-[#080807]/95 p-3 backdrop-blur">
@@ -220,6 +224,7 @@ export default function ImageStudioWorkspace({ runtime }) {
         <ImageStudioLayerInspector workspace={workspace} />
         <ImageStudioLayerPanel workspace={workspace} />
         <ImageStudioExportPanel workspace={workspace} persistence={persistence} />
+        <ImageStudioQualityPanel workspace={workspace} />
 
         <section className="mt-5 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.035] p-3">
           <div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]/70">Production rule</div>
@@ -227,5 +232,6 @@ export default function ImageStudioWorkspace({ runtime }) {
         </section>
       </aside>
     </div>
+    </>
   );
 }

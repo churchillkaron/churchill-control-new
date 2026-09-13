@@ -252,3 +252,18 @@ test("Goods receipt actor identity is server-bound", async () => {
   assert.match(route, /actor_id: actorId/);
   assert.doesNotMatch(route, /actor_id:\s*body\./);
 });
+
+
+test("Every enabled Finance create declares explicit accounting scope", async () => {
+  const registry = await readFile(new URL("../lib/platform/registry/erpRegistry.base.js", import.meta.url), "utf8");
+  const finance = registry.slice(registry.indexOf("    finance: {"));
+  const organizationScoped = ["customers", "vendors", "tax_codes", "legal_entities", "currencies", "intercompany", "payment_terms"];
+  const entityScoped = ["chart_of_accounts", "journals", "customer_invoices", "purchase_orders", "goods_receipts", "vendor_bills", "bank_accounts", "bank_statements", "fixed_assets", "cost_centers", "budgeting"];
+
+  for (const workspace of organizationScoped) {
+    assert.match(finance, new RegExp(`id: "${workspace}"[\\s\\S]*?contextScope:"organization"`), `${workspace} must be organization-scoped`);
+  }
+  for (const workspace of entityScoped) {
+    assert.match(finance, new RegExp(`id: "${workspace}"[\\s\\S]*?contextScope:"entity"`), `${workspace} must be entity-scoped`);
+  }
+});

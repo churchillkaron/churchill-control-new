@@ -14,6 +14,7 @@ export const useImageStudioWorkspaceStore = create((set) => ({
   toggleCompare: () => set((state) => ({ ui: { ...state.ui, compare: !state.ui.compare } })),
   toggleGrid: () => set((state) => ({ ui: { ...state.ui, grid: !state.ui.grid } })),
   setRegion: (region) => set((state) => ({ ui: { ...state.ui, region } })),
+  setCommentPoint: (comment_point) => set((state) => ({ ui: { ...state.ui, comment_point } })),
   updateLayerLocal: (id, patch) => set((state) => ({ layers: state.layers.map((layer) => layer.id === id ? { ...layer, ...patch } : layer), dirty: true })),
   addLayerLocal: (layer) => set((state) => ({ layers: [...state.layers, layer], selection: { ...state.selection, layer_ids: [layer.id] }, dirty: true })),
   reorderLayer: (id, delta) => set((state) => ({ layers: state.layers.map((layer) => layer.id === id ? { ...layer, sort_order: Math.max(0, Number(layer.sort_order || 0) + delta) } : layer), dirty: true })),
@@ -27,5 +28,6 @@ export const useImageStudioWorkspaceStore = create((set) => ({
   alignSelected: (mode) => set((state) => { const board = state.artboards.find((item) => item.id === state.selection.artboard_id); const chosen = state.layers.filter((layer) => state.selection.layer_ids.includes(layer.id)); const aligned = alignLayers(chosen, board, mode); const map = new Map(aligned.map((layer) => [layer.id, layer])); return { layers: state.layers.map((layer) => map.get(layer.id) || layer), dirty: true }; }),
   distributeSelected: (axis) => set((state) => { const chosen = state.layers.filter((layer) => state.selection.layer_ids.includes(layer.id)); const distributed = distributeLayers(chosen, axis); const map = new Map(distributed.map((layer) => [layer.id, layer])); return { layers: state.layers.map((layer) => map.get(layer.id) || layer), dirty: true }; }),
   addCommentLocal: (comment) => set((state) => ({ comments: [...state.comments, comment] })),
+  setCompareVersion: (version_id) => set((state) => ({ ui: { ...state.ui, compare_version_id: version_id } })),
   markSaved: () => set({ dirty: false }),
 }));

@@ -22,6 +22,8 @@ import ImageStudioFormatBar from "./ImageStudioFormatBar";
 import ImageStudioVersionCompare from "./ImageStudioVersionCompare";
 import ImageStudioCanvasSurface from "./ImageStudioCanvasSurface";
 import ImageStudioLayerPanel from "./ImageStudioLayerPanel";
+import ImageStudioExportPanel from "./ImageStudioExportPanel";
+import ImageStudioCommentComposer from "./ImageStudioCommentComposer";
 import ImageStudioLayerInspector from "./ImageStudioLayerInspector";
 
 function assetUrl(asset) {
@@ -157,7 +159,7 @@ export default function ImageStudioWorkspace({ runtime }) {
               {images.map((asset, index) => {
                 const url = assetUrl(asset);
                 const active = selected?.id === asset.id;
-                return <button key={asset.id || `${url}-${index}`} type="button" onClick={() => setSelectedId(asset.id)} className={`flex w-full items-center gap-3 rounded-xl border p-2 text-left transition ${active ? "border-[#D6A66A]/30 bg-[#D6A66A]/[0.07]" : "border-transparent hover:border-white/[0.08] hover:bg-white/[0.025]"}`}>
+                return <button key={asset.id || `${url}-${index}`} type="button" draggable onDragStart={(event)=>{event.dataTransfer.setData("application/x-avantiqo-asset",asset.id||"");event.dataTransfer.effectAllowed="copy";}} onClick={() => setSelectedId(asset.id)} className={`flex w-full items-center gap-3 rounded-xl border p-2 text-left transition ${active ? "border-[#D6A66A]/30 bg-[#D6A66A]/[0.07]" : "border-transparent hover:border-white/[0.08] hover:bg-white/[0.025]"}`}>
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/[0.07] bg-black/40">{url ? <Image src={url} alt="" width={44} height={44} className="h-full w-full object-cover" /> : <ImageIcon className="h-4 w-4 text-white/20" />}</div>
                   <div className="min-w-0 flex-1"><div className="truncate text-[11px] font-medium text-white/68">{label(asset, index)}</div><div className="mt-1 flex items-center gap-2 text-[9px] text-white/26"><span>{asset.revision || asset.version || "v1"}</span><span>·</span><span className="truncate">{asset.approval_state || asset.status || "asset"}</span></div></div>
                 </button>;
@@ -179,7 +181,8 @@ export default function ImageStudioWorkspace({ runtime }) {
         </div>
 
         <ImageStudioFormatBar workspace={workspace} />
-        <div className="min-h-0 flex-1 overflow-auto p-4 lg:p-6">
+        <div className="relative min-h-0 flex-1 overflow-auto p-4 lg:p-6">
+          <ImageStudioCommentComposer workspace={workspace} persistence={persistence} />
           {workspace.ui.compare ? <ImageStudioVersionCompare workspace={workspace} assets={images} /> : <ImageStudioCanvasSurface workspace={workspace} assets={images} />}
         </div>
 
@@ -210,11 +213,13 @@ export default function ImageStudioWorkspace({ runtime }) {
             <Property label="Revision">{value(selected?.revision || selected?.version)}</Property>
             <Property label="Score">{value(selected?.score || selected?.performance_score)}</Property>
             <Property label="Tags">{Array.isArray(selected?.tags) && selected.tags.length ? selected.tags.join(", ") : "—"}</Property>
+            {selected?.id ? <div className="py-3"><button type="button" onClick={async()=>{await persistence.action("add_reference",{id:crypto.randomUUID(),asset_id:selected.id,reference_role:"COMPOSITION",strength:1,locked:false,notes:"Added from Image Studio workspace"});await persistence.load();}} className="w-full rounded-md border border-[#D6A66A]/20 bg-[#D6A66A]/[0.04] px-2 py-1.5 text-[9px] text-[#D6A66A]">Use as reference</button></div> : null}
           </div>
         </section>
 
         <ImageStudioLayerInspector workspace={workspace} />
         <ImageStudioLayerPanel workspace={workspace} />
+        <ImageStudioExportPanel workspace={workspace} persistence={persistence} />
 
         <section className="mt-5 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.035] p-3">
           <div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]/70">Production rule</div>

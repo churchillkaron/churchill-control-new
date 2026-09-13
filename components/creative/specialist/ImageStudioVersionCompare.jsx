@@ -23,9 +23,9 @@ function Snapshot({ version, assets }) {
 export default function ImageStudioVersionCompare({ workspace, assets }) {
   const boardId=workspace.selection.artboard_id;
   const versions=workspace.versions.filter((item)=>item.artboard_id===boardId).sort((a,b)=>Number(b.version_number||0)-Number(a.version_number||0));
-  const previous=versions[0]||null;
+  const previous=versions.find((item)=>item.id===workspace.ui.compare_version_id)||versions[0]||null;
   return <div className="grid min-h-full gap-4 2xl:grid-cols-2">
     <div><div className="mb-2 text-[8px] font-semibold uppercase tracking-[.18em] text-white/25">Current</div><ImageStudioCanvasSurface workspace={workspace} assets={assets}/></div>
-    <div><div className="mb-2 text-[8px] font-semibold uppercase tracking-[.18em] text-white/25">Snapshot {previous?.version_number?`v${previous.version_number}`:""}</div><Snapshot version={previous} assets={assets}/></div>
+    <div><div className="mb-2 flex items-center justify-between gap-2"><div className="text-[8px] font-semibold uppercase tracking-[.18em] text-white/25">Snapshot {previous?.version_number?`v${previous.version_number}`:""}</div>{versions.length?<select value={previous?.id||""} onChange={e=>workspace.setCompareVersion(e.target.value)} className="rounded border border-white/[.07] bg-black/30 px-2 py-1 text-[8px] text-white/45">{versions.map(v=><option key={v.id} value={v.id}>v{v.version_number}</option>)}</select>:null}</div><Snapshot version={previous} assets={assets}/></div>
   </div>;
 }

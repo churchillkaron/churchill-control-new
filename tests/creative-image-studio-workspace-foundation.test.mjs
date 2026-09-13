@@ -74,3 +74,19 @@ test("Image Studio workspace bootstraps generated assets as editable source laye
   assert.match(persistence, /action\("update_layer"/);
   assert.match(persistence, /await load\(\)/);
 });
+
+test("Image Studio professional design intelligence exposes responsive formats collaboration compare and deterministic export", () => {
+  const design = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js", import.meta.url), "utf8");
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  const workspace = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioWorkspace.jsx", import.meta.url), "utf8");
+  const exportRoute = fs.readFileSync(new URL("../app/api/workspace/creative/image-studio/export/route.js", import.meta.url), "utf8");
+  assert.match(design, /instagram_portrait/);
+  assert.match(design, /adaptBoundsToArtboard/);
+  assert.match(workspace, /ImageStudioVersionCompare/);
+  assert.match(canvas, /application\/x-avantiqo-asset/);
+  assert.match(canvas, /setCommentPoint/);
+  assert.match(workspace, /ImageStudioFormatBar/);
+  assert.match(workspace, /ImageStudioExportPanel/);
+  assert.match(exportRoute, /renderImageStudioMaster/);
+  assert.match(exportRoute, /createImageStudioExport/);
+});

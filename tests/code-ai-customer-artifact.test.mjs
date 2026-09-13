@@ -69,7 +69,8 @@ test("preserves generated source when verification fails", () => {
   const rendered = renderCodeAICustomerArtifactText(artifact);
   assert.match(rendered, /verification is not complete/i);
   assert.match(rendered, /lib\/example\.js/);
-  assert.match(rendered, /```diff/);
+  assert.match(rendered, /not commit-ready/i);
+  assert.doesNotMatch(rendered, /```diff/);
 });
 
 test("finds a customer artifact through the Operator execution result nesting", () => {

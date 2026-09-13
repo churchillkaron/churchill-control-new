@@ -34,6 +34,10 @@ import MusicRemixPanel from "./MusicRemixPanel";
 import MusicRecordingStudioPanel from "./MusicRecordingStudioPanel";
 import MusicSpecialistStudioPanel from "./MusicSpecialistStudioPanel";
 import MusicUnifiedWorkstationShell from "./MusicUnifiedWorkstationShell";
+import {
+  listWorldClassMusicCapabilities,
+  listWorldClassMusicWorkers,
+} from "@/lib/creative/music/runtime/CreativeMusicWorldClassStudioRuntime";
 
 const MODES = Object.freeze([
   {
@@ -84,6 +88,9 @@ const MODES = Object.freeze([
 
 const PRIMARY_MODE_IDS = Object.freeze(["compose", "backing", "record", "workstation"]);
 const SECONDARY_SECTIONS = Object.freeze(["Create & shape", "Edit", "Finish"]);
+const WORLD_CLASS_CAPABILITIES = listWorldClassMusicCapabilities();
+const WORLD_CLASS_WORKERS = listWorldClassMusicWorkers();
+const WORLD_CLASS_FLOW = Object.freeze(["Brief", "Research", "Direction", "Concepts", "Pre-production", "Production", "Listening", "Edit", "Mix", "Master", "Tribunal", "Release"]);
 
 function statusLabel(status) {
   if (status === "ACTIVE") return "Ready";
@@ -192,6 +199,23 @@ function StudioHome({ modeState, composeReady, composeStatus, readinessError, on
             </button>
           );
         })}
+      </div>
+
+      <div className="mt-10 rounded-[26px] border border-[#d6a66a]/15 bg-[#d6a66a]/[0.025] p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-2xl">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#d6a66a]/70">World-class production system</div>
+            <div className="mt-2 text-lg font-medium text-white/78">One studio, specialist workers, one governed production flow</div>
+            <div className="mt-2 text-xs leading-5 text-white/32">The same production system is available from Music Studio, API and Business Partner conversation. Avantiqo selects the workers and gates required for the job instead of exposing provider prompts.</div>
+          </div>
+          <div className="flex gap-2 text-[10px]">
+            <span className="rounded-full border border-white/8 bg-black/20 px-3 py-1.5 text-white/45">{WORLD_CLASS_WORKERS.length} specialist workers</span>
+            <span className="rounded-full border border-white/8 bg-black/20 px-3 py-1.5 text-white/45">{WORLD_CLASS_CAPABILITIES.length} capability families</span>
+          </div>
+        </div>
+        <div className="mt-5 flex flex-wrap gap-1.5">
+          {WORLD_CLASS_FLOW.map((step, index) => <span key={step} className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-1.5 text-[9px] text-white/38">{index + 1}. {step}</span>)}
+        </div>
       </div>
 
       <div className="mt-10 border-t border-white/[0.07] pt-8">

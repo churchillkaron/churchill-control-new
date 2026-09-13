@@ -30,6 +30,8 @@ test("cache identity crosses reasoning and Modal without raw content", () => {
 test("Business Partner serializes stable context before volatile user text", () => {
   const start = synthetic.indexOf("const request = {");
   const section = synthetic.slice(start, start + 900);
+  assert.ok(section.indexOf("business_context") < section.indexOf("project_state"));
+  assert.ok(section.indexOf("organization_id") < section.indexOf("project_state"));
   assert.ok(section.indexOf("project_state") < section.indexOf("user_message"));
   assert.ok(section.indexOf("business_context") < section.indexOf("user_message"));
   assert.ok(section.indexOf("organization_id") < section.indexOf("user_message"));

@@ -154,3 +154,24 @@ test("Finance permissions are not exposed as an ambiguous generic Operator creat
   const registry = await readFile(new URL("../lib/platform/registry/erpRegistry.base.js", import.meta.url), "utf8");
   assert.match(registry, /id: "finance_permissions"[\s\S]*?create:\{[\s\S]*?enabled:false/);
 });
+
+
+test("Invoices and bank statement imports preserve exact create verification", async () => {
+  const registry = await readFile(new URL("../lib/platform/registry/erpRegistry.base.js", import.meta.url), "utf8");
+  const customerCreate = await readFile(new URL("../app/api/finance/customer-invoices/create/route.js", import.meta.url), "utf8");
+  const customerRead = await readFile(new URL("../app/api/finance/customer-invoices/list/route.js", import.meta.url), "utf8");
+  const vendorCreate = await readFile(new URL("../app/api/finance/vendor-invoices/create/route.js", import.meta.url), "utf8");
+  const vendorRead = await readFile(new URL("../app/api/finance/vendor-invoices/list/route.js", import.meta.url), "utf8");
+  const statementCreate = await readFile(new URL("../app/api/finance/bank-statements/import/route.js", import.meta.url), "utf8");
+  const statementRead = await readFile(new URL("../app/api/finance/bank-statements/runtime/route.js", import.meta.url), "utf8");
+
+  assert.match(registry, /id: "customer_invoices"[\s\S]*?contextScope:"entity"[\s\S]*?identity:"invoice_id"/);
+  assert.match(customerCreate, /invoice_id:/);
+  assert.match(customerRead, /searchParams\.get\("invoice_id"\)/);
+  assert.match(registry, /id: "vendor_bills"[\s\S]*?contextScope:"entity"[\s\S]*?identity:"vendor_invoice_id"/);
+  assert.match(vendorCreate, /vendor_invoice_id:/);
+  assert.match(vendorRead, /searchParams\.get\("vendor_invoice_id"\)/);
+  assert.match(registry, /id: "bank_statements"[\s\S]*?contextScope:"entity"[\s\S]*?identity:"statement_import_id"/);
+  assert.match(statementCreate, /statement_import_id: statementImportId/);
+  assert.match(statementRead, /searchParams\.get\("statement_import_id"\)/);
+});

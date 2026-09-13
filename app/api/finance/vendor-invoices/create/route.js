@@ -135,6 +135,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       data: result,
+      vendor_invoice_id: result?.invoice?.id || result?.vendor_invoice?.id || result?.invoice_id || result?.id || null,
     });
   } catch (error) {
     const message =

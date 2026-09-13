@@ -53,3 +53,18 @@ test("stable bounded usage remains healthy", () => {
   assert.equal(result.status, "HEALTHY");
   assert.deepEqual(result.signals, []);
 });
+test("economics measures stable context reuse without raw content", () => {
+  const rows = ["same", "same", "other"].map((fingerprint) => ({
+    module: "INTELLIGENCE",
+    metadata: {
+      intelligence_operator_context_fingerprint: {
+        static_context_fingerprint: fingerprint,
+        raw_content_returned: false,
+      },
+    },
+  }));
+  const summary = summarizeIntelligenceUsage(rows);
+  assert.equal(summary.fingerprinted_calls, 3);
+  assert.equal(summary.repeated_static_context_calls, 1);
+  assert.equal(summary.stable_context_reuse_ratio, 0.3333);
+});

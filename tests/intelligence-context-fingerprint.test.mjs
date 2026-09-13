@@ -36,3 +36,11 @@ test("tool descriptor fingerprint changes only when bounded tool envelope change
   assert.notEqual(one.tool_descriptor_fingerprint, other.tool_descriptor_fingerprint);
   assert.equal(one.cacheable, true);
 });
+
+test("Business Partner persists bounded fingerprint as reasoning metadata", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const route = await readFile(new URL("../app/api/operator/turn/route.js", import.meta.url), "utf8");
+  const runtime = await readFile(new URL("../lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js", import.meta.url), "utf8");
+  assert.match(route, /contextFingerprint:\s*contextBudget\.context_fingerprint/);
+  assert.match(runtime, /intelligence_operator_context_fingerprint:\s*object\(options\.contextFingerprint\)/);
+});

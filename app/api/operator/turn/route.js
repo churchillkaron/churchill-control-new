@@ -593,6 +593,7 @@ export async function POST(request) {
           conversation: boundedConversationContext,
           longTermMemory: boundedLongTermMemory,
           conversationAttachments: contextBudget.attachments,
+          contextFingerprint: contextBudget.context_fingerprint,
           callerRequest: request,
           conversationId: memory.conversation.id,
         })

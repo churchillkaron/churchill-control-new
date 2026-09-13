@@ -101,12 +101,12 @@ export async function POST(request) {
       supabase
         .from("provider_pricing")
         .select("provider,capability,active,metadata")
-        .in("capability", ["ai.music.generate", "ai.audio.remix", "ai.audio.edit", "ai.audio.extend", "ai.sfx.generate"]),
+        .in("capability", ["ai.music.generate", "ai.audio.remix", "ai.audio.edit", "ai.audio.extend", "ai.audio.stems", "ai.sfx.generate"]),
       supabase
         .from("organization_services")
         .select("service_id,status,fallback_enabled,configuration")
         .eq("organization_id", organizationId)
-        .in("service_id", ["ai.music.generate", "ai.audio.remix", "ai.audio.edit", "ai.audio.extend", "ai.sfx.generate"]),
+        .in("service_id", ["ai.music.generate", "ai.audio.remix", "ai.audio.edit", "ai.audio.extend", "ai.audio.stems", "ai.sfx.generate"]),
     ]);
 
     if (pricingError) throw pricingError;
@@ -118,6 +118,7 @@ export async function POST(request) {
     const remix = ownedCapability(rows, "ai.audio.remix");
     const edit = ownedCapability(rows, "ai.audio.edit");
     const extend = ownedCapability(rows, "ai.audio.extend");
+    const stems = ownedCapability(rows, "ai.audio.stems");
     const sfx = ownedCapability(rows, "ai.sfx.generate");
     const sfxService = organizationServices.find((entry) => entry.service_id === "ai.sfx.generate") || null;
     const externalSfxActive = rows.some((entry) => (
@@ -126,6 +127,9 @@ export async function POST(request) {
       entry.active === true
     ));
     const runtimeHealth = musicRuntimeHealth();
+    const providerSeparatorRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.separator_runtime || {};
+    const separatorRuntimeReady = providerSeparatorRuntime.production_routing_allowed === true;
+    const stemsReady = stems.ready === true && separatorRuntimeReady;
     const providerSfxRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.sfx_runtime || {};
     const sfxRuntimeReady = providerSfxRuntime.production_routing_allowed === true;
     const sfxReady = sfx.ready === true && sfxRuntimeReady;
@@ -145,6 +149,7 @@ export async function POST(request) {
         remix: { ...remix, status: remix.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
         edit: { ...edit, status: edit.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
         extend: { ...extend, status: extend.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
+        stems: { ...stems, ready: stemsReady, status: stemsReady ? "CERTIFIED" : (separatorRuntimeReady ? "BENCHMARK_AND_HUMAN_REVIEW_REQUIRED" : "CERTIFICATION_OR_CONFIGURATION_REQUIRED"), runtime_ready: separatorRuntimeReady, certification_ready: stems.ready === true, runtime_status: text(providerSeparatorRuntime.runtime_status) || null, model: text(providerSeparatorRuntime.model) || null, quality_profile: text(providerSeparatorRuntime.quality_profile) || null },
         sfx: {
           ...sfx,
           ready: sfxReady,

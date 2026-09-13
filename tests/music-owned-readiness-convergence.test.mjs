@@ -21,3 +21,11 @@ test("owned SFX readiness converges with the implemented certified Modal runtime
   assert.doesNotMatch(readiness, /OWNED_RUNTIME_NOT_IMPLEMENTED/);
   assert.match(registration, /CERTIFIABLE_CAPABILITIES[\s\S]*"ai\.sfx\.generate"/);
 });
+
+test("owned stem readiness requires the dedicated certified Modal separator runtime", () => {
+  assert.match(readiness, /const separatorRuntimeReady = providerSeparatorRuntime\.production_routing_allowed === true/);
+  assert.match(readiness, /const stemsReady = stems\.ready === true && separatorRuntimeReady/);
+  assert.match(readiness, /stems: \{ \.\.\.stems, ready: stemsReady/);
+  assert.match(registration, /const separatorRuntimeAvailable = Boolean\(engineEnabled && modalConfigured && separatorEngineEnabled && separatorEngineCertified && baseCertifiedCapabilities\.includes\("ai\.audio\.stems"\)\)/);
+  assert.match(registration, /runtime_status: separatorRuntimeAvailable \? "CERTIFIED_CONFIGURED" : "CERTIFICATION_OR_CONFIGURATION_REQUIRED"/);
+});

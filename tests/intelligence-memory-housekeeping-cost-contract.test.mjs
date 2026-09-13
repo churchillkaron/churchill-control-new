@@ -5,9 +5,13 @@ import test from "node:test";
 const memoryRuntime = fs.readFileSync(new URL("../lib/operator/runtime/IntelligenceMemoryRuntime.js", import.meta.url), "utf8");
 const observabilityRuntime = fs.readFileSync(new URL("../lib/operator/runtime/IntelligenceMemoryObservabilityRuntime.js", import.meta.url), "utf8");
 
-test("consolidation skips heavy scans below the active working-set target", () => {
-  assert.match(memoryRuntime, /activeCount <= activeWorkingSetTarget/);
-  assert.match(memoryRuntime, /pressure_scan_skipped: true/);
+test("consolidation preserves cold archival while narrowing normal-case scans", () => {
+  assert.match(memoryRuntime, /underPressure = activeCount > activeWorkingSetTarget/);
+  assert.match(memoryRuntime, /if \(!underPressure\)/);
+  assert.match(memoryRuntime, /\.lt\("importance", 0\.6\)/);
+  assert.match(memoryRuntime, /\.lte\("recall_count", 1\)/);
+  assert.match(memoryRuntime, /\.lte\("updated_at", coldCutoff\)/);
+  assert.doesNotMatch(memoryRuntime, /pressure_scan_skipped: true/);
   assert.match(memoryRuntime, /durability:metadata->>durability/);
 });
 

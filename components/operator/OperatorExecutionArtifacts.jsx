@@ -36,11 +36,17 @@ function mediaKind(value, mimeType = "", key = "") {
   const mime = text(mimeType).toLowerCase();
   const source = text(value).toLowerCase().split("?")[0];
   const field = text(key).toLowerCase();
-  if (mime.startsWith("image/") || /image|screenshot|thumbnail/.test(field) || /\.(png|jpe?g|webp|gif|avif)$/.test(source)) return "image";
-  if (mime.startsWith("video/") || /video|master/.test(field) || /\.(mp4|webm|mov|m4v)$/.test(source)) return "video";
-  if (mime.startsWith("audio/") || /audio/.test(field) || /\.(mp3|wav|m4a|aac|ogg|flac)$/.test(source)) return "audio";
-  if (mime === "application/pdf" || /pdf|receipt|document/.test(field) || /\.pdf$/.test(source)) return "document";
-  if (/spreadsheet|excel|csv/.test(mime) || /\.(xlsx?|csv)$/.test(source)) return "spreadsheet";
+  if (mime.startsWith("image/") || /\.(png|jpe?g|webp|gif|avif)$/.test(source)) return "image";
+  if (mime.startsWith("audio/") || /\.(mp3|wav|m4a|aac|ogg|flac)$/.test(source)) return "audio";
+  if (mime.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/.test(source)) return "video";
+  if (/spreadsheet|excel|csv/.test(mime) || /\.(xlsx?|xlsm|csv|tsv)$/.test(source)) return "spreadsheet";
+  if (mime === "application/pdf" || /\.(pdf|docx?|odt|rtf|txt|md)$/.test(source)) return "document";
+  if (/image|screenshot|thumbnail/.test(field)) return "image";
+  if (/audio|music|waveform/.test(field)) return "audio";
+  if (/video|render/.test(field)) return "video";
+  if (/pdf|receipt|document/.test(field)) return "document";
+  if (/spreadsheet|excel|csv/.test(field)) return "spreadsheet";
+  if (/master/.test(field)) return mime.startsWith("audio/") ? "audio" : mime.startsWith("video/") ? "video" : "file";
   return "file";
 }
 
@@ -75,7 +81,14 @@ export function operatorExecutionArtifacts({ execution = {}, evidence = {}, orga
       mime_type: mimeType || null,
       label: itemLabel(owner, parent, kind, items.length),
       folder: folderLabel(owner, parent, kind),
-      preview_rows: Array.isArray(owner?.rows) ? owner.rows.slice(0, 20) : Array.isArray(owner?.data) ? owner.data.slice(0, 20) : null,
+      preview_rows: Array.isArray(owner?.preview_rows)
+        ? owner.preview_rows.slice(0, 20)
+        : Array.isArray(owner?.rows)
+          ? owner.rows.slice(0, 20)
+          : Array.isArray(owner?.data)
+            ? owner.data.slice(0, 20)
+            : null,
+      preview_text: text(owner?.preview_text || owner?.text_preview || owner?.excerpt || owner?.summary) || null,
     });
   }
 
@@ -150,6 +163,9 @@ function ArtifactPreview({ artifact }) {
     return <audio src={artifact.url} controls preload="metadata" className="w-full" />;
   }
   if (artifact.kind === "document") {
+    if (artifact.preview_text) {
+      return <div className="max-h-[420px] overflow-auto whitespace-pre-wrap border-b border-white/[0.06] bg-white/[0.03] p-4 text-[11px] leading-5 text-white/70">{artifact.preview_text}</div>;
+    }
     return <iframe src={artifact.url} title={artifact.label} loading="lazy" className="h-[420px] w-full bg-white" />;
   }
   if (artifact.kind === "spreadsheet") {

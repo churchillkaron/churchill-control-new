@@ -69,6 +69,7 @@ import {
   matchAnalyzedAttachmentToBusiness,
 } from "@/lib/platform/runtime/UniversalAttachmentBusinessMatchRuntime";
 import { attachmentLogicalObjects } from "@/lib/platform/runtime/ConversationAttachmentObjectRuntime";
+import { collectOperatorPresentationArtifacts } from "@/lib/operator/runtime/OperatorPresentationArtifactRuntime";
 
 function readValue(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -629,9 +630,19 @@ export async function POST(request) {
       !Array.isArray(returnedAgreementState)
         ? returnedAgreementState
         : agreementState;
+    const presentationArtifacts = collectOperatorPresentationArtifacts({
+      execution: object(result?.execution),
+      provider_evidence: object(result?.provider_evidence),
+    });
+    const normalizedProviderEvidence = {
+      ...object(result?.provider_evidence),
+      ...(presentationArtifacts.length ? { presentation_artifacts: presentationArtifacts } : {}),
+    };
     const normalizedResult = {
       ...object(result),
       decision: normalizedDecision,
+      provider_evidence: normalizedProviderEvidence,
+      presentation_artifacts: presentationArtifacts,
     };
     const nextProjectState = deriveProjectState(
       effectiveProjectState,
@@ -653,7 +664,7 @@ export async function POST(request) {
       source,
       content: responseText,
       decision: persistedDecision,
-      evidence: object(result?.provider_evidence),
+      evidence: normalizedProviderEvidence,
       execution: object(result?.execution),
       navigation: object(result?.navigation),
       agreementState: nextAgreementState,

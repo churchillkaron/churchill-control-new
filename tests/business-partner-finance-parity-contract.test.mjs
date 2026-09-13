@@ -10,6 +10,7 @@ const createCoverage = await readFile(new URL("../lib/platform/registry/Operator
 const registryDomainRuntimes = await readFile(new URL("../lib/platform/registry/OperatorRegistryDomainRuntimes.js", import.meta.url), "utf8");
 const domainRuntimeRegistry = await readFile(new URL("../lib/ubte/runtime/domains/DomainRuntimeRegistry.js", import.meta.url), "utf8");
 const fastReads = await readFile(new URL("../lib/operator/runtime/OperatorFastReadIndex.js", import.meta.url), "utf8");
+const registryBridge = await readFile(new URL("../lib/platform/registry/operatorRegistryBridge.js", import.meta.url), "utf8");
 
 test("Business Partner execution comes from governed capabilities, not a separate Finance action list", () => {
   assert.match(capabilityCatalog, /listDomainRuntimeNames/);
@@ -48,6 +49,13 @@ test("Finance registry creates are classified for Business Partner coverage inst
   assert.match(registryDomainRuntimes, /createCoverage: buildOperatorRegistryCreateCoverage/);
   assert.match(domainRuntimeRegistry, /Hand written capabilities win/);
   assert.match(domainRuntimeRegistry, /capabilities\[name\] = \{ \.\.\.\(capabilities\[name\] \|\| \{\}\), \.\.\.actions \}/);
+});
+
+test("Registry create parity accepts both create.api and create.endpoint declarations", () => {
+  assert.match(createCoverage, /create\.api/);
+  assert.match(createCoverage, /create\.endpoint/);
+  assert.match(registryBridge, /item\?\.create\?\.api \|\| item\?\.create\?\.endpoint/);
+  assert.match(registryBridge, /declaredCreateEndpoint\(item\) \|\| collectionCreateEndpoint\(item\)/);
 });
 
 test("Common Finance reads stay on the low-cost deterministic path", () => {

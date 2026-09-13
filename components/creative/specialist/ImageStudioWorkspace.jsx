@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   CheckCircle2,
@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 
 import { buildCreativeImageStudioOperatingState } from "@/lib/creative/stills/runtime/CreativeImageStudioOperatingRuntime";
+import { useImageStudioWorkspaceStore } from "./useImageStudioWorkspaceStore";
+import ImageStudioCanvasToolbar from "./ImageStudioCanvasToolbar";
 
 function assetUrl(asset) {
   return asset?.image_url || asset?.thumbnail_url || asset?.file_url || asset?.uri || asset?.url || "";
@@ -70,6 +72,21 @@ function StageRail({ stages }) {
 export default function ImageStudioWorkspace({ runtime }) {
   const operating = useMemo(() => buildCreativeImageStudioOperatingState(runtime), [runtime]);
   const images = useMemo(() => (runtime.assetRuntime?.items || []).filter(looksLikeImage), [runtime.assetRuntime?.items]);
+  const workspace = useImageStudioWorkspaceStore();
+  useEffect(() => {
+    const projectId = runtime.projectRuntime?.current?.id || null;
+    const organizationId = runtime.projectRuntime?.current?.organization_id || runtime.organization_id || null;
+    const artboards = images.map((asset, index) => ({
+      id: asset.artboard_id || `asset-artboard-${asset.id || index + 1}`,
+      name: label(asset, index),
+      width: Number(asset.width || asset.metadata?.width || 1080),
+      height: Number(asset.height || asset.metadata?.height || 1350),
+      sort_order: index,
+      status: asset.approval_state || asset.status || "DRAFT",
+    }));
+    workspace.hydrate({ project_id: projectId, organization_id: organizationId, artboards });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runtime.projectRuntime?.current?.id, images]);
   const [selectedId, setSelectedId] = useState(images[0]?.id || null);
   const [leftMode, setLeftMode] = useState("production");
   const selected = images.find((item) => item.id === selectedId) || images[0] || null;
@@ -142,6 +159,7 @@ export default function ImageStudioWorkspace({ runtime }) {
       <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#050505]">
         <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3 lg:px-5">
           <div className="min-w-0"><div className="truncate text-sm font-medium text-white/78">{selected ? label(selected, 0) : "Image canvas"}</div><div className="mt-0.5 text-[10px] text-white/27">{operating.active_stage.label} · governed Creative project</div></div>
+          <ImageStudioCanvasToolbar workspace={workspace} />
           <div className="flex items-center gap-2">
             <div className="hidden rounded-full border border-white/[0.07] px-2.5 py-1 text-[8px] uppercase tracking-[0.12em] text-white/28 sm:block">{operating.counts.references} refs · {operating.counts.review_open} review</div>
             {selected?.approval_state ? <div className="flex items-center gap-1.5 rounded-full border border-white/[0.08] px-2.5 py-1 text-[9px] uppercase tracking-[0.13em] text-white/38"><CheckCircle2 className="h-3 w-3 text-[#D6A66A]/70" />{selected.approval_state}</div> : null}

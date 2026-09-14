@@ -227,3 +227,16 @@ test("Image Studio reference board distinguishes exact evidence from inspiration
   assert.match(panel, /Lock exact/);
   assert.match(panel, /Reference strength/);
 });
+
+test("Image Studio inspector edits collapse into logical undo transactions", () => {
+  const inspector = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerInspector.jsx", import.meta.url), "utf8");
+  const toolbar = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasToolbar.jsx", import.meta.url), "utf8");
+  assert.match(inspector, /transactionProps=\{onFocus:workspace\.beginHistoryTransaction,onBlur:workspace\.endHistoryTransaction\}/);
+  assert.match(inspector, /<Field \{\.\.\.transactionProps\} label="Text"/);
+  assert.match(inspector, /<Field \{\.\.\.transactionProps\} label="Width"/);
+  assert.match(inspector, /onFocus=\{workspace\.beginHistoryTransaction\} onBlur=\{workspace\.endHistoryTransaction\}/);
+  assert.match(toolbar, /title="Undo" disabled=\{!workspace\.historyPast\?\.length\}/);
+  assert.match(toolbar, /title="Redo" disabled=\{!workspace\.historyFuture\?\.length\}/);
+  assert.match(toolbar, /onClick=\{workspace\.undo\}/);
+  assert.match(toolbar, /onClick=\{workspace\.redo\}/);
+});

@@ -40,6 +40,16 @@ const APPROVAL_MINUTES = 90;
 const APPROVAL_CONTRACT = "CREATIVE_DIRECTION_BUDGET_APPROVAL_V2";
 const PROVISIONAL_THB_CAP = 250;
 
+const NON_TEMPORAL_OPERATIONS = Object.freeze([
+  "MASTER_PLAN_V3",
+  "MASTER_PLAN_DYNAMIC_V2",
+  "MASTER_PLAN_CONTRACT_REPAIR_V1",
+  "CREATIVE_CONCEPT_DIRECTOR_*",
+  "CREATIVE_CONCEPT_CRITIC_*",
+  "CREATIVE_EXECUTIVE_CONCEPT_SELECTION_V1",
+  "CREATIVE_SELECTED_CONCEPT_PLAN_REVISION_V1",
+]);
+
 const TEMPORAL_OPERATIONS = Object.freeze([
   "MASTER_PLAN_V3",
   "MASTER_PLAN_DYNAMIC_V2",
@@ -63,6 +73,10 @@ function object(value) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value
     : {};
+}
+
+function list(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
 function normalized(value) {
@@ -133,18 +147,20 @@ function maximumTemporalSceneCalls(duration) {
 function directionBudgetShape(productionType, duration) {
   if (productionType !== "TEMPORAL") {
     return {
-      maximum_calls: 1,
-      allowed_operations: ["MASTER_PLAN_V3"],
-      calculation: "ONE_SHOT_NON_TEMPORAL_DIRECTION",
+      // Base plan + 3 directors + 6 critics + executive selection + revision
+      // + up to 2 bounded contract repairs.
+      maximum_calls: 14,
+      allowed_operations: [...NON_TEMPORAL_OPERATIONS],
+      calculation: "UNIVERSAL_NON_TEMPORAL_COUNCIL_AND_REPAIR_MAXIMUM",
     };
   }
 
   const maximumSceneCalls = maximumTemporalSceneCalls(duration);
   return {
-    // One synthesis + base plan + scene architecture + one call per maximum
-    // scene + three independent directors + five independent critics +
-    // executive selection + selected-plan revision.
-    maximum_calls: 13 + maximumSceneCalls,
+    // Current universal council: base plan + three directors + six critics +
+    // executive selection + selected-plan revision + two bounded repairs,
+    // plus one scene-direction call per maximum temporal scene.
+    maximum_calls: 14 + maximumSceneCalls,
     maximum_scene_direction_calls: maximumSceneCalls,
     allowed_operations: [...TEMPORAL_OPERATIONS],
     calculation: "UNIVERSAL_TEMPORAL_COUNCIL_AND_SCENE_MAXIMUM",
@@ -381,6 +397,37 @@ function existingApproval(project, identity) {
   return null;
 }
 
+async function requestSupplementApproval({ additionalMaximum, currency, additionalCalls, targetMaximum, targetCalls }) {
+  const amount = amountText(additionalMaximum);
+  const normalizedCurrency = text(currency).toUpperCase();
+  const phrase = `APPROVE DIRECTION SUPPLEMENT ${amount} ${normalizedCurrency}`;
+  console.log("============================================================");
+  console.log("AVANTIQO CREATIVE DIRECTION SUPPLEMENT APPROVAL");
+  console.log("============================================================");
+  console.log(`DIRECTION_SUPPLEMENT_MAXIMUM_CUSTOMER_PRICE=${amount}`);
+  console.log(`DIRECTION_SUPPLEMENT_ADDITIONAL_CALLS=${additionalCalls}`);
+  console.log(`DIRECTION_TARGET_MAXIMUM_CUSTOMER_PRICE=${amountText(targetMaximum)}`);
+  console.log(`DIRECTION_TARGET_MAXIMUM_CALLS=${targetCalls}`);
+  console.log(`DIRECTION_CURRENCY=${normalizedCurrency}`);
+  console.log("PAID_MEDIA_EXECUTION_AUTHORIZED=NO");
+  console.log("PUBLICATION_AUTHORIZED=NO");
+  console.log(`DIRECTION_SUPPLEMENT_APPROVAL_PHRASE=${phrase}`);
+  console.log("============================================================");
+
+  const supplied = text(process.env.CREATIVE_DIRECTION_SUPPLEMENT_APPROVAL_RESPONSE);
+  if (normalized(supplied) === normalized(phrase)) return true;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error(`CREATIVE_INTERACTIVE_DIRECTION_SUPPLEMENT_APPROVAL_REQUIRED:${phrase}`);
+  }
+  const terminal = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = await terminal.question(`Type ${phrase} to continue, or press Enter to stop: `);
+    return normalized(answer) === normalized(phrase);
+  } finally {
+    terminal.close();
+  }
+}
+
 async function requestApproval(estimate) {
   const amount = amountText(estimate.maximum_customer_price);
   const currency = text(estimate.currency).toUpperCase();
@@ -445,8 +492,93 @@ let project = await CreativeProjectRepository.getByMission({
 if (!project) process.exit(0);
 project = await renewCompletedResearch(project);
 
-const reusable = existingApproval(project, identity);
+let reusable = existingApproval(project, identity);
 if (reusable) {
+  const requiredOperations = list(shape.allowed_operations).map(text).filter(Boolean);
+  const approvedOperations = list(reusable.allowed_operations).map(text).filter(Boolean);
+  const missingOperations = requiredOperations.filter((operation) => !approvedOperations.includes(operation));
+  const reusableStatus = text(reusable.status).toUpperCase();
+  if (missingOperations.length && Number(reusable.call_count || 0) === 0 && reusableStatus !== "COMPLETED") {
+    reusable = {
+      ...reusable,
+      allowed_operations: [...new Set([...approvedOperations, ...requiredOperations])],
+      operation_scope_refreshed_at: new Date().toISOString(),
+      operation_scope_refresh_reason: "SYNC_CURRENT_DIRECTION_RUNTIME_WITHIN_EXISTING_UNSPENT_APPROVAL",
+    };
+    project = await CreativeProjectRuntime.update(project.id, {
+      metadata: { ...(project.metadata || {}), paid_direction_approval: reusable },
+    });
+    console.log(`DIRECTION_APPROVAL_OPERATION_SCOPE_REFRESHED=${missingOperations.join(",")}`);
+  }
+
+  if (reusableStatus === "COMPLETED" && Number(reusable.maximum_calls || 0) < Number(shape.maximum_calls || 0)) {
+    const target = await directionEstimate(organization.id, shape);
+    if (text(target.provider) !== text(reusable.provider) || text(target.model) !== text(reusable.model) || text(target.pricing_id) !== text(reusable.pricing_id) || text(target.currency).toUpperCase() !== text(reusable.currency).toUpperCase()) {
+      throw new Error("CREATIVE_DIRECTION_SUPPLEMENT_PRICING_SCOPE_CHANGED");
+    }
+    const additionalMaximum = Number(Math.max(0, Number(target.maximum_customer_price) - Number(reusable.maximum_customer_price || 0)).toFixed(6));
+    const additionalCalls = Number(target.maximum_calls) - Number(reusable.maximum_calls || 0);
+    if (additionalMaximum <= 0 || additionalCalls <= 0) throw new Error("CREATIVE_DIRECTION_SUPPLEMENT_NOT_REQUIRED");
+    const approvedSupplement = await requestSupplementApproval({
+      additionalMaximum,
+      currency: target.currency,
+      additionalCalls,
+      targetMaximum: target.maximum_customer_price,
+      targetCalls: target.maximum_calls,
+    });
+    if (!approvedSupplement) {
+      console.log("DIRECTION_SUPPLEMENT_APPROVED=NO");
+      process.exit(0);
+    }
+    const supplementAt = new Date();
+    const supplement = {
+      contract: "CREATIVE_DIRECTION_BUDGET_SUPPLEMENT_V1",
+      id: crypto.randomUUID(),
+      approved: true,
+      source_approval_id: reusable.id,
+      additional_maximum_customer_price: additionalMaximum,
+      additional_calls: additionalCalls,
+      target_maximum_customer_price: target.maximum_customer_price,
+      target_maximum_calls: target.maximum_calls,
+      currency: target.currency,
+      approved_at: supplementAt.toISOString(),
+    };
+    reusable = {
+      ...reusable,
+      approved: true,
+      status: "APPROVED",
+      maximum_calls: target.maximum_calls,
+      maximum_customer_price: target.maximum_customer_price,
+      remaining_customer_price: Number((Number(target.maximum_customer_price) - Number(reusable.spent_customer_price || 0)).toFixed(6)),
+      maximum_per_call_customer_price: target.maximum_per_call_customer_price,
+      allowed_operations: [...new Set([...approvedOperations, ...requiredOperations])],
+      allowed_models: target.allowed_models,
+      allowed_pricing_ids: target.allowed_pricing_ids,
+      allowed_capabilities: target.allowed_capabilities,
+      budget_calculation: target.calculation,
+      expires_at: new Date(supplementAt.getTime() + APPROVAL_MINUTES * 60 * 1000).toISOString(),
+      supplemental_authorizations: [...list(reusable.supplemental_authorizations), supplement],
+      completed_at: null,
+      retry_required: false,
+      media_generation_authorized: false,
+      publication_authorized: false,
+    };
+    project = await CreativeProjectRuntime.update(project.id, {
+      metadata: {
+        ...(project.metadata || {}),
+        paid_direction_approval: reusable,
+        creative_reasoning_budget: {
+          ...object(project.metadata?.creative_reasoning_budget),
+          maximum_calls: target.maximum_calls,
+          maximum_customer_price: target.maximum_customer_price,
+          currency: target.currency,
+        },
+      },
+    });
+    console.log(`DIRECTION_SUPPLEMENT_APPROVED=YES`);
+    console.log(`DIRECTION_SUPPLEMENT_ID=${supplement.id}`);
+  }
+
   console.log(`DIRECTION_APPROVAL_MODE=${
     text(reusable.status).toUpperCase() === "COMPLETED"
       ? "RECOVER_COMPLETED_DIRECTION_BUDGET"

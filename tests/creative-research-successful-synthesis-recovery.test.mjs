@@ -8,6 +8,10 @@ test('successful settled synthesis is recovered only through current-contract va
   assert.match(source, /matchingStructuredSynthesisUsages/);
   assert.match(source, /structuredResultFromUsage/);
   assert.match(source, /normalizeAndValidateResearch\(\{[\s\S]*priorUsage\.metadata\?\.provider_result/);
+  assert.match(source, /const durableUrls = new Set/);
+  assert.match(source, /durableUrls\.has\(canonicalUrl\(source\.url\)\)/);
+  assert.match(source, /const finalDurableUrls = new Set/);
+  assert.match(source, /finalDurableUrls\.has\(canonicalUrl\(source\.url\)\)/);
   assert.match(source, /validateEvidenceBinding\(recoveredValidation, recoveredDossier\)/);
   assert.match(source, /validateResolvedOrganization\(recoveredValidation, organizationIdentity\)/);
   assert.match(source, /if \(!structuredResult\) structuredResult = await awaitResearchExecution/);

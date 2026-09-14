@@ -697,6 +697,7 @@ export async function POST(request) {
     const longTermLearnStartedAt = Date.now();
     let longTermLearned = 0;
     let projectStateMemoryReused = 0;
+    let projectStateMemoryRepaired = 0;
     const assistantPersistPromise = persistAssistantTurnAndConversationState({
       organizationId: businessContext.organizationId,
       conversationId: memory.conversation.id,
@@ -721,7 +722,8 @@ export async function POST(request) {
       .then(async (learned) => {
         longTermLearned = Number(learned?.learned || 0);
         projectStateMemoryReused = Number(learned?.reused || 0);
-        if (longTermLearned > 0) {
+        projectStateMemoryRepaired = Number(learned?.repaired || 0);
+        if (longTermLearned > 0 || projectStateMemoryRepaired > 0) {
           await consolidateOperatorMemory({
             organizationId: businessContext.organizationId,
             partyId,
@@ -792,6 +794,7 @@ export async function POST(request) {
         context_dropped_memory_items: contextBudget.telemetry.dropped_memory_items,
         project_state_memory_learned: longTermLearned,
         project_state_memory_reused: projectStateMemoryReused,
+        project_state_memory_repaired: projectStateMemoryRepaired,
         turn_duplicate_payload_bytes_avoided: turnDuplicatePayloadBytesAvoided,
         continuity_memory_reread: longTermMemoryReread,
       }),

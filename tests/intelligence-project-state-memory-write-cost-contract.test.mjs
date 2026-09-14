@@ -10,7 +10,7 @@ const runtime = fs.readFileSync(
 test("project-state memory reuses exact active rows instead of refreshing them", () => {
   assert.match(runtime, /candidateKeys = \[\.\.\.new Set\(rows\.map/);
   assert.match(runtime, /candidateScopes = \[\.\.\.new Set\(rows\.map/);
-  assert.match(runtime, /select\("id,memory_scope,memory_key,memory_type,subject,active"\)/);
+  assert.match(runtime, /select\("id,memory_scope,memory_key,memory_type,subject,active,valid_until,durability:metadata->>durability"\)/);
   assert.match(runtime, /existingByKey = new Map/);
   assert.match(runtime, /row\?\.active === true/);
   assert.match(runtime, /rowsToWrite = rows\.filter/);

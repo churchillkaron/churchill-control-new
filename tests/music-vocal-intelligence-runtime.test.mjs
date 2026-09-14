@@ -28,6 +28,25 @@ function sessionFixture() {
             { midi: 67, note: "G4", mean_cents_deviation: 7, confidence: 0.86 },
           ],
         },
+        vocal_engineering_evidence: {
+          contract: "AVANTIQO_MUSIC_VOCAL_ENGINEERING_EVIDENCE_V1",
+          source_asset_id: "asset-vocal-1",
+          source_offset_seconds: 2,
+          source_duration_seconds: 12,
+          source_audio_measured: true,
+          measured: {
+            source_mean_db: -18.4,
+            source_peak_dbfs: -1.8,
+            body_vs_presence_db: 2.2,
+            presence_vs_body_db: -2.2,
+            sibilance_vs_presence_db: -1.9,
+            rumble_vs_body_db: -9.1,
+            body_dominant: false,
+            presence_deficit: false,
+            sibilance_elevated: true,
+            sub_rumble_elevated: false,
+          },
+        },
         vocal_timing_analysis: {
           contract: "AVANTIQO_MUSIC_VOCAL_TIMING_ANALYSIS_V1",
           source_asset_id: "asset-vocal-1",
@@ -54,21 +73,43 @@ test("vocal intelligence summarizes trusted clip-bound pitch and timing evidence
   assert.equal(result.clips[0].pitch.highest_midi, 67);
   assert.equal(result.clips[0].timing.phrase_count, 2);
   assert.equal(result.clips[0].timing.grid_tendency, "EARLY");
+  assert.equal(result.clips[0].engineering.source_mean_db, -18.4);
+  assert.equal(result.clips[0].engineering.sibilance_elevated, true);
+  assert.equal(result.sibilance_available, true);
+  assert.equal(result.tonal_balance_available, true);
+  assert.equal(result.source_level_available, true);
 });
 test("vocal intelligence excludes stale clip analyses and never invents role relationships", () => {
   const session = sessionFixture();
   session.tracks[0].vocal_role = null;
   session.tracks[0].clips[0].vocal_pitch_analysis.source_asset_id = "old-asset";
+  session.tracks[0].clips[0].vocal_engineering_evidence.source_asset_id = "old-asset";
   const result = buildMusicVocalIntelligence({ multitrack_session: session });
   assert.equal(result.clip_count, 1);
   assert.equal(result.clips[0].pitch, null);
   assert.equal(result.clips[0].declared_vocal_role, null);
   assert.equal(result.vocal_role_inference_available, false);
   assert.equal(result.lead_backing_relationship_available, false);
+  assert.equal(result.clips[0].engineering, null);
   assert.equal(result.sibilance_available, false);
+  assert.equal(result.tonal_balance_available, false);
+  assert.equal(result.source_level_available, false);
   assert.equal(result.breath_analysis_available, false);
   assert.equal(result.mutation_authorized, false);
   assert.equal(result.publication_authorized, false);
+});
+
+const engineeringSource = fs.readFileSync("lib/creative/music/runtime/CreativeMusicVocalEngineeringRuntime.js", "utf8");
+const vocalPitchRouteSource = fs.readFileSync("app/api/creative/music/clip-vocal-pitch-analysis/route.js", "utf8");
+
+test("trusted vocal clip analysis persists read-only engineering evidence", () => {
+  assert.match(engineeringSource, /AVANTIQO_MUSIC_VOCAL_ENGINEERING_EVIDENCE_V1/);
+  assert.match(engineeringSource, /analyzeMusicVocalEngineeringEvidence/);
+  assert.match(engineeringSource, /restoration_applied:\s*false/);
+  assert.match(engineeringSource, /mutation_authorized:\s*false/);
+  assert.match(vocalPitchRouteSource, /analyzeMusicVocalEngineeringEvidence/);
+  assert.match(vocalPitchRouteSource, /vocal_engineering_evidence/);
+  assert.match(vocalPitchRouteSource, /source_asset_id:\s*clip\.source_asset_id/);
 });
 
 const plannerSource = fs.readFileSync("lib/creative/music/capabilities/planWorldClassMusicStudio.js", "utf8");

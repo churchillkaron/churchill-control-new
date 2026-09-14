@@ -15,6 +15,7 @@ import {
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import OperatorExecutionArtifacts from "@/components/operator/OperatorExecutionArtifacts";
+import OperatorConversationText from "@/components/operator/OperatorConversationText";
 import AvantiqoVoiceLibraryPanel from "@/components/operator/AvantiqoVoiceLibraryPanel";
 import { operatorExecutionStatePresentation } from "@/lib/operator/presentation/OperatorExecutionStatePresentation";
 import { transcribeRecordedAudio } from "@/lib/operator/voice/AsyncRecordedTranscriptionClient";
@@ -771,12 +772,16 @@ export default function AvantiqoOperator() {
                 className={
                   message.role === "user"
                     ? "ml-10 rounded-2xl rounded-br-md border border-[#D6A66A]/20 bg-[#D6A66A]/10 px-4 py-3"
-                    : "mr-7 rounded-2xl rounded-bl-md border border-white/[0.07] bg-white/[0.025] px-4 py-3"
+                    : "mr-7 px-1 py-3"
                 }
               >
-                <div className="whitespace-pre-wrap text-[13px] font-light leading-6 text-white/85">
-                  {message.content}
-                </div>
+                {message.role === "assistant" ? (
+                  <OperatorConversationText content={message.content} compact />
+                ) : (
+                  <div className="whitespace-pre-wrap text-[13px] font-light leading-6 text-white/85">
+                    {message.content}
+                  </div>
+                )}
 
                 {message.role === "assistant" ? (
                   <OperatorExecutionArtifacts execution={message.execution || {}} evidence={message.evidence || {}} organizationId={organizationId} />

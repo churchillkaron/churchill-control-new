@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import OperatorExecutionArtifacts from "@/components/operator/OperatorExecutionArtifacts";
+import OperatorConversationText from "@/components/operator/OperatorConversationText";
 import {
   operatorExecutionStatePresentation,
 } from "@/lib/operator/presentation/OperatorExecutionStatePresentation";
@@ -811,12 +812,16 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
             className={
               message.role === "user"
                 ? "ml-10 rounded-2xl rounded-br-md border border-[#D6A66A]/20 bg-[#D6A66A]/10 px-4 py-3"
-                : "mr-8 rounded-2xl rounded-bl-md border border-white/[0.07] bg-black/25 px-4 py-3"
+                : "mr-8 px-1 py-3"
             }
           >
-            <div className="whitespace-pre-wrap text-sm font-light leading-6 text-white/80">
-              {message.content}
-            </div>
+            {message.role === "assistant" ? (
+              <OperatorConversationText content={message.content} />
+            ) : (
+              <div className="whitespace-pre-wrap text-sm font-light leading-6 text-white/80">
+                {message.content}
+              </div>
+            )}
 
             {message.role === "assistant" ? (
               <OperatorExecutionArtifacts execution={message.execution || {}} evidence={message.evidence || {}} organizationId={organizationId} />

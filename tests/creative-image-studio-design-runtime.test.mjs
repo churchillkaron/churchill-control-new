@@ -44,6 +44,7 @@ test("deterministic export runtime owns PNG JPEG and PDF master composition", ()
 });
 
 import { assessImageStudioComposition } from "../lib/creative/stills/runtime/CreativeImageStudioQualityPreflightRuntime.js";
+import { snapLayerBounds, reorderNormalizedLayers } from "../lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js";
 
 test("quality preflight catches unsafe exact design before release", () => {
   const result = assessImageStudioComposition({ artboard: { width: 1080, height: 1350 }, layers: [{ id: "headline", artboard_id: "a", layer_type: "TEXT", visible: true, bounds: { x: 2, y: 2, width: 500, height: 40 }, style: { font_size: 8 }, content: { text: "Headline" } }], comments: [{ status: "OPEN" }] });
@@ -95,4 +96,31 @@ test("Image Studio durable hydration wins over bootstrap and stale loads", () =>
   assert.match(workspaceSource, /bootstrapScopeRef\.current === scopeKey/);
   assert.match(persistenceSource, /activeLoadScopeRef\.current !== scopeKey/);
   assert.match(persistenceSource, /setHydrationState\(hasDurableWorkspace \? "DURABLE" : "EMPTY"\)/);
+});
+
+test("Image Studio snapping uses canvas safe-zone and sibling geometry", () => {
+  const board = { width: 1000, height: 800 };
+  const sibling = { bounds: { x: 200, y: 150, width: 200, height: 100 } };
+  const center = snapLayerBounds({ x: 448, y: 348, width: 100, height: 100 }, board, [], { threshold: 8 });
+  assert.equal(center.bounds.x, 450);
+  assert.equal(center.bounds.y, 350);
+  assert.equal(center.guides.x, 500);
+  assert.equal(center.guides.y, 400);
+  const siblingSnap = snapLayerBounds({ x: 396, y: 250, width: 100, height: 100 }, board, [sibling], { threshold: 8 });
+  assert.equal(siblingSnap.bounds.x, 400);
+  assert.equal(siblingSnap.guides.x, 400);
+  const safeSnap = snapLayerBounds({ x: 46, y: 38, width: 100, height: 100 }, board, [], { threshold: 8 });
+  assert.equal(safeSnap.bounds.x, 50);
+  assert.equal(safeSnap.bounds.y, 40);
+});
+
+test("Image Studio layer reorder always normalizes unique contiguous z-order", () => {
+  const layers = [
+    { id: "a", sort_order: 0 },
+    { id: "b", sort_order: 0 },
+    { id: "c", sort_order: 7 },
+  ];
+  const next = reorderNormalizedLayers(layers, "a", 1);
+  assert.deepEqual(next.map((layer) => layer.id), ["b", "a", "c"]);
+  assert.deepEqual(next.map((layer) => layer.sort_order), [0, 1, 2]);
 });

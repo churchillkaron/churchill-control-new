@@ -59,7 +59,7 @@ test("Image Studio canvas is a structured composition editor, not a flat preview
   assert.match(canvas, /workspace\.updateLayerLocal/);
   assert.match(canvas, /Resize layer/);
   assert.match(canvas, /workspace\.setRegion/);
-  assert.match(canvas, /snapX/);
+  assert.match(canvas, /snapLayerBounds/);
   assert.match(inspector, /Font size/);
   assert.match(inspector, /Rotate/);
   assert.match(layers, /Visibility/);

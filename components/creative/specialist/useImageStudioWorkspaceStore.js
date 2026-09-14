@@ -1,7 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { buildImageStudioWorkspaceState } from "@/lib/creative/stills/runtime/CreativeImageStudioWorkspaceRuntime.js";
-import { adaptBoundsToArtboard, alignLayers, distributeLayers } from "@/lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js";
+import { adaptBoundsToArtboard, alignLayers, distributeLayers, reorderNormalizedLayers } from "@/lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js";
 
 export const useImageStudioWorkspaceStore = create((set) => ({
   ...buildImageStudioWorkspaceState(),
@@ -18,7 +18,7 @@ export const useImageStudioWorkspaceStore = create((set) => ({
   setCommentPoint: (comment_point) => set((state) => ({ ui: { ...state.ui, comment_point } })),
   updateLayerLocal: (id, patch) => set((state) => ({ layers: state.layers.map((layer) => layer.id === id ? { ...layer, ...patch } : layer), dirty: true })),
   addLayerLocal: (layer) => set((state) => ({ layers: [...state.layers, layer], selection: { ...state.selection, layer_ids: [layer.id] }, dirty: true })),
-  reorderLayer: (id, delta) => set((state) => ({ layers: state.layers.map((layer) => layer.id === id ? { ...layer, sort_order: Math.max(0, Number(layer.sort_order || 0) + delta) } : layer), dirty: true })),
+  reorderLayer: (id, delta) => set((state) => { const target = state.layers.find((layer) => layer.id === id); if (!target) return state; const scoped = state.layers.filter((layer) => layer.artboard_id === target.artboard_id); const normalized = reorderNormalizedLayers(scoped, id, delta); const byId = new Map(normalized.map((layer) => [layer.id, layer])); return { layers: state.layers.map((layer) => byId.get(layer.id) || layer), dirty: true }; }),
   duplicateArtboardLocal: (sourceId, preset) => set((state) => {
     const source = state.artboards.find((item) => item.id === sourceId); if (!source) return state;
     const id = crypto.randomUUID();

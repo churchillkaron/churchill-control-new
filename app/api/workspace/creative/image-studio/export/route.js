@@ -159,7 +159,7 @@ export async function POST(request) {
     const comments = workspace.comments.filter((item) => item.artboard_id === artboardId);
     const preflight = assessImageStudioComposition({ artboard, layers, comments });
 
-    if (!preflight.release_ready && body.allow_unsafe_export !== true) {
+    if (!preflight.release_ready) {
       await createImageStudioExport({
         id: crypto.randomUUID(),
         organization_id: access.organizationId,

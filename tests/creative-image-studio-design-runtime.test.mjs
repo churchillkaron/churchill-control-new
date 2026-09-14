@@ -58,7 +58,7 @@ test("export route fails closed when Image Studio preflight is unsafe", async ()
   const source = fs.readFileSync(new URL("../app/api/workspace/creative/image-studio/export/route.js", import.meta.url), "utf8");
   assert.match(source, /IMAGE_STUDIO_EXPORT_PREFLIGHT_BLOCKED/);
   assert.match(source, /status:"BLOCKED"/);
-  assert.match(source, /allow_unsafe_export/);
+  assert.doesNotMatch(source, /allow_unsafe_export/);
 });
 
 test("Image Studio crop and mask stay non-destructive through preview and master export", async () => {
@@ -84,4 +84,15 @@ test("Image Studio export persists a canonical publishable Creative asset", () =
   assert.match(source, /asset_id: asset\.id/);
   assert.match(source, /x-avantiqo-creative-asset-id/);
   assert.match(source, /createHash\("sha256"\)/);
+});
+
+
+test("Image Studio durable hydration wins over bootstrap and stale loads", () => {
+  const workspaceSource = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioWorkspace.jsx", import.meta.url), "utf8");
+  const persistenceSource = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspacePersistence.js", import.meta.url), "utf8");
+  assert.match(workspaceSource, /persistence\.hydrationState !== "EMPTY"/);
+  assert.match(workspaceSource, /persistence\.hydratedScope !== scopeKey/);
+  assert.match(workspaceSource, /bootstrapScopeRef\.current === scopeKey/);
+  assert.match(persistenceSource, /activeLoadScopeRef\.current !== scopeKey/);
+  assert.match(persistenceSource, /setHydrationState\(hasDurableWorkspace \? "DURABLE" : "EMPTY"\)/);
 });

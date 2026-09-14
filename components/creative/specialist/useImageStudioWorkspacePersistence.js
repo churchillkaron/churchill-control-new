@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -18,18 +18,29 @@ async function json(response) {
 export function useImageStudioWorkspacePersistence({ organizationId, projectId, workspace }) {
   const [status, setStatus] = useState("IDLE");
   const [error, setError] = useState(null);
+  const [hydrationState, setHydrationState] = useState("PENDING");
+  const [hydratedScope, setHydratedScope] = useState(null);
+  const activeLoadScopeRef = useRef(null);
   const hydrate = workspace.hydrate;
 
   const load = useCallback(async () => {
     if (!organizationId || !projectId) return null;
-    setStatus("LOADING"); setError(null);
+    const scopeKey = `${organizationId}:${projectId}`;
+    activeLoadScopeRef.current = scopeKey;
+    setStatus("LOADING"); setError(null); setHydrationState("LOADING");
     try {
       const body = await json(await fetch(apiUrl({ organizationId, projectId }), { cache: "no-store" }));
-      if (body.workspace?.artboards?.length) hydrate(body.workspace);
+      if (activeLoadScopeRef.current !== scopeKey) return null;
+      const hasDurableWorkspace = Boolean(body.workspace?.artboards?.length);
+      if (hasDurableWorkspace) hydrate(body.workspace);
+      setHydratedScope(scopeKey);
+      setHydrationState(hasDurableWorkspace ? "DURABLE" : "EMPTY");
       setStatus("READY");
       return body.workspace || null;
     } catch (nextError) {
-      setError(nextError.message); setStatus("ERROR");
+      if (activeLoadScopeRef.current !== scopeKey) return null;
+      setHydratedScope(scopeKey);
+      setError(nextError.message); setHydrationState("ERROR"); setStatus("ERROR");
       return null;
     }
   }, [organizationId, projectId, hydrate]);
@@ -90,6 +101,8 @@ export function useImageStudioWorkspacePersistence({ organizationId, projectId, 
   return {
     status,
     error,
+    hydrationState,
+    hydratedScope,
     load,
     action,
     saveSelectedArtboard,

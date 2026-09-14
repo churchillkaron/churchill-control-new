@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BadgeCheck,
   CheckCircle2,
@@ -88,9 +88,15 @@ export default function ImageStudioWorkspace({ runtime }) {
     projectId: runtime.projectRuntime?.current?.id || null,
     workspace,
   });
+  const bootstrapScopeRef = useRef(null);
   useEffect(() => {
     const projectId = runtime.projectRuntime?.current?.id || null;
     const organizationId = runtime.projectRuntime?.current?.organization_id || runtime.organization_id || null;
+    if (!projectId || !organizationId || !images.length) return;
+    const scopeKey = `${organizationId}:${projectId}`;
+    if (persistence.hydrationState !== "EMPTY" || persistence.hydratedScope !== scopeKey) return;
+    if (bootstrapScopeRef.current === scopeKey) return;
+    bootstrapScopeRef.current = scopeKey;
     const artboards = images.map((asset, index) => ({
       id: asset.artboard_id || `asset-artboard-${asset.id || index + 1}`,
       name: label(asset, index),
@@ -102,7 +108,7 @@ export default function ImageStudioWorkspace({ runtime }) {
     const layers = images.map((asset, index) => ({ id: `asset-layer-${asset.id || index + 1}`, artboard_id: artboards[index]?.id, parent_layer_id: null, source_asset_id: asset.id || null, layer_type: "IMAGE", name: label(asset, index), bounds: { x: 0, y: 0, width: artboards[index]?.width || 1080, height: artboards[index]?.height || 1350 }, transform: { rotation: 0 }, style: {}, content: {}, sort_order: 0, visible: true, locked: false, metadata: { bootstrap_source: true } }));
     workspace.hydrate({ project_id: projectId, organization_id: organizationId, artboards, layers });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runtime.projectRuntime?.current?.id, images]);
+  }, [runtime.projectRuntime?.current?.id, runtime.organization_id, images, persistence.hydrationState, persistence.hydratedScope, workspace]);
   const [selectedId, setSelectedId] = useState(images[0]?.id || null);
   const [leftMode, setLeftMode] = useState("production");
   const selected = images.find((item) => item.id === selectedId) || images[0] || null;

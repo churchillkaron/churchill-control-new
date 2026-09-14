@@ -1,11 +1,13 @@
 "use client";
 import Image from "next/image";
 import ImageStudioCanvasSurface from "./ImageStudioCanvasSurface";
-import { imageStudioPreviewStyle } from "@/lib/creative/stills/runtime/CreativeImageStudioImageGeometryRuntime.js";
+import { imageStudioPreviewGeometry } from "@/lib/creative/stills/runtime/CreativeImageStudioImageGeometryRuntime.js";
 import { measureImageStudioText } from "@/lib/creative/stills/runtime/CreativeImageStudioTypographyRuntime.js";
 
 const n=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
-function assetUrl(id,assets){const asset=assets.find((item)=>item.id===id);return asset?.image_url||asset?.thumbnail_url||asset?.file_url||asset?.url||"";}
+function assetFor(id,assets){return assets.find((item)=>item.id===id)||null;}
+function assetUrl(asset){return asset?.image_url||asset?.thumbnail_url||asset?.file_url||asset?.url||"";}
+function sourceSize(asset,bounds){return{width:n(asset?.width||asset?.metadata?.width||asset?.technical?.width,n(bounds?.width,240)),height:n(asset?.height||asset?.metadata?.height||asset?.technical?.height,n(bounds?.height,180))};}
 
 function Snapshot({ version, assets }) {
   const board=version?.snapshot?.artboard;
@@ -17,7 +19,7 @@ function Snapshot({ version, assets }) {
       {layers.filter((layer)=>layer.visible!==false).sort((a,b)=>n(a.sort_order)-n(b.sort_order)).map((layer)=>{
         const b=layer.bounds||{}; const style={left:n(b.x)*scale,top:n(b.y)*scale,width:n(b.width,240)*scale,height:n(b.height,180)*scale,transform:`rotate(${n(layer.transform?.rotation)}deg)`,zIndex:10+n(layer.sort_order)};
         if(layer.layer_type==="TEXT"){const measured=measureImageStudioText({text:layer.content?.text||"Text",bounds:b,style:layer.style||{}});const justify=measured.verticalAlign==="middle"?"center":measured.verticalAlign==="bottom"?"flex-end":"flex-start";return <div key={layer.id} className="absolute flex overflow-hidden whitespace-pre" style={{...style,fontSize:measured.fontSize*scale,fontWeight:measured.weight,fontFamily:measured.family,color:layer.style?.color||"#111",lineHeight:measured.lineHeight,letterSpacing:measured.letterSpacing*scale,textAlign:measured.align,justifyContent:justify,flexDirection:"column"}}>{measured.visibleLines.join("\n")}</div>;}
-        const url=assetUrl(layer.source_asset_id,assets); const imageStyle=imageStudioPreviewStyle(layer,scale); return <div key={layer.id} className="absolute overflow-hidden" style={{...style,borderRadius:imageStyle.borderRadius}}>{url?<Image src={url} alt="" fill sizes="400px" className="object-cover" style={imageStyle}/>:null}</div>;
+        const asset=assetFor(layer.source_asset_id,assets); const url=assetUrl(asset); const preview=imageStudioPreviewGeometry(layer,sourceSize(asset,b),scale); return <div key={layer.id} className="absolute overflow-hidden" style={{...style,borderRadius:preview.frame.borderRadius}}>{url?<Image src={url} alt="" width={Math.max(1,Math.round(preview.image.width))} height={Math.max(1,Math.round(preview.image.height))} sizes="400px" style={{position:"absolute",left:preview.image.left,top:preview.image.top,width:preview.image.width,height:preview.image.height,maxWidth:"none"}}/>:null}</div>;
       })}
     </div>
   </div>;

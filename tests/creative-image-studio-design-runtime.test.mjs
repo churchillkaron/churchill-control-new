@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { normalizeImageStudioCrop, rotatedImageStudioPlacement } from "../lib/creative/stills/runtime/CreativeImageStudioImageGeometryRuntime.js";
+import { imageStudioPreviewGeometry, imageStudioSourceCropGeometry, normalizeImageStudioCrop, rotatedImageStudioPlacement } from "../lib/creative/stills/runtime/CreativeImageStudioImageGeometryRuntime.js";
 import {
   IMAGE_STUDIO_FORMAT_PRESETS,
   adaptBoundsToArtboard,
@@ -102,9 +102,9 @@ test("Image Studio crop and mask stay non-destructive through preview and master
   const inspector = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerInspector.jsx", import.meta.url), "utf8");
   const renderer = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url), "utf8");
   assert.match(inspector, /Non-destructive crop/);
-  assert.match(canvas, /imageStudioPreviewStyle/);
+  assert.match(canvas, /imageStudioPreviewGeometry/);
   assert.match(renderer, /maskRadius/);
-  assert.match(renderer, /focalX/);
+  assert.match(renderer, /imageStudioSourceCropGeometry/);
 });
 
 test("Image Studio multi-selection moves as a group", async () => {
@@ -217,8 +217,28 @@ test("Image Studio canvas compare and export share image geometry contract", () 
   const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
   const compare = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioVersionCompare.jsx", import.meta.url), "utf8");
   const renderer = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url), "utf8");
-  assert.match(canvas, /imageStudioPreviewStyle/);
-  assert.match(compare, /imageStudioPreviewStyle/);
-  assert.match(renderer, /normalizeImageStudioCrop/);
+  assert.match(canvas, /imageStudioPreviewGeometry/);
+  assert.match(compare, /imageStudioPreviewGeometry/);
+  assert.match(renderer, /imageStudioSourceCropGeometry/);
   assert.match(renderer, /rotatedImageStudioPlacement/);
+});
+
+
+test("Image Studio source crop geometry matches explicit preview and export windows", () => {
+  const layer = { bounds: { x: 0, y: 0, width: 400, height: 400 }, metadata: { crop: { x: 0.75, y: 0.5, zoom: 1.5 }, mask_radius: 20 } };
+  const geometry = imageStudioSourceCropGeometry(layer, { width: 1600, height: 900 });
+  assert.equal(geometry.scaledWidth, 600);
+  assert.equal(geometry.scaledHeight, 600);
+  assert.equal(geometry.renderedWidth, 1067);
+  assert.equal(geometry.renderedHeight, 600);
+  assert.equal(geometry.coverLeft, 467);
+  assert.equal(geometry.coverTop, 0);
+  assert.equal(geometry.extractLeft, 200);
+  assert.equal(geometry.extractTop, 100);
+  const preview = imageStudioPreviewGeometry(layer, { width: 1600, height: 900 }, 0.5);
+  assert.deepEqual(preview.frame, { width: 200, height: 200, borderRadius: 10 });
+  assert.equal(preview.image.left, -333.5);
+  assert.equal(preview.image.top, -50);
+  assert.equal(preview.image.width, 533.5);
+  assert.equal(preview.image.height, 300);
 });

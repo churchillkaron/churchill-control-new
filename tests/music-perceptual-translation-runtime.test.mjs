@@ -56,5 +56,5 @@ test("Dailies has an independent translation reviewer grounded in measured evide
 test("world-class release requires perceptual translation pass", () => {
   assert.match(executionSource, /perceptual_translation_passed/);
   assert.match(executionSource, /PERCEPTUAL_TRANSLATION_REVIEW_REQUIRED/);
-  assert.match(executionSource, /finalTribunal\?\.release_ready === true && finishing\?\.destination_qc_passed === true && finishing\?\.perceptual_translation_passed === true/);
+  assert.match(executionSource, /finalTribunal\?\.release_ready === true && finalFinishing\?\.destination_qc_passed === true && finalFinishing\?\.perceptual_translation_passed === true && finalFinishing\?\.master_set_lineage_current === true/);
 });

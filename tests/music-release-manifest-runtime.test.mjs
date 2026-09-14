@@ -7,22 +7,16 @@ import {
   musicReleasePackageSummary,
   verifyMusicReleaseManifest,
 } from "../lib/creative/music/runtime/CreativeMusicReleaseManifestRuntime.js";
+import { musicSourceGenerationId, musicMasterSetId } from "../lib/creative/music/runtime/CreativeMusicMasterSetLineageRuntime.js";
 
 function fixture() {
+  const sourceAsset = { id: "source-1", metadata: { music_version: 4, music_usage_id: "usage-1", generation_seed: 42, music_preproduction_hash: "pre-hash", music_direction_hash: "dir-hash", owned_engine: true } };
+  const generationId = musicSourceGenerationId(sourceAsset);
+  const masterSetId = musicMasterSetId(sourceAsset);
   return buildMusicReleaseManifest({
     organization_id: "org-1",
     creative_project_id: "project-1",
-    source_asset: {
-      id: "source-1",
-      metadata: {
-        music_version: 4,
-        music_usage_id: "usage-1",
-        generation_seed: 42,
-        music_preproduction_hash: "pre-hash",
-        music_direction_hash: "dir-hash",
-        owned_engine: true,
-      },
-    },
+    source_asset: sourceAsset,
     finishing: {
       mastering_plan: {
         contract: "AVANTIQO_MUSIC_MASTERING_DESTINATION_V1",
@@ -40,6 +34,10 @@ function fixture() {
             id: "master-asset-1",
             file_url: "storage://creative-assets/master.wav",
             metadata: {
+              source_asset_id: sourceAsset.id,
+              music_generation_id: generationId,
+              music_master_set_id: masterSetId,
+              music_master_set_current: true,
               mastering_variant_id: "master-1-streaming",
               mastering_destinations: ["streaming"],
               master_id: "master-hash",

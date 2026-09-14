@@ -44,6 +44,7 @@ test("deterministic export runtime owns PNG JPEG and PDF master composition", ()
 });
 
 import { assessImageStudioComposition } from "../lib/creative/stills/runtime/CreativeImageStudioQualityPreflightRuntime.js";
+import { measureImageStudioText } from "../lib/creative/stills/runtime/CreativeImageStudioTypographyRuntime.js";
 import { snapLayerBounds, reorderNormalizedLayers } from "../lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js";
 
 test("quality preflight catches unsafe exact design before release", () => {
@@ -123,4 +124,39 @@ test("Image Studio layer reorder always normalizes unique contiguous z-order", (
   const next = reorderNormalizedLayers(layers, "a", 1);
   assert.deepEqual(next.map((layer) => layer.id), ["b", "a", "c"]);
   assert.deepEqual(next.map((layer) => layer.sort_order), [0, 1, 2]);
+});
+
+test("Image Studio typography wraps deterministically and reports overflow", () => {
+  const measured = measureImageStudioText({
+    text: "World class intelligent design system",
+    bounds: { width: 180, height: 90 },
+    style: { font_size: 30, line_height: 1, font_weight: 600, text_align: "center", vertical_align: "middle" },
+  });
+  assert.ok(measured.lines.length > 1);
+  assert.equal(measured.align, "center");
+  assert.equal(measured.verticalAlign, "middle");
+  assert.equal(measured.maxLines, 3);
+  assert.equal(measured.visibleLines.length, Math.min(measured.lines.length, measured.maxLines));
+
+  const overflow = assessImageStudioComposition({
+    artboard: { width: 1080, height: 1350 },
+    layers: [{ id: "copy", layer_type: "TEXT", visible: true, bounds: { x: 100, y: 100, width: 140, height: 40 }, style: { font_size: 32, line_height: 1 }, content: { text: "This text cannot fit inside this tiny box" } }],
+  });
+  assert.ok(overflow.blockers.includes("TEXT_OVERFLOW:copy"));
+  assert.equal(overflow.release_ready, false);
+});
+
+test("Image Studio preview compare and export share typography contract", () => {
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  const compare = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioVersionCompare.jsx", import.meta.url), "utf8");
+  const inspector = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerInspector.jsx", import.meta.url), "utf8");
+  const exportRuntime = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url), "utf8");
+  for (const source of [canvas, compare, exportRuntime]) assert.match(source, /measureImageStudioText/);
+  assert.match(canvas, /visibleLines\.join/);
+  assert.match(compare, /visibleLines\.join/);
+  assert.match(exportRuntime, /measured\.visibleLines/);
+  assert.match(inspector, /Font family/);
+  assert.match(inspector, /Line height/);
+  assert.match(inspector, /Letter spacing/);
+  assert.match(inspector, /Vertical/);
 });

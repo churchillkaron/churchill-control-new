@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import ImageStudioCanvasSurface from "./ImageStudioCanvasSurface";
+import { measureImageStudioText } from "@/lib/creative/stills/runtime/CreativeImageStudioTypographyRuntime.js";
 
 const n=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
 function assetUrl(id,assets){const asset=assets.find((item)=>item.id===id);return asset?.image_url||asset?.thumbnail_url||asset?.file_url||asset?.url||"";}
@@ -14,7 +15,7 @@ function Snapshot({ version, assets }) {
     <div className="relative shrink-0 overflow-hidden bg-white" style={{width:n(board.width,1080)*scale,height:n(board.height,1350)*scale}}>
       {layers.filter((layer)=>layer.visible!==false).sort((a,b)=>n(a.sort_order)-n(b.sort_order)).map((layer)=>{
         const b=layer.bounds||{}; const style={left:n(b.x)*scale,top:n(b.y)*scale,width:n(b.width,240)*scale,height:n(b.height,180)*scale,transform:`rotate(${n(layer.transform?.rotation)}deg)`,zIndex:10+n(layer.sort_order)};
-        if(layer.layer_type==="TEXT")return <div key={layer.id} className="absolute whitespace-pre-wrap" style={{...style,fontSize:n(layer.style?.font_size,36)*scale,fontWeight:layer.style?.font_weight||500,color:layer.style?.color||"#111",lineHeight:layer.style?.line_height||1.05}}>{layer.content?.text||"Text"}</div>;
+        if(layer.layer_type==="TEXT"){const measured=measureImageStudioText({text:layer.content?.text||"Text",bounds:b,style:layer.style||{}});const justify=measured.verticalAlign==="middle"?"center":measured.verticalAlign==="bottom"?"flex-end":"flex-start";return <div key={layer.id} className="absolute flex overflow-hidden whitespace-pre" style={{...style,fontSize:measured.fontSize*scale,fontWeight:measured.weight,fontFamily:measured.family,color:layer.style?.color||"#111",lineHeight:measured.lineHeight,letterSpacing:measured.letterSpacing*scale,textAlign:measured.align,justifyContent:justify,flexDirection:"column"}}>{measured.visibleLines.join("\n")}</div>;}
         const url=assetUrl(layer.source_asset_id,assets); return <div key={layer.id} className="absolute" style={style}>{url?<Image src={url} alt="" fill sizes="400px" className="object-cover"/>:null}</div>;
       })}
     </div>

@@ -154,3 +154,99 @@ test("Tribunal repairs act only on blocking reviewers", () => {
   assert.match(tribunal, /Passed-reviewer feedback is preservation evidence, not repair authority/);
   assert.match(tribunal, /physically plausible formulation/);
 });
+
+test("Tribunal recovery replays paid repairs and preserves only unchanged reviewer evidence", () => {
+  const block = workflowResolutionSource.slice(workflowResolutionSource.indexOf("async function recoverSettledTribunalResume"));
+  const tribunalSource = fs.readFileSync("lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js", "utf8");
+  assert.match(block, /CREATIVE_DYNAMIC_TRIBUNAL_REPAIR_V1/);
+  assert.match(block, /replaySettledRepair/);
+  assert.match(block, /passingByReviewer\.delete/);
+  assert.match(block, /replayed_plan: replayPlan/);
+  assert.match(block, /recoveredTribunalResume,\s*input\.tribunal_resume_package/);
+  assert.match(tribunalSource, /creative_review_evidence_hash/);
+});
+
+test("narrative review reuse tracks causal story rather than cosmetic scene labels", () => {
+  const tribunalSource = fs.readFileSync("lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js", "utf8");
+  const start = tribunalSource.indexOf("function narrativeSceneEvidence");
+  const end = tribunalSource.indexOf("function brandProductionEvidence", start);
+  const block = tribunalSource.slice(start, end);
+  assert.match(block, /objective/);
+  assert.match(block, /state_change/);
+  assert.match(block, /transition_logic/);
+  const returnBlock = block.slice(block.indexOf("return {"));
+  assert.doesNotMatch(returnBlock, /scene\.title/);
+  assert.doesNotMatch(returnBlock, /scene\.emotion/);
+});
+
+test("Tribunal-approved temporal masters continue without rebuilding Direction", () => {
+  const orchestrator = fs.readFileSync(
+    "lib/creative/director/orchestrator/CreativePipelineOrchestrator.js",
+    "utf8",
+  );
+  assert.match(
+    orchestrator,
+    /durableTemporalMaster \|\| tribunalApprovedMaster \|\| await CreativeUniversalTemporalDirectionRuntime\.create/,
+  );
+  assert.match(orchestrator, /approved_master: null/);
+});
+
+test("Creative recovery checkpoints clear only after downstream pipeline handoff", () => {
+  const workflow = fs.readFileSync(
+    "lib/creative/director/runtime/CreativeWorkflowResolutionRuntime.js",
+    "utf8",
+  );
+  const director = fs.readFileSync(
+    "lib/creative/director/runtime/CreativeDirectorRuntime.js",
+    "utf8",
+  );
+  const resumeBlock = workflow.slice(workflow.indexOf("async resumeApprovedCouncil"));
+  assert.doesNotMatch(resumeBlock, /await clearResolvedDirectionCheckpoints\(context\);[\s\S]*resumed_from_approved_council/);
+  assert.match(workflow, /async finalizeResolvedHandoff/);
+  assert.match(director, /pipeline = await buildCreativePipeline/);
+  assert.match(director, /await CreativeWorkflowResolutionRuntime\.finalizeResolvedHandoff/);
+});
+
+test("settled Creative ledger replays in chronological authority order", () => {
+  const workflow = fs.readFileSync(
+    "lib/creative/director/runtime/CreativeWorkflowResolutionRuntime.js",
+    "utf8",
+  );
+  const councilSource = fs.readFileSync(
+    "lib/creative/director/runtime/CreativeConceptCouncilRuntime.js",
+    "utf8",
+  );
+  assert.match(workflow, /const councilRevisionIndex = operations/);
+  assert.match(workflow, /slice\(baseIndex \+ 1, Number\.isInteger\(councilRevisionIndex\)/);
+  assert.match(councilSource, /async function recoverSettledPostRevisionRepairs/);
+  assert.match(councilSource, /repair_results: await recoverSettledPostRevisionRepairs\(context, revisionOperation\)/);
+});
+
+
+test("pre-Council paid recovery can defer the current semantic mission contract", () => {
+  const source = fs.readFileSync("lib/creative/director/runtime/CreativeMasterPlanRuntime.js", "utf8");
+  const start = source.indexOf("async resumeFromResult");
+  const end = source.indexOf("availableProductionCapabilities,", start);
+  const block = source.slice(start, end);
+  assert.match(block, /defer_semantic_mission_contract/);
+  assert.match(block, /\? policyPlan/);
+  assert.match(block, /applySemanticMissionContract\(policyPlan/);
+});
+
+
+test("settled Council repair recovery uses the latest bounded repair window", () => {
+  const council = fs.readFileSync("lib/creative/director/runtime/CreativeConceptCouncilRuntime.js", "utf8");
+  const workflow = fs.readFileSync("lib/creative/director/runtime/CreativeWorkflowResolutionRuntime.js", "utf8");
+  assert.match(council, /entries\.slice\(-2\)/);
+  assert.match(workflow, /repairEntries\.slice\(-2\)/);
+});
+
+
+test("Council uses the same world-class score policy before selection", () => {
+  const council = fs.readFileSync("lib/creative/director/runtime/CreativeConceptCouncilRuntime.js", "utf8");
+  assert.match(council, /WORLD_CLASS_CONCEPT_POLICY/);
+  assert.match(council, /policy\.minimum_weighted_score/);
+  assert.match(council, /policy\.critic_minimums/);
+  assert.doesNotMatch(council, /weightedScore < 76/);
+  assert.doesNotMatch(council, /weighted_score >= 76/);
+});

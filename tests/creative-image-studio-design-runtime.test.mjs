@@ -303,3 +303,26 @@ test("Image Studio group rotation preserves orbital geometry around the selectio
   assert.equal(rotated[0].transform.rotation, 90);
   assert.equal(rotated[1].transform.rotation, 100);
 });
+
+test("Image Studio binds text preview and export to the same exact governed font asset", () => {
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  const inspector = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerInspector.jsx", import.meta.url), "utf8");
+  const toolbar = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasToolbar.jsx", import.meta.url), "utf8");
+  const fontHook = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioFonts.js", import.meta.url), "utf8");
+  const fontRuntime = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioFontRuntime.js", import.meta.url), "utf8");
+  const exportRuntime = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url), "utf8");
+  const preflight = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioQualityPreflightRuntime.js", import.meta.url), "utf8");
+  const route = fs.readFileSync(new URL("../app/api/workspace/creative/image-studio/font/route.js", import.meta.url), "utf8");
+  assert.match(toolbar, /font_asset_id:"platform-font:inter"/);
+  assert.match(inspector, /Font family \/ exact asset/);
+  assert.match(fontHook, /new FontFace/);
+  assert.match(canvas, /fonts\.fontFamilyFor/);
+  assert.match(fontRuntime, /resolveCreativeDesignFont/);
+  assert.match(fontRuntime, /ORGANIZATION_FONT/);
+  assert.match(route, /requireOrganizationAccess/);
+  assert.match(route, /materializeImageStudioFont/);
+  assert.match(exportRuntime, /renderFontFaces/);
+  assert.match(exportRuntime, /font\.bytes\.toString\("base64"\)/);
+  assert.match(exportRuntime, /CREATIVE_IMAGE_STUDIO_DETERMINISTIC_EXPORT_V2/);
+  assert.match(preflight, /FONT_ASSET_MISSING/);
+});

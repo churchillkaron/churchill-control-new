@@ -46,6 +46,7 @@ export async function POST(request) {
         staff_account_id: access.staff?.id,
         email: access.userEmail,
       },
+      execution_brief: body.execution_brief || body.executionBrief || null,
     });
 
     return Response.json({ success: true, ...result });

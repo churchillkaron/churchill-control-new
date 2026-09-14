@@ -71,5 +71,5 @@ test("Dailies and Business Partner share the same bounded rhythm intelligence", 
   assert.match(dailiesSource, /buildMusicRhythmIntelligence\(analysis\)/);
   assert.match(contextSource, /rhythm_intelligence/);
   assert.match(contextSource, /rhythm_analysis_available/);
-  assert.match(contextSource, /downbeat_analysis_available:\s*false/);
+  assert.match(contextSource, /downbeat_analysis_available:\s*semantic\.rhythm_intelligence\?\.downbeat_analysis_ready === true/);
 });

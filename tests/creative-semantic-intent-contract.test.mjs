@@ -142,3 +142,15 @@ test("validated post-repair master resumes before the older Council checkpoint",
   assert.match(block, /approved_master: postRepairCheckpoint/);
   assert.match(block, /master_repair_results: \[\]/);
 });
+test("post-repair Creative masters are not re-dominated before validation", () => {
+  const block = council.slice(council.indexOf("async function resumeApprovedCouncilPlan"));
+  assert.match(block, /CREATIVE_POST_REPAIR_MASTER_CHECKPOINT_V1/);
+  assert.match(block, /postRepairCheckpoint\s*\? withSemanticMissionContract\(approvedPlan, input\)/);
+});
+test("Tribunal repairs act only on blocking reviewers", () => {
+  const tribunal = fs.readFileSync("lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js", "utf8");
+  assert.match(tribunal, /passed_reviewers_to_preserve/);
+  assert.match(tribunal, /blockingTribunal/);
+  assert.match(tribunal, /Passed-reviewer feedback is preservation evidence, not repair authority/);
+  assert.match(tribunal, /physically plausible formulation/);
+});

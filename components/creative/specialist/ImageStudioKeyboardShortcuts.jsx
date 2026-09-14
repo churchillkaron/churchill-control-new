@@ -24,7 +24,9 @@ export default function ImageStudioKeyboardShortcuts({ workspace, persistence })
       if ((command && key === "z" && event.shiftKey) || (event.ctrlKey && key === "y")) { event.preventDefault(); workspace.redo(); return; }
       if (command && key === "c" && workspace.selection.layer_ids.length) { event.preventDefault(); workspace.copySelected(); return; }
       if (command && key === "v") { event.preventDefault(); workspace.pasteClipboard(); return; }
-      if (command && key === "d") { event.preventDefault(); workspace.duplicateSelected(); }
+      if (command && key === "d") { event.preventDefault(); workspace.duplicateSelected(); return; }
+      if (command && key === "g" && event.shiftKey) { event.preventDefault(); workspace.ungroupSelected?.(); return; }
+      if (command && key === "g") { event.preventDefault(); workspace.groupSelected?.(); return; }
       if (command && key === "s") { event.preventDefault(); void persistence?.saveSelectedArtboard?.(); }
       if (event.key === "Escape") workspace.selectLayers([]);
     };

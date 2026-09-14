@@ -17,6 +17,8 @@ import {
   Maximize2,
   Undo2,
   Redo2,
+  Group,
+  Ungroup,
 } from "lucide-react";
 
 const TOOLS = [
@@ -40,6 +42,8 @@ export default function ImageStudioCanvasToolbar({ workspace, persistence }) {
       <span className="mx-1 h-4 w-px bg-[#DED9D1]" />
       <button type="button" title="Undo" disabled={!workspace.historyPast?.length} onClick={workspace.undo} className="rounded-md p-1.5 text-[#918B83] hover:text-[#665F57] disabled:cursor-not-allowed disabled:opacity-20"><Undo2 className="h-3.5 w-3.5" /></button>
       <button type="button" title="Redo" disabled={!workspace.historyFuture?.length} onClick={workspace.redo} className="rounded-md p-1.5 text-[#918B83] hover:text-[#665F57] disabled:cursor-not-allowed disabled:opacity-20"><Redo2 className="h-3.5 w-3.5" /></button>
+      <button type="button" title="Group selection" disabled={(workspace.selection.layer_ids?.length || 0) < 2} onClick={workspace.groupSelected} className="rounded-md p-1.5 text-[#918B83] hover:text-[#D6A66A] disabled:cursor-not-allowed disabled:opacity-20"><Group className="h-3.5 w-3.5" /></button>
+      <button type="button" title="Ungroup selection" disabled={!workspace.layers.some((layer) => workspace.selection.layer_ids?.includes(layer.id) && layer.parent_layer_id)} onClick={workspace.ungroupSelected} className="rounded-md p-1.5 text-[#918B83] hover:text-[#D6A66A] disabled:cursor-not-allowed disabled:opacity-20"><Ungroup className="h-3.5 w-3.5" /></button>
       <span className="mx-1 h-4 w-px bg-[#DED9D1]" />
       <button type="button" title="Add text" onClick={() => { const artboardId=workspace.selection.artboard_id; if(!artboardId)return; workspace.addLayerLocal({ id: crypto.randomUUID(), artboard_id: artboardId, parent_layer_id:null, source_asset_id:null, layer_type:"TEXT", name:"Text", bounds:{x:80,y:80,width:420,height:100}, transform:{rotation:0}, style:{font_asset_id:"platform-font:inter",font_family:"Inter",font_source:"AVANTIQO_FONT_LIBRARY",font_size:52,font_weight:600,color:"#111111",line_height:1.05,letter_spacing:0,text_align:"left",vertical_align:"top"}, content:{text:"New text"}, sort_order:workspace.layers.length+1, visible:true, locked:false, metadata:{} }); }} className="rounded-md p-1.5 text-[#918B83] hover:text-[#D6A66A]">
         <Plus className="h-3.5 w-3.5" />

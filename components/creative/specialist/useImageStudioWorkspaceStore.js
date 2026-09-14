@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { buildImageStudioWorkspaceState } from "@/lib/creative/stills/runtime/CreativeImageStudioWorkspaceRuntime.js";
 import { adaptLayerToArtboard, alignLayers, distributeLayers, reorderNormalizedLayers } from "@/lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js";
+import { buildImageStudioGroupPatch } from "@/lib/creative/stills/runtime/CreativeImageStudioInteractionRuntime.js";
 import { captureImageStudioHistoryState, pushImageStudioHistory, restoreImageStudioHistoryState } from "@/lib/creative/stills/runtime/CreativeImageStudioHistoryRuntime.js";
 
 export const useImageStudioWorkspaceStore = create((set) => ({
@@ -20,6 +21,41 @@ export const useImageStudioWorkspaceStore = create((set) => ({
   selectArtboard: (artboard_id) => set((state) => ({ selection: { ...state.selection, artboard_id, layer_ids: [] } })),
   selectLayers: (layer_ids) => set((state) => ({ selection: { ...state.selection, layer_ids: Array.isArray(layer_ids) ? layer_ids : [] } })),
   toggleLayerSelection: (id) => set((state) => ({ selection: { ...state.selection, layer_ids: state.selection.layer_ids.includes(id) ? state.selection.layer_ids.filter((item) => item !== id) : [...state.selection.layer_ids, id] } })),
+  selectLayerOrGroup: (id, additive = false) => set((state) => {
+    const layer = state.layers.find((item) => item.id === id);
+    if (!layer) return state;
+    const ids = layer.parent_layer_id
+      ? state.layers.filter((item) => item.artboard_id === layer.artboard_id && item.parent_layer_id === layer.parent_layer_id).map((item) => item.id)
+      : [id];
+    if (!additive) return { selection: { ...state.selection, layer_ids: ids } };
+    const selected = new Set(state.selection.layer_ids);
+    const allSelected = ids.every((item) => selected.has(item));
+    ids.forEach((item) => allSelected ? selected.delete(item) : selected.add(item));
+    return { selection: { ...state.selection, layer_ids: [...selected] } };
+  }),
+  groupSelected: () => set((state) => {
+    const patch = buildImageStudioGroupPatch(state.layers, state.selection.layer_ids, `group-${crypto.randomUUID()}`);
+    if (!patch) return state;
+    const childIds = new Set(patch.child_ids);
+    const byId = new Map(patch.child_patches.map((item) => [item.id, item]));
+    return {
+      layers: state.layers.map((layer) => childIds.has(layer.id) ? { ...layer, ...byId.get(layer.id), metadata: { ...(layer.metadata || {}), logical_group_bounds: patch.bounds } } : layer),
+      dirty: true,
+      historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)),
+      historyFuture: [],
+    };
+  }),
+  ungroupSelected: () => set((state) => {
+    const selected = new Set(state.selection.layer_ids);
+    const groupIds = new Set(state.layers.filter((layer) => selected.has(layer.id) && layer.parent_layer_id).map((layer) => layer.parent_layer_id));
+    if (!groupIds.size) return state;
+    return {
+      layers: state.layers.map((layer) => groupIds.has(layer.parent_layer_id) ? { ...layer, parent_layer_id: null, metadata: { ...(layer.metadata || {}), logical_group_bounds: undefined } } : layer),
+      dirty: true,
+      historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)),
+      historyFuture: [],
+    };
+  }),
   setViewport: (viewport) => set((state) => ({ viewport: { ...state.viewport, ...viewport } })),
   requestFitToView: () => set((state) => ({ ui: { ...state.ui, fit_request: Number(state.ui.fit_request || 0) + 1 } })),
   toggleCompare: () => set((state) => ({ ui: { ...state.ui, compare: !state.ui.compare } })),

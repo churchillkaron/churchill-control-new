@@ -53,8 +53,39 @@ test("Image Studio equal-gap guide detects professional spacing continuation", (
 test("Image Studio Layers panel supports additive professional selection and hierarchy", () => {
   const panel = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerPanel.jsx", import.meta.url), "utf8");
   assert.match(panel, /event\.shiftKey\|\|event\.metaKey\|\|event\.ctrlKey/);
-  assert.match(panel, /toggleLayerSelection/);
+  assert.match(panel, /selectLayerOrGroup/);
   assert.match(panel, /parent_layer_id/);
   assert.match(panel, /FolderTree/);
   assert.match(panel, /selected/);
+});
+
+test("Image Studio canvas wires live marquee selection and equal-gap guides", () => {
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  assert.match(canvas, /selectImageStudioLayersInMarquee/);
+  assert.match(canvas, /imageStudioEqualGapGuide/);
+  assert.match(canvas, /marqueeDraft/);
+  assert.match(canvas, /H gap/);
+  assert.match(canvas, /V gap/);
+  assert.match(canvas, /mode:e\.altKey\?"contain":"intersect"/);
+});
+
+test("Image Studio logical groups remain export-safe child layers", () => {
+  const store = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspaceStore.js", import.meta.url), "utf8");
+  const toolbar = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasToolbar.jsx", import.meta.url), "utf8");
+  const panel = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerPanel.jsx", import.meta.url), "utf8");
+  assert.match(store, /buildImageStudioGroupPatch/);
+  assert.match(store, /selectLayerOrGroup/);
+  assert.match(store, /groupSelected/);
+  assert.match(store, /ungroupSelected/);
+  assert.match(store, /parent_layer_id: null/);
+  assert.match(toolbar, /Group selection/);
+  assert.match(toolbar, /Ungroup selection/);
+  assert.match(panel, /selectLayerOrGroup/);
+});
+
+test("Image Studio exposes professional group and ungroup shortcuts", () => {
+  const shortcuts = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioKeyboardShortcuts.jsx", import.meta.url), "utf8");
+  assert.match(shortcuts, /key === "g" && event\.shiftKey/);
+  assert.match(shortcuts, /workspace\.ungroupSelected/);
+  assert.match(shortcuts, /workspace\.groupSelected/);
 });

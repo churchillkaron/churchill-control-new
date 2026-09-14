@@ -6,6 +6,7 @@ import {
   buildMusicListeningEvidence,
   listeningEvidenceStatus,
 } from "../lib/creative/music/runtime/CreativeMusicListeningEvidenceRuntime.js";
+import { buildMusicListeningContext } from "../lib/creative/music/runtime/CreativeMusicListeningContextRuntime.js";
 
 function fixture() {
   return buildMusicListeningEvidence({
@@ -91,4 +92,47 @@ test("Business Partner Music planning exposes current or stale listening status"
   assert.match(plannerSource, /listeningEvidenceStatus/);
   assert.match(plannerSource, /music_listening_evidence_status/);
   assert.match(plannerSource, /music_listening_evidence:/);
+});
+
+test("current listening evidence becomes a reasoning-safe Business Partner context", () => {
+  const context = buildMusicListeningContext({
+    evidence: fixture(),
+    current: { current_master_asset_id: "master-v2", current_version_id: "master-v2" },
+    sections: [
+      { start_seconds: 0, end_seconds: 30, label: "Verse 1" },
+      { start_seconds: 30, end_seconds: 60, label: "Chorus 1" },
+      { start_seconds: 60, end_seconds: 90, label: "Chorus 2" },
+    ],
+  });
+  assert.equal(context.contract, "AVANTIQO_MUSIC_LISTENING_CONTEXT_V1");
+  assert.equal(context.evidence_is_current, true);
+  assert.equal(context.may_inform_advice, true);
+  assert.equal(context.may_infer_user_intent, false);
+  assert.equal(context.mutation_authorized, false);
+  assert.equal(context.publication_authorized, false);
+  assert.ok(context.reasoning_brief.some((item) => item.includes("108.2 BPM")));
+  assert.ok(context.regions.some((region) => region.section?.section_label === "Chorus 2"));
+});
+
+test("stale listening evidence is excluded from reasoning context", () => {
+  const context = buildMusicListeningContext({
+    evidence: fixture(),
+    current: { current_master_asset_id: "master-v3", current_version_id: "master-v3" },
+    sections: [{ start_seconds: 60, end_seconds: 90, label: "Chorus 2" }],
+  });
+  assert.equal(context, null);
+});
+
+const worldClassSource = fs.readFileSync("lib/creative/music/runtime/CreativeMusicWorldClassStudioRuntime.js", "utf8");
+const creativeDevelopmentSource = fs.readFileSync("lib/creative/music/runtime/CreativeMusicCreativeDevelopmentRuntime.js", "utf8");
+
+test("Business Partner planning injects only the derived listening context", () => {
+  assert.match(plannerSource, /buildMusicListeningContext/);
+  assert.match(plannerSource, /music_listening_context:\s*listeningContext/);
+  assert.match(worldClassSource, /listening_context:\s*listeningContext/);
+  assert.match(worldClassSource, /listening_evidence_never_authorizes_mutation:\s*true/);
+  assert.match(worldClassSource, /stale_listening_evidence_excluded_from_reasoning:\s*true/);
+  assert.match(creativeDevelopmentSource, /listening_context:\s*listeningContext/);
+  assert.match(creativeDevelopmentSource, /descriptive_not_user_intent:\s*true/);
+  assert.match(creativeDevelopmentSource, /mutation_authorized:\s*false/);
 });

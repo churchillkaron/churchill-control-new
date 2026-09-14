@@ -132,3 +132,13 @@ test("empty weakest-link is derived only from existing substantive review eviden
   assert.match(block, /entry\.length >= 40/);
   assert.match(block, /weakest_link_derived_from_existing_review: true/);
 });
+test("validated post-repair master resumes before the older Council checkpoint", () => {
+  const postRepairIndex = workflowResolutionSource.indexOf("const postRepairCheckpoint = storedPostRepairMasterCheckpoint");
+  const councilIndex = workflowResolutionSource.indexOf("const councilCheckpoint = storedCouncilCheckpoint", postRepairIndex);
+  assert.ok(postRepairIndex >= 0);
+  assert.ok(councilIndex > postRepairIndex);
+  const block = workflowResolutionSource.slice(postRepairIndex, councilIndex);
+  assert.match(block, /completeMasterStory\(postRepairCheckpoint\.plan\)/);
+  assert.match(block, /approved_master: postRepairCheckpoint/);
+  assert.match(block, /master_repair_results: \[\]/);
+});

@@ -75,8 +75,10 @@ export function operatorExecutionArtifacts({ execution = {}, evidence = {}, orga
     const mimeType = text(owner?.mime_type || owner?.mimeType || owner?.content_type || owner?.mime);
     const kind = mediaKind(raw, mimeType, key);
     seen.add(url);
+    const downloadUrl = safeArtifactUrl(owner?.download_url, organizationId) || url;
     items.push({
       url,
+      download_url: downloadUrl,
       kind,
       mime_type: mimeType || null,
       label: itemLabel(owner, parent, kind, items.length),
@@ -102,7 +104,16 @@ export function operatorExecutionArtifacts({ execution = {}, evidence = {}, orga
 
     for (const [key, raw] of Object.entries(value)) {
       const normalizedKey = text(key).toLowerCase();
-      if (typeof raw === "string" && URL_KEYS.has(normalizedKey)) add(raw, value, parent || {}, normalizedKey);
+      const ownerHasPreview = Boolean(
+        safeArtifactUrl(value?.preview_url, organizationId) ||
+        safeArtifactUrl(value?.pdf_url, organizationId) ||
+        safeArtifactUrl(value?.document_url, organizationId),
+      );
+      if (
+        typeof raw === "string" &&
+        URL_KEYS.has(normalizedKey) &&
+        !(normalizedKey === "download_url" && ownerHasPreview)
+      ) add(raw, value, parent || {}, normalizedKey);
       if (raw && typeof raw === "object") visit(raw, depth + 1, value);
     }
   }
@@ -209,7 +220,7 @@ export default function OperatorExecutionArtifacts({ execution = {}, evidence = 
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
                     <a href={artifact.url} target="_blank" rel="noreferrer noopener" className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Open ${artifact.label}`}><ArrowUpRight size={11} /></a>
-                    <a href={artifact.url} download className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Download ${artifact.label}`}><Download size={11} /></a>
+                    <a href={artifact.download_url || artifact.url} download className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Download ${artifact.label}`}><Download size={11} /></a>
                   </span>
                 </div>
               </div>

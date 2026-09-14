@@ -6,6 +6,10 @@ import { normalizeHumanBusinessPartnerUnderstanding } from "../lib/operator/runt
 const turn = fs.readFileSync("lib/operator/runtime/OperatorTurnRuntime.js", "utf8");
 const fast = fs.readFileSync("lib/operator/runtime/OperatorFastConversationRuntime.js", "utf8");
 
+const home = fs.readFileSync("components/operator/HomeAvantiqoIntelligence.jsx", "utf8");
+const panel = fs.readFileSync("components/operator/AvantiqoOperator.jsx", "utf8");
+const conversationText = fs.readFileSync("components/operator/OperatorConversationText.jsx", "utf8");
+
 function semantic(deliverable, route = "evidence") {
   return normalizeHumanBusinessPartnerUnderstanding({
     route, evidence_scope: "both", reasoning_depth: "deep",
@@ -40,4 +44,13 @@ test("conversational product analysis uses inspection as supporting evidence", (
   assert.match(fast, /code_ai_readonly_inspection/);
   assert.match(fast, /supporting evidence, not the requested response format/);
   assert.match(fast, /answer as a normal discussion rather than an audit report/);
+});
+
+test("conversational product analysis does not leak inspection as execution UI", () => {
+  assert.match(fast, /execution:\s*null/);
+  assert.match(home, /OperatorConversationText content=\{message\.content\}/);
+  assert.match(panel, /OperatorConversationText content=\{message\.content\} compact/);
+  assert.match(conversationText, /data-avantiqo-conversation-text/);
+  assert.doesNotMatch(home, /message\.role === "assistant"[\s\S]{0,220}rounded-bl-md/);
+  assert.doesNotMatch(panel, /message\.role === "assistant"[\s\S]{0,220}rounded-bl-md/);
 });

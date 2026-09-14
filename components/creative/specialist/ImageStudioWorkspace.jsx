@@ -25,6 +25,7 @@ import ImageStudioLayerPanel from "./ImageStudioLayerPanel";
 import ImageStudioExportPanel from "./ImageStudioExportPanel";
 import ImageStudioCommentComposer from "./ImageStudioCommentComposer";
 import ImageStudioCommentsPanel from "./ImageStudioCommentsPanel";
+import ImageStudioConflictBanner from "./ImageStudioConflictBanner";
 import ImageStudioLayerInspector from "./ImageStudioLayerInspector";
 import ImageStudioQualityPanel from "./ImageStudioQualityPanel";
 import ImageStudioKeyboardShortcuts from "./ImageStudioKeyboardShortcuts";
@@ -191,6 +192,7 @@ export default function ImageStudioWorkspace({ runtime }) {
           </div>
         </div>
 
+        <ImageStudioConflictBanner persistence={persistence} />
         <ImageStudioFormatBar workspace={workspace} />
         <div className="relative min-h-0 flex-1 overflow-auto p-4 lg:p-6">
           <ImageStudioCommentComposer workspace={workspace} persistence={persistence} />

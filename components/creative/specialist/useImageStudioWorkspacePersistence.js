@@ -11,8 +11,17 @@ function apiUrl({ organizationId, projectId }) {
 
 async function json(response) {
   const body = await response.json().catch(() => ({}));
-  if (!response.ok || body.success === false) throw new Error(body.error || `Image Studio request failed (${response.status})`);
+  if (!response.ok || body.success === false) {
+    const error = new Error(body.error || `Image Studio request failed (${response.status})`);
+    error.status = response.status;
+    error.code = body.error || null;
+    throw error;
+  }
   return body;
+}
+
+function isConflict(error) {
+  return error?.status === 409 || /IMAGE_STUDIO_(?:ARTBOARD|LAYER)_CONFLICT/.test(String(error?.code || error?.message || ""));
 }
 
 export function useImageStudioWorkspacePersistence({ organizationId, projectId, workspace }) {
@@ -20,6 +29,7 @@ export function useImageStudioWorkspacePersistence({ organizationId, projectId, 
   const [error, setError] = useState(null);
   const [hydrationState, setHydrationState] = useState("PENDING");
   const [hydratedScope, setHydratedScope] = useState(null);
+  const [conflict, setConflict] = useState(null);
   const activeLoadScopeRef = useRef(null);
   const hydrate = workspace.hydrate;
 
@@ -56,26 +66,50 @@ export function useImageStudioWorkspacePersistence({ organizationId, projectId, 
       setStatus("READY");
       return body.result;
     } catch (nextError) {
-      setError(nextError.message); setStatus("ERROR");
+      setError(nextError.message); setStatus(isConflict(nextError) ? "CONFLICT" : "ERROR");
       throw nextError;
     }
   }, [organizationId, projectId]);
 
   const saveSelectedArtboard = useCallback(async () => {
+    if (conflict) throw new Error("IMAGE_STUDIO_CONFLICT_REQUIRES_RESOLUTION");
     const current = workspace.artboards.find((item) => item.id === workspace.selection.artboard_id) || workspace.artboards[0];
     if (!current) throw new Error("No artboard selected");
-    const id = UUID.test(current.id) ? current.id : crypto.randomUUID();
-    const saved = await action(UUID.test(current.id) ? "update_artboard" : "create_artboard", { ...current, id, expected_updated_at: UUID.test(current.id) ? current.updated_at || null : null });
-    workspace.selectArtboard(saved.id);
-    const activeLayers = workspace.layers.filter((item) => item.artboard_id === current.id || item.artboard_id === saved.id);
-    for (const layer of activeLayers) {
-      await action("update_layer", { ...layer, artboard_id: saved.id, id: UUID.test(layer.id) ? layer.id : crypto.randomUUID(), expected_updated_at: UUID.test(layer.id) ? layer.updated_at || null : null });
+    const activeLayers = workspace.layers.filter((item) => item.artboard_id === current.id);
+    const localSnapshot = { artboard: structuredClone(current), layers: structuredClone(activeLayers) };
+    try {
+      const id = UUID.test(current.id) ? current.id : crypto.randomUUID();
+      const saved = await action(UUID.test(current.id) ? "update_artboard" : "create_artboard", { ...current, id, expected_updated_at: UUID.test(current.id) ? current.updated_at || null : null });
+      workspace.selectArtboard(saved.id);
+      for (const layer of activeLayers) {
+        await action("update_layer", { ...layer, artboard_id: saved.id, id: UUID.test(layer.id) ? layer.id : crypto.randomUUID(), expected_updated_at: UUID.test(layer.id) ? layer.updated_at || null : null });
+      }
+      await load();
+      workspace.selectArtboard(saved.id);
+      workspace.markSaved();
+      return saved;
+    } catch (nextError) {
+      if (isConflict(nextError)) setConflict({ message: nextError.message, local_snapshot: localSnapshot, created_at: new Date().toISOString(), server_reloaded: false });
+      throw nextError;
     }
-    await load();
-    workspace.selectArtboard(saved.id);
-    workspace.markSaved();
-    return saved;
-  }, [action, load, workspace]);
+  }, [action, conflict, load, workspace]);
+
+  const reloadLatestAfterConflict = useCallback(async () => {
+    if (!conflict) return null;
+    const latest = await load();
+    setConflict((current) => current ? { ...current, server_reloaded: true } : current);
+    setStatus("CONFLICT_RELOADED");
+    return latest;
+  }, [conflict, load]);
+
+  const restoreConflictDraftAsCopy = useCallback(() => {
+    if (!conflict?.local_snapshot) return null;
+    const restoredId = workspace.restoreArtboardDraftCopy(conflict.local_snapshot);
+    setConflict(null); setError(null); setStatus("READY");
+    return restoredId;
+  }, [conflict, workspace]);
+
+  const discardConflict = useCallback(() => { setConflict(null); setError(null); setStatus("READY"); }, []);
 
   const snapshotSelectedArtboard = useCallback(async () => {
     let artboard = workspace.artboards.find((item) => item.id === workspace.selection.artboard_id) || workspace.artboards[0];
@@ -102,9 +136,13 @@ export function useImageStudioWorkspacePersistence({ organizationId, projectId, 
     error,
     hydrationState,
     hydratedScope,
+    conflict,
     load,
     action,
     saveSelectedArtboard,
     snapshotSelectedArtboard,
+    reloadLatestAfterConflict,
+    restoreConflictDraftAsCopy,
+    discardConflict,
   };
 }

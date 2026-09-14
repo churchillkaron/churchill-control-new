@@ -170,3 +170,22 @@ test("Image Studio comments support focused durable review workflow", () => {
   assert.match(store, /comment_focus_id/);
   assert.match(store, /layer_ids: comment.layer_id/);
 });
+
+test("Image Studio collaboration conflicts preserve local drafts and recover safely", () => {
+  const persistence = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspacePersistence.js", import.meta.url), "utf8");
+  const store = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspaceStore.js", import.meta.url), "utf8");
+  const banner = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioConflictBanner.jsx", import.meta.url), "utf8");
+  const workspace = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioWorkspace.jsx", import.meta.url), "utf8");
+
+  assert.match(persistence, /error\.status = response\.status/);
+  assert.match(persistence, /IMAGE_STUDIO_CONFLICT_REQUIRES_RESOLUTION/);
+  assert.match(persistence, /local_snapshot: localSnapshot/);
+  assert.match(persistence, /reloadLatestAfterConflict/);
+  assert.match(persistence, /restoreConflictDraftAsCopy/);
+  assert.match(store, /local-conflict-/);
+  assert.match(store, /Recovered local draft/);
+  assert.match(banner, /will not overwrite the newer server version/);
+  assert.match(banner, /Reload latest/);
+  assert.match(banner, /Restore local as copy/);
+  assert.match(workspace, /ImageStudioConflictBanner/);
+});

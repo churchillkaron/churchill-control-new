@@ -8,6 +8,7 @@ import MusicMidiFilePanel from "./MusicMidiFilePanel";
 import MusicMidiGroovePanel from "./MusicMidiGroovePanel";
 import MusicMidiHarmonyPanel from "./MusicMidiHarmonyPanel";
 import MusicMidiInstrumentPreviewPanel from "./MusicMidiInstrumentPreviewPanel";
+import MusicInstrumentDesignerPanel from "./MusicInstrumentDesignerPanel";
 import MusicMidiPianoRollPanel from "./MusicMidiPianoRollPanel";
 import MusicSamplerPanel from "./MusicSamplerPanel";
 import MusicTempoMapPanel from "./MusicTempoMapPanel";
@@ -50,6 +51,7 @@ export default function MusicMidiStudioPanel({ organizationId, projectId }) {
         <MusicMidiControlAutomationPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
         <MusicMidiDrumSequencerPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
         <MusicSamplerPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+        <MusicInstrumentDesignerPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
         <MusicMidiInstrumentPreviewPanel session={session} disabled={busy} />
       </> : <div className="rounded-2xl border border-white/8 bg-black/25 p-6 text-xs text-white/35">{busy ? "Loading MIDI project…" : "MIDI project unavailable."}</div>}
     </div>

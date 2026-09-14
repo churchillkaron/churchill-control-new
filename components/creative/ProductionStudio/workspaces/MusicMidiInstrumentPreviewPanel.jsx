@@ -45,6 +45,7 @@ export default function MusicMidiInstrumentPreviewPanel({ session, disabled = fa
         clip,
         bpm: session?.bpm || 120,
         preset,
+        instrument: track?.instrument || null,
         onEnded: () => {
           if (transportRef.current === transport) transportRef.current = null;
           setPlaying(false);
@@ -77,11 +78,11 @@ export default function MusicMidiInstrumentPreviewPanel({ session, disabled = fa
           {!track?.clips?.length ? <option value="">No MIDI clips</option> : null}
           {(track?.clips || []).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
         </select>
-        <select disabled={disabled || playing} value={preset} onChange={(event) => setPreset(event.target.value)} className="rounded-lg border border-white/8 bg-black/30 px-2 py-1.5 text-[8px] text-white/45 disabled:opacity-25">
+        {track?.instrument?.design ? <div className="rounded-lg border border-white/8 bg-black/30 px-2 py-1.5 text-[8px] text-white/45">Saved sound · {track.instrument.design.label || track.instrument.design.preset_id}</div> : <select disabled={disabled || playing} value={preset} onChange={(event) => setPreset(event.target.value)} className="rounded-lg border border-white/8 bg-black/30 px-2 py-1.5 text-[8px] text-white/45 disabled:opacity-25">
           {PRESETS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-        </select>
+        </select>}
       </div>
-      {clip ? <div className="mt-2 text-[7px] text-white/18">{clip.notes?.length || 0} notes · {session?.bpm || 120} BPM · preview only, not release render</div> : null}
+      {clip ? <div className="mt-2 text-[7px] text-white/18">{clip.notes?.length || 0} notes · {session?.bpm || 120} BPM · {track?.instrument?.design ? `owned sound ${track.instrument.design.fingerprint}` : "factory preview"} · preview only, not release render</div> : null}
       {error ? <div className="mt-2 rounded-lg border border-red-300/10 bg-red-400/[0.02] px-2 py-1.5 text-[7px] text-red-100/55">{error}</div> : null}
     </div>
   );

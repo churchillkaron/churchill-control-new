@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { normalizeImageStudioCrop, rotatedImageStudioPlacement } from "../lib/creative/stills/runtime/CreativeImageStudioImageGeometryRuntime.js";
 import {
   IMAGE_STUDIO_FORMAT_PRESETS,
   adaptBoundsToArtboard,
@@ -68,8 +69,8 @@ test("Image Studio crop and mask stay non-destructive through preview and master
   const inspector = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerInspector.jsx", import.meta.url), "utf8");
   const renderer = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url), "utf8");
   assert.match(inspector, /Non-destructive crop/);
-  assert.match(canvas, /metadata\?\.crop/);
-  assert.match(renderer, /mask_radius/);
+  assert.match(canvas, /imageStudioPreviewStyle/);
+  assert.match(renderer, /maskRadius/);
   assert.match(renderer, /focalX/);
 });
 
@@ -159,4 +160,32 @@ test("Image Studio preview compare and export share typography contract", () => 
   assert.match(inspector, /Line height/);
   assert.match(inspector, /Letter spacing/);
   assert.match(inspector, /Vertical/);
+});
+
+
+test("Image Studio crop geometry preserves focal point and center through rotation", () => {
+  const layer = { bounds: { x: 100, y: 200, width: 400, height: 200 }, metadata: { crop: { x: 0.75, y: 0.25, zoom: 2 }, mask_radius: 30 }, transform: { rotation: 45 } };
+  const crop = normalizeImageStudioCrop(layer);
+  assert.equal(crop.width, 400);
+  assert.equal(crop.height, 200);
+  assert.equal(crop.scaledWidth, 800);
+  assert.equal(crop.scaledHeight, 400);
+  assert.equal(crop.extractLeft, 400);
+  assert.equal(crop.extractTop, 0);
+  assert.equal(crop.maskRadius, 30);
+  const placement = rotatedImageStudioPlacement(layer, { width: 425, height: 425 });
+  assert.equal(placement.centerX, 300);
+  assert.equal(placement.centerY, 300);
+  assert.equal(placement.left, 88);
+  assert.equal(placement.top, 88);
+});
+
+test("Image Studio canvas compare and export share image geometry contract", () => {
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  const compare = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioVersionCompare.jsx", import.meta.url), "utf8");
+  const renderer = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url), "utf8");
+  assert.match(canvas, /imageStudioPreviewStyle/);
+  assert.match(compare, /imageStudioPreviewStyle/);
+  assert.match(renderer, /normalizeImageStudioCrop/);
+  assert.match(renderer, /rotatedImageStudioPlacement/);
 });

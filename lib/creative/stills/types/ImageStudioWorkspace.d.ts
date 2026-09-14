@@ -64,6 +64,7 @@ export type ImageStudioCommandType =
   | "create_comment"
   | "add_reference"
   | "create_comment"
+  | "update_comment"
   | "request_review"
   | "resolve_comment"
   | "snapshot_version"

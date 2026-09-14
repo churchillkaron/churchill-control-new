@@ -24,6 +24,7 @@ import ImageStudioCanvasSurface from "./ImageStudioCanvasSurface";
 import ImageStudioLayerPanel from "./ImageStudioLayerPanel";
 import ImageStudioExportPanel from "./ImageStudioExportPanel";
 import ImageStudioCommentComposer from "./ImageStudioCommentComposer";
+import ImageStudioCommentsPanel from "./ImageStudioCommentsPanel";
 import ImageStudioLayerInspector from "./ImageStudioLayerInspector";
 import ImageStudioQualityPanel from "./ImageStudioQualityPanel";
 import ImageStudioKeyboardShortcuts from "./ImageStudioKeyboardShortcuts";
@@ -229,6 +230,7 @@ export default function ImageStudioWorkspace({ runtime }) {
 
         <ImageStudioLayerInspector workspace={workspace} />
         <ImageStudioLayerPanel workspace={workspace} />
+        <ImageStudioCommentsPanel workspace={workspace} persistence={persistence} />
         <ImageStudioExportPanel workspace={workspace} persistence={persistence} />
         <ImageStudioQualityPanel workspace={workspace} />
 

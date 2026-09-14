@@ -32,7 +32,7 @@ test("migration creates durable editor-specific tables without duplicating canon
   assert.match(sql, /enable row level security/g);
 });
 test("workspace persistence commands cover references comments snapshots and exports", () => {
-  for (const type of ["add_reference", "create_comment", "resolve_comment", "snapshot_version", "export_artboard"]) {
+  for (const type of ["add_reference", "create_comment", "update_comment", "resolve_comment", "snapshot_version", "export_artboard"]) {
     assert.equal(validateImageStudioCommand({ type, organization_id: "o", project_id: "p" }).type, type);
   }
 });
@@ -146,4 +146,27 @@ test("Image Studio wires transaction-aware undo redo and clipboard shortcuts", (
 test("Image Studio durable hydrate resets local history and clipboard", () => {
   const store = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspaceStore.js", import.meta.url), "utf8");
   assert.match(store, /hydrate: \(input\) => set\(\{ \.\.\.buildImageStudioWorkspaceState\(input\), historyPast: \[\], historyFuture: \[\], historyTransaction: null, clipboardLayers: \[\] \}\)/);
+});
+
+
+test("Image Studio comments support focused durable review workflow", () => {
+  const runtime = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioWorkspaceRuntime.js", import.meta.url), "utf8");
+  const actions = fs.readFileSync(new URL("../lib/creative/stills/actions/CreativeImageStudioWorkspaceActions.js", import.meta.url), "utf8");
+  const repository = fs.readFileSync(new URL("../lib/creative/stills/repositories/CreativeImageStudioWorkspaceRepository.js", import.meta.url), "utf8");
+  const panel = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCommentsPanel.jsx", import.meta.url), "utf8");
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  const store = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspaceStore.js", import.meta.url), "utf8");
+  assert.match(runtime, /update_comment/);
+  assert.match(actions, /updateImageStudioComment/);
+  assert.match(repository, /assigned_to/);
+  assert.match(repository, /resolved_at/);
+  assert.match(repository, /eq\("organization_id", record.organization_id\)/);
+  assert.match(repository, /eq\("creative_project_id", record.creative_project_id\)/);
+  assert.match(panel, /Show resolved/);
+  assert.match(panel, /resolve_comment/);
+  assert.match(panel, /status: "OPEN"/);
+  assert.match(panel, /Assignee user ID/);
+  assert.match(canvas, /workspace\.focusComment\(comment\)/);
+  assert.match(store, /comment_focus_id/);
+  assert.match(store, /layer_ids: comment.layer_id/);
 });

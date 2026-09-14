@@ -90,3 +90,19 @@ test("Image Studio professional design intelligence exposes responsive formats c
   assert.match(exportRoute, /renderImageStudioMaster/);
   assert.match(exportRoute, /createImageStudioExport/);
 });
+
+test("Image Studio saves use optimistic concurrency and snapshots allocate versions atomically", () => {
+  const repository = fs.readFileSync(new URL("../lib/creative/stills/repositories/CreativeImageStudioWorkspaceRepository.js", import.meta.url), "utf8");
+  const persistence = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspacePersistence.js", import.meta.url), "utf8");
+  const route = fs.readFileSync(new URL("../app/api/workspace/creative/image-studio/route.js", import.meta.url), "utf8");
+  const migration = fs.readFileSync(new URL("../supabase/migrations/20260914094000_image_studio_concurrency_guards.sql", import.meta.url), "utf8");
+  assert.match(repository, /expected_updated_at/);
+  assert.match(repository, /IMAGE_STUDIO_ARTBOARD_CONFLICT/);
+  assert.match(repository, /IMAGE_STUDIO_LAYER_CONFLICT/);
+  assert.match(persistence, /expected_updated_at/);
+  assert.doesNotMatch(persistence, /version_number:\s*Math\.max/);
+  assert.match(repository, /create_image_studio_snapshot_atomic/);
+  assert.match(migration, /pg_advisory_xact_lock/);
+  assert.match(migration, /max\(version_number\)/);
+  assert.match(route, /status = \/IMAGE_STUDIO_\(\?:ARTBOARD\|LAYER\)_CONFLICT\/\.test\(message\) \? 409/);
+});

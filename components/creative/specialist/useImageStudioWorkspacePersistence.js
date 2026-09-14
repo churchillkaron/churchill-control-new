@@ -65,11 +65,11 @@ export function useImageStudioWorkspacePersistence({ organizationId, projectId, 
     const current = workspace.artboards.find((item) => item.id === workspace.selection.artboard_id) || workspace.artboards[0];
     if (!current) throw new Error("No artboard selected");
     const id = UUID.test(current.id) ? current.id : crypto.randomUUID();
-    const saved = await action(UUID.test(current.id) ? "update_artboard" : "create_artboard", { ...current, id });
+    const saved = await action(UUID.test(current.id) ? "update_artboard" : "create_artboard", { ...current, id, expected_updated_at: UUID.test(current.id) ? current.updated_at || null : null });
     workspace.selectArtboard(saved.id);
     const activeLayers = workspace.layers.filter((item) => item.artboard_id === current.id || item.artboard_id === saved.id);
     for (const layer of activeLayers) {
-      await action("update_layer", { ...layer, artboard_id: saved.id, id: UUID.test(layer.id) ? layer.id : crypto.randomUUID() });
+      await action("update_layer", { ...layer, artboard_id: saved.id, id: UUID.test(layer.id) ? layer.id : crypto.randomUUID(), expected_updated_at: UUID.test(layer.id) ? layer.updated_at || null : null });
     }
     await load();
     workspace.selectArtboard(saved.id);
@@ -85,7 +85,6 @@ export function useImageStudioWorkspacePersistence({ organizationId, projectId, 
     const result = await action("snapshot_version", {
       id: crypto.randomUUID(),
       artboard_id: artboard.id,
-      version_number: Math.max(0, ...versions.map((item) => Number(item.version_number) || 0)) + 1,
       status: "WORKING",
       summary: "Image Studio workspace snapshot",
       snapshot: { artboard, layers: workspace.layers.filter((item) => item.artboard_id === artboard.id) },

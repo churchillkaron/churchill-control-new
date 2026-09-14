@@ -73,7 +73,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("CREATIVE_IMAGE_STUDIO_WORKSPACE_ACTION_FAILED", error);
     const message = error?.message || "Unable to update Image Studio workspace";
-    const status = /required|unsupported|invalid/i.test(message) ? 400 : 500;
+    const status = /IMAGE_STUDIO_(?:ARTBOARD|LAYER)_CONFLICT/.test(message) ? 409 : /required|unsupported|invalid/i.test(message) ? 400 : 500;
     return NextResponse.json({ success: false, error: message }, { status });
   }
 }

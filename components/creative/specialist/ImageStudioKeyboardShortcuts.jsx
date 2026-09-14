@@ -14,6 +14,12 @@ export default function ImageStudioKeyboardShortcuts({ workspace, persistence })
       if (event.key === "ArrowDown") { event.preventDefault(); workspace.nudgeSelected(0, step); }
       if ((event.key === "Backspace" || event.key === "Delete") && workspace.selection.layer_ids.length) { event.preventDefault(); workspace.deleteSelected(); }
       const key = event.key.toLowerCase();
+      if (command && key === "a") {
+        event.preventDefault();
+        const boardId = workspace.selection.artboard_id;
+        workspace.selectLayers(workspace.layers.filter((layer) => layer.artboard_id === boardId && layer.visible !== false && !layer.locked).map((layer) => layer.id));
+        return;
+      }
       if (command && key === "z" && !event.shiftKey) { event.preventDefault(); workspace.undo(); return; }
       if ((command && key === "z" && event.shiftKey) || (event.ctrlKey && key === "y")) { event.preventDefault(); workspace.redo(); return; }
       if (command && key === "c" && workspace.selection.layer_ids.length) { event.preventDefault(); workspace.copySelected(); return; }

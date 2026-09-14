@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { imageStudioPreviewGeometry, imageStudioSourceCropGeometry, normalizeImageStudioCrop, rotatedImageStudioPlacement } from "../lib/creative/stills/runtime/CreativeImageStudioImageGeometryRuntime.js";
+import { normalizeImageStudioCrop, rotatedImageStudioPlacement, imageStudioSourceCropGeometry, imageStudioPreviewGeometry, clipImageStudioCompositePlacement } from "../lib/creative/stills/runtime/CreativeImageStudioImageGeometryRuntime.js";
 import {
   IMAGE_STUDIO_FORMAT_PRESETS,
   adaptBoundsToArtboard,
@@ -241,4 +241,18 @@ test("Image Studio source crop geometry matches explicit preview and export wind
   assert.equal(preview.image.top, -50);
   assert.equal(preview.image.width, 533.5);
   assert.equal(preview.image.height, 300);
+});
+
+
+test("Image Studio clips rotated composites exactly to the artboard", () => {
+  const leftTop = clipImageStudioCompositePlacement({ left: -30, top: -20, renderedWidth: 140, renderedHeight: 120 }, { width: 100, height: 100 });
+  assert.deepEqual(leftTop, { visible: true, left: 0, top: 0, width: 100, height: 100, extractLeft: 30, extractTop: 20 });
+  const rightBottom = clipImageStudioCompositePlacement({ left: 70, top: 80, renderedWidth: 80, renderedHeight: 60 }, { width: 100, height: 100 });
+  assert.deepEqual(rightBottom, { visible: true, left: 70, top: 80, width: 30, height: 20, extractLeft: 0, extractTop: 0 });
+  const outside = clipImageStudioCompositePlacement({ left: 120, top: 20, renderedWidth: 30, renderedHeight: 30 }, { width: 100, height: 100 });
+  assert.equal(outside.visible, false);
+  const renderer = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url), "utf8");
+  assert.match(renderer, /clipImageStudioCompositePlacement/);
+  assert.match(renderer, /if \(!clipped\.visible\) continue/);
+  assert.match(renderer, /left: clipped\.extractLeft/);
 });

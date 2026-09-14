@@ -364,3 +364,32 @@ test("Image Studio exposes Photoshop-class non-destructive image adjustments in 
   assert.match(exportRuntime, /sharp_blend_mode/);
   assert.match(exportRuntime, /CREATIVE_IMAGE_STUDIO_EFFECTS_V1/);
 });
+
+test("Image Studio smart format adaptation preserves full bleed, safe typography, focal identity and exact styles", async () => {
+  const design = await import("../lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js");
+  const source = { id: "feed", width: 1080, height: 1350 };
+  const target = { id: "story", width: 1080, height: 1920 };
+  const background = design.adaptLayerToArtboard({ id: "bg", layer_type: "IMAGE", bounds: { x: 0, y: 0, width: 1080, height: 1350 }, metadata: { focal_point: { x: 0.7, y: 0.4 } } }, source, target);
+  assert.deepEqual(background.bounds, { x: 0, y: 0, width: 1080, height: 1920 });
+  assert.equal(background.metadata.responsive_strategy, "FULL_BLEED_COVER");
+
+  const textLayer = design.adaptLayerToArtboard({ id: "headline", layer_type: "TEXT", bounds: { x: 40, y: 30, width: 1000, height: 220 }, style: { font_asset_id: "platform-font:inter", font_family: "Inter", font_size: 80, letter_spacing: 2 }, metadata: {} }, source, target);
+  const safe = design.buildSafeZone(target);
+  assert.ok(textLayer.bounds.x >= safe.x);
+  assert.ok(textLayer.bounds.y >= safe.y);
+  assert.ok(textLayer.bounds.x + textLayer.bounds.width <= safe.x + safe.width + 0.001);
+  assert.equal(textLayer.style.font_asset_id, "platform-font:inter");
+  assert.equal(textLayer.metadata.responsive_strategy, "SAFE_ZONE_TYPOGRAPHY");
+
+  const brand = design.adaptLayerToArtboard({ id: "logo", layer_type: "IMAGE", bounds: { x: 800, y: 80, width: 180, height: 100 }, metadata: { brand_locked: true, focal_point: { x: 0.85, y: 0.08 } } }, source, target);
+  assert.equal(brand.metadata.brand_locked, true);
+  assert.equal(brand.metadata.responsive_strategy, "BRAND_LOCKED_FOCAL");
+});
+
+test("Image Studio format duplication uses role-aware smart adaptation instead of blind resize", () => {
+  const store = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspaceStore.js", import.meta.url), "utf8");
+  const bar = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioFormatBar.jsx", import.meta.url), "utf8");
+  assert.match(store, /adaptLayerToArtboard/);
+  assert.match(store, /duplicateArtboardLocal/);
+  assert.match(bar, /Smart adapt as/);
+});

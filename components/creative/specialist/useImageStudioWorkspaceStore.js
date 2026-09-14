@@ -1,7 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { buildImageStudioWorkspaceState } from "@/lib/creative/stills/runtime/CreativeImageStudioWorkspaceRuntime.js";
-import { adaptBoundsToArtboard, alignLayers, distributeLayers, reorderNormalizedLayers } from "@/lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js";
+import { adaptLayerToArtboard, alignLayers, distributeLayers, reorderNormalizedLayers } from "@/lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js";
 import { captureImageStudioHistoryState, pushImageStudioHistory, restoreImageStudioHistoryState } from "@/lib/creative/stills/runtime/CreativeImageStudioHistoryRuntime.js";
 
 export const useImageStudioWorkspaceStore = create((set) => ({
@@ -33,7 +33,7 @@ export const useImageStudioWorkspaceStore = create((set) => ({
     const source = state.artboards.find((item) => item.id === sourceId); if (!source) return state;
     const id = crypto.randomUUID();
     const board = { ...source, id, name: `${source.name} · ${preset.label}`, width: preset.width, height: preset.height, sort_order: state.artboards.length, status: "DRAFT", export_preset: { id: preset.id } };
-    const copied = state.layers.filter((layer) => layer.artboard_id === sourceId).map((layer, index) => ({ ...layer, id: crypto.randomUUID(), artboard_id: id, bounds: adaptBoundsToArtboard(layer.bounds, source, board, layer.metadata?.focal_point), sort_order: index }));
+    const copied = state.layers.filter((layer) => layer.artboard_id === sourceId).map((layer, index) => ({ ...adaptLayerToArtboard(layer, source, board), id: crypto.randomUUID(), artboard_id: id, sort_order: index }));
     return { artboards: [...state.artboards, board], layers: [...state.layers, ...copied], selection: { artboard_id: id, layer_ids: [] }, dirty: true, historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)), historyFuture: [] };
   }),
   alignSelected: (mode) => set((state) => { const board = state.artboards.find((item) => item.id === state.selection.artboard_id); const chosen = state.layers.filter((layer) => state.selection.layer_ids.includes(layer.id)); if (!chosen.length) return state; const aligned = alignLayers(chosen, board, mode); const map = new Map(aligned.map((layer) => [layer.id, layer])); return { layers: state.layers.map((layer) => map.get(layer.id) || layer), dirty: true, historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)), historyFuture: [] }; }),

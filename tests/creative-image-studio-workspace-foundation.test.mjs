@@ -212,3 +212,18 @@ test("Image Studio historical versions remain append-only durable records", () =
   assert.match(migration, /Immutable artboard snapshots/);
   assert.match(migration, /based_on_version_id uuid references public\.creative_image_versions/);
 });
+
+
+test("Image Studio reference board distinguishes exact evidence from inspiration", () => {
+  const panel = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioReferencePanel.jsx", import.meta.url), "utf8");
+  const actions = fs.readFileSync(new URL("../lib/creative/stills/actions/CreativeImageStudioWorkspaceActions.js", import.meta.url), "utf8");
+  const runtime = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioWorkspaceRuntime.js", import.meta.url), "utf8");
+  assert.match(runtime, /update_reference/);
+  assert.match(actions, /command.type === "add_reference" \|\| command.type === "update_reference"/);
+  assert.match(panel, /Must follow/);
+  assert.match(panel, /Inspiration/);
+  assert.match(panel, /IDENTITY_REFERENCE/);
+  assert.match(panel, /STYLE_REFERENCE/);
+  assert.match(panel, /Lock exact/);
+  assert.match(panel, /Reference strength/);
+});

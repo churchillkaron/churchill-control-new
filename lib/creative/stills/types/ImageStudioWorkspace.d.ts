@@ -61,6 +61,7 @@ export type ImageStudioCommandType =
   | "replace_asset"
   | "create_variant"
   | "add_reference"
+  | "update_reference"
   | "create_comment"
   | "add_reference"
   | "create_comment"

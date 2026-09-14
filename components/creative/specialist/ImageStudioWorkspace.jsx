@@ -21,6 +21,7 @@ import ImageStudioCanvasToolbar from "./ImageStudioCanvasToolbar";
 import ImageStudioFormatBar from "./ImageStudioFormatBar";
 import ImageStudioVersionCompare from "./ImageStudioVersionCompare";
 import ImageStudioVersionHistoryPanel from "./ImageStudioVersionHistoryPanel";
+import ImageStudioReferencePanel from "./ImageStudioReferencePanel";
 import ImageStudioCanvasSurface from "./ImageStudioCanvasSurface";
 import ImageStudioLayerPanel from "./ImageStudioLayerPanel";
 import ImageStudioExportPanel from "./ImageStudioExportPanel";
@@ -233,6 +234,7 @@ export default function ImageStudioWorkspace({ runtime }) {
 
         <ImageStudioLayerInspector workspace={workspace} />
         <ImageStudioLayerPanel workspace={workspace} />
+        <ImageStudioReferencePanel workspace={workspace} persistence={persistence} assets={images} />
         <ImageStudioCommentsPanel workspace={workspace} persistence={persistence} />
         <ImageStudioVersionHistoryPanel workspace={workspace} />
         <ImageStudioExportPanel workspace={workspace} persistence={persistence} />

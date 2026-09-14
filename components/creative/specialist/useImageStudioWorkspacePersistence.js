@@ -119,8 +119,9 @@ export function useImageStudioWorkspacePersistence({ organizationId, projectId, 
     const result = await action("snapshot_version", {
       id: crypto.randomUUID(),
       artboard_id: artboard.id,
+      based_on_version_id: artboard.metadata?.restored_from_version_id || null,
       status: "WORKING",
-      summary: "Image Studio workspace snapshot",
+      summary: artboard.metadata?.restored_from_version_id ? `Restored lineage snapshot from v${artboard.metadata?.restored_from_version_number || "?"}` : "Image Studio workspace snapshot",
       snapshot: { artboard, layers: workspace.layers.filter((item) => item.artboard_id === artboard.id) },
     });
     await load();

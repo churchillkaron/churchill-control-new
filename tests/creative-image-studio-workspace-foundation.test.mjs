@@ -189,3 +189,26 @@ test("Image Studio collaboration conflicts preserve local drafts and recover saf
   assert.match(banner, /Restore local as copy/);
   assert.match(workspace, /ImageStudioConflictBanner/);
 });
+
+test("Image Studio version history restores immutable snapshots only as new drafts", () => {
+  const store = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspaceStore.js", import.meta.url), "utf8");
+  const panel = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioVersionHistoryPanel.jsx", import.meta.url), "utf8");
+  const persistence = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspacePersistence.js", import.meta.url), "utf8");
+  assert.match(store, /restoreVersionAsDraft/);
+  assert.match(store, /local-version-/);
+  assert.match(store, /restored_from_version_id/);
+  assert.match(store, /Restored from v/);
+  assert.match(panel, /Immutable/);
+  assert.match(panel, /Restore copy/);
+  assert.match(panel, /setCompareVersion/);
+  assert.match(persistence, /based_on_version_id: artboard\.metadata\?\.restored_from_version_id/);
+});
+
+test("Image Studio historical versions remain append-only durable records", () => {
+  const repository = fs.readFileSync(new URL("../lib/creative/stills/repositories/CreativeImageStudioWorkspaceRepository.js", import.meta.url), "utf8");
+  const migration = fs.readFileSync(new URL("../supabase/migrations/20260913094645_image_studio_workspace_foundation.sql", import.meta.url), "utf8");
+  assert.match(repository, /create_image_studio_snapshot_atomic/);
+  assert.doesNotMatch(repository, /from\(TABLES\.versions\)\.update/);
+  assert.match(migration, /Immutable artboard snapshots/);
+  assert.match(migration, /based_on_version_id uuid references public\.creative_image_versions/);
+});

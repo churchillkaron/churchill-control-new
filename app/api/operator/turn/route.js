@@ -683,11 +683,15 @@ export async function POST(request) {
       effectiveProjectState,
       normalizedResult,
     );
-    const persistedDecision = {
-      ...normalizedDecision,
+    const turnDuplicatePayloadBytesAvoided = Buffer.byteLength(JSON.stringify({
+      response_text: responseText,
       agreement_state: object(nextAgreementState),
       project_state: object(nextProjectState),
-    };
+    }), "utf8");
+    const persistedDecision = { ...normalizedDecision };
+    delete persistedDecision.response_text;
+    delete persistedDecision.agreement_state;
+    delete persistedDecision.project_state;
 
     const assistantPersistStartedAt = Date.now();
     const longTermLearnStartedAt = Date.now();
@@ -788,6 +792,7 @@ export async function POST(request) {
         context_dropped_memory_items: contextBudget.telemetry.dropped_memory_items,
         project_state_memory_learned: longTermLearned,
         project_state_memory_reused: projectStateMemoryReused,
+        turn_duplicate_payload_bytes_avoided: turnDuplicatePayloadBytesAvoided,
         continuity_memory_reread: longTermMemoryReread,
       }),
     );

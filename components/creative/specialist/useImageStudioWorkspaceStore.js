@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { buildImageStudioWorkspaceState } from "@/lib/creative/stills/runtime/CreativeImageStudioWorkspaceRuntime.js";
 import { adaptLayerToArtboard, alignLayers, distributeLayers, reorderNormalizedLayers } from "@/lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js";
 import { buildImageStudioGroupPatch } from "@/lib/creative/stills/runtime/CreativeImageStudioInteractionRuntime.js";
+import { applyImageStudioStyleDefinition, buildImageStudioComponentDefinition, buildImageStudioStyleDefinition, instantiateImageStudioComponent } from "@/lib/creative/stills/runtime/CreativeImageStudioReusableDesignRuntime.js";
 import { captureImageStudioHistoryState, pushImageStudioHistory, restoreImageStudioHistoryState } from "@/lib/creative/stills/runtime/CreativeImageStudioHistoryRuntime.js";
 
 export const useImageStudioWorkspaceStore = create((set) => ({
@@ -55,6 +56,32 @@ export const useImageStudioWorkspaceStore = create((set) => ({
       historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)),
       historyFuture: [],
     };
+  }),
+  updateArtboardLocal: (id, patch) => set((state) => ({ artboards: state.artboards.map((board) => board.id === id ? { ...board, ...patch } : board), dirty: true, historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)), historyFuture: [] })),
+  createReusableStyleFromSelected: (name = "Reusable style") => set((state) => {
+    const layer=state.layers.find((item)=>state.selection.layer_ids.includes(item.id)); const board=state.artboards.find((item)=>item.id===state.selection.artboard_id); if(!layer||!board)return state;
+    const id=`style-${crypto.randomUUID()}`; const definition=buildImageStudioStyleDefinition(layer,{id,name}); const styles=[...(board.metadata?.design_styles||[]).filter((item)=>item.id!==id),definition];
+    return { artboards:state.artboards.map((item)=>item.id===board.id?{...item,metadata:{...(item.metadata||{}),design_styles:styles}}:item), layers:state.layers.map((item)=>item.id===layer.id?applyImageStudioStyleDefinition(item,definition):item), dirty:true, historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)), historyFuture:[] };
+  }),
+  applyReusableStyleToSelected: (styleId) => set((state) => {
+    const board=state.artboards.find((item)=>item.id===state.selection.artboard_id); const definition=board?.metadata?.design_styles?.find((item)=>item.id===styleId); if(!definition)return state; const selected=new Set(state.selection.layer_ids);
+    return { layers:state.layers.map((layer)=>selected.has(layer.id)?applyImageStudioStyleDefinition(layer,definition):layer), dirty:true, historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)), historyFuture:[] };
+  }),
+  createComponentFromSelected: (name = "Component") => set((state) => {
+    const board=state.artboards.find((item)=>item.id===state.selection.artboard_id); if(!board)return state; const definition=buildImageStudioComponentDefinition(state.layers,state.selection.layer_ids,{id:`component-${crypto.randomUUID()}`,name}); if(!definition)return state; const components=[...(board.metadata?.design_components||[]),definition];
+    return { artboards:state.artboards.map((item)=>item.id===board.id?{...item,metadata:{...(item.metadata||{}),design_components:components}}:item), dirty:true, historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)), historyFuture:[] };
+  }),
+  instantiateComponent: (componentId) => set((state) => {
+    const board=state.artboards.find((item)=>item.id===state.selection.artboard_id); const definition=board?.metadata?.design_components?.find((item)=>item.id===componentId); if(!board||!definition)return state; const copies=instantiateImageStudioComponent(definition,{artboard_id:board.id,x:Math.round(board.width*.1),y:Math.round(board.height*.1)}).map((layer,index)=>({...layer,sort_order:state.layers.filter((item)=>item.artboard_id===board.id).length+index}));
+    return { layers:[...state.layers,...copies], selection:{...state.selection,layer_ids:copies.map((item)=>item.id)}, dirty:true, historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)), historyFuture:[] };
+  }),
+  createClippingMask: () => set((state) => {
+    const chosen=state.layers.filter((layer)=>state.selection.layer_ids.includes(layer.id)&&layer.artboard_id===state.selection.artboard_id).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)); if(chosen.length!==2)return state; const target=chosen[0],mask=chosen[1];
+    return { layers:state.layers.map((layer)=>layer.id===target.id?{...layer,metadata:{...(layer.metadata||{}),clip_mask_layer_id:mask.id}}:layer.id===mask.id?{...layer,metadata:{...(layer.metadata||{}),is_clip_mask:true,clip_mask_target_id:target.id}}:layer), selection:{...state.selection,layer_ids:[target.id]}, dirty:true, historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)), historyFuture:[] };
+  }),
+  releaseClippingMask: () => set((state) => {
+    const target=state.layers.find((layer)=>state.selection.layer_ids.includes(layer.id)&&layer.metadata?.clip_mask_layer_id); if(!target)return state; const maskId=target.metadata.clip_mask_layer_id;
+    return { layers:state.layers.map((layer)=>{ if(layer.id===target.id){const metadata={...(layer.metadata||{})};delete metadata.clip_mask_layer_id;return {...layer,metadata};} if(layer.id===maskId){const metadata={...(layer.metadata||{})};delete metadata.is_clip_mask;delete metadata.clip_mask_target_id;return {...layer,metadata};} return layer;}), dirty:true, historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)), historyFuture:[] };
   }),
   setViewport: (viewport) => set((state) => ({ viewport: { ...state.viewport, ...viewport } })),
   requestFitToView: () => set((state) => ({ ui: { ...state.ui, fit_request: Number(state.ui.fit_request || 0) + 1 } })),

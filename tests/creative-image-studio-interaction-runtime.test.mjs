@@ -89,3 +89,46 @@ test("Image Studio exposes professional group and ungroup shortcuts", () => {
   assert.match(shortcuts, /workspace\.ungroupSelected/);
   assert.match(shortcuts, /workspace\.groupSelected/);
 });
+
+test("Image Studio reusable design runtime persists exact styles and component lineage", async () => {
+  const reusable = await import("../lib/creative/stills/runtime/CreativeImageStudioReusableDesignRuntime.js");
+  const layer = { id:"title", artboard_id:"board", layer_type:"TEXT", name:"Title", bounds:{x:10,y:20,width:200,height:80}, style:{font_asset_id:"platform-font:inter",font_size:64,color:"#111111"}, content:{text:"Hello"}, metadata:{} };
+  const style = reusable.buildImageStudioStyleDefinition(layer,{id:"style-1",name:"Headline"});
+  const applied = reusable.applyImageStudioStyleDefinition({...layer,style:{font_size:20}},style);
+  assert.equal(applied.style.font_size,64);
+  assert.equal(applied.metadata.reusable_style_id,"style-1");
+  const component = reusable.buildImageStudioComponentDefinition([layer],["title"],{id:"component-1",name:"Hero"});
+  const instances = reusable.instantiateImageStudioComponent(component,{artboard_id:"board-2",x:100,y:200,idFactory:(()=>{let i=0;return()=>`id-${++i}`;})()});
+  assert.equal(instances.length,1);
+  assert.equal(instances[0].metadata.component_definition_id,"component-1");
+  assert.match(instances[0].metadata.component_instance_id,/^instance-/);
+});
+
+test("Image Studio clipping mask geometry is shared by preview and deterministic export", async () => {
+  const reusable = await import("../lib/creative/stills/runtime/CreativeImageStudioReusableDesignRuntime.js");
+  const target={bounds:{x:100,y:100,width:200,height:200}};
+  const mask={bounds:{x:150,y:125,width:100,height:150}};
+  assert.deepEqual(reusable.imageStudioMaskGeometry(target,mask),{visible:true,x:50,y:25,width:100,height:150,target_width:200,target_height:200});
+  assert.match(reusable.imageStudioMaskPreviewStyle(target,mask).clipPath,/inset\(/);
+  const canvas=fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url),"utf8");
+  const exporter=fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url),"utf8");
+  assert.match(canvas,/imageStudioMaskPreviewStyle/);
+  assert.match(canvas,/is_clip_mask/);
+  assert.match(exporter,/imageStudioMaskGeometry/);
+  assert.match(exporter,/IMAGE_STUDIO_EXPORT_CLIP_MASK_MISSING/);
+  assert.match(exporter,/blend: "dest-in"/);
+});
+
+test("Image Studio artboard metadata keeps reusable design libraries durable", async () => {
+  const workspace = await import("../lib/creative/stills/runtime/CreativeImageStudioWorkspaceRuntime.js");
+  const state=workspace.buildImageStudioWorkspaceState({artboards:[{id:"board",metadata:{design_styles:[{id:"style-1"}],design_components:[{id:"component-1"}]}}]});
+  assert.equal(state.artboards[0].metadata.design_styles[0].id,"style-1");
+  assert.equal(state.artboards[0].metadata.design_components[0].id,"component-1");
+  const inspector=fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerInspector.jsx", import.meta.url),"utf8");
+  const toolbar=fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasToolbar.jsx", import.meta.url),"utf8");
+  assert.match(inspector,/Save style/);
+  assert.match(inspector,/Save component/);
+  assert.match(inspector,/Insert component/);
+  assert.match(toolbar,/Create clipping mask/);
+  assert.match(toolbar,/Release clipping mask/);
+});

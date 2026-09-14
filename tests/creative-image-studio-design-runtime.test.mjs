@@ -8,6 +8,9 @@ import {
   alignLayers,
   buildSafeZone,
   distributeLayers,
+  clampImageStudioZoom,
+  fitImageStudioZoom,
+  snapResizeBounds,
 } from "../lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js";
 
 test("Image Studio exposes practical multi-format presets and safe zones", () => {
@@ -32,6 +35,36 @@ test("alignment and distribution remain deterministic", () => {
   ];
   assert.deepEqual(alignLayers(layers, { width: 1000, height: 1000 }, "center_x").map((x) => x.bounds.x), [450, 450, 450]);
   assert.deepEqual(distributeLayers(layers, "x").map((x) => Math.round(x.bounds.x)), [20, 260, 500]);
+});
+
+
+
+test("Image Studio zoom fit and resize geometry stay deterministic", () => {
+  assert.equal(clampImageStudioZoom(5), 3);
+  assert.equal(clampImageStudioZoom(0.05), 0.2);
+  assert.equal(fitImageStudioZoom({ width: 1000, height: 500 }, { width: 600, height: 400 }, 100), 0.5);
+  const snapped = snapResizeBounds({ x: 100, y: 100, width: 394, height: 194 }, { width: 1000, height: 800 }, [{ bounds: { x: 500, y: 300, width: 120, height: 100 } }], { threshold: 8 });
+  assert.equal(snapped.bounds.width, 400);
+  assert.equal(snapped.bounds.height, 200);
+  assert.equal(snapped.guides.x, 500);
+  assert.equal(snapped.guides.y, 300);
+  const locked = snapResizeBounds({ x: 100, y: 100, width: 394, height: 180 }, { width: 1000, height: 800 }, [{ bounds: { x: 500, y: 300, width: 120, height: 100 } }], { threshold: 8, preserveAspect: true, aspectRatio: 2 });
+  assert.equal(locked.bounds.width, 400);
+  assert.equal(locked.bounds.height, 200);
+});
+
+test("Image Studio canvas supports real zoom fit actual size and snapped aspect resize", () => {
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  const toolbar = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasToolbar.jsx", import.meta.url), "utf8");
+  const store = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspaceStore.js", import.meta.url), "utf8");
+  assert.doesNotMatch(canvas, /Math\.min\(1,workspace\.viewport\.zoom\)/);
+  assert.match(canvas, /clampImageStudioZoom/);
+  assert.match(canvas, /fitImageStudioZoom/);
+  assert.match(canvas, /snapResizeBounds/);
+  assert.match(canvas, /preserveAspect=e\.shiftKey/);
+  assert.match(toolbar, /Fit to view/);
+  assert.match(toolbar, /Actual size/);
+  assert.match(store, /requestFitToView/);
 });
 
 test("deterministic export runtime owns PNG JPEG and PDF master composition", () => {

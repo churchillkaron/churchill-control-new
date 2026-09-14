@@ -21,6 +21,7 @@ export const useImageStudioWorkspaceStore = create((set) => ({
   selectLayers: (layer_ids) => set((state) => ({ selection: { ...state.selection, layer_ids: Array.isArray(layer_ids) ? layer_ids : [] } })),
   toggleLayerSelection: (id) => set((state) => ({ selection: { ...state.selection, layer_ids: state.selection.layer_ids.includes(id) ? state.selection.layer_ids.filter((item) => item !== id) : [...state.selection.layer_ids, id] } })),
   setViewport: (viewport) => set((state) => ({ viewport: { ...state.viewport, ...viewport } })),
+  requestFitToView: () => set((state) => ({ ui: { ...state.ui, fit_request: Number(state.ui.fit_request || 0) + 1 } })),
   toggleCompare: () => set((state) => ({ ui: { ...state.ui, compare: !state.ui.compare } })),
   toggleGrid: () => set((state) => ({ ui: { ...state.ui, grid: !state.ui.grid } })),
   setRegion: (region) => set((state) => ({ ui: { ...state.ui, region } })),

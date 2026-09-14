@@ -54,3 +54,13 @@ test("conversational product analysis does not leak inspection as execution UI",
   assert.doesNotMatch(home, /message\.role === "assistant"[\s\S]{0,220}rounded-bl-md/);
   assert.doesNotMatch(panel, /message\.role === "assistant"[\s\S]{0,220}rounded-bl-md/);
 });
+
+
+test("inspection-report candidates are semantically arbitrated before audit routing", () => {
+  const understanding = fs.readFileSync("lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js", "utf8");
+  assert.match(understanding, /HUMAN_BUSINESS_PARTNER_DELIVERABLE_ARBITER/);
+  assert.match(understanding, /what the human primarily wants returned/);
+  assert.match(understanding, /inspection is merely supporting work for advice, comparison, recommendations, prioritization, strategy, judgment, or discussion/);
+  assert.match(understanding, /engineering_deliverable: "conversation"/);
+  assert.match(understanding, /route: normalized\.needs_current_evidence \? "evidence" : "conversation"/);
+});

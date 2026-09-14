@@ -9,16 +9,22 @@ const invoice = {
   operator_aliases: ["create invoice", "create an invoice", "make an invoice", "issue invoice"],
 };
 
-test("explicit invoice creation routes directly to governed capability intent", () => {
-  const result = resolveDeterministicGovernedAction({
+test("deterministic invoice routing is fallback-only", () => {
+  const primary = resolveDeterministicGovernedAction({
     message: "Create an invoice for Moonshine for 15,000 THB",
     capabilities: [invoice],
   });
-  assert.equal(result?.route, "governed");
-  assert.equal(result?.requires_mutation, true);
-  assert.equal(result?.capability_key, invoice.key);
-  assert.equal(result?.matched_alias, "create an invoice");
-  assert.equal(result?.authorization_effect, "NONE");
+  assert.equal(primary, null);
+
+  const fallback = resolveDeterministicGovernedAction({
+    message: "Create an invoice for Moonshine for 15,000 THB",
+    capabilities: [invoice],
+    fallback_only: true,
+  });
+  assert.equal(fallback?.route, "governed");
+  assert.equal(fallback?.requires_mutation, true);
+  assert.equal(fallback?.capability_key, invoice.key);
+  assert.equal(fallback?.authorization_effect, "NONE");
 });
 
 test("polite invoice command prefixes still route directly", () => {
@@ -26,8 +32,9 @@ test("polite invoice command prefixes still route directly", () => {
     "Can you make an invoice for Moonshine?",
     "Could you create an invoice for Moonshine?",
     "Please make an invoice for Moonshine",
+    "Can you make new invoice for Moonshine, same as last weeks but with new dates for Thursday and Sunday",
   ]) {
-    const result = resolveDeterministicGovernedAction({ message, capabilities: [invoice] });
+    const result = resolveDeterministicGovernedAction({ message, capabilities: [invoice], fallback_only: true });
     assert.equal(result?.capability_key, invoice.key);
   }
 });
@@ -48,13 +55,14 @@ test("ambiguous equal-strength write aliases fail closed", () => {
   assert.equal(result, null);
 });
 
-test("synthetic routing checks deterministic action before semantic Intelligence", () => {
+test("synthetic routing checks semantic Intelligence before deterministic fallback", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js", import.meta.url), "utf8");
   const blockStart = source.indexOf("let semanticUnderstanding = null;");
   const block = source.slice(blockStart, blockStart + 2600);
   const deterministic = block.indexOf("resolveDeterministicGovernedAction");
   const semantic = block.indexOf("understandHumanBusinessPartnerTurn");
-  assert.ok(deterministic >= 0 && semantic > deterministic);
+  assert.ok(semantic >= 0 && deterministic > semantic);
+  assert.match(block, /fallback_only: true/);
   assert.match(block, /route: "governed"/);
   assert.match(block, /requires_mutation: true/);
   assert.match(block, /authorization_effect: "NONE"/);

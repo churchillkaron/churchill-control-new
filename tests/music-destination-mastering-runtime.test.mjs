@@ -69,7 +69,7 @@ test("world-class execution and Business Partner expose destination mastering st
   assert.match(execution, /CreativeMusicFinishingRuntime\.ensureMasters/);
   assert.match(execution, /master_assets:/);
   assert.match(execution, /destination_mastering:/);
-  assert.match(execution, /finalTribunal\.release_ready === true && finishing\?\.destination_qc_passed === true/);
+  assert.match(execution, /const releaseReady = finalTribunal\?\.release_ready === true && finishing\?\.destination_qc_passed === true && finishing\?\.perceptual_translation_passed === true/);
   assert.match(planner, /music_mastering_plan/);
   assert.match(planner, /mastering_destinations/);
 });

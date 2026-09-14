@@ -11,6 +11,7 @@ import {
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { executeService } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
+import { buildMusicTemporalExtensionContract } from "@/lib/creative/music/runtime/CreativeMusicTemporalExtensionContractRuntime.js";
 
 const EXECUTION_PERMISSIONS = Object.freeze([
   "creative.execute",
@@ -127,42 +128,37 @@ function buildTemporalExtendPlan(body) {
     repainting_start: 0,
     repainting_end: -1,
   });
-  const extensionSeconds = clamp(body.extension_seconds ?? body.extend_seconds, 5, 120, 30);
-  const continuityOverlapSeconds = clamp(
-    body.continuity_overlap_seconds ?? body.overlap_seconds,
-    1,
-    12,
-    4,
-  );
+  const extension = buildMusicTemporalExtensionContract(body);
   return {
     ...editPlan,
     operation: "extend",
-    service_id: "ai.audio.extend",
-    capability: "ai.audio.extend",
-    task_type: "repaint",
+    service_id: extension.capability,
+    capability: extension.capability,
+    task_type: extension.task_type,
     implementation: "IMPLEMENTED",
     certification: "BENCHMARK_REQUIRED",
     executable: false,
-    temporal_extension: {
-      strategy: TEMPORAL_EXTEND_STRATEGY,
-      source_duration_measured_by_worker: true,
-      right_padding_outpaint_required: true,
-      temporal_extension_proven: false,
-    },
+    temporal_extension: extension,
     generation: {
       ...editPlan.generation,
       duration_seconds: null,
       source_duration_measured_by_worker: true,
     },
     provider_parameters: {
-      extension_seconds: extensionSeconds,
-      continuity_overlap_seconds: continuityOverlapSeconds,
-      temporal_extend_strategy: TEMPORAL_EXTEND_STRATEGY,
+      extension_seconds: extension.extension_seconds,
+      continuity_overlap_seconds: extension.continuity_overlap_seconds,
+      temporal_extend_strategy: extension.strategy,
+      source_asset_id: extension.source_asset_id,
+      source_version_id: extension.source_version_id,
     },
     output_spec: {
       ...editPlan.output_spec,
       duration_seconds: null,
       duration_rule: "SOURCE_DURATION_PLUS_EXTENSION_SECONDS_BOUNDED_BY_WORKER_MAX",
+      creates_new_version: true,
+      preserve_source_before_overlap: true,
+      post_render_dailies_required: true,
+      post_render_release_manifest_required: true,
     },
   };
 }

@@ -31,7 +31,7 @@ WORKER_IMAGE = (
 )
 CHECKPOINT_DIR = "/opt/ace-step/checkpoints"
 GPU = "A10G"
-CAPABILITIES = {"ai.music.generate", "ai.audio.remix", "ai.audio.edit"}
+CAPABILITIES = {"ai.music.generate", "ai.audio.remix", "ai.audio.edit", "ai.audio.extend"}
 MAIN_COMPONENTS = (
     "acestep-v15-turbo",
     "vae",

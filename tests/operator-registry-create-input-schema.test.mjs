@@ -121,3 +121,53 @@ test("registry mission creates derive replay-stable idempotency only inside gove
     global.fetch = originalFetch;
   }
 });
+
+
+test("registry confirmed single actions derive replay-stable idempotency from the operator run", async () => {
+  const calls = [];
+  const originalFetch = global.fetch;
+  global.fetch = async (_url, options) => {
+    calls.push(JSON.parse(options.body));
+    return { ok: true, status: 200, json: async () => ({ success: true, invoice_id: "invoice-1" }) };
+  };
+
+  try {
+    const { execute } = createRegistryCreateCapability({
+      domain: "finance",
+      item: {
+        id: "customer_invoices",
+        name: "Customer Invoices",
+        create: {
+          enabled: true,
+          api: "/api/finance/customer-invoices/create",
+          inputSchema: { type: "object", properties: { idempotency_key: { type: "string" } } },
+        },
+        data: { identity: "invoice_id" },
+      },
+      endpoint: "/api/finance/customer-invoices/create",
+    });
+    const callerRequest = { url: "https://example.test/operator", headers: { get: () => null } };
+    const context = {
+      organizationId: "org-1",
+      callerRequest,
+      metadata: {
+        source: "AVANTIQO_OPERATOR",
+        operatorRunId: "run-1",
+        operatorConfirmedAction: true,
+        conversationallyConfirmed: true,
+      },
+    };
+    await execute({ context, payload: { party_id: "party-1" } });
+    await execute({ context, payload: { party_id: "party-1" } });
+    await execute({
+      context: { organizationId: "org-1", callerRequest, metadata: { source: "AVANTIQO_OPERATOR" } },
+      payload: { party_id: "party-1" },
+    });
+
+    assert.ok(calls[0].idempotency_key);
+    assert.equal(calls[0].idempotency_key, calls[1].idempotency_key);
+    assert.equal(calls[2].idempotency_key, undefined);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

@@ -13,8 +13,13 @@ export default function ImageStudioKeyboardShortcuts({ workspace, persistence })
       if (event.key === "ArrowUp") { event.preventDefault(); workspace.nudgeSelected(0, -step); }
       if (event.key === "ArrowDown") { event.preventDefault(); workspace.nudgeSelected(0, step); }
       if ((event.key === "Backspace" || event.key === "Delete") && workspace.selection.layer_ids.length) { event.preventDefault(); workspace.deleteSelected(); }
-      if (command && event.key.toLowerCase() === "d") { event.preventDefault(); workspace.duplicateSelected(); }
-      if (command && event.key.toLowerCase() === "s") { event.preventDefault(); void persistence?.saveSelectedArtboard?.(); }
+      const key = event.key.toLowerCase();
+      if (command && key === "z" && !event.shiftKey) { event.preventDefault(); workspace.undo(); return; }
+      if ((command && key === "z" && event.shiftKey) || (event.ctrlKey && key === "y")) { event.preventDefault(); workspace.redo(); return; }
+      if (command && key === "c" && workspace.selection.layer_ids.length) { event.preventDefault(); workspace.copySelected(); return; }
+      if (command && key === "v") { event.preventDefault(); workspace.pasteClipboard(); return; }
+      if (command && key === "d") { event.preventDefault(); workspace.duplicateSelected(); }
+      if (command && key === "s") { event.preventDefault(); void persistence?.saveSelectedArtboard?.(); }
       if (event.key === "Escape") workspace.selectLayers([]);
     };
     window.addEventListener("keydown", handler);

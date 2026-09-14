@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { CreativeImageStudioWorkspaceRuntime, buildImageStudioWorkspaceState, validateImageStudioCommand } from "../lib/creative/stills/runtime/CreativeImageStudioWorkspaceRuntime.js";
+import { captureImageStudioHistoryState, pushImageStudioHistory, restoreImageStudioHistoryState } from "../lib/creative/stills/runtime/CreativeImageStudioHistoryRuntime.js";
 
 test("Image Studio workspace exposes professional editor surfaces", () => {
   assert.deepEqual(CreativeImageStudioWorkspaceRuntime.panels, ["brief", "artboards", "assets", "references", "moodboard", "layers", "comments", "versions", "output"]);
@@ -105,4 +106,44 @@ test("Image Studio saves use optimistic concurrency and snapshots allocate versi
   assert.match(migration, /pg_advisory_xact_lock/);
   assert.match(migration, /max\(version_number\)/);
   assert.match(route, /status = \/IMAGE_STUDIO_\(\?:ARTBOARD\|LAYER\)_CONFLICT\/\.test\(message\) \? 409/);
+});
+
+test("Image Studio history snapshots are bounded and restorable", () => {
+  const base = { artboards: [{ id: "a" }], layers: [{ id: "l", bounds: { x: 1 } }], selection: { artboard_id: "a", layer_ids: ["l"] }, dirty: false };
+  const snapshot = captureImageStudioHistoryState(base);
+  base.layers[0].bounds.x = 99;
+  assert.equal(snapshot.layers[0].bounds.x, 1);
+  let past = [];
+  for (let index = 0; index < 75; index += 1) past = pushImageStudioHistory(past, { ...snapshot, dirty: index % 2 === 0 });
+  assert.equal(past.length, 60);
+  const restored = restoreImageStudioHistoryState({ extra: true }, snapshot);
+  assert.equal(restored.layers[0].bounds.x, 1);
+  assert.equal(restored.extra, true);
+});
+
+test("Image Studio wires transaction-aware undo redo and clipboard shortcuts", () => {
+  const store = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspaceStore.js", import.meta.url), "utf8");
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  const shortcuts = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioKeyboardShortcuts.jsx", import.meta.url), "utf8");
+  assert.match(store, /historyPast: \[\]/);
+  assert.match(store, /historyFuture: \[\]/);
+  assert.match(store, /historyTransaction: null/);
+  assert.match(store, /clipboardLayers: \[\]/);
+  assert.match(store, /undo:/);
+  assert.match(store, /redo:/);
+  assert.match(store, /copySelected:/);
+  assert.match(store, /pasteClipboard:/);
+  assert.match(store, /crypto\.randomUUID\(\)/);
+  assert.match(canvas, /workspace\.beginHistoryTransaction\(\)/);
+  assert.match(canvas, /workspace\.endHistoryTransaction\(\)/);
+  assert.match(shortcuts, /workspace\.undo\(\)/);
+  assert.match(shortcuts, /workspace\.redo\(\)/);
+  assert.match(shortcuts, /workspace\.copySelected\(\)/);
+  assert.match(shortcuts, /workspace\.pasteClipboard\(\)/);
+  assert.match(shortcuts, /event\.shiftKey/);
+});
+
+test("Image Studio durable hydrate resets local history and clipboard", () => {
+  const store = fs.readFileSync(new URL("../components/creative/specialist/useImageStudioWorkspaceStore.js", import.meta.url), "utf8");
+  assert.match(store, /hydrate: \(input\) => set\(\{ \.\.\.buildImageStudioWorkspaceState\(input\), historyPast: \[\], historyFuture: \[\], historyTransaction: null, clipboardLayers: \[\] \}\)/);
 });

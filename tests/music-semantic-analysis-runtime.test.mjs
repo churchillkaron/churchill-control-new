@@ -74,9 +74,9 @@ test("Business Partner reasoning uses current semantic evidence but not as autho
     evidence,
     current: { current_master_asset_id: "master-v1", current_version_id: "master-v1" },
     sections: [
-      { start_seconds: 0, end_seconds: 8, label: "Verse" },
-      { start_seconds: 8, end_seconds: 16, label: "Chorus" },
-      { start_seconds: 16, end_seconds: 24, label: "Verse Return" },
+      { start_seconds: 0, end_seconds: 8, label: "Verse", master_asset_id: "master-v1", version_id: "master-v1" },
+      { start_seconds: 8, end_seconds: 16, label: "Chorus", master_asset_id: "master-v1", version_id: "master-v1" },
+      { start_seconds: 16, end_seconds: 24, label: "Verse Return", master_asset_id: "master-v1", version_id: "master-v1" },
     ],
   });
   assert.equal(context.semantic_descriptors_are_measurement_grounded, true);

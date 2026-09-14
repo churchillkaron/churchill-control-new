@@ -256,3 +256,34 @@ test("Image Studio clips rotated composites exactly to the artboard", () => {
   assert.match(renderer, /if \(!clipped\.visible\) continue/);
   assert.match(renderer, /left: clipped\.extractLeft/);
 });
+
+test("Image Studio selection geometry supports eight-handle group transforms and rotation snapping", async () => {
+  const design = await import("../lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js");
+  const layers = [
+    { id: "a", bounds: { x: 100, y: 100, width: 100, height: 100 } },
+    { id: "b", bounds: { x: 300, y: 200, width: 200, height: 100 } },
+  ];
+  const group = design.selectionBounds(layers);
+  assert.deepEqual(group, { x: 100, y: 100, width: 400, height: 200 });
+  const resized = design.resizeBoundsFromHandle(group, "nw", 40, 20, { minSize: 24 });
+  assert.deepEqual(resized, { x: 140, y: 120, width: 360, height: 180 });
+  const scaled = design.scaleLayersFromSelection(layers, group, resized);
+  assert.deepEqual(scaled[0].bounds, { x: 140, y: 120, width: 90, height: 90 });
+  assert.deepEqual(scaled[1].bounds, { x: 320, y: 210, width: 180, height: 90 });
+  assert.equal(design.snapRotation(43, 45, 4), 45);
+  assert.equal(design.snapRotation(31, 45, 4), 31);
+});
+
+test("Image Studio exposes full transform handles and multi-select composition controls", () => {
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  const inspector = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerInspector.jsx", import.meta.url), "utf8");
+  const toolbar = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasToolbar.jsx", import.meta.url), "utf8");
+  assert.match(canvas, /const HANDLES=/);
+  assert.match(canvas, /"nw"/);
+  assert.match(canvas, /"se"/);
+  assert.match(canvas, /Rotate selection/);
+  assert.match(canvas, /scaleLayersFromSelection/);
+  assert.match(inspector, /Distribute H/);
+  assert.match(inspector, /Center Y/);
+  assert.match(toolbar, /Toggle grid and safe zone/);
+});

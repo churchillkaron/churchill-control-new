@@ -3,6 +3,7 @@
 import {
   Camera,
   GitCompare,
+  Grid3X3,
   Hand,
   Loader2,
   MessageSquare,
@@ -61,6 +62,10 @@ export default function ImageStudioCanvasToolbar({ workspace, persistence }) {
       <button type="button" title="Compare versions" onClick={workspace.toggleCompare}
         className={`rounded-md p-1.5 ${workspace.ui.compare ? "bg-[#D6A66A]/10 text-[#D6A66A]" : "text-[#918B83] hover:text-[#665F57]"}`}>
         <GitCompare className="h-3.5 w-3.5" />
+      </button>
+      <button type="button" title="Toggle grid and safe zone" onClick={workspace.toggleGrid}
+        className={`rounded-md p-1.5 ${workspace.ui.grid ? "bg-[#D6A66A]/10 text-[#D6A66A]" : "text-[#918B83] hover:text-[#665F57]"}`}>
+        <Grid3X3 className="h-3.5 w-3.5" />
       </button>
       <span className="mx-1 h-4 w-px bg-[#DED9D1]" />
       <button type="button" title="Save artboard" disabled={busy}

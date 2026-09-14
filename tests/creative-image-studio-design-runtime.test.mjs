@@ -326,3 +326,41 @@ test("Image Studio binds text preview and export to the same exact governed font
   assert.match(exportRuntime, /CREATIVE_IMAGE_STUDIO_DETERMINISTIC_EXPORT_V2/);
   assert.match(preflight, /FONT_ASSET_MISSING/);
 });
+
+test("Image Studio effects normalize safely and preserve preview/export parity", async () => {
+  const effects = await import("../lib/creative/stills/runtime/CreativeImageStudioEffectsRuntime.js");
+  const normalized = effects.normalizeImageStudioEffects({
+    opacity: 2,
+    blend_mode: "multiply",
+    effects: { brightness: 3, contrast: 0, saturation: -1, hue: 999, grayscale: 2, blur: 99 },
+  });
+  assert.equal(normalized.opacity, 1);
+  assert.equal(normalized.brightness, 2);
+  assert.equal(normalized.contrast, 0.25);
+  assert.equal(normalized.saturation, 0);
+  assert.equal(normalized.hue, 180);
+  assert.equal(normalized.grayscale, 1);
+  assert.equal(normalized.blur, 40);
+  assert.equal(normalized.css_blend_mode, "multiply");
+  assert.equal(normalized.sharp_blend_mode, "multiply");
+  const preview = effects.imageStudioPreviewEffectStyle({ effects: { brightness: 1.2, blur: 4 } });
+  assert.match(preview.filter, /brightness\(1\.2\)/);
+  assert.match(preview.filter, /blur\(4px\)/);
+});
+
+test("Image Studio exposes Photoshop-class non-destructive image adjustments in canvas and deterministic export", () => {
+  const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
+  const inspector = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerInspector.jsx", import.meta.url), "utf8");
+  const exportRuntime = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url), "utf8");
+  assert.match(canvas, /imageStudioPreviewEffectStyle/);
+  assert.match(canvas, /mixBlendMode:effects\.mixBlendMode/);
+  assert.match(inspector, /Non-destructive effects/);
+  assert.match(inspector, /Brightness %/);
+  assert.match(inspector, /Saturation %/);
+  assert.match(inspector, /Reset effects/);
+  assert.match(exportRuntime, /applyImageStudioEffects/);
+  assert.match(exportRuntime, /\.modulate\(/);
+  assert.match(exportRuntime, /\.linear\(/);
+  assert.match(exportRuntime, /sharp_blend_mode/);
+  assert.match(exportRuntime, /CREATIVE_IMAGE_STUDIO_EFFECTS_V1/);
+});

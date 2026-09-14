@@ -11,7 +11,7 @@ const intended = {
   sonic_identity: "organic futuristic", dynamic_arc: ["low", "high"],
 };
 const rendered = { ...intended };
-const families = ["MUSICALITY", "PERFORMANCE", "SONIC_IDENTITY", "TECHNICAL", "INTENT_FIDELITY"];
+const families = ["MUSICALITY", "PERFORMANCE", "SONIC_IDENTITY", "TECHNICAL", "TRANSLATION", "INTENT_FIDELITY"];
 
 test("Music Dailies approve only complete 90+ independent reviews", () => {
   const reviews = families.map((family) => ({ family, score: 94, passed: true, evidence: [`${family} evidence`] }));
@@ -69,4 +69,12 @@ test("Business Partner exposes fail-closed surgical Music repair planning", asyn
   assert.match(repairSource, /AI_AUDIO_EDIT_/);
   assert.match(repairSource, /preserve_outside_region: true/);
   assert.match(repairSource, /rerun_dailies_after_execution: true/);
+});
+
+
+test("Music Dailies requires independent translation review", () => {
+  const reviews = families.filter((family) => family !== "TRANSLATION").map((family) => ({ family, score: 94, passed: true, evidence: [`${family} evidence`] }));
+  const report = evaluateMusicDailies({ intended, rendered, reviews });
+  assert.equal(report.passed, false);
+  assert.ok(report.failures.includes("MUSIC_DAILIES_REVIEW_REQUIRED:TRANSLATION"));
 });

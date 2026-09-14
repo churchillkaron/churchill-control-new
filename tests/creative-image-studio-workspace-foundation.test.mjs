@@ -240,3 +240,20 @@ test("Image Studio inspector edits collapse into logical undo transactions", () 
   assert.match(toolbar, /onClick=\{workspace\.undo\}/);
   assert.match(toolbar, /onClick=\{workspace\.redo\}/);
 });
+
+test("Image Studio uses the Avantiqo light workspace visual system", () => {
+  const dir = new URL("../components/creative/specialist/", import.meta.url);
+  const files = fs.readdirSync(dir).filter((name) => /^ImageStudio.*\.jsx$/.test(name));
+  const source = files.map((name) => fs.readFileSync(new URL(name, dir), "utf8")).join("\n");
+  const workspace = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioWorkspace.jsx", import.meta.url), "utf8");
+  assert.match(workspace, /bg-\[#F7F6F3\]/);
+  assert.match(workspace, /bg-white/);
+  assert.match(workspace, /text-\[#2D2925\]/);
+  assert.match(workspace, /border-\[#DDD8D0\]/);
+  assert.match(workspace, /bg-\[#D6A66A\]/);
+  assert.doesNotMatch(source, /bg-black\b/);
+  assert.doesNotMatch(source, /bg-\[#050505\]/);
+  assert.doesNotMatch(source, /bg-\[#080807\]/);
+  assert.doesNotMatch(source, /text-white\//);
+  assert.doesNotMatch(source, /border-white\//);
+});

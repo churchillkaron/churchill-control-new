@@ -51,17 +51,17 @@ function value(input) {
 }
 
 function statusClass(status) {
-  if (status === "COMPLETE") return "text-emerald-400";
+  if (status === "COMPLETE") return "text-[#607057]";
   if (status === "ACTIVE") return "text-[#D6A66A]";
-  if (status === "BLOCKED") return "text-red-400";
-  return "text-white/24";
+  if (status === "BLOCKED") return "text-[#98513D]";
+  return "text-[#A09A92]";
 }
 
 function Property({ label: propertyLabel, children }) {
   return (
-    <div className="border-b border-white/[0.055] py-3 last:border-b-0">
-      <div className="text-[8px] font-semibold uppercase tracking-[0.17em] text-white/24">{propertyLabel}</div>
-      <div className="mt-1.5 break-words text-[10px] leading-5 text-white/60">{children}</div>
+    <div className="border-b border-[#E5E1DA] py-3 last:border-b-0">
+      <div className="text-[8px] font-semibold uppercase tracking-[0.17em] text-[#A09A92]">{propertyLabel}</div>
+      <div className="mt-1.5 break-words text-[10px] leading-5 text-[#5E5952]">{children}</div>
     </div>
   );
 }
@@ -70,13 +70,13 @@ function StageRail({ stages }) {
   return (
     <div className="space-y-1">
       {stages.map((stage, index) => (
-        <div key={stage.id} className={`rounded-xl border px-3 py-2.5 ${stage.state === "ACTIVE" ? "border-[#D6A66A]/25 bg-[#D6A66A]/[0.06]" : "border-white/[0.055] bg-white/[0.012]"}`}>
+        <div key={stage.id} className={`rounded-xl border px-3 py-2.5 ${stage.state === "ACTIVE" ? "border-[#D6A66A]/25 bg-[#D6A66A]/[0.06]" : "border-[#E5E1DA] bg-[#FBFAF8]"}`}>
           <div className="flex items-center gap-2">
-            {stage.state === "COMPLETE" ? <CheckCircle2 className="h-3 w-3 text-emerald-400" /> : <Circle className={`h-3 w-3 ${statusClass(stage.state)}`} />}
+            {stage.state === "COMPLETE" ? <CheckCircle2 className="h-3 w-3 text-[#607057]" /> : <Circle className={`h-3 w-3 ${statusClass(stage.state)}`} />}
             <span className={`text-[8px] font-semibold uppercase tracking-[0.12em] ${statusClass(stage.state)}`}>{String(index + 1).padStart(2, "0")}</span>
-            <span className="text-[10px] font-medium text-white/64">{stage.label}</span>
+            <span className="text-[10px] font-medium text-[#4E4943]">{stage.label}</span>
           </div>
-          {stage.state === "ACTIVE" ? <div className="mt-1.5 pl-5 text-[8px] leading-4 text-white/30">{stage.detail}</div> : null}
+          {stage.state === "ACTIVE" ? <div className="mt-1.5 pl-5 text-[8px] leading-4 text-[#918B83]">{stage.detail}</div> : null}
         </div>
       ))}
     </div>
@@ -131,12 +131,12 @@ export default function ImageStudioWorkspace({ runtime }) {
   return (
     <>
     <ImageStudioKeyboardShortcuts workspace={workspace} persistence={persistence} />
-    <div className="grid h-full min-h-0 bg-[#050505] lg:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[290px_minmax(0,1fr)_320px]">
-      <aside className="min-h-0 overflow-y-auto border-r border-white/[0.08] bg-[#080807]">
-        <div className="sticky top-0 z-10 border-b border-white/[0.06] bg-[#080807]/95 p-3 backdrop-blur">
-          <div className="grid grid-cols-2 rounded-lg border border-white/[0.07] bg-black/25 p-1">
+    <div className="grid h-full min-h-0 bg-[#F7F6F3] lg:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[290px_minmax(0,1fr)_320px]">
+      <aside className="min-h-0 overflow-y-auto border-r border-[#D8D3CB] bg-white">
+        <div className="sticky top-0 z-10 border-b border-[#E2DED7] bg-white/95 p-3 backdrop-blur">
+          <div className="grid grid-cols-2 rounded-lg border border-[#DDD8D0] bg-[#FBFAF8] p-1">
             {[["production", "Production"], ["assets", "Assets"]].map(([id, name]) => (
-              <button key={id} type="button" onClick={() => setLeftMode(id)} className={`rounded-md px-2 py-1.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${leftMode === id ? "bg-[#D6A66A]/[0.09] text-[#D6A66A]" : "text-white/30"}`}>{name}</button>
+              <button key={id} type="button" onClick={() => setLeftMode(id)} className={`rounded-md px-2 py-1.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${leftMode === id ? "bg-[#D6A66A]/[0.09] text-[#D6A66A]" : "text-[#918B83]"}`}>{name}</button>
             ))}
           </div>
         </div>
@@ -145,19 +145,19 @@ export default function ImageStudioWorkspace({ runtime }) {
           <div className="space-y-5 p-3">
             <section>
               <div className="px-1 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]/65">Image production</div>
-              <div className="mt-1 px-1 text-[11px] font-medium leading-5 text-white/64">{projectName}</div>
-              <div className="mt-1 px-1 text-[9px] leading-4 text-white/28">The studio advances from purpose and references to exact composition, repair, review and delivery.</div>
+              <div className="mt-1 px-1 text-[11px] font-medium leading-5 text-[#4E4943]">{projectName}</div>
+              <div className="mt-1 px-1 text-[9px] leading-4 text-[#948D84]">The studio advances from purpose and references to exact composition, repair, review and delivery.</div>
             </section>
             <section>
-              <div className="mb-2 flex items-center justify-between px-1"><span className="text-[8px] font-semibold uppercase tracking-[0.18em] text-white/25">Workflow</span><Sparkles className="h-3 w-3 text-[#D6A66A]/50" /></div>
+              <div className="mb-2 flex items-center justify-between px-1"><span className="text-[8px] font-semibold uppercase tracking-[0.18em] text-[#99928A]">Workflow</span><Sparkles className="h-3 w-3 text-[#D6A66A]/50" /></div>
               <StageRail stages={operating.stages} />
             </section>
             <section>
-              <div className="mb-2 flex items-center justify-between px-1"><span className="text-[8px] font-semibold uppercase tracking-[0.18em] text-white/25">Studio team</span><UsersRound className="h-3 w-3 text-[#D6A66A]/50" /></div>
+              <div className="mb-2 flex items-center justify-between px-1"><span className="text-[8px] font-semibold uppercase tracking-[0.18em] text-[#99928A]">Studio team</span><UsersRound className="h-3 w-3 text-[#D6A66A]/50" /></div>
               <div className="space-y-1">
                 {operating.team.map((role) => (
-                  <div key={role.id} className="rounded-lg border border-white/[0.05] bg-white/[0.012] px-3 py-2">
-                    <div className="text-[9px] font-medium text-white/58">{role.id.replaceAll("_", " ")}</div>
+                  <div key={role.id} className="rounded-lg border border-[#E7E3DD] bg-[#FBFAF8] px-3 py-2">
+                    <div className="text-[9px] font-medium text-[#625D56]">{role.id.replaceAll("_", " ")}</div>
                   </div>
                 ))}
               </div>
@@ -166,31 +166,31 @@ export default function ImageStudioWorkspace({ runtime }) {
         ) : (
           <div className="p-3">
             <div className="flex items-center justify-between px-2 pb-3 pt-1">
-              <div><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-white/26">Assets</div><div className="mt-1 text-[11px] text-white/38">{images.length} image{images.length === 1 ? "" : "s"}</div></div>
+              <div><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#99928A]">Assets</div><div className="mt-1 text-[11px] text-[#817A72]">{images.length} image{images.length === 1 ? "" : "s"}</div></div>
               <Layers3 className="h-4 w-4 text-[#D6A66A]/55" />
             </div>
             <div className="space-y-1.5">
               {images.map((asset, index) => {
                 const url = assetUrl(asset);
                 const active = selected?.id === asset.id;
-                return <button key={asset.id || `${url}-${index}`} type="button" draggable onDragStart={(event)=>{event.dataTransfer.setData("application/x-avantiqo-asset",asset.id||"");event.dataTransfer.effectAllowed="copy";}} onClick={() => setSelectedId(asset.id)} className={`flex w-full items-center gap-3 rounded-xl border p-2 text-left transition ${active ? "border-[#D6A66A]/30 bg-[#D6A66A]/[0.07]" : "border-transparent hover:border-white/[0.08] hover:bg-white/[0.025]"}`}>
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/[0.07] bg-black/40">{url ? <Image src={url} alt="" width={44} height={44} className="h-full w-full object-cover" /> : <ImageIcon className="h-4 w-4 text-white/20" />}</div>
-                  <div className="min-w-0 flex-1"><div className="truncate text-[11px] font-medium text-white/68">{label(asset, index)}</div><div className="mt-1 flex items-center gap-2 text-[9px] text-white/26"><span>{asset.revision || asset.version || "v1"}</span><span>·</span><span className="truncate">{asset.approval_state || asset.status || "asset"}</span></div></div>
+                return <button key={asset.id || `${url}-${index}`} type="button" draggable onDragStart={(event)=>{event.dataTransfer.setData("application/x-avantiqo-asset",asset.id||"");event.dataTransfer.effectAllowed="copy";}} onClick={() => setSelectedId(asset.id)} className={`flex w-full items-center gap-3 rounded-xl border p-2 text-left transition ${active ? "border-[#D6A66A]/30 bg-[#D6A66A]/[0.07]" : "border-transparent hover:border-[#D8D3CB] hover:bg-[#F7F6F3]"}`}>
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#DDD8D0] bg-[#F2EFEA]">{url ? <Image src={url} alt="" width={44} height={44} className="h-full w-full object-cover" /> : <ImageIcon className="h-4 w-4 text-[#AAA49C]" />}</div>
+                  <div className="min-w-0 flex-1"><div className="truncate text-[11px] font-medium text-[#403C36]">{label(asset, index)}</div><div className="mt-1 flex items-center gap-2 text-[9px] text-[#99928A]"><span>{asset.revision || asset.version || "v1"}</span><span>·</span><span className="truncate">{asset.approval_state || asset.status || "asset"}</span></div></div>
                 </button>;
               })}
-              {!images.length ? <div className="rounded-xl border border-dashed border-white/[0.09] px-4 py-8 text-center text-[11px] leading-5 text-white/28">No image assets in the active creative project yet.</div> : null}
+              {!images.length ? <div className="rounded-xl border border-dashed border-[#D8D3CB] px-4 py-8 text-center text-[11px] leading-5 text-[#948D84]">No image assets in the active creative project yet.</div> : null}
             </div>
           </div>
         )}
       </aside>
 
-      <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#050505]">
-        <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3 lg:px-5">
-          <div className="min-w-0"><div className="truncate text-sm font-medium text-white/78">{selected ? label(selected, 0) : "Image canvas"}</div><div className="mt-0.5 text-[10px] text-white/27">{operating.active_stage.label} · governed Creative project</div></div>
+      <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#F7F6F3]">
+        <div className="flex shrink-0 items-center justify-between border-b border-[#DDD8D0] px-4 py-3 lg:px-5">
+          <div className="min-w-0"><div className="truncate text-sm font-medium text-[#2D2925]">{selected ? label(selected, 0) : "Image canvas"}</div><div className="mt-0.5 text-[10px] text-[#948D84]">{operating.active_stage.label} · governed Creative project</div></div>
           <ImageStudioCanvasToolbar workspace={workspace} persistence={persistence} />
           <div className="flex items-center gap-2">
-            <div className="hidden rounded-full border border-white/[0.07] px-2.5 py-1 text-[8px] uppercase tracking-[0.12em] text-white/28 sm:block">{operating.counts.references} refs · {operating.counts.review_open} review</div>
-            {selected?.approval_state ? <div className="flex items-center gap-1.5 rounded-full border border-white/[0.08] px-2.5 py-1 text-[9px] uppercase tracking-[0.13em] text-white/38"><CheckCircle2 className="h-3 w-3 text-[#D6A66A]/70" />{selected.approval_state}</div> : null}
+            <div className="hidden rounded-full border border-[#DDD8D0] px-2.5 py-1 text-[8px] uppercase tracking-[0.12em] text-[#948D84] sm:block">{operating.counts.references} refs · {operating.counts.review_open} review</div>
+            {selected?.approval_state ? <div className="flex items-center gap-1.5 rounded-full border border-[#D8D3CB] px-2.5 py-1 text-[9px] uppercase tracking-[0.13em] text-[#817A72]"><CheckCircle2 className="h-3 w-3 text-[#D6A66A]/70" />{selected.approval_state}</div> : null}
           </div>
         </div>
 
@@ -201,10 +201,10 @@ export default function ImageStudioWorkspace({ runtime }) {
           {workspace.ui.compare ? <ImageStudioVersionCompare workspace={workspace} assets={images} /> : <ImageStudioCanvasSurface workspace={workspace} assets={images} />}
         </div>
 
-        {selected ? <div className="shrink-0 border-t border-white/[0.07] bg-[#080807] px-4 py-3 lg:px-5"><div className="flex items-center gap-3 overflow-x-auto"><div className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/24">Versions</div>{(siblingVersions.length ? siblingVersions : [selected]).map((version, index) => { const url = assetUrl(version); const active = version.id === selected.id; return <button key={version.id || index} type="button" onClick={() => setSelectedId(version.id)} className={`flex shrink-0 items-center gap-2 rounded-lg border px-2 py-1.5 ${active ? "border-[#D6A66A]/30 bg-[#D6A66A]/[0.06]" : "border-white/[0.07] bg-white/[0.02]"}`}>{url ? <Image src={url} alt="" width={28} height={28} className="h-7 w-7 rounded object-cover" /> : null}<span className="text-[10px] text-white/48">v{value(version.revision || version.version || index + 1)}</span></button>; })}<div className="ml-auto hidden items-center gap-1.5 text-[9px] text-white/22 xl:flex"><Maximize2 className="h-3 w-3" /> Original aspect ratio preserved</div></div></div> : null}
+        {selected ? <div className="shrink-0 border-t border-[#DDD8D0] bg-white px-4 py-3 lg:px-5"><div className="flex items-center gap-3 overflow-x-auto"><div className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#A09A92]">Versions</div>{(siblingVersions.length ? siblingVersions : [selected]).map((version, index) => { const url = assetUrl(version); const active = version.id === selected.id; return <button key={version.id || index} type="button" onClick={() => setSelectedId(version.id)} className={`flex shrink-0 items-center gap-2 rounded-lg border px-2 py-1.5 ${active ? "border-[#D6A66A]/30 bg-[#D6A66A]/[0.06]" : "border-[#DDD8D0] bg-[#FBFAF8]"}`}>{url ? <Image src={url} alt="" width={28} height={28} className="h-7 w-7 rounded object-cover" /> : null}<span className="text-[10px] text-[#746E67]">v{value(version.revision || version.version || index + 1)}</span></button>; })}<div className="ml-auto hidden items-center gap-1.5 text-[9px] text-[#AAA49C] xl:flex"><Maximize2 className="h-3 w-3" /> Original aspect ratio preserved</div></div></div> : null}
       </section>
 
-      <aside className="hidden min-h-0 overflow-y-auto border-l border-white/[0.08] bg-[#080807] p-4 2xl:block">
+      <aside className="hidden min-h-0 overflow-y-auto border-l border-[#D8D3CB] bg-white p-4 2xl:block">
         <section>
           <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]/62"><ShieldCheck className="h-3 w-3" /> Quality authority</div>
           <div className="mt-3 space-y-2">
@@ -213,13 +213,13 @@ export default function ImageStudioWorkspace({ runtime }) {
               ["Deterministic typography", operating.quality.deterministic_typography_required],
               ["Bounded repair first", operating.quality.bounded_repair_preferred],
               ["Release ready", operating.quality.release_ready],
-            ].map(([name, ready]) => <div key={name} className="flex items-center justify-between rounded-lg border border-white/[0.055] bg-black/20 px-3 py-2.5"><span className="text-[9px] text-white/45">{name}</span>{ready ? <BadgeCheck className="h-3.5 w-3.5 text-emerald-400" /> : <Circle className="h-3 w-3 text-white/20" />}</div>)}
+            ].map(([name, ready]) => <div key={name} className="flex items-center justify-between rounded-lg border border-[#E5E1DA] bg-[#FBFAF8] px-3 py-2.5"><span className="text-[9px] text-[#777169]">{name}</span>{ready ? <BadgeCheck className="h-3.5 w-3.5 text-[#607057]" /> : <Circle className="h-3 w-3 text-[#AAA49C]" />}</div>)}
           </div>
         </section>
 
         <section className="mt-5">
-          <div className="text-[9px] font-semibold uppercase tracking-[0.22em] text-white/28">Selected asset</div>
-          <div className="mt-3 rounded-xl border border-white/[0.07] bg-black/20 px-4">
+          <div className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#948D84]">Selected asset</div>
+          <div className="mt-3 rounded-xl border border-[#DDD8D0] bg-[#FBFAF8] px-4">
             <Property label="Title">{value(selected?.title || selected?.name)}</Property>
             <Property label="Status">{value(selected?.status)}</Property>
             <Property label="Approval">{value(selected?.approval_state)}</Property>
@@ -242,7 +242,7 @@ export default function ImageStudioWorkspace({ runtime }) {
 
         <section className="mt-5 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.035] p-3">
           <div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]/70">Production rule</div>
-          <p className="mt-2 text-[9px] leading-5 text-white/35">Prompt-free by design. Avantiqo derives provider instructions dynamically from approved business, brand and creative evidence. Typography, logos, prices, legal copy and structured business information remain exact editable composition until export.</p>
+          <p className="mt-2 text-[9px] leading-5 text-[#8A837A]">Prompt-free by design. Avantiqo derives provider instructions dynamically from approved business, brand and creative evidence. Typography, logos, prices, legal copy and structured business information remain exact editable composition until export.</p>
         </section>
       </aside>
     </div>

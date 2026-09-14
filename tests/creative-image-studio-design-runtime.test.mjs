@@ -287,3 +287,19 @@ test("Image Studio exposes full transform handles and multi-select composition c
   assert.match(inspector, /Center Y/);
   assert.match(toolbar, /Toggle grid and safe zone/);
 });
+
+test("Image Studio group rotation preserves orbital geometry around the selection center", async () => {
+  const design = await import("../lib/creative/stills/runtime/CreativeImageStudioDesignRuntime.js");
+  const layers = [
+    { id: "left", bounds: { x: 0, y: 50, width: 50, height: 50 }, transform: { rotation: 0 } },
+    { id: "right", bounds: { x: 150, y: 50, width: 50, height: 50 }, transform: { rotation: 10 } },
+  ];
+  const selection = { x: 0, y: 50, width: 200, height: 50 };
+  const rotated = design.rotateLayersAroundSelection(layers, selection, 90);
+  assert.equal(Math.round(rotated[0].bounds.x), 75);
+  assert.equal(Math.round(rotated[0].bounds.y), -25);
+  assert.equal(Math.round(rotated[1].bounds.x), 75);
+  assert.equal(Math.round(rotated[1].bounds.y), 125);
+  assert.equal(rotated[0].transform.rotation, 90);
+  assert.equal(rotated[1].transform.rotation, 100);
+});

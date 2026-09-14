@@ -21,6 +21,17 @@ test("explicit invoice creation routes directly to governed capability intent", 
   assert.equal(result?.authorization_effect, "NONE");
 });
 
+test("polite invoice command prefixes still route directly", () => {
+  for (const message of [
+    "Can you make an invoice for Moonshine?",
+    "Could you create an invoice for Moonshine?",
+    "Please make an invoice for Moonshine",
+  ]) {
+    const result = resolveDeterministicGovernedAction({ message, capabilities: [invoice] });
+    assert.equal(result?.capability_key, invoice.key);
+  }
+});
+
 test("deterministic action routing excludes read and navigation capabilities", () => {
   const result = resolveDeterministicGovernedAction({
     message: "show invoices",

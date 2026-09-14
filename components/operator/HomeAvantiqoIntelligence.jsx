@@ -95,6 +95,9 @@ function conversationalProgressStatus(liveExecution, startedAt) {
 
   if (!latest) return "Understanding your request…";
 
+  const actualDescription = text(latest?.description);
+  if (actualDescription) return actualDescription;
+
   const phase = text(latest?.phase).replaceAll("_", " ").toLowerCase();
   const lane = text(latest?.lane).replaceAll("_", " ").toLowerCase();
   const signal = `${phase} ${lane}`;

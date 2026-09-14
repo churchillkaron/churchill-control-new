@@ -25,13 +25,18 @@ function analysis() {
   return {
     source_audio_measured: true,
     duration_seconds: 24,
-    accepted: { bpm: 120, key_label: "D minor" },
+    accepted: { bpm: 120, key: "D", mode: "minor", key_label: "D minor" },
     tempo: { confidence: 0.9 },
     key: { confidence: 0.8 },
     sections: { boundaries_seconds: [8, 16], windows: windows() },
     harmonic_movement: {
       measured_from_audio: true,
       change_points: [{ at_seconds: 8, chroma_distance: 0.12, confidence: 0.66 }],
+      windows: [
+        { start_seconds: 0, end_seconds: 8, chroma: [0.03,0.02,0.43,0.02,0.02,0.23,0.02,0.02,0.02,0.19,0.01,0.01] },
+        { start_seconds: 8, end_seconds: 16, chroma: [0.35,0.01,0.02,0.01,0.25,0.02,0.01,0.24,0.02,0.02,0.02,0.03] },
+        { start_seconds: 16, end_seconds: 24, chroma: [0.083,0.083,0.083,0.083,0.083,0.083,0.083,0.083,0.083,0.083,0.083,0.087] },
+      ],
     },
   };
 }
@@ -43,7 +48,10 @@ test("semantic analysis derives measured energy and recurrence without inventing
   assert.ok(semantic.recurring_patterns.length >= 1);
   assert.equal(semantic.harmonic_change_points[0].at_seconds, 8);
   assert.equal(semantic.harmonic_change_points[0].chord_label, null);
-  assert.equal(semantic.chord_analysis_ready, false);
+  assert.equal(semantic.chord_analysis_ready, true);
+  assert.equal(semantic.harmony_intelligence.tonal_center.label, "D minor");
+  assert.ok(semantic.harmony_intelligence.labelled_window_count >= 1);
+  assert.ok(semantic.harmony_intelligence.ambiguous_window_count >= 1);
   assert.equal(semantic.vocal_entry_analysis_ready, false);
   assert.equal(semantic.section_identity_inference_allowed, false);
   assert.equal(semantic.user_intent_inference_allowed, false);
@@ -61,7 +69,8 @@ test("listening evidence persists only compact semantic descriptors", () => {
   assert.ok(evidence.semantic.energy_profile.length <= 24);
   assert.ok(evidence.semantic.recurring_patterns.length <= 12);
   assert.ok(evidence.semantic.harmonic_change_points.length <= 24);
-  assert.equal(evidence.semantic.chord_analysis_ready, false);
+  assert.equal(evidence.semantic.chord_analysis_ready, true);
+  assert.equal(evidence.semantic.harmony_intelligence.tonal_center.label, "D minor");
   assert.equal(evidence.semantic.vocal_entry_analysis_ready, false);
 });
 test("Business Partner reasoning uses current semantic evidence but not as authority", () => {
@@ -80,10 +89,12 @@ test("Business Partner reasoning uses current semantic evidence but not as autho
     ],
   });
   assert.equal(context.semantic_descriptors_are_measurement_grounded, true);
-  assert.equal(context.chord_names_available, false);
+  assert.equal(context.chord_names_available, true);
   assert.equal(context.vocal_entry_analysis_available, false);
   assert.equal(context.mutation_authorized, false);
   assert.equal(context.may_infer_user_intent, false);
+  assert.ok(context.reasoning_brief.some((item) => item.includes("tonal center candidate")));
+  assert.ok(context.reasoning_brief.some((item) => item.includes("chord candidate")));
   assert.ok(context.reasoning_brief.some((item) => item.includes("harmonic movement")));
   assert.ok(context.reasoning_brief.some((item) => item.includes("recurring texture/energy pattern")));
   assert.ok(context.reasoning_brief.some((item) => item.includes("Chorus")));
@@ -100,7 +111,7 @@ test("semantic reasoning disappears when evidence is stale", () => {
 
 const musicalAnalysisSource = fs.readFileSync("lib/creative/music/runtime/CreativeMusicMusicalAnalysisRuntime.js", "utf8");
 
-test("owned PCM analysis emits measured harmonic movement without chord guessing", () => {
+test("owned PCM analysis emits measured chroma while chord interpretation remains a separate bounded layer", () => {
   assert.match(musicalAnalysisSource, /AVANTIQO_MUSIC_HARMONIC_MOVEMENT_V1/);
   assert.match(musicalAnalysisSource, /harmonicMovementAnalysis/);
   assert.match(musicalAnalysisSource, /harmonic_movement_ready:\s*true/);

@@ -117,3 +117,13 @@ test("Music Dailies fail closed when a reviewer reasoning payload is invalid", a
   assert.match(source, /MUSIC_DAILIES_REVIEWER_EXECUTION_FAILED/);
   assert.match(source, /do not alter or regenerate the music based on an invalid reviewer payload/);
 });
+
+
+test("Music Dailies treats standalone music as present from analyzed audio", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /content_kind: "STANDALONE_MUSIC"/);
+  assert.match(source, /music_audio_present:/);
+  assert.match(source, /dialogue_required: false/);
+  assert.match(source, /dialogue_ducking_required: false/);
+  assert.match(source, /ignore_cinematic_mix_presence_flags_for_music_presence: true/);
+});

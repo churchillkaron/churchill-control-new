@@ -25,3 +25,12 @@ test('recovered tribunal plans are grounded and still-normalized before review r
   assert.match(source, /let replayPlan = normalizeRecoveredTribunalPlan\(master\.plan, context\.mission\)/);
   assert.match(source, /replayPlan = normalizeRecoveredTribunalPlan\(replay\.plan, context\.mission\)/);
 });
+
+
+test('paid Tribunal recovery migrates exact legacy scoped review hashes', () => {
+  assert.match(source, /legacyReviewEvidenceHash/);
+  assert.match(source, /storedEvidenceHash/);
+  assert.match(source, /currentEvidenceHash/);
+  assert.match(source, /legacyEvidenceHash/);
+  assert.match(source, /review_evidence_hash: currentEvidenceHash/);
+});

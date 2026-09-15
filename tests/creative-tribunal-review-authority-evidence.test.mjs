@@ -37,3 +37,8 @@ test('brand reviewer may reject invented precision without authorizing it',()=>{
   assert.match(source,/explicitlyTreatsPrecisionAsUnverified/);
   assert.match(source,/exactBrandMention && !explicitlyTreatsPrecisionAsUnverified/);
 });
+
+
+test('brand reviewer is explicitly told plan presence is not authorization',()=>{
+  assert.match(source,/merely appearing in the current plan is evidence of a proposed or potentially unsupported value, never proof that it is authorized/);
+});

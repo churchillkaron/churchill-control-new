@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import crypto from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
@@ -28,6 +29,11 @@ const fingerprint = (value) => crypto.createHash("sha256").update(JSON.stringify
 
 approved("AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_SPEND_APPROVED");
 approved("AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_RIGHTS_APPROVED");
+try {
+  execFileSync(process.execPath, [resolve("scripts/audit-avantiqo-music-vocal-correction-image-readiness.mjs")], { cwd: process.cwd(), env: process.env, stdio: ["ignore", "pipe", "pipe"] });
+} catch (error) {
+  throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_IMAGE_NOT_READY:${text(error?.stdout || error?.stderr || error?.message)}`);
+}
 const request = JSON.parse(await readFile(resolve(required("AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_REQUEST_FILE")), "utf8"));
 const organizationId = text(request.organization_id);
 const sourceReference = text(request.source_storage_reference);

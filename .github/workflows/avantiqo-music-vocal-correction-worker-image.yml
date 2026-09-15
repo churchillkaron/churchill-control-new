@@ -52,8 +52,15 @@ jobs:
           grep -F '"NO_CORRECTION_NEEDED"' services/avantiqo-music-vocal-correction-engine/handler_v2.py
           grep -F '"APPLIED"' services/avantiqo-music-vocal-correction-engine/handler_v2.py
           grep -F '"FAILED"' services/avantiqo-music-vocal-correction-engine/handler_v2.py
-          grep -F 'formant_compensation_explicitly_configured": False' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'tonality_compensation_explicitly_configured": True' services/avantiqo-music-vocal-correction-engine/handler_v2.py
           grep -F 'formant_preservation_claimed": False' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'AVANTIQO_MUSIC_VOCAL_TUNING_PLAN_V1' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'AVANTIQO_MUSIC_VOCAL_TIMING_PLAN_V1' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'approved_tuning_plan' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'approved_timing_plan' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'MUSICIAN_APPROVED_PLAN' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'automatic_timing_forbidden_with_musician_plans' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'apply_approved_phrase_timing_plan' services/avantiqo-music-vocal-correction-engine/handler_v2.py
           if grep -F 'applied_event_count"] >= 0' services/avantiqo-music-vocal-correction-engine/handler_v2.py; then
             echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_INVALID_ALWAYS_TRUE_READINESS_FORBIDDEN'
             exit 1
@@ -196,7 +203,8 @@ jobs:
             key_parser_contract: "AVANTIQO_MUSIC_VOCAL_KEY_PARSER_V1",
             explicit_pitch_readiness: true,
             torchcrepe_inference_smoke_required: true,
-            explicit_formant_compensation_configured: false,
+            tonality_compensation_explicitly_configured: true,
+            musician_approved_plan_engine: true,
             unverified_formant_preservation_claimed: false,
             network_volume_required: false,
             production_certified: false,

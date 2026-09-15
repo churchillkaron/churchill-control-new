@@ -51,3 +51,16 @@ test('neutralizes legacy false-authority placeholders even after exact tokens ar
   assert.match(body, /not claimed as an official brand font/);
   assert.match(body, /source-verified business proof required before release/);
 });
+
+
+test('removes brand ownership from unverified named palette colors', () => {
+  const plan = {
+    concept: {
+      creative_system: 'Use Avantiqo blue (creative palette color (not claimed as an official brand color)) as the dominant field.',
+    },
+  };
+  const grounded = groundCreativeExactClaims({ plan, mission: { objective: 'Premium campaign poster' } });
+  const body = JSON.stringify(grounded);
+  assert.doesNotMatch(body, /Avantiqo blue/i);
+  assert.match(body, /creative palette blue \(not claimed as an official brand color\)/i);
+});

@@ -11,8 +11,12 @@ test('brand binding runtime is generic, provenance gated, and workflow-bound bef
   assert.match(binding, /ai_generated === true/);
   assert.match(binding, /usableSource/);
   assert.match(binding, /selected_asset_ids/);
+  assert.match(binding, /reconcileVerifiedBrandAssetPlan/);
+  assert.match(binding, /disposition: \"REFERENCE\"/);
+  assert.match(binding, /generated_logo_pixels_forbidden: true/);
   assert.doesNotMatch(binding, /607706dd|a6e5f946|Avantiqo Premium Global Campaign Test/);
   const bindIndex = workflow.indexOf('CreativeVerifiedBrandAssetBindingRuntime.bind');
   const scopedAssetsIndex = workflow.indexOf('CreativeAssetsRuntime.list({ organization_id, creative_mission_id, creative_project_id })');
   assert.ok(bindIndex >= 0 && scopedAssetsIndex > bindIndex);
+  assert.match(workflow, /CreativeVerifiedBrandAssetBindingRuntime\.reconcilePlan/);
 });

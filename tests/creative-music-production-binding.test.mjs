@@ -41,3 +41,23 @@ test("approved Music Creative Floor binds exact production values", () => {
   assert.equal(bound.binding.preproduction_hash.length, 64);
   assert.equal(bound.binding.direction_hash.length, 64);
 });
+
+
+test("approved vocal song binding cannot silently fall back to instrumental", () => {
+  const vocalFloor = floor();
+  vocalFloor.preproduction_brief.vocal_contract = {
+    required: true,
+    lyrics: "Love is powerful, even when the distance feels different.",
+    vocal_language: "english",
+    vocal_delivery: "intimate female lead, restrained and soulful",
+    preserve_core_meaning: true,
+  };
+  const bound = bindMusicPreproductionToGeneration({
+    input: { objective: "Create a slow Afro-house song with vocals", instrumental: false },
+    creative_floor: vocalFloor,
+  });
+  assert.equal(bound.input.instrumental, false);
+  assert.match(bound.input.lyrics, /Love is powerful/);
+  assert.equal(bound.input.vocal_language, "english");
+  assert.equal(bound.binding.direction_contract.vocal_contract.required, true);
+});

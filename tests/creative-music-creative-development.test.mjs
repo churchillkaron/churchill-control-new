@@ -66,3 +66,18 @@ test("preproduction must be complete before generation", async () => {
   assert.equal(result.passed, false);
   assert.ok(result.failures.includes("MUSIC_PREPRODUCTION_FIELD_REQUIRED:delivery_targets"));
 });
+
+
+test("vocal song preproduction fails closed without locked lyrics", async () => {
+  const mod = await import("../lib/creative/music/runtime/CreativeMusicCreativeDevelopmentRuntime.js");
+  const base = {
+    tempo_map: { bpm: 108 }, key_and_harmony: { key: "A minor" },
+    form_and_section_lengths: ["verse", "hook"], motif_map: ["hook"], instrumentation: ["percussion"],
+    performance_direction: { feel: "human" }, dynamic_arc: ["build"], sonic_palette: ["warm"],
+    transition_map: ["lift"], mix_space_intent: { vocal: "intimate" }, delivery_targets: { format: "wav" },
+    vocal_contract: { required: true, vocal_language: "english", lyrics: "" },
+  };
+  const result = mod.validateMusicPreproductionBrief(base, { vocal_required: true });
+  assert.equal(result.passed, false);
+  assert.ok(result.failures.includes("MUSIC_PREPRODUCTION_LYRICS_REQUIRED"));
+});

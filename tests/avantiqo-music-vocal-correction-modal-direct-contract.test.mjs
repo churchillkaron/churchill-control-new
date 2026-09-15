@@ -26,7 +26,7 @@ test("vocal correction has a Modal-direct certification-gated runtime", () => {
 });
 
 test("vocal correction Modal wrapper binds reviewed plans to the immutable V2 worker", () => {
-  assert.match(modal, /sha256:30dd44c131b3b2d77127989fd6535be3fd09e2514d90d091c2ac75feb1df2744/);
+  assert.match(modal, /sha256:112dae577e5d8f756203ac42f17887b374ce210cae9a872dbe283ae7d143f046/);
   assert.match(modal, /handler_v2/);
   assert.match(modal, /TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2/);
   assert.match(modal, /corrected_vocal/);

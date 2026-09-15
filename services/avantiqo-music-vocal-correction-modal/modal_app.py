@@ -8,7 +8,7 @@ import modal
 APP_NAME = "avantiqo-music-vocal-correction-owned"
 ENGINE_CONTRACT = "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2"
 QUALITY_PROFILE = "TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2"
-WORKER_IMAGE = "ghcr.io/churchillkaron/avantiqo-music-vocal-correction-worker@sha256:30dd44c131b3b2d77127989fd6535be3fd09e2514d90d091c2ac75feb1df2744"
+WORKER_IMAGE = "ghcr.io/churchillkaron/avantiqo-music-vocal-correction-worker@sha256:112dae577e5d8f756203ac42f17887b374ce210cae9a872dbe283ae7d143f046"
 
 app = modal.App(APP_NAME)
 

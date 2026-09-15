@@ -58,3 +58,10 @@ test('fatal concept blockers require genuine concept replacement', () => {
   assert.match(source, /do not merely rename\/reskin the same metaphor/);
   assert.match(source, /MAXIMUM_REPAIR_ATTEMPTS = 3/);
 });
+
+
+test('anti-cliche reviewers only see current creative evidence, not historical director repair notes', () => {
+  assert.match(source, /return "ANTI_CLICHE"/);
+  assert.match(source, /case "ANTI_CLICHE"/);
+  assert.match(source, /anti_cliche_rules: canonical\.anti_cliche_rules/);
+});

@@ -5,6 +5,7 @@ import { normalizeHumanBusinessPartnerUnderstanding } from "../lib/operator/runt
 
 const turn = fs.readFileSync("lib/operator/runtime/OperatorTurnRuntime.js", "utf8");
 const fast = fs.readFileSync("lib/operator/runtime/OperatorFastConversationRuntime.js", "utf8");
+const synthetic = fs.readFileSync("lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js", "utf8");
 
 const home = fs.readFileSync("components/operator/HomeAvantiqoIntelligence.jsx", "utf8");
 const panel = fs.readFileSync("components/operator/AvantiqoOperator.jsx", "utf8");
@@ -55,6 +56,26 @@ test("conversational product analysis does not leak inspection as execution UI",
   assert.doesNotMatch(panel, /message\.role === "assistant"[\s\S]{0,220}rounded-bl-md/);
 });
 
+test("deterministic product conversation bypasses organization-wide enrichment", () => {
+  const preflight = synthetic.indexOf("const preflightFastUnderstanding");
+  const organizationLoad = synthetic.indexOf("await organizationProjectState(options)");
+  assert.ok(preflight >= 0 && organizationLoad > preflight);
+  assert.match(synthetic, /const skipOrganizationProjectState = Boolean/);
+  assert.match(synthetic, /preflightPendingControlDecision \|\| preflightFastUnderstanding/);
+  assert.match(synthetic, /let semanticUnderstanding = preflightFastUnderstanding/);
+});
+
+test("conversation-only product evidence is permission-authorized before generic Intelligence tool construction", () => {
+  const capabilityLoad = fast.indexOf("createCodeAIReadOnlyInspectionCapability");
+  const authorization = fast.indexOf("inspectionCapability.authorize", capabilityLoad);
+  const localExecution = fast.indexOf("inspectionCapability.execute", authorization);
+  const localPresentation = fast.indexOf("deterministic-product-evidence-presentation-v2", localExecution);
+  const genericTools = fast.indexOf("createOperatorIntelligenceReadTools", localExecution);
+  assert.ok(capabilityLoad >= 0 && authorization > capabilityLoad && localExecution > authorization && localPresentation > localExecution && genericTools > localPresentation);
+  assert.match(fast, /evidenceOnly: true/);
+  assert.match(fast, /source_evidence_class/);
+  assert.match(fast, /mutation_executed: false/);
+});
 
 test("inspection-report candidates are semantically arbitrated before audit routing", () => {
   const understanding = fs.readFileSync("lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js", "utf8");

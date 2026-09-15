@@ -27,7 +27,7 @@ test("pending settlement preserves lane and capability identity", () => {
 
 test("reasoning loop has bounded polling and no RunPod dependency", () => {
   assert.match(source, /PENDING_SETTLEMENT_POLL_INTERVAL_MS\s*=\s*1000/);
-  assert.match(source, /PENDING_SETTLEMENT_MAX_POLLS\s*=\s*300/);
+  assert.match(source, /PENDING_SETTLEMENT_MAX_POLLS\s*=\s*480/);
   assert.doesNotMatch(source, /RUNPOD_/);
   assert.doesNotMatch(source, /runpod\.io/);
 });

@@ -27,10 +27,17 @@ test("timed out reasoning cancels only its exact provider job", () => {
   assert.match(executor, /const cancelFunction = runtime\.cancel \|\| runtime\.cancelJob \|\| runtime\.cancelExecution/);
 });
 
-test("Modal Intelligence cancellation never terminates the shared worker container", () => {
-  assert.match(provider, /call\.cancel\(\{ terminateContainers: false \}\)/);
+test("Modal Intelligence cancellation terminates only Fast call containers", () => {
+  assert.match(provider, /const terminateContainers = lane === "fast"/);
+  assert.match(provider, /call\.cancel\(\{ terminateContainers \}\)/);
   assert.match(provider, /exact_job_only: true/);
-  assert.match(provider, /terminate_containers: false/);
+  assert.match(provider, /terminate_containers: terminateContainers/);
+  assert.match(provider, /execution_lane: lane/);
+});
+
+test("reasoning timeout propagates the exact execution lane into cancellation", () => {
+  assert.match(reasoning, /execution_lane: executionLane/);
+  assert.match(service, /execution_lane: input\.execution_lane \|\| metadata\?\.intelligence_execution_lane \|\| null/);
 });
 
 test("Service cancellation fails only the bound usage and releases its reservation", () => {

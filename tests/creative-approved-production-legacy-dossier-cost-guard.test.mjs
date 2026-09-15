@@ -1,0 +1,6 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { CreativeApprovedProductionTaskCostGuardRuntime as R } from "../lib/creative/execution/runtime/CreativeApprovedProductionTaskCostGuardRuntime.js";
+const task={id:"task-1",cost:{approved:true,estimated:66.224925,currency:"THB"},timing:{estimated_seconds:15},metadata:{production_dossier_mode:"LEGACY_PRODUCTION_DOSSIER",production_dossier_gate_passed:true,production_dossier_approval_record_asset_node_id:"approval-1",approved_dossier_hash:"d",approved_plan_hash:"p",approved_graph_hash:"g",approved_execution_hash:"e",approved_cost_ceiling:265.721013,approved_cost_currency:"THB"}};
+test("human-approved dossier is valid execution authority within the approved ceiling",()=>{const a=R.legacyDossierAuthorization(task);assert.equal(a?.production_authorized,true);assert.equal(a?.publication_authorized,false);assert.equal(a?.maximum_customer_price,265.721013);const g=R.guardFromTask(task);assert.equal(g.maximum_customer_price,66.224925);assert.equal(g.estimated_quantity,15);assert.match(g.reference,/approval-1/);});
+test("legacy dossier authority fails closed when task exceeds graph ceiling",()=>{assert.equal(R.legacyDossierAuthorization({...task,cost:{...task.cost,estimated:300}}),null);});

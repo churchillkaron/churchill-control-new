@@ -12,6 +12,7 @@ os.environ["HF_HUB_ETAG_TIMEOUT"] = "60"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
 import io
+import base64
 import json
 import re
 import shutil
@@ -449,9 +450,16 @@ def _validate_special(job: dict[str, Any]) -> dict[str, Any]:
     source_assets = data.get("source_assets") or []
     if not isinstance(source_assets, list) or len(source_assets) > 12:
         raise ValueError("AVANTIQO_IMAGE_SOURCE_ASSET_LIMIT_EXCEEDED")
-    source_assets = [
-        legacy._public_https_url(value) for value in source_assets if _text(value)
-    ]
+    normalized_assets = []
+    for value in source_assets:
+        source = _text(value)
+        if not source:
+            continue
+        if source.lower().startswith("data:image/"):
+            normalized_assets.append(source)
+        else:
+            normalized_assets.append(legacy._public_https_url(source))
+    source_assets = normalized_assets
     raw_roles = data.get("source_asset_roles") or {}
     if not isinstance(raw_roles, dict):
         raise ValueError("AVANTIQO_IMAGE_SOURCE_ASSET_ROLES_INVALID")
@@ -460,7 +468,8 @@ def _validate_special(job: dict[str, Any]) -> dict[str, Any]:
     )
     if not _text(source_image):
         raise ValueError("AVANTIQO_IMAGE_SOURCE_REQUIRED")
-    source_image = legacy._public_https_url(source_image)
+    if not _text(source_image).lower().startswith("data:image/"):
+        source_image = legacy._public_https_url(source_image)
 
     normalized = {
         **data,
@@ -506,9 +515,19 @@ def _upscale_pipeline():
 
 
 def _analysis_source(value: str) -> tuple[str, dict[str, Any]]:
-    parsed = urlparse(_text(value))
+    source = _text(value)
+    if source.lower().startswith("data:image/"):
+        try:
+            header, payload = source.split(",", 1)
+            image = Image.open(io.BytesIO(base64.b64decode(payload))).convert("RGB")
+        except Exception as exc:
+            raise ValueError("AVANTIQO_IMAGE_ANALYSIS_DATA_URI_INVALID") from exc
+        target = _OUTPUT_DIR / f"analysis-frame-{time.time_ns()}.jpg"
+        image.save(target, format="JPEG", quality=90)
+        return str(target), {"source_document_rendered": False, "source_page_count": None, "source_data_uri_decoded": True}
+    parsed = urlparse(source)
     if not parsed.path.lower().endswith(".pdf"):
-        return value, {"source_document_rendered": False, "source_page_count": None}
+        return source, {"source_document_rendered": False, "source_page_count": None}
     response = requests.get(value, timeout=45)
     response.raise_for_status()
     if len(response.content) > 25 * 1024 * 1024:
@@ -585,6 +604,35 @@ def _generated_text(result: Any) -> str:
     return _text(item)
 
 
+def _analysis_contact_sheet(sources: list[str]) -> tuple[str, dict[str, Any]]:
+    rendered = []
+    metadata = []
+    for source in sources[:7]:
+        resolved, source_meta = _analysis_source(source)
+        image = load_image(resolved).convert("RGB")
+        image.thumbnail((640, 420), Image.Resampling.LANCZOS)
+        rendered.append(image.copy())
+        metadata.append(source_meta)
+    if not rendered:
+        raise ValueError("AVANTIQO_IMAGE_ANALYSIS_SOURCE_REQUIRED")
+    if len(rendered) == 1:
+        target = _OUTPUT_DIR / f"analysis-single-{time.time_ns()}.jpg"
+        rendered[0].save(target, format="JPEG", quality=90)
+        return str(target), {**metadata[0], "analysis_frame_count": 1, "analysis_contact_sheet": False}
+    columns = 2
+    rows = (len(rendered) + columns - 1) // columns
+    cell_w = 660
+    cell_h = 440
+    canvas = Image.new("RGB", (columns * cell_w, rows * cell_h), "black")
+    for index, image in enumerate(rendered):
+        x = (index % columns) * cell_w + (cell_w - image.width) // 2
+        y = (index // columns) * cell_h + (cell_h - image.height) // 2
+        canvas.paste(image, (x, y))
+    target = _OUTPUT_DIR / f"analysis-contact-sheet-{time.time_ns()}.jpg"
+    canvas.save(target, format="JPEG", quality=90)
+    return str(target), {"source_document_rendered": False, "source_page_count": None, "analysis_frame_count": len(rendered), "analysis_contact_sheet": True}
+
+
 def _analyze(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
     _progress_update(job, "loading Avantiqo Image visual critic")
     critic = _analysis_pipeline()
@@ -594,7 +642,8 @@ def _analyze(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
         "evaluation contract exactly. Return one strict JSON object only, without markdown. "
         "When scores are requested, use integers from 0 to 100."
     )
-    analysis_source, source_metadata = _analysis_source(data["resolved_source_image"])
+    sources = data.get("source_assets") or [data["resolved_source_image"]]
+    analysis_source, source_metadata = _analysis_contact_sheet(sources)
     messages = [
         {
             "role": "user",

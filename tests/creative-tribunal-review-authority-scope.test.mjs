@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
+import { quotedEvidenceFragments } from '../lib/creative/director/runtime/CreativeQuotedEvidenceRuntime.js';
 const source=fs.readFileSync(new URL('../lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js',import.meta.url),'utf8');
 test('reviewers cannot invent external research or cross discipline exact brand demands',()=>{
   assert.match(source,/UNSUPPORTED_EXTERNAL_RESEARCH_CLAIM/);
@@ -32,4 +33,14 @@ test('non-brand reviewers cannot demand approved brand color truth', () => {
   assert.match(source, /approved brand color value/);
   assert.match(source, /add evidence of brand color authorization/);
   assert.match(source, /exact hex values/);
+});
+
+
+test('quoted evidence parser ignores possessive apostrophes', () => {
+  const evidence = "Creative system's explicit disclaimer ('creative palette blue (not claimed as an official brand color)') and asset manifest's 'preserve_exact_brand_mark' restriction.";
+  const fragments = quotedEvidenceFragments(evidence);
+  assert.deepEqual(fragments, [
+    'creative palette blue (not claimed as an official brand color)',
+    'preserve_exact_brand_mark',
+  ]);
 });

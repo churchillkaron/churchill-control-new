@@ -142,6 +142,8 @@ test("Music Dailies rejects reviewer claims outside measured evidence capabiliti
   const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
   assert.match(source, /UNSUPPORTED_DEDICATED_MOTIF_CLAIM/);
   assert.match(source, /UNSUPPORTED_INSTRUMENT_IDENTITY_CLAIM/);
+  assert.match(source, /UNSUPPORTED_RHYTHM_ANALYSIS_CLAIM/);
+  assert.match(source, /rendered\.musical_analysis\?\.rhythm_analysis_ready !== true/);
   assert.match(source, /unsupported_evidence_dimensions_are_unknown_not_render_failure: true/);
   assert.match(source, /MUSIC_DAILIES_REVIEWER_EVIDENCE_POLICY_FAILED/);
 });

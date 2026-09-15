@@ -32,6 +32,7 @@ test("lossy delivery translation is measured after decode", () => {
   assert.match(translationSource, /deliveryDrift/);
   assert.match(translationSource, /measured_from_decoded_delivery:\s*true/);
   assert.match(translationSource, /codec_translation/);
+  assert.match(translationSource, /!mime\.startsWith\(\"audio\/\"\)/);
 });
 
 test("perceptual translation remains advisory and non-mutating", () => {

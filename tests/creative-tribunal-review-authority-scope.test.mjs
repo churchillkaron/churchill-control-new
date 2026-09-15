@@ -25,3 +25,11 @@ test('quoted evidence matching tolerates omitted parenthetical qualifiers only',
   assert.match(source,/evidenceFragmentSupported\(fragment, scopedEvidenceText, planText\)/);
   assert.match(source,/UNSUPPORTED_QUOTED_EVIDENCE/);
 });
+
+
+test('non-brand reviewers cannot demand approved brand color truth', () => {
+  const source = fs.readFileSync(new URL('../lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js', import.meta.url), 'utf8');
+  assert.match(source, /approved brand color value/);
+  assert.match(source, /add evidence of brand color authorization/);
+  assert.match(source, /exact hex values/);
+});

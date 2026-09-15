@@ -52,3 +52,16 @@ test("adaptive conversation learning is visible to memory observability", async 
   const governor = await source("lib/operator/runtime/IntelligenceMemoryGovernorPolicy.js");
   assert.match(governor, /"adaptive_conversation_learning"/);
 });
+
+test("recommendation feedback learns by registered capability family without business payload", async () => {
+  const route = await source("app/api/operator/turn/route.js");
+  const runtime = await source("lib/operator/runtime/AdaptiveConversationLearningRuntime.js");
+  assert.match(route, /recommendation_capability_key/);
+  assert.match(route, /recommendation_evidence_class/);
+  assert.match(runtime, /recommendation_selected:\$\{capabilityKey\}/);
+  assert.match(runtime, /recommendation_rejected:\$\{capabilityKey\}/);
+  assert.match(runtime, /recommendation_capability_key: spec\.capability_key \|\| null/);
+  assert.doesNotMatch(runtime, /recommendation_payload/);
+  assert.doesNotMatch(runtime, /customer_name/);
+  assert.doesNotMatch(runtime, /invoice_amount/);
+});

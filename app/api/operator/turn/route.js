@@ -669,6 +669,11 @@ export async function POST(request) {
       execution: object(result?.execution),
       provider_evidence: object(result?.provider_evidence),
     });
+    const recommendationLearningContext = object(
+      object(nextAgreementState).recommended_action ||
+      object(agreementState).recommended_action,
+    );
+    const recommendationLearningProof = object(recommendationLearningContext.proof);
     const learningSignals = {
       semantic_correction:
         object(result?.provider_evidence).semantic_correction_or_revision === true ||
@@ -677,6 +682,10 @@ export async function POST(request) {
         object(result?.operator_catalog).recommendation_proposal_rejected === true,
       recommendation_selected:
         object(result?.operator_catalog).recommendation_selected === true,
+      recommendation_capability_key:
+        text(recommendationLearningContext.capability_key).slice(0, 300) || null,
+      recommendation_evidence_class:
+        text(recommendationLearningProof.evidence_class).slice(0, 80) || null,
       clarification_required:
         object(normalizedDecision.clarification).required === true,
       artifact_reused:

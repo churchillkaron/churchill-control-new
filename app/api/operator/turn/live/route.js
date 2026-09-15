@@ -45,9 +45,7 @@ function completionEvent(result, response) {
     phase: succeeded ? "TURN_COMPLETE" : "TURN_FAILED",
     status: succeeded ? "completed" : "failed",
     description: succeeded
-      ? key
-        ? `Finished the governed ${key} turn.`
-        : "Finished reasoning and preparing the response."
+      ? text(result?.decision?.response_text) || (key ? "Finished the requested action." : "Finished preparing the response.")
       : "The Business Partner turn stopped before successful completion.",
     capability_key: key || null,
     read_only: !key,

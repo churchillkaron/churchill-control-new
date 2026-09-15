@@ -69,6 +69,14 @@ test("synthetic routing understands human meaning before capability routing", ()
   assert.match(source, /semantic_understanding_unavailable: true/);
 });
 
+
+test("operator execution context never overwrites a business subject party id", () => {
+  const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorTurnRuntimeCore.js", import.meta.url), "utf8");
+  assert.match(source, /businessPartyId = text\(businessPayload\.party_id \|\| businessPayload\.partyId\)/);
+  assert.match(source, /party_id: businessPartyId \|\| partyId/);
+  assert.match(source, /operator_party_id: partyId \|\| null/);
+});
+
 test("fast invoice action index preserves the exact governance contract", () => {
   const fast = findOperatorFastAction(invoice.key);
   assert.ok(fast);

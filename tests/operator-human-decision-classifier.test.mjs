@@ -84,6 +84,15 @@ test("staged customer invoice preview commands stay local and read-only", () => 
   assert.equal(classifyPendingOperatorPresentation({ message: "show me preview but do not open it", pending: true, pendingCapabilityKey: capability }), null);
 });
 
+
+test("resolved staged invoice confirmation can request preview and pdf in the same turn", () => {
+  const capability = "finance.accounts_receivable.CreateCustomerInvoice";
+  const message = "yes create it and send me preview and pdf";
+  assert.equal(classify(message, { pendingCapabilityKey: capability }), "execute");
+  assert.equal(classifyPendingOperatorPresentation({ message, pending: true, pendingCapabilityKey: capability }), "both");
+  assert.equal(classify(message, { pending: false, pendingCapabilityKey: capability }), null);
+});
+
 test("explicit execution language executes a recommendation", () => {
   assert.equal(classify("do it", { recommendation: true }), "execute");
   assert.equal(classify("yes proceed", { recommendation: true }), "execute");

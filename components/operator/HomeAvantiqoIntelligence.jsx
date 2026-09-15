@@ -95,34 +95,7 @@ function conversationalProgressStatus(liveExecution, startedAt) {
   }
 
   if (!latest) return "Understanding your request…";
-
-  const actualDescription = text(latest?.description)
-    .replace(/\s*·\s*\d+s\b/gi, "")
-    .trim();
-  if (actualDescription) return actualDescription;
-
-  const phase = text(latest?.phase).replaceAll("_", " ").toLowerCase();
-  const lane = text(latest?.lane).replaceAll("_", " ").toLowerCase();
-  const capability = text(latest?.capability_key).replace(/[._-]+/g, " ");
-  const command = text(latest?.command).replace(/[._-]+/g, " ");
-  const signal = `${phase} ${lane}`;
-
-  if (/research|benchmark|external|market|compare|evidence/.test(signal)) {
-    return "I’m researching the relevant evidence and comparable systems, then I’ll bring it together into a recommendation…";
-  }
-  if (/verify|test|review|validate|quality/.test(signal)) {
-    return "I’ve made progress and I’m checking the full result now…";
-  }
-  if (/change|repair|fix|edit|execute|implement|build|write/.test(signal)) {
-    return "I found what needs attention and I’m working on the correction now…";
-  }
-  if (/inspect|diagnos|analy|understand|plan|read|gather/.test(signal)) {
-    return "I’m checking the relevant information and working out the best next step…";
-  }
-  if (capability) return `I’m working through ${capability} now…`;
-  if (command) return `I’m ${command.toLowerCase()} now…`;
-
-  return "I’m working through your request now…";
+  return text(latest?.description) || text(latest?.phase).replaceAll("_", " ") || "Working…";
 }
 
 function thesisInterruptionSpeech(thesis) {
@@ -490,7 +463,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
 
     try {
       const response = await fetchWithTimeout(
-        "/api/operator/turn",
+        "/api/operator/turn/live",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

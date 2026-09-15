@@ -113,5 +113,22 @@ test('anti-cliche review is compact and concept replacement uses direction autho
   assert.match(source, /Independently judge whether the current creative device is original/);
   assert.match(source, /CREATIVE_SELECTED_CONCEPT_PLAN_REVISION_V1/);
   assert.match(source, /DIRECTION_CONCEPT_REPLACEMENT_FOR_TRIBUNAL_BLOCKER/);
-  assert.match(source, /reviewerDiscipline\(reviewer\) === "ANTI_CLICHE" \? 1200 : 6000/);
+  assert.match(source, /\["ANTI_CLICHE", "PRODUCTION_FEASIBILITY"\]\.includes\(reviewerDiscipline\(reviewer\)\) \? 1200 : 6000/);
+});
+
+
+test('deterministic anti-cliche preflight routes obvious grid-shard trope before paid review', () => {
+  assert.match(source, /function deterministicAntiClicheConceptBlocker/);
+  assert.match(source, /grid\|lattice/);
+  assert.match(source, /fragmented geometric/);
+  assert.match(source, /complete conceptual replacement/);
+  assert.match(source, /deterministic_preflight: true/);
+});
+
+
+test('brand and production scopes ignore unrelated creative metaphor prose', () => {
+  assert.match(source, /function productionDeliverableEvidence/);
+  assert.match(source, /deliverables: productionDeliverableEvidence\(canonical\.deliverables\)/);
+  assert.match(source, /Judge service\/capability feasibility, dependencies, dimensions and static-medium constraints/);
+  assert.match(source, /\["ANTI_CLICHE", "PRODUCTION_FEASIBILITY"\]\.includes\(reviewerDiscipline\(reviewer\)\) \? 1200 : 6000/);
 });

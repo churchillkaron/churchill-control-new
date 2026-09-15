@@ -22,7 +22,7 @@ test('recovered tribunal plans are grounded and still-normalized before review r
   assert.match(source, /function normalizeRecoveredTribunalPlan/);
   assert.match(source, /CreativeExactClaimAuthorityRuntime\.ground\(\{ plan, mission \}\)/);
   assert.match(source, /CreativeStillPlanNormalizationRuntime\.normalize/);
-  assert.match(source, /let replayPlan = normalizeRecoveredTribunalPlan\(master\.plan, context\.mission\)/);
+  assert.match(source, /checkpointMaster\?\.plan \|\| master\.plan/);
   assert.match(source, /replayPlan = normalizeRecoveredTribunalPlan\(replay\.plan, context\.mission\)/);
 });
 
@@ -33,4 +33,18 @@ test('paid Tribunal recovery migrates exact legacy scoped review hashes', () => 
   assert.match(source, /currentEvidenceHash/);
   assert.match(source, /legacyEvidenceHash/);
   assert.match(source, /review_evidence_hash: currentEvidenceHash/);
+});
+
+
+test('Tribunal recovery starts from durable post-repair checkpoint and never double-replays included repairs', () => {
+  assert.match(source, /checkpointRepairIndex/);
+  assert.match(source, /Date\.parse\(String\(entry\.completed_at/);
+  assert.match(source, /checkpointMaster\?\.plan \? checkpointRepairIndex \+ 1/);
+  assert.match(source, /storedPostRepairMasterCheckpoint/);
+});
+
+test('Tribunal recovery can migrate semantically unchanged paid reviews after deterministic normalization changes', () => {
+  assert.match(source, /reviewStillSupported/);
+  assert.match(source, /semanticMigration/);
+  assert.match(source, /if \(!exactHashMatch && !semanticMigration\) continue/);
 });

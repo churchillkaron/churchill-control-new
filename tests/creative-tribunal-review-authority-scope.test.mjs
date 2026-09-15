@@ -105,3 +105,13 @@ test('legacy broad brand and production review hashes migrate without paid rerun
   assert.match(source, /legacyScopedMigrationMatch/);
   assert.match(source, /exactScopedEvidenceMatch \|\| legacyScopedMigrationMatch \|\| verifiedLegacyPass/);
 });
+
+
+test('anti-cliche review is compact and concept replacement uses direction authority', () => {
+  assert.match(source, /function antiClicheConceptEvidence/);
+  assert.match(source, /function antiClicheProductionEvidence/);
+  assert.match(source, /Independently judge whether the current creative device is original/);
+  assert.match(source, /CREATIVE_SELECTED_CONCEPT_PLAN_REVISION_V1/);
+  assert.match(source, /DIRECTION_CONCEPT_REPLACEMENT_FOR_TRIBUNAL_BLOCKER/);
+  assert.match(source, /reviewerDiscipline\(reviewer\) === "ANTI_CLICHE" \? 1200 : 6000/);
+});

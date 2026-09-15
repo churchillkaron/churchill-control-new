@@ -31,7 +31,7 @@ test("Business Partner artifact previews stay visible and downloadable", () => {
   assert.match(artifacts, /<iframe src=\{artifact\.url\}/);
   assert.match(artifacts, /<video src=\{artifact\.url\}/);
   assert.match(artifacts, /<audio src=\{artifact\.url\}/);
-  assert.match(artifacts, /href=\{artifact\.url\} download/);
+  assert.match(artifacts, /href=\{artifact\.download_url \|\| artifact\.url\} download/);
   assert.match(artifacts, /Spreadsheet preview data is not embedded in this result yet/);
 });
 

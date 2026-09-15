@@ -14,14 +14,9 @@ import modal
 
 APP_NAME = os.environ.get("AVANTIQO_INTELLIGENCE_FRONT_APP_NAME", "avantiqo-intelligence-front-owned").strip() or "avantiqo-intelligence-front-owned"
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_INTELLIGENCE_ENGINE_V2"
-RUNTIME_CONTRACT = "AVANTIQO_INTELLIGENCE_FRONT_CPU_SNAPSHOT_V1"
+RUNTIME_CONTRACT = "AVANTIQO_INTELLIGENCE_FRONT_CPU_WARM_V2"
 MODEL = "Qwen/Qwen3-1.7B-GGUF:Q8_0"
-MODEL_REVISION = "90862c4b9d2787eaed51d12237eafdfe7c5f6077"
-MODEL_URL = (
-    "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/"
-    + MODEL_REVISION
-    + "/Qwen3-1.7B-Q8_0.gguf?download=true"
-)
+MODEL_URL = "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/Qwen3-1.7B-Q8_0.gguf?download=true"
 MODEL_PATH = "/opt/avantiqo-front/qwen3-1.7b-q8.gguf"
 PORT = 8080
 SCALEDOWN_WINDOW_SECONDS = 120
@@ -95,15 +90,15 @@ def _safe_output(raw: str) -> str:
     memory=4096,
     timeout=60,
     startup_timeout=60,
-    min_containers=0,
-    max_containers=1,
+    min_containers=1,
+    max_containers=2,
     buffer_containers=0,
     scaledown_window=SCALEDOWN_WINDOW_SECONDS,
-    enable_memory_snapshot=True,
+    enable_memory_snapshot=False,
 )
 class FrontConversation:
-    @modal.enter(snap=True)
-    def initialize_snapshot(self) -> None:
+    @modal.enter()
+    def initialize(self) -> None:
         started = time.perf_counter()
         binary = "/app/llama-server" if Path("/app/llama-server").exists() else "llama-server"
         self.server = subprocess.Popen(
@@ -114,21 +109,10 @@ class FrontConversation:
         deadline = time.time() + 30
         while time.time() < deadline:
             if _health():
-                self.snapshot_init_seconds = round(time.perf_counter() - started, 3)
+                self.startup_ready_seconds = round(time.perf_counter() - started, 3)
                 return
             time.sleep(0.05)
         raise RuntimeError("AVANTIQO_INTELLIGENCE_FRONT_SNAPSHOT_INIT_TIMEOUT")
-
-    @modal.enter(snap=False)
-    def after_restore(self) -> None:
-        started = time.perf_counter()
-        deadline = time.time() + 5
-        while time.time() < deadline:
-            if _health():
-                self.restore_ready_seconds = round(time.perf_counter() - started, 3)
-                return
-            time.sleep(0.02)
-        raise RuntimeError("AVANTIQO_INTELLIGENCE_FRONT_SNAPSHOT_RESTORE_FAILED")
 
     @modal.method()
     def warmup(self) -> dict[str, Any]:
@@ -139,9 +123,9 @@ class FrontConversation:
             "status": "ready",
             "runtime_contract": RUNTIME_CONTRACT,
             "model": MODEL,
-            "min_containers": 0,
+            "min_containers": 1,
             "scaledown_window_seconds": SCALEDOWN_WINDOW_SECONDS,
-            "restore_ready_seconds": self.restore_ready_seconds,
+            "startup_ready_seconds": self.startup_ready_seconds,
             "customer_inference_performed": False,
             "tools_allowed": False,
             "mutation_authority": False,
@@ -168,6 +152,31 @@ class FrontConversation:
                 },
                 {"role": "user", "content": user_content},
             ]
+        elif task_mode == "pending_action_relation":
+            user_content = next((_text(item.get("content"), 7000) for item in reversed(supplied_messages) if item.get("role") == "user"), "")
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Interpret the human reply relative to the staged business action from meaning and context, never trigger words. "
+                        "Choose confirm only when they authorize execution now; revise when they change any staged detail before execution; cancel when they withdraw it; discuss when they ask/comment without authorizing or changing it; new_goal when they abandon or supersede it with unrelated work. Resolve references against the staged payload. "
+                        "Return only q=<confirm|revise|cancel|discuss|new_goal>. /no_think"
+                    ),
+                },
+                {"role": "user", "content": user_content},
+            ]
+        elif task_mode == "pending_action_presentation":
+            user_content = next((_text(item.get("content"), 7000) for item in reversed(supplied_messages) if item.get("role") == "user"), "")
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Infer only how the human wants the result returned after the staged action executes. Use preview when they want to see, review, inspect, check, or be shown what is created; pdf when PDF itself is the requested returned form; download for a downloadable file; otherwise none. Infer meaning, not trigger words. "
+                        "Return only p=<preview|pdf|download|none>. /no_think"
+                    ),
+                },
+                {"role": "user", "content": user_content},
+            ]
         else:
             messages = [
                 {
@@ -189,6 +198,16 @@ class FrontConversation:
             "max_tokens": max_tokens,
             "stream": False,
         }
+        if task_mode == "pending_action_relation":
+            request_body["grammar"] = (
+                'root ::= "q=" relation\n'
+                'relation ::= "confirm" | "revise" | "cancel" | "discuss" | "new_goal"'
+            )
+        elif task_mode == "pending_action_presentation":
+            request_body["grammar"] = (
+                'root ::= "p=" presentation\n'
+                'presentation ::= "preview" | "pdf" | "download" | "none"'
+            )
         response_format = data.get("response_format")
         if isinstance(response_format, dict) and response_format.get("type") == "json_object":
             request_body["response_format"] = {"type": "json_object"}
@@ -211,6 +230,7 @@ class FrontConversation:
             "engine_contract": ENGINE_CONTRACT,
             "front_runtime_contract": RUNTIME_CONTRACT,
             "execution_lane": "front",
+            "front_task_mode": task_mode or "conversation",
             "capability": _text(data.get("capability"), 240),
             "model": MODEL,
             "text": final_text,
@@ -223,13 +243,15 @@ class FrontConversation:
             "modal_app": APP_NAME,
             "modal_class": "FrontConversation",
             "modal_volume_created": False,
-            "memory_snapshot_enabled": True,
-            "min_containers": 0,
-            "max_containers": 1,
+            "memory_snapshot_enabled": False,
+            "min_containers": 1,
+            "max_containers": 2,
             "scaledown_window_seconds": SCALEDOWN_WINDOW_SECONDS,
             "raw_reasoning_persisted": False,
             "tools_allowed": False,
             "mutation_authority": False,
             "generation_seconds": round(time.perf_counter() - started, 3),
-            "restore_ready_seconds": self.restore_ready_seconds,
+            "startup_ready_seconds": self.startup_ready_seconds,
+            "prompt_tokens": int(usage.get("prompt_tokens") or 0),
+            "completion_tokens": int(usage.get("completion_tokens") or 0),
         }

@@ -23,7 +23,7 @@ test('review policy version invalidates settled reviews when authority rules cha
 test('quoted evidence matching tolerates omitted parenthetical qualifiers only',()=>{
   assert.match(source,/function comparableEvidenceText/);
   assert.ok(source.includes('.replace(/\\([^)]*\\)/g, \" \")'));
-  assert.match(source,/evidenceFragmentSupported\(fragment, scopedEvidenceText, planText\)/);
+  assert.match(source,/evidenceFragmentSupported\(fragment, scopedEvidenceText, planText, reviewerAuthorityText\)/);
   assert.match(source,/UNSUPPORTED_QUOTED_EVIDENCE/);
 });
 
@@ -64,4 +64,12 @@ test('anti-cliche reviewers only see current creative evidence, not historical d
   assert.match(source, /return "ANTI_CLICHE"/);
   assert.match(source, /case "ANTI_CLICHE"/);
   assert.match(source, /anti_cliche_rules: canonical\.anti_cliche_rules/);
+});
+
+
+test('reviewers may cite their active mandate and active review policy as trusted authority', () => {
+  assert.match(source, /reviewerAuthorityText = JSON\.stringify\(activeReviewerAuthority/);
+  assert.match(source, /reviewPolicyText = JSON\.stringify/);
+  assert.match(source, /reviewPayload\(\{ reviewer, context: \{\}, plan, floor: qualityFloor\(plan\) \}\)\.rules/);
+  assert.match(source, /evidenceFragmentSupported\(fragment, scopedEvidenceText, planText, reviewerAuthorityText, reviewPolicyText\)/);
 });

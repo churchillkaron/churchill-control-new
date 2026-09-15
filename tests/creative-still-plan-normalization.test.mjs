@@ -74,3 +74,27 @@ test('still plans remove residual block metaphors and temporal camera or product
   assert.match(plan.concept.production_approach, /Static generated Light Grid composition/);
   assert.doesNotMatch(body, /natural evolution|all changes occur|sequence evolves/i);
 });
+
+
+test('still recovery removes stale physical metaphors from strategy director guidance', () => {
+  const plan = normalizeCreativeStillPlan({
+    workflow_kind: 'STILL',
+    concept: {
+      title: 'Grid',
+      hook: 'No physical objects.',
+      signature_device: 'Light Grid',
+      refused_devices: ['physical objects'],
+      visual_system: {},
+    },
+    directors: {
+      strategy_director: {
+        risks: ["Overcomplicating the modular blocks' physical manifestation"],
+        repair_instructions: ['Condense into a stable modular structure', 'Replace desk with abstract modular blocks'],
+      },
+    },
+    deliverables: [],
+  });
+  const strategy = JSON.stringify(plan.directors.strategy_director);
+  assert.doesNotMatch(strategy, /modular blocks|modular structure/i);
+  assert.match(strategy, /Abstract Light Grid composition/);
+});

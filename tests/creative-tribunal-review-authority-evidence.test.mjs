@@ -31,3 +31,9 @@ test('Production Workflow reviewers receive production-specific evidence authori
 test('canonical plan may ground quoted evidence outside narrow reviewer scope',()=>{
   assert.match(source,/!scopedEvidenceText\.includes\(fragment\.toLowerCase\(\)\) && !planText\.includes\(fragment\.toLowerCase\(\)\)/);
 });
+
+
+test('brand reviewer may reject invented precision without authorizing it',()=>{
+  assert.match(source,/explicitlyTreatsPrecisionAsUnverified/);
+  assert.match(source,/exactBrandMention && !explicitlyTreatsPrecisionAsUnverified/);
+});

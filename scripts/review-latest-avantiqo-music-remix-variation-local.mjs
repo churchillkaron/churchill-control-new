@@ -11,12 +11,11 @@ loadAvantiqoEnv();
 
 const TMP = "/tmp";
 const DOWNLOADS = path.join(os.homedir(), "Downloads");
-const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_BENCHMARK_V2";
+const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_BENCHMARK_V3";
 const REVIEW_KIND = "MUSICAL_VARIATION";
 const EXPECTED_CAPABILITY = "ai.audio.remix";
 const EXPECTED_TASK_TYPE = "cover";
 const EXPECTED_COVER_STRENGTH = 0.6;
-const SAFE_LEASE_LANE = "music-transform-candidate";
 const METAL_PROFILE_CONTRACT = "AVANTIQO_MUSIC_METAL_CONTINUITY_FIXTURE_V1";
 
 const text = (value) => String(value ?? "").trim();
@@ -48,7 +47,7 @@ function eligible(report) {
     report?.source_fixture?.royalty_free === true &&
     report?.source_fixture?.external_reference_recording_used === false &&
     report?.source_fixture?.artist_imitation_requested === false &&
-    text(report?.safe_lease_lane) === SAFE_LEASE_LANE &&
+    text(report?.infrastructure_provider) === "MODAL_DIRECT_A10G_ASYNC_V1" &&
     text(report?.output?.task_type) === EXPECTED_TASK_TYPE &&
     Math.abs(Number(report?.output?.audio_cover_strength) - EXPECTED_COVER_STRENGTH) <= 0.001 &&
     report?.output?.source_audio_used === true &&
@@ -120,7 +119,7 @@ console.log(JSON.stringify({
   review_audio_size_bytes: audio.length,
   opened_for_review: opened,
   provider_jobs_submitted: 0,
-  runpod_lease_opened: false,
+  modal_direct_execution: true,
   production_activation_performed: false,
   next_step: "LISTEN_FOR_RECOGNIZABLE_SOURCE_IDENTITY_CLEAR_ALTERNATE_ARRANGEMENT_NEW_ORIGINAL_MATERIAL_AND_NO_MAJOR_ARTIFACTS",
 }, null, 2));
@@ -139,8 +138,7 @@ if (recordVerdict) {
     benchmark_report_path: selected.reportPath,
     benchmark_job_id: text(selected.report?.job_id),
     endpoint_id: text(selected.report?.endpoint_id),
-    safe_lease_lane: SAFE_LEASE_LANE,
-    capability: EXPECTED_CAPABILITY,
+      capability: EXPECTED_CAPABILITY,
     source_mode: "MUSICAL_VARIATION",
     source_profile: "DYNAMIC_METAL",
     source_profile_contract: METAL_PROFILE_CONTRACT,
@@ -151,7 +149,7 @@ if (recordVerdict) {
     reviewer,
     notes: notes || null,
     provider_jobs_submitted: 0,
-    runpod_lease_opened: false,
+    modal_direct_execution: true,
     production_activation_allowed: false,
     pricing_activation_allowed: false,
     provider_selection_change_allowed: false,
@@ -168,7 +166,7 @@ if (recordVerdict) {
     human_review_status: recordVerdict,
     eligible_for_later_release_decision: result.eligible_for_later_release_decision,
     provider_jobs_submitted: 0,
-    runpod_lease_opened: false,
+    modal_direct_execution: true,
     production_activation_performed: false,
     output_path: reviewPath,
   }, null, 2));

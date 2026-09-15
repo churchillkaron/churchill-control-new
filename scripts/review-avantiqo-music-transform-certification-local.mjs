@@ -9,9 +9,8 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 loadAvantiqoEnv();
 
 const CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_HUMAN_REVIEW_PREP_V1";
-const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_BENCHMARK_V2";
+const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_BENCHMARK_V3";
 const CONTINUITY_FIXTURE_CONTRACT = "AVANTIQO_MUSIC_CONTINUITY_FIXTURE_V1";
-const SAFE_LEASE_LANE = "music-transform-candidate";
 const EXPECTED_CAPABILITY = "ai.audio.extend";
 
 const text = (value) => String(value ?? "").trim();
@@ -33,6 +32,7 @@ if (
   report?.passed !== true ||
   text(report?.capability) !== EXPECTED_CAPABILITY ||
   report?.provider_jobs_submitted !== 1 ||
+  text(report?.infrastructure_provider) !== "MODAL_DIRECT_A10G_ASYNC_V1" ||
   report?.temporal_extension_technical_proven !== true ||
   report?.human_review_required !== true ||
   text(report?.human_review_status) !== "PENDING" ||
@@ -45,7 +45,6 @@ if (
   report?.production_activation_allowed !== false ||
   report?.pricing_activation_allowed !== false ||
   report?.provider_selection_change_allowed !== false ||
-  text(report?.safe_lease_lane) !== SAFE_LEASE_LANE ||
   report?.output?.certification_candidate !== true ||
   report?.output?.production_certified !== false ||
   report?.output?.activation_allowed !== false ||
@@ -101,7 +100,7 @@ console.log(JSON.stringify({
   human_review_kind: "MUSICAL_CONTINUITY",
   temporal_extension_technical_proven: true,
   provider_jobs_submitted: 0,
-  runpod_lease_opened: false,
+  modal_direct_execution: true,
   production_activation_performed: false,
   pricing_activation_performed: false,
   next_step: "LISTEN_FOR_SEAMLESS_HARMONY_RHYTHM_MELODY_AND_TIMBRE_CONTINUATION_THEN_RECORD_APPROVED_OR_REJECTED",

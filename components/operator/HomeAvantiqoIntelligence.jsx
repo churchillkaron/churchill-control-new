@@ -96,11 +96,15 @@ function conversationalProgressStatus(liveExecution, startedAt) {
 
   if (!latest) return "Understanding your request…";
 
-  const actualDescription = text(latest?.description);
+  const actualDescription = text(latest?.description)
+    .replace(/\s*·\s*\d+s\b/gi, "")
+    .trim();
   if (actualDescription) return actualDescription;
 
   const phase = text(latest?.phase).replaceAll("_", " ").toLowerCase();
   const lane = text(latest?.lane).replaceAll("_", " ").toLowerCase();
+  const capability = text(latest?.capability_key).replace(/[._-]+/g, " ");
+  const command = text(latest?.command).replace(/[._-]+/g, " ");
   const signal = `${phase} ${lane}`;
 
   if (/research|benchmark|external|market|compare|evidence/.test(signal)) {
@@ -115,6 +119,8 @@ function conversationalProgressStatus(liveExecution, startedAt) {
   if (/inspect|diagnos|analy|understand|plan|read|gather/.test(signal)) {
     return "I’m checking the relevant information and working out the best next step…";
   }
+  if (capability) return `I’m working through ${capability} now…`;
+  if (command) return `I’m ${command.toLowerCase()} now…`;
 
   return "I’m working through your request now…";
 }

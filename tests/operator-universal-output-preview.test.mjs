@@ -38,7 +38,7 @@ test("universal preview treats Excel and CSV as spreadsheet outputs with downloa
   assert.match(renderer, /FileSpreadsheet/);
   assert.match(renderer, /SpreadsheetPreview/);
   assert.match(renderer, /preview_rows/);
-  assert.match(renderer, /<a href=\{artifact\.url\} download/);
+  assert.match(renderer, /<a href=\{artifact\.download_url \|\| artifact\.url\} download/);
 });
 
 

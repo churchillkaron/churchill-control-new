@@ -86,7 +86,7 @@ export async function POST(request) {
             phase: codeInspection ? "CODE_INSPECTION_ROUTING" : "REQUEST_ROUTING",
             status: "running",
             description: codeInspection
-              ? "I’m checking the relevant UI and code path before making any change."
+              ? "I’m checking the relevant pages, components and verification path before making any change."
               : "I’m checking the relevant information and working out the next useful step.",
             read_only: true,
             mutation_possible: false,

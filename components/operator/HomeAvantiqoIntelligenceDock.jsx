@@ -528,9 +528,9 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         <span className="flex items-center gap-1 text-[9px] text-white/25">
           {developerAttachmentAnalyzing ? <Loader2 size={9} className="animate-spin" /> : null}
           {developerAttachmentAnalyzing
-            ? "Reading files…"
+            ? "Understanding files…"
             : developerAttachmentSet.analysis_complete
-              ? "Ready for your next request"
+              ? "Understood · next turn only"
               : "Ready to use"}
         </span>
       ) : null}

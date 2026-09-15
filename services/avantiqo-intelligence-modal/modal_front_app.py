@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import time
@@ -11,7 +12,7 @@ from typing import Any
 
 import modal
 
-APP_NAME = "avantiqo-intelligence-front-owned"
+APP_NAME = os.environ.get("AVANTIQO_INTELLIGENCE_FRONT_APP_NAME", "avantiqo-intelligence-front-owned").strip() or "avantiqo-intelligence-front-owned"
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_INTELLIGENCE_ENGINE_V2"
 RUNTIME_CONTRACT = "AVANTIQO_INTELLIGENCE_FRONT_CPU_SNAPSHOT_V1"
 MODEL = "Qwen/Qwen3-1.7B-GGUF:Q8_0"
@@ -150,18 +151,36 @@ class FrontConversation:
     def invoke(self, data: dict[str, Any]) -> dict[str, Any]:
         if data.get("tools"):
             raise ValueError("AVANTIQO_INTELLIGENCE_FRONT_TOOLS_FORBIDDEN")
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are Avantiqo, a natural human-style business partner. "
-                    "Respond directly in the user's language. Never claim a business action happened. "
-                    "Never invent current business facts. If current evidence is required, say that it is being checked. "
-                    "Do not expose chain-of-thought or internal implementation details. /no_think"
-                ),
-            },
-            *_messages(data),
-        ]
+        task_mode = _text(data.get("front_task_mode"), 80).lower()
+        supplied_messages = _messages(data)
+        if task_mode == "semantic_classifier":
+            user_content = next((_text(item.get("content"), 9000) for item in reversed(supplied_messages) if item.get("role") == "user"), "")
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Classify the human turn by meaning and conversation context. Choose one value for every field; never repeat option lists or use the | character. "
+                        "Return exactly one short line: r=<c/e/g>;es=<none/internal/external/both>;depth=<fast/deep>;cm=<light/strategic/creative/analytical>;ct=<0/1>;cr=<0/1>;ed=<none/business/product_engineering>;gm=<inspect/change/none>;gd=<conversation/inspection_report/change/none>;al=<none/material>;cq=<0/1>;as=<none/single/mission>;gr=<new/continue/revise/unknown>;rm=<0/1>;ne=<0/1>. "
+                        "c means discussion, e means fresh evidence is needed, g means governed execution. UI/workflow evaluation of Avantiqo is product_engineering; changing real business records is business. Breadth is not ambiguity. "
+                        "Example meaning: asking to review a Finance UI and recommend improvements => r=e;es=internal;ed=product_engineering;gm=inspect;gd=conversation;ct=0;cr=0;al=none;cq=0;as=single;gr=new;rm=0;ne=1. "
+                        "Example meaning: asking to create or update an invoice => r=g;es=internal;ed=business;gm=none;gd=none;ct=0;cr=0;al=none;cq=0;as=single;gr=new;rm=1;ne=1. /no_think"
+                    ),
+                },
+                {"role": "user", "content": user_content},
+            ]
+        else:
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are Avantiqo, a natural human-style business partner. "
+                        "Respond directly in the user's language. Never claim a business action happened. "
+                        "Never invent current business facts. If current evidence is required, say that it is being checked. "
+                        "Do not expose chain-of-thought or internal implementation details. /no_think"
+                    ),
+                },
+                *supplied_messages,
+            ]
         max_tokens = max(1, min(MAX_OUTPUT_TOKENS, int(data.get("max_output_tokens") or 120)))
         body = json.dumps({
             "messages": messages,

@@ -55,13 +55,13 @@ test("ambiguous equal-strength write aliases fail closed", () => {
   assert.equal(result, null);
 });
 
-test("synthetic routing checks semantic Intelligence before deterministic fallback", () => {
+test("synthetic routing binds one unambiguous governed action before semantic Intelligence", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js", import.meta.url), "utf8");
   const blockStart = source.indexOf("let semanticUnderstanding = null;");
   const block = source.slice(blockStart, blockStart + 2600);
   const deterministic = block.indexOf("resolveDeterministicGovernedAction");
   const semantic = block.indexOf("understandHumanBusinessPartnerTurn");
-  assert.ok(semantic >= 0 && deterministic > semantic);
+  assert.ok(deterministic >= 0 && semantic > deterministic);
   assert.match(block, /fallback_only: true/);
   assert.match(block, /route: "governed"/);
   assert.match(block, /requires_mutation: true/);

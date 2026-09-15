@@ -36,3 +36,18 @@ test('workflow grounds claims on both Tribunal entry paths', () => {
   const source = fs.readFileSync(new URL('../lib/creative/director/runtime/CreativeWorkflowResolutionRuntime.js', import.meta.url), 'utf8');
   assert.equal((source.match(/CreativeExactClaimAuthorityRuntime\.ground\(/g) || []).length, 2);
 });
+
+
+test('neutralizes legacy false-authority placeholders even after exact tokens are gone', () => {
+  const plan = {
+    concept: { creative_system: 'Use evidence-bound brand color with verified production font.' },
+    proof: 'verified business proof',
+  };
+  const grounded = groundCreativeExactClaims({ plan, mission: { objective: 'Premium campaign poster' } });
+  const body = JSON.stringify(grounded);
+  assert.doesNotMatch(body, /evidence-bound brand color|verified production font/i);
+  assert.doesNotMatch(body, /\"verified business proof\"/i);
+  assert.match(body, /not claimed as an official brand color/);
+  assert.match(body, /not claimed as an official brand font/);
+  assert.match(body, /source-verified business proof required before release/);
+});

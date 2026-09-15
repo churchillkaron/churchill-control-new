@@ -610,6 +610,7 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
     buffer_containers=0,
     scaledown_window=FAST_SCALEDOWN_WINDOW_SECONDS,
 )
+@modal.concurrent(max_inputs=1)
 def fast(data: dict[str, Any]) -> dict[str, Any]:
     result = dict(_run(data, model=FAST_MODEL, lane="fast"))
     result["fast_runtime_contract"] = FAST_RUNTIME_CONTRACT
@@ -628,5 +629,6 @@ def fast(data: dict[str, Any]) -> dict[str, Any]:
     buffer_containers=0,
     scaledown_window=DEEP_SCALEDOWN_WINDOW_SECONDS,
 )
+@modal.concurrent(max_inputs=1)
 def deep(data: dict[str, Any]) -> dict[str, Any]:
     return _run(data, model=DEEP_MODEL, lane="deep")

@@ -38,6 +38,8 @@ assert.match(runtime, /pcm_s24le/);
 
 assert.match(runtime, /loudnorm=I=/);
 assert.match(runtime, /measured_I=/);
+assert.match(runtime, /`loudnorm=I=\$\{master\.target_lufs\}`/);
+assert.doesNotMatch(runtime, /"loudnorm",\s*`I=/);
 assert.match(runtime, /measured_TP=/);
 assert.match(runtime, /measured_LRA=/);
 assert.match(runtime, /measured_thresh=/);

@@ -81,3 +81,11 @@ test("vocal song preproduction fails closed without locked lyrics", async () => 
   assert.equal(result.passed, false);
   assert.ok(result.failures.includes("MUSIC_PREPRODUCTION_LYRICS_REQUIRED"));
 });
+
+
+test("preproduction repair retries semantic validation before failing", async () => {
+  const source = (await import("node:fs")).readFileSync("lib/creative/music/runtime/CreativeMusicCreativeFloorExecutionRuntime.js", "utf8");
+  assert.match(source, /MUSIC_STUDIO_PREPRODUCTION_REPAIR/);
+  assert.match(source, /preproduction_validation_failures/);
+  assert.match(source, /CREATIVE_MUSIC_PREPRODUCTION_REPAIR_INVALID/);
+});

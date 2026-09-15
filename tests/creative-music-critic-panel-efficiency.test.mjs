@@ -9,7 +9,7 @@ test("Music creative floor batches all specialist critics per concept without me
   assert.match(source, /evaluate_each_critic_independently: true/);
   assert.match(source, /do_not_average_or_merge_critic_judgements: true/);
   assert.match(source, /return_exactly_one_review_per_critic: true/);
-  assert.match(source, /criticReviews\.push\(\.\.\.await criticPanel/);
+  assert.match(source, /Promise\.all\(concepts\.map\(\(conceptRow\) => criticPanel/);
   assert.doesNotMatch(source, /for \(const criticSpec of development\.concept_competition\.critics\)/);
 });
 
@@ -24,4 +24,10 @@ test("isolated Music quality worker can extend Deep keep-warm without changing p
   const modal = fs.readFileSync("services/avantiqo-intelligence-modal/modal_app.py", "utf8");
   assert.match(modal, /AVANTIQO_INTELLIGENCE_DEEP_SCALEDOWN_SECONDS/);
   assert.match(modal, /\"5\"/);
+});
+
+
+test("Music creative floor parallelizes independent concepts and concept panels", () => {
+  assert.match(source, /Promise\.all\(development\.concept_competition\.concepts\.map/);
+  assert.match(source, /Promise\.all\(concepts\.map\(\(conceptRow\) => criticPanel/);
 });

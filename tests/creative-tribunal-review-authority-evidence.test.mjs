@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import test from 'node:test';
+
+const source = fs.readFileSync('lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js','utf8');
+
+test('Tribunal rejects unsupported physical-production reviewer claims', () => {
+  assert.match(source, /UNSUPPORTED_PHYSICAL_PRODUCTION_CLAIM/);
+  assert.match(source, /reviewerPlanEvidence\(reviewer, plan\)/);
+  assert.match(source, /evidenceContainsPhysicalProduction/);
+});
+
+test('Tribunal rejects exact brand claims without authoritative brand truth', () => {
+  assert.match(source, /UNVERIFIED_EXACT_BRAND_CLAIM/);
+  assert.match(source, /!hasExactBrandTruthAuthority\(plan\)/);
+});

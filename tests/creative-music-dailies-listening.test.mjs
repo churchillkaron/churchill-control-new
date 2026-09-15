@@ -127,3 +127,13 @@ test("Music Dailies treats standalone music as present from analyzed audio", asy
   assert.match(source, /dialogue_ducking_required: false/);
   assert.match(source, /ignore_cinematic_mix_presence_flags_for_music_presence: true/);
 });
+
+
+test("Music Dailies never equates generic melody onset with motif timing", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /motif_timing_evidence/);
+  assert.match(source, /dedicated_match_ready: false/);
+  assert.match(source, /generic_melody_phrase_onsets_are_not_motif_timing: true/);
+  assert.match(source, /exact_motif_timing_requires_dedicated_match: true/);
+  assert.match(source, /missing_dedicated_motif_match_is_unknown_not_render_failure: true/);
+});

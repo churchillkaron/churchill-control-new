@@ -87,3 +87,21 @@ test('generic anti-cliche device replacement triggers concept replacement author
   assert.match(source, /unique,\? non-generic/);
   assert.match(source, /replace\[\^\.\]\{0,120\}\(\?:clich/);
 });
+
+
+test('brand and production review hashes exclude unrelated creative metaphor fields', () => {
+  assert.match(source, /function brandConceptEvidence/);
+  assert.match(source, /function productionConceptEvidence/);
+  assert.match(source, /concept: brandConceptEvidence\(canonical\.concept \|\| \{\}\)/);
+  assert.match(source, /concept: productionConceptEvidence\(canonical\.concept \|\| \{\}\)/);
+  assert.doesNotMatch(source, /case "BRAND_TRUTH":[\s\S]{0,160}concept: canonical\.concept/);
+  assert.doesNotMatch(source, /case "PRODUCTION_FEASIBILITY":[\s\S]{0,180}concept: canonical\.concept/);
+});
+
+
+test('legacy broad brand and production review hashes migrate without paid rerun', () => {
+  assert.match(source, /function legacyReviewerPlanEvidence/);
+  assert.match(source, /function legacyReviewerEvidenceHash/);
+  assert.match(source, /legacyScopedMigrationMatch/);
+  assert.match(source, /exactScopedEvidenceMatch \|\| legacyScopedMigrationMatch \|\| verifiedLegacyPass/);
+});

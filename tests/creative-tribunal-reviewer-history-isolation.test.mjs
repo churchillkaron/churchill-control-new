@@ -6,7 +6,7 @@ test('active Tribunal reviewer authority excludes historical failure modes',()=>
   assert.match(source,/function activeReviewerAuthority/);
   const fn=source.slice(source.indexOf('function activeReviewerAuthority'),source.indexOf('function reviewerEvidenceHash'));
   assert.doesNotMatch(fn,/failure_modes:/);
-  assert.match(source,/reviewer: activeReviewerAuthority\(reviewer\)/);
+  assert.match(source,/reviewer: activeReviewerAuthority\(reviewer, plan\)/);
   assert.match(source,/reviewer: activeReviewer,/);
 });
 test('Tribunal explicitly forbids treating historical panel failures as current evidence',()=>{

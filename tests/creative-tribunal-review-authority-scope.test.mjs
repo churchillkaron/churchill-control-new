@@ -50,3 +50,11 @@ test('brand reviewers distinguish non-official creative palette from brand truth
   assert.match(source, /CREATIVE_PALETTE_MISCLASSIFIED_AS_BRAND_TRUTH/);
   assert.match(source, /not official brand truth is art direction/);
 });
+
+
+test('fatal concept blockers require genuine concept replacement', () => {
+  assert.match(source, /function fatalConceptReplacementRequired/);
+  assert.match(source, /Perform a true concept replacement/);
+  assert.match(source, /do not merely rename\/reskin the same metaphor/);
+  assert.match(source, /MAXIMUM_REPAIR_ATTEMPTS = 3/);
+});

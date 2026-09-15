@@ -64,3 +64,16 @@ test('removes brand ownership from unverified named palette colors', () => {
   assert.doesNotMatch(body, /Avantiqo blue/i);
   assert.match(body, /creative palette blue \(not claimed as an official brand color\)/i);
 });
+
+
+test('neutralizes legacy named palette variants and placement verification fields', () => {
+  const plan = {
+    concept: { creative_system: 'Use exact Avantiqo blue creative palette color (not claimed as an official brand color).' },
+    quality: { logo_placement_verification: 'Bottom 10% (Feed) / 5% (Story)' },
+  };
+  const grounded = groundCreativeExactClaims({ plan, mission: { objective: 'Premium campaign poster' } });
+  const body = JSON.stringify(grounded);
+  assert.doesNotMatch(body, /Avantiqo blue|Bottom 10%|5% \(Story\)/i);
+  assert.match(body, /creative palette blue \(not claimed as an official brand color\)/i);
+  assert.match(grounded.quality.logo_placement_verification, /design-defined safe area/i);
+});

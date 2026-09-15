@@ -49,3 +49,28 @@ test('still plans reconcile temporal lighting and refused physical metaphors fro
   assert.match(plan.concept.visual_system.lighting_language, /Static final-state lighting: uniform serene lighting/);
   assert.doesNotMatch(plan.concept.visual_system.lighting_language, /progression within single image/i);
 });
+
+
+test('still plans remove residual block metaphors and temporal camera or production wording', () => {
+  const plan = normalizeCreativeStillPlan({
+    workflow_kind: 'STILL',
+    concept: {
+      title: 'Grid',
+      hook: 'No physical objects.',
+      signature_device: 'Light Grid',
+      refused_devices: ['physical objects'],
+      signature_images: ['Blocks in chaotic arrangement', 'Stable modular structure'],
+      production_approach: 'All changes occur within a single continuous image.',
+      visual_system: {
+        camera_language: 'Static angle emphasizing transformation and natural evolution.',
+        production_approach: 'A sequence evolves into the final frame.',
+      },
+    },
+    deliverables: [],
+  });
+  const body = JSON.stringify(plan);
+  assert.doesNotMatch(JSON.stringify(plan.concept.signature_images), /blocks|modular structure/i);
+  assert.match(plan.concept.visual_system.camera_language, /Static camera and fixed composition/);
+  assert.match(plan.concept.production_approach, /Static generated Light Grid composition/);
+  assert.doesNotMatch(body, /natural evolution|all changes occur|sequence evolves/i);
+});

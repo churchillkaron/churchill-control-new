@@ -22,7 +22,7 @@ test('temporal work is untouched', () => {
 
 test('workflow normalizes still plans on both Tribunal entry paths', () => {
   const source = fs.readFileSync(new URL('../lib/creative/director/runtime/CreativeWorkflowResolutionRuntime.js', import.meta.url), 'utf8');
-  assert.equal((source.match(/CreativeStillPlanNormalizationRuntime\.normalize\(/g) || []).length, 2);
+  assert.equal((source.match(/CreativeStillPlanNormalizationRuntime\.normalize\(/g) || []).length, 3);
 });
 
 

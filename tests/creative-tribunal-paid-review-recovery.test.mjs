@@ -16,3 +16,12 @@ test("workflow recovers paid Tribunal panel and reviews from usage receipts", ()
   assert.match(source, /reviewEvidenceHash/);
   assert.match(source, /recoveredTribunalResume/);
 });
+
+
+test('recovered tribunal plans are grounded and still-normalized before review reuse', () => {
+  assert.match(source, /function normalizeRecoveredTribunalPlan/);
+  assert.match(source, /CreativeExactClaimAuthorityRuntime\.ground\(\{ plan, mission \}\)/);
+  assert.match(source, /CreativeStillPlanNormalizationRuntime\.normalize/);
+  assert.match(source, /let replayPlan = normalizeRecoveredTribunalPlan\(master\.plan, context\.mission\)/);
+  assert.match(source, /replayPlan = normalizeRecoveredTribunalPlan\(replay\.plan, context\.mission\)/);
+});

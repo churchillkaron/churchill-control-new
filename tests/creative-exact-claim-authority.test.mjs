@@ -34,7 +34,7 @@ test('preserves exact values explicitly authorized by mission', () => {
 
 test('workflow grounds claims on both Tribunal entry paths', () => {
   const source = fs.readFileSync(new URL('../lib/creative/director/runtime/CreativeWorkflowResolutionRuntime.js', import.meta.url), 'utf8');
-  assert.equal((source.match(/CreativeExactClaimAuthorityRuntime\.ground\(/g) || []).length, 2);
+  assert.equal((source.match(/CreativeExactClaimAuthorityRuntime\.ground\(/g) || []).length, 3);
 });
 
 

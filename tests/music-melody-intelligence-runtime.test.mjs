@@ -63,6 +63,7 @@ test("owned musical analyzer emits bounded melody measurements", () => {
   assert.match(musicalSource, /raw_pitch_frames_persisted:\s*false/);
   assert.match(musicalSource, /polyphonic_source_assumed_monophonic:\s*false/);
   assert.match(musicalSource, /melody_measurement/);
+  assert.match(musicalSource, /const melody_measurement = melodyMeasurement\(samples, ANALYSIS_RATE\)/);
 });
 
 test("semantic evidence, Business Partner and Dailies share melody intelligence", () => {

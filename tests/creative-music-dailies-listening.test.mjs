@@ -10,7 +10,7 @@ const intended = {
   motif_and_hook_system: "three-note motif", performance_direction: { feel: "human" },
   sonic_identity: "organic futuristic", dynamic_arc: ["low", "high"],
 };
-const rendered = { ...intended };
+const rendered = { musical_analysis: {}, melodic_intelligence: {}, form_intelligence: {}, rhythm_intelligence: {}, dynamic_sections: [], master_report: {}, perceptual_translation: {} };
 const families = ["MUSICALITY", "PERFORMANCE", "SONIC_IDENTITY", "TECHNICAL", "TRANSLATION", "INTENT_FIDELITY"];
 
 test("Music Dailies approve only complete 90+ independent reviews", () => {
@@ -92,4 +92,20 @@ test("Music Dailies keeps approved intent separate from rendered evidence", asyn
   assert.doesNotMatch(source, /music_emotional_arc\) \|\| text\(binding\.direction_contract\?\.emotional_arc\)/);
   assert.match(source, /do_not_treat_approved_intent_as_rendered_fact: true/);
   assert.match(source, /do_not_require_non_audio_gates: family === "INTENT_FIDELITY"/);
+});
+
+
+test("Music Dailies require measured rendered evidence rather than copied intent fields", () => {
+  const reviews = families.map((family) => ({ family, score: 94, passed: true, evidence: [`${family} evidence`] }));
+  const copiedIntentOnly = { ...intended };
+  const report = evaluateMusicDailies({ intended, rendered: copiedIntentOnly, reviews });
+  assert.equal(report.passed, false);
+  assert.ok(report.failures.includes("MUSIC_DAILIES_RENDERED_EVIDENCE_REQUIRED:musical_analysis"));
+  assert.ok(!report.failures.includes("MUSIC_DAILIES_RENDERED_EVIDENCE_REQUIRED:emotional_arc"));
+});
+
+test("Music Dailies reviewer input hides unaccepted tempo candidates from factual evidence", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /analysis\.tempo\?\.accepted === true/);
+  assert.match(source, /never_fail_on_unaccepted_tempo_or_key_candidates: true/);
 });

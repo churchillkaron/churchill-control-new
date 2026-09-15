@@ -15,9 +15,9 @@ import modal
 APP_NAME = os.environ.get("AVANTIQO_INTELLIGENCE_FRONT_APP_NAME", "avantiqo-intelligence-front-owned").strip() or "avantiqo-intelligence-front-owned"
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_INTELLIGENCE_ENGINE_V2"
 RUNTIME_CONTRACT = "AVANTIQO_INTELLIGENCE_FRONT_CPU_WARM_V2"
-MODEL = "Qwen/Qwen3-1.7B-GGUF:Q8_0"
-MODEL_URL = "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/Qwen3-1.7B-Q8_0.gguf?download=true"
-MODEL_PATH = "/opt/avantiqo-front/qwen3-1.7b-q8.gguf"
+MODEL = "Qwen/Qwen3-4B-GGUF:Q4_K_M"
+MODEL_URL = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/Qwen3-4B-Q4_K_M.gguf?download=true"
+MODEL_PATH = "/opt/avantiqo-front/qwen3-4b-q4-k-m.gguf"
 PORT = 8080
 SCALEDOWN_WINDOW_SECONDS = 120
 MAX_OUTPUT_TOKENS = 320
@@ -87,7 +87,7 @@ def _safe_output(raw: str) -> str:
 @app.cls(
     image=image,
     cpu=8.0,
-    memory=4096,
+    memory=8192,
     timeout=60,
     startup_timeout=60,
     min_containers=1,
@@ -139,18 +139,39 @@ class FrontConversation:
         supplied_messages = _messages(data)
         if task_mode == "semantic_classifier":
             user_content = next((_text(item.get("content"), 9000) for item in reversed(supplied_messages) if item.get("role") == "user"), "")
+            classifier_input = user_content
+            try:
+                parsed_input = json.loads(user_content)
+            except Exception:
+                parsed_input = None
+            if isinstance(parsed_input, dict) and _text(parsed_input.get("message"), 12000):
+                current_message = _text(parsed_input.get("message"), 12000)
+                recent_context = parsed_input.get("recent") if isinstance(parsed_input.get("recent"), list) else []
+                working_context = parsed_input.get("context") if isinstance(parsed_input.get("context"), dict) else {}
+                classifier_input = (
+                    f"CURRENT MESSAGE:\n{current_message}\n\n"
+                    f"RECENT CONVERSATION (reference only):\n{json.dumps(recent_context, ensure_ascii=False)[:5000]}\n\n"
+                    f"WORKING CONTEXT (reference only):\n{json.dumps(working_context, ensure_ascii=False)[:5000]}"
+                )
             messages = [
                 {
                     "role": "system",
                     "content": (
-                        "Classify the human turn by meaning and conversation context. Choose one value for every field; never repeat option lists or use the | character. "
-                        "Return exactly one short line: r=<c/e/g>;es=<none/internal/external/both>;depth=<fast/deep>;cm=<light/strategic/creative/analytical>;ct=<0/1>;cr=<0/1>;ed=<none/business/product_engineering>;gm=<inspect/change/none>;gd=<conversation/inspection_report/change/none>;al=<none/material>;cq=<0/1>;as=<none/single/mission>;gr=<new/continue/revise/unknown>;rm=<0/1>;ne=<0/1>. "
-                        "c means discussion, e means fresh evidence is needed, g means governed execution. UI/workflow evaluation of Avantiqo is product_engineering; changing real business records is business. Breadth is not ambiguity. "
-                        "Example meaning: asking to review a Finance UI and recommend improvements => r=e;es=internal;ed=product_engineering;gm=inspect;gd=conversation;ct=0;cr=0;al=none;cq=0;as=single;gr=new;rm=0;ne=1. "
-                        "Example meaning: asking to create or update an invoice => r=g;es=internal;ed=business;gm=none;gd=none;ct=0;cr=0;al=none;cq=0;as=single;gr=new;rm=1;ne=1. /no_think"
+                        "Understand the CURRENT human message by meaning, using prior context only when the message actually refers back to it. "
+                        "Return exactly: i=<chat|inspect|operate|followup|revise|artifact|unclear>;d=<none|business|product>;e=<none|internal|external|both>;a=<none|single|mission>;g=<new|continue|revise|unknown>. "
+                        "chat = normal conversation, strategy, brainstorming, opinions, creative collaboration, general questions. "
+                        "inspect = the user wants current facts, live system inspection, verification, audit, research, or evidence. "
+                        "operate = the user wants Avantiqo to actually cause a real state change now, such as creating/updating/deleting a business record, issuing an invoice, sending a communication, posting a payment, changing product code/configuration, or performing another real action. Infer this from the requested outcome, not from trigger words. "
+                        "followup = the message only makes sense as continuation of the prior goal, such as an elliptical continuation. "
+                        "revise = the user changes/corrects the prior goal or output. artifact = reuse/show/resend/open an existing output without recreating it. "
+                        "d=product when the current message is about Avantiqo itself, including its Business Partner, intelligence, capabilities, UI/UX, workflows, architecture, code, Studios, or how the product should improve. d=business when the requested outcome operates or discusses the user's real business records/processes. Otherwise d=none. "
+                        "e says what fresh evidence is required. For ordinary chat/strategy use none unless the user explicitly requests current inspection/research or a current factual answer requires it. "
+                        "a=single for one concrete operation/inspection, mission only for a genuinely multi-step autonomous objective, otherwise none. "
+                        "g=new for a standalone new topic, continue when it depends on the prior goal, revise when it changes the prior goal. "
+                        "Never inherit a previous customer/project/domain into a standalone current message. /no_think"
                     ),
                 },
-                {"role": "user", "content": user_content},
+                {"role": "user", "content": classifier_input},
             ]
         elif task_mode == "pending_action_relation":
             user_content = next((_text(item.get("content"), 7000) for item in reversed(supplied_messages) if item.get("role") == "user"), "")
@@ -198,7 +219,16 @@ class FrontConversation:
             "max_tokens": max_tokens,
             "stream": False,
         }
-        if task_mode == "pending_action_relation":
+        if task_mode == "semantic_classifier":
+            request_body["grammar"] = (
+                'root ::= "i=" intent ";d=" domain ";e=" evidence ";a=" action ";g=" relation\n'
+                'intent ::= "chat" | "inspect" | "operate" | "followup" | "revise" | "artifact" | "unclear"\n'
+                'domain ::= "none" | "business" | "product"\n'
+                'evidence ::= "none" | "internal" | "external" | "both"\n'
+                'action ::= "none" | "single" | "mission"\n'
+                'relation ::= "new" | "continue" | "revise" | "unknown"'
+            )
+        elif task_mode == "pending_action_relation":
             request_body["grammar"] = (
                 'root ::= "q=" relation\n'
                 'relation ::= "confirm" | "revise" | "cancel" | "discuss" | "new_goal"'

@@ -48,8 +48,15 @@ test("world-class execution automatically runs Music Dailies after mastering", a
   const executionSource = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicWorldClassExecutionRuntime.js", import.meta.url), "utf8");
   const finishingSource = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicFinishingRuntime.js", import.meta.url), "utf8");
   assert.match(executionSource, /runMusicDailiesListening/);
-  assert.match(executionSource, /dailies: dailies/);
+  assert.match(executionSource, /dailies,/);
   assert.match(finishingSource, /master_report: masterReport/);
+});
+
+test("Music Dailies runs independent reviewer families concurrently", async () => {
+  const listeningSource = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(listeningSource, /const reviews = await Promise\.all/);
+  assert.match(listeningSource, /REVIEWERS\.map/);
+  assert.doesNotMatch(listeningSource, /for \(const \[family, mandate\] of REVIEWERS\)/);
 });
 
 test("Music Dailies persist exact failed time regions for surgical repair", async () => {

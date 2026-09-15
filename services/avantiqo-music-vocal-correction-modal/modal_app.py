@@ -60,6 +60,9 @@ def correct(data: dict[str, Any]) -> dict[str, Any]:
         "rights_attestation": params.get("rights_attestation"),
         "output_uploads": uploads,
         "correction": params.get("correction"),
+        "source_window": params.get("source_window"),
+        "approved_tuning_plan": params.get("approved_tuning_plan"),
+        "approved_timing_plan": params.get("approved_timing_plan"),
     }
     result = engine._handler({"input": payload})
     if not isinstance(result, dict):

@@ -5,7 +5,8 @@ import { readFile } from "node:fs/promises";
 
 const files = {
   engine: "services/avantiqo-music-vocal-correction-engine/handler_v2.py",
-  provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicVocalCorrectionProvider.js",
+  provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicVocalCorrectionModalProvider.js",
+  modal: "services/avantiqo-music-vocal-correction-modal/modal_app.py",
   registration: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration.js",
   certification: "lib/platform/service-runtime/providers/AvantiqoOwnedCertificationPolicy.js",
   serviceCatalog: "lib/platform/service-runtime/ai/PlatformAIServiceCatalog.js",
@@ -34,13 +35,13 @@ assert.match(source.engine, /formant_preservation_claimed": False/);
 assert.match(source.engine, /human_listening_review_required_for_certification/);
 assert.match(source.engine, /production_certified": False/);
 
-assert.match(source.provider, /approved_tuning_plan: approvedTuningPlan/);
-assert.match(source.provider, /approved_timing_plan: approvedTimingPlan/);
-assert.match(source.provider, /source_window: sourceWindow/);
-assert.match(source.provider, /APPROVED_PLAN_SOURCE_WINDOW_REQUIRED/);
-assert.match(source.provider, /MUSICIAN_APPROVED_PLAN/);
+assert.match(source.provider, /avantiqo-music-vocal-correction-owned/);
+assert.match(source.provider, /functionName: "correct"/);
 assert.match(source.provider, /AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_NOT_CERTIFIED/);
-assert.match(source.provider, /AVANTIQO_RUNPOD_SAFE_LEASE_V2/);
+assert.match(source.modal, /params\.get\("approved_tuning_plan"\)/);
+assert.match(source.modal, /params\.get\("approved_timing_plan"\)/);
+assert.match(source.modal, /params\.get\("source_window"\)/);
+assert.match(source.modal, /MODAL_DIRECT_A10G_ASYNC_V1/);
 
 assert.match(source.registration, /ai\.audio\.vocal-correct/);
 assert.match(source.registration, /torchcrepe-full/);

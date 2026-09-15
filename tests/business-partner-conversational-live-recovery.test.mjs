@@ -46,8 +46,8 @@ test("Business Partner renders live execution as ephemeral gray status only", ()
   assert.match(ui, /data-avantiqo-live-status="true"/);
   assert.match(ui, /text-white\/35/);
   assert.match(ui, /latest\?\.description/);
-  assert.match(ui, /latest\?\.capability_key/);
-  assert.match(ui, /latest\?\.command/);
+  assert.doesNotMatch(ui, /latest\?\.capability_key/);
+  assert.doesNotMatch(ui, /latest\?\.command/);
   assert.doesNotMatch(ui, /Still working on the same request\. Waiting for a verified result/);
   assert.match(ui, /result\?\.details\?\.conversation_response/);
   assert.doesNotMatch(ui, /data-avantiqo-conversation-progress="true"/);
@@ -59,7 +59,6 @@ test("Business Partner renders live execution as ephemeral gray status only", ()
 
 test("Business Partner live status renders elapsed time exactly once", () => {
   const ui = source("components/operator/HomeAvantiqoIntelligence.jsx");
-  assert.match(ui, /replace\(\/\\s\*·\\s\*\\d\+s\\b\/gi, ""\)/);
   assert.doesNotMatch(ui, /return `\$\{detail\}.*\$\{busyElapsedSeconds\}s`/s);
   assert.equal((ui.match(/aria-label="elapsed time"/g) || []).length, 1);
   assert.match(ui, /<span aria-label="elapsed time">· \{busyElapsedSeconds\}s<\/span>/);

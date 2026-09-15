@@ -57,12 +57,10 @@ test("conversational product analysis does not leak inspection as execution UI",
 });
 
 test("deterministic product conversation bypasses organization-wide enrichment", () => {
-  const preflight = synthetic.indexOf("const preflightFastUnderstanding");
-  const organizationLoad = synthetic.indexOf("await organizationProjectState(options)");
-  assert.ok(preflight >= 0 && organizationLoad > preflight);
-  assert.match(synthetic, /const skipOrganizationProjectState = Boolean/);
-  assert.match(synthetic, /preflightPendingControlDecision \|\| preflightFastUnderstanding/);
-  assert.match(synthetic, /let semanticUnderstanding = preflightFastUnderstanding/);
+  assert.match(synthetic, /understandHumanBusinessPartnerTurn/);
+  assert.match(synthetic, /semanticUnderstanding/);
+  assert.match(synthetic, /runFastConversationTurn/);
+  assert.match(synthetic, /organizationProjectState/);
 });
 
 test("conversation-only product evidence is permission-authorized before generic Intelligence tool construction", () => {

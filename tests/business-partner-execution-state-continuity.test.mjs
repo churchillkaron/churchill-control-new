@@ -39,21 +39,22 @@ test("Business Partner restores proof and reuses the live governance classifier"
   assert.match(home, /navigation:\s*turn\?\.navigation\s*\|\|\s*\{\}/);
   assert.match(
     home,
-    /turn\.role === "assistant"\s*\? executionEvidence\(turn\)\s*:\s*null/,
+    /turn\.role === "assistant"\s*\? operatorExecutionStatePresentation\(turn\)\s*:\s*null/,
   );
-  assert.match(home, /governance:\s*executionEvidence\(result\)/);
+  assert.match(home, /governance:\s*operatorExecutionStatePresentation\(result\)/);
 });
 
 test("Business Partner execution state retains all governed user-facing outcomes", () => {
   const home = source("components/operator/HomeAvantiqoIntelligence.jsx");
+  const presentation = source("lib/operator/presentation/OperatorExecutionStatePresentation.js");
 
-  assert.match(home, /business_effect_verified === true/);
-  assert.match(home, /label:\s*"Verified complete"/);
-  assert.match(home, /status === "blocked"/);
-  assert.match(home, /label:\s*"Not completed"/);
-  assert.match(home, /pendingExecution\?\.capability_key/);
-  assert.match(home, /label:\s*"Awaiting approval"/);
-  assert.match(home, /status === "completed"/);
-  assert.match(home, /label:\s*"Completed check"/);
+  assert.match(presentation, /execution\?\.business_effect_verified === true/);
+  assert.match(presentation, /label:\s*"Verified complete"/);
+  assert.match(presentation, /status === "blocked"/);
+  assert.match(presentation, /label:\s*"Not completed"/);
+  assert.match(presentation, /pendingExecution\?\.capability_key/);
+  assert.match(presentation, /label:\s*"Awaiting approval"/);
+  assert.match(presentation, /status === "completed"/);
+  assert.match(presentation, /label:\s*"Completed check"/);
   assert.match(home, /data-avantiqo-execution-state=\{message\.governance\.tone\}/);
 });

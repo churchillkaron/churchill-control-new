@@ -40,7 +40,8 @@ test("voice still cannot inherit mutation consent merely because the mission is 
 
 test("event wake-ups resume the exact persisted conversation rather than creating a channel-specific mission", () => {
   assert.match(eventWorker, /\.eq\("id",wait\.conversation_id\)/);
-  assert.match(eventWorker, /agreementState:object\(conversation\.agreement_state\)/);
+  assert.match(eventWorker, /agreementState:agreementForWaitWake\(conversation, active\)/);
+  assert.match(eventWorker, /function agreementForWaitWake\(conversation, wait\)/);
   assert.match(eventWorker, /projectState:object\(conversation\.project_state\)/);
   assert.match(eventWorker, /source:"event"/);
 });
@@ -48,7 +49,7 @@ test("event wake-ups resume the exact persisted conversation rather than creatin
 
 test("spoken continuation and confirmation reuse the same governed pending-action classifier", () => {
   assert.match(humanDecision, /if \(RESUME\.has\(clean\)\) return "resume"/);
-  assert.match(humanDecision, /return DIRECT_EXECUTE\.has\(clean\) \? "execute" : null/);
+  assert.match(humanDecision, /if \(DIRECT_EXECUTE\.has\(clean\)\) return "execute"/);
   assert.match(legacy, /function normalizedPendingMessage\(message, replyClass\)/);
   assert.match(legacy, /if \(replyClass === "execute"\) return "do it"/);
   assert.match(legacy, /if \(replyClass === "resume"\) return "continue"/);

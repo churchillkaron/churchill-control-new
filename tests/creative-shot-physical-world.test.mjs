@@ -28,3 +28,23 @@ test("physical world rejects an empty contract", () => {
   assert.equal(gate.passed, false);
   assert.ok(gate.failures.includes("SHOT_PHYSICAL_WORLD_CONTRACT_REQUIRED"));
 });
+
+test("physical world reuses sealed preproduction bibles and canonical shot design", () => {
+  const value = buildShotPhysicalWorld({
+    shot: { metadata: { master_plan_scene_index: 0, master_plan_shot_index: 0 } },
+    creative_plan: {
+      scenes: [{ shots: [{ production_design: { background: "wood-paneled study", table: "weathered oak" } }] }],
+      production_room_bootstrap: { reports_by_stage: {
+        TECHNICAL_SCOUT: [
+          { requirement: 3, passed: true, evidence: { surface_aging_rules: "aged oak grain", props_bible: "quartz crystal", set_dressing_bible: "wood study" } },
+          { requirement: 8, passed: true, evidence: { material_library: "oak, quartz, glass", weather_behavior: "interior stable", cloth_hair_behavior: "natural", contact_deformation: "supported contact", fluid_particulate_behavior: "none" } },
+          { requirement: 5, passed: true, evidence: { reflection_map: "window reflections follow geometry", motivated_light_map: "soft window light" } },
+        ],
+      } },
+    },
+  });
+  assert.equal(evaluateShotPhysicalWorld(value).passed, true);
+  assert.equal(value.production_design.architecture, "wood-paneled study");
+  assert.equal(value.production_design.materials, "weathered oak");
+  assert.equal(value.production_design.practical_lights, "soft window light");
+});

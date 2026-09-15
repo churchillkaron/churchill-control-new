@@ -27,3 +27,17 @@ test("film visual journey rejects flat repeated visual scale and payoff", () => 
   assert.ok(gate.failures.includes("FILM_VISUAL_JOURNEY_SCALE_TOO_FLAT"));
   assert.ok(gate.failures.includes("FILM_VISUAL_JOURNEY_PAYOFF_NOT_DISTINCT"));
 });
+
+
+test("film visual journey recognizes camera angle when framing is not separately populated", () => {
+  const angleOnly = CreativeFilmVisualJourneyRuntime.build({
+    shots: [
+      { id: "a1", camera: { angle: "Close-up" } },
+      { id: "a2", camera: { angle: "Wide" } },
+      { id: "a3", camera: { angle: "Wide" } },
+    ],
+  });
+  const gate = CreativeFilmVisualJourneyRuntime.evaluate(angleOnly);
+  assert.deepEqual(angleOnly.shot_states.map((s) => s.scale_band), ["INTIMATE", "WORLD", "WORLD"]);
+  assert.equal(gate.passed, true);
+});

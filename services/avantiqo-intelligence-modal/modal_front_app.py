@@ -182,13 +182,17 @@ class FrontConversation:
                 *supplied_messages,
             ]
         max_tokens = max(1, min(MAX_OUTPUT_TOKENS, int(data.get("max_output_tokens") or 120)))
-        body = json.dumps({
+        request_body = {
             "messages": messages,
             "temperature": float(data.get("temperature") if data.get("temperature") is not None else 0.25),
             "top_p": float(data.get("top_p") if data.get("top_p") is not None else 0.8),
             "max_tokens": max_tokens,
             "stream": False,
-        }).encode()
+        }
+        response_format = data.get("response_format")
+        if isinstance(response_format, dict) and response_format.get("type") == "json_object":
+            request_body["response_format"] = {"type": "json_object"}
+        body = json.dumps(request_body).encode()
         request = urllib.request.Request(
             f"http://127.0.0.1:{PORT}/v1/chat/completions",
             data=body,

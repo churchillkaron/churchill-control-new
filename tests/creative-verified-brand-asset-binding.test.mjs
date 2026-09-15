@@ -20,3 +20,11 @@ test('brand binding runtime is generic, provenance gated, and workflow-bound bef
   assert.ok(bindIndex >= 0 && scopedAssetsIndex > bindIndex);
   assert.match(workflow, /CreativeVerifiedBrandAssetBindingRuntime\.reconcilePlan/);
 });
+
+
+test('brand binding reconciles deterministic logo source references to the bound asset id', () => {
+  const binding = fs.readFileSync(new URL('../lib/creative/assets/runtime/CreativeVerifiedBrandAssetBindingRuntime.js', import.meta.url), 'utf8');
+  assert.match(binding, /reconcileLogoSourceReferences/);
+  assert.match(binding, /logo_source\|logo_asset_id\|brand_logo_asset_id/);
+  assert.match(binding, /structuredClone\(plan\)/);
+});

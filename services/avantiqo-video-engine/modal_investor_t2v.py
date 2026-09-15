@@ -43,6 +43,7 @@ HEIGHT = 1088
 STAGE1_WIDTH = 960
 STAGE1_HEIGHT = 544
 FPS = 24
+MAX_SHOT_DURATION_SECONDS = 30
 STAGE1_STEPS = 8
 STAGE2_STEPS = 3
 HARD_TIMEOUT_SECONDS = 8 * 60
@@ -232,8 +233,8 @@ def generate_investor_t2v_master(
     model_volume.reload()
     root = _snapshot()
     duration = int(duration_seconds)
-    if duration <= 0 or duration > 12:
-        raise RuntimeError(f"{CONTRACT}_DURATION_INVALID")
+    if duration <= 0 or duration > MAX_SHOT_DURATION_SECONDS:
+        raise RuntimeError(f"{CONTRACT}_DURATION_INVALID:{duration}:max={MAX_SHOT_DURATION_SECONDS}")
     output = Path("/models") / output_relative.lstrip("/")
     output.parent.mkdir(parents=True, exist_ok=True)
 

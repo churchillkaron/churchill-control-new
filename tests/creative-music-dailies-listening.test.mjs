@@ -153,3 +153,27 @@ test("Music Dailies bounds reviewer repair regions to rendered duration", async 
   assert.match(source, /region_bounds_must_be_within_actual_duration_seconds: true/);
   assert.match(source, /region\.end_seconds <= duration \+ 0\.001/);
 });
+
+
+test("Music Dailies forbids structural form labels from being treated as musical keys", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /STRUCTURAL_FORM_LABEL_CONFUSED_WITH_PITCH_KEY/);
+  assert.match(source, /neutral_form_labels_are_structural_categories_not_pitch_or_key_names: true/);
+});
+
+test("Music Dailies treats missing semantic emotional arc evidence as unknown", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /UNKNOWN_SEMANTIC_ARC_TREATED_AS_RENDER_FAILURE/);
+  assert.match(source, /missing_semantic_emotional_arc_is_unknown_not_render_failure: true/);
+});
+
+test("Music Dailies repair brief includes only failed reviewer repairs and regions", () => {
+  const reviews = [
+    { family: "TECHNICAL", passed: true, repair: ["Do not include"], regions: [{ start_seconds: 0, end_seconds: 10, evidence: "pass" }] },
+    { family: "PERFORMANCE", passed: false, repair: ["Fix timing"], regions: [{ start_seconds: 10, end_seconds: 20, evidence: "fail" }] },
+  ];
+  const brief = buildMusicDailiesRepairBrief({ report: { passed: false, failures: ["PERFORMANCE"] }, reviews, binding: {} });
+  assert.deepEqual(brief.repairs, [{ family: "PERFORMANCE", instruction: "Fix timing" }]);
+  assert.equal(brief.regions.length, 1);
+  assert.equal(brief.regions[0].family, "PERFORMANCE");
+});

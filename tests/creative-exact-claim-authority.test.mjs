@@ -1,0 +1,37 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { groundCreativeExactClaims } from '../lib/creative/director/runtime/CreativeExactClaimAuthorityRuntime.js';
+
+const samplePlan = () => ({
+  workflow_kind: 'STILL',
+  concept: { creative_system: 'Use Avantiqo blue #0A2463 and Helvetica.' },
+  deliverables: [{
+    id: 'poster',
+    output_spec: { typography: { tagline_font: 'Helvetica Regular, 24pt' }, color_palette: ['#0A2463', '#FFFFFF'], composition: 'Logo at bottom 10%.' },
+    production_steps: [{ output_spec: { position: 'bottom 10%' }, requirements: { font: 'Helvetica', color: '#0A2463', metric_value: '$2.3M', exact_placement: 'bottom 10%' } }],
+  }],
+});
+
+test('grounds unsupported exact brand, metric and placement claims', () => {
+  const grounded = groundCreativeExactClaims({ plan: samplePlan(), mission: { objective: 'Premium campaign poster' } });
+  const body = JSON.stringify(grounded);
+  assert.doesNotMatch(body, /#0A2463|#FFFFFF|Helvetica|\$2\.3M|bottom 10%/i);
+  assert.equal(grounded.deliverables[0].production_steps[0].requirements.metric_value, undefined);
+  assert.match(body, /evidence-bound brand color|verified production font|design-defined safe area/);
+});
+
+test('preserves exact values explicitly authorized by mission', () => {
+  const mission = { objective: 'Use #0A2463, #FFFFFF, Helvetica, $2.3M and bottom 10% exactly.' };
+  const grounded = groundCreativeExactClaims({ plan: samplePlan(), mission });
+  const body = JSON.stringify(grounded);
+  assert.match(body, /#0A2463/);
+  assert.match(body, /Helvetica/);
+  assert.match(body, /\$2\.3M/);
+  assert.match(body, /bottom 10%/);
+});
+
+test('workflow grounds claims on both Tribunal entry paths', () => {
+  const source = fs.readFileSync(new URL('../lib/creative/director/runtime/CreativeWorkflowResolutionRuntime.js', import.meta.url), 'utf8');
+  assert.equal((source.match(/CreativeExactClaimAuthorityRuntime\.ground\(/g) || []).length, 2);
+});

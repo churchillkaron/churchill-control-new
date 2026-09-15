@@ -14,8 +14,9 @@ test('pending discussion can preserve a requested preview without confirming exe
 });
 
 test('staged customer invoice preview is a non-mutating fast path', () => {
-  assert.match(synthetic, /semanticPendingRelation === "discuss"/);
+  assert.match(synthetic, /directPendingPresentation === "preview" \|\| semanticPendingRelation === "discuss"/);
   assert.match(synthetic, /semanticPendingPresentation === "preview"/);
+  assert.match(synthetic, /!directPendingPresentation/);
   assert.match(synthetic, /pending_action_preview_fast_path: true/);
   assert.match(synthetic, /mutation_performed: false/);
   assert.match(synthetic, /staged-invoice-preview/);

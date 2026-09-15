@@ -17,3 +17,11 @@ test('review policy version invalidates settled reviews when authority rules cha
   assert.match(source,/CREATIVE_TRIBUNAL_REVIEW_POLICY_V2/);
   assert.match(source,/review_policy_version: REVIEW_POLICY_VERSION/);
 });
+
+
+test('quoted evidence matching tolerates omitted parenthetical qualifiers only',()=>{
+  assert.match(source,/function comparableEvidenceText/);
+  assert.ok(source.includes('.replace(/\\([^)]*\\)/g, \" \")'));
+  assert.match(source,/evidenceFragmentSupported\(fragment, scopedEvidenceText, planText\)/);
+  assert.match(source,/UNSUPPORTED_QUOTED_EVIDENCE/);
+});

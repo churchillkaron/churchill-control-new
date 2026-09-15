@@ -198,6 +198,12 @@ test("Music Dailies forbids structural boundary candidates from proving semantic
   assert.match(source, /structural_section_boundaries_are_not_semantic_event_identity_proof: true/);
 });
 
+test("Music Dailies forbids density recede timing from generic structural boundaries", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /density recede/);
+  assert.match(source, /STRUCTURAL_BOUNDARY_TREATED_AS_SEMANTIC_EVENT_PROOF/);
+});
+
 test("Music Dailies does not read evolving opening phase as twenty seconds of literal silence", async () => {
   const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
   assert.match(source, /EVOLVING_PHASE_MISREAD_AS_LITERAL_FULL_WINDOW_SILENCE/);

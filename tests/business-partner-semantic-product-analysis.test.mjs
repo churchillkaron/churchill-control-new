@@ -77,6 +77,17 @@ test("conversation-only product evidence is permission-authorized before generic
   assert.match(fast, /mutation_executed: false/);
 });
 
+test("interactive product benchmarking uses bounded owned evidence before the generic deep research catalog", () => {
+  const ownedResearch = fast.indexOf("collectAvantiqoOwnedWebEvidence");
+  const benchmarkModel = fast.indexOf("deterministic-owned-benchmark-evidence-v1", ownedResearch);
+  const genericTools = fast.indexOf("createOperatorIntelligenceReadTools", ownedResearch);
+  assert.ok(ownedResearch >= 0 && benchmarkModel > ownedResearch && genericTools > benchmarkModel);
+  assert.match(fast, /minimum_sources: 2/);
+  assert.match(fast, /max_sources: 3/);
+  assert.match(fast, /external_evidence_untrusted: true/);
+  assert.match(fast, /authorization_effect: "NONE"/);
+});
+
 test("inspection-report candidates are semantically arbitrated before audit routing", () => {
   const understanding = fs.readFileSync("lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js", "utf8");
   assert.match(understanding, /HUMAN_BUSINESS_PARTNER_DELIVERABLE_ARBITER/);

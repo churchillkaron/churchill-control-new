@@ -24,3 +24,28 @@ test('workflow normalizes still plans on both Tribunal entry paths', () => {
   const source = fs.readFileSync(new URL('../lib/creative/director/runtime/CreativeWorkflowResolutionRuntime.js', import.meta.url), 'utf8');
   assert.equal((source.match(/CreativeStillPlanNormalizationRuntime\.normalize\(/g) || []).length, 2);
 });
+
+
+test('still plans reconcile temporal lighting and refused physical metaphors from their own signature device', () => {
+  const plan = normalizeCreativeStillPlan({
+    workflow_kind: 'STILL',
+    concept: {
+      title: 'Grid',
+      hook: 'A stable field with no human elements or physical objects.',
+      signature_device: 'Light Grid',
+      refused_devices: ['Desk, documents, or physical objects'],
+      signature_images: ['Modular blocks forming into order'],
+      visual_system: {
+        lighting_language: 'Chaotic shadows → even light → uniform serene lighting (showing progression within single image)',
+        production_approach: 'AI-generated digital physical objects simulation',
+      },
+    },
+    deliverables: [],
+  });
+  const body = JSON.stringify(plan);
+  assert.match(JSON.stringify(plan.concept.refused_devices), /physical objects/i);
+  assert.doesNotMatch(JSON.stringify({ signature_images: plan.concept.signature_images, visual_system: plan.concept.visual_system }), /modular blocks|digital physical objects simulation/i);
+  assert.match(body, /Abstract Light Grid composition/);
+  assert.match(plan.concept.visual_system.lighting_language, /Static final-state lighting: uniform serene lighting/);
+  assert.doesNotMatch(plan.concept.visual_system.lighting_language, /progression within single image/i);
+});

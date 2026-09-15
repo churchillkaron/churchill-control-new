@@ -58,6 +58,13 @@ test("a plain yes agrees with a recommendation but directly confirms a pending a
   assert.equal(classify("yes", { recommendation: false }), "execute");
 });
 
+test("natural action verbs directly confirm an already staged action", () => {
+  for (const message of ["create it", "make it", "issue it", "send it", "post it"]) {
+    assert.equal(classify(message), "execute", `${message} should execute the exact staged action`);
+    assert.equal(classify(message, { pending: false }), null, `${message} must not create authority without a staged action`);
+  }
+});
+
 test("explicit execution language executes a recommendation", () => {
   assert.equal(classify("do it", { recommendation: true }), "execute");
   assert.equal(classify("yes proceed", { recommendation: true }), "execute");

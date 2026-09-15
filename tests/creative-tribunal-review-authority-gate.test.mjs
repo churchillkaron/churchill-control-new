@@ -6,5 +6,5 @@ test('tribunal rejects factual reviewer outputs that invent an external publicat
   assert.match(source,/function assertReviewAuthority/);
   assert.match(source,/CREATIVE_TRIBUNAL_REVIEW_AUTHORITY_VIOLATION/);
   assert.match(source,/INVENTED_EXTERNAL_CLAIM/);
-  assert.match(source,/assertReviewAuthority\(\{ reviewer, review: output, plan \}\)/);
+  assert.match(source,/assertReviewAuthority\(\{ reviewer, review: normalizedOutput, plan \}\)/);
 });

@@ -42,3 +42,20 @@ test("fast contract compiler may reuse only an already-valid deep JSON brief", (
   assert.match(supervisor, /preserved_valid_decision_brief: true/);
   assert.match(supervisor, /compiler_fallback_to_valid_decision_brief: compilerFallbackToDecisionBrief/);
 });
+
+test("governed creative fallback settles one exact pending owned job before parsing", () => {
+  assert.match(reasoning, /async function settleGovernedFallbackExecution/);
+  assert.match(reasoning, /ServiceExecutionRuntime\.settle\(\{/);
+  assert.match(reasoning, /provider_job_id: providerJobId/);
+  assert.match(reasoning, /usage_id: usageId/);
+  assert.match(reasoning, /provider_job_reused: true/);
+  assert.match(reasoning, /duplicate_provider_job_submitted: false/);
+  assert.match(reasoning, /execution_lane: "deep"/);
+  assert.match(reasoning, /resolveIntelligenceSettledOutputEnvelope\(completed\)/);
+});
+
+test("timed out creative fallback cancels its exact governed job", () => {
+  assert.match(reasoning, /GOVERNED_FALLBACK_SETTLEMENT_DEADLINE_MS = 420_000/);
+  assert.match(reasoning, /ServiceExecutionRuntime\.cancelPending\(\{/);
+  assert.match(reasoning, /reason: "CREATIVE_REASONING_FALLBACK_PENDING_TIMEOUT"/);
+});

@@ -51,3 +51,27 @@ test("changed recommendation evidence cannot become execution authority", () => 
   assert.match(turn, /mutation_executed:\s*false/);
   assert.match(turn, /execution_authorized:\s*false/);
 });
+
+test("live evidence recommendation records an actionable alternative and falsification condition", () => {
+  assert.match(legacy, /const alternativeItem = attentionItems\.find/);
+  assert.match(legacy, /strongest_alternative:\s*alternativeItem/);
+  assert.match(legacy, /strongest_alternative[\s\S]{0,500}capability_key:/);
+  assert.match(legacy, /falsification_condition:\s*"Any required live evidence dependency fingerprint changes during pre-execution revalidation\."/);
+});
+
+test("verified evidence change disarms only the stale selected action", () => {
+  assert.match(turn, /function agreementWithInvalidatedRecommendation/);
+  assert.match(turn, /delete current\.recommended_action/);
+  assert.match(turn, /delete current\.pending_execution/);
+  assert.match(turn, /delete current\.autonomous_run/);
+  assert.match(turn, /recommendation_invalidation:/);
+  assert.match(turn, /old_action_disarmed:\s*true/);
+  assert.match(turn, /authorization_effect:\s*"NONE"/);
+  assert.match(turn, /invalidatedByChange[\s\S]{0,250}agreementWithInvalidatedRecommendation/);
+});
+
+test("ordinary revalidation failure preserves selection while verified change does not", () => {
+  assert.match(turn, /const agreementState = invalidatedByChange[\s\S]{0,220}: object\(options\.agreementState\)/);
+  assert.match(turn, /I disarmed the old pending action instead of retrying it/);
+  assert.match(turn, /Continue and I will reassess from the current evidence/);
+});

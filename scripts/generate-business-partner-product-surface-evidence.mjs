@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import process from "node:process";
 
@@ -24,10 +24,34 @@ const SURFACES = {
 };
 
 function clean(value) { return String(value ?? "").trim(); }
+function filesystemSourceFiles() {
+  const activeRoots = ["app", "components", "lib", "services"];
+  const files = [];
+  const visit = (absolutePath, relativePath) => {
+    let entries = [];
+    try { entries = readdirSync(absolutePath); } catch { return; }
+    for (const name of entries) {
+      const relative = relativePath ? `${relativePath}/${name}` : name;
+      if (/(^|\/)(archive|experimental|deprecated|backup|backups|fixtures|__fixtures__)(\/|$)/i.test(relative)) continue;
+      const absolute = join(absolutePath, name);
+      let stats;
+      try { stats = statSync(absolute); } catch { continue; }
+      if (stats.isDirectory()) visit(absolute, relative);
+      else if (stats.isFile() && SOURCE_EXTENSIONS.test(relative)) files.push(relative);
+    }
+  };
+  for (const root of activeRoots) visit(join(ROOT, root), root);
+  return files;
+}
 function trackedFiles() {
   const activeRoots = ["app/", "components/", "lib/", "services/"];
-  return execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" })
-    .split("\n")
+  let candidates = [];
+  try {
+    candidates = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" }).split("\n");
+  } catch {
+    candidates = filesystemSourceFiles();
+  }
+  return candidates
     .map(clean)
     .filter((path) => SOURCE_EXTENSIONS.test(path))
     .filter((path) => activeRoots.some((root) => path.startsWith(root)))

@@ -209,3 +209,31 @@ test("Music Dailies does not read evolving opening phase as twenty seconds of li
   assert.match(source, /EVOLVING_PHASE_MISREAD_AS_LITERAL_FULL_WINDOW_SILENCE/);
   assert.match(source, /silence_to_vocal_to_pad_means_progression_within_the_phase_not_silence_until_phase_end: true/);
 });
+
+test("Music Dailies can approve an unchanged master with explicit accepted deviations", async () => {
+  const { approveMusicDailiesWithAcceptedDeviations } = await import("../lib/creative/music/runtime/CreativeMusicDailiesContractRuntime.js");
+  const approved = approveMusicDailiesWithAcceptedDeviations({
+    dailies: { status: "REJECTED_FOR_REPAIR", report: { passed: false, failures: ["x"] }, repair_brief: { repairs: ["x"] } },
+    accepted_deviations: [{ dimension: "vocals", intended: "breathy wordless vocal motif", rendered: "instrumental master; no vocal element rendered" }],
+    accepted_by: "owner",
+    acceptance_note: "Accept current instrumental result for this test.",
+  });
+  assert.equal(approved.status, "APPROVED_WITH_ACCEPTED_DEVIATIONS");
+  assert.equal(approved.report.passed, true);
+  assert.equal(approved.repair_brief, null);
+  assert.equal(approved.accepted_deviations[0].dimension, "vocals");
+});
+
+test("Final Music Tribunal accepts explicit accepted-deviation Dailies status", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicRepairAndTribunalRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /APPROVED_WITH_ACCEPTED_DEVIATIONS/);
+  assert.match(source, /accepted_deviations/);
+  assert.match(source, /human_acceptance/);
+});
+
+test("Music Dailies supports accepted deviations before reviewer execution", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /accepted_deviations = \[\]/);
+  assert.match(source, /approveMusicDailiesWithAcceptedDeviations/);
+  assert.match(source, /if \(list\(accepted_deviations\)\.length\)/);
+});

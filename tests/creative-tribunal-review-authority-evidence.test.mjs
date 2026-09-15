@@ -26,3 +26,8 @@ test('Production Workflow reviewers receive production-specific evidence authori
   assert.match(source, /return \"PRODUCTION_FEASIBILITY\"/);
   assert.match(source, /case \"PRODUCTION_FEASIBILITY\"/);
 });
+
+
+test('canonical plan may ground quoted evidence outside narrow reviewer scope',()=>{
+  assert.match(source,/!scopedEvidenceText\.includes\(fragment\.toLowerCase\(\)\) && !planText\.includes\(fragment\.toLowerCase\(\)\)/);
+});

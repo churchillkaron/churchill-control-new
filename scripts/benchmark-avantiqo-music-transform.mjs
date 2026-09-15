@@ -6,6 +6,7 @@ import {
   AVANTIQO_MUSIC_CONTINUITY_FIXTURE_SECONDS,
   avantiqoMusicContinuityFixtureMetadata,
   createAvantiqoMusicContinuityFixtureWav,
+  createAvantiqoMusicDynamicMetalContinuityFixtureWav,
 } from "./avantiqo-music-continuity-fixture.mjs";
 
 const ENGINE_CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1";
@@ -18,6 +19,7 @@ const EXTEND_SECONDS = 8;
 const EXTEND_OVERLAP_SECONDS = 3;
 const SOURCE_MODE_TECHNICAL = "TECHNICAL_SYNTHETIC";
 const SOURCE_MODE_CONTINUITY = "MUSICAL_CONTINUITY";
+const SOURCE_MODE_VARIATION = "MUSICAL_VARIATION";
 const text = (value) => String(value ?? "").trim();
 const approved = (name) => { if (text(process.env[name]).toUpperCase() !== "YES") throw new Error(`${name}=YES_REQUIRED`); };
 const required = (name) => { const value = text(process.env[name]); if (!value) throw new Error(`${name}_REQUIRED`); return value; };
@@ -41,6 +43,10 @@ function makeTechnicalWav(seconds = 12, sampleRate = 44100) {
 function sourceFixture(selectedCapability) {
   const requested = text(process.env.AVANTIQO_MUSIC_TRANSFORM_SOURCE_MODE).toUpperCase();
   const mode = requested || (selectedCapability === "ai.audio.extend" ? SOURCE_MODE_CONTINUITY : SOURCE_MODE_TECHNICAL);
+  if (mode === SOURCE_MODE_VARIATION) {
+    process.env.AVANTIQO_MUSIC_CONTINUITY_FIXTURE_PROFILE = "DYNAMIC_METAL";
+    return { mode, audio:createAvantiqoMusicDynamicMetalContinuityFixtureWav(), duration:AVANTIQO_MUSIC_CONTINUITY_FIXTURE_SECONDS, bpm:AVANTIQO_MUSIC_CONTINUITY_FIXTURE_BPM, metadata:{...avantiqoMusicContinuityFixtureMetadata(), external_reference_recording_used:false}, humanReviewKind:"MUSICAL_VARIATION", eligible:true, caption:"Original dynamic heavy metal instrumental source reimagined as a clearly alternate arrangement with fresh rhythmic phrasing, changed section emphasis and new guitar voicings while preserving recognizable musical identity; create only new original material and imitate no artist or recording" };
+  }
   if (mode === SOURCE_MODE_CONTINUITY) return {
     mode, audio: createAvantiqoMusicContinuityFixtureWav(), duration: AVANTIQO_MUSIC_CONTINUITY_FIXTURE_SECONDS,
     bpm: AVANTIQO_MUSIC_CONTINUITY_FIXTURE_BPM, metadata: avantiqoMusicContinuityFixtureMetadata(),
@@ -64,6 +70,7 @@ function absoluteUrl(base, value) { const url=text(value); return /^https?:\/\//
 approved("AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED");
 approved("AVANTIQO_MUSIC_TRANSFORM_SOURCE_RIGHTS_APPROVED");
 const selectedCapability = capability();
+if (selectedCapability === "ai.audio.remix" && !text(process.env.AVANTIQO_MUSIC_TRANSFORM_SOURCE_MODE)) process.env.AVANTIQO_MUSIC_TRANSFORM_SOURCE_MODE = SOURCE_MODE_VARIATION;
 const fixture = sourceFixture(selectedCapability);
 const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL").replace(/\/+$/, "");
 const serviceKey = required("SUPABASE_SERVICE_ROLE_KEY");

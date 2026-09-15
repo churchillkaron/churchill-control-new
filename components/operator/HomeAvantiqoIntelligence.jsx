@@ -89,11 +89,8 @@ function busyRequestStatus(message, entityId, liveExecution, elapsedSeconds, sta
     updatedAt >= Number(startedAt) - 2000;
   const event = freshLiveExecution ? liveExecution?.latest_event || null : null;
   const description = text(event?.description);
-  const capability = text(event?.capability_key);
-  const phase = text(event?.phase).replaceAll("_", " ");
-
   if (description) {
-    return `${description}${capability ? ` - ${capability}` : phase ? ` - ${phase}` : ""} - ${elapsed}s`;
+    return description;
   }
 
   const scope = entityId ? "legal entity scoped" : "organization scoped";
@@ -440,7 +437,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
 
     try {
       const response = await fetchWithTimeout(
-        "/api/operator/turn",
+        "/api/operator/turn/live",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

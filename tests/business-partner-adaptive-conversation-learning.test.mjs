@@ -65,3 +65,15 @@ test("recommendation feedback learns by registered capability family without bus
   assert.doesNotMatch(runtime, /customer_name/);
   assert.doesNotMatch(runtime, /invoice_amount/);
 });
+
+test("learned recommendation feedback only biases already eligible strong candidates", async () => {
+  const legacy = await source("lib/operator/runtime/OperatorTurnRuntimeLegacy.js");
+  assert.match(legacy, /function learnedRecommendationBias/);
+  assert.match(legacy, /bias \+= 0\.04/);
+  assert.match(legacy, /bias -= 0\.06/);
+  assert.match(legacy, /Math\.max\(-0\.06, Math\.min\(0\.04, bias\)\)/);
+  assert.match(legacy, /recommendationEligible\(capability, options\)/);
+  assert.match(legacy, /const strong =/);
+  assert.match(legacy, /if \(!strong\) return null/);
+  assert.match(legacy, /learned_recommendation_bias/);
+});

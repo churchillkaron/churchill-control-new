@@ -20,3 +20,9 @@ test('Tribunal rejects quoted reviewer evidence absent from current scoped evide
   assert.match(source, /review\.evidence_used/);
   assert.match(source, /scopedEvidenceText\.includes/);
 });
+
+test('Production Workflow reviewers receive production-specific evidence authority', () => {
+  assert.match(source, /production\|feasibility\|workflow/);
+  assert.match(source, /return \"PRODUCTION_FEASIBILITY\"/);
+  assert.match(source, /case \"PRODUCTION_FEASIBILITY\"/);
+});

@@ -137,3 +137,19 @@ test("Music Dailies never equates generic melody onset with motif timing", async
   assert.match(source, /exact_motif_timing_requires_dedicated_match: true/);
   assert.match(source, /missing_dedicated_motif_match_is_unknown_not_render_failure: true/);
 });
+
+test("Music Dailies rejects reviewer claims outside measured evidence capabilities", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /UNSUPPORTED_DEDICATED_MOTIF_CLAIM/);
+  assert.match(source, /UNSUPPORTED_INSTRUMENT_IDENTITY_CLAIM/);
+  assert.match(source, /unsupported_evidence_dimensions_are_unknown_not_render_failure: true/);
+  assert.match(source, /MUSIC_DAILIES_REVIEWER_EVIDENCE_POLICY_FAILED/);
+});
+
+test("Music Dailies bounds reviewer repair regions to rendered duration", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /REGION_OUTSIDE_RENDERED_DURATION/);
+  assert.match(source, /actual_duration_seconds:/);
+  assert.match(source, /region_bounds_must_be_within_actual_duration_seconds: true/);
+  assert.match(source, /region\.end_seconds <= duration \+ 0\.001/);
+});

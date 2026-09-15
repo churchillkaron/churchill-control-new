@@ -85,3 +85,11 @@ test("Music Dailies requires independent translation review", () => {
   assert.equal(report.passed, false);
   assert.ok(report.failures.includes("MUSIC_DAILIES_REVIEW_REQUIRED:TRANSLATION"));
 });
+
+
+test("Music Dailies keeps approved intent separate from rendered evidence", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /music_emotional_arc\) \|\| text\(binding\.direction_contract\?\.emotional_arc\)/);
+  assert.match(source, /do_not_treat_approved_intent_as_rendered_fact: true/);
+  assert.match(source, /do_not_require_non_audio_gates: family === "INTENT_FIDELITY"/);
+});

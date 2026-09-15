@@ -177,3 +177,29 @@ test("Music Dailies repair brief includes only failed reviewer repairs and regio
   assert.equal(brief.regions.length, 1);
   assert.equal(brief.regions[0].family, "PERFORMANCE");
 });
+
+
+test("Music Dailies treats reviewer policy failure as review incomplete, not music repair", () => {
+  const reviews = families.map((family) => family === "MUSICALITY"
+    ? { family, score: 0, passed: false, evidence: ["policy"], failures: ["MUSIC_DAILIES_REVIEWER_EVIDENCE_POLICY_FAILED:MUSICALITY:UNSUPPORTED"] }
+    : { family, score: 94, passed: true, evidence: ["ok"] });
+  const report = evaluateMusicDailies({ intended, rendered, reviews });
+  assert.equal(report.status, "REVIEW_INCOMPLETE");
+  assert.equal(report.reviewer_repair_required, true);
+  assert.equal(report.music_repair_required, false);
+  assert.ok(!report.failures.includes("MUSIC_DAILIES_REJECTED:MUSICALITY"));
+  const brief = buildMusicDailiesRepairBrief({ report, reviews, binding: {} });
+  assert.equal(brief, null);
+});
+
+test("Music Dailies forbids structural boundary candidates from proving semantic event timing", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /STRUCTURAL_BOUNDARY_TREATED_AS_SEMANTIC_EVENT_PROOF/);
+  assert.match(source, /structural_section_boundaries_are_not_semantic_event_identity_proof: true/);
+});
+
+test("Music Dailies does not read evolving opening phase as twenty seconds of literal silence", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /EVOLVING_PHASE_MISREAD_AS_LITERAL_FULL_WINDOW_SILENCE/);
+  assert.match(source, /silence_to_vocal_to_pad_means_progression_within_the_phase_not_silence_until_phase_end: true/);
+});

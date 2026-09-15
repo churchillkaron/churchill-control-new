@@ -18,10 +18,6 @@ const worker = fs.readFileSync(
   new URL("../services/avantiqo-audio-engine/handler.py", import.meta.url),
   "utf8",
 );
-const ghcrAuthProvisioner = fs.readFileSync(
-  new URL("../scripts/provision-avantiqo-runpod-ghcr-auth-local.mjs", import.meta.url),
-  "utf8",
-);
 
 test("owned audio registration keeps generation certified while advanced transforms stay gated", () => {
   assert.match(
@@ -30,30 +26,21 @@ test("owned audio registration keeps generation certified while advanced transfo
   );
   assert.match(registration, /"ai\.audio\.remix"/);
   assert.match(registration, /"ai\.audio\.edit"/);
-  assert.match(registration, /modelVariant === "acestep-v15-xl-turbo"/);
-  assert.match(registration, /lmModel === "acestep-5Hz-lm-1\.7B"/);
-  assert.match(registration, /lmBackend === "vllm"/);
-  assert.match(registration, /ace_step_lm_enabled: true/);
-  assert.match(registration, /thinking_enabled: true/);
+  assert.match(registration, /modelVariant === EXPECTED_MODEL_VARIANT/);
+  assert.match(registration, /lmModel === EXPECTED_LM_MODEL/);
+  assert.match(registration, /lmBackend === EXPECTED_LM_BACKEND/);
+  assert.match(registration, /ace_step_lm_enabled: lmEnabled/);
+  assert.match(registration, /thinking_enabled: lmEnabled/);
 });
 
-test("Music provider owned-worker execution is protected by exact Safe Lease V2 audio lane", () => {
-  assert.match(provider, /const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2"/);
-  assert.match(provider, /const SAFE_LEASE_LANE = "audio"/);
+test("Music provider owned-worker execution is Modal-direct and fail-closed", () => {
+  assert.match(provider, /transportMode:\s*"direct-sdk"/);
+  assert.match(provider, /const MODAL_APP_NAME = "avantiqo-audio-owned"/);
+  assert.match(provider, /const MODAL_FUNCTION_NAME = "generate"/);
   assert.match(provider, /"ai\.music\.generate"/);
   assert.match(provider, /"ai\.audio\.remix"/);
   assert.match(provider, /"ai\.audio\.edit"/);
-  assert.match(provider, /"ai\.audio\.extend"/);
-  assert.match(provider, /"ai\.audio\.mix"/);
-  assert.match(provider, /"ai\.audio\.master"/);
-  assert.match(provider, /AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE/);
-  assert.match(provider, /AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT/);
-  assert.match(provider, /AVANTIQO_RUNPOD_SAFE_LEASE_LANE/);
-  assert.match(provider, /AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID/);
-  assert.match(provider, /RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID/);
-  assert.match(provider, /AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT/);
-  assert.match(provider, /AVANTIQO_MUSIC_PROVIDER_SAFE_LEASE_ENDPOINT_MISMATCH/);
-  assert.match(provider, /safe_lease: lease/);
+  assert.doesNotMatch(provider, /RUNPOD|SAFE_LEASE/);
 });
 
 test("Music separator is certifiable without becoming default-certified", () => {
@@ -61,8 +48,8 @@ test("Music separator is certifiable without becoming default-certified", () => 
   assert.match(registration, /CERTIFIABLE_CAPABILITIES/);
   assert.match(registration, /certifiable_capabilities: CERTIFIABLE_CAPABILITIES/);
   assert.match(registration, /benchmark_required_capabilities: CERTIFIABLE_CAPABILITIES\.filter/);
-  assert.match(registration, /production_routing_allowed: false/);
-  assert.match(registration, /runtime_status: "IMPLEMENTED_BENCHMARK_AND_CERTIFICATION_REQUIRED"/);
+  assert.match(registration, /production_routing_allowed: separatorRuntimeAvailable/);
+  assert.match(registration, /runtime_status: separatorRuntimeAvailable \? "CERTIFIED_CONFIGURED" : "CERTIFICATION_OR_CONFIGURATION_REQUIRED"/);
   assert.match(registration, /model: STEM_SEPARATOR_MODEL/);
   assert.match(registration, /facebookresearch\/demucs:htdemucs_ft/);
 });
@@ -111,14 +98,9 @@ test("music worker uses ACE-Step LM reasoning internally without persisting raw 
   assert.match(worker, /DEFAULT_CERTIFIED_CAPABILITIES = \{"ai\.music\.generate"\}/);
 });
 
-test("RunPod GHCR auth helper requires V3 XL plus LM immutable image evidence", () => {
-  assert.match(ghcrAuthProvisioner, /AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V3/);
-  assert.doesNotMatch(ghcrAuthProvisioner, /AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2/);
-  assert.match(ghcrAuthProvisioner, /runtime_variant\) !== "acestep-v15-xl-turbo"/);
-  assert.match(ghcrAuthProvisioner, /quality_profile\) !== EXPECTED_QUALITY_PROFILE/);
-  assert.match(ghcrAuthProvisioner, /ace_step_lm_required !== true/);
-  assert.match(ghcrAuthProvisioner, /lm_model\) !== EXPECTED_LM_MODEL/);
-  assert.match(ghcrAuthProvisioner, /lm_backend\) !== EXPECTED_LM_BACKEND/);
-  assert.match(ghcrAuthProvisioner, /xl_model_contract_passed_by_docker_build !== true/);
-  assert.match(ghcrAuthProvisioner, /lm_contract_passed_by_docker_build !== true/);
+test("Audio registration exposes Modal-only execution metadata", () => {
+  assert.match(registration, /modal_only_execution:\s*true/);
+  assert.match(registration, /modal_gateway_required:\s*false/);
+  assert.match(registration, /MODAL_DIRECT_A10G_ASYNC_V1/);
+  assert.doesNotMatch(provider, /RUNPOD|SAFE_LEASE/);
 });

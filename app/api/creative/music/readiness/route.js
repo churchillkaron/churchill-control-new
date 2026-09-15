@@ -7,6 +7,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 import { PROVIDER_REGISTRY } from "@/lib/platform/service-runtime/providers/ProviderRegistry";
 import "@/lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration";
+import { buildMusicPreUiAcceptance } from "@/lib/creative/music/runtime/CreativeMusicPreUiAcceptanceRuntime.js";
 
 const EXECUTION_PERMISSIONS = Object.freeze([
   "creative.execute",
@@ -133,12 +134,18 @@ export async function POST(request) {
     const providerSfxRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.sfx_runtime || {};
     const sfxRuntimeReady = providerSfxRuntime.production_routing_allowed === true;
     const sfxReady = sfx.ready === true && sfxRuntimeReady;
+    const preUiAcceptance = buildMusicPreUiAcceptance({
+      provider: PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider] || {},
+      capabilities: { music, remix, edit, extend, stems, sfx },
+      defer_singing_identity: true,
+    });
 
     return NextResponse.json({
       success: true,
       owner: "AVANTIQO",
       policy: "OWNED_ONLY",
       runtime: runtimeHealth,
+      pre_ui_acceptance: preUiAcceptance,
       capabilities: {
         compose: {
           ...music,

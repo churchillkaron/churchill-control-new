@@ -10,6 +10,8 @@ import {
 } from "@/lib/creative/runtime/engines/MusicEngine";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
+import { executeService, settlePendingService } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
+import { UsageRuntime } from "@/lib/platform/service-runtime/usage/UsageRuntime";
 
 const EXECUTION_PERMISSIONS = Object.freeze([
   "creative.execute",
@@ -83,6 +85,45 @@ async function prepareSourceUpload(body) {
   };
 }
 
+async function executeStems(body) {
+  const organizationId = text(body.organization_id);
+  const stemPlan = plan(body).plan;
+  if (stemPlan.executable !== true || stemPlan.certification !== "CERTIFIED") {
+    const error = new Error(`CREATIVE_MUSIC_STEMS_NOT_CERTIFIED:${stemPlan.certification || "NOT_READY"}`);
+    error.status = 503;
+    throw error;
+  }
+  const duration = finite(body.source_duration_seconds ?? body.duration_seconds, null);
+  if (!duration || duration <= 0) throw new Error("CREATIVE_MUSIC_SOURCE_DURATION_REQUIRED");
+  const result = await executeService({
+    organization_id: organizationId, bill_to_organization_id: organizationId,
+    entity_id: text(body.entity_id) || null, service_id: stemPlan.service_id, capability: stemPlan.capability,
+    input: {
+      title: text(body.title || "Separated stems"), quantity: duration, currency: text(body.currency || "THB"),
+      source_audio: stemPlan.source_audio, rights_attestation: stemPlan.rights_attestation,
+      requirements: { output_spec: stemPlan.output_spec, rights_attestation: stemPlan.rights_attestation },
+      output_spec: stemPlan.output_spec, provider_parameters: { ...(stemPlan.provider_parameters || {}), export_stems: true },
+    },
+    metadata: { module: "CREATIVE", operation: "AVANTIQO_MUSIC_STEMS_EXECUTE", creative_project_id: text(body.creative_project_id) || null, creative_mission_id: text(body.creative_mission_id) || null, source_rights_attested: true, provider_selection_exposed: false },
+    provider_policy: { preferred_providers: ["avantiqo-audio"], allowed_providers: ["avantiqo-audio"] }, category: "AI",
+  });
+  return { success: result?.failed !== true, pending: result?.pending === true, failed: result?.failed === true, usage_id: result?.usage?.id || null, provider_status: result?.provider_status || null, output: result?.output || null, production_certified: true };
+}
+
+async function settleStems(body) {
+  const organizationId = text(body.organization_id);
+  const usageId = text(body.usage_id);
+  if (!usageId) throw new Error("usage_id required");
+  const usage = await UsageRuntime.get(usageId);
+  if (!usage || text(usage.organization_id) !== organizationId || text(usage.capability) !== "ai.audio.stems") {
+    const error = new Error("CREATIVE_MUSIC_STEMS_USAGE_NOT_FOUND"); error.status = 404; throw error;
+  }
+  const providerJobId = text(usage.provider_request_id || usage.metadata?.provider_request_id);
+  if (!providerJobId) throw new Error("CREATIVE_MUSIC_STEMS_PROVIDER_JOB_REQUIRED");
+  const result = await settlePendingService({ organization_id: organizationId, provider: text(usage.provider), provider_job_id: providerJobId, usage_id: usageId, pricing: {}, quantity: finite(usage.quantity, null), unit: text(usage.unit) || null, credential_id: null, started_at: text(usage.execution_started_at || usage.created_at) || null, metadata: { module: "CREATIVE", operation: "AVANTIQO_MUSIC_STEMS_SETTLE" } });
+  return { success: result?.failed !== true, pending: result?.pending === true, failed: result?.failed === true, usage_id: usageId, provider_status: result?.provider_status || null, output: result?.output || null, settlement: result?.settlement || null };
+}
+
 function plan(body) {
   const stemPlan = buildMusicTransformationPlan("stems", {
     ...body,
@@ -113,7 +154,11 @@ export async function POST(request) {
       ? await prepareSourceUpload(body)
       : action === "plan"
         ? plan(body)
-        : null;
+        : action === "execute"
+          ? await executeStems(body)
+          : action === "status"
+            ? await settleStems(body)
+            : null;
     if (!result) {
       return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_STEMS_ACTION_INVALID" }, { status: 400 });
     }

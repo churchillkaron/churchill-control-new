@@ -44,3 +44,9 @@ test('quoted evidence parser ignores possessive apostrophes', () => {
     'preserve_exact_brand_mark',
   ]);
 });
+
+test('brand reviewers distinguish non-official creative palette from brand truth', () => {
+  assert.match(source, /creative art-direction choices from official brand truth/);
+  assert.match(source, /CREATIVE_PALETTE_MISCLASSIFIED_AS_BRAND_TRUTH/);
+  assert.match(source, /not official brand truth is art direction/);
+});

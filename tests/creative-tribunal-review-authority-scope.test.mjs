@@ -73,3 +73,17 @@ test('reviewers may cite their active mandate and active review policy as truste
   assert.match(source, /reviewPayload\(\{ reviewer, context: \{\}, plan, floor: qualityFloor\(plan\) \}\)\.rules/);
   assert.match(source, /evidenceFragmentSupported\(fragment, scopedEvidenceText, planText, reviewerAuthorityText, reviewPolicyText\)/);
 });
+
+
+test('tribunal repair payload is compact and blocker focused', () => {
+  assert.match(source, /function compactRepairContext/);
+  assert.match(source, /function compactRepairPlan/);
+  assert.match(source, /context: compactRepairContext\(context\)/);
+  assert.match(source, /plan: compactRepairPlan\(plan\)/);
+  assert.doesNotMatch(source, /tribunal: blockingTribunal/);
+});
+
+test('generic anti-cliche device replacement triggers concept replacement authority', () => {
+  assert.match(source, /unique,\? non-generic/);
+  assert.match(source, /replace\[\^\.\]\{0,120\}\(\?:clich/);
+});

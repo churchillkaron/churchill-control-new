@@ -7,7 +7,7 @@ const libraryPath = new URL(
   import.meta.url,
 );
 const providerPath = new URL(
-  "../lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProvider.js",
+  "../lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderV2.js",
   import.meta.url,
 );
 const apiPath = new URL(
@@ -69,7 +69,7 @@ test("Voice provider automatically resolves organization Voice Library identity"
   assert.match(source, /organization_voice_library/);
   assert.match(source, /avantiqo_builtin/);
   assert.match(source, /voice_identity_profile_id/);
-  assert.match(source, /voice_delivery_profile/);
+  assert.match(source, /voice_profile/);
 });
 
 test("Direct authorized reference wins over stored Voice Library identity", async () => {
@@ -97,18 +97,14 @@ test("Explicit delivery style can override stored identity style without replaci
   assert.match(resolver, /voiceReference: librarySelection\?\.voice_reference \|\| null/);
 });
 
-test("Voice provider cannot submit RunPod work without exact safe lease", async () => {
+test("Voice provider uses Modal-direct transport and rejects retired legacy jobs", async () => {
   const source = await readFile(providerPath, "utf8");
-  const leaseGuard = source.indexOf("function requireSafeLeaseForSubmission");
-  const submit = source.indexOf("async function submitJob");
-  const run = source.indexOf('runpodRequest(endpointId, "/run"');
-  assert.ok(leaseGuard >= 0, "safe lease guard required");
-  assert.ok(submit > leaseGuard, "submit must be defined after lease guard");
-  assert.ok(run > submit, "RunPod /run call must occur inside guarded submission path");
-  assert.match(source, /AVANTIQO_VOICE_RUNPOD_SAFE_LEASE_REQUIRED/);
-  assert.match(source, /AVANTIQO_VOICE_RUNPOD_SAFE_LEASE_ENDPOINT_MISMATCH/);
-  assert.match(source, /await requireSafeLeaseForSubmission\(endpointId, capability, input\)/);
-  assert.match(source, /validateVoiceRunpodDistributedLease/);
+  assert.match(source, /voiceModalDirectConfigured/);
+  assert.match(source, /executeVoiceModalDirect/);
+  assert.match(source, /getVoiceModalDirectStatus/);
+  assert.match(source, /AVANTIQO_VOICE_MODAL_DIRECT_CONFIGURATION_REQUIRED/);
+  assert.match(source, /AVANTIQO_VOICE_LEGACY_JOB_TRANSPORT_RETIRED/);
+  assert.doesNotMatch(source, /runpodRequest\(/);
 });
 
 test("Voice worker supports recorded identity separately from delivery style", async () => {

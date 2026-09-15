@@ -62,3 +62,16 @@ test('whole-film review rejects AI-montage rhythm and brand contamination', () =
   assert.match(review, /canonical_brand_lockup_exclusive/);
   assert.match(review, /generated_brand_substitution_detected/);
 });
+
+test('temporal director separates narrative movements from camera shots and derives cadence dynamically', () => {
+  assert.match(planner, /narrative movements, acts and scenes are NOT camera shots/i);
+  assert.match(planner, /tensionDriven/);
+  assert.match(planner, /patient/);
+  assert.match(planner, /kinetic/);
+  assert.match(planner, /deliberateLongTake/);
+  assert.match(planner, /maximum_average_shot_seconds/);
+  assert.match(validator, /CREATIVE_TEMPORAL_CADENCE_CONTRACT_V1/);
+  assert.match(validator, /TEMPORAL_SHOT_CADENCE_TOO_SPARSE/);
+  assert.match(validator, /TEMPORAL_NARRATIVE_MOVEMENT_SHOT_CONFLATION/);
+  assert.match(validator, /Narrative movements and scenes are not camera shots/);
+});

@@ -6,7 +6,8 @@ const source = fs.readFileSync("lib/creative/director/runtime/CreativeDirectionE
 
 test("Studio exact resume keys checkpoints by the actual direction request", () => {
   assert.match(source, /const semanticHash = text\(input\.metadata\?\.creative_direction_semantic_hash\)/);
-  assert.match(source, /const requestHash = semanticHash \|\| hash\(\{/);
+  assert.match(source, /const baseRequestHash = semanticHash \|\| hash\(\{/);
+  assert.match(source, /const requestHash = lineageId/);
   assert.match(source, /request_hash: requestHash/);
   assert.match(source, /creative_direction_resume_request_hash: identity\.request_hash/);
   assert.match(source, /CREATIVE_DIRECTION_EXACT_RESUME_STALE_ENTRY/);

@@ -250,3 +250,80 @@ test("Council uses the same world-class score policy before selection", () => {
   assert.doesNotMatch(council, /weightedScore < 76/);
   assert.doesNotMatch(council, /weighted_score >= 76/);
 });
+
+
+test("autonomous regeneration is active on the real Council path", () => {
+  const regeneration = fs.readFileSync("lib/creative/director/runtime/CreativeAutonomousConceptRegenerationRuntime.js", "utf8");
+  const workflow = fs.readFileSync("lib/creative/director/runtime/CreativeWorkflowResolutionRuntime.js", "utf8");
+  assert.match(workflow, /CreativeAutonomousConceptRegenerationRuntime/);
+  assert.match(regeneration, /CreativeConceptCouncilRuntime\.run = async function runWithAutonomousConceptRegeneration/);
+  assert.match(regeneration, /assertWorldClassCouncilResult\(result, policy\)/);
+});
+
+test("regeneration rounds do not replay failed Council receipts", () => {
+  const regeneration = fs.readFileSync("lib/creative/director/runtime/CreativeAutonomousConceptRegenerationRuntime.js", "utf8");
+  assert.match(regeneration, /state\.round <= 1/);
+  assert.match(regeneration, /operations\.filter\(\(entry\) => !councilRegenerationOperation/);
+  assert.match(regeneration, /CREATIVE_SELECTED_CONCEPT_PLAN_REVISION_V1/);
+  assert.match(regeneration, /CREATIVE_EXECUTIVE_CONCEPT_SELECTION_V1/);
+});
+
+test("regeneration cannot grant reasoning authority", () => {
+  const regeneration = fs.readFileSync("lib/creative/director/runtime/CreativeAutonomousConceptRegenerationRuntime.js", "utf8");
+  assert.doesNotMatch(regeneration, /paid_direction_approval\s*:\s*\{[^}]*approved\s*:\s*true/s);
+  assert.doesNotMatch(regeneration, /maximum_customer_price\s*:/);
+  assert.doesNotMatch(regeneration, /media_generation_authorized\s*:\s*true/);
+});
+
+
+test("anonymous humans do not inherit arbitrary identity profiles", () => {
+  const universal = fs.readFileSync("lib/creative/director/runtime/CreativeUniversalTemporalDirectionRuntime.js", "utf8");
+  const start = universal.indexOf("function identityForShot");
+  const end = universal.indexOf("function requestedAngle", start);
+  const block = universal.slice(start, end);
+  assert.match(block, /explicitProfileId/);
+  assert.match(block, /return list\(identities\)\.find/);
+  assert.match(block, /\|\| null/);
+  assert.doesNotMatch(block, /return list\(identities\)\[0\]/);
+  assert.doesNotMatch(block, /actor\?\.role/);
+});
+
+test("production identity gates apply only to explicitly bound identities", () => {
+  const graph = fs.readFileSync("lib/creative/production-graph/runtime/ProductionGraphRuntime.js", "utf8");
+  assert.match(graph, /function identityBoundHumanShot/);
+  assert.match(graph, /identity_profile_id/);
+  assert.match(graph, /identity_lock_required === true/);
+  assert.match(graph, /identityBoundHumanShots\.filter/);
+  assert.doesNotMatch(graph, /function namedHumanShot/);
+});
+
+
+test("post-Tribunal temporal handoff upgrades legacy masters with canonical dossier policy", () => {
+  const orchestrator = fs.readFileSync("lib/creative/director/orchestrator/CreativePipelineOrchestrator.js", "utf8");
+  assert.match(orchestrator, /ensureUniversalTemporalDossier/);
+  assert.match(orchestrator, /dry_run_dossier_required_before_paid_generation/);
+});
+
+test("fresh temporal identity accounting distinguishes human from identity-bound shots", () => {
+  const universal = fs.readFileSync("lib/creative/director/runtime/CreativeUniversalTemporalDirectionRuntime.js", "utf8");
+  assert.match(universal, /let identityRequiredShots = 0/);
+  assert.match(universal, /if \(profile\) identityRequiredShots \+= 1/);
+  assert.match(universal, /identityBoundShots !== identityRequiredShots/);
+  assert.doesNotMatch(universal, /identityBoundShots !== humanShots/);
+});
+
+
+test("premium benchmark floors become explicit Research targets", () => {
+  const research = fs.readFileSync("lib/creative/research/reasoning/ResearchDirector.js", "utf8");
+  assert.match(research, /benchmarkTargets/);
+  assert.match(research, /id: "benchmark_reference_films"/);
+  assert.match(research, /subjects: benchmarkTargets/);
+});
+
+test("Research policy requires and validates Benchmark Lab when benchmark floors exist", () => {
+  const evidence = fs.readFileSync("lib/creative/research/runtime/ResearchEvidenceContractRuntime.js", "utf8");
+  assert.match(evidence, /require_benchmark_lab: requireBenchmarkLab/);
+  assert.match(evidence, /evaluateBenchmarkStudy/);
+  assert.match(evidence, /CREATIVE_BENCHMARK_LAB_REQUIRED/);
+  assert.match(evidence, /if \(policy\?\.require_benchmark_lab === true\)/);
+});

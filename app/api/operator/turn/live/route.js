@@ -6,6 +6,9 @@ import {
   beginAvantiqoLiveExecution,
   publishAvantiqoLiveExecution,
 } from "@/lib/platform/runtime/AvantiqoLiveExecutionRuntime";
+import {
+  classifyPendingOperatorReply,
+} from "@/lib/operator/runtime/OperatorHumanDecisionClassifier.js";
 
 export const runtime = "nodejs";
 // Owned Intelligence is zero-idle. A cold Fast request may first prove that
@@ -72,24 +75,52 @@ export async function POST(request) {
           },
         };
         const codeInspection = codeInspectionRequest(body.message);
+        const pendingExecution = object(body.agreementState || body.agreement_state)?.pending_execution;
+        const pendingCapabilityKey = text(pendingExecution?.capability_key);
+        const pendingControlDecision = pendingCapabilityKey
+          ? classifyPendingOperatorReply({
+              message: body.message,
+              pending: true,
+              recommendation: false,
+            })
+          : null;
+        const confirmingPendingAction = pendingControlDecision === "execute";
+        const invoiceConfirmation = confirmingPendingAction &&
+          pendingCapabilityKey === "finance.accounts_receivable.CreateCustomerInvoice";
+        const liveLane = codeInspection ? "code" : "intelligence";
+        const liveDescription = codeInspection
+          ? "I’m checking the requested UI and code surface now."
+          : invoiceConfirmation
+            ? "Creating the invoice now."
+            : confirmingPendingAction
+              ? "Carrying out the approved action now."
+              : "I’m checking what you asked for and gathering the relevant business information now.";
         await beginAvantiqoLiveExecution({
           context,
-          lane: codeInspection ? "code" : "intelligence",
-          description: codeInspection
-            ? "I’m checking the requested UI and code surface now."
-            : "I’m checking what you asked for and gathering the relevant business information now.",
+          lane: liveLane,
+          description: liveDescription,
         }).catch(() => null);
         await publishAvantiqoLiveExecution({
           context,
           event: {
-            lane: codeInspection ? "code" : "intelligence",
-            phase: codeInspection ? "CODE_INSPECTION_ROUTING" : "REQUEST_ROUTING",
+            lane: liveLane,
+            phase: codeInspection
+              ? "CODE_INSPECTION_ROUTING"
+              : confirmingPendingAction
+                ? "PENDING_ACTION_EXECUTION"
+                : "REQUEST_ROUTING",
             status: "running",
             description: codeInspection
               ? "I’m checking the relevant pages, components and verification path before making any change."
-              : "I’m checking the relevant information and working out the next useful step.",
-            read_only: true,
-            mutation_possible: false,
+              : invoiceConfirmation
+                ? "Creating the invoice now."
+                : confirmingPendingAction
+                  ? "Carrying out the approved action now."
+                  : "I’m checking the relevant information and working out the next useful step.",
+            capability_key: confirmingPendingAction ? pendingCapabilityKey : null,
+            read_only: !confirmingPendingAction,
+            mutation_possible: confirmingPendingAction,
+            mutation_running: confirmingPendingAction,
             paid_execution_possible: false,
             paid_execution_running: false,
           },

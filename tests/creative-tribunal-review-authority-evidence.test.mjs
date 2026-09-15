@@ -14,3 +14,9 @@ test('Tribunal rejects exact brand claims without authoritative brand truth', ()
   assert.match(source, /UNVERIFIED_EXACT_BRAND_CLAIM/);
   assert.match(source, /!hasExactBrandTruthAuthority\(plan\)/);
 });
+
+test('Tribunal rejects quoted reviewer evidence absent from current scoped evidence', () => {
+  assert.match(source, /UNSUPPORTED_QUOTED_EVIDENCE/);
+  assert.match(source, /review\.evidence_used/);
+  assert.match(source, /scopedEvidenceText\.includes/);
+});

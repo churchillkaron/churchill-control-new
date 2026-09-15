@@ -44,6 +44,9 @@ test("world-class result passes only with complete 90+ review and hard gates", (
       source_present: false,
       clipping_detected: false,
       delivery_corrupt: false,
+      listening_reviewer_roles: ["PRODUCER", "MIX_ENGINEER", "MASTERING_ENGINEER", "MUSICIAN", "GENERAL_LISTENER"],
+      translation_contexts: ["STUDIO_MONITORS", "HEADPHONES", "PHONE_SPEAKER", "LAPTOP", "MONO", "STREAMING_CODEC"],
+      source_fit_preflight_passed: true,
     },
   });
   assert.equal(review.weighted_score, 94);

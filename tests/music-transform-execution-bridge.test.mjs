@@ -17,10 +17,12 @@ test("Music transformations have a fingerprint-bound governed execute bridge", (
   assert.match(route, /publication_authorized:\s*false/);
 });
 
-test("Remix and surgical edit use owned Modal while extend remains fail closed", () => {
+test("Remix edit and extend share the owned Modal lane and remain certification-gated", () => {
   assert.match(provider, /"ai\.audio\.remix"/);
   assert.match(provider, /"ai\.audio\.edit"/);
-  assert.match(provider, /AVANTIQO_MUSIC_TEMPORAL_EXTEND_OUTPAINT_NOT_CERTIFIED/);
+  assert.match(provider, /"ai\.audio\.extend"/);
+  assert.match(provider, /isCertifiedMainCapability/);
+  assert.match(provider, /AVANTIQO_AUDIO_CAPABILITY_NOT_CERTIFIED/);
 });
 
 test("Music Studio exposes transformation planners and enables execution only from readiness", () => {

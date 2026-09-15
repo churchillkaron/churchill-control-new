@@ -13,3 +13,14 @@ test('Tribunal explicitly forbids treating historical panel failures as current 
   assert.match(source,/historical risk-selection context, never proof/);
   assert.match(source,/absent from reviewer_scoped_evidence and the current canonical plan/);
 });
+
+
+test("review payload does not duplicate full canonical plan beside scoped evidence", () => {
+  const source = fs.readFileSync("lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js", "utf8");
+  const start = source.indexOf("function reviewPayload");
+  const end = source.indexOf("function assertReviewAuthority", start);
+  const body = source.slice(start, end);
+  assert.ok(body.includes("reviewer_scoped_evidence"));
+  assert.equal(body.includes("plan: canonicalReviewPlan(plan)"), false);
+  assert.equal(body.includes("reviewer_scoped_evidence and the full plan"), false);
+});

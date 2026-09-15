@@ -55,6 +55,7 @@ test("still production authority digest detects mutation", () => {
   const previs = blueprint();
   const authority = buildCreativeStillProductionAuthority({
     previsualization: previs,
+    reference_assets: [{ asset_id: "brand-logo" }],
     capability: "ai.image.generate",
   });
   assert.equal(authority.passed, true);
@@ -70,4 +71,15 @@ test("planner and execution runtime enforce still production authority", () => {
   assert.ok(graph.includes("still_production_authority"));
   assert.ok(taskRuntime.includes("verifyCreativeStillProductionAuthority"));
   assert.ok(taskRuntime.includes("STUDIO_STILL_PRODUCTION_AUTHORITY_REQUIRED"));
+});
+
+test("still production authority requires an exact brand asset for deterministic logo composition", () => {
+  const previs = blueprint();
+  const authority = buildCreativeStillProductionAuthority({
+    previsualization: previs,
+    requirements: { expected_contract: { brand_expected: true } },
+    capability: "ai.image.generate",
+  });
+  assert.equal(authority.passed, false);
+  assert.ok(authority.failures.includes("STILL_AUTHORITY_EXACT_BRAND_ASSET_REQUIRED"));
 });

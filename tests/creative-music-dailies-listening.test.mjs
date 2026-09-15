@@ -109,3 +109,11 @@ test("Music Dailies reviewer input hides unaccepted tempo candidates from factua
   assert.match(source, /analysis\.tempo\?\.accepted === true/);
   assert.match(source, /never_fail_on_unaccepted_tempo_or_key_candidates: true/);
 });
+
+
+test("Music Dailies fail closed when a reviewer reasoning payload is invalid", async () => {
+  const source = await readFile(new URL("../lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /Reviewer execution failed closed/);
+  assert.match(source, /MUSIC_DAILIES_REVIEWER_EXECUTION_FAILED/);
+  assert.match(source, /do not alter or regenerate the music based on an invalid reviewer payload/);
+});

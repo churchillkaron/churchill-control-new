@@ -669,8 +669,31 @@ export async function POST(request) {
       execution: object(result?.execution),
       provider_evidence: object(result?.provider_evidence),
     });
+    const learningSignals = {
+      semantic_correction:
+        object(result?.provider_evidence).semantic_correction_or_revision === true ||
+        object(result?.operator_catalog).semantic_correction_or_revision === true,
+      recommendation_rejected:
+        object(result?.operator_catalog).recommendation_proposal_rejected === true,
+      recommendation_selected:
+        object(result?.operator_catalog).recommendation_selected === true,
+      clarification_required:
+        object(normalizedDecision.clarification).required === true,
+      artifact_reused:
+        object(result?.operator_catalog).semantic_artifact_reuse === true ||
+        object(result?.operator_catalog).artifact_reused === true ||
+        object(result?.operator_catalog).prior_artifact_reused === true,
+      response_detail_deep:
+        String(object(result?.provider_evidence).semantic_response_detail || "").toLowerCase() === "deep",
+      response_detail_brief:
+        String(object(result?.provider_evidence).semantic_response_detail || "").toLowerCase() === "brief",
+      context_expanded:
+        String(object(result?.provider_evidence).semantic_context_depth || "").toLowerCase() === "expanded",
+      authorization_effect: "NONE",
+    };
     const normalizedProviderEvidence = {
       ...object(result?.provider_evidence),
+      learning_signals: learningSignals,
       ...(presentationArtifacts.length ? { presentation_artifacts: presentationArtifacts } : {}),
     };
     const normalizedResult = {

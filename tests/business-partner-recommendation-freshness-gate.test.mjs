@@ -34,8 +34,9 @@ test("stale live evidence is refreshed only through canonical registered read ch
 test("freshness refresh preserves exact selected action and changes only proof state", () => {
   assert.match(turn, /recommended_action:\s*\{ \.{3}recommendation, proof \}/);
   assert.match(turn, /pending_execution:\s*\{ \.\.\.pending, recommendation_proof: proof \}/);
-  assert.match(turn, /recommended_action:\s*\{ \.\.\.recommendation, proof \}/);
-  assert.match(turn, /pending_execution:\s*\{ \.\.\.pending, recommendation_proof: proof \}/);
+  assert.match(turn, /effectiveOptions = \{[\s\S]*agreementState: freshnessPreflight\.agreementState/);
+  assert.match(turn, /await preflightSelectedRecommendationVerification\(effectiveOptions\)/);
+  assert.match(turn, /runGovernedOperatorTurn\(effectiveOptions\)/);
   assert.match(turn, /authority_effect:\s*"NONE"/);
   assert.match(turn, /execution_proof:\s*false/);
 });

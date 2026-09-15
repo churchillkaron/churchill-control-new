@@ -23,7 +23,7 @@ test('review policy version invalidates settled reviews when authority rules cha
 test('quoted evidence matching tolerates omitted parenthetical qualifiers only',()=>{
   assert.match(source,/function comparableEvidenceText/);
   assert.ok(source.includes('.replace(/\\([^)]*\\)/g, \" \")'));
-  assert.match(source,/evidenceFragmentSupported\(fragment, scopedEvidenceText, planText, reviewerAuthorityText\)/);
+  assert.match(source,/evidenceFragmentSupported\(fragment, scopedEvidenceText, planText, reviewerAuthorityText, reviewPolicyText\)/);
   assert.match(source,/UNSUPPORTED_QUOTED_EVIDENCE/);
 });
 

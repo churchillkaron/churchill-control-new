@@ -56,17 +56,17 @@ test("ambiguous equal-strength write aliases fail closed", () => {
   assert.equal(result, null);
 });
 
-test("synthetic routing binds one unambiguous governed action before enrichment and semantic Intelligence", () => {
+test("synthetic routing understands human meaning before capability routing", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js", import.meta.url), "utf8");
-  const preflight = source.indexOf("preflightDeterministicAction = resolveDeterministicGovernedAction");
   const organizationLoad = source.indexOf("await organizationProjectState(options)");
-  const semantic = source.indexOf("understandHumanBusinessPartnerTurn", preflight);
-  assert.ok(preflight >= 0 && organizationLoad > preflight && semantic > organizationLoad);
-  assert.match(source, /fallback_only: true/);
-  assert.match(source, /preflightPendingControlDecision \|\| preflightFastUnderstanding \|\| preflightDeterministicAction/);
-  assert.match(source, /route: "governed"/);
-  assert.match(source, /requires_mutation: true/);
-  assert.match(source, /authorization_effect: "NONE"/);
+  const semantic = source.indexOf("semanticUnderstanding = await understandHumanBusinessPartnerTurn(effectiveOptions)");
+  const operatorTurn = source.indexOf("const operatorResult = await runOperatorTurn");
+  assert.ok(organizationLoad >= 0 && semantic > organizationLoad && operatorTurn > semantic);
+  assert.doesNotMatch(source, /preflightDeterministicAction = resolveDeterministicGovernedAction/);
+  assert.doesNotMatch(source, /mutationIntentHint/);
+  assert.match(source, /Do not silently substitute keyword routing when meaning is unavailable/);
+  assert.match(source, /clarification_required: true/);
+  assert.match(source, /semantic_understanding_unavailable: true/);
 });
 
 test("fast invoice action index preserves the exact governance contract", () => {

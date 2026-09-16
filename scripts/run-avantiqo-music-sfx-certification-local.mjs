@@ -37,7 +37,7 @@ const payload={ capability:CAPABILITY, instruction, duration_seconds:4,
 const tokenId=text(process.env.MODAL_TOKEN_ID||process.env.AVANTIQO_MODAL_TOKEN_ID);
 const tokenSecret=text(process.env.MODAL_TOKEN_SECRET||process.env.AVANTIQO_MODAL_TOKEN_SECRET);
 if(!tokenId||!tokenSecret) throw new Error("AVANTIQO_MUSIC_SFX_MODAL_CREDENTIALS_REQUIRED");
-const {ModalClient,FunctionCallGetTimeoutError}=await import("modal");
+const {ModalClient,FunctionTimeoutError}=await import("modal");
 const client=new ModalClient({tokenId,tokenSecret});
 const environment=text(process.env.AVANTIQO_SFX_MODAL_ENVIRONMENT||process.env.MODAL_ENVIRONMENT);
 const worker=await client.functions.fromName(APP_NAME,FUNCTION_NAME,environment?{environment}:{});
@@ -51,7 +51,7 @@ while(!result){
   const costThb=elapsed*MODAL_A10G_USD_PER_SECOND*FX_THB_PER_USD;
   if(costThb>=CEILING*0.98){try{await call.cancel({terminateContainers:true});}catch{} throw new Error(`AVANTIQO_MUSIC_SFX_SPEND_CEILING_WATCHDOG:${costThb.toFixed(6)}THB`);}
   try{result=await call.get({timeoutMs:5000});}
-  catch(error){if(!(error instanceof FunctionCallGetTimeoutError)&&!text(error?.code||error?.name||error?.message).toUpperCase().includes("TIMEOUT")) throw error;}
+  catch(error){if(!(FunctionTimeoutError && error instanceof FunctionTimeoutError)&&!text(error?.code||error?.name||error?.message).toUpperCase().includes("TIMEOUT")) throw error;}
 }
 const wallMs=Math.round(performance.now()-startedAt);
 const supplierUsd=(wallMs/1000)*MODAL_A10G_USD_PER_SECOND;

@@ -68,6 +68,19 @@ test("creative video discussion stays Fast and imaginative", () => {
   }
 });
 
+
+test("long strategic discussion stays on owned local cognition by default", () => {
+  const message = "We need to rethink how the Business Partner should handle a long strategic discussion about invoices, cash flow, customer follow-up, staffing pressure, and what we should prioritize next. Compare the tradeoffs and explain what you think we should do, but there is no production change, payment, approval, deletion, or other irreversible action in this request.";
+  const result = routeOperatorCognition({ message, capabilities: [] });
+  assert.equal(result.path, "fast");
+});
+
+test("short analytical follow-up stays local instead of buying Deep", () => {
+  const result = routeOperatorCognition({ message: "why is that the better option?", capabilities: [] });
+  assert.equal(result.path, "fast");
+  assert.equal(result.reason, "FAST_LOCAL_DELIBERATION");
+});
+
 test("explicit deep investigation still uses Deep", () => {
   const result = routeOperatorCognition({
     message: "do a deep analysis and root cause investigation of why the render pipeline fails",

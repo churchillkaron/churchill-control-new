@@ -5,8 +5,8 @@ import { readFile } from "node:fs/promises";
 test("context-free semantic preflight is current-message only and non-authoritative", async () => {
   const source = await readFile("lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js", "utf8");
   assert.match(source, /export async function preflightHumanBusinessPartnerTurn/);
-  assert.match(source, /Classify only the CURRENT user message before any prior conversation is loaded/);
-  assert.match(source, /messages: \[\{ role: "user", content: message \}\]/);
+  assert.match(source, /Classify the CURRENT user message using only the immediately preceding exchange when supplied/);
+  assert.match(source, /messages: \[\{ role: "user", content: JSON\.stringify\(\{ message, immediate \}\) \}\]/);
   assert.match(source, /allow_fast_escalation: false/);
   assert.match(source, /authorization_effect: "NONE"/);
 });

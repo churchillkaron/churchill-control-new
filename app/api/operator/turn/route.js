@@ -354,6 +354,7 @@ export async function POST(request) {
     };
 
     const attachmentSetId = conversationAttachmentSetIdFromRequest(request);
+    const immediateConversation = boundedConversation(body.conversation).slice(-2);
     let preflightSemanticUnderstanding = null;
     if (!attachmentSetId && source !== "event") {
       try {
@@ -362,6 +363,7 @@ export async function POST(request) {
           partyId,
           entityId: businessContext.entityId,
           message,
+          immediateConversation,
         });
         const selfContained = Boolean(
           preflight &&

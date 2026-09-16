@@ -21,8 +21,8 @@ test("Music Edit review proves selected-region change and outside preservation",
 test("Music Edit review result never auto-activates production", () => {
   assert.match(record, /APPROVED/);
   assert.match(record, /REJECTED/);
-  assert.match(record, /production_certified: false/);
-  assert.match(record, /production_activation_allowed: false/);
-  assert.match(record, /pricing_activation_allowed: false/);
-  assert.match(record, /provider_jobs_submitted: 0/);
+  assert.match(record, /production_certified:\s*false/);
+  assert.match(record, /production_activation_allowed:\s*false/);
+  assert.match(record, /pricing_activation_allowed:\s*false/);
+  assert.match(record, /provider_jobs_submitted:\s*0/);
 });

@@ -3,7 +3,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import crypto from "node:crypto";
 import { resolve } from "node:path";
 
-const CONTRACT = "AVANTIQO_MUSIC_SFX_PROMOTION_PLAN_V1";
+const CONTRACT = "AVANTIQO_MUSIC_SFX_PROMOTION_PLAN_V2";
+const MATRIX_CONTRACT = "AVANTIQO_MUSIC_SFX_CERTIFICATION_MATRIX_V1";
 const CAPABILITY = "ai.sfx.generate";
 const PROVIDER = "avantiqo-audio";
 const PRODUCT_MODEL = "avantiqo-sfx-v1";
@@ -17,6 +18,10 @@ try { evidenceBytes = await readFile(INPUT); evidence = JSON.parse(evidenceBytes
 catch { evidence = null; }
 const failures = [];
 if (!evidence) failures.push("SFX_CERTIFICATION_EVIDENCE_REQUIRED");
+if (evidence && text(evidence.contract) !== MATRIX_CONTRACT) failures.push("SFX_CERTIFICATION_MATRIX_REQUIRED");
+if (evidence && evidence.matrix_certified !== true) failures.push("SFX_MATRIX_CERTIFICATION_REQUIRED");
+if (evidence && Number(evidence.sample_count) !== 6) failures.push("SFX_SIX_SAMPLE_MATRIX_REQUIRED");
+if (evidence && !Array.isArray(evidence.required_categories)) failures.push("SFX_REQUIRED_CATEGORIES_EVIDENCE_REQUIRED");
 if (evidence && text(evidence.capability) !== CAPABILITY) failures.push("SFX_CAPABILITY_BINDING_INVALID");
 if (evidence && text(evidence.provider) !== PROVIDER) failures.push("SFX_PROVIDER_BINDING_INVALID");
 if (evidence && text(evidence.product_model) !== PRODUCT_MODEL) failures.push("SFX_PRODUCT_MODEL_BINDING_INVALID");
@@ -25,11 +30,11 @@ if (evidence && evidence.benchmark_certified !== true) failures.push("SFX_BENCHM
 if (evidence && evidence.economics_certified !== true) failures.push("SFX_ECONOMICS_CERTIFICATION_REQUIRED");
 if (evidence && evidence.human_quality_certified !== true) failures.push("SFX_HUMAN_QUALITY_CERTIFICATION_REQUIRED");
 if (evidence && text(evidence.human_review_status) !== "APPROVED") failures.push("SFX_HUMAN_REVIEW_APPROVAL_REQUIRED");
-if (evidence && !text(evidence.human_reviewer)) failures.push("SFX_HUMAN_REVIEWER_REQUIRED");
+if (evidence && (!Array.isArray(evidence.human_reviewers) || evidence.human_reviewers.length < 1 || evidence.human_reviewers.some((value) => !text(value)))) failures.push("SFX_HUMAN_REVIEWERS_REQUIRED");
 if (evidence && Number(evidence.human_review_minimum_score) < 92) failures.push("SFX_HUMAN_REVIEW_MINIMUM_92_REQUIRED");
 if (evidence && Number(evidence.human_review_average_score) < 92) failures.push("SFX_HUMAN_REVIEW_AVERAGE_92_REQUIRED");
-if (evidence && !text(evidence.source_certification_path)) failures.push("SFX_SOURCE_CERTIFICATION_BINDING_REQUIRED");
-if (evidence && !text(evidence.human_review_result_path)) failures.push("SFX_HUMAN_REVIEW_RESULT_BINDING_REQUIRED");
+if (evidence && (!Array.isArray(evidence.items) || evidence.items.length !== 6 || evidence.items.some((item) => !text(item?.certification_path)))) failures.push("SFX_SOURCE_CERTIFICATION_BINDINGS_REQUIRED");
+if (evidence && (!Array.isArray(evidence.items) || evidence.items.length !== 6 || evidence.items.some((item) => !text(item?.human_review_path)))) failures.push("SFX_HUMAN_REVIEW_RESULT_BINDINGS_REQUIRED");
 if (evidence && evidence.model_license_verified !== true) failures.push("SFX_MODEL_LICENSE_VERIFICATION_REQUIRED");
 if (evidence && evidence.production_routing_allowed !== false) failures.push("SFX_EVIDENCE_MUST_REMAIN_PRE_PROMOTION");
 if (evidence && evidence.activation_allowed !== false) failures.push("SFX_AUTOMATIC_ACTIVATION_FORBIDDEN");

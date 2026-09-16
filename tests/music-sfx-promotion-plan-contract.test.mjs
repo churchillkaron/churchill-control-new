@@ -3,12 +3,16 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 const source = await readFile("scripts/plan-avantiqo-music-sfx-promotion.mjs", "utf8");
 test("SFX promotion requires benchmark economics and human quality evidence", () => {
+  assert.match(source, /SFX_CERTIFICATION_MATRIX_REQUIRED/);
+  assert.match(source, /SFX_MATRIX_CERTIFICATION_REQUIRED/);
+  assert.match(source, /SFX_SIX_SAMPLE_MATRIX_REQUIRED/);
   assert.match(source, /benchmark_certified/);
   assert.match(source, /economics_certified/);
   assert.match(source, /human_quality_certified/);
   assert.match(source, /SFX_HUMAN_REVIEW_MINIMUM_92_REQUIRED/);
   assert.match(source, /SFX_HUMAN_REVIEW_AVERAGE_92_REQUIRED/);
-  assert.match(source, /SFX_HUMAN_REVIEW_RESULT_BINDING_REQUIRED/);
+  assert.match(source, /SFX_HUMAN_REVIEWERS_REQUIRED/);
+  assert.match(source, /SFX_HUMAN_REVIEW_RESULT_BINDINGS_REQUIRED/);
   assert.match(source, /model_license_verified/);
   assert.match(source, /AVANTIQO_SFX_CERTIFICATION_EVIDENCE_SHA256/);
   assert.match(source, /createHash\("sha256"\)/);

@@ -1,4 +1,5 @@
 import { POST as runOperatorTurnPost } from "../route";
+import { resolveOperatorInstantGreeting } from "@/lib/operator/runtime/OperatorInstantGreetingPolicy.js";
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
@@ -65,31 +66,51 @@ export async function POST(request) {
     if (organizationId) {
       const access = await requireOrganizationAccess({ organizationId, request });
       if (access.success) {
+        const instantGreeting = resolveOperatorInstantGreeting({
+          message: body.message,
+          source: body.source || "text",
+        });
+        if (instantGreeting) {
+          return Response.json({
+            success: true,
+            decision: {
+              response_text: instantGreeting,
+              response_language: text(body.locale) || null,
+              intent: "answer",
+              confidence: 1,
+              clarification: { required: false, question: null, options: [] },
+              navigation: { target_id: null },
+              execution: { capability_key: null, payload: {}, reason: null },
+              plan: [],
+            },
+            state_unchanged: true,
+            navigation: null,
+            execution: null,
+            provider_evidence: { provider: "avantiqo-local", model: "operator-instant-social-reflex-v1", usage_id: null },
+            operator_catalog: {
+              instant_response: true,
+              intelligence_lease_required: false,
+              provider_request_performed: false,
+              project_context_loaded: false,
+              memory_loaded: false,
+              mutation_executed: false,
+            },
+          });
+        }
         context = {
           organizationId: access.organizationId || organizationId,
           partyId: access.staff?.party_id || access.staff?.partyId || null,
-          actor: {
-            id: access.user?.id || access.userId || null,
-          },
+          actor: { id: access.user?.id || access.userId || null },
         };
         const codeInspection = codeInspectionRequest(body.message);
         if (codeInspection) {
-          await beginAvantiqoLiveExecution({
-            context,
-            lane: "code",
-            description: "I’m checking the requested UI and code surface now.",
-          }).catch(() => null);
+          await beginAvantiqoLiveExecution({ context, lane: "code", description: "I’m checking the requested UI and code surface now." }).catch(() => null);
           await publishAvantiqoLiveExecution({
             context,
             event: {
-              lane: "code",
-              phase: "CODE_INSPECTION_ROUTING",
-              status: "running",
+              lane: "code", phase: "CODE_INSPECTION_ROUTING", status: "running",
               description: "I’m checking the relevant pages, components and verification path before making any change.",
-              read_only: true,
-              mutation_possible: false,
-              paid_execution_possible: false,
-              paid_execution_running: false,
+              read_only: true, mutation_possible: false, paid_execution_possible: false, paid_execution_running: false,
             },
           }).catch(() => null);
         }

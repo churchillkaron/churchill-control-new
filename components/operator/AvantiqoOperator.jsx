@@ -340,7 +340,9 @@ export default function AvantiqoOperator() {
       const decision = result?.decision || {};
       const assistantText = text(decision?.response_text) || "Done.";
 
-      setAgreementState(result?.agreement_state || decision?.agreement_state || {});
+      if (result?.state_unchanged !== true) {
+        setAgreementState(result?.agreement_state || decision?.agreement_state || {});
+      }
       setMessages((current) => [
         ...current,
         assistantMessage(assistantText, {

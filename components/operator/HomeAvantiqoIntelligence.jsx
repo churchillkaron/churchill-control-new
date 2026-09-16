@@ -514,11 +514,13 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           "Avantiqo returned no reliable response. No action was assumed complete.",
         );
       }
-      agreementStateRef.current =
-        result?.agreement_state ||
-        decision?.agreement_state ||
-        agreementStateRef.current;
-      setProjectState(result?.project_state || decision?.project_state || {});
+      if (result?.state_unchanged !== true) {
+        agreementStateRef.current =
+          result?.agreement_state ||
+          decision?.agreement_state ||
+          agreementStateRef.current;
+        setProjectState(result?.project_state || decision?.project_state || {});
+      }
 
       setMessages((current) => [
         ...current,

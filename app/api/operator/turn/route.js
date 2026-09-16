@@ -71,6 +71,7 @@ import {
 } from "@/lib/platform/runtime/UniversalAttachmentBusinessMatchRuntime";
 import { attachmentLogicalObjects } from "@/lib/platform/runtime/ConversationAttachmentObjectRuntime";
 import { buildIntelligenceContextBudget } from "@/lib/operator/runtime/IntelligenceContextBudgetRuntime";
+import { resolveOperatorInstantGreeting } from "@/lib/operator/runtime/OperatorInstantGreetingPolicy.js";
 import { collectOperatorPresentationArtifacts } from "@/lib/operator/runtime/OperatorPresentationArtifactRuntime";
 
 function readValue(source, camelKey, snakeKey) {
@@ -295,6 +296,32 @@ export async function POST(request) {
     if (resolved.error) return resolved.error;
 
     const { access, partyId } = resolved;
+
+    const instantGreeting = resolveOperatorInstantGreeting({ message, source });
+    if (instantGreeting) {
+      const totalMs = Date.now() - turnStartedAt;
+      const response = Response.json({
+        success: true,
+        decision: {
+          response_text: instantGreeting,
+          response_language: text(body.locale) || null,
+          intent: "answer", confidence: 1,
+          clarification: { required: false, question: null, options: [] },
+          navigation: { target_id: null },
+          execution: { capability_key: null, payload: {}, reason: null },
+          plan: [],
+        },
+        state_unchanged: true,
+        navigation: null, execution: null,
+        provider_evidence: { provider: "avantiqo-local", model: "operator-instant-social-reflex-v1", usage_id: null },
+        operator_catalog: {
+          instant_response: true, intelligence_lease_required: false, provider_request_performed: false,
+          project_context_loaded: false, memory_loaded: false, mutation_executed: false,
+        },
+      });
+      response.headers.set("Server-Timing", `access;dur=${accessMs}, social_reflex;dur=${totalMs}, total;dur=${totalMs}`);
+      return response;
+    }
 
     const contextStartedAt = Date.now();
     const businessContext = await resolveBusinessContext({

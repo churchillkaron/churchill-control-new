@@ -24,7 +24,7 @@ test('normal Business Partner cognition is CPU-first with explicit escalation on
 
 test('front semantic grammar can carry one focused missing-detail question on CPU', () => {
   const worker = fs.readFileSync('services/avantiqo-intelligence-modal/modal_front_app.py', 'utf8');
-  assert.match(worker, /optionally followed by ;q=<one short focused clarification question>/);
-  assert.match(worker, /root ::= base \| base ";q=" question/);
+  assert.match(worker, /optionally followed by ;l=<location>[\s\S]*;q=<one short focused clarification question>/);
+  assert.match(worker, /root ::= base \| base ";l=" location \| base ";q=" question/);
   assert.match(worker, /question_char ::= \[\^\\n;\]/);
 });

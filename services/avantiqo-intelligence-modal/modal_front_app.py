@@ -158,7 +158,7 @@ class FrontConversation:
                     "role": "system",
                     "content": (
                         "Understand the CURRENT human message by meaning, using prior context only when the message actually refers back to it. "
-                        "Return exactly: i=<chat|inspect|operate|followup|revise|artifact|unclear>;d=<none|business|product>;e=<none|internal|external|both>;a=<none|single|mission>;g=<new|continue|revise|unknown>, optionally followed by ;q=<one short focused clarification question> only when i=unclear. "
+                        "Return exactly: i=<chat|inspect|operate|followup|revise|artifact|unclear>;d=<none|business|product>;e=<none|internal|external|both>;a=<none|single|mission>;g=<new|continue|revise|unknown>, optionally followed by ;l=<location> when a location needed for current external evidence is materially clear, and ;q=<one short focused clarification question> only when i=unclear. "
                         "chat = normal conversation, strategy, brainstorming, opinions, creative collaboration, general questions. "
                         "inspect = the user wants current facts, live system inspection, verification, audit, research, or evidence. "
                         "operate = the user wants Avantiqo to actually cause a real state change now, such as creating/updating/deleting a business record, issuing an invoice, sending a communication, posting a payment, changing product code/configuration, or performing another real action. Infer this from the requested outcome, not from trigger words. "
@@ -167,7 +167,7 @@ class FrontConversation:
                         "d=product when the current message is about Avantiqo itself, including its Business Partner, intelligence, capabilities, UI/UX, workflows, architecture, code, Studios, or how the product should improve. d=business when the requested outcome operates or discusses the user's real business records/processes. Otherwise d=none. "
                         "e says what fresh evidence is required. For ordinary chat/strategy use none unless the user explicitly requests current inspection/research or a current factual answer requires it. "
                         "a=single for one concrete operation/inspection, mission only for a genuinely multi-step autonomous objective, otherwise none. "
-                        "g=new for a standalone new topic, continue when it depends on the prior goal, revise when it changes the prior goal. When one essential parameter is missing from an otherwise clear request, use i=unclear and q to ask only for that missing parameter; do not claim the capability is unavailable. "
+                        "g=new for a standalone new topic, continue when it depends on the prior goal, revise when it changes the prior goal. When a continuation supplies a missing parameter for a current-fact request, keep i=inspect and g=continue rather than downgrading it to generic followup. When a place needed for current external evidence is clear, return it in l. When one essential parameter is missing from an otherwise clear request, use i=unclear and q to ask only for that missing parameter; do not claim the capability is unavailable. "
                         "Never inherit a previous customer/project/domain into a standalone current message. /no_think"
                     ),
                 },
@@ -221,13 +221,15 @@ class FrontConversation:
         }
         if task_mode == "semantic_classifier":
             request_body["grammar"] = (
-                'root ::= base | base ";q=" question\n'
+                'root ::= base | base ";l=" location | base ";q=" question | base ";l=" location ";q=" question\n'
                 'base ::= "i=" intent ";d=" domain ";e=" evidence ";a=" action ";g=" relation\n'
                 'intent ::= "chat" | "inspect" | "operate" | "followup" | "revise" | "artifact" | "unclear"\n'
                 'domain ::= "none" | "business" | "product"\n'
                 'evidence ::= "none" | "internal" | "external" | "both"\n'
                 'action ::= "none" | "single" | "mission"\n'
                 'relation ::= "new" | "continue" | "revise" | "unknown"\n'
+                'location ::= location_char+\n'
+                'location_char ::= [^\n;]\n'
                 'question ::= question_char+\n'
                 'question_char ::= [^\n;]'
             )

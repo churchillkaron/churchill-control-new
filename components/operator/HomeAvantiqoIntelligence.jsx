@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Loader2, Send, Sparkles } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import { operatorReferenceNeedsDeviceLocation } from "@/lib/operator/contracts/OperatorSymbolicReference.js";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import OperatorExecutionArtifacts from "@/components/operator/OperatorExecutionArtifacts";
@@ -46,16 +47,6 @@ async function fetchWithTimeout(
   }
 }
 
-
-function currentLocationReference(value) {
-  const phrase = text(value).toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9\s']/g, " ").replace(/\s+/g, " ").trim();
-  return new Set([
-    "mine", "my one", "my location", "my current location", "current location",
-    "use mine", "use my one", "use my location", "use my current location",
-    "here", "right here", "where i am", "where i'm at", "where i am now",
-    "this location", "use this location", "current",
-  ]).has(phrase);
-}
 
 function browserLocation() {
   return new Promise((resolve) => {
@@ -483,7 +474,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     }));
     const previousAssistant = [...messagesRef.current].reverse().find((item) => item?.role === "assistant") || null;
     let deviceLocation = null;
-    if (previousAssistant?.clarification?.field_key === "location" && currentLocationReference(message)) {
+    if (operatorReferenceNeedsDeviceLocation({ fieldKey: previousAssistant?.clarification?.field_key, value: message })) {
       deviceLocation = await browserLocation();
     }
 
@@ -497,7 +488,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     busyRef.current = true;
 
     try {
-      const response = await fetchWithTimeout(
+      const requestTurn = async (locationContext = null) => fetchWithTimeout(
         "/api/operator/turn/live",
         {
           method: "POST",
@@ -517,14 +508,25 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
                 : null,
             agreementState: agreementStateRef.current,
             conversation: priorConversation,
-            ...(deviceLocation ? { clientContext: { deviceLocation } } : {}),
+            ...(locationContext ? { clientContext: { deviceLocation: locationContext } } : {}),
           }),
         },
         OPERATOR_TURN_TIMEOUT_MS,
         "Avantiqo took too long to complete that request. Please try again.",
       );
 
-      const result = await response.json().catch(() => ({}));
+      let response = await requestTurn(deviceLocation);
+      let result = await response.json().catch(() => ({}));
+      if (
+        response.ok &&
+        result?.success !== false &&
+        result?.client_context_request?.kind === "device_location" &&
+        !deviceLocation
+      ) {
+        deviceLocation = await browserLocation();
+        response = await requestTurn(deviceLocation);
+        result = await response.json().catch(() => ({}));
+      }
       if (!response.ok || result?.success === false) {
         const conversationalFailure = text(
           result?.details?.conversation_response || result?.conversation_response,

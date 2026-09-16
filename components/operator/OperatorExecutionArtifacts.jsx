@@ -219,8 +219,8 @@ export default function OperatorExecutionArtifacts({ execution = {}, evidence = 
                     <span className="truncate">{artifact.label}</span>
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
-                    <a href={artifact.url} target="_blank" rel="noreferrer noopener" className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Open ${artifact.label}`}><ArrowUpRight size={11} /></a>
-                    <a href={artifact.download_url || artifact.url} download className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Download ${artifact.label}`}><Download size={11} /></a>
+                    <a href={artifact.url} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Open ${artifact.label}`}><ArrowUpRight size={11} /></a>
+                    <a href={artifact.download_url || artifact.url} download onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Download ${artifact.label}`}><Download size={11} /></a>
                   </span>
                 </div>
               </div>

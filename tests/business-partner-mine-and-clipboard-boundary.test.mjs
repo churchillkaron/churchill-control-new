@@ -55,8 +55,10 @@ test('Business Partner owns clipboard shortcuts while preserving native clipboar
 });
 
 
-test('client recognizes mine as a request for the structured current-location slot', () => {
-  assert.match(home, /"mine", "my one", "my location"/);
-  assert.match(home, /previousAssistant\?\.clarification\?\.field_key === "location" && currentLocationReference\(message\)/);
+test('client recognizes mine through the shared structured current-location resolver', () => {
+  assert.match(home, /operatorReferenceNeedsDeviceLocation/);
+  assert.match(home, /fieldKey: previousAssistant\?\.clarification\?\.field_key/);
+  const shared = fs.readFileSync('lib/operator/contracts/OperatorSymbolicReference.js', 'utf8');
+  assert.match(shared, /mine\|my/);
   assert.match(home, /deviceLocation = await browserLocation\(\)/);
 });

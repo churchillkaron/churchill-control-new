@@ -13,7 +13,7 @@ test("front intelligence uses the stronger owned 4B CPU model", () => {
 });
 
 test("front semantic classifier separates current message from reference context", () => {
-  assert.match(front, /CURRENT MESSAGE:/);
+  assert.match(front, /CURRENT MESSAGE TO CLASSIFY \(authoritative\):/);
   assert.match(front, /RECENT CONVERSATION \(reference only\):/);
   assert.match(front, /WORKING CONTEXT \(reference only\):/);
   assert.match(front, /Never inherit a previous customer\/project\/domain into a standalone current message/);
@@ -32,3 +32,18 @@ test("runtime derives governed behavior from compact semantic meaning", () => {
   assert.match(understanding, /requires_mutation: operation/);
   assert.match(understanding, /needs_current_evidence: inspection/);
 });
+
+
+test("front semantic classifier accepts immediate context from preflight without changing authority", () => {
+  assert.match(front, /parsed_input\.get\("immediate"\)/);
+  assert.match(understanding, /immediate_context_sufficient/);
+  assert.match(understanding, /structural_context_reference/);
+});
+
+test("explicit Avantiqo product surfaces cannot be downgraded when compact mode is absent", () => {
+  assert.match(understanding, /const compactMode = text\(source\.m/);
+  assert.match(understanding, /\["light", "strategic", "creative", "analytical"\]\.includes\(compactMode\)/);
+  assert.match(understanding, /domain === "product_engineering" && !inspection && !operation \? "strategic" : "light"/);
+  assert.match(understanding, /execution_domain: domain/);
+});
+

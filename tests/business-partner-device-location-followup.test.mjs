@@ -67,8 +67,7 @@ test('weather runtime accepts trusted coordinates directly', async () => {
 
 test('client only requests GPS for a structured location clarification', () => {
   const ui = fs.readFileSync('components/operator/HomeAvantiqoIntelligence.jsx', 'utf8');
-  assert.match(ui, /previousAssistant\?\.clarification\?\.field_key === "location"/);
-  assert.match(ui, /currentLocationReference\(message\)/);
+  assert.match(ui, /operatorReferenceNeedsDeviceLocation\(\{ fieldKey: previousAssistant\?\.clarification\?\.field_key, value: message \}\)/);
   assert.match(ui, /navigator\.geolocation\.getCurrentPosition/);
-  assert.match(ui, /clientContext: \{ deviceLocation \}/);
+  assert.match(ui, /clientContext: \{ deviceLocation: locationContext \}/);
 });

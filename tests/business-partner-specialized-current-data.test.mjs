@@ -23,9 +23,12 @@ test('strong specialized external reads outrank generic web research', () => {
   assert.match(fast, /!specializedExternalDirectRead/);
 });
 
-test('one CPU semantic pass can carry a location hint', () => {
-  assert.match(front, /;l=<location>/);
-  assert.match(front, /location ::= location_char\+/);
+test('current-data location extraction is deterministic outside the CPU grammar', () => {
+  const fastIndex = fs.readFileSync('lib/operator/runtime/OperatorFastReadIndex.js', 'utf8');
+  const presemantic = fs.readFileSync('lib/operator/runtime/OperatorPreSemanticReadRuntime.js', 'utf8');
+  assert.doesNotMatch(front, /;l=<location>|location ::= location_char\+/);
+  assert.match(fastIndex, /input_extractors|location/);
+  assert.match(presemantic, /capability_payload/);
   assert.match(semantic, /location_hint:\s*text\(source\.l, 240\)/);
 });
 

@@ -372,6 +372,21 @@ export async function POST(request) {
           immediateConversation: [...immediateConversation, { role: "user", content: message }],
           deviceLocation: object(body?.clientContext).deviceLocation || null,
         });
+        if (
+          preflightSemanticUnderstanding?.client_location_requested === true &&
+          !object(body?.clientContext).deviceLocation
+        ) {
+          return Response.json({
+            success: true,
+            state_unchanged: true,
+            client_context_request: {
+              kind: "device_location",
+              field_key: text(preflightSemanticUnderstanding.clarification_field).slice(0, 120) || "location",
+              capability_key: text(preflightSemanticUnderstanding.capability_key).slice(0, 300) || null,
+            },
+            authorization_effect: "NONE",
+          });
+        }
         const preflight = preflightSemanticUnderstanding || await preflightHumanBusinessPartnerTurn({
           organizationId: businessContext.organizationId,
           partyId,
@@ -385,7 +400,12 @@ export async function POST(request) {
           preflight.requires_mutation !== true &&
           text(preflight.goal_relation).toLowerCase() === "new"
         );
-        if (selfContained) {
+        const immediateContextSufficient = Boolean(
+          preflight &&
+          preflight.immediate_context_sufficient === true &&
+          preflight.requires_mutation !== true
+        );
+        if (selfContained || immediateContextSufficient) {
           const externalFact =
             preflight.route === "evidence" &&
             ["external", "both"].includes(text(preflight.evidence_scope).toLowerCase()) &&
@@ -393,6 +413,7 @@ export async function POST(request) {
           preflightSemanticUnderstanding = {
             ...preflight,
             state_neutral_turn: externalFact,
+            preflight_reused_without_durable_reclassification: true,
           };
         }
       } catch (preflightError) {

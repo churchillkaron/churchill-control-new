@@ -234,7 +234,7 @@ test("Business Partner projects Code evidence before generic deterministic compl
   const runtime = source("lib/operator/runtime/OperatorTurnRuntime.js");
   assert.match(
     runtime,
-    /const result = await runGovernedOperatorTurn\(effectiveOptions\);[\s\S]*const evidencedResult = withOperatorCodeExecutionEvidence\(result\);[\s\S]*const verifiedResult = withVerifiedMutationOutcome\(\s*evidencedResult,/,
+    /const result = await runGovernedOperatorTurn\(effectiveOptions\);[\s\S]*const evidencedResult = withOperatorCodeExecutionEvidence\(result\);[\s\S]*const verifiedResult = (?:await\s+)?withVerifiedMutationOutcome\(\s*evidencedResult,/,
   );
 });
 

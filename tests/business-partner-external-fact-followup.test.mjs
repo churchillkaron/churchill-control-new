@@ -18,7 +18,8 @@ test('context-free preflight sees only the immediate exchange and can resolve a 
   assert.match(source, /list\(options\.immediateConversation\)\.slice\(-2\)/);
   assert.match(source, /assistant just asked for one missing detail/);
   assert.match(source, /i=followup and g=continue/);
-  assert.match(source, /optional q only when i=unclear/);
+  assert.match(source, /Focused clarification is handled outside this classifier/);
+  assert.match(source, /using only i,d,e,a,g/);
 });
 
 test('turn route supplies immediate conversation before historical memory recovery', () => {

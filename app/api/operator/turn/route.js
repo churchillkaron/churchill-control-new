@@ -72,6 +72,7 @@ import {
 import { attachmentLogicalObjects } from "@/lib/platform/runtime/ConversationAttachmentObjectRuntime";
 import { buildIntelligenceContextBudget } from "@/lib/operator/runtime/IntelligenceContextBudgetRuntime";
 import { resolveOperatorInstantGreeting } from "@/lib/operator/runtime/OperatorInstantGreetingPolicy.js";
+import { preflightHumanBusinessPartnerTurn } from "@/lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js";
 import { collectOperatorPresentationArtifacts } from "@/lib/operator/runtime/OperatorPresentationArtifactRuntime";
 
 function readValue(source, camelKey, snakeKey) {
@@ -353,6 +354,38 @@ export async function POST(request) {
     };
 
     const attachmentSetId = conversationAttachmentSetIdFromRequest(request);
+    let preflightSemanticUnderstanding = null;
+    if (!attachmentSetId && source !== "event") {
+      try {
+        const preflight = await preflightHumanBusinessPartnerTurn({
+          organizationId: businessContext.organizationId,
+          partyId,
+          entityId: businessContext.entityId,
+          message,
+        });
+        const selfContained = Boolean(
+          preflight &&
+          preflight.context_required !== true &&
+          preflight.requires_mutation !== true &&
+          text(preflight.goal_relation).toLowerCase() === "new"
+        );
+        if (selfContained) {
+          const externalFact =
+            preflight.route === "evidence" &&
+            ["external", "both"].includes(text(preflight.evidence_scope).toLowerCase()) &&
+            preflight.needs_current_evidence === true;
+          preflightSemanticUnderstanding = {
+            ...preflight,
+            state_neutral_turn: externalFact,
+          };
+        }
+      } catch (preflightError) {
+        console.warn("OPERATOR_CONTEXT_FREE_PREFLIGHT_SKIPPED", {
+          error: text(preflightError?.message || preflightError).slice(0, 300),
+          authorization_effect: "NONE",
+        });
+      }
+    }
     const conversationAttachments = attachmentSetId
       ? await loadConversationAttachmentSet({
           context: { organizationId: businessContext.organizationId, actor },
@@ -506,34 +539,39 @@ export async function POST(request) {
       recall_metadata_rows_hydrated: 0,
       recall_telemetry_writes: 0,
     };
-    const continuityPromise = recoverCrossConversationProject({
-      organizationId: businessContext.organizationId,
-      partyId,
-      currentConversationId: memory.conversation.id,
-      message,
-      currentProjectState: memory.projectState,
-    }).catch((continuityError) => {
-      console.error(
-        "OPERATOR_CROSS_CONVERSATION_CONTINUITY_FAILED",
-        continuityError,
-      );
-      return {
-        recovered: false,
-        ambiguous: false,
-        reason: "RECOVERY_FAILED",
-      };
-    });
-    const currentProjectMemoryPromise = recallIntelligenceMemory({
-      organizationId: businessContext.organizationId,
-      partyId,
-      entityId: businessContext.entityId,
-      message,
-      projectState: object(memory.projectState),
-      telemetry: memoryCostTelemetry,
-    }).catch((memoryError) => {
-      console.error("OPERATOR_LONG_TERM_MEMORY_RECALL_FAILED", memoryError);
-      return [];
-    });
+    const skipHistoricalContext = Boolean(preflightSemanticUnderstanding);
+    const continuityPromise = skipHistoricalContext
+      ? Promise.resolve({ recovered: false, ambiguous: false, reason: "SELF_CONTAINED_PREFLIGHT" })
+      : recoverCrossConversationProject({
+          organizationId: businessContext.organizationId,
+          partyId,
+          currentConversationId: memory.conversation.id,
+          message,
+          currentProjectState: memory.projectState,
+        }).catch((continuityError) => {
+          console.error(
+            "OPERATOR_CROSS_CONVERSATION_CONTINUITY_FAILED",
+            continuityError,
+          );
+          return {
+            recovered: false,
+            ambiguous: false,
+            reason: "RECOVERY_FAILED",
+          };
+        });
+    const currentProjectMemoryPromise = skipHistoricalContext
+      ? Promise.resolve([])
+      : recallIntelligenceMemory({
+          organizationId: businessContext.organizationId,
+          partyId,
+          entityId: businessContext.entityId,
+          message,
+          projectState: object(memory.projectState),
+          telemetry: memoryCostTelemetry,
+        }).catch((memoryError) => {
+          console.error("OPERATOR_LONG_TERM_MEMORY_RECALL_FAILED", memoryError);
+          return [];
+        });
 
     const [continuity, currentProjectMemory] = await Promise.all([
       continuityPromise,
@@ -569,9 +607,11 @@ export async function POST(request) {
 
     const clientConversation = boundedConversation(body.conversation);
     const persistedConversation = boundedConversation(memory.recentConversation);
-    const conversation = persistedConversation.length
-      ? persistedConversation
-      : clientConversation;
+    const conversation = skipHistoricalContext
+      ? []
+      : persistedConversation.length
+        ? persistedConversation
+        : clientConversation;
     // Authorization-critical Operator state is server-authoritative. Client
     // agreement_state may be stale or forged and is never merged into execution
     // state. Cross-conversation continuity intentionally recovers project state
@@ -639,6 +679,7 @@ export async function POST(request) {
           contextFingerprint: contextBudget.context_fingerprint,
           callerRequest: request,
           conversationId: memory.conversation.id,
+          semanticUnderstanding: preflightSemanticUnderstanding,
         })
           .then((value) => {
             operatorMs = Date.now() - operatorStartedAt;

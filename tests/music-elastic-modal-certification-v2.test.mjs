@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+const runner=await readFile("scripts/run-avantiqo-music-elastic-certification-local.mjs","utf8");
+const prep=await readFile("scripts/prepare-avantiqo-music-elastic-human-review.mjs","utf8");
+const review=await readFile("scripts/record-avantiqo-music-elastic-human-listening-review-local.mjs","utf8");
+const promotion=await readFile("scripts/plan-avantiqo-music-elastic-promotion.mjs","utf8");
+const legacyFinalize=await readFile("scripts/finalize-avantiqo-music-elastic-production-certification-local.mjs","utf8");
+const legacyPromote=await readFile("scripts/promote-avantiqo-music-elastic-production-runtime-local.mjs","utf8");
+test("Elastic V2 certification is single-job Modal-direct and spend bounded",()=>{assert.match(runner,/AVANTIQO_MUSIC_ELASTIC_CONTROLLED_RENDER_CERTIFICATION_V2/);assert.match(runner,/avantiqo-music-elastic-owned/);assert.match(runner,/functionName|FN="render"/);assert.match(runner,/CERTIFICATION_SPEND_CEILING_THB_REQUIRED/);assert.match(runner,/SPEND_CEILING_WATCHDOG/);assert.match(runner,/call\.cancel/);assert.match(runner,/provider_jobs_submitted:1/);assert.doesNotMatch(runner,/RUNPOD|SAFE_LEASE/i);});
+test("Elastic V2 binds exact approved warp plan and remains pre-production",()=>{assert.match(runner,/AVANTIQO_MUSIC_ELASTIC_WARP_PLAN_V1/);assert.match(runner,/PLAN_FINGERPRINT_MISMATCH/);assert.match(runner,/approved_marker_count\)!==3/);assert.match(runner,/original_source_preserved/);assert.match(runner,/automatic_apply_performed:false/);assert.match(runner,/production_certified:false/);});
+test("Elastic human review uses exact source and output and 92 average",()=>{assert.match(prep,/source\.wav/);assert.match(prep,/elastic-output\.wav/);assert.match(prep,/minimum_average_score:92/);assert.match(review,/criteria\.length!==6/);assert.match(review,/avg<92/);assert.match(review,/automatic_human_approval_forbidden:true/);assert.match(review,/production_activation_allowed:false/);});
+test("Elastic promotion is plan-only and binds exact technical job",()=>{assert.match(promotion,/MODAL_DIRECT_A10G_ASYNC_V1/);assert.match(promotion,/TECHNICAL_RESULT_BINDING_REQUIRED/);assert.match(promotion,/CERTIFICATION_JOB_BINDING_REQUIRED/);assert.match(promotion,/HUMAN_REVIEW_AVERAGE_92_REQUIRED/);assert.match(promotion,/mode:"PLAN_ONLY"/);assert.match(promotion,/activation_allowed_without_explicit_operator_approval:false/);assert.match(promotion,/production_routing_mutation_performed:false/);});
+test("Legacy RunPod Elastic finalization and promotion are fail-closed",()=>{assert.match(legacyFinalize,/LEGACY_FINALIZER_DEPRECATED_V2/);assert.match(legacyFinalize,/RUNPOD_SAFE_LEASE_EVIDENCE_CANNOT_CERTIFY_CURRENT_MODAL_RUNTIME/);assert.match(legacyPromote,/LEGACY_PROMOTION_DEPRECATED_V2/);assert.match(legacyPromote,/LEGACY_RUNPOD_PROMOTION_PATH_FORBIDDEN_FOR_CURRENT_MODAL_RUNTIME/);});

@@ -1,0 +1,41 @@
+#!/usr/bin/env node
+import crypto from "node:crypto";
+import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { createClient } from "@supabase/supabase-js";
+import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
+loadAvantiqoEnv();
+const CONTRACT="AVANTIQO_MUSIC_ELASTIC_CONTROLLED_RENDER_CERTIFICATION_V2";
+const ENGINE_CONTRACT="AVANTIQO_MUSIC_ELASTIC_AUDIO_ENGINE_V1";
+const PLAN_CONTRACT="AVANTIQO_MUSIC_ELASTIC_WARP_PLAN_V1";
+const REPORT_CONTRACT="AVANTIQO_MUSIC_ELASTIC_AUDIO_RENDER_REPORT_V1";
+const APP="avantiqo-music-elastic-owned", FN="render", BUCKET="creative-assets";
+const USD_PER_SECOND=0.000306, FX_THB_PER_USD=32.9794;
+const CEILING=Number(process.env.AVANTIQO_MUSIC_ELASTIC_CERTIFICATION_SPEND_CEILING_THB||0);
+if(!Number.isFinite(CEILING)||CEILING<=0) throw new Error("AVANTIQO_MUSIC_ELASTIC_CERTIFICATION_SPEND_CEILING_THB_REQUIRED");
+const text=(v)=>String(v??"").trim();
+const required=(n)=>{const v=text(process.env[n]);if(!v)throw new Error(`${n}_REQUIRED`);return v;};
+const approved=(n)=>{if(text(process.env[n]).toUpperCase()!=="YES")throw new Error(`${n}=YES_REQUIRED`);};
+approved("AVANTIQO_MUSIC_ELASTIC_CERTIFICATION_SPEND_APPROVED"); approved("AVANTIQO_MUSIC_ELASTIC_CERTIFICATION_RIGHTS_APPROVED");
+function wav(seconds=8,sr=48000){const frames=seconds*sr,b=Buffer.alloc(44+frames*2);b.write("RIFF",0);b.writeUInt32LE(36+frames*2,4);b.write("WAVEfmt ",8);b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(1,22);b.writeUInt32LE(sr,24);b.writeUInt32LE(sr*2,28);b.writeUInt16LE(2,32);b.writeUInt16LE(16,34);b.write("data",36);b.writeUInt32LE(frames*2,40);for(let i=0;i<frames;i++){const t=i/sr,beat=(t%0.5)<0.025?Math.exp(-(t%0.5)*80)*0.2:0,harm=0.12*Math.sin(2*Math.PI*220*t)+0.07*Math.sin(2*Math.PI*277.18*t)+0.05*Math.sin(2*Math.PI*329.63*t);b.writeInt16LE(Math.max(-32768,Math.min(32767,Math.round((harm+beat)*32767))),44+i*2);}return b;}
+const source=wav(), sourceChecksum=crypto.createHash("sha256").update(source).digest("hex");
+const assetId=`elastic-cert-${Date.now()}`;
+const plan={contract:PLAN_CONTRACT,source_asset_id:assetId,duration_seconds:8,automatic_apply_forbidden:true,pitch_preserving_render_required:true,transient_preservation_required:true,render_ready:true,all_reviewed:true,markers:[{id:"warp-1",source_seconds:2,target_seconds:2.04,proposed_shift_ms:40,approved:true,musician_override:false},{id:"warp-2",source_seconds:4,target_seconds:3.96,proposed_shift_ms:-40,approved:true,musician_override:false},{id:"warp-3",source_seconds:6,target_seconds:6.03,proposed_shift_ms:30,approved:true,musician_override:false}]};
+const canonical=(v)=>Array.isArray(v)?v.map(canonical):(v&&typeof v==="object"?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v);
+const planFingerprint=crypto.createHash("sha256").update(JSON.stringify(canonical(plan))).digest("hex");
+const supabase=createClient(required("NEXT_PUBLIC_SUPABASE_URL"),required("SUPABASE_SERVICE_ROLE_KEY"),{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+const org=`benchmark-${crypto.randomUUID()}`, run=`elastic-${Date.now()}-${crypto.randomUUID().slice(0,8)}`;
+const sourcePath=`${org}/benchmark/music-elastic/${run}-source.wav`, outputPath=`${org}/benchmark/music-elastic/${run}-output.wav`;
+let r=await supabase.storage.from(BUCKET).upload(sourcePath,source,{contentType:"audio/wav",upsert:false});if(r.error)throw r.error;
+r=await supabase.storage.from(BUCKET).createSignedUrl(sourcePath,3600);if(r.error||!r.data?.signedUrl)throw r.error||new Error("ELASTIC_SOURCE_SIGNED_URL_REQUIRED");const sourceUrl=r.data.signedUrl;
+r=await supabase.storage.from(BUCKET).createSignedUploadUrl(outputPath,{upsert:false});if(r.error||!r.data?.signedUrl)throw r.error||new Error("ELASTIC_OUTPUT_SIGNED_URL_REQUIRED");
+const payload={contract:ENGINE_CONTRACT,capability:"ai.audio.elastic-warp",source_asset_roles:{source_audio:sourceUrl},structured_specification:{provider_parameters:{source_asset_id:assetId,source_offset_seconds:0,duration_seconds:8,source_file_checksum:sourceChecksum,approved_warp_plan:plan}},storage_upload:{signed_url:r.data.signedUrl,storage_reference:`storage://${BUCKET}/${outputPath}`}};
+const tokenId=text(process.env.MODAL_TOKEN_ID||process.env.AVANTIQO_MODAL_TOKEN_ID),tokenSecret=text(process.env.MODAL_TOKEN_SECRET||process.env.AVANTIQO_MODAL_TOKEN_SECRET);if(!tokenId||!tokenSecret)throw new Error("AVANTIQO_MUSIC_ELASTIC_MODAL_CREDENTIALS_REQUIRED");
+const {ModalClient,FunctionCallGetTimeoutError}=await import("modal");const client=new ModalClient({tokenId,tokenSecret});const env=text(process.env.AVANTIQO_MUSIC_ELASTIC_MODAL_ENVIRONMENT||process.env.MODAL_ENVIRONMENT);const worker=await client.functions.fromName(APP,FN,env?{environment:env}:{});
+const started=performance.now();const call=await worker.spawn([payload]);const jobId=text(call.functionCallId);if(!jobId)throw new Error("AVANTIQO_MUSIC_ELASTIC_MODAL_CALL_ID_REQUIRED");let result=null;
+while(!result){const seconds=(performance.now()-started)/1000,cost=seconds*USD_PER_SECOND*FX_THB_PER_USD;if(cost>=CEILING*0.98){try{await call.cancel({terminateContainers:true});}catch{}throw new Error(`AVANTIQO_MUSIC_ELASTIC_SPEND_CEILING_WATCHDOG:${cost.toFixed(6)}THB`);}try{result=await call.get({timeoutMs:5000});}catch(e){if(!(e instanceof FunctionCallGetTimeoutError)&&!text(e?.code||e?.name).toUpperCase().includes("TIMEOUT"))throw e;}}
+const wallMs=Math.round(performance.now()-started),usd=(wallMs/1000)*USD_PER_SECOND,thb=usd*FX_THB_PER_USD;if(thb>CEILING)throw new Error("AVANTIQO_MUSIC_ELASTIC_SPEND_CEILING_EXCEEDED");
+if(result?.success!==true||text(result?.contract)!==REPORT_CONTRACT||text(result?.engine_contract)!==ENGINE_CONTRACT||text(result?.execution_mode)!=="MUSICIAN_APPROVED_WARP_PLAN"||Number(result?.approved_marker_count)!==3||result?.original_source_preserved!==true||result?.automatic_apply_performed!==false||result?.production_certified!==false||result?.human_listening_review_required!==true)throw new Error("AVANTIQO_MUSIC_ELASTIC_CERTIFICATION_TECHNICAL_GATE_FAILED");
+if(text(result?.approved_warp_plan_fingerprint)!==planFingerprint) throw new Error("AVANTIQO_MUSIC_ELASTIC_PLAN_FINGERPRINT_MISMATCH");
+const evidence={success:true,contract:CONTRACT,generated_at:new Date().toISOString(),capability:"ai.audio.elastic-warp",infrastructure_provider:"MODAL_DIRECT_A10G_ASYNC_V1",modal_app:APP,modal_function:FN,provider_jobs_submitted:1,job_id:jobId,spend_ceiling_thb:CEILING,wall_ms:wallMs,conservative_supplier_cost_usd:Number(usd.toFixed(8)),conservative_supplier_cost_thb:Number(thb.toFixed(6)),source_fixture:{rights:"AVANTIQO_SYNTHETIC_TEST_AUDIO",duration_seconds:8,source_asset_id:assetId,checksum:sourceChecksum,storage_reference:`storage://${BUCKET}/${sourcePath}`},approved_warp_plan:plan,approved_warp_plan_fingerprint_expected:planFingerprint,worker_report:result,output:{storage_reference:`storage://${BUCKET}/${outputPath}`,checksum:result.output_checksum,format:result.output_format},technical_render_certification_passed:true,human_listening_review_required:true,human_review_status:"PENDING",automatic_human_approval_forbidden:true,production_certified:false,production_activation_allowed:false,pricing_activation_allowed:false,provider_selection_change_allowed:false,automatic_apply_performed:false};
+const out=resolve(process.env.AVANTIQO_MUSIC_ELASTIC_CERTIFICATION_OUTPUT||"/tmp/avantiqo-music-elastic-certification-v2.json");await writeFile(out,`${JSON.stringify(evidence,null,2)}\n`);console.log(JSON.stringify({success:true,contract:CONTRACT,output_path:out,job_id:jobId,cost_thb:evidence.conservative_supplier_cost_thb,human_review_status:"PENDING",production_activation_performed:false},null,2));

@@ -90,6 +90,15 @@ test("explicit deep investigation still uses Deep", () => {
 });
 
 
+
+test("semantic deep classification cannot upgrade ordinary conversation without deterministic Deep policy", async () => {
+  const fs = await import("node:fs");
+  const turn = fs.readFileSync(new URL("../lib/operator/runtime/OperatorTurnRuntime.js", import.meta.url), "utf8");
+  assert.match(turn, /const deterministicDeepRequired = needsOwnedCognitiveBrief/);
+  assert.match(turn, /semanticDeepRequested &&[\s\S]{0,160}semanticRoute !== "conversation" \|\| deterministicDeepRequired/);
+  assert.match(turn, /: semanticDeepRequired \|\| deterministicDeepRequired/);
+});
+
 test("Fast partner instructions explicitly preserve imagination and project continuity", async () => {
   const fs = await import("node:fs");
   const reasoning = fs.readFileSync(new URL("../lib/operator/runtime/OperatorReasoningRuntime.js", import.meta.url), "utf8");

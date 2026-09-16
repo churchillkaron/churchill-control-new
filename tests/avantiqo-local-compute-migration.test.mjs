@@ -41,6 +41,21 @@ test("Administration exposes Modal-like owned compute observability", () => {
   assert.match(command, /route: "\/administration\/compute"/);
 });
 
+test("local queue settlement does not require Modal credential resolution", () => {
+  const executor = source("lib/platform/service-runtime/providers/ProviderExecutorCore.js");
+  assert.match(executor, /settlementCredentialRequired/);
+  assert.match(executor, /local-intelligence:/);
+  assert.match(executor, /settlementCredentialRequired\(provider, job_id\)/);
+});
+
+test("compute observability is restricted to platform operators", () => {
+  const route = source("app/api/workspace/administration/compute/route.js");
+  assert.match(route, /PLATFORM_OWNER/);
+  assert.match(route, /SUPER_ADMIN/);
+  assert.match(route, /Platform operator access required/);
+  assert.match(route, /\.eq\("organization_id", access\.organizationId\)/);
+});
+
 test("local worker migration keeps production switch explicit", () => {
   const runtime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js");
   assert.match(runtime, /AVANTIQO_LOCAL_COMPUTE_QUEUE_ENABLED/);

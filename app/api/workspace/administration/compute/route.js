@@ -22,6 +22,10 @@ export async function GET(request) {
     if (!access.success) {
       return NextResponse.json({ success: false, error: access.error }, { status: access.status || 403 });
     }
+    const platformRoles = new Set(["PLATFORM_OWNER", "SUPER_ADMIN"]);
+    if (!platformRoles.has(text(access.role).toUpperCase())) {
+      return NextResponse.json({ success: false, error: "Platform operator access required" }, { status: 403 });
+    }
 
     const [nodesResult, jobsResult] = await Promise.all([
       supabaseAdmin.from("avantiqo_local_compute_nodes")

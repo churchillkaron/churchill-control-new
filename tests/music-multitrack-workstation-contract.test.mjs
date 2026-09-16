@@ -46,29 +46,40 @@ test("Recorded takes are preserved then linked into the workstation", async () =
 
 test("Workstation surface exposes track and engineering controls", async () => {
   const studio = await read("components/creative/ProductionStudio/workspaces/MusicStudioWorkspace.jsx");
-  const workstation = await read("components/creative/ProductionStudio/workspaces/MusicMultitrackStudioPanel.jsx");
+  const shell = await read("components/creative/ProductionStudio/workspaces/MusicUnifiedWorkstationShell.jsx");
+  const workstation = await read("components/creative/ProductionStudio/workspaces/MusicMultitrackStudioPanelV2.jsx");
   assert.match(studio, /id:\s*"workstation"/);
-  assert.match(studio, /MusicMultitrackStudioPanel/);
+  assert.match(studio, /MusicUnifiedWorkstationShell/);
+  assert.match(shell, /MusicMultitrackStudioPanelV2/);
   assert.match(workstation, /Add track/);
-  assert.match(workstation, /Record arm/);
+  assert.match(workstation, /function armTrack/);
+  assert.match(workstation, /track.armed/);
   assert.match(workstation, /Input trim/);
   assert.match(workstation, /High-pass/);
   assert.match(workstation, /Polarity invert/);
   assert.match(workstation, /Compressor/);
-  assert.match(workstation, /Track fader/);
+  assert.match(workstation, /Fader & pan/);
+  assert.match(workstation, /label="Fader"/);
   assert.match(workstation, /Pan/);
-  assert.match(workstation, /6 dB pre-master headroom/);
+  assert.match(workstation, /6 dB headroom/);
 });
 
 test("Browser multitrack preview uses the real engineer signal order without release mastering", async () => {
   const preview = await read("lib/creative/music/client/MusicMultitrackPreviewEngine.js");
   assert.match(preview, /clipGain\.connect\(trackBus\)/);
-  assert.match(preview, /clipBus\.connect\(trim\)/);
+  assert.match(preview, /connectSourceCleanup\(context, preTrim, track\)/);
+  assert.match(preview, /cleanedSource\.connect\(trim\)/);
   assert.match(preview, /trim\.connect\(polarity\)/);
-  assert.match(preview, /polarity\.connect\(highPass\)/);
+  assert.match(preview, /let chain = polarity/);
+  assert.match(preview, /chain\.connect\(highPass\)/);
+  assert.match(preview, /enabledInsert\(track, "gate"\)/);
   assert.match(preview, /highPass\.connect\(lowShelf\)/);
+  assert.match(preview, /createMusicGroupBusPreviewGraph/);
+  assert.match(preview, /createMusicMasterBusPreviewGraph/);
   assert.match(preview, /lowShelf\.connect\(presence\)/);
   assert.match(preview, /presence\.connect\(highShelf\)/);
+  assert.match(preview, /enabledInsert\(track, "deesser"\)/);
+  assert.match(preview, /enabledInsert\(track, "saturation"\)/);
   assert.match(preview, /compressor/);
   assert.match(preview, /fader\.connect\(pan\)/);
   assert.match(preview, /release_master:\s*false/);

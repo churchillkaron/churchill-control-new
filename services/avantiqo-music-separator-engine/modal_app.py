@@ -16,25 +16,14 @@ IMAGE = (
 app = modal.App(APP_NAME)
 
 
-def _registry_secret() -> modal.Secret | None:
-    if not modal.is_local():
-        return None
-    username = str(os.environ.get("AVANTIQO_MODAL_REGISTRY_USERNAME") or "").strip()
-    password = str(os.environ.get("AVANTIQO_MODAL_REGISTRY_PASSWORD") or "").strip()
-    if not username or not password:
-        raise RuntimeError("AVANTIQO_MUSIC_SEPARATOR_MODAL_REGISTRY_CREDENTIALS_REQUIRED")
-    return modal.Secret.from_dict({
-        "REGISTRY_USERNAME": username,
-        "REGISTRY_PASSWORD": password,
-    })
 
 worker_image = (
     modal.Image.from_registry(
         IMAGE,
-        secret=_registry_secret(),
-        add_python=None,
+        add_python="3.10",
     )
     .entrypoint([])
+    .env({"PYTHONPATH": "/usr/local/lib/python3.10/dist-packages:/app"})
 )
 
 

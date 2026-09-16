@@ -124,7 +124,7 @@ const reviewedItems = items.map((item) => {
 
   return {
     run: item.run || null,
-    runpod_job_id: item.runpod_job_id || null,
+    modal_job_id: item.modal_job_id || null,
     source_duration_seconds: item.source_duration_seconds || null,
     source_storage_reference: item.source_storage_reference || null,
     output_storage_references: item.storage_references || {},

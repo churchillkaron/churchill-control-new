@@ -20,6 +20,10 @@ const BACKING_STEMS = Object.freeze(["drums", "bass", "other"]);
 const OUTPUTS = Object.freeze({ backing_track_wav: "backing-track.wav", backing_track_mp3: "backing-track.mp3", vocals: "vocals.wav", drums: "drums.wav", bass: "bass.wav", other: "other.wav" });
 const MIME = Object.freeze({ ".wav": "audio/wav", ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".aac": "audio/aac", ".flac": "audio/flac", ".ogg": "audio/ogg" });
 const OUTPUT = resolve(process.env.AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_OUTPUT || "/tmp/avantiqo-music-separator-certification-benchmark.json");
+const MODAL_A10G_USD_PER_SECOND = 0.000306;
+const FX_THB_PER_USD = 32.9794;
+const SPEND_CEILING_THB = Number(process.env.AVANTIQO_MUSIC_SEPARATOR_SPEND_CEILING_THB || 0);
+if (!Number.isFinite(SPEND_CEILING_THB) || SPEND_CEILING_THB <= 0) throw new Error("AVANTIQO_MUSIC_SEPARATOR_SPEND_CEILING_THB_REQUIRED");
 
 const text = (value) => String(value ?? "").trim();
 const finite = (value, fallback = null) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -63,7 +67,7 @@ for (const [key, filename] of Object.entries(OUTPUTS)) {
   outputUploads[key] = { signed_url: data.signedUrl, storage_reference: expectedReferences[key] };
 }
 
-const { ModalClient, FunctionCallGetTimeoutError } = await import("modal");
+const { ModalClient, FunctionTimeoutError } = await import("modal");
 const tokenId = text(process.env.MODAL_TOKEN_ID || process.env.AVANTIQO_MODAL_TOKEN_ID);
 const tokenSecret = text(process.env.MODAL_TOKEN_SECRET || process.env.AVANTIQO_MODAL_TOKEN_SECRET);
 if (!tokenId || !tokenSecret) throw new Error("AVANTIQO_MUSIC_SEPARATOR_MODAL_CREDENTIALS_REQUIRED");
@@ -84,9 +88,15 @@ const jobId = text(call.functionCallId);
 if (!jobId) throw new Error("AVANTIQO_MUSIC_SEPARATOR_MODAL_CALL_ID_REQUIRED");
 let result = null;
 while (!result) {
+  const elapsedSeconds = (performance.now() - started) / 1000;
+  const conservativeCostThb = elapsedSeconds * MODAL_A10G_USD_PER_SECOND * FX_THB_PER_USD;
+  if (conservativeCostThb >= SPEND_CEILING_THB * 0.98) {
+    try { await call.cancel({ terminateContainers: true }); } catch {}
+    throw new Error(`AVANTIQO_MUSIC_SEPARATOR_SPEND_CEILING_WATCHDOG:${conservativeCostThb.toFixed(6)}THB`);
+  }
   try { result = await call.get({ timeoutMs: 5_000 }); }
   catch (error) {
-    if (!(error instanceof FunctionCallGetTimeoutError) && !text(error?.code || error?.name).toUpperCase().includes("TIMEOUT")) throw error;
+    if (!(error instanceof FunctionTimeoutError) && !text(error?.code || error?.name).toUpperCase().includes("TIMEOUT")) throw error;
   }
 }
 const wallMs = Math.round(performance.now() - started);
@@ -96,13 +106,16 @@ for (const [key, expected] of Object.entries(expectedReferences)) if (text(resul
 
 const sourceDuration = finite(result.source_duration_seconds, null);
 const realtimeFactor = sourceDuration ? Number(((wallMs / 1000) / sourceDuration).toFixed(6)) : null;
+const conservativeSupplierCostUsd = (wallMs / 1000) * MODAL_A10G_USD_PER_SECOND;
+const conservativeSupplierCostThb = conservativeSupplierCostUsd * FX_THB_PER_USD;
+if (conservativeSupplierCostThb > SPEND_CEILING_THB) throw new Error("AVANTIQO_MUSIC_SEPARATOR_SPEND_CEILING_EXCEEDED");
 const report = {
   success: true, contract: CONTRACT, generated_at: new Date().toISOString(), benchmark_id: benchmarkId,
-  provider: "avantiqo-audio", infrastructure_provider: "MODAL_DIRECT_A10G_ASYNC_V1", modal_app: APP_NAME, modal_function: FUNCTION_NAME,
+  provider: "avantiqo-audio", infrastructure_provider: "MODAL_DIRECT_A10G_ASYNC_V1", modal_app: APP_NAME, modal_function: FUNCTION_NAME, modal_a10g_usd_per_second: MODAL_A10G_USD_PER_SECOND, fx_thb_per_usd: FX_THB_PER_USD, spend_ceiling_thb: SPEND_CEILING_THB,
   capability: CAPABILITY, runtime_model: MODEL, quality_profile: QUALITY_PROFILE, immutable_image_reference: readiness.immutable_image_reference || null,
   rights_attestation: { contract: RIGHTS_CONTRACT, confirmed: true, source_scope: "OPERATOR_APPROVED_BENCHMARK_SOURCE_ONLY", content_restriction_policy: CONTENT_POLICY },
   observations: [{ run: 1, passed: true, modal_job_id: jobId, wall_ms: wallMs, source_duration_seconds: sourceDuration, output_duration_seconds: finite(result.output_duration_seconds, null), source_bytes: finite(result.source_bytes, sourceStat.size), realtime_factor: realtimeFactor, stem_names: result.stem_names, backing_track_stems: result.backing_track_stems, source_storage_reference: `storage://${STORAGE_BUCKET}/${sourcePath}`, storage_references: result.storage_references, quality_profile: QUALITY_PROFILE }],
-  summary: { passed: true, runs: 1, source_duration_seconds: sourceDuration, wall_ms: wallMs, realtime_factor: realtimeFactor, required_outputs_present: Object.keys(OUTPUTS).every((key) => Boolean(result?.storage_references?.[key])), four_stem_contract_passed: exactList(result.stem_names, STEMS), backing_track_contract_passed: exactList(result.backing_track_stems, BACKING_STEMS) },
+  summary: { passed: true, runs: 1, source_duration_seconds: sourceDuration, wall_ms: wallMs, realtime_factor: realtimeFactor, conservative_supplier_cost_usd: Number(conservativeSupplierCostUsd.toFixed(8)), conservative_supplier_cost_thb: Number(conservativeSupplierCostThb.toFixed(6)), required_outputs_present: Object.keys(OUTPUTS).every((key) => Boolean(result?.storage_references?.[key])), four_stem_contract_passed: exactList(result.stem_names, STEMS), backing_track_contract_passed: exactList(result.backing_track_stems, BACKING_STEMS) },
   certification: { runtime_benchmark_passed: true, economics_measured: false, human_quality_certified: false, production_certified: false, next_gate: "SEPARATOR_ECONOMICS_AND_HUMAN_QUALITY_REQUIRED" },
   safety: { explicit_spend_approval_required: true, explicit_rights_approval_required: true, provider_job_submitted: true, provider_job_count: 1, endpoint_mutation_performed: false, pricing_activation_performed: false, provider_certification_mutation_performed: false, production_deploy_performed: false, automatic_activation_forbidden: true },
 };

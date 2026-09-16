@@ -27,7 +27,7 @@ MODEL_VARIANT = "acestep-v15-xl-turbo"
 LM_MODEL = "acestep-5Hz-lm-1.7B"
 WORKER_IMAGE = (
     "ghcr.io/churchillkaron/avantiqo-audio-worker@"
-    "sha256:fe148b123a7c8ce95c639a22abf8f0e918cba5f0e28f71bc4e3fe254c893b56b"
+    "sha256:7328c04cd8e91328cd704744160afdd4f79f3de091d734967942a37ff564677d"
 )
 CHECKPOINT_DIR = "/opt/ace-step/checkpoints"
 GPU = "A10G"

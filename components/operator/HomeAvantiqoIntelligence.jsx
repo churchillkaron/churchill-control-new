@@ -50,9 +50,10 @@ async function fetchWithTimeout(
 function currentLocationReference(value) {
   const phrase = text(value).toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9\s']/g, " ").replace(/\s+/g, " ").trim();
   return new Set([
-    "my location", "my current location", "current location", "use my location",
-    "use my current location", "here", "where i am", "where i'm at", "where i am now",
-    "this location", "use this location",
+    "mine", "my one", "my location", "my current location", "current location",
+    "use mine", "use my one", "use my location", "use my current location",
+    "here", "right here", "where i am", "where i'm at", "where i am now",
+    "this location", "use this location", "current",
   ]).has(phrase);
 }
 
@@ -629,6 +630,15 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   return (
     <section
       data-avantiqo-home-intelligence="true"
+      data-avantiqo-clipboard-boundary="true"
+      onKeyDownCapture={(event) => {
+        const command = event.metaKey || event.ctrlKey;
+        const key = String(event.key || "").toLowerCase();
+        if (command && ["a", "c", "v", "x"].includes(key)) event.stopPropagation();
+      }}
+      onCopy={(event) => event.stopPropagation()}
+      onCut={(event) => event.stopPropagation()}
+      onPaste={(event) => event.stopPropagation()}
       className="flex min-h-[620px] flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-6"
     >
       <div>

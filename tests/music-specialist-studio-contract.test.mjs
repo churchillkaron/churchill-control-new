@@ -8,13 +8,14 @@ async function source(path) {
 
 test("Music Studio exposes Vocal Mix and Master specialist screens", async () => {
   const workspace = await source("components/creative/ProductionStudio/workspaces/MusicStudioWorkspace.jsx");
-  assert.match(workspace, /id: "vocal", label: "Vocal Studio"/);
-  assert.match(workspace, /id: "mix", label: "Mix Studio"/);
-  assert.match(workspace, /id: "master", label: "Master Studio"/);
+  assert.match(workspace, /id: "vocal", label: "Vocals"/);
+  assert.match(workspace, /id: "mix", label: "Mix"/);
+  assert.match(workspace, /id: "master", label: "Master"/);
   assert.match(workspace, /MusicSpecialistStudioPanel/);
   assert.match(workspace, /mode="vocal"/);
   assert.match(workspace, /mode="mix"/);
-  assert.match(workspace, /mode="master"/);
+  assert.match(workspace, /MusicMasterStudioPanel/);
+  assert.match(workspace, /mode === "master"/);
 });
 
 test("specialist screens use governed Auto Studio goals", async () => {

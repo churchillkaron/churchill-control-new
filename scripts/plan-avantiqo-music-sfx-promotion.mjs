@@ -23,6 +23,12 @@ if (evidence && text(evidence.foundation_model) !== FOUNDATION_MODEL) failures.p
 if (evidence && evidence.benchmark_certified !== true) failures.push("SFX_BENCHMARK_CERTIFICATION_REQUIRED");
 if (evidence && evidence.economics_certified !== true) failures.push("SFX_ECONOMICS_CERTIFICATION_REQUIRED");
 if (evidence && evidence.human_quality_certified !== true) failures.push("SFX_HUMAN_QUALITY_CERTIFICATION_REQUIRED");
+if (evidence && text(evidence.human_review_status) !== "APPROVED") failures.push("SFX_HUMAN_REVIEW_APPROVAL_REQUIRED");
+if (evidence && !text(evidence.human_reviewer)) failures.push("SFX_HUMAN_REVIEWER_REQUIRED");
+if (evidence && Number(evidence.human_review_minimum_score) < 92) failures.push("SFX_HUMAN_REVIEW_MINIMUM_92_REQUIRED");
+if (evidence && Number(evidence.human_review_average_score) < 92) failures.push("SFX_HUMAN_REVIEW_AVERAGE_92_REQUIRED");
+if (evidence && !text(evidence.source_certification_path)) failures.push("SFX_SOURCE_CERTIFICATION_BINDING_REQUIRED");
+if (evidence && !text(evidence.human_review_result_path)) failures.push("SFX_HUMAN_REVIEW_RESULT_BINDING_REQUIRED");
 if (evidence && evidence.model_license_verified !== true) failures.push("SFX_MODEL_LICENSE_VERIFICATION_REQUIRED");
 if (evidence && evidence.production_routing_allowed !== false) failures.push("SFX_EVIDENCE_MUST_REMAIN_PRE_PROMOTION");
 if (evidence && evidence.activation_allowed !== false) failures.push("SFX_AUTOMATIC_ACTIVATION_FORBIDDEN");

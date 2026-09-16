@@ -6,6 +6,9 @@ test("SFX promotion requires benchmark economics and human quality evidence", ()
   assert.match(source, /benchmark_certified/);
   assert.match(source, /economics_certified/);
   assert.match(source, /human_quality_certified/);
+  assert.match(source, /SFX_HUMAN_REVIEW_MINIMUM_92_REQUIRED/);
+  assert.match(source, /SFX_HUMAN_REVIEW_AVERAGE_92_REQUIRED/);
+  assert.match(source, /SFX_HUMAN_REVIEW_RESULT_BINDING_REQUIRED/);
   assert.match(source, /model_license_verified/);
 });
 test("SFX promotion is plan-only and cannot auto-activate", () => {

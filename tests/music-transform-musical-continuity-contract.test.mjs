@@ -24,15 +24,15 @@ test("Music continuity certification reuses the guarded one-job Extend benchmark
   assert.match(benchmark, /SOURCE_MODE_CONTINUITY = "MUSICAL_CONTINUITY"/);
   assert.match(benchmark, /createAvantiqoMusicContinuityFixtureWav/);
   assert.match(benchmark, /avantiqoMusicContinuityFixtureMetadata/);
-  assert.match(benchmark, /MUSICAL_CONTINUITY_REQUIRES_EXTEND/);
-  assert.match(benchmark, /max_provider_jobs: 1/);
-  assert.match(benchmark, /benchmark_runs: 1/);
-  assert.match(benchmark, /SAFE_LEASE_LANE = "music-transform-candidate"/);
-  assert.match(benchmark, /production_activation_allowed: false/);
-  assert.match(benchmark, /pricing_activation_allowed: false/);
-  assert.match(benchmark, /provider_selection_change_allowed: false/);
-  assert.match(benchmark, /automatic_human_review_approved: false/);
-  assert.match(benchmark, /eligible_for_human_release_review: fixture\.eligibleForHumanReleaseReview && temporalExtensionTechnicalProven/);
+  assert.match(benchmark, /selectedCapability === "ai\.audio\.extend" \? SOURCE_MODE_CONTINUITY : SOURCE_MODE_TECHNICAL/);
+  assert.match(benchmark, /max_provider_jobs:1/);
+  assert.match(benchmark, /benchmark_runs:1/);
+  assert.doesNotMatch(benchmark, /SAFE_LEASE|RUNPOD|api\.runpod\.ai/i);
+  assert.match(benchmark, /production_activation_allowed:false/);
+  assert.match(benchmark, /pricing_activation_allowed:false/);
+  assert.match(benchmark, /provider_selection_change_allowed:false/);
+  assert.match(benchmark, /automatic_human_review_approved:false/);
+  assert.match(benchmark, /eligible_for_human_release_review:fixture\.eligible&&technicalProof/);
 });
 
 test("Only musical continuity evidence can reach final human approval", () => {
@@ -49,7 +49,6 @@ test("Only musical continuity evidence can reach final human approval", () => {
 test("Technical sine source remains separate and cannot become release-quality evidence", () => {
   assert.match(benchmark, /SOURCE_MODE_TECHNICAL = "TECHNICAL_SYNTHETIC"/);
   assert.match(benchmark, /makeTechnicalWav/);
-  assert.match(benchmark, /musical_quality_review_eligible: false/);
-  assert.match(benchmark, /eligibleForHumanReleaseReview: false/);
-  assert.match(benchmark, /humanReviewKind: "TECHNICAL_ONLY"/);
+  assert.match(benchmark, /humanReviewKind: "TECHNICAL_ONLY", eligible: false/);
+  assert.match(benchmark, /eligible_for_human_release_review:fixture\.eligible&&technicalProof/);
 });

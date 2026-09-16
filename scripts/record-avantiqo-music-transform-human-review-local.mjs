@@ -17,6 +17,11 @@ const verdict = requiredArg("--verdict=", "AVANTIQO_MUSIC_TRANSFORM_REVIEW_VERDI
 if (!["APPROVED", "REJECTED"].includes(verdict)) throw new Error("AVANTIQO_MUSIC_TRANSFORM_REVIEW_VERDICT_INVALID");
 const reviewer = requiredArg("--reviewer=", "AVANTIQO_MUSIC_TRANSFORM_REVIEWER_REQUIRED");
 const notes = arg("--notes=");
+const scoresRaw = requiredArg("--scores=", "AVANTIQO_MUSIC_TRANSFORM_REVIEW_SCORES_REQUIRED");
+const scores = scoresRaw.split(",").map((value) => Number(value.trim()));
+if (scores.length !== 6 || scores.some((value) => !Number.isFinite(value) || value < 0 || value > 100)) throw new Error("AVANTIQO_MUSIC_TRANSFORM_REVIEW_SCORES_INVALID");
+const averageScore = scores.reduce((sum, value) => sum + value, 0) / scores.length;
+if (verdict === "APPROVED" && averageScore < 92) throw new Error("AVANTIQO_MUSIC_TRANSFORM_REVIEW_SCORE_BELOW_THRESHOLD");
 
 const report = JSON.parse(await readFile(reportPath, "utf8"));
 if (
@@ -64,6 +69,10 @@ const result = {
   human_review_status: verdict,
   reviewer,
   notes: notes || null,
+  criterion_scores: scores,
+  average_score: Number(averageScore.toFixed(2)),
+  minimum_average_score: 92,
+  automatic_human_approval_forbidden: true,
   production_activation_allowed: false,
   pricing_activation_allowed: false,
   provider_selection_change_allowed: false,

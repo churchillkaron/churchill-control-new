@@ -26,9 +26,9 @@ const baseConfig = JSON.parse(baseConfigRaw);
 assert.equal(baseConfig.semantic_scope, "ARRANGEMENT_COMPLETION_ONLY");
 assert.equal(baseConfig.temporal_extension_proven, false);
 assert.equal(baseConfig.temporal_extend_routing_allowed, false);
-assert.equal(baseConfig.superseded_for_temporal_extend, true);
+assert.equal(baseConfig.superseded_for_temporal_extend, false);
 assert.equal(baseConfig.temporal_extend_replacement_strategy, "XL_TURBO_REPAINT_RIGHT_OUTPAINT");
-assert.equal(baseConfig.temporal_extend_replacement_lane, "audio");
+assert.equal(baseConfig.temporal_extend_replacement_lane, "MODAL_A10G_ASYNC_V1");
 
 assert.match(handlerV2, /TEMPORAL_EXTEND_CAPABILITY = "ai\.audio\.extend"/);
 assert.match(handlerV2, /TEMPORAL_EXTEND_STRATEGY = "XL_TURBO_REPAINT_RIGHT_OUTPAINT"/);
@@ -47,24 +47,24 @@ assert.match(entrypoint, /HANDLER_PATH = Path\("\/app\/handler_v2\.py"\)/);
 
 assert.match(registration, /"ai\.audio\.extend"/);
 assert.match(registration, /strategy: "XL_TURBO_REPAINT_RIGHT_OUTPAINT"/);
-assert.match(registration, /runtime_status: "IMPLEMENTED_BENCHMARK_REQUIRED"/);
+assert.match(registration, /runtime_status: "IMPLEMENTED_MODAL_BENCHMARK_REQUIRED"/);
 assert.match(registration, /temporal_extension_proven: false/);
 assert.match(registration, /base_model_required_capabilities: \[\]/);
 
-assert.match(provider, /AVANTIQO_MUSIC_TEMPORAL_EXTEND_OUTPAINT_NOT_CERTIFIED/);
+assert.match(provider, /AVANTIQO_AUDIO_CAPABILITY_NOT_CERTIFIED/);
 assert.doesNotMatch(provider, /AvantiqoMusicExtendProvider/);
 
 assert.match(route, /TEMPORAL_EXTEND_STRATEGY = "XL_TURBO_REPAINT_RIGHT_OUTPAINT"/);
-assert.match(route, /service_id: "ai\.audio\.extend"/);
-assert.match(route, /capability: "ai\.audio\.extend"/);
-assert.match(route, /task_type: "repaint"/);
+assert.match(route, /service_id: extension\.capability/);
+assert.match(route, /capability: extension\.capability/);
+assert.match(route, /task_type: extension\.task_type/);
 assert.match(route, /implementation: "IMPLEMENTED"/);
 assert.match(route, /certification: "BENCHMARK_REQUIRED"/);
 assert.match(route, /executable: false/);
 assert.match(route, /execution_route_enabled: transformPlan\.executable === true/);
 assert.match(route, /CREATIVE_MUSIC_TRANSFORM_NOT_CERTIFIED/);
-assert.match(route, /extension_seconds: extensionSeconds/);
-assert.match(route, /continuity_overlap_seconds: continuityOverlapSeconds/);
+assert.match(route, /extension_seconds: extension\.extension_seconds/);
+assert.match(route, /continuity_overlap_seconds: extension\.continuity_overlap_seconds/);
 assert.doesNotMatch(route, /acestep-v15-base/);
 
 assert.match(panel, /Temporal outpaint benchmark pending/);

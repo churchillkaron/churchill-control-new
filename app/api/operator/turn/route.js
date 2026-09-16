@@ -73,6 +73,7 @@ import { attachmentLogicalObjects } from "@/lib/platform/runtime/ConversationAtt
 import { buildIntelligenceContextBudget } from "@/lib/operator/runtime/IntelligenceContextBudgetRuntime";
 import { resolveOperatorInstantGreeting } from "@/lib/operator/runtime/OperatorInstantGreetingPolicy.js";
 import { preflightHumanBusinessPartnerTurn } from "@/lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js";
+import { resolvePreSemanticReadIntent } from "@/lib/operator/runtime/OperatorPreSemanticReadRuntime.js";
 import { collectOperatorPresentationArtifacts } from "@/lib/operator/runtime/OperatorPresentationArtifactRuntime";
 
 function readValue(source, camelKey, snakeKey) {
@@ -358,7 +359,11 @@ export async function POST(request) {
     let preflightSemanticUnderstanding = null;
     if (!attachmentSetId && source !== "event") {
       try {
-        const preflight = await preflightHumanBusinessPartnerTurn({
+        preflightSemanticUnderstanding = resolvePreSemanticReadIntent({
+          message,
+          immediateConversation: [...immediateConversation, { role: "user", content: message }],
+        });
+        const preflight = preflightSemanticUnderstanding || await preflightHumanBusinessPartnerTurn({
           organizationId: businessContext.organizationId,
           partyId,
           entityId: businessContext.entityId,

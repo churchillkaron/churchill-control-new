@@ -58,15 +58,24 @@ function eligible(report) {
 }
 
 const candidates = [];
-for (const name of await readdir(TMP)) {
-  if (!/^(?:music-remix-variation|music-transform)-.*\.json$/i.test(name)) continue;
-  const reportPath = path.resolve(TMP, name);
-  try {
-    const report = JSON.parse(await readFile(reportPath, "utf8"));
-    if (!eligible(report)) continue;
-    const fileStat = await stat(reportPath);
-    candidates.push({ reportPath, report, mtimeMs: fileStat.mtimeMs });
-  } catch {}
+const exactReportPath = arg("--report=");
+if (exactReportPath) {
+  const reportPath = path.resolve(exactReportPath);
+  const report = JSON.parse(await readFile(reportPath, "utf8"));
+  if (!eligible(report)) throw new Error("AVANTIQO_MUSIC_REMIX_VARIATION_EXACT_REPORT_NOT_ELIGIBLE");
+  const fileStat = await stat(reportPath);
+  candidates.push({ reportPath, report, mtimeMs: fileStat.mtimeMs });
+} else {
+  for (const name of await readdir(TMP)) {
+    if (!/^(?:music-remix-variation|music-transform)-.*\.json$/i.test(name)) continue;
+    const reportPath = path.resolve(TMP, name);
+    try {
+      const report = JSON.parse(await readFile(reportPath, "utf8"));
+      if (!eligible(report)) continue;
+      const fileStat = await stat(reportPath);
+      candidates.push({ reportPath, report, mtimeMs: fileStat.mtimeMs });
+    } catch {}
+  }
 }
 
 candidates.sort((a, b) => {
@@ -126,15 +135,24 @@ function waveformMetrics(sourceBytes, remixBytes) {
   let sm=0, rm=0; for(let i=0;i<n;i++){sm+=sourceBytes.readFloatLE(i*4); rm+=remixBytes.readFloatLE(i*4);} sm/=n; rm/=n;
   let dot=0, sv=0, rv=0; for(let i=0;i<n;i++){const a=sourceBytes.readFloatLE(i*4)-sm,b=remixBytes.readFloatLE(i*4)-rm; dot+=a*b; sv+=a*a; rv+=b*b;}
   const correlation=dot/Math.sqrt(Math.max(1e-18,sv*rv));
-  return { correlation:Number(correlation.toFixed(6)), recognizable_identity_floor_passed:correlation>=0.05, alternate_arrangement_passed:correlation<=0.98 };
+  const absoluteCorrelation = Math.abs(correlation);
+  return {
+    correlation:Number(correlation.toFixed(6)),
+    absolute_correlation:Number(absoluteCorrelation.toFixed(6)),
+    non_copy_variation_passed:absoluteCorrelation<=0.98,
+    recognizable_identity_requires_human_review:true,
+    automatic_identity_inference_forbidden:true,
+  };
 }
 const variationEvidence = waveformMetrics(pcmFingerprint(sourcePath), pcmFingerprint(outputPath));
-if (!variationEvidence.recognizable_identity_floor_passed || !variationEvidence.alternate_arrangement_passed) throw new Error("AVANTIQO_MUSIC_REMIX_VARIATION_TECHNICAL_VARIATION_EVIDENCE_FAILED");
+if (!variationEvidence.non_copy_variation_passed) throw new Error("AVANTIQO_MUSIC_REMIX_VARIATION_TECHNICAL_VARIATION_EVIDENCE_FAILED");
 const reviewPacketPath = path.join(reviewDir, "remix-human-review.json");
 const reviewPacket = {
   success:true, contract:"AVANTIQO_MUSIC_REMIX_VARIATION_HUMAN_REVIEW_PREP_V2", generated_at:new Date().toISOString(),
   benchmark_report_path:selected.reportPath, benchmark_job_id:text(selected.report?.job_id), capability:EXPECTED_CAPABILITY,
   source_mode:"MUSICAL_VARIATION", human_review_kind:REVIEW_KIND, source_path:sourcePath, remix_path:outputPath, variation_evidence:variationEvidence,
+  machine_evidence_scope:"NON_COPY_VARIATION_ONLY",
+  recognizable_source_identity_decision:"HUMAN_REVIEW_REQUIRED",
   minimum_average_score:92, automatic_human_approval_forbidden:true, human_review_status:"PENDING", reviewer:"", reviewed_at:null,
   criteria:[
     {criterion:"recognizable_source_identity",minimum_score:88,score_0_100:null,status:"PENDING",evidence_note:""},

@@ -1,8 +1,7 @@
 {
-  "contract": "AVANTIQO_AUDIO_WORKER_IMAGE_REQUEST_V11",
-  "requested_for": "avantiqo-audio-v1-and-music-transform-candidate-v1",
+  "contract": "AVANTIQO_AUDIO_WORKER_IMAGE_REQUEST_V12",
+  "requested_for": "avantiqo-audio-v1-modal-direct-music-transform-candidate-v2",
   "source_path": "services/avantiqo-audio-engine",
-  "worker_source_sha": "8be2c8ad7a68732ca6959b86ecdbbee9430e183c",
   "runtime": "ACE-Step-1.5",
   "variant": "acestep-v15-xl-turbo",
   "quality_profile": "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1",
@@ -13,10 +12,6 @@
   "temporal_extend_benchmark_required": true,
   "temporal_extend_human_review_required": true,
   "temporal_extension_proven": false,
-  "certification_safe_lease_lane_env": "AVANTIQO_AUDIO_CERTIFICATION_SAFE_LEASE_LANE",
-  "production_audio_lane": "audio",
-  "transform_candidate_lane": "music-transform-candidate",
-  "transform_candidate_endpoint": "avantiqo-music-transform-candidate-v1",
   "production_audio_endpoint_mutation_allowed": false,
   "ace_step_lm_required": true,
   "ace_step_lm_model": "acestep-5Hz-lm-1.7B",
@@ -36,5 +31,12 @@
   "provider_job_submitted": false,
   "runpod_endpoint_mutation_allowed": false,
   "production_web_deploy": false,
-  "pricing_activation_performed": false
+  "pricing_activation_performed": false,
+  "transform_certification_contract": "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_JOB_V1",
+  "transform_infrastructure_provider": "MODAL_DIRECT_A10G_ASYNC_V1",
+  "transform_max_provider_jobs": 1,
+  "transform_human_review_required": true,
+  "transform_production_activation_allowed": false,
+  "transform_pricing_activation_allowed": false,
+  "transform_provider_selection_change_allowed": false
 }

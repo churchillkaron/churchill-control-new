@@ -10,6 +10,8 @@ test("SFX promotion requires benchmark economics and human quality evidence", ()
   assert.match(source, /SFX_HUMAN_REVIEW_AVERAGE_92_REQUIRED/);
   assert.match(source, /SFX_HUMAN_REVIEW_RESULT_BINDING_REQUIRED/);
   assert.match(source, /model_license_verified/);
+  assert.match(source, /AVANTIQO_SFX_CERTIFICATION_EVIDENCE_SHA256/);
+  assert.match(source, /createHash\("sha256"\)/);
 });
 test("SFX promotion is plan-only and cannot auto-activate", () => {
   assert.match(source, /mode:\s*"PLAN_ONLY"/);

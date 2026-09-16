@@ -14,6 +14,8 @@ const source = Object.fromEntries(await Promise.all(Object.entries(files).map(as
 
 test("owned SFX is Modal-only and fail-closed until certified", () => {
   assert.match(source.registration, /AVANTIQO_SFX_ENGINE_CERTIFIED/);
+  assert.match(source.registration, /AVANTIQO_SFX_CERTIFICATION_EVIDENCE_SHA256/);
+  assert.match(source.registration, /sfxCertificationEvidenceBound/);
   assert.match(source.registration, /modal_direct_configured: modalConfigured/);
   assert.match(source.registration, /infrastructure_provider: "MODAL"/);
   assert.doesNotMatch(source.registration, /AVANTIQO_SFX_MODAL_ENDPOINT_URL/);

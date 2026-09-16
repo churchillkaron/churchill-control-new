@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFile, writeFile } from "node:fs/promises";
+import crypto from "node:crypto";
 import { resolve } from "node:path";
 
 const CONTRACT = "AVANTIQO_MUSIC_SFX_PROMOTION_PLAN_V1";
@@ -11,8 +12,8 @@ const INPUT = resolve(process.env.AVANTIQO_MUSIC_SFX_CERTIFICATION_EVIDENCE || "
 const OUTPUT = resolve(process.env.AVANTIQO_MUSIC_SFX_PROMOTION_PLAN_OUTPUT || "/tmp/avantiqo-music-sfx-promotion-plan.json");
 const text = (value) => String(value ?? "").trim();
 
-let evidence;
-try { evidence = JSON.parse(await readFile(INPUT, "utf8")); }
+let evidence; let evidenceBytes;
+try { evidenceBytes = await readFile(INPUT); evidence = JSON.parse(evidenceBytes.toString("utf8")); }
 catch { evidence = null; }
 const failures = [];
 if (!evidence) failures.push("SFX_CERTIFICATION_EVIDENCE_REQUIRED");
@@ -40,6 +41,7 @@ if (failures.length) {
   process.exit(1);
 }
 
+const evidenceSha256 = crypto.createHash("sha256").update(evidenceBytes).digest("hex");
 const plan = {
   success:true, contract:CONTRACT, mode:"PLAN_ONLY", generated_at:new Date().toISOString(),
   capability:CAPABILITY, provider:PROVIDER, product_model:PRODUCT_MODEL, foundation_model:FOUNDATION_MODEL,
@@ -47,7 +49,7 @@ const plan = {
   proposed_pricing_metadata:{ pricing_status:"PRODUCTION_CERTIFIED", benchmark_certified:true,
     economics_certified:true, human_quality_certified:true, production_routing_allowed:true,
     model_license_verified:true, recalibration_required:false, commercial_pricing_certified:true },
-  proposed_provider_configuration:{ AVANTIQO_SFX_ENGINE_ENABLED:"true", AVANTIQO_SFX_ENGINE_CERTIFIED:"true" },
+  proposed_provider_configuration:{ AVANTIQO_SFX_ENGINE_ENABLED:"true", AVANTIQO_SFX_ENGINE_CERTIFIED:"true", AVANTIQO_SFX_CERTIFICATION_EVIDENCE_SHA256:evidenceSha256 },
   foley_dependency:{ capability:"creative.audio.foley", execution_capability:CAPABILITY, ready_after_sfx_promotion:true },
   pricing_mutation_performed:false, provider_configuration_mutation_performed:false,
   production_routing_mutation_performed:false, production_deployment_performed:false,

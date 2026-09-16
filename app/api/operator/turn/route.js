@@ -109,6 +109,14 @@ function boundedConversation(value) {
     .map((message) => ({
       role: message?.role === "assistant" ? "assistant" : "user",
       content: text(message?.content).slice(0, 6000),
+      ...(message?.role === "assistant" && message?.clarification && typeof message.clarification === "object" && !Array.isArray(message.clarification)
+        ? { clarification: {
+            required: message.clarification.required === true,
+            field_key: text(message.clarification.field_key).slice(0, 120) || null,
+            capability_key: text(message.clarification.capability_key).slice(0, 300) || null,
+            accepts_device_location: message.clarification.accepts_device_location === true,
+          } }
+        : {}),
     }))
     .filter((message) => message.content);
 }
@@ -362,6 +370,7 @@ export async function POST(request) {
         preflightSemanticUnderstanding = resolvePreSemanticReadIntent({
           message,
           immediateConversation: [...immediateConversation, { role: "user", content: message }],
+          deviceLocation: object(body?.clientContext).deviceLocation || null,
         });
         const preflight = preflightSemanticUnderstanding || await preflightHumanBusinessPartnerTurn({
           organizationId: businessContext.organizationId,

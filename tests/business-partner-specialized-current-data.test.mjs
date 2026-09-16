@@ -31,7 +31,9 @@ test('one CPU semantic pass can carry a location hint', () => {
 
 test('weather direct read receives semantic location and can clarify without another model', () => {
   assert.match(fast, /directReadKey === "platform\.weather\.read"/);
-  assert.match(fast, /location:\s*text\(semanticUnderstanding\?\.location_hint, 240\) \|\| null/);
+  assert.match(fast, /const declaredPayload = object\(semanticUnderstanding\?\.capability_payload\)/);
+  assert.match(fast, /\.\.\.declaredPayload/);
+  assert.match(fast, /location_hint/);
   assert.match(fast, /CLARIFICATION_REQUIRED/);
   assert.match(fast, /deterministic-read-clarification-v1/);
 });

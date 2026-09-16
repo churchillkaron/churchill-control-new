@@ -46,6 +46,36 @@ async function fetchWithTimeout(
   }
 }
 
+
+function currentLocationReference(value) {
+  const phrase = text(value).toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9\s']/g, " ").replace(/\s+/g, " ").trim();
+  return new Set([
+    "my location", "my current location", "current location", "use my location",
+    "use my current location", "here", "where i am", "where i'm at", "where i am now",
+    "this location", "use this location",
+  ]).has(phrase);
+}
+
+function browserLocation() {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      resolve({ status: "unavailable" });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({
+        status: "granted",
+        latitude: Number(position.coords.latitude),
+        longitude: Number(position.coords.longitude),
+        accuracy_m: Number(position.coords.accuracy || 0) || null,
+        captured_at: new Date(position.timestamp || Date.now()).toISOString(),
+      }),
+      (error) => resolve({ status: error?.code === 1 ? "denied" : "unavailable" }),
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 5 * 60 * 1000 },
+    );
+  });
+}
+
 function createMessage(role, content, extra = {}) {
   return {
     id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -447,10 +477,14 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
       return;
     }
 
-    const priorConversation = messagesRef.current.map(({ role, content }) => ({
-      role,
-      content,
+    const priorConversation = messagesRef.current.map(({ role, content, clarification }) => ({
+      role, content, ...(clarification ? { clarification } : {}),
     }));
+    const previousAssistant = [...messagesRef.current].reverse().find((item) => item?.role === "assistant") || null;
+    let deviceLocation = null;
+    if (previousAssistant?.clarification?.field_key === "location" && currentLocationReference(message)) {
+      deviceLocation = await browserLocation();
+    }
 
     setMessages((current) => [...current, createMessage("user", message)]);
     setInput("");
@@ -482,6 +516,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
                 : null,
             agreementState: agreementStateRef.current,
             conversation: priorConversation,
+            ...(deviceLocation ? { clientContext: { deviceLocation } } : {}),
           }),
         },
         OPERATOR_TURN_TIMEOUT_MS,
@@ -528,6 +563,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           options: Array.isArray(decision?.clarification?.options)
             ? decision.clarification.options
             : [],
+          clarification: decision?.clarification || null,
           execution: result?.execution || {},
           evidence: result?.provider_evidence || {},
           navigation: result?.navigation || {},

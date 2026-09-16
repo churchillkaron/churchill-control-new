@@ -11,6 +11,8 @@ test('written fast conversation stays useful instead of tiny and canned', () => 
   assert.match(source, /Match the quality of a top human business partner/);
   assert.match(source, /Write like a capable senior Business Partner/);
   assert.match(source, /Light markdown is welcome when it helps/);
+  assert.match(source, /recommendation_reason: text\(projectState\?\.recommendation_reason\) \|\| null/);
+  assert.match(source, /recommendation_confidence: Number\.isFinite\(Number\(projectState\?\.recommendation_confidence\)\)/);
 });
 
 test('normal Business Partner cognition is CPU-first with explicit escalation only', () => {

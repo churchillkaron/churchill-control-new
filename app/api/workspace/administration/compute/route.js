@@ -32,7 +32,7 @@ export async function GET(request) {
         .select("id,display_name,enabled,capabilities,last_seen_at,metadata,created_at,updated_at")
         .order("created_at", { ascending: true }),
       supabaseAdmin.from("avantiqo_local_compute_jobs")
-        .select("id,capability,lane,workload,model,status,priority,node_id,attempts,max_attempts,metrics,error_code,created_at,started_at,completed_at,updated_at")
+        .select("id,capability,lane,workload,model,status,priority,node_id,attempts,max_attempts,metrics,result,error_code,created_at,started_at,completed_at,updated_at")
         .eq("organization_id", access.organizationId)
         .order("created_at", { ascending: false })
         .limit(100),
@@ -48,7 +48,13 @@ export async function GET(request) {
         online: node.enabled === true && heartbeatAge !== null && heartbeatAge <= 90,
       };
     });
-    const jobs = jobsResult.data || [];
+    const jobs = (jobsResult.data || []).map((job) => ({
+      ...job,
+      runtime_model: text(job.result?.runtime_model) || text(job.model) || null,
+      infrastructure_provider: text(job.result?.infrastructure_provider) || (job.node_id ? "AVANTIQO_LOCAL_NODE_V1" : null),
+      execution_path: job.node_id ? `LOCAL_QUEUE → ${job.node_id}` : "UNASSIGNED",
+      result: undefined,
+    }));
     const queueDepth = jobs.filter((job) => ["QUEUED", "RUNNING"].includes(job.status)).length;
     const completed = jobs.filter((job) => job.status === "COMPLETED");
     const failed = jobs.filter((job) => job.status === "FAILED");

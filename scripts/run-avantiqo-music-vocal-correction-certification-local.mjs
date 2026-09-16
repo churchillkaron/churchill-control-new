@@ -15,6 +15,10 @@ const TIMING_CONTRACT = "AVANTIQO_MUSIC_VOCAL_TIMING_PLAN_V1";
 const APP_NAME = "avantiqo-music-vocal-correction-owned";
 const FUNCTION_NAME = "correct";
 const BUCKET = "creative-assets";
+const MODAL_A10G_USD_PER_SECOND = 0.000306;
+const FX_THB_PER_USD = 32.9794;
+const SPEND_CEILING_THB = Number(process.env.AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_SPEND_CEILING_THB || 0);
+if (!Number.isFinite(SPEND_CEILING_THB) || SPEND_CEILING_THB <= 0) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_SPEND_CEILING_THB_REQUIRED");
 const OUTPUT = resolve(process.env.AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_OUTPUT || "/tmp/avantiqo-music-vocal-correction-certification.json");
 const text = (v) => String(v ?? "").trim();
 const finite = (v, fallback = null) => Number.isFinite(Number(v)) ? Number(v) : fallback;
@@ -90,14 +94,22 @@ const { ModalClient, FunctionCallGetTimeoutError } = await import("modal");
 const client = new ModalClient({ tokenId, tokenSecret });
 const environment = text(process.env.AVANTIQO_MUSIC_VOCAL_CORRECTION_MODAL_ENVIRONMENT || process.env.MODAL_ENVIRONMENT);
 const worker = await client.functions.fromName(APP_NAME, FUNCTION_NAME, environment ? { environment } : {});
+const startedAt = performance.now();
 const call = await worker.spawn([payload]);
 const jobId = text(call.functionCallId);
 if (!jobId) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_MODAL_CALL_ID_REQUIRED");
 let result = null;
 while (!result) {
+  const elapsedSeconds = (performance.now() - startedAt) / 1000;
+  const conservativeCostThb = elapsedSeconds * MODAL_A10G_USD_PER_SECOND * FX_THB_PER_USD;
+  if (conservativeCostThb >= SPEND_CEILING_THB * 0.98) { try { await call.cancel({ terminateContainers: true }); } catch {} throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_SPEND_CEILING_WATCHDOG:${conservativeCostThb.toFixed(6)}THB`); }
   try { result = await call.get({ timeoutMs: 5000 }); }
   catch (error) { if (!(error instanceof FunctionCallGetTimeoutError) && !text(error?.code || error?.name).toUpperCase().includes("TIMEOUT")) throw error; }
 }
+const wallMs = Math.round(performance.now() - startedAt);
+const conservativeSupplierCostUsd = (wallMs / 1000) * MODAL_A10G_USD_PER_SECOND;
+const conservativeSupplierCostThb = conservativeSupplierCostUsd * FX_THB_PER_USD;
+if (conservativeSupplierCostThb > SPEND_CEILING_THB) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_SPEND_CEILING_EXCEEDED");
 if (result?.success !== true || result?.contract !== ENGINE_CONTRACT || result?.execution_mode !== "MUSICIAN_APPROVED_PLAN") throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_RESULT_INVALID");
 const report = result.report || {};
 const readiness = report.readiness || {};
@@ -114,6 +126,10 @@ const evidence = {
   execution_mode: "MUSICIAN_APPROVED_PLAN",
   job_count_submitted: 1,
   provider_job_count: 1,
+  spend_ceiling_thb: SPEND_CEILING_THB,
+  wall_ms: wallMs,
+  conservative_supplier_cost_usd: Number(conservativeSupplierCostUsd.toFixed(8)),
+  conservative_supplier_cost_thb: Number(conservativeSupplierCostThb.toFixed(6)),
   job_id: jobId,
   provider: "avantiqo-audio",
   infrastructure_provider: "MODAL_DIRECT_A10G_ASYNC_V1",

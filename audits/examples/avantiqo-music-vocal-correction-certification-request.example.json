@@ -1,13 +1,21 @@
 {
-  "contract": "AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_REQUEST_V1",
+  "contract": "AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_REQUEST_V2",
   "engine_contract": "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2",
-  "safe_lease_contract": "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
-  "safe_lease_lane": "music-vocal-correction",
+  "execution_contract": "AVANTIQO_AUDIO_MODAL_A10G_V1",
+  "capability": "ai.audio.vocal-correct",
+  "modal_app": "avantiqo-music-vocal-correction-owned",
+  "modal_function": "correct",
   "spend_approved": false,
+  "spend_ceiling_thb": null,
   "rights_approved": false,
   "max_provider_jobs": 1,
+  "isolated_vocal_source_required": true,
+  "approved_tuning_plan_required": true,
+  "approved_timing_plan_optional": true,
   "human_listening_review_required": true,
+  "minimum_human_quality_score": 92,
   "production_activation_requested": false,
   "pricing_activation_requested": false,
-  "notes": "Template only. Copy to audits/avantiqo-music-vocal-correction-certification-request.json only after explicit spend and rights approval. The real request path triggers exactly one Safe Lease V2 certification run."
+  "automatic_activation_forbidden": true,
+  "notes": "Template only. Use a real rights-approved isolated vocal plus musician-reviewed tuning/timing plans. The certification runner submits exactly one Modal-direct job and remains pre-production until human listening review and separate promotion approval."
 }

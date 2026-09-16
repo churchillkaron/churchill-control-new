@@ -24,6 +24,7 @@ test("Music vocal correction certification remains explicit human-review gated",
     'if (!["APPROVED", "REJECTED"].includes(verdict))',
     "AVANTIQO_MUSIC_VOCAL_CORRECTION_HUMAN_REVIEWER_REQUIRED",
     'minimum_each_criterion: threshold',
+    'const threshold = 92',
     'production_activation_allowed: false',
     'provider_jobs_submitted: 0',
   ]);

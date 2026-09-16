@@ -63,7 +63,7 @@ const scoredCriteria = criteria.map((criterion) => {
   };
 });
 
-const threshold = 80;
+const threshold = 92;
 const minimumScore = Math.min(...scoredCriteria.map((criterion) => criterion.score_0_to_100));
 const meanScore = scoredCriteria.reduce((sum, criterion) => sum + criterion.score_0_to_100, 0) / scoredCriteria.length;
 if (verdict === "APPROVED" && minimumScore < threshold) {

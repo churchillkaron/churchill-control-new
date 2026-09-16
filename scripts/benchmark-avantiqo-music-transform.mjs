@@ -20,6 +20,7 @@ const EXTEND_OVERLAP_SECONDS = 3;
 const SOURCE_MODE_TECHNICAL = "TECHNICAL_SYNTHETIC";
 const SOURCE_MODE_CONTINUITY = "MUSICAL_CONTINUITY";
 const SOURCE_MODE_VARIATION = "MUSICAL_VARIATION";
+const SOURCE_MODE_EDIT = "MUSICAL_EDIT";
 const MODAL_A10G_USD_PER_SECOND = 0.000306;
 const FX_THB_PER_USD = 32.9794;
 const SPEND_CEILING_THB = Number(process.env.AVANTIQO_MUSIC_TRANSFORM_SPEND_CEILING_THB || 0);
@@ -57,6 +58,16 @@ function sourceFixture(selectedCapability) {
     humanReviewKind: "MUSICAL_CONTINUITY", eligible: true,
     caption: "Warm polished original instrumental groove with chord progression, bass, melody and light drums",
   };
+  if (mode === SOURCE_MODE_EDIT) {
+    if (selectedCapability !== "ai.audio.edit") throw new Error("AVANTIQO_MUSIC_MUSICAL_EDIT_REQUIRES_EDIT");
+    return {
+      mode, audio: createAvantiqoMusicContinuityFixtureWav(), duration: AVANTIQO_MUSIC_CONTINUITY_FIXTURE_SECONDS,
+      bpm: AVANTIQO_MUSIC_CONTINUITY_FIXTURE_BPM,
+      metadata: { ...avantiqoMusicContinuityFixtureMetadata(), edit_fixture: true, external_reference_recording_used: false },
+      humanReviewKind: "MUSICAL_SURGICAL_EDIT", eligible: true,
+      caption: "Warm polished original instrumental groove with chord progression, bass, melody and light drums; refine only the selected musical region while preserving timing, harmony, timbre and arrangement outside it",
+    };
+  }
   if (mode !== SOURCE_MODE_TECHNICAL) throw new Error("AVANTIQO_MUSIC_TRANSFORM_SOURCE_MODE_INVALID");
   return { mode, audio: makeTechnicalWav(), duration: 12, bpm: 96,
     metadata: { contract: "AVANTIQO_MUSIC_TRANSFORM_TECHNICAL_SOURCE_V1", deterministic: true, original_composition: true, royalty_free: true },
@@ -90,6 +101,7 @@ const signedRead = await storageRequest(storageBase, serviceKey, `/object/sign/$
 const sourceSignedUrl = absoluteUrl(storageBase, signedRead.signedURL || signedRead.signedUrl || signedRead.url);
 const signedUpload = await storageRequest(storageBase, serviceKey, `/object/upload/sign/${objectPath(BUCKET,outputPath)}`, { body:{} });
 const outputSignedUrl = absoluteUrl(storageBase, signedUpload.url || signedUpload.signedURL || signedUpload.signedUrl);
+const sourceReference = `storage://${BUCKET}/${sourcePath}`;
 const outputReference = `storage://${BUCKET}/${outputPath}`;
 const providerParameters = selectedCapability === "ai.audio.edit"
   ? { repainting_start:3, repainting_end:7, seed:51001, inference_steps:8, shift:3 }
@@ -124,7 +136,7 @@ const basePassed = text(output?.capability)===selectedCapability && output?.cert
 const extendPassed = selectedCapability !== "ai.audio.extend" || (text(output?.task_type)==="repaint" && text(output?.temporal_extend_strategy)==="XL_TURBO_REPAINT_RIGHT_OUTPAINT" && Number(output?.duration_seconds)>Number(output?.source_duration_seconds)+1 && output?.temporal_extension_observed===true && Number(output?.extension_seconds_requested)===EXTEND_SECONDS);
 const passed=basePassed&&extendPassed;
 const technicalProof = selectedCapability === "ai.audio.extend" ? extendPassed : passed;
-const report={ contract:BENCHMARK_CONTRACT, generated_at:new Date().toISOString(), infrastructure_provider:"MODAL_DIRECT_A10G_ASYNC_V1", modal_app:APP_NAME, modal_function:FUNCTION_NAME, capability:selectedCapability, provider_jobs_submitted:1, provider_job_count:1, job_id:jobId, source_rights_confirmed:true, source_mode:fixture.mode, source_fixture:fixture.metadata, source_duration_seconds:fixture.duration, temporal_extension_technical_proven:selectedCapability==="ai.audio.extend"&&technicalProof, remix_variation_technical_proven:selectedCapability==="ai.audio.remix"&&technicalProof, edit_technical_proven:selectedCapability==="ai.audio.edit"&&technicalProof, human_review_required:true, human_review_status:"PENDING", human_review_kind:fixture.humanReviewKind, eligible_for_human_release_review:fixture.eligible&&technicalProof, production_activation_allowed:false, pricing_activation_allowed:false, provider_selection_change_allowed:false, spend_ceiling_thb:SPEND_CEILING_THB, wall_ms:wallMs, conservative_supplier_cost_usd:Number(conservativeSupplierCostUsd.toFixed(8)), conservative_supplier_cost_thb:Number(conservativeSupplierCostThb.toFixed(6)), passed, output:{ capability:output?.capability, task_type:output?.task_type, model_variant:output?.model_variant, quality_profile:output?.quality_profile, source_audio_used:output?.source_audio_used, audio_cover_strength:output?.audio_cover_strength??null, certification_candidate:output?.certification_candidate, production_certified:output?.production_certified, activation_allowed:output?.activation_allowed, storage_reference:output?.storage_reference, duration_seconds:output?.duration_seconds, source_duration_seconds:output?.source_duration_seconds, extension_seconds_requested:output?.extension_seconds_requested, continuity_overlap_seconds:output?.continuity_overlap_seconds, repainting_start:output?.repainting_start, repainting_end:output?.repainting_end, temporal_extend_strategy:output?.temporal_extend_strategy, temporal_extension_observed:output?.temporal_extension_observed, size_bytes:output?.size_bytes } };
+const report={ contract:BENCHMARK_CONTRACT, generated_at:new Date().toISOString(), infrastructure_provider:"MODAL_DIRECT_A10G_ASYNC_V1", modal_app:APP_NAME, modal_function:FUNCTION_NAME, capability:selectedCapability, provider_jobs_submitted:1, provider_job_count:1, job_id:jobId, source_rights_confirmed:true, source_mode:fixture.mode, source_fixture:fixture.metadata, source_storage_reference:sourceReference, source_duration_seconds:fixture.duration, temporal_extension_technical_proven:selectedCapability==="ai.audio.extend"&&technicalProof, remix_variation_technical_proven:selectedCapability==="ai.audio.remix"&&technicalProof, edit_technical_proven:selectedCapability==="ai.audio.edit"&&technicalProof, human_review_required:true, human_review_status:"PENDING", human_review_kind:fixture.humanReviewKind, eligible_for_human_release_review:fixture.eligible&&technicalProof, production_activation_allowed:false, pricing_activation_allowed:false, provider_selection_change_allowed:false, spend_ceiling_thb:SPEND_CEILING_THB, wall_ms:wallMs, conservative_supplier_cost_usd:Number(conservativeSupplierCostUsd.toFixed(8)), conservative_supplier_cost_thb:Number(conservativeSupplierCostThb.toFixed(6)), passed, output:{ capability:output?.capability, task_type:output?.task_type, model_variant:output?.model_variant, quality_profile:output?.quality_profile, source_audio_used:output?.source_audio_used, audio_cover_strength:output?.audio_cover_strength??null, certification_candidate:output?.certification_candidate, production_certified:output?.production_certified, activation_allowed:output?.activation_allowed, storage_reference:output?.storage_reference, duration_seconds:output?.duration_seconds, source_duration_seconds:output?.source_duration_seconds, extension_seconds_requested:output?.extension_seconds_requested, continuity_overlap_seconds:output?.continuity_overlap_seconds, repainting_start:output?.repainting_start, repainting_end:output?.repainting_end, temporal_extend_strategy:output?.temporal_extend_strategy, temporal_extension_observed:output?.temporal_extension_observed, size_bytes:output?.size_bytes } };
 const reportPath=resolve(process.env.AVANTIQO_MUSIC_TRANSFORM_BENCHMARK_OUTPUT||`/tmp/${id}.json`); await writeFile(reportPath,`${JSON.stringify(report,null,2)}\n`);
 console.log(JSON.stringify({success:passed,contract:BENCHMARK_CONTRACT,capability:selectedCapability,infrastructure_provider:report.infrastructure_provider,provider_jobs_submitted:1,human_review_status:"PENDING",production_activation_performed:false,pricing_activation_performed:false,provider_selection_change_performed:false,output_path:reportPath},null,2));
 if(!passed) process.exitCode=1;

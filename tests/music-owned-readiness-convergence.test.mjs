@@ -29,3 +29,14 @@ test("owned stem readiness requires the dedicated certified Modal separator runt
   assert.match(registration, /const separatorRuntimeAvailable = Boolean\(engineEnabled && modalConfigured && separatorEngineEnabled && separatorEngineCertified && baseCertifiedCapabilities\.includes\("ai\.audio\.stems"\)\)/);
   assert.match(registration, /runtime_status: separatorRuntimeAvailable \? "CERTIFIED_CONFIGURED" : "CERTIFICATION_OR_CONFIGURATION_REQUIRED"/);
 });
+
+
+test("readiness rejects stale database certification when current Elastic runtime is not certified", () => {
+  assert.match(readiness, /const elasticReady = elastic\.ready === true && elasticRuntimeReady/);
+  assert.match(readiness, /stale_database_certification_ignored: elastic\.ready === true && !elasticRuntimeReady/);
+  assert.match(readiness, /CURRENT_RUNTIME_CERTIFICATION_REQUIRED/);
+});
+
+test("SFX readiness distinguishes benchmark proof from commercial activation", () => {
+  assert.match(readiness, /sfx\.benchmark_certified === true \? "COMMERCIAL_ACTIVATION_REQUIRED" : "BENCHMARK_REQUIRED"/);
+});

@@ -24,6 +24,11 @@ test("local queue runtime is pull-based and keeps deep outside RTX 2060 lane", (
   assert.doesNotMatch(runtime, /LANES = new Set\([^\n]*deep/);
   assert.match(runtime, /avantiqo_local_compute_jobs/);
   assert.match(runtime, /local-intelligence:/);
+  assert.match(runtime, /front_task_mode/);
+  assert.match(runtime, /max_output_tokens/);
+  assert.match(runtime, /temperature/);
+  assert.match(runtime, /response_format/);
+  assert.match(runtime, /executionLane === "front" \? 640 : 4096/);
 });
 test("Administration exposes Modal-like owned compute observability", () => {
   const route = source("app/api/workspace/administration/compute/route.js");

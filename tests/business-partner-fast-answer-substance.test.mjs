@@ -7,7 +7,8 @@ test('written fast conversation stays useful instead of tiny and canned', () => 
   assert.doesNotMatch(source, /response_text: responseText\.slice\(0, 500\)/);
   assert.match(source, /response_text: responseText\.slice\(0, 4000\)/);
   assert.match(source, /semanticResponseDetail === "deep" \? 520/);
-  assert.match(source, /semanticResponseDetail === "brief" \? 140 : 300/);
+  assert.match(source, /semanticResponseDetail === "brief" \? 220 : 360/);
+  assert.match(source, /Match the quality of a top human business partner/);
   assert.match(source, /Write like a capable senior Business Partner/);
   assert.match(source, /Light markdown is welcome when it helps/);
 });
@@ -16,8 +17,11 @@ test('normal Business Partner cognition is CPU-first with explicit escalation on
   const fast = fs.readFileSync('lib/operator/runtime/OperatorFastConversationRuntime.js', 'utf8');
   const semantic = fs.readFileSync('lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js', 'utf8');
   const front = fs.readFileSync('lib/operator/runtime/OperatorFrontCognitionRuntime.js', 'utf8');
-  assert.match(fast, /front_task_mode: strategic \? "conversation" : "conversation_light"/);
-  assert.match(fast, /front_task_mode: strategic \? "conversation" : "conversation_light"[\s\S]{0,700}allow_fast_escalation: false/);
+  assert.match(fast, /const ultraLightConversation = Boolean/);
+  assert.match(fast, /CASUAL_PATTERNS\.some/);
+  assert.match(fast, /front_task_mode: ultraLightConversation \? "conversation_light" : "conversation"/);
+  assert.match(fast, /front_task_mode: ultraLightConversation \? "conversation_light" : "conversation"[\s\S]{0,900}allow_fast_escalation: false/);
+  assert.match(fast, /semanticConversationMode === "light"[\s\S]{0,160}ultraLightConversation[\s\S]{0,160}speculative_light_safe/);
   assert.match(fast, /speculative_preflight_reuse/);
   assert.equal((semantic.match(/allow_fast_escalation: false/g) || []).length >= 2, true);
   assert.match(front, /zero_price_owned_cpu_lane: true/);

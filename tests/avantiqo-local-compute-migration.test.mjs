@@ -42,7 +42,11 @@ test("Administration exposes Modal-like owned compute observability", () => {
   assert.match(page, /Avantiqo Compute Control/);
   assert.match(page, /VRAM/);
   assert.match(page, /Local models/);
-  assert.match(page, /Compute jobs/);
+  assert.match(page, /Production jobs/);
+  assert.match(page, /Certification & migration/);
+  assert.match(page, /Failure reason/);
+  assert.match(route, /classifyLocalJob/);
+  assert.match(route, /operational_success_rate/);
   assert.match(command, /route: "\/administration\/compute"/);
 });
 

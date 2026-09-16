@@ -12,7 +12,10 @@ from typing import Any
 import numpy as np
 import python_stretch as ps
 import requests
-import runpod
+try:
+    import runpod
+except ImportError:
+    runpod = None
 import soundfile as sf
 
 ENGINE_CONTRACT = "AVANTIQO_MUSIC_ELASTIC_AUDIO_ENGINE_V1"
@@ -350,4 +353,5 @@ def handler(job):
         }
 
 
-runpod.serverless.start({"handler": handler})
+if runpod is not None:
+    runpod.serverless.start({"handler": handler})

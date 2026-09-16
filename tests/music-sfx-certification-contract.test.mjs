@@ -11,5 +11,5 @@ test("SFX certification uses controlled fixture and exact owned model",()=>{
   assert.match(run,/harsh digital bedside alarm clock/); assert.match(run,/OpenMOSS-Team\/MOSS-SoundEffect-v2\.0/); assert.match(run,/avantiqo-sfx-v1/);
 });
 test("SFX human review requires 92 average quality evidence",()=>{
-  assert.match(review,/minimum_average_score:92/); assert.match(review,/automatic_human_approval_forbidden:true/); assert.match(review,/prompt_fidelity/); assert.match(review,/commercial_music_studio_readiness/);
+  assert.match(review,/analyze-avantiqo-music-sfx-technical-quality-local/); assert.match(review,/technical_quality_report_path/); assert.match(review,/minimum_average_score:92/); assert.match(review,/automatic_human_approval_forbidden:true/); assert.match(review,/prompt_fidelity/); assert.match(review,/commercial_music_studio_readiness/);
 });

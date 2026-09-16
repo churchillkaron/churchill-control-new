@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
@@ -19,6 +20,7 @@ const {data,error}=await supabase.storage.from("creative-assets").download(ref.s
 if(error||!data) throw error||new Error("AVANTIQO_MUSIC_SFX_OUTPUT_DOWNLOAD_FAILED");
 const dir=path.resolve(arg("--dir=")||path.join(process.env.HOME||"/tmp","Downloads","Avantiqo-SFX-Certification",text(report.job_id)||"review"));
 await mkdir(dir,{recursive:true}); const audioPath=path.join(dir,"sfx-output.wav"); await writeFile(audioPath,Buffer.from(await data.arrayBuffer()));
-const review={success:true,contract:CONTRACT,benchmark_report_path:reportPath,benchmark_job_id:report.job_id,capability:report.capability,instruction:report.instruction,output_path:audioPath,minimum_average_score:92,automatic_human_approval_forbidden:true,human_review_status:"PENDING",criteria:["prompt_fidelity","physical_realism","artifact_control","transient_and_tail_quality","absence_of_unrequested_music_or_voice","commercial_music_studio_readiness"].map(criterion=>({criterion,score_0_100:null,minimum_score:92})),production_routing_allowed:false,activation_allowed:false,pricing_activation_allowed:false};
+const technicalQualityPath=path.join(dir,"sfx-technical-quality.json"); execFileSync(process.execPath,[path.resolve("scripts/analyze-avantiqo-music-sfx-technical-quality-local.mjs"),`--input=${audioPath}`,`--output=${technicalQualityPath}`],{cwd:process.cwd(),stdio:["ignore","pipe","pipe"]}); const technicalQuality=JSON.parse(await import("node:fs/promises").then(m=>m.readFile(technicalQualityPath,"utf8"))); if(technicalQuality?.technical_quality_passed!==true) throw new Error("AVANTIQO_MUSIC_SFX_TECHNICAL_QUALITY_REQUIRED");
+const review={success:true,contract:CONTRACT,benchmark_report_path:reportPath,benchmark_job_id:report.job_id,capability:report.capability,instruction:report.instruction,output_path:audioPath,technical_quality_report_path:technicalQualityPath,technical_quality:technicalQuality,minimum_average_score:92,automatic_human_approval_forbidden:true,human_review_status:"PENDING",criteria:["prompt_fidelity","physical_realism","artifact_control","transient_and_tail_quality","absence_of_unrequested_music_or_voice","commercial_music_studio_readiness"].map(criterion=>({criterion,score_0_100:null,minimum_score:92})),production_routing_allowed:false,activation_allowed:false,pricing_activation_allowed:false};
 const reviewPath=path.join(dir,"sfx-human-review.json"); await writeFile(reviewPath,`${JSON.stringify(review,null,2)}\n`);
 console.log(JSON.stringify({success:true,contract:CONTRACT,review_path:reviewPath,audio_path:audioPath,human_review_status:"PENDING",production_activation_performed:false},null,2));

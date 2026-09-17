@@ -6,6 +6,7 @@ import { runAvantiqoGeneralIntelligenceRetention } from "@/lib/intelligence/runt
 import { runAvantiqoGeneralIntelligenceTransferPractice } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceTransferPracticeRuntime";
 import { reconcileAvantiqoGeneralIntelligenceMasteryEvidence } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceMasteryEvidenceRuntime";
 import { seedAvantiqoGeneralIntelligenceTrainingCandidates } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceTrainingCandidateRuntime";
+import { runAvantiqoGeneralIntelligenceShadowBenchmark } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceShadowBenchmarkRuntime";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -456,6 +457,7 @@ async function handleCronGet(request) {
     const generalIntelligenceTransferPractice = await runAvantiqoGeneralIntelligenceTransferPractice();
     const generalIntelligenceMasteryEvidence = await reconcileAvantiqoGeneralIntelligenceMasteryEvidence();
     const generalIntelligenceTrainingCandidates = await seedAvantiqoGeneralIntelligenceTrainingCandidates();
+    const generalIntelligenceShadowBenchmark = await runAvantiqoGeneralIntelligenceShadowBenchmark();
 
     return Response.json(
       {
@@ -467,6 +469,7 @@ async function handleCronGet(request) {
         general_intelligence_transfer_practice: generalIntelligenceTransferPractice,
         general_intelligence_mastery_evidence: generalIntelligenceMasteryEvidence,
         general_intelligence_training_candidates: generalIntelligenceTrainingCandidates,
+        general_intelligence_shadow_benchmark: generalIntelligenceShadowBenchmark,
         post_research_learning_evidence_candidate_bridge: postResearchEvidenceCandidateBridge,
         post_research_mechanism_first_learning: postResearchMechanismFirstLearning,
         internal_product_knowledge: internalProductKnowledge,

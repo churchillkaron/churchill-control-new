@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const runtime=fs.readFileSync("lib/intelligence/runtime/AvantiqoGeneralIntelligenceShadowBenchmarkRuntime.js","utf8");
+const route=fs.readFileSync("app/api/internal/intelligence/continuous-learning/process/route.js","utf8");
+test("shadow benchmark measures current local 4B before training",()=>{assert.match(runtime,/qwen3:4b-instruct/);assert.match(runtime,/AVANTIQO_LOCAL_NODE_V1/);assert.match(runtime,/external_fallback_allowed:false/);assert.match(runtime,/const CASE_COUNT = 20/);});
+test("shadow benchmark distinguishes training needed from already-capable",()=>{assert.match(runtime,/const NO_TRAINING_THRESHOLD = 0\.95/);assert.match(runtime,/trainingNeeded=grading\.pass_rate < NO_TRAINING_THRESHOLD/);assert.match(runtime,/NO_TRAINING_NEEDED/);assert.match(runtime,/TRAINING_NEEDED/);});
+test("shadow benchmark cannot approve or start training",()=>{assert.match(runtime,/training_candidate_approved:false/);assert.match(runtime,/dataset_eligibility_effect:"NONE"/);assert.match(runtime,/automatic_training_started:false/);assert.match(runtime,/automatic_model_weight_mutation:false/);assert.match(runtime,/automatic_model_promotion:false/);});
+test("shadow cases test evidence-bound transfer not fact memorization",()=>{assert.match(runtime,/Analogy is never evidence/);assert.match(runtime,/missing-target/);assert.match(runtime,/broken-invariant/);assert.match(runtime,/surface-analogy/);assert.match(runtime,/boundary_conditions/);assert.match(runtime,/falsifiers/);});
+test("nightly route measures shadow behavior only after candidate seeding",()=>{const seed=route.indexOf("seedAvantiqoGeneralIntelligenceTrainingCandidates()");const shadow=route.indexOf("runAvantiqoGeneralIntelligenceShadowBenchmark()");assert.ok(seed>=0&&shadow>seed);assert.match(route,/general_intelligence_shadow_benchmark: generalIntelligenceShadowBenchmark/);});

@@ -22,3 +22,12 @@ test("nightly route derives weakness curriculum immediately after arena",()=>{
   assert.ok(arena>=0&&curriculum>arena);
   assert.match(route,/arena_weakness_curriculum: arenaWeaknessCurriculum/);
 });
+
+test("weakness curriculum retires dimensions that are no longer current top weaknesses",()=>{
+  assert.match(runtime,/existingCurricula/);
+  assert.match(runtime,/selectedKeys/);
+  assert.match(runtime,/retireIds/);
+  assert.match(runtime,/superseded_at:now/);
+  assert.match(runtime,/retired_stale_dimension_count/);
+  assert.match(runtime,/arena_attempt:Number\(meta\.arena_attempt\|\|1\)/);
+});

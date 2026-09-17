@@ -180,6 +180,7 @@ export default function AvantiqoPublicHome() {
             <a href="#platform" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] md:inline-flex">Platform</a>
             <a href="#intelligence" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] lg:inline-flex">Intelligence</a>
             <a href="#connected-service-data" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] lg:inline-flex">Integrations</a>
+            <a href="/developers" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] xl:inline-flex">Developers</a>
             <a href="/policy" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] xl:inline-flex">Privacy</a>
             <a href="/terms" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] xl:inline-flex">Terms</a>
             <a href="/login" className="ml-1 inline-flex h-9 items-center gap-2 rounded-xl bg-[#171716] px-4 text-[10px] font-semibold text-white shadow-[0_3px_10px_rgba(20,18,15,0.15)] transition hover:bg-[#2A2926]">Login <Arrow className="h-3 w-3" /></a>
@@ -300,7 +301,7 @@ export default function AvantiqoPublicHome() {
       <footer className="border-t border-black/[0.07] bg-[#FBFAF8]">
         <div className="mx-auto flex max-w-[1320px] flex-col gap-5 px-5 py-8 text-[10px] text-[#817B73] sm:flex-row sm:items-end sm:justify-between sm:px-7 lg:px-10">
           <div><div><span className="font-semibold text-[#3E3933]">Avantiqo</span><span className="ml-2">Business Operating System</span></div><div className="mt-2 text-[9px] leading-5 text-[#9B958D]">Avantiqo is operated by BEA Co., Ltd., Thailand. Company Registration No. 0835553004601.</div></div>
-          <div className="flex flex-wrap gap-5"><a href="/policy" className="transition hover:text-[#8A633C]">Privacy Policy</a><a href="/terms" className="transition hover:text-[#8A633C]">Terms of Service</a><a href="#connected-service-data" className="transition hover:text-[#8A633C]">Connected services</a><a href="/login" className="transition hover:text-[#8A633C]">Login</a></div>
+          <div className="flex flex-wrap gap-5"><a href="/developers" className="transition hover:text-[#8A633C]">Developers</a><a href="/policy" className="transition hover:text-[#8A633C]">Privacy Policy</a><a href="/terms" className="transition hover:text-[#8A633C]">Terms of Service</a><a href="#connected-service-data" className="transition hover:text-[#8A633C]">Connected services</a><a href="/login" className="transition hover:text-[#8A633C]">Login</a></div>
         </div>
       </footer>
     </main>

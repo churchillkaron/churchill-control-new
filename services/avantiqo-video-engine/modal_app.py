@@ -23,6 +23,9 @@ import modal
 APP_NAME = "avantiqo-video-owned"
 NATIVE_ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V2"
 PRODUCT_MODEL = "avantiqo-cinema-v1"
+HF_CACHE_ROOT = "/models/huggingface-cache/hub"
+MODEL_VOLUME_NAME = "avantiqo-video-models"
+MODEL_SECRET_NAME = "huggingface-secret"
 LTX_SOURCE_REPO = "Lightricks/LTX-2.5"
 LTX_SOURCE_REVISION = "e8dc69fd26150afbfa20351f6bc9ac384257f9fd"
 LTX_RUNTIME_IMAGE = (

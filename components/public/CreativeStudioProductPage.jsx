@@ -407,18 +407,13 @@ export default function CreativeStudioProductPage({
     <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
       <PublicSiteHeader
         context={studio}
+        audience="creative"
         links={[
           {
             label: "Creative Studios",
             href: "/creative-studios",
             visibility: "hidden md:inline-flex",
           },
-          {
-            label: "Developers",
-            href: "/developers",
-            visibility: "hidden lg:inline-flex",
-          },
-          { label: "Platform", href: "/", visibility: "hidden xl:inline-flex" },
         ]}
       />
 
@@ -565,27 +560,15 @@ export default function CreativeStudioProductPage({
       </section>
 
       <section className="border-b border-black/[0.06] bg-[#FBFAF8]">
-        <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-20 sm:px-7 lg:grid-cols-[.82fr_1.18fr] lg:items-center lg:px-10 lg:py-24">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">
-              Creative capability, anywhere
-            </p>
-            <h2 className="mt-3 max-w-2xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] sm:text-[46px]">
-              One creative engine. More than one surface.
-            </h2>
-            <p className="mt-5 max-w-xl text-[14px] leading-7 text-[#6C6963]">
-              The same governed production capability can power a Studio
-              mission, an API workflow, an agent tool or an embedded customer
-              experience without changing the underlying creative logic.
-            </p>
-            <a
-              href="/developers"
-              className="mt-7 inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white"
-            >
-              Explore developer access <Arrow className="h-3.5 w-3.5" />
-            </a>
+        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">Creative production workspace</p>
+          <h2 className="mt-3 max-w-3xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] sm:text-[46px]">Everything the creative team needs stays in one production environment.</h2>
+          <p className="mt-5 max-w-2xl text-[13px] leading-7 text-[#706A62]">Briefs, references, direction, versions, reviews, repairs and final delivery remain attached to the project instead of being scattered across unrelated tools.</p>
+          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[['Brief & direction','Define the commercial goal, audience and creative direction.'],['Production','Create the visual, film or music work inside the same project.'],['Review & repair','Critique weak output, repair it and preserve the accepted direction.'],['Delivery','Approve, export and deliver production-ready assets.']].map(([t,d],i)=>(
+              <div key={t} className="rounded-[22px] border border-black/[0.07] bg-white p-5"><div className="text-[8px] font-bold text-[#A37849]">0{i+1}</div><h3 className="mt-6 text-[15px] font-semibold text-[#302D29]">{t}</h3><p className="mt-2 text-[10px] leading-5 text-[#7A756E]">{d}</p></div>
+            ))}
           </div>
-          <CapabilityNetwork studio={studio} />
         </div>
       </section>
 
@@ -601,8 +584,7 @@ export default function CreativeStudioProductPage({
               </h2>
             </div>
             <p className="max-w-2xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">
-              The same {studio} capability can be sold as a complete production
-              mission, retained creative capacity or metered developer access.
+              Choose a complete production mission, recurring creative capacity or a focused production package depending on what the brand needs.
             </p>
           </div>
           <div className="mt-10 grid gap-3 lg:grid-cols-3">
@@ -618,9 +600,9 @@ export default function CreativeStudioProductPage({
                 "ONGOING CAPACITY",
               ],
               [
-                "Developer access",
-                "Meter exact capabilities or larger production jobs through Avantiqo APIs and governed workflows.",
-                "BUILD WITH API",
+                "Focused production package",
+                "A defined set of deliverables for launches, campaigns, recurring content or specialist production work.",
+                "DEFINED DELIVERY",
               ],
             ].map(([title, text, label], i) => (
               <div
@@ -673,10 +655,10 @@ export default function CreativeStudioProductPage({
                   Enter Avantiqo <Arrow className="h-3.5 w-3.5" />
                 </a>
                 <a
-                  href="/developers"
+                  href="/creative-studios"
                   className="inline-flex h-11 items-center rounded-xl border border-white/[0.12] bg-white/[0.03] px-5 text-[11px] font-semibold text-white/70"
                 >
-                  Developer access
+                  All Creative Studios
                 </a>
               </div>
             </div>

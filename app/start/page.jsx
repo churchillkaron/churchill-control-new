@@ -4,116 +4,44 @@ export const metadata = { title: "Start with Avantiqo | Avantiqo" };
 
 const PATHS = [
   [
-    "Run your business",
+    "Business",
     "Business OS",
-    "Operate finance, people, supply chain, commercial, projects and more in one governed business context.",
-    "Core platform",
-    "/login",
-    "Enter Avantiqo",
+    "For owners, managers and teams running finance, operations, supply chain, commercial work, people, projects and documents.",
+    "ERP & operations",
+    "/",
+    "Enter Business OS",
   ],
   [
-    "Create professional media",
+    "Creative",
     "Creative Studios",
-    "Image, Video and Music production systems with direction, review, repair and commercial delivery.",
+    "For brands and production teams creating professional image, video and music through complete production workflows.",
     "Production missions",
     "/creative-studios",
-    "Explore Studios",
+    "Enter Creative Studios",
   ],
   [
-    "Build with the platform",
     "Developers",
-    "Use APIs, webhooks, agent tools and embedded workflows to put Avantiqo capabilities inside other products.",
-    "Usage based",
+    "Developer Platform",
+    "For developers building applications, integrations, automations and embedded experiences on Avantiqo.",
+    "SDKs & tooling",
     "/developers",
-    "Developer platform",
+    "Enter Developers",
   ],
   [
-    "Run governed digital workers",
-    "Agents",
-    "Research, prepare and execute repeatable work through exact business capabilities and authority.",
-    "Automation",
-    "/agents",
-    "Explore Agents",
+    "API",
+    "Avantiqo API",
+    "For products and systems consuming governed Avantiqo capabilities through metered APIs and jobs.",
+    "Usage based",
+    "/api-platform",
+    "Enter API Platform",
   ],
   [
-    "Turn data into decisions",
-    "Insights",
-    "Forecasts, exceptions and executive decision products connected to governed business evidence.",
-    "Premium intelligence",
-    "/insights",
-    "Explore Insights",
-  ],
-  [
-    "Use or supply compute",
     "Compute",
-    "Route workloads to owned capacity first, overflow when needed, and monetize genuinely idle approved hardware.",
-    "Metered infrastructure",
+    "Avantiqo Compute",
+    "For workloads that need GPU or specialist infrastructure, with owned capacity first and governed overflow when needed.",
+    "Infrastructure",
     "/compute",
-    "Compute model",
-  ],
-  [
-    "Sell through every surface",
-    "Channels",
-    "Web, portal, mobile, kiosk, POS and embedded experiences connected to the same operating context.",
-    "Channel add-ons",
-    "/channels",
-    "Explore Channels",
-  ],
-  [
-    "Connect external services",
-    "Integrations",
-    "Messaging, payments, documents and specialist providers become governed business capabilities.",
-    "Connected services",
-    "/integrations",
-    "Explore Integrations",
-  ],
-  [
-    "Scale a larger organization",
-    "Enterprise",
-    "Multi-entity scope, stronger governance, portfolio intelligence, private deployment and premium service levels.",
-    "Enterprise contracts",
-    "/enterprise",
-    "Explore Enterprise",
-  ],
-  [
-    "Implement and optimize",
-    "Services",
-    "Discovery, migration, configuration, integration, launch, training and ongoing optimization.",
-    "Professional services",
-    "/services",
-    "Explore Services",
-  ],
-  [
-    "Sell and settle",
-    "Commerce",
-    "Orders, bookings, invoices, payments and finance evidence connected in one commercial flow.",
-    "Transaction layer",
-    "/commerce",
-    "Explore Commerce",
-  ],
-  [
-    "Distribute capabilities",
-    "Marketplace",
-    "Package capabilities, agents, solutions, templates, connectors and approved supply for commercial distribution.",
-    "Platform economics",
-    "/ecosystem",
-    "Marketplace model",
-  ],
-  [
-    "Deliver through Avantiqo",
-    "Partners",
-    "Accounting firms, agencies, consultants and implementers can scale Avantiqo across client portfolios.",
-    "Partner revenue",
-    "/partners",
-    "Partner model",
-  ],
-  [
-    "Package the system by industry",
-    "Solutions",
-    "Restaurants, hotels, retail and professional services get focused products on the same shared core.",
-    "Vertical packaging",
-    "/solutions",
-    "Explore Solutions",
+    "Enter Compute",
   ],
 ];
 
@@ -141,6 +69,7 @@ export default function StartPage() {
     <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
       <PublicSiteHeader
         context="Start"
+        audience="platform"
         links={[
           { label: "Solutions", href: "/solutions" },
           { label: "Pricing", href: "/pricing" },
@@ -156,20 +85,17 @@ export default function StartPage() {
                 START WITH AVANTIQO
               </p>
               <h1 className="mt-5 text-[50px] font-medium leading-[.96] tracking-[-0.06em] text-[#171614] sm:text-[64px] lg:text-[72px]">
-                Choose the value you want to create.
+                Choose your Avantiqo workspace.
               </h1>
               <p className="mt-7 max-w-xl text-[16px] leading-8 text-[#625F59]">
-                Operate the company. Produce creative work. Build with the API.
-                Run governed agents. Sell through channels. Use compute.
-                Avantiqo turns each layer into a commercial surface without
-                splitting the platform apart.
+                Business customers, creative teams, developers, API users and compute customers each enter a focused environment. The platform stays connected underneath without mixing the journeys on the surface.
               </p>
               <div className="mt-9 flex flex-wrap gap-2.5">
                 <a
                   href="#paths"
                   className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white"
                 >
-                  Explore all paths <Arrow />
+                  Choose a workspace <Arrow />
                 </a>
                 <a
                   href="/pricing"
@@ -210,14 +136,14 @@ export default function StartPage() {
               </div>
             </div>
             <div className="absolute left-7 top-7 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]">
-              AVANTIQO / ONE ECONOMY
+              AVANTIQO / CHOOSE YOUR WORKSPACE
             </div>
             <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-white/[0.14] bg-[#11100E]/74 p-5 text-white shadow-[0_28px_80px_rgba(0,0,0,.28)] backdrop-blur-xl sm:p-6">
               <div className="text-[7px] font-semibold uppercase tracking-[0.21em] text-[#D6A66A]">
-                OPERATE · CREATE · BUILD · SELL · SCALE
+                BUSINESS · CREATIVE · DEVELOPERS · API · COMPUTE
               </div>
               <div className="mt-3 max-w-2xl text-[14px] leading-6 text-white/70">
-                One identity, one wallet, one business context — with multiple
+                Separate customer journeys above. Shared Avantiqo infrastructure underneath — with
                 ways for customers, developers, partners and infrastructure
                 owners to create value.
               </div>

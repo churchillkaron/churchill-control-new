@@ -27,13 +27,13 @@ export const commercialSurfaceConfigs = {
     cta:"One platform underneath. A product that feels built for the industry.", primary:"Enter Avantiqo", primaryHref:"/login"
   },
   pricing: {
-    context:"Pricing", art:"pricing", status:"Commercial model", eyebrow:"Avantiqo Pricing", title:"Pay for the platform. Meter the expensive work.",
-    description:"The commercial model separates everyday business software from genuinely variable-cost work. The Business OS can be subscription-led, while premium generation, deep workloads, API consumption and compute can be metered through the Avantiqo Wallet.",
-    valueEyebrow:"Simple commercial layers", valueTitle:"Several revenue engines without turning every click into a charge.",
-    value:[["Business OS","Recurring subscription for the core operating platform and included everyday intelligence."],["Wallet","Prepaid usage for expensive specialist services, generation and deep compute."],["Developer","Metered API, capability, agent and job consumption."],["Marketplace","Commission and settlement economics around third-party supply."]],
-    moneyTitle:"Subscription, consumption, transactions and platform economics.", moneyDescription:"Exact public price points can be introduced by market and plan later without changing the underlying commercial architecture.",
-    money:[["Subscription","Base recurring software revenue."],["Consumption","Wallet-funded premium work and generation."],["Transactions","Payments, communications and connected-service economics where applicable."],["Platform","Developer, marketplace, partner and compute-network revenue."]],
-    cta:"A pricing architecture that can grow with the business model.", primary:"Enter Avantiqo", primaryHref:"/login"
+    context:"Pricing", art:"pricing", status:"Business OS pricing", eyebrow:"Avantiqo Pricing", title:"Simple pricing for the Business OS.",
+    description:"The Business OS is subscription-led so normal day-to-day operation stays predictable. Premium provider-backed work, specialist intelligence and implementation can be packaged separately when the business actually needs them.",
+    valueEyebrow:"Business pricing", valueTitle:"Pay for the operating scope you use, not for every click.",
+    value:[["Core Business OS","Recurring access to the governed operating platform and everyday intelligence."],["Entities & locations","Scale commercial scope with the companies, properties, stores or venues being managed."],["Premium intelligence","Specialist or unusually expensive analysis can be packaged separately from normal daily use."],["Services","Implementation, migration, integration and optimization remain clear professional-service packages."]],
+    moneyTitle:"Predictable software with clear optional layers.", moneyDescription:"Business customers get a clean software relationship first. Optional services and premium workloads stay explicit rather than being mixed into the everyday product.",
+    money:[["Subscription","Recurring Business OS access."],["Business add-ons","Additional locations, channels or specialist operating modules."],["Premium workload","Wallet-funded specialist work only where variable cost justifies it."],["Enterprise","Larger scope, governance, rollout and service-level packaging."]],
+    cta:"Run the company with a pricing model the company can understand.", primary:"Enter Avantiqo", primaryHref:"/login"
   },
   integrations: {
     context:"Integrations", art:"integrations", status:"Connected services", eyebrow:"Avantiqo Integrations", title:"Connect the services the business already depends on.",

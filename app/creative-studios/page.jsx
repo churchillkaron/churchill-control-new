@@ -80,6 +80,7 @@ export default function Page() {
     <main className="min-h-screen bg-[#f7f4ef] text-[#11110f]">
       <PublicSiteHeader
         context="Creative Studios"
+        audience="creative"
         links={[
           { label: "Platform", href: "/", visibility: "hidden md:inline-flex" },
           {
@@ -91,16 +92,6 @@ export default function Page() {
             label: "Creative Studios",
             href: "/creative-studios",
             visibility: "hidden lg:inline-flex",
-          },
-          {
-            label: "Developers",
-            href: "/developers",
-            visibility: "hidden lg:inline-flex",
-          },
-          {
-            label: "Compute",
-            href: "/compute",
-            visibility: "hidden xl:inline-flex",
           },
         ]}
       />
@@ -258,42 +249,9 @@ export default function Page() {
 
       <section className="border-t border-black/[0.06] bg-[#f7f4ef] px-6 py-14 lg:px-10">
         <div className="mx-auto grid max-w-[1450px] gap-5 lg:grid-cols-3">
-          <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7">
-            <div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">
-              Layer 01 · Studios
-            </div>
-            <div className="mt-3 text-[24px] tracking-[-0.035em]">
-              Sell complete creative missions.
-            </div>
-            <p className="mt-3 text-[11px] leading-6 text-[#716b64]">
-              Campaigns, films and music production — not thin one-shot
-              generators.
-            </p>
-          </div>
-          <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7">
-            <div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">
-              Layer 02 · API
-            </div>
-            <div className="mt-3 text-[24px] tracking-[-0.035em]">
-              Expose the same capabilities to developers.
-            </div>
-            <p className="mt-3 text-[11px] leading-6 text-[#716b64]">
-              Low-level generation plus high-level production missions through
-              one Avantiqo wallet and API.
-            </p>
-          </div>
-          <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7">
-            <div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">
-              Layer 03 · Compute
-            </div>
-            <div className="mt-3 text-[24px] tracking-[-0.035em]">
-              Earn from the infrastructure underneath.
-            </div>
-            <p className="mt-3 text-[11px] leading-6 text-[#716b64]">
-              Route work to Avantiqo-owned GPU/CPU capacity first and cloud
-              overflow only when needed.
-            </p>
-          </div>
+          <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7"><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">Image Studio</div><div className="mt-3 text-[24px] tracking-[-0.035em]">Campaign-ready visual production.</div><p className="mt-3 text-[11px] leading-6 text-[#716b64]">Brief, research, art direction, creation, critique, repair and delivery.</p></div>
+          <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7"><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">Video Studio</div><div className="mt-3 text-[24px] tracking-[-0.035em]">Professional film production.</div><p className="mt-3 text-[11px] leading-6 text-[#716b64]">Story, treatment, shots, continuity, dailies, repair, edit, sound and master.</p></div>
+          <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7"><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">Music Studio</div><div className="mt-3 text-[24px] tracking-[-0.035em]">Complete audio production.</div><p className="mt-3 text-[11px] leading-6 text-[#716b64]">Create, edit, remix, stems, vocal work, SFX, mix and master.</p></div>
         </div>
       </section>
     </main>

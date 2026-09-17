@@ -159,6 +159,7 @@ export default function DevelopersPage() {
     <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
       <PublicSiteHeader
         context="Developers"
+        audience="developers"
         links={[
           {
             label: "Capabilities",

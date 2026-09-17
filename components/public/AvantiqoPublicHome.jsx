@@ -380,16 +380,6 @@ export default function AvantiqoPublicHome() {
             href: "/channels",
             visibility: "hidden xl:inline-flex",
           },
-          {
-            label: "Creative",
-            href: "/creative-studios",
-            visibility: "hidden xl:inline-flex",
-          },
-          {
-            label: "Developers",
-            href: "/developers",
-            visibility: "hidden 2xl:inline-flex",
-          },
         ]}
       />
 
@@ -462,7 +452,7 @@ export default function AvantiqoPublicHome() {
                   <div
                     className="absolute inset-0 bg-cover bg-center"
                     style={{
-                      backgroundImage: "url(/art/commercial-enterprise.jpg)",
+                      backgroundImage: "url(/art/commercial-solutions.jpg)",
                     }}
                   />
                   <div className="absolute inset-0 bg-black/20" />
@@ -471,7 +461,7 @@ export default function AvantiqoPublicHome() {
                   <div
                     className="absolute inset-0 bg-cover bg-center"
                     style={{
-                      backgroundImage: "url(/art/commercial-compute.jpg)",
+                      backgroundImage: "url(/art/commercial-enterprise.jpg)",
                     }}
                   />
                   <div className="absolute inset-0 bg-black/24" />
@@ -489,7 +479,7 @@ export default function AvantiqoPublicHome() {
                 ONE OPERATING CONTEXT
               </div>
               <div className="mt-1 text-[8px] uppercase tracking-[0.14em] text-white/46">
-                Operate · create · build · scale
+                Finance · operations · people · control
               </div>
             </div>
 
@@ -499,10 +489,10 @@ export default function AvantiqoPublicHome() {
               </div>
               <div className="mt-4 space-y-2.5">
                 {[
-                  ["BUSINESS OS", "Operate"],
+                  ["FINANCE", "Control"],
+                  ["OPERATIONS", "Run"],
+                  ["PEOPLE", "Coordinate"],
                   ["INTELLIGENCE", "Decide"],
-                  ["STUDIOS", "Create"],
-                  ["COMPUTE", "Run"],
                 ].map(([a, b]) => (
                   <div
                     key={a}
@@ -596,248 +586,6 @@ export default function AvantiqoPublicHome() {
                   {description}
                 </p>
               </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-black/[0.06] bg-[#FBFAF8]">
-        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
-            <SectionTitle
-              eyebrow="The Avantiqo product family"
-              title="One intelligence layer. Multiple professional surfaces."
-            >
-              <p>
-                The Business Operating System is the operating core. Creative
-                Studios and the Developer Platform extend the same Avantiqo
-                design language into production and integration without turning
-                them into separate products.
-              </p>
-            </SectionTitle>
-            <p className="max-w-2xl text-[13px] leading-6 text-[#7A756E] lg:justify-self-end">
-              Move from running the company, to producing world-class creative
-              work, to embedding Avantiqo capabilities inside another
-              product—with one brand, one governance model and one business
-              context.
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-4 lg:grid-cols-2">
-            <a
-              href="/creative-studios"
-              className="group overflow-hidden rounded-[28px] border border-black/[0.075] bg-[#171716] text-white shadow-[0_24px_70px_rgba(35,27,18,.08)] transition hover:-translate-y-1"
-            >
-              <div className="relative h-[300px] overflow-hidden border-b border-white/[0.07] bg-[#1A1510]">
-                <div
-                  className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]"
-                  style={{ backgroundImage: "url(/art/creative-image.jpg)" }}
-                />
-                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.10)_45%,rgba(8,7,6,.74))]" />
-                <div className="absolute left-6 top-6 rounded-full border border-white/24 bg-black/25 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#F0C98F] backdrop-blur-xl">
-                  Creative Studios
-                </div>
-                <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
-                  <div>
-                    <div className="text-[8px] uppercase tracking-[0.18em] text-[#E9C28C]">
-                      Real production
-                    </div>
-                    <div className="mt-1 text-[11px] text-white/70">
-                      Image · Video · Music
-                    </div>
-                  </div>
-                  <div className="text-[8px] uppercase tracking-[0.15em] text-white/38">
-                    Ideas → impact
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-end justify-between gap-8 p-6 sm:p-7">
-                <div>
-                  <h3 className="text-[27px] font-medium tracking-[-0.04em] text-[#F7F4EF]">
-                    Image. Video. Music.
-                  </h3>
-                  <p className="mt-3 max-w-xl text-[11px] leading-6 text-white/42">
-                    Professional creative production systems with research,
-                    direction, creation, review, repair and delivery connected
-                    from start to finish.
-                  </p>
-                </div>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#D6A66A]/30 text-[#D6A66A] transition group-hover:translate-x-1">
-                  <Arrow className="h-4 w-4" />
-                </span>
-              </div>
-            </a>
-
-            <a
-              href="/developers"
-              className="group overflow-hidden rounded-[28px] border border-black/[0.075] bg-white shadow-[0_24px_70px_rgba(35,27,18,.06)] transition hover:-translate-y-1"
-            >
-              <div className="relative h-[300px] overflow-hidden border-b border-black/[0.06] bg-[#EDE5D8]">
-                <div
-                  className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]"
-                  style={{ backgroundImage: "url(/art/developer-work.jpg)" }}
-                />
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,.08),transparent_42%),linear-gradient(180deg,transparent_50%,rgba(10,8,7,.62))]" />
-                <div className="absolute left-6 top-6 rounded-full border border-white/30 bg-white/75 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#76512D] shadow-sm backdrop-blur-xl">
-                  Developer Platform
-                </div>
-                <div className="absolute bottom-5 left-6 right-6 rounded-[16px] border border-white/20 bg-black/28 p-3 text-white backdrop-blur-xl">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <div className="text-[8px] uppercase tracking-[0.18em] text-[#E9C28C]">
-                        Build · connect · automate
-                      </div>
-                      <div className="mt-1 text-[10px] text-white/68">
-                        APIs, agents, workflows and embedded capabilities.
-                      </div>
-                    </div>
-                    <span className="text-[8px] uppercase tracking-[0.14em] text-white/38">
-                      Governed
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-end justify-between gap-8 p-6 sm:p-7">
-                <div>
-                  <h3 className="text-[27px] font-medium tracking-[-0.04em] text-[#1D1B18]">
-                    Build with Avantiqo.
-                  </h3>
-                  <p className="mt-3 max-w-xl text-[11px] leading-6 text-[#77716A]">
-                    Use business capabilities through APIs, agent tools, jobs,
-                    webhooks and embedded workflows without rebuilding the
-                    underlying operating logic.
-                  </p>
-                </div>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#D6A66A]/35 text-[#9A744B] transition group-hover:translate-x-1">
-                  <Arrow className="h-4 w-4" />
-                </span>
-              </div>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-black/[0.06] bg-[#171716] text-white">
-        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">
-                The Avantiqo economy
-              </p>
-              <h2 className="mt-3 max-w-2xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[48px]">
-                More than software. A platform with multiple ways to create
-                value.
-              </h2>
-            </div>
-            <p className="max-w-2xl text-[13px] leading-7 text-white/42 lg:justify-self-end">
-              Subscription software is the base. Creative production, developer
-              usage, premium intelligence, compute, connected services,
-              marketplace activity and partners create additional commercial
-              layers without fragmenting the product.
-            </p>
-          </div>
-          <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              [
-                "Solutions",
-                "/solutions",
-                "Industry Business OS",
-                "Restaurants, hotels, retail and professional services packaged around real operating workflows.",
-              ],
-              [
-                "Agents",
-                "/agents",
-                "Governed digital workers",
-                "Specialist automation and premium workloads built on exact business capabilities.",
-              ],
-              [
-                "Compute",
-                "/compute",
-                "Use it. Rent the idle.",
-                "Owned GPU reduces provider spend, serves paid workloads and can monetize genuinely idle capacity.",
-              ],
-              [
-                "Marketplace",
-                "/ecosystem",
-                "A commercial ecosystem",
-                "Capabilities, agents, solutions, connectors and future compute supply can be distributed and settled.",
-              ],
-              [
-                "Integrations",
-                "/integrations",
-                "Connected-service economics",
-                "Messaging, ads, payments, documents and external services become governed capabilities.",
-              ],
-              [
-                "Partners",
-                "/partners",
-                "Distribution at portfolio scale",
-                "Accountants, agencies, consultants and builders can bring many businesses onto Avantiqo.",
-              ],
-              [
-                "Commerce",
-                "/commerce",
-                "Sell. Settle. Post.",
-                "POS, orders, bookings, invoices and payment rails connect revenue to finance evidence.",
-              ],
-              [
-                "Channels",
-                "/channels",
-                "Every customer and staff surface",
-                "Websites, portals, mobile, kiosk, POS and embedded experiences become paid extensions of the same Business OS.",
-              ],
-              [
-                "Enterprise",
-                "/enterprise",
-                "Scale the operating scope",
-                "Multi-entity governance, portfolio visibility, complex integrations and premium service packaging.",
-              ],
-              [
-                "Services",
-                "/services",
-                "Implementation that accelerates adoption",
-                "Migration, configuration, integration, launch, training and optimization as repeatable professional services.",
-              ],
-              [
-                "Insights",
-                "/insights",
-                "Premium decision products",
-                "Forecasting, exceptions, portfolio analytics and specialist insight packs tied to governed business evidence.",
-              ],
-              [
-                "Pricing",
-                "/pricing",
-                "Four revenue engines",
-                "Subscription, consumption, transactions and platform economics in one commercial architecture.",
-              ],
-              [
-                "Developers",
-                "/developers",
-                "Build on Avantiqo",
-                "APIs, agent tools, webhooks and embedded workflows create metered platform demand.",
-              ],
-            ].map(([name, href, title, text], i) => (
-              <a
-                key={name}
-                href={href}
-                className="group rounded-[22px] border border-white/[0.08] bg-white/[0.025] p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/28 hover:bg-white/[0.04]"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[8px] font-bold text-[#D6A66A]">
-                    0{i + 1}
-                  </span>
-                  <Arrow className="h-3.5 w-3.5 text-white/20 transition group-hover:translate-x-0.5 group-hover:text-[#D6A66A]" />
-                </div>
-                <div className="mt-8 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]/75">
-                  {name}
-                </div>
-                <h3 className="mt-2 text-[16px] font-semibold text-white/82">
-                  {title}
-                </h3>
-                <p className="mt-2 text-[9px] leading-5 text-white/34">
-                  {text}
-                </p>
-              </a>
             ))}
           </div>
         </div>
@@ -1101,12 +849,6 @@ export default function AvantiqoPublicHome() {
             </a>
             <a href="/pricing" className="transition hover:text-[#8A633C]">
               Pricing
-            </a>
-            <a href="/ecosystem" className="transition hover:text-[#8A633C]">
-              Marketplace
-            </a>
-            <a href="/developers" className="transition hover:text-[#8A633C]">
-              Developers
             </a>
             <a href="/policy" className="transition hover:text-[#8A633C]">
               Privacy Policy

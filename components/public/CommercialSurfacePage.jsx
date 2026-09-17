@@ -586,14 +586,14 @@ const RELATED = {
     ],
   ],
   pricing: [
-    ["Commerce", "/commerce", "Create transaction-driven revenue."],
-    ["Compute", "/compute", "Turn infrastructure into usage economics."],
-    ["Marketplace", "/ecosystem", "Add platform commission and settlement."],
+    ["Commerce", "/commerce", "Connect selling and settlement to the Business OS."],
+    ["Enterprise", "/enterprise", "Package larger operating scope and governance."],
+    ["Services", "/services", "Add implementation, migration and optimization."],
   ],
   integrations: [
     ["Channels", "/channels", "Bring connected services into every surface."],
     ["Commerce", "/commerce", "Connect providers to revenue flows."],
-    ["Developers", "/developers", "Expose integrations through governed APIs."],
+    ["Solutions", "/solutions", "Connect provider capability to the business workflow."],
   ],
   partners: [
     ["Services", "/services", "Package repeatable implementation work."],
@@ -602,11 +602,11 @@ const RELATED = {
   ],
   agents: [
     ["Insights", "/insights", "Turn evidence into higher-value decisions."],
-    ["Developers", "/developers", "Expose governed agent capabilities."],
+    ["Services", "/services", "Design and implement governed automation well."],
     [
-      "Marketplace",
-      "/ecosystem",
-      "Package specialist agents for distribution.",
+      "Integrations",
+      "/integrations",
+      "Connect agents to approved business services.",
     ],
   ],
   commerce: [
@@ -629,7 +629,7 @@ const RELATED = {
       "/creative-studios",
       "Produce the content those surfaces need.",
     ],
-    ["Developers", "/developers", "Embed Avantiqo into external experiences."],
+    ["Solutions", "/solutions", "Use channels inside focused industry products."],
   ],
   enterprise: [
     ["Insights", "/insights", "Add portfolio intelligence and exceptions."],
@@ -669,32 +669,34 @@ const RELATED = {
 };
 
 export default function CommercialSurfacePage({ config }) {
+  const audience = config.audience || (config.art === "compute" ? "compute" : config.art === "marketplace" ? "platform" : "business");
+  const headerLinks = audience === "compute"
+    ? [
+        { label: "Compute", href: "/compute" },
+        { label: "API Platform", href: "/api-platform" },
+        { label: "Developers", href: "/developers" },
+        { label: "Pricing", href: "/pricing" },
+      ]
+    : [
+        { label: "Solutions", href: "/solutions" },
+        { label: "Enterprise", href: "/enterprise" },
+        { label: "Services", href: "/services" },
+        { label: "Pricing", href: "/pricing" },
+      ];
+  const showCommercialModel = ["pricing", "compute", "marketplace", "partners"].includes(config.art);
+  const secondaryCta = audience === "compute"
+    ? ["API Platform", "/api-platform"]
+    : config.art === "partners"
+      ? ["Explore Solutions", "/solutions"]
+      : config.art === "marketplace"
+        ? ["Partner network", "/partners"]
+        : ["Explore Business OS", "/"];
   return (
     <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
       <PublicSiteHeader
         context={config.context}
-        links={[
-          {
-            label: "Solutions",
-            href: "/solutions",
-            visibility: "hidden lg:inline-flex",
-          },
-          {
-            label: "Commerce",
-            href: "/commerce",
-            visibility: "hidden lg:inline-flex",
-          },
-          {
-            label: "Channels",
-            href: "/channels",
-            visibility: "hidden xl:inline-flex",
-          },
-          {
-            label: "Developers",
-            href: "/developers",
-            visibility: "hidden xl:inline-flex",
-          },
-        ]}
+        audience={audience}
+        links={headerLinks}
       />
       <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F4F0E8]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(214,166,106,.13),transparent_31%)]" />
@@ -770,11 +772,12 @@ export default function CommercialSurfacePage({ config }) {
           </div>
         </div>
       </section>
+      {showCommercialModel ? (
       <section className="border-b border-white/[0.06] bg-[#171716] text-white">
         <div className="mx-auto grid max-w-[1320px] gap-12 px-5 py-20 sm:px-7 lg:grid-cols-[.72fr_1.28fr] lg:px-10 lg:py-24">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">
-              Revenue architecture
+              Commercial model
             </p>
             <h2 className="mt-3 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[48px]">
               {config.moneyTitle}
@@ -803,6 +806,7 @@ export default function CommercialSurfacePage({ config }) {
           </div>
         </div>
       </section>
+      ) : null}
       <section className="border-b border-black/[0.06] bg-[#FBFAF8]">
         <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -864,10 +868,10 @@ export default function CommercialSurfacePage({ config }) {
               <Arrow className="h-3.5 w-3.5" />
             </a>
             <a
-              href="/developers"
+              href={secondaryCta[1]}
               className="inline-flex h-11 items-center rounded-xl border border-black/[0.09] bg-white px-5 text-[11px] font-semibold text-[#56514A]"
             >
-              Developer platform
+              {secondaryCta[0]}
             </a>
           </div>
         </div>

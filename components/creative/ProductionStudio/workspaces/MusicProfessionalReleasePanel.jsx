@@ -89,6 +89,18 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
     finally { setBusy(false); }
   }
 
+  async function repairPremasterListening() {
+    if (!state?.premaster_listening_repair?.actions?.length) return;
+    setBusy(true); setError("");
+    try {
+      const result = await request({ action: "repair_premaster_listening", organization_id: organizationId, creative_project_id: projectId, source_asset_id: state?.source_asset_id });
+      setState((current) => ({ ...current, ...result, active: true, source_title: current?.source_title }));
+      await refresh();
+      onOpen?.("workstation");
+    } catch (cause) { setError(cause?.message || "Listening repair failed"); }
+    finally { setBusy(false); }
+  }
+
   async function continueStage() {
     const stage = text(next?.stage_id);
     if (!stage) return;
@@ -161,6 +173,13 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
           </div> : null}
         </div>
         {vocalStage && vocalCandidate ? <div className="mt-3 rounded-lg border border-emerald-300/12 bg-emerald-300/[0.035] px-3 py-2 text-[9px] leading-4 text-emerald-100/60">Corrected vocal ready: {vocalCandidate.title}. Listen in Vocal Studio before approving it for the commercial mix.</div> : null}
+        {stageId === "PREMASTER_LISTENING" && state?.premaster_listening_repair?.actions?.length ? <div className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.04] p-3">
+          <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-amber-100/65">Listening review found mix changes</div>
+          <div className="mt-2 space-y-1">{state.premaster_listening_repair.actions.map((action) => <div key={action.code} className="text-[8px] leading-4 text-white/38"><span className="text-amber-100/60">{customerStage(action.code)}</span> — {action.instruction}</div>)}</div>
+          {state.premaster_listening_repair.unsupported?.length ? <div className="mt-2 text-[7px] leading-3 text-white/20">{state.premaster_listening_repair.unsupported.length} reviewer note(s) remain listening-only because Avantiqo has no safe automatic mapping for them.</div> : null}
+          <div className="mt-2 text-[8px] leading-4 text-white/24">Only supported bounded mix corrections can be applied. This creates a new revision, invalidates the current pre-master, and requires a fresh render, technical quality check, and listening review.</div>
+          <button type="button" disabled={busy} onClick={repairPremasterListening} className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-amber-300/25 bg-amber-300/[0.08] px-3 py-2 text-[10px] font-semibold text-amber-100/80 disabled:opacity-50">{busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <SlidersHorizontal className="h-3 w-3" />}Apply listening repair</button>
+        </div> : null}
         {stageId === "PREMASTER_QC" && state?.premaster_repair?.repair_targets?.length ? <div className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.04] p-3">
           <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-amber-100/65">Combined pre-master needs repair</div>
           <div className="mt-2 space-y-1">{state.premaster_repair.repair_targets.map((repair) => <div key={repair.code} className="text-[8px] leading-4 text-white/38"><span className="text-amber-100/60">{customerStage(repair.code)}</span> — {repair.reason}</div>)}</div>

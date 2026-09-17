@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 import { loadMusicConversationState } from "@/lib/creative/music/runtime/CreativeMusicConversationStateRuntime.js";
 import { continueMusicProfessionalProduction } from "@/lib/creative/music/runtime/CreativeMusicProfessionalContinuationRuntime.js";
-import { applyProfessionalPremasterRepair } from "@/lib/creative/music/runtime/CreativeMusicProfessionalMixRuntime.js";
+import { applyProfessionalPremasterRepair, applyProfessionalPremasterListeningRepair } from "@/lib/creative/music/runtime/CreativeMusicProfessionalMixRuntime.js";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 const PERMISSIONS = Object.freeze(["creative.execute", "creative.production.run", "creative.*"]);
@@ -70,7 +70,7 @@ async function status(body) {
     started_at: stemPending.started_at || null,
     last_checked_at: stemPending.last_checked_at || null,
   } : null;
-  return { success: true, active: true, source_asset_id: source.id, source_title: source.title || source.name || source.file_name || "Music production", ...result, premaster_repair: source.metadata?.professional_premaster_qc?.passed===false ? { repair_targets: source.metadata?.professional_premaster_qc?.repair_targets || [], signal_review: source.metadata?.professional_premaster_qc?.signal_review || null, bus_decision: source.metadata?.professional_premaster_qc?.bus_decision || null } : null, pending_execution: pendingExecution, vocal_review_candidate: candidate ? { id: candidate.id, title: candidate.title || candidate.name || candidate.file_name || "Corrected vocal", human_listening_review_required: true } : null, publication_authorized: false };
+  return { success: true, active: true, source_asset_id: source.id, source_title: source.title || source.name || source.file_name || "Music production", ...result, premaster_repair: source.metadata?.professional_premaster_qc?.passed===false ? { repair_targets: source.metadata?.professional_premaster_qc?.repair_targets || [], signal_review: source.metadata?.professional_premaster_qc?.signal_review || null, bus_decision: source.metadata?.professional_premaster_qc?.bus_decision || null } : null, premaster_listening_repair: source.metadata?.professional_premaster_listening?.passed===false ? source.metadata?.professional_premaster_listening?.repair_plan || null : null, pending_execution: pendingExecution, vocal_review_candidate: candidate ? { id: candidate.id, title: candidate.title || candidate.name || candidate.file_name || "Corrected vocal", human_listening_review_required: true } : null, publication_authorized: false };
 }
 
 async function continueStage(body) {
@@ -125,6 +125,14 @@ async function certifyVocal(body, access) {
 }
 
 
+async function repairPremasterListening(body){
+  const organizationId=text(body.organization_id), projectId=text(body.creative_project_id);
+  const source=await resolveSource(organizationId,projectId,text(body.source_asset_id));
+  if(!source) throw new Error("CREATIVE_MUSIC_PRO_RELEASE_SOURCE_REQUIRED");
+  const repair=await applyProfessionalPremasterListeningRepair({organization_id:organizationId,creative_project_id:projectId,source_asset_id:source.id});
+  return {success:true,active:true,source_asset_id:source.id,repair,publication_authorized:false};
+}
+
 async function repairPremaster(body){
   const organizationId=text(body.organization_id), projectId=text(body.creative_project_id);
   const source=await resolveSource(organizationId,projectId,text(body.source_asset_id));
@@ -140,7 +148,7 @@ export async function POST(request) {
     if (!organizationId || !projectId) return NextResponse.json({ success: false, error: "organization_id and creative_project_id required" }, { status: 400 });
     const access = await requireAccess(request, organizationId);
     const action = text(body.action || "status").toLowerCase();
-    const result = action === "status" ? await status(body) : action === "poll_pending" ? await pollPendingStage(body) : action === "continue" ? await continueStage(body) : action === "certify_vocal" ? await certifyVocal(body, access) : action === "repair_premaster" ? await repairPremaster(body) : null;
+    const result = action === "status" ? await status(body) : action === "poll_pending" ? await pollPendingStage(body) : action === "continue" ? await continueStage(body) : action === "certify_vocal" ? await certifyVocal(body, access) : action === "repair_premaster" ? await repairPremaster(body) : action === "repair_premaster_listening" ? await repairPremasterListening(body) : null;
     if (!result) return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_PRO_RELEASE_ACTION_INVALID" }, { status: 400 });
     return NextResponse.json(result, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {

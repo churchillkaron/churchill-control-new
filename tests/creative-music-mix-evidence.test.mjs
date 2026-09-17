@@ -32,7 +32,7 @@ test("measured evidence changes vocal and bass decisions conservatively",()=>{
   ]});
   const vocal=plan.track_decisions.find(x=>x.track_id==="v");
   const bass=plan.track_decisions.find(x=>x.track_id==="b");
-  assert.equal(vocal.channel_strip.compressor.ratio,2.2);
+  assert.equal(vocal.channel_strip.compressor.ratio,2);
   assert.equal(vocal.channel_strip.presence_db,0.5);
   assert.equal(vocal.channel_strip.high_shelf_db,0.25);
   assert.equal(bass.channel_strip.low_shelf_db,0);

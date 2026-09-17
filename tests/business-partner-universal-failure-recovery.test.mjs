@@ -7,6 +7,7 @@ import { classifyOperatorFailureRecovery } from "../lib/operator/runtime/Operato
 const turn = fs.readFileSync("lib/operator/runtime/OperatorTurnRuntime.js", "utf8");
 const core = fs.readFileSync("lib/operator/runtime/OperatorTurnRuntimeCore.js", "utf8");
 const repair = fs.readFileSync("lib/operator/runtime/OperatorRepairSupervisionRuntime.js", "utf8");
+const synthetic = fs.readFileSync("lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js", "utf8");
 
 function failed({ code = "RUNTIME_FAILURE", status = null, reason = "OPERATOR_DELEGATED_EXECUTION_FAILED" } = {}) {
   return { execution: { status: "failed", reason, failure_evidence: { error_code: code, status_code: status } } };
@@ -60,6 +61,15 @@ test("verification failure remains read-repair first and never becomes automatic
   const classified = classifyOperatorFailureRecovery(result);
   assert.equal(classified.classification, "VERIFICATION_ONLY");
   assert.equal(classified.code_engineering_candidate, false);
+});
+
+test("Business Partner surfaces semantic recovery strategy without granting authority", () => {
+  assert.match(synthetic, /semanticRecoveryMessage/);
+  assert.match(synthetic, /REPLAN_WITH_CRITIQUE/);
+  assert.match(synthetic, /INVESTIGATE_BUSINESS_EFFECT/);
+  assert.match(synthetic, /INVESTIGATE_CAPABILITY_IMPLEMENTATION/);
+  assert.match(synthetic, /REPAIR_PREREQUISITE/);
+  assert.match(synthetic, /recovery_strategy_authority_effect: "NONE"/);
 });
 
 test("owned repair Intelligence receives the deterministic routing guard", () => {

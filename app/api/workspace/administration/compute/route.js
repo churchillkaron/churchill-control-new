@@ -116,7 +116,7 @@ export async function GET(request) {
     }
 
     const modalSince = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
-    const [nodesResult, jobsResult, modalTelemetry] = await Promise.all([
+    const [nodesResult, jobsResult, modalTelemetry, learningResult] = await Promise.all([
       supabaseAdmin.from("avantiqo_local_compute_nodes")
         .select("id,display_name,enabled,capabilities,last_seen_at,metadata,created_at,updated_at")
         .order("created_at", { ascending: true }),
@@ -126,9 +126,14 @@ export async function GET(request) {
         .order("created_at", { ascending: false })
         .limit(100),
       loadModalTelemetry({ organizationId: access.organizationId, since: modalSince }),
+      supabaseAdmin.from("avantiqo_local_learning_evaluations")
+        .select("id,node_id,agenda_id,agenda_updated_at,contract,topic_key,knowledge_domain,evaluated_at", { count: "exact" })
+        .order("evaluated_at", { ascending: false })
+        .limit(20),
     ]);
     if (nodesResult.error) throw nodesResult.error;
     if (jobsResult.error) throw jobsResult.error;
+    if (learningResult.error) throw learningResult.error;
     const modalSummary = modalTelemetry.summary || {};
 
     const nodes = (nodesResult.data || []).map((node) => {
@@ -149,6 +154,12 @@ export async function GET(request) {
       product_area: productArea({ workload: job.workload, capability: job.capability, usageId: job.usage_id }),
       result: undefined,
     }));
+    const learningEvaluations = (learningResult.data || []).map((row) => ({
+      id: row.id, node_id: row.node_id, agenda_id: row.agenda_id, agenda_updated_at: row.agenda_updated_at,
+      contract: row.contract, topic_key: text(row.topic_key) || null, knowledge_domain: text(row.knowledge_domain) || null, evaluated_at: row.evaluated_at,
+      promotion_authorized: false, mutation_authority: false,
+    }));
+    const latestLearningEvaluation = learningEvaluations[0] || null;
     const modalUsage = (modalTelemetry.rows || []).map((row) => {
       const requestPath = text(row.provider_request_id).split(":")[0] || "modal";
       return {
@@ -266,7 +277,12 @@ export async function GET(request) {
         active_model: activeJob?.runtime_model || activeJob?.model || null,
         scheduler_policy: "RESOURCE_AWARE_PRIORITY_V1",
         idle_learning_window: "01:00-06:00 local node time",
+        idle_learning_queue_preemptive: false,
         idle_learning_promotion_authorized: false,
+        idle_learning_receipts_total: Number(learningResult.count || 0),
+        idle_learning_last_evaluated_at: latestLearningEvaluation?.evaluated_at || null,
+        idle_learning_last_topic: latestLearningEvaluation?.topic_key || null,
+        idle_learning_last_domain: latestLearningEvaluation?.knowledge_domain || null,
         estimated_avoided_supplier_cost_30d: Math.round(estimatedAvoidedSupplierCost * 1000000) / 1000000,
         estimated_avoided_supplier_cost_currency: text(modalSummary.currency) || "THB",
         estimated_avoided_supplier_cost_comparable_jobs: comparableLocalJobs,
@@ -275,6 +291,7 @@ export async function GET(request) {
       nodes,
       jobs,
       modal_usage: modalUsage,
+      learning_evaluations: learningEvaluations,
       local_candidate_matrix: candidateMatrix,
     });
   } catch (error) {

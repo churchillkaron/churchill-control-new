@@ -121,6 +121,14 @@ function ReadLearningCandidate {
   return $candidate
 }
 
+function RecordLearningEvaluation($Candidate, $Evaluation) {
+  return Rpc 'record_avantiqo_local_learning_evaluation' @{
+    p_node_id=$NodeId; p_node_token=(NodeToken); p_agenda_id=[string]$Candidate.agenda_id;
+    p_agenda_updated_at=[string]$Candidate.agenda_updated_at; p_contract='AVANTIQO_NODE01_IDLE_LEARNING_EVAL_V2';
+    p_topic_key=[string]$Candidate.topic_key; p_knowledge_domain=[string]$Candidate.knowledge_domain; p_evaluation=$Evaluation
+  }
+}
+
 function RunIdleLearningEvaluation {
   if ($Lane -ne 'gpu') { return }
   $now = Get-Date
@@ -160,13 +168,15 @@ Return exactly these keys: status, research_questions, evidence_needed, risk_fla
     }
     $record=@{
       at=$now.ToString('o'); model=$Model; contract='AVANTIQO_NODE01_IDLE_LEARNING_EVAL_V2';
-      source_contract=[string]$candidate.contract; agenda_id=[string]$candidate.agenda_id; memory_key=[string]$candidate.memory_key;
+      source_contract=[string]$candidate.contract; agenda_id=[string]$candidate.agenda_id; agenda_updated_at=[string]$candidate.agenda_updated_at; memory_key=[string]$candidate.memory_key;
       topic_key=[string]$candidate.topic_key; knowledge_domain=[string]$candidate.knowledge_domain; jurisdiction=[string]$candidate.jurisdiction; importance=$candidate.importance;
       cursor=$script:LearningCursor; evaluation=$parsed; customer_private_content_included=$false;
       mutation_authority=$false; promotion_authorized=$false; model_training_performed=$false
     } | ConvertTo-Json -Depth 16 -Compress
+    $receipt = RecordLearningEvaluation $candidate $parsed
+    if ($receipt.recorded -ne $true) { throw 'AVANTIQO_LOCAL_LEARNING_RECEIPT_NOT_RECORDED' }
     Add-Content -Path 'C:\ProgramData\Avantiqo\idle-learning-evaluations.jsonl' -Value $record
-    $script:LearningCursor += 1
+    $script:LearningCursor = 0
     $script:LastIdleLearningAt=$now
   } catch {}
 }
@@ -534,7 +544,6 @@ $lastHeartbeat = [DateTime]::MinValue
 while ($true) {
   try {
     if (((Get-Date) - $lastHeartbeat).TotalSeconds -ge 30) { Heartbeat; $lastHeartbeat = Get-Date }
-    if ($Lane -eq 'gpu') { RunIdleLearningEvaluation }
     $jobs = ClaimJobs
     foreach ($job in $jobs) {
       $profile = ResourceProfile $job
@@ -553,7 +562,7 @@ while ($true) {
         FailJob $job (('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Substring(0,[Math]::Min(480,('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Length))) $true
       }
     }
-    if ($Lane -eq 'gpu' -and $jobs.Count -eq 0) { WarmQwenIfIdle }
+    if ($Lane -eq 'gpu' -and $jobs.Count -eq 0) { RunIdleLearningEvaluation; WarmQwenIfIdle }
   } catch {
     Start-Sleep -Seconds 5
   }

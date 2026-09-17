@@ -3,6 +3,7 @@ import { reconcileAvantiqoGeneralIntelligenceCurriculum } from "@/lib/intelligen
 import { runAvantiqoNightlyLearningSynthesis } from "@/lib/intelligence/runtime/AvantiqoNightlyLearningSynthesisRuntime";
 import { runAvantiqoGeneralIntelligenceExam } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceExamRuntime";
 import { runAvantiqoGeneralIntelligenceRetention } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceRetentionRuntime";
+import { runAvantiqoGeneralIntelligenceTransferPractice } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceTransferPracticeRuntime";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -450,6 +451,7 @@ async function handleCronGet(request) {
       topicKey: nightlyLocalSynthesis?.status === "COMPLETED" ? nightlyLocalSynthesis.topic_key : null,
     });
     const generalIntelligenceRetention = await runAvantiqoGeneralIntelligenceRetention();
+    const generalIntelligenceTransferPractice = await runAvantiqoGeneralIntelligenceTransferPractice();
 
     return Response.json(
       {
@@ -458,6 +460,7 @@ async function handleCronGet(request) {
         nightly_local_4b_synthesis: nightlyLocalSynthesis,
         general_intelligence_exam: generalIntelligenceExam,
         general_intelligence_retention: generalIntelligenceRetention,
+        general_intelligence_transfer_practice: generalIntelligenceTransferPractice,
         post_research_learning_evidence_candidate_bridge: postResearchEvidenceCandidateBridge,
         post_research_mechanism_first_learning: postResearchMechanismFirstLearning,
         internal_product_knowledge: internalProductKnowledge,

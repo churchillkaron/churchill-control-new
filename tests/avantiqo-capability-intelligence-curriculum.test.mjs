@@ -13,7 +13,7 @@ test("capability intelligence follows the live operator catalog", () => {
 });
 
 test("capability coverage combines semantics knowledge outcomes and verification", () => {
-  assert.match(runtime, /catalogScore \* 0\.3 \+ knowledgeScore \* 0\.3 \+ outcomeScore \* 0\.25 \+ verificationScore \* 0\.15/);
+  assert.match(runtime, /catalogScore \* 0\.22 \+ knowledgeScore \* 0\.23 \+ outcomeScore \* 0\.2 \+ verificationScore \* 0\.15 \+ competenceScore \* 0\.2/);
   assert.match(runtime, /EXACT_CAPABILITY_KNOWLEDGE_THIN/);
   assert.match(runtime, /VERIFIED_OUTCOME_EXPERIENCE_THIN/);
   assert.match(runtime, /VERIFICATION_CONTRACT_MISSING/);

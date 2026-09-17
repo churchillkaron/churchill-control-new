@@ -1,6 +1,7 @@
 import { runCronRouteLocalFirst } from "@/lib/platform/service-runtime/policy/CronRouteComputePolicyRuntime";
 import { reconcileAvantiqoGeneralIntelligenceCurriculum } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceCurriculumRuntime";
 import { reconcileAvantiqoCapabilityIntelligenceCurriculum } from "@/lib/intelligence/runtime/AvantiqoCapabilityIntelligenceCurriculumRuntime";
+import { runAvantiqoCapabilityCompetenceExam } from "@/lib/intelligence/runtime/AvantiqoCapabilityCompetenceExamRuntime";
 import { runAvantiqoNightlyLearningSynthesis } from "@/lib/intelligence/runtime/AvantiqoNightlyLearningSynthesisRuntime";
 import { runAvantiqoGeneralIntelligenceExam } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceExamRuntime";
 import { runAvantiqoGeneralIntelligenceRetention } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceRetentionRuntime";
@@ -457,6 +458,7 @@ async function handleCronGet(request) {
       topicKey: nightlyLocalSynthesis?.status === "COMPLETED" ? nightlyLocalSynthesis.topic_key : null,
     });
     const generalIntelligenceRetention = await runAvantiqoGeneralIntelligenceRetention();
+    const capabilityCompetenceExam = await runAvantiqoCapabilityCompetenceExam();
     const generalIntelligenceTransferPractice = await runAvantiqoGeneralIntelligenceTransferPractice();
     const generalIntelligenceMasteryEvidence = await reconcileAvantiqoGeneralIntelligenceMasteryEvidence();
     const generalIntelligenceTrainingCandidates = await seedAvantiqoGeneralIntelligenceTrainingCandidates();
@@ -471,6 +473,7 @@ async function handleCronGet(request) {
         nightly_local_4b_synthesis: nightlyLocalSynthesis,
         general_intelligence_exam: generalIntelligenceExam,
         general_intelligence_retention: generalIntelligenceRetention,
+        capability_competence_exam: capabilityCompetenceExam,
         general_intelligence_transfer_practice: generalIntelligenceTransferPractice,
         general_intelligence_mastery_evidence: generalIntelligenceMasteryEvidence,
         general_intelligence_training_candidates: generalIntelligenceTrainingCandidates,

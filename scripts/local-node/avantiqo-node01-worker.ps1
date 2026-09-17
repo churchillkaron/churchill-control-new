@@ -34,9 +34,9 @@ $NightLearningEndHour = 6
 $script:LastGpuWorkAt = Get-Date
 $script:LastIdleLearningAt = [datetime]::MinValue
 $script:LearningCursor = 0
-$AllCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech','ai.sfx.generate')
-$GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
-$CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process','ai.sfx.generate')
+$AllCapabilities = @('ai.text.generate','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','document.ocr','document.classify','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech','ai.sfx.generate')
+$GpuCapabilities = @('ai.text.generate','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','document.ocr','document.classify','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
+$CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process','ai.music.generate','ai.sfx.generate')
 $Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } else { $AllCapabilities })
 if ($Lane -eq 'cpu') {
   try { (Get-Process -Id $PID).PriorityClass = 'BelowNormal' } catch {}
@@ -90,6 +90,8 @@ function Heartbeat {
 function ResourceProfile($Job) {
   $workload = [string]$Job.workload
   if ($workload -eq 'intelligence_text') { return @{ class='interactive_gpu'; gpu_vram_mb=3900; cpu_weight='light'; exclusive_gpu=$false; product='Business Partner / Intelligence' } }
+  if ($workload -eq 'code_text') { return @{ class='interactive_gpu'; gpu_vram_mb=3900; cpu_weight='light'; exclusive_gpu=$false; product='Developer / Code'; mode='LOCAL_QWEN4B_FIRST' } }
+  if ($workload -eq 'document_vision') { return @{ class='gpu_specialist'; gpu_vram_mb=4200; cpu_weight='medium'; exclusive_gpu=$true; product='Documents / OCR'; mode='QWEN25VL_3B_LOCAL_FIRST' } }
   if ($workload -eq 'voice_stt') { return @{ class='interactive_gpu'; gpu_vram_mb=5900; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / STT' } }
   if ($workload -eq 'image_upscale') { return @{ class='gpu_specialist'; gpu_vram_mb=1200; cpu_weight='light'; exclusive_gpu=$true; product='Image Studio' } }
   if ($workload -eq 'music_separator') { return @{ class='gpu_specialist'; gpu_vram_mb=3800; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
@@ -97,6 +99,7 @@ function ResourceProfile($Job) {
   if ($workload -eq 'voice_tts') { return @{ class='background_gpu'; gpu_vram_mb=6100; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / TTS'; mode='LOCAL_GPU_FIRST_MODAL_FALLBACK' } }
   if ($workload -eq 'media_ffmpeg') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Video / Media' } }
   if ($workload -eq 'music_elastic') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Music / Audio' } }
+  if ($workload -eq 'music_generation') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Music / Generation'; mode='ACE_STEP_CPU_FLOAT32' } }
   if ($workload -eq 'sfx_generate') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Music / SFX'; mode='OPENMOSS_GGML_CPU_V1' } }
   return @{ class='local_other'; gpu_vram_mb=0; cpu_weight='light'; exclusive_gpu=$false; product='Platform / Other' }
 }
@@ -538,6 +541,50 @@ function RunElasticJob($Job) {
 }
 
 
+function RunMusicGenerationJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_MUSIC_GENERATION_PAYLOAD_REQUIRED' }
+  $python = 'C:\Avantiqo\ace-step-1.5-local\.venv\Scripts\python.exe'
+  $runner = 'C:\Avantiqo\ace-step-1.5-local\avantiqo_cpu_runner.py'
+  if (-not (Test-Path $python)) { throw 'AVANTIQO_LOCAL_MUSIC_GENERATION_PYTHON_REQUIRED' }
+  if (-not (Test-Path $runner)) { throw 'AVANTIQO_LOCAL_MUSIC_GENERATION_RUNNER_REQUIRED' }
+  $tmp = Join-Path $env:TEMP ("avantiqo-music-generation-" + [string]$Job.id + ".json")
+  $err = Join-Path $env:TEMP ("avantiqo-music-generation-" + [string]$Job.id + ".err")
+  try {
+    [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 60 -Compress), (New-Object System.Text.UTF8Encoding($false)))
+    $started = Get-Date; $previous = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    $output = & $python $runner --input $tmp 2> $err; $exitCode = $LASTEXITCODE; $ErrorActionPreference = $previous
+    $stderr = $(if (Test-Path $err) { ([string](Get-Content $err -Raw)).Trim() } else { '' })
+    if ($exitCode -ne 0) { $tail=$(if($stderr.Length -gt 1800){$stderr.Substring($stderr.Length-1800)}else{$stderr}); throw ('AVANTIQO_LOCAL_MUSIC_GENERATION_PROCESS_FAILED:' + $tail) }
+    $json=(($output | Out-String).Trim()); if(-not $json){ throw 'AVANTIQO_LOCAL_MUSIC_GENERATION_OUTPUT_REQUIRED' }
+    $result=$json | ConvertFrom-Json; $elapsed=[int](((Get-Date)-$started).TotalMilliseconds)
+    $result | Add-Member -NotePropertyName node_id -NotePropertyValue $NodeId -Force
+    CompleteJob $Job $result @{ elapsed_ms=$elapsed; cpu_workload=$true; music_generation=$true; execution_resource='LOCAL_CPU_FLOAT32'; supplier_cost_thb=0 }
+  } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp,$err }
+}
+
+function RunDocumentVisionJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_DOCUMENT_VISION_PAYLOAD_REQUIRED' }
+  $python = 'C:\Avantiqo\Python312\python.exe'
+  $runner = 'C:\Avantiqo\document-vision\local_runner.py'
+  if (-not (Test-Path $python)) { throw 'AVANTIQO_LOCAL_DOCUMENT_VISION_PYTHON_REQUIRED' }
+  if (-not (Test-Path $runner)) { throw 'AVANTIQO_LOCAL_DOCUMENT_VISION_RUNNER_REQUIRED' }
+  $tmp = Join-Path $env:TEMP ("avantiqo-document-vision-" + [string]$Job.id + ".json")
+  $err = Join-Path $env:TEMP ("avantiqo-document-vision-" + [string]$Job.id + ".err")
+  try {
+    [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 60 -Compress), (New-Object System.Text.UTF8Encoding($false)))
+    $started = Get-Date; $previous = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    $output = & $python $runner --input $tmp 2> $err; $exitCode = $LASTEXITCODE; $ErrorActionPreference = $previous
+    $stderr = $(if (Test-Path $err) { ([string](Get-Content $err -Raw)).Trim() } else { '' })
+    if ($exitCode -ne 0) { $tail=$(if($stderr.Length -gt 1600){$stderr.Substring($stderr.Length-1600)}else{$stderr}); throw ('AVANTIQO_LOCAL_DOCUMENT_VISION_PROCESS_FAILED:' + $tail) }
+    $json=(($output | Out-String).Trim()); if(-not $json){ throw 'AVANTIQO_LOCAL_DOCUMENT_VISION_OUTPUT_REQUIRED' }
+    $result=$json | ConvertFrom-Json; $elapsed=[int](((Get-Date)-$started).TotalMilliseconds)
+    $result | Add-Member -NotePropertyName node_id -NotePropertyValue $NodeId -Force
+    CompleteJob $Job $result @{ elapsed_ms=$elapsed; gpu_workload=$true; document_vision=$true; runtime_model='qwen2.5vl:3b'; supplier_cost_thb=0 }
+  } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp,$err }
+}
+
 function RunMediaJob($Job) {
   $payload = $Job.payload
   if (-not $payload) { throw 'AVANTIQO_LOCAL_MEDIA_PAYLOAD_REQUIRED' }
@@ -575,6 +622,9 @@ while ($true) {
       if ($Lane -eq 'gpu') { $script:LastGpuWorkAt = Get-Date }
       try {
         if ([string]$job.capability -eq 'ai.text.generate') { RunTextJob $job }
+        elseif ([string]$job.capability -like 'ai.code.*') { RunTextJob $job }
+        elseif ([string]$job.capability -eq 'document.ocr' -or [string]$job.capability -eq 'document.classify') { RunDocumentVisionJob $job }
+        elseif ([string]$job.capability -eq 'ai.music.generate') { RunMusicGenerationJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.elastic-warp') { RunElasticJob $job }
         elseif ([string]$job.capability -eq 'media.ffmpeg.process') { RunMediaJob $job }
         elseif ([string]$job.capability -eq 'ai.speech.to.text') { RunVoiceSttJob $job }

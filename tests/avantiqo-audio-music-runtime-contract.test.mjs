@@ -98,9 +98,13 @@ test("music worker uses ACE-Step LM reasoning internally without persisting raw 
   assert.match(worker, /DEFAULT_CERTIFIED_CAPABILITIES = \{"ai\.music\.generate"\}/);
 });
 
-test("Audio registration exposes Modal-only execution metadata", () => {
-  assert.match(registration, /modal_only_execution:\s*true/);
+test("Audio registration exposes local CPU first music with Modal fallback", () => {
+  assert.match(registration, /modal_only_execution:\s*false/);
+  assert.match(registration, /local_first:\s*localMusicRuntimeAvailable/);
+  assert.match(registration, /resource:\s*"CPU_FLOAT32"/);
+  assert.match(registration, /use_lm:\s*false/);
   assert.match(registration, /modal_gateway_required:\s*false/);
   assert.match(registration, /MODAL_DIRECT_A10G_ASYNC_V1/);
+  assert.match(provider, /AvantiqoMusicGenerationLocalQueueProvider/);
   assert.doesNotMatch(provider, /RUNPOD|SAFE_LEASE/);
 });

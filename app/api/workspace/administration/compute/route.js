@@ -264,8 +264,9 @@ export async function GET(request) {
       { product: "Music / Audio", capability: "ai.audio.vocal-correct", model: "torchcrepe-full", status: "CERTIFIED_LOCAL", resource: "GPU" },
       { product: "Video / Media", capability: "media.ffmpeg.process", model: "ffmpeg-9.0.1", status: "CERTIFIED_LOCAL", resource: "CPU" },
       { product: "Music / Audio", capability: "ai.audio.elastic-warp", model: "signalsmith-stretch", status: "CERTIFIED_LOCAL", resource: "CPU" },
-      { product: "Music generation", capability: "ai.music.generate", model: "ACE-Step/Ace-Step1.5 · XL Turbo + 1.7B LM", status: "MODAL_KEEP_EXACT_MODEL_EXCEEDS_VRAM", resource: "GPU" },
-      { product: "Documents / OCR", capability: "vision.ocr", model: "qwen2.5-vl-7b", status: "MODAL_KEEP_EXACT_MODEL_TOO_LARGE", resource: "GPU" },
+      { product: "Music generation", capability: "ai.music.generate", model: "ACE-Step/Ace-Step1.5 · local CPU float32 · 8 steps", status: "CERTIFIED_LOCAL", resource: "CPU" },
+      { product: "Documents / OCR", capability: "document.ocr", model: "qwen2.5vl:3b Q4_K_M", status: "CERTIFIED_LOCAL", resource: "GPU" },
+      { product: "Developer / Code", capability: "ai.code.generate", model: "qwen3:4b-instruct", status: "CERTIFIED_LOCAL", resource: "GPU" },
       { product: "Image / Video generation", capability: "generation", model: "specialist production models", status: "MODAL_KEEP_SPECIALIST_GPU", resource: "GPU" },
     ];
 
@@ -281,6 +282,10 @@ export async function GET(request) {
         deep_creative_reasoning: "MODAL_HEAVY_ONLY_WHEN_REQUIRED",
         media_dsp: "LOCAL_CPU_FIRST",
         music_gpu: "LOCAL_GPU_DEMUCS_TORCHCREPE_FIRST",
+        music_generation: "LOCAL_CPU_ACE_STEP_FLOAT32_FIRST_MODAL_FALLBACK",
+        document_ocr: "LOCAL_GPU_QWEN25VL_3B_FIRST_MODAL_FALLBACK",
+        normal_code: "LOCAL_GPU_QWEN4B_FIRST_MODAL_FALLBACK",
+        hard_code_invent: "MODAL_H100",
         image_upscale: "LOCAL_GPU_SWIN2SR_FIRST",
         voice_stt: "LOCAL_GPU_WHISPER_LARGE_V3_TURBO_FIRST",
         voice_tts: "LOCAL_GPU_FIRST_MODAL_FALLBACK",

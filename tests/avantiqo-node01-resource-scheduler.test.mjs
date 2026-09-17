@@ -26,7 +26,7 @@ test("Node 01 has resource-aware scheduling and governed idle learning",()=>{
 });
 test("compute telemetry exposes scheduler and candidate decisions",()=>{
   assert.match(api,/RESOURCE_AWARE_PRIORITY_V1/); assert.match(api,/local_compute_hours_today/); assert.match(api,/local_candidate_matrix/);
-  assert.match(api,/MODAL_KEEP_EXACT_MODEL_TOO_LARGE/); assert.match(api,/MODAL_KEEP_SPECIALIST_GPU/); assert.match(api,/MODAL_KEEP_EXACT_MODEL_EXCEEDS_VRAM/); assert.match(api,/estimated_avoided_supplier_cost_30d/); assert.match(api,/modal_fallback_calls_for_local_capabilities_30d/);
+  assert.match(api,/qwen2\.5vl:3b/); assert.match(api,/LOCAL_CPU_ACE_STEP_FLOAT32_FIRST_MODAL_FALLBACK/); assert.match(api,/LOCAL_GPU_QWEN4B_FIRST_MODAL_FALLBACK/); assert.match(api,/MODAL_KEEP_SPECIALIST_GPU/); assert.match(api,/estimated_avoided_supplier_cost_30d/); assert.match(api,/modal_fallback_calls_for_local_capabilities_30d/);
   assert.match(page,/Resource-aware priority/); assert.match(page,/Qwen warm while idle/); assert.match(page,/Night learning/); assert.match(page,/Local candidate matrix/);
 });
 

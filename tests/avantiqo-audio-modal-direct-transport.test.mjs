@@ -51,9 +51,11 @@ test("shared Modal transport preserves Avantiqo control-plane ownership", () => 
   assert.match(sharedModal, /organizationServiceId/);
 });
 
-test("Audio has no silent RunPod fallback after Modal-direct migration", () => {
+test("Audio uses Node 01 first and keeps governed Modal fallback with no RunPod", () => {
   assert.doesNotMatch(provider, /RUNPOD|SAFE_LEASE/);
-  assert.match(registration, /modal_only_execution:\s*true/);
-  assert.match(registration, /infrastructure_candidates:\s*\["MODAL_DIRECT_A10G_ASYNC_V1"\]/);
+  assert.match(registration, /modal_only_execution:\s*false/);
+  assert.match(registration, /AVANTIQO_LOCAL_NODE_V1/);
+  assert.match(registration, /MODAL_DIRECT_A10G_ASYNC_V1/);
+  assert.match(registration, /modal_fallback:\s*true/);
   assert.match(registration, /external_provider_fallback_allowed:\s*false/);
 });

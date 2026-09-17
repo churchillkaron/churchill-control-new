@@ -63,14 +63,15 @@ test("owned Image upscale uses bounded super-resolution and private storage", ()
   assert.match(worker, /AVANTIQO_IMAGE_UPSCALE_RESOURCE_BUDGET_V1/);
 });
 
-test("Image V2 delegates established capabilities and is the container entrypoint", () => {
+test("Image runtime preserves V2 capability implementation while current container uses V9 entrypoint", () => {
   const worker = source("services/avantiqo-image-engine/handler_v2.py");
   const docker = source("services/avantiqo-image-engine/Dockerfile");
 
   assert.match(worker, /return legacy\.handler\(job\)/);
   assert.match(docker, /COPY handler\.py \.\/handler\.py/);
   assert.match(docker, /COPY handler_v2\.py \.\/handler_v2\.py/);
-  assert.match(docker, /CMD \["python", "-u", "handler_v2\.py"\]/);
+  assert.match(docker, /COPY handler_v9\.py \.\/handler_v9\.py/);
+  assert.match(docker, /CMD \["python", "-u", "handler_v9\.py"\]/);
 });
 
 test("owned Image upscale and analysis models are license-gated by exact capability", () => {
@@ -81,7 +82,8 @@ test("owned Image upscale and analysis models are license-gated by exact capabil
   assert.match(policy, /caidas\/swin2SR-realworld-sr-x4-64-bsrgan-psnr/);
   assert.match(policy, /Qwen\/Qwen2\.5-VL-7B-Instruct/);
   assert.match(policy, /capabilities: Object\.freeze\(\["ai\.image\.upscale"\]\)/);
-  assert.match(policy, /capabilities: Object\.freeze\(\["ai\.image\.analyze"\]\)/);
+  assert.match(policy, /"Qwen\/Qwen2\.5-VL-7B-Instruct"[\s\S]*?"ai\.image\.analyze"[\s\S]*?"document\.ocr"[\s\S]*?"document\.classify"/);
+  assert.match(policy, /"qwen2\.5vl:3b"[\s\S]*?"document\.ocr"[\s\S]*?"document\.classify"/);
   assert.match(policy, /license_verified:\s*true/);
   assert.match(policy, /runtime_compatible:\s*true/);
 });

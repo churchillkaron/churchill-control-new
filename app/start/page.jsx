@@ -10,6 +10,7 @@ const PATHS = [
     "ERP & operations",
     "/",
     "Enter Business OS",
+    "/bg-hero-control.jpg",
   ],
   [
     "Creative",
@@ -18,6 +19,7 @@ const PATHS = [
     "Production missions",
     "/creative-studios",
     "Enter Creative Studios",
+    "/art/creative-image.jpg",
   ],
   [
     "Developers",
@@ -26,6 +28,7 @@ const PATHS = [
     "SDKs & tooling",
     "/developers",
     "Enter Developers",
+    "/art/developer-work.jpg",
   ],
   [
     "API",
@@ -34,6 +37,7 @@ const PATHS = [
     "Usage based",
     "/api-platform",
     "Enter API Platform",
+    "/art/commercial-integrations.jpg",
   ],
   [
     "Compute",
@@ -42,6 +46,7 @@ const PATHS = [
     "Infrastructure",
     "/compute",
     "Enter Compute",
+    "/art/commercial-compute.jpg",
   ],
 ];
 
@@ -67,15 +72,7 @@ function Arrow() {
 export default function StartPage() {
   return (
     <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
-      <PublicSiteHeader
-        context="Start"
-        audience="platform"
-        links={[
-          { label: "Solutions", href: "/solutions" },
-          { label: "Pricing", href: "/pricing" },
-          { label: "Developers", href: "/developers" },
-        ]}
-      />
+      <PublicSiteHeader context="Start" audience="platform" />
       <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F4F0E8]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(214,166,106,.14),transparent_30%)]" />
         <div className="relative mx-auto grid max-w-[1540px] lg:min-h-[690px] lg:grid-cols-[43%_57%]">
@@ -154,12 +151,22 @@ export default function StartPage() {
       <section id="paths" className="bg-[#FBFAF8]">
         <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
           <div className="grid gap-3 md:grid-cols-2">
-            {PATHS.map(([title, area, description, status, href, cta], i) => (
+            {PATHS.map(([title, area, description, status, href, cta, image], i) => (
               <a
                 key={area}
                 href={href}
-                className="group rounded-[26px] border border-black/[0.075] bg-white p-6 shadow-[0_14px_45px_rgba(40,30,20,.035)] transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35 sm:p-7"
+                className="group overflow-hidden rounded-[26px] border border-black/[0.075] bg-white shadow-[0_14px_45px_rgba(40,30,20,.035)] transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35"
               >
+                <div className="relative h-[220px] overflow-hidden bg-[#171614]">
+                  <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{ backgroundImage: `url(${image})` }} />
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.03),rgba(0,0,0,.12)_48%,rgba(8,7,6,.72))]" />
+                  <div className="absolute left-5 top-5 rounded-full border border-white/20 bg-black/22 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.16em] text-[#F1C98E] backdrop-blur-xl">AVANTIQO / {area}</div>
+                  <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-5">
+                    <div className="text-[10px] font-medium text-white/74">{status}</div>
+                    <div className="text-[7px] uppercase tracking-[0.16em] text-white/34">Separate workspace</div>
+                  </div>
+                </div>
+                <div className="p-6 sm:p-7">
                 <div className="flex items-start justify-between gap-5">
                   <div>
                     <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-[#A37849]">
@@ -179,6 +186,7 @@ export default function StartPage() {
                 <div className="mt-7 inline-flex items-center gap-2 text-[10px] font-semibold text-[#8A633C]">
                   {cta}
                   <Arrow />
+                </div>
                 </div>
               </a>
             ))}

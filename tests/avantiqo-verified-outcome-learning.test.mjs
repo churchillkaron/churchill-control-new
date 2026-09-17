@@ -36,3 +36,11 @@ test("live verified outcomes are idempotent per persisted assistant turn", () =>
   assert.match(conversation, /persistedTurnId/);
   assert.match(conversation, /sourceTurnId: persistedTurnId/);
 });
+
+test("runtime and model failures do not poison verified capability outcome reliability", () => {
+  assert.match(outcome, /failure\?\.affects_capability_reliability === true/);
+  assert.match(policy, /TRANSPORT_RUNTIME_FAILURE/);
+  assert.match(policy, /MODEL_REASONING_FAILURE/);
+  assert.match(policy, /BUSINESS_OUTCOME_FAILURE/);
+  assert.match(policy, /affects_capability_reliability/);
+});

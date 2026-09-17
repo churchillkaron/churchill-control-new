@@ -62,6 +62,13 @@ function NodeToken {
   return (Get-Content $TokenPath -Raw).Trim()
 }
 
+function ReadTextFileOrEmpty([string]$Path) {
+  if (-not $Path -or -not (Test-Path $Path)) { return '' }
+  $raw = Get-Content $Path -Raw -ErrorAction SilentlyContinue
+  if ($null -eq $raw) { return '' }
+  return ([string]$raw).Trim()
+}
+
 function Heartbeat {
   $gpu = @{}
   try {
@@ -317,7 +324,7 @@ function RunVoiceSttJob($Job) {
     $exitCode = $LASTEXITCODE
     $ErrorActionPreference = $previousErrorActionPreference
     $env:PATH = $previousPath
-    $stderr = $(if (Test-Path $err) { ([string](Get-Content $err -Raw)).Trim() } else { '' })
+    $stderr = ReadTextFileOrEmpty $err
     if ($exitCode -ne 0) { throw ('AVANTIQO_LOCAL_VOICE_STT_PROCESS_FAILED:' + $stderr) }
     $json = (($output | Out-String).Trim())
     if (-not $json) { throw 'AVANTIQO_LOCAL_VOICE_STT_OUTPUT_REQUIRED' }
@@ -352,7 +359,7 @@ function RunImageUpscaleJob($Job) {
     $output = & $python $runner --input $tmp 2> $err
     $exitCode = $LASTEXITCODE
     $ErrorActionPreference = $previousErrorActionPreference
-    $stderr = $(if (Test-Path $err) { ([string](Get-Content $err -Raw)).Trim() } else { '' })
+    $stderr = ReadTextFileOrEmpty $err
     if ($exitCode -ne 0) { [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-image-upscale-error.txt',$stderr); $tail = $(if ($stderr.Length -gt 900) { $stderr.Substring($stderr.Length - 900) } else { $stderr }); throw ('AVANTIQO_LOCAL_IMAGE_UPSCALE_PROCESS_FAILED:' + $tail) }
     $json = (($output | Out-String).Trim()); if (-not $json) { throw 'AVANTIQO_LOCAL_IMAGE_UPSCALE_OUTPUT_REQUIRED' }
     $result = $json | ConvertFrom-Json; $elapsed = [int](((Get-Date) - $started).TotalMilliseconds)
@@ -554,7 +561,7 @@ function RunMusicGenerationJob($Job) {
     [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 60 -Compress), (New-Object System.Text.UTF8Encoding($false)))
     $started = Get-Date; $previous = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     $output = & $python $runner --input $tmp 2> $err; $exitCode = $LASTEXITCODE; $ErrorActionPreference = $previous
-    $stderr = $(if (Test-Path $err) { ([string](Get-Content $err -Raw)).Trim() } else { '' })
+    $stderr = ReadTextFileOrEmpty $err
     if ($exitCode -ne 0) { $tail=$(if($stderr.Length -gt 1800){$stderr.Substring($stderr.Length-1800)}else{$stderr}); throw ('AVANTIQO_LOCAL_MUSIC_GENERATION_PROCESS_FAILED:' + $tail) }
     $json=(($output | Out-String).Trim()); if(-not $json){ throw 'AVANTIQO_LOCAL_MUSIC_GENERATION_OUTPUT_REQUIRED' }
     $result=$json | ConvertFrom-Json; $elapsed=[int](((Get-Date)-$started).TotalMilliseconds)
@@ -573,10 +580,11 @@ function RunDocumentVisionJob($Job) {
   $tmp = Join-Path $env:TEMP ("avantiqo-document-vision-" + [string]$Job.id + ".json")
   $err = Join-Path $env:TEMP ("avantiqo-document-vision-" + [string]$Job.id + ".err")
   try {
+    UnloadOllamaModel
     [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 60 -Compress), (New-Object System.Text.UTF8Encoding($false)))
     $started = Get-Date; $previous = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     $output = & $python $runner --input $tmp 2> $err; $exitCode = $LASTEXITCODE; $ErrorActionPreference = $previous
-    $stderr = $(if (Test-Path $err) { ([string](Get-Content $err -Raw)).Trim() } else { '' })
+    $stderr = ReadTextFileOrEmpty $err
     if ($exitCode -ne 0) { $tail=$(if($stderr.Length -gt 1600){$stderr.Substring($stderr.Length-1600)}else{$stderr}); throw ('AVANTIQO_LOCAL_DOCUMENT_VISION_PROCESS_FAILED:' + $tail) }
     $json=(($output | Out-String).Trim()); if(-not $json){ throw 'AVANTIQO_LOCAL_DOCUMENT_VISION_OUTPUT_REQUIRED' }
     $result=$json | ConvertFrom-Json; $elapsed=[int](((Get-Date)-$started).TotalMilliseconds)

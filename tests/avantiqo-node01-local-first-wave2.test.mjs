@@ -58,3 +58,21 @@ test("local STT follows the same optional kill-switch contract as other local-fi
   assert.match(voiceSttLocal,/text\(process\.env\.AVANTIQO_LOCAL_VOICE_STT_ENABLED\) && !enabled/);
   assert.doesNotMatch(voiceSttLocal,/if \(!enabled\(process\.env\.AVANTIQO_LOCAL_VOICE_STT_ENABLED\)\) return false/);
 });
+
+
+test("document vision releases the resident text model before loading Qwen VL",()=>{
+  const worker=read("scripts/local-node/avantiqo-node01-worker.ps1");
+  const start=worker.indexOf("function RunDocumentVisionJob");
+  const end=worker.indexOf("function RunMediaJob", start);
+  const block=worker.slice(start,end);
+  assert.match(block,/UnloadOllamaModel/);
+  assert.ok(block.indexOf("UnloadOllamaModel") < block.indexOf("local_runner.py") || block.indexOf("UnloadOllamaModel") < block.indexOf("WriteAllText"));
+});
+
+
+test("local worker treats empty stderr files as empty text instead of null failures",()=>{
+  const worker=read("scripts/local-node/avantiqo-node01-worker.ps1");
+  assert.match(worker,/function ReadTextFileOrEmpty/);
+  assert.match(worker,/if \(\$null -eq \$raw\) \{ return '' \}/);
+  assert.doesNotMatch(worker,/\(\[string\]\(Get-Content \$err -Raw\)\)\.Trim\(\)/);
+});

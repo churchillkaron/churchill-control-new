@@ -70,7 +70,7 @@ async function status(body) {
     started_at: stemPending.started_at || null,
     last_checked_at: stemPending.last_checked_at || null,
   } : null;
-  return { success: true, active: true, source_asset_id: source.id, source_title: source.title || source.name || source.file_name || "Music production", ...result, premaster_repair: source.metadata?.professional_premaster_qc?.passed===false ? { repair_targets: source.metadata?.professional_premaster_qc?.repair_targets || [], signal_review: source.metadata?.professional_premaster_qc?.signal_review || null } : null, pending_execution: pendingExecution, vocal_review_candidate: candidate ? { id: candidate.id, title: candidate.title || candidate.name || candidate.file_name || "Corrected vocal", human_listening_review_required: true } : null, publication_authorized: false };
+  return { success: true, active: true, source_asset_id: source.id, source_title: source.title || source.name || source.file_name || "Music production", ...result, premaster_repair: source.metadata?.professional_premaster_qc?.passed===false ? { repair_targets: source.metadata?.professional_premaster_qc?.repair_targets || [], signal_review: source.metadata?.professional_premaster_qc?.signal_review || null, bus_decision: source.metadata?.professional_premaster_qc?.bus_decision || null } : null, pending_execution: pendingExecution, vocal_review_candidate: candidate ? { id: candidate.id, title: candidate.title || candidate.name || candidate.file_name || "Corrected vocal", human_listening_review_required: true } : null, publication_authorized: false };
 }
 
 async function continueStage(body) {

@@ -9,3 +9,11 @@ test("small residual does not open external research",()=>{const p=buildBusiness
 test("material residual opens causal stage without inventing support",()=>{const p=buildBusinessDiagnosisPipeline({metric:"profit"});const r=completeBusinessDiagnosisPipeline({plan:p,baseline_value:100,actual_value:80,driver_rows:[{driver_id:"revenue",direct_contribution:-8}],external_evidence:[{context_id:"weather",evidence_strength:.8,timing_consistent:true,direction_consistent:true,magnitude_plausible:true,confounders_checked:false,alternative_explanations_checked:false}]});assert.equal(r.residual_material,true);assert.equal(r.external_research_allowed,true);assert.deepEqual(r.causal.supported_context_ids,[]);assert.equal(r.final_evidence_state,"INTERNAL_WITH_UNRESOLVED_EXTERNAL_RESIDUAL");});
 
 test("fully supported external evidence is clearly separated from internal proof",()=>{const p=buildBusinessDiagnosisPipeline({metric:"demand"});const r=completeBusinessDiagnosisPipeline({plan:p,baseline_value:100,actual_value:70,driver_rows:[{driver_id:"volume",direct_contribution:-10}],external_evidence:[{context_id:"weather",evidence_strength:.9,timing_consistent:true,direction_consistent:true,magnitude_plausible:true,confounders_checked:true,alternative_explanations_checked:true}]});assert.deepEqual(r.causal.supported_context_ids,["weather"]);assert.equal(r.final_evidence_state,"INTERNAL_AND_SUPPORTED_EXTERNAL");assert.equal(r.authority_effect,"NONE");});
+
+test("comparison bundle preserves ambiguous driver coverage as unresolved",()=>{
+  const plan=buildBusinessDiagnosisPipeline({metric:"staffing"});
+  const comparison_results=[{capability_key:"people.attendance.read",status:"OBSERVATIONS_READY",comparison_pair_fingerprint:"fp",mapped:{driver_rows:[{driver_id:"attendance_reliability",measure_id:"worked_shifts",baseline_value:8,actual_value:9},{driver_id:"attendance_reliability",measure_id:"late_shifts",baseline_value:1,actual_value:3}]}}];
+  const done=completeBusinessDiagnosisPipeline({plan,baseline_value:10,actual_value:12,comparison_results});
+  assert.ok(done.evidence_bundle.ambiguous_driver_ids.includes("attendance_reliability"));
+  assert.equal(done.evidence_bundle.contribution_rows.length,0);
+});

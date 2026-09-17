@@ -110,6 +110,7 @@ test("owned local Qwen pricing is selected before reservation only when local co
   const resolver = source("lib/platform/service-runtime/providers/ProviderResolver.js");
   const catalog = source("lib/platform/service-runtime/providers/AvantiqoOwnedCertificationPolicy.js");
   const migration = source("supabase/migrations/20260917084500_avantiqo_local_qwen4b_zero_pricing.sql");
+  const supplierExempt = source("supabase/migrations/20260917085000_avantiqo_local_qwen4b_supplier_exempt_zero_cost.sql");
   assert.match(execution, /intelligencePricingPolicy/);
   assert.match(execution, /getIntelligenceLocalQueueHealth/);
   assert.match(execution, /getProviderPricing/);
@@ -127,6 +128,9 @@ test("owned local Qwen pricing is selected before reservation only when local co
   assert.match(migration, /MARKET_PARITY_READY/);
   assert.match(migration, /OWNED_INTELLIGENCE_LOCAL_QWEN4B_V1/);
   assert.match(migration, /active, capability/);
+  assert.match(supplierExempt, /supplier_billing_required/);
+  assert.match(supplierExempt, /provider_supplier_account_verification_required/);
+  assert.match(supplierExempt, /active = false/);
 });
 
 

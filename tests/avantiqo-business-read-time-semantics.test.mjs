@@ -1,0 +1,9 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { businessReadTimeSemantics } from "../lib/intelligence/runtime/AvantiqoBusinessReadTimeSemanticsRuntime.js";
+import { buildBusinessPeriodComparisonPlan } from "../lib/intelligence/runtime/AvantiqoBusinessPeriodComparisonPlanRuntime.js";
+
+test("profit loss and trial balance are period comparison safe",()=>{assert.equal(businessReadTimeSemantics("finance.profit_loss.read").comparison_safe,true);assert.equal(businessReadTimeSemantics("finance.trial_balance.read").comparison_safe,true);});
+test("current state reads are not made historical by period id",()=>{for(const key of ["finance.customer_invoices.read","finance.cash_management.read","solutions.hotel_bookings.read","commercial.quotations.read","commercial.customers.read","supply_chain.stock_position.read","supply_chain.inventory_items.read"]){assert.equal(businessReadTimeSemantics(key).comparison_safe,false);}});
+test("attendance month awareness does not pretend period id is sufficient",()=>{const r=businessReadTimeSemantics("people.attendance.read");assert.equal(r.time_semantics,"MONTH_AWARE");assert.equal(r.comparison_safe,false);assert.equal(r.reason,"PERIOD_ID_DOES_NOT_DRIVE_MONTH_SELECTOR");});
+test("comparison plan excludes reads without proven historical semantics",()=>{const p=buildBusinessPeriodComparisonPlan({metric:"profit",baseline_period_id:"p1",current_period_id:"p2",available_reads:[{key:"finance.profit_loss.read"},{key:"finance.customer_invoices.read"},{key:"finance.trial_balance.read"}]});assert.ok(p.read_pairs.every(x=>["finance.profit_loss.read","finance.trial_balance.read"].includes(x.capability_key)));assert.ok(p.excluded_reads.some(x=>x.capability_key==="finance.customer_invoices.read"));assert.equal(p.policy.historical_semantics_must_be_proven_before_pairing,true);});

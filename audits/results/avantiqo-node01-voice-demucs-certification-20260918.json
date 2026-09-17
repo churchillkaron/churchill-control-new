@@ -1,0 +1,44 @@
+{
+  "contract": "AVANTIQO_NODE01_VOICE_DEMUCS_CERTIFICATION_V1",
+  "certified_at": "2026-09-18T01:22:30+07:00",
+  "node_id": "avantiqo-node-01",
+  "infrastructure_provider": "AVANTIQO_LOCAL_NODE_V1",
+  "supplier_cost_thb": 0,
+  "status": "PASS",
+  "voice_tts": {
+    "job_id": "866264cd-945d-4773-8ee7-157fcb1f6293",
+    "status": "COMPLETED",
+    "attempts": 1,
+    "model": "resemble-ai/chatterbox:multilingual-v3",
+    "execution_resource": "LOCAL_GPU",
+    "elapsed_ms": 167106,
+    "generation_seconds": 108.219,
+    "gpu_peak_allocated_bytes": 3330197504,
+    "sample_rate": 24000,
+    "output_size_bytes": 234320,
+    "audio_health_non_silent": true,
+    "storage_reference": "storage://creative-assets/9a148429-b6a0-4bc6-ac83-a35c64fb7045/benchmark/node01-tts/node01-tts-1789669110613.wav"
+  },
+  "demucs_stems": {
+    "job_id": "f6002896-ca41-4b17-aacf-f6a83604a037",
+    "status": "COMPLETED",
+    "attempts": 1,
+    "model": "demucs-htdemucs-ft",
+    "execution_resource": "LOCAL_GPU",
+    "elapsed_ms": 34615,
+    "local_elapsed_seconds": 19.372,
+    "gpu_peak_allocated_bytes": 570209792,
+    "source_duration_seconds": 3,
+    "output_duration_seconds": 3,
+    "stem_names": ["vocals", "drums", "bass", "other"],
+    "backing_track_formats": ["wav", "mp3"]
+  },
+  "production_queue": true,
+  "first_attempt_success": true,
+  "paid_provider_required": false,
+  "notes": [
+    "TTS used the certified Chatterbox multilingual v3 local GPU runtime.",
+    "Demucs produced all four stems plus backing WAV and MP3 through the governed local queue.",
+    "High-end specialist generation remains external where Node 01 quality or capacity is insufficient."
+  ]
+}

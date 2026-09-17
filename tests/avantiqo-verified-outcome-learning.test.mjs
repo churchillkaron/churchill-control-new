@@ -53,3 +53,10 @@ test("event continuation persistence deduplicates before creating another turn o
   assert.match(conversation, /persistAssistantTurnAndConversationState\(\{[\s\S]*continuationIdempotencyKey = null/);
   assert.match(conversation, /const continuationKey = text\(continuationIdempotencyKey, 300\)/);
 });
+
+
+test("prerequisite failures remain recovery telemetry and do not become verified capability failures", () => {
+  assert.match(policy, /affects_capability_reliability: failureClass === "BUSINESS_OUTCOME_FAILURE"/);
+  assert.match(policy, /prerequisite_signal: failureClass === "PREREQUISITE_FAILURE"/);
+  assert.doesNotMatch(policy, /\["BUSINESS_OUTCOME_FAILURE", "PREREQUISITE_FAILURE"\]\.includes/);
+});

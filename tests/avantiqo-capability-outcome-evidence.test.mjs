@@ -14,9 +14,10 @@ test("runtime and model failures never reduce capability reliability",()=>{
   assert.equal(result.weighted_evidence_units,0);
   assert.equal(result.verified_failure_count,0);
 });
-test("verified business-effect and prerequisite failures remain exact-capability evidence",()=>{
+test("only verified business-effect failures count against capability reliability",()=>{
   const result=weightedCapabilityOutcomeEvidence([row({outcome:"VERIFIED_FAILURE",failure_class:"BUSINESS_OUTCOME_FAILURE"}),row({outcome:"VERIFIED_FAILURE",failure_class:"PREREQUISITE_FAILURE"})],key);
-  assert.equal(result.weighted_evidence_units,2);
-  assert.equal(result.verified_failure_count,2);
+  assert.equal(result.weighted_evidence_units,1);
+  assert.equal(result.verified_failure_count,1);
+  assert.equal(result.prerequisite_failures_excluded,true);
   assert.equal(result.authority_effect,"NONE");
 });

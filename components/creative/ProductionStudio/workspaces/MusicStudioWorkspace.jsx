@@ -368,7 +368,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           : mode === "stems" ? <div className="mx-auto max-w-6xl p-6"><MusicStemsPanel {...specialistProps} /></div>
           : mode === "backing" ? <div className="mx-auto max-w-6xl p-6"><MusicBackingTrackPanel {...specialistProps} onComplete={() => runtime.refresh?.()} /></div>
           : mode === "vocal" ? <MusicSpecialistStudioPanel mode="vocal" {...specialistProps} />
-          : mode === "mix" ? <MusicSpecialistStudioPanel mode="mix" {...specialistProps} />
+          : mode === "mix" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Music Project"} onProfessionalReleaseAdvanced={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />
           : mode === "master" ? <MusicMasterStudioPanel organizationId={organizationId} projectId={project?.id || null} />
           : <div className="mx-auto max-w-6xl p-6"><div className="rounded-[22px] border border-black/[0.07] bg-white p-6 text-xs text-[#817B73]"><AudioLines className="mb-3 h-5 w-5 text-[#A78158]" />Music Studio tool unavailable.</div></div>}
         </>

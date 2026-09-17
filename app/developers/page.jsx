@@ -107,19 +107,17 @@ export default function DevelopersPage() {
     <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
       <header className="sticky top-0 z-50 border-b border-black/[0.07] bg-[#F7F6F3]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[62px] max-w-[1460px] items-center justify-between gap-5 px-5 sm:px-7 lg:px-10">
-          <a href="/" className="flex items-center gap-2.5" aria-label="Avantiqo home">
-            <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-[#171716] p-1.5">
-              <Image src="/branding/avantiqo-logo.png" alt="Avantiqo" width={32} height={32} className="h-full w-full object-contain" priority />
+          <a href="/" className="flex items-center gap-3" aria-label="Avantiqo home">
+            <span className="rounded-xl bg-[#171716] px-3 py-2 shadow-[0_4px_16px_rgba(0,0,0,.08)]">
+              <Image src="/branding/avantiqo-wordmark.png" alt="Avantiqo" width={126} height={10} className="h-[10px] w-auto object-contain" priority />
             </span>
-            <div>
-              <div className="text-[12px] font-semibold tracking-[-0.01em] text-[#2A2723]">Avantiqo</div>
-              <div className="mt-0.5 text-[7px] font-semibold uppercase tracking-[0.16em] text-[#9A744B]">Developers</div>
-            </div>
+            <div className="hidden text-[7px] font-semibold uppercase tracking-[0.18em] text-[#9A744B] sm:block">Developers</div>
           </a>
           <nav className="flex items-center gap-1 sm:gap-1.5">
             <a href="#capabilities" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] md:inline-flex">Capabilities</a>
             <a href="#integration" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] md:inline-flex">Integration</a>
-            <a href="/" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] lg:inline-flex">Avantiqo Platform</a>
+            <a href="/creative-studios" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] lg:inline-flex">Creative Studios</a>
+            <a href="/" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] xl:inline-flex">Platform</a>
             <a href="#access" className="ml-1 inline-flex h-9 items-center gap-2 rounded-xl bg-[#171716] px-4 text-[10px] font-semibold text-white shadow-[0_3px_10px_rgba(20,18,15,0.15)] transition hover:bg-[#2A2926]">Developer access <Arrow className="h-3 w-3" /></a>
           </nav>
         </div>
@@ -220,7 +218,7 @@ export default function DevelopersPage() {
       <footer className="border-t border-black/[0.07] bg-[#FBFAF8]">
         <div className="mx-auto flex max-w-[1320px] flex-col gap-5 px-5 py-8 text-[10px] text-[#817B73] sm:flex-row sm:items-end sm:justify-between sm:px-7 lg:px-10">
           <div><div><span className="font-semibold text-[#3E3933]">Avantiqo Developers</span><span className="ml-2">Business capabilities for software builders</span></div><div className="mt-2 text-[9px] leading-5 text-[#9B958D]">Avantiqo is operated by BEA Co., Ltd., Thailand. Company Registration No. 0835553004601.</div></div>
-          <div className="flex flex-wrap gap-5"><a href="/" className="transition hover:text-[#8A633C]">Platform</a><a href="/policy" className="transition hover:text-[#8A633C]">Privacy Policy</a><a href="/terms" className="transition hover:text-[#8A633C]">Terms</a><a href="/login" className="transition hover:text-[#8A633C]">Login</a></div>
+          <div className="flex flex-wrap gap-5"><a href="/" className="transition hover:text-[#8A633C]">Platform</a><a href="/creative-studios" className="transition hover:text-[#8A633C]">Creative Studios</a><a href="/policy" className="transition hover:text-[#8A633C]">Privacy Policy</a><a href="/terms" className="transition hover:text-[#8A633C]">Terms</a><a href="/login" className="transition hover:text-[#8A633C]">Login</a></div>
         </div>
       </footer>
     </main>

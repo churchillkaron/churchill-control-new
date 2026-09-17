@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowUpRight, Download, FileSpreadsheet, FileText, Folder, ImageIcon, Music2, Video } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, Download, FileSpreadsheet, FileText, Folder, ImageIcon, Music2, Video } from "lucide-react";
 
 const URL_KEYS = new Set([
   "url", "href", "file_url", "signed_url", "inspection_url", "asset_url",
@@ -158,9 +158,35 @@ function ArtifactPreview({ artifact }) {
   return null;
 }
 
+function DiagnosisProof({ evidence = {} }) {
+  const diagnosis = evidence?.business_diagnosis;
+  if (!diagnosis?.receipt_fingerprint) return null;
+  const fingerprint = text(diagnosis.receipt_fingerprint);
+  const state = text(diagnosis.final_evidence_state) || "VERIFIED_EVIDENCE";
+  const boundary = text(diagnosis.answer_boundary_status) || "PASS";
+  const periods = diagnosis.periods || {};
+  return (
+    <details data-avantiqo-business-diagnosis-proof="true" className="mt-3 overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] text-white/70">
+        <span className="flex items-center gap-2 font-medium text-[#E5C28D]"><BadgeCheck size={13} />Verified diagnosis</span>
+        <span className="text-[9px] text-white/35">{state.replaceAll("_", " ")}</span>
+      </summary>
+      <div className="grid gap-2 border-t border-white/[0.06] px-3 py-3 text-[9px] text-white/50 sm:grid-cols-2">
+        <div><span className="text-white/30">Evidence state</span><div className="mt-0.5 text-white/65">{state.replaceAll("_", " ")}</div></div>
+        <div><span className="text-white/30">Answer boundary</span><div className="mt-0.5 text-white/65">{boundary.replaceAll("_", " ")}</div></div>
+        <div><span className="text-white/30">Compared periods</span><div className="mt-0.5 text-white/65">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>
+        <div><span className="text-white/30">Unexplained residual</span><div className="mt-0.5 text-white/65">{diagnosis.residual_material === true ? "Material residual remains" : "No material residual flagged"}</div></div>
+        <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
+        <div className="sm:col-span-2 text-[8px] text-white/30">Read-only diagnosis · no execution authority · raw reasoning is not persisted.</div>
+      </div>
+    </details>
+  );
+}
+
 export default function OperatorExecutionArtifacts({ execution = {}, evidence = {}, organizationId = null }) {
   const artifacts = operatorExecutionArtifacts({ execution, evidence, organizationId });
-  if (!artifacts.length) return null;
+  const diagnosisProof = <DiagnosisProof evidence={evidence} />;
+  if (!artifacts.length) return diagnosisProof;
 
   const folders = artifacts.reduce((map, artifact) => {
     if (!map.has(artifact.folder)) map.set(artifact.folder, []);
@@ -169,7 +195,9 @@ export default function OperatorExecutionArtifacts({ execution = {}, evidence = 
   }, new Map());
 
   return (
-    <div data-avantiqo-execution-artifacts="true" data-avantiqo-universal-preview="true" className="mt-3 space-y-2">
+    <>
+      {diagnosisProof}
+      <div data-avantiqo-execution-artifacts="true" data-avantiqo-universal-preview="true" className="mt-3 space-y-2">
       {[...folders.entries()].map(([folder, folderItems]) => (
         <details key={folder} open className="overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] font-medium text-[#E5C28D]">
@@ -195,6 +223,7 @@ export default function OperatorExecutionArtifacts({ execution = {}, evidence = 
           </div>
         </details>
       ))}
-    </div>
+      </div>
+    </>
   );
 }

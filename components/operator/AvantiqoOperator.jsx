@@ -346,7 +346,7 @@ export default function AvantiqoOperator() {
           options: decision?.clarification?.options || [],
           navigation: result?.navigation || null,
           execution: result?.execution || {},
-          evidence: result?.provider_evidence || {},
+          evidence: { ...(result?.provider_evidence || {}), ...(result?.business_diagnosis ? { business_diagnosis: result.business_diagnosis } : {}) },
           governance: operatorExecutionStatePresentation(result),
         }),
       ]);

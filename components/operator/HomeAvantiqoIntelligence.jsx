@@ -487,7 +487,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
             ? decision.clarification.options
             : [],
           execution: result?.execution || {},
-          evidence: result?.provider_evidence || {},
+          evidence: { ...(result?.provider_evidence || {}), ...(result?.business_diagnosis ? { business_diagnosis: result.business_diagnosis } : {}) },
           navigation: result?.navigation || {},
           governance: operatorExecutionStatePresentation(result),
         }),

@@ -40,3 +40,8 @@ test("nightly route runs mission composition after single capability competence"
   assert.ok(single>=0&&mission>single);
   assert.match(route,/mission_composition_competence: missionCompositionCompetence/);
 });
+
+
+test("mission composition follows canonical capability learning priority", () => {
+  assert.match(runtime, /learning_priority_score/);
+});

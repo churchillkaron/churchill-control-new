@@ -35,3 +35,9 @@ test("nightly route runs competence exam after capability coverage exists", () =
   assert.ok(curriculumIndex >= 0 && examIndex > curriculumIndex);
   assert.match(route, /capability_competence_exam: capabilityCompetenceExam/);
 });
+
+
+test("capability competence follows canonical learning priority", () => {
+  assert.match(exam, /learning_priority_score/);
+  assert.match(exam, /learning_priority_score/);
+});

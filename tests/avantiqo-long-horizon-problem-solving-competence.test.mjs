@@ -40,3 +40,8 @@ test("nightly route runs long horizon after mission composition",()=>{
   assert.ok(mission>=0&&long>mission);
   assert.match(route,/long_horizon_problem_solving_competence: longHorizonProblemSolvingCompetence/);
 });
+
+
+test("long horizon follows canonical capability learning priority", () => {
+  assert.match(runtime, /learning_priority_score/);
+});

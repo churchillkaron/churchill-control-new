@@ -95,3 +95,11 @@ test("hard arena hides answer key and uses multi field adversarial grading",()=>
   assert.match(runtime,/benchmark_answers_available_to_curriculum:false/);
   assert.doesNotMatch(runtime,/expected_action:f\.expected_action/);
 });
+
+test("held-out arena retest requires newer practice bound to the same immutable benchmark",()=>{
+  assert.match(runtime,/platform_intelligence_weakness_practice/);
+  assert.match(runtime,/source_arena_fingerprints/);
+  assert.match(runtime,/CURRENT_ARENA_VERSION_ALREADY_MEASURED_AWAITING_NEW_PRACTICE/);
+  assert.match(runtime,/attemptNumber=sameBenchmark\.length\+1/);
+  assert.match(runtime,/retest_trigger_practice_id/);
+});

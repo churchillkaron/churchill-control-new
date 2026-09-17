@@ -6,3 +6,5 @@ test("nightly route practices immediately after weakness curriculum",()=>{const 
 
 test("weakness practice cancels only its queued job when the local GPU becomes contended",()=>{assert.match(runtime,/MAX_QUEUE_WAIT_POLLS/);assert.match(runtime,/getIntelligenceLocalQueueStatus/);assert.match(runtime,/LOCAL_GPU_QUEUE_CONTENDED/);assert.match(runtime,/WEAKNESS_PRACTICE_LOCAL_QUEUE_CONTENTION/);assert.match(runtime,/cancelPendingService/)});
 test("weakness practice forces a constrained action vocabulary",()=>{assert.match(runtime,/allowedActions/);assert.match(runtime,/Action MUST be exactly one of/);assert.match(runtime,/Do not use prose as the action/)});
+
+test("practice persists the immutable source arena fingerprint for retest eligibility",()=>{assert.match(runtime,/sourceArenaFingerprints/);assert.match(runtime,/source_arena_fingerprints:sourceArenaFingerprints/)});

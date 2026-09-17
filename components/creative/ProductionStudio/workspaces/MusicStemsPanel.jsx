@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { AudioLines, BadgeCheck, FileAudio, Scissors, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AudioLines, BadgeCheck, Download, FileAudio, Scissors, Upload } from "lucide-react";
 
 const MAX_SOURCE_BYTES = 629145600;
 const MAX_SOURCE_SECONDS = 900;
@@ -56,6 +56,7 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const [separationMode, setSeparationMode] = useState("STANDARD_STEMS");
   const [plan, setPlan] = useState(null);
+  const [session, setSession] = useState(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -74,6 +75,7 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
   async function chooseFile(selected) {
     setError("");
     setPlan(null);
+    setSession(null);
     setStorageReference("");
     if (!selected) {
       setFile(null);
@@ -147,8 +149,33 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
     }
   }
 
+  async function executeSeparation() {
+    if (!executionReady || separationMode !== "STANDARD_STEMS") return;
+    setBusy(true); setError(""); setSession(null);
+    try {
+      const result = await request({ action: "execute", organization_id: organizationId, creative_project_id: projectId, creative_mission_id: missionId, title: text(file?.name?.replace(/\.[^.]+$/, "")) || "Separated stems", source_audio: storageReference, source_duration_seconds: duration, source_rights_confirmed: true });
+      setSession(result);
+    } catch (cause) { setError(cause?.message || "Stem separation failed"); }
+    finally { setBusy(false); }
+  }
+
+  useEffect(() => {
+    if (!session?.pending || !session?.usage_id || !organizationId) return undefined;
+    let cancelled = false; let inFlight = false;
+    const poll = async () => {
+      if (inFlight) return; inFlight = true;
+      try { const result = await request({ action: "status", organization_id: organizationId, usage_id: session.usage_id }); if (!cancelled) setSession((current) => ({ ...current, ...result })); }
+      catch (cause) { if (!cancelled) setError(cause?.message || "Stem separation status failed"); }
+      finally { inFlight = false; }
+    };
+    const timer = setInterval(poll, 3000);
+    return () => { cancelled = true; clearInterval(timer); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.pending, session?.usage_id, organizationId]);
+
   const ready = Boolean(storageReference && duration && rightsConfirmed);
-  const executionReady = plan?.ready_for_execution === true;
+  const executionReady = plan?.ready_for_execution === true && separationMode === "STANDARD_STEMS";
+  const stemFiles = Array.isArray(session?.files) ? session.files : [];
 
   return (
     <section className="rounded-2xl border border-[#d6a66a]/18 bg-[#d6a66a]/[0.025] p-5">
@@ -164,7 +191,7 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
           </p>
         </div>
         <span className={`rounded-full border px-3 py-1.5 text-[9px] uppercase tracking-[0.14em] ${executionReady ? "border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-100/70" : "border-amber-300/20 bg-amber-300/[0.06] text-amber-100/65"}`}>
-          {executionReady ? "Production ready" : "Certification pending"}
+          {plan?.production_certified ? "Production ready" : plan?.local_acceptance ? "Local test ready" : "Certification pending"}
         </span>
       </div>
 
@@ -191,7 +218,7 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
           ["STANDARD_STEMS", "Standard stems", "Vocals, drums, bass and other · certified separator path"],
           ["VOCAL_ROLES", "Vocal roles", "Lead, supporting vocals and instrumental · research / benchmark gated"],
         ].map(([id, label, description]) => (
-          <button key={id} type="button" onClick={() => { setSeparationMode(id); setPlan(null); }}
+          <button key={id} type="button" onClick={() => { setSeparationMode(id); setPlan(null); setSession(null); }}
             className={`rounded-xl border p-3 text-left ${separationMode === id ? "border-[#d6a66a]/30 bg-[#d6a66a]/[0.07]" : "border-white/8 bg-white/[0.018]"}`}>
             <div className="text-xs font-medium text-white/68">{label}</div>
             <div className="mt-1 text-[9px] leading-4 text-white/28">{description}</div>
@@ -220,7 +247,7 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
         <div className="mt-5 rounded-xl border border-white/8 bg-black/25 p-4">
           <div className="text-[9px] uppercase tracking-[0.18em] text-white/28">Separation plan</div>
           <div className="mt-2 text-xs text-white/60">{separationMode === "VOCAL_ROLES" ? "Dedicated vocal-role separator · no ordinary Demucs fallback · private outputs" : "Demucs HTDemucs FT · four-stem separation · private outputs"}</div>
-          <div className="mt-1 text-[10px] text-white/30">Status: {separationMode === "VOCAL_ROLES" ? "Research / benchmark required" : (plan.plan?.certification || "Pending certification")}</div>
+          <div className="mt-1 text-[10px] text-white/30">Status: {separationMode === "VOCAL_ROLES" ? "Research / benchmark required" : (plan.production_certified ? "Production certified" : plan.local_acceptance ? "Local owned acceptance · production certification still pending" : (plan.plan?.certification || "Pending certification"))}</div>
         </div>
       ) : null}
 
@@ -230,10 +257,15 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
         <button type="button" disabled={!ready || busy} onClick={reviewPlan} className="rounded-lg border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-4 py-2.5 text-xs text-[#efd29f] disabled:cursor-not-allowed disabled:opacity-35">
           {busy ? "Reviewing…" : "Review separation"}
         </button>
-        <button type="button" disabled={!executionReady} className="rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs text-white/55 disabled:cursor-not-allowed disabled:opacity-30">
-          Separate stems
+        <button type="button" disabled={!executionReady || busy || session?.pending} onClick={executeSeparation} className="rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs text-white/55 disabled:cursor-not-allowed disabled:opacity-30">
+          {session?.pending ? "Separating…" : "Separate stems"}
         </button>
       </div>
+      {session ? <div className="mt-5 rounded-xl border border-white/8 bg-black/25 p-4">
+        <div className="flex items-center gap-2 text-xs text-white/60">{session.pending ? <AudioLines className="h-4 w-4 animate-pulse text-[#d6a66a]" /> : <BadgeCheck className="h-4 w-4 text-emerald-300/70" />}{session.pending ? "Separating on Avantiqo compute" : session.failed ? "Stem separation failed" : "Stem separation complete"}</div>
+        {stemFiles.length ? <div className="mt-3 grid gap-2 sm:grid-cols-2">{stemFiles.map((item) => <a key={item.key} href={item.url} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-lg border border-white/7 px-3 py-2.5 text-xs text-white/58"><span className="capitalize">{item.key}</span><Download className="h-3.5 w-3.5 text-white/28" /></a>)}</div> : null}
+      </div> : null}
+
     </section>
   );
 }

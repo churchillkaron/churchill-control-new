@@ -1,0 +1,12 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const retention=fs.readFileSync("lib/intelligence/runtime/AvantiqoGeneralIntelligenceRetentionRuntime.js","utf8");
+const curriculum=fs.readFileSync("lib/intelligence/runtime/AvantiqoGeneralIntelligenceCurriculumRuntime.js","utf8");
+const route=fs.readFileSync("app/api/internal/intelligence/continuous-learning/process/route.js","utf8");
+test("retention uses spaced review windows",()=>{assert.match(retention,/WINDOWS=\[1,3,7,14,30\]/);assert.match(retention,/retention_day:day/);});
+test("retention remains local 4B only",()=>{assert.match(retention,/MODEL="qwen3:4b-instruct"/);assert.match(retention,/external_fallback_allowed:false/);assert.match(retention,/LOCAL_4B_REQUIRED/);});
+test("mastery requires repeated strong retention and is not auto promoted",()=>{assert.match(retention,/consecutiveStrong>=3&&day>=7/);assert.match(retention,/minimum_mastery_score:0\.85/);assert.match(retention,/automatic_mastery_promotion:false/);});
+test("forgetting adapts future curriculum",()=>{assert.match(curriculum,/forgettingScore >= 0\.12/);assert.match(curriculum,/latest_forgetting_score: forgettingScore/);});
+test("nightly route runs retention after immediate exam",()=>{const exam=route.indexOf("runAvantiqoGeneralIntelligenceExam");const retentionAt=route.lastIndexOf("runAvantiqoGeneralIntelligenceRetention()");assert.ok(exam>=0&&retentionAt>exam);});
+test("retention cannot train promote or release",()=>{for(const x of [/automatic_model_training:false/,/automatic_model_promotion:false/,/automatic_knowledge_promotion:false/]) assert.match(retention,x);});

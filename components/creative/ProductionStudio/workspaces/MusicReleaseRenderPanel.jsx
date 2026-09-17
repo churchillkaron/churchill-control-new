@@ -32,6 +32,7 @@ export default function MusicReleaseRenderPanel({
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [professionalRelease, setProfessionalRelease] = useState(null);
 
   const revision = Math.max(0, Math.round(finite(session?.revision, 0)));
   const options = useMemo(() => ({ mastering: { profile }, release_mp3: releaseMp3, track_stems: true, group_stems: true }), [profile, releaseMp3]);
@@ -47,12 +48,27 @@ export default function MusicReleaseRenderPanel({
     return body;
   }
 
+  async function professionalRequest(payload) {
+    const response = await fetch("/api/creative/music/professional-release", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json();
+    if (!response.ok || body.success === false) throw new Error(body.error || "Professional Release request failed");
+    return body;
+  }
+
   async function refreshPlan() {
     if (!organizationId || !projectId || !session) return;
     setError("");
     try {
-      const response = await request({ action: "plan", organization_id: organizationId, creative_project_id: projectId, options });
+      const [response, professional] = await Promise.all([
+        request({ action: "plan", organization_id: organizationId, creative_project_id: projectId, options }),
+        professionalRequest({ action: "status", organization_id: organizationId, creative_project_id: projectId }).catch(() => null),
+      ]);
       setPlan(response.plan || null);
+      setProfessionalRelease(professional?.active ? professional : null);
     } catch (cause) {
       setError(cause?.message || "Release plan could not be prepared.");
     }
@@ -60,6 +76,7 @@ export default function MusicReleaseRenderPanel({
 
   useEffect(() => {
     void refreshPlan();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, projectId, revision, profile, releaseMp3]);
 
   async function renderAndMaster() {
@@ -126,17 +143,37 @@ export default function MusicReleaseRenderPanel({
         options,
       });
 
-      setStatus("MASTERING + TRUE-PEAK QC");
-      const mastered = await request({
-        action: "finish",
-        organization_id: organizationId,
-        creative_project_id: projectId,
-        mix_asset_id: registered.asset_id,
-        options,
-      });
-      setResult(mastered);
-      setStatus("RELEASE MASTER CERTIFIED");
-      await onReleased?.(mastered);
+      if (professionalRelease?.active) {
+        if (professionalRelease?.next_stage?.stage_id !== "MIX_ENGINEERING") {
+          throw new Error(`Professional Release is at ${professionalRelease?.next_stage?.stage_id || "another stage"}; mastering must continue through the Professional Release gate.`);
+        }
+        setStatus("ACCEPTING PROFESSIONAL PRE-MASTER");
+        const accepted = await professionalRequest({
+          action: "continue",
+          organization_id: organizationId,
+          creative_project_id: projectId,
+          source_asset_id: professionalRelease.source_asset_id,
+          authorized_stage: "MIX_ENGINEERING",
+          mix_asset_id: registered.asset_id,
+        });
+        const professionalResult = { ...accepted, mix_asset_id: registered.asset_id, professional_release: true };
+        setResult(professionalResult);
+        setProfessionalRelease(accepted?.active ? accepted : { ...professionalRelease, ...accepted });
+        setStatus("PRE-MASTER REGISTERED · QC NEXT");
+        await onReleased?.(professionalResult);
+      } else {
+        setStatus("MASTERING + TRUE-PEAK QC");
+        const mastered = await request({
+          action: "finish",
+          organization_id: organizationId,
+          creative_project_id: projectId,
+          mix_asset_id: registered.asset_id,
+          options,
+        });
+        setResult(mastered);
+        setStatus("RELEASE MASTER CERTIFIED");
+        await onReleased?.(mastered);
+      }
     } catch (cause) {
       setError(cause?.message || "Release render failed.");
       setStatus("RELEASE BLOCKED");
@@ -145,7 +182,10 @@ export default function MusicReleaseRenderPanel({
     }
   }
 
-  const ready = plan?.readiness?.release_render_ready === true;
+  const professionalStage = professionalRelease?.next_stage?.stage_id || null;
+  const professionalMixStage = professionalRelease?.active === true && professionalStage === "MIX_ENGINEERING";
+  const professionalLocked = professionalRelease?.active === true && !professionalMixStage;
+  const ready = plan?.readiness?.release_render_ready === true && !professionalLocked;
   const blockers = plan?.readiness?.blockers || [];
 
   return (
@@ -153,7 +193,7 @@ export default function MusicReleaseRenderPanel({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#d6a66a]/65"><Disc3 className="h-3.5 w-3.5" /> Release render</div>
-          <div className="mt-1 text-[8px] leading-4 text-white/22">Same Music mix graph offline → immutable 24-bit pre-master → local loudness / true-peak finishing.</div>
+          <div className="mt-1 text-[8px] leading-4 text-white/22">{professionalRelease?.active ? "Professional Release: same mix graph offline → immutable 24-bit pre-master → separate QC/mastering gates." : "Same Music mix graph offline → immutable 24-bit pre-master → local loudness / true-peak finishing."}</div>
         </div>
         <div className={`rounded-lg border px-2 py-1 text-[8px] ${ready ? "border-emerald-300/15 text-emerald-100/55" : "border-amber-300/15 text-amber-100/55"}`}>{ready ? "READY" : "CHECK"}</div>
       </div>
@@ -167,9 +207,9 @@ export default function MusicReleaseRenderPanel({
 
       {plan ? <div className="mt-3 grid grid-cols-3 gap-2 text-center"><div className="rounded-lg border border-white/6 p-2"><div className="text-[7px] uppercase text-white/18">Sources</div><div className="mt-1 text-[10px] text-white/45">{plan.source_asset_ids?.length || 0}</div></div><div className="rounded-lg border border-white/6 p-2"><div className="text-[7px] uppercase text-white/18">Duration</div><div className="mt-1 text-[10px] text-white/45">{finite(plan.duration_seconds, 0).toFixed(1)}s</div></div><div className="rounded-lg border border-white/6 p-2"><div className="text-[7px] uppercase text-white/18">Revision</div><div className="mt-1 text-[10px] text-white/45">{plan.project_revision}</div></div></div> : null}
 
-      <button type="button" disabled={disabled || busy || !ready} onClick={renderAndMaster} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6a66a]/30 bg-[#d6a66a]/10 px-4 py-3 text-[10px] font-medium text-[#efd29f] disabled:opacity-25"><ShieldCheck className="h-4 w-4" /> {busy ? status || "WORKING" : "Render + certify release master"}</button>
+      <button type="button" disabled={disabled || busy || !ready} onClick={renderAndMaster} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6a66a]/30 bg-[#d6a66a]/10 px-4 py-3 text-[10px] font-medium text-[#efd29f] disabled:opacity-25"><ShieldCheck className="h-4 w-4" /> {busy ? status || "WORKING" : professionalMixStage ? "Render professional pre-master" : professionalLocked ? `Professional stage: ${professionalStage}` : "Render + certify release master"}</button>
 
-      {result ? <div className="mt-3 rounded-xl border border-emerald-300/12 bg-emerald-300/[0.025] p-3"><div className="flex items-center gap-2 text-[9px] text-emerald-100/65"><CheckCircle2 className="h-3.5 w-3.5" /> Certified release candidate</div><div className="mt-2 grid grid-cols-2 gap-2 text-[8px] text-white/30"><div>LUFS {Number.isFinite(result.integrated_lufs) ? result.integrated_lufs.toFixed(1) : "certified"}</div><div>True peak {Number.isFinite(result.true_peak_dbtp) ? `${result.true_peak_dbtp.toFixed(2)} dBTP` : "certified"}</div><div>Deliveries {result.deliveries?.length || 0}</div><div>Master asset saved</div></div></div> : null}
+      {result ? <div className="mt-3 rounded-xl border border-emerald-300/12 bg-emerald-300/[0.025] p-3"><div className="flex items-center gap-2 text-[9px] text-emerald-100/65"><CheckCircle2 className="h-3.5 w-3.5" /> {result.professional_release ? "Professional pre-master registered" : "Certified release candidate"}</div><div className="mt-2 grid grid-cols-2 gap-2 text-[8px] text-white/30"><div>LUFS {Number.isFinite(result.integrated_lufs) ? result.integrated_lufs.toFixed(1) : "certified"}</div><div>True peak {Number.isFinite(result.true_peak_dbtp) ? `${result.true_peak_dbtp.toFixed(2)} dBTP` : "certified"}</div><div>Deliveries {result.deliveries?.length || 0}</div><div>Master asset saved</div></div></div> : null}
       {error ? <div className="mt-3 rounded-xl border border-red-300/12 bg-red-400/[0.025] px-3 py-2 text-[8px] leading-4 text-red-100/65">{error}</div> : null}
 
       {plan ? <div className="mt-4"><MusicStemExportPanel

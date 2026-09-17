@@ -27,6 +27,18 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
   const stages = useMemo(() => next?.manifest?.stages || state?.professional_production_state?.manifest?.stages || [], [next, state]);
   if (!projectId || (!state?.active && !error)) return null;
 
+  async function approveVocal() {
+    const candidateId = text(state?.vocal_review_candidate?.id);
+    if (!candidateId) return;
+    setBusy(true); setError("");
+    try {
+      const result = await request({ action: "certify_vocal", organization_id: organizationId, creative_project_id: projectId, source_asset_id: state?.source_asset_id, corrected_vocal_asset_id: candidateId, human_listening_review_approved: true });
+      setState((current) => ({ ...current, ...result, active: true, source_title: current?.source_title }));
+      await refresh();
+    } catch (cause) { setError(cause?.message || "Vocal review approval failed"); }
+    finally { setBusy(false); }
+  }
+
   async function continueStage() {
     const stage = text(next?.stage_id);
     if (!stage) return;
@@ -44,6 +56,7 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
   const complete = state?.release_ready === true || next?.status === "COMPLETE";
   const vocalStage = stageId === "VOCAL_PRODUCTION";
   const workstationStage = stageId === "MIX_ENGINEERING" || surface === "WORKSTATION";
+  const vocalCandidate = state?.vocal_review_candidate || null;
 
   return (
     <section className="mt-5 overflow-hidden rounded-[22px] border border-[#D6A66A]/20 bg-[#11100E] text-white shadow-[0_12px_40px_rgba(0,0,0,0.08)]">
@@ -76,11 +89,15 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
           {!complete ? <div className="flex flex-wrap gap-2">
             {vocalStage ? <button type="button" onClick={() => onOpen?.("vocal")} className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-[10px] text-white/68 hover:border-[#D6A66A]/30">Open vocals</button> : null}
             {workstationStage ? <button type="button" onClick={() => onOpen?.("workstation")} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-[10px] text-white/68 hover:border-[#D6A66A]/30"><SlidersHorizontal className="h-3 w-3" /> Open Workstation</button> : null}
-            <button type="button" disabled={busy} onClick={continueStage} className="inline-flex items-center gap-1.5 rounded-lg border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-3 py-2 text-[10px] font-semibold text-[#E5C69D] disabled:opacity-50">
-              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <LockKeyhole className="h-3 w-3" />}{workstationStage ? "Check rendered mix" : vocalStage ? "Prepare vocal review" : "Continue stage"}
+            {vocalStage && vocalCandidate ? <button type="button" disabled={busy} onClick={approveVocal} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300/25 bg-emerald-300/[0.08] px-3 py-2 text-[10px] font-semibold text-emerald-100/80 disabled:opacity-50">
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <BadgeCheck className="h-3 w-3" />}I listened — approve vocal
+            </button> : null}
+            <button type="button" disabled={busy || (vocalStage && Boolean(vocalCandidate))} onClick={continueStage} className="inline-flex items-center gap-1.5 rounded-lg border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-3 py-2 text-[10px] font-semibold text-[#E5C69D] disabled:opacity-50">
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <LockKeyhole className="h-3 w-3" />}{workstationStage ? "Check rendered mix" : vocalStage ? (vocalCandidate ? "Vocal review ready" : "Prepare vocal review") : "Continue stage"}
             </button>
           </div> : null}
         </div>
+        {vocalStage && vocalCandidate ? <div className="mt-3 rounded-lg border border-emerald-300/12 bg-emerald-300/[0.035] px-3 py-2 text-[9px] leading-4 text-emerald-100/60">Corrected vocal ready: {vocalCandidate.title}. Listen in Vocal Studio before approving it for the commercial mix.</div> : null}
         {error ? <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.05] px-3 py-2 text-[9px] text-amber-100/70"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" />{error}</div> : null}
       </div>
     </section>

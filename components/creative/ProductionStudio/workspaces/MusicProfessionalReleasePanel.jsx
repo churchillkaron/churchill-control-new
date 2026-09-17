@@ -5,6 +5,29 @@ import { BadgeCheck, Circle, CircleAlert, Disc3, Loader2, LockKeyhole, SlidersHo
 
 function text(value) { return String(value ?? "").trim(); }
 function label(value) { return text(value).replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (match) => match.toUpperCase()); }
+const CUSTOMER_STAGE_LABELS = Object.freeze({
+  SOURCE_GENERATION: "Song created",
+  STEM_SEPARATION: "Separate tracks",
+  VOCAL_PRODUCTION: "Polish vocals",
+  MIX_ENGINEERING: "Mix the song",
+  PREMASTER_QC: "Quality check",
+  MASTERING: "Create master",
+  PERCEPTUAL_TRANSLATION: "Playback check",
+  DAILIES_LISTENING: "Listening review",
+  FINAL_TRIBUNAL: "Final review",
+});
+function customerStage(value) { return CUSTOMER_STAGE_LABELS[text(value)] || label(value); }
+function customerAction(stageId, hasVocalCandidate = false) {
+  if (stageId === "VOCAL_PRODUCTION") return hasVocalCandidate ? "Review corrected vocal" : "Prepare vocal correction";
+  if (stageId === "MIX_ENGINEERING") return "Open mix workstation";
+  if (stageId === "PREMASTER_QC") return "Run mix quality check";
+  if (stageId === "MASTERING") return "Create release master";
+  if (stageId === "PERCEPTUAL_TRANSLATION") return "Check playback translation";
+  if (stageId === "DAILIES_LISTENING") return "Run listening review";
+  if (stageId === "FINAL_TRIBUNAL") return "Run final review";
+  if (stageId === "STEM_SEPARATION") return "Separate tracks";
+  return "Continue production";
+}
 
 export default function MusicProfessionalReleasePanel({ organizationId, projectId, onOpen, refreshKey = 0 }) {
   const [state, setState] = useState(null);
@@ -64,10 +87,10 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
         <div>
           <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]"><Disc3 className="h-3.5 w-3.5" /> Professional Release</div>
           <div className="mt-2 text-[18px] font-medium tracking-[-0.025em] text-white/92">{state?.source_title || "Commercial music production"}</div>
-          <div className="mt-1 text-[10px] text-white/42">Generation → stems → vocals → mix → QC → master → translation → dailies → tribunal</div>
+          <div className="mt-1 text-[10px] text-white/42">Create → separate tracks → vocals → mix → quality check → master → playback → listening → final review</div>
         </div>
         <div className={`rounded-full border px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] ${complete ? "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-200" : "border-[#D6A66A]/25 bg-[#D6A66A]/[0.07] text-[#E5C69D]"}`}>
-          {complete ? "Release candidate" : stageId ? label(stageId) : "Preparing"}
+          {complete ? "Release candidate" : stageId ? customerStage(stageId) : "Preparing"}
         </div>
       </div>
       <div className="px-5 py-4">
@@ -76,15 +99,15 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
             const active = stage.id === stageId && !complete;
             return <div key={stage.id} className={`rounded-xl border px-2.5 py-2.5 ${stage.passed ? "border-emerald-300/15 bg-emerald-300/[0.045]" : active ? "border-[#D6A66A]/35 bg-[#D6A66A]/[0.07]" : "border-white/7 bg-white/[0.018]"}`}>
               <div className="flex items-center gap-1.5">{stage.passed ? <BadgeCheck className="h-3 w-3 text-emerald-300/70" /> : <Circle className={`h-2.5 w-2.5 ${active ? "text-[#D6A66A]" : "text-white/18"}`} />}<span className="text-[8px] font-semibold uppercase tracking-[0.08em] text-white/52">{stage.order}</span></div>
-              <div className="mt-1.5 text-[9px] leading-4 text-white/66">{stage.name}</div>
+              <div className="mt-1.5 text-[9px] leading-4 text-white/66">{customerStage(stage.id)}</div>
             </div>;
           })}
         </div>
         <div className="mt-4 flex flex-col gap-3 rounded-xl border border-white/7 bg-white/[0.018] p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/34">Current production gate</div>
-            <div className="mt-1 text-[12px] font-medium text-white/78">{complete ? "Professional production passed" : next?.stage_name || label(stageId) || "No active stage"}</div>
-            <div className="mt-1 text-[10px] text-white/34">{complete ? "Final tribunal passed. Publication remains separately authorized." : `${label(surface || "server")} · ${label(next?.next_action?.action || "continue")}`}</div>
+            <div className="mt-1 text-[12px] font-medium text-white/78">{complete ? "Professional production passed" : customerStage(stageId) || "No active stage"}</div>
+            <div className="mt-1 text-[10px] text-white/34">{complete ? "Final review passed. Publishing is still a separate decision." : workstationStage ? "Needs your mix decision in the Workstation." : vocalStage && vocalCandidate ? "Needs your listening approval before the mix." : "Avantiqo can run this production step for you."}</div>
           </div>
           {!complete ? <div className="flex flex-wrap gap-2">
             {vocalStage ? <button type="button" onClick={() => onOpen?.("vocal")} className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-[10px] text-white/68 hover:border-[#D6A66A]/30">Open vocals</button> : null}
@@ -93,7 +116,7 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
               {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <BadgeCheck className="h-3 w-3" />}I listened — approve vocal
             </button> : null}
             <button type="button" disabled={busy || (vocalStage && Boolean(vocalCandidate))} onClick={continueStage} className="inline-flex items-center gap-1.5 rounded-lg border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-3 py-2 text-[10px] font-semibold text-[#E5C69D] disabled:opacity-50">
-              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <LockKeyhole className="h-3 w-3" />}{workstationStage ? "Check rendered mix" : vocalStage ? (vocalCandidate ? "Vocal review ready" : "Prepare vocal review") : "Continue stage"}
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <LockKeyhole className="h-3 w-3" />}{customerAction(stageId, Boolean(vocalCandidate))}
             </button>
           </div> : null}
         </div>

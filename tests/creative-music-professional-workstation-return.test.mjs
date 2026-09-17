@@ -32,3 +32,11 @@ test('professional generation returns to the stage-driven studio flow', () => {
   assert.match(compose, /form\.production_standard === "PROFESSIONAL_RELEASE"/);
   assert.match(studio, /onProfessionalReleaseStarted/);
 });
+
+test('professional release presents customer production language instead of internal governance labels', () => {
+  assert.match(home, /FINAL_TRIBUNAL: "Final review"/);
+  assert.match(home, /PREMASTER_QC: "Quality check"/);
+  assert.match(home, /PERCEPTUAL_TRANSLATION: "Playback check"/);
+  assert.match(home, /Avantiqo can run this production step for you\./);
+  assert.doesNotMatch(home, />Final tribunal passed/);
+});

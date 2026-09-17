@@ -32,5 +32,5 @@ test("Mix Engineer separates bass and drums only when low-band overlap proxy is 
 test("Workstation explains that relationship evidence is a proxy, not simultaneous masking", () => {
   const panel=fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicMixEngineerPanel.jsx","utf8");
   assert.match(panel,/Inter-track relationships/);
-  assert.match(panel,/Simultaneous masking is not claimed/);
+  assert.match(panel,/temporal spectral competition, not psychoacoustic masking/i);
 });

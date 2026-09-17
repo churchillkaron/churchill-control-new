@@ -2,11 +2,10 @@ export const productConfigs = {
   workforce: {
     slug: "workforce",
     context: "Workforce",
-    availability: "Early Access",
     eyebrow: "AVANTIQO WORKFORCE",
     title: "Schedule people. Capture time. Pay correctly.",
-    description: "A focused workforce product for scheduling, attendance, requests, payroll preparation and the employee experience — powered by the same Avantiqo identity, business context, permissions, evidence and intelligence underneath.",
-    promise: "From the rota to the payslip without rebuilding the same employee data in five systems.",
+    description: "Plan shifts, capture attendance, manage employee requests and prepare payroll from one connected workforce system.",
+    promise: "Keep scheduling, attendance and payroll preparation connected so managers spend less time reconciling separate tools.",
     audience: "Restaurants · hotels · retail · services · multi-location teams",
     features: [
       ["Schedule", "Shifts, calendars, availability and manager planning."],

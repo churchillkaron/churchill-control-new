@@ -30,12 +30,13 @@ function localExecutionResource(job = {}) {
   const workload = text(job.workload).toLowerCase();
   const model = text(job.result?.runtime_model || job.model).toLowerCase();
   if (workload === "music_elastic" || workload === "media_ffmpeg" || model.includes("ffmpeg") || model.includes("signalsmith")) return "LOCAL_CPU";
-  if (["music_separator", "music_vocal_correction", "voice_stt", "image_upscale", "intelligence_text"].includes(workload) || model.includes("demucs") || model.includes("torchcrepe") || model.includes("whisper") || model.includes("swin2sr") || model.includes("qwen")) return "LOCAL_GPU";
+  if (["music_separator", "music_vocal_correction", "voice_stt", "voice_tts", "image_upscale", "intelligence_text"].includes(workload) || model.includes("demucs") || model.includes("torchcrepe") || model.includes("whisper") || model.includes("chatterbox") || model.includes("swin2sr") || model.includes("qwen")) return "LOCAL_GPU";
   return job.node_id ? "LOCAL_OTHER" : "UNASSIGNED";
 }
 
 function productArea({ workload, capability, usageId, provider } = {}) {
   const source = [workload, capability, usageId, provider].map((value) => text(value).toLowerCase()).join(" ");
+  if (/text.to.speech|voice_tts|chatterbox|tts/.test(source)) return "Voice / TTS";
   if (/speech|voice|stt|transcri/.test(source)) return "Voice / STT";
   if (/music|audio|elastic|sfx|separator|vocal/.test(source)) return "Music / Audio";
   if (/video|ffmpeg|media|post.production|master|derivative/.test(source)) return "Video / Media";
@@ -205,6 +206,7 @@ export async function GET(request) {
     const candidateMatrix = [
       { product: "Business Partner / Intelligence", capability: "ai.text.generate", model: "qwen3:4b-instruct", status: "CERTIFIED_LOCAL", resource: "GPU" },
       { product: "Voice / STT", capability: "ai.speech.to.text", model: "openai/whisper-large-v3-turbo", status: "CERTIFIED_LOCAL", resource: "GPU" },
+      { product: "Voice / TTS", capability: "ai.text.to.speech", model: "resemble-ai/chatterbox:multilingual-v3", status: "CERTIFIED_LOCAL_BACKGROUND_MODAL_INTERACTIVE", resource: "GPU" },
       { product: "Image Studio", capability: "ai.image.upscale", model: "caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr", status: "CERTIFIED_LOCAL", resource: "GPU" },
       { product: "Music / Audio", capability: "ai.audio.stems", model: "demucs-htdemucs-ft", status: "CERTIFIED_LOCAL", resource: "GPU" },
       { product: "Music / Audio", capability: "ai.audio.vocal-correct", model: "torchcrepe-full", status: "CERTIFIED_LOCAL", resource: "GPU" },
@@ -228,6 +230,7 @@ export async function GET(request) {
         music_gpu: "LOCAL_GPU_DEMUCS_TORCHCREPE_FIRST",
         image_upscale: "LOCAL_GPU_SWIN2SR_FIRST",
         voice_stt: "LOCAL_GPU_WHISPER_LARGE_V3_TURBO_FIRST",
+        voice_tts: "LOCAL_GPU_BACKGROUND_MODAL_INTERACTIVE",
         local_transport: "SUPABASE_PULL_QUEUE_V1",
       },
       metrics: {

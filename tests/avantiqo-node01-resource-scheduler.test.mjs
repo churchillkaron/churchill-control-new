@@ -6,6 +6,9 @@ const api=fs.readFileSync("app/api/workspace/administration/compute/route.js","u
 const page=fs.readFileSync("app/(system)/workspace/[organizationId]/administration/compute/page.jsx","utf8");
 const intelligence=fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js","utf8");
 const voice=fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceSttLocalQueueProvider.js","utf8");
+const tts=fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceTtsLocalQueueProvider.js","utf8");
+const voiceProvider=fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderV2.js","utf8");
+const asyncSpeech=fs.readFileSync("lib/operator/runtime/OperatorVoiceAsyncSpeechRuntime.js","utf8");
 const image=fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageUpscaleLocalQueueProvider.js","utf8");
 const stems=fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicSeparatorLocalQueueProvider.js","utf8");
 const elastic=fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicElasticLocalQueueProvider.js","utf8");
@@ -22,4 +25,15 @@ test("compute telemetry exposes scheduler and candidate decisions",()=>{
 
 test("enqueue priorities preserve interactive-first scheduling",()=>{
   assert.match(intelligence,/executionLane === "front" \? 100 : 50/); assert.match(voice,/priority: 80/); assert.match(image,/priority: 70/); assert.match(stems,/priority:65/); assert.match(elastic,/priority: 40/);
+});
+
+
+test("TTS uses certified Node 01 only for background work and preserves Modal interactive path",()=>{
+  assert.match(tts,/resemble-ai\/chatterbox:multilingual-v3/);
+  assert.match(tts,/workload:\s*"voice_tts"/); assert.match(tts,/priority:\s*35/);
+  assert.match(tts,/BATCH_BACKGROUND_ONLY/); assert.match(worker,/RunVoiceTtsJob/); assert.match(worker,/ai.text.to.speech/);
+  assert.match(voiceProvider,/backgroundTts/); assert.match(voiceProvider,/AVANTIQO_VOICE_TTS_LOCAL_BATCH_FALLBACK_MODAL/);
+  assert.match(asyncSpeech,/execution_mode:\s*"background"/);
+  assert.match(api,/LOCAL_GPU_BACKGROUND_MODAL_INTERACTIVE/); assert.match(api,/CERTIFIED_LOCAL_BACKGROUND_MODAL_INTERACTIVE/);
+  assert.match(page,/Local background · Modal interactive/);
 });

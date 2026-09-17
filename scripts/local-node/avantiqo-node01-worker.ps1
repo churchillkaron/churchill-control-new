@@ -33,8 +33,8 @@ $NightLearningStartHour = 1
 $NightLearningEndHour = 6
 $script:LastGpuWorkAt = Get-Date
 $script:LastIdleLearningAt = [datetime]::MinValue
-$AllCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct')
-$GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct')
+$AllCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
+$GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
 $CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process')
 $Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } else { $AllCapabilities })
 if ($Lane -eq 'cpu') {
@@ -93,6 +93,7 @@ function ResourceProfile($Job) {
   if ($workload -eq 'image_upscale') { return @{ class='gpu_specialist'; gpu_vram_mb=1200; cpu_weight='light'; exclusive_gpu=$true; product='Image Studio' } }
   if ($workload -eq 'music_separator') { return @{ class='gpu_specialist'; gpu_vram_mb=3800; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
   if ($workload -eq 'music_vocal_correction') { return @{ class='gpu_specialist'; gpu_vram_mb=3400; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
+  if ($workload -eq 'voice_tts') { return @{ class='background_gpu'; gpu_vram_mb=6100; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / TTS'; mode='BATCH_BACKGROUND_ONLY' } }
   if ($workload -eq 'media_ffmpeg') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Video / Media' } }
   if ($workload -eq 'music_elastic') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Music / Audio' } }
   return @{ class='local_other'; gpu_vram_mb=0; cpu_weight='light'; exclusive_gpu=$false; product='Platform / Other' }
@@ -389,6 +390,37 @@ function RunMusicVocalCorrectionJob($Job) {
   } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp,$err,$outFile }
 }
 
+
+function RunVoiceTtsJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_VOICE_TTS_PAYLOAD_REQUIRED' }
+  $python = 'C:\Avantiqo\voice-tts\Scripts\python.exe'
+  $runner = 'C:\Avantiqo\voice-tts\local_runner.py'
+  $ffmpeg = 'C:\Avantiqo\ffmpeg\bin'
+  if (-not (Test-Path $python)) { throw 'AVANTIQO_LOCAL_VOICE_TTS_PYTHON_REQUIRED' }
+  if (-not (Test-Path $runner)) { throw 'AVANTIQO_LOCAL_VOICE_TTS_RUNNER_REQUIRED' }
+  if (-not (Test-Path (Join-Path $ffmpeg 'ffmpeg.exe'))) { throw 'AVANTIQO_LOCAL_VOICE_TTS_FFMPEG_REQUIRED' }
+  $tmp = Join-Path $env:TEMP ("avantiqo-voice-tts-" + [string]$Job.id + ".json")
+  try {
+    UnloadOllamaModel
+    [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 60 -Compress), (New-Object System.Text.UTF8Encoding($false)))
+    $started = Get-Date
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $python
+    $psi.Arguments = ('"' + $runner + '" --input "' + $tmp + '"')
+    $psi.EnvironmentVariables['PATH'] = $ffmpeg + ';' + [Environment]::GetEnvironmentVariable('PATH')
+    $psi.UseShellExecute = $false; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
+    $process = New-Object System.Diagnostics.Process; $process.StartInfo = $psi; [void]$process.Start()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync(); $process.WaitForExit()
+    $rawOutput = [string]$stdoutTask.Result; $stderr = [string]$stderrTask.Result
+    if ([int]$process.ExitCode -ne 0) { $tail=$(if($stderr.Length -gt 1600){$stderr.Substring($stderr.Length-1600)}else{$stderr}); throw ('AVANTIQO_LOCAL_VOICE_TTS_PROCESS_FAILED:' + $tail) }
+    $json=$rawOutput.Trim(); if(-not $json){ throw 'AVANTIQO_LOCAL_VOICE_TTS_OUTPUT_REQUIRED' }
+    $result=$json | ConvertFrom-Json; $elapsed=[int](((Get-Date)-$started).TotalMilliseconds); $result | Add-Member -NotePropertyName node_id -NotePropertyValue $NodeId -Force
+    $peak=0; try{$peak=[int64]$result.gpu_peak_allocated_bytes}catch{}
+    CompleteJob $Job $result @{ elapsed_ms=$elapsed; gpu_workload=$true; voice_tts=$true; gpu_peak_allocated_bytes=$peak; batch_background_only=$true }
+  } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp }
+}
+
 function RunElasticJob($Job) {
   $payload = $Job.payload
   if (-not $payload) { throw 'AVANTIQO_LOCAL_ELASTIC_PAYLOAD_REQUIRED' }
@@ -471,6 +503,7 @@ while ($true) {
         elseif ([string]$job.capability -eq 'ai.image.upscale') { RunImageUpscaleJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.stems') { RunMusicSeparatorJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.vocal-correct') { RunMusicVocalCorrectionJob $job }
+        elseif ([string]$job.capability -eq 'ai.text.to.speech') { RunVoiceTtsJob $job }
         else { FailJob $job 'AVANTIQO_LOCAL_CAPABILITY_UNSUPPORTED' $false }
       } catch {
         FailJob $job (('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Substring(0,[Math]::Min(480,('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Length))) $true

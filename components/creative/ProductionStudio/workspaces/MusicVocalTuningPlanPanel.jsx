@@ -111,6 +111,10 @@ export default function MusicVocalTuningPlanPanel({
     });
   }
 
+  async function approveAllProposed() {
+    await request("approve_all_proposed", { approved: true });
+  }
+
   async function render(action) {
     if (!organizationId || !projectId || !plan || busy) return;
     setBusy(true);
@@ -167,7 +171,8 @@ export default function MusicVocalTuningPlanPanel({
       </div>
 
       {plan ? <div className="mt-3 space-y-2">
-        <div className="flex items-center justify-between text-[7px] text-white/18"><span>{plan.musical_key?.label || "Project key"} · {reviewSegments.length} corrections need review</span><span>{reviewedSegments}/{reviewSegments.length} correction decisions</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[7px] text-white/18"><span>{plan.musical_key?.label || "Project key"} · {reviewSegments.length} corrections need review</span><div className="flex items-center gap-2"><span>{reviewedSegments}/{reviewSegments.length} correction decisions</span>{reviewedSegments < reviewSegments.length ? <button type="button" disabled={disabled || busy || renderPending} onClick={approveAllProposed} className="rounded-md border border-[#d6a66a]/20 bg-[#d6a66a]/[0.05] px-2 py-1 text-[#efd29f]/60 disabled:opacity-20">Approve all proposed</button> : null}</div></div>
+        {reviewedSegments < reviewSegments.length ? <div className="rounded-lg border border-white/6 bg-white/[0.012] px-2 py-1.5 text-[7px] leading-3 text-white/20">Bulk approval accepts only the currently displayed proposed note targets. It does not render audio and does not replace the final human listening approval.</div> : null}
         <div className="max-h-52 space-y-1 overflow-y-auto pr-1">
           {reviewSegments.map((segment) => (
             <div key={segment.id} className="grid grid-cols-[1fr_70px_52px] items-center gap-2 rounded-lg border border-white/6 px-2 py-1.5 text-[7px]">

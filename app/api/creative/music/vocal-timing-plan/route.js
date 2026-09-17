@@ -164,6 +164,16 @@ export async function POST(request) {
         }),
         updated_at: new Date().toISOString(),
       };
+    } else if (action === "review_all_safe") {
+      if (!planCurrent(clip.vocal_timing_plan, clip)) {
+        throw new Error("CREATIVE_MUSIC_VOCAL_TIMING_PLAN_CURRENT_PLAN_REQUIRED");
+      }
+      let reviewed = clip.vocal_timing_plan;
+      for (const phrase of clip.vocal_timing_plan.phrases || []) {
+        if (phrase.eligible !== true || phrase.approved === true) continue;
+        reviewed = reviewMusicVocalTimingPhrase(reviewed, text(phrase.id), { approved: true });
+      }
+      nextClip.vocal_timing_plan = { ...reviewed, bulk_reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     } else {
       return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_VOCAL_TIMING_PLAN_ACTION_INVALID" }, { status: 400 });
     }

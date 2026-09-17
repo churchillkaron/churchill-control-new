@@ -82,6 +82,10 @@ export default function MusicVocalTimingPlanPanel({
     });
   }
 
+  async function reviewAllSafe() {
+    await request("review_all_safe", { approved: true });
+  }
+
   return (
     <div className="mt-3 rounded-xl border border-white/7 bg-black/15 p-3">
       <div className="flex items-start justify-between gap-3">
@@ -102,7 +106,8 @@ export default function MusicVocalTimingPlanPanel({
       {analysis ? <div className="mt-3 rounded-lg border border-white/6 bg-black/15 p-2 text-[7px] text-white/20"><span>{analysis.phrase_count || 0} phrases measured · {analysis.suggested_move_count || 0} safe move suggestions · {finite(analysis.bpm, 0).toFixed(1)} BPM</span><button type="button" disabled={disabled || busy} onClick={() => request("build")} className="ml-2 rounded-md border border-white/7 px-1.5 py-1 text-white/34 disabled:opacity-20">{plan ? "Rebuild review plan" : "Build review plan"}</button></div> : null}
 
       {plan ? <div className="mt-3 space-y-2">
-        <div className="flex items-center justify-between text-[7px] text-white/18"><span>{reviewPhrases.length} phrase moves need review</span><span>{reviewedPhrases}/{reviewPhrases.length} move decisions</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[7px] text-white/18"><span>{reviewPhrases.length} phrase moves need review</span><div className="flex items-center gap-2"><span>{reviewedPhrases}/{reviewPhrases.length} move decisions</span>{reviewedPhrases < reviewPhrases.length ? <button type="button" disabled={disabled || busy} onClick={reviewAllSafe} className="rounded-md border border-[#d6a66a]/20 bg-[#d6a66a]/[0.05] px-2 py-1 text-[#efd29f]/60 disabled:opacity-20">Approve all safe moves</button> : null}</div></div>
+        {reviewedPhrases < reviewPhrases.length ? <div className="rounded-lg border border-white/6 bg-white/[0.012] px-2 py-1.5 text-[7px] leading-3 text-white/20">Bulk approval accepts only the current safe phrase-shift proposals. It does not stretch phrases, render audio, or replace final listening review.</div> : null}
         <div className="max-h-52 space-y-1 overflow-y-auto pr-1">
           {reviewPhrases.map((phrase) => (
             <div key={phrase.id} className="grid grid-cols-[1fr_74px_54px] items-center gap-2 rounded-lg border border-white/6 px-2 py-1.5 text-[7px]">

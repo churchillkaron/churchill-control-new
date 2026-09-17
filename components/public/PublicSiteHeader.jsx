@@ -20,14 +20,14 @@ const AREA_MENUS = {
   ],
   developers: [
     ["Developers", "/developers"], ["API Platform", "/api-platform"], ["Integrations", "/integrations"],
-    ["Compute", "/compute"], ["Pricing", "/pricing"],
+    ["Compute", "/compute"],
   ],
   api: [
     ["API Platform", "/api-platform"], ["Developers", "/developers"], ["Integrations", "/integrations"],
-    ["Compute", "/compute"], ["Pricing", "/pricing"],
+    ["Compute", "/compute"],
   ],
   compute: [
-    ["Compute", "/compute"], ["API Platform", "/api-platform"], ["Developers", "/developers"], ["Pricing", "/pricing"],
+    ["Compute", "/compute"], ["API Platform", "/api-platform"], ["Developers", "/developers"],
   ],
   platform: [
     ["Start", "/start"], ["Business OS", "/"], ["Creative Studios", "/creative-studios"],

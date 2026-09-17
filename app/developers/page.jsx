@@ -88,19 +88,10 @@ const capabilityFamilies = [
 ];
 
 const integrationModes = [
-  ["REST API", "Call an individual capability from your own application."],
-  [
-    "Jobs + webhooks",
-    "Run long-form work such as creative production or document batches asynchronously.",
-  ],
-  [
-    "Agent tools",
-    "Let your own agent invoke governed Avantiqo business capabilities.",
-  ],
-  [
-    "Embedded workflows",
-    "Place selected Avantiqo capability flows inside your existing product experience.",
-  ],
+  ["SDKs", "Build against stable Avantiqo contracts from your application code."],
+  ["Webhooks", "React to completed jobs, business events and governed execution outcomes."],
+  ["Developer tools", "Use local tooling, test contexts and capability discovery while building integrations."],
+  ["Embedded workflows", "Place selected Avantiqo flows inside your own product experience."],
 ];
 
 function Arrow({ className = "" }) {
@@ -171,12 +162,8 @@ export default function DevelopersPage() {
             href: "#integration",
             visibility: "hidden md:inline-flex",
           },
-          {
-            label: "Creative Studios",
-            href: "/creative-studios",
-            visibility: "hidden lg:inline-flex",
-          },
-          { label: "Platform", href: "/", visibility: "hidden xl:inline-flex" },
+          { label: "API Platform", href: "/api-platform", visibility: "hidden lg:inline-flex" },
+          { label: "Compute", href: "/compute", visibility: "hidden xl:inline-flex" },
         ]}
         action={{ label: "Developer access", href: "#access" }}
       />
@@ -193,8 +180,7 @@ export default function DevelopersPage() {
                 Build on the operating layer.
               </h1>
               <p className="mt-7 max-w-[560px] text-[16px] leading-8 text-white/62">
-                Finance, documents, intelligence, creative production and
-                operational capability exposed through one governed platform.
+                SDKs, webhooks, developer tooling and embedded workflows for building on Avantiqo without entering the Business OS customer interface.
               </p>
               <div className="mt-9 flex flex-wrap gap-2.5">
                 <a
@@ -240,7 +226,7 @@ export default function DevelopersPage() {
                 ONE CONTROL PLANE
               </div>
               <div className="mt-1 text-[7px] uppercase tracking-[0.17em] text-white/38">
-                API · jobs · agents · embedded
+                SDK · webhooks · tools · embed
               </div>
             </div>
             <div className="absolute bottom-7 left-7 right-7 grid gap-3 lg:grid-cols-[1.15fr_.85fr]">
@@ -254,14 +240,11 @@ export default function DevelopersPage() {
                   </span>
                 </div>
                 <div className="mt-5 font-mono text-[9px] leading-6 text-white/62">
-                  <span className="text-[#D6A66A]">POST</span>{" "}
-                  /v1/capabilities/run
+                  <span className="text-[#D6A66A]">import</span> Avantiqo from "@avantiqo/sdk"
                   <br />
-                  <span className="text-white/30">organization_id</span> · exact
-                  scope
+                  <span className="text-white/30">workspace</span> · developer sandbox
                   <br />
-                  <span className="text-white/30">capability</span> ·
-                  finance.invoice.create
+                  <span className="text-white/30">capability</span> · typed contract
                 </div>
                 <div className="mt-5 h-px bg-white/[0.08]">
                   <div className="h-px w-[72%] bg-[#D6A66A]/70" />
@@ -269,9 +252,9 @@ export default function DevelopersPage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  ["API", "Exact calls"],
-                  ["Jobs", "Long work"],
-                  ["Agents", "Governed tools"],
+                  ["SDK", "Typed tools"],
+                  ["Hooks", "Events"],
+                  ["Sandbox", "Test safely"],
                   ["Embed", "Own UX"],
                 ].map(([a, b]) => (
                   <div
@@ -365,9 +348,7 @@ export default function DevelopersPage() {
               Choose the level of control you need.
             </h2>
             <p className="mt-5 text-[14px] leading-7 text-[#6C6963]">
-              A developer should not be forced into one abstraction level. Use a
-              focused API for a single operation, or hand Avantiqo a larger
-              mission and let the workflow coordinate the work.
+              Developer tooling should stay focused on building and integration. Use SDKs, webhooks, test contexts and embedded flows here; use the separate API Platform when the product only needs metered capability calls.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -401,18 +382,15 @@ export default function DevelopersPage() {
               The same capability can power Avantiqo or your product.
             </h2>
             <p className="mt-5 text-[14px] leading-7 text-white/52">
-              A capability such as invoice extraction can be used inside
-              Avantiqo Finance, invoked by the Business Partner, called through
-              an API, triggered by automation or embedded in another
-              company&apos;s accounting product.
+              Developers can compose approved capabilities into their own application experience while Avantiqo preserves the contracts, context and governance underneath.
             </p>
           </div>
           <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {[
-              "Avantiqo workspace",
-              "REST API",
-              "Agent tool",
-              "Automation",
+              "SDK",
+              "Webhook",
+              "Sandbox",
+              "Tooling",
               "Embedded flow",
             ].map((item, index) => (
               <div
@@ -441,16 +419,14 @@ export default function DevelopersPage() {
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-[14px] leading-7 text-[#716C65]">
             This page is the foundation for the Avantiqo developer platform.
-            Documentation, API keys, metering, webhooks, SDKs and live
-            capability access can be added here as each external contract is
-            certified.
+            Documentation, SDKs, webhooks, local tooling, sandboxes and embedded developer workflows live here. Metered direct capability calls belong in the separate API Platform.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-2.5">
             <a
-              href="/"
+              href="/api-platform"
               className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white shadow-[0_6px_18px_rgba(20,18,15,0.14)]"
             >
-              Back to Avantiqo <Arrow className="h-3.5 w-3.5" />
+              API Platform <Arrow className="h-3.5 w-3.5" />
             </a>
             <a
               href="/login"
@@ -479,15 +455,8 @@ export default function DevelopersPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-5">
-            <a href="/" className="transition hover:text-[#8A633C]">
-              Platform
-            </a>
-            <a
-              href="/creative-studios"
-              className="transition hover:text-[#8A633C]"
-            >
-              Creative Studios
-            </a>
+            <a href="/api-platform" className="transition hover:text-[#8A633C]">API Platform</a>
+            <a href="/compute" className="transition hover:text-[#8A633C]">Compute</a>
             <a href="/policy" className="transition hover:text-[#8A633C]">
               Privacy Policy
             </a>

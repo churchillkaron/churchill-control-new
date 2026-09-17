@@ -3,9 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --font-sans: 'Manrope', sans-serif;
-  --font-body: 'Manrope', sans-serif;
-  --font-display: 'Manrope', sans-serif;
+  --font-sans: "Manrope", sans-serif;
+  --font-body: "Manrope", sans-serif;
+  --font-display: "Manrope", sans-serif;
+  --avantiqo-gold: #d6a66a;
+  --avantiqo-ink: #171614;
+  --avantiqo-black: #11110f;
+  --avantiqo-ivory: #f7f6f3;
+  --avantiqo-warm: #f4f0e8;
+  --avantiqo-stone: #706a62;
 }
 
 html,
@@ -20,14 +26,21 @@ body {
   color: white;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-display);
   font-weight: 500;
   line-height: 1.1;
   margin: 0;
 }
 
-p, li, span {
+p,
+li,
+span {
   font-family: var(--font-body);
   font-weight: 400;
   line-height: 1.5;
@@ -54,7 +67,18 @@ ul {
  * These controls currently have no action contract or handler. Keep them out of
  * production UI until a real registry-backed implementation exists.
  */
-main > div.mx-auto > div.mt-4.grid > section:first-child > div:first-child > div.flex.flex-wrap.gap-2,
-main > div.mx-auto > div.mt-4.grid > aside > div > div.flex.items-start.gap-4 > button:last-child {
+main
+  > div.mx-auto
+  > div.mt-4.grid
+  > section:first-child
+  > div:first-child
+  > div.flex.flex-wrap.gap-2,
+main
+  > div.mx-auto
+  > div.mt-4.grid
+  > aside
+  > div
+  > div.flex.items-start.gap-4
+  > button:last-child {
   display: none;
 }

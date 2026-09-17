@@ -3,46 +3,126 @@ import ConnectedServiceDataOverview from "@/components/public/ConnectedServiceDa
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 
 const businessAreas = [
-  ["Finance", "Accounting, cash, billing, receivables, payables, reporting and financial control."],
-  ["Operations", "Daily work, service delivery, evidence, approvals, tasks and operational control."],
-  ["Supply Chain", "Procurement, suppliers, inventory, warehouses, movement and fulfilment."],
-  ["Commercial", "Customers, opportunities, quotations, contracts, sales and revenue workflows."],
-  ["People", "Staff, roles, attendance, performance, payroll workflows and employee self-service."],
-  ["Projects", "Plan, budget, approve, execute and close projects with accountability."],
-  ["Documents", "Create, store, approve, govern and share business documents and evidence."],
-  ["Analytics", "Business reporting, operational intelligence, alerts, trends and decision support."],
-  ["Compliance", "Policies, controls, evidence and governed follow-through across the business."],
+  [
+    "Finance",
+    "Accounting, cash, billing, receivables, payables, reporting and financial control.",
+  ],
+  [
+    "Operations",
+    "Daily work, service delivery, evidence, approvals, tasks and operational control.",
+  ],
+  [
+    "Supply Chain",
+    "Procurement, suppliers, inventory, warehouses, movement and fulfilment.",
+  ],
+  [
+    "Commercial",
+    "Customers, opportunities, quotations, contracts, sales and revenue workflows.",
+  ],
+  [
+    "People",
+    "Staff, roles, attendance, performance, payroll workflows and employee self-service.",
+  ],
+  [
+    "Projects",
+    "Plan, budget, approve, execute and close projects with accountability.",
+  ],
+  [
+    "Documents",
+    "Create, store, approve, govern and share business documents and evidence.",
+  ],
+  [
+    "Analytics",
+    "Business reporting, operational intelligence, alerts, trends and decision support.",
+  ],
+  [
+    "Compliance",
+    "Policies, controls, evidence and governed follow-through across the business.",
+  ],
 ];
 
 const principles = [
-  ["Business context first", "Work stays attached to the correct organization, legal entity, period and authorized user context."],
-  ["Attention before dashboards", "Surface the exceptions, approvals and next human moves that can change the business now."],
-  ["Governed execution", "Important actions can require permission, approval and durable evidence before they become business truth."],
-  ["Intelligence in the workflow", "Research, recommendations and automation work with the same business context instead of living in a disconnected AI tab."],
+  [
+    "Business context first",
+    "Work stays attached to the correct organization, legal entity, period and authorized user context.",
+  ],
+  [
+    "Attention before dashboards",
+    "Surface the exceptions, approvals and next human moves that can change the business now.",
+  ],
+  [
+    "Governed execution",
+    "Important actions can require permission, approval and durable evidence before they become business truth.",
+  ],
+  [
+    "Intelligence in the workflow",
+    "Research, recommendations and automation work with the same business context instead of living in a disconnected AI tab.",
+  ],
 ];
 
 function Arrow({ className = "" }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className={className} fill="none">
-      <path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      className={className}
+      fill="none"
+    >
+      <path
+        d="M4 10h11M11 6l4 4-4 4"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
 
 function Check({ className = "" }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className={className} fill="none">
-      <circle cx="10" cy="10" r="7.25" stroke="currentColor" strokeWidth="1.3" />
-      <path d="m6.8 10.1 2 2 4.5-4.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      className={className}
+      fill="none"
+    >
+      <circle
+        cx="10"
+        cy="10"
+        r="7.25"
+        stroke="currentColor"
+        strokeWidth="1.3"
+      />
+      <path
+        d="m6.8 10.1 2 2 4.5-4.6"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
 
 function Spark({ className = "" }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className={className} fill="none">
-      <path d="M10 2.8c.45 3.65 2.25 5.45 5.9 5.9-3.65.45-5.45 2.25-5.9 5.9-.45-3.65-2.25-5.45-5.9-5.9C7.75 8.25 9.55 6.45 10 2.8Z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" />
-      <path d="M15.2 13.7c.18 1.45.9 2.17 2.35 2.35-1.45.18-2.17.9-2.35 2.35-.18-1.45-.9-2.17-2.35-2.35 1.45-.18 2.17-.9 2.35-2.35Z" fill="currentColor" />
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      className={className}
+      fill="none"
+    >
+      <path
+        d="M10 2.8c.45 3.65 2.25 5.45 5.9 5.9-3.65.45-5.45 2.25-5.9 5.9-.45-3.65-2.25-5.45-5.9-5.9C7.75 8.25 9.55 6.45 10 2.8Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M15.2 13.7c.18 1.45.9 2.17 2.35 2.35-1.45.18-2.17.9-2.35 2.35-.18-1.45-.9-2.17-2.35-2.35 1.45-.18 2.17-.9 2.35-2.35Z"
+        fill="currentColor"
+      />
     </svg>
   );
 }
@@ -50,9 +130,17 @@ function Spark({ className = "" }) {
 function SectionTitle({ eyebrow, title, children, center = false }) {
   return (
     <div className={center ? "mx-auto max-w-3xl text-center" : "max-w-3xl"}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">{eyebrow}</p>
-      <h2 className="mt-3 text-[32px] font-medium leading-[1.05] tracking-[-0.045em] text-[#1B1A18] sm:text-[40px] lg:text-[48px]">{title}</h2>
-      {children ? <div className="mt-5 text-[14px] leading-7 text-[#6C6963] sm:text-[15px]">{children}</div> : null}
+      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">
+        {eyebrow}
+      </p>
+      <h2 className="mt-3 text-[32px] font-medium leading-[1.05] tracking-[-0.045em] text-[#1B1A18] sm:text-[40px] lg:text-[48px]">
+        {title}
+      </h2>
+      {children ? (
+        <div className="mt-5 text-[14px] leading-7 text-[#6C6963] sm:text-[15px]">
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -75,53 +163,100 @@ function ProductPreview() {
         <div className="flex h-[58px] items-center gap-3 border-b border-black/[0.07] bg-white px-3 sm:px-4">
           <div className="flex items-center gap-2.5 border-r border-black/[0.06] pr-3 sm:pr-4">
             <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-[#171716] p-1.5">
-              <Image src="/branding/avantiqo-logo.png" alt="" width={32} height={32} className="h-full w-full object-contain" />
+              <Image
+                src="/branding/avantiqo-logo.png"
+                alt=""
+                width={32}
+                height={32}
+                className="h-full w-full object-contain"
+              />
             </div>
             <div className="hidden sm:block">
-              <div className="text-[10px] font-semibold text-[#38342F]">Avantiqo</div>
-              <div className="mt-0.5 text-[7px] uppercase tracking-[0.16em] text-[#A49F97]">Business OS</div>
+              <div className="text-[10px] font-semibold text-[#38342F]">
+                Avantiqo
+              </div>
+              <div className="mt-0.5 text-[7px] uppercase tracking-[0.16em] text-[#A49F97]">
+                Business OS
+              </div>
             </div>
           </div>
           <div className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
             <div className="flex h-8 min-w-0 max-w-[190px] items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-3 text-[#5E5A54]">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#A37849]" />
-              <span className="truncate text-[9px] font-medium">Your organization</span>
+              <span className="truncate text-[9px] font-medium">
+                Your organization
+              </span>
               <span className="ml-auto text-[8px] text-[#AAA69E]">⌄</span>
             </div>
             <div className="hidden h-8 items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-3 text-[#5E5A54] lg:flex">
-              <span className="text-[8px] text-[#A37849]">◫</span><span className="text-[9px] font-medium">All entities</span>
+              <span className="text-[8px] text-[#A37849]">◫</span>
+              <span className="text-[9px] font-medium">All entities</span>
             </div>
             <div className="hidden h-8 items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-3 text-[#5E5A54] xl:flex">
-              <span className="text-[8px] text-[#A37849]">○</span><span className="text-[9px] font-medium">Current period</span>
+              <span className="text-[8px] text-[#A37849]">○</span>
+              <span className="text-[9px] font-medium">Current period</span>
             </div>
           </div>
           <div className="ml-auto flex h-8 items-center gap-1.5 rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] px-2.5 text-[#8D643C]">
-            <Spark className="h-3.5 w-3.5" /><span className="hidden text-[8px] font-semibold lg:inline">Intelligence</span>
+            <Spark className="h-3.5 w-3.5" />
+            <span className="hidden text-[8px] font-semibold lg:inline">
+              Intelligence
+            </span>
           </div>
         </div>
 
         <div className="grid min-h-[500px] grid-cols-[52px_minmax(0,1fr)] sm:grid-cols-[62px_minmax(0,1fr)]">
           <aside className="flex flex-col items-center gap-1 border-r border-black/[0.07] bg-[#FBFAF8] px-2 py-3">
             {rail.map((item, index) => (
-              <div key={item} className={index === 0 ? "flex h-9 w-9 items-center justify-center rounded-xl bg-[#171716] text-[8px] font-semibold text-white shadow-[0_3px_10px_rgba(20,18,15,0.14)]" : index === 1 ? "mb-1 flex h-9 w-9 items-center justify-center rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] text-[7px] font-semibold text-[#9A744B]" : "flex h-9 w-9 items-center justify-center rounded-xl text-[8px] font-semibold text-[#827D75]"}>
+              <div
+                key={item}
+                className={
+                  index === 0
+                    ? "flex h-9 w-9 items-center justify-center rounded-xl bg-[#171716] text-[8px] font-semibold text-white shadow-[0_3px_10px_rgba(20,18,15,0.14)]"
+                    : index === 1
+                      ? "mb-1 flex h-9 w-9 items-center justify-center rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] text-[7px] font-semibold text-[#9A744B]"
+                      : "flex h-9 w-9 items-center justify-center rounded-xl text-[8px] font-semibold text-[#827D75]"
+                }
+              >
                 {item}
               </div>
             ))}
-            <div className="mt-auto flex h-8 w-8 items-center justify-center rounded-xl border border-black/[0.07] bg-white text-[7px] font-bold text-[#9A744B]">AV</div>
+            <div className="mt-auto flex h-8 w-8 items-center justify-center rounded-xl border border-black/[0.07] bg-white text-[7px] font-bold text-[#9A744B]">
+              AV
+            </div>
           </aside>
 
           <div className="min-w-0 p-3 sm:p-5 lg:p-6">
             <div className="border-b border-black/[0.07] pb-5">
-              <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-[#9A744B]">My Business</div>
-              <h3 className="mt-1.5 text-[22px] font-medium tracking-[-0.04em] text-[#181817] sm:text-[26px]">Your business at a glance</h3>
-              <p className="mt-1 max-w-xl text-[9px] leading-4 text-[#77736C] sm:text-[10px]">Live priorities, business movement and governed work in one operating surface.</p>
+              <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-[#9A744B]">
+                My Business
+              </div>
+              <h3 className="mt-1.5 text-[22px] font-medium tracking-[-0.04em] text-[#181817] sm:text-[26px]">
+                Your business at a glance
+              </h3>
+              <p className="mt-1 max-w-xl text-[9px] leading-4 text-[#77736C] sm:text-[10px]">
+                Live priorities, business movement and governed work in one
+                operating surface.
+              </p>
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
-              {[["Revenue", "—", "Posted Finance truth"], ["Orders", "—", "Current operating period"], ["Approvals", "4", "Waiting for decision"], ["Attention", "3", "Cross-domain exceptions"]].map(([label, value, hint]) => (
-                <div key={label} className="rounded-2xl border border-black/[0.075] bg-white p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
-                  <div className="text-[7px] font-semibold uppercase tracking-[0.13em] text-[#8A867F]">{label}</div>
-                  <div className="mt-2 text-[20px] font-medium tracking-[-0.035em] text-[#1A1917]">{value}</div>
+              {[
+                ["Revenue", "—", "Posted Finance truth"],
+                ["Orders", "—", "Current operating period"],
+                ["Approvals", "4", "Waiting for decision"],
+                ["Attention", "3", "Cross-domain exceptions"],
+              ].map(([label, value, hint]) => (
+                <div
+                  key={label}
+                  className="rounded-2xl border border-black/[0.075] bg-white p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]"
+                >
+                  <div className="text-[7px] font-semibold uppercase tracking-[0.13em] text-[#8A867F]">
+                    {label}
+                  </div>
+                  <div className="mt-2 text-[20px] font-medium tracking-[-0.035em] text-[#1A1917]">
+                    {value}
+                  </div>
                   <div className="mt-1 text-[7px] text-[#A09B93]">{hint}</div>
                 </div>
               ))}
@@ -130,27 +265,73 @@ function ProductPreview() {
             <div className="mt-3 grid gap-3 lg:grid-cols-[1.18fr_.82fr]">
               <section className="rounded-2xl border border-black/[0.075] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
                 <div className="flex items-center justify-between gap-4">
-                  <div><div className="text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8A867F]">Needs attention</div><div className="mt-1 text-[8px] text-[#AAA69E]">Ranked work across the business</div></div>
-                  <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-[#F7F2EA] px-2 text-[8px] font-semibold text-[#9A744B]">3</span>
+                  <div>
+                    <div className="text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8A867F]">
+                      Needs attention
+                    </div>
+                    <div className="mt-1 text-[8px] text-[#AAA69E]">
+                      Ranked work across the business
+                    </div>
+                  </div>
+                  <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-[#F7F2EA] px-2 text-[8px] font-semibold text-[#9A744B]">
+                    3
+                  </span>
                 </div>
                 <div className="mt-3 divide-y divide-black/[0.06]">
                   {attention.map(([title, domain, status, dot]) => (
                     <div key={title} className="flex items-center gap-2.5 py-3">
-                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
-                      <div className="min-w-0 flex-1"><div className="truncate text-[9px] font-semibold text-[#3E3A34]">{title}</div><div className="mt-0.5 text-[7px] text-[#99938B]">{domain}</div></div>
-                      <span className="text-[7px] text-[#99938B]">{status}</span><Arrow className="h-2.5 w-2.5 text-[#A37849]" />
+                      <span
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[9px] font-semibold text-[#3E3A34]">
+                          {title}
+                        </div>
+                        <div className="mt-0.5 text-[7px] text-[#99938B]">
+                          {domain}
+                        </div>
+                      </div>
+                      <span className="text-[7px] text-[#99938B]">
+                        {status}
+                      </span>
+                      <Arrow className="h-2.5 w-2.5 text-[#A37849]" />
                     </div>
                   ))}
                 </div>
               </section>
 
               <section className="rounded-2xl border border-black/[0.075] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
-                <div><div className="text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8A867F]">Business pulse</div><div className="mt-1 text-[8px] text-[#AAA69E]">Where attention is concentrated</div></div>
+                <div>
+                  <div className="text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8A867F]">
+                    Business pulse
+                  </div>
+                  <div className="mt-1 text-[8px] text-[#AAA69E]">
+                    Where attention is concentrated
+                  </div>
+                </div>
                 <div className="mt-3 space-y-2">
-                  {[["Finance", 4], ["Operations", 2], ["Supply Chain", 1], ["Commercial", 0]].map(([label, count]) => (
-                    <div key={label} className="flex items-center gap-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] px-3 py-2.5">
-                      <span className="min-w-0 flex-1 text-[8px] font-semibold text-[#4B4741]">{label}</span>
-                      <span className={count ? "rounded-full bg-amber-50 px-2 py-1 text-[7px] font-semibold text-amber-800" : "rounded-full bg-emerald-50 px-2 py-1 text-[7px] font-semibold text-emerald-700"}>{count}</span>
+                  {[
+                    ["Finance", 4],
+                    ["Operations", 2],
+                    ["Supply Chain", 1],
+                    ["Commercial", 0],
+                  ].map(([label, count]) => (
+                    <div
+                      key={label}
+                      className="flex items-center gap-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] px-3 py-2.5"
+                    >
+                      <span className="min-w-0 flex-1 text-[8px] font-semibold text-[#4B4741]">
+                        {label}
+                      </span>
+                      <span
+                        className={
+                          count
+                            ? "rounded-full bg-amber-50 px-2 py-1 text-[7px] font-semibold text-amber-800"
+                            : "rounded-full bg-emerald-50 px-2 py-1 text-[7px] font-semibold text-emerald-700"
+                        }
+                      >
+                        {count}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -169,66 +350,214 @@ export default function AvantiqoPublicHome() {
       <PublicSiteHeader
         context="Business OS"
         links={[
-          { label: "Platform", href: "#platform", visibility: "hidden md:inline-flex" },
-          { label: "Intelligence", href: "#intelligence", visibility: "hidden lg:inline-flex" },
-          { label: "Integrations", href: "#connected-service-data", visibility: "hidden lg:inline-flex" },
-          { label: "Solutions", href: "/solutions", visibility: "hidden lg:inline-flex" },
-          { label: "Commerce", href: "/commerce", visibility: "hidden xl:inline-flex" },
-          { label: "Channels", href: "/channels", visibility: "hidden xl:inline-flex" },
-          { label: "Creative", href: "/creative-studios", visibility: "hidden xl:inline-flex" },
-          { label: "Developers", href: "/developers", visibility: "hidden 2xl:inline-flex" },
+          {
+            label: "Platform",
+            href: "#platform",
+            visibility: "hidden md:inline-flex",
+          },
+          {
+            label: "Intelligence",
+            href: "#intelligence",
+            visibility: "hidden lg:inline-flex",
+          },
+          {
+            label: "Integrations",
+            href: "#connected-service-data",
+            visibility: "hidden lg:inline-flex",
+          },
+          {
+            label: "Solutions",
+            href: "/solutions",
+            visibility: "hidden lg:inline-flex",
+          },
+          {
+            label: "Commerce",
+            href: "/commerce",
+            visibility: "hidden xl:inline-flex",
+          },
+          {
+            label: "Channels",
+            href: "/channels",
+            visibility: "hidden xl:inline-flex",
+          },
+          {
+            label: "Creative",
+            href: "/creative-studios",
+            visibility: "hidden xl:inline-flex",
+          },
+          {
+            label: "Developers",
+            href: "/developers",
+            visibility: "hidden 2xl:inline-flex",
+          },
         ]}
       />
 
       <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F4F0E8]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(214,166,106,.15),transparent_31%)]"/>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(214,166,106,.15),transparent_31%)]" />
         <div className="relative mx-auto max-w-[1540px] lg:grid lg:min-h-[720px] lg:grid-cols-[43%_57%]">
           <div className="relative z-20 flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
             <div className="max-w-[620px]">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/28 bg-white/62 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-[#8A633C] shadow-[0_4px_20px_rgba(100,75,45,.05)]"><span className="h-1.5 w-1.5 rounded-full bg-[#A37849]" />One operating system for the company</div>
-              <p className="mt-9 text-[9px] font-semibold uppercase tracking-[0.24em] text-[#A07142]">AVANTIQO BUSINESS OS</p>
-              <h1 className="mt-4 text-[52px] font-medium leading-[.95] tracking-[-0.065em] text-[#171614] sm:text-[66px] lg:text-[72px] xl:text-[80px]">Run the company.<br/>Not the software.</h1>
-              <p className="mt-7 max-w-[560px] text-[16px] leading-8 text-[#625D55] sm:text-[17px]">Finance, operations, supply chain, commercial work, people, projects, documents and intelligence—inside one governed business context.</p>
-              <p className="mt-4 max-w-[540px] text-[12px] leading-6 text-[#877F75]">Owners, managers and staff see what matters, move approved work forward and keep the underlying evidence connected.</p>
-              <div className="mt-9 flex flex-wrap gap-2.5"><a href="/login" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_9px_28px_rgba(20,18,15,.18)] transition hover:-translate-y-0.5">Login to Avantiqo <Arrow className="h-3.5 w-3.5" /></a><a href="#how-it-works" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/72 px-5 text-[10px] font-semibold text-[#56514A] transition hover:border-[#D6A66A]/45">How the system works</a></div>
-              <div className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[0.15em] text-[#978C80]">{["Organization scoped", "Role based", "Approval aware", "Auditable"].map((item) => <span key={item} className="inline-flex items-center gap-1.5"><Check className="h-3 w-3 text-[#A37849]" />{item}</span>)}</div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/28 bg-white/62 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-[#8A633C] shadow-[0_4px_20px_rgba(100,75,45,.05)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#A37849]" />
+                One operating system for the company
+              </div>
+              <p className="mt-9 text-[9px] font-semibold uppercase tracking-[0.24em] text-[#A07142]">
+                AVANTIQO BUSINESS OS
+              </p>
+              <h1 className="mt-4 text-[52px] font-medium leading-[.95] tracking-[-0.065em] text-[#171614] sm:text-[66px] lg:text-[72px] xl:text-[80px]">
+                Run the company.
+                <br />
+                Not the software.
+              </h1>
+              <p className="mt-7 max-w-[560px] text-[16px] leading-8 text-[#625D55] sm:text-[17px]">
+                Finance, operations, supply chain, commercial work, people,
+                projects, documents and intelligence—inside one governed
+                business context.
+              </p>
+              <p className="mt-4 max-w-[540px] text-[12px] leading-6 text-[#877F75]">
+                Owners, managers and staff see what matters, move approved work
+                forward and keep the underlying evidence connected.
+              </p>
+              <div className="mt-9 flex flex-wrap gap-2.5">
+                <a
+                  href="/start"
+                  className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_9px_28px_rgba(20,18,15,.18)] transition hover:-translate-y-0.5"
+                >
+                  Start with Avantiqo <Arrow className="h-3.5 w-3.5" />
+                </a>
+                <a
+                  href="#how-it-works"
+                  className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/72 px-5 text-[10px] font-semibold text-[#56514A] transition hover:border-[#D6A66A]/45"
+                >
+                  How the system works
+                </a>
+              </div>
+              <div className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[0.15em] text-[#978C80]">
+                {[
+                  "Organization scoped",
+                  "Role based",
+                  "Approval aware",
+                  "Auditable",
+                ].map((item) => (
+                  <span key={item} className="inline-flex items-center gap-1.5">
+                    <Check className="h-3 w-3 text-[#A37849]" />
+                    {item}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="relative min-h-[620px] overflow-hidden border-t border-black/[0.06] bg-[#171411] lg:min-h-0 lg:border-l lg:border-t-0">
-            <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:'url(/art/commercial-start.jpg)'}}/>
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,6,5,.02),rgba(7,6,5,.02)_45%,rgba(7,6,5,.28)),linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.03)_38%,rgba(8,7,6,.68))]"/>
-            <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[#D6A66A]/55 to-transparent"/>
-            <div className="absolute left-7 top-7 flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]"><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A] shadow-[0_0_14px_rgba(214,166,106,.8)]"/>AVANTIQO / BUSINESS OS</div>
-            <div className="absolute right-7 top-7 hidden text-right sm:block"><div className="text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F0C98F]">ONE OPERATING CONTEXT</div><div className="mt-1 text-[8px] uppercase tracking-[0.14em] text-white/42">People · evidence · action</div></div>
-
-            <div className="absolute left-7 top-[22%] hidden w-[180px] rounded-[18px] border border-white/14 bg-black/25 p-4 text-white shadow-[0_20px_55px_rgba(0,0,0,.18)] backdrop-blur-xl md:block">
-              <div className="text-[7px] font-semibold uppercase tracking-[0.18em] text-[#E7BC82]">BUSINESS PULSE</div>
-              <div className="mt-3 text-[22px] font-medium tracking-[-0.04em] text-white/88">LIVE</div>
-              <div className="mt-1 text-[8px] leading-4 text-white/40">Finance · Operations · Supply Chain</div>
-              <div className="mt-4 grid grid-cols-4 gap-1">{[68,44,82,57].map((v,i)=><div key={i} className="flex h-8 items-end rounded bg-white/[0.03] p-[2px]"><span className="w-full rounded-sm bg-[#D6A66A]/60" style={{height:`${v}%`}}/></div>)}</div>
+          <div className="relative min-h-[620px] overflow-hidden border-t border-black/[0.06] bg-[#151310] lg:min-h-0 lg:border-l lg:border-t-0">
+            <div className="absolute inset-0 grid grid-cols-[1.28fr_.72fr] gap-px bg-[#D6A66A]/20">
+              <div className="relative overflow-hidden">
+                <div
+                  className="absolute inset-0 bg-cover bg-center"
+                  style={{ backgroundImage: "url(/bg-hero-control.jpg)" }}
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,7,6,.02),rgba(8,7,6,.04)_54%,rgba(8,7,6,.34)),linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.08)_48%,rgba(8,7,6,.72))]" />
+              </div>
+              <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/20">
+                <div className="relative overflow-hidden">
+                  <div
+                    className="absolute inset-0 bg-cover bg-center"
+                    style={{
+                      backgroundImage: "url(/art/commercial-enterprise.jpg)",
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-black/20" />
+                </div>
+                <div className="relative overflow-hidden">
+                  <div
+                    className="absolute inset-0 bg-cover bg-center"
+                    style={{
+                      backgroundImage: "url(/art/commercial-compute.jpg)",
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-black/24" />
+                </div>
+              </div>
+            </div>
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,4,3,.06),rgba(5,4,3,.10)_42%,rgba(5,4,3,.54))]" />
+            <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[#D6A66A]/60 to-transparent" />
+            <div className="absolute left-7 top-7 flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A] shadow-[0_0_14px_rgba(214,166,106,.8)]" />
+              AVANTIQO / BUSINESS OS
+            </div>
+            <div className="absolute right-7 top-7 hidden text-right sm:block">
+              <div className="text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F0C98F]">
+                ONE OPERATING CONTEXT
+              </div>
+              <div className="mt-1 text-[8px] uppercase tracking-[0.14em] text-white/46">
+                Operate · create · build · scale
+              </div>
             </div>
 
-            <div className="absolute right-8 top-[22%] hidden h-[200px] w-[168px] rotate-[1.5deg] overflow-hidden rounded-[22px] border border-white/18 bg-white/10 shadow-[0_28px_70px_rgba(0,0,0,.22)] xl:block">
-              <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:'url(/art/commercial-solutions.jpg)'}}/>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-white/05"/>
-              <div className="absolute inset-x-3 bottom-3 rounded-[11px] border border-white/12 bg-black/30 px-3 py-2 backdrop-blur-lg"><div className="text-[6px] font-semibold uppercase tracking-[0.18em] text-[#E7BC82]">REAL BUSINESS</div><div className="mt-1 text-[7px] text-white/60">Context before software</div></div>
+            <div className="absolute left-7 top-[21%] hidden w-[190px] rounded-[20px] border border-white/14 bg-[#14110E]/55 p-4 text-white shadow-[0_20px_55px_rgba(0,0,0,.20)] backdrop-blur-xl md:block">
+              <div className="text-[7px] font-semibold uppercase tracking-[0.18em] text-[#E7BC82]">
+                ONE AVANTIQO
+              </div>
+              <div className="mt-4 space-y-2.5">
+                {[
+                  ["BUSINESS OS", "Operate"],
+                  ["INTELLIGENCE", "Decide"],
+                  ["STUDIOS", "Create"],
+                  ["COMPUTE", "Run"],
+                ].map(([a, b]) => (
+                  <div
+                    key={a}
+                    className="flex items-center justify-between border-b border-white/[0.07] pb-2"
+                  >
+                    <span className="text-[7px] font-semibold text-white/72">
+                      {a}
+                    </span>
+                    <span className="text-[6px] uppercase tracking-[0.14em] text-[#D6A66A]">
+                      {b}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="absolute inset-x-5 bottom-5 sm:inset-x-7 sm:bottom-7 lg:left-[7%] lg:right-[-11%] lg:bottom-[-7%] lg:scale-[.84] lg:origin-bottom-left xl:scale-[.89]"><ProductPreview /></div>
+            <div className="absolute inset-x-5 bottom-5 sm:inset-x-7 sm:bottom-7 lg:left-[6%] lg:right-[-10%] lg:bottom-[-7%] lg:scale-[.84] lg:origin-bottom-left xl:scale-[.89]">
+              <ProductPreview />
+            </div>
           </div>
         </div>
       </section>
-      <section id="platform" className="border-b border-black/[0.06] bg-white/55">
+      <section
+        id="platform"
+        className="border-b border-black/[0.06] bg-white/55"
+      >
         <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
           <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:gap-16">
-            <SectionTitle eyebrow="The Avantiqo system" title="Business software should feel like one system.">
-              <p>Avantiqo keeps each business area responsible for its own rules while giving the company one consistent workspace, business context and operating language. Finance stays Finance. Operations stays Operations. The user does not have to rebuild the company context every time they move between them.</p>
+            <SectionTitle
+              eyebrow="The Avantiqo system"
+              title="Business software should feel like one system."
+            >
+              <p>
+                Avantiqo keeps each business area responsible for its own rules
+                while giving the company one consistent workspace, business
+                context and operating language. Finance stays Finance.
+                Operations stays Operations. The user does not have to rebuild
+                the company context every time they move between them.
+              </p>
             </SectionTitle>
             <div className="grid gap-3 sm:grid-cols-2">
               {principles.map(([title, description], index) => (
-                <article key={title} className="rounded-[20px] border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F7F2EA] text-[9px] font-bold text-[#9A744B]">0{index + 1}</div>
-                  <h3 className="mt-5 text-[15px] font-semibold tracking-[-0.02em] text-[#2A2723]">{title}</h3><p className="mt-2 text-[11px] leading-5 text-[#77736C]">{description}</p>
+                <article
+                  key={title}
+                  className="rounded-[20px] border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]"
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F7F2EA] text-[9px] font-bold text-[#9A744B]">
+                    0{index + 1}
+                  </div>
+                  <h3 className="mt-5 text-[15px] font-semibold tracking-[-0.02em] text-[#2A2723]">
+                    {title}
+                  </h3>
+                  <p className="mt-2 text-[11px] leading-5 text-[#77736C]">
+                    {description}
+                  </p>
                 </article>
               ))}
             </div>
@@ -238,54 +567,150 @@ export default function AvantiqoPublicHome() {
 
       <section className="border-b border-black/[0.06] bg-[#F7F6F3]">
         <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <SectionTitle eyebrow="Business areas" title="Every important area, one business context.">
-            <p>Avantiqo connects work that is normally fragmented across separate applications, spreadsheets and inboxes while keeping permissions, records and responsibility explicit.</p>
+          <SectionTitle
+            eyebrow="Business areas"
+            title="Every important area, one business context."
+          >
+            <p>
+              Avantiqo connects work that is normally fragmented across separate
+              applications, spreadsheets and inboxes while keeping permissions,
+              records and responsibility explicit.
+            </p>
           </SectionTitle>
           <div className="mt-10 grid overflow-hidden rounded-[22px] border border-black/[0.075] bg-white sm:grid-cols-2 lg:grid-cols-3">
             {businessAreas.map(([title, description], index) => (
-              <article key={title} className={`group min-h-[170px] p-5 transition hover:bg-[#FCFBF9] ${index % 3 !== 2 ? "lg:border-r lg:border-black/[0.06]" : ""} ${index < 6 ? "border-b border-black/[0.06]" : ""}`}>
-                <div className="flex items-start justify-between gap-4"><div className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/[0.06] bg-[#FBFAF8] text-[9px] font-bold text-[#8D643C]">{title.slice(0, 2).toUpperCase()}</div><Arrow className="mt-1 h-3.5 w-3.5 text-[#C3BDB4] transition group-hover:translate-x-0.5 group-hover:text-[#A37849]" /></div>
-                <h3 className="mt-5 text-[14px] font-semibold text-[#34302B]">{title}</h3><p className="mt-2 max-w-sm text-[10px] leading-5 text-[#827D75]">{description}</p>
+              <article
+                key={title}
+                className={`group min-h-[170px] p-5 transition hover:bg-[#FCFBF9] ${index % 3 !== 2 ? "lg:border-r lg:border-black/[0.06]" : ""} ${index < 6 ? "border-b border-black/[0.06]" : ""}`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/[0.06] bg-[#FBFAF8] text-[9px] font-bold text-[#8D643C]">
+                    {title.slice(0, 2).toUpperCase()}
+                  </div>
+                  <Arrow className="mt-1 h-3.5 w-3.5 text-[#C3BDB4] transition group-hover:translate-x-0.5 group-hover:text-[#A37849]" />
+                </div>
+                <h3 className="mt-5 text-[14px] font-semibold text-[#34302B]">
+                  {title}
+                </h3>
+                <p className="mt-2 max-w-sm text-[10px] leading-5 text-[#827D75]">
+                  {description}
+                </p>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-
       <section className="border-b border-black/[0.06] bg-[#FBFAF8]">
         <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
           <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
-            <SectionTitle eyebrow="The Avantiqo product family" title="One intelligence layer. Multiple professional surfaces.">
-              <p>The Business Operating System is the operating core. Creative Studios and the Developer Platform extend the same Avantiqo design language into production and integration without turning them into separate products.</p>
+            <SectionTitle
+              eyebrow="The Avantiqo product family"
+              title="One intelligence layer. Multiple professional surfaces."
+            >
+              <p>
+                The Business Operating System is the operating core. Creative
+                Studios and the Developer Platform extend the same Avantiqo
+                design language into production and integration without turning
+                them into separate products.
+              </p>
             </SectionTitle>
-            <p className="max-w-2xl text-[13px] leading-6 text-[#7A756E] lg:justify-self-end">Move from running the company, to producing world-class creative work, to embedding Avantiqo capabilities inside another product—with one brand, one governance model and one business context.</p>
+            <p className="max-w-2xl text-[13px] leading-6 text-[#7A756E] lg:justify-self-end">
+              Move from running the company, to producing world-class creative
+              work, to embedding Avantiqo capabilities inside another
+              product—with one brand, one governance model and one business
+              context.
+            </p>
           </div>
 
           <div className="mt-12 grid gap-4 lg:grid-cols-2">
-            <a href="/creative-studios" className="group overflow-hidden rounded-[28px] border border-black/[0.075] bg-[#171716] text-white shadow-[0_24px_70px_rgba(35,27,18,.08)] transition hover:-translate-y-1">
+            <a
+              href="/creative-studios"
+              className="group overflow-hidden rounded-[28px] border border-black/[0.075] bg-[#171716] text-white shadow-[0_24px_70px_rgba(35,27,18,.08)] transition hover:-translate-y-1"
+            >
               <div className="relative h-[300px] overflow-hidden border-b border-white/[0.07] bg-[#1A1510]">
-                <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{backgroundImage:'url(/art/creative-image.jpg)'}}/>
-                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.10)_45%,rgba(8,7,6,.74))]"/>
-                <div className="absolute left-6 top-6 rounded-full border border-white/24 bg-black/25 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#F0C98F] backdrop-blur-xl">Creative Studios</div>
-                <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4"><div><div className="text-[8px] uppercase tracking-[0.18em] text-[#E9C28C]">Real production</div><div className="mt-1 text-[11px] text-white/70">Image · Video · Music</div></div><div className="text-[8px] uppercase tracking-[0.15em] text-white/38">Ideas → impact</div></div>
+                <div
+                  className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]"
+                  style={{ backgroundImage: "url(/art/creative-image.jpg)" }}
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.10)_45%,rgba(8,7,6,.74))]" />
+                <div className="absolute left-6 top-6 rounded-full border border-white/24 bg-black/25 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#F0C98F] backdrop-blur-xl">
+                  Creative Studios
+                </div>
+                <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
+                  <div>
+                    <div className="text-[8px] uppercase tracking-[0.18em] text-[#E9C28C]">
+                      Real production
+                    </div>
+                    <div className="mt-1 text-[11px] text-white/70">
+                      Image · Video · Music
+                    </div>
+                  </div>
+                  <div className="text-[8px] uppercase tracking-[0.15em] text-white/38">
+                    Ideas → impact
+                  </div>
+                </div>
               </div>
               <div className="flex items-end justify-between gap-8 p-6 sm:p-7">
-                <div><h3 className="text-[27px] font-medium tracking-[-0.04em] text-[#F7F4EF]">Image. Video. Music.</h3><p className="mt-3 max-w-xl text-[11px] leading-6 text-white/42">Professional creative production systems with research, direction, creation, review, repair and delivery connected from start to finish.</p></div>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#D6A66A]/30 text-[#D6A66A] transition group-hover:translate-x-1"><Arrow className="h-4 w-4"/></span>
+                <div>
+                  <h3 className="text-[27px] font-medium tracking-[-0.04em] text-[#F7F4EF]">
+                    Image. Video. Music.
+                  </h3>
+                  <p className="mt-3 max-w-xl text-[11px] leading-6 text-white/42">
+                    Professional creative production systems with research,
+                    direction, creation, review, repair and delivery connected
+                    from start to finish.
+                  </p>
+                </div>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#D6A66A]/30 text-[#D6A66A] transition group-hover:translate-x-1">
+                  <Arrow className="h-4 w-4" />
+                </span>
               </div>
             </a>
 
-            <a href="/developers" className="group overflow-hidden rounded-[28px] border border-black/[0.075] bg-white shadow-[0_24px_70px_rgba(35,27,18,.06)] transition hover:-translate-y-1">
+            <a
+              href="/developers"
+              className="group overflow-hidden rounded-[28px] border border-black/[0.075] bg-white shadow-[0_24px_70px_rgba(35,27,18,.06)] transition hover:-translate-y-1"
+            >
               <div className="relative h-[300px] overflow-hidden border-b border-black/[0.06] bg-[#EDE5D8]">
-                <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{backgroundImage:'url(/art/developer-work.jpg)'}}/>
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,.08),transparent_42%),linear-gradient(180deg,transparent_50%,rgba(10,8,7,.62))]"/>
-                <div className="absolute left-6 top-6 rounded-full border border-white/30 bg-white/75 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#76512D] shadow-sm backdrop-blur-xl">Developer Platform</div>
-                <div className="absolute bottom-5 left-6 right-6 rounded-[16px] border border-white/20 bg-black/28 p-3 text-white backdrop-blur-xl"><div className="flex items-center justify-between gap-4"><div><div className="text-[8px] uppercase tracking-[0.18em] text-[#E9C28C]">Build · connect · automate</div><div className="mt-1 text-[10px] text-white/68">APIs, agents, workflows and embedded capabilities.</div></div><span className="text-[8px] uppercase tracking-[0.14em] text-white/38">Governed</span></div></div>
+                <div
+                  className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]"
+                  style={{ backgroundImage: "url(/art/developer-work.jpg)" }}
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,.08),transparent_42%),linear-gradient(180deg,transparent_50%,rgba(10,8,7,.62))]" />
+                <div className="absolute left-6 top-6 rounded-full border border-white/30 bg-white/75 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#76512D] shadow-sm backdrop-blur-xl">
+                  Developer Platform
+                </div>
+                <div className="absolute bottom-5 left-6 right-6 rounded-[16px] border border-white/20 bg-black/28 p-3 text-white backdrop-blur-xl">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-[8px] uppercase tracking-[0.18em] text-[#E9C28C]">
+                        Build · connect · automate
+                      </div>
+                      <div className="mt-1 text-[10px] text-white/68">
+                        APIs, agents, workflows and embedded capabilities.
+                      </div>
+                    </div>
+                    <span className="text-[8px] uppercase tracking-[0.14em] text-white/38">
+                      Governed
+                    </span>
+                  </div>
+                </div>
               </div>
               <div className="flex items-end justify-between gap-8 p-6 sm:p-7">
-                <div><h3 className="text-[27px] font-medium tracking-[-0.04em] text-[#1D1B18]">Build with Avantiqo.</h3><p className="mt-3 max-w-xl text-[11px] leading-6 text-[#77716A]">Use business capabilities through APIs, agent tools, jobs, webhooks and embedded workflows without rebuilding the underlying operating logic.</p></div>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#D6A66A]/35 text-[#9A744B] transition group-hover:translate-x-1"><Arrow className="h-4 w-4"/></span>
+                <div>
+                  <h3 className="text-[27px] font-medium tracking-[-0.04em] text-[#1D1B18]">
+                    Build with Avantiqo.
+                  </h3>
+                  <p className="mt-3 max-w-xl text-[11px] leading-6 text-[#77716A]">
+                    Use business capabilities through APIs, agent tools, jobs,
+                    webhooks and embedded workflows without rebuilding the
+                    underlying operating logic.
+                  </p>
+                </div>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#D6A66A]/35 text-[#9A744B] transition group-hover:translate-x-1">
+                  <Arrow className="h-4 w-4" />
+                </span>
               </div>
             </a>
           </div>
@@ -295,55 +720,288 @@ export default function AvantiqoPublicHome() {
       <section className="border-b border-black/[0.06] bg-[#171716] text-white">
         <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
           <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
-            <div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">The Avantiqo economy</p><h2 className="mt-3 max-w-2xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[48px]">More than software. A platform with multiple ways to create value.</h2></div>
-            <p className="max-w-2xl text-[13px] leading-7 text-white/42 lg:justify-self-end">Subscription software is the base. Creative production, developer usage, premium intelligence, compute, connected services, marketplace activity and partners create additional commercial layers without fragmenting the product.</p>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">
+                The Avantiqo economy
+              </p>
+              <h2 className="mt-3 max-w-2xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[48px]">
+                More than software. A platform with multiple ways to create
+                value.
+              </h2>
+            </div>
+            <p className="max-w-2xl text-[13px] leading-7 text-white/42 lg:justify-self-end">
+              Subscription software is the base. Creative production, developer
+              usage, premium intelligence, compute, connected services,
+              marketplace activity and partners create additional commercial
+              layers without fragmenting the product.
+            </p>
           </div>
           <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              ["Solutions","/solutions","Industry Business OS","Restaurants, hotels, retail and professional services packaged around real operating workflows."],
-              ["Agents","/agents","Governed digital workers","Specialist automation and premium workloads built on exact business capabilities."],
-              ["Compute","/compute","Use it. Rent the idle.","Owned GPU reduces provider spend, serves paid workloads and can monetize genuinely idle capacity."],
-              ["Marketplace","/ecosystem","A commercial ecosystem","Capabilities, agents, solutions, connectors and future compute supply can be distributed and settled."],
-              ["Integrations","/integrations","Connected-service economics","Messaging, ads, payments, documents and external services become governed capabilities."],
-              ["Partners","/partners","Distribution at portfolio scale","Accountants, agencies, consultants and builders can bring many businesses onto Avantiqo."],
-              ["Commerce","/commerce","Sell. Settle. Post.","POS, orders, bookings, invoices and payment rails connect revenue to finance evidence."],
-              ["Channels","/channels","Every customer and staff surface","Websites, portals, mobile, kiosk, POS and embedded experiences become paid extensions of the same Business OS."],
-              ["Enterprise","/enterprise","Scale the operating scope","Multi-entity governance, portfolio visibility, complex integrations and premium service packaging."],
-              ["Services","/services","Implementation that accelerates adoption","Migration, configuration, integration, launch, training and optimization as repeatable professional services."],
-              ["Insights","/insights","Premium decision products","Forecasting, exceptions, portfolio analytics and specialist insight packs tied to governed business evidence."],
-              ["Pricing","/pricing","Four revenue engines","Subscription, consumption, transactions and platform economics in one commercial architecture."],
-              ["Developers","/developers","Build on Avantiqo","APIs, agent tools, webhooks and embedded workflows create metered platform demand."],
-            ].map(([name,href,title,text],i)=><a key={name} href={href} className="group rounded-[22px] border border-white/[0.08] bg-white/[0.025] p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/28 hover:bg-white/[0.04]"><div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#D6A66A]">0{i+1}</span><Arrow className="h-3.5 w-3.5 text-white/20 transition group-hover:translate-x-0.5 group-hover:text-[#D6A66A]"/></div><div className="mt-8 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]/75">{name}</div><h3 className="mt-2 text-[16px] font-semibold text-white/82">{title}</h3><p className="mt-2 text-[9px] leading-5 text-white/34">{text}</p></a>)}
-          </div>
-        </div>
-      </section>
-
-      <section id="how-it-works" className="border-b border-black/[0.06] bg-white/55">
-        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <SectionTitle eyebrow="How the system works" title="From business context to accountable execution." center>
-            <p>Avantiqo starts with the organization and the user&apos;s authorized context, then routes work into the correct business area, workflow and record. Important actions can require approval before they are executed and recorded.</p>
-          </SectionTitle>
-          <div className="mt-12 grid gap-3 md:grid-cols-4">
-            {[["01", "Set business context", "Organization, entity, user, role and period establish where the person is operating."], ["02", "Open the right business area", "Finance, Operations, Supply Chain and other domains keep their own rules and source records."], ["03", "Review the next move", "Avantiqo surfaces exceptions, approvals, requests and evidence instead of only passive dashboards."], ["04", "Execute and preserve truth", "Approved work moves forward and the resulting status, evidence and business record remain auditable."]].map(([number, title, description]) => (
-              <article key={number} className="rounded-[20px] border border-black/[0.075] bg-white p-5"><div className="text-[9px] font-bold text-[#A37849]">{number}</div><h3 className="mt-5 text-[15px] font-semibold tracking-[-0.02em] text-[#302D29]">{title}</h3><p className="mt-2 text-[10px] leading-5 text-[#7A756E]">{description}</p></article>
+              [
+                "Solutions",
+                "/solutions",
+                "Industry Business OS",
+                "Restaurants, hotels, retail and professional services packaged around real operating workflows.",
+              ],
+              [
+                "Agents",
+                "/agents",
+                "Governed digital workers",
+                "Specialist automation and premium workloads built on exact business capabilities.",
+              ],
+              [
+                "Compute",
+                "/compute",
+                "Use it. Rent the idle.",
+                "Owned GPU reduces provider spend, serves paid workloads and can monetize genuinely idle capacity.",
+              ],
+              [
+                "Marketplace",
+                "/ecosystem",
+                "A commercial ecosystem",
+                "Capabilities, agents, solutions, connectors and future compute supply can be distributed and settled.",
+              ],
+              [
+                "Integrations",
+                "/integrations",
+                "Connected-service economics",
+                "Messaging, ads, payments, documents and external services become governed capabilities.",
+              ],
+              [
+                "Partners",
+                "/partners",
+                "Distribution at portfolio scale",
+                "Accountants, agencies, consultants and builders can bring many businesses onto Avantiqo.",
+              ],
+              [
+                "Commerce",
+                "/commerce",
+                "Sell. Settle. Post.",
+                "POS, orders, bookings, invoices and payment rails connect revenue to finance evidence.",
+              ],
+              [
+                "Channels",
+                "/channels",
+                "Every customer and staff surface",
+                "Websites, portals, mobile, kiosk, POS and embedded experiences become paid extensions of the same Business OS.",
+              ],
+              [
+                "Enterprise",
+                "/enterprise",
+                "Scale the operating scope",
+                "Multi-entity governance, portfolio visibility, complex integrations and premium service packaging.",
+              ],
+              [
+                "Services",
+                "/services",
+                "Implementation that accelerates adoption",
+                "Migration, configuration, integration, launch, training and optimization as repeatable professional services.",
+              ],
+              [
+                "Insights",
+                "/insights",
+                "Premium decision products",
+                "Forecasting, exceptions, portfolio analytics and specialist insight packs tied to governed business evidence.",
+              ],
+              [
+                "Pricing",
+                "/pricing",
+                "Four revenue engines",
+                "Subscription, consumption, transactions and platform economics in one commercial architecture.",
+              ],
+              [
+                "Developers",
+                "/developers",
+                "Build on Avantiqo",
+                "APIs, agent tools, webhooks and embedded workflows create metered platform demand.",
+              ],
+            ].map(([name, href, title, text], i) => (
+              <a
+                key={name}
+                href={href}
+                className="group rounded-[22px] border border-white/[0.08] bg-white/[0.025] p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/28 hover:bg-white/[0.04]"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[8px] font-bold text-[#D6A66A]">
+                    0{i + 1}
+                  </span>
+                  <Arrow className="h-3.5 w-3.5 text-white/20 transition group-hover:translate-x-0.5 group-hover:text-[#D6A66A]" />
+                </div>
+                <div className="mt-8 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]/75">
+                  {name}
+                </div>
+                <h3 className="mt-2 text-[16px] font-semibold text-white/82">
+                  {title}
+                </h3>
+                <p className="mt-2 text-[9px] leading-5 text-white/34">
+                  {text}
+                </p>
+              </a>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="intelligence" className="border-b border-black/[0.06] bg-[#171716] text-white">
+      <section
+        id="how-it-works"
+        className="border-b border-black/[0.06] bg-white/55"
+      >
+        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
+          <SectionTitle
+            eyebrow="How the system works"
+            title="From business context to accountable execution."
+            center
+          >
+            <p>
+              Avantiqo starts with the organization and the user&apos;s
+              authorized context, then routes work into the correct business
+              area, workflow and record. Important actions can require approval
+              before they are executed and recorded.
+            </p>
+          </SectionTitle>
+          <div className="mt-12 grid gap-3 md:grid-cols-4">
+            {[
+              [
+                "01",
+                "Set business context",
+                "Organization, entity, user, role and period establish where the person is operating.",
+              ],
+              [
+                "02",
+                "Open the right business area",
+                "Finance, Operations, Supply Chain and other domains keep their own rules and source records.",
+              ],
+              [
+                "03",
+                "Review the next move",
+                "Avantiqo surfaces exceptions, approvals, requests and evidence instead of only passive dashboards.",
+              ],
+              [
+                "04",
+                "Execute and preserve truth",
+                "Approved work moves forward and the resulting status, evidence and business record remain auditable.",
+              ],
+            ].map(([number, title, description]) => (
+              <article
+                key={number}
+                className="rounded-[20px] border border-black/[0.075] bg-white p-5"
+              >
+                <div className="text-[9px] font-bold text-[#A37849]">
+                  {number}
+                </div>
+                <h3 className="mt-5 text-[15px] font-semibold tracking-[-0.02em] text-[#302D29]">
+                  {title}
+                </h3>
+                <p className="mt-2 text-[10px] leading-5 text-[#7A756E]">
+                  {description}
+                </p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="intelligence"
+        className="border-b border-black/[0.06] bg-[#171716] text-white"
+      >
         <div className="mx-auto grid max-w-[1320px] gap-12 px-5 py-20 sm:px-7 lg:grid-cols-[.86fr_1.14fr] lg:items-center lg:px-10 lg:py-24">
           <div className="max-w-xl">
-            <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#D6A66A]"><Spark className="h-3.5 w-3.5" />Avantiqo Intelligence</div>
-            <h2 className="mt-4 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[44px] lg:text-[52px]">Intelligence belongs inside the work.</h2>
-            <p className="mt-6 text-[14px] leading-7 text-white/55">Avantiqo Intelligence is designed to work with the same organization, entity, period, permissions and business evidence as the person using the system. It can help research, summarize, identify next actions, prepare work and coordinate approved automation without becoming a separate source of business authority.</p>
-            <div className="mt-7 grid gap-2 sm:grid-cols-2">{["Research with business context", "Surface next actions", "Prepare governed work", "Keep execution auditable"].map((item) => <div key={item} className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-3 text-[10px] text-white/65"><Check className="h-3 w-3 text-[#D6A66A]" />{item}</div>)}</div>
+            <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#D6A66A]">
+              <Spark className="h-3.5 w-3.5" />
+              Avantiqo Intelligence
+            </div>
+            <h2 className="mt-4 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[44px] lg:text-[52px]">
+              Intelligence belongs inside the work.
+            </h2>
+            <p className="mt-6 text-[14px] leading-7 text-white/55">
+              Avantiqo Intelligence is designed to work with the same
+              organization, entity, period, permissions and business evidence as
+              the person using the system. It can help research, summarize,
+              identify next actions, prepare work and coordinate approved
+              automation without becoming a separate source of business
+              authority.
+            </p>
+            <div className="mt-7 grid gap-2 sm:grid-cols-2">
+              {[
+                "Research with business context",
+                "Surface next actions",
+                "Prepare governed work",
+                "Keep execution auditable",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-3 text-[10px] text-white/65"
+                >
+                  <Check className="h-3 w-3 text-[#D6A66A]" />
+                  {item}
+                </div>
+              ))}
+            </div>
           </div>
           <div className="rounded-[24px] border border-white/[0.08] bg-[#201F1D] p-3 shadow-[0_30px_80px_rgba(0,0,0,0.28)] sm:p-4">
             <div className="rounded-[19px] border border-white/[0.07] bg-[#F7F6F3] p-4 text-[#191919] sm:p-5">
-              <div className="flex items-center justify-between gap-4 border-b border-black/[0.06] pb-4"><div><div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#9A744B]">Business Partner</div><div className="mt-1 text-[13px] font-semibold text-[#34302B]">What needs my attention today?</div></div><div className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] text-[#9A744B]"><Spark className="h-3.5 w-3.5" /></div></div>
-              <div className="mt-4 space-y-2.5">{[["1", "Finance", "Four approvals are waiting for decision before settlement can continue.", "Review approvals"], ["2", "Supply Chain", "One stock exception is blocking the next fulfilment step.", "Open exception"], ["3", "Operations", "Two service items need evidence before they can be completed.", "Review work"]].map(([number, area, text, action]) => <div key={number} className="grid grid-cols-[24px_minmax(0,1fr)] gap-3 rounded-xl border border-black/[0.06] bg-white p-3"><div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#F7F2EA] text-[8px] font-bold text-[#9A744B]">{number}</div><div><div className="text-[7px] font-semibold uppercase tracking-[0.13em] text-[#8A867F]">{area}</div><p className="mt-1 text-[9px] leading-4 text-[#57524C]">{text}</p><div className="mt-2 inline-flex items-center gap-1 text-[8px] font-semibold text-[#8D643C]">{action}<Arrow className="h-2.5 w-2.5" /></div></div></div>)}</div>
-              <div className="mt-3 flex items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-3 py-3 text-[9px] text-[#A09A92]"><Spark className="h-3 w-3 text-[#9A744B]" />Ask about the business, a decision or the next action…</div>
+              <div className="flex items-center justify-between gap-4 border-b border-black/[0.06] pb-4">
+                <div>
+                  <div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#9A744B]">
+                    Business Partner
+                  </div>
+                  <div className="mt-1 text-[13px] font-semibold text-[#34302B]">
+                    What needs my attention today?
+                  </div>
+                </div>
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] text-[#9A744B]">
+                  <Spark className="h-3.5 w-3.5" />
+                </div>
+              </div>
+              <div className="mt-4 space-y-2.5">
+                {[
+                  [
+                    "1",
+                    "Finance",
+                    "Four approvals are waiting for decision before settlement can continue.",
+                    "Review approvals",
+                  ],
+                  [
+                    "2",
+                    "Supply Chain",
+                    "One stock exception is blocking the next fulfilment step.",
+                    "Open exception",
+                  ],
+                  [
+                    "3",
+                    "Operations",
+                    "Two service items need evidence before they can be completed.",
+                    "Review work",
+                  ],
+                ].map(([number, area, text, action]) => (
+                  <div
+                    key={number}
+                    className="grid grid-cols-[24px_minmax(0,1fr)] gap-3 rounded-xl border border-black/[0.06] bg-white p-3"
+                  >
+                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#F7F2EA] text-[8px] font-bold text-[#9A744B]">
+                      {number}
+                    </div>
+                    <div>
+                      <div className="text-[7px] font-semibold uppercase tracking-[0.13em] text-[#8A867F]">
+                        {area}
+                      </div>
+                      <p className="mt-1 text-[9px] leading-4 text-[#57524C]">
+                        {text}
+                      </p>
+                      <div className="mt-2 inline-flex items-center gap-1 text-[8px] font-semibold text-[#8D643C]">
+                        {action}
+                        <Arrow className="h-2.5 w-2.5" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-3 py-3 text-[9px] text-[#A09A92]">
+                <Spark className="h-3 w-3 text-[#9A744B]" />
+                Ask about the business, a decision or the next action…
+              </div>
             </div>
           </div>
         </div>
@@ -353,29 +1011,119 @@ export default function AvantiqoPublicHome() {
 
       <section className="border-b border-black/[0.06] bg-white/55">
         <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-20 sm:px-7 lg:grid-cols-[1fr_.8fr] lg:items-start lg:px-10 lg:py-24">
-          <SectionTitle eyebrow="Privacy & control" title="Connected services remain customer controlled.">
-            <p>Avantiqo&apos;s Privacy Policy explains how organizational data and connected-service data are accessed, used, stored, shared, retained and deleted. Authorized administrators decide which external services are connected and can disconnect them when required.</p>
+          <SectionTitle
+            eyebrow="Privacy & control"
+            title="Connected services remain customer controlled."
+          >
+            <p>
+              Avantiqo&apos;s Privacy Policy explains how organizational data
+              and connected-service data are accessed, used, stored, shared,
+              retained and deleted. Authorized administrators decide which
+              external services are connected and can disconnect them when
+              required.
+            </p>
           </SectionTitle>
           <div className="grid gap-3">
-            <a href="/policy" className="rounded-[20px] border border-[#D6A66A]/24 bg-[#FBF7F0] p-5 transition hover:border-[#D6A66A]/45"><p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#9A744B]">Privacy Policy</p><p className="mt-2 text-[11px] leading-5 text-[#6F6961]">How Avantiqo handles platform data, connected-service data and authorized provider access.</p></a>
-            <a href="/terms" className="rounded-[20px] border border-black/[0.075] bg-white p-5 transition hover:border-black/[0.14]"><p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#69645D]">Terms of Service</p><p className="mt-2 text-[11px] leading-5 text-[#77716A]">The terms governing access to Avantiqo and authorized connected business services.</p></a>
+            <a
+              href="/policy"
+              className="rounded-[20px] border border-[#D6A66A]/24 bg-[#FBF7F0] p-5 transition hover:border-[#D6A66A]/45"
+            >
+              <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#9A744B]">
+                Privacy Policy
+              </p>
+              <p className="mt-2 text-[11px] leading-5 text-[#6F6961]">
+                How Avantiqo handles platform data, connected-service data and
+                authorized provider access.
+              </p>
+            </a>
+            <a
+              href="/terms"
+              className="rounded-[20px] border border-black/[0.075] bg-white p-5 transition hover:border-black/[0.14]"
+            >
+              <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#69645D]">
+                Terms of Service
+              </p>
+              <p className="mt-2 text-[11px] leading-5 text-[#77716A]">
+                The terms governing access to Avantiqo and authorized connected
+                business services.
+              </p>
+            </a>
           </div>
         </div>
       </section>
 
       <section className="bg-[#F7F6F3]">
         <div className="mx-auto max-w-[1120px] px-5 py-20 text-center sm:px-7 lg:px-10 lg:py-24">
-          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] text-[10px] font-bold text-[#9A744B]">AV</div>
-          <h2 className="mx-auto mt-6 max-w-3xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#1B1A18] sm:text-[44px] lg:text-[52px]">One company context. One place to operate.</h2>
-          <p className="mx-auto mt-5 max-w-2xl text-[14px] leading-7 text-[#716C65]">The organization decides who can access Avantiqo, which external services are connected, what requires approval and which workflows may be automated.</p>
-          <a href="/login" className="mt-8 inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white shadow-[0_6px_18px_rgba(20,18,15,0.14)]">Login to Avantiqo <Arrow className="h-3.5 w-3.5" /></a>
+          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] text-[10px] font-bold text-[#9A744B]">
+            AV
+          </div>
+          <h2 className="mx-auto mt-6 max-w-3xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#1B1A18] sm:text-[44px] lg:text-[52px]">
+            One company context. One place to operate.
+          </h2>
+          <p className="mx-auto mt-5 max-w-2xl text-[14px] leading-7 text-[#716C65]">
+            The organization decides who can access Avantiqo, which external
+            services are connected, what requires approval and which workflows
+            may be automated.
+          </p>
+          <a
+            href="/login"
+            className="mt-8 inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white shadow-[0_6px_18px_rgba(20,18,15,0.14)]"
+          >
+            Login to Avantiqo <Arrow className="h-3.5 w-3.5" />
+          </a>
         </div>
       </section>
 
       <footer className="border-t border-black/[0.07] bg-[#FBFAF8]">
         <div className="mx-auto flex max-w-[1320px] flex-col gap-5 px-5 py-8 text-[10px] text-[#817B73] sm:flex-row sm:items-end sm:justify-between sm:px-7 lg:px-10">
-          <div><div><span className="font-semibold text-[#3E3933]">Avantiqo</span><span className="ml-2">Business Operating System</span></div><div className="mt-2 text-[9px] leading-5 text-[#9B958D]">Avantiqo is operated by BEA Co., Ltd., Thailand. Company Registration No. 0835553004601.</div></div>
-          <div className="flex flex-wrap gap-5"><a href="/enterprise" className="transition hover:text-[#8A633C]">Enterprise</a><a href="/commerce" className="transition hover:text-[#8A633C]">Commerce</a><a href="/channels" className="transition hover:text-[#8A633C]">Channels</a><a href="/solutions" className="transition hover:text-[#8A633C]">Solutions</a><a href="/pricing" className="transition hover:text-[#8A633C]">Pricing</a><a href="/ecosystem" className="transition hover:text-[#8A633C]">Marketplace</a><a href="/developers" className="transition hover:text-[#8A633C]">Developers</a><a href="/policy" className="transition hover:text-[#8A633C]">Privacy Policy</a><a href="/terms" className="transition hover:text-[#8A633C]">Terms of Service</a><a href="#connected-service-data" className="transition hover:text-[#8A633C]">Connected services</a><a href="/login" className="transition hover:text-[#8A633C]">Login</a></div>
+          <div>
+            <div>
+              <span className="font-semibold text-[#3E3933]">Avantiqo</span>
+              <span className="ml-2">Business Operating System</span>
+            </div>
+            <div className="mt-2 text-[9px] leading-5 text-[#9B958D]">
+              Avantiqo is operated by BEA Co., Ltd., Thailand. Company
+              Registration No. 0835553004601.
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-5">
+            <a href="/enterprise" className="transition hover:text-[#8A633C]">
+              Enterprise
+            </a>
+            <a href="/commerce" className="transition hover:text-[#8A633C]">
+              Commerce
+            </a>
+            <a href="/channels" className="transition hover:text-[#8A633C]">
+              Channels
+            </a>
+            <a href="/solutions" className="transition hover:text-[#8A633C]">
+              Solutions
+            </a>
+            <a href="/pricing" className="transition hover:text-[#8A633C]">
+              Pricing
+            </a>
+            <a href="/ecosystem" className="transition hover:text-[#8A633C]">
+              Marketplace
+            </a>
+            <a href="/developers" className="transition hover:text-[#8A633C]">
+              Developers
+            </a>
+            <a href="/policy" className="transition hover:text-[#8A633C]">
+              Privacy Policy
+            </a>
+            <a href="/terms" className="transition hover:text-[#8A633C]">
+              Terms of Service
+            </a>
+            <a
+              href="#connected-service-data"
+              className="transition hover:text-[#8A633C]"
+            >
+              Connected services
+            </a>
+            <a href="/login" className="transition hover:text-[#8A633C]">
+              Login
+            </a>
+          </div>
         </div>
       </footer>
     </main>

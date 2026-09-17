@@ -1,5 +1,6 @@
 import { runCronRouteLocalFirst } from "@/lib/platform/service-runtime/policy/CronRouteComputePolicyRuntime";
 import { reconcileAvantiqoGeneralIntelligenceCurriculum } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceCurriculumRuntime";
+import { reconcileAvantiqoCapabilityIntelligenceCurriculum } from "@/lib/intelligence/runtime/AvantiqoCapabilityIntelligenceCurriculumRuntime";
 import { runAvantiqoNightlyLearningSynthesis } from "@/lib/intelligence/runtime/AvantiqoNightlyLearningSynthesisRuntime";
 import { runAvantiqoGeneralIntelligenceExam } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceExamRuntime";
 import { runAvantiqoGeneralIntelligenceRetention } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceRetentionRuntime";
@@ -147,6 +148,7 @@ async function handleCronGet(request) {
     const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 1, 3));
 
     const generalIntelligenceCurriculum = await reconcileAvantiqoGeneralIntelligenceCurriculum();
+    const capabilityIntelligenceCurriculum = await reconcileAvantiqoCapabilityIntelligenceCurriculum();
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const knowledgeLifecycle = await reconcileAvantiqoKnowledgeLifecycle();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
@@ -465,6 +467,7 @@ async function handleCronGet(request) {
       {
         ...result,
         general_intelligence_curriculum: generalIntelligenceCurriculum,
+        capability_intelligence_curriculum: capabilityIntelligenceCurriculum,
         nightly_local_4b_synthesis: nightlyLocalSynthesis,
         general_intelligence_exam: generalIntelligenceExam,
         general_intelligence_retention: generalIntelligenceRetention,

@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Volume2,
+  Film,
   WandSparkles,
   Waves,
 } from "lucide-react";
@@ -33,6 +34,7 @@ import MusicProducerPanel from "./MusicProducerPanel";
 import MusicProfessionalReleasePanel from "./MusicProfessionalReleasePanel";
 import MusicStemsPanel from "./MusicStemsPanel";
 import MusicSfxStudioPanel from "./MusicSfxStudioPanel";
+import TimelineWorkspace from "./TimelineWorkspace";
 import MusicRemixPanel from "./MusicRemixPanel";
 import MusicRecordingStudioPanel from "./MusicRecordingStudioPanel";
 import MusicSpecialistStudioPanel from "./MusicSpecialistStudioPanel";
@@ -85,6 +87,7 @@ const MODES = Object.freeze([
   { id: "extend", label: "Extend", shortLabel: "Extend", description: "Continue an existing piece with governed temporal outpainting.", icon: RefreshCw, section: "Edit" },
   { id: "stems", label: "Separate Stems", shortLabel: "Stems", description: "Separate vocals, drums, bass and other instruments.", icon: Scissors, section: "Finish" },
   { id: "sfx", label: "SFX & Foley", shortLabel: "SFX", description: "Create effects, ambience, transitions, impacts and foley-style sounds.", icon: Volume2, section: "Create & shape" },
+  { id: "audio-video", label: "Audio for Video", shortLabel: "Audio for Video", description: "Score picture, place SFX and work against exact video timecode.", icon: Film, section: "Produce & edit" },
   { id: "vocal", label: "Vocals", shortLabel: "Vocals", description: "Work on vocal production and finishing.", icon: Mic2, section: "Finish" },
   { id: "mix", label: "Mix", shortLabel: "Mix", description: "Balance and finish the mix.", icon: SlidersHorizontal, section: "Finish" },
   { id: "master", label: "Masters & QC", shortLabel: "Masters", description: "Inspect, download and independently revalidate saved release masters.", icon: Disc3, section: "Finish" },
@@ -370,6 +373,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           : mode === "extend" ? <div className="mx-auto max-w-6xl p-6"><MusicRemixPanel operation="extend" {...specialistProps} /></div>
           : mode === "stems" ? <div className="mx-auto max-w-6xl p-6"><MusicStemsPanel {...specialistProps} /></div>
           : mode === "sfx" ? <MusicSfxStudioPanel {...specialistProps} />
+          : mode === "audio-video" ? <div className="min-h-[760px]"><div className="border-b border-black/[0.07] bg-white px-6 py-4"><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">Audio for Video</div><div className="mt-1 text-lg font-medium text-[#2F2B27]">Score picture and place sound against exact timecode</div><div className="mt-1 text-[10px] leading-5 text-[#817B73]">Use the canonical edit timeline for video, dialogue, music, SFX and captions. Audio tasks stay synchronized to the same cut and version history used by Video Studio.</div></div><TimelineWorkspace runtime={runtime} editor={editor} /></div>
           : mode === "backing" ? <div className="mx-auto max-w-6xl p-6"><MusicBackingTrackPanel {...specialistProps} onComplete={() => runtime.refresh?.()} /></div>
           : mode === "vocal" ? <MusicSpecialistStudioPanel mode="vocal" {...specialistProps} />
           : mode === "mix" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Music Project"} onProfessionalReleaseAdvanced={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />

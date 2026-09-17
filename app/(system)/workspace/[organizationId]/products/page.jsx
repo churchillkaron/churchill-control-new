@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { productCatalog } from "@/components/public/productCatalog";
 import { isCustomerProduct } from "@/components/public/customerProductGroups";
@@ -22,6 +22,8 @@ export default function WorkspaceProductsPage({ params }) {
   const [requestingProductId, setRequestingProductId] = useState(null);
   const [requestMessage, setRequestMessage] = useState("");
   const [requestError, setRequestError] = useState("");
+  const [commercialStatus, setCommercialStatus] = useState({});
+  const [statusLoading, setStatusLoading] = useState(true);
   const organizationId = params?.organizationId || context.organization_id || context.organization?.id;
   const modules = Array.isArray(context.modules) ? context.modules : [];
   const entitlements = Array.isArray(context.product_entitlements) ? context.product_entitlements : [];
@@ -43,6 +45,32 @@ export default function WorkspaceProductsPage({ params }) {
     .slice(0, 12);
   const hasExactEntitlements = entitledProducts.length > 0;
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCommercialStatus() {
+      if (!organizationId) return;
+      setStatusLoading(true);
+      try {
+        const response = await fetch(`/api/workspace/products/request?organizationId=${encodeURIComponent(organizationId)}`, { credentials: "same-origin" });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload?.success === false) throw new Error(payload?.error || "Unable to read product request status");
+        if (cancelled) return;
+        setCommercialStatus(Object.fromEntries((payload.products || []).map((row) => [row.productId, row])));
+      } catch {
+        if (!cancelled) setCommercialStatus({});
+      } finally {
+        if (!cancelled) setStatusLoading(false);
+      }
+    }
+    loadCommercialStatus();
+    return () => { cancelled = true; };
+  }, [organizationId]);
+
+  function statusLabel(productId) {
+    const status = commercialStatus[productId]?.status;
+    return ({ requested: "Requested", in_review: "In review", approved: "Approved", active: "Active" })[status] || null;
+  }
+
   async function requestProduct(product) {
     if (!organizationId || requestingProductId) return;
     setRequestingProductId(product.id);
@@ -58,6 +86,7 @@ export default function WorkspaceProductsPage({ params }) {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || payload?.success === false) throw new Error(payload?.error || "Unable to send product request");
       setRequestMessage(payload?.message || `${product.name} request sent to Avantiqo.`);
+      setCommercialStatus((current) => ({ ...current, [product.id]: { productId: product.id, status: "requested", requestedAt: new Date().toISOString() } }));
     } catch (error) {
       setRequestError(error?.message || "Unable to send product request");
     } finally {
@@ -111,7 +140,11 @@ export default function WorkspaceProductsPage({ params }) {
             <p className="mt-2 text-[10px] leading-5 text-[#7B756E]">{product.summary}</p>
             <div className="mt-3 text-[9px] font-semibold text-[#8A6138]">Explore product →</div>
           </Link>
-          <button type="button" disabled={Boolean(requestingProductId)} onClick={() => requestProduct(product)} className="mt-3 rounded-full border border-[#A37849]/30 px-3 py-1.5 text-[9px] font-semibold text-[#76502E] transition hover:border-[#A37849]/60 disabled:opacity-40">{requestingProductId === product.id ? "Sending…" : "Request upgrade"}</button>
+          {statusLabel(product.id) ? (
+            <div className="mt-3 inline-flex rounded-full border border-[#A37849]/25 bg-[#FBF7F1] px-3 py-1.5 text-[9px] font-semibold text-[#76502E]">{statusLabel(product.id)}</div>
+          ) : (
+            <button type="button" disabled={Boolean(requestingProductId) || statusLoading} onClick={() => requestProduct(product)} className="mt-3 rounded-full border border-[#A37849]/30 px-3 py-1.5 text-[9px] font-semibold text-[#76502E] transition hover:border-[#A37849]/60 disabled:opacity-40">{requestingProductId === product.id ? "Sending…" : "Request upgrade"}</button>
+          )}
         </div>)}
       </div>
     </section>

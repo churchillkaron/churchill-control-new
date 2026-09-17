@@ -1,3 +1,4 @@
+import { provisionSubscriptionProducts } from "@/lib/platform/entitlements/provisionProductEntitlements";
 import { requirePlatformOperatorWorkspaceAccess } from "@/lib/platform/security/requirePlatformOperatorWorkspaceAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -104,7 +105,7 @@ async function readAcquisition(acquisitionId) {
 async function requireSubscription(subscriptionId, acquisition) {
   const { data, error } = await supabaseAdmin
     .from("subscriptions")
-    .select("id,lead_id,organization_id,email,status,created_at")
+    .select("id,lead_id,organization_id,email,status,selected_products,selected_modules,created_at")
     .eq("id", subscriptionId)
     .maybeSingle();
   if (error) throw error;
@@ -343,9 +344,13 @@ export async function PATCH(request) {
       }
       customerOrganizationId = subscription.organization_id;
       const organization = await requireCustomerOrganization(customerOrganizationId);
+      const provisioning = await provisionSubscriptionProducts(subscription);
       evidenceType = "CUSTOMER_ORGANIZATION_VERIFIED";
       evidenceReference = organization.id;
-      note = note || `Customer organization verified from committed subscription: ${text(organization.name) || organization.id}`;
+      const provisioned = provisioning.productIds.length
+        ? ` Provisioned ${provisioning.productIds.length} product entitlement(s) and ${provisioning.moduleIds.length} required module(s).`
+        : " No commercial product selection was present on the subscription.";
+      note = note || `Customer organization verified from committed subscription: ${text(organization.name) || organization.id}.${provisioned}`;
     }
 
     if (["HUMAN_ACTIVE", "FIRST_VALUE"].includes(toStage)) {

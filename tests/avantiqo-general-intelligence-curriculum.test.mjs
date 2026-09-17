@@ -35,3 +35,12 @@ test("nightly route can research and synthesize a fresh world topic in one cycle
   const synthesis = route.indexOf("runAvantiqoNightlyLearningSynthesis()");
   assert.ok(research >= 0 && bridge > research && mechanism > bridge && synthesis > mechanism);
 });
+
+test("model weakness never accelerates the paid research schedule", () => {
+  assert.match(curriculum, /const due = new Date\(rotationDueMs\)\.toISOString\(\)/);
+  assert.match(curriculum, /local_practice_only: practiceDue/);
+  assert.match(curriculum, /research_due_to_model_failure: false/);
+  assert.match(curriculum, /model_failure_can_trigger_research: false/);
+  assert.match(curriculum, /research_trigger: isActive \? "ROTATION_FRESHNESS" : "SCHEDULED_ROTATION"/);
+  assert.doesNotMatch(curriculum, /\(isActive \|\| practiceDue\) \? new Date\(nowMs\)/);
+});

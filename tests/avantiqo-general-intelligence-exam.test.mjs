@@ -45,3 +45,10 @@ test("nightly learning runs exam after local synthesis", () => {
   assert.ok(examIndex > synthesisIndex);
   assert.match(route, /general_intelligence_exam: generalIntelligenceExam/);
 });
+
+test("exam failure is classified as local model practice not a research gap", () => {
+  assert.match(exam, /MODEL_REASONING_OR_EVIDENCE_DISCIPLINE/);
+  assert.match(exam, /local_practice_required:grading\.passed!==true/);
+  assert.match(exam, /research_gap_detected:false/);
+  assert.match(exam, /research_eligible_from_exam:false/);
+});

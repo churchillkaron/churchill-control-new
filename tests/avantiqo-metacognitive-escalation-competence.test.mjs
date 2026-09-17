@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const runtime=fs.readFileSync("lib/intelligence/runtime/AvantiqoMetacognitiveEscalationCompetenceRuntime.js","utf8");
+const route=fs.readFileSync("app/api/internal/intelligence/continuous-learning/process/route.js","utf8");
+test("metacognition tests local answer evidence uncertainty and escalation",()=>{for(const kind of ["SUFFICIENT_LOCAL","EVIDENCE_BEFORE_MODEL","UNRESOLVED_CONFLICT","JUSTIFIED_STRONGER_MODEL","EXTERNAL_SPECIALIST_GATE","CALIBRATION","NO_DIFFICULTY_ESCALATION","STOP_LOW_VALUE_WORK"])assert.match(runtime,new RegExp(`"${kind}"`));});
+test("stronger cognition is justified only after cheap evidence is exhausted",()=>{assert.match(runtime,/GET_CHEAP_DISCRIMINATING_EVIDENCE/);assert.match(runtime,/ESCALATE_STRONGER_OWNED_MODEL/);assert.match(runtime,/Hardness alone never justifies escalation/);});
+test("external specialists remain explicit cost governed",()=>{assert.match(runtime,/REQUEST_EXPLICIT_EXTERNAL_SPECIALIST_AUTHORIZATION/);assert.match(runtime,/automatic_external_spend_authorized:false/);assert.match(runtime,/external_fallback_allowed:false/);});
+test("confidence and escalation never add authority",()=>{assert.match(runtime,/CAP_CONFIDENCE_AND_KEEP_IN_PROGRESS/);assert.match(runtime,/authorization_unchanged===true/);assert.match(runtime,/escalation_never_adds_authority:true/);});
+test("nightly route runs metacognition after adversarial critique",()=>{const a=route.indexOf("runAvantiqoAdversarialSelfCritiqueCompetence()");const m=route.indexOf("runAvantiqoMetacognitiveEscalationCompetence()");assert.ok(a>=0&&m>a);assert.match(route,/metacognitive_escalation_competence: metacognitiveEscalationCompetence/);});

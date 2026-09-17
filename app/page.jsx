@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { headers } from "next/headers";
 
-import AvantiqoPublicHome from "@/components/public/AvantiqoPublicHome";
+import AvantiqoUniverseHome from "@/components/public/AvantiqoUniverseHome";
 import {
   normalizePlatformHostname,
 } from "@/lib/platform/context/resolvePlatformHostContext";
@@ -19,7 +19,7 @@ export default async function RootPage() {
   const hostname = normalizePlatformHostname(forwardedHost || host);
 
   if (isAvantiqoPublicHostname(hostname)) {
-    return <AvantiqoPublicHome />;
+    return <AvantiqoUniverseHome />;
   }
 
   return <LoginPage />;

@@ -3,51 +3,15 @@ import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 export const metadata = { title: "Start with Avantiqo | Avantiqo" };
 
 const PATHS = [
-  [
-    "Business",
-    "Business OS",
-    "For owners, managers and teams running finance, operations, supply chain, commercial work, people, projects and documents.",
-    "ERP & operations",
-    "/",
-    "Enter Business OS",
-    "/bg-hero-control.jpg",
-  ],
-  [
-    "Creative",
-    "Creative Studios",
-    "For brands and production teams creating professional image, video and music through complete production workflows.",
-    "Production missions",
-    "/creative-studios",
-    "Enter Creative Studios",
-    "/art/creative-image.jpg",
-  ],
-  [
-    "Developers",
-    "Developer Platform",
-    "For developers building applications, integrations, automations and embedded experiences on Avantiqo.",
-    "SDKs & tooling",
-    "/developers",
-    "Enter Developers",
-    "/art/developer-work.jpg",
-  ],
-  [
-    "API",
-    "Avantiqo API",
-    "For products and systems consuming governed Avantiqo capabilities through metered APIs and jobs.",
-    "Usage based",
-    "/api-platform",
-    "Enter API Platform",
-    "/art/commercial-integrations.jpg",
-  ],
-  [
-    "Compute",
-    "Avantiqo Compute",
-    "For workloads that need GPU or specialist infrastructure, with owned capacity first and governed overflow when needed.",
-    "Infrastructure",
-    "/compute",
-    "Enter Compute",
-    "/art/commercial-compute.jpg",
-  ],
+  ["Run", "Business OS", "Finance, operations, supply chain, commercial, people, projects and analytics in one governed operating system.", "Operate", "/business", "Enter Business OS", "/bg-hero-control.jpg"],
+  ["Think", "Intelligence", "Business Partner, agents, research, memory, learning, insights and governed execution.", "Reason & act", "/intelligence-platform", "Enter Intelligence", "/branding/avantiqo-intelligence-core-hero.webp"],
+  ["Create", "Creative Studios", "Image, video, music and production missions with research, direction, review and repair.", "Produce", "/creative-studios", "Enter Creative Studios", "/art/creative-image.jpg"],
+  ["Speak", "Voice", "Speech-to-text, realtime transcription, TTS, voice production and telephony connected to intelligence.", "Listen & respond", "/voice", "Enter Voice", "/art/creative-music.jpg"],
+  ["Build", "Avantiqo Code", "Software work from understanding and planning through build, test, integration and verification.", "Engineer", "/code", "Enter Code", "/art/developer-work.jpg"],
+  ["Process", "Documents", "OCR, extraction, classification, validation and document understanding connected to business workflows.", "Understand files", "/documents", "Enter Documents", "/art/commercial-integrations.jpg"],
+  ["Develop", "Developer Platform", "SDKs, tools and embedded experiences for teams building on Avantiqo.", "Build on Avantiqo", "/developers", "Enter Developers", "/art/developer-work.jpg"],
+  ["Connect", "API Platform", "Governed Avantiqo capabilities exposed through APIs, jobs, webhooks and metered execution.", "Consume capabilities", "/api-platform", "Enter API Platform", "/art/commercial-integrations.jpg"],
+  ["Scale", "Compute", "GPU, inference, rendering, batch and specialist infrastructure with owned capacity first.", "Run workloads", "/compute", "Enter Compute", "/art/commercial-compute.jpg"],
 ];
 
 function Arrow() {
@@ -82,10 +46,10 @@ export default function StartPage() {
                 START WITH AVANTIQO
               </p>
               <h1 className="mt-5 text-[50px] font-medium leading-[.96] tracking-[-0.06em] text-[#171614] sm:text-[64px] lg:text-[72px]">
-                Choose your Avantiqo workspace.
+                Enter the Avantiqo world you need.
               </h1>
               <p className="mt-7 max-w-xl text-[16px] leading-8 text-[#625F59]">
-                Business customers, creative teams, developers, API users and compute customers each enter a focused environment. The platform stays connected underneath without mixing the journeys on the surface.
+                Run a company, work with intelligence, create, speak, build software, process documents, use APIs or run compute. Each world has its own customer journey while identity, capabilities, Wallet, execution and evidence stay connected underneath.
               </p>
               <div className="mt-9 flex flex-wrap gap-2.5">
                 <a
@@ -137,12 +101,10 @@ export default function StartPage() {
             </div>
             <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-white/[0.14] bg-[#11100E]/74 p-5 text-white shadow-[0_28px_80px_rgba(0,0,0,.28)] backdrop-blur-xl sm:p-6">
               <div className="text-[7px] font-semibold uppercase tracking-[0.21em] text-[#D6A66A]">
-                BUSINESS · CREATIVE · DEVELOPERS · API · COMPUTE
+                RUN · THINK · CREATE · VOICE · CODE · DOCUMENTS · API · COMPUTE
               </div>
               <div className="mt-3 max-w-2xl text-[14px] leading-6 text-white/70">
-                Separate customer journeys above. Shared Avantiqo infrastructure underneath — with
-                ways for customers, developers, partners and infrastructure
-                owners to create value.
+                Different product worlds above. One Avantiqo core underneath — identity, context, capabilities, intelligence, Wallet, execution, evidence and billing.
               </div>
             </div>
           </div>
@@ -194,37 +156,15 @@ export default function StartPage() {
         </div>
       </section>
       <section className="bg-[#171716] text-white">
-        <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[1fr_.8fr] lg:items-center lg:px-10 lg:py-20">
+        <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:px-10 lg:py-20">
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">
-              Commercial architecture
-            </p>
-            <h2 className="mt-3 max-w-3xl text-[38px] font-medium leading-[1.03] tracking-[-0.05em] text-[#F7F4EF] sm:text-[50px]">
-              Subscription. Consumption. Transactions. Platform economics.
-            </h2>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">ONE AVANTIQO CORE</p>
+            <h2 className="mt-3 max-w-3xl text-[38px] font-medium leading-[1.03] tracking-[-0.05em] text-[#F7F4EF] sm:text-[50px]">Different worlds. Shared intelligence and execution underneath.</h2>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {[
-              "Software subscriptions",
-              "Vertical solution packages",
-              "Professional services",
-              "Creative missions",
-              "API usage",
-              "Compute usage & host supply",
-              "Governed agents",
-              "Premium insights",
-              "Integration economics",
-              "Templates & packs",
-              "White-label / embedded",
-              "Training & certification",
-              "Private enterprise deployments",
-              "Transaction revenue",
-            ].map((x) => (
-              <div
-                key={x}
-                className="rounded-[16px] border border-white/[0.08] bg-white/[0.025] px-4 py-3 text-[10px] text-white/55"
-              >
-                {x}
+          <div className="flex flex-wrap gap-2">
+            {["Identity","Organization","Business Context","Capabilities","Intelligence","Wallet","Execution","Evidence","Billing"].map((x, i) => (
+              <div key={x} className="flex items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.035] px-4 py-3 text-[9px] text-white/58">
+                <span className="text-[7px] font-semibold text-[#D6A66A]">0{String(i + 1).padStart(2,"0")}</span>{x}
               </div>
             ))}
           </div>

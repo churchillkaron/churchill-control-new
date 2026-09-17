@@ -96,15 +96,31 @@ export default function DevelopersPage() {
               <div className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[0.15em] text-[#978C80]">{["Capability based", "Meterable", "Organization scoped", "Governed execution"].map((item) => <span key={item} className="inline-flex items-center gap-1.5"><Check className="h-3 w-3 text-[#A37849]" />{item}</span>)}</div>
             </div>
           </div>
-          <div className="relative min-h-[560px] overflow-hidden border-t border-black/[0.06] lg:min-h-0 lg:border-l lg:border-t-0">
+          <div className="relative min-h-[560px] overflow-hidden border-t border-black/[0.06] bg-[#11100e] lg:min-h-0 lg:border-l lg:border-t-0">
             <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:'url(/art/developer-work.jpg)'}}/>
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.04)_45%,rgba(8,7,6,.70))]"/>
-            <div className="absolute left-5 top-5 rounded-full border border-white/30 bg-black/20 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.22em] text-[#F1C98E] backdrop-blur-xl sm:left-7 sm:top-7">AVANTIQO · DEVELOPER SURFACE</div>
-            <div className="absolute right-7 top-7 hidden w-[132px] border-l border-white/28 pl-4 sm:block"><div className="text-[7px] font-semibold uppercase tracking-[0.22em] text-[#F0C98F]">BUILD ON THE CORE</div><div className="mt-2 text-[8px] leading-4 text-white/58">Exact capabilities.<br/>Governed execution.</div></div>
-            <div className="absolute bottom-7 left-5 right-5 sm:left-7 sm:right-7">
-              <div className="rounded-[22px] border border-white/16 bg-black/38 p-5 text-white shadow-[0_24px_70px_rgba(0,0,0,.20)] backdrop-blur-xl sm:p-6">
-                <div className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[#E8C18D]">Developer surface</div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-2">{[["API","Call exact capabilities"],["Agents","Compose governed tools"],["Webhooks","React to business events"],["Embedded","Bring Avantiqo into products"]].map(([a,b])=><div key={a} className="rounded-[14px] border border-white/12 bg-white/[0.035] p-3.5"><div className="text-[10px] font-semibold text-white/84">{a}</div><div className="mt-1 text-[8px] text-white/46">{b}</div></div>)}</div>
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,7,6,.08),rgba(8,7,6,.02)_46%,rgba(8,7,6,.40)),linear-gradient(180deg,rgba(0,0,0,.03),rgba(0,0,0,.10)_44%,rgba(7,6,5,.76))]"/>
+            <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[#D6A66A]/55 to-transparent"/>
+            <div className="absolute left-7 top-7 flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]"><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A] shadow-[0_0_14px_rgba(214,166,106,.8)]"/>AVANTIQO / DEVELOPERS</div>
+            <div className="absolute right-7 top-7 hidden text-right sm:block"><div className="text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F0C98F]">BUILD ON THE CORE</div><div className="mt-1 text-[8px] uppercase tracking-[0.14em] text-white/42">Exact capability contracts</div></div>
+
+            <div className="absolute left-7 top-[21%] hidden w-[190px] rounded-[18px] border border-white/14 bg-black/28 p-4 text-white shadow-[0_20px_60px_rgba(0,0,0,.18)] backdrop-blur-xl md:block">
+              <div className="text-[7px] font-semibold uppercase tracking-[0.18em] text-[#E7BC82]">API REQUEST</div>
+              <div className="mt-3 font-mono text-[8px] leading-5 text-white/68"><span className="text-[#D6A66A]">POST</span> /v1/capabilities/run<br/><span className="text-white/36">organization_id</span><br/><span className="text-white/36">capability</span> · finance.invoice</div>
+              <div className="mt-4 flex gap-1">{[0,1,2,3,4].map((n)=><span key={n} className={`h-[3px] flex-1 rounded-full ${n<4?'bg-[#D6A66A]/70':'bg-white/12'}`}/>)}</div>
+            </div>
+
+            <div className="absolute right-8 top-[24%] hidden w-[170px] rounded-[20px] border border-white/15 bg-white/[0.06] p-4 text-white shadow-[0_22px_60px_rgba(0,0,0,.20)] backdrop-blur-xl xl:block">
+              <div className="text-[7px] uppercase tracking-[0.17em] text-[#E7BC82]">GOVERNANCE</div>
+              <div className="mt-4 space-y-2">{[["Context","bound"],["Authority","exact"],["Evidence","durable"]].map(([a,b])=><div key={a} className="flex items-center justify-between border-b border-white/[0.08] pb-2 text-[8px]"><span className="text-white/48">{a}</span><span className="font-semibold uppercase tracking-[0.12em] text-white/76">{b}</span></div>)}</div>
+            </div>
+
+            <div className="absolute inset-x-7 bottom-7">
+              <div className="grid gap-3 lg:grid-cols-[1.08fr_.92fr] lg:items-end">
+                <div className="rounded-[24px] border border-white/14 bg-[linear-gradient(135deg,rgba(13,11,9,.78),rgba(28,23,18,.48))] p-5 text-white shadow-[0_30px_80px_rgba(0,0,0,.24)] backdrop-blur-xl sm:p-6">
+                  <div className="flex items-center justify-between"><span className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[#E8C18D]">Developer platform</span><span className="hidden text-[7px] uppercase tracking-[0.16em] text-white/24 sm:block">API / AGENTS / JOBS</span></div>
+                  <div className="mt-3 max-w-[520px] text-[13px] leading-6 text-white/76">Use exact Avantiqo capabilities without rebuilding the business logic, governance or execution layer underneath.</div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">{[["API","Exact calls"],["Agents","Governed tools"],["Jobs","Long work"],["Embedded","Own UX"]].map(([a,b],i)=><div key={a} className="rounded-[15px] border border-white/14 bg-black/30 p-3 text-white backdrop-blur-xl"><div className="flex items-center justify-between"><span className="text-[8px] font-semibold text-white/76">{a}</span><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]/80"/></div><div className="mt-3 text-[6px] uppercase tracking-[0.14em] text-[#D9B17A]">{b}</div><div className="mt-2 h-px bg-white/[0.08]"><div className="h-px bg-[#D6A66A]/55" style={{width:`${48+i*12}%`}}/></div></div>)}</div>
               </div>
             </div>
           </div>

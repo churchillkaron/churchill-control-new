@@ -1,77 +1,158 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 
-export const metadata={title:"Creative Studios | Avantiqo",description:"Avantiqo Creative Studios: complete production systems for image, video and music."};
-const studios=[
-  ["Image Studio","From concept to campaign.","Research, art direction, image production, critique, repair, typography and final delivery.","/creative-studios/image"],
-  ["Video Studio","From story to screen.","Story development, shot design, production, dailies, repair, edit, post-production and mastering.","/creative-studios/video"],
-  ["Music Studio","From idea to full production.","Composition, arrangement, edit, remix, stems, vocal work, SFX, mix and master.","/creative-studios/music"],
+export const metadata = {
+  title: "Creative Studios | Avantiqo",
+  description: "Avantiqo Creative Studios: image, video and music production powered by Avantiqo Intelligence.",
+};
+
+const studios = [
+  {
+    no: "01",
+    name: "Image Studio",
+    title: "From concept to campaign.",
+    text: "Research, art direction, image production, critique, repair, typography and final delivery.",
+    href: "/creative-studios/image",
+    image: "/art/creative-image.jpg",
+    tags: "BRANDS  ·  CAMPAIGNS  ·  CONTENT",
+  },
+  {
+    no: "02",
+    name: "Video Studio",
+    title: "From story to screen.",
+    text: "Story development, shot design, production, dailies, repair, edit, VFX, sound, color and mastering.",
+    href: "/creative-studios/video",
+    image: "/art/creative-video.jpg",
+    tags: "FILMS  ·  ADS  ·  SOCIAL  ·  MORE",
+  },
+  {
+    no: "03",
+    name: "Music Studio",
+    title: "From idea to full production.",
+    text: "Composition, arrangement, edit, remix, stems, vocal work, SFX, mix and master.",
+    href: "/creative-studios/music",
+    image: "/art/creative-music.jpg",
+    tags: "MUSIC  ·  SFX  ·  VOICE  ·  MASTER",
+  },
 ];
-const process=[["01","Brief"],["02","Research"],["03","Direction"],["04","Creation"],["05","Review"],["06","Repair"],["07","Delivery"]];
-function Arrow({className=""}){return <svg viewBox="0 0 20 20" className={className} fill="none"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-function Core(){return <div className="relative mx-auto min-h-[580px] w-full overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#EEE8DE] shadow-[0_42px_120px_rgba(73,50,24,.18)]">
-  <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:'url(/art/creative-image.jpg)'}}/>
-  <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(247,246,243,.14),transparent_34%,rgba(0,0,0,.1)),linear-gradient(180deg,transparent_48%,rgba(12,10,8,.72))]"/>
-  <div className="absolute left-5 top-5 rounded-full border border-white/35 bg-white/70 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#6E4D2D] shadow-sm backdrop-blur-xl">CREATIVE INTELLIGENCE / REAL PRODUCTION</div>
-  <div className="absolute right-5 top-5 hidden rounded-[18px] border border-white/30 bg-black/28 p-3 text-white backdrop-blur-xl sm:block"><div className="text-[7px] uppercase tracking-[0.2em] text-[#E8C18D]">One system</div><div className="mt-1 text-[9px] text-white/70">Image · Video · Music</div></div>
-  <div className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-4 border-t border-white/20 pt-4"><div><div className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[#E9C28C]">Ideas into impact</div><div className="mt-1 text-[10px] text-white/68">Human direction. Professional production. Avantiqo intelligence.</div></div><div className="hidden text-right text-[8px] uppercase tracking-[0.18em] text-white/46 sm:block">Research · Create · Review · Deliver</div></div>
-</div>}
 
-function ProductionFlow(){return <div className="relative mt-12 overflow-hidden rounded-[30px] border border-black/[0.07] bg-white p-5 shadow-[0_24px_70px_rgba(53,42,28,.05)] sm:p-7 lg:p-9">
-  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_50%,rgba(214,166,106,.09),transparent_24%),radial-gradient(circle_at_88%_50%,rgba(154,116,75,.07),transparent_22%)]"/>
-  <div className="relative hidden h-px bg-black/[0.08] lg:block"><div className="absolute inset-y-[-1px] left-0 w-[84%] bg-gradient-to-r from-[#D6A66A]/15 via-[#A37849]/65 to-[#D6A66A]/18"/></div>
-  <div className="relative grid grid-cols-2 gap-3 lg:grid-cols-7 lg:gap-0">{process.map(([n,t],i)=><div key={t} className="relative lg:px-3 lg:pt-8">
-    <div className="absolute left-0 top-[-6px] hidden h-3 w-3 rounded-full border border-[#A37849]/50 bg-[#F7F6F3] shadow-[0_0_0_5px_rgba(214,166,106,.07)] lg:block"/>
-    <div className={`min-h-[132px] rounded-[20px] border p-4 transition ${i===3?'border-[#D6A66A]/35 bg-[#FBF5EC] shadow-[0_12px_34px_rgba(154,116,75,.08)]':'border-black/[0.065] bg-[#FCFBF9]'}`}>
-      <div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#A37849]">{n}</span><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]/65"/></div>
-      <div className="mt-9 text-[13px] font-semibold text-[#2C2925]">{t}</div>
-      <div className="mt-2 text-[8px] leading-4 text-[#8A847B]">{['Define the objective','Understand the world','Choose the creative language','Produce the work','Challenge every detail','Fix only what failed','Master every output'][i]}</div>
-    </div>
-  </div>)}</div>
-  <div className="relative mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-black/[0.06] pt-5"><div className="text-[9px] uppercase tracking-[0.17em] text-[#9A744B]">Direction stays connected to every output</div><div className="text-[9px] text-[#8A847B]">Approved work remains locked while failed details return for repair.</div></div>
-</div>}
+function Arrow({ className = "" }) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} fill="none" aria-hidden="true">
+      <path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
-function IntelligenceMap(){const items=[['Image Studio','Campaign systems','left-[6%] top-[18%]'],['Video Studio','Stories / shots / masters','right-[6%] top-[18%]'],['Music Studio','Composition / mix / master','left-1/2 bottom-[10%] -translate-x-1/2']];return <div className="relative min-h-[470px] overflow-hidden rounded-[30px] border border-white/[0.08] bg-[#0A0908] shadow-[0_34px_90px_rgba(0,0,0,.26)]">
-  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_47%,rgba(214,166,106,.18),transparent_20%),radial-gradient(circle_at_50%_50%,rgba(214,166,106,.05),transparent_50%)]"/>
-  <div className="absolute left-1/2 top-1/2 h-[270px] w-[270px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D6A66A]/12"/><div className="absolute left-1/2 top-1/2 h-[180px] w-[180px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D6A66A]/18"/>
-  <div className="absolute left-1/2 top-1/2 z-10 flex h-[112px] w-[112px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#D6A66A]/38 bg-[radial-gradient(circle,rgba(214,166,106,.23),rgba(26,20,14,.78)_62%)] shadow-[0_0_70px_rgba(214,166,106,.16)]"><div className="text-center"><div className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[#E3BC86]">Avantiqo</div><div className="mt-1 text-[7px] uppercase tracking-[0.18em] text-white/34">Intelligence</div></div></div>
-  <svg aria-hidden="true" className="absolute inset-0 h-full w-full text-[#D6A66A]" viewBox="0 0 1000 470" preserveAspectRatio="none"><path d="M180 135 C330 135 350 235 500 235" stroke="currentColor" strokeOpacity=".20" strokeWidth="1" fill="none"/><path d="M820 135 C670 135 650 235 500 235" stroke="currentColor" strokeOpacity=".20" strokeWidth="1" fill="none"/><path d="M500 380 C500 330 500 285 500 235" stroke="currentColor" strokeOpacity=".20" strokeWidth="1" fill="none"/></svg>
-  {items.map(([name,detail,pos],i)=><div key={name} className={`absolute ${pos} w-[210px] rounded-[18px] border border-white/[0.08] bg-white/[0.025] p-4 backdrop-blur-sm`}><div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#D6A66A]">0{i+1}</span><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]/70 shadow-[0_0_10px_rgba(214,166,106,.5)]"/></div><div className="mt-5 text-[13px] font-semibold text-white/82">{name}</div><div className="mt-1 text-[8px] text-white/30">{detail}</div></div>)}
-  <div className="absolute inset-x-6 bottom-5 flex justify-between border-t border-white/[0.07] pt-4 text-[7px] uppercase tracking-[0.16em] text-white/22"><span>Shared brief</span><span>Shared research</span><span>Shared governance</span><span>Shared quality</span></div>
-</div>}
+function Play() {
+  return (
+    <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#9d784c]/45 bg-white text-[#1d1b18] shadow-sm">
+      <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none"><path d="M7.5 5.8 14 10l-6.5 4.2V5.8Z" fill="currentColor" /></svg>
+    </span>
+  );
+}
 
-export default function Page(){return <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
-<PublicSiteHeader
-  context="Creative Studios"
-  links={[
-    { label: "Studios", href: "#studios", visibility: "hidden md:inline-flex" },
-    { label: "Developers", href: "/developers", visibility: "hidden lg:inline-flex" },
-    { label: "Platform", href: "/", visibility: "hidden xl:inline-flex" },
-  ]}
-/>
-<section className="border-b border-black/[0.06]"><div className="mx-auto grid max-w-[1460px] gap-12 px-5 py-16 sm:px-7 lg:grid-cols-[.88fr_1.12fr] lg:items-center lg:px-10 lg:py-24"><div className="max-w-[690px]"><p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">Avantiqo Creative Studios</p><h1 className="mt-5 text-[50px] font-medium leading-[.97] tracking-[-0.06em] text-[#181817] sm:text-[64px] lg:text-[76px]">From imagination to real-world impact.</h1><p className="mt-7 max-w-xl text-[17px] leading-8 text-[#625F59]">Three professional creative production systems for image, video and music. Avantiqo carries the work from brief and research through direction, production, review, repair and final delivery.</p><div className="mt-8 flex flex-wrap gap-2.5"><a href="#studios" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white">Explore the studios <Arrow className="h-3.5 w-3.5"/></a><a href="#process" className="inline-flex h-11 items-center rounded-xl border border-black/[0.09] bg-white px-5 text-[11px] font-semibold text-[#56514A]">See production flow</a></div></div><div className="relative overflow-hidden rounded-[34px] border border-black/[0.07] bg-white p-2 shadow-[0_34px_95px_rgba(73,50,24,.12)] sm:p-3"><div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_18%,rgba(214,166,106,.10),transparent_30%)]"/><Core/></div></div></section>
-<section id="studios" className="border-b border-black/[0.06] bg-[#FBFAF8]">
-  <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">Three studios. One creative system.</p>
-    <h2 className="mt-3 max-w-3xl text-[38px] font-medium leading-[1.04] tracking-[-0.045em] sm:text-[48px]">Choose the medium. Keep the intelligence.</h2>
-    <div className="mt-12 grid gap-5 lg:grid-cols-3">
-      {studios.map(([name,title,text,href],i)=><a key={name} href={href} className="group overflow-hidden rounded-[30px] border border-black/[0.075] bg-white shadow-[0_14px_45px_rgba(53,39,24,.045)] transition duration-500 hover:-translate-y-1.5 hover:border-[#D6A66A]/25 hover:shadow-[0_28px_70px_rgba(53,39,24,.13)]">
-        <div className="relative h-[290px] overflow-hidden bg-[#17120d]">
-          <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.035]" style={{backgroundImage:`url(${[
-            '/art/creative-image.jpg',
-            '/art/creative-video.jpg',
-            '/art/creative-music.jpg'
-          ][i]})`}}/>
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.08)_45%,rgba(8,7,6,.78))]"/>
-          <div className="absolute left-5 top-5 rounded-full border border-white/20 bg-black/24 px-3 py-1.5 text-[8px] font-bold uppercase tracking-[0.18em] text-[#F0D3A8] backdrop-blur-xl">0{i+1} · {name}</div>
-          <div className="absolute bottom-5 left-5 max-w-[72%]"><div className="text-[8px] uppercase tracking-[0.18em] text-[#E8C18D]">{i===0?'Art direction · campaigns':i===1?'Story · camera · post':'Composition · record · master'}</div><div className="mt-1 text-[11px] text-white/72">{i===0?'Real visual production':i===1?'Cinematic production':'Professional audio production'}</div></div>
-          <div className="absolute bottom-5 right-5 flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/30 text-white backdrop-blur-md transition duration-500 group-hover:translate-x-1 group-hover:border-[#E4B97C]/70 group-hover:text-[#F0C88F]"><Arrow className="h-4 w-4"/></div>
+function MiniIcon({ type }) {
+  if (type === "brain") return <span className="text-[22px] leading-none">⌘</span>;
+  if (type === "shield") return <span className="text-[20px] leading-none">◇</span>;
+  if (type === "team") return <span className="text-[21px] leading-none">◎</span>;
+  return <span className="text-[20px] leading-none">▤</span>;
+}
+
+export default function Page() {
+  return (
+    <main className="min-h-screen bg-[#f7f4ef] text-[#11110f]">
+      <PublicSiteHeader
+        context="Business OS"
+        links={[
+          { label: "Platform", href: "/", visibility: "hidden md:inline-flex" },
+          { label: "Solutions", href: "/#solutions", visibility: "hidden md:inline-flex" },
+          { label: "Creative Studios", href: "/creative-studios", visibility: "hidden lg:inline-flex" },
+          { label: "Developers", href: "/developers", visibility: "hidden lg:inline-flex" },
+          { label: "Compute", href: "/compute", visibility: "hidden xl:inline-flex" },
+        ]}
+      />
+
+      <section className="relative overflow-hidden border-b border-black/[0.07] bg-[#f6f2eb]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,.95),transparent_36%),linear-gradient(90deg,#fbfaf7_0%,#f7f3ec_48%,#eee8de_100%)]" />
+        <div className="relative mx-auto grid max-w-[1520px] lg:min-h-[540px] lg:grid-cols-[44%_56%]">
+          <div className="z-20 flex flex-col justify-center px-6 pb-12 pt-16 sm:px-8 lg:px-12 lg:py-16 xl:px-14">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.34em] text-[#8d6237]">Creative Studios</p>
+            <h1 className="mt-4 max-w-[720px] text-[52px] font-normal leading-[.95] tracking-[-0.055em] text-[#11110f] sm:text-[70px] lg:text-[76px] xl:text-[84px]">
+              Real creativity.<br />Real business impact.
+            </h1>
+            <p className="mt-6 max-w-[680px] text-[16px] leading-7 text-[#5f5a53] sm:text-[17px]">
+              Professional image, video and music production with research, direction, creation, review and delivery — all in one system, powered by Avantiqo Intelligence.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a href="#studios" className="inline-flex h-12 items-center gap-3 rounded-full bg-[#151513] px-7 text-[12px] font-medium text-[#f4c98f] shadow-[0_12px_32px_rgba(30,22,14,.20)]">
+                Explore Creative Studios <Arrow className="h-4 w-4" />
+              </a>
+              <a href="#how-it-works" className="inline-flex h-12 items-center gap-3 rounded-full border border-[#9b754d]/55 bg-white/75 px-6 text-[12px] font-medium text-[#27231e] backdrop-blur-sm">
+                <Play /> See how it works
+              </a>
+            </div>
+            <div className="mt-8 text-[9px] font-semibold uppercase tracking-[0.26em] text-[#9d7448]">Concept &nbsp; · &nbsp; Create &nbsp; · &nbsp; Review &nbsp; · &nbsp; Refine &nbsp; · &nbsp; Deliver &nbsp; · &nbsp; Scale</div>
+          </div>
+
+          <div className="relative min-h-[430px] overflow-hidden lg:min-h-[540px]">
+            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/art/creative-image.jpg)" }} />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,#f6f2eb_0%,rgba(246,242,235,.72)_9%,rgba(246,242,235,.08)_30%,rgba(16,13,10,.06)_72%,rgba(16,13,10,.18)_100%)]" />
+            <div className="absolute inset-y-0 left-0 w-[18%] bg-gradient-to-r from-[#f6f2eb] to-transparent" />
+            <div className="absolute right-[5%] top-[12%] hidden w-[160px] border-l border-[#8f6840]/35 pl-5 lg:block">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#8f6840]">Same creativity.<br />A higher purpose.</div>
+              <div className="my-5 h-px w-10 bg-[#8f6840]/65" />
+              <div className="text-[10px] font-medium uppercase leading-5 tracking-[0.28em] text-[#3d362f]">From<br />ideas<br />to<br />impact</div>
+            </div>
+            <div className="absolute bottom-6 right-6 rounded-full border border-white/35 bg-black/25 px-4 py-2 text-[8px] uppercase tracking-[0.22em] text-[#f0d1a5] backdrop-blur-md">Creative Intelligence</div>
+          </div>
         </div>
-        <div className="p-6 sm:p-7"><p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#9A744B]">{name}</p><h3 className="mt-2 text-[25px] font-medium tracking-[-0.035em]">{title}</h3><p className="mt-4 text-[11px] leading-6 text-[#77716A]">{text}</p></div>
-      </a>)}
-    </div>
-  </div>
-</section>
-<section id="process" className="border-b border-black/[0.06] bg-[#F7F6F3]"><div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24"><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">More than generation</p><h2 className="mt-3 max-w-3xl text-[38px] font-medium leading-[1.03] tracking-[-0.045em] sm:text-[48px]">A creative system that remembers the direction.</h2><p className="mt-5 max-w-2xl text-[13px] leading-6 text-[#77716A]">The work moves forward without losing the original objective. Each stage adds evidence, decisions and quality rather than resetting the mission.</p><ProductionFlow/></div></section>
-<section className="border-b border-white/[0.06] bg-[#171716] text-white"><div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24"><div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end"><div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">The Intelligence Core</p><h2 className="mt-3 max-w-xl text-[38px] font-medium leading-[1.03] tracking-[-0.045em] text-[#F7F4EF] sm:text-[48px]">One objective. Three creative disciplines.</h2></div><p className="max-w-xl text-[14px] leading-7 text-white/45 lg:justify-self-end">Image, video and music can work independently or orbit the same brief, research, direction, governance and quality logic—without collapsing into one generic tool.</p></div><div className="mt-10"><IntelligenceMap/></div></div></section>
-<section className="bg-[#F7F6F3]"><div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24"><div className="relative overflow-hidden rounded-[34px] border border-black/[0.08] bg-[#12110f] px-6 py-16 text-center text-white shadow-[0_28px_90px_rgba(46,34,23,.12)] sm:px-10 lg:py-20"><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_110%,rgba(214,166,106,.26),transparent_36%),radial-gradient(circle_at_10%_0%,rgba(214,166,106,.07),transparent_26%)]"/><div className="absolute left-[8%] top-1/2 h-px w-[18%] bg-gradient-to-r from-transparent to-[#D6A66A]/40"/><div className="absolute right-[8%] top-1/2 h-px w-[18%] bg-gradient-to-l from-transparent to-[#D6A66A]/40"/><div className="relative"><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">Creative production for real business</p><h2 className="mx-auto mt-4 max-w-4xl text-[40px] font-medium leading-[1.02] tracking-[-0.05em] text-[#F7F4EF] sm:text-[52px]">Give the Studio the objective. Let the production system do the work.</h2><p className="mx-auto mt-5 max-w-2xl text-[12px] leading-6 text-white/38">One mission can become a campaign system, a film, a soundtrack—or all three with the same creative intent.</p><div className="mt-8 flex flex-wrap justify-center gap-2.5"><a href="/login" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#F7F4EF] px-5 text-[11px] font-semibold text-[#171716]">Enter Avantiqo <Arrow className="h-3.5 w-3.5"/></a><a href="/developers" className="inline-flex h-11 items-center rounded-xl border border-white/[0.12] bg-white/[0.03] px-5 text-[11px] font-semibold text-white/72">Developer access</a></div></div></div></div></section>
-</main>}
+      </section>
+
+      <section id="studios" className="bg-[#f8f5f0] px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-[1450px] gap-4 lg:grid-cols-3">
+          {studios.map((studio) => (
+            <a key={studio.name} href={studio.href} className="group relative min-h-[392px] overflow-hidden rounded-[22px] border border-black/[0.09] bg-[#d8cfc3] shadow-[0_10px_35px_rgba(54,39,23,.08)]">
+              <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.035]" style={{ backgroundImage: `url(${studio.image})` }} />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(13,10,7,.13)_0%,rgba(13,10,7,.02)_38%,rgba(250,248,245,.12)_52%,rgba(248,246,242,.96)_82%,#f8f6f2_100%)]" />
+              <div className="absolute left-6 right-6 top-5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.18em] text-white drop-shadow-sm">
+                <span>{studio.name}</span><span>{studio.no}</span>
+              </div>
+              <div className="absolute inset-x-6 bottom-5">
+                <h2 className="text-[28px] font-normal tracking-[-0.045em] text-[#171511]">{studio.title}</h2>
+                <p className="mt-2 min-h-[48px] max-w-[95%] text-[11px] leading-[1.75] text-[#6f685f]">{studio.text}</p>
+                <div className="mt-4 flex items-end justify-between gap-3">
+                  <div className="flex items-center gap-3 text-[11px] font-medium text-[#211d18]"><span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#a67d50]/55 text-[#8d6237]"><Arrow className="h-4 w-4" /></span>Explore {studio.name}</div>
+                  <div className="pb-2 text-right text-[8px] font-semibold uppercase tracking-[0.18em] text-[#9d7448]">{studio.tags}</div>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section id="how-it-works" className="bg-[#f8f5f0] px-4 pb-7 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-[1450px] gap-px overflow-hidden rounded-[22px] border border-black/[0.06] bg-black/[0.06] lg:grid-cols-4">
+          {[
+            ["brain", "Powered by Avantiqo Intelligence", "Research. Direction. Production. Review. Delivery."],
+            ["shield", "Commercial ready", "Brand safe. Rights aware. Made for business."],
+            ["team", "Built for teams", "Collaborate. Approve. Scale."],
+            ["stack", "All in one system", "Image. Video. Music. One workflow."],
+          ].map(([icon, title, text]) => (
+            <div key={title} className="flex min-h-[112px] items-center gap-4 bg-[#f2eee7] px-7 py-5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#aa8257]/20 bg-[#f8f3ea] text-[#9b6f3f]"><MiniIcon type={icon} /></div>
+              <div><div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[#24201b]">{title}</div><div className="mt-1 text-[9px] leading-4 text-[#787067]">{text}</div></div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-t border-black/[0.06] bg-[#f7f4ef] px-6 py-14 lg:px-10">
+        <div className="mx-auto grid max-w-[1450px] gap-5 lg:grid-cols-3">
+          <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7"><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">Layer 01 · Studios</div><div className="mt-3 text-[24px] tracking-[-0.035em]">Sell complete creative missions.</div><p className="mt-3 text-[11px] leading-6 text-[#716b64]">Campaigns, films and music production — not thin one-shot generators.</p></div>
+          <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7"><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">Layer 02 · API</div><div className="mt-3 text-[24px] tracking-[-0.035em]">Expose the same capabilities to developers.</div><p className="mt-3 text-[11px] leading-6 text-[#716b64]">Low-level generation plus high-level production missions through one Avantiqo wallet and API.</p></div>
+          <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7"><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">Layer 03 · Compute</div><div className="mt-3 text-[24px] tracking-[-0.035em]">Earn from the infrastructure underneath.</div><p className="mt-3 text-[11px] leading-6 text-[#716b64]">Route work to Avantiqo-owned GPU/CPU capacity first and cloud overflow only when needed.</p></div>
+        </div>
+      </section>
+    </main>
+  );
+}

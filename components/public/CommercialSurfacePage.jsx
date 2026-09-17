@@ -21,38 +21,68 @@ const SURFACE_ART = {
 
 function SurfaceArt({ kind }) {
   const art = SURFACE_ART[kind] || SURFACE_ART.agents;
-  const supporting = {
-    compute:["/art/commercial-compute.jpg","/art/developer-work.jpg"],
-    marketplace:["/art/commercial-marketplace.jpg","/art/developer-work.jpg"],
-    solutions:["/art/commercial-solutions.jpg","/art/commercial-enterprise.jpg"],
-    integrations:["/art/commercial-integrations.jpg","/art/commercial-channels.jpg"],
-    partners:["/art/commercial-partners.jpg","/art/commercial-services.jpg"],
-    agents:["/art/commercial-agents.jpg","/art/developer-work.jpg"],
-    enterprise:["/art/commercial-enterprise.jpg","/art/commercial-services.jpg"],
-    services:["/art/commercial-services.jpg","/art/commercial-enterprise.jpg"],
-    insights:["/art/commercial-insights.jpg","/art/commercial-agents.jpg"],
-    pricing:["/art/commercial-pricing.jpg","/art/commercial-commerce.jpg"],
-    commerce:["/art/commercial-commerce.jpg","/art/commercial-channels.jpg"],
-    channels:["/art/commercial-channels.jpg","/art/commercial-commerce.jpg"],
-  }[kind] || [art.image,"/art/developer-work.jpg"];
+  const visual = {
+    compute:{support:"/art/developer-work.jpg",accent:"SYSTEM LOAD",metric:"GPU / CPU",detail:"Owned capacity · metered demand"},
+    marketplace:{support:"/art/commercial-partners.jpg",accent:"NETWORK",metric:"SUPPLY",detail:"Capabilities · agents · compute"},
+    solutions:{support:"/art/commercial-enterprise.jpg",accent:"INDUSTRY",metric:"CONTEXT",detail:"Hospitality · retail · services"},
+    integrations:{support:"/art/commercial-channels.jpg",accent:"CONNECTED",metric:"RAILS",detail:"Messaging · payments · data"},
+    partners:{support:"/art/commercial-services.jpg",accent:"DISTRIBUTION",metric:"PORTFOLIO",detail:"Clients · access · value"},
+    agents:{support:"/art/developer-work.jpg",accent:"AUTHORITY",metric:"PROOF",detail:"Context · permission · evidence"},
+    enterprise:{support:"/art/commercial-services.jpg",accent:"SCALE",metric:"PORTFOLIO",detail:"Entities · locations · governance"},
+    services:{support:"/art/commercial-start.jpg",accent:"DELIVERY",metric:"GO LIVE",detail:"Discover · migrate · launch"},
+    insights:{support:"/art/commercial-agents.jpg",accent:"SIGNALS",metric:"DECIDE",detail:"Evidence · forecast · action"},
+    pricing:{support:"/art/commercial-commerce.jpg",accent:"ECONOMICS",metric:"METER",detail:"Subscription · usage · platform"},
+    commerce:{support:"/art/commercial-channels.jpg",accent:"FLOW",metric:"SETTLE",detail:"Order · payment · finance"},
+    channels:{support:"/art/commercial-commerce.jpg",accent:"SURFACES",metric:"REACH",detail:"Web · mobile · portal · POS"},
+  }[kind] || {support:"/art/developer-work.jpg",accent:"SYSTEM",metric:"LIVE",detail:"Governed operating context"};
+  const light = kind === "insights" || kind === "pricing" || kind === "channels";
 
-  return <div className="relative min-h-[560px] overflow-hidden lg:min-h-[690px]">
-    <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${art.image})`}}/>
-    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(12,10,8,.08),rgba(12,10,8,.01)_42%,rgba(12,10,8,.22)),linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.04)_48%,rgba(8,7,6,.72))]"/>
-    <div className="absolute left-5 top-5 flex items-center gap-2 rounded-full border border-white/30 bg-black/20 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.22em] text-[#F1C98E] backdrop-blur-xl sm:left-7 sm:top-7">AVANTIQO <span className="h-1 w-1 rounded-full bg-[#D6A66A]"/> {art.label}</div>
-    <div className="absolute right-5 top-5 hidden w-[132px] border-l border-white/28 pl-4 sm:block sm:right-7 sm:top-7">
-      <div className="text-[7px] font-semibold uppercase tracking-[0.22em] text-[#F0C98F]">REAL OPERATING CONTEXT</div>
-      <div className="mt-2 text-[8px] leading-4 text-white/58">One governed system.<br/>Designed for real work.</div>
+  return <div className="relative min-h-[560px] overflow-hidden bg-[#181511] lg:min-h-[690px]">
+    <div className="absolute inset-0 bg-cover bg-center scale-[1.015]" style={{backgroundImage:`url(${art.image})`}}/>
+    <div className={`absolute inset-0 ${light ? 'bg-[linear-gradient(90deg,rgba(244,238,229,.02),rgba(7,6,5,.08)_54%,rgba(7,6,5,.34)),linear-gradient(180deg,rgba(255,255,255,.03),rgba(8,7,6,.16)_58%,rgba(8,7,6,.72))]' : 'bg-[linear-gradient(90deg,rgba(8,7,6,.14),rgba(8,7,6,.01)_42%,rgba(8,7,6,.30)),linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.10)_52%,rgba(7,6,5,.76))]'}`}/>
+    <div className="absolute inset-y-0 left-0 w-[1px] bg-gradient-to-b from-transparent via-[#D6A66A]/55 to-transparent"/>
+
+    <div className="absolute left-6 top-6 flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E] sm:left-8 sm:top-8">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A] shadow-[0_0_14px_rgba(214,166,106,.8)]"/> AVANTIQO / {art.label}
     </div>
-    <div className="absolute bottom-6 left-5 right-5 sm:bottom-7 sm:left-7 sm:right-7">
-      <div className="grid gap-3 sm:grid-cols-[1fr_210px] sm:items-end">
-        <div className="max-w-[560px] rounded-[22px] border border-white/16 bg-black/36 p-5 text-white shadow-[0_24px_70px_rgba(0,0,0,.20)] backdrop-blur-xl sm:p-6">
-          <div className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[#E8C18D]">{art.label}</div>
-          <div className="mt-2 text-[13px] leading-6 text-white/76">{art.line}</div>
-          <div className="mt-5 flex flex-wrap gap-1.5">{art.chips.map(x=><span key={x} className="rounded-full border border-white/18 bg-white/[0.04] px-2.5 py-1 text-[7px] font-semibold tracking-[0.15em] text-white/66">{x}</span>)}</div>
+    <div className="absolute right-6 top-6 hidden text-right sm:block sm:right-8 sm:top-8">
+      <div className="text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F0C98F]">{visual.accent}</div>
+      <div className="mt-1 text-[8px] uppercase tracking-[0.14em] text-white/44">Real operating context</div>
+    </div>
+
+    <div className="absolute left-6 top-[22%] hidden w-[170px] rounded-[18px] border border-white/14 bg-black/24 p-4 text-white shadow-[0_18px_55px_rgba(0,0,0,.16)] backdrop-blur-xl md:block sm:left-8">
+      <div className="text-[7px] font-semibold uppercase tracking-[0.18em] text-[#E7BC82]">{visual.metric}</div>
+      <div className="mt-3 text-[22px] font-medium tracking-[-0.04em] text-white/88">{kind === 'insights' ? 'LIVE' : kind === 'compute' ? '01' : 'READY'}</div>
+      <div className="mt-1 text-[8px] leading-4 text-white/40">{visual.detail}</div>
+      <div className="mt-4 flex gap-1">{[0,1,2,3,4].map((n)=><span key={n} className={`h-[3px] flex-1 rounded-full ${n<3?'bg-[#D6A66A]/70':'bg-white/12'}`}/>)}</div>
+    </div>
+
+    <div className="absolute right-7 top-[23%] hidden h-[215px] w-[178px] rotate-[1.5deg] overflow-hidden rounded-[22px] border border-white/18 bg-white/10 shadow-[0_28px_70px_rgba(0,0,0,.22)] xl:block">
+      <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${visual.support})`}}/>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/68 via-black/05 to-white/05"/>
+      <div className="absolute inset-x-3 bottom-3 rounded-[11px] border border-white/12 bg-black/30 px-3 py-2 backdrop-blur-lg">
+        <div className="text-[6px] font-semibold uppercase tracking-[0.18em] text-[#E7BC82]">CONNECTED LAYER</div>
+        <div className="mt-1 text-[7px] text-white/60">Same business context</div>
+      </div>
+    </div>
+
+    <div className="absolute inset-x-6 bottom-6 sm:inset-x-8 sm:bottom-8">
+      <div className="grid gap-3 lg:grid-cols-[1.08fr_.92fr] lg:items-end">
+        <div className="rounded-[24px] border border-white/14 bg-[linear-gradient(135deg,rgba(13,11,9,.76),rgba(26,22,18,.46))] p-5 text-white shadow-[0_30px_80px_rgba(0,0,0,.24)] backdrop-blur-xl sm:p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[#E8C18D]">{art.label}</div>
+            <div className="hidden text-[7px] uppercase tracking-[0.16em] text-white/24 sm:block">{visual.accent} / LIVE</div>
+          </div>
+          <div className="mt-3 max-w-[560px] text-[14px] leading-6 text-white/78">{art.line}</div>
+          <div className="mt-5 flex flex-wrap gap-1.5">{art.chips.map(x=><span key={x} className="rounded-full border border-white/16 bg-white/[0.035] px-2.5 py-1 text-[7px] font-semibold tracking-[0.15em] text-white/62">{x}</span>)}</div>
         </div>
-        <div className="hidden grid-cols-2 gap-2 sm:grid">
-          {supporting.map((src,i)=><div key={src} className="relative h-[92px] overflow-hidden rounded-[16px] border border-white/18 bg-black/20 shadow-[0_16px_35px_rgba(0,0,0,.16)]"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${src})`}}/><div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent"/><div className="absolute bottom-2 left-2.5 text-[6px] font-semibold uppercase tracking-[0.16em] text-white/78">{i===0?"LIVE CONTEXT":"CONNECTED LAYER"}</div></div>)}
+
+        <div className="grid grid-cols-3 gap-2">
+          {art.panel.map(([a,b],i)=><div key={a} className="rounded-[16px] border border-white/14 bg-black/30 p-3.5 text-white backdrop-blur-xl">
+            <div className="flex items-center justify-between"><span className="text-[7px] font-semibold text-white/72">{a}</span><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]/80"/></div>
+            <div className="mt-4 text-[6px] font-semibold uppercase tracking-[0.15em] text-[#D9B17A]">{b}</div>
+            <div className="mt-2 h-px bg-white/[0.08]"><div className="h-px bg-[#D6A66A]/55" style={{width:`${44+i*19}%`}}/></div>
+          </div>)}
         </div>
       </div>
     </div>

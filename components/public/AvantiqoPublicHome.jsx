@@ -194,12 +194,27 @@ export default function AvantiqoPublicHome() {
               <div className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[0.15em] text-[#978C80]">{["Organization scoped", "Role based", "Approval aware", "Auditable"].map((item) => <span key={item} className="inline-flex items-center gap-1.5"><Check className="h-3 w-3 text-[#A37849]" />{item}</span>)}</div>
             </div>
           </div>
-          <div className="relative min-h-[620px] overflow-hidden border-t border-black/[0.06] lg:min-h-0 lg:border-l lg:border-t-0">
+          <div className="relative min-h-[620px] overflow-hidden border-t border-black/[0.06] bg-[#171411] lg:min-h-0 lg:border-l lg:border-t-0">
             <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:'url(/art/commercial-start.jpg)'}}/>
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.00),rgba(0,0,0,.03)_38%,rgba(8,7,6,.62))]"/>
-            <div className="absolute left-6 top-6 rounded-full border border-white/30 bg-black/18 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.22em] text-[#F1C98E] backdrop-blur-xl">AVANTIQO · OPERATING CONTEXT</div>
-            <div className="absolute right-7 top-7 hidden w-[132px] border-l border-white/28 pl-4 sm:block"><div className="text-[7px] font-semibold uppercase tracking-[0.22em] text-[#F0C98F]">IDEAS · PEOPLE · TECHNOLOGY</div><div className="mt-2 text-[8px] leading-4 text-white/58">One system.<br/>Real business impact.</div></div>
-            <div className="absolute inset-x-5 bottom-5 sm:inset-x-7 sm:bottom-7 lg:left-[9%] lg:right-[-14%] lg:bottom-[-8%] lg:scale-[.82] lg:origin-bottom-left xl:scale-[.88]"><ProductPreview /></div>
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,6,5,.02),rgba(7,6,5,.02)_45%,rgba(7,6,5,.28)),linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.03)_38%,rgba(8,7,6,.68))]"/>
+            <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[#D6A66A]/55 to-transparent"/>
+            <div className="absolute left-7 top-7 flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]"><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A] shadow-[0_0_14px_rgba(214,166,106,.8)]"/>AVANTIQO / BUSINESS OS</div>
+            <div className="absolute right-7 top-7 hidden text-right sm:block"><div className="text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F0C98F]">ONE OPERATING CONTEXT</div><div className="mt-1 text-[8px] uppercase tracking-[0.14em] text-white/42">People · evidence · action</div></div>
+
+            <div className="absolute left-7 top-[22%] hidden w-[180px] rounded-[18px] border border-white/14 bg-black/25 p-4 text-white shadow-[0_20px_55px_rgba(0,0,0,.18)] backdrop-blur-xl md:block">
+              <div className="text-[7px] font-semibold uppercase tracking-[0.18em] text-[#E7BC82]">BUSINESS PULSE</div>
+              <div className="mt-3 text-[22px] font-medium tracking-[-0.04em] text-white/88">LIVE</div>
+              <div className="mt-1 text-[8px] leading-4 text-white/40">Finance · Operations · Supply Chain</div>
+              <div className="mt-4 grid grid-cols-4 gap-1">{[68,44,82,57].map((v,i)=><div key={i} className="flex h-8 items-end rounded bg-white/[0.03] p-[2px]"><span className="w-full rounded-sm bg-[#D6A66A]/60" style={{height:`${v}%`}}/></div>)}</div>
+            </div>
+
+            <div className="absolute right-8 top-[22%] hidden h-[200px] w-[168px] rotate-[1.5deg] overflow-hidden rounded-[22px] border border-white/18 bg-white/10 shadow-[0_28px_70px_rgba(0,0,0,.22)] xl:block">
+              <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:'url(/art/commercial-solutions.jpg)'}}/>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-white/05"/>
+              <div className="absolute inset-x-3 bottom-3 rounded-[11px] border border-white/12 bg-black/30 px-3 py-2 backdrop-blur-lg"><div className="text-[6px] font-semibold uppercase tracking-[0.18em] text-[#E7BC82]">REAL BUSINESS</div><div className="mt-1 text-[7px] text-white/60">Context before software</div></div>
+            </div>
+
+            <div className="absolute inset-x-5 bottom-5 sm:inset-x-7 sm:bottom-7 lg:left-[7%] lg:right-[-11%] lg:bottom-[-7%] lg:scale-[.84] lg:origin-bottom-left xl:scale-[.89]"><ProductPreview /></div>
           </div>
         </div>
       </section>

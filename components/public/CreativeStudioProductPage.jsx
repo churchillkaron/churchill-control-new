@@ -39,9 +39,29 @@ function StudioArtwork({ studio }) {
 function DisciplineGlyph({ studio, index }) {
   const video = studio.startsWith("Video");
   const music = studio.startsWith("Music");
-  if (music) return <div className="relative h-14 overflow-hidden rounded-[14px] border border-black/[0.06] bg-[#F8F4EE]"><div className="absolute inset-x-3 top-1/2 flex -translate-y-1/2 items-center justify-center gap-[2px]">{[28,54,76,42,88,59,34,72,48,82,39,64].map((h,i)=><span key={i} className="w-[2px] rounded-full bg-[#A37849]/55" style={{height:`${Math.max(12,h-index)}%`}}/>)}</div><div className="absolute bottom-2 right-2 text-[7px] font-semibold text-[#9A744B]">0{index+1}</div></div>;
-  if (video) return <div className="relative h-14 overflow-hidden rounded-[14px] border border-black/[0.06] bg-[#F8F4EE]"><div className="absolute inset-2 rounded-[9px] border border-black/[0.07] bg-[radial-gradient(circle_at_65%_42%,rgba(154,116,75,.22),transparent_24%)]"/><div className="absolute inset-x-4 bottom-3 flex gap-1">{[0,1,2,3].map(n=><span key={n} className={`h-[2px] flex-1 ${n===index%4?'bg-[#A37849]/70':'bg-black/[0.07]'}`}/>)}</div><div className="absolute left-3 top-3 text-[7px] font-semibold text-[#9A744B]">F{String(index+1).padStart(2,'0')}</div></div>;
-  return <div className="relative h-14 overflow-hidden rounded-[14px] border border-black/[0.06] bg-[#F8F4EE]"><div className={`absolute ${index%3===0?'left-[18%] top-[18%] h-[62%] w-[38%] rounded-[10px]':index%3===1?'inset-x-[20%] top-[20%] h-[60%] rounded-full':'right-[18%] top-[18%] h-[62%] w-[42%] rotate-[-7deg] rounded-[9px]'} border border-[#A37849]/24 bg-[radial-gradient(circle,rgba(214,166,106,.25),transparent_66%)]`}/><div className="absolute left-3 top-3 h-3 w-3 border-l border-t border-[#A37849]/35"/><div className="absolute bottom-3 right-3 h-3 w-3 border-b border-r border-[#A37849]/35"/></div>;
+
+  if (music) return <div className="relative h-14 overflow-hidden rounded-[14px] border border-black/[0.06] bg-[#F8F4EE]">
+    <div className="absolute left-3 top-2 text-[6px] font-semibold uppercase tracking-[0.15em] text-[#9A744B]">MIX {String(index+1).padStart(2,'0')}</div>
+    <div className="absolute inset-x-3 top-[22px] flex h-5 items-center justify-center gap-[2px]">{[30,58,82,46,92,64,38,74,52,86,43,68].map((h,i)=><span key={i} className="w-[2px] rounded-full bg-[#A37849]/65" style={{height:`${Math.max(18,h-(index%3)*5)}%`}}/>)}</div>
+    <div className="absolute inset-x-3 bottom-2 flex gap-1">{[0,1,2,3].map(n=><span key={n} className={`h-[3px] flex-1 rounded-full ${n===index%4?'bg-[#A37849]/70':'bg-black/[0.07]'}`}/>)}</div>
+  </div>;
+
+  if (video) return <div className="relative h-14 overflow-hidden rounded-[14px] border border-black/[0.06] bg-[#F8F4EE]">
+    <div className="absolute left-3 top-2 text-[6px] font-semibold uppercase tracking-[0.15em] text-[#9A744B]">SHOT {String(index+1).padStart(2,'0')}</div>
+    <div className="absolute inset-x-3 top-[18px] h-6 overflow-hidden rounded-[7px] border border-black/[0.07] bg-[#EEE6DA]">
+      <div className="absolute inset-x-0 top-1/2 h-px bg-[#A37849]/28"/>
+      <div className="absolute left-[62%] top-[30%] h-2.5 w-2.5 rounded-full bg-[#A37849]/38"/>
+      <div className="absolute bottom-0 left-[22%] h-[55%] w-px bg-black/[0.09]"/><div className="absolute bottom-0 right-[22%] h-[55%] w-px bg-black/[0.09]"/>
+    </div>
+    <div className="absolute inset-x-3 bottom-2 flex gap-1">{[0,1,2,3,4].map(n=><span key={n} className={`h-[2px] flex-1 ${n===index%5?'bg-[#A37849]/75':'bg-black/[0.07]'}`}/>)}</div>
+  </div>;
+
+  return <div className="relative h-14 overflow-hidden rounded-[14px] border border-black/[0.06] bg-[#F8F4EE]">
+    <div className="absolute left-3 top-2 text-[6px] font-semibold uppercase tracking-[0.15em] text-[#9A744B]">LAYOUT {String(index+1).padStart(2,'0')}</div>
+    <div className="absolute bottom-2 left-3 top-[20px] w-[38%] rounded-[7px] border border-[#A37849]/22 bg-white/70"><div className="absolute inset-x-2 bottom-2 h-[2px] bg-[#A37849]/50"/><div className="absolute left-2 top-2 h-3 w-3 rounded-full bg-[#D6A66A]/30"/></div>
+    <div className={`absolute right-3 top-[19px] h-[27px] w-[43%] rounded-[7px] border border-black/[0.07] bg-[#EFE7DB] ${index%2?'rotate-[-3deg]':''}`}><div className="absolute left-2 right-2 top-2 h-[3px] bg-black/[0.10]"/><div className="absolute left-2 right-4 top-4 h-[2px] bg-[#A37849]/40"/><div className="absolute left-2 right-2 bottom-2 h-[2px] bg-black/[0.07]"/></div>
+    <div className="absolute left-2 top-2 h-2 w-2 border-l border-t border-[#A37849]/45"/><div className="absolute bottom-2 right-2 h-2 w-2 border-b border-r border-[#A37849]/45"/>
+  </div>;
 }
 
 function ProductPath(){return <div className="relative mt-10 overflow-hidden rounded-[28px] border border-black/[0.07] bg-white p-5 shadow-[0_20px_60px_rgba(53,42,28,.045)] sm:p-7">

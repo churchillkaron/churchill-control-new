@@ -32,3 +32,13 @@ test("business intelligence agent gates external research from completed diagnos
   assert.match(source,/external_research_required: externalResearchPlan\?\.research_allowed === true/);
   assert.match(source,/AVANTIQO_BUSINESS_EXTERNAL_RESEARCH_CONTRACT/);
 });
+
+
+test("business intelligence agent auto-collects external evidence only after gate",()=>{
+  const source=fs.readFileSync("lib/intelligence/runtime/BusinessIntelligenceAgentRuntime.js","utf8");
+  assert.match(source,/externalResearchPlan\?\.research_allowed === true/);
+  assert.match(source,/collectBusinessExternalEvidence/);
+  assert.match(source,/business_external_evidence_collection: externalEvidenceCollection/);
+  assert.match(source,/business_external_evidence_packets/);
+  assert.match(source,/AVANTIQO_BUSINESS_EXTERNAL_EVIDENCE_COLLECTOR_CONTRACT/);
+});

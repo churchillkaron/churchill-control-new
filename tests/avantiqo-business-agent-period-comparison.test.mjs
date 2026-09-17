@@ -42,3 +42,12 @@ test("business intelligence agent auto-collects external evidence only after gat
   assert.match(source,/business_external_evidence_packets/);
   assert.match(source,/AVANTIQO_BUSINESS_EXTERNAL_EVIDENCE_COLLECTOR_CONTRACT/);
 });
+
+
+test("business intelligence agent exposes source-bound external diagnosis closure tool",()=>{
+  const source=fs.readFileSync("lib/intelligence/runtime/BusinessIntelligenceAgentRuntime.js","utf8");
+  assert.match(source,/createBusinessExternalDiagnosisClosureTool/);
+  assert.match(source,/externalClosureTool/);
+  assert.match(source,/business_external_diagnosis_closure_tool_contract/);
+  assert.match(source,/AVANTIQO_BUSINESS_EXTERNAL_DIAGNOSIS_CLOSURE_TOOL_CONTRACT/);
+});

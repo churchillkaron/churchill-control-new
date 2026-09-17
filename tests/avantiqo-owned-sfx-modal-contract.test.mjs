@@ -12,12 +12,12 @@ const files = {
 
 const source = Object.fromEntries(await Promise.all(Object.entries(files).map(async ([key, file]) => [key, await readFile(file, "utf8")])));
 
-test("owned SFX is Modal-only and fail-closed until certified", () => {
+test("owned SFX remains certified and supports local-first with Modal fallback", () => {
   assert.match(source.registration, /AVANTIQO_SFX_ENGINE_CERTIFIED/);
   assert.match(source.registration, /AVANTIQO_SFX_CERTIFICATION_EVIDENCE_SHA256/);
   assert.match(source.registration, /sfxCertificationEvidenceBound/);
   assert.match(source.registration, /modal_direct_configured: modalConfigured/);
-  assert.match(source.registration, /infrastructure_provider: "MODAL"/);
+  assert.match(source.registration, /AVANTIQO_LOCAL_NODE_V1_PRIMARY_MODAL_FALLBACK/);
   assert.doesNotMatch(source.registration, /AVANTIQO_SFX_MODAL_ENDPOINT_URL/);
   assert.doesNotMatch(source.provider, /RUNPOD/);
   assert.doesNotMatch(source.provider, /fal-ai|FAL_/i);

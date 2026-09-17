@@ -34,9 +34,9 @@ $NightLearningEndHour = 6
 $script:LastGpuWorkAt = Get-Date
 $script:LastIdleLearningAt = [datetime]::MinValue
 $script:LearningCursor = 0
-$AllCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
+$AllCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech','ai.sfx.generate')
 $GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
-$CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process')
+$CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process','ai.sfx.generate')
 $Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } else { $AllCapabilities })
 if ($Lane -eq 'cpu') {
   try { (Get-Process -Id $PID).PriorityClass = 'BelowNormal' } catch {}
@@ -97,6 +97,7 @@ function ResourceProfile($Job) {
   if ($workload -eq 'voice_tts') { return @{ class='background_gpu'; gpu_vram_mb=6100; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / TTS'; mode='BATCH_BACKGROUND_ONLY' } }
   if ($workload -eq 'media_ffmpeg') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Video / Media' } }
   if ($workload -eq 'music_elastic') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Music / Audio' } }
+  if ($workload -eq 'sfx_generate') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Music / SFX'; mode='OPENMOSS_GGML_CPU_V1' } }
   return @{ class='local_other'; gpu_vram_mb=0; cpu_weight='light'; exclusive_gpu=$false; product='Platform / Other' }
 }
 
@@ -475,6 +476,30 @@ function RunVoiceTtsJob($Job) {
   } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp }
 }
 
+function RunSfxJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_SFX_PAYLOAD_REQUIRED' }
+  $python = 'C:\Avantiqo\Python312\python.exe'
+  $runner = 'C:\Avantiqo\sfx-openmoss\local_runner.py'
+  if (-not (Test-Path $python)) { throw 'AVANTIQO_LOCAL_SFX_PYTHON_REQUIRED' }
+  if (-not (Test-Path $runner)) { throw 'AVANTIQO_LOCAL_SFX_RUNNER_REQUIRED' }
+  $tmp = Join-Path $env:TEMP ("avantiqo-sfx-" + [string]$Job.id + ".json")
+  try {
+    [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 60 -Compress), (New-Object System.Text.UTF8Encoding($false)))
+    $started = Get-Date
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $python; $psi.Arguments = ('"' + $runner + '" --input "' + $tmp + '"')
+    $psi.UseShellExecute = $false; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
+    $process = New-Object System.Diagnostics.Process; $process.StartInfo = $psi; [void]$process.Start()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync(); $process.WaitForExit()
+    $rawOutput = [string]$stdoutTask.Result; $stderr = [string]$stderrTask.Result
+    if ([int]$process.ExitCode -ne 0) { $tail=$(if($stderr.Length -gt 1600){$stderr.Substring($stderr.Length-1600)}else{$stderr}); throw ('AVANTIQO_LOCAL_SFX_PROCESS_FAILED:' + $tail) }
+    $json=$rawOutput.Trim(); if(-not $json){ throw 'AVANTIQO_LOCAL_SFX_OUTPUT_REQUIRED' }
+    $result=$json | ConvertFrom-Json; $elapsed=[int](((Get-Date)-$started).TotalMilliseconds); $result | Add-Member -NotePropertyName node_id -NotePropertyValue $NodeId -Force
+    CompleteJob $Job $result @{ elapsed_ms=$elapsed; cpu_workload=$true; sfx_generate=$true; local_sfx_runtime='OPENMOSS_GGML_CPU_V1' }
+  } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp }
+}
+
 function RunElasticJob($Job) {
   $payload = $Job.payload
   if (-not $payload) { throw 'AVANTIQO_LOCAL_ELASTIC_PAYLOAD_REQUIRED' }
@@ -557,6 +582,7 @@ while ($true) {
         elseif ([string]$job.capability -eq 'ai.audio.stems') { RunMusicSeparatorJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.vocal-correct') { RunMusicVocalCorrectionJob $job }
         elseif ([string]$job.capability -eq 'ai.text.to.speech') { RunVoiceTtsJob $job }
+        elseif ([string]$job.capability -eq 'ai.sfx.generate') { RunSfxJob $job }
         else { FailJob $job 'AVANTIQO_LOCAL_CAPABILITY_UNSUPPORTED' $false }
       } catch {
         FailJob $job (('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Substring(0,[Math]::Min(480,('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Length))) $true

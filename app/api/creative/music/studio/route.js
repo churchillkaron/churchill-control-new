@@ -273,6 +273,15 @@ function backingPlan(body) {
 async function compose(body) {
   const organizationId = text(body.organization_id);
   if (!organizationId) throw new Error("organization_id required");
+  const professional = text(body.production_standard).toUpperCase() === "PROFESSIONAL_RELEASE" || body.commercial_release === true;
+  if (professional) {
+    const objective = text(body.objective) || `Create a professional ${body.instrumental === false ? "song" : "music production"} titled ${text(body.title || "Untitled")}. Style: ${text(body.style)}. Mood: ${text(body.mood)}. Energy: ${text(body.energy)}. Instrumentation: ${text(body.instrumentation)}. Structure: ${text(body.structure)}.`;
+    return executeWorldClassMusicStudio({
+      ...body, organization_id: organizationId, objective,
+      capabilities: body.instrumental === false ? ["create_song"] : ["compose_music"],
+      production_standard: "PROFESSIONAL_RELEASE", commercial_release: true,
+    });
+  }
   const plan = buildMusicGenerationPlan(body);
   const session = plan.session;
 

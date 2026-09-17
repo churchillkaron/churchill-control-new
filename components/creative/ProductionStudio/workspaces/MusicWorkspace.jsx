@@ -122,6 +122,7 @@ export default function MusicWorkspace({ runtime }) {
     lyrics: "",
     vocal_language: "english",
     mastering_profile: "streaming",
+    production_standard: "FAST_GENERATION",
   });
   const [session, setSession] = useState(null);
   const [history, setHistory] = useState([]);
@@ -380,6 +381,18 @@ export default function MusicWorkspace({ runtime }) {
             {!form.instrumental ? <div className="mt-4 grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]"><Field label="Language"><input value={form.vocal_language} onChange={(event) => update("vocal_language", event.target.value)} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none" /></Field><Field label="Lyrics"><textarea value={form.lyrics} onChange={(event) => update("lyrics", event.target.value)} className="h-32 w-full resize-none rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm leading-6 outline-none" /></Field></div> : null}
           </div>
 
+
+          <div className="mt-6 rounded-2xl border border-white/8 bg-white/[0.018] p-5">
+            <div className="text-sm font-medium text-white/78">Production standard</div>
+            <div className="mt-1 text-xs leading-5 text-white/30">Choose speed for ideation or the complete commercial production chain.</div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {[
+                ["FAST_GENERATION", "Fast Generation", "Generate and auto-master quickly for ideas, demos and alternatives."],
+                ["PROFESSIONAL_RELEASE", "Professional Release", "World-Class creative floor, stems, vocal production, mix, QC, mastering, translation, dailies and tribunal."],
+              ].map(([id, title, copy]) => <button key={id} type="button" onClick={() => update("production_standard", id)} className={`rounded-xl border p-4 text-left ${form.production_standard === id ? "border-[#d6a66a]/35 bg-[#d6a66a]/[0.08]" : "border-white/8 bg-white/[0.018]"}`}><div className="text-xs font-medium text-white/75">{title}</div><div className="mt-1.5 text-[10px] leading-4 text-white/30">{copy}</div></button>)}
+            </div>
+          </div>
+
           <div className="mt-6">
             <div className="mb-3 flex items-center gap-2 text-sm font-medium text-white/72"><SlidersHorizontal className="h-4 w-4 text-[#d6a66a]" /> Automatic mastering target</div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -394,7 +407,7 @@ export default function MusicWorkspace({ runtime }) {
               {session?.pending ? <AudioLines className="h-4 w-4 animate-pulse" /> : <WandSparkles className="h-4 w-4" />}
               {session?.pending ? "Composing…" : busy ? "Starting…" : "Compose music"}
             </button>
-            <div className="text-xs text-white/28">{form.duration_seconds}s · {form.bpm} BPM · {activeMaster.label} master</div>
+            <div className="text-xs text-white/28">{form.duration_seconds}s · {form.bpm} BPM · {form.production_standard === "PROFESSIONAL_RELEASE" ? "Professional Release" : `${activeMaster.label} master`}</div>
           </div>
         </main>
 
@@ -411,7 +424,7 @@ export default function MusicWorkspace({ runtime }) {
 
             {session ? <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
               <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Generation</div><div className="mt-1 text-white/65">{session.pending ? "Composing" : session.failed ? "Failed" : "Complete"}</div></div>
-              <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Mastering</div><div className="mt-1 text-white/65">{session?.finishing?.ready ? "Release ready" : session?.finishing?.failed ? "Needs repair" : finishingStatus || "Queued"}</div></div>
+              <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Production</div><div className="mt-1 text-white/65">{form.production_standard === "PROFESSIONAL_RELEASE" ? (session?.professional_next_stage?.stage_name || "Professional chain") : session?.finishing?.ready ? "Release ready" : session?.finishing?.failed ? "Needs repair" : finishingStatus || "Queued"}</div></div>
               <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Settlement</div><div className="mt-1 text-white/65">{session.settlement || "Governed"}</div></div>
               <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Master target</div><div className="mt-1 text-white/65">{activeMaster.label}</div></div>
             </div> : null}

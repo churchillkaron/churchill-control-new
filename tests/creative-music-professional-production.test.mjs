@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildMusicProfessionalProductionManifest } from "../lib/creative/music/runtime/CreativeMusicProfessionalProductionRuntime.js";
@@ -43,4 +44,22 @@ test("world-class execution gates professional release on production manifest", 
   assert.match(source, /professional_stems_ready/);
   assert.match(source, /professional_vocal_production_passed/);
   assert.match(source, /professional_mix_passed/);
+});
+
+test("professional controller resolves the exact next production stage", async () => {
+  const { nextMusicProfessionalProductionAction } = await import("../lib/creative/music/runtime/CreativeMusicProfessionalProductionRuntime.js");
+  const plan = { objective: "Create a song with female vocals", selected_capabilities: [{ id: "create_song" }] };
+  const first = nextMusicProfessionalProductionAction({ plan, evidence: { source_generated: true } });
+  assert.equal(first.stage_id, "STEM_SEPARATION");
+  assert.equal(first.next_action.capability, "ai.audio.stems");
+  assert.equal(first.next_action.execution_surface, "SERVER");
+  const mix = nextMusicProfessionalProductionAction({ plan, evidence: { source_generated: true, stems_ready: true, vocal_production_passed: true } });
+  assert.equal(mix.stage_id, "MIX_ENGINEERING");
+  assert.equal(mix.next_action.execution_surface, "WORKSTATION");
+});
+
+test("world-class execution exposes professional next-stage continuation", () => {
+  const source = readFileSync("lib/creative/music/runtime/CreativeMusicWorldClassExecutionRuntime.js", "utf8");
+  assert.match(source, /professional_next_stage/);
+  assert.match(source, /nextMusicProfessionalProductionAction/);
 });

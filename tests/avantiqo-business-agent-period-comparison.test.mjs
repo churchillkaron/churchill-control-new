@@ -51,6 +51,9 @@ test("business intelligence agent auto-assesses and closes external diagnosis be
   assert.match(source,/closeBusinessDiagnosisWithExternalEvidence/);
   assert.match(source,/business_external_diagnosis_closure: externalDiagnosisClosure/);
   assert.match(source,/business_final_diagnosis: finalDiagnosis/);
+  assert.match(source,/buildBusinessAnswerBrief/);
+  assert.match(source,/business_answer_brief: businessAnswerBrief/);
+  assert.match(source,/AVANTIQO_BUSINESS_ANSWER_BRIEF_CONTRACT/);
   assert.match(source,/external_diagnosis_closed_before_conversation/);
   assert.match(source,/externalEvidenceAuditPackets/);
   assert.match(source,/externalEvidenceCollectionContext/);

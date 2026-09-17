@@ -11,6 +11,7 @@ const CUSTOMER_STAGE_LABELS = Object.freeze({
   VOCAL_PRODUCTION: "Polish vocals",
   MIX_ENGINEERING: "Mix the song",
   PREMASTER_QC: "Quality check",
+  PREMASTER_LISTENING: "Listen to pre-master",
   MASTERING: "Create master",
   PERCEPTUAL_TRANSLATION: "Playback check",
   DAILIES_LISTENING: "Listening review",
@@ -21,6 +22,7 @@ function customerAction(stageId, hasVocalCandidate = false) {
   if (stageId === "VOCAL_PRODUCTION") return hasVocalCandidate ? "Review corrected vocal" : "Prepare vocal correction";
   if (stageId === "MIX_ENGINEERING") return "Open mix workstation";
   if (stageId === "PREMASTER_QC") return "Run mix quality check";
+  if (stageId === "PREMASTER_LISTENING") return "Run pre-master listening";
   if (stageId === "MASTERING") return "Create release master";
   if (stageId === "PERCEPTUAL_TRANSLATION") return "Check playback translation";
   if (stageId === "DAILIES_LISTENING") return "Run listening review";
@@ -117,7 +119,7 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
         <div>
           <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]"><Disc3 className="h-3.5 w-3.5" /> Professional Release</div>
           <div className="mt-2 text-[18px] font-medium tracking-[-0.025em] text-white/92">{state?.source_title || "Commercial music production"}</div>
-          <div className="mt-1 text-[10px] text-white/42">Create → separate tracks → vocals → mix → quality check → master → playback → listening → final review</div>
+          <div className="mt-1 text-[10px] text-white/42">Create → separate tracks → vocals → mix → quality check → pre-master listening → master → playback → listening → final review</div>
         </div>
         <div className={`rounded-full border px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] ${complete ? "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-200" : "border-[#D6A66A]/25 bg-[#D6A66A]/[0.07] text-[#E5C69D]"}`}>
           {complete ? "Release candidate" : stageId ? customerStage(stageId) : "Preparing"}
@@ -126,13 +128,13 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
       <div className="px-5 py-4">
         <div className="mb-4 rounded-xl border border-white/7 bg-white/[0.018] p-3.5">
           <div className="flex items-center justify-between gap-4">
-            <div><div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/34">Production progress</div><div className="mt-1 text-[11px] text-white/68">{passedStages} of {stages.length || 9} stages complete · {productionState}</div></div>
+            <div><div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/34">Production progress</div><div className="mt-1 text-[11px] text-white/68">{passedStages} of {stages.length || 10} stages complete · {productionState}</div></div>
             <div className="text-[15px] font-medium text-[#E5C69D]">{progressPercent}%</div>
           </div>
           <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/[0.07]"><div className="h-full rounded-full bg-[#D6A66A] transition-[width] duration-500" style={{ width: `${progressPercent}%` }} /></div>
           {pendingExecution ? <div className="mt-2 flex items-center gap-2 text-[9px] text-white/40"><Loader2 className="h-3 w-3 animate-spin text-[#D6A66A]" /> Avantiqo is processing {customerStage(pendingExecution.stage_id)} on owned compute. This updates automatically.</div> : null}
         </div>
-        <div className="grid gap-1.5 sm:grid-cols-3 lg:grid-cols-9">
+        <div className="grid gap-1.5 sm:grid-cols-3 lg:grid-cols-10">
           {stages.map((stage) => {
             const active = stage.id === stageId && !complete;
             return <div key={stage.id} className={`rounded-xl border px-2.5 py-2.5 ${stage.passed ? "border-emerald-300/15 bg-emerald-300/[0.045]" : active ? "border-[#D6A66A]/35 bg-[#D6A66A]/[0.07]" : "border-white/7 bg-white/[0.018]"}`}>

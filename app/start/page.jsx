@@ -1,0 +1,25 @@
+import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+
+export const metadata = { title: "Start with Avantiqo | Avantiqo" };
+
+const PATHS = [
+  ["Run your business", "Business OS", "Operate finance, people, supply chain, commercial, projects and more in one governed business context.", "Available", "/login", "Enter Avantiqo"],
+  ["Build with the platform", "Developers", "Use APIs, webhooks, agent tools and embedded workflows to put Avantiqo capabilities inside other products.", "Available", "/developers", "Developer platform"],
+  ["Create professional media", "Creative Studios", "Image, Video and Music production systems with direction, review, repair and commercial delivery.", "Available", "/creative-studios", "Explore Studios"],
+  ["Scale a larger organization", "Enterprise", "Multi-entity operating scope, deeper governance, portfolio insight, integration and premium service packaging.", "Commercial packaging", "/enterprise", "Explore Enterprise"],
+  ["Implement and optimize", "Services", "Discovery, migration, configuration, integration, launch and optimization around repeatable Avantiqo methods.", "Professional services", "/services", "Explore Services"],
+  ["Distribute capabilities", "Marketplace", "Package capabilities, agents, solutions and other approved supply for commercial distribution through the Avantiqo economy.", "Marketplace preview", "/ecosystem", "Marketplace model"],
+  ["Offer unused GPU capacity", "Compute Host", "Keep Avantiqo workloads first, then expose genuinely idle approved GPU capacity to paid external demand.", "Host network preview", "/compute", "Compute model"],
+  ["Deliver through Avantiqo", "Partners", "Accounting firms, agencies, consultants and implementers can scale Avantiqo across client portfolios.", "Partner model", "/partners", "Partner model"],
+];
+
+function Arrow(){return <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+
+export default function StartPage(){
+  return <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
+    <PublicSiteHeader context="Start" links={[{label:"Solutions",href:"/solutions"},{label:"Pricing",href:"/pricing"},{label:"Developers",href:"/developers"}]} />
+    <section className="relative overflow-hidden border-b border-black/[0.06]"><div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_18%,rgba(214,166,106,.14),transparent_30%)]"/><div className="relative mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-28"><p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">Start with Avantiqo</p><h1 className="mt-4 max-w-5xl text-[48px] font-medium leading-[.98] tracking-[-0.06em] sm:text-[64px] lg:text-[78px]">Choose the value you want to create.</h1><p className="mt-7 max-w-2xl text-[16px] leading-8 text-[#625F59]">Avantiqo can be the operating system, creative production layer, developer platform, commercial infrastructure—or the place where your own capabilities and capacity eventually earn.</p></div></section>
+    <section className="bg-[#FBFAF8]"><div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20"><div className="grid gap-3 md:grid-cols-2">{PATHS.map(([title,area,description,status,href,cta],i)=><a key={area} href={href} className="group rounded-[26px] border border-black/[0.075] bg-white p-6 shadow-[0_14px_45px_rgba(40,30,20,.035)] transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35 sm:p-7"><div className="flex items-start justify-between gap-5"><div><div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-[#A37849]">0{i+1} · {area}</div><h2 className="mt-5 text-[28px] font-medium tracking-[-0.045em] text-[#1D1B18]">{title}</h2></div><span className="rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] px-2.5 py-1.5 text-[7px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">{status}</span></div><p className="mt-4 max-w-xl text-[11px] leading-6 text-[#746F68]">{description}</p><div className="mt-7 inline-flex items-center gap-2 text-[10px] font-semibold text-[#8A633C]">{cta}<Arrow/></div></a>)}</div></div></section>
+    <section className="bg-[#171716] text-white"><div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[1fr_.8fr] lg:items-center lg:px-10 lg:py-20"><div><p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">Commercial architecture</p><h2 className="mt-3 max-w-3xl text-[38px] font-medium leading-[1.03] tracking-[-0.05em] text-[#F7F4EF] sm:text-[50px]">Subscription. Consumption. Transactions. Platform economics.</h2></div><div className="grid gap-2 sm:grid-cols-2">{["Business OS subscriptions","Wallet-funded premium work","API & compute usage","Commerce transactions","Marketplace commissions","Partner & services revenue"].map(x=><div key={x} className="rounded-[16px] border border-white/[0.08] bg-white/[0.025] px-4 py-3 text-[10px] text-white/55">{x}</div>)}</div></div></section>
+  </main>;
+}

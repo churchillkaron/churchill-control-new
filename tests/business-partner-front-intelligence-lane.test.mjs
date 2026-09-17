@@ -23,11 +23,11 @@ test("front lane is explicit-only and cannot replace global text generation", ()
   assert.match(direct, /FRONT_RUNTIME_CONTRACT = "AVANTIQO_INTELLIGENCE_FRONT_CPU_WARM_V2"/);
 });
 
-test("owned front worker stays warm on CPU and has no tool authority", () => {
+test("owned front worker scales to zero on CPU and has no tool authority", () => {
   const worker = source("services/avantiqo-intelligence-modal/modal_front_app.py");
-  assert.match(worker, /min_containers=1/);
+  assert.match(worker, /min_containers=0/);
   assert.match(worker, /max_containers=2/);
-  assert.match(worker, /SCALEDOWN_WINDOW_SECONDS = 120/);
+  assert.match(worker, /SCALEDOWN_WINDOW_SECONDS = 30/);
   assert.match(worker, /enable_memory_snapshot=False/);
   assert.match(worker, /AVANTIQO_INTELLIGENCE_FRONT_TOOLS_FORBIDDEN/);
   assert.match(worker, /"mutation_authority": False/);

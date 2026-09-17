@@ -24,7 +24,7 @@ LIGHT_MODEL_URL = "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen
 LIGHT_MODEL_PATH = "/opt/avantiqo-front/qwen3-1.7b-q8-0.gguf"
 PORT = 8080
 LIGHT_PORT = 8081
-SCALEDOWN_WINDOW_SECONDS = 120
+SCALEDOWN_WINDOW_SECONDS = 30
 MAX_OUTPUT_TOKENS = 320
 FRONT_CPU = float(os.environ.get("AVANTIQO_INTELLIGENCE_FRONT_CPU", "8"))
 FRONT_THREADS = max(1, int(os.environ.get("AVANTIQO_INTELLIGENCE_FRONT_THREADS", str(int(FRONT_CPU)))))
@@ -158,7 +158,7 @@ def _safe_output(raw: str) -> str:
     memory=10240,
     timeout=60,
     startup_timeout=60,
-    min_containers=1,
+    min_containers=0,
     max_containers=2,
     buffer_containers=0,
     scaledown_window=SCALEDOWN_WINDOW_SECONDS,
@@ -201,7 +201,7 @@ class FrontConversation:
             "light_model": LIGHT_MODEL,
             "semantic_model_ready": True,
             "light_model_ready": True,
-            "min_containers": 1,
+            "min_containers": 0,
             "scaledown_window_seconds": SCALEDOWN_WINDOW_SECONDS,
             "startup_ready_seconds": self.startup_ready_seconds,
             "customer_inference_performed": False,
@@ -274,7 +274,7 @@ class FrontConversation:
                 "semantic_seconds": sem_seconds, "light_seconds": light_seconds, "generation_seconds": round(time.perf_counter()-total_started,3),
                 "semantic_usage": sem_usage, "light_usage": light_usage, "usage": {"input_tokens": int(sem_usage.get("prompt_tokens") or 0) + int(light_usage.get("prompt_tokens") or 0), "output_tokens": int(sem_usage.get("completion_tokens") or 0) + int(light_usage.get("completion_tokens") or 0)}, "prompt_tokens": int(sem_usage.get("prompt_tokens") or 0) + int(light_usage.get("prompt_tokens") or 0), "completion_tokens": int(sem_usage.get("completion_tokens") or 0) + int(light_usage.get("completion_tokens") or 0), "infrastructure_provider": "MODAL_CPU_SNAPSHOT_V1",
                 "modal_gpu": None, "modal_app": APP_NAME, "modal_class": "FrontConversation", "modal_volume_created": False,
-                "memory_snapshot_enabled": False, "min_containers": 1, "max_containers": 2, "raw_reasoning_persisted": False,
+                "memory_snapshot_enabled": False, "min_containers": 0, "max_containers": 2, "raw_reasoning_persisted": False,
                 "tools_allowed": False, "mutation_authority": False,
             }
         if task_mode == "semantic_classifier":
@@ -399,7 +399,7 @@ class FrontConversation:
             "modal_class": "FrontConversation",
             "modal_volume_created": False,
             "memory_snapshot_enabled": False,
-            "min_containers": 1,
+            "min_containers": 0,
             "max_containers": 2,
             "scaledown_window_seconds": SCALEDOWN_WINDOW_SECONDS,
             "raw_reasoning_persisted": False,

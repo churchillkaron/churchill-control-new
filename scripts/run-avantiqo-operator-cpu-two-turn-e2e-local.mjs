@@ -20,7 +20,7 @@ assert(runtime?.runtime_ready === true, 'RUNTIME_NOT_READY');
 assert(runtime?.execution_lanes?.front?.model_name === SEMANTIC_MODEL, 'FRONT_MODEL_MISMATCH');
 assert(runtime?.execution_lanes?.front?.tools_allowed === false, 'FRONT_TOOLS_MUST_BE_FALSE');
 assert(runtime?.execution_lanes?.front?.mutation_authority === false, 'FRONT_MUTATION_MUST_BE_FALSE');
-assert(runtime?.front_min_containers >= 1, 'FRONT_MUST_BE_WARM');
+assert(runtime?.front_min_containers === 0, 'FRONT_MUST_SCALE_TO_ZERO');
 
 const staffResult = await supabaseAdmin.from('staff_accounts')
   .select('party_id,auth_user_id,role,active')

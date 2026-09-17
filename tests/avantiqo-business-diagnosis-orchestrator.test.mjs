@@ -1,0 +1,9 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { executeBusinessDiagnosisOrchestration as execute } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisOrchestratorRuntime.js";
+
+const obs=(measure_id,baseline_value,actual_value)=>({measure_id,dimension_key:"THB",baseline_value,actual_value,source_capability_key:"finance.profit_loss.read"});
+const pnlResult={status:"OBSERVATIONS_READY",capability_key:"finance.profit_loss.read",normalized:{observations:[obs("recognized_revenue",1000,1200),obs("cogs_amount",300,360),obs("operating_expenses",400,440),obs("total_cost",700,800),obs("net_profit",300,400)]},mapped:{driver_rows:[{driver_id:"profit",measure_id:"net_profit",baseline_value:300,actual_value:400,source_capability_key:"finance.profit_loss.read"},{driver_id:"revenue",measure_id:"recognized_revenue",baseline_value:1000,actual_value:1200,source_capability_key:"finance.profit_loss.read"},{driver_id:"cost_total",measure_id:"total_cost",baseline_value:700,actual_value:800,source_capability_key:"finance.profit_loss.read"}]}};
+
+test("orchestrator completes profit diagnosis from precomputed batch without model choreography",()=>{const r=execute({metric:"profit",internal_evidence_batch:{comparison_results:[pnlResult]},target_dimension_key:"THB"});assert.equal(r.diagnosis.target_metric.status,"TARGET_METRIC_READY");assert.equal(r.diagnosis.variance.metric_change,100);assert.equal(r.diagnosis.variance.unexplained_residual,0);assert.equal(r.policy.model_choreography_not_required,true);assert.equal(r.authority_effect,"NONE");});
+test("orchestrator preserves missing target as evidence gap",()=>{const r=execute({metric:"profit",internal_evidence_batch:{comparison_results:[]}});assert.equal(r.status,"TARGET_METRIC_EVIDENCE_GAP");assert.equal(r.diagnosis.variance,null);assert.equal(r.diagnosis.external_research_allowed,false);});

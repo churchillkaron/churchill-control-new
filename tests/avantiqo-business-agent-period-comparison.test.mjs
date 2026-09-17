@@ -17,3 +17,10 @@ test("business intelligence agent pre-executes deterministic internal evidence b
   assert.match(source,/business_internal_comparison_results/);
   assert.match(source,/business_internal_evidence_bundle/);
 });
+
+test("business intelligence agent injects completed deterministic diagnosis",()=>{
+  const source=fs.readFileSync("lib/intelligence/runtime/BusinessIntelligenceAgentRuntime.js","utf8");
+  assert.match(source,/executeBusinessDiagnosisOrchestration/);
+  assert.match(source,/business_completed_diagnosis/);
+  assert.match(source,/AVANTIQO_BUSINESS_DIAGNOSIS_ORCHESTRATOR_CONTRACT/);
+});

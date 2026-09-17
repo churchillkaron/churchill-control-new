@@ -19,6 +19,20 @@ test("capability coverage combines semantics knowledge outcomes and verification
   assert.match(runtime, /VERIFICATION_CONTRACT_MISSING/);
 });
 
+
+test("capability outcome coverage weights live evidence above historical backfill without changing authority", () => {
+  assert.match(runtime, /weightedCapabilityOutcomeEvidence/);
+  assert.match(runtime, /weighted_verified_outcome_units/);
+  assert.match(runtime, /live_verified_outcome_count/);
+  assert.match(runtime, /historical_backfill_outcome_count/);
+});
+
+test("capability curriculum resolves canonical learning organization and persists a valid memory type", () => {
+  assert.match(runtime, /resolveAvantiqoLearningOrganization/);
+  assert.match(runtime, /allowDatabaseFallback: true/);
+  assert.match(runtime, /memory_type:"fact"/);
+});
+
 test("nightly capability study is bounded to the weakest capability", () => {
   assert.match(runtime, /sort\(\(a,b\) => a\.coverage\.score-b\.coverage\.score/);
   assert.match(runtime, /const selected = assessments\[0\]/);

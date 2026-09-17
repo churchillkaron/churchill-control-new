@@ -10,7 +10,7 @@ const PROFILES = Object.freeze({
   vocal: Object.freeze({
     eyebrow: "Vocal Studio",
     title: "Polish the vocal",
-    description: "Clean, shape and prepare a vocal recording through the governed Music Auto Studio chain. Local restoration runs now; certified pitch/timing correction remains separately gated when required.",
+    description: "Clean and restore an isolated vocal locally, preserve the original, and prepare reviewed pitch/timing correction through the governed owned vocal lane when needed.",
     source_role: "vocal",
     goal: "vocal_polish",
     action: "POLISH VOCAL",
@@ -185,11 +185,11 @@ export default function MusicSpecialistStudioPanel({
 
             {output?.master_url ? (
               <div className="mt-5 rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.04] p-4">
-                <div className="flex items-center gap-2 text-xs font-medium text-emerald-100/70"><CheckCircle2 className="h-4 w-4" /> Studio output complete</div>
+                <div className="flex items-center gap-2 text-xs font-medium text-emerald-100/70"><CheckCircle2 className="h-4 w-4" /> {mode === "vocal" && blockers.length ? "Restored vocal preview ready" : "Studio output complete"}</div>
                 <audio className="mt-3 w-full" controls src={output.master_url} />
               </div>
             ) : null}
-            {blockers.length ? <div className="mt-3 text-[10px] leading-4 text-amber-100/55">Additional certified stages still required: {blockers.map((item) => item.stage?.replaceAll("_", " ")).filter(Boolean).join(", ")}.</div> : null}
+            {blockers.length ? <div className="mt-3 rounded-xl border border-amber-300/12 bg-amber-300/[0.035] p-3 text-[10px] leading-4 text-amber-100/60">{mode === "vocal" ? "The original and restored vocal are preserved. Pitch/timing correction is still a separate governed stage and requires listening review before it can replace this preview." : `Additional certified stages still required: ${blockers.map((item) => item.stage?.replaceAll("_", " ")).filter(Boolean).join(", ")}.`}</div> : null}
             {error ? <div className="mt-4 rounded-xl border border-red-400/15 bg-red-400/[0.05] px-4 py-3 text-xs text-red-200/70">{error}</div> : null}
           </div>
 

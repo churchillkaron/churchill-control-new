@@ -101,14 +101,26 @@ function RunTextJob($Job) {
   $raw = Invoke-RestMethod -Uri "$OllamaUrl/api/chat" -Method Post -ContentType 'application/json' -Body ($body | ConvertTo-Json -Depth 20 -Compress) -TimeoutSec 120
   $elapsed = [int](((Get-Date) - $started).TotalMilliseconds)
   $text = [string]$raw.message.content
+  $executionResource = 'LOCAL_CPU'
+  $gpuVramBytes = 0
+  try {
+    $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 5
+    $activeModel = @($loaded.models | Where-Object { [string]$_.name -eq [string]$raw.model } | Select-Object -First 1)
+    if ($activeModel -and [int64]$activeModel[0].size_vram -gt 0) {
+      $executionResource = 'LOCAL_GPU'
+      $gpuVramBytes = [int64]$activeModel[0].size_vram
+    }
+  } catch {}
   $result = @{
     status='completed'; provider='avantiqo-intelligence'; infrastructure_provider='AVANTIQO_LOCAL_NODE_V1';
-    runtime_model=[string]$raw.model; text=$text; finish_reason=[string]$raw.done_reason;
+    runtime_model=[string]$raw.model; execution_resource=$executionResource; gpu_vram_bytes=$gpuVramBytes;
+    text=$text; finish_reason=[string]$raw.done_reason;
     usage=@{ input_tokens=[int]$raw.prompt_eval_count; output_tokens=[int]$raw.eval_count }
   }
   $metrics = @{
     elapsed_ms=$elapsed; total_duration_ns=[int64]$raw.total_duration; load_duration_ns=[int64]$raw.load_duration;
-    prompt_tokens=[int]$raw.prompt_eval_count; completion_tokens=[int]$raw.eval_count
+    prompt_tokens=[int]$raw.prompt_eval_count; completion_tokens=[int]$raw.eval_count;
+    gpu_workload=($executionResource -eq 'LOCAL_GPU'); gpu_vram_bytes=$gpuVramBytes
   }
   CompleteJob $Job $result $metrics
 }

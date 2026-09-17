@@ -45,6 +45,19 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
     catch (cause) { setError(cause?.message || "Professional Release unavailable"); }
   }, [organizationId, projectId, request]);
   useEffect(() => { refresh(); }, [refresh, refreshKey]);
+  useEffect(() => {
+    if (!state?.pending_execution?.usage_id || !organizationId || !projectId) return undefined;
+    let cancelled = false;
+    const timer = window.setInterval(async () => {
+      try {
+        const result = await request({ action: "poll_pending", organization_id: organizationId, creative_project_id: projectId, source_asset_id: state?.source_asset_id });
+        if (!cancelled) setState((current) => ({ ...current, ...result, active: true, source_title: result?.source_title || current?.source_title }));
+      } catch (cause) {
+        if (!cancelled) setError(cause?.message || "Could not refresh production progress");
+      }
+    }, 5000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [organizationId, projectId, request, state?.pending_execution?.usage_id, state?.source_asset_id]);
 
   const next = state?.next_stage || null;
   const stages = useMemo(() => next?.manifest?.stages || state?.professional_production_state?.manifest?.stages || [], [next, state]);
@@ -80,6 +93,11 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
   const vocalStage = stageId === "VOCAL_PRODUCTION";
   const workstationStage = stageId === "MIX_ENGINEERING" || surface === "WORKSTATION";
   const vocalCandidate = state?.vocal_review_candidate || null;
+  const pendingExecution = state?.pending_execution || null;
+  const passedStages = stages.filter((stage) => stage.passed).length;
+  const progressPercent = complete ? 100 : stages.length ? Math.round((passedStages / stages.length) * 100) : 0;
+  const needsCustomer = workstationStage || (vocalStage && Boolean(vocalCandidate));
+  const productionState = complete ? "Complete" : pendingExecution ? "Avantiqo working" : needsCustomer ? "Needs you" : "Ready to continue";
 
   return (
     <section className="mt-5 overflow-hidden rounded-[22px] border border-[#D6A66A]/20 bg-[#11100E] text-white shadow-[0_12px_40px_rgba(0,0,0,0.08)]">
@@ -94,6 +112,14 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
         </div>
       </div>
       <div className="px-5 py-4">
+        <div className="mb-4 rounded-xl border border-white/7 bg-white/[0.018] p-3.5">
+          <div className="flex items-center justify-between gap-4">
+            <div><div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/34">Production progress</div><div className="mt-1 text-[11px] text-white/68">{passedStages} of {stages.length || 9} stages complete · {productionState}</div></div>
+            <div className="text-[15px] font-medium text-[#E5C69D]">{progressPercent}%</div>
+          </div>
+          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/[0.07]"><div className="h-full rounded-full bg-[#D6A66A] transition-[width] duration-500" style={{ width: `${progressPercent}%` }} /></div>
+          {pendingExecution ? <div className="mt-2 flex items-center gap-2 text-[9px] text-white/40"><Loader2 className="h-3 w-3 animate-spin text-[#D6A66A]" /> Avantiqo is processing {customerStage(pendingExecution.stage_id)} on owned compute. This updates automatically.</div> : null}
+        </div>
         <div className="grid gap-1.5 sm:grid-cols-3 lg:grid-cols-9">
           {stages.map((stage) => {
             const active = stage.id === stageId && !complete;
@@ -107,7 +133,7 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
           <div className="min-w-0">
             <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/34">Current production gate</div>
             <div className="mt-1 text-[12px] font-medium text-white/78">{complete ? "Professional production passed" : customerStage(stageId) || "No active stage"}</div>
-            <div className="mt-1 text-[10px] text-white/34">{complete ? "Final review passed. Publishing is still a separate decision." : workstationStage ? "Needs your mix decision in the Workstation." : vocalStage && vocalCandidate ? "Needs your listening approval before the mix." : "Avantiqo can run this production step for you."}</div>
+            <div className="mt-1 text-[10px] text-white/34">{complete ? "Final review passed. Publishing is still a separate decision." : pendingExecution ? "Avantiqo is working on this stage. No action is needed from you." : workstationStage ? "Needs your mix decision in the Workstation." : vocalStage && vocalCandidate ? "Needs your listening approval before the mix." : "Avantiqo can run this production step for you."}</div>
           </div>
           {!complete ? <div className="flex flex-wrap gap-2">
             {vocalStage ? <button type="button" onClick={() => onOpen?.("vocal")} className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-[10px] text-white/68 hover:border-[#D6A66A]/30">Open vocals</button> : null}
@@ -115,7 +141,7 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
             {vocalStage && vocalCandidate ? <button type="button" disabled={busy} onClick={approveVocal} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300/25 bg-emerald-300/[0.08] px-3 py-2 text-[10px] font-semibold text-emerald-100/80 disabled:opacity-50">
               {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <BadgeCheck className="h-3 w-3" />}I listened — approve vocal
             </button> : null}
-            <button type="button" disabled={busy || (vocalStage && Boolean(vocalCandidate))} onClick={continueStage} className="inline-flex items-center gap-1.5 rounded-lg border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-3 py-2 text-[10px] font-semibold text-[#E5C69D] disabled:opacity-50">
+            <button type="button" disabled={busy || Boolean(pendingExecution) || (vocalStage && Boolean(vocalCandidate))} onClick={continueStage} className="inline-flex items-center gap-1.5 rounded-lg border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-3 py-2 text-[10px] font-semibold text-[#E5C69D] disabled:opacity-50">
               {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <LockKeyhole className="h-3 w-3" />}{customerAction(stageId, Boolean(vocalCandidate))}
             </button>
           </div> : null}

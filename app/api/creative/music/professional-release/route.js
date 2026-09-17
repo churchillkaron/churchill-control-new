@@ -60,7 +60,16 @@ async function status(body) {
   if (!source) return { success: true, active: false, status: "NO_PROFESSIONAL_SOURCE", release_ready: false, publication_authorized: false };
   const result = await continueMusicProfessionalProduction({ organization_id: organizationId, creative_project_id: projectId, source_asset_id: source.id, authorized_stage: "" });
   const candidate = result?.next_stage?.stage_id === "VOCAL_PRODUCTION" ? await latestCorrectedVocal(organizationId, projectId, source) : null;
-  return { success: true, active: true, source_asset_id: source.id, source_title: source.title || source.name || source.file_name || "Music production", ...result, vocal_review_candidate: candidate ? { id: candidate.id, title: candidate.title || candidate.name || candidate.file_name || "Corrected vocal", human_listening_review_required: true } : null, publication_authorized: false };
+  const stemPending = source.metadata?.professional_stem_pending || null;
+  const pendingExecution = stemPending?.usage_id ? {
+    stage_id: "STEM_SEPARATION",
+    usage_id: stemPending.usage_id,
+    provider_job_id: stemPending.provider_job_id || null,
+    provider_status: stemPending.provider_status || "pending",
+    started_at: stemPending.started_at || null,
+    last_checked_at: stemPending.last_checked_at || null,
+  } : null;
+  return { success: true, active: true, source_asset_id: source.id, source_title: source.title || source.name || source.file_name || "Music production", ...result, pending_execution: pendingExecution, vocal_review_candidate: candidate ? { id: candidate.id, title: candidate.title || candidate.name || candidate.file_name || "Corrected vocal", human_listening_review_required: true } : null, publication_authorized: false };
 }
 
 async function continueStage(body) {
@@ -70,6 +79,24 @@ async function continueStage(body) {
   const stage = text(body.authorized_stage);
   const mixAssetId = text(body.mix_asset_id) || ((stage === "MIX_ENGINEERING" || stage === "PREMASTER_QC") ? await latestMixAssetId(organizationId, projectId) : null);
   return continueMusicProfessionalProduction({ ...body, organization_id: organizationId, creative_project_id: projectId, source_asset_id: source.id, authorized_stage: stage, mix_asset_id: mixAssetId || undefined });
+}
+
+async function pollPendingStage(body) {
+  const organizationId = text(body.organization_id), projectId = text(body.creative_project_id);
+  const source = await resolveSource(organizationId, projectId, text(body.source_asset_id));
+  if (!source) throw new Error("CREATIVE_MUSIC_PRO_RELEASE_SOURCE_REQUIRED");
+  const pending = source.metadata?.professional_stem_pending || null;
+  if (!pending?.usage_id) return status(body);
+  const advanced = await continueMusicProfessionalProduction({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+    source_asset_id: source.id,
+    authorized_stage: "STEM_SEPARATION",
+  });
+  if (advanced.status === "STAGE_PENDING") {
+    return { success: true, active: true, source_asset_id: source.id, source_title: source.title || source.name || source.file_name || "Music production", ...advanced, pending_execution: { stage_id: "STEM_SEPARATION", usage_id: advanced.execution?.usage_id || pending.usage_id, provider_status: advanced.execution?.provider_status || pending.provider_status || "pending" }, publication_authorized: false };
+  }
+  return status(body);
 }
 
 async function certifyVocal(body, access) {
@@ -103,7 +130,7 @@ export async function POST(request) {
     if (!organizationId || !projectId) return NextResponse.json({ success: false, error: "organization_id and creative_project_id required" }, { status: 400 });
     const access = await requireAccess(request, organizationId);
     const action = text(body.action || "status").toLowerCase();
-    const result = action === "status" ? await status(body) : action === "continue" ? await continueStage(body) : action === "certify_vocal" ? await certifyVocal(body, access) : null;
+    const result = action === "status" ? await status(body) : action === "poll_pending" ? await pollPendingStage(body) : action === "continue" ? await continueStage(body) : action === "certify_vocal" ? await certifyVocal(body, access) : null;
     if (!result) return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_PRO_RELEASE_ACTION_INVALID" }, { status: 400 });
     return NextResponse.json(result, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {

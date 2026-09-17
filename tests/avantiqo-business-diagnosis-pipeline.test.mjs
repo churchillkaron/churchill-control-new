@@ -46,3 +46,25 @@ test("profit pipeline prefers accounting identity over nested bundle rows",()=>{
   assert.equal(out.variance.unexplained_residual,0);
   assert.deepEqual(out.variance.contributions.map(x=>[x.driver_id,x.contribution_amount]),[["revenue",200],["cost_total",-100]]);
 });
+
+
+test("small residual with incomplete driver coverage is not labeled sufficient",()=>{
+  const plan=buildBusinessDiagnosisPipeline({metric:"staffing"});
+  const comparison_results=[{status:"OBSERVATIONS_READY",capability_key:"people.attendance.read",mapped:{driver_rows:[{driver_id:"attendance_reliability",measure_id:"late_shifts",baseline_value:1,actual_value:1}]}}];
+  const out=completeBusinessDiagnosisPipeline({plan,baseline_value:10,actual_value:10,comparison_results});
+  assert.equal(out.residual_material,false);
+  assert.equal(out.numeric_reconciliation_complete,true);
+  assert.equal(out.internal_coverage_incomplete,true);
+  assert.equal(out.final_evidence_state,"INTERNAL_COVERAGE_INCOMPLETE");
+});
+
+test("profit identity can reconcile while deeper driver coverage remains incomplete",()=>{
+  const plan=buildBusinessDiagnosisPipeline({metric:"profit"});
+  const obs=(measure_id,baseline_value,actual_value)=>({measure_id,dimension_key:"THB",baseline_value,actual_value,source_capability_key:"finance.profit_loss.read"});
+  const comparison_results=[{status:"OBSERVATIONS_READY",capability_key:"finance.profit_loss.read",normalized:{observations:[obs("recognized_revenue",1000,1200),obs("cogs_amount",300,360),obs("operating_expenses",400,440),obs("total_cost",700,800),obs("net_profit",300,400)]},mapped:{driver_rows:[{driver_id:"profit",measure_id:"net_profit",baseline_value:300,actual_value:400,source_capability_key:"finance.profit_loss.read"},{driver_id:"revenue",measure_id:"recognized_revenue",baseline_value:1000,actual_value:1200,source_capability_key:"finance.profit_loss.read"},{driver_id:"cost_total",measure_id:"total_cost",baseline_value:700,actual_value:800,source_capability_key:"finance.profit_loss.read"},{driver_id:"cogs",measure_id:"cogs_amount",baseline_value:300,actual_value:360,source_capability_key:"finance.profit_loss.read"}]}}];
+  const out=completeBusinessDiagnosisPipeline({plan,comparison_results,target_dimension_key:"THB"});
+  assert.equal(out.variance.unexplained_residual,0);
+  assert.equal(out.numeric_reconciliation_complete,true);
+  assert.equal(out.internal_coverage_incomplete,true);
+  assert.equal(out.final_evidence_state,"INTERNAL_COVERAGE_INCOMPLETE");
+});

@@ -70,3 +70,16 @@ test("local worker migration keeps production switch explicit", () => {
   assert.match(runtime, /AVANTIQO_LOCAL_COMPUTE_QUEUE_ENABLED/);
   assert.match(runtime, /AVANTIQO_LOCAL_FAST_INTELLIGENCE_ENABLED/);
 });
+
+
+test("local Qwen routing refuses requests that exceed the active 4096-token runtime envelope", () => {
+  const queueRuntime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js");
+  const lanRuntime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalRuntime.js");
+  for (const runtime of [queueRuntime, lanRuntime]) {
+    assert.match(runtime, /LOCAL_CONTEXT_TOKENS = 4096/);
+    assert.match(runtime, /LOCAL_CONTEXT_SAFETY_TOKENS = 384/);
+    assert.match(runtime, /localIntelligenceContextFits/);
+    assert.match(runtime, /estimatedPromptTokens/);
+    assert.match(runtime, /requestedOutputTokens/);
+  }
+});

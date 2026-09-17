@@ -68,3 +68,31 @@ test("profit identity can reconcile while deeper driver coverage remains incompl
   assert.equal(out.internal_coverage_incomplete,true);
   assert.equal(out.final_evidence_state,"INTERNAL_COVERAGE_INCOMPLETE");
 });
+
+test("revenue pipeline auto-selects exact reconciled two-factor model",()=>{
+  const plan=buildBusinessDiagnosisPipeline({metric:"revenue"});
+  const comparison_results=[{status:"OBSERVATIONS_READY",capability_key:"finance.profit_loss.read",normalized:{observations:[{measure_id:"recognized_revenue",dimension_key:"THB",baseline_value:1000,actual_value:1320,source_capability_key:"finance.profit_loss.read"}]},mapped:{driver_rows:[{driver_id:"revenue",measure_id:"recognized_revenue",baseline_value:1000,actual_value:1320,source_capability_key:"finance.profit_loss.read"}]}}];
+  const scope={organization_id:"org",entity_id:"ent",baseline_period_id:"p1",current_period_id:"p2"};
+  const factor_observations=[
+    {factor_id:"volume",baseline_value:10,actual_value:12,unit:"quantity",basis_key:"covers",scope,evidence_status:"EXACT_FACTOR_OBSERVATION",source_capability_key:"sales.exact"},
+    {factor_id:"price",baseline_value:100,actual_value:110,unit:"currency_per_quantity",basis_key:"covers",currency_code:"THB",scope,evidence_status:"EXACT_FACTOR_OBSERVATION",source_capability_key:"sales.exact"},
+  ];
+  const out=completeBusinessDiagnosisPipeline({plan,comparison_results,factor_observations,target_dimension_key:"THB"});
+  assert.equal(out.factor_decomposition.status,"DECOMPOSITION_READY");
+  assert.equal(out.factor_decomposition.model,"REVENUE_TWO_FACTOR_SHAPLEY");
+  assert.equal(out.variance.explained_amount,320);
+  assert.equal(out.variance.unexplained_residual,0);
+});
+
+test("revenue pipeline refuses unreconciled factor model",()=>{
+  const plan=buildBusinessDiagnosisPipeline({metric:"revenue"});
+  const comparison_results=[{status:"OBSERVATIONS_READY",capability_key:"finance.profit_loss.read",normalized:{observations:[{measure_id:"recognized_revenue",dimension_key:"THB",baseline_value:1000,actual_value:1400,source_capability_key:"finance.profit_loss.read"}]},mapped:{driver_rows:[{driver_id:"revenue",measure_id:"recognized_revenue",baseline_value:1000,actual_value:1400,source_capability_key:"finance.profit_loss.read"}]}}];
+  const scope={organization_id:"org",entity_id:"ent",baseline_period_id:"p1",current_period_id:"p2"};
+  const factor_observations=[
+    {factor_id:"volume",baseline_value:10,actual_value:12,unit:"quantity",basis_key:"covers",scope,evidence_status:"EXACT_FACTOR_OBSERVATION",source_capability_key:"sales.exact"},
+    {factor_id:"price",baseline_value:100,actual_value:110,unit:"currency_per_quantity",basis_key:"covers",currency_code:"THB",scope,evidence_status:"EXACT_FACTOR_OBSERVATION",source_capability_key:"sales.exact"},
+  ];
+  const out=completeBusinessDiagnosisPipeline({plan,comparison_results,factor_observations,target_dimension_key:"THB"});
+  assert.equal(out.factor_decomposition.status,"DECOMPOSITION_NOT_AVAILABLE");
+  assert.equal(out.factor_decomposition.reason,"FACTOR_PRODUCT_DOES_NOT_RECONCILE_TARGET");
+});

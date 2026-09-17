@@ -294,7 +294,7 @@ async function finishRelease(body) {
           sample_rate: plan.sample_rate,
           channels: 2,
           deliveries: [
-            { id: "release-wav", format: "wav", file_name: "master.wav", codec: "pcm_s24le" },
+            { id: "release-wav", format: "wav", file_name: "master.wav", codec: "pcm_s24le", bit_depth: 24, dither_required: true },
             ...(plan.exports.release_mp3.enabled ? [{ id: "release-mp3", format: "mp3", file_name: "master.mp3", bitrate: "320k" }] : []),
           ],
           waveform: { width: 1600, height: 400 },
@@ -357,6 +357,9 @@ async function finishRelease(body) {
         release_candidate: output.release_candidate === true,
         waveform_url: output.waveform_url || report.waveform?.url || null,
         deliveries: (output.files || []).filter((file) => text(file.mime_type).startsWith("audio/")).map((file) => ({ name: file.name || null, url: file.url || null, mime_type: file.mime_type || null })),
+        dither: Array.isArray(report.deliveries) ? report.deliveries.filter((item) => item.dither_applied === true).map((item) => ({ name: item.name || null, applied: true, method: item.dither_method || null })) : [],
+        internal_master_format: report.internal_master_format || null,
+        final_integer_pcm_conversion_only: report.final_integer_pcm_conversion_only === true,
         release_limiter_applied: true,
         true_peak_certified: true,
         source_assets_preserved: true,

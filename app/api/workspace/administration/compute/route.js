@@ -23,6 +23,16 @@ function classifyLocalJob(job = {}) {
   return certification ? "CERTIFICATION" : "OPERATIONAL";
 }
 
+function localExecutionResource(job = {}) {
+  const explicit = text(job.result?.execution_resource).toUpperCase();
+  if (["LOCAL_GPU", "LOCAL_CPU"].includes(explicit)) return explicit;
+  const workload = text(job.workload).toLowerCase();
+  const model = text(job.result?.runtime_model || job.model).toLowerCase();
+  if (workload === "music_elastic" || workload === "media_ffmpeg" || model.includes("ffmpeg") || model.includes("signalsmith")) return "LOCAL_CPU";
+  if (workload === "intelligence_text" || model.includes("qwen")) return "LOCAL_LEGACY";
+  return job.node_id ? "LOCAL_OTHER" : "UNASSIGNED";
+}
+
 
 
 async function loadModalTelemetry({ organizationId, since }) {
@@ -120,6 +130,7 @@ export async function GET(request) {
       runtime_model: text(job.result?.runtime_model) || text(job.model) || null,
       infrastructure_provider: text(job.result?.infrastructure_provider) || (job.node_id ? "AVANTIQO_LOCAL_NODE_V1" : null),
       execution_path: job.node_id ? `LOCAL_QUEUE → ${job.node_id}` : "UNASSIGNED",
+      execution_resource: localExecutionResource(job),
       result: undefined,
     }));
     const modalUsage = (modalTelemetry.rows || []).map((row) => {
@@ -145,6 +156,8 @@ export async function GET(request) {
     const failed = operationalJobs.filter((job) => job.status === "FAILED");
     const terminalOperational = completed.length + failed.length;
     const operationalSuccessRate = terminalOperational ? Math.round((completed.length / terminalOperational) * 1000) / 10 : null;
+    const localGpuJobs = operationalJobs.filter((job) => job.execution_resource === "LOCAL_GPU");
+    const localCpuJobs = operationalJobs.filter((job) => job.execution_resource === "LOCAL_CPU");
     const latencyRows = completed.map((job) => Number(job.metrics?.elapsed_ms || 0)).filter((value) => value > 0);
     const averageLatencyMs = latencyRows.length
       ? Math.round(latencyRows.reduce((sum, value) => sum + value, 0) / latencyRows.length)
@@ -158,6 +171,9 @@ export async function GET(request) {
         normal_intelligence: "LOCAL_FIRST",
         deep_intelligence: "MODAL",
         heavy_generation: "MODAL",
+        bounded_studio_reasoning: "LOCAL_GPU_QWEN4B_FIRST",
+        deep_creative_reasoning: "MODAL_HEAVY_ONLY_WHEN_REQUIRED",
+        media_dsp: "LOCAL_CPU_FIRST",
         local_transport: "SUPABASE_PULL_QUEUE_V1",
       },
       metrics: {
@@ -170,6 +186,12 @@ export async function GET(request) {
         certification_jobs: certificationJobs.length,
         certification_failed_jobs: certificationJobs.filter((job) => job.status === "FAILED").length,
         average_latency_ms: averageLatencyMs,
+        local_gpu_jobs: localGpuJobs.length,
+        local_gpu_completed_jobs: localGpuJobs.filter((job) => job.status === "COMPLETED").length,
+        local_gpu_failed_jobs: localGpuJobs.filter((job) => job.status === "FAILED").length,
+        local_cpu_jobs: localCpuJobs.length,
+        local_cpu_completed_jobs: localCpuJobs.filter((job) => job.status === "COMPLETED").length,
+        local_cpu_failed_jobs: localCpuJobs.filter((job) => job.status === "FAILED").length,
         modal_telemetry_available: modalTelemetry.available === true,
         modal_telemetry_reason: modalTelemetry.reason || null,
         modal_calls_30d: Number(modalSummary.calls || 0),

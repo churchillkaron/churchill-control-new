@@ -15,3 +15,5 @@ test("weakness practice rotates fresh synthetic variants across arena attempts",
   assert.match(runtime,/variant_index/);
   assert.match(runtime,/practice_variants/);
 });
+test("weakness practice uses two fresh synthetic cases per measured dimension",()=>{assert.match(runtime,/flatMap/);assert.match(runtime,/\[start,\(start\+1\)%variants\.length\]/);assert.match(runtime,/case_id/);assert.match(runtime,/practice_case_count:items\.length/)});
+test("weakness practice allows at most two bounded rounds per arena attempt",()=>{assert.match(runtime,/MAX_PRACTICE_ROUNDS_PER_ARENA=2/);assert.match(runtime,/WEAKNESS_PRACTICE_ROUND_LIMIT_REACHED/);assert.match(runtime,/practice_round:practiceRound/);assert.match(runtime,/source_arena_attempt:sourceArenaAttempt/)});

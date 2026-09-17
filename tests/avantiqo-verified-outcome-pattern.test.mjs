@@ -1,0 +1,6 @@
+import test from "node:test"; import assert from "node:assert/strict"; import fs from "node:fs";
+const runtime=fs.readFileSync("lib/intelligence/runtime/AvantiqoVerifiedOutcomePatternRuntime.js","utf8");
+const route=fs.readFileSync("app/api/internal/intelligence/continuous-learning/process/route.js","utf8");
+test("verified outcome patterns learn only structural aggregates",()=>{assert.match(runtime,/summarizeAvantiqoVerifiedExecutionOutcomes/);assert.match(runtime,/platform_verified_outcome_patterns/);assert.match(runtime,/calibration_signal_only: true/);assert.match(runtime,/universal_truth_claimed: false/);assert.match(runtime,/customer_private_content_included: false/);assert.match(runtime,/raw_payload_persisted: false/);assert.match(runtime,/raw_reasoning_persisted: false/)});
+test("verified outcomes cannot directly authorize, train or promote",()=>{assert.match(runtime,/direct_execution_authority: false/);assert.match(runtime,/automatic_training_started: false/);assert.match(runtime,/automatic_model_promotion: false/)});
+test("nightly route refreshes verified patterns before the Arena",()=>{const a=route.indexOf("reconcileAvantiqoVerifiedOutcomePatterns()");const b=route.indexOf("runAvantiqoIntelligenceImprovementLoop()");assert.ok(a>=0&&b>a);assert.match(route,/verified_outcome_patterns: verifiedOutcomePatterns/)});

@@ -9,6 +9,8 @@ import { runAvantiqoMetacognitiveEscalationCompetence } from "@/lib/intelligence
 import { runAvantiqoIntelligenceImprovementLoop } from "@/lib/intelligence/runtime/AvantiqoIntelligenceImprovementLoopRuntime";
 import { reconcileAvantiqoArenaWeaknessCurriculum } from "@/lib/intelligence/runtime/AvantiqoArenaWeaknessCurriculumRuntime";
 import { runAvantiqoArenaWeaknessPractice } from "@/lib/intelligence/runtime/AvantiqoArenaWeaknessPracticeRuntime";
+import { runAvantiqoStructuredOutputPractice } from "@/lib/intelligence/runtime/AvantiqoStructuredOutputPracticeRuntime";
+import { reconcileAvantiqoVerifiedOutcomePatterns } from "@/lib/intelligence/runtime/AvantiqoVerifiedOutcomePatternRuntime";
 import { runAvantiqoNightlyLearningSynthesis } from "@/lib/intelligence/runtime/AvantiqoNightlyLearningSynthesisRuntime";
 import { runAvantiqoGeneralIntelligenceExam } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceExamRuntime";
 import { runAvantiqoGeneralIntelligenceRetention } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceRetentionRuntime";
@@ -470,9 +472,11 @@ async function handleCronGet(request) {
     const longHorizonProblemSolvingCompetence = await runAvantiqoLongHorizonProblemSolvingCompetence();
     const adversarialSelfCritiqueCompetence = await runAvantiqoAdversarialSelfCritiqueCompetence();
     const metacognitiveEscalationCompetence = await runAvantiqoMetacognitiveEscalationCompetence();
+    const verifiedOutcomePatterns = await reconcileAvantiqoVerifiedOutcomePatterns();
     const intelligenceImprovementLoop = await runAvantiqoIntelligenceImprovementLoop();
     const arenaWeaknessCurriculum = await reconcileAvantiqoArenaWeaknessCurriculum();
     const arenaWeaknessPractice = await runAvantiqoArenaWeaknessPractice();
+    const structuredOutputPractice = await runAvantiqoStructuredOutputPractice();
     const generalIntelligenceTransferPractice = await runAvantiqoGeneralIntelligenceTransferPractice();
     const generalIntelligenceMasteryEvidence = await reconcileAvantiqoGeneralIntelligenceMasteryEvidence();
     const generalIntelligenceTrainingCandidates = await seedAvantiqoGeneralIntelligenceTrainingCandidates();
@@ -492,9 +496,11 @@ async function handleCronGet(request) {
         long_horizon_problem_solving_competence: longHorizonProblemSolvingCompetence,
         adversarial_self_critique_competence: adversarialSelfCritiqueCompetence,
         metacognitive_escalation_competence: metacognitiveEscalationCompetence,
+        verified_outcome_patterns: verifiedOutcomePatterns,
         intelligence_improvement_loop: intelligenceImprovementLoop,
         arena_weakness_curriculum: arenaWeaknessCurriculum,
         arena_weakness_practice: arenaWeaknessPractice,
+        structured_output_practice: structuredOutputPractice,
         general_intelligence_transfer_practice: generalIntelligenceTransferPractice,
         general_intelligence_mastery_evidence: generalIntelligenceMasteryEvidence,
         general_intelligence_training_candidates: generalIntelligenceTrainingCandidates,

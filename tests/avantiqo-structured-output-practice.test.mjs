@@ -1,0 +1,8 @@
+import test from "node:test"; import assert from "node:assert/strict"; import fs from "node:fs";
+const runtime=fs.readFileSync("lib/intelligence/runtime/AvantiqoStructuredOutputPracticeRuntime.js","utf8");
+const loop=fs.readFileSync("lib/intelligence/runtime/AvantiqoIntelligenceImprovementLoopRuntime.js","utf8");
+const route=fs.readFileSync("app/api/internal/intelligence/continuous-learning/process/route.js","utf8");
+test("structured output practice is a 24-case strict local endurance drill",()=>{assert.match(runtime,/CASE_COUNT = 24/);assert.match(runtime,/Return one JSON object only/);assert.match(runtime,/No markdown/);assert.match(runtime,/JSON\.parse\(rawText\)/);assert.match(runtime,/schema_valid/);assert.match(runtime,/unique_ids/)});
+test("structured practice never reuses held-out answers or spends externally",()=>{assert.match(runtime,/synthetic_cases_only:true/);assert.match(runtime,/held_out_benchmark_cases_reused:false/);assert.match(runtime,/hidden_benchmark_answers_available:false/);assert.match(runtime,/external_provider_spend_allowed:false/);assert.match(runtime,/automatic_training_started:false/);assert.match(runtime,/authority_effect:"NONE"/)});
+test("structured practice is exact-fingerprint evidence for a future gated retest",()=>{assert.match(runtime,/source_arena_fingerprints:\[arenaFingerprint\]/);assert.match(loop,/STRUCTURED_PRACTICE_SCOPE/);assert.match(loop,/\.in\("memory_scope",\[PRACTICE_SCOPE,STRUCTURED_PRACTICE_SCOPE\]\)/)});
+test("nightly route runs format practice after weakness practice",()=>{const a=route.indexOf("runAvantiqoArenaWeaknessPractice()");const b=route.indexOf("runAvantiqoStructuredOutputPractice()");assert.ok(a>=0&&b>a);assert.match(route,/structured_output_practice: structuredOutputPractice/)});

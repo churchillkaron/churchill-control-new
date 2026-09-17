@@ -17,3 +17,19 @@ test("comparison bundle preserves ambiguous driver coverage as unresolved",()=>{
   assert.ok(done.evidence_bundle.ambiguous_driver_ids.includes("attendance_reliability"));
   assert.equal(done.evidence_bundle.contribution_rows.length,0);
 });
+
+test("missing exact target metric blocks variance instead of guessing",()=>{
+  const plan=buildBusinessDiagnosisPipeline({metric:"profit"});
+  const out=completeBusinessDiagnosisPipeline({plan,comparison_results:[]});
+  assert.equal(out.final_evidence_state,"TARGET_METRIC_EVIDENCE_GAP");
+  assert.equal(out.variance,null);
+  assert.equal(out.external_research_allowed,false);
+});
+
+test("single currency cash target can be resolved from comparison observations",()=>{
+  const plan=buildBusinessDiagnosisPipeline({metric:"cash"});
+  const comparison_results=[{status:"OBSERVATIONS_READY",capability_key:"finance.cash_management.read",normalized:{observations:[{measure_id:"cash_position",dimension_key:"THB",baseline_value:1000,actual_value:900,source_capability_key:"finance.cash_management.read"}]},mapped:{driver_rows:[{driver_id:"cash",measure_id:"cash_position",dimension_key:"THB",baseline_value:1000,actual_value:900,source_capability_key:"finance.cash_management.read"}]}}];
+  const out=completeBusinessDiagnosisPipeline({plan,comparison_results,target_dimension_key:"THB"});
+  assert.equal(out.target_metric.status,"TARGET_METRIC_READY");
+  assert.equal(out.variance.metric_change,-100);
+});

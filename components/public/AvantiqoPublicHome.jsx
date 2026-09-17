@@ -172,8 +172,9 @@ export default function AvantiqoPublicHome() {
           { label: "Platform", href: "#platform", visibility: "hidden md:inline-flex" },
           { label: "Intelligence", href: "#intelligence", visibility: "hidden lg:inline-flex" },
           { label: "Integrations", href: "#connected-service-data", visibility: "hidden lg:inline-flex" },
-          { label: "Creative Studios", href: "/creative-studios", visibility: "hidden xl:inline-flex" },
-          { label: "Developers", href: "/developers", visibility: "hidden xl:inline-flex" },
+          { label: "Solutions", href: "/solutions", visibility: "hidden xl:inline-flex" },
+          { label: "Creative", href: "/creative-studios", visibility: "hidden xl:inline-flex" },
+          { label: "Developers", href: "/developers", visibility: "hidden 2xl:inline-flex" },
         ]}
       />
 
@@ -280,6 +281,27 @@ export default function AvantiqoPublicHome() {
         </div>
       </section>
 
+      <section className="border-b border-black/[0.06] bg-[#171716] text-white">
+        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">The Avantiqo economy</p><h2 className="mt-3 max-w-2xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[48px]">More than software. A platform with multiple ways to create value.</h2></div>
+            <p className="max-w-2xl text-[13px] leading-7 text-white/42 lg:justify-self-end">Subscription software is the base. Creative production, developer usage, premium intelligence, compute, connected services, marketplace activity and partners create additional commercial layers without fragmenting the product.</p>
+          </div>
+          <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["Solutions","/solutions","Industry Business OS","Restaurants, hotels, retail and professional services packaged around real operating workflows."],
+              ["Agents","/agents","Governed digital workers","Specialist automation and premium workloads built on exact business capabilities."],
+              ["Compute","/compute","Use it. Rent the idle.","Owned GPU reduces provider spend, serves paid workloads and can monetize genuinely idle capacity."],
+              ["Marketplace","/marketplace","A commercial ecosystem","Capabilities, agents, solutions, connectors and future compute supply can be distributed and settled."],
+              ["Integrations","/integrations","Connected-service economics","Messaging, ads, payments, documents and external services become governed capabilities."],
+              ["Partners","/partners","Distribution at portfolio scale","Accountants, agencies, consultants and builders can bring many businesses onto Avantiqo."],
+              ["Pricing","/pricing","Four revenue engines","Subscription, consumption, transactions and platform economics in one commercial architecture."],
+              ["Developers","/developers","Build on Avantiqo","APIs, agent tools, webhooks and embedded workflows create metered platform demand."],
+            ].map(([name,href,title,text],i)=><a key={name} href={href} className="group rounded-[22px] border border-white/[0.08] bg-white/[0.025] p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/28 hover:bg-white/[0.04]"><div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#D6A66A]">0{i+1}</span><Arrow className="h-3.5 w-3.5 text-white/20 transition group-hover:translate-x-0.5 group-hover:text-[#D6A66A]"/></div><div className="mt-8 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]/75">{name}</div><h3 className="mt-2 text-[16px] font-semibold text-white/82">{title}</h3><p className="mt-2 text-[9px] leading-5 text-white/34">{text}</p></a>)}
+          </div>
+        </div>
+      </section>
+
       <section id="how-it-works" className="border-b border-black/[0.06] bg-white/55">
         <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
           <SectionTitle eyebrow="How the system works" title="From business context to accountable execution." center>
@@ -337,7 +359,7 @@ export default function AvantiqoPublicHome() {
       <footer className="border-t border-black/[0.07] bg-[#FBFAF8]">
         <div className="mx-auto flex max-w-[1320px] flex-col gap-5 px-5 py-8 text-[10px] text-[#817B73] sm:flex-row sm:items-end sm:justify-between sm:px-7 lg:px-10">
           <div><div><span className="font-semibold text-[#3E3933]">Avantiqo</span><span className="ml-2">Business Operating System</span></div><div className="mt-2 text-[9px] leading-5 text-[#9B958D]">Avantiqo is operated by BEA Co., Ltd., Thailand. Company Registration No. 0835553004601.</div></div>
-          <div className="flex flex-wrap gap-5"><a href="/developers" className="transition hover:text-[#8A633C]">Developers</a><a href="/policy" className="transition hover:text-[#8A633C]">Privacy Policy</a><a href="/terms" className="transition hover:text-[#8A633C]">Terms of Service</a><a href="#connected-service-data" className="transition hover:text-[#8A633C]">Connected services</a><a href="/login" className="transition hover:text-[#8A633C]">Login</a></div>
+          <div className="flex flex-wrap gap-5"><a href="/solutions" className="transition hover:text-[#8A633C]">Solutions</a><a href="/pricing" className="transition hover:text-[#8A633C]">Pricing</a><a href="/ecosystem" className="transition hover:text-[#8A633C]">Marketplace</a><a href="/developers" className="transition hover:text-[#8A633C]">Developers</a><a href="/policy" className="transition hover:text-[#8A633C]">Privacy Policy</a><a href="/terms" className="transition hover:text-[#8A633C]">Terms of Service</a><a href="#connected-service-data" className="transition hover:text-[#8A633C]">Connected services</a><a href="/login" className="transition hover:text-[#8A633C]">Login</a></div>
         </div>
       </footer>
     </main>

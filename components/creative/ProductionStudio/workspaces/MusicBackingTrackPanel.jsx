@@ -100,7 +100,9 @@ export default function MusicBackingTrackPanel({
   const [error, setError] = useState("");
 
   const readyForPlan = Boolean(storageReference && duration && rightsConfirmed);
-  const productionReady = plan?.ready_for_execution === true;
+  const executionReady = plan?.ready_for_execution === true;
+  const productionCertified = plan?.production_certified === true;
+  const localAcceptanceReady = plan?.live_acceptance_ready === true;
   const outputAssets = Array.isArray(session?.assets) ? session.assets : [];
 
   const sourceSummary = useMemo(() => {
@@ -211,7 +213,7 @@ export default function MusicBackingTrackPanel({
   }
 
   async function createBackingTrack() {
-    if (!productionReady || !readyForPlan) return;
+    if (!executionReady || !readyForPlan) return;
     setBusy(true);
     setError("");
     try {
@@ -282,8 +284,8 @@ export default function MusicBackingTrackPanel({
             Preserve the original arrangement, separate vocals/drums/bass/other, remove vocals and export a professional backing track plus stems.
           </p>
         </div>
-        <span className={`rounded-full border px-3 py-1.5 text-[9px] uppercase tracking-[0.14em] ${productionReady ? "border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-100/70" : "border-amber-300/20 bg-amber-300/[0.06] text-amber-100/65"}`}>
-          {productionReady ? "Production ready" : "Separator certification pending"}
+        <span className={`rounded-full border px-3 py-1.5 text-[9px] uppercase tracking-[0.14em] ${productionCertified ? "border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-100/70" : localAcceptanceReady ? "border-[#d6a66a]/25 bg-[#d6a66a]/[0.07] text-[#efd29f]" : "border-amber-300/20 bg-amber-300/[0.06] text-amber-100/65"}`}>
+          {productionCertified ? "Production ready" : localAcceptanceReady ? "Local test ready" : "Separator certification pending"}
         </span>
       </div>
 
@@ -342,15 +344,17 @@ export default function MusicBackingTrackPanel({
         <button type="button" disabled={!readyForPlan || busy} onClick={reviewPlan} className="rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs text-white/65 disabled:cursor-not-allowed disabled:opacity-35">
           {busy && !session?.pending ? "Checking…" : "Review backing track"}
         </button>
-        <button type="button" disabled={!productionReady || busy || session?.pending} onClick={createBackingTrack} className="inline-flex items-center gap-2 rounded-lg bg-[#d6a66a] px-4 py-2.5 text-xs font-semibold text-black disabled:cursor-not-allowed disabled:opacity-35">
+        <button type="button" disabled={!executionReady || busy || session?.pending} onClick={createBackingTrack} className="inline-flex items-center gap-2 rounded-lg bg-[#d6a66a] px-4 py-2.5 text-xs font-semibold text-black disabled:cursor-not-allowed disabled:opacity-35">
           {session?.pending ? <AudioLines className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
           {session?.pending ? "Separating…" : "Create backing track"}
         </button>
       </div>
 
       {plan ? <div className="mt-4 rounded-lg border border-white/8 bg-black/25 p-3 text-[10px] leading-5 text-white/34">
-        {productionReady
-          ? "Plan verified. Backing-track separation is certified and ready to run."
+        {productionCertified
+          ? "Plan verified. Backing-track separation is production certified and ready to run."
+          : localAcceptanceReady
+            ? "Plan verified. Node 01 local acceptance is ready on owned compute. Commercial production certification remains separate and is not being claimed."
           : form.vocal_removal_mode === "LEAD_ONLY_KEEP_BACKING"
             ? "Plan verified. Lead-vocal-only removal is intentionally blocked until the dedicated vocal-role separator is independently benchmarked and human-listening certified. Ordinary 4-stem separation will not be substituted because that would remove backing harmonies too."
             : "Plan verified. The Studio workflow is ready, but paid execution remains disabled until the owned separator image, GPU benchmark, economics and human listening review are certified."}

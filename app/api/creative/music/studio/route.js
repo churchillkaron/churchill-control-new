@@ -22,6 +22,7 @@ import {
   settlePendingService,
 } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 import { UsageRuntime } from "@/lib/platform/service-runtime/usage/UsageRuntime";
+import { resolveProvider } from "@/lib/platform/service-runtime/providers/ProviderResolver.js";
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
@@ -252,7 +253,33 @@ async function prepareSourceUpload(body) {
   };
 }
 
-function backingPlan(body) {
+function backingLocalAcceptancePolicy() {
+  return {
+    execution_scope: "BENCHMARK_REVIEW_PREVIEW",
+    benchmark_only: true,
+    owned_only_required: true,
+    external_fallback_allowed: false,
+    studio_preproduction_review: true,
+    allowed_providers: ["avantiqo-audio"],
+  };
+}
+
+async function resolveBackingLocalAcceptance(body, plan) {
+  if (process.env.NODE_ENV === "production" || plan.executable === true || plan.separation?.vocal_role_request) return null;
+  try {
+    return await resolveProvider({
+      organization_id: text(body.organization_id),
+      capability: "ai.audio.stems",
+      preferredProvider: "avantiqo-audio",
+      currency: text(body.currency || "THB"),
+      policy: backingLocalAcceptancePolicy(),
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function backingPlan(body) {
   const plan = buildMusicTransformationPlan("backing_track", {
     ...body,
     rights_attestation: {
@@ -260,11 +287,16 @@ function backingPlan(body) {
       confirmed: body.source_rights_confirmed === true || body.rights_attestation?.confirmed === true,
     },
   });
+  const localAcceptance = await resolveBackingLocalAcceptance(body, plan);
+  const liveAcceptanceReady = Boolean(localAcceptance);
   return {
     success: true,
     plan,
-    ready_for_execution: plan.executable === true,
+    ready_for_execution: plan.executable === true || liveAcceptanceReady,
     production_certified: plan.executable === true,
+    live_acceptance_ready: liveAcceptanceReady,
+    live_acceptance_only: liveAcceptanceReady && plan.executable !== true,
+    execution_mode: plan.executable === true ? "PRODUCTION_CERTIFIED" : (liveAcceptanceReady ? "LOCAL_ACCEPTANCE" : "BLOCKED"),
     rights_confirmation_required: true,
     content_restriction_policy: plan.content_restriction_policy,
   };
@@ -347,13 +379,15 @@ async function compose(body) {
 
 async function executeBackingTrack(body) {
   const organizationId = text(body.organization_id);
-  const plan = backingPlan(body).plan;
-  if (plan.executable !== true) {
+  const planned = await backingPlan(body);
+  const plan = planned.plan;
+  if (planned.ready_for_execution !== true) {
     const error = new Error(`CREATIVE_MUSIC_BACKING_TRACK_NOT_CERTIFIED:${plan.certification}`);
     error.code = "CREATIVE_MUSIC_BACKING_TRACK_NOT_CERTIFIED";
     error.status = 503;
     throw error;
   }
+  const localAcceptance = planned.live_acceptance_only === true;
   const duration = finite(plan.session.source_duration_seconds, null);
   if (duration === null || duration <= 0) {
     throw new Error("CREATIVE_MUSIC_SOURCE_DURATION_REQUIRED");
@@ -380,10 +414,14 @@ async function executeBackingTrack(body) {
         rights_attestation: plan.rights_attestation,
       },
       output_spec: plan.output_spec,
-      provider_parameters: processing,
+      provider_parameters: {
+        ...processing,
+        ...(localAcceptance ? { local_only: true } : {}),
+      },
       metadata: {
         rights_attestation: plan.rights_attestation,
         backing_track: true,
+        local_acceptance_only: localAcceptance,
       },
     },
     metadata: {
@@ -410,10 +448,10 @@ async function executeBackingTrack(body) {
       provider_selection_exposed: false,
       user_prompt_surface: false,
     },
-    provider_policy: {
-      preferred_providers: ["avantiqo-audio"],
-      allowed_providers: ["avantiqo-audio"],
-    },
+    provider_id: "avantiqo-audio",
+    provider_policy: localAcceptance
+      ? backingLocalAcceptancePolicy()
+      : { preferred_providers: ["avantiqo-audio"], allowed_providers: ["avantiqo-audio"] },
     category: plan.category,
   });
   const usage = result?.usage || (result?.usage?.id ? await UsageRuntime.get(result.usage.id) : null);
@@ -670,7 +708,7 @@ export async function POST(request) {
       : action === "prepare_source_upload"
         ? await prepareSourceUpload(body)
         : action === "backing_track_plan"
-          ? backingPlan(body)
+          ? await backingPlan(body)
           : action === "backing_track"
             ? await executeBackingTrack(body)
             : action === "status"

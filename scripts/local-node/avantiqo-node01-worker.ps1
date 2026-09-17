@@ -27,8 +27,8 @@ $TokenPath = 'C:\ProgramData\Avantiqo\node-token.txt'
 $OllamaUrl = 'http://127.0.0.1:11434'
 $Model = 'qwen3:4b-instruct'
 $ContextTokens = 6144
-$AllCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text')
-$GpuCapabilities = @('ai.text.generate','ai.speech.to.text')
+$AllCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale')
+$GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale')
 $CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process')
 $Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } else { $AllCapabilities })
 if ($Lane -eq 'cpu') {
@@ -204,6 +204,33 @@ function RunVoiceSttJob($Job) {
   }
 }
 
+function RunImageUpscaleJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_IMAGE_UPSCALE_PAYLOAD_REQUIRED' }
+  $python = 'C:\Avantiqo\voice-stt\Scripts\python.exe'
+  $runner = 'C:\Avantiqo\image-upscale\local_runner.py'
+  if (-not (Test-Path $python)) { throw 'AVANTIQO_LOCAL_IMAGE_UPSCALE_PYTHON_REQUIRED' }
+  if (-not (Test-Path $runner)) { throw 'AVANTIQO_LOCAL_IMAGE_UPSCALE_RUNNER_REQUIRED' }
+  $tmp = Join-Path $env:TEMP ("avantiqo-image-upscale-" + [string]$Job.id + ".json")
+  $err = Join-Path $env:TEMP ("avantiqo-image-upscale-" + [string]$Job.id + ".err")
+  try {
+    UnloadOllamaModel
+    [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 40 -Compress), (New-Object System.Text.UTF8Encoding($false)))
+    $started = Get-Date
+    $previousErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    $output = & $python $runner --input $tmp 2> $err
+    $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = $previousErrorActionPreference
+    $stderr = $(if (Test-Path $err) { (Get-Content $err -Raw).Trim() } else { '' })
+    if ($exitCode -ne 0) { [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-image-upscale-error.txt',$stderr); $tail = $(if ($stderr.Length -gt 900) { $stderr.Substring($stderr.Length - 900) } else { $stderr }); throw ('AVANTIQO_LOCAL_IMAGE_UPSCALE_PROCESS_FAILED:' + $tail) }
+    $json = (($output | Out-String).Trim()); if (-not $json) { throw 'AVANTIQO_LOCAL_IMAGE_UPSCALE_OUTPUT_REQUIRED' }
+    $result = $json | ConvertFrom-Json; $elapsed = [int](((Get-Date) - $started).TotalMilliseconds)
+    $result | Add-Member -NotePropertyName node_id -NotePropertyValue $NodeId -Force
+    $peakBytes = 0; try { $peakBytes = [int64]$result.gpu_peak_allocated_bytes } catch {}
+    CompleteJob $Job $result @{ elapsed_ms=$elapsed; gpu_workload=$true; image_upscale=$true; gpu_peak_allocated_bytes=$peakBytes }
+  } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp,$err }
+}
+
 function RunElasticJob($Job) {
   $payload = $Job.payload
   if (-not $payload) { throw 'AVANTIQO_LOCAL_ELASTIC_PAYLOAD_REQUIRED' }
@@ -280,6 +307,7 @@ while ($true) {
         elseif ([string]$job.capability -eq 'ai.audio.elastic-warp') { RunElasticJob $job }
         elseif ([string]$job.capability -eq 'media.ffmpeg.process') { RunMediaJob $job }
         elseif ([string]$job.capability -eq 'ai.speech.to.text') { RunVoiceSttJob $job }
+        elseif ([string]$job.capability -eq 'ai.image.upscale') { RunImageUpscaleJob $job }
         else { FailJob $job 'AVANTIQO_LOCAL_CAPABILITY_UNSUPPORTED' $false }
       } catch {
         FailJob $job (('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Substring(0,[Math]::Min(480,('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Length))) $true

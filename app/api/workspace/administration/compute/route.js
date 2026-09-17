@@ -33,6 +33,19 @@ function localExecutionResource(job = {}) {
   return job.node_id ? "LOCAL_OTHER" : "UNASSIGNED";
 }
 
+function productArea({ workload, capability, usageId, provider } = {}) {
+  const source = [workload, capability, usageId, provider].map((value) => text(value).toLowerCase()).join(" ");
+  if (/speech|voice|stt|transcri/.test(source)) return "Voice / STT";
+  if (/music|audio|elastic|sfx|separator|vocal/.test(source)) return "Music / Audio";
+  if (/video|ffmpeg|media|post.production|master|derivative/.test(source)) return "Video / Media";
+  if (/image|upscale|inpaint|outpaint|vision/.test(source)) return "Image Studio";
+  if (/document|ocr|classif/.test(source)) return "Documents / OCR";
+  if (/learning|benchmark|training|curriculum/.test(source)) return "Intelligence Learning";
+  if (/creative|studio|direction|tribunal/.test(source)) return "Creative Studio";
+  if (/business.partner|operator|conversation|intelligence_text|text.generate|qwen/.test(source)) return "Business Partner / Intelligence";
+  return "Platform / Other";
+}
+
 
 
 async function loadModalTelemetry({ organizationId, since }) {
@@ -131,6 +144,7 @@ export async function GET(request) {
       infrastructure_provider: text(job.result?.infrastructure_provider) || (job.node_id ? "AVANTIQO_LOCAL_NODE_V1" : null),
       execution_path: job.node_id ? `LOCAL_QUEUE → ${job.node_id}` : "UNASSIGNED",
       execution_resource: localExecutionResource(job),
+      product_area: productArea({ workload: job.workload, capability: job.capability, usageId: job.usage_id }),
       result: undefined,
     }));
     const modalUsage = (modalTelemetry.rows || []).map((row) => {
@@ -147,6 +161,7 @@ export async function GET(request) {
         currency: text(row.currency) || "THB",
         status: text(row.status) || null,
         latency_ms: Number(row.provider_latency_ms || row.latency_ms || 0) || null,
+        product_area: productArea({ capability: row.capability, usageId: row.operation, provider: row.provider }),
       };
     });
     const operationalJobs = jobs.filter((job) => job.job_class === "OPERATIONAL");
@@ -174,6 +189,8 @@ export async function GET(request) {
         bounded_studio_reasoning: "LOCAL_GPU_QWEN4B_FIRST",
         deep_creative_reasoning: "MODAL_HEAVY_ONLY_WHEN_REQUIRED",
         media_dsp: "LOCAL_CPU_FIRST",
+        image_upscale: "LOCAL_GPU_SWIN2SR_FIRST",
+        voice_stt: "LOCAL_GPU_WHISPER_LARGE_V3_TURBO_FIRST",
         local_transport: "SUPABASE_PULL_QUEUE_V1",
       },
       metrics: {

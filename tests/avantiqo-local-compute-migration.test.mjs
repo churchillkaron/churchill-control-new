@@ -81,6 +81,8 @@ test("local Qwen routing refuses requests that exceed the active 6144-token runt
     assert.match(runtime, /localIntelligenceContextFits/);
     assert.match(runtime, /estimatedPromptTokens/);
     assert.match(runtime, /requestedOutputTokens/);
+    assert.match(runtime, /localOutputTokenCap/);
+    assert.match(runtime, /if \(requested > localOutputTokenCap\(lane\)\) return false/);
   }
 });
 

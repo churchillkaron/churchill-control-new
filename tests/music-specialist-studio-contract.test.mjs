@@ -10,7 +10,7 @@ test("Music Studio routes Mix to the real Workstation while keeping Vocal and Ma
   const workspace = await source("components/creative/ProductionStudio/workspaces/MusicStudioWorkspace.jsx");
   assert.match(workspace, /id: "vocal", label: "Vocals"/);
   assert.match(workspace, /id: "mix", label: "Mix"/);
-  assert.match(workspace, /id: "master", label: "Master"/);
+  assert.match(workspace, /id: "master", label: "Masters & QC"/);
   assert.match(workspace, /MusicSpecialistStudioPanel/);
   assert.match(workspace, /mode="vocal"/);
   assert.match(workspace, /mode === "mix" \? <MusicUnifiedWorkstationShell/);

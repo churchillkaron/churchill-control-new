@@ -84,7 +84,7 @@ const MODES = Object.freeze([
   { id: "stems", label: "Separate Stems", shortLabel: "Stems", description: "Separate vocals, drums, bass and other instruments.", icon: Scissors, section: "Finish" },
   { id: "vocal", label: "Vocals", shortLabel: "Vocals", description: "Work on vocal production and finishing.", icon: Mic2, section: "Finish" },
   { id: "mix", label: "Mix", shortLabel: "Mix", description: "Balance and finish the mix.", icon: SlidersHorizontal, section: "Finish" },
-  { id: "master", label: "Master", shortLabel: "Master", description: "Prepare the final release master.", icon: Disc3, section: "Finish" },
+  { id: "master", label: "Masters & QC", shortLabel: "Masters", description: "Inspect, download and independently revalidate saved release masters.", icon: Disc3, section: "Finish" },
 ]);
 
 const PRIMARY_MODE_IDS = Object.freeze(["compose", "auto", "backing", "record"]);

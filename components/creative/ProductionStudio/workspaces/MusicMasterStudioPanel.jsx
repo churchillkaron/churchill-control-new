@@ -178,7 +178,7 @@ export default function MusicMasterStudioPanel({ organizationId, projectId }) {
             {item.render_plan_fingerprint ? <div className="mt-3 font-mono text-[7px] text-white/12">Plan {item.render_plan_fingerprint.slice(0, 20)}…</div> : null}
           </div>
         ))}
-        {!releases.length ? <div className="rounded-2xl border border-dashed border-white/8 px-6 py-12 text-center text-[10px] text-white/22">No Music release artifacts for this filter yet. Save the Workstation, then use Release Render to create a pre-master/master or stem.</div> : null}
+        {!releases.length ? <div className="rounded-2xl border border-dashed border-white/8 px-6 py-12 text-center text-[10px] text-white/22">No Music release artifacts for this filter yet. Create the mix in the Workstation and continue Professional Release to create a governed release master.</div> : null}
       </div>
     </div>
   );

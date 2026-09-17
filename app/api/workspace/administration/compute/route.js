@@ -178,6 +178,41 @@ export async function GET(request) {
     const averageLatencyMs = latencyRows.length
       ? Math.round(latencyRows.reduce((sum, value) => sum + value, 0) / latencyRows.length)
       : null;
+    const localElapsedMs = completed.reduce((sum, job) => sum + Number(job.metrics?.elapsed_ms || 0), 0);
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const localTodayMs = completed.filter((job) => text(job.completed_at || job.updated_at).slice(0, 10) === todayKey)
+      .reduce((sum, job) => sum + Number(job.metrics?.elapsed_ms || 0), 0);
+    const activeJob = operationalJobs.find((job) => job.status === "RUNNING") || null;
+    const modalCostsByCapability = new Map();
+    for (const row of modalUsage) {
+      const capability = text(row.capability);
+      const cost = Number(row.supplier_cost || 0);
+      if (!capability || !(cost > 0)) continue;
+      const current = modalCostsByCapability.get(capability) || { total: 0, count: 0 };
+      current.total += cost; current.count += 1; modalCostsByCapability.set(capability, current);
+    }
+    let estimatedAvoidedSupplierCost = 0;
+    let comparableLocalJobs = 0;
+    for (const job of completed) {
+      const sample = modalCostsByCapability.get(text(job.capability));
+      if (!sample?.count) continue;
+      estimatedAvoidedSupplierCost += sample.total / sample.count;
+      comparableLocalJobs += 1;
+    }
+    const certifiedLocalCapabilities = new Set(["ai.text.generate","ai.speech.to.text","ai.image.upscale","ai.audio.stems","ai.audio.vocal-correct","media.ffmpeg.process","ai.audio.elastic-warp"]);
+    const modalFallbackCalls = modalUsage.filter((row) => certifiedLocalCapabilities.has(text(row.capability))).length;
+
+    const candidateMatrix = [
+      { product: "Business Partner / Intelligence", capability: "ai.text.generate", model: "qwen3:4b-instruct", status: "CERTIFIED_LOCAL", resource: "GPU" },
+      { product: "Voice / STT", capability: "ai.speech.to.text", model: "openai/whisper-large-v3-turbo", status: "CERTIFIED_LOCAL", resource: "GPU" },
+      { product: "Image Studio", capability: "ai.image.upscale", model: "caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr", status: "CERTIFIED_LOCAL", resource: "GPU" },
+      { product: "Music / Audio", capability: "ai.audio.stems", model: "demucs-htdemucs-ft", status: "CERTIFIED_LOCAL", resource: "GPU" },
+      { product: "Music / Audio", capability: "ai.audio.vocal-correct", model: "torchcrepe-full", status: "CERTIFIED_LOCAL", resource: "GPU" },
+      { product: "Video / Media", capability: "media.ffmpeg.process", model: "ffmpeg-9.0.1", status: "CERTIFIED_LOCAL", resource: "CPU" },
+      { product: "Music / Audio", capability: "ai.audio.elastic-warp", model: "signalsmith-stretch", status: "CERTIFIED_LOCAL", resource: "CPU" },
+      { product: "Documents / OCR", capability: "vision.ocr", model: "qwen2.5-vl-7b", status: "MODAL_KEEP_EXACT_MODEL_TOO_LARGE", resource: "GPU" },
+      { product: "Image / Video generation", capability: "generation", model: "specialist production models", status: "MODAL_KEEP_SPECIALIST_GPU", resource: "GPU" },
+    ];
 
     return NextResponse.json({
       success: true,
@@ -221,10 +256,22 @@ export async function GET(request) {
         modal_average_latency_ms_30d: Number(modalSummary.average_latency_ms || 0) || null,
         modal_last_used_at: modalSummary.last_used_at || null,
         modal_summary_truncated: modalSummary.truncated === true,
+        local_compute_hours_total: Math.round((localElapsedMs / 3600000) * 1000) / 1000,
+        local_compute_hours_today: Math.round((localTodayMs / 3600000) * 1000) / 1000,
+        active_product: activeJob?.product_area || null,
+        active_model: activeJob?.runtime_model || activeJob?.model || null,
+        scheduler_policy: "RESOURCE_AWARE_PRIORITY_V1",
+        idle_learning_window: "01:00-06:00 local node time",
+        idle_learning_promotion_authorized: false,
+        estimated_avoided_supplier_cost_30d: Math.round(estimatedAvoidedSupplierCost * 1000000) / 1000000,
+        estimated_avoided_supplier_cost_currency: text(modalSummary.currency) || "THB",
+        estimated_avoided_supplier_cost_comparable_jobs: comparableLocalJobs,
+        modal_fallback_calls_for_local_capabilities_30d: modalFallbackCalls,
       },
       nodes,
       jobs,
       modal_usage: modalUsage,
+      local_candidate_matrix: candidateMatrix,
     });
   } catch (error) {
     console.error("ADMINISTRATION_COMPUTE_STATUS_FAILED", error);

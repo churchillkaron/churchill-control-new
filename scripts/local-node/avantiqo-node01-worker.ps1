@@ -27,6 +27,12 @@ $TokenPath = 'C:\ProgramData\Avantiqo\node-token.txt'
 $OllamaUrl = 'http://127.0.0.1:11434'
 $Model = 'qwen3:4b-instruct'
 $ContextTokens = 6144
+$GpuIdleLearningAfterSeconds = 900
+$QwenWarmAfterGpuJob = $true
+$NightLearningStartHour = 1
+$NightLearningEndHour = 6
+$script:LastGpuWorkAt = Get-Date
+$script:LastIdleLearningAt = [datetime]::MinValue
 $AllCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct')
 $GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct')
 $CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process')
@@ -70,7 +76,7 @@ function Heartbeat {
   $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
   $drive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
   $meta = @{
-    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v3'; worker_lane=$Lane; local_context_tokens=$ContextTokens;
+    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v4-scheduler'; worker_lane=$Lane; local_context_tokens=$ContextTokens; scheduler=@{ resource_aware=$true; gpu_exclusive=$true; qwen_warm_policy='IDLE_WARM'; idle_learning_window='01:00-06:00'; idle_learning_after_seconds=$GpuIdleLearningAfterSeconds; learning_promotion_authorized=$false; cpu_policy=$(if($Lane -eq 'cpu'){'ONE_HEAVY_JOB_BELOW_NORMAL'}else{'N/A'}) };
     gpu=$gpu; cpu=@{ name=$cpu.Name; cores=[int]$cpu.NumberOfCores; logical_processors=[int]$cpu.NumberOfLogicalProcessors };
     memory=@{ total_mb=[int]($os.TotalVisibleMemorySize/1024); free_mb=[int]($os.FreePhysicalMemory/1024) };
     disk=@{ c_total_gb=[math]::Round($drive.Size/1GB,1); c_free_gb=[math]::Round($drive.FreeSpace/1GB,1) };
@@ -80,6 +86,46 @@ function Heartbeat {
     p_node_id=$NodeId; p_node_token=(NodeToken); p_capabilities=$AllCapabilities; p_metadata=$meta
   })
 }
+function ResourceProfile($Job) {
+  $workload = [string]$Job.workload
+  if ($workload -eq 'intelligence_text') { return @{ class='interactive_gpu'; gpu_vram_mb=3900; cpu_weight='light'; exclusive_gpu=$false; product='Business Partner / Intelligence' } }
+  if ($workload -eq 'voice_stt') { return @{ class='interactive_gpu'; gpu_vram_mb=5900; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / STT' } }
+  if ($workload -eq 'image_upscale') { return @{ class='gpu_specialist'; gpu_vram_mb=1200; cpu_weight='light'; exclusive_gpu=$true; product='Image Studio' } }
+  if ($workload -eq 'music_separator') { return @{ class='gpu_specialist'; gpu_vram_mb=3800; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
+  if ($workload -eq 'music_vocal_correction') { return @{ class='gpu_specialist'; gpu_vram_mb=3400; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
+  if ($workload -eq 'media_ffmpeg') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Video / Media' } }
+  if ($workload -eq 'music_elastic') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Music / Audio' } }
+  return @{ class='local_other'; gpu_vram_mb=0; cpu_weight='light'; exclusive_gpu=$false; product='Platform / Other' }
+}
+
+function WarmQwenIfIdle {
+  if (-not $QwenWarmAfterGpuJob -or $Lane -ne 'gpu') { return }
+  try {
+    $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 5
+    if (@($loaded.models | Where-Object { [string]$_.name -eq $Model }).Count -gt 0) { return }
+    $body = @{ model=$Model; prompt=''; keep_alive='30m'; stream=$false; options=@{ num_predict=1; num_ctx=$ContextTokens } } | ConvertTo-Json -Depth 8 -Compress
+    [void](Invoke-RestMethod -Uri "$OllamaUrl/api/generate" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 90)
+  } catch {}
+}
+
+function RunIdleLearningEvaluation {
+  if ($Lane -ne 'gpu') { return }
+  $now = Get-Date
+  if ($now.Hour -lt $NightLearningStartHour -or $now.Hour -ge $NightLearningEndHour) { return }
+  if (($now - $script:LastGpuWorkAt).TotalSeconds -lt $GpuIdleLearningAfterSeconds) { return }
+  if (($now - $script:LastIdleLearningAt).TotalMinutes -lt 30) { return }
+  try {
+    $body = @{ model=$Model; stream=$false; think=$false; keep_alive='30m'; format='json'; messages=@(
+      @{role='system';content='You are Avantiqo local intelligence evaluator. Evaluate reasoning discipline only. Never authorize actions or claim current business facts.'},
+      @{role='user';content='Return JSON with keys status, safeguards, improvement_focus. status must be PASS. safeguards must mention evidence, authority, and verification. improvement_focus must be one short sentence.'}
+    ); options=@{temperature=0;num_predict=180;num_ctx=2048} } | ConvertTo-Json -Depth 12 -Compress
+    $r=Invoke-RestMethod -Uri "$OllamaUrl/api/chat" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 120
+    $record=@{ at=$now.ToString('o'); model=$Model; output=[string]$r.message.content; contract='AVANTIQO_NODE01_IDLE_LEARNING_EVAL_V1'; promotion_authorized=$false } | ConvertTo-Json -Depth 8 -Compress
+    Add-Content -Path 'C:\ProgramData\Avantiqo\idle-learning-evaluations.jsonl' -Value $record
+    $script:LastIdleLearningAt=$now
+  } catch {}
+}
+
 function ClaimJobs {
   return @(Rpc 'claim_avantiqo_local_compute_jobs' @{
     p_node_id=$NodeId; p_node_token=(NodeToken); p_capabilities=$Capabilities; p_limit=1; p_lease_seconds=300
@@ -132,14 +178,24 @@ function RunTextJob($Job) {
   $text = [string]$raw.message.content
   $executionResource = 'LOCAL_CPU'
   $gpuVramBytes = 0
-  try {
-    $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 5
-    $activeModel = @($loaded.models | Where-Object { [string]$_.name -eq [string]$raw.model } | Select-Object -First 1)
-    if ($activeModel -and [int64]$activeModel[0].size_vram -gt 0) {
-      $executionResource = 'LOCAL_GPU'
-      $gpuVramBytes = [int64]$activeModel[0].size_vram
-    }
-  } catch {}
+  for ($detectAttempt = 0; $detectAttempt -lt 5; $detectAttempt++) {
+    try {
+      $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 5
+      $activeModel = @($loaded.models | Where-Object { ([string]$_.name -eq [string]$raw.model -or [string]$_.model -eq [string]$raw.model -or [string]$_.name -eq $Model) -and [int64]$_.size_vram -gt 0 } | Select-Object -First 1)
+      if ($activeModel) {
+        $executionResource = 'LOCAL_GPU'
+        $gpuVramBytes = [int64]$activeModel[0].size_vram
+        break
+      }
+    } catch {}
+    Start-Sleep -Milliseconds 250
+  }
+  if ($Lane -eq 'gpu' -and $gpuVramBytes -le 0) {
+    try {
+      $line = (& nvidia-smi --query-compute-apps=used_memory,process_name --format=csv,noheader,nounits 2>$null | Select-String 'llama-server' | Select-Object -First 1)
+      if ($line) { $gpuVramBytes = [int64](([string]$line -split ',')[0].Trim()) * 1MB; $executionResource = 'LOCAL_GPU' }
+    } catch {}
+  }
   $result = @{
     status='completed'; provider='avantiqo-intelligence'; infrastructure_provider='AVANTIQO_LOCAL_NODE_V1';
     runtime_model=[string]$raw.model; execution_resource=$executionResource; gpu_vram_bytes=$gpuVramBytes;
@@ -402,8 +458,11 @@ $lastHeartbeat = [DateTime]::MinValue
 while ($true) {
   try {
     if (((Get-Date) - $lastHeartbeat).TotalSeconds -ge 30) { Heartbeat; $lastHeartbeat = Get-Date }
+    if ($Lane -eq 'gpu') { RunIdleLearningEvaluation }
     $jobs = ClaimJobs
     foreach ($job in $jobs) {
+      $profile = ResourceProfile $job
+      if ($Lane -eq 'gpu') { $script:LastGpuWorkAt = Get-Date }
       try {
         if ([string]$job.capability -eq 'ai.text.generate') { RunTextJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.elastic-warp') { RunElasticJob $job }
@@ -417,6 +476,7 @@ while ($true) {
         FailJob $job (('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Substring(0,[Math]::Min(480,('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Length))) $true
       }
     }
+    if ($Lane -eq 'gpu' -and $jobs.Count -eq 0) { WarmQwenIfIdle }
   } catch {
     Start-Sleep -Seconds 5
   }

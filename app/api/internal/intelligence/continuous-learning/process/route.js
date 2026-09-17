@@ -158,8 +158,8 @@ async function handleCronGet(request) {
     const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 1, 3));
 
     const generalIntelligenceCurriculum = await reconcileAvantiqoGeneralIntelligenceCurriculum();
-    const capabilityIntelligenceCurriculum = await reconcileAvantiqoCapabilityIntelligenceCurriculum();
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
+    const capabilityIntelligenceCurriculumPreExam = await reconcileAvantiqoCapabilityIntelligenceCurriculum();
     const knowledgeLifecycle = await reconcileAvantiqoKnowledgeLifecycle();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
     const learningEffectiveness = await evaluateAvantiqoLearningEffectiveness();
@@ -468,6 +468,7 @@ async function handleCronGet(request) {
     });
     const generalIntelligenceRetention = await runAvantiqoGeneralIntelligenceRetention();
     const capabilityCompetenceExam = await runAvantiqoCapabilityCompetenceExam();
+    const capabilityIntelligenceCurriculum = await reconcileAvantiqoCapabilityIntelligenceCurriculum();
     const missionCompositionCompetence = await runAvantiqoMissionCompositionCompetence();
     const longHorizonProblemSolvingCompetence = await runAvantiqoLongHorizonProblemSolvingCompetence();
     const adversarialSelfCritiqueCompetence = await runAvantiqoAdversarialSelfCritiqueCompetence();
@@ -488,6 +489,7 @@ async function handleCronGet(request) {
         ...result,
         general_intelligence_curriculum: generalIntelligenceCurriculum,
         capability_intelligence_curriculum: capabilityIntelligenceCurriculum,
+        capability_intelligence_curriculum_pre_exam: capabilityIntelligenceCurriculumPreExam,
         nightly_local_4b_synthesis: nightlyLocalSynthesis,
         general_intelligence_exam: generalIntelligenceExam,
         general_intelligence_retention: generalIntelligenceRetention,

@@ -248,16 +248,11 @@ export default function AvantiqoPublicHome() {
 
           <div className="mt-12 grid gap-4 lg:grid-cols-2">
             <a href="/creative-studios" className="group overflow-hidden rounded-[28px] border border-black/[0.075] bg-[#171716] text-white shadow-[0_24px_70px_rgba(35,27,18,.08)] transition hover:-translate-y-1">
-              <div className="relative h-[300px] overflow-hidden border-b border-white/[0.07]">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_35%,rgba(214,166,106,.24),transparent_25%),linear-gradient(145deg,#17130f,#080807_72%)]" />
-                <div className="absolute left-[8%] top-[14%] h-[68%] w-[24%] translate-y-8 rounded-[20px] border border-white/[0.08] bg-black/20" />
-                <div className="absolute left-[35%] top-[10%] h-[72%] w-[30%] rounded-[22px] border border-[#D6A66A]/30 bg-[#0d0c0a] shadow-[0_0_60px_rgba(214,166,106,.09)]">
-                  <div className="absolute inset-[11%] border border-white/[0.08]" />
-                  <div className="absolute inset-x-[20%] top-[18%] h-[42%] rounded-[16px] bg-[radial-gradient(circle_at_50%_45%,rgba(230,187,123,.48),transparent_62%)]" />
-                  <div className="absolute inset-x-[20%] bottom-[18%] space-y-2"><div className="h-2 w-3/4 bg-white/60"/><div className="h-px w-1/2 bg-[#D6A66A]/65"/><div className="h-1 w-full bg-white/[0.08]"/></div>
-                </div>
-                <div className="absolute right-[7%] top-[14%] h-[68%] w-[24%] translate-y-8 rounded-[20px] border border-white/[0.08] bg-[linear-gradient(155deg,transparent_22%,rgba(214,166,106,.19),transparent_75%)]" />
-                <div className="absolute left-6 top-6 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">Creative Studios</div>
+              <div className="relative h-[300px] overflow-hidden border-b border-white/[0.07] bg-[#1A1510]">
+                <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{backgroundImage:'url(/art/creative-image.jpg)'}}/>
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.10)_45%,rgba(8,7,6,.74))]"/>
+                <div className="absolute left-6 top-6 rounded-full border border-white/24 bg-black/25 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#F0C98F] backdrop-blur-xl">Creative Studios</div>
+                <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4"><div><div className="text-[8px] uppercase tracking-[0.18em] text-[#E9C28C]">Real production</div><div className="mt-1 text-[11px] text-white/70">Image · Video · Music</div></div><div className="text-[8px] uppercase tracking-[0.15em] text-white/38">Ideas → impact</div></div>
               </div>
               <div className="flex items-end justify-between gap-8 p-6 sm:p-7">
                 <div><h3 className="text-[27px] font-medium tracking-[-0.04em] text-[#F7F4EF]">Image. Video. Music.</h3><p className="mt-3 max-w-xl text-[11px] leading-6 text-white/42">Professional creative production systems with research, direction, creation, review, repair and delivery connected from start to finish.</p></div>
@@ -266,13 +261,11 @@ export default function AvantiqoPublicHome() {
             </a>
 
             <a href="/developers" className="group overflow-hidden rounded-[28px] border border-black/[0.075] bg-white shadow-[0_24px_70px_rgba(35,27,18,.06)] transition hover:-translate-y-1">
-              <div className="relative h-[300px] overflow-hidden border-b border-black/[0.06] bg-[#F5F1EA]">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_20%,rgba(214,166,106,.16),transparent_30%)]" />
-                <div className="absolute inset-x-[8%] top-[17%] overflow-hidden rounded-[22px] border border-black/[0.08] bg-[#12110f] shadow-[0_24px_60px_rgba(35,27,18,.13)]">
-                  <div className="flex h-10 items-center justify-between border-b border-white/[0.07] px-4"><div className="flex gap-1.5"><span className="h-2 w-2 rounded-full bg-white/20"/><span className="h-2 w-2 rounded-full bg-white/20"/><span className="h-2 w-2 rounded-full bg-[#D6A66A]/70"/></div><span className="text-[7px] uppercase tracking-[0.18em] text-white/28">AVANTIQO CAPABILITY</span></div>
-                  <div className="p-5 font-mono text-[10px] leading-6 text-white/60"><div>capability: <span className="text-[#E1B67D]">creative.video.produce</span></div><div>mode: <span className="text-white/78">governed</span></div><div>output: <span className="text-white/78">master + evidence</span></div></div>
-                </div>
-                <div className="absolute left-6 top-6 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">Developer Platform</div>
+              <div className="relative h-[300px] overflow-hidden border-b border-black/[0.06] bg-[#EDE5D8]">
+                <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{backgroundImage:'url(/art/developer-work.jpg)'}}/>
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,.08),transparent_42%),linear-gradient(180deg,transparent_50%,rgba(10,8,7,.62))]"/>
+                <div className="absolute left-6 top-6 rounded-full border border-white/30 bg-white/75 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#76512D] shadow-sm backdrop-blur-xl">Developer Platform</div>
+                <div className="absolute bottom-5 left-6 right-6 rounded-[16px] border border-white/20 bg-black/28 p-3 text-white backdrop-blur-xl"><div className="flex items-center justify-between gap-4"><div><div className="text-[8px] uppercase tracking-[0.18em] text-[#E9C28C]">Build · connect · automate</div><div className="mt-1 text-[10px] text-white/68">APIs, agents, workflows and embedded capabilities.</div></div><span className="text-[8px] uppercase tracking-[0.14em] text-white/38">Governed</span></div></div>
               </div>
               <div className="flex items-end justify-between gap-8 p-6 sm:p-7">
                 <div><h3 className="text-[27px] font-medium tracking-[-0.04em] text-[#1D1B18]">Build with Avantiqo.</h3><p className="mt-3 max-w-xl text-[11px] leading-6 text-[#77716A]">Use business capabilities through APIs, agent tools, jobs, webhooks and embedded workflows without rebuilding the underlying operating logic.</p></div>

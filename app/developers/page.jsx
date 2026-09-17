@@ -63,40 +63,6 @@ function Check({ className = "" }) {
   );
 }
 
-function CodeWindow() {
-  return (
-    <div className="overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#11110F] shadow-[0_35px_100px_rgba(0,0,0,0.24)]">
-      <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-white/20" />
-          <span className="h-2 w-2 rounded-full bg-white/20" />
-          <span className="h-2 w-2 rounded-full bg-[#D6A66A]/70" />
-        </div>
-        <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/35">Example integration model</span>
-      </div>
-      <pre className="overflow-x-auto p-5 text-[11px] leading-6 text-white/66 sm:p-7 sm:text-[12px]"><code>{`const result = await avantiqo.capabilities.run({
-  capability: "finance.invoice.extract",
-  input: {
-    document: invoiceFile,
-    organization: "your-customer"
-  }
-});
-
-console.log(result.data);
-console.log(result.confidence);
-console.log(result.evidence);`}</code></pre>
-      <div className="grid border-t border-white/[0.07] sm:grid-cols-3">
-        {[['Capability', 'finance.invoice.extract'], ['Execution', 'Governed'], ['Output', 'Structured + evidence']].map(([label, value], index) => (
-          <div key={label} className={`px-5 py-4 ${index ? "border-t border-white/[0.07] sm:border-l sm:border-t-0" : ""}`}>
-            <div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]">{label}</div>
-            <div className="mt-1.5 text-[10px] text-white/58">{value}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export const metadata = {
   title: "Developers | Avantiqo",
   description: "Build with Avantiqo business capabilities across finance, documents, intelligence, creative, operations and people.",
@@ -116,26 +82,21 @@ export default function DevelopersPage() {
         action={{ label: "Developer access", href: "#access" }}
       />
 
-      <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#171716] text-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_76%_8%,rgba(214,166,106,.16),transparent_34%),radial-gradient(circle_at_18%_30%,rgba(163,120,73,.07),transparent_30%)]" />
-        <div className="relative mx-auto grid max-w-[1460px] gap-12 px-5 pb-20 pt-20 sm:px-7 lg:grid-cols-[.86fr_1.14fr] lg:items-center lg:px-10 lg:pb-24 lg:pt-28 xl:gap-20">
-          <div className="max-w-[680px]">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#E0BB83]"><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]" />Developer platform preview</div>
-            <h1 className="mt-7 text-[48px] font-medium leading-[0.98] tracking-[-0.06em] text-[#F7F4EF] sm:text-[60px] lg:text-[68px] xl:text-[76px]">Build with Avantiqo.</h1>
-            <p className="mt-7 max-w-2xl text-[17px] leading-8 text-white/62 sm:text-[18px]">Bring finance, documents, intelligence, creative production and operational capabilities into the software you already build.</p>
-            <p className="mt-4 max-w-xl text-[13px] leading-6 text-white/38">Use one capability or compose many. Avantiqo is being structured so the same business engines that power the platform can also become developer-facing services.</p>
-            <div className="mt-8 flex flex-wrap items-center gap-2.5">
-              <a href="#capabilities" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#F7F4EF] px-5 text-[11px] font-semibold text-[#171716] transition hover:-translate-y-0.5">Explore capabilities <Arrow className="h-3.5 w-3.5" /></a>
-              <a href="#integration" className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.035] px-5 text-[11px] font-semibold text-white/72 transition hover:border-[#D6A66A]/40 hover:text-white">How integration works</a>
-            </div>
-            <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2 border-t border-white/[0.08] pt-5 text-[9px] font-medium text-white/38">
-              {["Capability based", "Meterable", "Organization scoped", "Governed execution"].map((item) => <span key={item} className="inline-flex items-center gap-1.5"><Check className="h-3 w-3 text-[#D6A66A]" />{item}</span>)}
-            </div>
+      <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F6F1E8] text-[#191919]">
+        <div className="absolute inset-y-0 right-0 hidden w-[58%] bg-cover bg-center lg:block" style={{backgroundImage:'url(/art/developer-work.jpg)'}}/>
+        <div className="absolute inset-0 hidden bg-[linear-gradient(90deg,#F6F1E8_0%,#F6F1E8_38%,rgba(246,241,232,.84)_50%,rgba(246,241,232,.12)_75%)] lg:block"/>
+        <div className="relative mx-auto grid max-w-[1460px] gap-10 px-5 py-20 sm:px-7 lg:grid-cols-[.84fr_1.16fr] lg:items-center lg:px-10 lg:py-28 xl:gap-16">
+          <div className="max-w-[650px]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/30 bg-white/70 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#8A633C] shadow-sm"><span className="h-1.5 w-1.5 rounded-full bg-[#A37849]" />Developer platform preview</div>
+            <h1 className="mt-7 text-[48px] font-medium leading-[0.98] tracking-[-0.06em] text-[#1B1916] sm:text-[60px] lg:text-[68px] xl:text-[76px]">Build with Avantiqo.</h1>
+            <p className="mt-7 max-w-xl text-[17px] leading-8 text-[#5F5A52] sm:text-[18px]">Bring finance, documents, intelligence, creative production and operational capabilities into the software you already build.</p>
+            <p className="mt-4 max-w-xl text-[13px] leading-6 text-[#81796F]">Use one capability or compose many. The same governed business engines that power Avantiqo can become developer-facing services.</p>
+            <div className="mt-8 flex flex-wrap items-center gap-2.5"><a href="#capabilities" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white transition hover:-translate-y-0.5">Explore capabilities <Arrow className="h-3.5 w-3.5" /></a><a href="#integration" className="inline-flex h-11 items-center gap-2 rounded-xl border border-black/[0.09] bg-white/80 px-5 text-[11px] font-semibold text-[#57514A] transition hover:border-[#D6A66A]/40">How integration works</a></div>
+            <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.08] pt-5 text-[9px] font-medium text-[#837B72]">{["Capability based", "Meterable", "Organization scoped", "Governed execution"].map((item) => <span key={item} className="inline-flex items-center gap-1.5"><Check className="h-3 w-3 text-[#A37849]" />{item}</span>)}</div>
           </div>
-          <CodeWindow />
+          <div className="relative min-h-[470px] overflow-hidden rounded-[30px] border border-black/[0.08] bg-cover bg-center shadow-[0_34px_90px_rgba(60,43,25,.16)] lg:bg-none lg:shadow-none" style={{backgroundImage:'url(/art/developer-work.jpg)'}}><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.18))] lg:hidden"/><div className="absolute inset-x-5 bottom-5 rounded-[20px] border border-white/20 bg-black/30 p-4 text-white backdrop-blur-xl lg:inset-x-auto lg:bottom-10 lg:right-0 lg:w-[72%]"><div className="text-[8px] uppercase tracking-[0.18em] text-[#E8C18D]">Developer surface</div><div className="mt-2 grid gap-2 sm:grid-cols-2">{[["API","Call exact capabilities"],["Agents","Compose governed tools"],["Webhooks","React to business events"],["Embedded","Bring Avantiqo into products"]].map(([a,b])=><div key={a} className="rounded-xl border border-white/12 bg-black/18 p-3"><div className="text-[10px] font-semibold text-white/82">{a}</div><div className="mt-1 text-[8px] text-white/48">{b}</div></div>)}</div></div></div>
         </div>
       </section>
-
       <section id="capabilities" className="border-b border-black/[0.06] bg-[#F7F6F3]">
         <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
           <div className="max-w-3xl">

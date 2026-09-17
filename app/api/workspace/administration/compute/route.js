@@ -258,7 +258,7 @@ export async function GET(request) {
     const candidateMatrix = [
       { product: "Business Partner / Intelligence", capability: "ai.text.generate", model: "qwen3:4b-instruct", status: "CERTIFIED_LOCAL", resource: "GPU" },
       { product: "Voice / STT", capability: "ai.speech.to.text", model: "openai/whisper-large-v3-turbo", status: "CERTIFIED_LOCAL", resource: "GPU" },
-      { product: "Voice / TTS", capability: "ai.text.to.speech", model: "resemble-ai/chatterbox:multilingual-v3", status: "CERTIFIED_LOCAL_BACKGROUND_MODAL_INTERACTIVE", resource: "GPU" },
+      { product: "Voice / TTS", capability: "ai.text.to.speech", model: "resemble-ai/chatterbox:multilingual-v3", status: "CERTIFIED_LOCAL", resource: "GPU" },
       { product: "Image Studio", capability: "ai.image.upscale", model: "caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr", status: "CERTIFIED_LOCAL", resource: "GPU" },
       { product: "Music / Audio", capability: "ai.audio.stems", model: "demucs-htdemucs-ft", status: "CERTIFIED_LOCAL", resource: "GPU" },
       { product: "Music / Audio", capability: "ai.audio.vocal-correct", model: "torchcrepe-full", status: "CERTIFIED_LOCAL", resource: "GPU" },
@@ -283,7 +283,7 @@ export async function GET(request) {
         music_gpu: "LOCAL_GPU_DEMUCS_TORCHCREPE_FIRST",
         image_upscale: "LOCAL_GPU_SWIN2SR_FIRST",
         voice_stt: "LOCAL_GPU_WHISPER_LARGE_V3_TURBO_FIRST",
-        voice_tts: "LOCAL_GPU_BACKGROUND_MODAL_INTERACTIVE",
+        voice_tts: "LOCAL_GPU_FIRST_MODAL_FALLBACK",
         local_transport: "SUPABASE_PULL_QUEUE_V1",
       },
       metrics: {

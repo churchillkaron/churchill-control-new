@@ -35,14 +35,14 @@ test("enqueue priorities preserve interactive-first scheduling",()=>{
 });
 
 
-test("TTS uses certified Node 01 only for background work and preserves Modal interactive path",()=>{
+test("TTS uses certified Node 01 local-first with Modal fallback",()=>{
   assert.match(tts,/resemble-ai\/chatterbox:multilingual-v3/);
   assert.match(tts,/workload:\s*"voice_tts"/); assert.match(tts,/priority:\s*35/);
-  assert.match(tts,/BATCH_BACKGROUND_ONLY/); assert.match(worker,/RunVoiceTtsJob/); assert.match(worker,/ai.text.to.speech/);
-  assert.match(voiceProvider,/backgroundTts/); assert.match(voiceProvider,/AVANTIQO_VOICE_TTS_LOCAL_BATCH_FALLBACK_MODAL/);
+  assert.match(tts,/LOCAL_GPU_FIRST_MODAL_FALLBACK/); assert.match(worker,/RunVoiceTtsJob/); assert.match(worker,/ai.text.to.speech/);
+  assert.doesNotMatch(voiceProvider,/backgroundTts/); assert.match(voiceProvider,/AVANTIQO_VOICE_TTS_LOCAL_FALLBACK_MODAL/);
   assert.match(asyncSpeech,/execution_mode:\s*"background"/);
-  assert.match(api,/LOCAL_GPU_BACKGROUND_MODAL_INTERACTIVE/); assert.match(api,/CERTIFIED_LOCAL_BACKGROUND_MODAL_INTERACTIVE/);
-  assert.match(page,/Local background · Modal interactive/);
+  assert.match(api,/LOCAL_GPU_FIRST_MODAL_FALLBACK/); assert.match(api,/CERTIFIED_LOCAL/);
+  assert.match(page,/Local GPU first · Modal fallback/);
 });
 
 test("Node 01 learning feed is token-authenticated, bounded, and excludes raw/private memory",()=>{

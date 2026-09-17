@@ -67,7 +67,7 @@ def main():
         "gpu_peak_allocated_bytes": int(torch.cuda.max_memory_allocated()),
         "local_elapsed_seconds": round(time.perf_counter() - started, 3),
         "python_version": sys.version.split()[0],
-        "local_tts_mode": "BATCH_BACKGROUND_ONLY",
+        "local_tts_mode": "LOCAL_GPU_FIRST_MODAL_FALLBACK",
         "raw_reasoning_persisted": False,
     })
     print(json.dumps(result, separators=(",", ":")), flush=True)

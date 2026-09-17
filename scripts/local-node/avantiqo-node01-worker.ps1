@@ -94,7 +94,7 @@ function ResourceProfile($Job) {
   if ($workload -eq 'image_upscale') { return @{ class='gpu_specialist'; gpu_vram_mb=1200; cpu_weight='light'; exclusive_gpu=$true; product='Image Studio' } }
   if ($workload -eq 'music_separator') { return @{ class='gpu_specialist'; gpu_vram_mb=3800; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
   if ($workload -eq 'music_vocal_correction') { return @{ class='gpu_specialist'; gpu_vram_mb=3400; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
-  if ($workload -eq 'voice_tts') { return @{ class='background_gpu'; gpu_vram_mb=6100; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / TTS'; mode='BATCH_BACKGROUND_ONLY' } }
+  if ($workload -eq 'voice_tts') { return @{ class='background_gpu'; gpu_vram_mb=6100; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / TTS'; mode='LOCAL_GPU_FIRST_MODAL_FALLBACK' } }
   if ($workload -eq 'media_ffmpeg') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Video / Media' } }
   if ($workload -eq 'music_elastic') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Music / Audio' } }
   if ($workload -eq 'sfx_generate') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Music / SFX'; mode='OPENMOSS_GGML_CPU_V1' } }

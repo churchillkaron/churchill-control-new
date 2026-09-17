@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpRight, Building2, Crown } from "lucide-react";
 
 const FALLBACK_BRAND = {
@@ -15,6 +15,8 @@ const FALLBACK_BRAND = {
 
 export default function PlatformWorkspacePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const developerPortal = searchParams?.get("portal") === "developer";
   const [workspace, setWorkspace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectingOrganizationId, setSelectingOrganizationId] = useState(null);
@@ -65,7 +67,7 @@ export default function PlatformWorkspacePage() {
         throw new Error(data?.error || "Unable to select organization");
       }
 
-      router.push(`/workspace/${organizationId}`);
+      router.push(developerPortal ? `/workspace/${organizationId}/developers` : `/workspace/${organizationId}`);
       router.refresh();
     } catch (err) {
       console.error(err);
@@ -101,16 +103,16 @@ export default function PlatformWorkspacePage() {
           <div className="mb-6 flex items-center gap-3">
             <Crown className="h-6 w-6 text-violet-300" />
             <span className="text-xs uppercase tracking-[0.30em] text-violet-300/80">
-              {brand.runtimeLabel}
+              {developerPortal ? "Developer Workspace Access" : brand.runtimeLabel}
             </span>
           </div>
 
           <h1 className="text-6xl font-light tracking-[-0.06em]">
-            {brand.workspaceTitle}
+            {developerPortal ? "Choose a developer organization" : brand.workspaceTitle}
           </h1>
 
           <p className="mt-4 max-w-3xl text-white/60">
-            {brand.workspaceDescription}
+            {developerPortal ? "Select the organization whose APIs, capabilities, integrations and compute you want to work with." : brand.workspaceDescription}
           </p>
         </section>
 

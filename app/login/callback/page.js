@@ -21,6 +21,9 @@ const WORKSPACE_ROLES = new Set([
   "FINANCE",
   "HR",
   "HUMAN_RESOURCES",
+  "DEVELOPER",
+  "INTEGRATOR",
+  "PARTNER",
 ]);
 
 function browserOrganizationId() {
@@ -44,6 +47,14 @@ function normalizeRole(value) {
   return String(value || "").trim().toUpperCase();
 }
 
+
+function requestedPortal() {
+  if (typeof window === "undefined") return "business";
+  return new URLSearchParams(window.location.search).get("portal") === "developer"
+    ? "developer"
+    : "business";
+}
+
 function requestedWorkspaceDestination(organizationId) {
   if (typeof window === "undefined") return null;
   const next = new URLSearchParams(window.location.search).get("next");
@@ -58,6 +69,10 @@ function postLoginDestination(data, organizationId) {
 
   if (!WORKSPACE_ROLES.has(role)) {
     return "/staff";
+  }
+
+  if (requestedPortal() === "developer") {
+    return `/workspace/${organizationId}/developers`;
   }
 
   return requestedWorkspaceDestination(organizationId) || `/workspace/${organizationId}`;
@@ -125,7 +140,7 @@ export default function LoginCallback() {
             (Array.isArray(data?.availableOrganizationIds) &&
               data.availableOrganizationIds.length > 1)
           ) {
-            router.push("/workspace");
+            router.push(requestedPortal() === "developer" ? "/workspace?portal=developer" : "/workspace");
             return;
           }
 
@@ -149,7 +164,7 @@ export default function LoginCallback() {
 
           if (!selectionResponse.ok) {
             clearBrowserBrandIntent();
-            router.push("/workspace");
+            router.push(requestedPortal() === "developer" ? "/workspace?portal=developer" : "/workspace");
             return;
           }
 
@@ -159,7 +174,7 @@ export default function LoginCallback() {
         }
 
         clearBrowserBrandIntent();
-        router.push("/workspace");
+        router.push(requestedPortal() === "developer" ? "/workspace?portal=developer" : "/workspace");
       } catch (err) {
         console.error(err);
         clearBrowserBrandIntent();

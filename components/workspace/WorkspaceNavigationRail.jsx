@@ -169,6 +169,14 @@ export default function WorkspaceNavigationRail() {
           expanded={expanded}
         />
 
+        <RailLink
+          href={`/workspace/${encodeURIComponent(organizationId)}/products`}
+          label="Products"
+          active={pathname === `/workspace/${organizationId}/products` || pathname.startsWith(`/workspace/${organizationId}/products/`)}
+          Icon={LayoutGrid}
+          expanded={expanded}
+        />
+
         <button
           type="button"
           onClick={openUniversalOperator}

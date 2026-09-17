@@ -53,7 +53,7 @@ const AREA_MENUS = {
   ],
 };
 
-export default function PublicSiteHeader({ context, links = [], action = { label: "Login", href: "/login" }, audience = "business" }) {
+export default function PublicSiteHeader({ context, links = [], action = { label: "Business Login", href: "/login?portal=business" }, audience = "business" }) {
   const menu = AREA_MENUS[audience] || AREA_MENUS.business;
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#171614]/[0.97] text-white shadow-[0_8px_28px_rgba(0,0,0,.18)] backdrop-blur-2xl">
@@ -107,8 +107,9 @@ export default function PublicSiteHeader({ context, links = [], action = { label
               </div>
             </div>
           </details>
-          <a href="/start" className="ml-1 hidden h-9 shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/55 px-4 text-[9px] font-semibold text-[#F2D2A5] transition hover:border-[#D6A66A]/90 hover:bg-[#D6A66A]/[0.08] sm:inline-flex">Start Now <Arrow className="h-3 w-3" /></a>
-          <a href={action.href} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-white/[0.12] bg-[#0F0F0E] px-4 text-[9px] font-semibold text-white/82 transition hover:border-[#D6A66A]/45 hover:bg-[#211D18]">{action.label}<Arrow className="h-3 w-3" /></a>
+          <a href="/start" className="ml-1 hidden h-9 shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/55 px-4 text-[9px] font-semibold text-[#F2D2A5] transition hover:border-[#D6A66A]/90 hover:bg-[#D6A66A]/[0.08] xl:inline-flex">Start Now <Arrow className="h-3 w-3" /></a>
+          <a href={action.href} className="hidden h-9 shrink-0 items-center gap-2 rounded-full border border-white/[0.12] bg-[#0F0F0E] px-4 text-[9px] font-semibold text-white/82 transition hover:border-[#D6A66A]/45 hover:bg-[#211D18] sm:inline-flex">{action.label}<Arrow className="h-3 w-3" /></a>
+          <a href="/login?portal=developer" className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/45 bg-[#D6A66A]/[0.08] px-4 text-[9px] font-semibold text-[#F1D5AF] transition hover:border-[#D6A66A]/80 hover:bg-[#D6A66A]/[0.14]">Developer Login<Arrow className="h-3 w-3" /></a>
         </nav>
       </div>
     </header>

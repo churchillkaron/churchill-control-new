@@ -372,7 +372,7 @@ export default function DevelopersPage() {
               API Platform <Arrow className="h-3.5 w-3.5" />
             </a>
             <a
-              href="/login"
+              href="/login?portal=developer"
               className="inline-flex h-11 items-center gap-2 rounded-xl border border-black/[0.09] bg-white px-5 text-[11px] font-semibold text-[#56514A]"
             >
               Login
@@ -406,7 +406,7 @@ export default function DevelopersPage() {
             <a href="/terms" className="transition hover:text-[#8A633C]">
               Terms
             </a>
-            <a href="/login" className="transition hover:text-[#8A633C]">
+            <a href="/login?portal=developer" className="transition hover:text-[#8A633C]">
               Login
             </a>
           </div>

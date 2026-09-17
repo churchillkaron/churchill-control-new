@@ -37,7 +37,7 @@ export default function ApiPlatformPage() {
               <p className="mt-7 max-w-[560px] text-[16px] leading-8 text-[#625D55]">Use Avantiqo business, intelligence and production capabilities from your own product without becoming an ERP customer or entering the Business OS interface.</p>
               <div className="mt-9 flex flex-wrap gap-2.5">
                 <a href="/developers" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Developer documentation →</a>
-                <a href="/login" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A]">Request API access</a>
+                <a href="/login?portal=developer" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A]">Request API access</a>
               </div>
             </div>
           </div>

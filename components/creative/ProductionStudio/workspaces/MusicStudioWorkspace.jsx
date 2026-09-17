@@ -71,9 +71,9 @@ const MODES = Object.freeze([
     shortLabel: "Workstation",
     description: "Open the full timeline and production workspace for detailed work.",
     icon: Layers3,
-    primary: true,
+    section: "Produce & edit",
   },
-  { id: "auto", label: "Auto Studio", shortLabel: "Auto", description: "Let Avantiqo coordinate the music workflow for you.", icon: Sparkles, section: "Create & shape" },
+  { id: "auto", label: "Make it Professional", shortLabel: "Professional", description: "Upload a song or performance and take it through Avantiqo's governed professional release flow.", icon: Sparkles, primary: true },
   { id: "producer", label: "Producer", shortLabel: "Producer", description: "Develop the production direction and sound.", icon: WandSparkles, section: "Create & shape" },
   { id: "arrange", label: "Arrangement", shortLabel: "Arrange", description: "Shape sections, structure and arrangement.", icon: LayoutGrid, section: "Create & shape" },
   { id: "midi", label: "MIDI", shortLabel: "MIDI", description: "Work with MIDI performance and composition tools.", icon: KeyboardMusic, section: "Create & shape" },
@@ -87,8 +87,8 @@ const MODES = Object.freeze([
   { id: "master", label: "Master", shortLabel: "Master", description: "Prepare the final release master.", icon: Disc3, section: "Finish" },
 ]);
 
-const PRIMARY_MODE_IDS = Object.freeze(["compose", "backing", "record", "workstation"]);
-const SECONDARY_SECTIONS = Object.freeze(["Create & shape", "Edit", "Finish"]);
+const PRIMARY_MODE_IDS = Object.freeze(["compose", "auto", "backing", "record"]);
+const SECONDARY_SECTIONS = Object.freeze(["Create & shape", "Produce & edit", "Edit", "Finish"]);
 const WORLD_CLASS_CAPABILITIES = listWorldClassMusicCapabilities();
 const WORLD_CLASS_WORKERS = listWorldClassMusicWorkers();
 const WORLD_CLASS_FLOW = Object.freeze(["Brief", "Research", "Direction", "Concepts", "Pre-production", "Production", "Listening", "Edit", "Mix", "Master", "Tribunal", "Release"]);
@@ -160,7 +160,7 @@ function StudioHome({ modeState, composeReady, composeStatus, readinessError, on
             What do you want to make?
           </h1>
           <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[#6F6A62]">
-            Start with the outcome. Avantiqo brings in the right production workers, tools and quality gates behind the scenes.
+            Create new music, improve an existing recording, prepare a backing track or record directly. Avantiqo coordinates the production system behind the result.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">

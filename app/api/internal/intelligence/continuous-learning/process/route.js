@@ -7,6 +7,7 @@ import { runAvantiqoLongHorizonProblemSolvingCompetence } from "@/lib/intelligen
 import { runAvantiqoAdversarialSelfCritiqueCompetence } from "@/lib/intelligence/runtime/AvantiqoAdversarialSelfCritiqueCompetenceRuntime";
 import { runAvantiqoMetacognitiveEscalationCompetence } from "@/lib/intelligence/runtime/AvantiqoMetacognitiveEscalationCompetenceRuntime";
 import { runAvantiqoIntelligenceImprovementLoop } from "@/lib/intelligence/runtime/AvantiqoIntelligenceImprovementLoopRuntime";
+import { reconcileAvantiqoArenaWeaknessCurriculum } from "@/lib/intelligence/runtime/AvantiqoArenaWeaknessCurriculumRuntime";
 import { runAvantiqoNightlyLearningSynthesis } from "@/lib/intelligence/runtime/AvantiqoNightlyLearningSynthesisRuntime";
 import { runAvantiqoGeneralIntelligenceExam } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceExamRuntime";
 import { runAvantiqoGeneralIntelligenceRetention } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceRetentionRuntime";
@@ -469,6 +470,7 @@ async function handleCronGet(request) {
     const adversarialSelfCritiqueCompetence = await runAvantiqoAdversarialSelfCritiqueCompetence();
     const metacognitiveEscalationCompetence = await runAvantiqoMetacognitiveEscalationCompetence();
     const intelligenceImprovementLoop = await runAvantiqoIntelligenceImprovementLoop();
+    const arenaWeaknessCurriculum = await reconcileAvantiqoArenaWeaknessCurriculum();
     const generalIntelligenceTransferPractice = await runAvantiqoGeneralIntelligenceTransferPractice();
     const generalIntelligenceMasteryEvidence = await reconcileAvantiqoGeneralIntelligenceMasteryEvidence();
     const generalIntelligenceTrainingCandidates = await seedAvantiqoGeneralIntelligenceTrainingCandidates();
@@ -489,6 +491,7 @@ async function handleCronGet(request) {
         adversarial_self_critique_competence: adversarialSelfCritiqueCompetence,
         metacognitive_escalation_competence: metacognitiveEscalationCompetence,
         intelligence_improvement_loop: intelligenceImprovementLoop,
+        arena_weakness_curriculum: arenaWeaknessCurriculum,
         general_intelligence_transfer_practice: generalIntelligenceTransferPractice,
         general_intelligence_mastery_evidence: generalIntelligenceMasteryEvidence,
         general_intelligence_training_candidates: generalIntelligenceTrainingCandidates,

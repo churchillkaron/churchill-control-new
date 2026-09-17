@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import MusicArrangementPanel from "./MusicArrangementPanel";
+import MusicAudioCleanupPanel from "./MusicAudioCleanupPanel";
 import MusicAutoStudioPanel from "./MusicAutoStudioPanel";
 import MusicWorkspace from "./MusicWorkspace";
 import MusicBackingTrackPanel from "./MusicBackingTrackPanel";
@@ -81,6 +82,7 @@ const MODES = Object.freeze([
   { id: "producer", label: "Producer", shortLabel: "Producer", description: "Develop the production direction and sound.", icon: WandSparkles, section: "Create & shape" },
   { id: "arrange", label: "Arrangement", shortLabel: "Arrange", description: "Shape sections, structure and arrangement.", icon: LayoutGrid, section: "Create & shape" },
   { id: "midi", label: "MIDI", shortLabel: "MIDI", description: "Work with MIDI performance and composition tools.", icon: KeyboardMusic, section: "Create & shape" },
+  { id: "cleanup", label: "Clean & Repair Audio", shortLabel: "Cleanup", description: "Remove noise, hum and recording defects while preserving the original source.", icon: AudioLines, section: "Edit" },
   { id: "elastic", label: "Time & Pitch", shortLabel: "Time & Pitch", description: "Adjust timing and pitch with elastic audio tools.", icon: Waves, section: "Edit" },
   { id: "remix", label: "Remix", shortLabel: "Remix", description: "Create a governed remix from existing material.", icon: RefreshCw, section: "Edit" },
   { id: "edit", label: "AI Edit", shortLabel: "AI Edit", description: "Apply a governed surgical music edit.", icon: Scissors, section: "Edit" },
@@ -367,6 +369,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           : mode === "producer" ? <MusicProducerPanel organizationId={organizationId} projectId={project?.id || null} onOpen={setMode} />
           : mode === "arrange" ? <MusicArrangementPanel organizationId={organizationId} projectId={project?.id || null} />
           : mode === "midi" ? <MusicMidiStudioPanel organizationId={organizationId} projectId={project?.id || null} />
+          : mode === "cleanup" ? <MusicAudioCleanupPanel {...specialistProps} onOpenWorkstation={() => setMode("workstation")} />
           : mode === "elastic" ? <MusicElasticAudioPanel organizationId={organizationId} projectId={project?.id || null} />
           : mode === "remix" ? <div className="mx-auto max-w-6xl p-6"><MusicRemixPanel operation="remix" {...specialistProps} /></div>
           : mode === "edit" ? <div className="mx-auto max-w-6xl p-6"><MusicRemixPanel operation="edit" {...specialistProps} /></div>

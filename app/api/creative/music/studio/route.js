@@ -13,6 +13,12 @@ import {
   CreativeMusicFinishingRuntime,
 } from "@/lib/creative/music/runtime/CreativeMusicFinishingRuntime";
 import {
+  executeWorldClassMusicStudio,
+} from "@/lib/creative/music/runtime/CreativeMusicWorldClassExecutionRuntime";
+import {
+  processMusicVocalEngineeringLocal,
+} from "@/lib/creative/music/runtime/CreativeMusicVocalEngineeringRuntime";
+import {
   buildMusicGenerationPlan,
   buildMusicTransformationPlan,
   MUSIC_SOURCE_AUDIO_RIGHTS_ATTESTATION_CONTRACT,
@@ -277,6 +283,52 @@ async function resolveBackingLocalAcceptance(body, plan) {
   } catch {
     return null;
   }
+}
+
+async function cleanAudio(body) {
+  const organizationId = text(body.organization_id);
+  const projectId = text(body.creative_project_id);
+  const sourceAudio = text(body.source_audio || body.source_media || body.audio);
+  if (!projectId) throw new Error("creative_project_id required");
+  if (!sourceAudio) throw new Error("CREATIVE_MUSIC_CLEANUP_SOURCE_REQUIRED");
+  if (body.source_rights_confirmed !== true) throw new Error("CREATIVE_MUSIC_SOURCE_RIGHTS_REQUIRED");
+
+  const restored = await processMusicVocalEngineeringLocal({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+    source_audio: sourceAudio,
+    source_role: text(body.source_role || "song"),
+    file_name: text(body.file_name || "audio-source"),
+    mime_type: text(body.mime_type) || null,
+  });
+  const reference = text(restored.restored?.storage_reference);
+  const asset = await CreativeAssetsRuntime.create({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+    creative_mission_id: text(body.creative_mission_id) || null,
+    asset_type: "MUSIC_RESTORED_AUDIO",
+    file_url: reference,
+    file_name: "restored-source.wav",
+    title: `${text(body.title || "Cleaned audio")} - Restored WAV`,
+    description: "Owned local audio cleanup result. The original source remains preserved.",
+    ai_generated: false,
+    provider: "avantiqo-audio",
+    engine: "local-ffmpeg-audio-restoration",
+    metadata: {
+      media_kind: "MUSIC",
+      music_studio_asset: true,
+      audio_cleanup: true,
+      source_audio: sourceAudio,
+      source_preserved: true,
+      source_rights_attested: true,
+      source_rights_attestation_contract: MUSIC_SOURCE_AUDIO_RIGHTS_ATTESTATION_CONTRACT,
+      engineering: restored.engineering || {},
+      analysis: restored.analysis || {},
+      readiness: restored.readiness || {},
+    },
+  });
+  const playbackUrl = await resolveCreativeProviderAssetUrl({ organization_id: organizationId, value: reference });
+  return { success: true, pending: false, failed: false, asset: { ...publicAsset(asset), playback_url: playbackUrl }, restoration: restored };
 }
 
 async function backingPlan(body) {
@@ -707,8 +759,10 @@ export async function POST(request) {
       ? await compose(body)
       : action === "prepare_source_upload"
         ? await prepareSourceUpload(body)
-        : action === "backing_track_plan"
-          ? await backingPlan(body)
+        : action === "audio_cleanup"
+          ? await cleanAudio(body)
+          : action === "backing_track_plan"
+            ? await backingPlan(body)
           : action === "backing_track"
             ? await executeBackingTrack(body)
             : action === "status"

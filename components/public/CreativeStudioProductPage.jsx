@@ -1,4 +1,5 @@
 import Image from "next/image";
+import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 
 const process = [
   ["01", "Brief", "Objective, audience and constraints"],
@@ -77,12 +78,14 @@ function StudioWorkspace({ studio }) {
 export default function CreativeStudioProductPage({ studio, title, subtitle, description, capabilities, useCases, cta }) {
   return (
     <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
-      <header className="sticky top-0 z-50 border-b border-black/[0.07] bg-[#F7F6F3]/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-[64px] max-w-[1460px] items-center justify-between px-5 sm:px-7 lg:px-10">
-          <a href="/" className="flex items-center gap-3"><span className="rounded-xl bg-[#171716] px-3 py-2 shadow-[0_4px_16px_rgba(0,0,0,.08)]"><Image src="/branding/avantiqo-wordmark.png" alt="Avantiqo" width={126} height={10} className="h-[10px] w-auto object-contain" priority /></span><div className="hidden text-[7px] font-semibold uppercase tracking-[0.18em] text-[#9A744B] sm:block">{studio}</div></a>
-          <nav className="flex items-center gap-1"><a href="/creative-studios" className="hidden rounded-lg px-3 py-2 text-[10px] text-[#6C6963] hover:bg-white md:inline-flex">Creative Studios</a><a href="/developers" className="hidden rounded-lg px-3 py-2 text-[10px] text-[#6C6963] hover:bg-white lg:inline-flex">Developers</a><a href="/" className="hidden rounded-lg px-3 py-2 text-[10px] text-[#6C6963] hover:bg-white xl:inline-flex">Platform</a><a href="/login" className="ml-1 inline-flex h-9 items-center gap-2 rounded-xl bg-[#171716] px-4 text-[10px] font-semibold text-white">Login <Arrow className="h-3 w-3" /></a></nav>
-        </div>
-      </header>
+      <PublicSiteHeader
+        context={studio}
+        links={[
+          { label: "Creative Studios", href: "/creative-studios", visibility: "hidden md:inline-flex" },
+          { label: "Developers", href: "/developers", visibility: "hidden lg:inline-flex" },
+          { label: "Platform", href: "/", visibility: "hidden xl:inline-flex" },
+        ]}
+      />
 
       <section className="border-b border-black/[0.06] bg-[#F7F6F3]">
         <div className="mx-auto grid max-w-[1460px] gap-12 px-5 py-16 sm:px-7 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:px-10 lg:py-24">

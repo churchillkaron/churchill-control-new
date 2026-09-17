@@ -1,4 +1,4 @@
-import Image from "next/image";
+import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 
 const capabilityFamilies = [
   {
@@ -105,23 +105,16 @@ export const metadata = {
 export default function DevelopersPage() {
   return (
     <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
-      <header className="sticky top-0 z-50 border-b border-black/[0.07] bg-[#F7F6F3]/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-[62px] max-w-[1460px] items-center justify-between gap-5 px-5 sm:px-7 lg:px-10">
-          <a href="/" className="flex items-center gap-3" aria-label="Avantiqo home">
-            <span className="rounded-xl bg-[#171716] px-3 py-2 shadow-[0_4px_16px_rgba(0,0,0,.08)]">
-              <Image src="/branding/avantiqo-wordmark.png" alt="Avantiqo" width={126} height={10} className="h-[10px] w-auto object-contain" priority />
-            </span>
-            <div className="hidden text-[7px] font-semibold uppercase tracking-[0.18em] text-[#9A744B] sm:block">Developers</div>
-          </a>
-          <nav className="flex items-center gap-1 sm:gap-1.5">
-            <a href="#capabilities" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] md:inline-flex">Capabilities</a>
-            <a href="#integration" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] md:inline-flex">Integration</a>
-            <a href="/creative-studios" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] lg:inline-flex">Creative Studios</a>
-            <a href="/" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] xl:inline-flex">Platform</a>
-            <a href="#access" className="ml-1 inline-flex h-9 items-center gap-2 rounded-xl bg-[#171716] px-4 text-[10px] font-semibold text-white shadow-[0_3px_10px_rgba(20,18,15,0.15)] transition hover:bg-[#2A2926]">Developer access <Arrow className="h-3 w-3" /></a>
-          </nav>
-        </div>
-      </header>
+      <PublicSiteHeader
+        context="Developers"
+        links={[
+          { label: "Capabilities", href: "#capabilities", visibility: "hidden md:inline-flex" },
+          { label: "Integration", href: "#integration", visibility: "hidden md:inline-flex" },
+          { label: "Creative Studios", href: "/creative-studios", visibility: "hidden lg:inline-flex" },
+          { label: "Platform", href: "/", visibility: "hidden xl:inline-flex" },
+        ]}
+        action={{ label: "Developer access", href: "#access" }}
+      />
 
       <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#171716] text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_76%_8%,rgba(214,166,106,.16),transparent_34%),radial-gradient(circle_at_18%_30%,rgba(163,120,73,.07),transparent_30%)]" />

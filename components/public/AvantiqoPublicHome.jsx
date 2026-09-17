@@ -1,3 +1,4 @@
+import Image from "next/image";
 import ConnectedServiceDataOverview from "@/components/public/ConnectedServiceDataOverview";
 
 const businessAreas = [
@@ -73,7 +74,7 @@ function ProductPreview() {
         <div className="flex h-[58px] items-center gap-3 border-b border-black/[0.07] bg-white px-3 sm:px-4">
           <div className="flex items-center gap-2.5 border-r border-black/[0.06] pr-3 sm:pr-4">
             <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-[#171716] p-1.5">
-              <img src="/branding/avantiqo-logo.png" alt="" className="h-full w-full object-contain" />
+              <Image src="/branding/avantiqo-logo.png" alt="" width={32} height={32} className="h-full w-full object-contain" />
             </div>
             <div className="hidden sm:block">
               <div className="text-[10px] font-semibold text-[#38342F]">Avantiqo</div>
@@ -167,13 +168,10 @@ export default function AvantiqoPublicHome() {
       <header className="sticky top-0 z-50 border-b border-black/[0.07] bg-[#F7F6F3]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[64px] max-w-[1460px] items-center justify-between gap-6 px-5 sm:px-7 lg:px-10">
           <a href="/" className="flex items-center gap-3" aria-label="Avantiqo home">
-            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-[#171716] p-1.5 shadow-[0_2px_6px_rgba(20,18,15,.12)]">
-              <img src="/branding/avantiqo-logo.png" alt="Avantiqo" className="h-full w-full object-contain" />
-            </div>
-            <div>
-              <div className="text-[12px] font-semibold tracking-[-0.01em] text-[#2A2723]">Avantiqo</div>
-              <div className="mt-0.5 text-[7px] font-semibold uppercase tracking-[0.16em] text-[#9A744B]">Business Operating System</div>
-            </div>
+            <span className="rounded-xl bg-[#171716] px-3 py-2 shadow-[0_4px_16px_rgba(0,0,0,.08)]">
+              <Image src="/branding/avantiqo-wordmark.png" alt="Avantiqo" width={126} height={10} className="h-[10px] w-auto object-contain" priority />
+            </span>
+            <div className="hidden text-[7px] font-semibold uppercase tracking-[0.18em] text-[#9A744B] sm:block">Business OS</div>
           </a>
 
           <nav className="flex items-center gap-1 sm:gap-1.5">
@@ -182,8 +180,6 @@ export default function AvantiqoPublicHome() {
             <a href="#connected-service-data" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] lg:inline-flex">Integrations</a>
             <a href="/creative-studios" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] xl:inline-flex">Creative Studios</a>
             <a href="/developers" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] xl:inline-flex">Developers</a>
-            <a href="/policy" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] xl:inline-flex">Privacy</a>
-            <a href="/terms" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] xl:inline-flex">Terms</a>
             <a href="/login" className="ml-1 inline-flex h-9 items-center gap-2 rounded-xl bg-[#171716] px-4 text-[10px] font-semibold text-white shadow-[0_3px_10px_rgba(20,18,15,0.15)] transition hover:bg-[#2A2926]">Login <Arrow className="h-3 w-3" /></a>
           </nav>
         </div>
@@ -241,6 +237,53 @@ export default function AvantiqoPublicHome() {
                 <h3 className="mt-5 text-[14px] font-semibold text-[#34302B]">{title}</h3><p className="mt-2 max-w-sm text-[10px] leading-5 text-[#827D75]">{description}</p>
               </article>
             ))}
+          </div>
+        </div>
+      </section>
+
+
+      <section className="border-b border-black/[0.06] bg-[#FBFAF8]">
+        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <SectionTitle eyebrow="The Avantiqo product family" title="One intelligence layer. Multiple professional surfaces.">
+              <p>The Business Operating System is the operating core. Creative Studios and the Developer Platform extend the same Avantiqo design language into production and integration without turning them into separate products.</p>
+            </SectionTitle>
+            <p className="max-w-2xl text-[13px] leading-6 text-[#7A756E] lg:justify-self-end">Move from running the company, to producing world-class creative work, to embedding Avantiqo capabilities inside another product—with one brand, one governance model and one business context.</p>
+          </div>
+
+          <div className="mt-12 grid gap-4 lg:grid-cols-2">
+            <a href="/creative-studios" className="group overflow-hidden rounded-[28px] border border-black/[0.075] bg-[#171716] text-white shadow-[0_24px_70px_rgba(35,27,18,.08)] transition hover:-translate-y-1">
+              <div className="relative h-[300px] overflow-hidden border-b border-white/[0.07]">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_35%,rgba(214,166,106,.24),transparent_25%),linear-gradient(145deg,#17130f,#080807_72%)]" />
+                <div className="absolute left-[8%] top-[14%] h-[68%] w-[24%] translate-y-8 rounded-[20px] border border-white/[0.08] bg-black/20" />
+                <div className="absolute left-[35%] top-[10%] h-[72%] w-[30%] rounded-[22px] border border-[#D6A66A]/30 bg-[#0d0c0a] shadow-[0_0_60px_rgba(214,166,106,.09)]">
+                  <div className="absolute inset-[11%] border border-white/[0.08]" />
+                  <div className="absolute inset-x-[20%] top-[18%] h-[42%] rounded-[16px] bg-[radial-gradient(circle_at_50%_45%,rgba(230,187,123,.48),transparent_62%)]" />
+                  <div className="absolute inset-x-[20%] bottom-[18%] space-y-2"><div className="h-2 w-3/4 bg-white/60"/><div className="h-px w-1/2 bg-[#D6A66A]/65"/><div className="h-1 w-full bg-white/[0.08]"/></div>
+                </div>
+                <div className="absolute right-[7%] top-[14%] h-[68%] w-[24%] translate-y-8 rounded-[20px] border border-white/[0.08] bg-[linear-gradient(155deg,transparent_22%,rgba(214,166,106,.19),transparent_75%)]" />
+                <div className="absolute left-6 top-6 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">Creative Studios</div>
+              </div>
+              <div className="flex items-end justify-between gap-8 p-6 sm:p-7">
+                <div><h3 className="text-[27px] font-medium tracking-[-0.04em] text-[#F7F4EF]">Image. Video. Music.</h3><p className="mt-3 max-w-xl text-[11px] leading-6 text-white/42">Professional creative production systems with research, direction, creation, review, repair and delivery connected from start to finish.</p></div>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#D6A66A]/30 text-[#D6A66A] transition group-hover:translate-x-1"><Arrow className="h-4 w-4"/></span>
+              </div>
+            </a>
+
+            <a href="/developers" className="group overflow-hidden rounded-[28px] border border-black/[0.075] bg-white shadow-[0_24px_70px_rgba(35,27,18,.06)] transition hover:-translate-y-1">
+              <div className="relative h-[300px] overflow-hidden border-b border-black/[0.06] bg-[#F5F1EA]">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_20%,rgba(214,166,106,.16),transparent_30%)]" />
+                <div className="absolute inset-x-[8%] top-[17%] overflow-hidden rounded-[22px] border border-black/[0.08] bg-[#12110f] shadow-[0_24px_60px_rgba(35,27,18,.13)]">
+                  <div className="flex h-10 items-center justify-between border-b border-white/[0.07] px-4"><div className="flex gap-1.5"><span className="h-2 w-2 rounded-full bg-white/20"/><span className="h-2 w-2 rounded-full bg-white/20"/><span className="h-2 w-2 rounded-full bg-[#D6A66A]/70"/></div><span className="text-[7px] uppercase tracking-[0.18em] text-white/28">AVANTIQO CAPABILITY</span></div>
+                  <div className="p-5 font-mono text-[10px] leading-6 text-white/60"><div>capability: <span className="text-[#E1B67D]">creative.video.produce</span></div><div>mode: <span className="text-white/78">governed</span></div><div>output: <span className="text-white/78">master + evidence</span></div></div>
+                </div>
+                <div className="absolute left-6 top-6 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">Developer Platform</div>
+              </div>
+              <div className="flex items-end justify-between gap-8 p-6 sm:p-7">
+                <div><h3 className="text-[27px] font-medium tracking-[-0.04em] text-[#1D1B18]">Build with Avantiqo.</h3><p className="mt-3 max-w-xl text-[11px] leading-6 text-[#77716A]">Use business capabilities through APIs, agent tools, jobs, webhooks and embedded workflows without rebuilding the underlying operating logic.</p></div>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#D6A66A]/35 text-[#9A744B] transition group-hover:translate-x-1"><Arrow className="h-4 w-4"/></span>
+              </div>
+            </a>
           </div>
         </div>
       </section>

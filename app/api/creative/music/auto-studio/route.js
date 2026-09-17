@@ -335,6 +335,70 @@ async function executeLocal(body) {
   return exposePrivateOutput(text(body.organization_id), result);
 }
 
+async function startProfessionalRelease(body) {
+  const organizationId = text(body.organization_id);
+  const projectId = text(body.creative_project_id);
+  const missionId = text(body.creative_mission_id) || null;
+  const storageReference = text(body.source_media || body.source_audio || body.audio);
+  const durationSeconds = finite(body.duration_seconds, null);
+  if (!projectId) throw new Error("creative_project_id required");
+  if (body.source_rights_confirmed !== true) throw new Error("CREATIVE_MUSIC_PROFESSIONAL_SOURCE_RIGHTS_REQUIRED");
+  if (!storageReference.startsWith(`storage://${MUSIC_BUCKET}/${organizationId}/`)) throw new Error("CREATIVE_MUSIC_PROFESSIONAL_SOURCE_REFERENCE_INVALID");
+  if (!(durationSeconds > 0) || durationSeconds > 900) throw new Error("CREATIVE_MUSIC_PROFESSIONAL_SOURCE_DURATION_INVALID");
+  const project = await CreativeProjectRepository.getById(projectId);
+  if (!project || text(project.organization_id) !== organizationId) {
+    const error = new Error("CREATIVE_MUSIC_PROFESSIONAL_PROJECT_NOT_FOUND");
+    error.status = 404;
+    throw error;
+  }
+  const existing = await CreativeAssetsRuntime.list({ organization_id: organizationId, creative_project_id: projectId, limit: 1000 });
+  let asset = existing.find((entry) => text(entry.file_url) === storageReference && entry.metadata?.professional_release_requested === true) || null;
+  if (!asset) {
+    const fileName = safeFileName(body.file_name || "professional-source.wav");
+    asset = await CreativeAssetsRuntime.create({
+      organization_id: organizationId,
+      creative_project_id: projectId,
+      creative_mission_id: missionId,
+      asset_type: "AUDIO",
+      file_url: storageReference,
+      file_name: fileName,
+      name: text(body.title || fileName),
+      title: text(body.title || fileName),
+      description: "Preserved source for Avantiqo Professional Release.",
+      ai_generated: false,
+      provider: "avantiqo-music-upload",
+      engine: "AVANTIQO_MUSIC_PROFESSIONAL_SOURCE_V1",
+      metadata: {
+        media_kind: "MUSIC",
+        music_asset_kind: "PROFESSIONAL_SOURCE",
+        creative_project_id: projectId,
+        duration_seconds: durationSeconds,
+        source_rights_confirmed: true,
+        source_rights_attested: true,
+        source_rights_attestation_contract: "AVANTIQO_SOURCE_AUDIO_RIGHTS_ATTESTATION_V1",
+        immutable_source: true,
+        destructive_edit: false,
+        professional_release_requested: true,
+        professional_release_standard: "PROFESSIONAL_RELEASE",
+        instrumental: body.instrumental === true,
+        publication_authorized: false,
+      },
+      tags: ["music", "professional-release", "source"],
+    });
+  }
+  return {
+    success: true,
+    contract: "AVANTIQO_MUSIC_PROFESSIONAL_SOURCE_REGISTRATION_V1",
+    professional_release_started: true,
+    source_asset_id: asset.id,
+    source_title: asset.title || asset.name || asset.file_name || "Professional source",
+    duration_seconds: durationSeconds,
+    next_stage: "STEM_SEPARATION",
+    publication_authorized: false,
+    idempotent_existing_source: existing.some((entry) => entry.id === asset.id),
+  };
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -352,7 +416,9 @@ export async function POST(request) {
           ? buildPlan(body)
           : action === "execute_local"
             ? await executeLocal(body)
-            : null;
+            : action === "start_professional_release"
+              ? await startProfessionalRelease(body)
+              : null;
     if (!result) {
       return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_AUTO_STUDIO_ACTION_INVALID" }, { status: 400 });
     }

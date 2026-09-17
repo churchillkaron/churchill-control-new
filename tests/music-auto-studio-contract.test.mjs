@@ -42,12 +42,10 @@ test("Music Studio exposes Auto Studio from the outcome-first home surface", asy
   hasAll(panel, [
     "Full Auto Studio",
     "MAKE IT PROFESSIONAL",
-    'action: "execute_local"',
-    "Restored master complete",
-    "Automatic restoration",
-    "Original preserved · V0",
-    "Restored source · V1",
-    "Remaining elite stages",
+    'action: "start_professional_release"',
+    "MAKE IT PROFESSIONAL",
+    "duration_seconds: durationSeconds",
+    "onProfessionalReleaseStarted",
   ]);
   hasAll(workspace, [
     '{ id: "auto", label: "Auto Studio"',
@@ -178,4 +176,16 @@ test("Auto Studio accepts audio and performance-video sources without editing pi
     'contentType.startsWith("video/")',
     "max_source_duration_seconds: 900",
   ]);
+});
+
+test("Auto Studio can register an uploaded source into the unified Professional Release pipeline", async () => {
+  const [route, panel] = await Promise.all([source(files.route), source(files.panel)]);
+  assert.match(route, /start_professional_release/);
+  assert.match(route, /AVANTIQO_MUSIC_PROFESSIONAL_SOURCE_REGISTRATION_V1/);
+  assert.match(route, /professional_release_requested: true/);
+  assert.match(route, /source_rights_attested: true/);
+  assert.match(route, /next_stage: "STEM_SEPARATION"/);
+  assert.match(panel, /action: "start_professional_release"/);
+  assert.match(panel, /duration_seconds: durationSeconds/);
+  assert.match(panel, /onProfessionalReleaseStarted/);
 });

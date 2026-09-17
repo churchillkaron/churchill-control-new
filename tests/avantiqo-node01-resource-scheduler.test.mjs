@@ -58,3 +58,11 @@ test("Node 01 learning feed is token-authenticated, bounded, and excludes raw/pr
   assert.match(learningRpc,/revoke all on function/);
   assert.match(learningRpc,/grant execute on function[\s\S]*to anon, authenticated, service_role/);
 });
+
+test("Node 01 bounds long-running local model subprocesses",()=>{
+  assert.match(worker,/WaitForAvantiqoChildProcess/);
+  assert.match(worker,/AVANTIQO_LOCAL_MUSIC_SEPARATOR_TIMEOUT/);
+  assert.match(worker,/AVANTIQO_LOCAL_MUSIC_VOCAL_CORRECTION_TIMEOUT/);
+  assert.match(worker,/AVANTIQO_LOCAL_VOICE_TTS_TIMEOUT/);
+  assert.match(worker,/AVANTIQO_LOCAL_SFX_TIMEOUT/);
+});

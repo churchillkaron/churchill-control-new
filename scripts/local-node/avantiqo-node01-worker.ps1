@@ -401,7 +401,7 @@ function RunMusicSeparatorJob($Job) {
     [void]$process.Start()
     $stdoutTask = $process.StandardOutput.ReadToEndAsync()
     $stderrTask = $process.StandardError.ReadToEndAsync()
-    $process.WaitForExit()
+    WaitForAvantiqoChildProcess $process 900000 'AVANTIQO_LOCAL_MUSIC_SEPARATOR_TIMEOUT'
     $exitCode = [int]$process.ExitCode
     $rawOutput = [string]$stdoutTask.Result
     $stderr = [string]$stderrTask.Result
@@ -442,7 +442,7 @@ function RunMusicVocalCorrectionJob($Job) {
     [void]$process.Start()
     $stdoutTask = $process.StandardOutput.ReadToEndAsync()
     $stderrTask = $process.StandardError.ReadToEndAsync()
-    $process.WaitForExit()
+    WaitForAvantiqoChildProcess $process 600000 'AVANTIQO_LOCAL_MUSIC_VOCAL_CORRECTION_TIMEOUT'
     $exitCode = [int]$process.ExitCode
     $rawOutput = [string]$stdoutTask.Result
     $stderr = [string]$stderrTask.Result
@@ -455,6 +455,14 @@ function RunMusicVocalCorrectionJob($Job) {
   } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp,$err,$outFile }
 }
 
+
+function WaitForAvantiqoChildProcess($Process, [int]$TimeoutMs, [string]$TimeoutCode) {
+  if (-not $Process.WaitForExit($TimeoutMs)) {
+    try { $Process.Kill() } catch {}
+    throw $TimeoutCode
+  }
+  $Process.WaitForExit()
+}
 
 function RunVoiceTtsJob($Job) {
   $payload = $Job.payload
@@ -476,7 +484,7 @@ function RunVoiceTtsJob($Job) {
     $psi.EnvironmentVariables['PATH'] = $ffmpeg + ';' + [Environment]::GetEnvironmentVariable('PATH')
     $psi.UseShellExecute = $false; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
     $process = New-Object System.Diagnostics.Process; $process.StartInfo = $psi; [void]$process.Start()
-    $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync(); $process.WaitForExit()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync(); WaitForAvantiqoChildProcess $process 600000 'AVANTIQO_LOCAL_VOICE_TTS_TIMEOUT'
     $rawOutput = [string]$stdoutTask.Result; $stderr = [string]$stderrTask.Result
     if ([int]$process.ExitCode -ne 0) { $tail=$(if($stderr.Length -gt 1600){$stderr.Substring($stderr.Length-1600)}else{$stderr}); throw ('AVANTIQO_LOCAL_VOICE_TTS_PROCESS_FAILED:' + $tail) }
     $json=$rawOutput.Trim(); if(-not $json){ throw 'AVANTIQO_LOCAL_VOICE_TTS_OUTPUT_REQUIRED' }
@@ -501,7 +509,7 @@ function RunSfxJob($Job) {
     $psi.FileName = $python; $psi.Arguments = ('"' + $runner + '" --input "' + $tmp + '"')
     $psi.UseShellExecute = $false; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
     $process = New-Object System.Diagnostics.Process; $process.StartInfo = $psi; [void]$process.Start()
-    $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync(); $process.WaitForExit()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync(); WaitForAvantiqoChildProcess $process 1200000 'AVANTIQO_LOCAL_SFX_TIMEOUT'
     $rawOutput = [string]$stdoutTask.Result; $stderr = [string]$stderrTask.Result
     if ([int]$process.ExitCode -ne 0) { $tail=$(if($stderr.Length -gt 1600){$stderr.Substring($stderr.Length-1600)}else{$stderr}); throw ('AVANTIQO_LOCAL_SFX_PROCESS_FAILED:' + $tail) }
     $json=$rawOutput.Trim(); if(-not $json){ throw 'AVANTIQO_LOCAL_SFX_OUTPUT_REQUIRED' }

@@ -6,6 +6,7 @@ import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { productCatalog } from "@/components/public/productCatalog";
 import { isCustomerProduct } from "@/components/public/customerProductGroups";
 import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
+import { resolveProductWorkspaceRoute } from "@/lib/platform/routing/productWorkspaceRoute";
 
 const MODULE_TO_PRODUCT = {
   hr: "workforce", schedule: "scheduling", payroll: "payroll", finance: "finance", accounting: "finance",
@@ -105,7 +106,7 @@ export default function WorkspaceProductsPage({ params }) {
       <section className="py-8">
         <div className="mb-5 text-[10px] font-semibold uppercase tracking-[.16em] text-[#858078]">Your products</div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {entitledProducts.map((product) => <Link key={product.id} href={productHref(product)} className="rounded-[20px] border border-black/[.07] bg-white p-5 transition hover:border-[#D6A66A]/50">
+          {entitledProducts.map((product) => <Link key={product.id} href={resolveProductWorkspaceRoute({ organizationId, product })} className="rounded-[20px] border border-black/[.07] bg-white p-5 transition hover:border-[#D6A66A]/50">
             <div className="text-[9px] font-semibold uppercase tracking-[.15em] text-[#A37849]">Active product</div>
             <h2 className="mt-3 text-[22px] font-medium tracking-[-.035em]">{product.name}</h2>
             <p className="mt-3 text-[11px] leading-6 text-[#716C65]">{product.summary}</p>

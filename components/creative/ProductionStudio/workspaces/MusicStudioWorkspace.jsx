@@ -95,6 +95,7 @@ const WORLD_CLASS_FLOW = Object.freeze(["Brief", "Research", "Direction", "Conce
 
 function statusLabel(status) {
   if (status === "ACTIVE") return "Ready";
+  if (status === "LOCAL_ACCEPTANCE_READY") return "Local test ready";
   if (status === "PLANNING_ONLY") return "Coming later";
   if (status === "OWNED_RUNTIME_NOT_IMPLEMENTED") return "Coming later";
   if (status === "CERTIFICATION_GATED") return "Temporarily unavailable";
@@ -285,7 +286,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
     return () => { cancelled = true; };
   }, [organizationId]);
 
-  const composeReady = readiness?.capabilities?.compose?.ready === true;
+  const composeReady = readiness?.capabilities?.compose?.ready === true || readiness?.capabilities?.compose?.live_acceptance_ready === true;
   const composeStatus = readiness?.capabilities?.compose?.status || "CHECKING";
 
   const modeState = useMemo(() => Object.fromEntries(MODES.map((item) => {

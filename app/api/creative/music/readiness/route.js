@@ -123,6 +123,14 @@ export async function POST(request) {
     const rows = Array.isArray(pricing) ? pricing : [];
     const organizationServices = Array.isArray(services) ? services : [];
     const music = ownedCapability(rows, "ai.music.generate");
+    const localMusicBenchmark = rows.find((entry) => (
+      entry.capability === "ai.music.generate" &&
+      entry.provider === MUSIC_RUNTIME_CONTRACT.provider &&
+      entry.active !== true &&
+      entry.metadata?.local_node_live_acceptance === true &&
+      entry.metadata?.benchmark_review_preview_allowed === true &&
+      entry.metadata?.production_routing_allowed !== true
+    )) || null;
     const remix = ownedCapability(rows, "ai.audio.remix");
     const edit = ownedCapability(rows, "ai.audio.edit");
     const extend = ownedCapability(rows, "ai.audio.extend");
@@ -165,8 +173,11 @@ export async function POST(request) {
         compose: {
           ...music,
           ready: music.ready === true && runtimeHealth.primary_audio_runtime_available === true,
+          live_acceptance_ready: process.env.NODE_ENV !== "production" && runtimeHealth.local_node_runtime_available === true && Boolean(localMusicBenchmark),
+          live_acceptance_only: process.env.NODE_ENV !== "production" && runtimeHealth.local_node_runtime_available === true && Boolean(localMusicBenchmark) && music.ready !== true,
           runtime_ready: runtimeHealth.primary_audio_runtime_available === true,
           certification_ready: music.ready === true,
+          status: music.ready === true ? "ACTIVE" : (process.env.NODE_ENV !== "production" && runtimeHealth.local_node_runtime_available === true && Boolean(localMusicBenchmark) ? "LOCAL_ACCEPTANCE_READY" : music.status),
         },
         remix: { ...remix, status: remix.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
         edit: { ...edit, status: edit.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },

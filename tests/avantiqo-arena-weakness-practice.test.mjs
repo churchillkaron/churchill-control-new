@@ -8,3 +8,10 @@ test("weakness practice cancels only its queued job when the local GPU becomes c
 test("weakness practice forces a constrained action vocabulary",()=>{assert.match(runtime,/allowedActions/);assert.match(runtime,/Action MUST be exactly one of/);assert.match(runtime,/Do not use prose as the action/)});
 
 test("practice persists the immutable source arena fingerprint for retest eligibility",()=>{assert.match(runtime,/sourceArenaFingerprints/);assert.match(runtime,/source_arena_fingerprints:sourceArenaFingerprints/)});
+
+test("weakness practice rotates fresh synthetic variants across arena attempts",()=>{
+  assert.match(runtime,/variants:\[/);
+  assert.match(runtime,/arena_attempt/);
+  assert.match(runtime,/variant_index/);
+  assert.match(runtime,/practice_variants/);
+});

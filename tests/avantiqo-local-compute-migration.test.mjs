@@ -94,3 +94,11 @@ test("worker uses the certified 6144-token Qwen context", () => {
   assert.match(worker, /num_ctx = \$ContextTokens/);
   assert.match(localRuntime, /num_ctx: LOCAL_CONTEXT_TOKENS/);
 });
+
+
+test("reasoning service capability normalizes to the executable local text capability", () => {
+  const runtime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js");
+  assert.match(runtime, /capability: "ai\.text\.generate"/);
+  assert.match(runtime, /service_capability: text\(input\.capability\) \|\| null/);
+  assert.match(runtime, /capability: text\(input\.capability\)/);
+});

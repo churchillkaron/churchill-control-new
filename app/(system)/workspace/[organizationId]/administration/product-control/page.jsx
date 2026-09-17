@@ -15,5 +15,5 @@ export default async function ProductControlPage({ params }) {
     return <div className="mx-auto max-w-3xl rounded-[26px] border border-black/[.08] bg-white p-7 text-[#1B1A18]"><div className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#A37849]">Owner access required</div><h1 className="mt-3 text-2xl font-semibold">Product Control is restricted.</h1><p className="mt-3 text-[12px] leading-6 text-[#6F6B64]">This portfolio controls internal product readiness and is available only to organization/platform owners and super administrators.</p></div>;
   }
 
-  return <ProductControlCockpit records={productControlCatalog} />;
+  return <ProductControlCockpit records={productControlCatalog} workspaceOrganizationId={organizationId} />;
 }

@@ -1,3 +1,4 @@
+import { runCronRouteLocalFirst } from "@/lib/platform/service-runtime/policy/CronRouteComputePolicyRuntime";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -20,7 +21,7 @@ function authorized(request) {
   return (request.headers.get("authorization") || "") === `Bearer ${secret}`;
 }
 
-export async function GET(request) {
+async function handleCronGet(request) {
   if (!authorized(request)) {
     return Response.json(
       { success: false, error: "Unauthorized" },
@@ -169,4 +170,8 @@ export async function GET(request) {
       headers: { "Cache-Control": "no-store, private" },
     },
   );
+}
+
+export async function GET(request) {
+  return runCronRouteLocalFirst(() => handleCronGet(request), { source: "VERCEL_CRON" });
 }

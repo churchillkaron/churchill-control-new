@@ -1,10 +1,16 @@
+import { runCronRouteLocalFirst } from "@/lib/platform/service-runtime/policy/CronRouteComputePolicyRuntime";
 export const dynamic = "force-dynamic";
 
 import { supabase }
 from "@/lib/shared/supabase/client";
 const MAX_RETRIES = 3;
 
-export async function GET() {
+async function handleCronGet(request) {
+
+  const secret = String(process.env.CRON_SECRET || "").trim();
+  if (!secret || (request.headers.get("authorization") || "") !== `Bearer ${secret}`) {
+    return Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
 
   try {
 
@@ -113,4 +119,7 @@ export async function GET() {
 
   }
 
+}
+export async function GET(request) {
+  return runCronRouteLocalFirst(() => handleCronGet(request), { source: "VERCEL_CRON" });
 }

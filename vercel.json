@@ -101,10 +101,6 @@
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/marketing/process-queue",
-      "schedule": "*/5 * * * *"
-    },
-    {
       "path": "/api/marketing/retry-generation-jobs",
       "schedule": "*/3 * * * *"
     },
@@ -143,10 +139,6 @@
     {
       "path": "/api/internal/commercial/communications/email-inbox-sync",
       "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/internal/commercial/communications/email-subscriptions",
-      "schedule": "17 2 * * *"
     },
     {
       "path": "/api/internal/commerce/shopify/project-events",

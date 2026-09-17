@@ -32,6 +32,29 @@ test("recovery routing separates missing truth, dependencies, transient faults a
   assert.equal(unknown.code_engineering_candidate, false);
 });
 
+test("failure semantics deterministically select recovery strategy without adding authority", () => {
+  const transient = classifyOperatorFailureRecovery(failed({ code: "HTTP_TIMEOUT", status: 503 }));
+  assert.equal(transient.failure_class, "TRANSPORT_RUNTIME_FAILURE");
+  assert.equal(transient.recovery_strategy, "RETRY_INFRASTRUCTURE_SAFELY");
+  assert.equal(transient.automatic_retry_allowed, true);
+  assert.equal(transient.authorization_effect, "NONE");
+
+  const prerequisite = classifyOperatorFailureRecovery(failed({ code: "INVALID_INPUT", status: 422 }));
+  assert.equal(prerequisite.failure_class, "PREREQUISITE_FAILURE");
+  assert.equal(prerequisite.recovery_strategy, "REPAIR_PREREQUISITE");
+  assert.equal(prerequisite.automatic_retry_allowed, false);
+
+  const reasoning = classifyOperatorFailureRecovery(failed({ code: "UNCLASSIFIED_FAILURE", status: 418 }));
+  assert.equal(reasoning.failure_class, "MODEL_REASONING_FAILURE");
+  assert.equal(reasoning.recovery_strategy, "REPLAN_WITH_CRITIQUE");
+  assert.equal(reasoning.automatic_retry_allowed, false);
+
+  const business = classifyOperatorFailureRecovery({ execution: { status: "completed", post_action_verification: { status: "failed", reason: "READBACK_MISMATCH" } } });
+  assert.equal(business.failure_class, "BUSINESS_OUTCOME_FAILURE");
+  assert.equal(business.recovery_strategy, "INVESTIGATE_BUSINESS_EFFECT");
+  assert.equal(business.automatic_retry_allowed, false);
+});
+
 test("verification failure remains read-repair first and never becomes automatic code mutation authority", () => {
   const result = { execution: { status: "completed", post_action_verification: { status: "failed", reason: "READBACK_MISMATCH" } } };
   const classified = classifyOperatorFailureRecovery(result);

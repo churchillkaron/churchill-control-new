@@ -256,8 +256,10 @@ function actionability(row, now, timezone) {
 }
 
 function parseCapabilities(value) {
+  const requested = text(value);
+  if (requested.toLowerCase() === "all") return [...KNOWN_CAPABILITIES].slice(0, 30);
   return [...new Set(
-    text(value)
+    requested
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean)

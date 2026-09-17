@@ -39,3 +39,22 @@ test("strong deterministic reads fail fast instead of falling back into GPU reas
   assert.doesNotMatch(fast,/executeStrongestDirectOperatorRead\([\s\S]{0,900}?\.catch\(\(\) => null\)/);
   assert.match(bridge,/AbortSignal\.timeout\(8000\)/);
 });
+
+
+test("operations assignments are deterministic and model-free", async () => {
+  const { deterministicFastReadReply } = await import("../lib/operator/runtime/OperatorDeterministicFastReadPresentation.js");
+  const reply = deterministicFastReadReply({
+    capabilityKey: "operations.command_center.read",
+    result: { metrics: { active: 3, attention: 1, unassigned: 1 }, attention: [{ id: "a", name: "Prepare venue", assigned_to: "Alex", status: "active" }] },
+  });
+  assert.match(reply, /3 active operational items/);
+  assert.match(reply, /Prepare venue/);
+  assert.match(reply, /Alex/);
+});
+
+test("operations fast read requests all server-authorized capabilities", async () => {
+  const { listOperatorFastReads } = await import("../lib/operator/runtime/OperatorFastReadIndex.js");
+  const capability = listOperatorFastReads().find((item) => item.key === "operations.command_center.read");
+  assert.equal(capability?.direct_static_query?.capabilities, "all");
+  assert.equal(capability?.mode, "read");
+});

@@ -84,6 +84,28 @@ function object(value) {
     : {};
 }
 
+function persistedBusinessDiagnosisEvidence(result = {}) {
+  const diagnosis = object(result?.business_diagnosis);
+  if (!text(diagnosis.receipt_fingerprint)) return {};
+  return {
+    business_diagnosis: {
+      contract: text(diagnosis.contract) || null,
+      receipt_fingerprint: text(diagnosis.receipt_fingerprint) || null,
+      final_evidence_state: text(diagnosis.final_evidence_state) || null,
+      residual_material: diagnosis.residual_material === true,
+      answer_boundary_status: text(diagnosis.answer_boundary_status) || null,
+      periods: {
+        status: text(diagnosis?.periods?.status) || null,
+        baseline_period_id: text(diagnosis?.periods?.baseline_period_id) || null,
+        current_period_id: text(diagnosis?.periods?.current_period_id) || null,
+      },
+      raw_web_content_persisted: false,
+      raw_reasoning_persisted: false,
+      authority_effect: "NONE",
+    },
+  };
+}
+
 function errorResponse(error, status = 500, details = null) {
   return Response.json(
     {
@@ -634,7 +656,10 @@ export async function POST(request) {
       source,
       content: responseText,
       decision: persistedDecision,
-      evidence: object(result?.provider_evidence),
+      evidence: {
+        ...object(result?.provider_evidence),
+        ...persistedBusinessDiagnosisEvidence(result),
+      },
       execution: object(result?.execution),
       navigation: object(result?.navigation),
       agreementState: nextAgreementState,

@@ -229,3 +229,45 @@ test("Voice TTS runtime binding repair is plan-first and refuses active work", a
   assert.match(source, /startup_probe_outcome === "success"/);
   assert.match(source, /generation_submitted:\s*false/);
 });
+
+test("Voice STT can use Node 01 with the same Whisper foundation model and Modal fallback", async () => {
+  const provider = await readFile(
+    new URL("../lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderV2.js", import.meta.url),
+    "utf8",
+  );
+  const localQueue = await readFile(
+    new URL("../lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceSttLocalQueueProvider.js", import.meta.url),
+    "utf8",
+  );
+  const worker = await readFile(
+    new URL("../scripts/local-node/avantiqo-node01-worker.ps1", import.meta.url),
+    "utf8",
+  );
+  const runner = await readFile(
+    new URL("../scripts/local-node/avantiqo-node01-voice-stt-runner.py", import.meta.url),
+    "utf8",
+  );
+  const handler = await readFile(
+    new URL("../services/avantiqo-voice-stt/handler.py", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(provider, /AvantiqoVoiceSttLocalQueueProvider\.available/);
+  assert.match(provider, /AVANTIQO_VOICE_STT_LOCAL_FALLBACK_MODAL/);
+  assert.match(localQueue, /AVANTIQO_LOCAL_VOICE_STT_ENABLED/);
+  assert.match(localQueue, /model:\s*MODEL/);
+  assert.match(localQueue, /const MODEL = "openai\/whisper-large-v3-turbo"/);
+  assert.match(worker, /'ai\.speech\.to\.text'/);
+  assert.match(worker, /RunVoiceSttJob/);
+  assert.match(worker, /ValidateSet\('supervisor','gpu','cpu'\)/);
+  assert.match(worker, /\$GpuCapabilities = @\('ai\.text\.generate','ai\.speech\.to\.text'\)/);
+  assert.match(worker, /\$CpuCapabilities = @\('ai\.audio\.elastic-warp','media\.ffmpeg\.process'\)/);
+  assert.match(worker, /Start-Job -Name \("Avantiqo-" \+ \$childLane\)/);
+  assert.match(worker, /PriorityClass = 'BelowNormal'/);
+  assert.match(worker, /PriorityClass = 'Normal'/);
+  assert.match(worker, /keep_alive=0/);
+  assert.match(runner, /AVANTIQO_VOICE_STT_BATCH_SIZE.*1/);
+  assert.match(runner, /openai\/whisper-large-v3-turbo/);
+  assert.match(handler, /batch_size=BATCH_SIZE/);
+  assert.match(handler, /AVANTIQO_VOICE_STT_BATCH_SIZE/);
+});

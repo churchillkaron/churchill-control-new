@@ -1,4 +1,24 @@
+param(
+  [ValidateSet('supervisor','gpu','cpu')]
+  [string]$Lane = 'supervisor'
+)
+
 $ErrorActionPreference = 'Stop'
+if ($Lane -eq 'supervisor') {
+  $children = @{}
+  while ($true) {
+    foreach ($childLane in @('gpu','cpu')) {
+      $job = $children[$childLane]
+      if (-not $job -or $job.State -ne 'Running') {
+        if ($job) { Receive-Job $job -ErrorAction SilentlyContinue | Out-Null; Remove-Job $job -Force -ErrorAction SilentlyContinue }
+        $children[$childLane] = Start-Job -Name ("Avantiqo-" + $childLane) -ScriptBlock { param($ScriptPath,$WorkerLane) & $ScriptPath -Lane $WorkerLane } -ArgumentList $PSCommandPath,$childLane
+      }
+    }
+    foreach ($job in @($children.Values)) { Receive-Job $job -ErrorAction SilentlyContinue | Out-Null }
+    Start-Sleep -Seconds 5
+  }
+}
+
 $BaseUrl = 'https://vfsjqabpkcbiuerhzugk.supabase.co'
 $ApiKey = [Environment]::GetEnvironmentVariable('AVANTIQO_SUPABASE_PUBLISHABLE_KEY','Machine')
 if (-not $ApiKey) { throw 'AVANTIQO_SUPABASE_PUBLISHABLE_KEY_REQUIRED' }
@@ -7,7 +27,15 @@ $TokenPath = 'C:\ProgramData\Avantiqo\node-token.txt'
 $OllamaUrl = 'http://127.0.0.1:11434'
 $Model = 'qwen3:4b-instruct'
 $ContextTokens = 6144
-$Capabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process')
+$AllCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text')
+$GpuCapabilities = @('ai.text.generate','ai.speech.to.text')
+$CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process')
+$Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } else { $AllCapabilities })
+if ($Lane -eq 'cpu') {
+  try { (Get-Process -Id $PID).PriorityClass = 'BelowNormal' } catch {}
+} elseif ($Lane -eq 'gpu') {
+  try { (Get-Process -Id $PID).PriorityClass = 'Normal' } catch {}
+}
 
 function Headers {
   return @{
@@ -42,14 +70,14 @@ function Heartbeat {
   $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
   $drive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
   $meta = @{
-    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v2'; local_context_tokens=$ContextTokens;
+    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v3'; worker_lane=$Lane; local_context_tokens=$ContextTokens;
     gpu=$gpu; cpu=@{ name=$cpu.Name; cores=[int]$cpu.NumberOfCores; logical_processors=[int]$cpu.NumberOfLogicalProcessors };
     memory=@{ total_mb=[int]($os.TotalVisibleMemorySize/1024); free_mb=[int]($os.FreePhysicalMemory/1024) };
     disk=@{ c_total_gb=[math]::Round($drive.Size/1GB,1); c_free_gb=[math]::Round($drive.FreeSpace/1GB,1) };
     ollama_version='0.33.3'
   }
   [void](Rpc 'heartbeat_avantiqo_local_compute_node' @{
-    p_node_id=$NodeId; p_node_token=(NodeToken); p_capabilities=$Capabilities; p_metadata=$meta
+    p_node_id=$NodeId; p_node_token=(NodeToken); p_capabilities=$AllCapabilities; p_metadata=$meta
   })
 }
 function ClaimJobs {
@@ -124,6 +152,56 @@ function RunTextJob($Job) {
     gpu_workload=($executionResource -eq 'LOCAL_GPU'); gpu_vram_bytes=$gpuVramBytes
   }
   CompleteJob $Job $result $metrics
+}
+
+
+function UnloadOllamaModel {
+  try {
+    $body = @{ model=$Model; keep_alive=0 } | ConvertTo-Json -Compress
+    [void](Invoke-RestMethod -Uri "$OllamaUrl/api/generate" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 15)
+  } catch {}
+}
+
+function RunVoiceSttJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_VOICE_STT_PAYLOAD_REQUIRED' }
+  $python = 'C:\Avantiqo\voice-stt\Scripts\python.exe'
+  $runner = 'C:\Avantiqo\voice-stt\local_runner.py'
+  $ffmpeg = 'C:\Avantiqo\ffmpeg\bin'
+  if (-not (Test-Path $python)) { throw 'AVANTIQO_LOCAL_VOICE_STT_PYTHON_REQUIRED' }
+  if (-not (Test-Path $runner)) { throw 'AVANTIQO_LOCAL_VOICE_STT_RUNNER_REQUIRED' }
+  if (-not (Test-Path (Join-Path $ffmpeg 'ffmpeg.exe'))) { throw 'AVANTIQO_LOCAL_VOICE_STT_FFMPEG_REQUIRED' }
+  $tmp = Join-Path $env:TEMP ("avantiqo-voice-stt-" + [string]$Job.id + ".json")
+  $err = Join-Path $env:TEMP ("avantiqo-voice-stt-" + [string]$Job.id + ".err")
+  try {
+    UnloadOllamaModel
+    $jsonPayload = $payload | ConvertTo-Json -Depth 40 -Compress
+    [System.IO.File]::WriteAllText($tmp, $jsonPayload, (New-Object System.Text.UTF8Encoding($false)))
+    $previousPath = $env:PATH
+    $env:PATH = "$ffmpeg;$previousPath"
+    $started = Get-Date
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $output = & $python $runner --input $tmp 2> $err
+    $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = $previousErrorActionPreference
+    $env:PATH = $previousPath
+    $stderr = $(if (Test-Path $err) { (Get-Content $err -Raw).Trim() } else { '' })
+    if ($exitCode -ne 0) { throw ('AVANTIQO_LOCAL_VOICE_STT_PROCESS_FAILED:' + $stderr) }
+    $json = (($output | Out-String).Trim())
+    if (-not $json) { throw 'AVANTIQO_LOCAL_VOICE_STT_OUTPUT_REQUIRED' }
+    $result = $json | ConvertFrom-Json
+    $elapsed = [int](((Get-Date) - $started).TotalMilliseconds)
+    $result | Add-Member -NotePropertyName node_id -NotePropertyValue $NodeId -Force
+    $peakBytes = 0
+    try { $peakBytes = [int64]$result.gpu_peak_allocated_bytes } catch {}
+    CompleteJob $Job $result @{
+      elapsed_ms=$elapsed; gpu_workload=$true; gpu_peak_allocated_bytes=$peakBytes;
+      voice_stt=$true; local_batch_size=1
+    }
+  } finally {
+    Remove-Item -Force -ErrorAction SilentlyContinue $tmp,$err
+  }
 }
 
 function RunElasticJob($Job) {
@@ -201,6 +279,7 @@ while ($true) {
         if ([string]$job.capability -eq 'ai.text.generate') { RunTextJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.elastic-warp') { RunElasticJob $job }
         elseif ([string]$job.capability -eq 'media.ffmpeg.process') { RunMediaJob $job }
+        elseif ([string]$job.capability -eq 'ai.speech.to.text') { RunVoiceSttJob $job }
         else { FailJob $job 'AVANTIQO_LOCAL_CAPABILITY_UNSUPPORTED' $false }
       } catch {
         FailJob $job (('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Substring(0,[Math]::Min(480,('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Length))) $true

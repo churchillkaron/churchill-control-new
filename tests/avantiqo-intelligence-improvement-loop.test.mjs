@@ -73,3 +73,13 @@ test("nightly loop runs after metacognition",()=>{
   assert.ok(meta>=0&&loop>meta);
   assert.match(route,/intelligence_improvement_loop: intelligenceImprovementLoop/);
 });
+
+
+test("arena fails closed unless local queue is configured and rejects non-local jobs", async () => {
+  const source = runtime;
+  assert.match(source, /intelligenceLocalQueueConfigured\(\)/);
+  assert.match(source, /LOCAL_QUEUE_DISABLED/);
+  assert.match(source, /isIntelligenceLocalQueueJob\(execution\.provider_job_id\)/);
+  assert.match(source, /NON_LOCAL_JOB_REJECTED/);
+  assert.match(source, /cancelPendingService/);
+});

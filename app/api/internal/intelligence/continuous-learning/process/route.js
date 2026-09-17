@@ -1,4 +1,5 @@
 import { runCronRouteLocalFirst } from "@/lib/platform/service-runtime/policy/CronRouteComputePolicyRuntime";
+import { runAvantiqoNightlyLearningSynthesis } from "@/lib/intelligence/runtime/AvantiqoNightlyLearningSynthesisRuntime";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -436,10 +437,12 @@ async function handleCronGet(request) {
           };
 
     const result = await runAvantiqoContinuousLearningBatch({ limit });
+    const nightlyLocalSynthesis = await runAvantiqoNightlyLearningSynthesis();
 
     return Response.json(
       {
         ...result,
+        nightly_local_4b_synthesis: nightlyLocalSynthesis,
         internal_product_knowledge: internalProductKnowledge,
         knowledge_lifecycle: knowledgeLifecycle,
         learning_coverage: learningCoverage,

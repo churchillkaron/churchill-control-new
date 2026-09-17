@@ -218,7 +218,7 @@
     },
     {
       "path": "/api/internal/intelligence/continuous-learning/process",
-      "schedule": "17 * * * *"
+      "schedule": "0 19 * * *"
     },
     {
       "path": "/api/internal/intelligence/model-improvement/readiness/process",

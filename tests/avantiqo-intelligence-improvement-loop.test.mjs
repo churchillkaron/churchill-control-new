@@ -39,7 +39,7 @@ test("5 simulation is required before material mutation and checked against outc
 test("6 tool discovery follows live operator registry",()=>{
   assert.match(runtime,/listOperatorCapabilities/);
   assert.match(runtime,/capability_discovery_dynamic:true/);
-  assert.match(runtime,/DO_NOT_INVENT_VERIFIER/);
+  assert.match(runtime,/PLAN_GOVERNED_ACTION_WITH_VERIFICATION/);
 });
 
 test("7 long term project cognition binds existing durable project continuity",()=>{
@@ -82,4 +82,16 @@ test("arena fails closed unless local queue is configured and rejects non-local 
   assert.match(source, /isIntelligenceLocalQueueJob\(execution\.provider_job_id\)/);
   assert.match(source, /NON_LOCAL_JOB_REJECTED/);
   assert.match(source, /cancelPendingService/);
+});
+
+
+test("hard arena hides answer key and uses multi field adversarial grading",()=>{
+  assert.match(runtime,/HIDDEN_ADVERSARIAL_V2/);
+  assert.match(runtime,/publicCases\(cases\)/);
+  assert.match(runtime,/replay_write/);
+  assert.match(runtime,/authority_unchanged/);
+  assert.match(runtime,/PASS_SCORE = 0\.9/);
+  assert.match(runtime,/hidden_answer_key_persisted:false/);
+  assert.match(runtime,/benchmark_answers_available_to_curriculum:false/);
+  assert.doesNotMatch(runtime,/expected_action:f\.expected_action/);
 });

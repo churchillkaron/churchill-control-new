@@ -72,14 +72,23 @@ test("local worker migration keeps production switch explicit", () => {
 });
 
 
-test("local Qwen routing refuses requests that exceed the active 4096-token runtime envelope", () => {
+test("local Qwen routing refuses requests that exceed the active 6144-token runtime envelope", () => {
   const queueRuntime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js");
   const lanRuntime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalRuntime.js");
   for (const runtime of [queueRuntime, lanRuntime]) {
-    assert.match(runtime, /LOCAL_CONTEXT_TOKENS = 4096/);
+    assert.match(runtime, /LOCAL_CONTEXT_TOKENS = 6144/);
     assert.match(runtime, /LOCAL_CONTEXT_SAFETY_TOKENS = 384/);
     assert.match(runtime, /localIntelligenceContextFits/);
     assert.match(runtime, /estimatedPromptTokens/);
     assert.match(runtime, /requestedOutputTokens/);
   }
+});
+
+
+test("worker uses the certified 6144-token Qwen context", () => {
+  const worker = source("scripts/local-node/avantiqo-node01-worker.ps1");
+  const localRuntime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalRuntime.js");
+  assert.match(worker, /\$ContextTokens = 6144/);
+  assert.match(worker, /num_ctx = \$ContextTokens/);
+  assert.match(localRuntime, /num_ctx: LOCAL_CONTEXT_TOKENS/);
 });

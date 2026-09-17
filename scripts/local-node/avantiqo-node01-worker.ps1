@@ -6,6 +6,7 @@ $NodeId = 'avantiqo-node-01'
 $TokenPath = 'C:\ProgramData\Avantiqo\node-token.txt'
 $OllamaUrl = 'http://127.0.0.1:11434'
 $Model = 'qwen3:4b-instruct'
+$ContextTokens = 6144
 $Capabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process')
 
 function Headers {
@@ -41,7 +42,7 @@ function Heartbeat {
   $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
   $drive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
   $meta = @{
-    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v2';
+    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v2'; local_context_tokens=$ContextTokens;
     gpu=$gpu; cpu=@{ name=$cpu.Name; cores=[int]$cpu.NumberOfCores; logical_processors=[int]$cpu.NumberOfLogicalProcessors };
     memory=@{ total_mb=[int]($os.TotalVisibleMemorySize/1024); free_mb=[int]($os.FreePhysicalMemory/1024) };
     disk=@{ c_total_gb=[math]::Round($drive.Size/1GB,1); c_free_gb=[math]::Round($drive.FreeSpace/1GB,1) };
@@ -94,7 +95,7 @@ function RunTextJob($Job) {
     stream = $false
     think = $false
     keep_alive = '30m'
-    options = @{ temperature = $temperature; num_predict = $numPredict }
+    options = @{ temperature = $temperature; num_predict = $numPredict; num_ctx = $ContextTokens }
   }
   if ($payload.response_format -and [string]$payload.response_format.type -eq 'json_object') { $body.format = 'json' }
   $started = Get-Date

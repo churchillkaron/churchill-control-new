@@ -1,0 +1,28 @@
+{
+  "contract": "AVANTIQO_NODE01_LOCAL_FIRST_E2E_V1",
+  "certified_at": "2026-09-17T17:21:17Z",
+  "node_id": "avantiqo-node-01",
+  "infrastructure_provider": "AVANTIQO_LOCAL_NODE_V1",
+  "supplier_cost_thb": 0,
+  "status": "PASS",
+  "scope": "controlled Supabase pull-queue execution",
+  "results": [
+    {"capability":"ai.code.generate","job_id":"061c622c-3a7f-4b49-9313-45b2c987bb5e","status":"COMPLETED","runtime_model":"qwen3:4b-instruct","elapsed_ms":795,"expected":"CODE_LOCAL_OK"},
+    {"capability":"ai.web.build","job_id":"3b9c3686-f7c1-478f-b6e6-88df12479e6f","status":"COMPLETED","runtime_model":"qwen3:4b-instruct","elapsed_ms":395,"expected":"WEB_LOCAL_OK"},
+    {"capability":"ai.app.build","job_id":"15097d80-4fa4-459a-ab9c-3893a5bb5135","status":"COMPLETED","runtime_model":"qwen3:4b-instruct","elapsed_ms":333,"expected":"APP_LOCAL_OK"},
+    {"capability":"ai.integration.build","job_id":"236f3b14-5cd2-4345-85d8-b681e19ab027","status":"COMPLETED","runtime_model":"qwen3:4b-instruct","elapsed_ms":325,"expected":"INTEGRATION_LOCAL_OK"},
+    {"capability":"document.ocr","job_id":"26e77589-64d7-46c0-8a4f-3e942d96e2c2","status":"COMPLETED","runtime_model":"qwen2.5vl:3b","elapsed_ms":18873,"expected_text":["AVANTIQO OCR CHECK 260917","TOTAL THB 16050","INVOICE INV-2026-0917"]},
+    {"capability":"document.classify","job_id":"c17287df-3f9a-4757-9c1f-b821b49758aa","status":"COMPLETED","runtime_model":"qwen2.5vl:3b","elapsed_ms":18761,"expected_document_type":"Invoice"}
+  ],  "verification": {
+    "code_web_app_integration": "exact-output probes passed",
+    "document_ocr": "exact visible text extracted through queue",
+    "document_classify": "Invoice classification returned through queue",
+    "reasoning_persisted": false,
+    "production_deployment_required_for_worker_binary": false
+  },
+  "notes": [
+    "Node01 worker binary was updated and restarted directly before document verification.",
+    "This receipt does not certify high-end image generation, general creative vision, deep intelligence, or video generation as local workloads.",
+    "Modal remains the specialist path for workloads that exceed Node01 capability or certified quality."
+  ]
+}

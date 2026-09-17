@@ -27,8 +27,8 @@ $TokenPath = 'C:\ProgramData\Avantiqo\node-token.txt'
 $OllamaUrl = 'http://127.0.0.1:11434'
 $Model = 'qwen3:4b-instruct'
 $ContextTokens = 6144
-$AllCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale')
-$GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale')
+$AllCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct')
+$GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct')
 $CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process')
 $Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } else { $AllCapabilities })
 if ($Lane -eq 'cpu') {
@@ -156,10 +156,26 @@ function RunTextJob($Job) {
 
 
 function UnloadOllamaModel {
-  try {
-    $body = @{ model=$Model; keep_alive=0 } | ConvertTo-Json -Compress
-    [void](Invoke-RestMethod -Uri "$OllamaUrl/api/generate" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 15)
-  } catch {}
+  $body = @{ model=$Model; keep_alive=0 } | ConvertTo-Json -Compress
+  for ($attempt = 0; $attempt -lt 6; $attempt++) {
+    try { [void](Invoke-RestMethod -Uri "$OllamaUrl/api/generate" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 15) } catch {}
+    try {
+      $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 5
+      $resident = @($loaded.models | Where-Object { [string]$_.name -eq $Model })
+      if (-not $resident -or $resident.Count -eq 0) { return }
+    } catch {}
+    Start-Sleep -Milliseconds 750
+  }
+  try { Get-Process -Name 'llama-server' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
+  for ($attempt = 0; $attempt -lt 8; $attempt++) {
+    try {
+      $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 5
+      $resident = @($loaded.models | Where-Object { [string]$_.name -eq $Model })
+      if (-not $resident -or $resident.Count -eq 0) { return }
+    } catch { return }
+    Start-Sleep -Milliseconds 500
+  }
+  throw 'AVANTIQO_LOCAL_GPU_OLLAMA_UNLOAD_FAILED'
 }
 
 function RunVoiceSttJob($Job) {
@@ -186,7 +202,7 @@ function RunVoiceSttJob($Job) {
     $exitCode = $LASTEXITCODE
     $ErrorActionPreference = $previousErrorActionPreference
     $env:PATH = $previousPath
-    $stderr = $(if (Test-Path $err) { (Get-Content $err -Raw).Trim() } else { '' })
+    $stderr = $(if (Test-Path $err) { ([string](Get-Content $err -Raw)).Trim() } else { '' })
     if ($exitCode -ne 0) { throw ('AVANTIQO_LOCAL_VOICE_STT_PROCESS_FAILED:' + $stderr) }
     $json = (($output | Out-String).Trim())
     if (-not $json) { throw 'AVANTIQO_LOCAL_VOICE_STT_OUTPUT_REQUIRED' }
@@ -221,7 +237,7 @@ function RunImageUpscaleJob($Job) {
     $output = & $python $runner --input $tmp 2> $err
     $exitCode = $LASTEXITCODE
     $ErrorActionPreference = $previousErrorActionPreference
-    $stderr = $(if (Test-Path $err) { (Get-Content $err -Raw).Trim() } else { '' })
+    $stderr = $(if (Test-Path $err) { ([string](Get-Content $err -Raw)).Trim() } else { '' })
     if ($exitCode -ne 0) { [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-image-upscale-error.txt',$stderr); $tail = $(if ($stderr.Length -gt 900) { $stderr.Substring($stderr.Length - 900) } else { $stderr }); throw ('AVANTIQO_LOCAL_IMAGE_UPSCALE_PROCESS_FAILED:' + $tail) }
     $json = (($output | Out-String).Trim()); if (-not $json) { throw 'AVANTIQO_LOCAL_IMAGE_UPSCALE_OUTPUT_REQUIRED' }
     $result = $json | ConvertFrom-Json; $elapsed = [int](((Get-Date) - $started).TotalMilliseconds)
@@ -229,6 +245,92 @@ function RunImageUpscaleJob($Job) {
     $peakBytes = 0; try { $peakBytes = [int64]$result.gpu_peak_allocated_bytes } catch {}
     CompleteJob $Job $result @{ elapsed_ms=$elapsed; gpu_workload=$true; image_upscale=$true; gpu_peak_allocated_bytes=$peakBytes }
   } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp,$err }
+}
+
+
+function RunMusicSeparatorJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_MUSIC_SEPARATOR_PAYLOAD_REQUIRED' }
+  $python = 'C:\Avantiqo\music-gpu\Scripts\python.exe'
+  $runner = 'C:\Avantiqo\music-gpu\separator_runner.py'
+  $ffmpeg = 'C:\Avantiqo\ffmpeg\bin'
+  if (-not (Test-Path $python)) { throw 'AVANTIQO_LOCAL_MUSIC_SEPARATOR_PYTHON_REQUIRED' }
+  if (-not (Test-Path $runner)) { throw 'AVANTIQO_LOCAL_MUSIC_SEPARATOR_RUNNER_REQUIRED' }
+  $tmp = Join-Path $env:TEMP ("avantiqo-music-separator-" + [string]$Job.id + ".json")
+  $err = Join-Path $env:TEMP ("avantiqo-music-separator-" + [string]$Job.id + ".err")
+  $trace = 'C:\ProgramData\Avantiqo\last-music-separator-stage.txt'
+  try {
+    [IO.File]::WriteAllText($trace,'payload')
+    UnloadOllamaModel
+    [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 50 -Compress), (New-Object System.Text.UTF8Encoding($false)))
+    $previousPath = $env:PATH; $env:PATH = "C:\Avantiqo\music-gpu\Scripts;$ffmpeg;$previousPath"
+    $started = Get-Date; $previousErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    $outFile = Join-Path $env:TEMP ("avantiqo-music-separator-" + [string]$Job.id + ".out")
+    [IO.File]::WriteAllText($trace,'process')
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $python
+    $psi.Arguments = ('"' + $runner + '" --input "' + $tmp + '"')
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $psi
+    [void]$process.Start()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $process.WaitForExit()
+    $exitCode = [int]$process.ExitCode
+    $rawOutput = [string]$stdoutTask.Result
+    $stderr = [string]$stderrTask.Result
+    $ErrorActionPreference = $previousErrorActionPreference; $env:PATH = $previousPath
+    if ($exitCode -ne 0) { [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-music-separator-error.txt',$stderr); $tail=$(if($stderr.Length -gt 1200){$stderr.Substring($stderr.Length-1200)}else{$stderr}); throw ('AVANTIQO_LOCAL_MUSIC_SEPARATOR_PROCESS_FAILED:' + $tail) }
+    [IO.File]::WriteAllText($trace,'parse'); [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-music-separator-output.txt',$rawOutput); $json=$rawOutput.Trim(); if(-not $json){ throw 'AVANTIQO_LOCAL_MUSIC_SEPARATOR_OUTPUT_REQUIRED' }
+    $result=$json | ConvertFrom-Json; $elapsed=[int](((Get-Date)-$started).TotalMilliseconds); $result | Add-Member -NotePropertyName node_id -NotePropertyValue $NodeId -Force
+    $peak=0; try{$peak=[int64]$result.gpu_peak_allocated_bytes}catch{}
+    [IO.File]::WriteAllText($trace,'complete'); CompleteJob $Job $result @{ elapsed_ms=$elapsed; gpu_workload=$true; music_separator=$true; gpu_peak_allocated_bytes=$peak }
+  } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp,$err,$outFile }
+}
+
+function RunMusicVocalCorrectionJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_MUSIC_VOCAL_CORRECTION_PAYLOAD_REQUIRED' }
+  $python = 'C:\Avantiqo\music-gpu\Scripts\python.exe'
+  $runner = 'C:\Avantiqo\music-gpu\vocal_runner.py'
+  $ffmpeg = 'C:\Avantiqo\ffmpeg\bin'
+  if (-not (Test-Path $python)) { throw 'AVANTIQO_LOCAL_MUSIC_VOCAL_CORRECTION_PYTHON_REQUIRED' }
+  if (-not (Test-Path $runner)) { throw 'AVANTIQO_LOCAL_MUSIC_VOCAL_CORRECTION_RUNNER_REQUIRED' }
+  $tmp = Join-Path $env:TEMP ("avantiqo-music-vocal-correction-" + [string]$Job.id + ".json")
+  $err = Join-Path $env:TEMP ("avantiqo-music-vocal-correction-" + [string]$Job.id + ".err")
+  try {
+    UnloadOllamaModel
+    [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 60 -Compress), (New-Object System.Text.UTF8Encoding($false)))
+    $previousPath = $env:PATH; $env:PATH = "C:\Avantiqo\music-gpu\Scripts;$ffmpeg;$previousPath"
+    $started = Get-Date; $previousErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    $outFile = Join-Path $env:TEMP ("avantiqo-music-vocal-correction-" + [string]$Job.id + ".out")
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $python
+    $psi.Arguments = ('"' + $runner + '" --input "' + $tmp + '"')
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $psi
+    [void]$process.Start()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $process.WaitForExit()
+    $exitCode = [int]$process.ExitCode
+    $rawOutput = [string]$stdoutTask.Result
+    $stderr = [string]$stderrTask.Result
+    $ErrorActionPreference = $previousErrorActionPreference; $env:PATH = $previousPath
+    if ($exitCode -ne 0) { [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-music-vocal-error.txt',$stderr); $tail=$(if($stderr.Length -gt 1200){$stderr.Substring($stderr.Length-1200)}else{$stderr}); throw ('AVANTIQO_LOCAL_MUSIC_VOCAL_CORRECTION_PROCESS_FAILED:' + $tail) }
+    [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-music-vocal-output.txt',$rawOutput); $json=$rawOutput.Trim(); if(-not $json){ throw 'AVANTIQO_LOCAL_MUSIC_VOCAL_CORRECTION_OUTPUT_REQUIRED' }
+    $result=$json | ConvertFrom-Json; $elapsed=[int](((Get-Date)-$started).TotalMilliseconds); $result | Add-Member -NotePropertyName node_id -NotePropertyValue $NodeId -Force
+    $peak=0; try{$peak=[int64]$result.gpu_peak_allocated_bytes}catch{}
+    CompleteJob $Job $result @{ elapsed_ms=$elapsed; gpu_workload=$true; music_vocal_correction=$true; gpu_peak_allocated_bytes=$peak }
+  } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp,$err,$outFile }
 }
 
 function RunElasticJob($Job) {
@@ -308,6 +410,8 @@ while ($true) {
         elseif ([string]$job.capability -eq 'media.ffmpeg.process') { RunMediaJob $job }
         elseif ([string]$job.capability -eq 'ai.speech.to.text') { RunVoiceSttJob $job }
         elseif ([string]$job.capability -eq 'ai.image.upscale') { RunImageUpscaleJob $job }
+        elseif ([string]$job.capability -eq 'ai.audio.stems') { RunMusicSeparatorJob $job }
+        elseif ([string]$job.capability -eq 'ai.audio.vocal-correct') { RunMusicVocalCorrectionJob $job }
         else { FailJob $job 'AVANTIQO_LOCAL_CAPABILITY_UNSUPPORTED' $false }
       } catch {
         FailJob $job (('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Substring(0,[Math]::Min(480,('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Length))) $true

@@ -19,6 +19,7 @@ function classifyLocalJob(job = {}) {
   const certification = /(canary|cert(?:ification)?|benchmark|probe|smoke|migration|test)/i.test(usage)
     || usage.startsWith("local-elastic-")
     || usage.startsWith("media-canary-")
+    || usage.startsWith("node01-music-")
     || workload.includes("certification");
   return certification ? "CERTIFICATION" : "OPERATIONAL";
 }
@@ -29,7 +30,7 @@ function localExecutionResource(job = {}) {
   const workload = text(job.workload).toLowerCase();
   const model = text(job.result?.runtime_model || job.model).toLowerCase();
   if (workload === "music_elastic" || workload === "media_ffmpeg" || model.includes("ffmpeg") || model.includes("signalsmith")) return "LOCAL_CPU";
-  if (workload === "intelligence_text" || model.includes("qwen")) return "LOCAL_LEGACY";
+  if (["music_separator", "music_vocal_correction", "voice_stt", "image_upscale", "intelligence_text"].includes(workload) || model.includes("demucs") || model.includes("torchcrepe") || model.includes("whisper") || model.includes("swin2sr") || model.includes("qwen")) return "LOCAL_GPU";
   return job.node_id ? "LOCAL_OTHER" : "UNASSIGNED";
 }
 
@@ -189,6 +190,7 @@ export async function GET(request) {
         bounded_studio_reasoning: "LOCAL_GPU_QWEN4B_FIRST",
         deep_creative_reasoning: "MODAL_HEAVY_ONLY_WHEN_REQUIRED",
         media_dsp: "LOCAL_CPU_FIRST",
+        music_gpu: "LOCAL_GPU_DEMUCS_TORCHCREPE_FIRST",
         image_upscale: "LOCAL_GPU_SWIN2SR_FIRST",
         voice_stt: "LOCAL_GPU_WHISPER_LARGE_V3_TURBO_FIRST",
         local_transport: "SUPABASE_PULL_QUEUE_V1",

@@ -1,0 +1,36 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+
+const curriculum = fs.readFileSync("lib/intelligence/runtime/AvantiqoGeneralIntelligenceCurriculumRuntime.js", "utf8");
+const route = fs.readFileSync("app/api/internal/intelligence/continuous-learning/process/route.js", "utf8");
+
+test("general intelligence curriculum spans broad world domains", () => {
+  for (const domain of ["economics", "accounting", "hospitality", "software-engineering", "statistics", "science", "law-regulation", "cybersecurity", "decision-science", "communication", "operations", "ai-ml"]) {
+    assert.match(curriculum, new RegExp(`"${domain.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}"`));
+  }
+  assert.match(curriculum, /education_scope: "WORLD_KNOWLEDGE"/);
+  assert.match(curriculum, /trusted_source_policy: "PRIMARY_AUTHORITATIVE_OR_PEER_REVIEWED_PREFERRED"/);
+});
+
+test("world curriculum rotates one high-priority study topic per night", () => {
+  assert.match(curriculum, /utcDayNumber\(nowMs\) % WORLD_CURRICULUM\.length/);
+  assert.match(curriculum, /importance: isActive \? 0\.995 : 0\.58/);
+  assert.match(curriculum, /next_research_at: due/);
+});
+
+test("world knowledge remains evidence-gated and cannot self-train", () => {
+  assert.match(curriculum, /automatic_knowledge_promotion: false/);
+  assert.match(curriculum, /explicit_final_promotion_required: true/);
+  assert.match(curriculum, /automatic_model_training: false/);
+  assert.match(curriculum, /automatic_model_promotion: false/);
+  assert.match(curriculum, /customer_private_content_allowed: false/);
+});
+
+test("nightly route can research and synthesize a fresh world topic in one cycle", () => {
+  const research = route.indexOf("runAvantiqoContinuousLearningBatch({ limit })");
+  const bridge = route.indexOf("postResearchEvidenceCandidateBridge");
+  const mechanism = route.indexOf("postResearchMechanismFirstLearning");
+  const synthesis = route.indexOf("runAvantiqoNightlyLearningSynthesis()");
+  assert.ok(research >= 0 && bridge > research && mechanism > bridge && synthesis > mechanism);
+});

@@ -1,4 +1,5 @@
 import { runCronRouteLocalFirst } from "@/lib/platform/service-runtime/policy/CronRouteComputePolicyRuntime";
+import { reconcileAvantiqoGeneralIntelligenceCurriculum } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceCurriculumRuntime";
 import { runAvantiqoNightlyLearningSynthesis } from "@/lib/intelligence/runtime/AvantiqoNightlyLearningSynthesisRuntime";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -138,6 +139,7 @@ async function handleCronGet(request) {
     const url = new URL(request.url);
     const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 1, 3));
 
+    const generalIntelligenceCurriculum = await reconcileAvantiqoGeneralIntelligenceCurriculum();
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const knowledgeLifecycle = await reconcileAvantiqoKnowledgeLifecycle();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
@@ -437,12 +439,19 @@ async function handleCronGet(request) {
           };
 
     const result = await runAvantiqoContinuousLearningBatch({ limit });
+    const postResearchEvidenceCandidateBridge =
+      await reconcileAvantiqoLearningEvidenceCandidates();
+    const postResearchMechanismFirstLearning =
+      await reconcileAvantiqoMechanismFirstLearning();
     const nightlyLocalSynthesis = await runAvantiqoNightlyLearningSynthesis();
 
     return Response.json(
       {
         ...result,
+        general_intelligence_curriculum: generalIntelligenceCurriculum,
         nightly_local_4b_synthesis: nightlyLocalSynthesis,
+        post_research_learning_evidence_candidate_bridge: postResearchEvidenceCandidateBridge,
+        post_research_mechanism_first_learning: postResearchMechanismFirstLearning,
         internal_product_knowledge: internalProductKnowledge,
         knowledge_lifecycle: knowledgeLifecycle,
         learning_coverage: learningCoverage,

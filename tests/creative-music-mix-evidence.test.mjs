@@ -10,7 +10,7 @@ const evidence=fs.readFileSync("lib/creative/music/runtime/CreativeMusicMixEvide
 test("Mix Engineer route measures real project sources before planning and apply",()=>{
   assert.match(route,/analyzeMusicMixEvidence/);
   assert.match(route,/resolveCreativeProviderAssetUrl/);
-  assert.match(route,/analyzeMusicMixEngineer\(session,mixEvidence\)/);
+  assert.match(route,/analyzeMusicMixEngineer\(session,mixEvidence,arrangement\)/);
 });
 
 test("Mix evidence is local signal analysis and non-mutating",()=>{

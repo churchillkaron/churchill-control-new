@@ -55,6 +55,15 @@ function classifyModalRouting(row = {}) {
   const capability = text(row.capability).toLowerCase();
   const model = text(row.provider_model || row.model).toLowerCase();
   const requestPath = text(row.provider_request_id || row.request_path).toLowerCase();
+  const evidence = row.metadata?.routing_evidence || {};
+  const evidenceContract = text(evidence.contract);
+  const evidenceLane = text(evidence.execution_lane).toLowerCase();
+  if (evidenceContract === "AVANTIQO_SERVICE_ROUTING_EVIDENCE_V1") {
+    if (evidenceLane === "deep") return { class: "INTENTIONAL_MODAL", reason: "RECORDED_DEEP_LANE" };
+    if ((evidenceLane === "front" || evidenceLane === "fast") && evidence.local_lane_eligible === true) {
+      return { class: "LOCAL_FALLBACK", reason: `RECORDED_${evidenceLane.toUpperCase()}_LOCAL_ELIGIBLE` };
+    }
+  }
 
   if (capability === "ai.reasoning.execute" || model.includes("30b-a3b-thinking")) {
     return { class: "INTENTIONAL_MODAL", reason: "DEEP_REASONING_30B" };
@@ -76,7 +85,7 @@ function classifyModalRouting(row = {}) {
 
 async function loadModalTelemetry({ organizationId, since }) {
   const recentResult = await supabaseAdmin.from("platform_service_usage")
-    .select("id,provider,capability,operation,provider_model,supplier_cost,currency,status,latency_ms,provider_latency_ms,provider_request_id,created_at")
+    .select("id,provider,capability,operation,provider_model,supplier_cost,currency,status,latency_ms,provider_latency_ms,provider_request_id,metadata,created_at")
     .eq("organization_id", organizationId)
     .gte("created_at", since)
     .like("provider_request_id", "modal-%")
@@ -92,7 +101,7 @@ async function loadModalTelemetry({ organizationId, since }) {
   for (let page = 0; page < maxPages; page += 1) {
     const from = page * pageSize;
     const result = await supabaseAdmin.from("platform_service_usage")
-      .select("provider,capability,operation,provider_model,supplier_cost,currency,status,latency_ms,provider_latency_ms,provider_request_id,created_at")
+      .select("provider,capability,operation,provider_model,supplier_cost,currency,status,latency_ms,provider_latency_ms,provider_request_id,metadata,created_at")
       .eq("organization_id", organizationId)
       .gte("created_at", since)
       .like("provider_request_id", "modal-%")

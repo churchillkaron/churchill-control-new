@@ -44,10 +44,18 @@ test("business intelligence agent auto-collects external evidence only after gat
 });
 
 
-test("business intelligence agent exposes source-bound external diagnosis closure tool",()=>{
+test("business intelligence agent auto-assesses and closes external diagnosis before conversation",()=>{
   const source=fs.readFileSync("lib/intelligence/runtime/BusinessIntelligenceAgentRuntime.js","utf8");
-  assert.match(source,/createBusinessExternalDiagnosisClosureTool/);
-  assert.match(source,/externalClosureTool/);
-  assert.match(source,/business_external_diagnosis_closure_tool_contract/);
-  assert.match(source,/AVANTIQO_BUSINESS_EXTERNAL_DIAGNOSIS_CLOSURE_TOOL_CONTRACT/);
+  assert.match(source,/assessBusinessExternalEvidence/);
+  assert.match(source,/externalEvidenceAssessment/);
+  assert.match(source,/closeBusinessDiagnosisWithExternalEvidence/);
+  assert.match(source,/business_external_diagnosis_closure: externalDiagnosisClosure/);
+  assert.match(source,/business_final_diagnosis: finalDiagnosis/);
+  assert.match(source,/external_diagnosis_closed_before_conversation/);
+  assert.match(source,/externalEvidenceAuditPackets/);
+  assert.match(source,/externalEvidenceCollectionContext/);
+  assert.match(source,/externalEvidenceAssessmentContext/);
+  assert.doesNotMatch(source,/business_external_evidence_collection: externalEvidenceCollection,/);
+  assert.doesNotMatch(source,/business_external_evidence_packets: externalEvidenceCollection\?\.packets/);
+  assert.doesNotMatch(source,/createBusinessExternalDiagnosisClosureTool/);
 });

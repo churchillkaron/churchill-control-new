@@ -10,3 +10,12 @@ test("mastery requires repeated strong retention and is not auto promoted",()=>{
 test("forgetting adapts future curriculum",()=>{assert.match(curriculum,/forgettingScore >= 0\.12/);assert.match(curriculum,/latest_forgetting_score: forgettingScore/);});
 test("nightly route runs retention after immediate exam",()=>{const exam=route.indexOf("runAvantiqoGeneralIntelligenceExam");const retentionAt=route.lastIndexOf("runAvantiqoGeneralIntelligenceRetention()");assert.ok(exam>=0&&retentionAt>exam);});
 test("retention cannot train promote or release",()=>{for(const x of [/automatic_model_training:false/,/automatic_model_promotion:false/,/automatic_knowledge_promotion:false/]) assert.match(retention,x);});
+
+
+test("retention prioritizes due weak or forgetting material instead of oldest exam only", () => {
+  assert.match(retention, /dueCandidates/);
+  assert.match(retention, /examFailed\?2:0/);
+  assert.match(retention, /forgetting\*1\.5/);
+  assert.match(retention, /dueCandidates\.sort/);
+  assert.match(retention, /import \{ createHash \} from "node:crypto"/);
+});

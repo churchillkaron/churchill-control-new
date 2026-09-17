@@ -25,7 +25,8 @@ test("exam uses deterministic evidence labels and scoring", () => {
 test("weak exam scores adapt future curriculum priority", () => {
   assert.match(curriculum, /latest_exam_weakness_score/);
   assert.match(curriculum, /adaptive_practice_due/);
-  assert.match(curriculum, /weaknessScore >= 0\.2/);
+  assert.match(curriculum, /!examPassed && weaknessScore >= 0\.2/);
+  assert.match(curriculum, /latest_exam_passed: examPassed/);
   assert.match(curriculum, /adaptiveImportance/);
 });
 

@@ -12,7 +12,9 @@ test("transfer practice requires a retained mastery candidate", () => {
 });
 
 test("transfer practice is cross-domain and evidence bounded", () => {
-  assert.match(runtime, /domainOf\(r\)!==sourceDomain/);
+  assert.match(runtime, /NO_UNPRACTICED_CROSS_DOMAIN_PAIR/);
+  assert.match(runtime, /practicedPairs/);
+  assert.match(runtime, /candidateTargetDomain===candidateSourceDomain/);
   assert.match(runtime, /sourceEvidence\.length<2\|\|targetEvidence\.length<2/);
   assert.match(runtime, /Use both SOURCE and TARGET evidence/);
   assert.match(runtime, /source_evidence_used:sourceUsed/);
@@ -41,4 +43,19 @@ test("nightly route runs transfer practice after retention", () => {
   const retention = route.indexOf("runAvantiqoGeneralIntelligenceRetention()");
   const transfer = route.indexOf("runAvantiqoGeneralIntelligenceTransferPractice()");
   assert.ok(retention >= 0 && transfer > retention);
+});
+
+
+test("transfer rotates across eligible source target pairs instead of idling on first duplicate", () => {
+  assert.match(runtime, /for\(const candidateSource of list\(retention.data\)\)/);
+  assert.match(runtime, /for\(const candidateTarget of list\(agendas.data\)\)/);
+  assert.match(runtime, /practicedPairs.has/);
+  assert.doesNotMatch(runtime, /TRANSFER_PAIR_ALREADY_PRACTICED/);
+});
+
+
+test("transfer skips pairs without synthesis or sufficient verified evidence", () => {
+  assert.match(runtime, /candidateSynthesis/);
+  assert.match(runtime, /candidateSourceEvidence\.length<2/);
+  assert.match(runtime, /candidateTargetEvidence\.length<2/);
 });

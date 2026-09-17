@@ -30,6 +30,7 @@ const EMPTY_STATE = {
   country: null,
   currency: null,
   modules: [],
+  product_entitlements: [],
   permissions: [],
   role: null,
   error: null,
@@ -170,6 +171,7 @@ export function BusinessContextProvider({ children }) {
             period_id: null,
             entities: [],
             modules: [],
+            product_entitlements: [],
             permissions: [],
             error: data?.error || data?.reason || "Business context bootstrap failed",
           }));
@@ -221,6 +223,7 @@ export function BusinessContextProvider({ children }) {
             data.organization?.default_currency ||
             null,
           modules: Array.isArray(data.modules) ? data.modules : [],
+          product_entitlements: Array.isArray(data.product_entitlements) ? data.product_entitlements : [],
           permissions: Array.isArray(data.permissions) ? data.permissions : [],
           role: data.role || staff?.role || null,
           error: null,
@@ -243,6 +246,7 @@ export function BusinessContextProvider({ children }) {
           organizations: [],
           entities: [],
           modules: [],
+          product_entitlements: [],
           permissions: [],
           is_platform_operator_workspace: false,
           error: error.message,

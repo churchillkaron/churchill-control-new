@@ -7,6 +7,7 @@ import {
   Activity,
   Boxes,
   ChartNoAxesCombined,
+  Code2,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -28,6 +29,7 @@ import { getErpDomains } from "@/lib/platform/registry/erpRegistry";
 import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
 
 const NAV_EXPANDED_KEY = "avantiqo.erp.navigation.expanded.v1";
+const DEVELOPER_ROLES = new Set(["OWNER", "ORGANIZATION_OWNER", "ORG_OWNER", "PLATFORM_OWNER", "SUPER_ADMIN", "ADMIN", "DEVELOPER", "INTEGRATOR", "PARTNER"]);
 
 const DOMAIN_ICONS = {
   finance: Landmark,
@@ -120,6 +122,8 @@ export default function WorkspaceNavigationRail() {
   if (!organizationId) return null;
 
   const homeHref = `/workspace/${encodeURIComponent(organizationId)}`;
+  const role = String(businessContext.role || "").trim().toUpperCase();
+  const canUseDeveloperWorkspace = DEVELOPER_ROLES.has(role);
   const domains = getErpDomains()
     .filter((domain) => domain.id !== "services")
     .map((domain) => {
@@ -176,6 +180,16 @@ export default function WorkspaceNavigationRail() {
           Icon={LayoutGrid}
           expanded={expanded}
         />
+
+        {canUseDeveloperWorkspace ? (
+          <RailLink
+            href={`/workspace/${encodeURIComponent(organizationId)}/developers`}
+            label="Developer"
+            active={pathname === `/workspace/${organizationId}/developers` || pathname.startsWith(`/workspace/${organizationId}/developers/`)}
+            Icon={Code2}
+            expanded={expanded}
+          />
+        ) : null}
 
         <button
           type="button"

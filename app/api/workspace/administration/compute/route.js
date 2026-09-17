@@ -212,6 +212,7 @@ export async function GET(request) {
       { product: "Music / Audio", capability: "ai.audio.vocal-correct", model: "torchcrepe-full", status: "CERTIFIED_LOCAL", resource: "GPU" },
       { product: "Video / Media", capability: "media.ffmpeg.process", model: "ffmpeg-9.0.1", status: "CERTIFIED_LOCAL", resource: "CPU" },
       { product: "Music / Audio", capability: "ai.audio.elastic-warp", model: "signalsmith-stretch", status: "CERTIFIED_LOCAL", resource: "CPU" },
+      { product: "Music generation", capability: "ai.music.generate", model: "ACE-Step/Ace-Step1.5 · XL Turbo + 1.7B LM", status: "MODAL_KEEP_EXACT_MODEL_EXCEEDS_VRAM", resource: "GPU" },
       { product: "Documents / OCR", capability: "vision.ocr", model: "qwen2.5-vl-7b", status: "MODAL_KEEP_EXACT_MODEL_TOO_LARGE", resource: "GPU" },
       { product: "Image / Video generation", capability: "generation", model: "specialist production models", status: "MODAL_KEEP_SPECIALIST_GPU", resource: "GPU" },
     ];

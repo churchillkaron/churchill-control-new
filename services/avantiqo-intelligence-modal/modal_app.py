@@ -1,8 +1,8 @@
 """Owned Avantiqo Intelligence Fast + Deep Modal workers.
 
 No Modal Volume is created. Each exact Qwen snapshot is baked into its own
-immutable Modal Image layer. Fast and Deep both scale to zero after a five-second idle window. The
-gateway lives in modal_service.py and never imports this module.
+immutable Modal Image layer. Fast and Deep both scale to zero after a five-second idle window.
+Production uses direct Modal SDK transport; no gateway app is required.
 """
 from __future__ import annotations
 

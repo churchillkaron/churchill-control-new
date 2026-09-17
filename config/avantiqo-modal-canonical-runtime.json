@@ -1,0 +1,38 @@
+{
+  "contract": "AVANTIQO_MODAL_CANONICAL_RUNTIME_V1",
+  "policy": {
+    "minimum_containers": 0,
+    "legacy_gateways_forbidden": true,
+    "legacy_canaries_forbidden": true,
+    "wan_forbidden": true,
+    "direct_sdk_primary": true
+  },
+  "apps": [
+    {"name":"avantiqo-code-real-write-one-shot","role":"code-specialist"},
+    {"name":"avantiqo-image-owned","role":"image-specialist"},
+    {"name":"avantiqo-video-owned","role":"video-ltx25"},
+    {"name":"avantiqo-voice-owned","role":"voice-fallback"},
+    {"name":"avantiqo-intelligence-owned","role":"deep-intelligence"},
+    {"name":"avantiqo-intelligence-front-owned","role":"front-fallback"},
+    {"name":"avantiqo-audio-owned","role":"music-generation"},
+    {"name":"avantiqo-sfx-owned","role":"sfx-generation"},
+    {"name":"avantiqo-intelligence-trainer-owned","role":"explicit-approved-training"},
+    {"name":"avantiqo-music-separator-owned","role":"local-outage-fallback"}
+  ],
+  "models": [
+    "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+    "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+    "Tongyi-MAI/Z-Image",
+    "Qwen/Qwen2.5-VL-7B-Instruct",
+    "Lightricks/LTX-2.5",
+    "openai/whisper-large-v3-turbo",
+    "resemble-ai/chatterbox:multilingual-v3",
+    "Qwen/Qwen3-30B-A3B-Instruct-2507",
+    "Qwen/Qwen3-30B-A3B-Thinking-2507",
+    "Qwen/Qwen3-4B-GGUF:Q4_K_M",
+    "Qwen/Qwen3-1.7B-GGUF:Q8_0",
+    "ACE-Step/Ace-Step1.5",
+    "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+    "facebookresearch/demucs:htdemucs_ft"
+  ]
+}

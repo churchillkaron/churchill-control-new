@@ -50,6 +50,30 @@ function productArea({ workload, capability, usageId, provider } = {}) {
 
 
 
+
+function classifyModalRouting(row = {}) {
+  const capability = text(row.capability).toLowerCase();
+  const model = text(row.provider_model || row.model).toLowerCase();
+  const requestPath = text(row.provider_request_id || row.request_path).toLowerCase();
+
+  if (capability === "ai.reasoning.execute" || model.includes("30b-a3b-thinking")) {
+    return { class: "INTENTIONAL_MODAL", reason: "DEEP_REASONING_30B" };
+  }
+  if (["ai.video.generate","ai.video.image_to_video","ai.music.generate","ai.image.generate","ai.image.analyze"].includes(capability)) {
+    return { class: "INTENTIONAL_MODAL", reason: "SPECIALIST_MODEL" };
+  }
+  if (capability === "ai.text.to.speech" && model.includes("chatterbox")) {
+    return { class: "INTENTIONAL_MODAL", reason: "INTERACTIVE_TTS_HYBRID" };
+  }
+  if (capability === "ai.speech.to.text" && model.includes("whisper-large-v3-turbo")) {
+    return { class: "LOCAL_FALLBACK", reason: "LOCAL_STT_CAPABLE" };
+  }
+  if (capability === "ai.text.generate" && model.includes("30b-a3b-instruct")) {
+    return { class: "LOCAL_CANDIDATE_UNCLASSIFIED", reason: requestPath.includes("modal-intelligence") ? "HISTORICAL_LANE_MISSING" : "TEXT_LANE_UNKNOWN" };
+  }
+  return { class: "INTENTIONAL_MODAL", reason: "NO_CERTIFIED_LOCAL_EQUIVALENT" };
+}
+
 async function loadModalTelemetry({ organizationId, since }) {
   const recentResult = await supabaseAdmin.from("platform_service_usage")
     .select("id,provider,capability,operation,provider_model,supplier_cost,currency,status,latency_ms,provider_latency_ms,provider_request_id,created_at")
@@ -68,7 +92,7 @@ async function loadModalTelemetry({ organizationId, since }) {
   for (let page = 0; page < maxPages; page += 1) {
     const from = page * pageSize;
     const result = await supabaseAdmin.from("platform_service_usage")
-      .select("status,supplier_cost,currency,latency_ms,provider_latency_ms,created_at")
+      .select("provider,capability,operation,provider_model,supplier_cost,currency,status,latency_ms,provider_latency_ms,provider_request_id,created_at")
       .eq("organization_id", organizationId)
       .gte("created_at", since)
       .like("provider_request_id", "modal-%")
@@ -84,6 +108,15 @@ async function loadModalTelemetry({ organizationId, since }) {
   const latencies = rows
     .map((row) => Number(row.provider_latency_ms || row.latency_ms || 0))
     .filter((value) => value > 0);
+  const routing = rows.map((row) => ({ ...row, ...classifyModalRouting(row) }));
+  const fallbackCostByCapability = {};
+  for (const row of routing.filter((row) => row.class === "LOCAL_FALLBACK")) {
+    const capability = text(row.capability);
+    const cost = Number(row.supplier_cost || 0);
+    if (!capability || !(cost > 0)) continue;
+    const current = fallbackCostByCapability[capability] || { total: 0, count: 0 };
+    current.total += cost; current.count += 1; fallbackCostByCapability[capability] = current;
+  }
   return {
     available: true,
     rows: recentResult.data || [],
@@ -98,6 +131,10 @@ async function loadModalTelemetry({ organizationId, since }) {
       average_latency_ms: latencies.length ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length) : null,
       last_used_at: rows[0]?.created_at || null,
       truncated: rows.length === pageSize * maxPages,
+      intentional_modal_calls: routing.filter((row) => row.class === "INTENTIONAL_MODAL").length,
+      local_fallback_calls: routing.filter((row) => row.class === "LOCAL_FALLBACK").length,
+      local_candidate_unclassified_calls: routing.filter((row) => row.class === "LOCAL_CANDIDATE_UNCLASSIFIED").length,
+      fallback_cost_by_capability: fallbackCostByCapability,
     },
   };
 }
@@ -175,6 +212,8 @@ export async function GET(request) {
         status: text(row.status) || null,
         latency_ms: Number(row.provider_latency_ms || row.latency_ms || 0) || null,
         product_area: productArea({ capability: row.capability, usageId: row.operation, provider: row.provider }),
+        routing_class: classifyModalRouting(row).class,
+        routing_reason: classifyModalRouting(row).reason,
       };
     });
     const operationalJobs = jobs.filter((job) => job.job_class === "OPERATIONAL");
@@ -195,24 +234,17 @@ export async function GET(request) {
     const localTodayMs = completed.filter((job) => text(job.completed_at || job.updated_at).slice(0, 10) === todayKey)
       .reduce((sum, job) => sum + Number(job.metrics?.elapsed_ms || 0), 0);
     const activeJob = operationalJobs.find((job) => job.status === "RUNNING") || null;
-    const modalCostsByCapability = new Map();
-    for (const row of modalUsage) {
-      const capability = text(row.capability);
-      const cost = Number(row.supplier_cost || 0);
-      if (!capability || !(cost > 0)) continue;
-      const current = modalCostsByCapability.get(capability) || { total: 0, count: 0 };
-      current.total += cost; current.count += 1; modalCostsByCapability.set(capability, current);
-    }
     let estimatedAvoidedSupplierCost = 0;
     let comparableLocalJobs = 0;
     for (const job of completed) {
-      const sample = modalCostsByCapability.get(text(job.capability));
+      const sample = modalSummary.fallback_cost_by_capability?.[text(job.capability)];
       if (!sample?.count) continue;
-      estimatedAvoidedSupplierCost += sample.total / sample.count;
+      estimatedAvoidedSupplierCost += Number(sample.total || 0) / Number(sample.count || 1);
       comparableLocalJobs += 1;
     }
-    const certifiedLocalCapabilities = new Set(["ai.text.generate","ai.speech.to.text","ai.image.upscale","ai.audio.stems","ai.audio.vocal-correct","media.ffmpeg.process","ai.audio.elastic-warp"]);
-    const modalFallbackCalls = modalUsage.filter((row) => certifiedLocalCapabilities.has(text(row.capability))).length;
+    const modalFallbackCalls = Number(modalSummary.local_fallback_calls || 0);
+    const modalLocalCandidateUnclassifiedCalls = Number(modalSummary.local_candidate_unclassified_calls || 0);
+    const modalIntentionalCalls = Number(modalSummary.intentional_modal_calls || 0);
 
     const candidateMatrix = [
       { product: "Business Partner / Intelligence", capability: "ai.text.generate", model: "qwen3:4b-instruct", status: "CERTIFIED_LOCAL", resource: "GPU" },
@@ -287,6 +319,8 @@ export async function GET(request) {
         estimated_avoided_supplier_cost_currency: text(modalSummary.currency) || "THB",
         estimated_avoided_supplier_cost_comparable_jobs: comparableLocalJobs,
         modal_fallback_calls_for_local_capabilities_30d: modalFallbackCalls,
+        modal_local_candidate_unclassified_calls_30d: modalLocalCandidateUnclassifiedCalls,
+        modal_intentional_calls_30d: modalIntentionalCalls,
       },
       nodes,
       jobs,

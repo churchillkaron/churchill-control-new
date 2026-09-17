@@ -11,6 +11,7 @@ import { reconcileAvantiqoArenaWeaknessCurriculum } from "@/lib/intelligence/run
 import { runAvantiqoArenaWeaknessPractice } from "@/lib/intelligence/runtime/AvantiqoArenaWeaknessPracticeRuntime";
 import { runAvantiqoStructuredOutputPractice } from "@/lib/intelligence/runtime/AvantiqoStructuredOutputPracticeRuntime";
 import { runAvantiqoBusinessPartnerExperiencePractice } from "@/lib/intelligence/runtime/AvantiqoBusinessPartnerExperiencePracticeRuntime";
+import { reconcileAvantiqoBusinessPartnerExperiencePracticeEffectiveness } from "@/lib/intelligence/runtime/AvantiqoBusinessPartnerExperiencePracticeEffectivenessRuntime";
 import { reconcileAvantiqoVerifiedOutcomePatterns } from "@/lib/intelligence/runtime/AvantiqoVerifiedOutcomePatternRuntime";
 import { runAvantiqoNightlyLearningSynthesis } from "@/lib/intelligence/runtime/AvantiqoNightlyLearningSynthesisRuntime";
 import { runAvantiqoGeneralIntelligenceExam } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceExamRuntime";
@@ -478,6 +479,7 @@ async function handleCronGet(request) {
     const intelligenceImprovementLoop = await runAvantiqoIntelligenceImprovementLoop();
     const arenaWeaknessCurriculum = await reconcileAvantiqoArenaWeaknessCurriculum();
     const arenaWeaknessPractice = await runAvantiqoArenaWeaknessPractice();
+    const experiencePracticeEffectiveness = await reconcileAvantiqoBusinessPartnerExperiencePracticeEffectiveness();
     const experienceFailurePractice = await runAvantiqoBusinessPartnerExperiencePractice();
     const structuredOutputPractice = await runAvantiqoStructuredOutputPractice();
     const generalIntelligenceTransferPractice = await runAvantiqoGeneralIntelligenceTransferPractice();
@@ -504,6 +506,7 @@ async function handleCronGet(request) {
         intelligence_improvement_loop: intelligenceImprovementLoop,
         arena_weakness_curriculum: arenaWeaknessCurriculum,
         arena_weakness_practice: arenaWeaknessPractice,
+        business_partner_experience_practice_effectiveness: experiencePracticeEffectiveness,
         business_partner_experience_practice: experienceFailurePractice,
         structured_output_practice: structuredOutputPractice,
         general_intelligence_transfer_practice: generalIntelligenceTransferPractice,

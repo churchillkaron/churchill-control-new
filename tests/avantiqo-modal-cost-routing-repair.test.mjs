@@ -57,3 +57,29 @@ test("compact preproduction repair and single-shot revision use bounded fast rou
   assert.match(surgicalRevision, /max_output_tokens: 2200/);
   assert.match(surgicalRevision, /execution_lane: "fast"/);
 });
+
+
+test("short-form cinematic critique and one-to-two-shot atomic revisions are local-Qwen eligible", () => {
+  const impact = fs.readFileSync("lib/creative/director/runtime/CreativeCinematicImpactRuntime.js", "utf8");
+  const atomic = fs.readFileSync("lib/creative/revisions/runtime/CreativeAtomicShotSetRevisionRuntime.js", "utf8");
+  const critiqueStart = impact.indexOf("async function critiquePlan");
+  const critiqueEnd = impact.indexOf("async function repairPlan", critiqueStart);
+  const critique = impact.slice(critiqueStart, critiqueEnd);
+  assert.match(critique, /maxOutputTokens <= 1800[\s\S]*?executionLane: "fast"/);
+  assert.match(atomic, /verifiedShots\.length <= 2[\s\S]*?execution_lane: "fast"/);
+  assert.match(atomic, /maxOutputTokens = Math\.min\(16000, 2500 \+ verifiedShots\.length \* 700\)/);
+});
+
+
+test("Music Studio bounded critics and repair use local-Qwen supervisor while invention stays deep", () => {
+  const creativeReasoning = fs.readFileSync("lib/creative/reasoning/CreativeReasoningService.js", "utf8");
+  const supervisor = fs.readFileSync("lib/intelligence/runtime/AvantiqoStructuredIntelligenceSupervisorRuntime.js", "utf8");
+  assert.match(creativeReasoning, /MUSIC_STUDIO_CRITIC_PANEL/);
+  assert.match(creativeReasoning, /MUSIC_STUDIO_PREPRODUCTION_REPAIR/);
+  assert.match(creativeReasoning, /MUSIC_STUDIO_CRITIC_PANEL: 1800/);
+  assert.match(creativeReasoning, /MUSIC_STUDIO_PREPRODUCTION_REPAIR: 2400/);
+  assert.match(supervisor, /BOUNDED_FAST_STRUCTURED_OPERATIONS[\s\S]*MUSIC_STUDIO_CRITIC_PANEL[\s\S]*MUSIC_STUDIO_PREPRODUCTION_REPAIR/);
+  assert.match(supervisor, /boundedFastStructured \? "fast" : normalizedMode/);
+  assert.doesNotMatch(creativeReasoning, /MUSIC_STUDIO_CONCEPT_[^\n]*BOUNDED_FAST/);
+  assert.doesNotMatch(creativeReasoning, /MUSIC_STUDIO_RESEARCH_ROOM[^\n]*BOUNDED_FAST/);
+});

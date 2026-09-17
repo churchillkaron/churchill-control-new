@@ -4,6 +4,7 @@ import { runAvantiqoNightlyLearningSynthesis } from "@/lib/intelligence/runtime/
 import { runAvantiqoGeneralIntelligenceExam } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceExamRuntime";
 import { runAvantiqoGeneralIntelligenceRetention } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceRetentionRuntime";
 import { runAvantiqoGeneralIntelligenceTransferPractice } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceTransferPracticeRuntime";
+import { reconcileAvantiqoGeneralIntelligenceMasteryEvidence } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceMasteryEvidenceRuntime";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -452,6 +453,7 @@ async function handleCronGet(request) {
     });
     const generalIntelligenceRetention = await runAvantiqoGeneralIntelligenceRetention();
     const generalIntelligenceTransferPractice = await runAvantiqoGeneralIntelligenceTransferPractice();
+    const generalIntelligenceMasteryEvidence = await reconcileAvantiqoGeneralIntelligenceMasteryEvidence();
 
     return Response.json(
       {
@@ -461,6 +463,7 @@ async function handleCronGet(request) {
         general_intelligence_exam: generalIntelligenceExam,
         general_intelligence_retention: generalIntelligenceRetention,
         general_intelligence_transfer_practice: generalIntelligenceTransferPractice,
+        general_intelligence_mastery_evidence: generalIntelligenceMasteryEvidence,
         post_research_learning_evidence_candidate_bridge: postResearchEvidenceCandidateBridge,
         post_research_mechanism_first_learning: postResearchMechanismFirstLearning,
         internal_product_knowledge: internalProductKnowledge,

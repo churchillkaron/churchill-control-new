@@ -14,7 +14,8 @@ test("professional release exposes corrected vocal as an explicit human review c
 
 test("professional vocal approval requires explicit listening approval and authenticated reviewer evidence", () => {
   assert.match(route, /human_listening_review_approved !== true/);
-  assert.match(route, /certifyProfessionalVocalProduction/);
+  assert.match(route, /continueMusicProfessionalProduction/);
+  assert.match(route, /authorized_stage: "VOCAL_PRODUCTION"/);
   assert.match(route, /approved_by: access\?\.userEmail \|\| access\?\.userId/);
   assert.match(route, /action === "certify_vocal"/);
 });

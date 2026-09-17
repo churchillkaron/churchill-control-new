@@ -5,11 +5,11 @@ import { NextResponse } from "next/server";
 import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 import { loadMusicConversationState } from "@/lib/creative/music/runtime/CreativeMusicConversationStateRuntime.js";
 import { continueMusicProfessionalProduction } from "@/lib/creative/music/runtime/CreativeMusicProfessionalContinuationRuntime.js";
-import { certifyProfessionalVocalProduction } from "@/lib/creative/music/runtime/CreativeMusicProfessionalVocalProductionRuntime.js";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 const PERMISSIONS = Object.freeze(["creative.execute", "creative.production.run", "creative.*"]);
 function text(value) { return String(value ?? "").trim(); }
+function assetProjectId(asset={}){ return text(asset.creative_project_id || asset.metadata?.creative_project_id); }
 function kind(asset = {}) { return text(asset.metadata?.music_asset_kind).toUpperCase(); }
 function created(asset = {}) { return Date.parse(asset.created_at || asset.updated_at || 0) || 0; }
 
@@ -26,13 +26,13 @@ async function resolveProjectAssets(organizationId, projectId) {
 async function resolveSource(organizationId, projectId, explicitId = null) {
   if (explicitId) {
     const asset = await CreativeAssetsRuntime.get(explicitId);
-    if (asset && text(asset.organization_id) === organizationId && text(asset.creative_project_id) === projectId && asset.metadata?.professional_release_requested === true) return asset;
+    if (asset && text(asset.organization_id) === organizationId && assetProjectId(asset) === projectId && asset.metadata?.professional_release_requested === true) return asset;
   }
   const state = await loadMusicConversationState({ organization_id: organizationId, creative_project_id: projectId });
   const persistedId = text(state.state?.professional_production_state?.source_asset_id || state.state?.professional_production?.source_asset_id);
   if (persistedId) {
     const asset = await CreativeAssetsRuntime.get(persistedId);
-    if (asset && text(asset.organization_id) === organizationId && text(asset.creative_project_id) === projectId) return asset;
+    if (asset && text(asset.organization_id) === organizationId && assetProjectId(asset) === projectId) return asset;
   }
   const assets = await resolveProjectAssets(organizationId, projectId);
   return assets.filter((asset) => asset.metadata?.professional_release_requested === true).sort((a, b) => created(b) - created(a))[0] || null;
@@ -80,19 +80,20 @@ async function certifyVocal(body, access) {
   const candidate = text(body.corrected_vocal_asset_id)
     ? await CreativeAssetsRuntime.get(text(body.corrected_vocal_asset_id))
     : await latestCorrectedVocal(organizationId, projectId, source);
-  if (!candidate || text(candidate.organization_id) !== organizationId || text(candidate.creative_project_id) !== projectId) {
+  if (!candidate || text(candidate.organization_id) !== organizationId || assetProjectId(candidate) !== projectId) {
     throw new Error("CREATIVE_MUSIC_PRO_VOCAL_REVIEW_CANDIDATE_REQUIRED");
   }
-  const certification = await certifyProfessionalVocalProduction({
+  const advanced = await continueMusicProfessionalProduction({
+    ...body,
     organization_id: organizationId,
     creative_project_id: projectId,
     source_asset_id: source.id,
+    authorized_stage: "VOCAL_PRODUCTION",
     corrected_vocal_asset_id: candidate.id,
     human_listening_review_approved: true,
     approved_by: access?.userEmail || access?.userId || null,
   });
-  const next = await status({ ...body, source_asset_id: source.id });
-  return { ...next, vocal_certification: certification, vocal_review_approved: true, reviewer: access?.userEmail || access?.userId || null, publication_authorized: false };
+  return { success: true, active: true, source_asset_id: source.id, source_title: source.title || source.name || source.file_name || "Music production", ...advanced, vocal_certification: advanced.execution || null, vocal_review_approved: true, reviewer: access?.userEmail || access?.userId || null, publication_authorized: false };
 }
 
 export async function POST(request) {

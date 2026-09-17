@@ -53,6 +53,25 @@ export const commercialSurfaceConfigs = {
     money:[["Partner plans","Charge for portfolio management and partner-grade controls."],["Client subscriptions","Each managed organization can remain a direct recurring account."],["Marketplace share","Partners can publish paid solutions and capabilities."],["Implementation ecosystem","Services revenue can grow around the core platform without Avantiqo hiring for every deployment."]],
     cta:"Build a distribution network around the platform.", primary:"Developer access", primaryHref:"/developers"
   },
+
+  commerce: {
+    context:"Commerce", art:"commerce", status:"Transaction layer", eyebrow:"Avantiqo Commerce", title:"From order to payment to the books.",
+    description:"Avantiqo Commerce connects selling, checkout, payment and finance evidence inside the same business context. POS, customer invoices, bookings, QR, transfer, card and future payment rails can become one governed commercial flow instead of disconnected systems.",
+    valueEyebrow:"Revenue in motion", valueTitle:"Turn commercial activity into a complete operating flow.",
+    value:[["Sell anywhere","POS, bookings, orders, invoices and customer-facing checkout surfaces."],["Accept payment","Cash, card, QR, bank transfer and provider-backed payment rails."],["Settle correctly","Payments remain connected to the right organization, legal entity, customer and source transaction."],["Post to Finance","Commercial events can become governed finance evidence instead of manual re-entry."]],
+    moneyTitle:"Transactions create revenue beyond the software subscription.", moneyDescription:"Commerce increases platform stickiness and creates room for payment, service and transaction economics where regulation and provider terms allow.",
+    money:[["Transaction services","Commercial fees can attach to eligible payment or settlement flows."],["Commerce add-ons","POS, checkout, booking and customer-facing modules can be packaged commercially."],["Provider margin","Connected payment and commerce providers can create service economics where permitted."],["Higher retention","Once sales and settlement live inside Avantiqo, the operating system becomes harder to replace."]],
+    cta:"Make revenue, settlement and accounting part of one system.", primary:"Enter Avantiqo", primaryHref:"/login"
+  },
+  channels: {
+    context:"Channels", art:"channels", status:"Paid distribution surfaces", eyebrow:"Avantiqo Channels", title:"Put the Business OS wherever the customer or staff actually works.",
+    description:"Websites, customer portals, staff portals, mobile experiences, kiosk and POS, widgets and embedded surfaces can all expose the same governed Avantiqo capabilities without creating separate operating systems behind each channel.",
+    valueEyebrow:"One platform. Many surfaces.", valueTitle:"Sell distribution channels as products, not custom one-off builds.",
+    value:[["Public websites","Business websites, campaign surfaces, booking and commerce entry points."],["Customer portals","Self-service for bookings, orders, documents, payments and account activity."],["Staff experiences","Role-specific portals, mobile workflows, kiosk and POS surfaces."],["Embedded widgets","Avantiqo capabilities inside external websites, apps and partner products."]],
+    moneyTitle:"Every channel can increase reach, usage and account value.", moneyDescription:"The same underlying business capabilities can be packaged into paid channels while identity, permissions, data and evidence remain shared underneath.",
+    money:[["Channel add-ons","Charge for websites, portals, mobile, kiosk, POS or embedded surfaces."],["Build & launch","Premium setup, migration, brand implementation and launch services."],["Usage growth","More customer and staff touchpoints create more transactions and capability consumption."],["Partner delivery","Agencies and developers can build channel experiences on top of the platform."]],
+    cta:"One operating system. Every surface the business needs.", primary:"Enter Avantiqo", primaryHref:"/login"
+  },
   agents: {
     context:"Agents", art:"agents", status:"Governed automation", eyebrow:"Avantiqo Agents", title:"Automated workers that operate inside real business authority.",
     description:"Avantiqo agents can research, prepare, coordinate and execute approved work through exact capabilities. The goal is not autonomous access to everything; it is useful automation constrained by organization, role, workflow, evidence and approval.",

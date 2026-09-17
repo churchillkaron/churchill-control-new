@@ -172,7 +172,9 @@ export default function AvantiqoPublicHome() {
           { label: "Platform", href: "#platform", visibility: "hidden md:inline-flex" },
           { label: "Intelligence", href: "#intelligence", visibility: "hidden lg:inline-flex" },
           { label: "Integrations", href: "#connected-service-data", visibility: "hidden lg:inline-flex" },
-          { label: "Solutions", href: "/solutions", visibility: "hidden xl:inline-flex" },
+          { label: "Solutions", href: "/solutions", visibility: "hidden lg:inline-flex" },
+          { label: "Commerce", href: "/commerce", visibility: "hidden xl:inline-flex" },
+          { label: "Channels", href: "/channels", visibility: "hidden xl:inline-flex" },
           { label: "Creative", href: "/creative-studios", visibility: "hidden xl:inline-flex" },
           { label: "Developers", href: "/developers", visibility: "hidden 2xl:inline-flex" },
         ]}
@@ -292,9 +294,11 @@ export default function AvantiqoPublicHome() {
               ["Solutions","/solutions","Industry Business OS","Restaurants, hotels, retail and professional services packaged around real operating workflows."],
               ["Agents","/agents","Governed digital workers","Specialist automation and premium workloads built on exact business capabilities."],
               ["Compute","/compute","Use it. Rent the idle.","Owned GPU reduces provider spend, serves paid workloads and can monetize genuinely idle capacity."],
-              ["Marketplace","/marketplace","A commercial ecosystem","Capabilities, agents, solutions, connectors and future compute supply can be distributed and settled."],
+              ["Marketplace","/ecosystem","A commercial ecosystem","Capabilities, agents, solutions, connectors and future compute supply can be distributed and settled."],
               ["Integrations","/integrations","Connected-service economics","Messaging, ads, payments, documents and external services become governed capabilities."],
               ["Partners","/partners","Distribution at portfolio scale","Accountants, agencies, consultants and builders can bring many businesses onto Avantiqo."],
+              ["Commerce","/commerce","Sell. Settle. Post.","POS, orders, bookings, invoices and payment rails connect revenue to finance evidence."],
+              ["Channels","/channels","Every customer and staff surface","Websites, portals, mobile, kiosk, POS and embedded experiences become paid extensions of the same Business OS."],
               ["Pricing","/pricing","Four revenue engines","Subscription, consumption, transactions and platform economics in one commercial architecture."],
               ["Developers","/developers","Build on Avantiqo","APIs, agent tools, webhooks and embedded workflows create metered platform demand."],
             ].map(([name,href,title,text],i)=><a key={name} href={href} className="group rounded-[22px] border border-white/[0.08] bg-white/[0.025] p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/28 hover:bg-white/[0.04]"><div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#D6A66A]">0{i+1}</span><Arrow className="h-3.5 w-3.5 text-white/20 transition group-hover:translate-x-0.5 group-hover:text-[#D6A66A]"/></div><div className="mt-8 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]/75">{name}</div><h3 className="mt-2 text-[16px] font-semibold text-white/82">{title}</h3><p className="mt-2 text-[9px] leading-5 text-white/34">{text}</p></a>)}
@@ -359,7 +363,7 @@ export default function AvantiqoPublicHome() {
       <footer className="border-t border-black/[0.07] bg-[#FBFAF8]">
         <div className="mx-auto flex max-w-[1320px] flex-col gap-5 px-5 py-8 text-[10px] text-[#817B73] sm:flex-row sm:items-end sm:justify-between sm:px-7 lg:px-10">
           <div><div><span className="font-semibold text-[#3E3933]">Avantiqo</span><span className="ml-2">Business Operating System</span></div><div className="mt-2 text-[9px] leading-5 text-[#9B958D]">Avantiqo is operated by BEA Co., Ltd., Thailand. Company Registration No. 0835553004601.</div></div>
-          <div className="flex flex-wrap gap-5"><a href="/solutions" className="transition hover:text-[#8A633C]">Solutions</a><a href="/pricing" className="transition hover:text-[#8A633C]">Pricing</a><a href="/ecosystem" className="transition hover:text-[#8A633C]">Marketplace</a><a href="/developers" className="transition hover:text-[#8A633C]">Developers</a><a href="/policy" className="transition hover:text-[#8A633C]">Privacy Policy</a><a href="/terms" className="transition hover:text-[#8A633C]">Terms of Service</a><a href="#connected-service-data" className="transition hover:text-[#8A633C]">Connected services</a><a href="/login" className="transition hover:text-[#8A633C]">Login</a></div>
+          <div className="flex flex-wrap gap-5"><a href="/commerce" className="transition hover:text-[#8A633C]">Commerce</a><a href="/channels" className="transition hover:text-[#8A633C]">Channels</a><a href="/solutions" className="transition hover:text-[#8A633C]">Solutions</a><a href="/pricing" className="transition hover:text-[#8A633C]">Pricing</a><a href="/ecosystem" className="transition hover:text-[#8A633C]">Marketplace</a><a href="/developers" className="transition hover:text-[#8A633C]">Developers</a><a href="/policy" className="transition hover:text-[#8A633C]">Privacy Policy</a><a href="/terms" className="transition hover:text-[#8A633C]">Terms of Service</a><a href="#connected-service-data" className="transition hover:text-[#8A633C]">Connected services</a><a href="/login" className="transition hover:text-[#8A633C]">Login</a></div>
         </div>
       </footer>
     </main>

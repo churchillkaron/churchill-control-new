@@ -62,3 +62,11 @@ test("business intelligence agent auto-assesses and closes external diagnosis be
   assert.doesNotMatch(source,/business_external_evidence_packets: externalEvidenceCollection\?\.packets/);
   assert.doesNotMatch(source,/createBusinessExternalDiagnosisClosureTool/);
 });
+
+test("business intelligence agent enforces final response against answer brief",()=>{
+  const source=fs.readFileSync("lib/intelligence/runtime/BusinessIntelligenceAgentRuntime.js","utf8");
+  assert.match(source,/enforceBusinessAnswerEvidenceBoundary/);
+  assert.match(source,/boundedAnswer/);
+  assert.match(source,/business_answer_evidence_boundary/);
+  assert.match(source,/AVANTIQO_BUSINESS_ANSWER_EVIDENCE_BOUNDARY_CONTRACT/);
+});

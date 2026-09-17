@@ -7,6 +7,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 import { PROVIDER_REGISTRY } from "@/lib/platform/service-runtime/providers/ProviderRegistry";
 import "@/lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration";
+import { AvantiqoMusicLocalNodeProvider } from "@/lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicLocalNodeProvider.js";
 import { buildMusicPreUiAcceptance } from "@/lib/creative/music/runtime/CreativeMusicPreUiAcceptanceRuntime.js";
 
 const EXECUTION_PERMISSIONS = Object.freeze([
@@ -59,7 +60,7 @@ function ownedCapability(rows, capability) {
   };
 }
 
-function musicRuntimeHealth() {
+async function musicRuntimeHealth() {
   const provider = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider] || {};
   const configuration = provider?.metadata?.runtime_configuration || {};
   const certifiedCapabilities = Array.isArray(provider.capabilities) ? provider.capabilities : [];
@@ -77,10 +78,16 @@ function musicRuntimeHealth() {
     music_capability_configured: certifiedCapabilities.includes("ai.music.generate"),
   };
 
+  const modalRuntimeReady = configuration.primary_audio_runtime_available === true && Object.values(checks).every(Boolean);
+  const localNodeRuntimeReady = await AvantiqoMusicLocalNodeProvider.available("ai.music.generate");
+  const primaryAudioRuntimeAvailable = modalRuntimeReady || localNodeRuntimeReady;
+
   return {
-    ready: configuration.primary_audio_runtime_available === true &&
-      Object.values(checks).every(Boolean),
-    primary_audio_runtime_available: configuration.primary_audio_runtime_available === true,
+    ready: primaryAudioRuntimeAvailable,
+    primary_audio_runtime_available: primaryAudioRuntimeAvailable,
+    local_node_runtime_available: localNodeRuntimeReady,
+    modal_runtime_available: modalRuntimeReady,
+    preferred_execution_surface: localNodeRuntimeReady ? "AVANTIQO_LOCAL_NODE_V1" : (modalRuntimeReady ? "MODAL_DIRECT_A10G_ASYNC_V1" : null),
     checks,
     contract: MUSIC_RUNTIME_CONTRACT,
     secrets_exposed: false,
@@ -129,7 +136,7 @@ export async function POST(request) {
       entry.provider !== MUSIC_RUNTIME_CONTRACT.provider &&
       entry.active === true
     ));
-    const runtimeHealth = musicRuntimeHealth();
+    const runtimeHealth = await musicRuntimeHealth();
     const providerSeparatorRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.separator_runtime || {};
     const separatorRuntimeReady = providerSeparatorRuntime.production_routing_allowed === true;
     const stemsReady = stems.ready === true && separatorRuntimeReady;

@@ -82,19 +82,32 @@ export default function DevelopersPage() {
         action={{ label: "Developer access", href: "#access" }}
       />
 
-      <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F6F1E8] text-[#191919]">
-        <div className="absolute inset-y-0 right-0 hidden w-[58%] bg-cover bg-center lg:block" style={{backgroundImage:'url(/art/developer-work.jpg)'}}/>
-        <div className="absolute inset-0 hidden bg-[linear-gradient(90deg,#F6F1E8_0%,#F6F1E8_38%,rgba(246,241,232,.84)_50%,rgba(246,241,232,.12)_75%)] lg:block"/>
-        <div className="relative mx-auto grid max-w-[1460px] gap-10 px-5 py-20 sm:px-7 lg:grid-cols-[.84fr_1.16fr] lg:items-center lg:px-10 lg:py-28 xl:gap-16">
-          <div className="max-w-[650px]">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/30 bg-white/70 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#8A633C] shadow-sm"><span className="h-1.5 w-1.5 rounded-full bg-[#A37849]" />Developer platform preview</div>
-            <h1 className="mt-7 text-[48px] font-medium leading-[0.98] tracking-[-0.06em] text-[#1B1916] sm:text-[60px] lg:text-[68px] xl:text-[76px]">Build with Avantiqo.</h1>
-            <p className="mt-7 max-w-xl text-[17px] leading-8 text-[#5F5A52] sm:text-[18px]">Bring finance, documents, intelligence, creative production and operational capabilities into the software you already build.</p>
-            <p className="mt-4 max-w-xl text-[13px] leading-6 text-[#81796F]">Use one capability or compose many. The same governed business engines that power Avantiqo can become developer-facing services.</p>
-            <div className="mt-8 flex flex-wrap items-center gap-2.5"><a href="#capabilities" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white transition hover:-translate-y-0.5">Explore capabilities <Arrow className="h-3.5 w-3.5" /></a><a href="#integration" className="inline-flex h-11 items-center gap-2 rounded-xl border border-black/[0.09] bg-white/80 px-5 text-[11px] font-semibold text-[#57514A] transition hover:border-[#D6A66A]/40">How integration works</a></div>
-            <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.08] pt-5 text-[9px] font-medium text-[#837B72]">{["Capability based", "Meterable", "Organization scoped", "Governed execution"].map((item) => <span key={item} className="inline-flex items-center gap-1.5"><Check className="h-3 w-3 text-[#A37849]" />{item}</span>)}</div>
+      <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F4F0E8] text-[#191919]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_17%_2%,rgba(214,166,106,.14),transparent_30%)]"/>
+        <div className="relative mx-auto max-w-[1540px] lg:grid lg:min-h-[690px] lg:grid-cols-[44%_56%]">
+          <div className="relative z-10 flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
+            <div className="max-w-[620px]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/28 bg-white/60 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-[#8A633C] shadow-[0_4px_20px_rgba(100,75,45,.05)]"><span className="h-1.5 w-1.5 rounded-full bg-[#A37849]"/>Developer platform preview</div>
+              <p className="mt-9 text-[9px] font-semibold uppercase tracking-[0.24em] text-[#A07142]">AVANTIQO DEVELOPERS</p>
+              <h1 className="mt-4 text-[52px] font-medium leading-[.95] tracking-[-0.065em] text-[#171614] sm:text-[64px] lg:text-[72px] xl:text-[80px]">Build with Avantiqo.</h1>
+              <p className="mt-7 max-w-[560px] text-[16px] leading-8 text-[#625D55]">Bring finance, documents, intelligence, creative production and operational capabilities into the software you already build.</p>
+              <p className="mt-4 max-w-[540px] text-[12px] leading-6 text-[#877F75]">Use one exact capability or compose many. The same governed business engines that power Avantiqo can become developer-facing services.</p>
+              <div className="mt-9 flex flex-wrap gap-2.5"><a href="#capabilities" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_9px_28px_rgba(20,18,15,.18)] transition hover:-translate-y-0.5">Explore capabilities <Arrow className="h-3.5 w-3.5" /></a><a href="#integration" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A] transition hover:border-[#D6A66A]/45">How integration works</a></div>
+              <div className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[0.15em] text-[#978C80]">{["Capability based", "Meterable", "Organization scoped", "Governed execution"].map((item) => <span key={item} className="inline-flex items-center gap-1.5"><Check className="h-3 w-3 text-[#A37849]" />{item}</span>)}</div>
+            </div>
           </div>
-          <div className="relative min-h-[470px] overflow-hidden rounded-[30px] border border-black/[0.08] bg-cover bg-center shadow-[0_34px_90px_rgba(60,43,25,.16)] lg:bg-none lg:shadow-none" style={{backgroundImage:'url(/art/developer-work.jpg)'}}><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.18))] lg:hidden"/><div className="absolute inset-x-5 bottom-5 rounded-[20px] border border-white/20 bg-black/30 p-4 text-white backdrop-blur-xl lg:inset-x-auto lg:bottom-10 lg:right-0 lg:w-[72%]"><div className="text-[8px] uppercase tracking-[0.18em] text-[#E8C18D]">Developer surface</div><div className="mt-2 grid gap-2 sm:grid-cols-2">{[["API","Call exact capabilities"],["Agents","Compose governed tools"],["Webhooks","React to business events"],["Embedded","Bring Avantiqo into products"]].map(([a,b])=><div key={a} className="rounded-xl border border-white/12 bg-black/18 p-3"><div className="text-[10px] font-semibold text-white/82">{a}</div><div className="mt-1 text-[8px] text-white/48">{b}</div></div>)}</div></div></div>
+          <div className="relative min-h-[560px] overflow-hidden border-t border-black/[0.06] lg:min-h-0 lg:border-l lg:border-t-0">
+            <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:'url(/art/developer-work.jpg)'}}/>
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.04)_45%,rgba(8,7,6,.70))]"/>
+            <div className="absolute left-5 top-5 rounded-full border border-white/30 bg-black/20 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.22em] text-[#F1C98E] backdrop-blur-xl sm:left-7 sm:top-7">AVANTIQO · DEVELOPER SURFACE</div>
+            <div className="absolute right-7 top-7 hidden w-[132px] border-l border-white/28 pl-4 sm:block"><div className="text-[7px] font-semibold uppercase tracking-[0.22em] text-[#F0C98F]">BUILD ON THE CORE</div><div className="mt-2 text-[8px] leading-4 text-white/58">Exact capabilities.<br/>Governed execution.</div></div>
+            <div className="absolute bottom-7 left-5 right-5 sm:left-7 sm:right-7">
+              <div className="rounded-[22px] border border-white/16 bg-black/38 p-5 text-white shadow-[0_24px_70px_rgba(0,0,0,.20)] backdrop-blur-xl sm:p-6">
+                <div className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[#E8C18D]">Developer surface</div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">{[["API","Call exact capabilities"],["Agents","Compose governed tools"],["Webhooks","React to business events"],["Embedded","Bring Avantiqo into products"]].map(([a,b])=><div key={a} className="rounded-[14px] border border-white/12 bg-white/[0.035] p-3.5"><div className="text-[10px] font-semibold text-white/84">{a}</div><div className="mt-1 text-[8px] text-white/46">{b}</div></div>)}</div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
       <section id="capabilities" className="border-b border-black/[0.06] bg-[#F7F6F3]">

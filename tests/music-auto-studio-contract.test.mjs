@@ -36,7 +36,6 @@ test("Music Studio exposes Auto Studio from the outcome-first home surface", asy
     "full_auto_studio_ready",
     "ENGINE_COMPLETION_REQUIRED",
     "CERTIFICATION_REQUIRED",
-    "AVANTIQO_AUDIO_MODAL_A10G_V1",
     "direct_workers_max_write_allowed: false",
   ]);
   hasAll(panel, [
@@ -48,7 +47,7 @@ test("Music Studio exposes Auto Studio from the outcome-first home surface", asy
     "onProfessionalReleaseStarted",
   ]);
   hasAll(workspace, [
-    '{ id: "auto", label: "Auto Studio"',
+    '{ id: "auto", label: "Make it Professional"',
     'useState("home")',
   ]);
 });
@@ -73,7 +72,7 @@ test("local Auto Studio restoration and finishing stay provider-free and canonic
     "music_source_version: 1",
     "vocal_correction_task_id",
     "CERTIFIED_VOCAL_CORRECTION_PENDING",
-    "AVANTIQO_AUDIO_MODAL_A10G_V1",
+    "AVANTIQO_OWNED_AUDIO_GOVERNED_V2",
     "dispatchAudioTask(finishTask)",
     "local_restoration_complete",
     "local_execution: true",
@@ -92,7 +91,7 @@ test("local Auto Studio restoration and finishing stay provider-free and canonic
     "safety_limiter",
     "CERTIFIED_PITCH_LANE_REQUIRED",
     "CERTIFIED_TIMING_LANE_REQUIRED",
-    "AVANTIQO_AUDIO_MODAL_A10G_V1",
+    "AVANTIQO_OWNED_AUDIO_GOVERNED_V2",
     "provider_job_submitted: false",
     "endpoint_mutation_performed: false",
     "direct_workers_max_write: false",
@@ -102,7 +101,7 @@ test("local Auto Studio restoration and finishing stay provider-free and canonic
     "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2",
     "TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2",
     "ai.audio.vocal-correct",
-    "AVANTIQO_AUDIO_MODAL_A10G_V1",
+    "AVANTIQO_OWNED_AUDIO_GOVERNED_V2",
     "ProductionTaskRuntime.create",
     "source_music_version: 1",
     "target_music_version: 2",

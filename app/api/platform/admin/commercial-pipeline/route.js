@@ -107,7 +107,7 @@ export async function GET(request) {
         .order("id", { ascending: true })),
       readPaged(() => supabaseAdmin
         .from("subscriptions")
-        .select("id,organization_id,lead_id,status,email,created_at,final_monthly_total,final_yearly_total,currency")
+        .select("id,organization_id,lead_id,status,email,created_at,final_monthly_total,final_yearly_total,currency,billing_cycle,selected_products")
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })),
       readPaged(() => supabaseAdmin
@@ -186,6 +186,10 @@ export async function GET(request) {
           status: subscription.status,
           createdAt: subscription.created_at,
           customerOrganizationId: subscription.organization_id || null,
+          billingCycle: subscription.billing_cycle || null,
+          monthlyTotal: Number(subscription.final_monthly_total || 0),
+          currency: subscription.currency || null,
+          selectedProducts: Array.isArray(subscription.selected_products) ? subscription.selected_products : [],
         })),
         verifiedCustomerCandidate: verifiedCustomer ? { id: verifiedCustomer.id, name: verifiedCustomer.name, status: verifiedCustomer.organization_status || verifiedCustomer.status || null } : null,
       };

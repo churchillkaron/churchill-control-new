@@ -28,3 +28,11 @@ test("completed reads are verified outcomes but writes require independently ver
 test("outcome learning persists only structural non-customer evidence", () => {
   for (const pattern of [/structural_outcome_only: true/,/customer_private_content_included: false/,/customer_identifiers_included: false/,/raw_payload_persisted: false/,/raw_output_persisted: false/,/raw_reasoning_persisted: false/,/authorization_value: "none"/]) assert.match(outcome, pattern);
 });
+
+test("live verified outcomes are idempotent per persisted assistant turn", () => {
+  assert.match(outcome, /sourceTurnId = null/);
+  assert.match(outcome, /verified-outcome-turn:/);
+  assert.match(outcome, /onConflict: "organization_id,memory_scope,memory_key"/);
+  assert.match(conversation, /persistedTurnId/);
+  assert.match(conversation, /sourceTurnId: persistedTurnId/);
+});

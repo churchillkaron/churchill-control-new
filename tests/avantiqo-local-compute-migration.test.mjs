@@ -116,6 +116,8 @@ test("owned local Qwen pricing is selected before reservation only when local co
   assert.match(execution, /getProviderPricing/);
   assert.match(execution, /localPricing\?\.active === true/);
   assert.match(execution, /benchmarkLocalPreview/);
+  assert.match(execution, /localLaneEligible/);
+  assert.match(execution, /intelligenceLane === "front" \|\| intelligenceLane === "fast"/);
   assert.match(execution, /allowed_models: \[AVANTIQO_INTELLIGENCE_LOCAL_MODEL\]/);
   assert.match(execution, /blocked_models:/);
   assert.match(resolver, /function modelAllowed/);

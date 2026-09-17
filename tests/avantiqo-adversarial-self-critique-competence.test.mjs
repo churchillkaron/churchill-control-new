@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const runtime=fs.readFileSync("lib/intelligence/runtime/AvantiqoAdversarialSelfCritiqueCompetenceRuntime.js","utf8");
+const route=fs.readFileSync("app/api/internal/intelligence/continuous-learning/process/route.js","utf8");
+test("adversarial competence uses isolated solver critic and repair contexts",()=>{assert.match(runtime,/separate_solver_context:true/);assert.match(runtime,/separate_adversarial_critic_context:true/);assert.match(runtime,/separate_repair_context:true/);for(const label of ["ADVERSARIAL_SELF_CRITIQUE_SOLVER","ADVERSARIAL_SELF_CRITIQUE_CRITIC","ADVERSARIAL_SELF_CRITIQUE_REPAIR"])assert.match(runtime,new RegExp(label));});
+test("critic attacks materially different failure classes",()=>{for(const kind of ["HIDDEN_ASSUMPTION","COUNTEREXAMPLE","CONFLICTING_EVIDENCE","GOVERNANCE_FAILURE","FALSE_COMPLETION","COST_OR_ALTERNATIVE"])assert.match(runtime,new RegExp(kind));});
+test("repair cannot weaken governance or invent completion",()=>{assert.match(runtime,/repair_cannot_weaken_governance:true/);assert.match(runtime,/claim_complete_before_independent_verification===false/);assert.match(runtime,/verification_capability_key,300\)===set\.verifier\.key/);assert.match(runtime,/execution_authorized===false/);});
+test("adversarial exam is local only and has zero execution authority",()=>{assert.match(runtime,/const MODEL = "qwen3:4b-instruct"/);assert.match(runtime,/const LOCAL_INFRA = "AVANTIQO_LOCAL_NODE_V1"/);assert.match(runtime,/external_fallback_allowed:false/);assert.match(runtime,/tool_execution_used:false/);assert.match(runtime,/automatic_execution_authorized:false/);});
+test("nightly route runs adversarial critique after long horizon competence",()=>{const long=route.indexOf("runAvantiqoLongHorizonProblemSolvingCompetence()");const adv=route.indexOf("runAvantiqoAdversarialSelfCritiqueCompetence()");assert.ok(long>=0&&adv>long);assert.match(route,/adversarial_self_critique_competence: adversarialSelfCritiqueCompetence/);});

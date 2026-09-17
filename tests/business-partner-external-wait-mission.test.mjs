@@ -56,3 +56,10 @@ test("late events cannot revive a superseded or cancelled mission", () => {
   assert.match(worker, /WAIT_NO_LONGER_ACTIVE/);
   assert.match(worker, /"CANCELLED"/);
 });
+
+test("external wait continuation is idempotent across post-persist worker retry", () => {
+  assert.match(worker, /findPersistedAssistantContinuationTurn/);
+  assert.match(worker, /external-wait:\$\{text\(active\.id,160\)\}:\$\{text\(active\.event_id \|\| active\.wait_key,240\)\}/);
+  assert.match(worker, /CONTINUATION_ALREADY_PERSISTED/);
+  assert.match(worker, /continuationIdempotencyKey/);
+});

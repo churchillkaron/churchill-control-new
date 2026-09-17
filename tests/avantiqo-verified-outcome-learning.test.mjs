@@ -44,3 +44,12 @@ test("runtime and model failures do not poison verified capability outcome relia
   assert.match(policy, /BUSINESS_OUTCOME_FAILURE/);
   assert.match(policy, /affects_capability_reliability/);
 });
+
+test("event continuation persistence deduplicates before creating another turn or verified outcome", () => {
+  assert.match(conversation, /findPersistedAssistantContinuationTurn/);
+  assert.match(conversation, /continuation_idempotency_key/);
+  assert.match(conversation, /if \(existing\) \{/);
+  assert.match(conversation, /duplicate: true/);
+  assert.match(conversation, /persistAssistantTurnAndConversationState\(\{[\s\S]*continuationIdempotencyKey = null/);
+  assert.match(conversation, /const continuationKey = text\(continuationIdempotencyKey, 300\)/);
+});

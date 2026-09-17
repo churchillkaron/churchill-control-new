@@ -61,3 +61,11 @@ test("repair wake retries are bounded without removing the user's manual recover
   assert.match(worker,/wake_status:retryable\?"RETRY_PENDING":"BLOCKED"/);
   assert.match(worker,/if \(text\(wake\.status,80\)==="BLOCKED"\) return false/);
 });
+
+test("repair continuation is idempotent across a crash after turn persistence",()=>{
+  assert.match(worker,/findPersistedAssistantContinuationTurn/);
+  assert.match(worker,/repair-continuation:\$\{text\(active\.id,160\)\}:\$\{text\(recovery\.execution_key,160\)\}/);
+  assert.match(worker,/REPAIR_CONTINUATION_ALREADY_PERSISTED/);
+  assert.match(worker,/replay_required:false/);
+  assert.match(worker,/continuationIdempotencyKey/);
+});

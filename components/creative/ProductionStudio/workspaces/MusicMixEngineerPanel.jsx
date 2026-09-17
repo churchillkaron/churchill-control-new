@@ -1,0 +1,18 @@
+"use client";
+import { useEffect, useState } from "react";
+import { RotateCcw, Sparkles } from "lucide-react";
+
+export default function MusicMixEngineerPanel({ organizationId, projectId, onApplied }) {
+  const [plan,setPlan]=useState(null),[revision,setRevision]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState("");
+  async function request(action,extra={}){if(!organizationId||!projectId||busy)return null;setBusy(true);setError("");try{const response=await fetch("/api/creative/music/mix-engineer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,organization_id:organizationId,creative_project_id:projectId,...extra})});const body=await response.json();if(!response.ok||body.success===false)throw new Error(body.error||"Mix Engineer failed");if(body.plan)setPlan(body.plan);if(Number.isFinite(Number(body.revision)))setRevision(Number(body.revision));return body;}catch(cause){setError(cause?.message||"Mix Engineer failed");return null;}finally{setBusy(false);}}
+  useEffect(()=>{void request("analyze");},[organizationId,projectId]);
+  async function apply(){const result=await request("apply",{expected_revision:revision});if(result){const refreshed=await request("analyze");onApplied?.(refreshed||result);}}
+  async function undo(){const result=await request("undo");if(result){const refreshed=await request("analyze");onApplied?.(refreshed||result);}}
+  if(!projectId)return null;
+  return <section className="border-b border-white/8 bg-[#0a0908] px-5 py-4 text-white">
+    <div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[.2em] text-[#d6a66a]/70"><Sparkles className="h-3.5 w-3.5"/>Mix Engineer</div><div className="mt-1 text-sm font-medium text-white/75">Evidence-driven professional mix decisions</div><div className="mt-1 max-w-3xl text-[9px] leading-4 text-white/28">Builds hierarchy, vocal focus, low-end control, dynamics, saturation and shared depth from the real session. Changes are non-destructive, revision-bound and require listening review.</div></div><div className="flex gap-2"><button disabled={busy||!plan?.track_decisions?.some(row=>row.changed)} onClick={apply} className="rounded-lg border border-[#d6a66a]/30 bg-[#d6a66a]/10 px-3 py-2 text-[9px] text-[#efd29f] disabled:opacity-25">{busy?"Working…":"Apply mix plan"}</button><button disabled={busy} onClick={undo} className="inline-flex items-center gap-1.5 rounded-lg border border-white/8 px-3 py-2 text-[9px] text-white/35 disabled:opacity-25"><RotateCcw className="h-3 w-3"/>Undo</button></div></div>
+    {error?<div className="mt-3 text-[9px] text-red-100/60">{error}</div>:null}
+    {plan?<div className="mt-4 grid gap-2 lg:grid-cols-4">{(plan.track_decisions||[]).filter(row=>row.changed).slice(0,8).map(row=><div key={row.track_id} className="rounded-xl border border-white/7 bg-white/[.018] p-3"><div className="text-[8px] uppercase tracking-[.12em] text-[#d6a66a]/55">{row.role}</div><div className="mt-1 truncate text-[10px] font-medium text-white/60">{row.track_name}</div><div className="mt-2 text-[8px] leading-4 text-white/24">{row.decisions.join(" · ")}</div></div>)}</div>:null}
+    {plan?.issues?.length?<div className="mt-3 text-[8px] leading-4 text-amber-100/45">{plan.issues.map(issue=>issue.message).join(" · ")}</div>:null}
+  </section>;
+}

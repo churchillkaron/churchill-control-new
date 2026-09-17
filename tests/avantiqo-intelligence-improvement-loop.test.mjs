@@ -103,3 +103,9 @@ test("held-out arena retest requires newer practice bound to the same immutable 
   assert.match(runtime,/attemptNumber=sameBenchmark\.length\+1/);
   assert.match(runtime,/retest_trigger_practice_id/);
 });
+
+test("held-out arena caps repeated retests to prevent benchmark score fishing",()=>{
+  assert.match(runtime,/MAX_ARENA_ATTEMPTS_PER_24H = 2/);
+  assert.match(runtime,/ARENA_RETEST_24H_LIMIT_REACHED/);
+  assert.match(runtime,/recentAttempts\.length>=MAX_ARENA_ATTEMPTS_PER_24H/);
+});

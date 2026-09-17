@@ -24,3 +24,11 @@ test("business intelligence agent injects completed deterministic diagnosis",()=
   assert.match(source,/business_completed_diagnosis/);
   assert.match(source,/AVANTIQO_BUSINESS_DIAGNOSIS_ORCHESTRATOR_CONTRACT/);
 });
+
+test("business intelligence agent gates external research from completed diagnosis",()=>{
+  const source=fs.readFileSync("lib/intelligence/runtime/BusinessIntelligenceAgentRuntime.js","utf8");
+  assert.match(source,/buildBusinessExternalResearchPlan/);
+  assert.match(source,/business_external_research_plan/);
+  assert.match(source,/external_research_required: externalResearchPlan\?\.research_allowed === true/);
+  assert.match(source,/AVANTIQO_BUSINESS_EXTERNAL_RESEARCH_CONTRACT/);
+});

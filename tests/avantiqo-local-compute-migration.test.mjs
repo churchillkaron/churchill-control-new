@@ -142,3 +142,14 @@ test("local intelligence execution requires the selected zero-price local model"
   assert.match(provider, /selectedLocalModel && shouldUseLocalIntelligenceQueue/);
   assert.match(provider, /selectedLocalModel && shouldUseLocalIntelligence\(input\)/);
 });
+
+
+test("Node 01 heartbeat refreshes the capability advertisement instead of leaving registration stale", () => {
+  const migration = source("supabase/migrations/20260917163255_refresh_local_compute_heartbeat_capabilities.sql");
+  assert.match(migration, /capabilities = v_capabilities/);
+  assert.match(migration, /cardinality\(p_capabilities\) < 1/);
+  assert.match(migration, /cardinality\(p_capabilities\) > 128/);
+  assert.match(migration, /select distinct btrim\(c\) as capability/);
+  assert.match(migration, /AVANTIQO_LOCAL_NODE_CAPABILITIES_INVALID/);
+  assert.match(migration, /AVANTIQO_LOCAL_NODE_CAPABILITY_INVALID/);
+});

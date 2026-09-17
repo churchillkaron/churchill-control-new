@@ -1,0 +1,40 @@
+{
+  "contract": "AVANTIQO_NODE01_LOCAL_MEDIA_CERTIFICATION_V1",
+  "certified_at": "2026-09-18T00:46:00+07:00",
+  "node_id": "avantiqo-node-01",
+  "infrastructure_provider": "AVANTIQO_LOCAL_NODE_V1",
+  "supplier_cost_thb": 0,
+  "status": "PASS",
+  "scope": "controlled Supabase pull-queue execution",
+  "results": [
+    {
+      "capability": "media.ffmpeg.process",
+      "job_id": "dd289293-18cf-4706-a1a2-af02aa15c61c",
+      "status": "COMPLETED",
+      "runtime_model": "ffmpeg-9.0.1",
+      "elapsed_ms": 2657,
+      "attempts": 1,
+      "file_size_bytes": 64078
+    },
+    {
+      "capability": "ai.audio.elastic-warp",
+      "job_id": "2a7477fd-ec53-4197-96d9-b2ecd45fc89e",
+      "status": "COMPLETED",
+      "runtime_model": "signalsmith-stretch",
+      "elapsed_ms": 3815,
+      "attempts": 1,
+      "approved_marker_count": 3
+    }
+  ],
+  "verification": {
+    "production_queue": true,
+    "node01_claim_and_settlement": true,
+    "first_attempt_success": true,
+    "paid_provider_required": false
+  },
+  "notes": [
+    "FFmpeg derivative/mastering work is certified local-first on Node01.",
+    "Signalsmith elastic audio work is certified local-first on Node01.",
+    "This receipt does not certify high-end video generation on the RTX 2060; specialist generation remains on the governed external GPU lane."
+  ]
+}

@@ -71,14 +71,49 @@ def foundation(source:Path,target:Path,opts:dict[str,Any])->dict[str,Any]:
     run(["ffmpeg","-y","-f","rawvideo","-pixel_format","rgb24","-video_size",f"{w}x{h}","-framerate",str(fps),"-i",str(raw),"-frames:v",str(frames),"-c:v","libx264","-preset","slow","-crf","14","-pix_fmt","yuv420p","-movflags","+faststart",str(target)],"LOCAL_MEDIA_FOUNDATION_FAILED")
     return {"fps":fps,"frame_count":frames,"width":w,"height":h,"duration_seconds":frames/fps}
 
+
+def mime_for_extension(ext:str)->str:
+    return {
+        "mp4":"video/mp4","webm":"video/webm","mov":"video/quicktime",
+        "wav":"audio/wav","mp3":"audio/mpeg","m4a":"audio/mp4","aac":"audio/aac","flac":"audio/flac"
+    }.get(text(ext).lower(),"application/octet-stream")
+
+def derivative(source:Path,target:Path,opts:dict[str,Any])->dict[str,Any]:
+    profile=opts.get("profile") if isinstance(opts.get("profile"),dict) else {}
+    if profile.get("ffmpeg_args") or profile.get("ffmpegArgs") or profile.get("args"):
+        raise ValueError("LOCAL_MEDIA_CUSTOM_FFMPEG_ARGS_NOT_ALLOWED")
+    kind=text(profile.get("kind") or profile.get("operation")).lower()
+    args=["ffmpeg","-y","-i",str(source)]
+    if "audio" in kind:
+        if profile.get("audio_codec"): args += ["-c:a",text(profile.get("audio_codec"))]
+        if profile.get("sample_rate"): args += ["-ar",str(int(float(profile.get("sample_rate"))))]
+        if profile.get("channels"): args += ["-ac",str(int(float(profile.get("channels"))))]
+        if profile.get("audio_bitrate"): args += ["-b:a",text(profile.get("audio_bitrate"))]
+        args += ["-vn"]
+    else:
+        if profile.get("video_codec"): args += ["-c:v",text(profile.get("video_codec"))]
+        if profile.get("audio_codec"): args += ["-c:a",text(profile.get("audio_codec"))]
+        if profile.get("video_bitrate"): args += ["-b:v",text(profile.get("video_bitrate"))]
+        if profile.get("audio_bitrate"): args += ["-b:a",text(profile.get("audio_bitrate"))]
+        if profile.get("frame_rate"): args += ["-r",str(float(profile.get("frame_rate")))]
+        if profile.get("scale"): args += ["-vf",f"scale={text(profile.get('scale'))}"]
+        if profile.get("pixel_format"): args += ["-pix_fmt",text(profile.get("pixel_format"))]
+        if profile.get("movable_metadata") is False: args += ["-map_metadata","-1"]
+    args += [str(target)]
+    run(args,"LOCAL_MEDIA_DERIVATIVE_FAILED")
+    return {"file_size_bytes":target.stat().st_size,"derivative_kind":kind or None}
+
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument("--input",required=True); a=ap.parse_args(); data=json.loads(Path(a.input).read_text(encoding="utf-8")); op=text(data.get("operation")); source_url=text(data.get("source_url")); upl=data.get("output_upload") or {}; opts=data.get("options") if isinstance(data.get("options"),dict) else {}
     with tempfile.TemporaryDirectory(prefix="avantiqo-media-") as d:
-        root=Path(d); src=root/("source.npy" if op=="raw_frames_to_mp4" else "source.mp4"); out=root/"output.mp4"; download(source_url,src)
+        root=Path(d); src=root/("source.npy" if op=="raw_frames_to_mp4" else "source.bin")
+        output_ext=text(opts.get("output_extension") or "mp4").lower().lstrip(".")
+        out=root/f"output.{output_ext}"; download(source_url,src)
         if op=="video_master": details=master(src,out,opts)
         elif op=="raw_frames_to_mp4": details=foundation(src,out,opts)
+        elif op=="media_derivative": details=derivative(src,out,opts)
         else: raise ValueError(f"LOCAL_MEDIA_OPERATION_UNSUPPORTED:{op}")
-        upload(text(upl.get("signed_url")),out)
+        upload(text(upl.get("signed_url")),out,mime_for_extension(output_ext))
         result={"success":True,"status":"completed","contract":CONTRACT,"operation":op,"storage_reference":text(upl.get("storage_reference")),"runtime_model":"ffmpeg-9.0.1","infrastructure_provider":"AVANTIQO_LOCAL_NODE_V1","raw_reasoning_persisted":False,**details}
         print(json.dumps(result,separators=(",",":")))
 if __name__=="__main__": main()

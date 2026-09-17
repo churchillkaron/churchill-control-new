@@ -17,6 +17,10 @@ const productionSources = [
 ].map(read).join("\n");
 
 test("canonical Modal runtime forbids legacy gateways canaries and Wan", () => {
+  assert.equal(manifest.contract, "AVANTIQO_MODAL_CANONICAL_RUNTIME_V2");
+  assert.equal(manifest.policy.local_first_by_default, true);
+  assert.equal(manifest.policy.modal_specialist_or_fallback_only, true);
+  assert.equal(manifest.policy.idle_scale_to_zero_required, true);
   assert.equal(manifest.policy.minimum_containers, 0);
   assert.equal(manifest.policy.legacy_gateways_forbidden, true);
   assert.equal(manifest.policy.legacy_canaries_forbidden, true);
@@ -31,4 +35,11 @@ test("canonical Modal app names are unique and bounded", () => {
   assert.equal(new Set(names).size, names.length);
   assert.ok(names.length <= 10);
   assert.ok(manifest.models.length <= 20);
+});
+
+
+test("canonical Modal runtime explicitly separates local-first and specialist capabilities", () => {
+  for (const capability of ["ai.text.generate","ai.web.build","ai.app.build","ai.integration.build","ai.music.generate","document.ocr","ai.text.to.speech"]) assert.ok(manifest.local_first_capabilities.includes(capability));
+  for (const capability of ["ai.code.invent","ai.video.generate","ai.image.generate","ai.image.analyze"]) assert.ok(manifest.modal_specialist_capabilities.includes(capability));
+  for (const app of manifest.apps) assert.ok(/specialist|fallback|explicit-approved/.test(app.role), `invalid Modal role: ${app.name}=${app.role}`);
 });

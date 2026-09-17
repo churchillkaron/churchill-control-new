@@ -35,12 +35,13 @@ test("document OCR and classification use local Qwen2.5-VL 3B first without down
 });
 
 test("normal code is local Qwen 4B first while invention remains Modal H100",()=>{
-  for(const capability of ["ai.code.generate","ai.code.edit","ai.code.refactor","ai.code.review","ai.code.debug","ai.code.test"]) assert.match(codeLocal,new RegExp(capability.replaceAll(".","\\.")));
+  for(const capability of ["ai.code.generate","ai.code.edit","ai.code.refactor","ai.code.review","ai.code.debug","ai.code.test","ai.web.build","ai.web.repair","ai.app.build","ai.integration.build"]) assert.match(codeLocal,new RegExp(capability.replaceAll(".","\\.")));
   assert.doesNotMatch(codeLocal,/ai\.code\.invent/);
   assert.match(code,/AvantiqoCodeLocalQueueProvider/);
   assert.match(code,/AVANTIQO_CODE_LOCAL_FALLBACK_MODAL/);
   assert.match(api,/hard_code_invent:\s*"MODAL_H100"/);
   assert.match(api,/normal_code:\s*"LOCAL_GPU_QWEN4B_FIRST_MODAL_FALLBACK"/);
+  assert.match(worker,/ai\.web\.build/); assert.match(worker,/ai\.app\.build/); assert.match(worker,/ai\.integration\.build/);
 });
 
 test("wave2 local-first routing keeps specialist generation on Modal",()=>{

@@ -34,8 +34,8 @@ $NightLearningEndHour = 6
 $script:LastGpuWorkAt = Get-Date
 $script:LastIdleLearningAt = [datetime]::MinValue
 $script:LearningCursor = 0
-$AllCapabilities = @('ai.text.generate','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','document.ocr','document.classify','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech','ai.sfx.generate')
-$GpuCapabilities = @('ai.text.generate','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','document.ocr','document.classify','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
+$AllCapabilities = @('ai.text.generate','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','document.ocr','document.classify','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech','ai.sfx.generate')
+$GpuCapabilities = @('ai.text.generate','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','document.ocr','document.classify','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
 $CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process','ai.music.generate','ai.sfx.generate')
 $Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } else { $AllCapabilities })
 if ($Lane -eq 'cpu') {
@@ -622,7 +622,7 @@ while ($true) {
       if ($Lane -eq 'gpu') { $script:LastGpuWorkAt = Get-Date }
       try {
         if ([string]$job.capability -eq 'ai.text.generate') { RunTextJob $job }
-        elseif ([string]$job.capability -like 'ai.code.*') { RunTextJob $job }
+        elseif (([string]$job.capability -like 'ai.code.*') -or (@('ai.web.build','ai.web.repair','ai.app.build','ai.integration.build') -contains [string]$job.capability)) { RunTextJob $job }
         elseif ([string]$job.capability -eq 'document.ocr' -or [string]$job.capability -eq 'document.classify') { RunDocumentVisionJob $job }
         elseif ([string]$job.capability -eq 'ai.music.generate') { RunMusicGenerationJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.elastic-warp') { RunElasticJob $job }

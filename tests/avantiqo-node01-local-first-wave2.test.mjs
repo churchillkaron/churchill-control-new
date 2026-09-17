@@ -12,6 +12,8 @@ const codeLocal=read("lib/platform/service-runtime/providers/avantiqo-code/Avant
 const api=read("app/api/workspace/administration/compute/route.js");
 const cert=read("lib/platform/service-runtime/providers/AvantiqoOwnedCertificationPolicy.js");
 
+const voiceSttLocal=read("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceSttLocalQueueProvider.js");
+
 test("ACE-Step full song generation is Node 01 CPU float32 first",()=>{
   assert.match(audio,/AvantiqoMusicGenerationLocalQueueProvider/);
   assert.match(audio,/AVANTIQO_MUSIC_GENERATION_LOCAL_FALLBACK_MODAL/);
@@ -50,4 +52,9 @@ test("wave2 local-first routing keeps specialist generation on Modal",()=>{
   assert.match(api,/MODAL_KEEP_SPECIALIST_GPU/);
   assert.doesNotMatch(audio,/RUNPOD|SAFE_LEASE/);
   assert.doesNotMatch(code,/RUNPOD|SAFE_LEASE/);
+});
+
+test("local STT follows the same optional kill-switch contract as other local-first lanes",()=>{
+  assert.match(voiceSttLocal,/text\(process\.env\.AVANTIQO_LOCAL_VOICE_STT_ENABLED\) && !enabled/);
+  assert.doesNotMatch(voiceSttLocal,/if \(!enabled\(process\.env\.AVANTIQO_LOCAL_VOICE_STT_ENABLED\)\) return false/);
 });

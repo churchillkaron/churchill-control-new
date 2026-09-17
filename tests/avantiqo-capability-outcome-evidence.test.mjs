@@ -21,3 +21,13 @@ test("only verified business-effect failures count against capability reliabilit
   assert.equal(result.prerequisite_failures_excluded,true);
   assert.equal(result.authority_effect,"NONE");
 });
+
+test("reliability distinguishes evidence amount from estimated success",()=>{
+  const one=weightedCapabilityOutcomeEvidence([row({outcome:"VERIFIED_SUCCESS"})],key);
+  const eight=weightedCapabilityOutcomeEvidence(Array.from({length:8},()=>row({outcome:"VERIFIED_SUCCESS"})),key);
+  assert.equal(one.reliability_estimate,0.6);
+  assert.equal(one.reliability_maturity,"EARLY");
+  assert.ok(eight.reliability_confidence>one.reliability_confidence);
+  assert.ok(eight.score>one.score);
+});
+test("no evidence is unproven rather than unreliable",()=>{const result=weightedCapabilityOutcomeEvidence([],key);assert.equal(result.reliability_estimate,null);assert.equal(result.reliability_maturity,"UNPROVEN");assert.equal(result.no_evidence_means_unproven_not_unreliable,true);});

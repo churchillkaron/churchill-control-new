@@ -28,6 +28,7 @@ import MusicAudioCleanupPanel from "./MusicAudioCleanupPanel";
 import MusicAutoStudioPanel from "./MusicAutoStudioPanel";
 import MusicWorkspace from "./MusicWorkspace";
 import MusicBackingTrackPanel from "./MusicBackingTrackPanel";
+import MusicDeliverablesPanel from "./MusicDeliverablesPanel";
 import MusicElasticAudioPanel from "./MusicElasticAudioPanel";
 import MusicMasterStudioPanel from "./MusicMasterStudioPanel";
 import MusicMidiStudioPanel from "./MusicMidiStudioPanel";
@@ -92,6 +93,7 @@ const MODES = Object.freeze([
   { id: "audio-video", label: "Audio for Video", shortLabel: "Audio for Video", description: "Score picture, place SFX and work against exact video timecode.", icon: Film, section: "Produce & edit" },
   { id: "vocal", label: "Vocals", shortLabel: "Vocals", description: "Work on vocal production and finishing.", icon: Mic2, section: "Finish" },
   { id: "mix", label: "Mix", shortLabel: "Mix", description: "Balance and finish the mix.", icon: SlidersHorizontal, section: "Finish" },
+  { id: "deliverables", label: "Deliverables", shortLabel: "Files", description: "Download masters, stems, backing tracks and other finished project files.", icon: Disc3, section: "Finish" },
   { id: "master", label: "Masters & QC", shortLabel: "Masters", description: "Inspect, download and independently revalidate saved release masters.", icon: Disc3, section: "Finish" },
 ]);
 
@@ -380,6 +382,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           : mode === "backing" ? <div className="mx-auto max-w-6xl p-6"><MusicBackingTrackPanel {...specialistProps} onComplete={() => runtime.refresh?.()} /></div>
           : mode === "vocal" ? <MusicSpecialistStudioPanel mode="vocal" {...specialistProps} />
           : mode === "mix" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Music Project"} onProfessionalReleaseAdvanced={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />
+          : mode === "deliverables" ? <MusicDeliverablesPanel {...specialistProps} />
           : mode === "master" ? <MusicMasterStudioPanel organizationId={organizationId} projectId={project?.id || null} />
           : <div className="mx-auto max-w-6xl p-6"><div className="rounded-[22px] border border-black/[0.07] bg-white p-6 text-xs text-[#817B73]"><AudioLines className="mb-3 h-5 w-5 text-[#A78158]" />Music Studio tool unavailable.</div></div>}
         </>

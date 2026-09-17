@@ -140,7 +140,7 @@ function MusicGeneratorGate({ status }) {
   );
 }
 
-function StudioHome({ modeState, composeReady, composeStatus, readinessError, onOpen, organizationId, projectId }) {
+function StudioHome({ modeState, composeReady, composeStatus, readinessError, onOpen, organizationId, projectId, professionalReleaseRefreshKey }) {
   const primaryModes = PRIMARY_MODE_IDS.map((id) => MODES.find((item) => item.id === id)).filter(Boolean);
 
   return (
@@ -195,7 +195,7 @@ function StudioHome({ modeState, composeReady, composeStatus, readinessError, on
         })}
       </section>
 
-      <MusicProfessionalReleasePanel organizationId={organizationId} projectId={projectId} onOpen={onOpen} />
+      <MusicProfessionalReleasePanel organizationId={organizationId} projectId={projectId} onOpen={onOpen} refreshKey={professionalReleaseRefreshKey} />
 
       <section className="mt-5 rounded-[22px] border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -245,6 +245,7 @@ function StudioHome({ modeState, composeReady, composeStatus, readinessError, on
 export default function MusicStudioWorkspace({ runtime, editor }) {
   const [mode, setMode] = useState("home");
   const [readiness, setReadiness] = useState(null);
+  const [professionalReleaseRevision, setProfessionalReleaseRevision] = useState(0);
   const [readinessError, setReadinessError] = useState("");
   const project = runtime.projectRuntime?.current || null;
   const mission = runtime.missionRuntime?.current || null;
@@ -309,6 +310,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           onOpen={setMode}
           organizationId={organizationId}
           projectId={project?.id || null}
+          professionalReleaseRefreshKey={professionalReleaseRevision}
         />
       ) : (
         <>
@@ -350,11 +352,11 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           </div>
 
           {mode === "compose" ? (composeReady
-            ? <MusicWorkspace runtime={runtime} editor={editor} />
+            ? <MusicWorkspace runtime={runtime} editor={editor} onProfessionalReleaseStarted={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />
             : <MusicGeneratorGate status={composeStatus} />)
           : mode === "auto" ? <MusicAutoStudioPanel {...specialistProps} />
           : mode === "record" ? <MusicRecordingStudioPanel {...specialistProps} onSaved={() => runtime.refresh?.()} />
-          : mode === "workstation" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Music Project"} />
+          : mode === "workstation" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Music Project"} onProfessionalReleaseAdvanced={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />
           : mode === "producer" ? <MusicProducerPanel organizationId={organizationId} projectId={project?.id || null} />
           : mode === "arrange" ? <MusicArrangementPanel organizationId={organizationId} projectId={project?.id || null} />
           : mode === "midi" ? <MusicMidiStudioPanel organizationId={organizationId} projectId={project?.id || null} />

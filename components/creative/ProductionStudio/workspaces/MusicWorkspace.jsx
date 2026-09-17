@@ -97,7 +97,7 @@ function GateCard({ title, copy }) {
   );
 }
 
-export default function MusicWorkspace({ runtime }) {
+export default function MusicWorkspace({ runtime, onProfessionalReleaseStarted }) {
   const project = runtime.projectRuntime?.current || null;
   const mission = runtime.missionRuntime?.current || null;
   const organizationId = runtime.organizationId || null;
@@ -185,6 +185,7 @@ export default function MusicWorkspace({ runtime }) {
       if (!result.pending) {
         refresh?.();
         await loadHistory();
+        if (form.production_standard === "PROFESSIONAL_RELEASE") onProfessionalReleaseStarted?.(result);
       }
     } catch (cause) {
       setError(cause?.message || "Music Studio execution failed");
@@ -216,6 +217,7 @@ export default function MusicWorkspace({ runtime }) {
           if (!result.pending) {
             refresh?.();
             await loadHistory();
+            if (form.production_standard === "PROFESSIONAL_RELEASE") onProfessionalReleaseStarted?.(result);
           }
         }
       } catch (cause) {

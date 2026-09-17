@@ -6,7 +6,7 @@ import { BadgeCheck, Circle, CircleAlert, Disc3, Loader2, LockKeyhole, SlidersHo
 function text(value) { return String(value ?? "").trim(); }
 function label(value) { return text(value).replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (match) => match.toUpperCase()); }
 
-export default function MusicProfessionalReleasePanel({ organizationId, projectId, onOpen }) {
+export default function MusicProfessionalReleasePanel({ organizationId, projectId, onOpen, refreshKey = 0 }) {
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -21,7 +21,7 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
     try { setError(""); setState(await request({ action: "status", organization_id: organizationId, creative_project_id: projectId })); }
     catch (cause) { setError(cause?.message || "Professional Release unavailable"); }
   }, [organizationId, projectId, request]);
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { refresh(); }, [refresh, refreshKey]);
 
   const next = state?.next_stage || null;
   const stages = useMemo(() => next?.manifest?.stages || state?.professional_production_state?.manifest?.stages || [], [next, state]);

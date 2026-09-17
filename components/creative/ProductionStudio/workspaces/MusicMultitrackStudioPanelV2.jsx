@@ -78,7 +78,7 @@ function TinyButton({ active = false, children, onClick, title, disabled = false
   return <button type="button" disabled={disabled} title={title} onClick={onClick} className={`min-w-8 rounded-lg border px-2 py-1.5 text-[10px] font-medium disabled:opacity-25 ${active ? "border-[#d6a66a]/40 bg-[#d6a66a]/12 text-[#efd29f]" : "border-white/8 bg-white/[0.02] text-white/40 hover:text-white/75"}`}>{children}</button>;
 }
 
-export default function MusicMultitrackStudioPanelV2({ organizationId, projectId, projectName = "Music Project" }) {
+export default function MusicMultitrackStudioPanelV2({ organizationId, projectId, projectName = "Music Project", onProfessionalReleaseAdvanced }) {
   const [session, setSession] = useState(null);
   const [assetUrls, setAssetUrls] = useState({});
   const [selectedTrackId, setSelectedTrackId] = useState(null);
@@ -381,6 +381,9 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
             session={session}
             assetUrls={assetUrls}
             disabled={recording || dirty || busy}
+            onReleased={(result) => {
+              if (result?.professional_release) onProfessionalReleaseAdvanced?.(result);
+            }}
           />
           {dirty ? <div className="rounded-xl border border-amber-300/10 bg-amber-300/[0.02] px-3 py-2 text-[8px] leading-4 text-amber-100/50">Save the Workstation before rendering a release master. Release rendering is revision-bound and never uses unsaved mix state.</div> : null}
 

@@ -3,7 +3,7 @@
 import MusicMultitrackStudioPanelV2 from "./MusicMultitrackStudioPanelV2";
 import MusicUnifiedTimelinePanel from "./MusicUnifiedTimelinePanel";
 
-export default function MusicUnifiedWorkstationShell({ organizationId, projectId, projectName = "Music Project" }) {
+export default function MusicUnifiedWorkstationShell({ organizationId, projectId, projectName = "Music Project", onProfessionalReleaseAdvanced }) {
   return (
     <div className="min-h-full bg-[#070707]">
       <MusicUnifiedTimelinePanel organizationId={organizationId} projectId={projectId} />
@@ -14,6 +14,7 @@ export default function MusicUnifiedWorkstationShell({ organizationId, projectId
         organizationId={organizationId}
         projectId={projectId}
         projectName={projectName}
+        onProfessionalReleaseAdvanced={onProfessionalReleaseAdvanced}
       />
     </div>
   );

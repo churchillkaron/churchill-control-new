@@ -3,6 +3,7 @@ import { reconcileAvantiqoGeneralIntelligenceCurriculum } from "@/lib/intelligen
 import { reconcileAvantiqoCapabilityIntelligenceCurriculum } from "@/lib/intelligence/runtime/AvantiqoCapabilityIntelligenceCurriculumRuntime";
 import { runAvantiqoCapabilityCompetenceExam } from "@/lib/intelligence/runtime/AvantiqoCapabilityCompetenceExamRuntime";
 import { runAvantiqoMissionCompositionCompetence } from "@/lib/intelligence/runtime/AvantiqoMissionCompositionCompetenceRuntime";
+import { runAvantiqoLongHorizonProblemSolvingCompetence } from "@/lib/intelligence/runtime/AvantiqoLongHorizonProblemSolvingCompetenceRuntime";
 import { runAvantiqoNightlyLearningSynthesis } from "@/lib/intelligence/runtime/AvantiqoNightlyLearningSynthesisRuntime";
 import { runAvantiqoGeneralIntelligenceExam } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceExamRuntime";
 import { runAvantiqoGeneralIntelligenceRetention } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceRetentionRuntime";
@@ -461,6 +462,7 @@ async function handleCronGet(request) {
     const generalIntelligenceRetention = await runAvantiqoGeneralIntelligenceRetention();
     const capabilityCompetenceExam = await runAvantiqoCapabilityCompetenceExam();
     const missionCompositionCompetence = await runAvantiqoMissionCompositionCompetence();
+    const longHorizonProblemSolvingCompetence = await runAvantiqoLongHorizonProblemSolvingCompetence();
     const generalIntelligenceTransferPractice = await runAvantiqoGeneralIntelligenceTransferPractice();
     const generalIntelligenceMasteryEvidence = await reconcileAvantiqoGeneralIntelligenceMasteryEvidence();
     const generalIntelligenceTrainingCandidates = await seedAvantiqoGeneralIntelligenceTrainingCandidates();
@@ -477,6 +479,7 @@ async function handleCronGet(request) {
         general_intelligence_retention: generalIntelligenceRetention,
         capability_competence_exam: capabilityCompetenceExam,
         mission_composition_competence: missionCompositionCompetence,
+        long_horizon_problem_solving_competence: longHorizonProblemSolvingCompetence,
         general_intelligence_transfer_practice: generalIntelligenceTransferPractice,
         general_intelligence_mastery_evidence: generalIntelligenceMasteryEvidence,
         general_intelligence_training_candidates: generalIntelligenceTrainingCandidates,

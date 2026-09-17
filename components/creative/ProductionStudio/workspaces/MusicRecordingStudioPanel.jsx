@@ -80,7 +80,7 @@ function levelStatus(peakDb, rmsDb, clipped) {
   return { status: "HEALTHY", action: "Keep current gain", tone: "text-emerald-100" };
 }
 
-export default function MusicRecordingStudioPanel({ organizationId, projectId, missionId = null, onSaved }) {
+export default function MusicRecordingStudioPanel({ organizationId, projectId, missionId = null, onSaved, onOpenWorkstation = null }) {
   const [devices, setDevices] = useState([]);
   const [deviceId, setDeviceId] = useState("");
   const [trackRole, setTrackRole] = useState("vocal");
@@ -344,8 +344,8 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
         browser_processing_disabled: true,
         source_rights_confirmed: true,
       });
-      setSaved(registered.asset);
-      onSaved?.(registered.asset);
+      setSaved(registered);
+      onSaved?.(registered.asset, registered.multitrack);
     } catch (cause) {
       setError(cause?.message || "Recording could not be saved");
     } finally {
@@ -397,8 +397,12 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
 
             {take ? <div className="mt-5 rounded-2xl border border-[#d6a66a]/15 bg-[#d6a66a]/[0.035] p-4"><div className="flex items-center gap-2 text-xs text-[#efd29f]/75"><Play className="h-4 w-4" /> Recorded take · {take.sampleRate} Hz · {take.channels}ch · 24-bit WAV</div><audio src={take.url} controls className="mt-3 w-full" /><button type="button" disabled={busy || Boolean(saved)} onClick={saveTake} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-4 py-3 text-xs font-medium text-[#efd29f] disabled:opacity-40"><Save className="h-4 w-4" />{saved ? "Original take saved" : busy ? "Saving…" : "Save original take to project"}</button></div> : <div className="mt-5 flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-white/8 text-center"><div><Headphones className="mx-auto h-6 w-6 text-white/15" /><div className="mt-2 text-xs text-white/28">Set gain while watching the meter, then record.</div></div></div>}
 
-            {saved ? <div className="mt-4 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.04] px-4 py-3 text-xs text-emerald-100/65"><ShieldCheck className="mr-2 inline h-4 w-4" />Immutable original take stored in this Music project. Future processing creates new versions.</div> : null}
-            <div className="mt-5 flex items-start gap-3 rounded-xl border border-white/7 bg-white/[0.015] p-4"><SlidersHorizontal className="mt-0.5 h-4 w-4 shrink-0 text-[#d6a66a]/60" /><div className="text-[10px] leading-4 text-white/30">Next workstation layer: place saved takes on the multitrack timeline, overdub against existing tracks, comp multiple takes, automate levels, route through the mixer, then run Avantiqo engineering on selected tracks or the full mix.</div></div>
+            {saved ? <div className="mt-4 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.04] px-4 py-3 text-xs text-emerald-100/65">
+              <div><ShieldCheck className="mr-2 inline h-4 w-4" />Original take preserved and added to the multitrack timeline.</div>
+              <div className="mt-1 text-[10px] text-emerald-100/45">Revision {saved.multitrack?.revision ?? "—"} · track {saved.multitrack?.track_id || "ready"} · clip {saved.multitrack?.clip_id || "ready"}</div>
+              {onOpenWorkstation ? <button type="button" onClick={onOpenWorkstation} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-3 py-2 text-[10px] font-medium text-[#efd29f]"><SlidersHorizontal className="h-3.5 w-3.5" />Open Workstation</button> : null}
+            </div> : null}
+            <div className="mt-5 flex items-start gap-3 rounded-xl border border-white/7 bg-white/[0.015] p-4"><SlidersHorizontal className="mt-0.5 h-4 w-4 shrink-0 text-[#d6a66a]/60" /><div className="text-[10px] leading-4 text-white/30">Saved takes are already placed on the multitrack timeline. Open the Workstation to overdub, comp multiple takes, automate levels, route through the mixer, then run Avantiqo engineering on selected tracks or the full mix.</div></div>
           </div>
         </div>
       </div>

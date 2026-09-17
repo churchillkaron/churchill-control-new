@@ -51,3 +51,14 @@ test("PCM worklet manually flushes final partial recording frames", () => {
   assert.match(panel, /port\.postMessage\(\{ type: "flush" \}\)/);
   assert.match(panel, /event\.data\?\.reason === "manual"/);
 });
+
+
+test("saved recording take is immediately inserted into multitrack and can open the Workstation", () => {
+  assert.match(route, /added_to_multitrack:\s*true/);
+  assert.match(route, /multitrack,/);
+  assert.match(panel, /setSaved\(registered\)/);
+  assert.match(panel, /Original take preserved and added to the multitrack timeline/);
+  assert.match(panel, /saved\.multitrack\?\.revision/);
+  assert.match(panel, /onOpenWorkstation/);
+  assert.match(workspace, /onOpenWorkstation=\{\(\) => setMode\("workstation"\)\}/);
+});

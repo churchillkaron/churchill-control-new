@@ -29,6 +29,7 @@ import MusicElasticAudioPanel from "./MusicElasticAudioPanel";
 import MusicMasterStudioPanel from "./MusicMasterStudioPanel";
 import MusicMidiStudioPanel from "./MusicMidiStudioPanel";
 import MusicProducerPanel from "./MusicProducerPanel";
+import MusicProfessionalReleasePanel from "./MusicProfessionalReleasePanel";
 import MusicStemsPanel from "./MusicStemsPanel";
 import MusicRemixPanel from "./MusicRemixPanel";
 import MusicRecordingStudioPanel from "./MusicRecordingStudioPanel";
@@ -139,7 +140,7 @@ function MusicGeneratorGate({ status }) {
   );
 }
 
-function StudioHome({ modeState, composeReady, composeStatus, readinessError, onOpen }) {
+function StudioHome({ modeState, composeReady, composeStatus, readinessError, onOpen, organizationId, projectId }) {
   const primaryModes = PRIMARY_MODE_IDS.map((id) => MODES.find((item) => item.id === id)).filter(Boolean);
 
   return (
@@ -193,6 +194,8 @@ function StudioHome({ modeState, composeReady, composeStatus, readinessError, on
           );
         })}
       </section>
+
+      <MusicProfessionalReleasePanel organizationId={organizationId} projectId={projectId} onOpen={onOpen} />
 
       <section className="mt-5 rounded-[22px] border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -304,6 +307,8 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           composeStatus={composeStatus}
           readinessError={readinessError}
           onOpen={setMode}
+          organizationId={organizationId}
+          projectId={project?.id || null}
         />
       ) : (
         <>

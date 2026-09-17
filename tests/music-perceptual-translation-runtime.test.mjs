@@ -20,12 +20,17 @@ const dailiesSource = fs.readFileSync(
 );
 
 test("perceptual translation runtime measures real master signal evidence", () => {
-  assert.match(translationSource, /AVANTIQO_MUSIC_PERCEPTUAL_TRANSLATION_V1/);
+  assert.match(translationSource, /AVANTIQO_MUSIC_PERCEPTUAL_TRANSLATION_V2/);
   assert.match(translationSource, /stereo_correlation/);
   assert.match(translationSource, /mono_fold_down_loss_db/);
   assert.match(translationSource, /crest_factor_db/);
   assert.match(translationSource, /low_end_vs_body_db/);
   assert.match(translationSource, /harshness_vs_body_db/);
+  assert.match(translationSource, /premium_record_evidence/);
+  assert.match(translationSource, /dynamic_life/);
+  assert.match(translationSource, /low_end_control/);
+  assert.match(translationSource, /upper_mid_smoothness/);
+  assert.match(translationSource, /artistic_listening_review_required:\s*true/);
 });
 
 test("lossy delivery translation is measured after decode", () => {

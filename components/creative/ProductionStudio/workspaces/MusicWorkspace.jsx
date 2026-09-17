@@ -18,6 +18,7 @@ const MASTERING_PROFILES = [
   { id: "cinematic", label: "Cinematic", detail: "-16 LUFS · -1 dBTP" },
   { id: "broadcast", label: "Broadcast", detail: "-23 LUFS · -1 dBTP" },
   { id: "club", label: "Club", detail: "-9 LUFS · -0.8 dBTP" },
+  { id: "archival", label: "Archival 24/96", detail: "24-bit · 96 kHz delivery · native-hi-res claim only when source/render qualifies" },
 ];
 
 const KEYS = ["", "C major", "C minor", "D major", "D minor", "E major", "E minor", "F major", "F minor", "G major", "G minor", "A major", "A minor", "B major", "B minor"];

@@ -46,3 +46,12 @@ test("experience engine exposes bounded capability summaries for nightly learnin
   assert.match(runtime, /transport_runtime_failure_count/);
   assert.match(runtime, /automatic_training_started:false/);
 });
+
+
+test("experience engine stores only structural capability chains for mission dependency graph", () => {
+  assert.match(runtime, /structuralMissionChain/);
+  assert.match(runtime, /capability_sequence/);
+  assert.match(runtime, /capability_dependency_edges/);
+  assert.match(runtime, /depends_on/);
+  assert.match(runtime, /raw_decision_persisted: false/);
+});

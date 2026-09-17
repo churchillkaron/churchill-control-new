@@ -1,0 +1,13 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { deriveAvantiqoCapabilityDependencyPriority } from "../lib/intelligence/runtime/AvantiqoCapabilityDependencyPriorityRuntime.js";
+import { scoreAvantiqoCapabilityLearningPriority } from "../lib/intelligence/runtime/AvantiqoCapabilityLearningPriorityRuntime.js";
+const capabilities=[
+ {key:"finance.invoice.create",risk:"medium",operator_verification:{capability_key:"finance.invoice.read"}},
+ {key:"finance.payment.apply",risk:"high",operator_verification:{capability_key:"finance.invoice.read"}},
+ {key:"finance.invoice.read",risk:"low",operator_verification:null},
+ {key:"people.employee.read",risk:"low",operator_verification:null},
+];
+test("explicit verifier dependencies create structural centrality without guessed edges",()=>{const rows=deriveAvantiqoCapabilityDependencyPriority({capabilities,experienceRows:[]});const by=new Map(rows.map(x=>[x.capability_key,x]));assert.equal(by.get("finance.invoice.read").verification_dependent_count,2);assert.ok(by.get("finance.invoice.read").dependency_centrality_score>by.get("people.employee.read").dependency_centrality_score);assert.equal(by.get("people.employee.read").dependency_centrality_score,0);});
+test("observed de-identified mission dependency edges increase upstream centrality",()=>{const experienceRows=[{metadata:{structural_only:true,capability_dependency_edges:[["finance.invoice.read","finance.invoice.create"],["finance.invoice.create","finance.payment.apply"]]}}];const rows=deriveAvantiqoCapabilityDependencyPriority({capabilities,experienceRows});const by=new Map(rows.map(x=>[x.capability_key,x]));assert.ok(by.get("finance.invoice.read").mission_upstream_count>0);assert.ok(by.get("finance.invoice.create").observed_dependency_occurrence_count>0);assert.equal(by.get("finance.invoice.read").authority_effect,"NONE");});
+test("dependency centrality raises study priority only when an intelligence gap exists",()=>{const base={score:.4,outcome_weighted_evidence_units:0,live_verified_outcome_count:0,readiness:{success_evidence_units:0}};const isolated=scoreAvantiqoCapabilityLearningPriority({capability:{risk:"low"},coverage:base,dependency:{dependency_centrality_score:0}});const central=scoreAvantiqoCapabilityLearningPriority({capability:{risk:"low"},coverage:base,dependency:{dependency_centrality_score:.9}});assert.ok(central.priority>isolated.priority);const mastered=scoreAvantiqoCapabilityLearningPriority({capability:{risk:"low"},coverage:{...base,score:1},dependency:{dependency_centrality_score:1}});assert.equal(mastered.priority,0);assert.equal(central.authority_effect,"NONE");});

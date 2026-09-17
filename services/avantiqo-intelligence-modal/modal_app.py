@@ -1,8 +1,7 @@
 """Owned Avantiqo Intelligence Fast + Deep Modal workers.
 
 No Modal Volume is created. Each exact Qwen snapshot is baked into its own
-immutable Modal Image layer. Fast reuses one H100 conversational container during active chat and scales
-to zero after two idle minutes; Deep remains scale-to-zero. The
+immutable Modal Image layer. Fast and Deep both scale to zero after a five-second idle window. The
 gateway lives in modal_service.py and never imports this module.
 """
 from __future__ import annotations
@@ -35,8 +34,8 @@ DEEP_MAX_MODEL_LEN = 131072
 FAST_MAX_INPUT_CHARACTERS = 100000
 DEEP_MAX_INPUT_CHARACTERS = 500000
 MAX_OUTPUT_TOKENS = 16384
-FAST_SCALEDOWN_WINDOW_SECONDS = 2 * 60
-DEEP_SCALEDOWN_WINDOW_SECONDS = max(5, int(os.environ.get("AVANTIQO_INTELLIGENCE_DEEP_SCALEDOWN_SECONDS", "60") or "60"))
+FAST_SCALEDOWN_WINDOW_SECONDS = 5
+DEEP_SCALEDOWN_WINDOW_SECONDS = max(5, int(os.environ.get("AVANTIQO_INTELLIGENCE_DEEP_SCALEDOWN_SECONDS", "5") or "5"))
 FAST_RUNTIME_CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_WARM_FUNCTION_V1"
 PRIVATE_KEYS = {
     "reasoning", "reasoning_content", "chain_of_thought", "chainofthought",

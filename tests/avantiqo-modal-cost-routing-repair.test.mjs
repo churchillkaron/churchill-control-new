@@ -12,12 +12,12 @@ const preproductionRepair = fs.readFileSync("lib/creative/production-room/runtim
 const surgicalRevision = fs.readFileSync("lib/creative/revisions/runtime/CreativeShotSurgicalRevisionRuntime.js", "utf8");
 
 test("Deep H100 keeps a bounded warm window while retaining scale-to-zero", () => {
-  assert.match(modal, /AVANTIQO_INTELLIGENCE_DEEP_SCALEDOWN_SECONDS[\s\S]*?\"60\"/);
+  assert.match(modal, /AVANTIQO_INTELLIGENCE_DEEP_SCALEDOWN_SECONDS[\s\S]*?\"5\"/);
   assert.match(modal, /def deep[\s\S]*?DEEP_SCALEDOWN_WINDOW_SECONDS|DEEP_SCALEDOWN_WINDOW_SECONDS[\s\S]*?def deep/);
   assert.match(modal, /min_containers=0/);
   assert.match(modal, /max_containers=1/);
-  assert.match(provider, /deep_bounded_warm_idle_seconds: 60/);
-  assert.match(registration, /deep_bounded_warm_idle_seconds: 60/);
+  assert.match(provider, /deep_bounded_warm_idle_seconds: 5/);
+  assert.match(registration, /deep_bounded_warm_idle_seconds: 5/);
 });
 
 test("bounded master-plan contract repair no longer defaults to Deep H100", () => {

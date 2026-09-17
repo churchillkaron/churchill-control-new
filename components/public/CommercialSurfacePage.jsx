@@ -20,7 +20,16 @@ function MarketplaceArt() {
 }
 
 function NetworkArt({ kind }) {
-  const labels = kind === "solutions" ? ["RESTAURANTS","HOTELS","RETAIL","CONSTRUCTION","AGENCIES","ACCOUNTING"] : kind === "integrations" ? ["MESSAGING","SOCIAL","PAYMENTS","DOCUMENTS","ADS","DATA"] : kind === "partners" ? ["ACCOUNTANTS","AGENCIES","CONSULTANTS","IMPLEMENTERS","RESELLERS","BUILDERS"] : ["RESEARCH","PREPARE","REVIEW","EXECUTE","VERIFY","LEARN"];
+  const labelSets = {
+    solutions:["RESTAURANTS","HOTELS","RETAIL","CONSTRUCTION","AGENCIES","ACCOUNTING"],
+    integrations:["MESSAGING","SOCIAL","PAYMENTS","DOCUMENTS","ADS","DATA"],
+    partners:["ACCOUNTANTS","AGENCIES","CONSULTANTS","IMPLEMENTERS","RESELLERS","BUILDERS"],
+    agents:["RESEARCH","PREPARE","REVIEW","EXECUTE","VERIFY","LEARN"],
+    enterprise:["ENTITIES","LOCATIONS","GOVERNANCE","PORTFOLIO","INTEGRATIONS","SUPPORT"],
+    services:["DISCOVER","MIGRATE","CONFIGURE","INTEGRATE","LAUNCH","OPTIMIZE"],
+    insights:["FORECAST","EXCEPTIONS","PORTFOLIO","FINANCE","COMMERCIAL","OPERATIONS"],
+  };
+  const labels = labelSets[kind] || labelSets.agents;
   return <div className="relative h-full min-h-[520px] overflow-hidden rounded-[30px] border border-white/[0.09] bg-[#0a0908] shadow-[0_40px_110px_rgba(25,18,10,.28)]"><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(214,166,106,.22),transparent_23%),linear-gradient(145deg,#15110d,#070706_72%)]"/><div className="absolute left-1/2 top-1/2 z-10 flex h-36 w-36 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#D6A66A]/45 bg-[#D6A66A]/[0.06] text-center text-[9px] font-semibold uppercase tracking-[0.18em] text-[#E0B97D]">AVANTIQO<br/>{kind.toUpperCase()}</div>{labels.map((x,i)=>{const a=(i/labels.length)*Math.PI*2-Math.PI/2;const left=50+Math.cos(a)*35;const top=50+Math.sin(a)*34;return <div key={x} className="absolute z-10 w-32 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/[0.08] bg-black/35 px-3 py-3 text-center text-[7px] font-semibold uppercase tracking-[0.14em] text-white/42" style={{left:`${left}%`,top:`${top}%`}}>{x}</div>})}<svg className="absolute inset-0 h-full w-full" aria-hidden="true"><g stroke="rgba(214,166,106,.17)" strokeWidth="1">{labels.map((_,i)=>{const a=(i/labels.length)*Math.PI*2-Math.PI/2;return <line key={i} x1="50%" y1="50%" x2={`${50+Math.cos(a)*35}%`} y2={`${50+Math.sin(a)*34}%`}/>})}</g></svg></div>;
 }
 
@@ -61,7 +70,7 @@ function ChannelsArt() {
   </div>;
 }
 
-const ART = { compute:<ComputeArt/>, marketplace:<MarketplaceArt/>, solutions:<NetworkArt kind="solutions"/>, integrations:<NetworkArt kind="integrations"/>, partners:<NetworkArt kind="partners"/>, agents:<NetworkArt kind="agents"/>, pricing:<PricingArt/>, commerce:<CommerceArt/>, channels:<ChannelsArt/> };
+const ART = { compute:<ComputeArt/>, marketplace:<MarketplaceArt/>, solutions:<NetworkArt kind="solutions"/>, integrations:<NetworkArt kind="integrations"/>, partners:<NetworkArt kind="partners"/>, agents:<NetworkArt kind="agents"/>, enterprise:<NetworkArt kind="enterprise"/>, services:<NetworkArt kind="services"/>, insights:<NetworkArt kind="insights"/>, pricing:<PricingArt/>, commerce:<CommerceArt/>, channels:<ChannelsArt/> };
 
 export default function CommercialSurfacePage({config}) {
   return <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">

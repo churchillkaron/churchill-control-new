@@ -72,6 +72,34 @@ export const commercialSurfaceConfigs = {
     money:[["Channel add-ons","Charge for websites, portals, mobile, kiosk, POS or embedded surfaces."],["Build & launch","Premium setup, migration, brand implementation and launch services."],["Usage growth","More customer and staff touchpoints create more transactions and capability consumption."],["Partner delivery","Agencies and developers can build channel experiences on top of the platform."]],
     cta:"One operating system. Every surface the business needs.", primary:"Enter Avantiqo", primaryHref:"/login"
   },
+
+  enterprise: {
+    context:"Enterprise", art:"enterprise", status:"Enterprise packaging", eyebrow:"Avantiqo Enterprise", title:"One operating system across entities, teams and complexity.",
+    description:"For larger organizations, the same Avantiqo platform can be packaged around multi-entity operations, stronger governance, portfolio visibility, integration requirements and controlled automation—without splitting the business into separate software islands.",
+    valueEyebrow:"Higher-value operating scope", valueTitle:"Scale the business context, not the software fragmentation.",
+    value:[["Multi-entity operations","Operate across legal entities, locations, properties, brands and business units."],["Governance & controls","Role, approval, evidence and policy layers for higher-risk operating environments."],["Portfolio visibility","Cross-organization reporting, exceptions and operational oversight."],["Integration depth","APIs, webhooks, connected services and enterprise implementation requirements."]],
+    moneyTitle:"Enterprise packaging creates higher annual contract value around the same platform core.", moneyDescription:"Commercial expansion can come from organization complexity, managed scope, implementation requirements and premium service levels rather than multiplying separate products.",
+    money:[["Enterprise plans","Higher-value subscriptions for larger operating scope and governance needs."],["Entity & location expansion","Commercial tiers can scale with the footprint being managed."],["Implementation programs","Migration, integrations and rollout create professional-services revenue."],["Premium support","Higher service levels and operating assurance can be packaged separately."]],
+    cta:"Grow from one business to an operating portfolio without changing platforms.", primary:"Enter Avantiqo", primaryHref:"/login"
+  },
+  services: {
+    context:"Services", art:"services", status:"Professional services", eyebrow:"Avantiqo Services", title:"Implementation should create value before the first login.",
+    description:"Migration, configuration, workflow design, integrations, training, launch and continuous optimization can be delivered as professional services around the platform—directly by Avantiqo or through certified partners as the ecosystem grows.",
+    valueEyebrow:"From platform to operating reality", valueTitle:"Package the work required to make the system successful.",
+    value:[["Discovery & design","Map entities, processes, approvals, data and operating priorities before configuration."],["Migration & setup","Move master data, opening positions, documents and configuration into a controlled launch plan."],["Integration & launch","Connect providers, channels and workflows, then verify the live operating path."],["Optimization","Review adoption, exceptions, automation opportunities and operating performance after go-live."]],
+    moneyTitle:"Services create near-term revenue while accelerating recurring platform adoption.", moneyDescription:"Implementation revenue should reinforce the software business rather than become a custom-development trap: repeatable methods, scoped deliverables and partner leverage keep the model scalable.",
+    money:[["Implementation fees","Fixed-scope onboarding, configuration and migration programs."],["Integration projects","Paid setup for complex provider, data and workflow connections."],["Training & enablement","Role-based launch, operating playbooks and administrator training."],["Optimization retainers","Ongoing operating reviews and improvement programs where customers want them."]],
+    cta:"Make every implementation a repeatable path to a successful operating system.", primary:"Enter Avantiqo", primaryHref:"/login"
+  },
+  insights: {
+    context:"Insights", art:"insights", status:"Premium decision products", eyebrow:"Avantiqo Insights", title:"Turn operating data into decisions worth paying for.",
+    description:"Avantiqo already sits close to finance, operations, supply chain, commercial and people data. Premium analytics can package forecasting, exception intelligence, portfolio views and specialized decision products without separating analysis from the underlying business evidence.",
+    valueEyebrow:"Decision products", valueTitle:"Move beyond dashboards into commercially valuable intelligence.",
+    value:[["Forecasting","Revenue, cash, demand, staffing and operational outlooks tied to current business context."],["Exception intelligence","Prioritize anomalies, blockers, risk and actions instead of only displaying metrics."],["Portfolio analytics","Compare entities, locations, products or operating units with shared definitions."],["Specialist analysis","Premium finance, commercial, operational and industry-specific decision packs."]],
+    moneyTitle:"Premium intelligence can increase ARPU without charging for ordinary everyday questions.", moneyDescription:"Core Business Partner intelligence can remain included while genuinely expensive, specialist or recurring decision products become premium packages or Wallet-funded workloads.",
+    money:[["Premium insight packs","Sell specialist recurring reports, forecasts and decision products."],["Deep-analysis usage","Meter computationally expensive research and analytical workloads."],["Executive portfolio tier","Package cross-entity and multi-location oversight for larger customers."],["Partner analytics","Accounting firms, agencies and consultants can deliver client-facing insight products on top."]],
+    cta:"Keep everyday intelligence useful. Charge for the analysis that creates exceptional value.", primary:"Enter Avantiqo", primaryHref:"/login"
+  },
   agents: {
     context:"Agents", art:"agents", status:"Governed automation", eyebrow:"Avantiqo Agents", title:"Automated workers that operate inside real business authority.",
     description:"Avantiqo agents can research, prepare, coordinate and execute approved work through exact capabilities. The goal is not autonomous access to everything; it is useful automation constrained by organization, role, workflow, evidence and approval.",

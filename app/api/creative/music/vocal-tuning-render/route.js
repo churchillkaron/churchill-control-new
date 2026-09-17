@@ -249,8 +249,8 @@ async function sourceRightsConfirmed(asset, organizationId, projectId, seen = ne
   if (!asset?.id || seen.has(asset.id) || seen.size >= 8) return false;
   seen.add(asset.id);
   const metadata = object(asset.metadata);
-  if (metadata.source_rights_confirmed === true || metadata.source_is_user_recording === true) return true;
-  const parentId = text(metadata.source_asset_id || metadata.correction_source_asset_id || metadata.original_source_asset_id);
+  if (metadata.source_rights_confirmed === true || metadata.source_rights_attested === true || metadata.source_is_user_recording === true) return true;
+  const parentId = text(metadata.source_asset_id || metadata.correction_source_asset_id || metadata.original_source_asset_id || metadata.professional_vocal_parent_asset_id || metadata.professional_local_stem_source_asset_id);
   if (!parentId) return false;
   try {
     const parent = await sourceAssetInScope(organizationId, projectId, parentId);

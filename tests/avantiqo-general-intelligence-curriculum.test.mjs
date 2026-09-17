@@ -15,7 +15,8 @@ test("general intelligence curriculum spans broad world domains", () => {
 
 test("world curriculum rotates one high-priority study topic per night", () => {
   assert.match(curriculum, /utcDayNumber\(nowMs\) % WORLD_CURRICULUM\.length/);
-  assert.match(curriculum, /importance: isActive \? 0\.995 : 0\.58/);
+  assert.match(curriculum, /importance: isActive \? 0\.995 : adaptiveImportance/);
+  assert.match(curriculum, /adaptive_practice_due: practiceDue/);
   assert.match(curriculum, /next_research_at: due/);
 });
 

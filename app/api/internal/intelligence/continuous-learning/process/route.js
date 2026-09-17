@@ -1,6 +1,7 @@
 import { runCronRouteLocalFirst } from "@/lib/platform/service-runtime/policy/CronRouteComputePolicyRuntime";
 import { reconcileAvantiqoGeneralIntelligenceCurriculum } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceCurriculumRuntime";
 import { runAvantiqoNightlyLearningSynthesis } from "@/lib/intelligence/runtime/AvantiqoNightlyLearningSynthesisRuntime";
+import { runAvantiqoGeneralIntelligenceExam } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceExamRuntime";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -444,12 +445,16 @@ async function handleCronGet(request) {
     const postResearchMechanismFirstLearning =
       await reconcileAvantiqoMechanismFirstLearning();
     const nightlyLocalSynthesis = await runAvantiqoNightlyLearningSynthesis();
+    const generalIntelligenceExam = await runAvantiqoGeneralIntelligenceExam({
+      topicKey: nightlyLocalSynthesis?.status === "COMPLETED" ? nightlyLocalSynthesis.topic_key : null,
+    });
 
     return Response.json(
       {
         ...result,
         general_intelligence_curriculum: generalIntelligenceCurriculum,
         nightly_local_4b_synthesis: nightlyLocalSynthesis,
+        general_intelligence_exam: generalIntelligenceExam,
         post_research_learning_evidence_candidate_bridge: postResearchEvidenceCandidateBridge,
         post_research_mechanism_first_learning: postResearchMechanismFirstLearning,
         internal_product_knowledge: internalProductKnowledge,

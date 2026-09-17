@@ -33,8 +33,9 @@ test("capability curriculum resolves canonical learning organization and persist
   assert.match(runtime, /memory_type:"fact"/);
 });
 
-test("nightly capability study is bounded to the weakest capability", () => {
-  assert.match(runtime, /sort\(\(a,b\) => a\.coverage\.score-b\.coverage\.score/);
+test("nightly capability study prioritizes usage gaps risk and exploration", () => {
+  assert.match(runtime, /scoreAvantiqoCapabilityLearningPriority/);
+  assert.match(runtime, /learning_priority\.priority/);
   assert.match(runtime, /const selected = assessments\[0\]/);
   assert.match(runtime, /nightly_capability_research_max_items:1/);
   assert.match(runtime, /importance:0\.997/);

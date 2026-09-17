@@ -151,7 +151,7 @@ function MusicGeneratorGate({ status }) {
   );
 }
 
-function StudioHome({ modeState, composeReady, composeStatus, readinessError, onOpen, organizationId, projectId, professionalReleaseRefreshKey }) {
+function StudioHome({ modeState, composeReady, composeStatus, readinessError, onOpen, organizationId, projectId, projects = [], professionalReleaseRefreshKey }) {
   const primaryModes = PRIMARY_MODE_IDS.map((id) => MODES.find((item) => item.id === id)).filter(Boolean);
 
   return (
@@ -180,6 +180,21 @@ function StudioHome({ modeState, composeReady, composeStatus, readinessError, on
           {readinessError ? <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[10px] text-amber-800">Readiness check unavailable</span> : null}
         </div>
       </header>
+
+      {projects.length ? (
+        <section className="mt-6 rounded-2xl border border-black/[0.07] bg-white p-4 md:p-5">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div><div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#9A744B]">Recent projects</div><div className="mt-1 text-[11px] text-[#817B73]">Resume an existing Music project with its exact project state and deliverables.</div></div>
+            {projectId ? <a href={`/workspace/${organizationId}/creative/music?project=${projectId}`} className="text-[9px] font-semibold text-[#8A633C]">Current project</a> : null}
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {projects.slice(0, 8).map((item) => {
+              const active = item.id === projectId;
+              return <a key={item.id} href={`/workspace/${organizationId}/creative/music?project=${item.id}`} className={`rounded-xl border p-3.5 transition ${active ? "border-[#B98A57]/30 bg-[#FCF7EF]" : "border-black/[0.07] bg-[#FCFBF8] hover:border-[#B98A57]/25"}`}><div className="truncate text-[11px] font-semibold text-[#413C36]">{item.name || item.title || "Music Project"}</div><div className="mt-1 text-[8px] uppercase tracking-[0.09em] text-[#9A948B]">{active ? "Open now" : (item.production_type || "Music project")}</div></a>;
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <section className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         {primaryModes.map((item) => {
@@ -321,6 +336,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           onOpen={setMode}
           organizationId={organizationId}
           projectId={project?.id || null}
+          projects={(runtime.projectRuntime?.items || []).filter((item) => { const value = `${item.production_type || ""} ${item.project_type || ""} ${item.metadata?.media_kind || ""} ${item.metadata?.studio || ""}`.toLowerCase(); return item.id === project?.id || /music|audio|song/.test(value); })}
           professionalReleaseRefreshKey={professionalReleaseRevision}
         />
       ) : (

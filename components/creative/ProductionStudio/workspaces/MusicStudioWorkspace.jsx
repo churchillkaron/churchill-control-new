@@ -358,7 +358,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           : mode === "auto" ? <MusicAutoStudioPanel {...specialistProps} onProfessionalReleaseStarted={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />
           : mode === "record" ? <MusicRecordingStudioPanel {...specialistProps} onSaved={() => runtime.refresh?.()} onOpenWorkstation={() => setMode("workstation")} />
           : mode === "workstation" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Music Project"} onProfessionalReleaseAdvanced={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />
-          : mode === "producer" ? <MusicProducerPanel organizationId={organizationId} projectId={project?.id || null} />
+          : mode === "producer" ? <MusicProducerPanel organizationId={organizationId} projectId={project?.id || null} onOpen={setMode} />
           : mode === "arrange" ? <MusicArrangementPanel organizationId={organizationId} projectId={project?.id || null} />
           : mode === "midi" ? <MusicMidiStudioPanel organizationId={organizationId} projectId={project?.id || null} />
           : mode === "elastic" ? <MusicElasticAudioPanel organizationId={organizationId} projectId={project?.id || null} />

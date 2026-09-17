@@ -1,4 +1,5 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+import PublicArtStage from "@/components/public/PublicArtStage";
 
 export const metadata = {
   title: "API Platform | Avantiqo",
@@ -41,15 +42,7 @@ export default function ApiPlatformPage() {
             </div>
           </div>
           <div className="relative min-h-[540px] overflow-hidden border-t border-black/[0.06] bg-[#11110F] lg:min-h-0 lg:border-l lg:border-t-0">
-            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/art/developer-work.jpg)" }} />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.26)_45%,rgba(9,8,7,.82))]" />
-            <div className="absolute left-7 top-7 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]">AVANTIQO / API RUNTIME</div>
-            <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-white/[0.14] bg-black/50 p-6 text-white backdrop-blur-xl">
-              <div className="text-[7px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">REQUEST → CONTEXT → CAPABILITY → EXECUTION → PROOF</div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                {["Authenticated", "Metered", "Governed"].map((x) => <div key={x} className="rounded-xl border border-white/[0.09] bg-white/[0.03] px-3 py-3 text-[9px] text-white/64">{x}</div>)}
-              </div>
-            </div>
+            <PublicArtStage kind="api" />
           </div>
         </div>
       </section>

@@ -1,4 +1,5 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+import PublicArtStage from "@/components/public/PublicArtStage";
 
 const capabilityFamilies = [
   {
@@ -212,65 +213,7 @@ export default function DevelopersPage() {
             </div>
           </div>
           <div className="relative min-h-[580px] overflow-hidden border-t border-white/[0.08] lg:min-h-0 lg:border-l lg:border-t-0">
-            <div
-              className="absolute inset-0 scale-[1.02] bg-cover bg-center"
-              style={{ backgroundImage: "url(/art/developer-work.jpg)" }}
-            />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,8,6,.05),rgba(10,8,6,.02)_45%,rgba(10,8,6,.34)),linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.10)_42%,rgba(6,5,4,.80))]" />
-            <div className="absolute left-7 top-7 flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]" />
-              AVANTIQO / DEVELOPER FABRIC
-            </div>
-            <div className="absolute right-7 top-7 hidden text-right sm:block">
-              <div className="text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F0C98F]">
-                ONE CONTROL PLANE
-              </div>
-              <div className="mt-1 text-[7px] uppercase tracking-[0.17em] text-white/38">
-                SDK · webhooks · tools · embed
-              </div>
-            </div>
-            <div className="absolute bottom-7 left-7 right-7 grid gap-3 lg:grid-cols-[1.15fr_.85fr]">
-              <div className="rounded-[24px] border border-white/[0.14] bg-[#11100E]/78 p-5 shadow-[0_28px_80px_rgba(0,0,0,.28)] backdrop-blur-xl sm:p-6">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#E4B77C]">
-                    CAPABILITY CONTRACT
-                  </span>
-                  <span className="text-[6px] uppercase tracking-[0.15em] text-white/24">
-                    LIVE PATH
-                  </span>
-                </div>
-                <div className="mt-5 font-mono text-[9px] leading-6 text-white/62">
-                  <span className="text-[#D6A66A]">import</span> Avantiqo from "@avantiqo/sdk"
-                  <br />
-                  <span className="text-white/30">workspace</span> · developer sandbox
-                  <br />
-                  <span className="text-white/30">capability</span> · typed contract
-                </div>
-                <div className="mt-5 h-px bg-white/[0.08]">
-                  <div className="h-px w-[72%] bg-[#D6A66A]/70" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  ["SDK", "Typed tools"],
-                  ["Hooks", "Events"],
-                  ["Sandbox", "Test safely"],
-                  ["Embed", "Own UX"],
-                ].map(([a, b]) => (
-                  <div
-                    key={a}
-                    className="rounded-[18px] border border-white/[0.12] bg-black/28 p-4 backdrop-blur-xl"
-                  >
-                    <div className="text-[8px] font-semibold text-white/80">
-                      {a}
-                    </div>
-                    <div className="mt-4 text-[6px] uppercase tracking-[0.15em] text-[#D6A66A]">
-                      {b}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <PublicArtStage kind="developer" />
           </div>
         </div>
       </section>

@@ -9,12 +9,21 @@ function Arrow({ className = "" }) {
 }
 
 const EXPLORE_GROUPS = [
-  ["RUN", [["Business OS", "/business"], ["Commerce", "/commerce"], ["Channels", "/channels"], ["Solutions", "/solutions"]]],
+  ["PRODUCTS", [["All Products", "/products"], ["Workforce", "/products/workforce"], ["Finance", "/products/finance"], ["Inventory & Food Cost", "/products/inventory"], ["Invoice Intelligence", "/invoice-processing"], ["Documents", "/documents"]]],
+  ["RUN", [["Channels", "/channels"], ["Solutions", "/solutions"], ["Enterprise", "/enterprise"], ["Services", "/services"]]],
   ["THINK", [["Intelligence", "/intelligence-platform"], ["Agents", "/agents"], ["Insights", "/insights"]]],
   ["CREATE", [["Creative Studios", "/creative-studios"], ["Image Studio", "/creative-studios/image"], ["Video Studio", "/creative-studios/video"], ["Music Studio", "/creative-studios/music"], ["Voice", "/voice"]]],
   ["BUILD", [["Code", "/code"], ["Developers", "/developers"], ["API Platform", "/api-platform"], ["Integrations", "/integrations"]]],
-  ["PROCESS", [["Documents", "/documents"]]],
-  ["SCALE", [["Compute", "/compute"], ["Enterprise", "/enterprise"], ["Services", "/services"], ["Partners", "/partners"]]],
+    ["SCALE", [["Compute", "/compute"], ["Enterprise", "/enterprise"], ["Services", "/services"], ["Partners", "/partners"], ["Marketplace", "/ecosystem"]]],
+];
+
+const GLOBAL_LINKS = [
+  ["Products", "/products"],
+  ["Solutions", "/solutions"],
+  ["Creative", "/creative-studios"],
+  ["Developers", "/developers"],
+  ["Compute", "/compute"],
+  ["Pricing", "/pricing"],
 ];
 
 const AREA_MENUS = {
@@ -28,8 +37,8 @@ const AREA_MENUS = {
     ["Video Studio", "/creative-studios/video"], ["Music Studio", "/creative-studios/music"],
   ],
   developers: [
-    ["Developers", "/developers"], ["API Platform", "/api-platform"], ["Integrations", "/integrations"],
-    ["Compute", "/compute"],
+    ["Developers", "/developers"], ["Capabilities", "/developers/capabilities"], ["API Platform", "/api-platform"],
+    ["Integrations", "/integrations"], ["Compute", "/compute"],
   ],
   api: [
     ["API Platform", "/api-platform"], ["Developers", "/developers"], ["Integrations", "/integrations"],
@@ -39,7 +48,7 @@ const AREA_MENUS = {
     ["Compute", "/compute"], ["API Platform", "/api-platform"], ["Developers", "/developers"],
   ],
   platform: [
-    ["Start", "/start"], ["Business OS", "/"], ["Creative Studios", "/creative-studios"],
+    ["Start", "/start"], ["Business OS", "/business"], ["Creative Studios", "/creative-studios"],
     ["Developers", "/developers"], ["API Platform", "/api-platform"], ["Compute", "/compute"],
   ],
 };
@@ -55,9 +64,14 @@ export default function PublicSiteHeader({ context, links = [], action = { label
           <span className="hidden truncate text-[7px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A] sm:block">{context}</span>
         </a>
         <nav className="flex items-center gap-1" aria-label={`${context} navigation`}>
-          <div className="hidden items-center gap-0.5 lg:flex">
-            {links.slice(0, 5).map((link) => (
-              <a key={`${link.href}-${link.label}`} href={link.href} className="rounded-lg px-3 py-2 text-[9px] font-medium text-white/62 transition hover:bg-white/[0.05] hover:text-white">{link.label}</a>
+          <div className="hidden items-center gap-0.5 xl:flex">
+            {GLOBAL_LINKS.map(([label, href]) => (
+              <a key={href} href={href} className="rounded-lg px-2.5 py-2 text-[8px] font-medium text-white/62 transition hover:bg-white/[0.05] hover:text-white">{label}</a>
+            ))}
+          </div>
+          <div className="hidden items-center gap-0.5 lg:flex xl:hidden">
+            {links.slice(0, 4).map((link) => (
+              <a key={`${link.href}-${link.label}`} href={link.href} className="rounded-lg px-2.5 py-2 text-[8px] font-medium text-white/62 transition hover:bg-white/[0.05] hover:text-white">{link.label}</a>
             ))}
           </div>
           <details className="group relative">

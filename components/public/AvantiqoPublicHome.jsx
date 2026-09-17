@@ -385,7 +385,7 @@ export default function AvantiqoPublicHome() {
 
       <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F4F0E8]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(214,166,106,.15),transparent_31%)]" />
-        <div className="relative mx-auto max-w-[1540px] lg:grid lg:min-h-[720px] lg:grid-cols-[43%_57%]">
+        <div className="relative mx-auto max-w-[1540px] lg:grid lg:min-h-[720px] lg:grid-cols-[42%_58%]">
           <div className="relative z-20 flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
             <div className="max-w-[620px]">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/28 bg-white/62 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-[#8A633C] shadow-[0_4px_20px_rgba(100,75,45,.05)]">
@@ -438,37 +438,19 @@ export default function AvantiqoPublicHome() {
               </div>
             </div>
           </div>
-          <div className="relative min-h-[620px] overflow-hidden border-t border-black/[0.06] bg-[#151310] lg:min-h-0 lg:border-l lg:border-t-0">
-            <div className="absolute inset-0 grid grid-cols-[1.28fr_.72fr] gap-px bg-[#D6A66A]/20">
+          <div className="relative min-h-[620px] overflow-hidden border-t border-black/[0.06] bg-[#171614] lg:min-h-0 lg:border-l lg:border-t-0">
+            <div className="absolute inset-0 grid grid-cols-[1.5fr_.5fr] gap-px bg-[#D6A66A]/28">
               <div className="relative overflow-hidden">
-                <div
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{ backgroundImage: "url(/bg-hero-control.jpg)" }}
-                />
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,7,6,.02),rgba(8,7,6,.04)_54%,rgba(8,7,6,.34)),linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.08)_48%,rgba(8,7,6,.72))]" />
+                <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url(/bg-hero-control.jpg)" }} />
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,7,6,.18),rgba(8,7,6,.12)_42%,rgba(8,7,6,.46)),linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.16)_42%,rgba(8,7,6,.78))]" />
+                <div className="absolute left-[47%] top-[9%] h-[13%] w-[31%] rounded-[18px] bg-[#171614]/88 shadow-[0_12px_45px_rgba(0,0,0,.25)] backdrop-blur-sm" />
               </div>
-              <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/20">
-                <div className="relative overflow-hidden">
-                  <div
-                    className="absolute inset-0 bg-cover bg-center"
-                    style={{
-                      backgroundImage: "url(/art/commercial-solutions.jpg)",
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/20" />
-                </div>
-                <div className="relative overflow-hidden">
-                  <div
-                    className="absolute inset-0 bg-cover bg-center"
-                    style={{
-                      backgroundImage: "url(/art/commercial-enterprise.jpg)",
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/24" />
-                </div>
+              <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/28">
+                <div className="relative overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/art/commercial-solutions.jpg)" }} /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.04),rgba(17,14,11,.52))]" /><div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.20em] text-[#F1C98E]">OPERATIONS</div></div>
+                <div className="relative overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/art/commercial-channels.jpg)" }} /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.04),rgba(17,14,11,.50))]" /><div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.20em] text-[#F1C98E]">PEOPLE & CHANNELS</div></div>
               </div>
             </div>
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,4,3,.06),rgba(5,4,3,.10)_42%,rgba(5,4,3,.54))]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,4,3,.03),rgba(5,4,3,.08)_42%,rgba(5,4,3,.42))]" />
             <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[#D6A66A]/60 to-transparent" />
             <div className="absolute left-7 top-7 flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]">
               <span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A] shadow-[0_0_14px_rgba(214,166,106,.8)]" />
@@ -509,8 +491,13 @@ export default function AvantiqoPublicHome() {
               </div>
             </div>
 
-            <div className="absolute inset-x-5 bottom-5 sm:inset-x-7 sm:bottom-7 lg:left-[6%] lg:right-[-10%] lg:bottom-[-7%] lg:scale-[.84] lg:origin-bottom-left xl:scale-[.89]">
+            <div className="absolute bottom-7 left-[7%] hidden w-[520px] origin-bottom-left scale-[.69] md:block lg:scale-[.72] xl:scale-[.76]">
               <ProductPreview />
+            </div>
+            <div className="absolute bottom-7 right-7 w-[250px] rounded-[22px] border border-white/16 bg-[#15120f]/72 p-5 text-white shadow-[0_28px_75px_rgba(0,0,0,.26)] backdrop-blur-xl">
+              <div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#D6A66A]">LIVE BUSINESS CONTEXT</div>
+              <div className="mt-3 text-[15px] leading-6 text-white/86">People, money, work and evidence in one operating layer.</div>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-[7px] uppercase tracking-[0.13em] text-white/46"><span>Finance</span><span>Operations</span><span>People</span><span>Intelligence</span></div>
             </div>
           </div>
         </div>

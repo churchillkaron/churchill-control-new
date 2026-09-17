@@ -1,4 +1,5 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+import PublicArtStage from "@/components/public/PublicArtStage";
 
 function Arrow({ className = "" }) {
   return (
@@ -65,7 +66,7 @@ const SURFACE_ART = {
     ],
   },
   partners: {
-    image: "/art/commercial-partners.jpg",
+    image: "/art/commercial-services.jpg",
     label: "Partner network",
     line: "Trusted operators can bring whole portfolios of businesses onto Avantiqo.",
     chips: ["ADVISE", "IMPLEMENT", "SCALE"],
@@ -190,7 +191,7 @@ function SurfaceArt({ kind }) {
       supportPosition: "center",
     },
     partners: {
-      support: "/art/commercial-services.jpg",
+      support: "/art/commercial-enterprise.jpg",
       accent: "DISTRIBUTION",
       metric: "PORTFOLIO",
       detail: "Clients · delivery · value",
@@ -271,6 +272,26 @@ function SurfaceArt({ kind }) {
     kind === "agents" ||
     kind === "integrations" ||
     kind === "commerce";
+
+  if (["compute", "marketplace", "pricing", "solutions", "partners", "enterprise", "services", "agents", "insights", "integrations", "channels", "commerce"].includes(kind)) {
+    return <div className="relative min-h-[560px] overflow-hidden bg-[#F2ECE3] lg:min-h-[690px]"><PublicArtStage kind={kind} /></div>;
+  }
+
+  if (["enterprise", "services", "partners"].includes(kind)) {
+    const nodes = kind === "enterprise"
+      ? [["GROUP","Portfolio"],["ENTITY","Legal scope"],["LOCATION","Operating scope"],["TEAM","Authority"]]
+      : kind === "services"
+        ? [["DISCOVER","Reality"],["CONFIGURE","System"],["LAUNCH","Verified"],["OPTIMIZE","Continuous"]]
+        : [["PARTNER","Relationship"],["CLIENTS","Portfolio"],["DELIVERY","Services"],["VALUE","Shared"]];
+    return <div className="relative min-h-[560px] overflow-hidden bg-[#EEE7DC] lg:min-h-[690px]">
+      <div className="absolute inset-0 grid grid-cols-[1.34fr_.66fr] gap-px bg-[#D6A66A]/22">
+        <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.02] bg-cover" style={{backgroundImage:`url(${art.image})`,backgroundPosition:visual.position}}/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,15,12,.02),rgba(18,15,12,.07)_52%,rgba(18,15,12,.48))]"/></div>
+        <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/22"><div className="relative overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${visual.support})`}}/><div className="absolute inset-0 bg-[#171614]/14"/></div><div className="relative bg-[#F5F0E7]"><div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(214,166,106,.20),transparent_38%)]"/><div className="relative grid h-full grid-cols-2 gap-px bg-[#D6A66A]/18">{nodes.map(([a,b],i)=><div key={a} className="flex flex-col justify-between bg-[#F7F2EA]/90 p-4"><span className="text-[7px] font-semibold text-[#A37849]">0{i+1}</span><div><div className="text-[8px] font-semibold tracking-[0.15em] text-[#2E2924]">{a}</div><div className="mt-1 text-[7px] text-[#85796C]">{b}</div></div></div>)}</div></div></div>
+      </div>
+      <div className="absolute left-7 top-7 flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F2CEA0]"><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]"/>AVANTIQO / {art.label}</div>
+      <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-[#D6A66A]/30 bg-[#F8F3EB]/92 p-5 text-[#1B1916] shadow-[0_28px_80px_rgba(45,30,18,.18)] backdrop-blur-xl sm:left-auto sm:w-[470px] sm:p-6"><div className="flex items-center justify-between"><div className="text-[7px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">{visual.metric}</div><div className="text-[6px] uppercase tracking-[0.18em] text-[#9A8F82]">{visual.accent}</div></div><p className="mt-4 text-[15px] leading-6 text-[#403A34]">{art.line}</p><div className="mt-5 flex flex-wrap gap-1.5">{art.chips.map(x=><span key={x} className="rounded-full border border-[#D6A66A]/26 bg-white/62 px-2.5 py-1 text-[6px] font-semibold tracking-[0.17em] text-[#6F6254]">{x}</span>)}</div></div>
+    </div>;
+  }
 
   return (
     <div className="relative min-h-[560px] overflow-hidden bg-[#171512] lg:min-h-[690px]">
@@ -514,23 +535,7 @@ function StoryRail({ kind }) {
         </div>
         <div className="mt-10 grid overflow-hidden rounded-[28px] border border-black/[0.07] bg-[#171716] text-white shadow-[0_26px_80px_rgba(46,34,23,.08)] lg:grid-cols-[.9fr_1.1fr]">
           <div className="relative min-h-[360px] overflow-hidden border-b border-white/[0.08] lg:min-h-[430px] lg:border-b-0 lg:border-r">
-            <div
-              className="absolute inset-0 scale-[1.02] bg-cover bg-center"
-              style={{ backgroundImage: `url(${art.image})` }}
-            />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.03),rgba(0,0,0,.08)_42%,rgba(7,6,5,.78))]" />
-            <div className="absolute left-5 top-5 rounded-full border border-white/[0.18] bg-black/28 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.18em] text-[#E8C18D] backdrop-blur-xl">
-              AVANTIQO / {art.label}
-            </div>
-            <div className="absolute bottom-5 left-5 right-5 rounded-[18px] border border-white/[0.14] bg-black/30 p-4 backdrop-blur-xl">
-              <div className="text-[7px] font-semibold uppercase tracking-[0.18em] text-[#D6A66A]">
-                REAL OPERATING CONTEXT
-              </div>
-              <div className="mt-2 text-[11px] leading-5 text-white/62">
-                The page artwork follows the work being done rather than using
-                decorative technology imagery.
-              </div>
-            </div>
+            <PublicArtStage kind={kind} />
           </div>
           <div className="grid sm:grid-cols-2">
             {story.steps.map(([no, title, text], i) => (
@@ -683,7 +688,8 @@ export default function CommercialSurfacePage({ config }) {
         { label: "Services", href: "/services" },
         { label: "Pricing", href: "/pricing" },
       ];
-  const showCommercialModel = ["pricing", "compute", "marketplace", "partners"].includes(config.art);
+  const showCommercialModel = ["pricing", "compute", "marketplace", "partners", "enterprise", "services", "agents", "insights", "integrations", "channels", "commerce"].includes(config.art);
+  const lightCommercialModel = ["pricing", "partners", "enterprise", "services", "agents", "insights", "integrations", "channels", "commerce"].includes(config.art);
   const secondaryCta = audience === "compute"
     ? ["API Platform", "/api-platform"]
     : config.art === "partners"
@@ -773,16 +779,16 @@ export default function CommercialSurfacePage({ config }) {
         </div>
       </section>
       {showCommercialModel ? (
-      <section className="border-b border-white/[0.06] bg-[#171716] text-white">
+      <section className={lightCommercialModel ? "border-b border-black/[0.06] bg-[#F3EFE7] text-[#1D1B18]" : "border-b border-white/[0.06] bg-[#171716] text-white"}>
         <div className="mx-auto grid max-w-[1320px] gap-12 px-5 py-20 sm:px-7 lg:grid-cols-[.72fr_1.28fr] lg:px-10 lg:py-24">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">
               Commercial model
             </p>
-            <h2 className="mt-3 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[48px]">
+            <h2 className={lightCommercialModel ? "mt-3 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#1D1B18] sm:text-[48px]" : "mt-3 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[48px]"}>
               {config.moneyTitle}
             </h2>
-            <p className="mt-5 max-w-lg text-[13px] leading-7 text-white/42">
+            <p className={lightCommercialModel ? "mt-5 max-w-lg text-[13px] leading-7 text-[#706A62]" : "mt-5 max-w-lg text-[13px] leading-7 text-white/42"}>
               {config.moneyDescription}
             </p>
           </div>
@@ -790,15 +796,15 @@ export default function CommercialSurfacePage({ config }) {
             {config.money.map(([t, d], i) => (
               <div
                 key={t}
-                className="rounded-[20px] border border-white/[0.08] bg-white/[0.025] p-5"
+                className={lightCommercialModel ? "rounded-[20px] border border-[#D6A66A]/24 bg-white/72 p-5 shadow-[0_12px_38px_rgba(50,36,22,.05)]" : "rounded-[20px] border border-white/[0.08] bg-white/[0.025] p-5"}
               >
                 <div className="text-[8px] font-bold text-[#D6A66A]">
                   0{i + 1}
                 </div>
-                <div className="mt-6 text-[14px] font-semibold text-white/78">
+                <div className={lightCommercialModel ? "mt-6 text-[14px] font-semibold text-[#302D29]" : "mt-6 text-[14px] font-semibold text-white/78"}>
                   {t}
                 </div>
-                <div className="mt-2 text-[9px] leading-5 text-white/34">
+                <div className={lightCommercialModel ? "mt-2 text-[9px] leading-5 text-[#7A756E]" : "mt-2 text-[9px] leading-5 text-white/34"}>
                   {d}
                 </div>
               </div>

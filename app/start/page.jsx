@@ -1,17 +1,18 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+import PublicArtStage from "@/components/public/PublicArtStage";
 
 export const metadata = { title: "Start with Avantiqo | Avantiqo" };
 
 const PATHS = [
-  ["Run", "Business OS", "Finance, operations, supply chain, commercial, people, projects and analytics in one governed operating system.", "Operate", "/business", "Enter Business OS", "/bg-hero-control.jpg"],
-  ["Think", "Intelligence", "Business Partner, agents, research, memory, learning, insights and governed execution.", "Reason & act", "/intelligence-platform", "Enter Intelligence", "/branding/avantiqo-intelligence-core-hero.webp"],
-  ["Create", "Creative Studios", "Image, video, music and production missions with research, direction, review and repair.", "Produce", "/creative-studios", "Enter Creative Studios", "/art/creative-image.jpg"],
-  ["Speak", "Voice", "Speech-to-text, realtime transcription, TTS, voice production and telephony connected to intelligence.", "Listen & respond", "/voice", "Enter Voice", "/art/creative-music.jpg"],
-  ["Build", "Avantiqo Code", "Software work from understanding and planning through build, test, integration and verification.", "Engineer", "/code", "Enter Code", "/art/developer-work.jpg"],
-  ["Process", "Documents", "OCR, extraction, classification, validation and document understanding connected to business workflows.", "Understand files", "/documents", "Enter Documents", "/art/commercial-integrations.jpg"],
-  ["Develop", "Developer Platform", "SDKs, tools and embedded experiences for teams building on Avantiqo.", "Build on Avantiqo", "/developers", "Enter Developers", "/art/developer-work.jpg"],
-  ["Connect", "API Platform", "Governed Avantiqo capabilities exposed through APIs, jobs, webhooks and metered execution.", "Consume capabilities", "/api-platform", "Enter API Platform", "/art/commercial-integrations.jpg"],
-  ["Scale", "Compute", "GPU, inference, rendering, batch and specialist infrastructure with owned capacity first.", "Run workloads", "/compute", "Enter Compute", "/art/commercial-compute.jpg"],
+  ["Run", "Business OS", "Finance, operations, supply chain, commercial, people, projects and analytics in one governed operating system.", "Operate", "/business", "Enter Business OS", "/bg-hero-control.jpg", null],
+  ["Think", "Intelligence", "Business Partner, agents, research, memory, learning, insights and governed execution.", "Reason & act", "/intelligence-platform", "Enter Intelligence", "/branding/avantiqo-intelligence-core-hero.webp", "intelligence"],
+  ["Create", "Creative Studios", "Image, video, music and production missions with research, direction, review and repair.", "Produce", "/creative-studios", "Enter Creative Studios", "/art/creative-image.jpg", null],
+  ["Speak", "Voice", "Speech-to-text, realtime transcription, TTS, voice production and telephony connected to intelligence.", "Listen & respond", "/voice", "Enter Voice", "/art/creative-music.jpg", "voice"],
+  ["Build", "Avantiqo Code", "Software work from understanding and planning through build, test, integration and verification.", "Engineer", "/code", "Enter Code", "/art/developer-work.jpg", "code"],
+  ["Process", "Documents", "OCR, extraction, classification, validation and document understanding connected to business workflows.", "Understand files", "/documents", "Enter Documents", "/art/commercial-integrations.jpg", "documents"],
+  ["Develop", "Developer Platform", "SDKs, tools and embedded experiences for teams building on Avantiqo.", "Build on Avantiqo", "/developers", "Enter Developers", "/art/developer-work.jpg", "developer"],
+  ["Connect", "API Platform", "Governed Avantiqo capabilities exposed through APIs, jobs, webhooks and metered execution.", "Consume capabilities", "/api-platform", "Enter API Platform", "/art/commercial-integrations.jpg", "api"],
+  ["Scale", "Compute", "GPU, inference, rendering, batch and specialist infrastructure with owned capacity first.", "Run workloads", "/compute", "Enter Compute", "/art/commercial-compute.jpg", "compute"],
 ];
 
 function Arrow() {
@@ -67,34 +68,15 @@ export default function StartPage() {
               </div>
             </div>
           </div>
-          <div className="relative min-h-[560px] overflow-hidden border-t border-black/[0.06] bg-[#151310] lg:min-h-0 lg:border-l lg:border-t-0">
-            <div className="absolute inset-0 grid grid-cols-[1.25fr_.75fr] gap-px bg-[#D6A66A]/20">
-              <div className="relative overflow-hidden">
-                <div
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{ backgroundImage: "url(/bg-hero-control.jpg)" }}
-                />
-                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.10)_46%,rgba(6,5,4,.72))]" />
-              </div>
-              <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/20">
-                <div className="relative overflow-hidden">
-                  <div
-                    className="absolute inset-0 bg-cover bg-center"
-                    style={{ backgroundImage: "url(/art/creative-image.jpg)" }}
-                  />
-                  <div className="absolute inset-0 bg-black/18" />
+          <div className="relative min-h-[560px] overflow-hidden border-t border-black/[0.06] bg-[#171614] lg:min-h-0 lg:border-l lg:border-t-0">
+            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px bg-[#D6A66A]/28">
+              {[["RUN","/bg-hero-control.jpg"],["CREATE","/art/creative-video.jpg"],["BUILD","/art/developer-work.jpg"],["SCALE","/art/commercial-compute.jpg"]].map(([label,image]) => (
+                <div key={label} className="relative overflow-hidden">
+                  <div className="absolute inset-0 scale-[1.025] bg-cover bg-center" style={{ backgroundImage: `url(${image})` }} />
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.04),rgba(17,14,11,.13)_48%,rgba(17,14,11,.68))]" />
+                  <div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.22em] text-[#F1C98E]">{label}</div>
                 </div>
-                <div className="relative overflow-hidden">
-                  <div
-                    className="absolute inset-0 bg-cover bg-center"
-                    style={{
-                      backgroundImage:
-                        "url(/branding/avantiqo-intelligence-core-hero.webp)",
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/16" />
-                </div>
-              </div>
+              ))}
             </div>
             <div className="absolute left-7 top-7 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]">
               AVANTIQO / CHOOSE YOUR WORKSPACE
@@ -113,14 +95,14 @@ export default function StartPage() {
       <section id="paths" className="bg-[#FBFAF8]">
         <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
           <div className="grid gap-3 md:grid-cols-2">
-            {PATHS.map(([title, area, description, status, href, cta, image], i) => (
+            {PATHS.map(([title, area, description, status, href, cta, image, artKind], i) => (
               <a
                 key={area}
                 href={href}
                 className="group overflow-hidden rounded-[26px] border border-black/[0.075] bg-white shadow-[0_14px_45px_rgba(40,30,20,.035)] transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35"
               >
                 <div className="relative h-[220px] overflow-hidden bg-[#171614]">
-                  <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{ backgroundImage: `url(${image})` }} />
+                  {artKind ? <PublicArtStage kind={artKind} /> : <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{ backgroundImage: `url(${image})` }} />}
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.03),rgba(0,0,0,.12)_48%,rgba(8,7,6,.72))]" />
                   <div className="absolute left-5 top-5 rounded-full border border-white/20 bg-black/22 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.16em] text-[#F1C98E] backdrop-blur-xl">AVANTIQO / {area}</div>
                   <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-5">
@@ -152,6 +134,17 @@ export default function StartPage() {
                 </div>
               </a>
             ))}
+          </div>
+        </div>
+      </section>
+      <section className="border-y border-black/[0.06] bg-[#F4F0E8]">
+        <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <div><p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">ONE ACCOUNT · DIFFERENT WAYS TO BUY VALUE</p><h2 className="mt-3 text-[36px] font-medium leading-[1.03] tracking-[-0.05em] text-[#1D1B18] sm:text-[48px]">Use only the Avantiqo layer you need.</h2></div>
+            <p className="max-w-2xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">Business software can be subscription-led, while creative missions, API usage, compute and enterprise implementation remain clear commercial layers around the same Avantiqo account.</p>
+          </div>
+          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {[["Business OS","Subscription","/business"],["Creative Studios","Mission / package","/creative-studios"],["Developers & API","Usage","/developers"],["Compute","Usage / reserved","/compute"],["Enterprise","Contract / services","/enterprise"]].map(([title,model,href],i)=>(<a key={title} href={href} className="group rounded-[22px] border border-black/[0.075] bg-white/72 p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/40"><div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#A37849]">0{i+1}</span><span className="text-[8px] text-[#9A8F82]">→</span></div><div className="mt-8 text-[15px] font-semibold text-[#302D29]">{title}</div><div className="mt-2 text-[9px] uppercase tracking-[0.15em] text-[#9A744B]">{model}</div></a>))}
           </div>
         </div>
       </section>

@@ -16,6 +16,7 @@ import {
   Search,
   Server,
   Settings2,
+  Layers3,
   ShieldCheck,
   Users,
 } from "lucide-react";
@@ -57,6 +58,7 @@ const CONTROL_AREAS = [
   { label: "Modules & configuration", description: "Enabled capabilities and organization setup.", route: "/administration/modules", icon: Boxes },
   { label: "Integrations", description: "Connected systems and administration integrations.", route: "/administration/integrations", icon: Settings2 },
   { label: "Compute", description: "Owned GPU nodes, models, queue health and Modal overflow routing.", route: "/administration/compute", icon: Server },
+  { label: "Product Control", description: "Owner-only product portfolio, completion matrix and release specifications.", route: "/administration/product-control", icon: Layers3 },
   { label: "Onboarding & setup", description: "Readiness and guided organization configuration.", route: "/administration/onboarding", icon: Flag },
 ];
 

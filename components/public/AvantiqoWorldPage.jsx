@@ -1,11 +1,12 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+import PublicArtStage from "@/components/public/PublicArtStage";
 
 function Arrow({ className = "" }) {
   return <svg aria-hidden="true" viewBox="0 0 20 20" className={className} fill="none"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
 
 export default function AvantiqoWorldPage({ config }) {
-  const { context, eyebrow, title, intro, audience = "platform", tone = "light", image, sequence = [], capabilities = [], cta = "Start Now", ctaHref = "/start", secondary, secondaryHref } = config;
+  const { context, eyebrow, title, intro, audience = "platform", tone = "light", image, artKind, sequence = [], capabilities = [], cta = "Start Now", ctaHref = "/start", secondary, secondaryHref } = config;
   const dark = tone === "dark";
   return (
     <main className={dark ? "min-h-screen bg-[#11110f] text-white" : "min-h-screen bg-[#f7f6f3] text-[#171614]"}>
@@ -24,8 +25,10 @@ export default function AvantiqoWorldPage({ config }) {
             </div>
           </div>
           <div className="relative min-h-[520px] overflow-hidden bg-[#171614] lg:min-h-0 lg:border-l lg:border-black/[0.08]">
-            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${image})` }} />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.18)_45%,rgba(8,7,6,.78))]" />
+            {artKind ? <PublicArtStage kind={artKind} /> : <>
+              <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${image})` }} />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.18)_45%,rgba(8,7,6,.78))]" />
+            </>}
             <div className="absolute left-7 top-7 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]">AVANTIQO / {context}</div>
             <div className="absolute bottom-7 left-7 right-7 rounded-[22px] border border-white/[0.13] bg-[#11100E]/72 p-5 backdrop-blur-xl sm:p-6">
               <div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#D6A66A]">OPERATING FLOW</div>

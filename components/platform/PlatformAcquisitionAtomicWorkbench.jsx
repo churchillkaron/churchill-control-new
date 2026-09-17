@@ -269,13 +269,13 @@ export default function PlatformAcquisitionAtomicWorkbench() {
     setNextScheduleNote("");
     const candidates = Array.isArray(selected?.verifiedSubscriptionCandidates) ? selected.verifiedSubscriptionCandidates : [];
     setSubscriptionId(selected?.subscription_id || candidates[0]?.id || "");
-    setSelectedProductIds([]);
+    setSelectedProductIds(Array.isArray(selected?.requestedProducts) ? selected.requestedProducts.map((product) => typeof product === "string" ? product : product?.id).filter(Boolean) : []);
     setSubscriptionMonthlyTotal("");
     setSubscriptionBillingCycle("monthly");
     setLossReference("");
     setLossNote("");
     setShowLoss(false);
-  }, [selectedId, selected?.id, selected?.prospect_company, selected?.prospect_contact, selected?.prospect_email, selected?.subscription_id, selected?.verifiedSubscriptionCandidates]);
+  }, [selectedId, selected?.id, selected?.prospect_company, selected?.prospect_contact, selected?.prospect_email, selected?.subscription_id, selected?.verifiedSubscriptionCandidates, selected?.requestedProducts]);
 
   const submitProspect = useCallback(async (event) => {
     event.preventDefault();
@@ -396,7 +396,7 @@ export default function PlatformAcquisitionAtomicWorkbench() {
       return <div className="space-y-3">
         <div className="rounded-xl border border-[#B98A57]/20 bg-[#FBF7F1] p-3.5">
           <div className="text-[8px] font-semibold uppercase tracking-[0.11em] text-[#8A643C]">Commercial subscription</div>
-          <p className="mt-1 text-[8px] leading-4 text-[#91877A]">Record exactly what Avantiqo is selling. These product IDs become the entitlement source when the customer organization is activated.</p>
+          <p className="mt-1 text-[8px] leading-4 text-[#91877A]">Record exactly what Avantiqo is selling. Customer-requested products are preselected when the opportunity came from an existing workspace.</p>{selected?.requestNote ? <p className="mt-2 rounded-lg border border-[#B98A57]/15 bg-white px-2.5 py-2 text-[8px] leading-4 text-[#6F655A]">Customer note: {selected.requestNote}</p> : null}
           <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {SELLABLE_PRODUCTS.map((product) => <label key={product.id} className={`flex cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-2 ${selectedProductIds.includes(product.id) ? "border-[#B98A57]/40 bg-white" : "border-black/[0.06] bg-white/60"}`}><input type="checkbox" checked={selectedProductIds.includes(product.id)} onChange={() => toggleSubscriptionProduct(product.id)} className="mt-0.5"/><span><span className="block text-[8px] font-semibold text-[#514B44]">{product.name}</span><span className="mt-0.5 block text-[7px] leading-3 text-[#999187]">{product.summary}</span></span></label>)}
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { productCatalog } from "@/components/public/productCatalog";
 import { isCustomerProduct } from "@/components/public/customerProductGroups";
@@ -19,6 +19,9 @@ function productHref(product) { return product.href || `/products/${product.id}`
 
 export default function WorkspaceProductsPage({ params }) {
   const context = useBusinessContext() || {};
+  const [requestingProductId, setRequestingProductId] = useState(null);
+  const [requestMessage, setRequestMessage] = useState("");
+  const [requestError, setRequestError] = useState("");
   const organizationId = params?.organizationId || context.organization_id || context.organization?.id;
   const modules = Array.isArray(context.modules) ? context.modules : [];
   const entitlements = Array.isArray(context.product_entitlements) ? context.product_entitlements : [];
@@ -39,6 +42,28 @@ export default function WorkspaceProductsPage({ params }) {
     .filter((product) => isCustomerProduct(product) && !entitledProductIds.has(product.id))
     .slice(0, 12);
   const hasExactEntitlements = entitledProducts.length > 0;
+
+  async function requestProduct(product) {
+    if (!organizationId || requestingProductId) return;
+    setRequestingProductId(product.id);
+    setRequestMessage("");
+    setRequestError("");
+    try {
+      const response = await fetch(`/api/workspace/products/request?organizationId=${encodeURIComponent(organizationId)}`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId, productId: product.id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.success === false) throw new Error(payload?.error || "Unable to send product request");
+      setRequestMessage(payload?.message || `${product.name} request sent to Avantiqo.`);
+    } catch (error) {
+      setRequestError(error?.message || "Unable to send product request");
+    } finally {
+      setRequestingProductId(null);
+    }
+  }
 
   return <div className="mx-auto max-w-[1380px] text-[#191919]">
     <section className="border-b border-black/[.07] pb-8">
@@ -78,12 +103,16 @@ export default function WorkspaceProductsPage({ params }) {
         <div><div className="text-[10px] font-semibold uppercase tracking-[.16em] text-[#858078]">Explore more Avantiqo</div><h2 className="mt-2 text-[30px] font-medium tracking-[-.04em]">Add what your business needs next.</h2></div>
         <Link href="/products" className="text-[10px] font-semibold text-[#76502E]">View all customer products →</Link>
       </div>
+      {(requestMessage || requestError) ? <div className={`mt-5 rounded-xl border px-4 py-3 text-[10px] ${requestError ? "border-red-900/15 bg-red-50 text-red-800" : "border-[#B98A57]/20 bg-[#FBF7F1] text-[#76502E]"}`}>{requestError || requestMessage}</div> : null}
       <div className="mt-6 grid gap-x-7 gap-y-2 md:grid-cols-2 xl:grid-cols-3">
-        {explore.map((product) => <Link key={product.id} href={productHref(product)} className="border-t border-black/[.08] py-4 transition hover:border-[#D6A66A]">
-          <div className="text-[13px] font-semibold text-[#2D2925]">{product.name}</div>
-          <p className="mt-2 text-[10px] leading-5 text-[#7B756E]">{product.summary}</p>
-          <div className="mt-3 text-[9px] font-semibold text-[#8A6138]">Explore product →</div>
-        </Link>)}
+        {explore.map((product) => <div key={product.id} className="border-t border-black/[.08] py-4 transition hover:border-[#D6A66A]">
+          <Link href={productHref(product)} className="block">
+            <div className="text-[13px] font-semibold text-[#2D2925]">{product.name}</div>
+            <p className="mt-2 text-[10px] leading-5 text-[#7B756E]">{product.summary}</p>
+            <div className="mt-3 text-[9px] font-semibold text-[#8A6138]">Explore product →</div>
+          </Link>
+          <button type="button" disabled={Boolean(requestingProductId)} onClick={() => requestProduct(product)} className="mt-3 rounded-full border border-[#A37849]/30 px-3 py-1.5 text-[9px] font-semibold text-[#76502E] transition hover:border-[#A37849]/60 disabled:opacity-40">{requestingProductId === product.id ? "Sending…" : "Request upgrade"}</button>
+        </div>)}
       </div>
     </section>
   </div>;

@@ -63,7 +63,7 @@ export async function GET(request) {
     const [{ data: leads, error: leadsError }, { data: claimed, error: claimedError }] = await Promise.all([
       supabaseAdmin
         .from("organization_leads")
-        .select("id,status,organization_id,email,company,contact,created_at")
+        .select("id,status,organization_id,email,company,contact,created_at,selected_products,requesting_organization_id,request_type,request_note")
         .order("created_at", { ascending: false })
         .limit(100),
       supabaseAdmin
@@ -93,6 +93,10 @@ export async function GET(request) {
           contact: lead.contact || null,
           email: lead.email || null,
           createdAt: lead.created_at || null,
+          requestingOrganizationId: lead.requesting_organization_id || null,
+          requestType: lead.request_type || null,
+          requestNote: lead.request_note || null,
+          requestedProducts: Array.isArray(lead.selected_products) ? lead.selected_products : [],
           claimable: missingIdentity.length === 0,
           missingIdentity,
         };

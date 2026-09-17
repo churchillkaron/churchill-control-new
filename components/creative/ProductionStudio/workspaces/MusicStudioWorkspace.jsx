@@ -17,6 +17,7 @@ import {
   Scissors,
   SlidersHorizontal,
   Sparkles,
+  Volume2,
   WandSparkles,
   Waves,
 } from "lucide-react";
@@ -31,6 +32,7 @@ import MusicMidiStudioPanel from "./MusicMidiStudioPanel";
 import MusicProducerPanel from "./MusicProducerPanel";
 import MusicProfessionalReleasePanel from "./MusicProfessionalReleasePanel";
 import MusicStemsPanel from "./MusicStemsPanel";
+import MusicSfxStudioPanel from "./MusicSfxStudioPanel";
 import MusicRemixPanel from "./MusicRemixPanel";
 import MusicRecordingStudioPanel from "./MusicRecordingStudioPanel";
 import MusicSpecialistStudioPanel from "./MusicSpecialistStudioPanel";
@@ -82,6 +84,7 @@ const MODES = Object.freeze([
   { id: "edit", label: "AI Edit", shortLabel: "AI Edit", description: "Apply a governed surgical music edit.", icon: Scissors, section: "Edit" },
   { id: "extend", label: "Extend", shortLabel: "Extend", description: "Continue an existing piece with governed temporal outpainting.", icon: RefreshCw, section: "Edit" },
   { id: "stems", label: "Separate Stems", shortLabel: "Stems", description: "Separate vocals, drums, bass and other instruments.", icon: Scissors, section: "Finish" },
+  { id: "sfx", label: "SFX & Foley", shortLabel: "SFX", description: "Create effects, ambience, transitions, impacts and foley-style sounds.", icon: Volume2, section: "Create & shape" },
   { id: "vocal", label: "Vocals", shortLabel: "Vocals", description: "Work on vocal production and finishing.", icon: Mic2, section: "Finish" },
   { id: "mix", label: "Mix", shortLabel: "Mix", description: "Balance and finish the mix.", icon: SlidersHorizontal, section: "Finish" },
   { id: "master", label: "Masters & QC", shortLabel: "Masters", description: "Inspect, download and independently revalidate saved release masters.", icon: Disc3, section: "Finish" },
@@ -366,6 +369,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           : mode === "edit" ? <div className="mx-auto max-w-6xl p-6"><MusicRemixPanel operation="edit" {...specialistProps} /></div>
           : mode === "extend" ? <div className="mx-auto max-w-6xl p-6"><MusicRemixPanel operation="extend" {...specialistProps} /></div>
           : mode === "stems" ? <div className="mx-auto max-w-6xl p-6"><MusicStemsPanel {...specialistProps} /></div>
+          : mode === "sfx" ? <MusicSfxStudioPanel {...specialistProps} />
           : mode === "backing" ? <div className="mx-auto max-w-6xl p-6"><MusicBackingTrackPanel {...specialistProps} onComplete={() => runtime.refresh?.()} /></div>
           : mode === "vocal" ? <MusicSpecialistStudioPanel mode="vocal" {...specialistProps} />
           : mode === "mix" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Music Project"} onProfessionalReleaseAdvanced={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />

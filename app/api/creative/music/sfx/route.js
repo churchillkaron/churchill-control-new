@@ -3,7 +3,9 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 import { NextResponse } from "next/server";
-import { executeService } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
+import { executeService, settlePendingService } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
+import { UsageRuntime } from "@/lib/platform/service-runtime/usage/UsageRuntime";
+import { resolveCreativeProviderAssetUrl } from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { PROVIDER_REGISTRY } from "@/lib/platform/service-runtime/providers/ProviderRegistry";
 import "@/lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration";
@@ -35,6 +37,35 @@ function readiness() {
     maximum_duration_seconds: finite(runtime.maximum_duration_seconds, MAX_DURATION_SECONDS),
     blocker: ready ? null : "CREATIVE_MUSIC_SFX_CERTIFICATION_REQUIRED",
   };
+}
+
+
+function outputPayload(result = {}) {
+  const first = result?.output && typeof result.output === "object" ? result.output : {};
+  return first.output && typeof first.output === "object" ? first.output : first;
+}
+
+async function exposeOutput(organizationId, result) {
+  const output = outputPayload(result);
+  const reference = text(output.storage_reference || output.storageReference);
+  return {
+    output,
+    storage_reference: reference || null,
+    playback_url: reference ? await resolveCreativeProviderAssetUrl({ organization_id: organizationId, value: reference }) : null,
+  };
+}
+
+async function status(body = {}) {
+  const organizationId = text(body.organization_id);
+  const usageId = text(body.usage_id);
+  if (!usageId) throw new Error("usage_id required");
+  const usage = await UsageRuntime.get(usageId);
+  if (!usage || text(usage.organization_id) !== organizationId || text(usage.capability) !== CAPABILITY) { const error = new Error("CREATIVE_MUSIC_SFX_USAGE_NOT_FOUND"); error.status = 404; throw error; }
+  const providerJobId = text(usage.provider_request_id || usage.metadata?.provider_request_id);
+  if (!providerJobId) throw new Error("CREATIVE_MUSIC_SFX_PROVIDER_JOB_REQUIRED");
+  const result = await settlePendingService({ organization_id: organizationId, provider: text(usage.provider), provider_job_id: providerJobId, usage_id: usageId, pricing: {}, quantity: finite(usage.quantity, null), unit: text(usage.unit) || null, credential_id: null, started_at: text(usage.execution_started_at || usage.created_at) || null, metadata: { module: "CREATIVE", operation: "AVANTIQO_MUSIC_SFX_SETTLE", creative_project_id: text(usage.metadata?.creative_project_id) || null, creative_mission_id: text(usage.metadata?.creative_mission_id) || null } });
+  const exposed = result?.pending ? { output: result?.output || null, storage_reference: null, playback_url: null } : await exposeOutput(organizationId, result);
+  return { success: result?.failed !== true, pending: result?.pending === true, failed: result?.failed === true, usage_id: usageId, provider_status: result?.provider_status || null, settlement: result?.settlement || null, ...exposed, publication_authorized: false };
 }
 
 function plan(body = {}) {
@@ -92,14 +123,15 @@ async function execute(body = {}) {
     provider_policy: { preferred_providers: ["avantiqo-audio"], allowed_providers: ["avantiqo-audio"] },
     category: "AI",
   });
+  const exposed = result?.pending ? { output: result?.output || null, storage_reference: null, playback_url: null } : await exposeOutput(organizationId, result);
   return {
     success: result?.failed !== true,
     pending: result?.pending === true,
     failed: result?.failed === true,
     usage_id: result?.usage?.id || null,
     provider_status: result?.provider_status || null,
-    output: result?.output || null,
     settlement: result?.settlement || null,
+    ...exposed,
     publication_authorized: false,
   };
 }
@@ -111,7 +143,7 @@ export async function POST(request) {
     if (!organizationId) return NextResponse.json({ success: false, error: "organization_id required" }, { status: 400 });
     await requireAccess(request, organizationId);
     const action = text(body.action || "plan").toLowerCase();
-    const result = action === "plan" ? plan(body) : action === "execute" ? await execute(body) : null;
+    const result = action === "plan" ? plan(body) : action === "execute" ? await execute(body) : action === "status" ? await status(body) : null;
     if (!result) return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_SFX_ACTION_INVALID" }, { status: 400 });
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

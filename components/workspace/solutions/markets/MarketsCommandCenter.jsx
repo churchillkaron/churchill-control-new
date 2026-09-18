@@ -135,6 +135,8 @@ export default function MarketsCommandCenter({ organizationId }) {
       min_cash_reserve_pct: String(policy.min_cash_reserve_pct ?? 10),
       cash_reserve_execution_buffer_bps: String(policy.cash_reserve_execution_buffer_bps ?? 25),
       loss_reentry_cooloff_hours: String(policy.loss_reentry_cooloff_hours ?? 24),
+      max_incremental_var_95_pct: String(policy.max_incremental_var_95_pct ?? 1.5),
+      max_incremental_expected_shortfall_95_pct: String(policy.max_incremental_expected_shortfall_95_pct ?? 2.5),
       max_portfolio_beta: String(policy.max_portfolio_beta ?? 1.5),
       liquidity_adv_window_days: String(policy.liquidity_adv_window_days ?? 20),
       liquidity_min_observations: String(policy.liquidity_min_observations ?? 15),
@@ -606,6 +608,8 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Max drawdown", `${Number(policy.max_portfolio_drawdown_pct || 10)}%`],
                       ["Max VaR 95%", `${Number(policy.max_portfolio_var_95_pct || 5)}%`],
                       ["Max ES 95%", `${Number(policy.max_portfolio_expected_shortfall_95_pct || 8)}%`],
+                      ["Max incremental VaR", `${Number(policy.max_incremental_var_95_pct ?? 1.5)}%`],
+                      ["Max incremental ES", `${Number(policy.max_incremental_expected_shortfall_95_pct ?? 2.5)}%`],
                       ["Max position vol", `${Number(policy.max_position_annualized_volatility_pct || 100)}%`],
                       ["Max stress loss", `${Number(policy.max_portfolio_stress_loss_pct || 12)}%`],
                       ["Max portfolio beta", Number(policy.max_portfolio_beta ?? 1.5).toFixed(2)],
@@ -668,6 +672,22 @@ export default function MarketsCommandCenter({ organizationId }) {
                           {latestPortfolioRisk?.historical_risk?.candidate?.annualized_volatility_pct == null
                             ? "—"
                             : `${Number(latestPortfolioRisk.historical_risk.candidate.annualized_volatility_pct).toFixed(1)}%`}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#9A968E]">Incremental VaR</div>
+                        <div className="mt-0.5 font-semibold">
+                          {latestPortfolioRisk?.historical_risk?.incremental_var_95_pct == null
+                            ? "—"
+                            : `${Number(latestPortfolioRisk.historical_risk.incremental_var_95_pct).toFixed(2)}%`}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#9A968E]">Incremental ES</div>
+                        <div className="mt-0.5 font-semibold">
+                          {latestPortfolioRisk?.historical_risk?.incremental_expected_shortfall_95_pct == null
+                            ? "—"
+                            : `${Number(latestPortfolioRisk.historical_risk.incremental_expected_shortfall_95_pct).toFixed(2)}%`}
                         </div>
                       </div>
                       <div>
@@ -793,6 +813,8 @@ export default function MarketsCommandCenter({ organizationId }) {
                         ["Risk history days", "historical_risk_min_observations", "20", "504", "1"],
                         ["Max VaR 95% %", "max_portfolio_var_95_pct", "0.01", "100", "0.1"],
                         ["Max ES 95% %", "max_portfolio_expected_shortfall_95_pct", "0.01", "100", "0.1"],
+                        ["Max incremental VaR 95% %", "max_incremental_var_95_pct", "0.01", "100", "0.1"],
+                        ["Max incremental ES 95% %", "max_incremental_expected_shortfall_95_pct", "0.01", "100", "0.1"],
                         ["Max position vol %", "max_position_annualized_volatility_pct", "0.01", "1000", "0.1"],
                         ["Max stress loss %", "max_portfolio_stress_loss_pct", "0.01", "100", "0.1"],
                         ["Max portfolio beta", "max_portfolio_beta", "0.1", "5", "0.01"],
@@ -976,6 +998,8 @@ export default function MarketsCommandCenter({ organizationId }) {
                         historical_risk_min_observations: Number(riskDraft?.historical_risk_min_observations ?? 60),
                         max_portfolio_var_95_pct: Number(riskDraft?.max_portfolio_var_95_pct ?? 5),
                         max_portfolio_expected_shortfall_95_pct: Number(riskDraft?.max_portfolio_expected_shortfall_95_pct ?? 8),
+                        max_incremental_var_95_pct: Number(riskDraft?.max_incremental_var_95_pct ?? 1.5),
+                        max_incremental_expected_shortfall_95_pct: Number(riskDraft?.max_incremental_expected_shortfall_95_pct ?? 2.5),
                         max_position_annualized_volatility_pct: Number(riskDraft?.max_position_annualized_volatility_pct ?? 100),
                         max_portfolio_stress_loss_pct: Number(riskDraft?.max_portfolio_stress_loss_pct ?? 12),
                         max_portfolio_beta: Number(riskDraft?.max_portfolio_beta ?? 1.5),

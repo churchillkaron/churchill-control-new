@@ -615,6 +615,8 @@ export async function POST(request) {
         min_cash_reserve_pct: Number(body.min_cash_reserve_pct ?? current.min_cash_reserve_pct ?? 10),
         cash_reserve_execution_buffer_bps: Number(body.cash_reserve_execution_buffer_bps ?? current.cash_reserve_execution_buffer_bps ?? 25),
         loss_reentry_cooloff_hours: Number(body.loss_reentry_cooloff_hours ?? current.loss_reentry_cooloff_hours ?? 24),
+        max_incremental_var_95_pct: Number(body.max_incremental_var_95_pct ?? current.max_incremental_var_95_pct ?? 1.5),
+        max_incremental_expected_shortfall_95_pct: Number(body.max_incremental_expected_shortfall_95_pct ?? current.max_incremental_expected_shortfall_95_pct ?? 2.5),
         max_portfolio_beta: Number(body.max_portfolio_beta ?? current.max_portfolio_beta ?? 1.5),
         liquidity_adv_window_days: Number(body.liquidity_adv_window_days ?? current.liquidity_adv_window_days ?? 20),
         liquidity_min_observations: Number(body.liquidity_min_observations ?? current.liquidity_min_observations ?? 15),
@@ -720,6 +722,12 @@ export async function POST(request) {
       }
       if (!(next.loss_reentry_cooloff_hours >= 1 && next.loss_reentry_cooloff_hours <= 720)) {
         throw new Error("Loss re-entry cool-off must be between 1 and 720 hours");
+      }
+      if (!(next.max_incremental_var_95_pct > 0 && next.max_incremental_var_95_pct <= 100)) {
+        throw new Error("Maximum incremental 95% VaR must be greater than 0 and at most 100%");
+      }
+      if (!(next.max_incremental_expected_shortfall_95_pct > 0 && next.max_incremental_expected_shortfall_95_pct <= 100)) {
+        throw new Error("Maximum incremental 95% expected shortfall must be greater than 0 and at most 100%");
       }
       if (!(next.max_portfolio_beta >= 0.1 && next.max_portfolio_beta <= 5)) {
         throw new Error("Maximum portfolio beta must be between 0.1 and 5");

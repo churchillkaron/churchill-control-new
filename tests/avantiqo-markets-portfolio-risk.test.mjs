@@ -199,6 +199,50 @@ test("risk-budget scale shrinks smoothly near a hard limit", () => {
   assert.ok(result.scale < 1);
 });
 
+test("incremental risk can become the binding soft risk budget", () => {
+  const result = calculatePortfolioRiskBudgetScale({
+    metrics: {
+      projected_gross_exposure_pct: 20,
+      projected_sector_exposure_pct: 10,
+      projected_correlated_exposure_pct: 10,
+      candidate_sector: "Services",
+      historical_risk: {
+        portfolio: {
+          var_95_pct: 1,
+          expected_shortfall_95_pct: 2,
+        },
+        incremental_var_95_pct: 1.35,
+        incremental_expected_shortfall_95_pct: 1,
+      },
+      stress_risk: {
+        worst_scenario: { loss_pct_equity: 3 },
+      },
+      benchmark_beta: { projected_beta: 0.8 },
+      liquidity_capacity: {
+        projected_position_adv_pct: 3,
+        projected_days_to_liquidate: 1,
+      },
+    },
+    policy: {
+      max_gross_exposure_pct: 100,
+      max_sector_pct: 30,
+      max_correlated_exposure_pct: 35,
+      max_portfolio_var_95_pct: 5,
+      max_portfolio_expected_shortfall_95_pct: 8,
+      max_incremental_var_95_pct: 1.5,
+      max_incremental_expected_shortfall_95_pct: 2.5,
+      max_portfolio_stress_loss_pct: 12,
+      max_portfolio_beta: 1.5,
+      max_position_adv_pct: 10,
+      max_days_to_liquidate: 5,
+    },
+  });
+
+  assert.equal(result.binding_dimension, "INCREMENTAL_VAR_95");
+  assert.ok(Math.abs(result.max_utilization - 0.9) < 1e-12);
+  assert.ok(result.scale < 1);
+});
+
 test("liquidity capacity can become the binding soft risk budget", () => {
   const result = calculatePortfolioRiskBudgetScale({
     metrics: {

@@ -83,6 +83,62 @@ test("SELL de-risking remains allowed when history is sparse", () => {
   assert.equal(result.approved, true);
 });
 
+test("BUY is rejected when incremental risk contribution exceeds tighter trade cap", () => {
+  const moderate = Array.from({ length: 100 }, (_, index) => (
+    index % 10 === 0 ? -0.05 : 0.003
+  ));
+  const result = evaluateHistoricalPortfolioRisk({
+    policy: {
+      historical_risk_min_observations: 60,
+      max_portfolio_var_95_pct: 10,
+      max_portfolio_expected_shortfall_95_pct: 20,
+      max_incremental_var_95_pct: 0.2,
+      max_incremental_expected_shortfall_95_pct: 0.4,
+      max_position_annualized_volatility_pct: 1000,
+    },
+    equity: 100000,
+    positions: [],
+    proposed: {
+      symbol: "AAA",
+      side: "BUY",
+      notional: 50000,
+    },
+    returnsBySymbol: {
+      AAA: moderate,
+    },
+  });
+
+  assert.ok(result.metrics.portfolio.var_95_pct < 10);
+  assert.ok(result.metrics.incremental_var_95_pct > 0.2);
+  assert.equal(result.approved, false);
+  assert.match(result.reasons.join(" "), /Incremental 95% VaR/i);
+});
+
+test("SELL de-risking is not blocked by incremental risk caps", () => {
+  const volatile = Array.from({ length: 100 }, (_, index) => (
+    index % 10 === 0 ? -0.08 : 0.004
+  ));
+  const result = evaluateHistoricalPortfolioRisk({
+    policy: {
+      historical_risk_min_observations: 60,
+      max_incremental_var_95_pct: 0.01,
+      max_incremental_expected_shortfall_95_pct: 0.01,
+    },
+    equity: 100000,
+    positions: [{ symbol: "AAA", market_value: 50000 }],
+    proposed: {
+      symbol: "AAA",
+      side: "SELL",
+      notional: 25000,
+    },
+    returnsBySymbol: {
+      AAA: volatile,
+    },
+  });
+
+  assert.equal(result.approved, true);
+});
+
 test("BUY is rejected when projected historical VaR exceeds owner limit", () => {
   const volatile = Array.from({ length: 100 }, (_, index) => (
     index % 10 === 0 ? -0.12 : 0.01

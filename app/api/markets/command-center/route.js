@@ -612,6 +612,8 @@ export async function POST(request) {
         max_open_positions: Number(body.max_open_positions ?? current.max_open_positions ?? 20),
         max_consecutive_losing_closes: Number(body.max_consecutive_losing_closes ?? current.max_consecutive_losing_closes ?? 3),
         loss_streak_cooloff_hours: Number(body.loss_streak_cooloff_hours ?? current.loss_streak_cooloff_hours ?? 24),
+        min_cash_reserve_pct: Number(body.min_cash_reserve_pct ?? current.min_cash_reserve_pct ?? 10),
+        cash_reserve_execution_buffer_bps: Number(body.cash_reserve_execution_buffer_bps ?? current.cash_reserve_execution_buffer_bps ?? 25),
         live_execution_enabled: false,
         updated_at: new Date().toISOString(),
       };
@@ -702,6 +704,12 @@ export async function POST(request) {
       }
       if (!(next.loss_streak_cooloff_hours >= 1 && next.loss_streak_cooloff_hours <= 720)) {
         throw new Error("Loss-streak cool-off must be between 1 and 720 hours");
+      }
+      if (!(next.min_cash_reserve_pct >= 0 && next.min_cash_reserve_pct <= 100)) {
+        throw new Error("Minimum cash reserve must be between 0 and 100%");
+      }
+      if (!(next.cash_reserve_execution_buffer_bps >= 0 && next.cash_reserve_execution_buffer_bps <= 10000)) {
+        throw new Error("Cash-reserve execution buffer must be between 0 and 10000 bps");
       }
 
       const { data: riskPolicy, error: riskPolicyError } = await supabaseAdmin

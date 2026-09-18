@@ -116,7 +116,7 @@ export default function MusicTakeLaneCompPanel({
     const start = Math.max(finite(selectedTake.start_seconds, 0), finite(regionStart, 0));
     const takeEnd = finite(selectedTake.start_seconds, 0) + finite(selectedTake.duration_seconds, 0);
     const end = Math.min(takeEnd, Math.max(start + 0.01, finite(regionEnd, start + 0.01)));
-    const sourceOffset = Math.max(0, start - finite(selectedTake.start_seconds, 0));
+    const sourceOffset = Math.max(0, finite(selectedTake.source_offset_seconds, 0) + (start - finite(selectedTake.start_seconds, 0)));
     const nextRegion = {
       take_id: selectedTake.id,
       source_asset_id: selectedTake.source_asset_id,
@@ -166,7 +166,7 @@ export default function MusicTakeLaneCompPanel({
       source_asset_id: take.source_asset_id,
       start_seconds: start,
       end_seconds: end,
-      source_offset_seconds: 0,
+      source_offset_seconds: Math.max(0, finite(take.source_offset_seconds, 0)),
       gain_db: 0,
       fade_in_seconds: 0.01,
       fade_out_seconds: 0.01,
@@ -262,7 +262,7 @@ export default function MusicTakeLaneCompPanel({
               <div className="flex items-center gap-2">
                 <button type="button" disabled={disabled} onClick={() => selectTake(take.id)} className="min-w-0 flex-1 text-left">
                   <div className="truncate text-[10px] font-medium text-white/58">Take {index + 1}</div>
-                  <div className="mt-1 text-[8px] text-white/22">{formatTime(take.start_seconds)} · {formatTime(take.duration_seconds)}</div>
+                  <div className="mt-1 text-[8px] text-white/22">{formatTime(take.start_seconds)} · {formatTime(take.duration_seconds)}{finite(take.source_offset_seconds,0)>0 ? ` · source +${finite(take.source_offset_seconds,0).toFixed(3)}s` : ""}</div>
                 </button>
                 <button type="button" disabled={disabled} onClick={() => audition(take)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 text-white/45 disabled:opacity-25">{auditioning === take.id ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}</button>
                 <button type="button" disabled={disabled} onClick={() => chooseWholeTake(take)} className="rounded-lg border border-white/8 px-2 py-1.5 text-[8px] text-white/38 disabled:opacity-25">Use all</button>

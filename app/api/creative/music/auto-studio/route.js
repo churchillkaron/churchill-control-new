@@ -175,7 +175,9 @@ async function appendRecordedTakeToMultitrack({
     source_asset_id: asset.id,
     recorded_at: asset.created_at || new Date().toISOString(),
     start_seconds: startSeconds,
-    duration_seconds: durationSeconds,
+    duration_seconds: playableDurationSeconds,
+    source_offset_seconds: sourceOffsetSeconds,
+    source_duration_seconds: durationSeconds,
     selected_for_comp: track.takes.length === 0,
   });
   const clip = createMusicClip({

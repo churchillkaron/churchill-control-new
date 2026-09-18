@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   applyPaperFillState,
   calculatePaperAccountEquity,
+  calculatePaperExecutableQuantity,
   markPaperPosition,
   simulatePaperFillPrice,
 } from "../lib/markets/runtime/MarketPaperExecutionModels.js";
@@ -11,6 +12,47 @@ import {
 test("paper fill price applies adverse slippage", () => {
   assert.equal(simulatePaperFillPrice({ side: "BUY", marketPrice: 100, slippageBps: 10 }), 100.1);
   assert.equal(simulatePaperFillPrice({ side: "SELL", marketPrice: 100, slippageBps: 10 }), 99.9);
+});
+
+test("paper execution caps BUY to configured ask-side participation", () => {
+  const result = calculatePaperExecutableQuantity({
+    side: "BUY",
+    remainingQuantity: 100,
+    snapshot: { ask_size: 2, bid_size: 9 },
+    maxQuoteParticipation: 0.25,
+    roundLotSize: 100,
+  });
+
+  assert.equal(result.displayed_shares, 200);
+  assert.equal(result.executable_quantity, 50);
+  assert.equal(result.liquidity_available, true);
+  assert.ok(Math.abs(result.participation_rate - 0.25) < 1e-12);
+});
+
+test("paper execution uses bid liquidity for SELL and never exceeds remaining quantity", () => {
+  const result = calculatePaperExecutableQuantity({
+    side: "SELL",
+    remainingQuantity: 12,
+    snapshot: { ask_size: 10, bid_size: 4 },
+    maxQuoteParticipation: 0.25,
+    roundLotSize: 100,
+  });
+
+  assert.equal(result.displayed_shares, 400);
+  assert.equal(result.executable_quantity, 12);
+  assert.ok(result.participation_rate < 0.25);
+});
+
+test("paper execution refuses missing quote liquidity", () => {
+  const result = calculatePaperExecutableQuantity({
+    side: "BUY",
+    remainingQuantity: 100,
+    snapshot: { ask_size: 0 },
+    maxQuoteParticipation: 0.25,
+  });
+
+  assert.equal(result.executable_quantity, 0);
+  assert.equal(result.liquidity_available, false);
 });
 
 test("paper BUY consumes cash and builds weighted entry", () => {

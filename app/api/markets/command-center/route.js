@@ -381,7 +381,7 @@ async function submitPaperOrder({ organizationId, state, body }) {
     .eq("portfolio_id", state.portfolio.id)
     .eq("symbol", clean(decision.symbol).toUpperCase())
     .eq("side", side)
-    .eq("status", "QUEUED")
+    .in("status", ["QUEUED", "PARTIALLY_FILLED"])
     .limit(1)
     .maybeSingle();
   if (queuedDuplicateError) throw queuedDuplicateError;
@@ -479,6 +479,8 @@ async function submitPaperOrder({ organizationId, state, body }) {
     side,
     order_type: orderType,
     quantity,
+    filled_quantity: 0,
+    remaining_quantity: quantity,
     limit_price: limitPrice,
     requested_price: requestedPrice,
     status: "QUEUED",

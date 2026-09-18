@@ -909,7 +909,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Research evidence", evidence.length],
                       ["Specialist theses", theses.length],
                       ["Governed decisions", decisions.length],
-                      ["Queued paper orders", orders.filter((row) => row.status === "QUEUED").length],
+                      ["Active paper orders", orders.filter((row) => ["QUEUED", "PARTIALLY_FILLED"].includes(row.status)).length],
                     ].map(([label, value]) => (
                       <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
                         <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
@@ -1058,7 +1058,9 @@ export default function MarketsCommandCenter({ organizationId }) {
                       <th className="px-4 py-3 font-medium">Symbol</th>
                       <th className="px-4 py-3 font-medium">Side</th>
                       <th className="px-4 py-3 font-medium">Qty</th>
+                      <th className="px-4 py-3 font-medium">Filled / Remaining</th>
                       <th className="px-4 py-3 font-medium">Requested</th>
+                      <th className="px-4 py-3 font-medium">Avg fill</th>
                       <th className="px-4 py-3 font-medium">TIF</th>
                       <th className="px-4 py-3 font-medium">Expiry</th>
                       <th className="px-4 py-3 font-medium">Status</th>
@@ -1071,7 +1073,13 @@ export default function MarketsCommandCenter({ organizationId }) {
                         <td className="px-4 py-3 font-semibold">{order.symbol}</td>
                         <td className="px-4 py-3">{order.side}</td>
                         <td className="px-4 py-3">{order.quantity}</td>
+                        <td className="px-4 py-3">
+                          {Number(order.filled_quantity || 0).toFixed(4)} / {Number(order.remaining_quantity ?? order.quantity ?? 0).toFixed(4)}
+                        </td>
                         <td className="px-4 py-3">{money(order.requested_price, baseCurrency)}</td>
+                        <td className="px-4 py-3">
+                          {order.filled_price == null ? "—" : money(order.filled_price, baseCurrency)}
+                        </td>
                         <td className="px-4 py-3">{order.time_in_force || "DAY"}</td>
                         <td className="px-4 py-3 text-[#8A867F]">
                           {order.expires_at ? new Date(order.expires_at).toLocaleString() : "—"}
@@ -1084,7 +1092,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                         </td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={8} className="px-4 py-10 text-center text-[#9A968E]">No paper orders yet. Orders can only be submitted after a governed decision passes risk.</td></tr>
+                      <tr><td colSpan={10} className="px-4 py-10 text-center text-[#9A968E]">No paper orders yet. Orders can only be submitted after a governed decision passes risk.</td></tr>
                     )}
                   </tbody>
                 </table>

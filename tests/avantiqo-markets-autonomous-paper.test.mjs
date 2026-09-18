@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  applyPortfolioRiskBudgetToSizing,
   calculateAutonomousPaperOrder,
   researchRefreshRequired,
 } from "../lib/markets/runtime/MarketAutonomousPaperModels.js";
@@ -98,6 +99,50 @@ test("low volatility keeps the confidence-scaled target", () => {
   assert.equal(result.executable, true);
   assert.equal(result.volatility_scale, 1);
   assert.equal(result.target_position_pct, result.confidence_scaled_target_position_pct);
+});
+
+test("portfolio risk budget reduces BUY notional and quantity proportionally", () => {
+  const sizing = calculateAutonomousPaperOrder({
+    ...base,
+    decision: { action: "BUY", confidence: 0.875 },
+    marketPrice: 100,
+    position: { quantity: 0 },
+    candidateAnnualizedVolatilityPct: 25,
+  });
+  const adjusted = applyPortfolioRiskBudgetToSizing({
+    sizing,
+    riskBudget: {
+      scale: 0.6,
+      binding_dimension: "CORRELATED_EXPOSURE",
+      max_utilization: 0.86,
+      utilizations: { CORRELATED_EXPOSURE: 0.86 },
+    },
+    equity: 100000,
+    heldValue: 0,
+  });
+
+  assert.equal(adjusted.executable, true);
+  assert.ok(Math.abs(adjusted.notional - (sizing.notional * 0.6)) < 1e-9);
+  assert.ok(Math.abs(adjusted.quantity - (sizing.quantity * 0.6)) < 1e-12);
+  assert.equal(adjusted.risk_budget_scale, 0.6);
+  assert.equal(adjusted.risk_budget_binding_dimension, "CORRELATED_EXPOSURE");
+});
+
+test("portfolio risk budget does not alter SELL de-risking", () => {
+  const sizing = calculateAutonomousPaperOrder({
+    ...base,
+    decision: { action: "SELL", confidence: 0.9 },
+    marketPrice: 100,
+    position: { quantity: 12 },
+  });
+  const adjusted = applyPortfolioRiskBudgetToSizing({
+    sizing,
+    riskBudget: { scale: 0.25 },
+    equity: 100000,
+    heldValue: 1200,
+  });
+
+  assert.deepEqual(adjusted, sizing);
 });
 
 test("BUY does nothing when target is already reached", () => {

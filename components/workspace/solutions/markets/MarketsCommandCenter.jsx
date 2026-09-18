@@ -189,6 +189,9 @@ export default function MarketsCommandCenter({ organizationId }) {
   const latestPortfolioRisk = orders
     .map((row) => row?.risk_snapshot?.portfolio_concentration)
     .find((row) => row && Object.keys(row).length) || null;
+  const latestPortfolioRiskBudget = orders
+    .map((row) => row?.risk_snapshot?.portfolio_risk_budget)
+    .find((row) => row && Object.keys(row).length) || null;
   const baseCurrency = portfolio?.base_currency || paperAccount?.base_currency || "USD";
 
   const latestBySymbol = new Map();
@@ -588,6 +591,15 @@ export default function MarketsCommandCenter({ organizationId }) {
                     {latestPortfolioRisk?.candidate_sector ? (
                       <div className="mt-2 text-[8px] text-[#9A968E]">
                         Last evaluated sector: {latestPortfolioRisk.candidate_sector}
+                      </div>
+                    ) : null}
+                    {latestPortfolioRiskBudget ? (
+                      <div className="mt-2 rounded-lg border border-[#D6A66A]/20 bg-[#FBF7F1] px-2.5 py-2 text-[8px] text-[#7B654A]">
+                        Risk-budget allocator: {String(latestPortfolioRiskBudget.binding_dimension || "NONE").replaceAll("_", " ")}
+                        {" · "}
+                        {Number(latestPortfolioRiskBudget.max_utilization || 0).toFixed(2)}× limit utilization
+                        {" · "}
+                        {(Number(latestPortfolioRiskBudget.scale || 1) * 100).toFixed(0)}% of pre-budget BUY notional
                       </div>
                     ) : null}
                   </div>

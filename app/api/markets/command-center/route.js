@@ -616,6 +616,11 @@ export async function POST(request) {
         cash_reserve_execution_buffer_bps: Number(body.cash_reserve_execution_buffer_bps ?? current.cash_reserve_execution_buffer_bps ?? 25),
         loss_reentry_cooloff_hours: Number(body.loss_reentry_cooloff_hours ?? current.loss_reentry_cooloff_hours ?? 24),
         max_portfolio_beta: Number(body.max_portfolio_beta ?? current.max_portfolio_beta ?? 1.5),
+        liquidity_adv_window_days: Number(body.liquidity_adv_window_days ?? current.liquidity_adv_window_days ?? 20),
+        liquidity_min_observations: Number(body.liquidity_min_observations ?? current.liquidity_min_observations ?? 15),
+        max_position_adv_pct: Number(body.max_position_adv_pct ?? current.max_position_adv_pct ?? 10),
+        liquidation_participation_pct: Number(body.liquidation_participation_pct ?? current.liquidation_participation_pct ?? 10),
+        max_days_to_liquidate: Number(body.max_days_to_liquidate ?? current.max_days_to_liquidate ?? 5),
         live_execution_enabled: false,
         updated_at: new Date().toISOString(),
       };
@@ -718,6 +723,21 @@ export async function POST(request) {
       }
       if (!(next.max_portfolio_beta >= 0.1 && next.max_portfolio_beta <= 5)) {
         throw new Error("Maximum portfolio beta must be between 0.1 and 5");
+      }
+      if (!(next.liquidity_adv_window_days >= 5 && next.liquidity_adv_window_days <= 252)) {
+        throw new Error("Liquidity ADV window must be between 5 and 252 days");
+      }
+      if (!(next.liquidity_min_observations >= 5 && next.liquidity_min_observations <= 252)) {
+        throw new Error("Liquidity minimum observations must be between 5 and 252");
+      }
+      if (!(next.max_position_adv_pct > 0 && next.max_position_adv_pct <= 100)) {
+        throw new Error("Maximum position ADV percentage must be greater than 0 and at most 100");
+      }
+      if (!(next.liquidation_participation_pct > 0 && next.liquidation_participation_pct <= 100)) {
+        throw new Error("Liquidation participation percentage must be greater than 0 and at most 100");
+      }
+      if (!(next.max_days_to_liquidate > 0 && next.max_days_to_liquidate <= 60)) {
+        throw new Error("Maximum days to liquidate must be greater than 0 and at most 60");
       }
 
       const { data: riskPolicy, error: riskPolicyError } = await supabaseAdmin

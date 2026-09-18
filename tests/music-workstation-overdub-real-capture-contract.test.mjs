@@ -75,3 +75,11 @@ test("normal Workstation transport and engineering edits are frozen during captu
   assert.match(workstation, /disabled=\{recording\}/);
   assert.match(workstation, /MusicWorkstationOverdubPanel/);
 });
+
+
+test("loop pass splitting preserves cumulative worklet continuity while resetting pass-local QC", () => {
+  assert.match(capture, /let passFrameBase = 0/);
+  assert.match(capture, /const passExpectedFrames = Math.max\(0, expectedFrameStart - passFrameBase\)/);
+  assert.match(capture, /passFrameBase = expectedFrameStart/);
+  assert.doesNotMatch(capture, /expectedSequence = 0;[\s\S]{0,120}expectedFrameStart = 0;[\s\S]{0,120}chunkGapCount = 0;[\s\S]{0,120}frameDiscontinuityCount = 0;[\s\S]{0,120}function splitPass/);
+});

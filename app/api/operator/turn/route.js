@@ -4,7 +4,7 @@ export const maxDuration = 300;
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
-import { buildBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAuditProjection, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
+import { buildBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAnswerContent, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
 import {
   resolveBusinessContext,
 } from "@/lib/business-context/resolveBusinessContext";
@@ -92,6 +92,7 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
     receipt_fingerprint: diagnosis.receipt_fingerprint,
     diagnosis_class: diagnosis.class,
     business_timezone: diagnosis.business_timezone,
+    answer_content_fingerprint: diagnosis.answer_content_fingerprint,
     final_evidence_state: diagnosis.final_evidence_state,
     residual_material: diagnosis.residual_material,
     answer_boundary_status: diagnosis.answer_boundary_status,
@@ -113,12 +114,14 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
     audit_projection_contract: suppliedProjectionContract,
     audit_projection_fingerprint: suppliedProjectionFingerprint,
   });
-  if (verification.status !== "VERIFIED") return {};
+  const answerVerification = verifyBusinessDiagnosisAnswerContent({audit_projection_contract:suppliedProjectionContract,answer_content_fingerprint:diagnosis.answer_content_fingerprint}, result?.decision?.response_text || result?.result?.response || "");
+  if (verification.status !== "VERIFIED" || answerVerification.status !== "VERIFIED") return {};
   return {
     business_diagnosis: {
       contract: text(diagnosis.contract) || null,
       class: projection.diagnosis_class,
       business_timezone: projection.business_timezone,
+      answer_content_fingerprint: projection.answer_content_fingerprint,
       receipt_fingerprint: projection.receipt_fingerprint,
       audit_projection_contract: suppliedProjectionContract,
       audit_projection_fingerprint: suppliedProjectionFingerprint,

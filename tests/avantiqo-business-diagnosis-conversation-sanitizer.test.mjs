@@ -5,6 +5,7 @@ import {
   AVANTIQO_BUSINESS_DIAGNOSIS_AUDIT_PROJECTION_CONTRACT,
   buildBusinessDiagnosisAuditProjection,
   businessDiagnosisAuditProjectionFingerprint,
+  businessDiagnosisAnswerContentFingerprint,
 } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime.js";
 import {
   businessDiagnosisTurnVerification,
@@ -12,11 +13,12 @@ import {
   sanitizeBusinessDiagnosisSnapshotTurn,
 } from "../lib/operator/runtime/BusinessDiagnosisConversationSanitizerRuntime.js";
 
-function diagnosisEvidence({ status = "verified", legacy = false } = {}) {
+function diagnosisEvidence({ status = "verified", legacy = false, answer = "diagnosis" } = {}) {
   const projection = buildBusinessDiagnosisAuditProjection({
     receipt_fingerprint: "receipt-1",
     diagnosis_class: "CAUSAL_DIAGNOSIS",
     business_timezone: "Asia/Bangkok",
+    answer_content_fingerprint: businessDiagnosisAnswerContentFingerprint(answer),
     final_evidence_state: "INTERNAL_SUFFICIENT",
     residual_material: false,
     answer_boundary_status: "PASS",
@@ -32,6 +34,7 @@ function diagnosisEvidence({ status = "verified", legacy = false } = {}) {
   const diagnosis = {
     class: projection.diagnosis_class,
     business_timezone: projection.business_timezone,
+    answer_content_fingerprint: projection.answer_content_fingerprint,
     receipt_fingerprint: projection.receipt_fingerprint,
     final_evidence_state: projection.final_evidence_state,
     residual_material: projection.residual_material,
@@ -43,6 +46,7 @@ function diagnosisEvidence({ status = "verified", legacy = false } = {}) {
   if (legacy) {
     const legacyProjection = { ...projection };
     delete legacyProjection.projection_contract;
+    delete legacyProjection.answer_content_fingerprint;
     const canonical = (value) => Array.isArray(value)
       ? value.map(canonical)
       : value && typeof value === "object"
@@ -55,6 +59,7 @@ function diagnosisEvidence({ status = "verified", legacy = false } = {}) {
       receipt_fingerprint: projection.receipt_fingerprint,
       diagnosis_class: projection.diagnosis_class,
       business_timezone: projection.business_timezone,
+      answer_content_fingerprint: projection.answer_content_fingerprint,
       final_evidence_state: projection.final_evidence_state,
       residual_material: projection.residual_material,
       answer_boundary_status: projection.answer_boundary_status,
@@ -98,7 +103,7 @@ test("mismatched diagnosis removes assistant and paired user prompt", () => {
 });
 
 test("verified legacy diagnosis remains usable", () => {
-  const row = { role: "assistant", content: "legacy diagnosis", evidence: diagnosisEvidence({ legacy: true }) };
+  const row = { role: "assistant", content: "legacy diagnosis", evidence: diagnosisEvidence({ legacy: true, answer: "legacy diagnosis" }) };
   const result = businessDiagnosisTurnVerification(row);
   assert.equal(result.safe, true);
   assert.equal(result.status, "VERIFIED_LEGACY");
@@ -116,7 +121,7 @@ test("assistant without diagnosis evidence remains normal conversation", () => {
 
 
 test("verified snapshot diagnosis preserves answer and marks verification", () => {
-  const turn = { role: "assistant", content: "verified answer", decision: { response_text: "verified answer", clarification: { options: ["A"] } }, evidence: { provider: "safe", ...diagnosisEvidence() }, execution: { status: "read" }, navigation: { href: "/safe" } };
+  const turn = { role: "assistant", content: "verified answer", decision: { response_text: "verified answer", clarification: { options: ["A"] } }, evidence: { provider: "safe", ...diagnosisEvidence({ answer: "verified answer" }) }, execution: { status: "read" }, navigation: { href: "/safe" } };
   const result = sanitizeBusinessDiagnosisSnapshotTurn(turn);
   assert.equal(result.content, "verified answer");
   assert.deepEqual(result.decision.clarification.options, ["A"]);
@@ -145,7 +150,7 @@ test("multiple unsafe diagnosis pairs are removed without deleting surrounding s
     { role: "user", content: "latest normal question", evidence: {} },
     { role: "assistant", content: "unsafe two", evidence: diagnosisEvidence({ status: "mismatch" }) },
     { role: "user", content: "unsafe question two", evidence: {} },
-    { role: "assistant", content: "verified diagnosis", evidence: diagnosisEvidence() },
+    { role: "assistant", content: "verified diagnosis", evidence: diagnosisEvidence({ answer: "verified diagnosis" }) },
     { role: "user", content: "verified question", evidence: {} },
     { role: "assistant", content: "unsafe one", evidence: diagnosisEvidence({ status: "mismatch" }) },
     { role: "user", content: "unsafe question one", evidence: {} },
@@ -186,7 +191,7 @@ test("two consecutive unsafe diagnosis pairs both disappear", () => {
 
 test("snapshot sanitizer quarantines only unsafe diagnoses in a mixed transcript", () => {
   const normal = { role: "assistant", content: "normal", evidence: { provider: "safe" }, decision: { response_text: "normal" } };
-  const verified = { role: "assistant", content: "verified", evidence: diagnosisEvidence(), decision: { response_text: "verified" } };
+  const verified = { role: "assistant", content: "verified", evidence: diagnosisEvidence({ answer: "verified" }), decision: { response_text: "verified" } };
   const unsafe = { role: "assistant", content: "unsafe", evidence: diagnosisEvidence({ status: "mismatch" }), decision: { response_text: "unsafe", clarification: { options: ["stale"] } }, execution: { status: "stale" } };
   const result = [normal, verified, unsafe].map(sanitizeBusinessDiagnosisSnapshotTurn);
   assert.equal(result[0].content, "normal");
@@ -195,4 +200,30 @@ test("snapshot sanitizer quarantines only unsafe diagnoses in a mixed transcript
   assert.equal(result[1].evidence.business_diagnosis.audit_projection_verified, true);
   assert.match(result[2].content, /historical diagnosis is hidden/i);
   assert.deepEqual(result[2].execution, {});
+});
+
+test("V3 answer text tampering makes an otherwise valid diagnosis unsafe", () => {
+  const evidence = diagnosisEvidence({ answer: "original answer" });
+  const verification = businessDiagnosisTurnVerification({ role: "assistant", content: "altered answer", evidence });
+  assert.equal(verification.metadata_status, "VERIFIED");
+  assert.equal(verification.answer_status, "MISMATCH");
+  assert.equal(verification.status, "ANSWER_MISMATCH");
+  assert.equal(verification.safe, false);
+});
+
+test("answer-tampered diagnosis and its paired request are removed from model context", () => {
+  const rows = [
+    { role: "assistant", content: "altered answer", evidence: diagnosisEvidence({ answer: "original answer" }) },
+    { role: "user", content: "why did profit drop?", evidence: {} },
+  ];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows), []);
+});
+
+test("answer-tampered snapshot is quarantined even when metadata checksum is valid", () => {
+  const turn = { role: "assistant", content: "altered answer", evidence: diagnosisEvidence({ answer: "original answer" }), decision: { response_text: "altered answer" } };
+  const result = sanitizeBusinessDiagnosisSnapshotTurn(turn);
+  assert.match(result.content, /historical diagnosis is hidden/i);
+  assert.equal(result.evidence.business_diagnosis.audit_projection_verification_status, "ANSWER_MISMATCH");
+  assert.equal(result.evidence.business_diagnosis.answer_content_verification_status, "MISMATCH");
+  assert.equal(result.evidence.business_diagnosis.audit_projection_verified, false);
 });

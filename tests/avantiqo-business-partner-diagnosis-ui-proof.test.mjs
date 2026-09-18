@@ -23,6 +23,8 @@ test("shared operator artifact surface renders persisted diagnosis proof",()=>{
   assert.match(source,/Persisted proof/);
   assert.match(source,/Verified live or after reload/);
   assert.match(source,/Integrity mismatch/);
+  assert.match(source,/Answer integrity mismatch/);
+  assert.match(source,/auditStatus === "ANSWER_MISMATCH"/);
   assert.match(source,/Unsupported proof version/);
   assert.match(source,/auditStatus === "UNSUPPORTED_VERSION"/);
   assert.match(source,/Legacy proof · checksum unavailable/);
@@ -35,6 +37,8 @@ test("shared operator artifact surface renders persisted diagnosis proof",()=>{
   assert.match(source,/Some of the change remains unexplained/);
   assert.match(source,/External evidence/);
   assert.match(source,/Business timezone/);
+  assert.match(source,/Answer integrity/);
+  assert.match(source,/Legacy proof · answer text was not signed/);
   assert.match(source,/diagnosis\.business_timezone/);
   assert.match(source,/No validated external evidence/);
   assert.match(source,/validatedExternalCount/);

@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { BusinessIntelligenceRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 import { BusinessIntelligenceAgentRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceAgentRuntime";
-import { buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection, businessDiagnosisProofIntegrityError, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
+import { buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAnswerContent, businessDiagnosisProofIntegrityError, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
 import { classifyBusinessDiagnosisQuestion, resolveBusinessDiagnosisPeriods } from "@/lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { resolveOrganizationTimeContext } from "@/lib/shared/time/organizationTime";
@@ -115,6 +115,7 @@ function businessDiagnosisAudit(result = {}) {
   const verification = verifyBusinessDiagnosisAuditProjection({
     class: projection.diagnosis_class,
     business_timezone: projection.business_timezone,
+    answer_content_fingerprint: projection.answer_content_fingerprint,
     receipt_fingerprint: projection.receipt_fingerprint,
     audit_projection_contract: receipt.audit_projection_contract,
     audit_projection_fingerprint: receipt.audit_projection_fingerprint,
@@ -126,7 +127,8 @@ function businessDiagnosisAudit(result = {}) {
     unresolved_external_context_count: projection.unresolved_external_context_count,
     periods: projection.periods,
   });
-  if (verification.status !== "VERIFIED") throw businessDiagnosisProofIntegrityError("DIRECT_API_LIVE_RETURN");
+  const answerVerification = verifyBusinessDiagnosisAnswerContent({audit_projection_contract:receipt.audit_projection_contract,answer_content_fingerprint:receipt.answer_content_fingerprint}, result?.result?.response || "");
+  if (verification.status !== "VERIFIED" || answerVerification.status !== "VERIFIED") throw businessDiagnosisProofIntegrityError("DIRECT_API_LIVE_RETURN");
   return {
     ...projection,
     audit_projection_contract: cleanValue(receipt.audit_projection_contract),

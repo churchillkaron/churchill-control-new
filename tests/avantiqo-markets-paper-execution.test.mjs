@@ -14,6 +14,45 @@ test("paper fill price applies adverse slippage", () => {
   assert.equal(simulatePaperFillPrice({ side: "SELL", marketPrice: 100, slippageBps: 10 }), 99.9);
 });
 
+test("LIMIT BUY never fills above its limit after adverse slippage", () => {
+  assert.equal(
+    simulatePaperFillPrice({
+      side: "BUY",
+      marketPrice: 100,
+      slippageBps: 10,
+      orderType: "LIMIT",
+      limitPrice: 100,
+    }),
+    100,
+  );
+});
+
+test("LIMIT SELL never fills below its limit after adverse slippage", () => {
+  assert.equal(
+    simulatePaperFillPrice({
+      side: "SELL",
+      marketPrice: 100,
+      slippageBps: 10,
+      orderType: "LIMIT",
+      limitPrice: 100,
+    }),
+    100,
+  );
+});
+
+test("market orders retain full adverse slippage", () => {
+  assert.equal(
+    simulatePaperFillPrice({
+      side: "BUY",
+      marketPrice: 100,
+      slippageBps: 10,
+      orderType: "MARKET",
+      limitPrice: 99,
+    }),
+    100.1,
+  );
+});
+
 test("paper execution caps BUY to configured ask-side participation", () => {
   const result = calculatePaperExecutableQuantity({
     side: "BUY",

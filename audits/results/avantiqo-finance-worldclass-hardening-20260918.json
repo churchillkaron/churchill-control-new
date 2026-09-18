@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 370,
-    "passed": 370,
+    "tests": 373,
+    "passed": 373,
     "failed": 0
   },
   "workstreams": [
@@ -206,6 +206,17 @@
       "anomaly_detection": "Journal anomaly detection evaluates the complete organization population instead of the latest 500 rows.",
       "silent_core_decision_truncation_removed": true,
       "accounting_mutation_authority": false
+    },
+    {
+      "order": 15,
+      "name": "Management reporting population integrity",
+      "commit": "de30a751a10e",
+      "status": "OPERATIONAL_COMPLETE_MANAGEMENT_METRICS",
+      "executive_kpis": "Revenue, COGS, operating expense, margins and cash derive from the complete scoped general ledger.",
+      "kpi_api": "Revenue, COGS, expenses, assets, liabilities and cash cannot stop at 10000 ledger rows.",
+      "insights": "Food-cost, net-margin and cash signals derive from complete ledger truth.",
+      "silent_management_reporting_truncation_removed": true,
+      "accounting_mutation_authority": false
     }
   ],
   "live_acceptance": {
@@ -264,6 +275,9 @@
     "engagement_file_review_truth_complete_population": true,
     "vat_dependency_request_population_complete": true,
     "finance_health_complete_journal_population": true,
-    "finance_anomalies_complete_journal_population": true
+    "finance_anomalies_complete_journal_population": true,
+    "executive_kpis_complete_ledger_population": true,
+    "finance_kpi_api_complete_ledger_population": true,
+    "finance_insights_complete_ledger_population": true
   }
 }

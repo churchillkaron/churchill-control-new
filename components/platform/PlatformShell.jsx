@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import LocalHeyAvantiqoWakeBridge from "@/components/operator/LocalHeyAvantiqoWakeBridge";
 import SecretaryMeetingPresenceBridge from "@/components/operator/SecretaryMeetingPresenceBridge";
 import WorkspaceNavigationRail from "@/components/workspace/WorkspaceNavigationRail";
 import WorkspaceTopBar from "@/components/workspace/WorkspaceTopBar";
+import { workspaceAccessDecision } from "@/lib/platform/entitlements/productWorkspaceVisibility";
 
 const LEGACY_WAKE_TEMPLATE_KEY = "avantiqo.local-wake.template.v2";
 
@@ -42,12 +45,25 @@ function restoreLegacyWakeTemplateTrust() {
 
 export default function PlatformShell({ children }) {
   const pathname = usePathname();
+  const businessContext = useBusinessContext() || {};
   const [secretaryMeetingCaptureActive, setSecretaryMeetingCaptureActive] = useState(false);
   const businessPartnerHome = /^\/workspace\/[^/]+\/?$/.test(pathname || "");
   const operationsWorkspace = /^\/workspace\/[^/]+\/operations(?:\/|$)/.test(pathname || "");
   const financeWorkspace = /^\/workspace\/[^/]+\/finance(?:\/|$)/.test(pathname || "");
 
   restoreLegacyWakeTemplateTrust();
+
+  const isWorkspacePath = /^\/workspace\/[^/]+(?:\/|$)/.test(pathname || "");
+  const organizationId = businessContext.organization_id || businessContext.organization?.id || null;
+  const accessDecision = workspaceAccessDecision({
+    pathname,
+    organizationId,
+    productEntitlements: businessContext.product_entitlements,
+    modules: businessContext.modules,
+    role: businessContext.role,
+  });
+  const workspaceContextLoading = isWorkspacePath && businessContext.ready !== true;
+  const workspaceAccessDenied = isWorkspacePath && businessContext.ready === true && !accessDecision.allowed;
 
   useEffect(() => {
     function handleSecretaryMeetingCapture(event) {
@@ -82,7 +98,39 @@ export default function PlatformShell({ children }) {
               : "min-w-0 flex-1 px-5 py-5 lg:px-7 lg:py-6"
           }
         >
-          {children}
+          {workspaceContextLoading ? (
+            <div className="flex min-h-[45vh] items-center justify-center">
+              <div className="rounded-2xl border border-black/[0.07] bg-white px-5 py-4 text-[12px] text-[#77736C] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+                Preparing your workspace...
+              </div>
+            </div>
+          ) : workspaceAccessDenied ? (
+            <div className="mx-auto mt-12 max-w-2xl rounded-[24px] border border-black/[0.08] bg-white p-7 shadow-[0_14px_50px_rgba(31,27,20,0.06)]">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#A37849]">Product access</div>
+              <h1 className="mt-2 text-[24px] font-medium tracking-[-0.035em] text-[#1B1A18]">This workspace is not included with your active products.</h1>
+              <p className="mt-3 text-[12px] leading-6 text-[#77736C]">
+                Open Products to see what your organization currently owns and explore additional Avantiqo products.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Link
+                  href={organizationId ? `/workspace/${encodeURIComponent(organizationId)}/products` : "/products"}
+                  className="rounded-xl bg-[#171716] px-4 py-2.5 text-[11px] font-medium text-white transition hover:bg-[#2A2825]"
+                >
+                  Open Products
+                </Link>
+                {organizationId ? (
+                  <Link
+                    href={`/workspace/${encodeURIComponent(organizationId)}`}
+                    className="rounded-xl border border-black/[0.08] bg-[#FBFAF8] px-4 py-2.5 text-[11px] font-medium text-[#5E5952] transition hover:border-[#D6A66A]/40"
+                  >
+                    Back to workspace
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            children
+          )}
         </main>
       </div>
 

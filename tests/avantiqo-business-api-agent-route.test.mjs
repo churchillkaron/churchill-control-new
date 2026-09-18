@@ -30,3 +30,19 @@ test("diagnosis POST returns compact privacy-safe audit receipt envelope",()=>{
   assert.match(source,/authority_effect: "NONE"/);
   assert.doesNotMatch(source,/audit: result\.business_diagnosis_receipt/);
 });
+
+
+test("diagnosis POST server-classifies request type and overrides client class",()=>{
+  assert.match(source,/classifyBusinessDiagnosisQuestion\(question\)/);
+  assert.match(source,/DIRECT_GOVERNED_DIAGNOSIS/);
+  assert.match(source,/business_diagnosis_class: diagnosisClass/);
+  const spread=source.indexOf("...objectValue(body.context)");
+  const bound=source.indexOf("business_diagnosis_class: diagnosisClass");
+  assert.ok(spread>=0&&bound>spread);
+  assert.doesNotMatch(source,/business_diagnosis_class:\s*cleanValue\(body/);
+});
+
+test("diagnosis POST audit exposes signed diagnosis class from receipt",()=>{
+  assert.match(source,/diagnosis_class: cleanValue\(receipt\.diagnosis_class\)/);
+  assert.doesNotMatch(source,/diagnosis_class: cleanValue\(body/);
+});

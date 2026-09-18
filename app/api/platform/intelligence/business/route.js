@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { BusinessIntelligenceRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 import { BusinessIntelligenceAgentRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceAgentRuntime";
+import { classifyBusinessDiagnosisQuestion } from "@/lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime";
 
 function cleanValue(value) {
   const normalized = String(value ?? "").trim();
@@ -108,10 +109,15 @@ export async function POST(request) {
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return errorResponse(access.error, access.status);
 
+    const diagnosisClassification = classifyBusinessDiagnosisQuestion(question);
+    const diagnosisClass = diagnosisClassification.match === true
+      ? diagnosisClassification.class
+      : "DIRECT_GOVERNED_DIAGNOSIS";
     const context = {
       ...objectValue(body.context),
       baseline_period_id: cleanValue(body.baseline_period_id || body.baselinePeriodId || objectValue(body.context).baseline_period_id),
       current_period_id: cleanValue(body.current_period_id || body.currentPeriodId || objectValue(body.context).current_period_id || body.period_id),
+      business_diagnosis_class: diagnosisClass,
     };
     const actor = {
       user_id: access.userId,

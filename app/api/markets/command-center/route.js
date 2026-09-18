@@ -607,6 +607,8 @@ export async function POST(request) {
         stress_sector_shock_pct: Number(body.stress_sector_shock_pct ?? current.stress_sector_shock_pct ?? 12),
         stress_correlated_cluster_shock_pct: Number(body.stress_correlated_cluster_shock_pct ?? current.stress_correlated_cluster_shock_pct ?? 15),
         stress_single_name_shock_pct: Number(body.stress_single_name_shock_pct ?? current.stress_single_name_shock_pct ?? 20),
+        max_rolling_24h_turnover_pct: Number(body.max_rolling_24h_turnover_pct ?? current.max_rolling_24h_turnover_pct ?? 100),
+        max_rolling_24h_execution_cost_pct_equity: Number(body.max_rolling_24h_execution_cost_pct_equity ?? current.max_rolling_24h_execution_cost_pct_equity ?? 0.25),
         live_execution_enabled: false,
         updated_at: new Date().toISOString(),
       };
@@ -682,6 +684,12 @@ export async function POST(request) {
         if (!(value > 0 && value <= 100)) {
           throw new Error(`${label} must be greater than 0 and at most 100%`);
         }
+      }
+      if (!(next.max_rolling_24h_turnover_pct > 0 && next.max_rolling_24h_turnover_pct <= 1000)) {
+        throw new Error("Rolling 24-hour turnover cap must be greater than 0 and at most 1000%");
+      }
+      if (!(next.max_rolling_24h_execution_cost_pct_equity > 0 && next.max_rolling_24h_execution_cost_pct_equity <= 10)) {
+        throw new Error("Rolling 24-hour execution-cost cap must be greater than 0 and at most 10% of equity");
       }
 
       const { data: riskPolicy, error: riskPolicyError } = await supabaseAdmin

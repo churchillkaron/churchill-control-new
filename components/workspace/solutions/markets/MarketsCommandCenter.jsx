@@ -127,6 +127,8 @@ export default function MarketsCommandCenter({ organizationId }) {
       stress_sector_shock_pct: String(policy.stress_sector_shock_pct ?? 12),
       stress_correlated_cluster_shock_pct: String(policy.stress_correlated_cluster_shock_pct ?? 15),
       stress_single_name_shock_pct: String(policy.stress_single_name_shock_pct ?? 20),
+      max_rolling_24h_turnover_pct: String(policy.max_rolling_24h_turnover_pct ?? 100),
+      max_rolling_24h_execution_cost_pct_equity: String(policy.max_rolling_24h_execution_cost_pct_equity ?? 0.25),
     });
   }, [data?.riskPolicy]);
 
@@ -223,6 +225,9 @@ export default function MarketsCommandCenter({ organizationId }) {
     .find((row) => row && Object.keys(row).length) || null;
   const latestPortfolioRiskBudget = orders
     .map((row) => row?.risk_snapshot?.portfolio_risk_budget)
+    .find((row) => row && Object.keys(row).length) || null;
+  const latestTradingBudget = orders
+    .map((row) => row?.risk_snapshot?.trading_budget_24h)
     .find((row) => row && Object.keys(row).length) || null;
   const latestMarketRegime = decisions
     .map((row) => row?.decision_payload?.market_regime)
@@ -579,6 +584,8 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Max ES 95%", `${Number(policy.max_portfolio_expected_shortfall_95_pct || 8)}%`],
                       ["Max position vol", `${Number(policy.max_position_annualized_volatility_pct || 100)}%`],
                       ["Max stress loss", `${Number(policy.max_portfolio_stress_loss_pct || 12)}%`],
+                      ["24h turnover cap", `${Number(policy.max_rolling_24h_turnover_pct || 100)}%`],
+                      ["24h exec-cost cap", `${Number(policy.max_rolling_24h_execution_cost_pct_equity || 0.25)}%`],
                       ["Min confidence", `${(Number(policy.min_decision_confidence || 0.7) * 100).toFixed(0)}%`],
                     ].map(([label, value]) => (
                       <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
@@ -663,6 +670,15 @@ export default function MarketsCommandCenter({ organizationId }) {
                         {(Number(latestPortfolioRiskBudget.scale || 1) * 100).toFixed(0)}% of pre-budget BUY notional
                       </div>
                     ) : null}
+                    {latestTradingBudget ? (
+                      <div className="mt-2 rounded-lg border border-black/[0.06] bg-white px-2.5 py-2 text-[8px] text-[#5E5851]">
+                        Rolling 24h: {Number(latestTradingBudget.projected_turnover_pct_equity || 0).toFixed(1)}% projected turnover
+                        {" · "}
+                        {Number(latestTradingBudget.realized_execution_cost_pct_equity || 0).toFixed(3)}% execution-cost leakage
+                        {" · "}
+                        {Number(latestTradingBudget.fill_count || 0)} fills
+                      </div>
+                    ) : null}
                     {latestMarketRegime ? (
                       <div className="mt-2 rounded-lg border border-black/[0.06] bg-white px-2.5 py-2 text-[8px] text-[#5E5851]">
                         Benchmark regime: {String(latestMarketRegime.regime || "UNKNOWN").replaceAll("_", " ")}
@@ -697,6 +713,8 @@ export default function MarketsCommandCenter({ organizationId }) {
                         ["Sector shock %", "stress_sector_shock_pct", "0.01", "100", "0.1"],
                         ["Cluster shock %", "stress_correlated_cluster_shock_pct", "0.01", "100", "0.1"],
                         ["Single-name gap %", "stress_single_name_shock_pct", "0.01", "100", "0.1"],
+                        ["24h turnover cap %", "max_rolling_24h_turnover_pct", "0.1", "1000", "0.1"],
+                        ["24h exec-cost cap % equity", "max_rolling_24h_execution_cost_pct_equity", "0.001", "10", "0.001"],
                       ].map(([label, key, min, max, step]) => (
                         <label key={key}>
                           <span className="text-[8px] text-[#968F86]">{label}</span>
@@ -866,6 +884,8 @@ export default function MarketsCommandCenter({ organizationId }) {
                         stress_sector_shock_pct: Number(riskDraft?.stress_sector_shock_pct ?? 12),
                         stress_correlated_cluster_shock_pct: Number(riskDraft?.stress_correlated_cluster_shock_pct ?? 15),
                         stress_single_name_shock_pct: Number(riskDraft?.stress_single_name_shock_pct ?? 20),
+                        max_rolling_24h_turnover_pct: Number(riskDraft?.max_rolling_24h_turnover_pct ?? 100),
+                        max_rolling_24h_execution_cost_pct_equity: Number(riskDraft?.max_rolling_24h_execution_cost_pct_equity ?? 0.25),
                       })}
                       className="mt-3 h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-medium text-white disabled:opacity-40"
                     >

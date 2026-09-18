@@ -92,7 +92,7 @@ test("surround renderer is a separate exact path and Release UI selects it",()=>
   const panel=fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicReleaseRenderPanel.jsx","utf8");
   assert.match(renderer,/AVANTIQO_MUSIC_OFFLINE_SURROUND_PREMASTER_V1/);
   assert.match(renderer,/renderMusicTrackStemOffline/);
-  assert.match(renderer,/CREATIVE_MUSIC_SURROUND_GROUP_BUS_GRAPH_NOT_CERTIFIED|SURROUND_GROUP_BUS_GRAPH_NOT_CERTIFIED/);
+  assert.doesNotMatch(renderer,/SURROUND_GROUP_BUS_GRAPH_NOT_CERTIFIED/);
   assert.match(renderer,/explicit_send_only: true/);
   assert.match(renderer,/dolby_branded: false/);
   assert.match(panel,/renderMusicSurroundPremasterOffline/);
@@ -128,4 +128,53 @@ test("surround validation re-probes rendered file and verifies channel/LFE/downm
   assert.match(release,/SURROUND_PREMASTER/);
   assert.match(panel,/surroundValidationRequest/);
   assert.match(panel,/TECHNICAL QC PASS/);
+});
+
+
+test("linked multichannel compression preserves inter-channel image ratios",async()=>{
+  const { applyMusicLinkedMultichannelCompression }=await import("../lib/creative/music/client/MusicMultichannelDspRuntime.js");
+  const a=Float32Array.from({length:2000},(_,i)=>Math.sin(i*.1)*.7);
+  const b=Float32Array.from(a,v=>v*.25);
+  const r=applyMusicLinkedMultichannelCompression([a,b],48000,{enabled:true,threshold_db:-18,ratio:4,attack_ms:1,release_ms:80,knee_db:3,makeup_db:0});
+  assert.equal(r.linked_detector,true);
+  let checked=0;for(let i=100;i<a.length;i++){if(Math.abs(a[i])<1e-4||Math.abs(r.channels[0][i])<1e-6)continue;assert.ok(Math.abs((r.channels[1][i]/r.channels[0][i])-.25)<1e-5);checked++;}
+  assert.ok(checked>500);
+  assert.ok(r.gain_reduction_db_min<0);
+});
+
+test("surround renderer processes nested groups and master with linked multichannel DSP",()=>{
+  const renderer=fs.readFileSync("lib/creative/music/client/MusicOfflineSurroundRenderRuntime.js","utf8");
+  const dsp=fs.readFileSync("lib/creative/music/client/MusicMultichannelDspRuntime.js","utf8");
+  assert.match(renderer,/groupProcessingOrder/);
+  assert.match(renderer,/applyMusicMultichannelBusProcessing/);
+  assert.match(renderer,/nested_group_routing_applied/);
+  assert.match(renderer,/master_linked_compression: true/);
+  assert.doesNotMatch(renderer,/SURROUND_GROUP_BUS_GRAPH_NOT_CERTIFIED/);
+  assert.doesNotMatch(renderer,/SURROUND_MASTER_PROCESSING_NOT_CERTIFIED/);
+  assert.match(dsp,/linked_detector:true/);
+});
+
+
+test("surround aux path preserves pre/post-fader sends, automation and explicit return placement",()=>{
+  const renderer=fs.readFileSync("lib/creative/music/client/MusicOfflineSurroundRenderRuntime.js","utf8");
+  const aux=fs.readFileSync("lib/creative/music/client/MusicSurroundAuxRuntime.js","utf8");
+  const mixer=fs.readFileSync("lib/creative/music/runtime/CreativeMusicMixerRoutingRuntime.js","utf8");
+  const ui=fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicMixerSendsPanel.jsx","utf8");
+  assert.doesNotMatch(renderer,/SURROUND_AUX_SEND_GRAPH_NOT_CERTIFIED/);
+  assert.match(renderer,/renderMusicPreFaderSendSource/);
+  assert.match(renderer,/send_db:\$\{send.bus_id\}/);
+  assert.match(renderer,/renderMusicSurroundAuxEffect/);
+  assert.match(renderer,/pre_post_fader_send_semantics_preserved: true/);
+  assert.match(aux,/AVANTIQO_MUSIC_SURROUND_AUX_EFFECT_V1/);
+  assert.match(mixer,/spatial: normalizeMusicSpatialTrack/);
+  assert.match(ui,/Return spatial/);
+  assert.match(ui,/updateAuxSpatial/);
+});
+
+test("send automation applies deterministic dB gain over time",async()=>{
+  const { applyMusicSpatialSendGainAutomation }=await import("../lib/creative/music/client/MusicSpatialMixMathRuntime.js");
+  const src=new Float32Array(100).fill(1),lane={enabled:true,interpolation:"linear",points:[{time_seconds:0,value:-20},{time_seconds:.099,value:0}]};
+  const r=applyMusicSpatialSendGainAutomation(src,src,1000,{level_db:-40},lane);
+  assert.ok(r.left[0]>.09&&r.left[0]<.11);
+  assert.ok(r.left[99]>.99);
 });

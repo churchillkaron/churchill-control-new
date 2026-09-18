@@ -502,3 +502,32 @@ test("duplicate unsafe diagnosis turns tied to the same exact request do not lea
   ];
   assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[]);
 });
+
+
+test("legacy scoped diagnosis without checksum stays compatible when checksum requirement is disabled", () => {
+  const oldRequired=process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_REQUIRED;
+  delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_REQUIRED;
+  try {
+    const evidence=diagnosisEvidence({answer:"diagnosis"});
+    Object.assign(evidence.business_diagnosis,{scope_organization_id:"org-a",scope_conversation_id:"conv-a",scope_entity_id:"entity-a"});
+    const result=businessDiagnosisTurnVerification({role:"assistant",content:"diagnosis",evidence},{organization_id:"org-a",conversation_id:"conv-a",entity_id:"entity-a"});
+    assert.equal(result.safe,true);
+    assert.equal(result.scope_checksum_status,"SCOPE_CHECKSUM_NOT_AVAILABLE");
+  } finally {
+    if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_REQUIRED=oldRequired;
+  }
+});
+
+test("required scope checksum quarantines legacy scoped diagnosis without checksum", () => {
+  const oldRequired=process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_REQUIRED;
+  process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_REQUIRED="true";
+  try {
+    const evidence=diagnosisEvidence({answer:"diagnosis"});
+    Object.assign(evidence.business_diagnosis,{scope_organization_id:"org-a",scope_conversation_id:"conv-a",scope_entity_id:"entity-a"});
+    const result=businessDiagnosisTurnVerification({role:"assistant",content:"diagnosis",evidence},{organization_id:"org-a",conversation_id:"conv-a",entity_id:"entity-a"});
+    assert.equal(result.safe,false);
+    assert.equal(result.scope_checksum_status,"SCOPE_CHECKSUM_NOT_AVAILABLE");
+  } finally {
+    if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_REQUIRED=oldRequired;
+  }
+});

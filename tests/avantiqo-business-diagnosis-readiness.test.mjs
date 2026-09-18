@@ -207,3 +207,13 @@ test("diagnosis readiness exposes scope-enforcement policy without blocking new 
   const publicReadiness=getPublicBusinessDiagnosisReadiness({env:{AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_REQUIRED:"true"}});
   assert.equal(publicReadiness.proof.scope_required,true);
 });
+
+
+test("diagnosis readiness exposes scope checksum enforcement policy without blocking new diagnoses",()=>{
+  const env={AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_REQUIRED:"true"};
+  const readiness=getBusinessDiagnosisReadiness({env});
+  assert.equal(readiness.ready,true);
+  assert.equal(readiness.proof.scope_checksum_required,true);
+  const publicReadiness=getPublicBusinessDiagnosisReadiness({env});
+  assert.equal(publicReadiness.proof.scope_checksum_required,true);
+});

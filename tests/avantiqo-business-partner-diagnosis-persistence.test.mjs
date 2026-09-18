@@ -215,3 +215,11 @@ test("persisted diagnosis proof binds exact originating user turn id",()=>{
   assert.match(route,/scope_user_turn_id: text\(persistedProof\.scope_user_turn_id\) \|\| null/);
   assert.match(route,/userTurnId: persistedUserTurn\?\.id \|\| null/);
 });
+
+
+test("persisted diagnosis scope is checksummed before optional HMAC sealing",()=>{
+  assert.match(route,/bindBusinessDiagnosisScopeChecksum\(persistenceBase\)/);
+  assert.match(route,/sealBusinessDiagnosisProofAuthenticity\(checksummedPersistenceBase\)/);
+  assert.match(route,/scope_checksum_contract:/);
+  assert.match(route,/scope_checksum:/);
+});

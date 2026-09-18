@@ -5,7 +5,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import { buildBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAnswerContent, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
-import { verifyBusinessDiagnosisProofAuthenticity, businessDiagnosisProofAuthenticityAcceptable, redactBusinessDiagnosisProofForClient, sealBusinessDiagnosisProofAuthenticity } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
+import { verifyBusinessDiagnosisProofAuthenticity, businessDiagnosisProofAuthenticityAcceptable, redactBusinessDiagnosisProofForClient, sealBusinessDiagnosisProofAuthenticity, bindBusinessDiagnosisScopeChecksum } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
 import { businessDiagnosisReadinessInternalDiagnostic } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReadinessRuntime";
 import {
   resolveBusinessContext,
@@ -132,8 +132,9 @@ function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null
     scope_period_id: diagnosedPeriodId || activePeriodId,
     scope_user_turn_id: text(userTurnId) || null,
   };
-  const persistenceSeal = sealBusinessDiagnosisProofAuthenticity(persistenceBase);
-  const persistedProof = persistenceSeal.sealed ? persistenceSeal.proof : persistenceBase;
+  const checksummedPersistenceBase = bindBusinessDiagnosisScopeChecksum(persistenceBase);
+  const persistenceSeal = sealBusinessDiagnosisProofAuthenticity(checksummedPersistenceBase);
+  const persistedProof = persistenceSeal.sealed ? persistenceSeal.proof : checksummedPersistenceBase;
   return {
     business_diagnosis: {
       contract: text(diagnosis.contract) || null,
@@ -149,6 +150,8 @@ function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null
       scope_entity_id: text(persistedProof.scope_entity_id) || null,
       scope_period_id: text(persistedProof.scope_period_id) || null,
       scope_user_turn_id: text(persistedProof.scope_user_turn_id) || null,
+      scope_checksum_contract: text(persistedProof.scope_checksum_contract) || null,
+      scope_checksum: text(persistedProof.scope_checksum) || null,
       class: projection.diagnosis_class,
       business_timezone: projection.business_timezone,
       answer_content_fingerprint: projection.answer_content_fingerprint,

@@ -6,6 +6,9 @@ import {
   getBusinessDiagnosisProofAuthenticityStatus,
   businessDiagnosisProofAuthenticityAcceptable,
   redactBusinessDiagnosisProofForClient,
+  bindBusinessDiagnosisScopeChecksum,
+  verifyBusinessDiagnosisScopeChecksum,
+  verifyBusinessDiagnosisProofScope,
 } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime.js";
 
 const env = {
@@ -97,4 +100,28 @@ test("client proof redaction removes all persisted scope identifiers", () => {
     assert.equal(Object.prototype.hasOwnProperty.call(safe,key),false);
   }
   assert.equal(safe.receipt_fingerprint.length,64);
+});
+
+
+test("unsigned persisted scope checksum detects partial scope tampering", () => {
+  const scoped=bindBusinessDiagnosisScopeChecksum({scope_organization_id:"org-a",scope_conversation_id:"conv-a",scope_entity_id:"entity-a",scope_period_id:"2026-09",scope_user_turn_id:"u1"});
+  assert.equal(verifyBusinessDiagnosisScopeChecksum(scoped).status,"SCOPE_CHECKSUM_VERIFIED");
+  assert.equal(verifyBusinessDiagnosisProofScope(scoped,{organization_id:"org-a",conversation_id:"conv-a",entity_id:"entity-a",period_id:"2026-09"}).status,"SCOPE_VERIFIED");
+  const tampered={...scoped,scope_conversation_id:"conv-b"};
+  assert.equal(verifyBusinessDiagnosisScopeChecksum(tampered).status,"SCOPE_CHECKSUM_MISMATCH");
+  assert.equal(verifyBusinessDiagnosisProofScope(tampered,{organization_id:"org-b",conversation_id:"conv-b",entity_id:"entity-a",period_id:"2026-09"}).status,"SCOPE_CHECKSUM_MISMATCH");
+});
+
+test("legacy scoped proof without checksum remains compatibility-verifiable", () => {
+  const legacy={scope_organization_id:"org-a",scope_conversation_id:"conv-a",scope_entity_id:"entity-a"};
+  const checksum=verifyBusinessDiagnosisScopeChecksum(legacy);
+  assert.equal(checksum.status,"SCOPE_CHECKSUM_NOT_AVAILABLE");
+  assert.equal(checksum.verified,true);
+  assert.equal(verifyBusinessDiagnosisProofScope(legacy,{organization_id:"org-a",conversation_id:"conv-a",entity_id:"entity-a"}).status,"SCOPE_VERIFIED");
+});
+
+test("client proof redaction removes scope checksum metadata", () => {
+  const safe=redactBusinessDiagnosisProofForClient({scope_checksum_contract:"AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_V1",scope_checksum:"a".repeat(64),receipt_fingerprint:"b".repeat(64)});
+  assert.equal(Object.prototype.hasOwnProperty.call(safe,"scope_checksum_contract"),false);
+  assert.equal(Object.prototype.hasOwnProperty.call(safe,"scope_checksum"),false);
 });

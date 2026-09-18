@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 367,
-    "passed": 367,
+    "tests": 370,
+    "passed": 370,
     "failed": 0
   },
   "workstreams": [
@@ -195,6 +195,17 @@
       "live_engagement_file_status": 200,
       "silent_practice_decision_truncation_removed": true,
       "accounting_mutation_authority": false
+    },
+    {
+      "order": 14,
+      "name": "Core Finance decision population integrity",
+      "commit": "901b41d59e90",
+      "status": "OPERATIONAL_COMPLETE_HEALTH_TAX_ANOMALY_TRUTH",
+      "vat_dependency_requests": "Authentic same-entity governed client requests are read to completeness rather than the latest 100.",
+      "finance_health": "Organization journal health evaluates the complete journal population instead of the first 5000 rows.",
+      "anomaly_detection": "Journal anomaly detection evaluates the complete organization population instead of the latest 500 rows.",
+      "silent_core_decision_truncation_removed": true,
+      "accounting_mutation_authority": false
     }
   ],
   "live_acceptance": {
@@ -250,6 +261,9 @@
     "practice_capacity_complete_population": true,
     "practice_billing_complete_time_population": true,
     "practice_work_programs_complete_population": true,
-    "engagement_file_review_truth_complete_population": true
+    "engagement_file_review_truth_complete_population": true,
+    "vat_dependency_request_population_complete": true,
+    "finance_health_complete_journal_population": true,
+    "finance_anomalies_complete_journal_population": true
   }
 }

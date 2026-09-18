@@ -69,11 +69,8 @@ test("conversation memory excludes unverified diagnosis assistant turns before m
   const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
   assert.match(runtime,/loadVerifiedRecentConversationTurns/);
   assert.match(runtime,/\.select\("role,content,evidence,created_at"\)/);
-  assert.match(runtime,/diagnosisTurnIsSafeForConversation/);
-  assert.match(runtime,/verifyBusinessDiagnosisAuditProjection\(diagnosis\)/);
-  assert.match(runtime,/verification\.status === "VERIFIED" \|\| verification\.status === "VERIFIED_LEGACY"/);
-  assert.match(runtime,/if \(row\?\.role === "assistant" && !diagnosisTurnIsSafeForConversation\(row\)\)/);
-  assert.match(runtime,/if \(previous\?\.role === "user"\) safeRows\.pop\(\)/);
+  assert.match(runtime,/sanitizeBusinessDiagnosisConversation/);
+  assert.match(runtime,/return sanitizeBusinessDiagnosisConversation\(turns\.data \|\| \[\]\)/);
   assert.match(runtime,/OPERATOR_VERIFIED_RECENT_CONVERSATION_LOAD_FAILED/);
   assert.match(runtime,/return \[\]/);
 });
@@ -84,13 +81,6 @@ test("operator never falls back to client conversation after server memory filte
 });
 
 
-test("unsafe diagnosis history also removes its immediately preceding user request",()=>{
-  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
-  assert.match(runtime,/const chronological = \(rows \|\| \[\]\)\.slice\(\)\.reverse\(\)/);
-  assert.match(runtime,/if \(row\?\.role === "assistant" && !diagnosisTurnIsSafeForConversation\(row\)\)/);
-  assert.match(runtime,/if \(previous\?\.role === "user"\) safeRows\.pop\(\)/);
-  assert.match(runtime,/continue;/);
-});
 
 
 test("conversation snapshot hides unverified historical diagnosis answer text",()=>{

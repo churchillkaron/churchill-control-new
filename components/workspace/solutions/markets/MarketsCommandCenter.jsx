@@ -136,7 +136,10 @@ export default function MarketsCommandCenter({ organizationId }) {
   const feedStatus = data?.feedStatus || null;
   const automationPolicy = data?.automationPolicy || {};
   const automationRuns = Array.isArray(data?.automationRuns) ? data.automationRuns : [];
+  const backtestRuns = Array.isArray(data?.backtestRuns) ? data.backtestRuns : [];
   const policy = data?.riskPolicy || {};
+  const latestBacktest = backtestRuns[0] || null;
+  const completedBacktests = backtestRuns.filter((row) => row.status === "COMPLETED");
   const latestPortfolioRisk = orders
     .map((row) => row?.risk_snapshot?.portfolio_concentration)
     .find((row) => row && Object.keys(row).length) || null;
@@ -149,6 +152,10 @@ export default function MarketsCommandCenter({ organizationId }) {
   const latestSnapshotBySymbol = new Map();
   for (const row of snapshots) {
     if (!latestSnapshotBySymbol.has(row.symbol)) latestSnapshotBySymbol.set(row.symbol, row);
+  }
+  const latestBacktestBySymbol = new Map();
+  for (const row of backtestRuns) {
+    if (!latestBacktestBySymbol.has(row.symbol)) latestBacktestBySymbol.set(row.symbol, row);
   }
 
   const directionalOutcomes = outcomes.filter((row) => typeof row.directional_hit === "boolean");
@@ -340,12 +347,20 @@ export default function MarketsCommandCenter({ organizationId }) {
                   {watchlist.length ? watchlist.map((item) => {
                     const decision = latestBySymbol.get(item.symbol);
                     const snapshot = latestSnapshotBySymbol.get(item.symbol);
+                    const backtest = latestBacktestBySymbol.get(item.symbol);
                     const refreshing = working === `REFRESH_INTELLIGENCE:${item.symbol}`;
                     return (
                       <div key={item.id} className="grid gap-3 p-4 sm:grid-cols-[minmax(120px,1fr)_auto_auto_auto_minmax(250px,auto)] sm:items-center">
                         <div>
                           <div className="text-[14px] font-semibold">{item.symbol}</div>
                           <div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-[#938C83]">{item.asset_type} · {item.thesis_horizon}</div>
+                          <div className="mt-1 text-[8px] text-[#9A968E]">
+                            {backtest?.status === "COMPLETED"
+                              ? `WF ${(Number(backtest.total_return || 0) * 100).toFixed(1)}% · DD ${Number(backtest.max_drawdown_pct || 0).toFixed(1)}% · ${Number(backtest.trade_count || 0)} trades`
+                              : backtest
+                                ? `Walk-forward: ${backtest.status}`
+                                : "Walk-forward: not run"}
+                          </div>
                         </div>
                         <div className="text-left sm:text-right">
                           <div className="text-[9px] uppercase tracking-[0.12em] text-[#938C83]">Last</div>
@@ -392,6 +407,20 @@ export default function MarketsCommandCenter({ organizationId }) {
                           >
                             <RefreshCw size={10} className={refreshing ? "animate-spin" : ""} />
                             Refresh
+                          </button>
+                          <button
+                            type="button"
+                            disabled={Boolean(working)}
+                            onClick={() => act("RUN_WALK_FORWARD", {
+                              symbol: item.symbol,
+                              training_bars: 80,
+                              test_bars: 20,
+                              transaction_cost_bps: 10,
+                              initial_equity: 100000,
+                            })}
+                            className="inline-flex h-8 items-center rounded-lg border border-[#D6A66A]/35 bg-[#FBF7F1] px-2.5 text-[9px] font-medium text-[#8A6239] disabled:opacity-40"
+                          >
+                            {working === "RUN_WALK_FORWARD" ? "Validating…" : "Walk-forward"}
                           </button>
                           {["BUY", "SELL"].includes(decision?.action) ? (
                             <>
@@ -683,6 +712,29 @@ export default function MarketsCommandCenter({ organizationId }) {
                   </div>
                   <div className="mt-3 text-[9px] leading-4 text-[#8A867F]">
                     Confidence is scored against realized market outcomes. High-confidence mistakes receive a larger calibration penalty.
+                  </div>
+                </div>
+
+                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                  <div className="flex items-center gap-2 text-[#A37849]"><TrendingUp size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Walk-forward validation</span></div>
+                  <h2 className="mt-2 text-[18px] font-semibold">Out-of-sample evidence</h2>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {[
+                      ["Completed runs", completedBacktests.length],
+                      ["Latest symbol", latestBacktest?.symbol || "—"],
+                      ["Latest return", latestBacktest?.status === "COMPLETED" ? `${(Number(latestBacktest.total_return || 0) * 100).toFixed(1)}%` : "—"],
+                      ["Latest drawdown", latestBacktest?.status === "COMPLETED" ? `${Number(latestBacktest.max_drawdown_pct || 0).toFixed(1)}%` : "—"],
+                      ["Latest trades", latestBacktest?.status === "COMPLETED" ? Number(latestBacktest.trade_count || 0) : "—"],
+                      ["Directional hit", latestBacktest?.directional_hit_rate == null ? "—" : `${(Number(latestBacktest.directional_hit_rate) * 100).toFixed(1)}%`],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                        <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
+                        <div className="mt-1 text-[14px] font-semibold">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-[9px] leading-4 text-[#8A867F]">
+                    Signals see only prior bars; simulated execution occurs on the next open with transaction costs. Validation never grants live authority.
                   </div>
                 </div>
               </div>

@@ -10,6 +10,7 @@ import { MarketPaperExecutionRuntime } from "@/lib/markets/runtime/MarketPaperEx
 import { MarketPortfolioRiskRuntime } from "@/lib/markets/runtime/MarketPortfolioRiskRuntime";
 import { MarketPredictionOutcomeRuntime } from "@/lib/markets/runtime/MarketPredictionOutcomeRuntime";
 import { MarketSpecialistAgentRuntime } from "@/lib/markets/runtime/MarketSpecialistAgentRuntime";
+import { MarketWalkForwardRuntime } from "@/lib/markets/runtime/MarketWalkForwardRuntime";
 import { evaluatePaperTradeRisk } from "@/lib/markets/runtime/MarketRiskPolicyRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -84,10 +85,11 @@ async function loadState({ organizationId, entityId }) {
       feedStatus: null,
       automationPolicy: null,
       automationRuns: [],
+      backtestRuns: [],
     };
   }
 
-  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult] = await Promise.all([
+  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult] = await Promise.all([
     supabaseAdmin.from("market_watchlist").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).neq("status", "REMOVED").order("added_at", { ascending: false }),
     supabaseAdmin.from("market_decisions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("created_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_paper_orders").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("submitted_at", { ascending: false }).limit(50),
@@ -104,9 +106,10 @@ async function loadState({ organizationId, entityId }) {
     supabaseAdmin.from("market_feed_status").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).eq("provider", "alpaca").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from("market_automation_policies").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).maybeSingle(),
     supabaseAdmin.from("market_automation_runs").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("started_at", { ascending: false }).limit(20),
+    supabaseAdmin.from("market_backtest_runs").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("started_at", { ascending: false }).limit(50),
   ]);
 
-  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult]) {
+  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult]) {
     if (result.error) throw result.error;
   }
 
@@ -130,6 +133,7 @@ async function loadState({ organizationId, entityId }) {
     feedStatus: feedStatusResult.data || null,
     automationPolicy: automationPolicyResult.data || null,
     automationRuns: automationRunsResult.data || [],
+    backtestRuns: backtestRunsResult.data || [],
   };
 }
 
@@ -579,6 +583,36 @@ export async function POST(request) {
         paperAccount: refreshedState.paperAccount,
         paperPositions: refreshedState.paperPositions,
         paperOrders: refreshedState.paperOrders,
+        execution: { mode: "PAPER", live_enabled: false },
+      });
+    }
+
+    if (action === "RUN_WALK_FORWARD") {
+      const symbol = clean(body.symbol).toUpperCase();
+      if (!symbol) {
+        return NextResponse.json({ success: false, error: "symbol is required" }, { status: 400 });
+      }
+      const known = state.watchlist.some(
+        (row) => clean(row.symbol).toUpperCase() === symbol && row.status !== "REMOVED",
+      );
+      if (!known) {
+        return NextResponse.json({ success: false, error: "Symbol must be in the active Markets universe" }, { status: 409 });
+      }
+
+      const validation = await MarketWalkForwardRuntime.run({
+        organizationId,
+        portfolioId: state.portfolio.id,
+        symbol,
+        trainingBars: Number(body.training_bars || 80),
+        testBars: Number(body.test_bars || 20),
+        transactionCostBps: Number(body.transaction_cost_bps ?? 10),
+        initialEquity: Number(body.initial_equity || 100000),
+      });
+      const refreshedState = await loadState({ organizationId, entityId });
+      return NextResponse.json({
+        success: true,
+        validation,
+        backtestRuns: refreshedState.backtestRuns,
         execution: { mode: "PAPER", live_enabled: false },
       });
     }

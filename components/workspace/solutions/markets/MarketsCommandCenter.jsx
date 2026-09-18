@@ -103,6 +103,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   const paperAccount = data?.paperAccount || null;
   const paperPositions = Array.isArray(data?.paperPositions) ? data.paperPositions : [];
   const paperFills = Array.isArray(data?.paperFills) ? data.paperFills : [];
+  const feedStatus = data?.feedStatus || null;
   const policy = data?.riskPolicy || {};
   const baseCurrency = portfolio?.base_currency || paperAccount?.base_currency || "USD";
 
@@ -151,9 +152,29 @@ export default function MarketsCommandCenter({ organizationId }) {
                 Research, specialist theses, probabilistic decisions and deterministic risk control. Live broker execution is disabled in v1.
               </p>
             </div>
-            <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-4 text-[11px] font-medium text-white disabled:opacity-40">
-              <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="rounded-xl border border-black/[0.07] bg-[#FCFBF9] px-3 py-2">
+                <div className="text-[8px] uppercase tracking-[0.14em] text-[#968F86]">Live feed</div>
+                <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-medium text-[#4E4A44]">
+                  <span className={`h-1.5 w-1.5 rounded-full ${
+                    feedStatus?.connection_state === "CONNECTED"
+                      ? "bg-emerald-500"
+                      : feedStatus?.connection_state === "DEGRADED" || feedStatus?.connection_state === "CONNECTING"
+                        ? "bg-amber-500"
+                        : "bg-[#A09A91]"
+                  }`} />
+                  {feedStatus?.connection_state || "NOT STARTED"}
+                </div>
+                <div className="mt-0.5 text-[8px] text-[#9A968E]">
+                  {feedStatus?.last_message_at
+                    ? `Last message ${new Date(feedStatus.last_message_at).toLocaleTimeString()}`
+                    : "No streaming message yet"}
+                </div>
+              </div>
+              <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-4 text-[11px] font-medium text-white disabled:opacity-40">
+                <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
+              </button>
+            </div>
           </div>
         </section>
 

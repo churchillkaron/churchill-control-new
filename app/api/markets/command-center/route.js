@@ -62,25 +62,28 @@ async function loadState({ organizationId, entityId }) {
       paperAccount: null,
       paperPositions: [],
       paperFills: [],
+      feedStatus: null,
     };
   }
 
-  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult] = await Promise.all([
+  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult] = await Promise.all([
     supabaseAdmin.from("market_watchlist").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).neq("status", "REMOVED").order("added_at", { ascending: false }),
     supabaseAdmin.from("market_decisions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("created_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_paper_orders").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("submitted_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_risk_policies").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).maybeSingle(),
     supabaseAdmin.from("market_evidence_events").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("observed_at", { ascending: false }).limit(100),
     supabaseAdmin.from("market_agent_theses").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("generated_at", { ascending: false }).limit(100),
+    supabaseAdmin.from("market_live_snapshots").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("captured_at", { ascending: false }).limit(100),
     supabaseAdmin.from("market_snapshots").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("captured_at", { ascending: false }).limit(100),
     supabaseAdmin.from("market_filings").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("filed_at", { ascending: false }).limit(100),
     supabaseAdmin.from("market_prediction_outcomes").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("evaluation_time", { ascending: false }).limit(100),
     supabaseAdmin.from("market_paper_accounts").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).maybeSingle(),
     supabaseAdmin.from("market_paper_positions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("market_value", { ascending: false }),
     supabaseAdmin.from("market_paper_fills").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("filled_at", { ascending: false }).limit(100),
+    supabaseAdmin.from("market_feed_status").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).eq("provider", "alpaca").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
-  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult]) {
+  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult]) {
     if (result.error) throw result.error;
   }
 
@@ -92,12 +95,16 @@ async function loadState({ organizationId, entityId }) {
     riskPolicy: policyResult.data || null,
     evidence: evidenceResult.data || [],
     theses: thesesResult.data || [],
-    snapshots: snapshotsResult.data || [],
+    snapshots: [
+      ...(liveSnapshotsResult.data || []),
+      ...(snapshotsResult.data || []),
+    ],
     filings: filingsResult.data || [],
     outcomes: outcomesResult.data || [],
     paperAccount: paperAccountResult.data || null,
     paperPositions: paperPositionsResult.data || [],
     paperFills: paperFillsResult.data || [],
+    feedStatus: feedStatusResult.data || null,
   };
 }
 

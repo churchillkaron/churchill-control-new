@@ -165,6 +165,7 @@ export async function POST(request) {
       baseline_period_end_date: resolvedPeriods.periods.baseline_end_date,
       current_period_start_date: resolvedPeriods.periods.current_start_date,
       current_period_end_date: resolvedPeriods.periods.current_end_date,
+      business_timezone: organizationTime.timezone,
       business_diagnosis_class: diagnosisClass,
     };
     const actor = {

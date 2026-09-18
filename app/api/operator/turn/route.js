@@ -91,6 +91,7 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
     business_diagnosis: {
       contract: text(diagnosis.contract) || null,
       class: text(diagnosis.class) || null,
+      business_timezone: text(diagnosis.business_timezone) || null,
       receipt_fingerprint: text(diagnosis.receipt_fingerprint) || null,
       audit_projection_fingerprint: text(diagnosis.audit_projection_fingerprint) || null,
       final_evidence_state: text(diagnosis.final_evidence_state) || null,

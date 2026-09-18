@@ -210,6 +210,7 @@ function DiagnosisProof({ evidence = {} }) {
   const state = text(diagnosis.final_evidence_state) || "VERIFIED_EVIDENCE";
   const boundary = text(diagnosis.answer_boundary_status) || "PASS";
   const diagnosisClass = text(diagnosis.class);
+  const businessTimezone = text(diagnosis.business_timezone);
   const periods = diagnosis.periods || {};
   const auditVerified = diagnosis.audit_projection_verified === true;
   const auditStatus = text(diagnosis.audit_projection_verification_status);
@@ -231,6 +232,7 @@ function DiagnosisProof({ evidence = {} }) {
         <div><span className="text-white/30">Request type</span><div className="mt-0.5 text-white/65">{classLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{diagnosisClass || "—"}</div></div>
         <div><span className="text-white/30">Answer boundary</span><div className="mt-0.5 text-white/65">{boundaryLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{boundary}</div></div>
         <div><span className="text-white/30">Compared periods</span><div className="mt-0.5 text-white/65">{baselinePeriodLabel} → {currentPeriodLabel}</div></div>
+        <div><span className="text-white/30">Business timezone</span><div className="mt-0.5 text-white/65">{businessTimezone || "UTC"}</div></div>
         <div><span className="text-white/30">Unexplained residual</span><div className="mt-0.5 text-white/65">{diagnosis.residual_material === true ? "Some of the change remains unexplained" : "No material unexplained change flagged"}</div></div>
         <div><span className="text-white/30">External evidence</span><div className="mt-0.5 text-white/65">{validatedExternalCount ? `${validatedExternalCount} validated` : "No validated external evidence"}{unresolvedExternalCount ? ` · ${unresolvedExternalCount} unresolved` : ""}</div></div>
         <div className="sm:col-span-2"><span className="text-white/30">Period IDs</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/40">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>

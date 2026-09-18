@@ -19,6 +19,8 @@ test("shared operator artifact surface renders persisted diagnosis proof",()=>{
   assert.match(source,/Answer matched the verified evidence/);
   assert.match(source,/Some of the change remains unexplained/);
   assert.match(source,/External evidence/);
+  assert.match(source,/Business timezone/);
+  assert.match(source,/diagnosis\.business_timezone/);
   assert.match(source,/No validated external evidence/);
   assert.match(source,/validatedExternalCount/);
   assert.match(source,/unresolvedExternalCount/);

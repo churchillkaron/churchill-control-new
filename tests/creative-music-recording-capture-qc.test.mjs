@@ -8,7 +8,7 @@ function sine({amp=.2,dc=0,frames=48000,freq=440,rate=48000}={}){const a=new Flo
 test("capture QC measures headroom crest DC floor and channel balance without mutating audio",()=>{
   const left=sine({amp:.2}),right=sine({amp:.2});
   const qc=analyzeMusicCaptureQc([left,right],48000);
-  assert.equal(qc.contract,"AVANTIQO_MUSIC_CAPTURE_QC_V2");
+  assert.equal(qc.contract,"AVANTIQO_MUSIC_CAPTURE_QC_V3");
   assert.equal(qc.measured,true);
   assert.equal(qc.automatic_capture_repair_allowed,false);
   assert.equal(qc.immutable_original_take,true);
@@ -53,4 +53,24 @@ test("quiet room-tone capture can establish floor without performance windows",(
   const qc=analyzeMusicCaptureQc([quiet],48000);
   assert.ok(Number.isFinite(qc.background_floor_estimate_dbfs));
   assert.equal(qc.background_floor_confidence,"QUIET_CAPTURE");
+});
+
+
+test("capture QC detects 50 Hz mains hum only from trusted quiet evidence",()=>{
+  const rate=48000,signal=new Float32Array(rate*2);
+  for(let i=0;i<signal.length;i+=1){const t=i/rate;signal[i]=.003*Math.sin(2*Math.PI*50*t)+.0004*Math.sin(2*Math.PI*337*t);}
+  const qc=analyzeMusicCaptureQc([signal],rate);
+  assert.equal(qc.hum_measurement_confidence,"QUIET_CAPTURE");
+  assert.equal(qc.dominant_hum_hz,50);
+  assert.equal(qc.hum_warning,true);
+  assert.ok(qc.warnings.includes("MAINS_HUM"));
+});
+
+test("loud 50 Hz musical content without quiet reference is not mislabeled as mains hum",()=>{
+  const rate=48000,signal=new Float32Array(rate*2);
+  for(let i=0;i<signal.length;i+=1){const t=i/rate;signal[i]=.2*Math.sin(2*Math.PI*50*t)+.08*Math.sin(2*Math.PI*220*t);}
+  const qc=analyzeMusicCaptureQc([signal],rate);
+  assert.equal(qc.hum_measurement_confidence,"UNVERIFIED_NO_QUIET_WINDOWS");
+  assert.equal(qc.hum_warning,false);
+  assert.ok(!qc.warnings.includes("MAINS_HUM"));
 });

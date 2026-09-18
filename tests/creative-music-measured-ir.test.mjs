@@ -1,0 +1,8 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import { loadMusicMeasuredImpulseResponse } from "../lib/creative/music/client/MusicMeasuredImpulseResponseRuntime.js";
+
+test("measured impulse responses are fingerprint-bound before decode",async()=>{const bytes=new TextEncoder().encode("measured-room-ir");const sha=createHash("sha256").update(bytes).digest("hex"),prior=globalThis.fetch;globalThis.fetch=async()=>new Response(bytes,{status:200});const context={decodeAudioData:async()=>({duration:1.75,numberOfChannels:2,sampleRate:48000})};try{const loaded=await loadMusicMeasuredImpulseResponse({context,url:"https://example.test/room.wav",expected_sha256:sha});assert.equal(loaded.fingerprint_verified,true);assert.equal(loaded.synthetic,false);assert.equal(loaded.source,"MEASURED_IR_ASSET");assert.equal(loaded.duration_seconds,1.75);await assert.rejects(()=>loadMusicMeasuredImpulseResponse({context,url:"https://example.test/room.wav",expected_sha256:"0".repeat(64)}),/FINGERPRINT_MISMATCH/);}finally{globalThis.fetch=prior;}});
+test("final surround path exposes measured IR evidence and keeps synthetic fallback explicit",()=>{const aux=fs.readFileSync("lib/creative/music/client/MusicSurroundAuxRuntime.js","utf8"),surround=fs.readFileSync("lib/creative/music/client/MusicOfflineSurroundRenderRuntime.js","utf8");assert.match(aux,/ir_asset_url/);assert.match(aux,/ir_sha256/);assert.match(aux,/MEASURED_IR_ASSET|loadMusicMeasuredImpulseResponse/);assert.match(aux,/SYNTHETIC_DETERMINISTIC_FALLBACK/);assert.match(surround,/impulse_response:wet\.impulse_response/);});

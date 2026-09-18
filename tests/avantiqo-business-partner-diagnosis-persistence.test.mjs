@@ -8,6 +8,8 @@ test("operator turn persists compact business diagnosis audit in evidence",()=>{
   assert.match(route,/function persistedBusinessDiagnosisEvidence/);
   assert.match(route,/receipt_fingerprint/);
   assert.match(route,/audit_projection_fingerprint/);
+  assert.match(route,/validated_external_context_count/);
+  assert.match(route,/unresolved_external_context_count/);
   assert.match(route,/class: text\(diagnosis\.class\)/);
   assert.match(route,/baseline_start_date: text\(diagnosis\?\.periods\?\.baseline_start_date\)/);
   assert.match(route,/current_end_date: text\(diagnosis\?\.periods\?\.current_end_date\)/);

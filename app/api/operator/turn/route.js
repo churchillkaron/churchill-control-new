@@ -97,6 +97,8 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
       residual_material: diagnosis.residual_material === true,
       answer_boundary_status: text(diagnosis.answer_boundary_status) || null,
       answer_unsupported_recommendation_outcome_detected: diagnosis.answer_unsupported_recommendation_outcome_detected === true,
+      validated_external_context_count: Number.isFinite(Number(diagnosis.validated_external_context_count)) ? Number(diagnosis.validated_external_context_count) : 0,
+      unresolved_external_context_count: Number.isFinite(Number(diagnosis.unresolved_external_context_count)) ? Number(diagnosis.unresolved_external_context_count) : 0,
       periods: {
         status: text(diagnosis?.periods?.status) || null,
         baseline_period_id: text(diagnosis?.periods?.baseline_period_id) || null,

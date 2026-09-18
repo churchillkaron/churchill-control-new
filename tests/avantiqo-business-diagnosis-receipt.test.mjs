@@ -50,6 +50,7 @@ test("persisted audit projection verifies and detects changed safe fields",()=>{
   class:receipt.diagnosis_class,receipt_fingerprint:receipt.receipt_fingerprint,audit_projection_fingerprint:receipt.audit_projection_fingerprint,
   final_evidence_state:receipt.final_evidence_state,residual_material:receipt.residual_material,answer_boundary_status:receipt.answer_boundary_status,
   answer_unsupported_recommendation_outcome_detected:receipt.answer_unsupported_recommendation_outcome_detected,
+  validated_external_context_count:receipt.validated_external_context_ids.length,unresolved_external_context_count:receipt.rejected_or_unresolved_external_contexts.length,
   periods:{baseline_period_id:receipt.baseline_period_id,baseline_start_date:receipt.baseline_period_start_date,baseline_end_date:receipt.baseline_period_end_date,current_period_id:receipt.current_period_id,current_start_date:receipt.current_period_start_date,current_end_date:receipt.current_period_end_date},
  };
  const verified=verifyBusinessDiagnosisAuditProjection(evidence);
@@ -58,4 +59,12 @@ test("persisted audit projection verifies and detects changed safe fields",()=>{
  const changed=verifyBusinessDiagnosisAuditProjection({...evidence,class:"PERIOD_COMPARISON"});
  assert.equal(changed.status,"MISMATCH");
  assert.equal(changed.verified,false);
+});
+
+
+test("audit projection binds external evidence summary counts",()=>{
+ const receipt=build(input);
+ const evidence={class:receipt.diagnosis_class,receipt_fingerprint:receipt.receipt_fingerprint,audit_projection_fingerprint:receipt.audit_projection_fingerprint,final_evidence_state:receipt.final_evidence_state,residual_material:receipt.residual_material,answer_boundary_status:receipt.answer_boundary_status,answer_unsupported_recommendation_outcome_detected:receipt.answer_unsupported_recommendation_outcome_detected,validated_external_context_count:receipt.validated_external_context_ids.length,unresolved_external_context_count:receipt.rejected_or_unresolved_external_contexts.length,periods:{baseline_period_id:receipt.baseline_period_id,baseline_start_date:receipt.baseline_period_start_date,baseline_end_date:receipt.baseline_period_end_date,current_period_id:receipt.current_period_id,current_start_date:receipt.current_period_start_date,current_end_date:receipt.current_period_end_date}};
+ assert.equal(verifyBusinessDiagnosisAuditProjection(evidence).status,"VERIFIED");
+ assert.equal(verifyBusinessDiagnosisAuditProjection({...evidence,unresolved_external_context_count:99}).status,"MISMATCH");
 });

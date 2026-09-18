@@ -42,11 +42,11 @@ test("pitch and timing correction refuse mixed program audio", () => {
 
 test("gated engine status and source-fit blockers are reported separately", () => {
   const readiness = buildMusicCapabilityReadiness({
-    selected_capabilities: [{ id: "singing_voice_identity", status: "RESEARCH_GATED" }],
+    selected_capabilities: [{ id: "singing_voice_identity", status: "RESEARCH_RUNTIME_READY_CERTIFICATION_GATED" }],
     source_evidence: { default: { source_kind: "MASTERED_FULL_MIX", reference_duration_seconds: 180 } },
   });
   assert.equal(readiness.all_execution_ready, false);
   assert.equal(readiness.blocked_capabilities.length, 1);
-  assert.ok(readiness.blocked_capabilities[0].blockers.includes("CAPABILITY_STATUS_RESEARCH_GATED"));
+  assert.ok(readiness.blocked_capabilities[0].blockers.includes("CAPABILITY_STATUS_RESEARCH_RUNTIME_READY_CERTIFICATION_GATED"));
   assert.ok(readiness.blocked_capabilities[0].blockers.includes("CLEAN_ISOLATED_VOCAL_REFERENCE_REQUIRED"));
 });

@@ -116,6 +116,7 @@ const STATUS_LABELS = Object.freeze({
   CURRENT_RUNTIME_CERTIFICATION_REQUIRED: "Current runtime certification required",
   COMMERCIAL_ACTIVATION_REQUIRED: "Commercial activation required",
   RESEARCH_GATED: "Research validation required",
+  RESEARCH_RUNTIME_READY_CERTIFICATION_GATED: "Research runtime ready · certification required",
   ENGINE_GATED: "Engine certification required",
   READINESS_DEPENDENT: "Runtime readiness required",
   PLANNING_ONLY: "Planning only",
@@ -132,6 +133,7 @@ function statusExplanation(status) {
   if (["CERTIFICATION_GATED","CURRENT_RUNTIME_CERTIFICATION_REQUIRED"].includes(status)) return "The implementation exists, but production execution remains disabled until the current runtime passes certification.";
   if (status === "CERTIFICATION_OR_CONFIGURATION_REQUIRED") return "The workflow needs a certified and correctly configured owned runtime before production execution can start.";
   if (status === "COMMERCIAL_ACTIVATION_REQUIRED") return "Technical certification is present; commercial activation remains required before production routing.";
+  if (status === "RESEARCH_RUNTIME_READY_CERTIFICATION_GATED") return "An owned research runtime exists, but production execution remains disabled until model/license, benchmark and human quality certification pass.";
   if (status === "PLANNING_ONLY") return "Planning is available, but no executable runtime is registered for this workflow.";
   if (status === "OWNED_RUNTIME_NOT_IMPLEMENTED") return "The owned execution runtime is not implemented, so the Studio will not pretend this workflow can run.";
   return "Avantiqo is checking the exact runtime and certification state for this workflow.";

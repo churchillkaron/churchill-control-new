@@ -1,0 +1,5 @@
+import test from "node:test";import assert from "node:assert/strict";import fs from "node:fs";
+const registry=fs.readFileSync("lib/creative/music/runtime/CreativeMusicWorldClassStudioRuntime.js","utf8"),ui=fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicStudioWorkspace.jsx","utf8"),readiness=fs.readFileSync("lib/creative/music/runtime/CreativeMusicCapabilityReadinessRuntime.js","utf8");
+test("voice research capabilities expose exact research-runtime-ready certification gate",()=>{for(const id of ["vocal_role_separation","singing_voice_identity"])assert.match(registry,new RegExp(`\\["${id}"[\\s\\S]*"RESEARCH_RUNTIME_READY_CERTIFICATION_GATED"\\]`));});
+test("research-runtime-ready status remains execution blocking",()=>{assert.doesNotMatch(readiness,/RESEARCH_RUNTIME_READY_CERTIFICATION_GATED/);assert.match(readiness,/ENGINE_READY_STATUSES = new Set\(\["CERTIFIED", "IMPLEMENTED", "FOUNDATION_READY"\]\)/);});
+test("Studio explains exact certification boundary",()=>{assert.match(ui,/Research runtime ready · certification required/);assert.match(ui,/model\/license, benchmark and human quality certification pass/);});

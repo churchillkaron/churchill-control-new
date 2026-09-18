@@ -14,7 +14,7 @@ test("Music Studio recognizes authorized singing voice identity work", () => {
   assert.ok(plan.workers.some((item) => item.id === "stem_specialist"));
   const capability = listWorldClassMusicCapabilities().find((item) => item.id === "singing_voice_identity");
   assert.equal(capability.capability, "ai.audio.singing-voice-convert");
-  assert.equal(capability.status, "RESEARCH_GATED");
+  assert.equal(capability.status, "RESEARCH_RUNTIME_READY_CERTIFICATION_GATED");
 });
 
 test("Voice Library carries explicit speech or singing use scopes", async () => {

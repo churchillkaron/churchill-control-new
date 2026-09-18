@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import {
   ArrowRight,
   BookOpenCheck,
+  CalendarCheck2,
   FileText,
   Search,
   Settings2,
@@ -21,6 +22,12 @@ const AREA_COPY = {
     description: "The ledgers, receivables, payables, bank records, journals, assets and tax records that make up the accounting books.",
     icon: BookOpenCheck,
   },
+  close: {
+    eyebrow: "Period end and compliance",
+    title: "Close & Tax",
+    description: "Finish period-end accounting, VAT and statutory work in one place. Revaluation, depreciation, close and filing work stay together because they are part of the same accountant workflow.",
+    icon: CalendarCheck2,
+  },
   reports: {
     eyebrow: "Accounting output",
     title: "Reports",
@@ -29,8 +36,8 @@ const AREA_COPY = {
   },
   configure: {
     eyebrow: "Finance setup",
-    title: "Configure",
-    description: "Accounting policies, periods, dimensions, currencies, posting rules, permissions and controlled integrations. Routine accounting stays out of this area.",
+    title: "Settings",
+    description: "Accounting setup, policies, periods, dimensions, currencies, posting rules, permissions and controlled integrations. Routine accounting stays out of this area.",
     icon: Settings2,
   },
 };

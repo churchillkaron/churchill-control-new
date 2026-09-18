@@ -70,9 +70,13 @@ test("Finance client dependencies stay a work list instead of becoming KPI cards
 test("Finance areas use one explicit accountant information architecture, never keyword guessing", () => {
   assert.match(informationArchitecture, /REPORT_CAPABILITIES/);
   assert.match(informationArchitecture, /CONFIGURE_CAPABILITIES/);
-  assert.match(informationArchitecture, /DEDICATED_CAPABILITIES/);
+  assert.match(informationArchitecture, /CLOSE_TAX_CAPABILITIES/);
   assert.match(informationArchitecture, /"period_close"/);
   assert.match(informationArchitecture, /"year_end"/);
+  assert.match(informationArchitecture, /"vat_returns"/);
+  assert.match(informationArchitecture, /"statutory_filings"/);
+  assert.match(informationArchitecture, /"fx_revaluation"/);
+  assert.match(informationArchitecture, /"depreciation"/);
   assert.match(informationArchitecture, /"financial_health"/);
   assert.match(informationArchitecture, /"ai_insights"/);
   assert.match(areaHub, /resolveFinanceCapabilitySection\(item\.id\) !== area/);
@@ -82,6 +86,14 @@ test("Finance areas use one explicit accountant information architecture, never 
 
 test("Finance top navigation uses the same explicit route truth", () => {
   assert.match(shellNavigation, /resolveFinanceNavigationSection\(pathname\)/);
+  assert.match(shellNavigation, /label: "Home"/);
+  assert.match(shellNavigation, /label: "Clients"/);
+  assert.match(shellNavigation, /label: "Work"/);
+  assert.match(shellNavigation, /label: "Books"/);
+  assert.match(shellNavigation, /label: "Close & Tax"/);
+  assert.match(shellNavigation, /label: "Reports"/);
+  assert.match(shellNavigation, /label: "Settings"/);
+  assert.doesNotMatch(shellNavigation, /label: "Review"/);
   assert.doesNotMatch(shellNavigation, /function activeSection/);
   assert.match(informationArchitecture, /financePath\.startsWith\("\/finance\/year-end"\)/);
   assert.match(informationArchitecture, /"\/finance\/health"/);

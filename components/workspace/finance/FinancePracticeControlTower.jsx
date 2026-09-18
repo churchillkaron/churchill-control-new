@@ -11,6 +11,7 @@ import {
   FolderOpen,
   Gauge,
   ListChecks,
+  WalletCards,
   LoaderCircle,
   RefreshCw,
   Repeat2,
@@ -21,11 +22,13 @@ import {
 } from "lucide-react";
 
 import FinanceEngagementFile from "@/components/workspace/finance/FinanceEngagementFile";
+import FinancePracticeTimeWip from "@/components/workspace/finance/FinancePracticeTimeWip";
 
 const TABS = [
   { id: "today", label: "Today", icon: Clock3 },
   { id: "clients", label: "Clients", icon: Users },
   { id: "work", label: "Work", icon: ListChecks },
+  { id: "economics", label: "Time & WIP", icon: WalletCards },
   { id: "capacity", label: "Capacity", icon: Gauge },
   { id: "cycles", label: "Cycles", icon: Repeat2 },
 ];
@@ -128,9 +131,9 @@ function ClientTable({ clients, onOpen }) {
   );
 }
 
-export default function FinancePracticeControlTower({ organizationId }) {
+export default function FinancePracticeControlTower({ organizationId, initialView = "today" }) {
   const [practice, setPractice] = useState({ loading: true, error: "", data: null });
-  const [activeView, setActiveView] = useState("today");
+  const [activeView, setActiveView] = useState(initialView);
   const [clientFilter, setClientFilter] = useState("ATTENTION");
   const [clientSearch, setClientSearch] = useState("");
   const [selectedEngagementId, setSelectedEngagementId] = useState(null);
@@ -430,6 +433,10 @@ export default function FinancePracticeControlTower({ organizationId }) {
             </div>
           ) : <EmptyState title="No open accounting procedures" detail="The work queue is clear for the currently materialized accounting programs." />}
         </div>
+      ) : null}
+
+      {activeView === "economics" ? (
+        <FinancePracticeTimeWip organizationId={organizationId} />
       ) : null}
 
       {activeView === "capacity" ? (

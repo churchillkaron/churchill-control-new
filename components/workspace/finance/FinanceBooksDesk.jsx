@@ -10,7 +10,6 @@ import {
   Landmark,
   ReceiptText,
   Search,
-  ShieldCheck,
   WalletCards,
 } from "lucide-react";
 
@@ -19,10 +18,9 @@ import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRo
 
 const BOOK_AREA_BY_GROUP = Object.freeze({
   accounting: "ledger",
-  order_to_cash: "receivables",
-  procure_to_pay: "payables",
+  order_to_cash: "sales",
+  procure_to_pay: "purchases",
   treasury: "banking",
-  compliance: "tax",
 });
 
 const BOOK_AREA_BY_ITEM = Object.freeze({
@@ -34,17 +32,21 @@ const BOOK_EXCLUDED_ITEMS = new Set([
   "fiscal_periods",
   "dimensions",
   "audit_trail",
+  "tax",
+  "vat_returns",
+  "tax_codes",
+  "depreciation",
   "period_close",
   "year_end",
+  "statutory_filings",
 ]);
 
 const AREAS = [
   { id: "ledger", label: "Ledger", icon: BookOpenCheck },
-  { id: "receivables", label: "Receivables", icon: ReceiptText },
-  { id: "payables", label: "Payables", icon: Banknote },
+  { id: "sales", label: "Sales", icon: ReceiptText },
+  { id: "purchases", label: "Purchases", icon: Banknote },
   { id: "banking", label: "Banking", icon: Landmark },
   { id: "assets", label: "Assets", icon: Building2 },
-  { id: "tax", label: "Tax", icon: ShieldCheck },
 ];
 
 const CORE_DESK = [

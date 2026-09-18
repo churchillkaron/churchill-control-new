@@ -101,7 +101,7 @@ function CreativeArt(){
 function VideoStudioArt(){
   const passes=[["PLATE","100%"],["DEPTH","86%"],["MATTE","74%"],["SIM","62%"],["LIGHT","78%"],["REFL","58%"]];
   return <div className="absolute inset-0 overflow-hidden bg-[#0C0B0A] text-white">
-    <Photo src="/art/studio/video-vfx.svg" position="center" opacity={.94}/>
+    <Photo src="/art/creative-video.jpg" position="center" opacity={.72}/>
     <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,7,6,.96),rgba(8,7,6,.68)_50%,rgba(8,7,6,.90)),linear-gradient(180deg,rgba(8,7,6,.14),rgba(8,7,6,.78))]"/><GridLines/>
     <div className="absolute left-[6%] top-[8%] right-[6%] flex items-start justify-between gap-5">
       <Label>SHOT 024 / VFX BUILD</Label>
@@ -125,7 +125,7 @@ function VideoStudioArt(){
 function MusicStudioArt(){
   const tracks=[["VOX",68],["DRUMS",82],["BASS",58],["KEYS",46],["GTR",64],["FX",38]];
   return <div className="absolute inset-0 overflow-hidden bg-[#0E0C0A] text-white">
-    <Photo src="/art/studio/music-production.svg" position="center" opacity={.92}/>
+    <Photo src="/art/creative-music.jpg" position="center" opacity={.60}/>
     <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,9,8,.97),rgba(10,9,8,.76)_56%,rgba(10,9,8,.92)),radial-gradient(circle_at_76%_18%,rgba(214,166,106,.10),transparent_30%)]"/><GridLines/>
     <div className="absolute left-[6%] top-[9%]"><Label>SESSION / MIX 07</Label></div>
     <div className="absolute right-[6%] top-[12%] w-[41%] rounded-[18px] border border-white/[.08] bg-[#15130F]/92 p-4">
@@ -138,7 +138,7 @@ function MusicStudioArt(){
 
 function ImageStudioArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#EDE7DD] text-[#171614]">
-    <Photo src="/art/studio/image-production.svg" position="center" opacity={.94}/>
+    <Photo src="/art/creative-image.jpg" position="center" opacity={.70}/>
     <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(244,239,231,.98),rgba(244,239,231,.76)_58%,rgba(237,229,218,.90))]"/><GridLines light/>
     <div className="absolute left-[6%] top-[9%]"><Label dark>CAMPAIGN / ART DIRECTION</Label></div>
     <div className="absolute right-[6%] top-[12%] w-[42%] rounded-[18px] border border-black/[.08] bg-white/72 p-3 shadow-[0_22px_60px_rgba(50,36,22,.08)]">
@@ -150,7 +150,7 @@ function ImageStudioArt(){
 
 function CodeStudioArt(){
   const code=["mission.plan","inspect graph","patch path","run tests","verify runtime","result ✓"];
-  return <div className="absolute inset-0 overflow-hidden bg-[#0B0B0A] text-white"><Photo src="/art/studio/code-studio.svg" opacity={.90}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,7,6,.80),rgba(8,7,6,.28)_56%,rgba(8,7,6,.62)),linear-gradient(180deg,rgba(8,7,6,.02),rgba(8,7,6,.52))]"/><GridLines/><div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_16%,rgba(214,166,106,.11),transparent_30%)]"/>
+  return <div className="absolute inset-0 overflow-hidden bg-[#0B0B0A] text-white"><Photo src="/art/developer-work.jpg" opacity={.30}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,7,6,.80),rgba(8,7,6,.28)_56%,rgba(8,7,6,.62)),linear-gradient(180deg,rgba(8,7,6,.02),rgba(8,7,6,.52))]"/><GridLines/><div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_16%,rgba(214,166,106,.11),transparent_30%)]"/>
     <div className="absolute left-[6%] top-[9%]"><Label>CODE / REPOSITORY</Label></div>
     <div className="absolute right-[6%] top-[12%] w-[48%] rounded-[18px] border border-white/[.08] bg-[#11110F] p-4 shadow-[0_24px_65px_rgba(0,0,0,.22)]">
       <div className="flex items-center gap-2 border-b border-white/[.07] pb-3"><span className="h-1.5 w-1.5 rounded-full bg-white/16"/><span className="h-1.5 w-1.5 rounded-full bg-white/16"/><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]/55"/><span className="ml-3 font-mono text-[6px] text-white/24">mission.plan</span></div>
@@ -299,7 +299,7 @@ function PortfolioArt({kind}){
 
 function VoiceArt(){
   const wave=[18,34,62,28,76,46,22,58,31,70,44,20,54,26,64,38,74,48,24,56,34,68,42,20,50,30,60,36];
-  return <div className="absolute inset-0 overflow-hidden bg-[#0D0C0A] text-white"><Photo src="/art/studio/voice-studio.svg" opacity={.92}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,8,7,.76),rgba(9,8,7,.22)_58%,rgba(9,8,7,.58)),linear-gradient(180deg,rgba(9,8,7,.02),rgba(9,8,7,.56))]"/><GridLines/><div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_16%,rgba(214,166,106,.11),transparent_30%)]"/>
+  return <div className="absolute inset-0 overflow-hidden bg-[#0D0C0A] text-white"><Photo src="/art/creative-music.jpg" opacity={.16}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,8,7,.76),rgba(9,8,7,.22)_58%,rgba(9,8,7,.58)),linear-gradient(180deg,rgba(9,8,7,.02),rgba(9,8,7,.56))]"/><GridLines/><div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_16%,rgba(214,166,106,.11),transparent_30%)]"/>
     <div className="absolute left-[6%] top-[9%]"><Label>VOICE / REALTIME</Label></div>
     <div className="absolute right-[6%] top-[12%] w-[43%] rounded-[18px] border border-white/[.08] bg-[#14120F]/92 p-4">
       <div className="flex items-center justify-between"><span className="text-[6px] tracking-[.13em] text-[#D6A66A]">LIVE INPUT</span><span className="font-mono text-[6px] text-white/24">48 kHz PCM</span></div>

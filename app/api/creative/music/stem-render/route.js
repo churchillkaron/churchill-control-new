@@ -14,7 +14,7 @@ const EXECUTION_PERMISSIONS = Object.freeze(["creative.execute", "creative.produ
 const MUSIC_BUCKET = "creative-assets";
 const MULTITRACK_METADATA_KEY = "music_multitrack_project";
 const MAX_STEM_BYTES = 2_147_483_648;
-const KINDS = new Set(["TRACK_STEM", "GROUP_STEM", "INSTRUMENTAL", "ACAPELLA"]);
+const KINDS = new Set(["TRACK_STEM", "TRACK_EVIDENCE", "GROUP_STEM", "INSTRUMENTAL", "ACAPELLA"]);
 
 function text(value) { return String(value ?? "").trim(); }
 function finite(value, fallback = null) { const number = Number(value); return Number.isFinite(number) ? number : fallback; }
@@ -81,7 +81,7 @@ function expectedStem(plan, kindInput, targetIdInput) {
   const kind = text(kindInput).toUpperCase();
   const targetId = text(targetIdInput);
   if (!KINDS.has(kind)) throw new Error(`CREATIVE_MUSIC_STEM_KIND_INVALID:${kind}`);
-  if (kind === "TRACK_STEM") {
+  if (kind === "TRACK_STEM" || kind === "TRACK_EVIDENCE") {
     const track = plan.tracks.find((entry) => entry.id === targetId && entry.mute !== true);
     if (!track) throw new Error(`CREATIVE_MUSIC_STEM_TRACK_INVALID:${targetId}`);
     return {
@@ -89,7 +89,8 @@ function expectedStem(plan, kindInput, targetIdInput) {
       target_id: targetId,
       label: track.name || "Track",
       source_asset_ids: sortedUnique(track.clips.map((clip) => clip.source_asset_id)),
-      stage: "post-track-processing-pre-group",
+      stage: kind === "TRACK_EVIDENCE" ? "post-source-cleanup-pre-track-processing" : "post-track-processing-pre-group",
+      track_processing_applied: kind !== "TRACK_EVIDENCE",
       master_processing_applied: false,
       aux_returns_applied: false,
     };
@@ -179,7 +180,7 @@ async function registerStem(body) {
   const levels = body.levels || {};
   if (!Number.isFinite(finite(levels.peak_dbfs, null)) || !Number.isFinite(finite(levels.rms_dbfs, null))) throw new Error("CREATIVE_MUSIC_STEM_LEVEL_EVIDENCE_REQUIRED");
   const fileName = safeWavName(body.file_name);
-  const assetKind = stem.kind === "TRACK_STEM" ? "TRACK_STEM_RENDER" : stem.kind === "GROUP_STEM" ? "GROUP_STEM_RENDER" : stem.kind;
+  const assetKind = stem.kind === "TRACK_EVIDENCE" ? "TRACK_EVIDENCE_RENDER" : stem.kind === "TRACK_STEM" ? "TRACK_STEM_RENDER" : stem.kind === "GROUP_STEM" ? "GROUP_STEM_RENDER" : stem.kind;
   const asset = await CreativeAssetsRuntime.create({
     organization_id: organizationId,
     creative_project_id: projectId,
@@ -201,6 +202,7 @@ async function registerStem(body) {
       render_kind: stem.kind,
       target_id: stem.target_id,
       stem_stage: stem.stage,
+      track_processing_applied: stem.track_processing_applied === true,
       project_revision: revision,
       render_plan_fingerprint: planFingerprint,
       source_asset_ids: stem.source_asset_ids,

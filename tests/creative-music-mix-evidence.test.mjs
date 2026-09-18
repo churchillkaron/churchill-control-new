@@ -72,14 +72,16 @@ test("Mix Engineer reports when multi-source edited tracks need rendered evidenc
 });
 
 
-test("Mix Engineer reuses only current lineage-matched track stem renders",()=>{
-  assert.match(route,/music_asset_kind\)!=="TRACK_STEM_RENDER"/);
-  assert.match(route,/render_kind\)!=="TRACK_STEM"/);
+test("Mix Engineer reuses only current lineage-matched neutral evidence renders",()=>{
+  assert.match(route,/music_asset_kind\)!=="TRACK_EVIDENCE_RENDER"/);
+  assert.match(route,/render_kind\)!=="TRACK_EVIDENCE"/);
+  assert.match(route,/stem_stage\)!=="post-source-cleanup-pre-track-processing"/);
+  assert.match(route,/track_processing_applied===true/);
   assert.match(route,/project_revision/);
   assert.match(route,/JSON\.stringify\(lineage\)!==JSON\.stringify\(expected\)/);
   assert.match(route,/track_render_urls\[trackId\]=await resolveCreativeProviderAssetUrl/);
   assert.match(evidence,/track_render_urls/);
-  assert.match(evidence,/evidence_source:useTrackRender\?"TRACK_STEM_RENDER":"SOURCE_ASSET"/);
+  assert.match(evidence,/evidence_source:useTrackRender\?"TRACK_EVIDENCE_RENDER":"SOURCE_ASSET"/);
   assert.match(evidence,/const basis=useTrackRender\?"TRACK_RENDER":"SOURCE_MEDIA"/);
 });
 

@@ -5,6 +5,7 @@ import { Layers3, Mic2, Music2, Split } from "lucide-react";
 
 import {
   renderMusicGroupStemOffline,
+  renderMusicTrackEvidenceOffline,
   renderMusicTrackStemOffline,
   renderMusicVariantMixOffline,
 } from "@/lib/creative/music/client/MusicOfflineStemRenderRuntime";
@@ -58,6 +59,8 @@ export default function MusicStemExportPanel({
       let rendered;
       if (kind === "TRACK_STEM") {
         rendered = await renderMusicTrackStemOffline({ session, assetUrls, trackId: targetId, expectedDurationSeconds: plan?.duration_seconds });
+      } else if (kind === "TRACK_EVIDENCE") {
+        rendered = await renderMusicTrackEvidenceOffline({ session, assetUrls, trackId: targetId, expectedDurationSeconds: plan?.duration_seconds });
       } else if (kind === "GROUP_STEM") {
         rendered = await renderMusicGroupStemOffline({ session, assetUrls, groupId: targetId, expectedDurationSeconds: plan?.duration_seconds });
       } else {
@@ -121,7 +124,7 @@ export default function MusicStemExportPanel({
 
       <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
         <select disabled={disabled || Boolean(busy) || !tracks.length} value={tracks.some((track) => track.id === trackId) ? trackId : tracks[0]?.id || ""} onChange={(event) => setTrackId(event.target.value)} className="min-w-0 rounded-lg border border-white/7 bg-[#0a0a0a] px-2 py-2 text-[8px] text-white/45 disabled:opacity-25">{tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}</select>
-        <button type="button" disabled={disabled || Boolean(busy) || !tracks.length} onClick={() => { const id = tracks.some((track) => track.id === trackId) ? trackId : tracks[0]?.id; const track = tracks.find((entry) => entry.id === id); void exportStem("TRACK_STEM", id, `${track?.name || "Track"} Stem`); }} className="rounded-lg border border-white/8 px-3 py-2 text-[8px] text-white/42 disabled:opacity-25">Track stem</button>
+        <div className="flex gap-2"><button type="button" disabled={disabled || Boolean(busy) || !tracks.length} onClick={() => { const id = tracks.some((track) => track.id === trackId) ? trackId : tracks[0]?.id; const track = tracks.find((entry) => entry.id === id); void exportStem("TRACK_EVIDENCE", id, `${track?.name || "Track"} Evidence`); }} className="rounded-lg border border-[#d6a66a]/15 px-3 py-2 text-[8px] text-[#efd29f]/55 disabled:opacity-25">Evidence render</button><button type="button" disabled={disabled || Boolean(busy) || !tracks.length} onClick={() => { const id = tracks.some((track) => track.id === trackId) ? trackId : tracks[0]?.id; const track = tracks.find((entry) => entry.id === id); void exportStem("TRACK_STEM", id, `${track?.name || "Track"} Stem`); }} className="rounded-lg border border-white/8 px-3 py-2 text-[8px] text-white/42 disabled:opacity-25">Track stem</button></div>
       </div>
 
       <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">

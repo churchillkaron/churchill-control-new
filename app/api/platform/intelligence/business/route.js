@@ -136,6 +136,7 @@ function businessDiagnosisAudit(result = {}) {
     audit_projection_fingerprint: cleanValue(receipt.audit_projection_fingerprint),
     audit_projection_verification_status: verification.status,
     audit_projection_verified: verification.verified === true,
+    receipt_contract_verification_status: verification.receipt_verification_status || verification.status,
     answer_content_verification_status: answerVerification.status,
     answer_content_verified: answerVerification.verified === true,
     receipt_contract: cleanValue(result.business_diagnosis_receipt_contract),

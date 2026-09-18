@@ -55,6 +55,8 @@ function diagnosisEvidence({ status = "verified", legacy = false, answer = "diag
       : value && typeof value === "object"
         ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]))
         : value;
+    delete diagnosis.receipt_contract;
+    delete diagnosis.answer_content_fingerprint;
     diagnosis.audit_projection_fingerprint = createHash("sha256").update(JSON.stringify(canonical(legacyProjection))).digest("hex");
   } else {
     diagnosis.audit_projection_contract = AVANTIQO_BUSINESS_DIAGNOSIS_AUDIT_PROJECTION_CONTRACT;
@@ -229,5 +231,22 @@ test("answer-tampered snapshot is quarantined even when metadata checksum is val
   assert.match(result.content, /historical diagnosis is hidden/i);
   assert.equal(result.evidence.business_diagnosis.audit_projection_verification_status, "ANSWER_MISMATCH");
   assert.equal(result.evidence.business_diagnosis.answer_content_verification_status, "MISMATCH");
+  assert.equal(result.evidence.business_diagnosis.audit_projection_verified, false);
+});
+
+test("unknown receipt contract makes current proof unsafe", () => {
+  const evidence = diagnosisEvidence({ answer: "diagnosis" });
+  const diagnosis = { ...evidence.business_diagnosis, receipt_contract: "AVANTIQO_BUSINESS_DIAGNOSIS_RECEIPT_V99" };
+  const result = businessDiagnosisTurnVerification({ role: "assistant", content: "diagnosis", evidence: { business_diagnosis: diagnosis } });
+  assert.equal(result.safe, false);
+  assert.equal(result.status, "UNSUPPORTED_RECEIPT_VERSION");
+});
+
+test("receipt and projection version mismatch is quarantined", () => {
+  const evidence = diagnosisEvidence({ answer: "diagnosis" });
+  const diagnosis = { ...evidence.business_diagnosis, receipt_contract: "AVANTIQO_BUSINESS_DIAGNOSIS_RECEIPT_V1" };
+  const result = sanitizeBusinessDiagnosisSnapshotTurn({ role: "assistant", content: "diagnosis", evidence: { business_diagnosis: diagnosis }, decision: { response_text: "diagnosis" } });
+  assert.match(result.content, /historical diagnosis is hidden/i);
+  assert.equal(result.evidence.business_diagnosis.audit_projection_verification_status, "RECEIPT_PROJECTION_VERSION_MISMATCH");
   assert.equal(result.evidence.business_diagnosis.audit_projection_verified, false);
 });

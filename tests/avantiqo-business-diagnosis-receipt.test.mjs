@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { buildBusinessDiagnosisReceipt as build, buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection, businessDiagnosisProofIntegrityError, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE, AVANTIQO_BUSINESS_DIAGNOSIS_AUDIT_PROJECTION_CONTRACT, businessDiagnosisAnswerContentFingerprint, verifyBusinessDiagnosisAnswerContent } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime.js";
+import { buildBusinessDiagnosisReceipt as build, buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection, businessDiagnosisProofIntegrityError, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE, AVANTIQO_BUSINESS_DIAGNOSIS_AUDIT_PROJECTION_CONTRACT, businessDiagnosisAnswerContentFingerprint, verifyBusinessDiagnosisAnswerContent, verifyBusinessDiagnosisReceiptContract } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime.js";
 
 const input={answer_content:"Verified diagnosis.",organization_id:"org",entity_id:"entity",metric:"profit",diagnosis_class:"CAUSAL_DIAGNOSIS",business_timezone:"Asia/Bangkok",baseline_period_id:"2026-07",baseline_period_start_date:"2026-07-01",baseline_period_end_date:"2026-07-31",current_period_id:"2026-08",current_period_start_date:"2026-08-01",current_period_end_date:"2026-08-31",final_diagnosis:{metric:"profit",diagnosis:{final_evidence_state:"INTERNAL_AND_SUPPORTED_EXTERNAL",target_metric:{status:"TARGET_METRIC_READY"},residual_material:true,residual_ratio:.25,variance:{unexplained_residual:-5},internal_coverage_incomplete:false,causal:{supported_context_ids:["weather"]}}},external_research_plan:{status:"RESEARCH_ALLOWED"},external_evidence_assessment:{status:"ASSESSED"},external_diagnosis_closure:{validated_context_ids:["weather"],causal_evidence:[{context_id:"weather",source_refs:[{url:"https://example.gov/weather",publisher:"gov",independence_group:"example.gov",observed_at:"2026-08-31"}]}],validation_results:[{context_id:"weather",status:"CAUSAL_EVIDENCE_READY"},{context_id:"tourism",status:"EVIDENCE_INCOMPLETE",reason:"MISSING_REQUIRED_SUPPORT",missing_requirements:["CONFOUNDER_CHECK"]}]},answer_brief:{status:"INTERNAL_AND_SUPPORTED_EXTERNAL",unresolved:[{kind:"MATERIAL_UNEXPLAINED_RESIDUAL"}]},answer_boundary:{status:"APPENDED_REQUIRED_UNCERTAINTY",required_uncertainty_appended:true,overclaim_detected:false}};
 
@@ -157,6 +157,21 @@ test("V3 receipt binds exact final answer content",()=>{
  const changed=build({...input,answer_content:"Altered diagnosis."});
  assert.notEqual(changed.receipt_fingerprint,receipt.receipt_fingerprint);
  assert.notEqual(changed.audit_projection_fingerprint,receipt.audit_projection_fingerprint);
+});
+
+test("current projection requires current receipt contract",()=>{
+ const receipt=build(input);
+ const current={audit_projection_contract:receipt.audit_projection_contract,receipt_contract:receipt.contract};
+ assert.equal(verifyBusinessDiagnosisReceiptContract(current).status,"VERIFIED");
+ assert.equal(verifyBusinessDiagnosisReceiptContract({...current,receipt_contract:"AVANTIQO_BUSINESS_DIAGNOSIS_RECEIPT_V99"}).status,"UNSUPPORTED_RECEIPT_VERSION");
+ assert.equal(verifyBusinessDiagnosisReceiptContract({...current,receipt_contract:"AVANTIQO_BUSINESS_DIAGNOSIS_RECEIPT_V1"}).status,"RECEIPT_PROJECTION_VERSION_MISMATCH");
+ assert.equal(verifyBusinessDiagnosisReceiptContract({audit_projection_contract:receipt.audit_projection_contract}).status,"RECEIPT_CONTRACT_MISSING");
+});
+
+test("historical projections accept only historical receipt V1 or no persisted receipt label",()=>{
+ assert.equal(verifyBusinessDiagnosisReceiptContract({audit_projection_contract:"AVANTIQO_BUSINESS_DIAGNOSIS_AUDIT_PROJECTION_V3"}).status,"VERIFIED_LEGACY");
+ assert.equal(verifyBusinessDiagnosisReceiptContract({audit_projection_contract:"AVANTIQO_BUSINESS_DIAGNOSIS_AUDIT_PROJECTION_V3",receipt_contract:"AVANTIQO_BUSINESS_DIAGNOSIS_RECEIPT_V1"}).status,"VERIFIED_LEGACY");
+ assert.equal(verifyBusinessDiagnosisReceiptContract({audit_projection_contract:"AVANTIQO_BUSINESS_DIAGNOSIS_AUDIT_PROJECTION_V3",receipt_contract:"AVANTIQO_BUSINESS_DIAGNOSIS_RECEIPT_V2"}).status,"RECEIPT_PROJECTION_VERSION_MISMATCH");
 });
 
 test("unknown audit projection versions fail closed",()=>{

@@ -29,6 +29,11 @@ test("shared operator artifact surface renders persisted diagnosis proof",()=>{
   assert.match(source,/Answer integrity mismatch/);
   assert.match(source,/auditStatus === "ANSWER_MISMATCH"/);
   assert.match(source,/Unsupported proof version/);
+  assert.match(source,/Unsupported receipt version/);
+  assert.match(source,/Receipt contract missing/);
+  assert.match(source,/Receipt\/proof version mismatch/);
+  assert.match(source,/Receipt integrity/);
+  assert.match(source,/diagnosis\.receipt_contract_verification_status/);
   assert.match(source,/auditStatus === "UNSUPPORTED_VERSION"/);
   assert.match(source,/Legacy proof · checksum unavailable/);
   assert.match(source,/Verified legacy proof/);

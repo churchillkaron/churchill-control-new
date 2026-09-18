@@ -210,6 +210,9 @@ function persistedProofLabel({ auditVerified = false, auditStatus = "" } = {}) {
   if (auditStatus === "MISMATCH") return "Integrity mismatch";
   if (auditStatus === "ANSWER_MISMATCH") return "Answer integrity mismatch";
   if (auditStatus === "UNSUPPORTED_VERSION") return "Unsupported proof version";
+  if (auditStatus === "UNSUPPORTED_RECEIPT_VERSION") return "Unsupported receipt version";
+  if (auditStatus === "RECEIPT_CONTRACT_MISSING") return "Receipt contract missing";
+  if (auditStatus === "RECEIPT_PROJECTION_VERSION_MISMATCH") return "Receipt/proof version mismatch";
   if (auditStatus === "NOT_AVAILABLE") return "Legacy proof · checksum unavailable";
   return "Live proof";
 }
@@ -233,6 +236,7 @@ function DiagnosisProof({ evidence = {} }) {
   const periods = diagnosis.periods || {};
   const auditVerified = diagnosis.audit_projection_verified === true;
   const auditStatus = text(diagnosis.audit_projection_verification_status);
+  const receiptIntegrityStatus = text(diagnosis.receipt_contract_verification_status);
   const answerIntegrityStatus = text(diagnosis.answer_content_verification_status);
   const baselinePeriodLabel = periodDisplayLabel(periods.baseline_start_date, periods.baseline_end_date, periods.baseline_period_id);
   const currentPeriodLabel = periodDisplayLabel(periods.current_start_date, periods.current_end_date, periods.current_period_id);
@@ -270,6 +274,7 @@ function DiagnosisProof({ evidence = {} }) {
         <div className="sm:col-span-2"><span className="text-white/30">Period IDs</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/40">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>
         <div><span className="text-white/30">Persisted proof</span><div className="mt-0.5 text-white/65">{persistedProofStatus}</div></div>
         <div><span className="text-white/30">Proof format</span><div className="mt-0.5 text-white/65">{receiptContract || "Legacy receipt"} · {auditProjectionContract || "Legacy projection"}</div></div>
+        <div><span className="text-white/30">Receipt integrity</span><div className="mt-0.5 text-white/65">{receiptIntegrityStatus === "VERIFIED" ? "Verified" : receiptIntegrityStatus === "VERIFIED_LEGACY" ? "Verified legacy receipt" : receiptIntegrityStatus || "Not verified"}</div></div>
         <div><span className="text-white/30">Answer integrity</span><div className="mt-0.5 text-white/65">{answerIntegrityStatus === "VERIFIED" ? "Verified" : auditStatus === "VERIFIED_LEGACY" && answerIntegrityStatus === "VERIFIED" ? "Verified" : auditStatus === "VERIFIED_LEGACY" ? "Legacy proof · answer text was not signed" : "Not verified"}</div></div>
         <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
         <div className="sm:col-span-2 text-[8px] text-white/30">Analysis only · no action was executed · raw reasoning is not stored.</div>

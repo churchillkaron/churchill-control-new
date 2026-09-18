@@ -30,7 +30,7 @@ test("business diagnosis audit persistence does not alter atomic assistant turn 
 test("conversation snapshot verifies persisted diagnosis audit projection before returning turns",()=>{
   const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
   assert.match(runtime,/sanitizeBusinessDiagnosisSnapshot/);
-  assert.match(runtime,/const verifiedTurns=sanitizeBusinessDiagnosisSnapshot\(turns\.data\|\|\[\], \{/);
+  assert.match(runtime,/const verifiedTurns=sanitizeBusinessDiagnosisSnapshot\(visibleTurns, \{/);
 });
 
 
@@ -264,6 +264,20 @@ test("recent conversation loader fetches missing paired user turns only as verif
 test("historical snapshot loader fetches paired prompts across the 100-turn cutoff only as hidden verification support",()=>{
   const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
   assert.match(runtime,/const snapshotSupportRows = await loadMissingDiagnosisVerificationUserTurns/);
-  assert.match(runtime,/sanitizeBusinessDiagnosisSnapshot\(turns\.data\|\|\[\],[\s\S]*snapshotSupportRows\)/);
+  assert.match(runtime,/sanitizeBusinessDiagnosisSnapshot\(visibleTurns,[\s\S]*snapshotSupportRows\)/);
   assert.doesNotMatch(runtime,/turns\.data\s*=\s*\[\.\.\.turns\.data,\s*\.\.\.snapshotSupportRows\]/);
+});
+
+
+test("historical snapshot returns the newest 100 turns in chronological display order",()=>{
+  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
+  const snapshotStart=runtime.indexOf("export async function loadIntelligenceConversationSnapshot");
+  const snapshot=runtime.slice(snapshotStart);
+  assert.match(snapshot,/\.order\("created_at", \{ ascending: false \}\)/);
+  assert.match(snapshot,/\.order\("id", \{ ascending: false \}\)/);
+  assert.match(snapshot,/\.limit\(100\)/);
+  assert.match(snapshot,/const visibleTurns = \(turns\.data \|\| \[\]\)\.slice\(\)\.reverse\(\)/);
+  assert.match(snapshot,/rows: visibleTurns/);
+  assert.match(snapshot,/sanitizeBusinessDiagnosisSnapshot\(visibleTurns,/);
+  assert.ok(snapshot.indexOf('.limit(100)') < snapshot.indexOf('const visibleTurns = (turns.data || []).slice().reverse()'));
 });

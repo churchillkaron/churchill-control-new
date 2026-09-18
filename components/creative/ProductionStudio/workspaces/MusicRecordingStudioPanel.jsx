@@ -210,6 +210,18 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
 
       const context = new AudioContext({ latencyHint: "interactive" });
       contextRef.current = context;
+      const deviceRate = Number(captureTruthRef.current.device_sample_rate);
+      const contextRate = Number(context.sampleRate);
+      const deviceRateKnown = Number.isFinite(deviceRate) && deviceRate > 0;
+      const contextRateKnown = Number.isFinite(contextRate) && contextRate > 0;
+      const sampleRateMismatch = deviceRateKnown && contextRateKnown && Math.abs(deviceRate - contextRate) >= 1;
+      captureTruthRef.current = {
+        ...captureTruthRef.current,
+        audio_context_sample_rate: contextRateKnown ? contextRate : null,
+        sample_rate_conversion_detected: sampleRateMismatch,
+        native_sample_rate_path_verified: deviceRateKnown && contextRateKnown && !sampleRateMismatch,
+        sample_rate_path_verification: !deviceRateKnown || !contextRateKnown ? "UNVERIFIED" : sampleRateMismatch ? "RESAMPLED" : "MATCHED",
+      };
       await context.audioWorklet.addModule("/audio/avantiqo-pcm-recorder-worklet.js");
       const source = context.createMediaStreamSource(stream);
       sourceRef.current = source;
@@ -387,6 +399,10 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
         effective_capture_precision_known: take.effective_capture_precision_known === true,
         device_sample_rate: take.device_sample_rate ?? null,
         device_channel_count: take.device_channel_count ?? null,
+        audio_context_sample_rate: take.audio_context_sample_rate ?? take.sampleRate ?? null,
+        sample_rate_conversion_detected: take.sample_rate_conversion_detected === true,
+        native_sample_rate_path_verified: take.native_sample_rate_path_verified === true,
+        sample_rate_path_verification: take.sample_rate_path_verification || "UNVERIFIED",
         source_rights_confirmed: true,
       });
       setSaved(registered);
@@ -440,7 +456,7 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
               <div className="rounded-xl border border-white/7 p-4"><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Clipping</div><div className={`mt-2 text-lg font-medium ${meter.clipped ? "text-red-200" : "text-emerald-100/70"}`}>{meter.clipped ? "Detected" : "Clear"}</div><div className="mt-1 text-[9px] text-white/24">Never repair at capture if avoidable</div></div>{take?.captureQc ? <div className="rounded-xl border border-white/7 p-4"><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Take QC</div><div className="mt-2 text-sm font-medium text-white/65">{take.captureQc.status}</div><div className="mt-1 text-[9px] leading-4 text-white/28">HR {Number.isFinite(take.captureQc.headroom_db) ? `${take.captureQc.headroom_db.toFixed(1)} dB` : "—"} · crest {Number.isFinite(take.captureQc.crest_factor_db) ? `${take.captureQc.crest_factor_db.toFixed(1)} dB` : "—"} · floor {Number.isFinite(take.captureQc.background_floor_estimate_dbfs) ? `${take.captureQc.background_floor_estimate_dbfs.toFixed(1)} dBFS` : "—"} · DC {Number.isFinite(take.captureQc.dc_offset) ? take.captureQc.dc_offset.toFixed(4) : "—"} · hum {take.captureQc.hum_warning ? `${take.captureQc.dominant_hum_hz} Hz` : take.captureQc.hum_measurement_confidence === "UNVERIFIED_NO_QUIET_WINDOWS" ? "unverified" : "clear"}</div></div> : null}
             </div>
 
-            {take ? <div className="mt-5 rounded-2xl border border-[#d6a66a]/15 bg-[#d6a66a]/[0.035] p-4"><div className="flex items-center gap-2 text-xs text-[#efd29f]/75"><Play className="h-4 w-4" /> Recorded take · {take.sampleRate} Hz · {take.channels}ch · 24-bit WAV container · input precision {take.capture_sample_size_bits ? `${take.capture_sample_size_bits}-bit reported` : "not reported"}</div><audio src={take.url} controls className="mt-3 w-full" /><button type="button" disabled={busy || Boolean(saved)} onClick={saveTake} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-4 py-3 text-xs font-medium text-[#efd29f] disabled:opacity-40"><Save className="h-4 w-4" />{saved ? "Original take saved" : busy ? "Saving…" : "Save original take to project"}</button></div> : <div className="mt-5 flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-white/8 text-center"><div><Headphones className="mx-auto h-6 w-6 text-white/15" /><div className="mt-2 text-xs text-white/28">Set gain while watching the meter, then record.</div></div></div>}
+            {take ? <div className="mt-5 rounded-2xl border border-[#d6a66a]/15 bg-[#d6a66a]/[0.035] p-4"><div className="flex items-center gap-2 text-xs text-[#efd29f]/75"><Play className="h-4 w-4" /> Recorded take · {take.sampleRate} Hz · {take.channels}ch · 24-bit WAV container · input precision {take.capture_sample_size_bits ? `${take.capture_sample_size_bits}-bit reported` : "not reported"} · rate path {take.sample_rate_path_verification || "UNVERIFIED"}</div><audio src={take.url} controls className="mt-3 w-full" /><button type="button" disabled={busy || Boolean(saved)} onClick={saveTake} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-4 py-3 text-xs font-medium text-[#efd29f] disabled:opacity-40"><Save className="h-4 w-4" />{saved ? "Original take saved" : busy ? "Saving…" : "Save original take to project"}</button></div> : <div className="mt-5 flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-white/8 text-center"><div><Headphones className="mx-auto h-6 w-6 text-white/15" /><div className="mt-2 text-xs text-white/28">Set gain while watching the meter, then record.</div></div></div>}
 
             {saved ? <div className="mt-4 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.04] px-4 py-3 text-xs text-emerald-100/65">
               <div><ShieldCheck className="mr-2 inline h-4 w-4" />Original take preserved and added to the multitrack timeline.</div>

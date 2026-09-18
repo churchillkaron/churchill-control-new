@@ -27,3 +27,16 @@ test("browser DSP-off is requested but only claimed disabled when settings verif
   assert.match(panel,/browser_processing_verification/);
   assert.match(route,/requested_browser_processing_disabled/);
 });
+
+
+test("capture truth distinguishes device rate from AudioContext/WAV rate and reports resampling",()=>{
+  assert.match(capture,/audio_context_sample_rate/);
+  assert.match(capture,/sample_rate_conversion_detected/);
+  assert.match(capture,/native_sample_rate_path_verified/);
+  assert.match(capture,/sample_rate_path_verification/);
+  assert.match(capture,/RESAMPLED/);
+  assert.match(capture,/MATCHED/);
+  assert.match(panel,/rate path/);
+  assert.match(overdub,/sample_rate_conversion_detected/);
+  assert.match(route,/native_sample_rate_path_verified/);
+});

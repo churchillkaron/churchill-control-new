@@ -86,6 +86,7 @@ test("direct diagnosis resolves server-authoritative organization timezone for a
 
 test("direct diagnosis API exposes the same compact verifiable proof semantics",()=>{
   assert.match(source,/buildBusinessDiagnosisAuditProjectionFromReceipt/);
+  assert.match(source,/receipt_contract: cleanValue\(result\.business_diagnosis_receipt_contract\)/);
   assert.match(source,/audit_projection_contract: cleanValue\(receipt\.audit_projection_contract\)/);
   assert.match(source,/audit_projection_fingerprint: cleanValue\(receipt\.audit_projection_fingerprint\)/);
   assert.match(source,/rejected_or_unresolved_external_context_count: projection\.unresolved_external_context_count/);

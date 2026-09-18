@@ -227,6 +227,8 @@ function DiagnosisProof({ evidence = {} }) {
   const state = text(diagnosis.final_evidence_state) || "VERIFIED_EVIDENCE";
   const boundary = text(diagnosis.answer_boundary_status) || "PASS";
   const diagnosisClass = text(diagnosis.class);
+  const receiptContract = text(diagnosis.receipt_contract);
+  const auditProjectionContract = text(diagnosis.audit_projection_contract);
   const businessTimezone = text(diagnosis.business_timezone);
   const periods = diagnosis.periods || {};
   const auditVerified = diagnosis.audit_projection_verified === true;
@@ -267,7 +269,8 @@ function DiagnosisProof({ evidence = {} }) {
         <div><span className="text-white/30">External evidence</span><div className="mt-0.5 text-white/65">{validatedExternalCount ? `${validatedExternalCount} validated` : "No validated external evidence"}{unresolvedExternalCount ? ` · ${unresolvedExternalCount} unresolved` : ""}</div></div>
         <div className="sm:col-span-2"><span className="text-white/30">Period IDs</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/40">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>
         <div><span className="text-white/30">Persisted proof</span><div className="mt-0.5 text-white/65">{persistedProofStatus}</div></div>
-        <div><span className="text-white/30">Answer integrity</span><div className="mt-0.5 text-white/65">{answerIntegrityStatus === "VERIFIED" ? "Verified" : auditStatus === "VERIFIED_LEGACY" ? "Legacy proof · answer text was not signed" : "Not verified"}</div></div>
+        <div><span className="text-white/30">Proof format</span><div className="mt-0.5 text-white/65">{receiptContract || "Legacy receipt"} · {auditProjectionContract || "Legacy projection"}</div></div>
+        <div><span className="text-white/30">Answer integrity</span><div className="mt-0.5 text-white/65">{answerIntegrityStatus === "VERIFIED" ? "Verified" : auditStatus === "VERIFIED_LEGACY" && answerIntegrityStatus === "VERIFIED" ? "Verified" : auditStatus === "VERIFIED_LEGACY" ? "Legacy proof · answer text was not signed" : "Not verified"}</div></div>
         <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
         <div className="sm:col-span-2 text-[8px] text-white/30">Analysis only · no action was executed · raw reasoning is not stored.</div>
       </div>

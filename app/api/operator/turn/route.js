@@ -90,6 +90,7 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
   if (!text(diagnosis.receipt_fingerprint)) return {};
   const projection = buildBusinessDiagnosisAuditProjection({
     receipt_fingerprint: diagnosis.receipt_fingerprint,
+    receipt_contract: diagnosis.receipt_contract,
     diagnosis_class: diagnosis.class,
     business_timezone: diagnosis.business_timezone,
     answer_content_fingerprint: diagnosis.answer_content_fingerprint,
@@ -119,6 +120,7 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
   return {
     business_diagnosis: {
       contract: text(diagnosis.contract) || null,
+      receipt_contract: projection.receipt_contract,
       class: projection.diagnosis_class,
       business_timezone: projection.business_timezone,
       answer_content_fingerprint: projection.answer_content_fingerprint,

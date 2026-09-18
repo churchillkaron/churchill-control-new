@@ -113,6 +113,7 @@ function businessDiagnosisAudit(result = {}) {
   const boundary = objectValue(result.business_answer_evidence_boundary);
   const projection = buildBusinessDiagnosisAuditProjectionFromReceipt(receipt);
   const verification = verifyBusinessDiagnosisAuditProjection({
+    receipt_contract: projection.receipt_contract,
     class: projection.diagnosis_class,
     business_timezone: projection.business_timezone,
     answer_content_fingerprint: projection.answer_content_fingerprint,
@@ -135,6 +136,8 @@ function businessDiagnosisAudit(result = {}) {
     audit_projection_fingerprint: cleanValue(receipt.audit_projection_fingerprint),
     audit_projection_verification_status: verification.status,
     audit_projection_verified: verification.verified === true,
+    answer_content_verification_status: answerVerification.status,
+    answer_content_verified: answerVerification.verified === true,
     receipt_contract: cleanValue(result.business_diagnosis_receipt_contract),
     residual_ratio: Number.isFinite(Number(receipt.residual_ratio)) ? Number(receipt.residual_ratio) : null,
     internal_coverage_incomplete: receipt.internal_coverage_incomplete === true,

@@ -21,6 +21,9 @@ test("shared operator artifact surface renders persisted diagnosis proof",()=>{
   assert.match(source,/periodDisplayLabel/);
   assert.match(source,/Period IDs/);
   assert.match(source,/Persisted proof/);
+  assert.match(source,/Proof format/);
+  assert.match(source,/diagnosis\.receipt_contract/);
+  assert.match(source,/diagnosis\.audit_projection_contract/);
   assert.match(source,/Verified live or after reload/);
   assert.match(source,/Integrity mismatch/);
   assert.match(source,/Answer integrity mismatch/);

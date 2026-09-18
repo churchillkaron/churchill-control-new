@@ -16,6 +16,7 @@ import {
 function diagnosisEvidence({ status = "verified", legacy = false, answer = "diagnosis" } = {}) {
   const projection = buildBusinessDiagnosisAuditProjection({
     receipt_fingerprint: "receipt-1",
+    receipt_contract: "AVANTIQO_BUSINESS_DIAGNOSIS_RECEIPT_V2",
     diagnosis_class: "CAUSAL_DIAGNOSIS",
     business_timezone: "Asia/Bangkok",
     answer_content_fingerprint: businessDiagnosisAnswerContentFingerprint(answer),
@@ -33,6 +34,7 @@ function diagnosisEvidence({ status = "verified", legacy = false, answer = "diag
   });
   const diagnosis = {
     class: projection.diagnosis_class,
+    receipt_contract: projection.receipt_contract,
     business_timezone: projection.business_timezone,
     answer_content_fingerprint: projection.answer_content_fingerprint,
     receipt_fingerprint: projection.receipt_fingerprint,
@@ -47,6 +49,7 @@ function diagnosisEvidence({ status = "verified", legacy = false, answer = "diag
     const legacyProjection = { ...projection };
     delete legacyProjection.projection_contract;
     delete legacyProjection.answer_content_fingerprint;
+    delete legacyProjection.receipt_contract;
     const canonical = (value) => Array.isArray(value)
       ? value.map(canonical)
       : value && typeof value === "object"
@@ -57,6 +60,7 @@ function diagnosisEvidence({ status = "verified", legacy = false, answer = "diag
     diagnosis.audit_projection_contract = AVANTIQO_BUSINESS_DIAGNOSIS_AUDIT_PROJECTION_CONTRACT;
     diagnosis.audit_projection_fingerprint = businessDiagnosisAuditProjectionFingerprint({
       receipt_fingerprint: projection.receipt_fingerprint,
+      receipt_contract: projection.receipt_contract,
       diagnosis_class: projection.diagnosis_class,
       business_timezone: projection.business_timezone,
       answer_content_fingerprint: projection.answer_content_fingerprint,

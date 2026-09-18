@@ -55,3 +55,23 @@ test("Workstation persists calibration evidence locally but blocks stale reuse",
   assert.match(panel,/System default · calibration not reusable/);
   assert.match(panel,/outputDeviceId: outputDeviceId \|\| null/);
 });
+
+
+test("calibration reuse tolerates rotated device id only when hardware group still matches",()=>{
+  const now=Date.now();
+  const calibration={status:"MEASURED",automatic_apply_allowed:true,input_device_id:"old-id",input_group_id:"group-a",sample_rate:48000,path_type:"HARDWARE_LOOPBACK",output_sink_id:"out-a",measured_at:new Date(now-1000).toISOString()};
+  const rotated=evaluateMusicLatencyCalibrationReuse(calibration,{input_device_id:"new-id",input_group_id:"group-a",sample_rate:48000,path_type:"HARDWARE_LOOPBACK",output_sink_id:"out-a"},now);
+  assert.equal(rotated.reuse_allowed,true);
+  assert.equal(rotated.same_input_id,false);
+  assert.equal(rotated.same_input_group,true);
+  const changed=evaluateMusicLatencyCalibrationReuse(calibration,{input_device_id:"new-id",input_group_id:"group-b",sample_rate:48000,path_type:"HARDWARE_LOOPBACK",output_sink_id:"out-a"},now);
+  assert.equal(changed.reuse_allowed,false);
+  assert.ok(changed.reasons.includes("INPUT_HARDWARE_GROUP_CHANGED"));
+});
+
+test("Workstation refreshes device identity on browser devicechange",()=>{
+  assert.match(panel,/addEventListener\?\.\("devicechange", refresh\)/);
+  assert.match(panel,/removeEventListener\?\.\("devicechange", refresh\)/);
+  assert.match(panel,/setInputGroupId/);
+  assert.match(panel,/input_group_id: inputGroupId \|\| null/);
+});

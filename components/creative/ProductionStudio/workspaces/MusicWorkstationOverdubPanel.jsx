@@ -75,6 +75,7 @@ export default function MusicWorkstationOverdubPanel({
   const [devices, setDevices] = useState([]);
   const [outputDevices, setOutputDevices] = useState([]);
   const [deviceId, setDeviceId] = useState("");
+  const [inputGroupId, setInputGroupId] = useState("");
   const [outputDeviceId, setOutputDeviceId] = useState("");
   const [countInBars, setCountInBars] = useState(1);
   const [punchEnabled, setPunchEnabled] = useState(false);
@@ -99,24 +100,37 @@ export default function MusicWorkstationOverdubPanel({
   const cancelledRef = useRef(false);
 
   useEffect(() => {
-    navigator.mediaDevices?.enumerateDevices?.().then((items) => {
-      const inputs = items.filter((item) => item.kind === "audioinput");
-      const outputs = items.filter((item) => item.kind === "audiooutput");
-      setDevices(inputs);
-      setOutputDevices(outputs);
-      if (!deviceId && inputs[0]?.deviceId) setDeviceId(inputs[0].deviceId);
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true;
+    const refresh = async () => {
+      try {
+        const items = await navigator.mediaDevices?.enumerateDevices?.();
+        if (!active || !items) return;
+        const inputs = items.filter((item) => item.kind === "audioinput");
+        const outputs = items.filter((item) => item.kind === "audiooutput");
+        setDevices(inputs);
+        setOutputDevices(outputs);
+        setDeviceId((current) => {
+          const next = current && inputs.some((item) => item.deviceId === current) ? current : (inputs[0]?.deviceId || "");
+          const selected = inputs.find((item) => item.deviceId === next);
+          setInputGroupId(selected?.groupId || "");
+          return next;
+        });
+        setOutputDeviceId((current) => current && outputs.some((item) => item.deviceId === current) ? current : "");
+      } catch {}
+    };
+    refresh();
+    navigator.mediaDevices?.addEventListener?.("devicechange", refresh);
+    return () => { active = false; navigator.mediaDevices?.removeEventListener?.("devicechange", refresh); };
   }, []);
 
   useEffect(() => {
     const persisted = loadPersistedMusicLatencyCalibration();
     if (!persisted) { setLatencyCalibration(null); setCalibrationReuse(null); return; }
-    const current = { input_device_id: deviceId || null, sample_rate: finite(session?.sample_rate, null), path_type: calibrationPath, output_sink_id: outputDeviceId || null };
+    const current = { input_device_id: deviceId || null, input_group_id: inputGroupId || null, sample_rate: finite(session?.sample_rate, null), path_type: calibrationPath, output_sink_id: outputDeviceId || null };
     const reuse = evaluateMusicLatencyCalibrationReuse(persisted, current);
     setLatencyCalibration(persisted);
     setCalibrationReuse(reuse);
-  }, [deviceId, outputDeviceId, calibrationPath, session?.sample_rate]);
+  }, [deviceId, inputGroupId, outputDeviceId, calibrationPath, session?.sample_rate]);
 
   useEffect(() => {
     setPunchStart(Math.max(0, finite(playhead, 0)));
@@ -316,7 +330,7 @@ export default function MusicWorkstationOverdubPanel({
       const result = await runMusicLatencyCalibration({ deviceId: deviceId || null, outputDeviceId: outputDeviceId || null, sampleRate: finite(session?.sample_rate, null), pathType: calibrationPath });
       persistMusicLatencyCalibration(result);
       setLatencyCalibration(result);
-      setCalibrationReuse(evaluateMusicLatencyCalibrationReuse(result, { input_device_id: deviceId || null, sample_rate: result.sample_rate, path_type: calibrationPath, output_sink_id: outputDeviceId || null }));
+      setCalibrationReuse(evaluateMusicLatencyCalibrationReuse(result, { input_device_id: deviceId || null, input_group_id: inputGroupId || null, sample_rate: result.sample_rate, path_type: calibrationPath, output_sink_id: outputDeviceId || null }));
     } catch (cause) {
       setLatencyCalibration(null);
       setError(cause?.message || "Latency calibration failed");
@@ -441,7 +455,7 @@ export default function MusicWorkstationOverdubPanel({
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="col-span-2 block text-[9px] uppercase tracking-[0.14em] text-white/25">Input
-            <select value={deviceId} onChange={(event) => setDeviceId(event.target.value)} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-xs text-white/60">
+            <select value={deviceId} onChange={(event) => { const next=event.target.value; setDeviceId(next); setInputGroupId(devices.find((item)=>item.deviceId===next)?.groupId || ""); }} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-xs text-white/60">
               {!devices.length ? <option value="">Default audio input</option> : devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `Audio input ${index + 1}`}</option>)}
             </select>
           </label>

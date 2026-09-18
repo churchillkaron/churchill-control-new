@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 363,
-    "passed": 363,
+    "tests": 367,
+    "passed": 367,
     "failed": 0
   },
   "workstreams": [
@@ -180,6 +180,21 @@
       "live_browser_errors": 0,
       "silent_multi_client_truncation_removed": true,
       "accounting_mutation_authority": false
+    },
+    {
+      "order": 13,
+      "name": "Accounting-practice decision scale integrity",
+      "commit": "c24cf9bfeadd",
+      "status": "OPERATIONAL_COMPLETE_PRACTICE_DECISION_TRUTH",
+      "capacity": "90-day committed-work forecast reads the complete open-work population instead of stopping at 10000 items.",
+      "billing": "Practice invoice amount and idempotency bind the complete approved billable-time population; no entry can fall outside a 10000-row window.",
+      "work_programs": "Runs, work items and client requests are complete populations instead of a 500-run slice.",
+      "engagement_file": "Runs, reviews, documents, work items, client requests, review notes, signoffs, staff capacity and evidence links are complete before review/progress summaries are derived.",
+      "live_capacity_status": 200,
+      "live_work_program_status": 200,
+      "live_engagement_file_status": 200,
+      "silent_practice_decision_truncation_removed": true,
+      "accounting_mutation_authority": false
     }
   ],
   "live_acceptance": {
@@ -231,6 +246,10 @@
     "practice_client_access_complete_population": true,
     "practice_onboarding_complete_population": true,
     "practice_time_wip_complete_population": true,
-    "clients_route_defaults_to_complete_portfolio": true
+    "clients_route_defaults_to_complete_portfolio": true,
+    "practice_capacity_complete_population": true,
+    "practice_billing_complete_time_population": true,
+    "practice_work_programs_complete_population": true,
+    "engagement_file_review_truth_complete_population": true
   }
 }

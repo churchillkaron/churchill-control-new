@@ -32,3 +32,13 @@ test("Time and WIP tax dropdown follows the selected billing entity jurisdiction
   assert.match(practiceTimeUi, /No active sales tax rule for this jurisdiction/);
   assert.match(practiceTimeUi, /taxRuleId: "", taxTreatmentConfirmed: false/);
 });
+
+test("Time and WIP billing references hand off to canonical governed creators", () => {
+  assert.match(practiceTimeUi, /finance\/customers\?create=1/);
+  assert.match(practiceTimeUi, /finance\/chart-of-accounts\?create=1/);
+  assert.match(practiceTimeUi, /finance\/tax-codes\?create=1/);
+  assert.match(practiceTimeUi, /Create customer/);
+  assert.match(practiceTimeUi, /Create account/);
+  assert.match(practiceTimeUi, /Create tax rule/);
+  assert.match(practiceTimeUi, /target="_blank"/);
+});

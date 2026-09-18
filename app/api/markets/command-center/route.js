@@ -761,6 +761,12 @@ export async function POST(request) {
         validation_min_directional_hit_rate: Number(body.validation_min_directional_hit_rate ?? current.validation_min_directional_hit_rate ?? 0.5),
         validation_max_drawdown_pct: Number(body.validation_max_drawdown_pct ?? current.validation_max_drawdown_pct ?? 25),
         validation_min_total_return: Number(body.validation_min_total_return ?? current.validation_min_total_return ?? 0),
+        require_strategy_health_gate: body.require_strategy_health_gate ?? current.require_strategy_health_gate ?? true,
+        strategy_health_min_samples: Number(body.strategy_health_min_samples ?? current.strategy_health_min_samples ?? 20),
+        strategy_health_max_brier: Number(body.strategy_health_max_brier ?? current.strategy_health_max_brier ?? 0.30),
+        strategy_health_max_log_loss: Number(body.strategy_health_max_log_loss ?? current.strategy_health_max_log_loss ?? 0.90),
+        strategy_health_min_directional_hit_rate: Number(body.strategy_health_min_directional_hit_rate ?? current.strategy_health_min_directional_hit_rate ?? 0.45),
+        strategy_health_min_avg_excess_return: Number(body.strategy_health_min_avg_excess_return ?? current.strategy_health_min_avg_excess_return ?? -0.01),
         updated_at: new Date().toISOString(),
       };
 
@@ -796,6 +802,21 @@ export async function POST(request) {
       }
       if (!(next.validation_min_total_return >= -1 && next.validation_min_total_return <= 100)) {
         throw new Error("Validation minimum total return must be between -1 and 100");
+      }
+      if (!(next.strategy_health_min_samples >= 5 && next.strategy_health_min_samples <= 500)) {
+        throw new Error("Strategy health minimum samples must be between 5 and 500");
+      }
+      if (!(next.strategy_health_max_brier > 0 && next.strategy_health_max_brier <= 1)) {
+        throw new Error("Strategy health maximum Brier score must be greater than 0 and at most 1");
+      }
+      if (!(next.strategy_health_max_log_loss > 0 && next.strategy_health_max_log_loss <= 10)) {
+        throw new Error("Strategy health maximum log loss must be greater than 0 and at most 10");
+      }
+      if (!(next.strategy_health_min_directional_hit_rate >= 0 && next.strategy_health_min_directional_hit_rate <= 1)) {
+        throw new Error("Strategy health minimum directional hit rate must be between 0 and 1");
+      }
+      if (!(next.strategy_health_min_avg_excess_return >= -1 && next.strategy_health_min_avg_excess_return <= 1)) {
+        throw new Error("Strategy health minimum average excess return must be between -1 and 1");
       }
 
       const { data: automationPolicy, error: automationError } = await supabaseAdmin

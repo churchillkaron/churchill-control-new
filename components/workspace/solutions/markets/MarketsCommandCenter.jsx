@@ -66,6 +66,12 @@ export default function MarketsCommandCenter({ organizationId }) {
       validation_min_directional_hit_rate: String(policy.validation_min_directional_hit_rate ?? 0.5),
       validation_max_drawdown_pct: String(policy.validation_max_drawdown_pct ?? 25),
       validation_min_total_return: String(policy.validation_min_total_return ?? 0),
+      require_strategy_health_gate: policy.require_strategy_health_gate !== false,
+      strategy_health_min_samples: String(policy.strategy_health_min_samples ?? 20),
+      strategy_health_max_brier: String(policy.strategy_health_max_brier ?? 0.30),
+      strategy_health_max_log_loss: String(policy.strategy_health_max_log_loss ?? 0.90),
+      strategy_health_min_directional_hit_rate: String(policy.strategy_health_min_directional_hit_rate ?? 0.45),
+      strategy_health_min_avg_excess_return: String(policy.strategy_health_min_avg_excess_return ?? -0.01),
     });
   }, [data?.automationPolicy]);
 
@@ -200,6 +206,9 @@ export default function MarketsCommandCenter({ organizationId }) {
   const latestMarketRegime = decisions
     .map((row) => row?.decision_payload?.market_regime)
     .find((row) => row && row.regime) || null;
+  const latestStrategyHealth = decisions
+    .map((row) => row?.decision_payload?.strategy_health)
+    .find((row) => row && row.status) || null;
   const baseCurrency = portfolio?.base_currency || paperAccount?.base_currency || "USD";
 
   const latestBySymbol = new Map();
@@ -1015,6 +1024,68 @@ export default function MarketsCommandCenter({ organizationId }) {
                     </div>
                   </div>
 
+                  <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                    <label className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">Strategy health drift gate</div>
+                        <div className="mt-1 text-[9px] leading-4 text-[#817D76]">Uses recent realized PAPER outcomes after walk-forward validation. Material deterioration blocks new autonomous BUYs; SELL de-risking remains available.</div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={automationDraft?.require_strategy_health_gate !== false}
+                        onChange={(event) => setAutomationDraft((current) => ({
+                          ...(current || {}),
+                          require_strategy_health_gate: event.target.checked,
+                        }))}
+                        className="h-4 w-4 accent-[#1F1E1B]"
+                      />
+                    </label>
+                    {latestStrategyHealth ? (
+                      <div className={`mt-3 rounded-lg border px-2.5 py-2 text-[8px] ${
+                        latestStrategyHealth.ready === false
+                          ? "border-red-200 bg-red-50 text-red-700"
+                          : "border-emerald-100 bg-emerald-50/60 text-emerald-700"
+                      }`}>
+                        {String(latestStrategyHealth.status || "UNKNOWN").replaceAll("_", " ")}
+                        {" · "}
+                        {Number(latestStrategyHealth.metrics?.sample_count || 0)} samples
+                        {" · Brier "}
+                        {latestStrategyHealth.metrics?.avg_brier == null ? "—" : Number(latestStrategyHealth.metrics.avg_brier).toFixed(3)}
+                        {" · Log loss "}
+                        {latestStrategyHealth.metrics?.avg_log_loss == null ? "—" : Number(latestStrategyHealth.metrics.avg_log_loss).toFixed(3)}
+                        {" · Hit "}
+                        {latestStrategyHealth.metrics?.directional_hit_rate == null ? "—" : `${(Number(latestStrategyHealth.metrics.directional_hit_rate) * 100).toFixed(1)}%`}
+                        {" · Excess "}
+                        {latestStrategyHealth.metrics?.avg_excess_return == null ? "—" : `${(Number(latestStrategyHealth.metrics.avg_excess_return) * 100).toFixed(2)}%`}
+                      </div>
+                    ) : null}
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {[
+                        ["Min mature samples", "strategy_health_min_samples", "5", "500", "1"],
+                        ["Max Brier", "strategy_health_max_brier", "0.01", "1", "0.01"],
+                        ["Max log loss", "strategy_health_max_log_loss", "0.01", "10", "0.01"],
+                        ["Min hit rate", "strategy_health_min_directional_hit_rate", "0", "1", "0.01"],
+                        ["Min avg excess return", "strategy_health_min_avg_excess_return", "-1", "1", "0.001"],
+                      ].map(([label, key, min, max, step]) => (
+                        <label key={key} className={key === "strategy_health_min_avg_excess_return" ? "col-span-2" : ""}>
+                          <span className="text-[8px] text-[#968F86]">{label}</span>
+                          <input
+                            type="number"
+                            min={min}
+                            max={max}
+                            step={step}
+                            value={automationDraft?.[key] ?? ""}
+                            onChange={(event) => setAutomationDraft((current) => ({
+                              ...(current || {}),
+                              [key]: event.target.value,
+                            }))}
+                            className="mt-1 h-8 w-full rounded-lg border border-black/[0.09] bg-white px-2 text-[9px] text-[#2E2B27] outline-none"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -1032,6 +1103,12 @@ export default function MarketsCommandCenter({ organizationId }) {
                         validation_min_directional_hit_rate: Number(automationDraft?.validation_min_directional_hit_rate ?? 0.5),
                         validation_max_drawdown_pct: Number(automationDraft?.validation_max_drawdown_pct ?? 25),
                         validation_min_total_return: Number(automationDraft?.validation_min_total_return ?? 0),
+                        require_strategy_health_gate: automationDraft?.require_strategy_health_gate !== false,
+                        strategy_health_min_samples: Number(automationDraft?.strategy_health_min_samples ?? 20),
+                        strategy_health_max_brier: Number(automationDraft?.strategy_health_max_brier ?? 0.30),
+                        strategy_health_max_log_loss: Number(automationDraft?.strategy_health_max_log_loss ?? 0.90),
+                        strategy_health_min_directional_hit_rate: Number(automationDraft?.strategy_health_min_directional_hit_rate ?? 0.45),
+                        strategy_health_min_avg_excess_return: Number(automationDraft?.strategy_health_min_avg_excess_return ?? -0.01),
                       })}
                       className="h-8 rounded-lg border border-black/[0.08] bg-[#FCFBF9] px-2.5 text-[9px] font-medium text-[#5E5851] disabled:opacity-40"
                     >

@@ -1,0 +1,105 @@
+{
+  "contract": "AVANTIQO_FINANCE_WORLDCLASS_HARDENING_V1",
+  "certified_at": "2026-09-18T14:45:00+07:00",
+  "branch": "finance-human-ui-20260918",
+  "production_deployment_performed": false,
+  "main_worktree_modified": false,
+  "finance_regression": {
+    "tests": 325,
+    "passed": 325,
+    "failed": 0
+  },
+  "workstreams": [
+    {
+      "order": 1,
+      "name": "Live bank feeds",
+      "commit": "e9db2addada3",
+      "status": "IMPLEMENTED_PROVIDER_ACTIVATION_REQUIRED",
+      "live_schema": true,
+      "live_api_verified": true,
+      "provider": "brankas_statement",
+      "thailand_kasikorn_mapping": "KASIKORNBANK_PERSONAL",
+      "canonical_settlement": "bank statement import plus exact reconciliation",
+      "external_blocker": "No active Brankas/bank-feed provider credential is installed.",
+      "test_artifacts_remaining": false
+    },
+    {
+      "order": 2,
+      "name": "Thailand e-invoicing",
+      "commit": "e7e96fec530d",
+      "status": "IMPLEMENTED_PROVIDER_ACTIVATION_REQUIRED",
+      "live_schema": true,
+      "live_api_verified": true,
+      "source_standard": "ETDA CrossIndustryInvoice source and preflight",
+      "provider_boundary": "certified provider adapter",
+      "external_blocker": "No active certified e-Tax provider credential/profile is installed.",
+      "live_transmission_count": 0,
+      "test_artifacts_remaining": false
+    },
+    {
+      "order": 3,
+      "name": "Touchless AP",
+      "commit": "bf487ef75300",
+      "status": "OPERATIONAL",
+      "live_schema": true,
+      "live_api_verified": true,
+      "live_ui_verified": true,
+      "flow": "controlled source document -> extraction -> exact supplier -> exact PO/receipt/lineage -> canonical vendor bill -> atomic three-way match -> approval queue",
+      "authority_boundary": "automation never approves, posts or pays",
+      "live_intake_count": 0,
+      "test_artifacts_remaining": false
+    },
+    {
+      "order": 4,
+      "name": "Portal delivery and e-sign",
+      "commit": "3f7b40d2e608",
+      "status": "PORTAL_AND_ESIGN_OPERATIONAL_EMAIL_PROVIDER_ACTIVATION_REQUIRED",
+      "live_schema": true,
+      "live_api_verified": true,
+      "live_ui_verified": true,
+      "native_signing": "Avantiqo portal simple electronic signature bound to exact controlled document version/checksum",
+      "qualified_signature_claimed": false,
+      "staff_terminal_status_forgery_blocked": true,
+      "external_blocker": "No active organization Google, Microsoft or IMAP/SMTP mailbox credential is installed for automatic portal email delivery.",
+      "live_delivery_count": 0,
+      "live_signature_event_count": 0,
+      "test_artifacts_remaining": false
+    },
+    {
+      "order": 5,
+      "name": "Auditor package",
+      "commit": "5ed555835ece",
+      "status": "OPERATIONAL_FAIL_CLOSED_UNTIL_GOVERNED_CLOSE",
+      "live_schema": true,
+      "live_api_verified": true,
+      "live_ui_verified": true,
+      "generation_gate": "CLOSED/LOCKED accounting period + COMPLETED governed close run + CURRENT close fingerprint + balanced trial balance",
+      "package": "immutable restricted controlled ZIP with reports, GL, journals, reconciliations, tax/statutory, close adjustments, review/approval and supporting evidence",
+      "external_auditor_access": "expiring revocable exact-package read-only token",
+      "current_business_blocker": "Selected live periods remain open and no governed close run exists yet.",
+      "live_package_count": 0,
+      "live_grant_count": 0,
+      "test_artifacts_remaining": false
+    }
+  ],
+  "live_acceptance": {
+    "bank_feed_sync_runs": 0,
+    "e_invoice_transmissions": 0,
+    "ap_intake_items": 0,
+    "portal_deliveries": 0,
+    "signature_events": 0,
+    "auditor_packages": 0,
+    "auditor_package_grants": 0,
+    "active_external_provider_prerequisites": [],
+    "auditor_open_period_generate_status": 409,
+    "invalid_public_auditor_token_status": 404,
+    "staff_manual_signature_terminal_status": 409
+  },
+  "governance": {
+    "no_parallel_accounting_truth": true,
+    "no_fake_provider_success": true,
+    "no_test_financial_mutations_left_live": true,
+    "financial_approval_authority_not_increased_by_automation": true,
+    "external_auditor_access_has_no_erp_mutation_authority": true
+  }
+}

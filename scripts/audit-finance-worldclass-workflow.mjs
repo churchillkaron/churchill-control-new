@@ -173,8 +173,11 @@ export async function auditFinanceWorldclassWorkflow() {
   }
 
   const practiceApiSource = read(files.practiceApi);
-  for (const token of ["accounting_engagements", "accounting_client_profiles", "finance_review_items", "finance_review_notes", ".eq(\"accounting_firm_id\", access.organizationId)", ".in(\"organization_id\", clientIds)", "ready_for_review", "reviewed_pending_partner", "open_review_points", "next_deadline", "attention"]) {
+  for (const token of ["accounting_engagements", "accounting_client_profiles", "finance_review_items", "finance_review_notes", ".eq(\"accounting_firm_id\", access.organizationId)", "loadCompletePracticeRowsByIds", "Accounting practice control client organizations", "Accounting practice control review items", "ready_for_review", "reviewed_pending_partner", "open_review_points", "next_deadline", "attention"]) {
     if (!practiceApiSource.includes(token)) fail(`Finance practice-control API contract missing: ${token}`, failures);
+  }
+  if (/\.limit\((500|1000|5000|10000)\)/.test(practiceApiSource.slice(practiceApiSource.indexOf("export async function GET"), practiceApiSource.indexOf("export async function POST")))) {
+    fail("Finance practice-control API must not use fixed population caps inside portfolio truth", failures);
   }
 
   const migrationSource = read(files.migration);

@@ -140,7 +140,7 @@ function ClientTable({ clients, onOpen }) {
 export default function FinancePracticeControlTower({ organizationId, initialView = "today" }) {
   const [practice, setPractice] = useState({ loading: true, error: "", data: null });
   const [activeView, setActiveView] = useState(initialView);
-  const [clientFilter, setClientFilter] = useState("ATTENTION");
+  const [clientFilter, setClientFilter] = useState(() => initialView === "clients" ? "ALL" : "ATTENTION");
   const [clientSearch, setClientSearch] = useState("");
   const [selectedEngagementId, setSelectedEngagementId] = useState(null);
   const [workPrograms, setWorkPrograms] = useState(null);

@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { loadCompletePracticeRows, loadCompletePracticeRowsByIds } from "@/lib/finance/practice/FinancePracticePopulation";
 
 const MANAGE_PERMISSIONS = ["finance.accounting.manage", "finance.configuration.manage"];
 const OPEN_ITEM_STATUSES = ["NOT_STARTED", "READY", "IN_PROGRESS", "WAITING_ON_CLIENT", "BLOCKED", "READY_FOR_REVIEW", "CHANGES_REQUESTED"];
@@ -34,31 +35,93 @@ function staffId(access) {
 }
 
 async function loadContext(accountingFirmId) {
-  const [engagementsResult, organizationsResult, profilesResult, itemsResult, billingResult, entitiesResult, partiesResult, accountsResult, taxRulesResult] = await Promise.all([
-    supabaseAdmin.from("accounting_engagements")
+  const engagements = await loadCompletePracticeRows({
+    label: "Accounting practice Time & WIP engagements",
+    buildQuery: (from, to) => supabaseAdmin.from("accounting_engagements")
       .select("id,organization_id,entity_id,service_package,status")
-      .eq("accounting_firm_id", accountingFirmId).order("created_at", { ascending: true }).limit(1000),
-    supabaseAdmin.from("organizations").select("id,name").limit(5000),
-    supabaseAdmin.from("accounting_client_profiles")
-      .select("organization_id,assigned_accountant_id,assigned_accountant_name,assigned_reviewer_id,assigned_reviewer_name,assigned_partner_id,assigned_partner_name")
-      .eq("accounting_firm_id", accountingFirmId),
-    supabaseAdmin.from("accounting_engagement_work_items")
-      .select("id,organization_id,entity_id,run_id,title,status,assigned_to,budget_minutes,due_at")
-      .eq("accounting_firm_id", accountingFirmId).in("status", OPEN_ITEM_STATUSES).order("due_at", { ascending: true, nullsFirst: false }).limit(10000),
-    supabaseAdmin.from("accounting_practice_billing_profiles")
-      .select("id,organization_id,engagement_id,billing_method,currency_code,default_hourly_rate,fixed_fee_amount,billing_entity_id,customer_party_id,revenue_account_id,tax_rule_id,tax_rate_percent,tax_treatment_confirmed,payment_terms_days,billing_cadence,next_billing_date,status,updated_at")
-      .eq("accounting_firm_id", accountingFirmId),
-    supabaseAdmin.from("legal_entities").select("id,code,legal_name,display_name,currency,is_active,is_default_accounting_entity").eq("organization_id", accountingFirmId).eq("is_active", true).order("is_default_accounting_entity", { ascending: false }),
-    supabaseAdmin.from("parties").select("id,display_name,legal_name,email,party_type,status").eq("organization_id", accountingFirmId).order("display_name", { ascending: true }).limit(5000),
-    supabaseAdmin.from("chart_of_accounts").select("*").eq("organization_id", accountingFirmId).order("account_code", { ascending: true }).limit(5000),
-    supabaseAdmin.from("tax_rules").select("id,tax_code,tax_name,tax_type,tax_rate,is_active,organization_id").or(`organization_id.eq.${accountingFirmId},organization_id.is.null`).eq("is_active", true).order("tax_name", { ascending: true }).limit(1000),
+      .eq("accounting_firm_id", accountingFirmId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
+  });
+  const clientIds = [...new Set(engagements.map((row) => row.organization_id).filter(Boolean))];
+
+  const [organizations, profiles, workItems, billingProfiles, billingEntities, customerParties, accounts, taxRules] = await Promise.all([
+    clientIds.length ? loadCompletePracticeRowsByIds({
+      ids: clientIds,
+      label: "Accounting practice Time & WIP client organizations",
+      buildQuery: (batch, from, to) => supabaseAdmin.from("organizations").select("id,name").in("id", batch).order("id", { ascending: true }).range(from, to),
+    }) : Promise.resolve([]),
+    loadCompletePracticeRows({
+      label: "Accounting practice client profiles",
+      buildQuery: (from, to) => supabaseAdmin.from("accounting_client_profiles")
+        .select("organization_id,assigned_accountant_id,assigned_accountant_name,assigned_reviewer_id,assigned_reviewer_name,assigned_partner_id,assigned_partner_name")
+        .eq("accounting_firm_id", accountingFirmId)
+        .order("organization_id", { ascending: true })
+        .range(from, to),
+    }),
+    loadCompletePracticeRows({
+      label: "Accounting practice open work items",
+      buildQuery: (from, to) => supabaseAdmin.from("accounting_engagement_work_items")
+        .select("id,organization_id,entity_id,run_id,title,status,assigned_to,budget_minutes,due_at")
+        .eq("accounting_firm_id", accountingFirmId)
+        .in("status", OPEN_ITEM_STATUSES)
+        .order("due_at", { ascending: true, nullsFirst: false })
+        .order("id", { ascending: true })
+        .range(from, to),
+    }),
+    loadCompletePracticeRows({
+      label: "Accounting practice billing profiles",
+      buildQuery: (from, to) => supabaseAdmin.from("accounting_practice_billing_profiles")
+        .select("id,organization_id,engagement_id,billing_method,currency_code,default_hourly_rate,fixed_fee_amount,billing_entity_id,customer_party_id,revenue_account_id,tax_rule_id,tax_rate_percent,tax_treatment_confirmed,payment_terms_days,billing_cadence,next_billing_date,status,updated_at")
+        .eq("accounting_firm_id", accountingFirmId)
+        .order("id", { ascending: true })
+        .range(from, to),
+    }),
+    loadCompletePracticeRows({
+      label: "Accounting firm billing entities",
+      buildQuery: (from, to) => supabaseAdmin.from("legal_entities")
+        .select("id,code,legal_name,display_name,currency,is_active,is_default_accounting_entity")
+        .eq("organization_id", accountingFirmId)
+        .eq("is_active", true)
+        .order("is_default_accounting_entity", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to),
+    }),
+    loadCompletePracticeRows({
+      label: "Accounting firm billing customer parties",
+      buildQuery: (from, to) => supabaseAdmin.from("parties")
+        .select("id,display_name,legal_name,email,party_type,status")
+        .eq("organization_id", accountingFirmId)
+        .order("display_name", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    }),
+    loadCompletePracticeRows({
+      label: "Accounting firm chart of accounts",
+      buildQuery: (from, to) => supabaseAdmin.from("chart_of_accounts")
+        .select("*")
+        .eq("organization_id", accountingFirmId)
+        .order("account_code", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    }),
+    loadCompletePracticeRows({
+      label: "Accounting firm billing tax rules",
+      buildQuery: (from, to) => supabaseAdmin.from("tax_rules")
+        .select("id,tax_code,tax_name,tax_type,tax_rate,is_active,organization_id")
+        .or(`organization_id.eq.${accountingFirmId},organization_id.is.null`)
+        .eq("is_active", true)
+        .order("tax_name", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    }),
   ]);
-  for (const result of [engagementsResult, organizationsResult, profilesResult, itemsResult, billingResult, entitiesResult, partiesResult, accountsResult, taxRulesResult]) if (result.error) throw result.error;
+
   return {
-    engagements: engagementsResult.data || [], organizations: organizationsResult.data || [], profiles: profilesResult.data || [],
-    workItems: itemsResult.data || [], billingProfiles: billingResult.data || [], billingEntities: entitiesResult.data || [], customerParties: partiesResult.data || [],
-    revenueAccounts: (accountsResult.data || []).filter((row) => { const type = String(row.account_type || row.type || "").toUpperCase(); return type.includes("REVENUE") || type.includes("INCOME"); }),
-    taxRules: taxRulesResult.data || [],
+    engagements, organizations, profiles, workItems, billingProfiles, billingEntities, customerParties,
+    revenueAccounts: accounts.filter((row) => { const type = String(row.account_type || row.type || "").toUpperCase(); return type.includes("REVENUE") || type.includes("INCOME"); }),
+    taxRules,
   };
 }
 
@@ -164,14 +227,19 @@ export async function GET(request) {
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return jsonError(access.error, access.status || 403);
     await requireView(access);
-    const [context, entriesResult] = await Promise.all([
+    const [context, entries] = await Promise.all([
       loadContext(access.organizationId),
-      supabaseAdmin.from("accounting_practice_time_entries")
-        .select("id,organization_id,entity_id,engagement_id,run_id,work_item_id,staff_account_id,work_date,minutes,billable,billing_rate,currency_code,description,status,approved_by,approved_at,billing_reference,billed_at,created_at,updated_at")
-        .eq("accounting_firm_id", access.organizationId).order("work_date", { ascending: false }).order("created_at", { ascending: false }).limit(10000),
+      loadCompletePracticeRows({
+        label: "Accounting practice time entries",
+        buildQuery: (from, to) => supabaseAdmin.from("accounting_practice_time_entries")
+          .select("id,organization_id,entity_id,engagement_id,run_id,work_item_id,staff_account_id,work_date,minutes,billable,billing_rate,currency_code,description,status,approved_by,approved_at,billing_reference,billed_at,created_at,updated_at")
+          .eq("accounting_firm_id", access.organizationId)
+          .order("work_date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }),
     ]);
-    if (entriesResult.error) throw entriesResult.error;
-    const entries = entriesResult.data || [];
     return NextResponse.json({ success: true, ...buildSummary({ context, entries }), entries, viewer_staff_account_id: staffId(access), generated_at: new Date().toISOString() });
   } catch (error) {
     return jsonError(error?.message || "Unable to load practice time and WIP", 500);

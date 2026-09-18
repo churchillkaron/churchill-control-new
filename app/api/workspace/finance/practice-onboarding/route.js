@@ -8,6 +8,7 @@ import { createFinanceEngagementSignatureRequest } from "@/lib/finance/practice/
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { loadCompletePracticeRows, loadCompletePracticeRowsByIds } from "@/lib/finance/practice/FinancePracticePopulation";
 
 const MANAGE_PERMISSIONS = ["finance.accounting.manage", "finance.configuration.manage"];
 function clean(value) { return String(value ?? "").trim(); }
@@ -42,52 +43,97 @@ export async function GET(request) {
     if (!access.success) return jsonError(access.error, access.status || 403);
     await requireView(access);
 
-    const { data: engagements, error: engagementError } = await supabaseAdmin.from("accounting_engagements")
-      .select("id,organization_id,entity_id,service_package,status,renewal_date,year_end_date")
-      .eq("accounting_firm_id", access.organizationId).order("created_at", { ascending: true }).limit(1000);
-    if (engagementError) throw engagementError;
-    const engagementIds = (engagements || []).map((row) => row.id);
-    const clientIds = [...new Set((engagements || []).map((row) => row.organization_id).filter(Boolean))];
+    const engagements = await loadCompletePracticeRows({
+      label: "Accounting practice onboarding engagements",
+      buildQuery: (from, to) => supabaseAdmin.from("accounting_engagements")
+        .select("id,organization_id,entity_id,service_package,status,renewal_date,year_end_date")
+        .eq("accounting_firm_id", access.organizationId)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    });
+    const engagementIds = engagements.map((row) => row.id);
+    const clientIds = [...new Set(engagements.map((row) => row.organization_id).filter(Boolean))];
 
-    const [organizationsResult, linksResult, documentsResult, billingResult] = await Promise.all([
-      clientIds.length ? supabaseAdmin.from("organizations").select("id,name").in("id", clientIds) : Promise.resolve({ data: [], error: null }),
-      engagementIds.length ? supabaseAdmin.from("enterprise_document_links").select("id,enterprise_document_id,reference_id,relation_type,created_at").eq("organization_id", access.organizationId).eq("reference_type", "ACCOUNTING_ENGAGEMENT").eq("relation_type", "CONTRACT").in("reference_id", engagementIds) : Promise.resolve({ data: [], error: null }),
-      supabaseAdmin.from("enterprise_documents").select("id,entity_id,document_name,document_type,document_status,version_number,approved_at,updated_at").eq("organization_id", access.organizationId).order("updated_at", { ascending: false }).limit(1000),
-      supabaseAdmin.from("accounting_practice_billing_profiles").select("id,engagement_id,billing_method,currency_code,default_hourly_rate,fixed_fee_amount,status").eq("accounting_firm_id", access.organizationId).eq("status", "ACTIVE"),
+    const [organizations, links, documents, billingProfiles] = await Promise.all([
+      clientIds.length ? loadCompletePracticeRowsByIds({
+        ids: clientIds,
+        label: "Accounting practice onboarding client organizations",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("organizations").select("id,name").in("id", batch).order("id", { ascending: true }).range(from, to),
+      }) : Promise.resolve([]),
+      engagementIds.length ? loadCompletePracticeRowsByIds({
+        ids: engagementIds,
+        label: "Accounting practice engagement contract links",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("enterprise_document_links")
+          .select("id,enterprise_document_id,reference_id,relation_type,created_at")
+          .eq("organization_id", access.organizationId)
+          .eq("reference_type", "ACCOUNTING_ENGAGEMENT")
+          .eq("relation_type", "CONTRACT")
+          .in("reference_id", batch)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }) : Promise.resolve([]),
+      loadCompletePracticeRows({
+        label: "Accounting practice controlled engagement documents",
+        buildQuery: (from, to) => supabaseAdmin.from("enterprise_documents")
+          .select("id,entity_id,document_name,document_type,document_status,version_number,approved_at,updated_at")
+          .eq("organization_id", access.organizationId)
+          .order("updated_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }),
+      loadCompletePracticeRows({
+        label: "Accounting practice billing profiles",
+        buildQuery: (from, to) => supabaseAdmin.from("accounting_practice_billing_profiles")
+          .select("id,engagement_id,billing_method,currency_code,default_hourly_rate,fixed_fee_amount,status")
+          .eq("accounting_firm_id", access.organizationId)
+          .eq("status", "ACTIVE")
+          .order("id", { ascending: true })
+          .range(from, to),
+      }),
     ]);
-    for (const result of [organizationsResult, linksResult, documentsResult, billingResult]) if (result.error) throw result.error;
-    const documentIds = [...new Set((linksResult.data || []).map((row) => row.enterprise_document_id).filter(Boolean))];
-    const signaturesResult = documentIds.length ? await supabaseAdmin.from("document_signature_requests")
-      .select("id,enterprise_document_id,signer_name,signer_email,status,requested_at,expires_at,signed_at,declined_at,provider")
-      .eq("organization_id", access.organizationId).in("enterprise_document_id", documentIds).order("requested_at", { ascending: false }) : { data: [], error: null };
-    if (signaturesResult.error) throw signaturesResult.error;
 
-    const orgMap = new Map((organizationsResult.data || []).map((row) => [row.id, row]));
-    const linkMap = new Map((linksResult.data || []).map((row) => [row.reference_id, row]));
-    const documentMap = new Map((documentsResult.data || []).map((row) => [row.id, row]));
+    const documentIds = [...new Set(links.map((row) => row.enterprise_document_id).filter(Boolean))];
+    const signatures = documentIds.length ? await loadCompletePracticeRowsByIds({
+      ids: documentIds,
+      label: "Accounting practice engagement signatures",
+      buildQuery: (batch, from, to) => supabaseAdmin.from("document_signature_requests")
+        .select("id,enterprise_document_id,signer_name,signer_email,status,requested_at,expires_at,signed_at,declined_at,provider")
+        .eq("organization_id", access.organizationId)
+        .in("enterprise_document_id", batch)
+        .order("requested_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to),
+    }) : [];
+
+    const orgMap = new Map(organizations.map((row) => [row.id, row]));
+    const linkMap = new Map();
+    for (const link of links) if (!linkMap.has(link.reference_id)) linkMap.set(link.reference_id, link);
+    const documentMap = new Map(documents.map((row) => [row.id, row]));
     const signaturesByDocument = new Map();
-    for (const signature of signaturesResult.data || []) {
-      const rows = signaturesByDocument.get(signature.enterprise_document_id) || [];
-      rows.push(signature); signaturesByDocument.set(signature.enterprise_document_id, rows);
-    }
-    const billingMap = new Map((billingResult.data || []).map((row) => [row.engagement_id, row]));
-    const rows = (engagements || []).map((engagement) => {
+    for (const signature of signatures) { const rows = signaturesByDocument.get(signature.enterprise_document_id) || []; rows.push(signature); signaturesByDocument.set(signature.enterprise_document_id, rows); }
+    const billingMap = new Map(billingProfiles.map((row) => [row.engagement_id, row]));
+
+    const rows = engagements.map((engagement) => {
       const link = linkMap.get(engagement.id) || null;
       const document = link ? documentMap.get(link.enterprise_document_id) || null : null;
-      const signatures = document ? signaturesByDocument.get(document.id) || [] : [];
+      const signatureRows = document ? signaturesByDocument.get(document.id) || [] : [];
       const billingProfile = billingMap.get(engagement.id) || null;
       return {
         ...engagement,
         client_name: orgMap.get(engagement.organization_id)?.name || "Client organization",
         engagement_document: document,
-        signatures,
+        signatures: signatureRows,
         billing_profile: billingProfile,
-        readiness: readiness({ engagement, link, document, signatures, billingProfile }),
+        readiness: readiness({ engagement, link, document, signatures: signatureRows, billingProfile }),
       };
     });
-    const approvedDocuments = (documentsResult.data || []).filter((document) => document.approved_at || ["approved", "active"].includes(clean(document.document_status).toLowerCase()));
+    const approvedDocuments = documents.filter((document) => document.approved_at || ["approved", "active"].includes(clean(document.document_status).toLowerCase()));
     return NextResponse.json({ success: true, engagements: rows, approved_documents: approvedDocuments, summary: { total: rows.length, ready: rows.filter((row) => row.readiness.state === "READY").length, attention: rows.filter((row) => row.readiness.state !== "READY").length }, generated_at: new Date().toISOString() });
-  } catch (error) { return jsonError(error?.message || "Unable to load practice onboarding", 500); }
+  } catch (error) {
+    return jsonError(error?.message || "Unable to load practice onboarding", 500);
+  }
 }
 
 export async function POST(request) {

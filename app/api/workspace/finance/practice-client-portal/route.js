@@ -8,6 +8,7 @@ import { deliverFinanceClientPortalAccess, getFinanceClientPortalDeliveryReadine
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { chunkPracticeIds, loadCompletePracticeRows, loadCompletePracticeRowsByIds } from "@/lib/finance/practice/FinancePracticePopulation";
 
 const MANAGE_PERMISSIONS = ["finance.accounting.manage", "finance.configuration.manage"];
 function clean(value) { return String(value ?? "").trim(); }
@@ -30,27 +31,128 @@ function staffId(access) { return access?.access?.staffAccountId || access?.staf
 
 export async function GET(request) {
   try {
-    const url = new URL(request.url); const organizationId = clean(url.searchParams.get("organizationId") || url.searchParams.get("organization_id"));
-    const access = await requireOrganizationAccess({ organizationId, request }); if (!access.success) return jsonError(access.error, access.status || 403); await requireView(access);
-    const { data: engagements, error: engagementError } = await supabaseAdmin.from("accounting_engagements").select("id,organization_id,entity_id,service_package,status").eq("accounting_firm_id", access.organizationId).order("created_at", { ascending: true }).limit(1000); if (engagementError) throw engagementError;
-    const clientIds = [...new Set((engagements || []).map((row) => row.organization_id).filter(Boolean))];
-    const [organizationsResult, grantsResult, messagesResult, deliveriesResult, deliveryReadiness] = await Promise.all([
-      clientIds.length ? supabaseAdmin.from("organizations").select("id,name").in("id", clientIds) : Promise.resolve({ data: [], error: null }),
-      supabaseAdmin.from("accounting_client_portal_grants").select("id,organization_id,entity_id,engagement_id,client_name,client_email,issued_at,expires_at,revoked_at,last_viewed_at,metadata").eq("accounting_firm_id", access.organizationId).order("issued_at", { ascending: false }).limit(5000),
-      supabaseAdmin.from("accounting_client_portal_messages").select("id,engagement_id,sender_type,sender_name,sender_email,body,read_by_client_at,read_by_firm_at,created_at").eq("accounting_firm_id", access.organizationId).order("created_at", { ascending: true }).limit(10000),
-      supabaseAdmin.from("finance_client_portal_deliveries").select("id,portal_grant_id,engagement_id,recipient_email,provider_id,status,external_message_id,attempt_count,error_code,error_message,created_at,updated_at,sent_at").eq("accounting_firm_id", access.organizationId).order("created_at", { ascending: false }).limit(5000),
+    const url = new URL(request.url);
+    const organizationId = clean(url.searchParams.get("organizationId") || url.searchParams.get("organization_id"));
+    const access = await requireOrganizationAccess({ organizationId, request });
+    if (!access.success) return jsonError(access.error, access.status || 403);
+    await requireView(access);
+
+    const [engagements, grants, deliveryReadiness] = await Promise.all([
+      loadCompletePracticeRows({
+        label: "Accounting practice client-access engagements",
+        buildQuery: (from, to) => supabaseAdmin.from("accounting_engagements")
+          .select("id,organization_id,entity_id,service_package,status")
+          .eq("accounting_firm_id", access.organizationId)
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }),
+      loadCompletePracticeRows({
+        label: "Accounting practice portal grants",
+        buildQuery: (from, to) => supabaseAdmin.from("accounting_client_portal_grants")
+          .select("id,organization_id,entity_id,engagement_id,client_name,client_email,issued_at,expires_at,revoked_at,last_viewed_at,metadata")
+          .eq("accounting_firm_id", access.organizationId)
+          .order("issued_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }),
       getFinanceClientPortalDeliveryReadiness({ accountingFirmId: access.organizationId }),
-    ]); if (organizationsResult.error) throw organizationsResult.error; if (grantsResult.error) throw grantsResult.error; if (messagesResult.error) throw messagesResult.error; if (deliveriesResult.error) throw deliveriesResult.error;
-    const orgMap = new Map((organizationsResult.data || []).map((row) => [row.id, row.name || "Client organization"]));
-    const grantsByEngagement = new Map(); for (const grant of grantsResult.data || []) { const rows = grantsByEngagement.get(grant.engagement_id) || []; rows.push(grant); grantsByEngagement.set(grant.engagement_id, rows); }
-    const messagesByEngagement = new Map(); for (const message of messagesResult.data || []) { const rows = messagesByEngagement.get(message.engagement_id) || []; rows.push(message); messagesByEngagement.set(message.engagement_id, rows); }
-    const deliveriesByGrant = new Map(); for (const delivery of deliveriesResult.data || []) { if (!deliveriesByGrant.has(delivery.portal_grant_id)) deliveriesByGrant.set(delivery.portal_grant_id, delivery); }
-    const unreadIds = (messagesResult.data || []).filter((row) => row.sender_type === "CLIENT" && !row.read_by_firm_at).map((row) => row.id);
-    if (unreadIds.length) { const { error: markError } = await supabaseAdmin.from("accounting_client_portal_messages").update({ read_by_firm_at: new Date().toISOString() }).eq("accounting_firm_id", access.organizationId).in("id", unreadIds); if (markError) throw markError; }
-    const now = Date.now();
-    const rows = (engagements || []).map((engagement) => { const messages = messagesByEngagement.get(engagement.id) || []; const activeGrant = (grantsByEngagement.get(engagement.id) || []).find((grant) => !grant.revoked_at && Date.parse(grant.expires_at) > now) || null; return { ...engagement, client_name: orgMap.get(engagement.organization_id) || "Client organization", grants: grantsByEngagement.get(engagement.id) || [], active_grant: activeGrant ? { ...activeGrant, delivery: deliveriesByGrant.get(activeGrant.id) || null } : null, messages: activeGrant ? messages : [], unread_client_messages: activeGrant ? messages.filter((row) => row.sender_type === "CLIENT" && !row.read_by_firm_at).length : 0 }; });
-    return NextResponse.json({ success: true, engagements: rows, delivery_readiness: deliveryReadiness, summary: { clients: rows.length, active_portals: rows.filter((row) => row.active_grant).length, messages: rows.filter((row) => row.active_grant).reduce((sum, row) => sum + row.messages.length, 0) }, generated_at: new Date().toISOString() });
-  } catch (error) { return portalStorageError(error); }
+    ]);
+
+    const clientIds = [...new Set(engagements.map((row) => row.organization_id).filter(Boolean))];
+    const organizations = clientIds.length ? await loadCompletePracticeRowsByIds({
+      ids: clientIds,
+      label: "Accounting practice client organizations",
+      buildQuery: (batch, from, to) => supabaseAdmin.from("organizations")
+        .select("id,name")
+        .in("id", batch)
+        .order("id", { ascending: true })
+        .range(from, to),
+    }) : [];
+
+    const nowMs = Date.now();
+    const grantsByEngagement = new Map();
+    for (const grant of grants) {
+      const rows = grantsByEngagement.get(grant.engagement_id) || [];
+      rows.push(grant);
+      grantsByEngagement.set(grant.engagement_id, rows);
+    }
+    const activeGrantByEngagement = new Map();
+    for (const engagement of engagements) {
+      const active = (grantsByEngagement.get(engagement.id) || []).find((grant) => !grant.revoked_at && Date.parse(grant.expires_at) > nowMs) || null;
+      if (active) activeGrantByEngagement.set(engagement.id, active);
+    }
+    const activeEngagementIds = [...activeGrantByEngagement.keys()];
+    const activeGrantIds = [...activeGrantByEngagement.values()].map((row) => row.id);
+
+    const [messages, deliveries] = await Promise.all([
+      activeEngagementIds.length ? loadCompletePracticeRowsByIds({
+        ids: activeEngagementIds,
+        label: "Accounting practice active portal messages",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("accounting_client_portal_messages")
+          .select("id,engagement_id,sender_type,sender_name,sender_email,body,read_by_client_at,read_by_firm_at,created_at")
+          .eq("accounting_firm_id", access.organizationId)
+          .in("engagement_id", batch)
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }) : Promise.resolve([]),
+      activeGrantIds.length ? loadCompletePracticeRowsByIds({
+        ids: activeGrantIds,
+        label: "Accounting practice portal deliveries",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("finance_client_portal_deliveries")
+          .select("id,portal_grant_id,engagement_id,recipient_email,provider_id,status,external_message_id,attempt_count,error_code,error_message,created_at,updated_at,sent_at")
+          .eq("accounting_firm_id", access.organizationId)
+          .in("portal_grant_id", batch)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }) : Promise.resolve([]),
+    ]);
+
+    for (const batch of chunkPracticeIds(activeEngagementIds)) {
+      const { error: markError } = await supabaseAdmin.from("accounting_client_portal_messages")
+        .update({ read_by_firm_at: new Date().toISOString() })
+        .eq("accounting_firm_id", access.organizationId)
+        .in("engagement_id", batch)
+        .eq("sender_type", "CLIENT")
+        .is("read_by_firm_at", null);
+      if (markError) throw markError;
+    }
+
+    const orgMap = new Map(organizations.map((row) => [row.id, row.name || "Client organization"]));
+    const messagesByEngagement = new Map();
+    for (const message of messages) { const rows = messagesByEngagement.get(message.engagement_id) || []; rows.push(message); messagesByEngagement.set(message.engagement_id, rows); }
+    const deliveriesByGrant = new Map();
+    for (const delivery of deliveries) if (!deliveriesByGrant.has(delivery.portal_grant_id)) deliveriesByGrant.set(delivery.portal_grant_id, delivery);
+
+    const rows = engagements.map((engagement) => {
+      const activeGrant = activeGrantByEngagement.get(engagement.id) || null;
+      const engagementMessages = activeGrant ? messagesByEngagement.get(engagement.id) || [] : [];
+      return {
+        ...engagement,
+        client_name: orgMap.get(engagement.organization_id) || "Client organization",
+        grants: grantsByEngagement.get(engagement.id) || [],
+        active_grant: activeGrant ? { ...activeGrant, delivery: deliveriesByGrant.get(activeGrant.id) || null } : null,
+        messages: engagementMessages,
+        unread_client_messages: engagementMessages.filter((row) => row.sender_type === "CLIENT" && !row.read_by_firm_at).length,
+      };
+    });
+
+    return NextResponse.json({
+      success: true,
+      engagements: rows,
+      delivery_readiness: deliveryReadiness,
+      summary: {
+        clients: rows.length,
+        active_portals: rows.filter((row) => row.active_grant).length,
+        messages: rows.reduce((sum, row) => sum + row.messages.length, 0),
+      },
+      generated_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    return portalStorageError(error);
+  }
 }
 
 export async function POST(request) {

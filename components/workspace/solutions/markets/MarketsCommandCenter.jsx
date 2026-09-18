@@ -18,6 +18,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   const [working, setWorking] = useState("");
   const [error, setError] = useState("");
   const [symbol, setSymbol] = useState("");
+  const [paperQuantityBySymbol, setPaperQuantityBySymbol] = useState({});
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -72,6 +73,24 @@ export default function MarketsCommandCenter({ organizationId }) {
     if (result) setSymbol("");
   }
 
+  async function queuePaperDecision(decision) {
+    const ticker = String(decision?.symbol || "").toUpperCase();
+    const quantity = Number(paperQuantityBySymbol[ticker]);
+    if (!(quantity > 0)) {
+      setError("Enter a paper quantity greater than zero.");
+      return;
+    }
+
+    const result = await act("SUBMIT_PAPER_ORDER", {
+      decision_id: decision.id,
+      quantity,
+      order_type: "MARKET",
+    });
+    if (result) {
+      setPaperQuantityBySymbol((current) => ({ ...current, [ticker]: "" }));
+    }
+  }
+
   const portfolio = data?.portfolio;
   const watchlist = Array.isArray(data?.watchlist) ? data.watchlist : [];
   const decisions = Array.isArray(data?.decisions) ? data.decisions : [];
@@ -81,8 +100,11 @@ export default function MarketsCommandCenter({ organizationId }) {
   const snapshots = Array.isArray(data?.snapshots) ? data.snapshots : [];
   const filings = Array.isArray(data?.filings) ? data.filings : [];
   const outcomes = Array.isArray(data?.outcomes) ? data.outcomes : [];
+  const paperAccount = data?.paperAccount || null;
+  const paperPositions = Array.isArray(data?.paperPositions) ? data.paperPositions : [];
+  const paperFills = Array.isArray(data?.paperFills) ? data.paperFills : [];
   const policy = data?.riskPolicy || {};
-  const baseCurrency = portfolio?.base_currency || "USD";
+  const baseCurrency = portfolio?.base_currency || paperAccount?.base_currency || "USD";
 
   const latestBySymbol = new Map();
   for (const row of decisions) {
@@ -92,6 +114,20 @@ export default function MarketsCommandCenter({ organizationId }) {
   for (const row of snapshots) {
     if (!latestSnapshotBySymbol.has(row.symbol)) latestSnapshotBySymbol.set(row.symbol, row);
   }
+
+  const directionalOutcomes = outcomes.filter((row) => typeof row.directional_hit === "boolean");
+  const directionalHits = directionalOutcomes.filter((row) => row.directional_hit).length;
+  const hitRate = directionalOutcomes.length
+    ? (directionalHits / directionalOutcomes.length) * 100
+    : null;
+  const brierRows = outcomes.map((row) => Number(row.squared_error)).filter(Number.isFinite);
+  const logLossRows = outcomes.map((row) => Number(row.log_loss)).filter(Number.isFinite);
+  const averageBrier = brierRows.length
+    ? brierRows.reduce((sum, value) => sum + value, 0) / brierRows.length
+    : null;
+  const averageLogLoss = logLossRows.length
+    ? logLossRows.reduce((sum, value) => sum + value, 0) / logLossRows.length
+    : null;
 
   if (loading && !data) {
     return (
@@ -157,6 +193,79 @@ export default function MarketsCommandCenter({ organizationId }) {
               ))}
             </section>
 
+            <section className="rounded-[22px] border border-black/[0.075] bg-white">
+              <div className="flex flex-col gap-3 border-b border-black/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-[9px] font-medium uppercase tracking-[0.16em] text-[#A37849]">Paper portfolio</div>
+                  <h2 className="mt-1 text-[18px] font-semibold">Simulation account & positions</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => act("PROCESS_PAPER_ORDERS")}
+                  disabled={Boolean(working) || !orders.some((row) => row.status === "QUEUED")}
+                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3 text-[10px] font-medium text-white disabled:opacity-35"
+                >
+                  <Activity size={12} />
+                  {working === "PROCESS_PAPER_ORDERS" ? "Processing…" : "Process paper orders"}
+                </button>
+              </div>
+
+              <div className="grid gap-2 border-b border-black/[0.06] p-4 sm:grid-cols-2 xl:grid-cols-5">
+                {[
+                  ["Equity", paperAccount ? money(paperAccount.equity, baseCurrency) : "—"],
+                  ["Cash", paperAccount ? money(paperAccount.cash_balance, baseCurrency) : "—"],
+                  ["Realized P&L", paperAccount ? money(paperAccount.realized_pnl, baseCurrency) : "—"],
+                  ["Unrealized P&L", paperAccount ? money(paperAccount.unrealized_pnl, baseCurrency) : "—"],
+                  ["Positions", paperPositions.filter((row) => Number(row.quantity || 0) > 0).length],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                    <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
+                    <div className="mt-1 text-[14px] font-semibold">{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-[10px]">
+                  <thead className="text-[#8A867F]">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Symbol</th>
+                      <th className="px-4 py-3 font-medium">Qty</th>
+                      <th className="px-4 py-3 font-medium">Average</th>
+                      <th className="px-4 py-3 font-medium">Market</th>
+                      <th className="px-4 py-3 font-medium">Value</th>
+                      <th className="px-4 py-3 font-medium">Unrealized</th>
+                      <th className="px-4 py-3 font-medium">Realized</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/[0.06]">
+                    {paperPositions.filter((row) => Number(row.quantity || 0) > 0).length ? (
+                      paperPositions.filter((row) => Number(row.quantity || 0) > 0).map((position) => (
+                        <tr key={position.id}>
+                          <td className="px-4 py-3 font-semibold">{position.symbol}</td>
+                          <td className="px-4 py-3">{position.quantity}</td>
+                          <td className="px-4 py-3">{position.average_entry_price ? money(position.average_entry_price, baseCurrency) : "—"}</td>
+                          <td className="px-4 py-3">{position.market_price ? money(position.market_price, baseCurrency) : "—"}</td>
+                          <td className="px-4 py-3">{money(position.market_value, baseCurrency)}</td>
+                          <td className="px-4 py-3">{money(position.unrealized_pnl, baseCurrency)}</td>
+                          <td className="px-4 py-3">{money(position.realized_pnl, baseCurrency)}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-[#9A968E]">
+                          No paper positions yet. Only risk-approved simulated fills appear here.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="border-t border-black/[0.06] px-4 py-2.5 text-[9px] text-[#8A867F]">
+                {paperFills.length} simulated fill{paperFills.length === 1 ? "" : "s"} recorded · no live broker execution
+              </div>
+            </section>
+
             <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
               <div className="rounded-[22px] border border-black/[0.075] bg-white">
                 <div className="flex flex-col gap-3 border-b border-black/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -177,7 +286,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                     const snapshot = latestSnapshotBySymbol.get(item.symbol);
                     const refreshing = working === `REFRESH_INTELLIGENCE:${item.symbol}`;
                     return (
-                      <div key={item.id} className="grid gap-3 p-4 sm:grid-cols-[minmax(120px,1fr)_auto_auto_auto_auto] sm:items-center">
+                      <div key={item.id} className="grid gap-3 p-4 sm:grid-cols-[minmax(120px,1fr)_auto_auto_auto_minmax(250px,auto)] sm:items-center">
                         <div>
                           <div className="text-[14px] font-semibold">{item.symbol}</div>
                           <div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-[#938C83]">{item.asset_type} · {item.thesis_horizon}</div>
@@ -194,39 +303,65 @@ export default function MarketsCommandCenter({ organizationId }) {
                           <div className="text-[9px] uppercase tracking-[0.12em] text-[#938C83]">Confidence</div>
                           <div className="mt-1 text-[11px] font-medium">{decision ? `${(Number(decision.confidence) * 100).toFixed(1)}%` : "—"}</div>
                         </div>
-                        <button
-                          type="button"
-                          disabled={Boolean(working)}
-                          onClick={async () => {
-                            setWorking(`REFRESH_INTELLIGENCE:${item.symbol}`);
-                            setError("");
-                            try {
-                              const response = await fetch("/api/markets/command-center", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                credentials: "include",
-                                body: JSON.stringify({
-                                  organizationId,
-                                  entityId,
-                                  action: "REFRESH_INTELLIGENCE",
-                                  symbol: item.symbol,
-                                  exchange: item.exchange || null,
-                                }),
-                              });
-                              const json = await response.json().catch(() => ({}));
-                              if (!response.ok || !json?.success) throw new Error(json?.error || "Unable to refresh intelligence");
-                              await load();
-                            } catch (refreshError) {
-                              setError(refreshError?.message || "Unable to refresh intelligence");
-                            } finally {
-                              setWorking("");
-                            }
-                          }}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-[#FCFBF9] px-2.5 text-[9px] font-medium text-[#5E5851] transition hover:border-[#D6A66A]/45 hover:text-[#8A6239] disabled:opacity-40"
-                        >
-                          <RefreshCw size={10} className={refreshing ? "animate-spin" : ""} />
-                          Refresh intelligence
-                        </button>
+                        <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+                          <button
+                            type="button"
+                            disabled={Boolean(working)}
+                            onClick={async () => {
+                              setWorking(`REFRESH_INTELLIGENCE:${item.symbol}`);
+                              setError("");
+                              try {
+                                const response = await fetch("/api/markets/command-center", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  credentials: "include",
+                                  body: JSON.stringify({
+                                    organizationId,
+                                    entityId,
+                                    action: "REFRESH_INTELLIGENCE",
+                                    symbol: item.symbol,
+                                    exchange: item.exchange || null,
+                                  }),
+                                });
+                                const json = await response.json().catch(() => ({}));
+                                if (!response.ok || !json?.success) throw new Error(json?.error || "Unable to refresh intelligence");
+                                await load();
+                              } catch (refreshError) {
+                                setError(refreshError?.message || "Unable to refresh intelligence");
+                              } finally {
+                                setWorking("");
+                              }
+                            }}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-[#FCFBF9] px-2.5 text-[9px] font-medium text-[#5E5851] transition hover:border-[#D6A66A]/45 hover:text-[#8A6239] disabled:opacity-40"
+                          >
+                            <RefreshCw size={10} className={refreshing ? "animate-spin" : ""} />
+                            Refresh
+                          </button>
+                          {["BUY", "SELL"].includes(decision?.action) ? (
+                            <>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={paperQuantityBySymbol[item.symbol] ?? ""}
+                                onChange={(event) => setPaperQuantityBySymbol((current) => ({
+                                  ...current,
+                                  [item.symbol]: event.target.value,
+                                }))}
+                                placeholder="Qty"
+                                className="h-8 w-20 rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-2 text-[9px] text-[#2E2B27] outline-none"
+                              />
+                              <button
+                                type="button"
+                                disabled={Boolean(working)}
+                                onClick={() => queuePaperDecision(decision)}
+                                className="inline-flex h-8 items-center rounded-lg bg-[#1F1E1B] px-2.5 text-[9px] font-medium text-white disabled:opacity-40"
+                              >
+                                Queue {decision.action}
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
                       </div>
                     );
                   }) : <div className="p-8 text-center text-[11px] text-[#8A867F]">Add the first instrument to start the research universe.</div>}
@@ -269,6 +404,27 @@ export default function MarketsCommandCenter({ organizationId }) {
                         <div className="mt-1 text-[14px] font-semibold">{value}</div>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                  <div className="flex items-center gap-2 text-[#A37849]"><TrendingUp size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Prediction calibration</span></div>
+                  <h2 className="mt-2 text-[18px] font-semibold">Measured outcomes</h2>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {[
+                      ["Evaluated", outcomes.length],
+                      ["Directional hit", hitRate === null ? "—" : `${hitRate.toFixed(1)}%`],
+                      ["Avg Brier", averageBrier === null ? "—" : averageBrier.toFixed(4)],
+                      ["Avg log loss", averageLogLoss === null ? "—" : averageLogLoss.toFixed(4)],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                        <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
+                        <div className="mt-1 text-[14px] font-semibold">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-[9px] leading-4 text-[#8A867F]">
+                    Confidence is scored against realized market outcomes. High-confidence mistakes receive a larger calibration penalty.
                   </div>
                 </div>
               </div>

@@ -5,6 +5,7 @@ import {
   buildNewsThesis,
   buildQuantThesis,
   buildTechnicalThesis,
+  probabilityUpFromDecision,
   synthesizeMarketDecision,
 } from "../lib/markets/runtime/MarketSpecialistModels.js";
 
@@ -61,4 +62,10 @@ test("ensemble produces governed action from two aligned specialists", () => {
   assert.equal(decision.action, "BUY");
   assert.ok(decision.confidence > 0);
   assert.ok(decision.confidence <= 0.95);
+});
+
+test("decision confidence converts to bounded upward probability", () => {
+  assert.equal(probabilityUpFromDecision({ action: "BUY", confidence: 0.8 }), 0.9);
+  assert.ok(Math.abs(probabilityUpFromDecision({ action: "SELL", confidence: 0.8 }) - 0.1) < 1e-12);
+  assert.equal(probabilityUpFromDecision({ action: "HOLD", confidence: 0.9 }), 0.5);
 });

@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 
 import { resolveBusinessContext } from "@/lib/business-context/resolveBusinessContext";
 import { MarketIntelligenceIngestionRuntime } from "@/lib/markets/runtime/MarketIntelligenceIngestionRuntime";
+import { MarketPaperExecutionRuntime } from "@/lib/markets/runtime/MarketPaperExecutionRuntime";
+import { MarketPredictionOutcomeRuntime } from "@/lib/markets/runtime/MarketPredictionOutcomeRuntime";
 import { MarketSpecialistAgentRuntime } from "@/lib/markets/runtime/MarketSpecialistAgentRuntime";
 import { evaluatePaperTradeRisk } from "@/lib/markets/runtime/MarketRiskPolicyRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
@@ -57,10 +59,13 @@ async function loadState({ organizationId, entityId }) {
       snapshots: [],
       filings: [],
       outcomes: [],
+      paperAccount: null,
+      paperPositions: [],
+      paperFills: [],
     };
   }
 
-  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, snapshotsResult, filingsResult, outcomesResult] = await Promise.all([
+  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult] = await Promise.all([
     supabaseAdmin.from("market_watchlist").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).neq("status", "REMOVED").order("added_at", { ascending: false }),
     supabaseAdmin.from("market_decisions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("created_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_paper_orders").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("submitted_at", { ascending: false }).limit(50),
@@ -70,9 +75,12 @@ async function loadState({ organizationId, entityId }) {
     supabaseAdmin.from("market_snapshots").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("captured_at", { ascending: false }).limit(100),
     supabaseAdmin.from("market_filings").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("filed_at", { ascending: false }).limit(100),
     supabaseAdmin.from("market_prediction_outcomes").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("evaluation_time", { ascending: false }).limit(100),
+    supabaseAdmin.from("market_paper_accounts").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).maybeSingle(),
+    supabaseAdmin.from("market_paper_positions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("market_value", { ascending: false }),
+    supabaseAdmin.from("market_paper_fills").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("filled_at", { ascending: false }).limit(100),
   ]);
 
-  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, snapshotsResult, filingsResult, outcomesResult]) {
+  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult]) {
     if (result.error) throw result.error;
   }
 
@@ -87,6 +95,9 @@ async function loadState({ organizationId, entityId }) {
     snapshots: snapshotsResult.data || [],
     filings: filingsResult.data || [],
     outcomes: outcomesResult.data || [],
+    paperAccount: paperAccountResult.data || null,
+    paperPositions: paperPositionsResult.data || [],
+    paperFills: paperFillsResult.data || [],
   };
 }
 
@@ -143,6 +154,13 @@ async function initializePortfolio({ organizationId, entityId, name = "Primary P
   });
   if (policyError) throw policyError;
 
+  const { error: accountError } = await supabaseAdmin.from("market_paper_accounts").insert({
+    organization_id: organizationId,
+    portfolio_id: portfolio.id,
+    base_currency: clean(baseCurrency).toUpperCase() || "USD",
+  });
+  if (accountError) throw accountError;
+
   return loadState({ organizationId, entityId });
 }
 
@@ -175,21 +193,111 @@ async function submitPaperOrder({ organizationId, state, body }) {
   const decision = state.decisions.find((row) => row.id === decisionId);
   if (!decision) throw new Error("A valid governed decision is required");
 
-  const side = clean(body.side || decision.action).toUpperCase();
-  if (!["BUY", "SELL"].includes(side)) throw new Error("Paper order side must be BUY or SELL");
+  const side = clean(decision.action).toUpperCase();
+  if (!["BUY", "SELL"].includes(side)) {
+    throw new Error("Only BUY or SELL governed decisions can create paper orders");
+  }
+  if (decision.expires_at && new Date(decision.expires_at).getTime() <= Date.now()) {
+    throw new Error("The governed decision has expired");
+  }
+
   const quantity = Number(body.quantity);
-  const requestedPrice = Number(body.requested_price || body.requestedPrice);
-  if (!(quantity > 0) || !(requestedPrice > 0)) throw new Error("Quantity and requested price must be greater than zero");
+  if (!(quantity > 0)) throw new Error("Quantity must be greater than zero");
+
+  const snapshot = state.snapshots.find((row) => clean(row.symbol).toUpperCase() === clean(decision.symbol).toUpperCase());
+  if (!snapshot) throw new Error("Refresh market intelligence before submitting a paper order");
+
+  const priceCandidates = side === "BUY"
+    ? [snapshot.ask_price, snapshot.latest_trade_price, snapshot.minute_close, snapshot.day_close]
+    : [snapshot.bid_price, snapshot.latest_trade_price, snapshot.minute_close, snapshot.day_close];
+  const requestedPrice = priceCandidates
+    .map((value) => Number(value))
+    .find((value) => Number.isFinite(value) && value > 0);
+  if (!(requestedPrice > 0)) throw new Error("Authoritative market price is unavailable");
+
+  let account = state.paperAccount;
+  if (!account) {
+    const { data, error } = await supabaseAdmin
+      .from("market_paper_accounts")
+      .insert({
+        organization_id: organizationId,
+        portfolio_id: state.portfolio.id,
+        base_currency: state.portfolio.base_currency || "USD",
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    account = data;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (clean(account.daily_equity_date) !== today) {
+    const { data, error } = await supabaseAdmin
+      .from("market_paper_accounts")
+      .update({
+        daily_equity_start: account.equity,
+        daily_equity_date: today,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", account.id)
+      .eq("organization_id", organizationId)
+      .select("*")
+      .single();
+    if (error) throw error;
+    account = data;
+  }
+
+  const latestSnapshotBySymbol = new Map();
+  for (const row of state.snapshots) {
+    const symbol = clean(row.symbol).toUpperCase();
+    if (!latestSnapshotBySymbol.has(symbol)) latestSnapshotBySymbol.set(symbol, row);
+  }
+
+  let markedPositionsValue = 0;
+  for (const position of state.paperPositions) {
+    const symbol = clean(position.symbol).toUpperCase();
+    const latest = latestSnapshotBySymbol.get(symbol);
+    const mark = Number(
+      latest?.latest_trade_price
+      ?? latest?.minute_close
+      ?? latest?.day_close
+      ?? position.market_price
+      ?? 0,
+    );
+    const quantityHeld = Number(position.quantity || 0);
+    markedPositionsValue += quantityHeld * (Number.isFinite(mark) ? mark : 0);
+  }
+
+  const equity = Number(account.cash_balance || 0) + markedPositionsValue;
+  const dailyEquityStart = Number(account.daily_equity_start || equity);
+  const highWaterEquity = Math.max(Number(account.high_water_equity || equity), equity);
+  const dailyPnl = equity - dailyEquityStart;
+  const drawdownPct = highWaterEquity > 0
+    ? Math.max(0, ((highWaterEquity - equity) / highWaterEquity) * 100)
+    : 0;
+
+  const position = state.paperPositions.find(
+    (row) => clean(row.symbol).toUpperCase() === clean(decision.symbol).toUpperCase(),
+  ) || null;
+  const heldQuantity = Number(position?.quantity || 0);
+  if (side === "SELL" && heldQuantity < quantity) {
+    throw new Error("Insufficient paper position for SELL order");
+  }
 
   const notional = quantity * requestedPrice;
+  if (side === "BUY" && Number(account.cash_balance || 0) < notional) {
+    throw new Error("Insufficient paper cash for BUY order");
+  }
+
+  const currentPositionValue = heldQuantity * requestedPrice;
   const risk = evaluatePaperTradeRisk({
     policy: state.riskPolicy || {},
     decision,
     portfolio: {
-      equity: Number(body.portfolio_equity || 0),
-      current_position_value: Number(body.current_position_value || 0),
-      daily_pnl: Number(body.daily_pnl || 0),
-      drawdown_pct: Number(body.drawdown_pct || 0),
+      equity,
+      current_position_value: currentPositionValue,
+      daily_pnl: dailyPnl,
+      drawdown_pct: drawdownPct,
     },
     order: { side, notional },
   });
@@ -205,18 +313,30 @@ async function submitPaperOrder({ organizationId, state, body }) {
 
   if (!risk.approved) return { approved: false, risk, decision: updatedDecision, order: null };
 
+  const orderType = clean(body.order_type || "MARKET").toUpperCase();
+  if (!["MARKET", "LIMIT"].includes(orderType)) throw new Error("Unsupported paper order type");
+  const limitPrice = orderType === "LIMIT" ? Number(body.limit_price) : null;
+  if (orderType === "LIMIT" && !(limitPrice > 0)) throw new Error("Limit price must be greater than zero");
+
   const { data: order, error: orderError } = await supabaseAdmin.from("market_paper_orders").insert({
     organization_id: organizationId,
     portfolio_id: state.portfolio.id,
     decision_id: decision.id,
-    symbol: decision.symbol,
+    symbol: clean(decision.symbol).toUpperCase(),
     side,
-    order_type: clean(body.order_type || "MARKET").toUpperCase(),
+    order_type: orderType,
     quantity,
-    limit_price: body.limit_price ?? null,
+    limit_price: limitPrice,
     requested_price: requestedPrice,
     status: "QUEUED",
-    risk_snapshot: risk.snapshot,
+    risk_snapshot: {
+      ...risk.snapshot,
+      authoritative_state: true,
+      daily_equity_start: dailyEquityStart,
+      high_water_equity: highWaterEquity,
+      cash_balance: Number(account.cash_balance || 0),
+      held_quantity: heldQuantity,
+    },
     metadata: { simulation_only: true },
   }).select("*").single();
   if (orderError) throw orderError;
@@ -290,12 +410,20 @@ export async function POST(request) {
         bars: refreshed.bars,
         evidence: refreshed.evidence,
         filings: refreshed.filings,
+        snapshot: refreshed.snapshot,
+      });
+
+      const outcomeEvaluation = await MarketPredictionOutcomeRuntime.evaluateMatured({
+        organizationId,
+        portfolioId: state.portfolio.id,
+        limit: 100,
       });
 
       return NextResponse.json({
         success: true,
         refresh: refreshed,
         intelligence: cycle,
+        learning: outcomeEvaluation,
         execution: { mode: "PAPER", live_enabled: false },
       });
     }
@@ -308,6 +436,26 @@ export async function POST(request) {
     if (action === "SUBMIT_PAPER_ORDER") {
       const result = await submitPaperOrder({ organizationId, state, body });
       return NextResponse.json({ success: true, ...result }, { status: result.approved ? 200 : 409 });
+    }
+
+    if (action === "PROCESS_PAPER_ORDERS") {
+      const result = await MarketPaperExecutionRuntime.processQueued({
+        organizationId,
+        portfolioId: state.portfolio.id,
+        slippageBps: Number(body.slippage_bps ?? 5),
+        feeAmount: Number(body.fee_amount ?? 0),
+        limit: Math.min(Math.max(Number(body.limit || 50), 1), 100),
+      });
+      const refreshedState = await loadState({ organizationId, entityId });
+      return NextResponse.json({
+        success: true,
+        execution: { mode: "PAPER", live_enabled: false },
+        processing: result,
+        paperAccount: refreshedState.paperAccount,
+        paperPositions: refreshedState.paperPositions,
+        paperFills: refreshedState.paperFills,
+        paperOrders: refreshedState.paperOrders,
+      });
     }
 
     return NextResponse.json({ success: false, error: "Unsupported Markets action" }, { status: 400 });

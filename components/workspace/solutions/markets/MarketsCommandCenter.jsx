@@ -1059,6 +1059,8 @@ export default function MarketsCommandCenter({ organizationId }) {
                       <th className="px-4 py-3 font-medium">Side</th>
                       <th className="px-4 py-3 font-medium">Qty</th>
                       <th className="px-4 py-3 font-medium">Requested</th>
+                      <th className="px-4 py-3 font-medium">TIF</th>
+                      <th className="px-4 py-3 font-medium">Expiry</th>
                       <th className="px-4 py-3 font-medium">Status</th>
                     </tr>
                   </thead>
@@ -1070,10 +1072,19 @@ export default function MarketsCommandCenter({ organizationId }) {
                         <td className="px-4 py-3">{order.side}</td>
                         <td className="px-4 py-3">{order.quantity}</td>
                         <td className="px-4 py-3">{money(order.requested_price, baseCurrency)}</td>
-                        <td className="px-4 py-3">{order.status}</td>
+                        <td className="px-4 py-3">{order.time_in_force || "DAY"}</td>
+                        <td className="px-4 py-3 text-[#8A867F]">
+                          {order.expires_at ? new Date(order.expires_at).toLocaleString() : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div>{order.status}</div>
+                          {order.lifecycle_reason ? (
+                            <div className="mt-0.5 max-w-[220px] text-[8px] text-[#9A968E]">{order.lifecycle_reason}</div>
+                          ) : null}
+                        </td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={6} className="px-4 py-10 text-center text-[#9A968E]">No paper orders yet. Orders can only be submitted after a governed decision passes risk.</td></tr>
+                      <tr><td colSpan={8} className="px-4 py-10 text-center text-[#9A968E]">No paper orders yet. Orders can only be submitted after a governed decision passes risk.</td></tr>
                     )}
                   </tbody>
                 </table>

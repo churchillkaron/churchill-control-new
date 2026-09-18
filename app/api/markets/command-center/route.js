@@ -13,6 +13,7 @@ import { MarketPaperExecutionRuntime } from "@/lib/markets/runtime/MarketPaperEx
 import { MarketPortfolioPerformanceRuntime } from "@/lib/markets/runtime/MarketPortfolioPerformanceRuntime";
 import { MarketPortfolioRiskRuntime } from "@/lib/markets/runtime/MarketPortfolioRiskRuntime";
 import { MarketPredictionOutcomeRuntime } from "@/lib/markets/runtime/MarketPredictionOutcomeRuntime";
+import { MarketSessionSafetyRuntime } from "@/lib/markets/runtime/MarketSessionSafetyRuntime";
 import { MarketSpecialistAgentRuntime } from "@/lib/markets/runtime/MarketSpecialistAgentRuntime";
 import { MarketWalkForwardRuntime } from "@/lib/markets/runtime/MarketWalkForwardRuntime";
 import { evaluatePaperTradeRisk } from "@/lib/markets/runtime/MarketRiskPolicyRuntime";
@@ -462,6 +463,13 @@ async function submitPaperOrder({ organizationId, state, body }) {
   if (!["MARKET", "LIMIT"].includes(orderType)) throw new Error("Unsupported paper order type");
   const limitPrice = orderType === "LIMIT" ? Number(body.limit_price) : null;
   if (orderType === "LIMIT" && !(limitPrice > 0)) throw new Error("Limit price must be greater than zero");
+  const timeInForce = clean(body.time_in_force || body.timeInForce || "DAY").toUpperCase();
+  if (!["DAY", "GTC"].includes(timeInForce)) throw new Error("Unsupported paper time in force");
+  const lifecycle = await MarketSessionSafetyRuntime.resolvePaperOrderExpiry({
+    organizationId,
+    timeInForce,
+    decisionExpiresAt: decision.expires_at || null,
+  });
 
   const { data: order, error: orderError } = await supabaseAdmin.from("market_paper_orders").insert({
     organization_id: organizationId,
@@ -474,6 +482,8 @@ async function submitPaperOrder({ organizationId, state, body }) {
     limit_price: limitPrice,
     requested_price: requestedPrice,
     status: "QUEUED",
+    time_in_force: lifecycle.time_in_force,
+    expires_at: lifecycle.expires_at,
     risk_snapshot: {
       ...risk.snapshot,
       authoritative_state: true,

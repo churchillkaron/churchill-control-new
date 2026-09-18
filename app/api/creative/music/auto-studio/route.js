@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 import { resolveCreativeProviderAssetUrl } from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 import { CreativeMusicAutoStudioRuntime } from "@/lib/creative/music/runtime/CreativeMusicAutoStudioRuntime";
+import { verifyRecordedTakeUpload } from "@/lib/creative/music/runtime/CreativeMusicRecordedTakeVerificationRuntime";
 import { executeMusicAutoStudioLocal } from "@/lib/creative/music/runtime/CreativeMusicAutoStudioExecutionRuntime";
 import {
   createMusicClip,
@@ -216,6 +217,12 @@ async function registerRecordedTake(body) {
   const trackRole = text(body.track_role || "other").toLowerCase();
   const allowedRoles = new Set(["vocal", "guitar", "bass", "keys", "drums", "instrument", "room", "other"]);
   if (!allowedRoles.has(trackRole)) throw new Error("CREATIVE_MUSIC_RECORDING_TRACK_ROLE_INVALID");
+  const serverVerification = await verifyRecordedTakeUpload({
+    organization_id: organizationId,
+    storage_reference: storageReference,
+    file_name: fileName,
+    declared: { duration_seconds: durationSeconds, sample_rate: sampleRate, channels },
+  });
 
   const asset = await CreativeAssetsRuntime.create({
     organization_id: organizationId,
@@ -240,10 +247,13 @@ async function registerRecordedTake(body) {
       browser_processing_verification: text(body.browser_processing_verification) || "UNVERIFIED",
       requested_browser_processing_disabled: body.requested_browser_processing_disabled === true,
       recording_track_role: trackRole,
-      duration_seconds: durationSeconds,
-      sample_rate: sampleRate,
-      channels,
-      bit_depth: 24,
+      duration_seconds: serverVerification.duration_seconds,
+      sample_rate: serverVerification.sample_rate,
+      channels: serverVerification.channels,
+      bit_depth: serverVerification.bit_depth,
+      server_media_verification: serverVerification,
+      server_media_verified: serverVerification.verified === true,
+      server_media_checksum_sha256: serverVerification.checksum_sha256 || null,
       wav_container_bit_depth: Math.round(finite(body.wav_container_bit_depth,24)),
       capture_sample_size_bits: finite(body.capture_sample_size_bits,null),
       native_capture_precision_verified: body.native_capture_precision_verified === true,
@@ -284,7 +294,7 @@ async function registerRecordedTake(body) {
     asset,
     title: text(body.title || fileName),
     trackRole,
-    durationSeconds,
+    durationSeconds: serverVerification.duration_seconds,
     body,
   });
 

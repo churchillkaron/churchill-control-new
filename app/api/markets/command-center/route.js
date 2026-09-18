@@ -108,10 +108,11 @@ async function loadState({ organizationId, entityId }) {
         avg_total_execution_cost_bps: null,
         avg_displayed_liquidity_participation: null,
       },
+      riskEvents: [],
     };
   }
 
-  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult, corporateActionsResult, corporateActionAdjustmentsResult] = await Promise.all([
+  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult, corporateActionsResult, corporateActionAdjustmentsResult, riskEventsResult] = await Promise.all([
     supabaseAdmin.from("market_watchlist").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).neq("status", "REMOVED").order("added_at", { ascending: false }),
     supabaseAdmin.from("market_decisions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("created_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_paper_orders").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("submitted_at", { ascending: false }).limit(50),
@@ -132,9 +133,10 @@ async function loadState({ organizationId, entityId }) {
     supabaseAdmin.from("market_agent_performance").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("agent_type", { ascending: true }),
     supabaseAdmin.from("market_corporate_actions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("event_date", { ascending: true }).limit(100),
     supabaseAdmin.from("market_corporate_action_adjustments").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("created_at", { ascending: false }).limit(100),
+    supabaseAdmin.from("market_risk_events").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("created_at", { ascending: false }).limit(100),
   ]);
 
-  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult, corporateActionsResult, corporateActionAdjustmentsResult]) {
+  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult, corporateActionsResult, corporateActionAdjustmentsResult, riskEventsResult]) {
     if (result.error) throw result.error;
   }
 
@@ -170,6 +172,7 @@ async function loadState({ organizationId, entityId }) {
     corporateActions: corporateActionsResult.data || [],
     corporateActionAdjustments: corporateActionAdjustmentsResult.data || [],
     executionQuality,
+    riskEvents: riskEventsResult.data || [],
   };
 }
 
@@ -285,6 +288,9 @@ async function submitPaperOrder({ organizationId, state, body }) {
   const side = clean(decision.action).toUpperCase();
   if (!["BUY", "SELL"].includes(side)) {
     throw new Error("Only BUY or SELL governed decisions can create paper orders");
+  }
+  if (side === "BUY" && state.automationPolicy?.circuit_breaker_latched === true) {
+    throw new Error("Portfolio circuit breaker is latched; new PAPER BUY exposure is blocked until owner reset");
   }
   if (decision.expires_at && new Date(decision.expires_at).getTime() <= Date.now()) {
     throw new Error("The governed decision has expired");
@@ -658,6 +664,44 @@ export async function POST(request) {
         success: true,
         riskPolicy,
         protective_positions_refreshed: Number(refreshedProtectionCount || 0),
+        execution: { mode: "PAPER", live_enabled: false },
+      });
+    }
+
+    if (action === "RESET_PORTFOLIO_CIRCUIT_BREAKER") {
+      requireMarketsAutomationAuthority(scope);
+      const resetAt = new Date().toISOString();
+
+      const { data: automationPolicy, error: resetPolicyError } = await supabaseAdmin
+        .from("market_automation_policies")
+        .update({
+          circuit_breaker_latched: false,
+          circuit_breaker_reason: null,
+          circuit_breaker_reset_at: resetAt,
+          updated_at: resetAt,
+        })
+        .eq("organization_id", organizationId)
+        .eq("portfolio_id", state.portfolio.id)
+        .select("*")
+        .single();
+      if (resetPolicyError) throw resetPolicyError;
+
+      const { error: resolveEventError } = await supabaseAdmin
+        .from("market_risk_events")
+        .update({
+          status: "RESOLVED",
+          resolved_at: resetAt,
+        })
+        .eq("organization_id", organizationId)
+        .eq("portfolio_id", state.portfolio.id)
+        .eq("event_type", "PORTFOLIO_CIRCUIT_BREAKER")
+        .eq("status", "OPEN");
+      if (resolveEventError) throw resolveEventError;
+
+      return NextResponse.json({
+        success: true,
+        automationPolicy,
+        circuit_breaker_reset_at: resetAt,
         execution: { mode: "PAPER", live_enabled: false },
       });
     }

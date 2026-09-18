@@ -164,6 +164,10 @@ export default function MarketsCommandCenter({ organizationId }) {
   const corporateActionAdjustments = Array.isArray(data?.corporateActionAdjustments)
     ? data.corporateActionAdjustments
     : [];
+  const riskEvents = Array.isArray(data?.riskEvents) ? data.riskEvents : [];
+  const openCircuitBreakerEvent = riskEvents.find(
+    (row) => row.event_type === "PORTFOLIO_CIRCUIT_BREAKER" && row.status === "OPEN",
+  ) || null;
   const corporateActionAdjustmentCounts = corporateActionAdjustments.reduce(
     (counts, row) => {
       const status = String(row?.status || "").toUpperCase();
@@ -796,23 +800,54 @@ export default function MarketsCommandCenter({ organizationId }) {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-[#A37849]"><Activity size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Paper autopilot</span></div>
                     <div className={`rounded-full px-2.5 py-1 text-[8px] font-medium ${
-                      automationPolicy.kill_switch
-                        ? "bg-red-50 text-red-700"
-                        : automationPolicy.auto_paper_enabled
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-[#F3F1ED] text-[#817D76]"
+                      automationPolicy.circuit_breaker_latched
+                        ? "bg-red-100 text-red-800"
+                        : automationPolicy.kill_switch
+                          ? "bg-red-50 text-red-700"
+                          : automationPolicy.auto_paper_enabled
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-[#F3F1ED] text-[#817D76]"
                     }`}>
-                      {automationPolicy.kill_switch
-                        ? "KILL SWITCH"
-                        : automationPolicy.auto_paper_enabled
-                          ? "ENABLED"
-                          : "OFF"}
+                      {automationPolicy.circuit_breaker_latched
+                        ? "CIRCUIT BREAKER"
+                        : automationPolicy.kill_switch
+                          ? "KILL SWITCH"
+                          : automationPolicy.auto_paper_enabled
+                            ? "ENABLED"
+                            : "OFF"}
                     </div>
                   </div>
                   <h2 className="mt-2 text-[18px] font-semibold">Autonomous simulation</h2>
                   <p className="mt-1 text-[9px] leading-4 text-[#8A867F]">
                     Research, decisions, sizing, risk checks and fills can run automatically in PAPER mode only.
                   </p>
+
+                  {automationPolicy.circuit_breaker_latched ? (
+                    <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-red-700">Portfolio circuit breaker latched</div>
+                        <div className="text-[8px] text-red-600">
+                          {automationPolicy.circuit_breaker_triggered_at
+                            ? new Date(automationPolicy.circuit_breaker_triggered_at).toLocaleString()
+                            : "Active"}
+                        </div>
+                      </div>
+                      <div className="mt-1 text-[9px] leading-4 text-red-700">
+                        {automationPolicy.circuit_breaker_reason || "Portfolio risk limit breached."}
+                      </div>
+                      {openCircuitBreakerEvent?.metrics ? (
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-[8px] text-red-700">
+                          <div>Daily loss: {Number(openCircuitBreakerEvent.metrics.daily_loss_pct || 0).toFixed(2)}%</div>
+                          <div>Drawdown: {Number(openCircuitBreakerEvent.metrics.drawdown_pct || 0).toFixed(2)}%</div>
+                          <div>Daily limit: {Number(openCircuitBreakerEvent.metrics.max_daily_loss_pct || 0).toFixed(2)}%</div>
+                          <div>Drawdown limit: {Number(openCircuitBreakerEvent.metrics.max_portfolio_drawdown_pct || 0).toFixed(2)}%</div>
+                        </div>
+                      ) : null}
+                      <div className="mt-2 text-[8px] leading-4 text-red-600">
+                        New strategy entries are blocked. Existing long PAPER exposure is being liquidated through the normal session, liquidity and partial-fill controls.
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     {[
@@ -906,7 +941,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                     </button>
                     <button
                       type="button"
-                      disabled={Boolean(working) || automationPolicy.kill_switch}
+                      disabled={Boolean(working) || automationPolicy.kill_switch || automationPolicy.circuit_breaker_latched}
                       onClick={() => act("UPDATE_AUTOMATION_POLICY", {
                         auto_paper_enabled: !automationPolicy.auto_paper_enabled,
                       })}
@@ -931,13 +966,27 @@ export default function MarketsCommandCenter({ organizationId }) {
                     >
                       {automationPolicy.kill_switch ? "Reset kill switch" : "Kill switch"}
                     </button>
+                    {automationPolicy.circuit_breaker_latched ? (
+                      <button
+                        type="button"
+                        disabled={Boolean(working)}
+                        onClick={() => act("RESET_PORTFOLIO_CIRCUIT_BREAKER")}
+                        className="h-8 rounded-lg border border-red-200 bg-red-50 px-2.5 text-[9px] font-medium text-red-700 disabled:opacity-40"
+                      >
+                        {working === "RESET_PORTFOLIO_CIRCUIT_BREAKER" ? "Resetting…" : "Reset circuit breaker"}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
-                      disabled={Boolean(working) || !automationPolicy.auto_paper_enabled || automationPolicy.kill_switch}
+                      disabled={Boolean(working) || ((!automationPolicy.auto_paper_enabled || automationPolicy.kill_switch) && !automationPolicy.circuit_breaker_latched)}
                       onClick={() => act("RUN_AUTONOMOUS_PAPER_CYCLE")}
                       className="h-8 rounded-lg border border-[#D6A66A]/35 bg-[#FBF7F1] px-2.5 text-[9px] font-medium text-[#8A6239] disabled:opacity-40"
                     >
-                      {working === "RUN_AUTONOMOUS_PAPER_CYCLE" ? "Running…" : "Run cycle now"}
+                      {working === "RUN_AUTONOMOUS_PAPER_CYCLE"
+                        ? "Running…"
+                        : automationPolicy.circuit_breaker_latched
+                          ? "Continue liquidation"
+                          : "Run cycle now"}
                     </button>
                   </div>
 

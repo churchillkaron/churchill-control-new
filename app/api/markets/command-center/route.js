@@ -1199,8 +1199,6 @@ export async function POST(request) {
       const result = await MarketPaperExecutionRuntime.processQueued({
         organizationId,
         portfolioId: state.portfolio.id,
-        slippageBps: Number(body.slippage_bps ?? 5),
-        feeAmount: Number(body.fee_amount ?? 0),
         limit: Math.min(Math.max(Number(body.limit || 50), 1), 100),
       });
       const refreshedState = await loadState({ organizationId, entityId });

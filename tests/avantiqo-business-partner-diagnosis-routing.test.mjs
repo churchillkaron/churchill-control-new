@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { isBusinessDiagnosisQuestion, classifyBusinessDiagnosisQuestion, resolveBusinessDiagnosisPeriods, runBusinessPartnerBusinessDiagnosis } from "../lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime.js";
+import { businessDiagnosisAuditProjectionFingerprint } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime.js";
 
 test("business diagnosis classifier catches causal business questions",()=>{
  assert.equal(isBusinessDiagnosisQuestion("Why did our profit drop this month?"),true);
@@ -110,7 +111,12 @@ test("diagnosis adapter forwards authenticated scope and governed context at run
   source:"text",message:"Why did our profit drop this month?",organizationId:"org",partyId:"party",entityId:"entity",periodId:"sep-entity",locale:"en",
   conversation:[{role:"user",content:"prior"}],longTermMemory:[{kind:"goal",value:"protect margin"}],actor,permissions,callerRequest,
   agreementState:{state:"ACTIVE"},projectState:{project_id:"p1"},
- },{loadPeriods,runDiagnosis:async(payload)=>{received=payload;return {result:{response:"Verified diagnosis."},business_diagnosis_receipt:{receipt_fingerprint:"abc123",final_evidence_state:"INTERNAL_SUFFICIENT",residual_material:false,answer_boundary_status:"PASS",answer_unsupported_recommendation_outcome_detected:false}};}});
+ },{loadPeriods,runDiagnosis:async(payload)=>{
+  received=payload;
+  const receipt={receipt_fingerprint:"abc123",diagnosis_class:"CAUSAL_DIAGNOSIS",business_timezone:"UTC",final_evidence_state:"INTERNAL_SUFFICIENT",residual_material:false,answer_boundary_status:"PASS",answer_unsupported_recommendation_outcome_detected:false,validated_external_context_ids:[],rejected_or_unresolved_external_contexts:[],baseline_period_id:"aug-entity",baseline_period_start_date:"2026-08-01",baseline_period_end_date:"2026-08-31",current_period_id:"sep-entity",current_period_start_date:"2026-09-01",current_period_end_date:"2026-09-30"};
+  receipt.audit_projection_fingerprint=businessDiagnosisAuditProjectionFingerprint({receipt_fingerprint:receipt.receipt_fingerprint,diagnosis_class:receipt.diagnosis_class,business_timezone:receipt.business_timezone,final_evidence_state:receipt.final_evidence_state,residual_material:receipt.residual_material,answer_boundary_status:receipt.answer_boundary_status,answer_unsupported_recommendation_outcome_detected:receipt.answer_unsupported_recommendation_outcome_detected,validated_external_context_count:0,unresolved_external_context_count:0,baseline_period_id:receipt.baseline_period_id,baseline_period_start_date:receipt.baseline_period_start_date,baseline_period_end_date:receipt.baseline_period_end_date,current_period_id:receipt.current_period_id,current_period_start_date:receipt.current_period_start_date,current_period_end_date:receipt.current_period_end_date});
+  return {result:{response:"Verified diagnosis."},business_diagnosis_receipt:receipt};
+ }});
  assert.equal(received.organization_id,"org");
  assert.equal(received.party_id,"party");
  assert.equal(received.entity_id,"entity");
@@ -168,4 +174,13 @@ test("period resolver uses organization timezone at midnight boundary",async()=>
  assert.equal(bangkok.baseline_period_id,"sep");
  assert.equal(utc.current_period_id,"sep");
  assert.equal(utc.baseline_period_id,"aug");
+});
+
+
+test("business partner verifies live diagnosis proof before returning it",()=>{
+ const source=fs.readFileSync("lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime.js","utf8");
+ assert.match(source,/verifyBusinessDiagnosisAuditProjection/);
+ assert.match(source,/BUSINESS_DIAGNOSIS_LIVE_PROOF_MISMATCH/);
+ assert.match(source,/audit_projection_verification_status:liveProof\.status/);
+ assert.match(source,/audit_projection_verified:true/);
 });

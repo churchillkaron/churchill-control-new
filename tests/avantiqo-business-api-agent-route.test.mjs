@@ -100,3 +100,11 @@ test("direct API audit uses canonical diagnosis projection builder",()=>{
   assert.match(source,/const projection = buildBusinessDiagnosisAuditProjectionFromReceipt\(receipt\)/);
   assert.match(source,/\.\.\.projection/);
 });
+
+
+test("direct API verifies compact live proof before returning audit",()=>{
+  assert.match(source,/verifyBusinessDiagnosisAuditProjection/);
+  assert.match(source,/BUSINESS_DIAGNOSIS_LIVE_PROOF_MISMATCH/);
+  assert.match(source,/audit_projection_verification_status: verification\.status/);
+  assert.match(source,/audit_projection_verified: verification\.verified === true/);
+});

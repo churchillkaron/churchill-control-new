@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { BusinessIntelligenceRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 import { BusinessIntelligenceAgentRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceAgentRuntime";
-import { buildBusinessDiagnosisAuditProjectionFromReceipt } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
+import { buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
 import { classifyBusinessDiagnosisQuestion, resolveBusinessDiagnosisPeriods } from "@/lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { resolveOrganizationTimeContext } from "@/lib/shared/time/organizationTime";
@@ -111,9 +111,25 @@ function businessDiagnosisAudit(result = {}) {
   const receipt = objectValue(result.business_diagnosis_receipt);
   const boundary = objectValue(result.business_answer_evidence_boundary);
   const projection = buildBusinessDiagnosisAuditProjectionFromReceipt(receipt);
+  const verification = verifyBusinessDiagnosisAuditProjection({
+    class: projection.diagnosis_class,
+    business_timezone: projection.business_timezone,
+    receipt_fingerprint: projection.receipt_fingerprint,
+    audit_projection_fingerprint: receipt.audit_projection_fingerprint,
+    final_evidence_state: projection.final_evidence_state,
+    residual_material: projection.residual_material,
+    answer_boundary_status: projection.answer_boundary_status,
+    answer_unsupported_recommendation_outcome_detected: projection.answer_unsupported_recommendation_outcome_detected,
+    validated_external_context_count: projection.validated_external_context_count,
+    unresolved_external_context_count: projection.unresolved_external_context_count,
+    periods: projection.periods,
+  });
+  if (verification.status !== "VERIFIED") throw new Error("BUSINESS_DIAGNOSIS_LIVE_PROOF_MISMATCH");
   return {
     ...projection,
     audit_projection_fingerprint: cleanValue(receipt.audit_projection_fingerprint),
+    audit_projection_verification_status: verification.status,
+    audit_projection_verified: verification.verified === true,
     receipt_contract: cleanValue(result.business_diagnosis_receipt_contract),
     residual_ratio: Number.isFinite(Number(receipt.residual_ratio)) ? Number(receipt.residual_ratio) : null,
     internal_coverage_incomplete: receipt.internal_coverage_incomplete === true,

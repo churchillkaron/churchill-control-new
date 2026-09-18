@@ -104,6 +104,7 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
   const startedAtRef = useRef(0);
   const timerRef = useRef(null);
   const finishResolverRef = useRef(null);
+  const captureTruthRef = useRef({ browser_processing_disabled:false, browser_processing_verification:"UNVERIFIED", requested_browser_processing_disabled:true, wav_container_bit_depth:24, capture_sample_size_bits:null, native_capture_precision_verified:false, effective_capture_precision_known:false, device_sample_rate:null, device_channel_count:null });
 
   const qc = useMemo(() => levelStatus(meter.peak, meter.rms, meter.clipped), [meter]);
 
@@ -185,6 +186,23 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
         video: false,
       });
       streamRef.current = stream;
+      const settings = stream.getAudioTracks?.()?.[0]?.getSettings?.() || {};
+      const processingStates = [settings.echoCancellation, settings.noiseSuppression, settings.autoGainControl];
+      const knownProcessing = processingStates.filter((value) => typeof value === "boolean");
+      const processingDisabled = knownProcessing.length === 3 && knownProcessing.every((value) => value === false);
+      const processingPresent = knownProcessing.some((value) => value === true);
+      const sampleSize = Number(settings.sampleSize);
+      captureTruthRef.current = {
+        browser_processing_disabled: processingDisabled,
+        browser_processing_verification: processingPresent ? "PROCESSING_PRESENT" : processingDisabled ? "VERIFIED_DISABLED" : knownProcessing.length ? "PARTIAL" : "UNVERIFIED",
+        requested_browser_processing_disabled: true,
+        wav_container_bit_depth: 24,
+        capture_sample_size_bits: Number.isFinite(sampleSize) ? sampleSize : null,
+        native_capture_precision_verified: Number.isFinite(sampleSize) && sampleSize === 24,
+        effective_capture_precision_known: Number.isFinite(sampleSize),
+        device_sample_rate: Number.isFinite(Number(settings.sampleRate)) ? Number(settings.sampleRate) : null,
+        device_channel_count: Number.isFinite(Number(settings.channelCount)) ? Number(settings.channelCount) : null,
+      };
       await refreshDevices();
 
       const context = new AudioContext({ latencyHint: "interactive" });
@@ -285,7 +303,7 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
       const clipped = stats.clipped || peak >= -0.1;
       const resultQc = levelStatus(peak, rms, clipped);
       const url = URL.createObjectURL(blob);
-      setTake({ blob, url, duration, sampleRate: context.sampleRate, channels: channels.length, peak, rms, clipped, qc: resultQc.status });
+      setTake({ blob, url, duration, sampleRate: context.sampleRate, channels: channels.length, peak, rms, clipped, qc: resultQc.status, ...captureTruthRef.current });
       setMeter({ peak, rms, clipped });
       setElapsed(duration);
     } catch (cause) {
@@ -341,7 +359,15 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
         rms_dbfs: take.rms,
         clipping_detected: take.clipped,
         recording_qc_status: take.qc,
-        browser_processing_disabled: true,
+        browser_processing_disabled: take.browser_processing_disabled === true,
+        browser_processing_verification: take.browser_processing_verification || "UNVERIFIED",
+        requested_browser_processing_disabled: take.requested_browser_processing_disabled === true,
+        wav_container_bit_depth: take.wav_container_bit_depth || 24,
+        capture_sample_size_bits: take.capture_sample_size_bits ?? null,
+        native_capture_precision_verified: take.native_capture_precision_verified === true,
+        effective_capture_precision_known: take.effective_capture_precision_known === true,
+        device_sample_rate: take.device_sample_rate ?? null,
+        device_channel_count: take.device_channel_count ?? null,
         source_rights_confirmed: true,
       });
       setSaved(registered);
@@ -361,7 +387,7 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#d6a66a]">Recording Studio</div>
               <h2 className="mt-3 text-2xl font-medium text-white/90">Capture the performance cleanly first</h2>
-              <p className="mt-2 max-w-3xl text-xs leading-5 text-white/38">Raw PCM capture keeps browser echo cancellation, noise suppression and automatic gain control off. The original 24-bit WAV take is preserved before Avantiqo applies vocal engineering, mixing or mastering.</p>
+              <p className="mt-2 max-w-3xl text-xs leading-5 text-white/38">Avantiqo requests browser echo cancellation, noise suppression and automatic gain control off, records the browser PCM stream without Avantiqo DSP, and preserves it in a 24-bit WAV container. Device/ADC precision is reported separately and is only called 24-bit when the browser exposes that proof.</p>
             </div>
             <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.04] px-4 py-3 text-[10px] text-emerald-100/60">
               <ShieldCheck className="mb-1 h-4 w-4" /> Original take preserved
@@ -376,7 +402,7 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
             <label className="block"><div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-white/30">Input device</div><select value={deviceId} onChange={(event) => setDeviceId(event.target.value)} disabled={recording} className="w-full rounded-xl border border-white/8 bg-[#0a0a09] px-4 py-3 text-sm text-white/70 outline-none"><option value="">System default</option>{devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `Audio input ${index + 1}`}</option>)}</select></label>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-white/7 bg-black/25 p-3"><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Capture</div><div className="mt-1 text-xs text-white/65">24-bit WAV · raw PCM</div></div>
+              <div className="rounded-xl border border-white/7 bg-black/25 p-3"><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Capture</div><div className="mt-1 text-xs text-white/65">24-bit WAV container · raw PCM path</div></div>
               <div className="rounded-xl border border-white/7 bg-black/25 p-3"><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Monitoring</div><div className="mt-1 text-xs text-white/65">Meter only · no feedback</div></div>
             </div>
 
@@ -395,7 +421,7 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
               <div className="rounded-xl border border-white/7 p-4"><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Clipping</div><div className={`mt-2 text-lg font-medium ${meter.clipped ? "text-red-200" : "text-emerald-100/70"}`}>{meter.clipped ? "Detected" : "Clear"}</div><div className="mt-1 text-[9px] text-white/24">Never repair at capture if avoidable</div></div>
             </div>
 
-            {take ? <div className="mt-5 rounded-2xl border border-[#d6a66a]/15 bg-[#d6a66a]/[0.035] p-4"><div className="flex items-center gap-2 text-xs text-[#efd29f]/75"><Play className="h-4 w-4" /> Recorded take · {take.sampleRate} Hz · {take.channels}ch · 24-bit WAV</div><audio src={take.url} controls className="mt-3 w-full" /><button type="button" disabled={busy || Boolean(saved)} onClick={saveTake} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-4 py-3 text-xs font-medium text-[#efd29f] disabled:opacity-40"><Save className="h-4 w-4" />{saved ? "Original take saved" : busy ? "Saving…" : "Save original take to project"}</button></div> : <div className="mt-5 flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-white/8 text-center"><div><Headphones className="mx-auto h-6 w-6 text-white/15" /><div className="mt-2 text-xs text-white/28">Set gain while watching the meter, then record.</div></div></div>}
+            {take ? <div className="mt-5 rounded-2xl border border-[#d6a66a]/15 bg-[#d6a66a]/[0.035] p-4"><div className="flex items-center gap-2 text-xs text-[#efd29f]/75"><Play className="h-4 w-4" /> Recorded take · {take.sampleRate} Hz · {take.channels}ch · 24-bit WAV container · input precision {take.capture_sample_size_bits ? `${take.capture_sample_size_bits}-bit reported` : "not reported"}</div><audio src={take.url} controls className="mt-3 w-full" /><button type="button" disabled={busy || Boolean(saved)} onClick={saveTake} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-4 py-3 text-xs font-medium text-[#efd29f] disabled:opacity-40"><Save className="h-4 w-4" />{saved ? "Original take saved" : busy ? "Saving…" : "Save original take to project"}</button></div> : <div className="mt-5 flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-white/8 text-center"><div><Headphones className="mx-auto h-6 w-6 text-white/15" /><div className="mt-2 text-xs text-white/28">Set gain while watching the meter, then record.</div></div></div>}
 
             {saved ? <div className="mt-4 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.04] px-4 py-3 text-xs text-emerald-100/65">
               <div><ShieldCheck className="mr-2 inline h-4 w-4" />Original take preserved and added to the multitrack timeline.</div>

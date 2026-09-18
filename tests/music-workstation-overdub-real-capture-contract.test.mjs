@@ -14,14 +14,17 @@ test("raw Music capture preserves professional recording invariants", () => {
   assert.match(capture, /echoCancellation:\s*false/);
   assert.match(capture, /noiseSuppression:\s*false/);
   assert.match(capture, /autoGainControl:\s*false/);
-  assert.match(capture, /bit_depth:\s*24/);
+  assert.match(capture, /wav_container_bit_depth:\s*24/);
+  assert.match(capture, /capture_sample_size_bits/);
+  assert.match(capture, /native_capture_precision_verified/);
+  assert.match(capture, /browser_processing_verification/);
   assert.match(capture, /gapless_pass_splitting:\s*true/);
   assert.match(capture, /immutable_original_take:\s*true/);
   assert.match(capture, /splitPass/);
 });
 
 test("raw Music capture exposes governed software monitoring without changing the recorded PCM", () => {
-  assert.match(capture, /AVANTIQO_MUSIC_RAW_PCM_CAPTURE_V3/);
+  assert.match(capture, /AVANTIQO_MUSIC_RAW_PCM_CAPTURE_V4/);
   assert.match(capture, /software_monitoring_supported:\s*true/);
   assert.match(capture, /software_monitoring_default:\s*"off"/);
   assert.match(capture, /function setMonitor/);

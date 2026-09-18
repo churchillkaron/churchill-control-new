@@ -14,7 +14,7 @@ const config = {
   panelLabel: 'FINAL AUDIO',
   panel: 'Editing, mix and master belong in the same production system as creation.',
   tags: ['EDIT', 'MIX', 'MASTER', 'DELIVER'],
-  valueTitle: 'A complete finishing workflow for commercial audio.',
+  valueTitle: 'A complete finishing workflow for release-ready audio.',
   value: [('Edit & repair', 'Clean, correct and prepare material before the final mix.'), ('Mix review', 'Balance and evaluate the production as one record.'), ('Master & deliver', 'Create final release-ready output and delivery versions.')],
   steps: [('Prepare', 'Organize source material and required output.'), ('Repair', 'Correct issues before the final mix.'), ('Mix', 'Balance the record and review the result.'), ('Master', 'Finish and export final deliverables.')],
   cta: 'Take the production all the way to a finished master.',

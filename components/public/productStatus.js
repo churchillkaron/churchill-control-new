@@ -1,7 +1,7 @@
 export const PUBLIC_PRODUCT_STATUS = {
-  available: { label: "Available", description: "Ready to adopt as a product today." },
-  early_access: { label: "Early Access", description: "Substantial product path exists and is being completed with selected users." },
-  coming_soon: { label: "Coming Soon", description: "Catalogued now and moving toward a complete sellable product." },
+  available: { label: "Available", description: "Available for customers to use today." },
+  early_access: { label: "Early Access", description: "Available to selected customers while final workflows and onboarding are refined." },
+  coming_soon: { label: "Coming Soon", description: "Planned for a future Avantiqo release." },
 };
 
 export function publicStatusKey(product = {}) {

@@ -7,7 +7,7 @@ const process = [
   ["04", "Creation", "Specialist production engines"],
   ["05", "Review", "Critique, quality and continuity"],
   ["06", "Repair", "Targeted correction and refinement"],
-  ["07", "Delivery", "Commercial-ready masters and variants"],
+  ["07", "Delivery", "Delivery-ready masters and variants"],
 ];
 
 function Arrow({ className = "" }) {
@@ -330,7 +330,7 @@ function StudioWorkspace({ studio }) {
               Live production context
             </div>
             <div className="mt-1 text-[8px] text-white/64">
-              Evidence · direction · review
+              Brief · direction · review
             </div>
           </div>
           <div className="absolute bottom-5 left-5 right-5 grid gap-3 lg:grid-cols-[1.05fr_.95fr]">
@@ -499,7 +499,7 @@ export default function CreativeStudioProductPage({
           </h2>
           <p className="mt-5 max-w-2xl text-[13px] leading-6 text-[#77716A]">
             The mission does not restart between stages. Direction, decisions,
-            evidence and quality stay attached to the work all the way to
+            references and quality checks stay attached to the work all the way to
             delivery.
           </p>
           <ProductPath />
@@ -565,7 +565,7 @@ export default function CreativeStudioProductPage({
           <h2 className="mt-3 max-w-3xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] sm:text-[46px]">Everything the creative team needs stays in one production environment.</h2>
           <p className="mt-5 max-w-2xl text-[13px] leading-7 text-[#706A62]">Briefs, references, direction, versions, reviews, repairs and final delivery remain attached to the project instead of being scattered across unrelated tools.</p>
           <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[['Brief & direction','Define the commercial goal, audience and creative direction.'],['Production','Create the visual, film or music work inside the same project.'],['Review & repair','Critique weak output, repair it and preserve the accepted direction.'],['Delivery','Approve, export and deliver production-ready assets.']].map(([t,d],i)=>(
+            {[['Brief & direction','Define the business goal, audience and creative direction.'],['Production','Create the visual, film or music work inside the same project.'],['Review & repair','Critique weak output, repair it and preserve the accepted direction.'],['Delivery','Approve, export and deliver production-ready assets.']].map(([t,d],i)=>(
               <div key={t} className="rounded-[22px] border border-black/[0.07] bg-white p-5"><div className="text-[8px] font-bold text-[#A37849]">0{i+1}</div><h3 className="mt-6 text-[15px] font-semibold text-[#302D29]">{t}</h3><p className="mt-2 text-[10px] leading-5 text-[#7A756E]">{d}</p></div>
             ))}
           </div>
@@ -577,10 +577,10 @@ export default function CreativeStudioProductPage({
           <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">
-                Commercial production
+                Ways to work with Creative Studios
               </p>
               <h2 className="mt-3 max-w-xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] sm:text-[46px]">
-                Buy the outcome at the level you need.
+                Choose the production support that matches the job.
               </h2>
             </div>
             <p className="max-w-2xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">
@@ -591,7 +591,7 @@ export default function CreativeStudioProductPage({
             {[
               [
                 "Production mission",
-                "A defined commercial outcome with research, direction, production, review and final delivery.",
+                "A defined creative outcome with research, direction, production, review and final delivery.",
                 "START A PROJECT",
               ],
               [

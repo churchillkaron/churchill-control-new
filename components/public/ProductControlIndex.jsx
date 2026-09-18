@@ -16,7 +16,7 @@ export default function ProductFinder({ products, groups }) {
     <div className="mx-auto max-w-[1540px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
       <div className="grid gap-6 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
         <div><p className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#8D673E]">ALL CUSTOMER PRODUCTS</p><h2 className="mt-3 text-[40px] font-medium leading-[1] tracking-[-.05em] sm:text-[52px]">Find exactly what you need.</h2></div>
-        <p className="max-w-2xl text-[12px] leading-6 text-[#6E675F] lg:justify-self-end">Search the complete customer catalog by job, team, industry or product name. Technical platform capabilities are kept separately under Developers.</p>
+        <p className="max-w-2xl text-[12px] leading-6 text-[#6E675F] lg:justify-self-end">Search the complete customer catalog by job, team, industry or product name. Business products are listed here. APIs and technical tools are available separately under Developers.</p>
       </div>
 
       <div className="mt-9 border-y border-[#CFC5B8]/55 py-5">

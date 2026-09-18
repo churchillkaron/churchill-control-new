@@ -24,19 +24,19 @@ const SURFACE_ART = {
   compute: {
     image: "/art/commercial-compute.jpg",
     label: "Compute fabric",
-    line: "Own workloads first. Paid demand next. Idle capacity can earn.",
-    chips: ["OWNED GPU", "PAID JOBS", "IDLE RENTAL"],
+    line: "Run your workloads first, add capacity when demand grows, and keep infrastructure flexible.",
+    chips: ["OWNED GPU", "WORKLOADS", "SPARE CAPACITY"],
     panel: [
       ["AVANTIQO", "Priority 01"],
-      ["PAID WORK", "Priority 02"],
-      ["IDLE", "Revenue ready"],
+      ["ADDITIONAL WORK", "Priority 02"],
+      ["IDLE", "Available"],
     ],
   },
   marketplace: {
     image: "/art/commercial-marketplace.jpg",
-    label: "Marketplace economy",
-    line: "People, products and capacity connected through one commercial layer.",
-    chips: ["PUBLISH", "METER", "SETTLE"],
+    label: "Marketplace",
+    line: "Find specialist products, services and capacity without leaving your Avantiqo environment.",
+    chips: ["PUBLISH", "CLEAR", "SETTLE"],
     panel: [
       ["CAPABILITIES", "Supply"],
       ["AGENTS", "Specialists"],
@@ -57,11 +57,11 @@ const SURFACE_ART = {
   integrations: {
     image: "/art/commercial-integrations.jpg",
     label: "Connected services",
-    line: "Bring communications, payments, documents and specialist providers into governed work.",
+    line: "Bring communications, payments, documents and specialist services into the workflows your team already uses.",
     chips: ["CONNECT", "AUTHORIZE", "EXECUTE"],
     panel: [
       ["MESSAGING", "Connected"],
-      ["PAYMENTS", "Governed"],
+      ["PAYMENTS", "Connected"],
       ["DATA", "Scoped"],
     ],
   },
@@ -78,13 +78,13 @@ const SURFACE_ART = {
   },
   agents: {
     image: "/art/commercial-agents.jpg",
-    label: "Governed agents",
-    line: "Automation stays attached to people, evidence, permissions and exact business capabilities.",
+    label: "Business agents",
+    line: "Keep agent work connected to the right people, business records, permissions and review steps.",
     chips: ["RESEARCH", "PREPARE", "EXECUTE"],
     panel: [
       ["CONTEXT", "Business"],
-      ["AUTHORITY", "Exact"],
-      ["PROOF", "Durable"],
+      ["PERMISSIONS", "Defined"],
+      ["RESULT", "Recorded"],
     ],
   },
   enterprise: {
@@ -104,7 +104,7 @@ const SURFACE_ART = {
     line: "Discovery, migration, configuration and launch grounded in the real operating environment.",
     chips: ["DISCOVER", "IMPLEMENT", "OPTIMIZE"],
     panel: [
-      ["MIGRATE", "Evidence"],
+      ["MIGRATE", "Records"],
       ["CONFIGURE", "Workflow"],
       ["LAUNCH", "Ready"],
     ],
@@ -112,29 +112,29 @@ const SURFACE_ART = {
   insights: {
     image: "/art/commercial-insights.jpg",
     label: "Decision intelligence",
-    line: "Turn governed evidence into exceptions, forecasts and higher-value decisions.",
-    chips: ["EVIDENCE", "FORECAST", "DECIDE"],
+    line: "Turn current business data into exceptions, forecasts and clearer decisions.",
+    chips: ["DATA", "FORECAST", "DECIDE"],
     panel: [
       ["FINANCE", "Signal"],
       ["OPS", "Signal"],
-      ["COMMERCIAL", "Signal"],
+      ["BUSINESS", "Signal"],
     ],
   },
   pricing: {
     image: "/art/commercial-pricing.jpg",
-    label: "Commercial model",
-    line: "Simple platform economics around subscription, usage, transactions and supply.",
-    chips: ["SUBSCRIBE", "CONSUME", "EARN"],
+    label: "How it works for you",
+    line: "See what is included, what is usage-based, and which services are optional.",
+    chips: ["SOFTWARE", "USAGE", "SERVICES"],
     panel: [
       ["BUSINESS OS", "Recurring"],
       ["WALLET", "Usage"],
-      ["PLATFORM", "Economics"],
+      ["OPTIONAL", "Client value"],
     ],
   },
   commerce: {
     image: "/art/commercial-commerce.jpg",
     label: "Commerce flow",
-    line: "A real customer interaction can become payment, settlement and finance evidence in one flow.",
+    line: "Keep customer activity connected from order or booking through payment, settlement and finance.",
     chips: ["SELL", "SETTLE", "POST"],
     panel: [
       ["ORDER", "Open"],
@@ -145,7 +145,7 @@ const SURFACE_ART = {
   channels: {
     image: "/art/commercial-channels.jpg",
     label: "Every business surface",
-    line: "Web, mobile, portal, kiosk and POS stay connected to the same business context.",
+    line: "Web, mobile, portal, kiosk and POS can all use the same customer, product and business records.",
     chips: ["WEB", "MOBILE", "POS"],
     panel: [
       ["CUSTOMER", "Surface"],
@@ -162,7 +162,7 @@ function SurfaceArt({ kind }) {
       support: "/art/developer-work.jpg",
       accent: "OWNED CAPACITY",
       metric: "NODE 001",
-      detail: "Owned GPU · paid demand · overflow",
+      detail: "Owned GPU · workload demand · overflow",
       position: "58% center",
       supportPosition: "center",
     },
@@ -200,9 +200,9 @@ function SurfaceArt({ kind }) {
     },
     agents: {
       support: "/art/developer-work.jpg",
-      accent: "GOVERNED ACTION",
+      accent: "CONTROLLED ACTION",
       metric: "PROOF",
-      detail: "Context · authority · verification",
+      detail: "Context · permissions · verification",
       position: "center",
       supportPosition: "center",
     },
@@ -232,8 +232,8 @@ function SurfaceArt({ kind }) {
     },
     pricing: {
       support: "/art/commercial-commerce.jpg",
-      accent: "COMMERCIAL MODEL",
-      metric: "METER",
+      accent: "BUSINESS MODEL",
+      metric: "CLEAR",
       detail: "Subscription · usage · platform",
       position: "center",
       supportPosition: "center",
@@ -258,7 +258,7 @@ function SurfaceArt({ kind }) {
     support: "/art/developer-work.jpg",
     accent: "AVANTIQO",
     metric: "LIVE",
-    detail: "Governed operating context",
+    detail: "Connected business data",
     position: "center",
     supportPosition: "center",
   };
@@ -279,7 +279,7 @@ function SurfaceArt({ kind }) {
 
   if (["enterprise", "services", "partners"].includes(kind)) {
     const nodes = kind === "enterprise"
-      ? [["GROUP","Portfolio"],["ENTITY","Legal scope"],["LOCATION","Operating scope"],["TEAM","Authority"]]
+      ? [["GROUP","Portfolio"],["ENTITY","Legal scope"],["LOCATION","Operating scope"],["TEAM","Permissions"]]
       : kind === "services"
         ? [["DISCOVER","Reality"],["CONFIGURE","System"],["LAUNCH","Verified"],["OPTIMIZE","Continuous"]]
         : [["PARTNER","Relationship"],["CLIENTS","Portfolio"],["DELIVERY","Services"],["VALUE","Shared"]];
@@ -382,7 +382,7 @@ const PAGE_STORY = {
   solutions: {
     eyebrow: "Made for the business being run",
     title: "One platform. Different operating worlds.",
-    lead: "The artwork and product story should change with the industry while the Avantiqo operating layer stays consistent underneath.",
+    lead: "Each industry view uses the workflows and language that matter to that business while shared organization data and controls stay connected.",
     steps: [
       ["01", "Restaurant", "Service · kitchen · stock · finance"],
       ["02", "Hotel", "Rooms · guests · teams · revenue"],
@@ -404,7 +404,7 @@ const PAGE_STORY = {
   insights: {
     eyebrow: "Decision intelligence",
     title: "Signals before dashboards.",
-    lead: "The visual language centers on exceptions, evidence and the decisions management needs to make next.",
+    lead: "See the exceptions, trends and decisions that need management attention next.",
     steps: [
       ["01", "Observe", "Finance · operations · people"],
       ["02", "Detect", "Exceptions · trends · risk"],
@@ -413,12 +413,12 @@ const PAGE_STORY = {
     ],
   },
   agents: {
-    eyebrow: "Governed digital labor",
-    title: "Useful automation with exact authority.",
-    lead: "Agents are shown as controlled operating flows tied to evidence, permissions and verification—not cartoon assistants.",
+    eyebrow: "Controlled business automation",
+    title: "Useful automation with clear permissions.",
+    lead: "Use agents as practical business workflows with permissions, source records and result checks built in.",
     steps: [
       ["01", "Context", "Organization · entity · role"],
-      ["02", "Prepare", "Research · evidence · plan"],
+      ["02", "Prepare", "Research · data · plan"],
       ["03", "Authorize", "Capability · approval · scope"],
       ["04", "Verify", "Result · proof · audit"],
     ],
@@ -426,7 +426,7 @@ const PAGE_STORY = {
   enterprise: {
     eyebrow: "Portfolio operating model",
     title: "Scale without losing control.",
-    lead: "The enterprise visual system expands Avantiqo from one company into governed portfolios of entities, locations and teams.",
+    lead: "Extend the same Avantiqo operating model across multiple entities, locations and teams.",
     steps: [
       ["01", "Group", "Portfolio visibility"],
       ["02", "Entity", "Legal and operating scope"],
@@ -437,10 +437,10 @@ const PAGE_STORY = {
   compute: {
     eyebrow: "Avantiqo Compute",
     title: "Workload first. Infrastructure second.",
-    lead: "Customers buy useful outcomes. The scheduler decides where each approved workload runs.",
+    lead: "Submit the workload you need. Avantiqo selects available capacity based on priority and hardware requirements.",
     steps: [
-      ["01", "Avantiqo", "Internal priority workloads"],
-      ["02", "Paid jobs", "Studio · API · batch"],
+      ["01", "Avantiqo", "Your priority workloads"],
+      ["02", "Additional jobs", "Studio · API · batch"],
       ["03", "Owned GPU", "Local capacity first"],
       ["04", "Overflow", "Specialist cloud when required"],
     ],
@@ -453,46 +453,46 @@ const PAGE_STORY = {
       ["01", "Trigger", "Message · file · transaction"],
       ["02", "Context", "Customer · entity · workflow"],
       ["03", "Provider", "Payment · social · document"],
-      ["04", "Evidence", "Result returns to Avantiqo"],
+      ["04", "Result", "Returns to the workflow"],
     ],
   },
   partners: {
     eyebrow: "Distribution network",
     title: "One relationship can unlock many businesses.",
-    lead: "Partners are framed as implementation and operating networks, not a generic handshake program.",
+    lead: "Partners can support multiple client organizations with separate access, data and operating context for each one.",
     steps: [
       ["01", "Partner", "Advisor · agency · accountant"],
       ["02", "Portfolio", "Multiple client organizations"],
       ["03", "Delivery", "Implement · support · improve"],
-      ["04", "Economics", "Subscription · services · share"],
+      ["04", "Client value", "Support · delivery · reusable solutions"],
     ],
   },
   pricing: {
-    eyebrow: "Commercial architecture",
+    eyebrow: "Simple pricing structure",
     title: "One account. Several ways to buy value.",
-    lead: "Pricing separates predictable software from expensive variable work so Avantiqo can scale revenue without charging for every click.",
+    lead: "Everyday software stays predictable, while optional specialist work, API usage and compute can be used only when you need them.",
     steps: [
-      ["01", "Business OS", "Recurring subscription"],
-      ["02", "Wallet", "Premium usage"],
+      ["01", "Business OS", "Everyday software access"],
+      ["02", "Wallet", "Optional specialist usage"],
       ["03", "Platform", "API · marketplace · compute"],
-      ["04", "Enterprise", "Contract · SLA · services"],
+      ["04", "Enterprise", "Rollout · support · service levels"],
     ],
   },
   commerce: {
-    eyebrow: "Revenue flow",
+    eyebrow: "Customer-to-cash flow",
     title: "A sale should stay connected all the way to the books.",
-    lead: "Commerce art follows money from the customer interaction through payment, settlement and finance evidence.",
+    lead: "Follow a sale from the customer interaction through payment, settlement and finance without losing the source transaction.",
     steps: [
       ["01", "Sell", "POS · booking · invoice"],
       ["02", "Pay", "Cash · card · QR · transfer"],
       ["03", "Settle", "Match provider and transaction"],
-      ["04", "Post", "Governed finance evidence"],
+      ["04", "Post", "Connected finance record"],
     ],
   },
   channels: {
     eyebrow: "Every operating surface",
-    title: "The same business context, wherever work happens.",
-    lead: "Channels are shown as real staff and customer touchpoints rather than a cloud of device icons.",
+    title: "The same business data, wherever work happens.",
+    lead: "Give customers and staff the right experience on web, portal, mobile, kiosk or POS while keeping customer, product and transaction data connected.",
     steps: [
       ["01", "Public", "Website · campaign · booking"],
       ["02", "Customer", "Portal · account · payment"],
@@ -501,14 +501,14 @@ const PAGE_STORY = {
     ],
   },
   marketplace: {
-    eyebrow: "Avantiqo economy",
+    eyebrow: "Avantiqo Marketplace",
     title: "Package outcomes, not downloads.",
-    lead: "Capabilities, agents, solutions and compute can become metered supply inside one governed commercial layer.",
+    lead: "Discover and use capabilities, agents, solutions and compute with organization scope, permissions and usage controls already connected.",
     steps: [
       ["01", "Publish", "Capability · agent · solution"],
-      ["02", "Discover", "Business demand"],
+      ["02", "Discover", "Customer need"],
       ["03", "Consume", "Wallet · permissions · scope"],
-      ["04", "Settle", "Creator value · platform share"],
+      ["04", "Settle", "Usage · delivery · settlement"],
     ],
   },
 };
@@ -572,14 +572,14 @@ function StoryRail({ kind }) {
 
 const RELATED = {
   compute: [
-    ["Developers", "/developers", "Turn capacity into metered workloads."],
-    ["Marketplace", "/ecosystem", "Distribute approved compute supply."],
-    ["Pricing", "/pricing", "Connect usage to the commercial model."],
+    ["Developers", "/developers", "Run developer and production workloads on available capacity."],
+    ["Marketplace", "/ecosystem", "Use approved compute options through the marketplace."],
+    ["Pricing", "/pricing", "Understand how compute usage is charged."],
   ],
   marketplace: [
-    ["Developers", "/developers", "Build capabilities businesses can consume."],
-    ["Partners", "/partners", "Scale distribution through trusted operators."],
-    ["Compute", "/compute", "Add infrastructure supply to the economy."],
+    ["Developers", "/developers", "Build capabilities customers can use inside Avantiqo."],
+    ["Partners", "/partners", "Support more customer organizations through partner workflows."],
+    ["Compute", "/compute", "Add compute capacity where workloads need it."],
   ],
   solutions: [
     ["Services", "/services", "Implement each industry package well."],
@@ -592,22 +592,22 @@ const RELATED = {
   ],
   pricing: [
     ["Commerce", "/commerce", "Connect selling and settlement to the Business OS."],
-    ["Enterprise", "/enterprise", "Package larger operating scope and governance."],
+    ["Enterprise", "/enterprise", "Support larger organizations, entities and locations."],
     ["Services", "/services", "Add implementation, migration and optimization."],
   ],
   integrations: [
     ["Channels", "/channels", "Bring connected services into every surface."],
-    ["Commerce", "/commerce", "Connect providers to revenue flows."],
+    ["Commerce", "/commerce", "Connect providers to customer, payment and finance workflows."],
     ["Solutions", "/solutions", "Connect provider capability to the business workflow."],
   ],
   partners: [
-    ["Services", "/services", "Package repeatable implementation work."],
-    ["Solutions", "/solutions", "Take vertical products to more businesses."],
+    ["Services", "/services", "Reuse proven implementation patterns across customers."],
+    ["Solutions", "/solutions", "Deliver industry solutions to more customer organizations."],
     ["Enterprise", "/enterprise", "Manage larger customer portfolios."],
   ],
   agents: [
-    ["Insights", "/insights", "Turn evidence into higher-value decisions."],
-    ["Services", "/services", "Design and implement governed automation well."],
+    ["Insights", "/insights", "Turn current operating data into clearer decisions."],
+    ["Services", "/services", "Design and implement controlled automation for real workflows."],
     [
       "Integrations",
       "/integrations",
@@ -615,7 +615,7 @@ const RELATED = {
     ],
   ],
   commerce: [
-    ["Channels", "/channels", "Sell through web, portal, mobile and POS."],
+    ["Channels", "/channels", "Serve customers through web, portal, mobile and POS."],
     [
       "Integrations",
       "/integrations",
@@ -624,11 +624,11 @@ const RELATED = {
     [
       "Pricing",
       "/pricing",
-      "Capture subscription, usage and transaction value.",
+      "See how software, usage and transaction charges are structured.",
     ],
   ],
   channels: [
-    ["Commerce", "/commerce", "Connect every surface to the revenue flow."],
+    ["Commerce", "/commerce", "Connect every customer surface to orders, payments and finance."],
     [
       "Creative Studios",
       "/creative-studios",
@@ -663,12 +663,12 @@ const RELATED = {
     ],
   ],
   insights: [
-    ["Agents", "/agents", "Move from insight to governed action."],
-    ["Enterprise", "/enterprise", "Package portfolio-level decision products."],
+    ["Agents", "/agents", "Move from insight to an approved next action."],
+    ["Enterprise", "/enterprise", "Use portfolio-level analysis across entities and locations."],
     [
       "Pricing",
       "/pricing",
-      "Monetize premium analysis without taxing everyday use.",
+      "Use deeper specialist analysis only when you need it.",
     ],
   ],
 };
@@ -688,8 +688,8 @@ export default function CommercialSurfacePage({ config }) {
         { label: "Services", href: "/services" },
         { label: "Pricing", href: "/pricing" },
       ];
-  const showCommercialModel = ["pricing", "compute", "marketplace", "partners", "enterprise", "services", "agents", "insights", "integrations", "channels", "commerce"].includes(config.art);
-  const lightCommercialModel = ["pricing", "partners", "enterprise", "services", "agents", "insights", "integrations", "channels", "commerce"].includes(config.art);
+  const showValueSection = ["pricing", "compute", "marketplace", "partners", "enterprise", "services", "agents", "insights", "integrations", "channels", "commerce"].includes(config.art);
+  const lightValueSection = ["pricing", "partners", "enterprise", "services", "agents", "insights", "integrations", "channels", "commerce"].includes(config.art);
   const secondaryCta = audience === "compute"
     ? ["API Platform", "/api-platform"]
     : config.art === "partners"
@@ -734,15 +734,15 @@ export default function CommercialSurfacePage({ config }) {
                   href="/pricing"
                   className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A] transition hover:border-[#D6A66A]/45"
                 >
-                  Commercial model
+                  How it works for you
                 </a>
               </div>
               <div className="mt-10 flex items-center gap-5 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[0.17em] text-[#9A8F82]">
-                <span>GOVERNED</span>
+                <span>CONTROLLED</span>
                 <span className="h-1 w-1 rounded-full bg-[#C69A65]" />
                 <span>CONNECTED</span>
                 <span className="h-1 w-1 rounded-full bg-[#C69A65]" />
-                <span>COMMERCIAL</span>
+                <span>BUSINESS</span>
               </div>
             </div>
           </div>
@@ -778,17 +778,17 @@ export default function CommercialSurfacePage({ config }) {
           </div>
         </div>
       </section>
-      {showCommercialModel ? (
-      <section className={lightCommercialModel ? "border-b border-black/[0.06] bg-[#F3EFE7] text-[#1D1B18]" : "border-b border-white/[0.06] bg-[#171716] text-white"}>
+      {showValueSection ? (
+      <section className={lightValueSection ? "border-b border-black/[0.06] bg-[#F3EFE7] text-[#1D1B18]" : "border-b border-white/[0.06] bg-[#171716] text-white"}>
         <div className="mx-auto grid max-w-[1320px] gap-12 px-5 py-20 sm:px-7 lg:grid-cols-[.72fr_1.28fr] lg:px-10 lg:py-24">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">
-              Commercial model
+              How it works for you
             </p>
-            <h2 className={lightCommercialModel ? "mt-3 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#1D1B18] sm:text-[48px]" : "mt-3 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[48px]"}>
+            <h2 className={lightValueSection ? "mt-3 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#1D1B18] sm:text-[48px]" : "mt-3 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[48px]"}>
               {config.moneyTitle}
             </h2>
-            <p className={lightCommercialModel ? "mt-5 max-w-lg text-[13px] leading-7 text-[#706A62]" : "mt-5 max-w-lg text-[13px] leading-7 text-white/42"}>
+            <p className={lightValueSection ? "mt-5 max-w-lg text-[13px] leading-7 text-[#706A62]" : "mt-5 max-w-lg text-[13px] leading-7 text-white/42"}>
               {config.moneyDescription}
             </p>
           </div>
@@ -796,15 +796,15 @@ export default function CommercialSurfacePage({ config }) {
             {config.money.map(([t, d], i) => (
               <div
                 key={t}
-                className={lightCommercialModel ? "rounded-[20px] border border-[#D6A66A]/24 bg-white/72 p-5 shadow-[0_12px_38px_rgba(50,36,22,.05)]" : "rounded-[20px] border border-white/[0.08] bg-white/[0.025] p-5"}
+                className={lightValueSection ? "rounded-[20px] border border-[#D6A66A]/24 bg-white/72 p-5 shadow-[0_12px_38px_rgba(50,36,22,.05)]" : "rounded-[20px] border border-white/[0.08] bg-white/[0.025] p-5"}
               >
                 <div className="text-[8px] font-bold text-[#D6A66A]">
                   0{i + 1}
                 </div>
-                <div className={lightCommercialModel ? "mt-6 text-[14px] font-semibold text-[#302D29]" : "mt-6 text-[14px] font-semibold text-white/78"}>
+                <div className={lightValueSection ? "mt-6 text-[14px] font-semibold text-[#302D29]" : "mt-6 text-[14px] font-semibold text-white/78"}>
                   {t}
                 </div>
-                <div className={lightCommercialModel ? "mt-2 text-[9px] leading-5 text-[#7A756E]" : "mt-2 text-[9px] leading-5 text-white/34"}>
+                <div className={lightValueSection ? "mt-2 text-[9px] leading-5 text-[#7A756E]" : "mt-2 text-[9px] leading-5 text-white/34"}>
                   {d}
                 </div>
               </div>
@@ -821,14 +821,14 @@ export default function CommercialSurfacePage({ config }) {
                 Continue through Avantiqo
               </p>
               <h2 className="mt-2 text-[30px] font-medium tracking-[-0.045em] text-[#1D1B18] sm:text-[38px]">
-                One surface creates demand for the next.
+                Move naturally from one Avantiqo need to the next.
               </h2>
             </div>
             <a
               href="/pricing"
               className="text-[10px] font-semibold text-[#8A633C]"
             >
-              See the commercial model →
+              See pricing →
             </a>
           </div>
           <div className="mt-8 grid gap-3 md:grid-cols-3">
@@ -860,7 +860,7 @@ export default function CommercialSurfacePage({ config }) {
       <section className="bg-[#F7F6F3]">
         <div className="mx-auto max-w-[1120px] px-5 py-20 text-center sm:px-7 lg:px-10 lg:py-24">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">
-            Part of the Avantiqo economy
+            Part of the Avantiqo Marketplace
           </p>
           <h2 className="mx-auto mt-4 max-w-4xl text-[38px] font-medium leading-[1.02] tracking-[-0.05em] sm:text-[52px]">
             {config.cta}

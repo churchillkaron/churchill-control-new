@@ -102,7 +102,7 @@ export default function PublicSiteHeader({ context, links = [], action = { label
                 ))}
               </div>
               <div className="mt-2 flex items-center justify-between rounded-[15px] border border-white/[0.08] bg-white/[0.035] px-4 py-3">
-                <div className="text-[8px] text-white/44">Switch areas without mixing the customer journey.</div>
+                <div className="text-[8px] text-white/44">Switch to the Avantiqo area that matches what you want to do.</div>
                 <a href="/start" className="shrink-0 pl-4 text-[9px] font-semibold text-[#D6A66A]">All areas →</a>
               </div>
             </div>

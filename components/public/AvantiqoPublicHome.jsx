@@ -9,7 +9,7 @@ const businessAreas = [
   ],
   [
     "Operations",
-    "Daily work, service delivery, evidence, approvals, tasks and operational control.",
+    "Daily work, service delivery, approvals, tasks and operational control.",
   ],
   [
     "Supply Chain",
@@ -29,7 +29,7 @@ const businessAreas = [
   ],
   [
     "Documents",
-    "Create, store, approve, govern and share business documents and evidence.",
+    "Create, store, approve and share business documents with their supporting records.",
   ],
   [
     "Analytics",
@@ -37,26 +37,26 @@ const businessAreas = [
   ],
   [
     "Compliance",
-    "Policies, controls, evidence and governed follow-through across the business.",
+    "Policies, controls, approvals and follow-through across the business.",
   ],
 ];
 
 const principles = [
   [
-    "Business context first",
-    "Work stays attached to the correct organization, legal entity, period and authorized user context.",
+    "Keep work in the right business scope",
+    "Work stays attached to the correct organization, legal entity, period and authorized user.",
   ],
   [
     "Attention before dashboards",
     "Surface the exceptions, approvals and next human moves that can change the business now.",
   ],
   [
-    "Governed execution",
-    "Important actions can require permission, approval and durable evidence before they become business truth.",
+    "Controlled execution",
+    "Important actions can require permission and approval before they become final business records.",
   ],
   [
     "Intelligence in the workflow",
-    "Research, recommendations and automation work with the same business context instead of living in a disconnected AI tab.",
+    "Research, recommendations and automation can use the same business data your team works with instead of living in a disconnected AI tool.",
   ],
 ];
 
@@ -235,7 +235,7 @@ function ProductPreview() {
                 Your business at a glance
               </h3>
               <p className="mt-1 max-w-xl text-[9px] leading-4 text-[#77736C] sm:text-[10px]">
-                Live priorities, business movement and governed work in one
+                Live priorities, business movement and active work in one
                 operating surface.
               </p>
             </div>
@@ -402,12 +402,11 @@ export default function AvantiqoPublicHome() {
               </h1>
               <p className="mt-7 max-w-[560px] text-[16px] leading-8 text-[#625D55] sm:text-[17px]">
                 Finance, operations, supply chain, commercial work, people,
-                projects, documents and intelligence—inside one governed
-                business context.
+                projects, documents and intelligence in one connected business workspace.
               </p>
               <p className="mt-4 max-w-[540px] text-[12px] leading-6 text-[#877F75]">
                 Owners, managers and staff see what matters, move approved work
-                forward and keep the underlying evidence connected.
+                forward while keeping the supporting records connected.
               </p>
               <div className="mt-9 flex flex-wrap gap-2.5">
                 <a
@@ -495,8 +494,8 @@ export default function AvantiqoPublicHome() {
               <ProductPreview />
             </div>
             <div className="absolute bottom-7 right-7 w-[250px] rounded-[22px] border border-white/16 bg-[#15120f]/72 p-5 text-white shadow-[0_28px_75px_rgba(0,0,0,.26)] backdrop-blur-xl">
-              <div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#D6A66A]">LIVE BUSINESS CONTEXT</div>
-              <div className="mt-3 text-[15px] leading-6 text-white/86">People, money, work and evidence in one operating layer.</div>
+              <div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#D6A66A]">LIVE BUSINESS VIEW</div>
+              <div className="mt-3 text-[15px] leading-6 text-white/86">People, money, work and records in one connected view.</div>
               <div className="mt-4 grid grid-cols-2 gap-2 text-[7px] uppercase tracking-[0.13em] text-white/46"><span>Finance</span><span>Operations</span><span>People</span><span>Intelligence</span></div>
             </div>
           </div>
@@ -546,7 +545,7 @@ export default function AvantiqoPublicHome() {
         <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
           <SectionTitle
             eyebrow="Business areas"
-            title="Every important area, one business context."
+            title="Every important area, connected around the same business."
           >
             <p>
               Avantiqo connects work that is normally fragmented across separate
@@ -585,7 +584,7 @@ export default function AvantiqoPublicHome() {
         <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
           <SectionTitle
             eyebrow="How the system works"
-            title="From business context to accountable execution."
+            title="From the right business information to accountable action."
             center
           >
             <p>
@@ -599,23 +598,23 @@ export default function AvantiqoPublicHome() {
             {[
               [
                 "01",
-                "Set business context",
-                "Organization, entity, user, role and period establish where the person is operating.",
+                "Know where the work belongs",
+                "Avantiqo keeps work attached to the correct organization, entity, user and period.",
               ],
               [
                 "02",
                 "Open the right business area",
-                "Finance, Operations, Supply Chain and other domains keep their own rules and source records.",
+                "Each business area keeps the records and rules it needs while remaining connected to the rest of the organization.",
               ],
               [
                 "03",
                 "Review the next move",
-                "Avantiqo surfaces exceptions, approvals, requests and evidence instead of only passive dashboards.",
+                "See exceptions, approvals and requests that need attention instead of only passive dashboards.",
               ],
               [
                 "04",
                 "Execute and preserve truth",
-                "Approved work moves forward and the resulting status, evidence and business record remain auditable.",
+                "Approved work moves forward and the result remains visible with a clear history.",
               ],
             ].map(([number, title, description]) => (
               <article
@@ -652,17 +651,17 @@ export default function AvantiqoPublicHome() {
             </h2>
             <p className="mt-6 text-[14px] leading-7 text-white/55">
               Avantiqo Intelligence is designed to work with the same
-              organization, entity, period, permissions and business evidence as
+              organization, entity, period, permissions and business records as
               the person using the system. It can help research, summarize,
               identify next actions, prepare work and coordinate approved
               automation without becoming a separate source of business
-              authority.
+              control.
             </p>
             <div className="mt-7 grid gap-2 sm:grid-cols-2">
               {[
-                "Research with business context",
+                "Research with your business data",
                 "Surface next actions",
-                "Prepare governed work",
+                "Prepare work for approval",
                 "Keep execution auditable",
               ].map((item) => (
                 <div
@@ -707,7 +706,7 @@ export default function AvantiqoPublicHome() {
                   [
                     "3",
                     "Operations",
-                    "Two service items need evidence before they can be completed.",
+                    "Two service items still need supporting records before they can be completed.",
                     "Review work",
                   ],
                 ].map(([number, area, text, action]) => (

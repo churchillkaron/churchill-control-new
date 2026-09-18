@@ -12,12 +12,12 @@ const config = {
   primaryHref: '/creative-studios/video',
   image: '/art/creative-video.jpg',
   panelLabel: 'VIDEO MISSION',
-  panel: 'Buy a finished production mission, not a pile of disconnected generations.',
+  panel: 'Take one brief through story, production, review and finishing instead of managing disconnected generations.',
   tags: ['STORY', 'SHOTS', 'DAILIES', 'MASTER'],
   valueTitle: 'A production workflow, not a video generator.',
   value: [('Creative direction', 'Develop story, treatment, structure and visual language before production.'), ('Production control', 'Design shots, continuity and generation with review gates.'), ('Finishing', 'Repair, edit, sound, VFX, color and master the final deliverable.')],
   steps: [('Research & story', 'Define objective, audience and narrative.'), ('Direct & design', 'Build treatment, scenes, shots and continuity.'), ('Produce & review', 'Generate, review dailies and repair weak work.'), ('Finish & deliver', 'Edit, mix, color and master the final asset.')],
-  cta: 'Turn a brief into a finished film through one governed studio.',
+  cta: 'Turn a brief into a finished film through one connected production workflow.',
 };
 
 export default function Page(){ return <MoneyLandingPage config={config}/>; }

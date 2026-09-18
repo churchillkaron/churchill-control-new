@@ -268,12 +268,9 @@ export default function DevelopersPage() {
           </div>
           <div className="mt-5 rounded-[20px] border border-[#D6A66A]/24 bg-[#FBF7F0] p-5 text-[11px] leading-6 text-[#6F6961]">
             <span className="font-semibold text-[#8D643C]">
-              This catalog will expand.
+              Explore the capabilities available to build with.
             </span>{" "}
-            The internal Avantiqo capability registry is much larger than the
-            first public developer surface. We can expose individual
-            capabilities only when their contracts, governance and quality are
-            ready for external use.
+            Use the catalog to find business, document, intelligence, creative and operational capabilities that can be integrated into your own product. Each exposed capability includes the context and controls needed to use it safely.
           </div>
         </div>
       </section>
@@ -325,7 +322,7 @@ export default function DevelopersPage() {
               The same capability can power Avantiqo or your product.
             </h2>
             <p className="mt-5 text-[14px] leading-7 text-white/52">
-              Developers can compose approved capabilities into their own application experience while Avantiqo preserves the contracts, context and governance underneath.
+              Compose Avantiqo capabilities into your own application while organization scope, permissions and execution records stay consistent.
             </p>
           </div>
           <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -358,10 +355,10 @@ export default function DevelopersPage() {
             DEV
           </div>
           <h2 className="mx-auto mt-6 max-w-3xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#1B1A18] sm:text-[44px] lg:text-[52px]">
-            Developer access is being opened capability by capability.
+            Build with Avantiqo at the level your product needs.
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-[14px] leading-7 text-[#716C65]">
-            This page is the foundation for the Avantiqo developer platform.
+            Use this developer area to understand available capabilities, integration patterns and the tools for building on Avantiqo.
             Documentation, SDKs, webhooks, local tooling, sandboxes and embedded developer workflows live here. Metered direct capability calls belong in the separate API Platform.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-2.5">

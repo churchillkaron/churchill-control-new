@@ -1,18 +1,18 @@
 const FAMILY_ART = {
   "sell-serve": ["Demand", "Order / Booking", "Service", "Payment", "Repeat"],
-  "people-work": ["Plan", "Assign", "Work", "Evidence", "Pay"],
+  "people-work": ["Plan", "Assign", "Work", "Records", "Pay"],
   "money-control": ["Source", "Approve", "Settle", "Ledger", "Report"],
   "stock-supply": ["Buy", "Receive", "Store", "Use / Make", "Replenish"],
   "documents-automation": ["Capture", "Classify", "Extract", "Validate", "Execute"],
   "customer-growth": ["Audience", "Conversation", "Offer", "Conversion", "Learn"],
-  intelligence: ["Evidence", "Reason", "Decide", "Execute", "Verify"],
+  intelligence: ["Records", "Reason", "Decide", "Execute", "Verify"],
   creative: ["Brief", "Research", "Produce", "Review", "Deliver"],
   platform: ["Request", "Context", "Capability", "Meter", "Proof"],
   industry: ["Customer", "Operations", "People", "Money", "Control"],
 };
 
 const FAMILY_KICKER = {
-  "sell-serve": "COMMERCIAL SYSTEM",
+  "sell-serve": "SALES & SERVICE",
   "people-work": "WORK SYSTEM",
   "money-control": "FINANCIAL CONTROL",
   "stock-supply": "SUPPLY SYSTEM",
@@ -38,8 +38,8 @@ export default function ProductFamilyArt({ family, product }) {
       </div>
     </div>
     <div className="relative z-10 mt-12 grid gap-8 border-t border-white/[.08] pt-6 sm:grid-cols-[.72fr_1.28fr]">
-      <div><div className="text-[7px] uppercase tracking-[.18em] text-white/24">Operating principle</div><div className="mt-3 text-[12px] leading-6 text-white/60">One product surface. One reusable engine. Shared control underneath.</div></div>
-      <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">{["Organization","Identity","Permissions","Evidence","Governance","Intelligence","Wallet","API"].map((item)=><div key={item} className="border-t border-white/[.08] pt-2 text-[7px] uppercase tracking-[.10em] text-white/34">{item}</div>)}</div>
+      <div><div className="text-[7px] uppercase tracking-[.18em] text-white/24">Operating principle</div><div className="mt-3 text-[12px] leading-6 text-white/60">A focused product experience with connected business data and permissions.</div></div>
+      <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">{["Organization","Identity","Permissions","Records","Controls","Intelligence","Wallet","API"].map((item)=><div key={item} className="border-t border-white/[.08] pt-2 text-[7px] uppercase tracking-[.10em] text-white/34">{item}</div>)}</div>
     </div>
   </div>;
 }

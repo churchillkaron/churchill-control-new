@@ -1,13 +1,13 @@
 import MoneyLandingPage from "@/components/public/MoneyLandingPage";
 
-export const metadata = { title: 'Turn invoices into governed finance work. | Avantiqo', description: 'Capture supplier or customer invoice data, validate business context, route approvals and preserve the evidence required for finance workflows.' };
+export const metadata = { title: 'Turn invoices into finance work that is ready to review and process. | Avantiqo', description: 'Capture supplier or customer invoice data, validate the key fields, route approvals and send verified information into finance workflows.' };
 
 const config = {
   context: 'Invoice Processing',
   audience: 'business',
   eyebrow: 'AVANTIQO / INVOICE PROCESSING',
-  title: 'Turn invoices into governed finance work.',
-  lead: 'Capture supplier or customer invoice data, validate business context, route approvals and preserve the evidence required for finance workflows.',
+  title: 'Turn invoices into finance work that is ready to review and process.',
+  lead: 'Capture supplier or customer invoice data, validate the key fields, route approvals and send verified information into finance workflows.',
   primary: 'Explore Business OS',
   primaryHref: '/business',
   image: '/art/commercial-integrations.jpg',
@@ -15,8 +15,8 @@ const config = {
   panel: 'Extraction is only the start. The value is getting verified invoice data into the correct business workflow.',
   tags: ['CAPTURE', 'VALIDATE', 'APPROVE', 'POST'],
   valueTitle: 'Move from document handling to accountable finance execution.',
-  value: [('Extract', 'Read invoice fields and supporting evidence from documents.'), ('Validate', 'Resolve vendor, currency, tax and business context before action.'), ('Route & post', 'Send work through approvals and the exact finance capability.')],
-  steps: [('Receive', 'Email, upload or connected source supplies the invoice.'), ('Understand', 'Extract and classify the document.'), ('Validate', 'Check exact business and finance context.'), ('Execute', 'Approve, post and preserve durable evidence.')],
+  value: [('Extract', 'Read invoice fields and supporting evidence from documents.'), ('Validate', 'Check vendor, currency, tax and the correct organization before processing.'), ('Route & post', 'Send the invoice through the right approvals and finance workflow.')],
+  steps: [('Receive', 'Email, upload or connected source supplies the invoice.'), ('Understand', 'Extract and classify the document.'), ('Validate', 'Check the organization, supplier, currency, tax and finance details.'), ('Execute', 'Approve, post and keep the source invoice and processing history attached.')],
   cta: 'Make invoice processing part of the finance operating system.',
 };
 

@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 347,
-    "passed": 347,
+    "tests": 352,
+    "passed": 352,
     "failed": 0
   },
   "workstreams": [
@@ -139,6 +139,18 @@
       "correction_account_selector": "Complete paginated chart-of-accounts population replaces the prior 1000-row cap.",
       "silent_population_truncation_removed": true,
       "accounting_mutation_authority": false
+    },
+    {
+      "order": 10,
+      "name": "Client portal population integrity",
+      "commit": "d8b4ce5fdb48",
+      "status": "OPERATIONAL_COMPLETE_CLIENT_PORTAL_TRUTH",
+      "work_status": "Engagement runs and work items use complete paginated populations rather than 200/5000 row caps.",
+      "open_requests": "Open client requests and evidence use complete batched populations rather than 200/1000 row caps.",
+      "tax_filings": "Client-visible filing truth uses complete Finance populations rather than a 100-row cap.",
+      "messages": "Display remains intentionally bounded, but exact total/has-more are exposed and all unread firm messages are marked read across the full engagement scope.",
+      "silent_truncation_removed": true,
+      "accounting_mutation_authority": false
     }
   ],
   "live_acceptance": {
@@ -175,6 +187,10 @@
     "finance_connections_overview_is_read_only_projection": true,
     "legal_entity_uniqueness_not_bounded_by_ui_limits": true,
     "correction_duplicate_preflight_exact_identity": true,
-    "correction_account_selector_complete_population": true
+    "correction_account_selector_complete_population": true,
+    "client_portal_work_status_complete_population": true,
+    "client_portal_open_requests_complete_population": true,
+    "client_portal_filing_truth_complete_population": true,
+    "client_portal_message_window_explicit_not_silent": true
   }
 }

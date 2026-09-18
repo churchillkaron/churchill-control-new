@@ -611,3 +611,31 @@ test("required originating-user binding quarantines legacy unbound diagnosis", (
     if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED=oldRequired;
   }
 });
+
+
+test("origin verification can use a paired user turn outside the visible recent window without adding it to model context", () => {
+  const evidence=diagnosisEvidence({answer:"diagnosis"});
+  const scoped=bindBusinessDiagnosisScopeChecksum({...evidence.business_diagnosis,scope_user_turn_id:"u-outside",scope_user_content_fingerprint:businessDiagnosisUserTurnContentFingerprint("old paired request")});
+  const recentRows=[
+    {id:"d1",role:"assistant",content:"diagnosis",evidence:{business_diagnosis:scoped}},
+    {id:"u-recent",role:"user",content:"newer question",evidence:{}},
+  ];
+  const supportRows=[{id:"u-outside",role:"user",content:"old paired request",evidence:{}}];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(recentRows,{},supportRows),[
+    {role:"user",content:"newer question"},
+    {role:"assistant",content:"diagnosis"},
+  ]);
+});
+
+test("missing support row still fails closed when origin binding is required", () => {
+  const oldRequired=process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED;
+  process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED="true";
+  try {
+    const evidence=diagnosisEvidence({answer:"diagnosis"});
+    const scoped=bindBusinessDiagnosisScopeChecksum({...evidence.business_diagnosis,scope_user_turn_id:"u-outside",scope_user_content_fingerprint:businessDiagnosisUserTurnContentFingerprint("old paired request")});
+    const recentRows=[{id:"d1",role:"assistant",content:"diagnosis",evidence:{business_diagnosis:scoped}}];
+    assert.deepEqual(sanitizeBusinessDiagnosisConversation(recentRows,{},[]),[]);
+  } finally {
+    if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED=oldRequired;
+  }
+});

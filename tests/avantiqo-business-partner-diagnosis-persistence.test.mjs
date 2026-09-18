@@ -249,3 +249,13 @@ test("historical snapshot verification is transcript-aware for originating user 
   assert.match(sanitizer,/origin_user_verification_status/);
   assert.match(sanitizer,/origin_user_verified/);
 });
+
+
+test("recent conversation loader fetches missing paired user turns only as verification support",()=>{
+  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
+  assert.match(runtime,/function diagnosisVerificationUserTurnIds/);
+  assert.match(runtime,/loadMissingDiagnosisVerificationUserTurns/);
+  assert.match(runtime,/\.eq\("role", "user"\)/);
+  assert.match(runtime,/\.in\("id", missingIds\.slice\(0, 24\)\)/);
+  assert.match(runtime,/sanitizeBusinessDiagnosisConversation\(turns\.data \|\| \[\],[\s\S]*supportRows\)/);
+});

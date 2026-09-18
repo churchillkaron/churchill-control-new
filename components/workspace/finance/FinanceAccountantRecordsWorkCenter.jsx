@@ -19,6 +19,7 @@ import PreviewEngine from "@/components/workspace/engines/PreviewEngine";
 import WorkspaceEventHub from "@/components/workspace/WorkspaceEventHub";
 import useCreateEngine from "@/components/workspace/engines/useCreateEngine";
 import FinanceRecordReviewPanel from "@/components/workspace/finance/FinanceRecordReviewPanel";
+import FinanceApIntakePanel from "@/components/workspace/finance/FinanceApIntakePanel";
 import { getForm } from "@/lib/platform/forms";
 import { resolveFinanceActionPresentation } from "@/lib/finance/actions/resolveFinanceAction";
 
@@ -590,6 +591,7 @@ export default function FinanceAccountantRecordsWorkCenter({
           <section className="mt-4 rounded-xl border border-amber-700/15 bg-amber-50 p-4 text-[12px] text-amber-900">Finance is preparing the company accounting context. If this remains here, complete the legal company setup before creating financial documents.</section>
         ) : (
           <>
+            {capability?.id === "vendor_bills" ? <FinanceApIntakePanel organizationId={organizationId} entityId={entityId} onVendorBillsChanged={refresh} /> : null}
             <section className="mt-4 grid gap-2 rounded-xl border border-black/[0.07] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.02)] lg:grid-cols-[minmax(260px,1fr)_180px_200px_auto]">
               <div className="flex min-w-0 items-center gap-2 rounded-lg border border-black/[0.08] bg-[#FAF9F7] px-3">
                 <Search size={14} className="text-[#9A958D]" />

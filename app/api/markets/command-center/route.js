@@ -556,6 +556,7 @@ async function submitPaperOrder({ organizationId, state, body }) {
     .update({ risk_status: risk.status, risk_reasons: risk.reasons })
     .eq("id", decision.id)
     .eq("organization_id", organizationId)
+    .in("risk_status", ["PENDING", "APPROVED_PAPER"])
     .select("*")
     .single();
   if (decisionError) throw decisionError;
@@ -574,31 +575,31 @@ async function submitPaperOrder({ organizationId, state, body }) {
     decisionExpiresAt: decision.expires_at || null,
   });
 
-  const { data: order, error: orderError } = await supabaseAdmin.from("market_paper_orders").insert({
-    organization_id: organizationId,
-    portfolio_id: state.portfolio.id,
-    decision_id: decision.id,
-    symbol: clean(decision.symbol).toUpperCase(),
-    side,
-    order_type: orderType,
-    quantity,
-    filled_quantity: 0,
-    remaining_quantity: quantity,
-    limit_price: limitPrice,
-    requested_price: requestedPrice,
-    status: "QUEUED",
-    time_in_force: lifecycle.time_in_force,
-    expires_at: lifecycle.expires_at,
-    risk_snapshot: {
-      ...risk.snapshot,
-      authoritative_state: true,
-      daily_equity_start: dailyEquityStart,
-      high_water_equity: highWaterEquity,
-      cash_balance: Number(account.cash_balance || 0),
-      held_quantity: heldQuantity,
+  const { data: order, error: orderError } = await supabaseAdmin.rpc(
+    "market_create_governed_paper_order",
+    {
+      p_organization_id: organizationId,
+      p_portfolio_id: state.portfolio.id,
+      p_decision_id: decision.id,
+      p_symbol: clean(decision.symbol).toUpperCase(),
+      p_side: side,
+      p_order_type: orderType,
+      p_quantity: quantity,
+      p_limit_price: limitPrice,
+      p_requested_price: requestedPrice,
+      p_time_in_force: lifecycle.time_in_force,
+      p_expires_at: lifecycle.expires_at,
+      p_risk_snapshot: {
+        ...risk.snapshot,
+        authoritative_state: true,
+        daily_equity_start: dailyEquityStart,
+        high_water_equity: highWaterEquity,
+        cash_balance: Number(account.cash_balance || 0),
+        held_quantity: heldQuantity,
+      },
+      p_metadata: { simulation_only: true },
     },
-    metadata: { simulation_only: true },
-  }).select("*").single();
+  );
   if (orderError) throw orderError;
   return { approved: true, risk, decision: updatedDecision, order };
 }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CircleStop, Headphones, Mic2, Radio, ShieldCheck } from "lucide-react";
 
 import { startMusicRawPcmCapture } from "@/lib/creative/music/client/MusicRawPcmCapture";
-import { runMusicLatencyCalibration } from "@/lib/creative/music/client/MusicLatencyCalibrationRuntime";
+import { evaluateMusicLatencyCalibrationReuse, loadPersistedMusicLatencyCalibration, persistMusicLatencyCalibration, runMusicLatencyCalibration } from "@/lib/creative/music/client/MusicLatencyCalibrationRuntime";
 import { startMusicMultitrackPreview } from "@/lib/creative/music/client/MusicMultitrackPreviewEngine";
 import MusicTakeLaneCompPanel from "./MusicTakeLaneCompPanel";
 
@@ -82,6 +82,7 @@ export default function MusicWorkstationOverdubPanel({
   const [latencyCompMs, setLatencyCompMs] = useState(0);
   const [clockAlignmentMs, setClockAlignmentMs] = useState(null);
   const [latencyCalibration, setLatencyCalibration] = useState(null);
+  const [calibrationReuse, setCalibrationReuse] = useState(null);
   const [calibrationBusy, setCalibrationBusy] = useState(false);
   const [calibrationPath, setCalibrationPath] = useState("HARDWARE_LOOPBACK");
   const [monitorEnabled, setMonitorEnabled] = useState(false);
@@ -103,6 +104,15 @@ export default function MusicWorkstationOverdubPanel({
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const persisted = loadPersistedMusicLatencyCalibration();
+    if (!persisted) { setLatencyCalibration(null); setCalibrationReuse(null); return; }
+    const current = { input_device_id: deviceId || null, sample_rate: finite(session?.sample_rate, null), path_type: calibrationPath, output_sink_id: null };
+    const reuse = evaluateMusicLatencyCalibrationReuse(persisted, current);
+    setLatencyCalibration(persisted);
+    setCalibrationReuse(reuse);
+  }, [deviceId, calibrationPath, session?.sample_rate]);
 
   useEffect(() => {
     setPunchStart(Math.max(0, finite(playhead, 0)));
@@ -300,7 +310,9 @@ export default function MusicWorkstationOverdubPanel({
     setError("");
     try {
       const result = await runMusicLatencyCalibration({ deviceId: deviceId || null, pathType: calibrationPath });
+      persistMusicLatencyCalibration(result);
       setLatencyCalibration(result);
+      setCalibrationReuse({ reuse_allowed: result.automatic_apply_allowed === true, fresh: true, same_input: true, same_sample_rate: true, same_path: true, output_path_verified: result.output_path_verified === true, reasons: result.output_path_verified === true ? [] : ["OUTPUT_PATH_UNVERIFIED"] });
     } catch (cause) {
       setLatencyCalibration(null);
       setError(cause?.message || "Latency calibration failed");
@@ -311,7 +323,7 @@ export default function MusicWorkstationOverdubPanel({
 
   function applyMeasuredLatency() {
     const measured = Number(latencyCalibration?.roundtrip_latency_ms);
-    if (!Number.isFinite(measured) || latencyCalibration?.automatic_apply_allowed !== true) return;
+    if (!Number.isFinite(measured) || latencyCalibration?.automatic_apply_allowed !== true || calibrationReuse?.reuse_allowed !== true) return;
     setLatencyCompMs(Math.max(-500, Math.min(500, measured)));
   }
 
@@ -443,8 +455,8 @@ export default function MusicWorkstationOverdubPanel({
           <div className="col-span-2 rounded-xl border border-[#d6a66a]/12 bg-[#d6a66a]/[0.025] p-3">
             <div className="flex items-center justify-between gap-3"><div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[#efd29f]/55">Roundtrip calibration</div><select value={calibrationPath} onChange={(event) => setCalibrationPath(event.target.value)} disabled={recording || calibrationBusy} className="rounded-md border border-white/8 bg-black/30 px-2 py-1 text-[9px] text-white/45"><option value="HARDWARE_LOOPBACK">Hardware loopback</option><option value="ACOUSTIC_PATH">Speaker → microphone</option></select></div>
             <div className="mt-2 text-[8px] leading-4 text-white/22">For exact interface latency, route an output directly back to the selected input. Speaker → microphone includes speaker, air and microphone delay and is kept as acoustic-path evidence.</div>
-            <div className="mt-3 flex flex-wrap items-center gap-2"><button type="button" onClick={calibrateLatency} disabled={recording || calibrationBusy} className="rounded-lg border border-[#d6a66a]/20 bg-[#d6a66a]/8 px-3 py-2 text-[9px] font-medium text-[#efd29f]/75 disabled:opacity-35">{calibrationBusy ? "Measuring…" : "Run latency calibration"}</button>{latencyCalibration?.automatic_apply_allowed === true ? <button type="button" onClick={applyMeasuredLatency} disabled={recording} className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.04] px-3 py-2 text-[9px] text-emerald-100/65">Use {latencyCalibration.roundtrip_latency_ms.toFixed(1)} ms offset</button> : null}</div>
-            {latencyCalibration ? <div className="mt-2 text-[8px] leading-4 text-white/30">{latencyCalibration.status} · {latencyCalibration.path_type} · {Number.isFinite(latencyCalibration.roundtrip_latency_ms) ? `${latencyCalibration.roundtrip_latency_ms.toFixed(2)} ms` : "no reliable return detected"} · confidence {Number.isFinite(latencyCalibration.confidence) ? latencyCalibration.confidence.toFixed(2) : "—"}{latencyCalibration.path_type === "ACOUSTIC_PATH" ? " · acoustic result is never eligible as exact interface compensation" : ""}</div> : null}
+            <div className="mt-3 flex flex-wrap items-center gap-2"><button type="button" onClick={calibrateLatency} disabled={recording || calibrationBusy} className="rounded-lg border border-[#d6a66a]/20 bg-[#d6a66a]/8 px-3 py-2 text-[9px] font-medium text-[#efd29f]/75 disabled:opacity-35">{calibrationBusy ? "Measuring…" : "Run latency calibration"}</button>{latencyCalibration?.automatic_apply_allowed === true && calibrationReuse?.reuse_allowed === true ? <button type="button" onClick={applyMeasuredLatency} disabled={recording} className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.04] px-3 py-2 text-[9px] text-emerald-100/65">Use {latencyCalibration.roundtrip_latency_ms.toFixed(1)} ms offset</button> : null}</div>
+            {latencyCalibration ? <div className="mt-2 text-[8px] leading-4 text-white/30">{latencyCalibration.status} · {latencyCalibration.path_type} · {Number.isFinite(latencyCalibration.roundtrip_latency_ms) ? `${latencyCalibration.roundtrip_latency_ms.toFixed(2)} ms` : "no reliable return detected"} · confidence {Number.isFinite(latencyCalibration.confidence) ? latencyCalibration.confidence.toFixed(2) : "—"}{latencyCalibration.path_type === "ACOUSTIC_PATH" ? " · acoustic result is never eligible as exact interface compensation" : ""}{calibrationReuse?.reuse_allowed === false ? ` · stored calibration not reusable: ${(calibrationReuse.reasons || []).join(", ") || "scope mismatch"}` : ""}</div> : null}
           </div>
           <div className="col-span-2 rounded-xl border border-white/8 bg-black/20 p-3">
             <div className="flex items-center justify-between gap-3">

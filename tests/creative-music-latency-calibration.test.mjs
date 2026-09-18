@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { detectLatencyCalibrationReturn } from "../lib/creative/music/client/MusicLatencyCalibrationRuntime.js";
+import { detectLatencyCalibrationReturn, evaluateMusicLatencyCalibrationReuse } from "../lib/creative/music/client/MusicLatencyCalibrationRuntime.js";
 
 const panel=fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicWorkstationOverdubPanel.jsx","utf8");
 const runtime=fs.readFileSync("lib/creative/music/client/MusicLatencyCalibrationRuntime.js","utf8");
@@ -17,7 +17,7 @@ test("correlation detector finds a deterministic loopback return",()=>{
 });
 
 test("calibration runtime distinguishes exact hardware loopback from acoustic evidence",()=>{
-  assert.match(runtime,/AVANTIQO_MUSIC_LATENCY_CALIBRATION_V1/);
+  assert.match(runtime,/AVANTIQO_MUSIC_LATENCY_CALIBRATION_V2/);
   assert.match(runtime,/HARDWARE_LOOPBACK/);
   assert.match(runtime,/ACOUSTIC_PATH/);
   assert.match(runtime,/automatic_apply_allowed: direct && confidencePassed/);
@@ -30,4 +30,24 @@ test("Workstation requires explicit apply action before measured latency changes
   assert.match(panel,/function applyMeasuredLatency/);
   assert.match(panel,/latency_calibration: latencyCalibration/);
   assert.match(panel,/automatic_latency_compensation_allowed: false/);
+});
+
+
+test("persisted calibration is reusable only for fresh exact hardware scope",()=>{
+  const now=Date.now();
+  const calibration={status:"MEASURED",automatic_apply_allowed:true,input_device_id:"mic-a",sample_rate:48000,path_type:"HARDWARE_LOOPBACK",output_sink_id:"out-a",measured_at:new Date(now-1000).toISOString()};
+  const ok=evaluateMusicLatencyCalibrationReuse(calibration,{input_device_id:"mic-a",sample_rate:48000,path_type:"HARDWARE_LOOPBACK",output_sink_id:"out-a"},now);
+  assert.equal(ok.reuse_allowed,true);
+  const changed=evaluateMusicLatencyCalibrationReuse(calibration,{input_device_id:"mic-b",sample_rate:48000,path_type:"HARDWARE_LOOPBACK",output_sink_id:"out-a"},now);
+  assert.equal(changed.reuse_allowed,false); assert.ok(changed.reasons.includes("INPUT_DEVICE_CHANGED"));
+  const unknownOutput=evaluateMusicLatencyCalibrationReuse(calibration,{input_device_id:"mic-a",sample_rate:48000,path_type:"HARDWARE_LOOPBACK",output_sink_id:null},now);
+  assert.equal(unknownOutput.reuse_allowed,false); assert.ok(unknownOutput.reasons.includes("OUTPUT_PATH_UNVERIFIED"));
+});
+
+test("Workstation persists calibration evidence locally but blocks stale reuse",()=>{
+  assert.match(panel,/loadPersistedMusicLatencyCalibration/);
+  assert.match(panel,/persistMusicLatencyCalibration/);
+  assert.match(panel,/evaluateMusicLatencyCalibrationReuse/);
+  assert.match(panel,/stored calibration not reusable/);
+  assert.match(panel,/calibrationReuse\?\.reuse_allowed !== true/);
 });

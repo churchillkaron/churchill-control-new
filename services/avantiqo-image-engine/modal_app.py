@@ -15,6 +15,7 @@ ENGINE_CONTRACT = "AVANTIQO_IMAGE_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-image-v1"
 FOUNDATION_MODEL = "Tongyi-MAI/Z-Image"
 ANALYZE_MODEL = "Qwen/Qwen2.5-VL-7B-Instruct"
+DEPTH_MODEL = "depth-anything/Depth-Anything-V2-Small-hf"
 WORKER_IMAGE = (
     "ghcr.io/churchillkaron/avantiqo-image-worker@"
     "sha256:dba91ed34b53d69db5e9edb0894293bd0837ece2676be14184b0bda61296f905"
@@ -54,6 +55,7 @@ def _seed_one_model(model_id: str, marker_name: str) -> Path:
 def _seed_model() -> None:
     _seed_one_model(FOUNDATION_MODEL, ".avantiqo-photoreal-cache-complete.json")
     _seed_one_model(ANALYZE_MODEL, ".avantiqo-vision-cache-complete.json")
+    _seed_one_model(DEPTH_MODEL, ".avantiqo-depth-cache-complete.json")
 
 seed_image = modal.Image.debian_slim(python_version="3.12").pip_install("huggingface_hub")
 
@@ -86,7 +88,8 @@ worker_image = (
         "AVANTIQO_IMAGE_NETWORK_VOLUME_QUOTA_GB": "80",
         "AVANTIQO_IMAGE_FOUNDATION_MODEL": FOUNDATION_MODEL,
         "AVANTIQO_IMAGE_ANALYZE_MODEL": ANALYZE_MODEL,
-        "AVANTIQO_IMAGE_CERTIFIED_CAPABILITIES": "ai.image.generate,ai.image.analyze",
+        "AVANTIQO_IMAGE_DEPTH_MODEL": DEPTH_MODEL,
+        "AVANTIQO_IMAGE_CERTIFIED_CAPABILITIES": "ai.image.generate,ai.image.analyze,creative.depth.estimate",
         "AVANTIQO_IMAGE_DEVICE": "cuda",
         "HF_HUB_OFFLINE": "1",
         "TRANSFORMERS_OFFLINE": "1",
@@ -122,6 +125,72 @@ def generate(data: dict[str, Any]) -> dict[str, Any]:
     result["runpod_inference_performed"] = False
     result["raw_reasoning_persisted"] = False
     return result
+
+
+@app.function(
+    image=worker_image,
+    gpu="A10G",
+    volumes={"/models": model_volume},
+    timeout=20 * 60,
+    min_containers=0,
+    max_containers=1,
+    buffer_containers=0,
+    scaledown_window=5,
+)
+def estimate_depth(data: dict[str, Any]) -> dict[str, Any]:
+    """Owned monocular depth estimation for governed scene reconstruction."""
+    import io
+    import requests
+    import torch
+    import torch.nn.functional as F
+    from PIL import Image
+    from transformers import AutoImageProcessor, AutoModelForDepthEstimation
+
+    capability = str(data.get("capability") or "").strip()
+    if capability != "creative.depth.estimate":
+        raise RuntimeError("AVANTIQO_IMAGE_DEPTH_CAPABILITY_REQUIRED")
+    source_assets = data.get("source_assets") or []
+    if not source_assets:
+        raise RuntimeError("AVANTIQO_IMAGE_DEPTH_SOURCE_REQUIRED")
+    source_url = str(source_assets[0] or "").strip()
+    storage_upload = data.get("storage_upload") or {}
+    signed_upload_url = str(storage_upload.get("signed_url") or "").strip()
+    storage_reference = str(storage_upload.get("storage_reference") or "").strip()
+    if not source_url or not signed_upload_url or not storage_reference:
+        raise RuntimeError("AVANTIQO_IMAGE_DEPTH_INPUT_OR_STORAGE_REQUIRED")
+
+    started = time.perf_counter()
+    response = requests.get(source_url, timeout=60)
+    response.raise_for_status()
+    image = Image.open(io.BytesIO(response.content)).convert("RGB")
+    processor = AutoImageProcessor.from_pretrained(DEPTH_MODEL, cache_dir=HF_CACHE_ROOT, local_files_only=True)
+    model = AutoModelForDepthEstimation.from_pretrained(
+        DEPTH_MODEL, cache_dir=HF_CACHE_ROOT, local_files_only=True, torch_dtype=torch.float16,
+    ).to("cuda").eval()
+    inputs = {key: value.to("cuda") for key, value in processor(images=image, return_tensors="pt").items()}
+    with torch.inference_mode():
+        predicted = model(**inputs).predicted_depth
+    predicted = F.interpolate(
+        predicted.unsqueeze(1), size=(image.height, image.width), mode="bicubic", align_corners=False,
+    ).squeeze(1).squeeze(0).float().cpu()
+    minimum = float(torch.quantile(predicted, 0.01))
+    maximum = float(torch.quantile(predicted, 0.99))
+    normalized = ((predicted - minimum) / max(1e-6, maximum - minimum)).clamp(0, 1)
+    depth_image = Image.fromarray((normalized * 65535.0).round().to(torch.uint16).numpy(), mode="I;16")
+    buffer = io.BytesIO()
+    depth_image.save(buffer, format="PNG", optimize=False)
+    upload = requests.put(signed_upload_url, data=buffer.getvalue(), headers={"Content-Type": "image/png"}, timeout=90)
+    upload.raise_for_status()
+    return {
+        "success": True, "status": "completed", "contract": "AVANTIQO_DEPTH_ESTIMATION_V1",
+        "capability": capability, "provider": "avantiqo-image", "model": "avantiqo-depth-v1",
+        "foundation_model": DEPTH_MODEL, "storage_reference": storage_reference,
+        "width": image.width, "height": image.height, "bit_depth": 16,
+        "normalization": {"near_quantile": 0.01, "far_quantile": 0.99, "raw_min": minimum, "raw_max": maximum},
+        "source_visual_asset_count": 1, "modal_gpu": "A10G",
+        "modal_elapsed_seconds": round(time.perf_counter() - started, 3),
+        "raw_reasoning_persisted": False,
+    }
 
 
 @app.function(

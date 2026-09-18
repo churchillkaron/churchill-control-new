@@ -48,7 +48,7 @@ async function loadReferenceMaps({ organizationId, rows }) {
       payableIds.length
         ? supabaseAdmin
             .from("accounts_payable")
-            .select("id, vendor_invoice_id, vendor_party_id, supplier_party_id, invoice_number, due_date")
+            .select("id, vendor_invoice_id, vendor_party_id, supplier_party_id, due_date")
             .eq("organization_id", organizationId)
             .in("id", payableIds)
         : Promise.resolve({ data: [], error: null }),

@@ -11,6 +11,18 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 const MANAGE_PERMISSIONS = ["finance.accounting.manage", "finance.configuration.manage"];
 function clean(value) { return String(value ?? "").trim(); }
 function jsonError(error, status = 400) { return NextResponse.json({ success: false, error }, { status }); }
+function portalStorageError(error) {
+  const message = String(error?.message || error || "");
+  if (/accounting_client_portal_grants|schema cache/i.test(message)) {
+    return NextResponse.json({
+      success: false,
+      error: "Client portal storage is not deployed in this environment yet. Apply the pending Finance client-portal database migration before issuing or revoking client access.",
+      code: "FINANCE_CLIENT_PORTAL_STORAGE_NOT_DEPLOYED",
+      migration: "20260918093000_accounting_client_portal_grants.sql",
+    }, { status: 503 });
+  }
+  return jsonError(message || "Unable to load client portal access", 500);
+}
 async function requireView(access) { await checkFinancePermission({ organizationId: access.organizationId, userId: access.user?.id, permissionKey: "finance.view", fullAccess: access.permissions?.includes("*") === true }); }
 async function requireManage(access) { if (access.permissions?.includes("*") === true) return; let lastError = null; for (const permissionKey of MANAGE_PERMISSIONS) { try { await checkFinancePermission({ organizationId: access.organizationId, userId: access.user?.id, permissionKey, fullAccess: false }); return; } catch (error) { lastError = error; } } throw lastError || new Error("Finance client portal permission denied"); }
 function staffId(access) { return access?.access?.staffAccountId || access?.staff?.id || null; }
@@ -30,7 +42,7 @@ export async function GET(request) {
     const now = Date.now();
     const rows = (engagements || []).map((engagement) => ({ ...engagement, client_name: orgMap.get(engagement.organization_id) || "Client organization", grants: grantsByEngagement.get(engagement.id) || [], active_grant: (grantsByEngagement.get(engagement.id) || []).find((grant) => !grant.revoked_at && Date.parse(grant.expires_at) > now) || null }));
     return NextResponse.json({ success: true, engagements: rows, summary: { clients: rows.length, active_portals: rows.filter((row) => row.active_grant).length }, generated_at: new Date().toISOString() });
-  } catch (error) { return jsonError(error?.message || "Unable to load client portal access", 500); }
+  } catch (error) { return portalStorageError(error); }
 }
 
 export async function POST(request) {
@@ -49,5 +61,5 @@ export async function POST(request) {
     const { data: engagement, error: engagementError } = await supabaseAdmin.from("accounting_engagements").select("id,organization_id,entity_id,status").eq("id", engagementId).eq("accounting_firm_id", access.organizationId).maybeSingle(); if (engagementError) throw engagementError; if (!engagement) return jsonError("Accounting engagement not found", 404); if (!engagement.entity_id) return jsonError("Client legal entity must be configured before portal access", 409);
     const issued = await issueFinanceClientPortalGrant({ accountingFirmId: access.organizationId, organizationId: engagement.organization_id, entityId: engagement.entity_id, engagementId: engagement.id, clientName, clientEmail, issuedBy: staffId(access), ttlDays: body.ttlDays || 30 });
     return NextResponse.json({ success: true, grant: issued.grant, client_path: `/client/accounting/${issued.token}`, expires_at: issued.grant.expires_at, token_returned_once: true }, { status: 201 });
-  } catch (error) { return jsonError(error?.message || "Unable to update client portal access", 500); }
+  } catch (error) { return portalStorageError(error); }
 }

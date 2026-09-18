@@ -101,3 +101,15 @@ test("conversation snapshot hides unverified historical diagnosis answer text",(
   assert.match(runtime,/execution:\{\}/);
   assert.match(runtime,/navigation:\{\}/);
 });
+
+
+test("unverified snapshot diagnosis drops stale decisions and unrelated evidence",()=>{
+  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
+  const start=runtime.indexOf("const quarantineMessage=");
+  const end=runtime.indexOf("  });",start);
+  const quarantine=runtime.slice(start,end);
+  assert.match(quarantine,/decision:\{response_text:quarantineMessage\}/);
+  assert.match(quarantine,/evidence:\{business_diagnosis:verifiedDiagnosis\}/);
+  assert.doesNotMatch(quarantine,/\.\.\.object\(turn\?\.decision\)/);
+  assert.doesNotMatch(quarantine,/\.\.\.evidence/);
+});

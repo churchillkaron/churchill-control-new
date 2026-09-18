@@ -1,4 +1,5 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+import ProductFamilyArt from "@/components/public/ProductFamilyArt";
 import { productCatalog } from "@/components/public/productCatalog";
 import { notFound } from "next/navigation";
 
@@ -19,12 +20,20 @@ export default function CatalogProductPage({ params }) {
     <PublicSiteHeader context={product.name} audience="business" />
     <section className="relative overflow-hidden border-b border-[#CFC5B8]/45 bg-[#F3EEE5]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(214,166,106,.22),transparent_30%)]" />
-      <div className="relative mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-28">
-        <p className="text-[9px] font-semibold uppercase tracking-[.22em] text-[#9A744B]">AVANTIQO {product.name.toUpperCase()}</p>
-        <h1 className="mt-4 max-w-5xl text-[58px] font-medium leading-[.94] tracking-[-.065em] sm:text-[76px]">{product.summary}</h1>
-        <p className="mt-8 max-w-3xl text-[15px] leading-8 text-[#625D55]">Built for {product.buyers}. Start with this product on its own, then connect more Avantiqo products as your operation grows.</p>
-        <div className="mt-8 flex flex-wrap gap-x-4 gap-y-2 text-[9px] text-[#756B60]">{product.verticals.map((vertical)=><span key={vertical}>{vertical}</span>)}</div>
-        <div className="mt-10"><a href="/start" className="inline-flex h-11 items-center rounded-full bg-[#D6A66A] px-5 text-[10px] font-semibold text-[#3F3327]">Start with {product.name}</a></div>
+      <div className="relative mx-auto grid max-w-[1540px] lg:min-h-[690px] lg:grid-cols-[44%_56%]">
+        <div className="flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-[.22em] text-[#9A744B]">AVANTIQO {product.name.toUpperCase()}</p>
+            <h1 className="mt-4 max-w-[650px] text-[50px] font-medium leading-[.94] tracking-[-.065em] sm:text-[64px] lg:text-[70px]">{product.summary}</h1>
+            <p className="mt-7 max-w-xl text-[15px] leading-8 text-[#625D55]">Built for {product.buyers}. Start with this product on its own, then connect more Avantiqo products as your operation grows.</p>
+            <div className="mt-7 flex flex-wrap gap-2">{product.verticals.slice(0,6).map((vertical)=><span key={vertical} className="rounded-full border border-[#D6A66A]/25 bg-white/55 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.12em] text-[#80664B]">{vertical}</span>)}</div>
+            <div className="mt-9"><a href="/start" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start with {product.name} →</a></div>
+          </div>
+        </div>
+        <div className="relative min-h-[520px] overflow-hidden border-t border-black/[.06] p-5 sm:p-7 lg:min-h-0 lg:border-l lg:border-t-0 lg:p-8">
+          <div className="absolute inset-0 bg-[#171614]"/>
+          <div className="relative flex h-full items-center"><div className="w-full"><ProductFamilyArt family={product.family} product={product}/></div></div>
+        </div>
       </div>
     </section>
     <section className="border-b border-[#CFC5B8]/45 bg-[#FBFAF8]"><div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-24">

@@ -240,3 +240,12 @@ test("originating diagnosis prompt fingerprint is not truncated below persisted 
   assert.match(runtime,/const normalizedContent = text\(content\)/);
   assert.match(runtime,/content: normalizedContent/);
 });
+
+
+test("historical snapshot verification is transcript-aware for originating user content",()=>{
+  const sanitizer=fs.readFileSync("lib/operator/runtime/BusinessDiagnosisConversationSanitizerRuntime.js","utf8");
+  assert.match(sanitizer,/const userTurnsById = new Map/);
+  assert.match(sanitizer,/verifyBusinessDiagnosisOriginatingUserTurn\(diagnosis, originatingUserTurn \|\| \{\}\)/);
+  assert.match(sanitizer,/origin_user_verification_status/);
+  assert.match(sanitizer,/origin_user_verified/);
+});

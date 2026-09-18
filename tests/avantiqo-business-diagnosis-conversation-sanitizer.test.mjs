@@ -11,6 +11,7 @@ import {
   businessDiagnosisTurnVerification,
   sanitizeBusinessDiagnosisConversation,
   sanitizeBusinessDiagnosisSnapshotTurn,
+  sanitizeBusinessDiagnosisSnapshot,
 } from "../lib/operator/runtime/BusinessDiagnosisConversationSanitizerRuntime.js";
 import { sealBusinessDiagnosisProofAuthenticity, verifyBusinessDiagnosisProofScope, bindBusinessDiagnosisScopeChecksum, businessDiagnosisUserTurnContentFingerprint } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime.js";
 
@@ -551,4 +552,35 @@ test("diagnosis pair remains reusable when originating persisted user text match
     {id:"u1",role:"user",content:"why did profit drop?",evidence:{}},
   ];
   assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[{role:"user",content:"why did profit drop?"},{role:"assistant",content:"diagnosis"}]);
+});
+
+
+test("historical snapshot quarantines diagnosis when originating user text was tampered", () => {
+  const evidence=diagnosisEvidence({answer:"diagnosis"});
+  const scoped=bindBusinessDiagnosisScopeChecksum({...evidence.business_diagnosis,scope_user_turn_id:"u1",scope_user_content_fingerprint:businessDiagnosisUserTurnContentFingerprint("why did profit drop?")});
+  const rows=[
+    {id:"u1",role:"user",content:"show invoices",evidence:{}},
+    {id:"d1",role:"assistant",content:"diagnosis",decision:{response_text:"diagnosis"},evidence:{business_diagnosis:scoped},execution:{x:1},navigation:{target_id:"finance"}},
+  ];
+  const result=sanitizeBusinessDiagnosisSnapshot(rows);
+  assert.equal(result[0].content,"show invoices");
+  assert.match(result[1].content,/historical diagnosis is hidden/i);
+  assert.equal(result[1].evidence.business_diagnosis.origin_user_verification_status,"ORIGIN_USER_CONTENT_MISMATCH");
+  assert.equal(result[1].evidence.business_diagnosis.origin_user_verified,false);
+  assert.deepEqual(result[1].execution,{});
+  assert.deepEqual(result[1].navigation,{});
+});
+
+test("historical snapshot keeps diagnosis verified when originating user text still matches", () => {
+  const evidence=diagnosisEvidence({answer:"diagnosis"});
+  const scoped=bindBusinessDiagnosisScopeChecksum({...evidence.business_diagnosis,scope_user_turn_id:"u1",scope_user_content_fingerprint:businessDiagnosisUserTurnContentFingerprint("why did profit drop?")});
+  const rows=[
+    {id:"u1",role:"user",content:"why did profit drop?",evidence:{}},
+    {id:"d1",role:"assistant",content:"diagnosis",decision:{response_text:"diagnosis"},evidence:{business_diagnosis:scoped}},
+  ];
+  const result=sanitizeBusinessDiagnosisSnapshot(rows);
+  assert.equal(result[1].content,"diagnosis");
+  assert.equal(result[1].evidence.business_diagnosis.origin_user_verification_status,"ORIGIN_USER_VERIFIED");
+  assert.equal(result[1].evidence.business_diagnosis.origin_user_verified,true);
+  assert.equal(result[1].evidence.business_diagnosis.audit_projection_verified,true);
 });

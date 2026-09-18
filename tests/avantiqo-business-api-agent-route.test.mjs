@@ -48,23 +48,30 @@ test("diagnosis POST audit exposes signed diagnosis class from receipt",()=>{
 });
 
 
-test("diagnosis POST binds period dates from authoritative accounting periods",()=>{
-  assert.match(source,/function bindDiagnosisPeriods/);
+test("diagnosis POST resolves periods through shared governed resolver",()=>{
+  assert.match(source,/function resolveDirectDiagnosisPeriods/);
+  assert.match(source,/resolveBusinessDiagnosisPeriods/);
   assert.match(source,/from\("accounting_periods"\)/);
   assert.match(source,/\.eq\("organization_id", organizationId\)/);
-  assert.match(source,/\.in\("id", ids\)/);
   assert.match(source,/baseline_period_start_date/);
   assert.match(source,/baseline_period_end_date/);
   assert.match(source,/current_period_start_date/);
   assert.match(source,/current_period_end_date/);
-  assert.match(source,/\.\.\.boundPeriods\.periods/);
+  assert.match(source,/baseline_period_id: resolvedPeriods\.periods\.baseline_period_id/);
+  assert.match(source,/current_period_id: resolvedPeriods\.periods\.current_period_id/);
 });
 
-test("diagnosis POST rejects unverifiable or reversed period scope",()=>{
-  assert.match(source,/accounting period outside organization scope/);
-  assert.match(source,/accounting period outside entity scope/);
-  assert.match(source,/baseline period must precede current period/);
-  assert.match(source,/if \(!boundPeriods\.success\) return errorResponse\(boundPeriods\.error, 400\)/);
+test("diagnosis POST rejects unresolved governed period pairs",()=>{
+  assert.match(source,/business diagnosis period resolution failed/);
+  assert.match(source,/if \(!resolvedPeriods\.success\) return errorResponse\(resolvedPeriods\.error, 400\)/);
   assert.doesNotMatch(source,/baseline_period_start_date:\s*cleanValue\(body/);
   assert.doesNotMatch(source,/current_period_end_date:\s*cleanValue\(body/);
+});
+
+
+test("diagnosis POST auto-resolves missing comparison periods instead of trusting caller defaults",()=>{
+  assert.match(source,/baselinePeriodId,/);
+  assert.match(source,/currentPeriodId,/);
+  assert.match(source,/loadPeriods: directDiagnosisPeriodRows/);
+  assert.match(source,/period_id: context\.current_period_id/);
 });

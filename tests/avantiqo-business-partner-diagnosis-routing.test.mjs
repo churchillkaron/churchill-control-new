@@ -143,3 +143,13 @@ test("diagnosis adapter falls back when no valid period pair exists without call
  assert.equal(result,null);
  assert.equal(diagnosisCalls,0);
 });
+
+
+test("period resolver honors explicit baseline and rejects reversed explicit pair",async()=>{
+ const explicit=await resolveBusinessDiagnosisPeriods({organizationId:"org",entityId:"entity",baselinePeriodId:"jul-entity",currentPeriodId:"sep-entity",loadPeriods});
+ assert.equal(explicit.status,"PERIOD_PAIR_READY");
+ assert.equal(explicit.baseline_period_id,"jul-entity");
+ assert.equal(explicit.current_period_id,"sep-entity");
+ const reversed=await resolveBusinessDiagnosisPeriods({organizationId:"org",entityId:"entity",baselinePeriodId:"sep-entity",currentPeriodId:"aug-entity",loadPeriods});
+ assert.equal(reversed.status,"BASELINE_PERIOD_INVALID_ORDER");
+});

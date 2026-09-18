@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { BusinessIntelligenceRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 import { BusinessIntelligenceAgentRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceAgentRuntime";
-import { classifyBusinessDiagnosisQuestion } from "@/lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime";
+import { classifyBusinessDiagnosisQuestion, resolveBusinessDiagnosisPeriods } from "@/lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function cleanValue(value) {
@@ -77,37 +77,31 @@ function listValue(value) {
 }
 
 
-async function bindDiagnosisPeriods({ organizationId, entityId = null, baselinePeriodId = null, currentPeriodId = null }) {
-  const ids = [...new Set([baselinePeriodId, currentPeriodId].filter(Boolean))];
-  if (!ids.length) return { success: true, periods: {} };
-  const { data, error } = await supabaseAdmin
+async function directDiagnosisPeriodRows({ organizationId, entityId = null } = {}) {
+  let query = supabaseAdmin
     .from("accounting_periods")
     .select("id,organization_id,entity_id,start_date,end_date,status")
     .eq("organization_id", organizationId)
-    .in("id", ids);
+    .order("start_date", { ascending: false })
+    .limit(36);
+  if (entityId) query = query.or(`entity_id.eq.${entityId},entity_id.is.null`);
+  const { data, error } = await query;
   if (error) throw error;
-  const rows = Array.isArray(data) ? data : [];
-  const byId = new Map(rows.map((row) => [cleanValue(row?.id), row]));
-  for (const id of ids) {
-    const row = byId.get(id);
-    if (!row) return { success: false, error: "accounting period outside organization scope" };
-    const rowEntity = cleanValue(row.entity_id);
-    if (entityId && rowEntity && rowEntity !== entityId) return { success: false, error: "accounting period outside entity scope" };
+  return Array.isArray(data) ? data : [];
+}
+
+async function resolveDirectDiagnosisPeriods({ organizationId, entityId = null, baselinePeriodId = null, currentPeriodId = null }) {
+  const periods = await resolveBusinessDiagnosisPeriods({
+    organizationId,
+    entityId,
+    baselinePeriodId,
+    currentPeriodId,
+    loadPeriods: directDiagnosisPeriodRows,
+  });
+  if (periods.status !== "PERIOD_PAIR_READY") {
+    return { success: false, error: `business diagnosis period resolution failed: ${periods.status}`, periods };
   }
-  const baseline = baselinePeriodId ? byId.get(baselinePeriodId) : null;
-  const current = currentPeriodId ? byId.get(currentPeriodId) : null;
-  if (baseline && current && cleanValue(baseline.start_date) >= cleanValue(current.start_date)) {
-    return { success: false, error: "baseline period must precede current period" };
-  }
-  return {
-    success: true,
-    periods: {
-      baseline_period_start_date: cleanValue(baseline?.start_date),
-      baseline_period_end_date: cleanValue(baseline?.end_date),
-      current_period_start_date: cleanValue(current?.start_date),
-      current_period_end_date: cleanValue(current?.end_date),
-    },
-  };
+  return { success: true, periods };
 }
 
 function businessDiagnosisAudit(result = {}) {
@@ -152,18 +146,21 @@ export async function POST(request) {
     const entityId = cleanValue(body.entity_id || body.entityId);
     const baselinePeriodId = cleanValue(body.baseline_period_id || body.baselinePeriodId || requestContext.baseline_period_id);
     const currentPeriodId = cleanValue(body.current_period_id || body.currentPeriodId || requestContext.current_period_id || body.period_id);
-    const boundPeriods = await bindDiagnosisPeriods({
+    const resolvedPeriods = await resolveDirectDiagnosisPeriods({
       organizationId: access.organizationId,
       entityId,
       baselinePeriodId,
       currentPeriodId,
     });
-    if (!boundPeriods.success) return errorResponse(boundPeriods.error, 400);
+    if (!resolvedPeriods.success) return errorResponse(resolvedPeriods.error, 400);
     const context = {
       ...requestContext,
-      baseline_period_id: baselinePeriodId,
-      current_period_id: currentPeriodId,
-      ...boundPeriods.periods,
+      baseline_period_id: resolvedPeriods.periods.baseline_period_id,
+      current_period_id: resolvedPeriods.periods.current_period_id,
+      baseline_period_start_date: resolvedPeriods.periods.baseline_start_date,
+      baseline_period_end_date: resolvedPeriods.periods.baseline_end_date,
+      current_period_start_date: resolvedPeriods.periods.current_start_date,
+      current_period_end_date: resolvedPeriods.periods.current_end_date,
       business_diagnosis_class: diagnosisClass,
     };
     const actor = {
@@ -181,7 +178,7 @@ export async function POST(request) {
       actor,
       permissions: listValue(access.permissions),
       callerRequest: request,
-      period_id: cleanValue(body.period_id || body.periodId || context.current_period_id),
+      period_id: context.current_period_id,
       mode: cleanValue(body.mode) || "deep",
     });
 

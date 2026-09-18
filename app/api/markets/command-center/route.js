@@ -37,9 +37,16 @@ const MARKETS_AUTOMATION_OWNER_ROLES = new Set([
   "SUPER_ADMIN",
 ]);
 
-function requireMarketsAutomationAuthority(scope) {
+function marketsAuthority(scope) {
   const role = clean(scope?.access?.role || scope?.access?.access?.role).toUpperCase();
-  if (!MARKETS_AUTOMATION_OWNER_ROLES.has(role)) {
+  return {
+    role,
+    can_execute_paper: MARKETS_AUTOMATION_OWNER_ROLES.has(role),
+  };
+}
+
+function requireMarketsAutomationAuthority(scope) {
+  if (!marketsAuthority(scope).can_execute_paper) {
     const error = new Error("Owner or super-admin authority is required for Markets automation");
     error.status = 403;
     throw error;
@@ -197,7 +204,11 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
       context: { organization_id: scope.context.organizationId, entity_id: scope.context.entityId || null },
-      execution: { mode: "PAPER", live_enabled: false },
+      execution: {
+        mode: "PAPER",
+        live_enabled: false,
+        ...marketsAuthority(scope),
+      },
       ...state,
       generated_at: new Date().toISOString(),
     });
@@ -1098,11 +1109,16 @@ export async function POST(request) {
     }
 
     if (action === "RECORD_DECISION") {
+      const decisionAction = clean(body.action).toUpperCase();
+      if (["BUY", "SELL"].includes(decisionAction)) {
+        requireMarketsAutomationAuthority(scope);
+      }
       const decision = await recordDecision({ organizationId, portfolioId: state.portfolio.id, body });
       return NextResponse.json({ success: true, decision });
     }
 
     if (action === "SUBMIT_PAPER_ORDER") {
+      requireMarketsAutomationAuthority(scope);
       const corporateActionAccounting = await MarketCorporateActionAdjustmentRuntime.applyDue({
         organizationId,
         portfolioId: state.portfolio.id,
@@ -1123,6 +1139,7 @@ export async function POST(request) {
     }
 
     if (action === "PROCESS_PAPER_ORDERS") {
+      requireMarketsAutomationAuthority(scope);
       const result = await MarketPaperExecutionRuntime.processQueued({
         organizationId,
         portfolioId: state.portfolio.id,

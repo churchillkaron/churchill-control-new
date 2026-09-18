@@ -264,6 +264,7 @@ export default function MarketsCommandCenter({ organizationId }) {
     .map((row) => row?.decision_payload?.strategy_health)
     .find((row) => row && row.status) || null;
   const baseCurrency = portfolio?.base_currency || paperAccount?.base_currency || "USD";
+  const canExecutePaper = data?.execution?.can_execute_paper === true;
 
   const latestBySymbol = new Map();
   for (const row of decisions) {
@@ -397,11 +398,15 @@ export default function MarketsCommandCenter({ organizationId }) {
                 <button
                   type="button"
                   onClick={() => act("PROCESS_PAPER_ORDERS")}
-                  disabled={Boolean(working) || !orders.some((row) => row.status === "QUEUED")}
+                  disabled={!canExecutePaper || Boolean(working) || !orders.some((row) => row.status === "QUEUED")}
                   className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3 text-[10px] font-medium text-white disabled:opacity-35"
                 >
                   <Activity size={12} />
-                  {working === "PROCESS_PAPER_ORDERS" ? "Processing…" : "Process paper orders"}
+                  {!canExecutePaper
+                    ? "Owner authority required"
+                    : working === "PROCESS_PAPER_ORDERS"
+                      ? "Processing…"
+                      : "Process paper orders"}
                 </button>
               </div>
 
@@ -565,28 +570,34 @@ export default function MarketsCommandCenter({ organizationId }) {
                             {working === "RUN_WALK_FORWARD" ? "Validating…" : "Walk-forward"}
                           </button>
                           {["BUY", "SELL"].includes(decision?.action) ? (
-                            <>
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={paperQuantityBySymbol[item.symbol] ?? ""}
-                                onChange={(event) => setPaperQuantityBySymbol((current) => ({
-                                  ...current,
-                                  [item.symbol]: event.target.value,
-                                }))}
-                                placeholder="Qty"
-                                className="h-8 w-20 rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-2 text-[9px] text-[#2E2B27] outline-none"
-                              />
-                              <button
-                                type="button"
-                                disabled={Boolean(working)}
-                                onClick={() => queuePaperDecision(decision)}
-                                className="inline-flex h-8 items-center rounded-lg bg-[#1F1E1B] px-2.5 text-[9px] font-medium text-white disabled:opacity-40"
-                              >
-                                Queue {decision.action}
-                              </button>
-                            </>
+                            canExecutePaper ? (
+                              <>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={paperQuantityBySymbol[item.symbol] ?? ""}
+                                  onChange={(event) => setPaperQuantityBySymbol((current) => ({
+                                    ...current,
+                                    [item.symbol]: event.target.value,
+                                  }))}
+                                  placeholder="Qty"
+                                  className="h-8 w-20 rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-2 text-[9px] text-[#2E2B27] outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={Boolean(working)}
+                                  onClick={() => queuePaperDecision(decision)}
+                                  className="inline-flex h-8 items-center rounded-lg bg-[#1F1E1B] px-2.5 text-[9px] font-medium text-white disabled:opacity-40"
+                                >
+                                  Queue {decision.action}
+                                </button>
+                              </>
+                            ) : (
+                              <div className="inline-flex h-8 items-center rounded-lg border border-black/[0.07] bg-[#F7F6F3] px-2.5 text-[9px] text-[#817D76]">
+                                Owner authority required for PAPER execution
+                              </div>
+                            )
                           ) : null}
                         </div>
                       </div>

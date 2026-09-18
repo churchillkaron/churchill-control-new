@@ -5,8 +5,8 @@ import fs from "node:fs";
 const source=fs.readFileSync(new URL("../lib/creative/music/runtime/CreativeMusicMixEvidenceRuntime.js",import.meta.url),"utf8");
 
 test("mix evidence batches spectral and temporal measurements into one FFmpeg process",()=>{
-  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V16/);
-  assert.match(source,/asplit=\$\{bands\.length\+1\}/);
+  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V17/);
+  assert.match(source,/asplit=\$\{bands\.length\+2\}/);
   for(const name of ["full","sub","lowmid","warmth","boxiness","presence","air","sibilance"]) assert.match(source,new RegExp(`volumedetect@\\$\\{name\\}`));
   assert.match(source,/aformat=channel_layouts=stereo,asplit=3\[fullst\]\[presencest\]\[lowst\]/);
   assert.match(source,/amerge=inputs=6/);
@@ -56,4 +56,15 @@ test("temporal envelopes use stereo energy rather than destructive mono summing"
   assert.match(source,/left\[i\]\*left\[i\]\+right\[i\]\*right\[i\]/);
   assert.match(source,/sourceIsMono\?Math\.SQRT2:1/);
   assert.doesNotMatch(source,/pan=mono/);
+});
+
+
+test("one-pass evidence also measures EBU-style loudness and true peak without another decode",()=>{
+  assert.match(source,/loudnorm=I=-24:LRA=20:TP=-1:print_format=json/);
+  assert.match(source,/function loudnessStats/);
+  assert.match(source,/integrated_lufs/);
+  assert.match(source,/true_peak_dbtp/);
+  assert.match(source,/loudness_range_lu/);
+  assert.match(source,/loudness_threshold_lufs/);
+  assert.match(source,/analysis_process_count:1/);
 });

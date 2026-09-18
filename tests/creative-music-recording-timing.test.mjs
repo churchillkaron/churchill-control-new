@@ -31,7 +31,7 @@ test("timing evidence maps audio clock to monotonic time without automatic shift
 test("overdub binds scheduled backing clock and capture clock on the same monotonic timeline",()=>{
   assert.match(preview,/playbackStartPerformanceMs/);
   assert.match(preview,/playback_start_performance_ms/);
-  assert.match(preview,/AVANTIQO_MUSIC_MULTITRACK_BROWSER_PREVIEW_V15/);
+  assert.match(preview,/AVANTIQO_MUSIC_MULTITRACK_BROWSER_PREVIEW_V16/);
   assert.match(overdub,/AVANTIQO_MUSIC_OVERDUB_TIMING_V1/);
   assert.match(overdub,/browser_audio_clock_alignment_ms/);
   assert.match(overdub,/BROWSER_AUDIO_CLOCK_ALIGNMENT_ONLY/);
@@ -39,4 +39,12 @@ test("overdub binds scheduled backing clock and capture clock on the same monoto
   assert.match(overdub,/automatic_latency_compensation_allowed: false/);
   assert.match(route,/overdub_timing/);
   assert.match(route,/browser_audio_clock_alignment_ms/);
+});
+
+
+test("backing playback and calibration share the explicitly selected output sink",()=>{
+  assert.match(preview,/outputDeviceId = null/);
+  assert.match(preview,/context.setSinkId\(outputDeviceId\)/);
+  assert.match(preview,/output_sink_verified/);
+  assert.match(overdub,/startMusicMultitrackPreview\(\{ session, assetUrls, startSeconds, stopAtSeconds, outputDeviceId: outputDeviceId \|\| null \}\)/);
 });

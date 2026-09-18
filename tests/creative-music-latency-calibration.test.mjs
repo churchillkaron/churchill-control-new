@@ -21,6 +21,8 @@ test("calibration runtime distinguishes exact hardware loopback from acoustic ev
   assert.match(runtime,/HARDWARE_LOOPBACK/);
   assert.match(runtime,/ACOUSTIC_PATH/);
   assert.match(runtime,/automatic_apply_allowed: direct && confidencePassed/);
+  assert.match(runtime,/context.setSinkId/);
+  assert.match(runtime,/explicitOutputVerified/);
   assert.match(runtime,/microphone_roundtrip_latency_measured: direct && confidencePassed/);
 });
 
@@ -50,4 +52,6 @@ test("Workstation persists calibration evidence locally but blocks stale reuse",
   assert.match(panel,/evaluateMusicLatencyCalibrationReuse/);
   assert.match(panel,/stored calibration not reusable/);
   assert.match(panel,/calibrationReuse\?\.reuse_allowed !== true/);
+  assert.match(panel,/System default · calibration not reusable/);
+  assert.match(panel,/outputDeviceId: outputDeviceId \|\| null/);
 });

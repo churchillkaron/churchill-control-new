@@ -95,7 +95,7 @@ test("single-source edits also require rendered timeline evidence",()=>{
   assert.match(evidence,/clips\.length!==1/);
   assert.match(evidence,/source_offset_seconds/);
   assert.match(evidence,/EDITED_SOURCE_RANGE_REQUIRE_TRACK_RENDER/);
-  assert.match(route,/if\(!trackId\|\|!expected\|\|!expected\.length\)continue/);
+  assert.match(route,/if\(!trackId\|\|!track\|\|!expected\|\|!expected\.length\)continue/);
 });
 
 

@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 import * as CreativeProjectRepository from "@/lib/creative/projects/repositories/CreativeProjectRepository";
 import { buildMusicReleaseRenderPlan } from "@/lib/creative/music/runtime/CreativeMusicReleaseRenderPlanRuntime";
+import { musicTrackEvidenceInputFingerprint } from "@/lib/creative/music/runtime/CreativeMusicEvidenceLineageRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
@@ -91,6 +92,7 @@ function expectedStem(plan, kindInput, targetIdInput) {
       source_asset_ids: sortedUnique(track.clips.map((clip) => clip.source_asset_id)),
       stage: kind === "TRACK_EVIDENCE" ? "post-source-cleanup-pre-track-processing" : "post-track-processing-pre-group",
       track_processing_applied: kind !== "TRACK_EVIDENCE",
+      evidence_input_fingerprint: kind === "TRACK_EVIDENCE" ? musicTrackEvidenceInputFingerprint(track) : null,
       master_processing_applied: false,
       aux_returns_applied: false,
     };
@@ -203,6 +205,7 @@ async function registerStem(body) {
       target_id: stem.target_id,
       stem_stage: stem.stage,
       track_processing_applied: stem.track_processing_applied === true,
+      evidence_input_fingerprint: stem.evidence_input_fingerprint || null,
       project_revision: revision,
       render_plan_fingerprint: planFingerprint,
       source_asset_ids: stem.source_asset_ids,

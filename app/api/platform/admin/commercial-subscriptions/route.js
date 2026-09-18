@@ -37,6 +37,21 @@ export async function POST(request) {
     if (!acquisition) return Response.json({ success: false, error: "Acquisition not found" }, { status: 404 });
     if (acquisition.stage !== "COMMITMENT_PENDING") return Response.json({ success: false, error: "Commercial subscription can only be recorded at Commitment Pending" }, { status: 409 });
     if (!acquisition.lead_id) return Response.json({ success: false, error: "A persisted lead is required before subscription commitment" }, { status: 409 });
+
+    const { data: existingSubscription, error: existingSubscriptionError } = await supabaseAdmin
+      .from("subscriptions")
+      .select("id,lead_id,organization_id,company,email,currency,billing_cycle,final_monthly_total,final_yearly_total,selected_products,status,created_at")
+      .eq("lead_id", acquisition.lead_id)
+      .maybeSingle();
+    if (existingSubscriptionError) throw existingSubscriptionError;
+    if (existingSubscription) {
+      return Response.json({
+        success: true,
+        subscription: existingSubscription,
+        idempotent: true,
+        authority: "AVANTIQO_PLATFORM_COMMERCIAL_SUBSCRIPTION_COMMITMENT",
+      });
+    }
     if (acquisition.subscription_id) return Response.json({ success: false, error: "This acquisition already has a canonical subscription" }, { status: 409 });
 
     const requestedIds = Array.isArray(body.productIds || body.product_ids) ? (body.productIds || body.product_ids) : [];
@@ -102,9 +117,27 @@ export async function POST(request) {
       })
       .select("id,lead_id,organization_id,company,email,currency,billing_cycle,final_monthly_total,final_yearly_total,selected_products,status,created_at")
       .single();
-    if (subscriptionError) throw subscriptionError;
+    if (subscriptionError) {
+      if (subscriptionError.code === "23505") {
+        const { data: canonicalSubscription, error: canonicalSubscriptionError } = await supabaseAdmin
+          .from("subscriptions")
+          .select("id,lead_id,organization_id,company,email,currency,billing_cycle,final_monthly_total,final_yearly_total,selected_products,status,created_at")
+          .eq("lead_id", lead.id)
+          .maybeSingle();
+        if (canonicalSubscriptionError) throw canonicalSubscriptionError;
+        if (canonicalSubscription) {
+          return Response.json({
+            success: true,
+            subscription: canonicalSubscription,
+            idempotent: true,
+            authority: "AVANTIQO_PLATFORM_COMMERCIAL_SUBSCRIPTION_COMMITMENT",
+          });
+        }
+      }
+      throw subscriptionError;
+    }
 
-    return Response.json({ success: true, subscription, authority: "AVANTIQO_PLATFORM_COMMERCIAL_SUBSCRIPTION_COMMITMENT" }, { status: 201 });
+    return Response.json({ success: true, subscription, idempotent: false, authority: "AVANTIQO_PLATFORM_COMMERCIAL_SUBSCRIPTION_COMMITMENT" }, { status: 201 });
   } catch (error) {
     console.error("COMMERCIAL_SUBSCRIPTION_CREATE_ERROR", error);
     return Response.json({ success: false, error: error?.message || "Unable to create commercial subscription" }, { status: 500 });

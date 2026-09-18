@@ -11,3 +11,21 @@ test("reanalysis from durable baseline does not stack EQ or gain",()=>{const sou
 test("session fingerprint detects human edits after an AI apply",()=>{const source=session(),baseline=createMusicMixEngineerBaseline(source),plan=analyzeMusicMixEngineer(source,evidence,{},baseline),applied=applyMusicMixEngineerPlan(source,plan),fingerprint=sessionMusicMixFingerprint(applied),edited=structuredClone(applied);edited.tracks[0].gain_db+=0.7;assert.equal(sessionMusicMixFingerprint(applied),fingerprint);assert.notEqual(sessionMusicMixFingerprint(edited),fingerprint);});
 
 test("route exposes no-op, rebase, durable baseline and real undo availability",()=>{const route=fs.readFileSync(new URL("../app/api/creative/music/mix-engineer/route.js",import.meta.url),"utf8"),panel=fs.readFileSync(new URL("../components/creative/ProductionStudio/workspaces/MusicMixEngineerPanel.jsx",import.meta.url),"utf8");assert.match(route,/music_mix_engineer_baseline/);assert.match(route,/NO_NEW_MIX_CHANGES/);assert.match(route,/REBASE_REQUIRED/);assert.match(route,/action===\"rebase\"/);assert.match(route,/sessionMusicMixFingerprint/);assert.match(panel,/Use current mix as new baseline/);assert.match(panel,/disabled=\{busy\|\|!undoAvailable\}/);assert.match(panel,/Mix plan already applied/);});
+
+
+test("session fingerprint detects clip-level playback edits",()=>{
+  const source=session();
+  source.tracks[0].clips=[{id:"clip-v",source_asset_id:"asset-v",source_version:1,start_seconds:0,duration_seconds:20,source_offset_seconds:0,gain_db:0,fade_in_seconds:0,fade_out_seconds:0,muted:false,loop_enabled:false,loop_length_seconds:null,reversed:false,warp_mode:"off"}];
+  const fingerprint=sessionMusicMixFingerprint(source);
+  for(const mutate of [
+    clip=>{clip.gain_db=-1.5;},
+    clip=>{clip.fade_in_seconds=.4;},
+    clip=>{clip.fade_out_seconds=.6;},
+    clip=>{clip.loop_enabled=true;clip.loop_length_seconds=4;},
+    clip=>{clip.reversed=true;},
+    clip=>{clip.warp_mode="stretch";},
+    clip=>{clip.source_version=2;},
+  ]){
+    const edited=structuredClone(source);mutate(edited.tracks[0].clips[0]);assert.notEqual(sessionMusicMixFingerprint(edited),fingerprint);
+  }
+});

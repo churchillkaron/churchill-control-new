@@ -5,7 +5,7 @@ import fs from "node:fs";
 const source=fs.readFileSync(new URL("../lib/creative/music/runtime/CreativeMusicMixEvidenceRuntime.js",import.meta.url),"utf8");
 
 test("mix evidence batches spectral and temporal measurements into one FFmpeg process",()=>{
-  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V12/);
+  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V13/);
   assert.match(source,/asplit=\$\{bands\.length\+1\}/);
   for(const name of ["full","sub","lowmid","warmth","boxiness","presence","air","sibilance"]) assert.match(source,new RegExp(`volumedetect@\\$\\{name\\}`));
   assert.match(source,/asplit=3\[efull\]\[epresence\]\[elow\]/);

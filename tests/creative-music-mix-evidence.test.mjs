@@ -90,8 +90,19 @@ test("track-render temporal evidence is read in project timeline coordinates",()
 
 test("single-source edits also require rendered timeline evidence",()=>{
   assert.match(evidence,/sourceMediaEvidenceExact/);
-  assert.match(evidence,/clips\.length===1/);
+  assert.match(evidence,/clips\.length!==1/);
   assert.match(evidence,/source_offset_seconds/);
   assert.match(evidence,/EDITED_SOURCE_RANGE_REQUIRE_TRACK_RENDER/);
   assert.match(route,/if\(!trackId\|\|!expected\|\|!expected\.length\)continue/);
+});
+
+
+test("audible clip transforms cannot reuse raw-source evidence",()=>{
+  assert.match(evidence,/gain_db/);
+  assert.match(evidence,/fade_in_seconds/);
+  assert.match(evidence,/fade_out_seconds/);
+  assert.match(evidence,/loop_enabled/);
+  assert.match(evidence,/reversed/);
+  assert.match(evidence,/warp_mode/);
+  assert.match(evidence,/sourceMediaEvidenceExact/);
 });

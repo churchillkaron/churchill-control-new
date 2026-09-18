@@ -365,6 +365,7 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
             playhead={playhead}
             bpm={session.bpm || 96}
             snap={session.timeline?.snap || "beat"}
+            frameRate={session.picture_lock?.frame_rate || session.timeline?.frame_rate || 24}
             disabled={recording}
             onChange={replaceTrack}
             onSelectClip={setSelectedClipId}

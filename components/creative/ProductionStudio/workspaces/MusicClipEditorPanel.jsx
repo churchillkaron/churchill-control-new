@@ -13,6 +13,7 @@ import {
   trimMusicClipStart,
   validateMusicClipEdit,
 } from "@/lib/creative/music/runtime/CreativeMusicClipEditRuntime";
+import { isLanguageAudioRole, normalizeAudioPostClipEditorial } from "@/lib/creative/music/runtime/CreativeAudioPostEditorialRuntime";
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -36,6 +37,7 @@ export default function MusicClipEditorPanel({
   playhead = 0,
   bpm = 96,
   snap = "off",
+  frameRate = 24,
   disabled = false,
   onChange,
   onSelectClip,
@@ -49,6 +51,9 @@ export default function MusicClipEditorPanel({
   const playheadInside = editPlayhead > start && editPlayhead < end;
   const beatSeconds = 60 / Math.max(30, Math.min(300, finite(bpm, 96)));
   const beatSnap = String(snap || "off").toLowerCase() === "beat";
+  const languageRole = isLanguageAudioRole(track.audio_role);
+  const postEdit = languageRole ? normalizeAudioPostClipEditorial(clip.audio_post || {}, { frame_rate: frameRate, timeline_start_seconds: start }) : null;
+  function updatePost(values) { if (!languageRole) return; updateDirect({ ...clip, audio_post: normalizeAudioPostClipEditorial({ ...postEdit, ...values }, { frame_rate: frameRate, timeline_start_seconds: start }), preserve_source_asset: true, destructive_edit: false }); }
 
   function commit(replacement, selectId = null) {
     const next = replaceClipInTrack(track, clip.id, replacement);
@@ -131,6 +136,8 @@ export default function MusicClipEditorPanel({
           </Field>
         </div>
       </div>
+
+      {languageRole ? <div className="mt-4 rounded-xl border border-[#d6a66a]/12 bg-[#d6a66a]/[0.02] p-3"><div className="flex items-center justify-between gap-2"><div><div className="text-[8px] font-semibold uppercase tracking-[0.15em] text-[#efd29f]/55">Audio Post editorial · {track.audio_role}</div><div className="mt-1 text-[7px] text-white/18">Picture sync and dialogue metadata stay attached to this non-destructive clip reference.</div></div><label className="flex items-center gap-1.5 text-[7px] text-white/28"><input type="checkbox" disabled={disabled} checked={postEdit.dialogue_edit_approved===true} onChange={e=>updatePost({dialogue_edit_approved:e.target.checked})} className="accent-[#d6a66a]"/> Edit approved</label></div><div className="mt-3 grid grid-cols-2 gap-2"><Field label="Language"><input disabled={disabled} value={postEdit.language} onChange={e=>updatePost({language:e.target.value})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/55"/></Field><Field label="Speaker / character"><input disabled={disabled} value={postEdit.speaker || postEdit.character || ""} onChange={e=>updatePost({speaker:e.target.value})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/55"/></Field><Field label="Scene"><input disabled={disabled} value={postEdit.scene_id || ""} onChange={e=>updatePost({scene_id:e.target.value})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/55"/></Field><Field label="Line / cue"><input disabled={disabled} value={postEdit.line_id || ""} onChange={e=>updatePost({line_id:e.target.value})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/55"/></Field><Field label="Take"><input disabled={disabled} value={postEdit.take_id || ""} onChange={e=>updatePost({take_id:e.target.value})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/55"/></Field><Field label="ADR status"><select disabled={disabled} value={postEdit.adr_status} onChange={e=>updatePost({adr_status:e.target.value})} className="w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-[9px] text-white/55">{["NONE","NEEDED","CUED","RECORDED","EDITED","APPROVED"].map(v=><option key={v} value={v}>{v}</option>)}</select></Field><Field label="Sync frame"><input disabled={disabled} type="number" min="0" step="1" value={postEdit.sync_frame} onChange={e=>updatePost({sync_frame:Number(e.target.value)})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/55"/><div className="mt-1 text-[7px] text-white/18">{postEdit.sync_timecode}</div></Field><Field label="Tolerance frames"><input disabled={disabled} type="number" min="0" max="24" step="1" value={postEdit.sync_tolerance_frames} onChange={e=>updatePost({sync_tolerance_frames:Number(e.target.value)})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/55"/></Field><Field label="Pre-handle frames"><input disabled={disabled} type="number" min="0" max="240" step="1" value={postEdit.pre_handle_frames} onChange={e=>updatePost({pre_handle_frames:Number(e.target.value)})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/55"/></Field><Field label="Post-handle frames"><input disabled={disabled} type="number" min="0" max="240" step="1" value={postEdit.post_handle_frames} onChange={e=>updatePost({post_handle_frames:Number(e.target.value)})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/55"/></Field><Field label="Room tone asset"><input disabled={disabled} value={postEdit.room_tone_asset_id || ""} onChange={e=>updatePost({room_tone_asset_id:e.target.value || null})} placeholder="asset id" className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/55"/></Field><Field label="Continuity note"><input disabled={disabled} value={postEdit.continuity_note || ""} onChange={e=>updatePost({continuity_note:e.target.value})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/55"/></Field></div></div> : null}
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button type="button" disabled={disabled || !playheadInside} onClick={trimLeft} className="rounded-lg border border-white/8 px-2 py-2 text-[9px] text-white/42 disabled:opacity-20">Trim left → {beatSnap ? "grid" : "playhead"}</button>

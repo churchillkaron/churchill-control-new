@@ -185,5 +185,5 @@ test("Finance create titles are humanized and client portal deployment gaps are 
   assert.match(serializer, /function humanDocumentName/);
   assert.match(serializer, /`New \$\{humanDocumentName\(capability\.document \|\| capability\.name\)\}`/);
   assert.match(portal, /FINANCE_CLIENT_PORTAL_STORAGE_NOT_DEPLOYED/);
-  assert.match(portal, /20260918093000_accounting_client_portal_grants\.sql/);
+  assert.match(portal, /20260918153000_finance_portal_delivery_native_esign\.sql/);
 });

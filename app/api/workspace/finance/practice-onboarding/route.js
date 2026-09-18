@@ -3,7 +3,8 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 
-import { createSignatureRequest, linkControlledDocument } from "@/lib/documents/runtime/DocumentControlRuntime";
+import { linkControlledDocument } from "@/lib/documents/runtime/DocumentControlRuntime";
+import { createFinanceEngagementSignatureRequest } from "@/lib/finance/practice/FinancePortalSignatureRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -116,7 +117,7 @@ export async function POST(request) {
       const signerName = clean(body.signerName || body.signer_name);
       const signerEmail = clean(body.signerEmail || body.signer_email);
       if (!signerName && !signerEmail) return jsonError("Signer name or email is required; Avantiqo will not guess the client signer", 400);
-      const signature = await createSignatureRequest({ organizationId: access.organizationId, documentId: link.enterprise_document_id, entityId: engagement.entity_id || null, actor: access, signerName: signerName || null, signerEmail: signerEmail || null, expiresAt: body.expiresAt || body.expires_at || null, provider: body.provider || null });
+      const signature = await createFinanceEngagementSignatureRequest({ accountingFirmId: access.organizationId, documentId: link.enterprise_document_id, entityId: engagement.entity_id || null, actor: access, signerName: signerName || null, signerEmail: signerEmail || null, expiresAt: body.expiresAt || body.expires_at || null });
       return NextResponse.json({ success: true, signature }, { status: 201 });
     }
 

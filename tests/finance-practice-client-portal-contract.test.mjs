@@ -66,7 +66,9 @@ test("portal message channel is durable service-role-only and two-way", () => {
 test("practice issues portal identity explicitly and returns raw token once", () => {
   assert.match(staffRoute, /Client email is required; Avantiqo will not guess portal identity/);
   assert.match(staffRoute, /token_returned_once: true/);
-  assert.match(staffRoute, /client_path: `\/client\/accounting\//);
+  assert.match(staffRoute, /const clientPath = `\/client\/accounting\/\$\{issued\.token\}`/);
+  assert.match(staffRoute, /client_path: clientPath/);
+  assert.match(staffRoute, /deliverFinanceClientPortalAccess/);
   assert.match(tower, /id: "portal", label: "Client access"/);
 });
 

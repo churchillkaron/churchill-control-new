@@ -8,7 +8,8 @@ const tower = fs.readFileSync(new URL("../components/workspace/finance/FinancePr
 
 test("practice onboarding reuses governed document and signature authority", () => {
   assert.match(route, /linkControlledDocument/);
-  assert.match(route, /createSignatureRequest/);
+  assert.match(route, /createFinanceEngagementSignatureRequest/);
+  assert.doesNotMatch(route, /createSignatureRequest\(/);
   assert.match(route, /referenceType: "ACCOUNTING_ENGAGEMENT"/);
   assert.match(route, /relationType: "CONTRACT"/);
   assert.match(route, /enterprise_document_links/);

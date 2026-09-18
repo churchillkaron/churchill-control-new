@@ -440,13 +440,12 @@ export default function AvantiqoPublicHome() {
           <div className="relative min-h-[620px] overflow-hidden border-t border-black/[0.06] bg-[#171614] lg:min-h-0 lg:border-l lg:border-t-0">
             <div className="absolute inset-0 grid grid-cols-[1.5fr_.5fr] gap-px bg-[#D6A66A]/28">
               <div className="relative overflow-hidden">
-                <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url(/bg-hero-control.jpg)" }} />
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,7,6,.18),rgba(8,7,6,.12)_42%,rgba(8,7,6,.46)),linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.16)_42%,rgba(8,7,6,.78))]" />
-                <div className="absolute left-[47%] top-[9%] h-[13%] w-[31%] rounded-[18px] bg-[#171614]/88 shadow-[0_12px_45px_rgba(0,0,0,.25)] backdrop-blur-sm" />
+                <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url(/churchill/1.jpg)" }} />
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,7,6,.16),rgba(8,7,6,.03)_50%,rgba(8,7,6,.40)),linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.10)_48%,rgba(8,7,6,.78))]" />
               </div>
               <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/28">
-                <div className="relative overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/art/commercial-solutions.jpg)" }} /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.04),rgba(17,14,11,.52))]" /><div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.20em] text-[#F1C98E]">OPERATIONS</div></div>
-                <div className="relative overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/art/commercial-channels.jpg)" }} /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.04),rgba(17,14,11,.50))]" /><div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.20em] text-[#F1C98E]">PEOPLE & CHANNELS</div></div>
+                <div className="relative overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/churchill/bar.JPG)" }} /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.02),rgba(17,14,11,.58))]" /><div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.20em] text-[#F1C98E]">OPERATIONS · SERVICE</div></div>
+                <div className="relative overflow-hidden bg-[#11100E]"><div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_28%,rgba(214,166,106,.20),transparent_35%)]"/><div className="absolute inset-x-5 top-5 space-y-3">{[["PEOPLE","COORDINATED"],["MONEY","CONTROLLED"],["STOCK","CONNECTED"],["INTELLIGENCE","AWARE"]].map(([a,b])=><div key={a} className="flex items-center justify-between border-b border-white/[0.08] pb-2"><span className="text-[7px] tracking-[.14em] text-white/56">{a}</span><span className="text-[6px] tracking-[.12em] text-[#D6A66A]">{b}</span></div>)}</div><div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.20em] text-[#F1C98E]">ONE BUSINESS CONTEXT</div></div>
               </div>
             </div>
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,4,3,.03),rgba(5,4,3,.08)_42%,rgba(5,4,3,.42))]" />

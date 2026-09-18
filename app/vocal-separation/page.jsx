@@ -4,6 +4,7 @@ export const metadata = { title: 'Separate, edit and rebuild audio inside one st
 
 const config = {
   context: 'Music Studio',
+  artKind: 'creative',
   audience: 'creative',
   eyebrow: 'AVANTIQO / VOCAL SEPARATION',
   title: 'Separate, edit and rebuild audio inside one studio.',

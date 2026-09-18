@@ -4,6 +4,7 @@ export const metadata = { title: 'Intelligence that can work. | Avantiqo', descr
 
 const config = {
   context: 'Agents',
+  artKind: 'agents',
   audience: 'business',
   eyebrow: 'AVANTIQO / BUSINESS AUTOMATION AGENTS',
   title: 'Intelligence that can work.',

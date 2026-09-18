@@ -4,13 +4,14 @@ export const metadata = { title: 'Run the restaurant as one business. | Avantiqo
 
 const config = {
   context: 'Restaurant',
+  artKind: 'restaurant',
   audience: 'business',
   eyebrow: 'AVANTIQO / RESTAURANT OPERATING SYSTEM',
   title: 'Run the restaurant as one business.',
   lead: 'Connect service, POS, kitchen, inventory, purchasing, people and finance so staff can work from the same restaurant information instead of separate tools.',
   primary: 'Explore restaurant operations',
   primaryHref: '/solutions',
-  image: '/bg-hero-restaurant.png',
+  image: '/art/avantiqo-luxury/hospitality.webp',
   panelLabel: 'RESTAURANT OPERATIONS',
   panel: 'Orders, stock, staff, purchasing and finance stay connected to the same business truth.',
   tags: ['POS', 'INVENTORY', 'PEOPLE', 'FINANCE'],

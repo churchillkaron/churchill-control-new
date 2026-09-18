@@ -10,6 +10,33 @@ const process = [
   ["07", "Delivery", "Delivery-ready masters and variants"],
 ];
 
+const USE_CASE_ART = {
+  "Image Studio": [
+    "/art/creative-image.jpg",
+    "/art/commercial-commerce.jpg",
+    "/art/commercial-channels.jpg",
+    "/art/commercial-commerce.jpg",
+    "/art/commercial-services.jpg",
+    "/art/commercial-enterprise.jpg",
+  ],
+  "Video Studio": [
+    "/art/creative-video.jpg",
+    "/art/commercial-commerce.jpg",
+    "/art/commercial-channels.jpg",
+    "/art/commercial-services.jpg",
+    "/art/avantiqo-luxury/hospitality.webp",
+    "/art/creative-video.jpg",
+  ],
+  "Music Studio": [
+    "/art/creative-music.jpg",
+    "/art/commercial-commerce.jpg",
+    "/art/commercial-channels.jpg",
+    "/art/commercial-services.jpg",
+    "/art/commercial-enterprise.jpg",
+    "/art/creative-music.jpg",
+  ],
+};
+
 function Arrow({ className = "" }) {
   return (
     <svg
@@ -524,7 +551,7 @@ export default function CreativeStudioProductPage({
                   <div
                     className="absolute inset-0 bg-cover transition duration-700 group-hover:scale-[1.04]"
                     style={{
-                      backgroundImage: `url(${studio.startsWith("Music") ? "/art/creative-music.jpg" : studio.startsWith("Video") ? "/art/creative-video.jpg" : "/art/creative-image.jpg"})`,
+                      backgroundImage: `url(${(USE_CASE_ART[studio] || USE_CASE_ART["Image Studio"])[index % 6]})`,
                       backgroundPosition: [
                         "50% 42%",
                         "62% 48%",

@@ -4,6 +4,7 @@ export const metadata = { title: 'Turn files into usable business data. | Avanti
 
 const config = {
   context: 'Documents',
+  artKind: 'documents',
   audience: 'business',
   eyebrow: 'AVANTIQO / DOCUMENT EXTRACTION',
   title: 'Turn files into usable business data.',

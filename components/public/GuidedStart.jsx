@@ -68,8 +68,8 @@ export default function GuidedStart() {
       <div className="lg:sticky lg:top-24 lg:self-start">
         <div className="overflow-hidden rounded-[28px] border border-[#D6A66A]/25 bg-[#211D18] shadow-[0_35px_100px_rgba(0,0,0,.28)]">
           <div className="relative h-[260px] overflow-hidden">
-            <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/bg-hero-control.jpg)"}} />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.06),rgba(8,7,6,.78))]" />
+            <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/churchill/1.jpg)"}} />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.04),rgba(8,7,6,.28)_46%,rgba(8,7,6,.86))]" />
             <div className="absolute left-6 top-6 text-[7px] font-semibold uppercase tracking-[.22em] text-[#F0C98F]">AVANTIQO / RECOMMENDED START</div>
             <div className="absolute bottom-6 left-6 right-6"><div className="text-[9px] uppercase tracking-[.16em] text-white/45">Based on your answers</div><div className="mt-2 text-[30px] font-medium tracking-[-.045em]">{result.title}</div></div>
           </div>

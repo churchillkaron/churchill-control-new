@@ -5,9 +5,9 @@ import GuidedStart from "@/components/public/GuidedStart";
 export const metadata = { title: "Start with Avantiqo | Avantiqo" };
 
 const PATHS = [
-  ["Run my business", "Business Products", "Finance, people, sales, operations, stock, documents and intelligence for day-to-day work.", "Operate", "/products", "Explore business products", "/bg-hero-control.jpg", null],
-  ["Use a solution for my industry", "Industry Solutions", "Start with a restaurant, hotel, retail, service or professional setup that already matches the way the business works.", "Industry", "/solutions", "Explore industry solutions", "/art/commercial-solutions.jpg", null],
-  ["Create something", "Creative Studios", "Image, video, music, voice and campaign production with direction, review and finishing.", "Create", "/creative-studios", "Enter Creative Studios", "/art/creative-video.jpg", null],
+  ["Run my business", "Business Products", "Finance, people, sales, operations, stock, documents and intelligence for day-to-day work.", "Operate", "/products", "Explore business products", "/churchill/1.jpg", "commerce"],
+  ["Use a solution for my industry", "Industry Solutions", "Start with a restaurant, hotel, retail, service or professional setup that already matches the way the business works.", "Industry", "/solutions", "Explore industry solutions", "/art/commercial-solutions.jpg", "solutions"],
+  ["Create something", "Creative Studios", "Image, video, music, voice and campaign production with direction, review and finishing.", "Create", "/creative-studios", "Enter Creative Studios", "/art/creative-video.jpg", "creative"],
   ["Build with Avantiqo", "Developers", "APIs, capabilities, integrations and software tools for products, internal systems and embedded experiences.", "Build", "/developers", "Enter Developers", "/art/developer-work.jpg", "developer"],
   ["Run workloads", "Compute", "Use owned and elastic compute for inference, rendering, batch jobs and production workloads.", "Scale", "/compute", "Explore Compute", "/art/commercial-compute.jpg", "compute"],
 ];
@@ -67,10 +67,10 @@ export default function StartPage() {
           </div>
           <div className="relative min-h-[560px] overflow-hidden border-t border-black/[0.06] bg-[#171614] lg:min-h-0 lg:border-l lg:border-t-0">
             <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px bg-[#D6A66A]/28">
-              {[["RUN","/bg-hero-control.jpg"],["CREATE","/art/creative-video.jpg"],["BUILD","/art/developer-work.jpg"],["SCALE","/art/commercial-compute.jpg"]].map(([label,image]) => (
+              {[["RUN","commerce"],["CREATE","creative"],["BUILD","developer"],["SCALE","compute"]].map(([label,kind]) => (
                 <div key={label} className="relative overflow-hidden">
-                  <div className="absolute inset-0 scale-[1.025] bg-cover bg-center" style={{ backgroundImage: `url(${image})` }} />
-                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.04),rgba(17,14,11,.13)_48%,rgba(17,14,11,.68))]" />
+                  <div className="absolute inset-0 scale-[1.03]"><PublicArtStage kind={kind} /></div>
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,6,5,.02),rgba(7,6,5,.15)_50%,rgba(7,6,5,.70))]" />
                   <div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.22em] text-[#F1C98E]">{label}</div>
                 </div>
               ))}

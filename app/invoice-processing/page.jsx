@@ -4,6 +4,7 @@ export const metadata = { title: 'Turn invoices into finance work that is ready 
 
 const config = {
   context: 'Invoice Processing',
+  artKind: 'documents',
   audience: 'business',
   eyebrow: 'AVANTIQO / INVOICE PROCESSING',
   title: 'Turn invoices into finance work that is ready to review and process.',

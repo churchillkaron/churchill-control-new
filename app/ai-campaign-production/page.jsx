@@ -4,6 +4,7 @@ export const metadata = { title: 'From campaign brief to finished asset system. 
 
 const config = {
   context: 'Creative Studios',
+  artKind: 'creative',
   audience: 'creative',
   eyebrow: 'AVANTIQO / CAMPAIGN PRODUCTION',
   title: 'From campaign brief to finished asset system.',

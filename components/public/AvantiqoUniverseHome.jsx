@@ -2,9 +2,9 @@ import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import PublicArtStage from "@/components/public/PublicArtStage";
 
 const WORLDS = [
-  ["RUN", "Business Products", "/products", "Run finance, people, customers, operations, stock and documents from one connected business context.", "/bg-hero-control.jpg", null],
-  ["INDUSTRY", "Solutions", "/solutions", "Start with a restaurant, hotel, retail or service setup shaped around the work your team already knows.", "/art/commercial-solutions.jpg", null],
-  ["CREATE", "Creative Studios", "/creative-studios", "Create image, video, music, voice and campaigns from brief to finished work.", "/art/creative-image.jpg", null],
+  ["RUN", "Business Products", "/products", "Run finance, people, customers, operations, stock and documents from one connected business context.", "/churchill/1.jpg", "commerce"],
+  ["INDUSTRY", "Solutions", "/solutions", "Start with a restaurant, hotel, retail or service setup shaped around the work your team already knows.", "/art/commercial-solutions.jpg", "solutions"],
+  ["CREATE", "Creative Studios", "/creative-studios", "Create image, video, music, voice and campaigns from brief to finished work.", "/art/creative-image.jpg", "creative"],
   ["BUILD", "Developers", "/developers", "Build software, integrations and embedded products with Avantiqo capabilities and APIs.", "/art/developer-work.jpg", "code"],
   ["SCALE", "Compute", "/compute", "Run inference, rendering and batch workloads with owned and elastic capacity.", "/art/commercial-compute.jpg", "compute"],
 ];
@@ -26,9 +26,11 @@ export default function AvantiqoUniverseHome(){
           </div>
         </div>
         <div className="relative min-h-[560px] overflow-hidden bg-[#171614] lg:min-h-0 lg:border-l lg:border-black/[0.08]">
-          <div className="absolute inset-0 grid grid-cols-[1.28fr_.72fr] gap-px bg-[#D6A66A]/24">
-            <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.02] bg-cover bg-center" style={{backgroundImage:"url(/bg-hero-control.jpg)"}}/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.04),rgba(17,14,11,.12)_45%,rgba(17,14,11,.56))]"/><div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.20em] text-[#F0C993]">RUN / BUSINESS OS</div></div>
-            <div className="grid grid-rows-3 gap-px bg-[#D6A66A]/24">{[["CREATE","/art/creative-video.jpg"],["BUILD","/art/developer-work.jpg"],["SCALE","/art/commercial-compute.jpg"]].map(([label,src])=><div key={label} className="relative overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${src})`}}/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.02),rgba(17,14,11,.58))]"/><div className="absolute bottom-4 left-4 text-[7px] font-semibold uppercase tracking-[0.18em] text-[#E9CAA0]">{label}</div></div>)}</div>
+          <div className="absolute inset-0 grid grid-cols-[1.3fr_.7fr] gap-px bg-[#D6A66A]/24">
+            <div className="relative overflow-hidden"><div className="absolute inset-0"><PublicArtStage kind="commerce"/></div></div>
+            <div className="grid grid-rows-3 gap-px bg-[#D6A66A]/24">
+              {[["INDUSTRY","solutions"],["CREATE","creative"],["SCALE","compute"]].map(([label,kind])=><div key={label} className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.02]"><PublicArtStage kind={kind}/></div><div className="absolute inset-0 bg-black/20"/><div className="absolute bottom-4 left-4 text-[7px] font-semibold uppercase tracking-[0.18em] text-[#E9CAA0]">{label}</div></div>)}
+            </div>
           </div>
           <div className="absolute left-7 top-7 rounded-full border border-[#D6A66A]/38 bg-[#F7F1E8]/92 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.18em] text-[#8A633C] shadow-[0_10px_30px_rgba(40,28,18,.10)]">ONE AVANTIQO · DIFFERENT WORLDS</div>
           <div className="absolute inset-x-7 bottom-7 rounded-[22px] border border-[#D6A66A]/35 bg-[#F6F0E7]/94 p-5 text-[#171614] shadow-[0_30px_80px_rgba(35,25,15,.24)] backdrop-blur-xl"><div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#A37849]">ONE CONNECTED ACCOUNT</div><div className="mt-3 flex flex-wrap gap-2 text-[8px] text-[#6C6359]">{["Company","People","Customers","Money","Work","Documents","Intelligence","History","Usage"].map(x=><span key={x} className="rounded-full border border-[#D6A66A]/26 bg-white/60 px-2.5 py-1.5">{x}</span>)}</div></div>

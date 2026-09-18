@@ -4,6 +4,7 @@ export const metadata = { title: 'Use compute for real workloads. | Avantiqo', d
 
 const config = {
   context: 'Compute',
+  artKind: 'compute',
   audience: 'compute',
   eyebrow: 'AVANTIQO / GPU COMPUTE',
   title: 'Use compute for real workloads.',

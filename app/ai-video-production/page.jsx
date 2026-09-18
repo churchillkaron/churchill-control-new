@@ -4,6 +4,7 @@ export const metadata = { title: 'From idea to finished film. | Avantiqo', descr
 
 const config = {
   context: 'Video Studio',
+  artKind: 'creative',
   audience: 'creative',
   eyebrow: 'AVANTIQO / AI VIDEO PRODUCTION',
   title: 'From idea to finished film.',

@@ -1,4 +1,5 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+import PublicArtStage from "@/components/public/PublicArtStage";
 
 function Arrow(){return <span aria-hidden="true">→</span>}
 
@@ -17,9 +18,11 @@ export default function MoneyLandingPage({config}){
           </div>
         </div>
         <div className="relative min-h-[480px] overflow-hidden border-t border-black/[0.06] lg:min-h-0 lg:border-l lg:border-t-0">
-          <div className="absolute inset-0 scale-[1.02] bg-cover bg-center" style={{backgroundImage:`url(${config.image})`}}/>
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.04),rgba(17,14,11,.10)_45%,rgba(17,14,11,.62))]"/>
-          <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-white/16 bg-[#15120f]/72 p-5 text-white shadow-[0_30px_80px_rgba(0,0,0,.24)] backdrop-blur-xl sm:left-auto sm:w-[460px]">
+          {config.artKind ? <PublicArtStage kind={config.artKind}/> : <>
+            <div className="absolute inset-0 scale-[1.02] bg-cover bg-center" style={{backgroundImage:`url(${config.image})`}}/>
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.04),rgba(17,14,11,.10)_45%,rgba(17,14,11,.62))]"/>
+          </>}
+          <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-white/16 bg-[#15120f]/78 p-5 text-white shadow-[0_30px_80px_rgba(0,0,0,.28)] backdrop-blur-xl sm:left-auto sm:w-[460px]">
             <div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#D6A66A]">{config.panelLabel}</div>
             <div className="mt-3 text-[16px] leading-6 text-white/88">{config.panel}</div>
             <div className="mt-5 flex flex-wrap gap-2">{config.tags.map(x=><span key={x} className="rounded-full border border-white/12 px-2.5 py-1 text-[6px] font-semibold tracking-[0.15em] text-white/48">{x}</span>)}</div>

@@ -133,41 +133,32 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="relative min-h-[430px] overflow-hidden bg-[#171614] lg:min-h-[540px]">
-            <div className="absolute inset-0 grid grid-cols-[1.35fr_.65fr] gap-px bg-[#D6A66A]/20">
+          <div className="relative min-h-[430px] overflow-hidden bg-[#0f0d0b] lg:min-h-[540px]">
+            <div className="absolute inset-0 grid grid-cols-[1.28fr_.72fr] gap-px bg-[#D6A66A]/30">
               <div className="relative overflow-hidden">
-                <div className="absolute inset-0 scale-[1.02] bg-cover bg-center" style={{ backgroundImage: "url(/art/creative-video.jpg)" }} />
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(246,242,235,.44),rgba(17,14,11,.04)_30%,rgba(17,14,11,.28)),linear-gradient(180deg,rgba(17,14,11,.02),rgba(17,14,11,.12)_48%,rgba(17,14,11,.55))]" />
+                <div className="absolute inset-0 scale-[1.025] bg-cover bg-center" style={{ backgroundImage: "url(/art/creative-video.jpg)" }} />
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(12,9,7,.35),rgba(12,9,7,.03)_42%,rgba(12,9,7,.34)),linear-gradient(180deg,rgba(12,9,7,.02),rgba(12,9,7,.10)_45%,rgba(12,9,7,.76))]" />
+                <div className="absolute left-7 top-7 text-[7px] font-semibold uppercase tracking-[.22em] text-[#f0c98f]">FILM · STORY · MOTION</div>
+                <div className="absolute bottom-7 left-7 max-w-[420px] text-white">
+                  <div className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#D6A66A]">VIDEO STUDIO</div>
+                  <div className="mt-2 text-[22px] leading-[1.05] tracking-[-.035em] text-white/90">Direction before generation. Review before delivery.</div>
+                </div>
               </div>
-              <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/20">
-                <div className="relative overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/art/creative-image.jpg)" }} /><div className="absolute inset-0 bg-[#171614]/18" /></div>
-                <div className="relative overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/art/creative-music.jpg)" }} /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.10),rgba(17,14,11,.48))]" /></div>
-              </div>
-            </div>
-            <div className="absolute inset-y-0 left-0 w-[18%] bg-gradient-to-r from-[#f6f2eb] via-[#f6f2eb]/45 to-transparent" />
-            <div className="absolute bottom-6 left-[17%] hidden max-w-[390px] rounded-[22px] border border-white/20 bg-[#15120f]/70 p-5 text-white shadow-[0_28px_80px_rgba(0,0,0,.28)] backdrop-blur-xl md:block">
-              <div className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Creative Intelligence</div>
-              <div className="mt-3 text-[15px] leading-6 text-white/86">Research → direction → production → critique → repair → delivery.</div>
-              <div className="mt-4 flex gap-2 text-[7px] font-semibold uppercase tracking-[0.14em] text-white/48"><span>Image</span><span>·</span><span>Video</span><span>·</span><span>Music</span></div>
-            </div>
-            <div className="absolute right-[5%] top-[12%] hidden w-[160px] border-l border-[#D6A66A]/45 pl-5 lg:block">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#8f6840]">
-                Same creativity.
-                <br />A higher purpose.
-              </div>
-              <div className="my-5 h-px w-10 bg-[#8f6840]/65" />
-              <div className="text-[10px] font-medium uppercase leading-5 tracking-[0.28em] text-[#3d362f]">
-                From
-                <br />
-                ideas
-                <br />
-                to
-                <br />
-                impact
+              <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/30">
+                {[["IMAGE STUDIO","/art/creative-image.jpg","Campaign · brand · art direction"],["MUSIC STUDIO","/art/creative-music.jpg","Composition · voice · mix · master"]].map(([label,img,note])=><div key={label} className="relative overflow-hidden">
+                  <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${img})` }} />
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(12,9,7,.06),rgba(12,9,7,.70))]" />
+                  <div className="absolute bottom-5 left-5 right-4 text-white"><div className="text-[7px] font-semibold tracking-[.18em] text-[#F0C98F]">{label}</div><div className="mt-2 text-[8px] text-white/52">{note}</div></div>
+                </div>)}
               </div>
             </div>
-            <div className="absolute bottom-6 right-6 rounded-full border border-[#D6A66A]/45 bg-[#15120f]/60 px-4 py-2 text-[8px] uppercase tracking-[0.22em] text-[#f0d1a5] backdrop-blur-md">
-              Creative Intelligence
+            <div className="absolute inset-y-0 left-0 w-[12%] bg-gradient-to-r from-[#f6f2eb] via-[#f6f2eb]/26 to-transparent" />
+            <div className="absolute right-[6%] top-[7%] rounded-full border border-[#D6A66A]/40 bg-[#15120f]/72 px-4 py-2 text-[7px] font-semibold uppercase tracking-[.2em] text-[#efd0a4] backdrop-blur-md">CREATIVE INTELLIGENCE</div>
+            <div className="absolute bottom-6 left-[17%] right-[6%] hidden rounded-[22px] border border-white/15 bg-[#15120f]/82 px-5 py-4 text-white shadow-[0_28px_80px_rgba(0,0,0,.30)] backdrop-blur-xl md:block">
+              <div className="grid grid-cols-[1fr_auto] items-center gap-6">
+                <div><div className="text-[7px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">ONE PROFESSIONAL PRODUCTION FLOW</div><div className="mt-2 text-[13px] text-white/80">Research → direction → production → critique → repair → finish.</div></div>
+                <div className="grid grid-cols-3 gap-2 text-[6px] uppercase tracking-[.14em] text-white/38"><span>IMAGE</span><span>VIDEO</span><span>MUSIC</span></div>
+              </div>
             </div>
           </div>
         </div>
@@ -179,27 +170,27 @@ export default function Page() {
             <a
               key={studio.name}
               href={studio.href}
-              className="group relative min-h-[392px] overflow-hidden rounded-[22px] border border-black/[0.09] bg-[#d8cfc3] shadow-[0_10px_35px_rgba(54,39,23,.08)]"
+              className="group relative min-h-[420px] overflow-hidden rounded-[24px] border border-[#D6A66A]/18 bg-[#171614] shadow-[0_18px_48px_rgba(42,30,18,.11)]"
             >
               <div
                 className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.035]"
                 style={{ backgroundImage: `url(${studio.image})` }}
               />
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(13,10,7,.13)_0%,rgba(13,10,7,.02)_38%,rgba(250,248,245,.12)_52%,rgba(248,246,242,.96)_82%,#f8f6f2_100%)]" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,6,.18)_0%,rgba(10,8,6,.04)_42%,rgba(10,8,6,.60)_70%,rgba(10,8,6,.94)_100%)]" />
               <div className="absolute left-6 right-6 top-5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.18em] text-white drop-shadow-sm">
                 <span>{studio.name}</span>
                 <span>{studio.no}</span>
               </div>
               <div className="absolute inset-x-6 bottom-5">
-                <h2 className="text-[28px] font-normal tracking-[-0.045em] text-[#171511]">
+                <h2 className="text-[28px] font-normal tracking-[-0.045em] text-white">
                   {studio.title}
                 </h2>
-                <p className="mt-2 min-h-[48px] max-w-[95%] text-[11px] leading-[1.75] text-[#6f685f]">
+                <p className="mt-2 min-h-[48px] max-w-[95%] text-[11px] leading-[1.75] text-white/52">
                   {studio.text}
                 </p>
                 <div className="mt-4 flex items-end justify-between gap-3">
-                  <div className="flex items-center gap-3 text-[11px] font-medium text-[#211d18]">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#a67d50]/55 text-[#8d6237]">
+                  <div className="flex items-center gap-3 text-[11px] font-medium text-white/82">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D6A66A]/45 text-[#D6A66A]">
                       <Arrow className="h-4 w-4" />
                     </span>
                     Explore {studio.name}

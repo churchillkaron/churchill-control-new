@@ -1,14 +1,16 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+import PublicArtStage from "@/components/public/PublicArtStage";
 
 function Arrow(){return <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
 
 function ProductArt({ config }) {
+  const kind = config.slug === "finance" ? "finance" : config.slug === "workforce" ? "workforce" : config.slug === "inventory" ? "inventory" : "intelligence";
   return <div className="absolute inset-0 overflow-hidden bg-[#171614] text-white">
-    <div className="absolute inset-0 opacity-[0.12]" style={{backgroundImage:"linear-gradient(rgba(214,166,106,.14) 1px,transparent 1px),linear-gradient(90deg,rgba(214,166,106,.14) 1px,transparent 1px)",backgroundSize:"54px 54px"}} />
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(214,166,106,.20),transparent_31%),radial-gradient(circle_at_22%_78%,rgba(214,166,106,.08),transparent_34%)]" />
-    <div className="absolute left-[7%] top-[9%] text-[7px] font-semibold uppercase tracking-[.22em] text-[#D6A66A]">{config.eyebrow}</div>
-    <div className="absolute inset-x-[7%] top-[20%] grid grid-cols-4 gap-2">{config.flow.map(([no,title,detail],i)=><div key={title} className="relative rounded-[22px] border border-[#BDAF9E]/35 bg-white/[0.035] p-5 backdrop-blur-sm"><div className="text-[8px] font-bold text-[#D6A66A]">{no}</div><div className="mt-12 text-[10px] font-semibold tracking-[.14em] text-white/82">{title}</div><div className="mt-2 text-[8px] text-white/38">{detail}</div>{i<3?<span className="absolute -right-[7px] top-1/2 z-10 h-px w-3 bg-[#D6A66A]"/>:null}</div>)}</div>
-    <div className="absolute bottom-[10%] left-[7%] right-[7%] rounded-[26px] border border-[#D6A66A]/24 bg-[#F2EBE0] p-5 text-[#171614] shadow-[0_28px_80px_rgba(0,0,0,.22)]"><div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#9A744B]">CONNECTED ACROSS YOUR BUSINESS</div><div className="mt-4 flex flex-wrap gap-2 text-[7px] text-[#6F675E]">{["People","Customers","Finance","Documents","Operations","Insights","Automations","Integrations"].map(x=><span key={x} className="rounded-full border border-[#D6A66A]/26 bg-[#FBFAF8] px-3 py-2">{x}</span>)}</div></div>
+    <PublicArtStage kind={kind} />
+    <div className="absolute bottom-[7%] left-[7%] right-[7%] rounded-[22px] border border-white/[.11] bg-[#15120F]/78 p-4 text-white shadow-[0_26px_70px_rgba(0,0,0,.28)] backdrop-blur-xl">
+      <div className="flex items-center justify-between"><div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">CONNECTED WORKFLOW</div><div className="text-[6px] uppercase tracking-[.16em] text-white/28">{config.context}</div></div>
+      <div className="mt-4 grid grid-cols-4 gap-2">{config.flow.map(([no,title,detail],i)=><div key={title} className="relative rounded-[13px] border border-white/[.07] bg-black/16 px-3 py-3"><div className="text-[6px] text-[#D6A66A]">{no}</div><div className="mt-2 text-[7px] font-semibold tracking-[.11em] text-white/66">{title}</div><div className="mt-1 text-[6px] text-white/28">{detail}</div>{i<3?<span className="absolute -right-[7px] top-1/2 z-10 h-px w-3 bg-[#D6A66A]/60"/>:null}</div>)}</div>
+    </div>
   </div>;
 }
 export default function ProductLandingPage({ config }) {

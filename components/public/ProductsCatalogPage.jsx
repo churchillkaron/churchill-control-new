@@ -122,8 +122,21 @@ export default function ProductsCatalogPage(){
     {CUSTOMER_GROUPS.map((group,index)=>{
       const featured=(CUSTOMER_FEATURES[group.id]||[]).map((id)=>byId[id]).filter(Boolean);
       return <section key={group.id} id={group.id} className={`scroll-mt-24 border-b border-[#CFC5B8]/45 ${index%2===0?'bg-[#F3EFE7]':'bg-[#FBFAF8]'}`}><div className="mx-auto max-w-[1540px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
-        <div className="grid gap-8 lg:grid-cols-[.7fr_1.3fr] lg:items-end"><div><div className="text-[8px] font-semibold uppercase tracking-[.17em] text-[#A37849]">{String(index+1).padStart(2,'0')} · {group.label}</div><h2 className="mt-3 text-[40px] font-medium leading-[1] tracking-[-.05em] sm:text-[54px]">{group.headline}</h2></div><p className="max-w-2xl text-[12px] leading-6 text-[#6E675F] lg:justify-self-end">{group.description}</p></div>
-        <div className="mt-10 grid gap-x-8 md:grid-cols-2 lg:grid-cols-3">{featured.map((product)=><ProductLink key={product.id} product={product}/>)}</div>
+        <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-stretch">
+          <div className={`relative min-h-[300px] overflow-hidden rounded-[26px] bg-[#171614] shadow-[0_20px_55px_rgba(45,32,20,.10)] ${index%2===1?'lg:order-2':''}`}>
+            <Image src={GROUP_ART[group.id]} alt="" fill sizes="(min-width:1024px) 34vw, 100vw" className="object-cover" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,6,.05),rgba(10,8,6,.18)_46%,rgba(10,8,6,.78))]" />
+            <div className="absolute left-6 top-6 text-[7px] font-semibold uppercase tracking-[.2em] text-[#F0C98F]">AVANTIQO / {group.label}</div>
+            <div className="absolute bottom-6 left-6 right-6">
+              <div className="text-[8px] font-semibold uppercase tracking-[.17em] text-[#D6A66A]">{String(index+1).padStart(2,'0')}</div>
+              <div className="mt-2 max-w-md text-[24px] font-medium leading-[1.05] tracking-[-.035em] text-white/92">{group.headline}</div>
+            </div>
+          </div>
+          <div className={`flex flex-col justify-center ${index%2===1?'lg:order-1':''}`}>
+            <p className="max-w-2xl text-[13px] leading-7 text-[#6E675F]">{group.description}</p>
+            <div className="mt-7 grid gap-x-8 md:grid-cols-2 xl:grid-cols-3">{featured.map((product)=><ProductLink key={product.id} product={product}/>)}</div>
+          </div>
+        </div>
       </div></section>;
     })}
     <ProductFinder products={customerProducts} groups={CUSTOMER_GROUPS} />

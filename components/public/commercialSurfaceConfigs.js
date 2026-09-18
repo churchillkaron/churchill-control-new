@@ -27,12 +27,12 @@ export const commercialSurfaceConfigs = {
     cta:"Use an industry solution that feels familiar to the team running the business.", primary:"Enter Avantiqo", primaryHref:"/login"
   },
   pricing: {
-    context:"Pricing", art:"pricing", status:"One account · clear ways to use Avantiqo", eyebrow:"Avantiqo Pricing", title:"One account. Clear ways to buy value.",
-    description:"Use Avantiqo as business software, buy complete creative missions, consume developer and compute capacity, or contract an enterprise rollout. Choose the type of Avantiqo service that fits the job while keeping one account and connected organization context.",
-    valueEyebrow:"Simple choices", valueTitle:"Predictable where it should be. Metered only where it makes sense.",
-    value:[["Business OS","Recurring software for day-to-day operations and everyday intelligence."],["Creative Studios","Missions, campaigns and production packages for image, video and music."],["Developers & Compute","Metered API, capability and infrastructure consumption for builders and workloads."],["Enterprise & Services","Contracted scope, rollout, governance, integrations and service levels for larger organizations."]],
-    moneyTitle:"Predictable software with clear optional layers.", moneyDescription:"Business customers get a clean software relationship first. Optional services and premium workloads stay explicit rather than being mixed into the everyday product.",
-    money:[["Subscription","Recurring Business OS access."],["Business add-ons","Additional locations, channels or specialist operating modules."],["Premium workload","Wallet-funded specialist work only where variable cost justifies it."],["Enterprise","Larger scope, governance, rollout and service-level packaging."]],
+    context:"Pricing", art:"pricing", status:"Clear software · optional usage", eyebrow:"Avantiqo Pricing", title:"Start simple. Pay more only when you use more.",
+    description:"Business customers can start with the software they need now. Creative work, APIs, compute and enterprise services stay separate and explicit, so pricing follows the way each part is actually used.",
+    valueEyebrow:"Simple choices", valueTitle:"Know what is recurring. Know what is optional. Know what scales with usage.",
+    value:[["Business Products","Recurring software for the day-to-day work you choose to run in Avantiqo."],["Creative Studios","Project or mission pricing for image, video, music, voice and campaign production."],["Developers & Compute","Usage-based pricing for APIs, capabilities and infrastructure workloads."],["Enterprise & Services","Quoted rollout, migration, integrations, support and larger operating scope."]],
+    moneyTitle:"Start with the product. Add optional layers only when they create value.", moneyDescription:"A normal business should not need to understand infrastructure pricing to buy Finance or Workforce. Usage pricing appears only where the work actually creates variable cost.",
+    money:[["Subscription","Recurring access to the business products you use."],["Add-ons","Additional locations, channels or specialist operating products."],["Usage","Creative, API, compute or other variable-cost workloads only when used."],["Enterprise","Larger scope, rollout, migration, governance and service levels."]],
     cta:"Choose the Avantiqo layer that matches the job.", primary:"Start with Avantiqo", primaryHref:"/start"
   },
   integrations: {

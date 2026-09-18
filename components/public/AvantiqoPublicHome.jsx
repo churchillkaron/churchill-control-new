@@ -577,6 +577,39 @@ export default function AvantiqoPublicHome() {
         </div>
       </section>
 
+      <section className="border-b border-black/[0.06] bg-[#171614] text-white">
+        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
+          <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">ONE BUSINESS · CONNECTED WORK</p>
+              <h2 className="mt-3 max-w-xl text-[38px] font-medium leading-[1.02] tracking-[-0.05em] sm:text-[52px]">The work should connect itself.</h2>
+            </div>
+            <p className="max-w-2xl text-[13px] leading-7 text-white/48 lg:justify-self-end">A sale, shift, invoice or purchase should not become five separate admin jobs. Avantiqo keeps the next business step connected to the event that caused it.</p>
+          </div>
+          <div className="mt-12 grid gap-3 lg:grid-cols-2">
+            {[
+              ["Customer buys", ["Sale", "Stock", "Payment", "Finance", "Intelligence"]],
+              ["Employee works", ["Clock in", "Schedule", "Hours", "Payroll", "Finance"]],
+              ["Supplier invoice arrives", ["Document", "Approval", "Payable", "Payment", "Ledger"]],
+              ["Manager asks a question", ["Business data", "Reason", "Next action", "Approval", "Verified result"]],
+            ].map(([title, steps]) => (
+              <article key={title} className="rounded-[24px] border border-white/[0.08] bg-white/[0.025] p-5 sm:p-6">
+                <div className="text-[10px] font-semibold text-white/82">{title}</div>
+                <div className="mt-6 grid gap-2 sm:grid-cols-5">
+                  {steps.map((step, index) => (
+                    <div key={step} className="relative rounded-[13px] border border-white/[0.07] bg-black/15 px-3 py-4">
+                      <div className="text-[7px] font-semibold text-[#D6A66A]">0{index + 1}</div>
+                      <div className="mt-2 text-[8px] leading-4 text-white/56">{step}</div>
+                      {index < steps.length - 1 ? <span className="absolute -right-2 top-1/2 hidden -translate-y-1/2 text-[10px] text-[#D6A66A]/45 sm:block">→</span> : null}
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section
         id="how-it-works"
         className="border-b border-black/[0.06] bg-white/55"
@@ -647,22 +680,17 @@ export default function AvantiqoPublicHome() {
               Avantiqo Intelligence
             </div>
             <h2 className="mt-4 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[44px] lg:text-[52px]">
-              Intelligence belongs inside the work.
+              Ask Avantiqo about your business.
             </h2>
             <p className="mt-6 text-[14px] leading-7 text-white/55">
-              Avantiqo Intelligence is designed to work with the same
-              organization, entity, period, permissions and business records as
-              the person using the system. It can help research, summarize,
-              identify next actions, prepare work and coordinate approved
-              automation without becoming a separate source of business
-              control.
+              Ask a direct business question instead of searching through screens. Avantiqo can use connected business records to explain what changed, show what needs attention and prepare the next approved action.
             </p>
             <div className="mt-7 grid gap-2 sm:grid-cols-2">
               {[
-                "Research with your business data",
-                "Surface next actions",
-                "Prepare work for approval",
-                "Keep execution auditable",
+                "Why did food cost increase?",
+                "Which invoices are overdue?",
+                "Who has not arrived for their shift?",
+                "What should I do next?",
               ].map((item) => (
                 <div
                   key={item}

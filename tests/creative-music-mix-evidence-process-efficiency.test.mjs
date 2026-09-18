@@ -5,11 +5,11 @@ import fs from "node:fs";
 const source=fs.readFileSync(new URL("../lib/creative/music/runtime/CreativeMusicMixEvidenceRuntime.js",import.meta.url),"utf8");
 
 test("mix evidence batches spectral and temporal measurements into one FFmpeg process",()=>{
-  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V17/);
+  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V18/);
   assert.match(source,/asplit=\$\{bands\.length\+2\}/);
   for(const name of ["full","sub","lowmid","warmth","boxiness","presence","air","sibilance"]) assert.match(source,new RegExp(`volumedetect@\\$\\{name\\}`));
-  assert.match(source,/aformat=channel_layouts=stereo,asplit=3\[fullst\]\[presencest\]\[lowst\]/);
-  assert.match(source,/amerge=inputs=6/);
+  assert.match(source,/aformat=channel_layouts=stereo,asplit=5\[fullst\]\[presencest\]\[lowst\]\[bodyst\]\[harshst\]/);
+  assert.match(source,/amerge=inputs=10/);
   assert.match(source,/analysis_process_count:1/);
   assert.match(source,/spectral_process_count:1/);
   assert.match(source,/envelope_process_count:1/);
@@ -66,5 +66,15 @@ test("one-pass evidence also measures EBU-style loudness and true peak without a
   assert.match(source,/true_peak_dbtp/);
   assert.match(source,/loudness_range_lu/);
   assert.match(source,/loudness_threshold_lufs/);
+  assert.match(source,/analysis_process_count:1/);
+});
+
+
+test("one-pass evidence measures time-local body versus harshness without another decode",()=>{
+  assert.match(source,/highpass=f=500,lowpass=f=2000,channelsplit=channel_layout=stereo/);
+  assert.match(source,/highpass=f=2500,lowpass=f=8000,channelsplit=channel_layout=stereo/);
+  assert.match(source,/dynamicHarshnessMetrics/);
+  assert.match(source,/p90_harshness_vs_body_db/);
+  assert.match(source,/intermittent_harshness_risk/);
   assert.match(source,/analysis_process_count:1/);
 });

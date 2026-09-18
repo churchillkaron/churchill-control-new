@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import { getBusinessDiagnosisReadiness } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReadinessRuntime";
+import { getPublicBusinessDiagnosisReadiness } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReadinessRuntime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export async function GET(request) {
     if (!access.success) {
       return NextResponse.json({ success: false, error: access.error }, { status: access.status });
     }
-    const readiness = getBusinessDiagnosisReadiness();
+    const readiness = getPublicBusinessDiagnosisReadiness();
     return NextResponse.json({ success: readiness.ready, organization_id: access.organizationId, readiness }, {
       status: readiness.ready ? 200 : 503,
       headers: { "cache-control": "no-store" },

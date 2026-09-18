@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { getBusinessDiagnosisReadiness, assertBusinessDiagnosisReadiness } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReadinessRuntime.js";
+import { getBusinessDiagnosisReadiness, getPublicBusinessDiagnosisReadiness, assertBusinessDiagnosisReadiness } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReadinessRuntime.js";
 
 const signedEnv = {
   AVANTIQO_BUSINESS_DIAGNOSIS_AUTHENTICITY_REQUIRED: "true",
@@ -37,7 +37,7 @@ test("readiness endpoint is authenticated organization-scoped and no-store", () 
   const route = fs.readFileSync("app/api/platform/intelligence/business/readiness/route.js", "utf8");
   assert.match(route, /requireOrganizationAccess/);
   assert.match(route, /organization_id required/);
-  assert.match(route, /getBusinessDiagnosisReadiness/);
+  assert.match(route, /getPublicBusinessDiagnosisReadiness/);
   assert.match(route, /status: readiness\.ready \? 200 : 503/);
   assert.match(route, /cache-control.*no-store/s);
 });
@@ -119,4 +119,23 @@ test("internal system health still retains detailed diagnosis readiness for auth
   const platform=fs.readFileSync("app/(system)/platform/page.jsx","utf8");
   assert.match(platform,/requirePlatformAdminAccess/);
   assert.match(platform,/checkSystemHealth\(\)/);
+});
+
+
+test("organization readiness projection hides key identifiers",()=>{
+  const readiness=getPublicBusinessDiagnosisReadiness({env:signedEnv});
+  assert.equal(readiness.ready,true);
+  assert.equal(readiness.status,"READY_AUTHENTICATED");
+  assert.equal(readiness.proof.authenticity_available,true);
+  assert.equal(Object.prototype.hasOwnProperty.call(readiness.proof,"active_key_id"),false);
+  assert.equal(Object.prototype.hasOwnProperty.call(readiness.proof,"verification_key_ids"),false);
+  assert.equal(Object.prototype.hasOwnProperty.call(readiness,"blockers"),false);
+  assert.equal(readiness.blocker_count,0);
+});
+
+test("organization readiness route uses only redacted readiness projection",()=>{
+  const route=fs.readFileSync("app/api/platform/intelligence/business/readiness/route.js","utf8");
+  assert.match(route,/getPublicBusinessDiagnosisReadiness/);
+  assert.doesNotMatch(route,/active_key_id/);
+  assert.doesNotMatch(route,/verification_key_ids/);
 });

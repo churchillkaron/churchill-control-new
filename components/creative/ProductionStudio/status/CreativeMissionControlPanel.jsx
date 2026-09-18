@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Activity, BadgeCheck, CircleDollarSign, Clock3, Film, ShieldAlert, Sparkles, Wrench } from "lucide-react";
 
 function text(value) {
@@ -65,10 +66,48 @@ function Stat({ icon: Icon, label, value, detail }) {
   );
 }
 
+function engineLabel(value) {
+  return text(value).replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function certificationTone(engine = {}) {
+  if (engine.passed) return "border-emerald-900/12 bg-emerald-50/70 text-emerald-800";
+  if (engine.technical_passed) return "border-amber-900/12 bg-amber-50/70 text-amber-800";
+  return "border-red-900/10 bg-red-50/60 text-red-800";
+}
+
 export default function CreativeMissionControlPanel({ runtime }) {
   const allTasks = (runtime.taskRuntime?.items || []).filter(activeTask);
   const assets = runtime.assetRuntime?.items || [];
   const project = runtime.projectRuntime?.current || {};
+  const organizationId = runtime.organizationId || project.organization_id || null;
+  const [cinemaCertification, setCinemaCertification] = useState(null);
+  const [cinemaCertificationError, setCinemaCertificationError] = useState("");
+
+  useEffect(() => {
+    if (!organizationId || !project.id) {
+      setCinemaCertification(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const params = new URLSearchParams({
+      organizationId,
+      creativeProjectId: project.id,
+    });
+    fetch(`/api/creative/cinema/certification?${params.toString()}`, { cache: "no-store" })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok || body.success === false) throw new Error(body.error || "Cinema certification unavailable");
+        if (!cancelled) {
+          setCinemaCertification(body.certification || null);
+          setCinemaCertificationError("");
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) setCinemaCertificationError(error?.message || "Cinema certification unavailable");
+      });
+    return () => { cancelled = true; };
+  }, [organizationId, project.id]);
   const blocked = allTasks.filter((task) => ["FAILED", "BLOCKED", "SKIPPED"].includes(text(task.status).toUpperCase()));
   const running = allTasks.filter((task) => ["RUNNING", "READY", "WAITING", "PLANNING", "PLANNED"].includes(text(task.status).toUpperCase()));
   const approvals = allTasks.filter((task) => task.review?.required === true && task.review?.approved !== true);
@@ -123,6 +162,35 @@ export default function CreativeMissionControlPanel({ runtime }) {
         <Stat icon={Clock3} label="ETA" value={eta ? `${Math.ceil(eta / 60)}m` : "—"} detail="declared task estimates" />
         <Stat icon={Sparkles} label="Assets" value={assets.length} detail="production graph outputs" />
       </div>
+
+      {cinemaCertification ? (
+        <div className="mt-3 rounded-xl border border-black/[0.07] bg-white/55 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#8A633C]">Professional Cinema Engines</div>
+              <div className="mt-1 text-[8px] text-[#777069]">Durable technical and visual certification evidence. Missing proof stays blocked.</div>
+            </div>
+            <span className={`rounded-full border px-2 py-1 text-[7px] font-semibold ${cinemaCertification.production_certified ? "border-emerald-900/15 bg-emerald-50 text-emerald-800" : cinemaCertification.infrastructure_ready_for_paid_media_proof ? "border-amber-900/15 bg-amber-50 text-amber-800" : "border-red-900/15 bg-red-50 text-red-800"}`}>
+              {text(cinemaCertification.status).replaceAll("_", " ")}
+            </span>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {(cinemaCertification.engines || []).map((engine) => (
+              <div key={engine.id} className={`rounded-lg border px-2.5 py-2 ${certificationTone(engine)}`}>
+                <div className="text-[8px] font-semibold">{engineLabel(engine.id)}</div>
+                <div className="mt-1 text-[7px] opacity-75">
+                  {engine.passed ? "Production certified" : engine.technical_passed ? "Technical proof · visual proof pending" : "Certification blocked"}
+                </div>
+                <div className="mt-1 text-[7px] opacity-60">
+                  Technical {engine.technical_passed ? "✓" : "—"} · Visual {engine.visual ? (engine.visual_passed ? "✓" : "—") : "N/A"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : cinemaCertificationError ? (
+        <div className="mt-3 rounded-lg border border-red-900/10 bg-red-50/60 px-3 py-2 text-[8px] text-red-800">{cinemaCertificationError}</div>
+      ) : null}
 
       {allTasks.length ? (
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">

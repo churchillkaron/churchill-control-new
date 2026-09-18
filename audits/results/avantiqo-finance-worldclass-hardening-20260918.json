@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 325,
-    "passed": 325,
+    "tests": 333,
+    "passed": 333,
     "failed": 0
   },
   "workstreams": [
@@ -80,6 +80,22 @@
       "live_package_count": 0,
       "live_grant_count": 0,
       "test_artifacts_remaining": false
+    },
+    {
+      "order": 6,
+      "name": "Finance provider activation",
+      "commit": "c68e96ed3fa7",
+      "status": "OPERATIONAL_HUMAN_CONFIGURABLE_PROVIDER_SETUP",
+      "live_schema": true,
+      "live_api_verified": true,
+      "live_ui_verified": true,
+      "vault_boundary": "Supabase Vault service-role-only Finance provider provisioner",
+      "bank_activation": "Brankas API credential -> Vault -> pending transaction-feed connections rebound -> customer consent",
+      "etax_activation": "Certified provider credential -> Vault -> exact Thailand customer-invoice e-Tax profile",
+      "email_activation": "Existing Administration Google/Microsoft/IMAP-SMTP connector linked directly from Finance Client access",
+      "secret_exposure": "No raw provider secret returned through Finance API or stored in Finance metadata",
+      "current_business_blocker": "Real Brankas/e-Tax/mailbox provider credentials still need to be supplied by the organization/provider.",
+      "test_artifacts_remaining": false
     }
   ],
   "live_acceptance": {
@@ -93,13 +109,18 @@
     "active_external_provider_prerequisites": [],
     "auditor_open_period_generate_status": 409,
     "invalid_public_auditor_token_status": 404,
-    "staff_manual_signature_terminal_status": 409
+    "staff_manual_signature_terminal_status": 409,
+    "finance_provider_credentials": 0,
+    "bank_activation_missing_secret_status": 400,
+    "etax_activation_insecure_endpoint_status": 400
   },
   "governance": {
     "no_parallel_accounting_truth": true,
     "no_fake_provider_success": true,
     "no_test_financial_mutations_left_live": true,
     "financial_approval_authority_not_increased_by_automation": true,
-    "external_auditor_access_has_no_erp_mutation_authority": true
+    "external_auditor_access_has_no_erp_mutation_authority": true,
+    "provider_secrets_vault_only": true,
+    "finance_provider_activation_requires_configuration_manage": true
   }
 }

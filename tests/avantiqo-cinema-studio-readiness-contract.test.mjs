@@ -123,14 +123,18 @@ test("visible production control preflights, auto-polls active work, and continu
   assert.ok(patchIndex >= 0 && automaticIndex >= 0 && patchIndex < automaticIndex);
 });
 
-test("provider registry matches the native Studio B200 master path", () => {
+test("provider registry uses fast 1080 production plus temporal UHD delivery, with native 4K as an optional hero lane", () => {
   assert.match(registration, /MODAL_FUNCTION_NAME = "generate_native_job_v3"/);
   assert.match(registration, /NATIVE_MASTER_MODEL = "avantiqo-ltx-2\.5"/);
-  assert.match(registration, /NATIVE_MASTER_RESOLUTION = "3840x2176"/);
-  assert.match(registration, /NATIVE_MASTER_FPS = 24/);
-  assert.match(registration, /NATIVE_MASTER_STEPS = 30/);
-  assert.match(registration, /NATIVE_MASTER_GPU = "B200"/);
-  assert.match(registration, /supported_resolutions:\s*\["2160p"\]/);
+  assert.match(registration, /FAST_PRODUCTION_RESOLUTION = "1920x1088"/);
+  assert.match(registration, /DELIVERY_MASTER_RESOLUTION = "3840x2160"/);
+  assert.match(registration, /HERO_NATIVE_RESOLUTION = "3840x2176"/);
+  assert.match(registration, /PRODUCTION_FPS = 24/);
+  assert.match(registration, /PRODUCTION_GPU = "B200"/);
+  assert.match(registration, /hero_native_generation_default:\s*false/);
+  assert.match(registration, /temporal_4k_mastering_required_for_4k_delivery:\s*true/);
+  assert.match(registration, /supported_generation_resolutions:\s*\["1080p"\]/);
+  assert.match(registration, /supported_delivery_resolutions:\s*\["2160p"\]/);
   assert.match(registration, /transport_adapter_max_containers:\s*4/);
   assert.match(registration, /max_gpu_containers:\s*1/);
 });

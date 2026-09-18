@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { calculateAutonomousPaperOrder } from "../lib/markets/runtime/MarketAutonomousPaperModels.js";
+import {
+  calculateAutonomousPaperOrder,
+  researchRefreshRequired,
+} from "../lib/markets/runtime/MarketAutonomousPaperModels.js";
 
 const base = {
   automationPolicy: {
@@ -92,4 +95,24 @@ test("SELL cannot create a short position", () => {
   });
   assert.equal(result.executable, false);
   assert.equal(result.reason, "NO_LONG_POSITION_TO_SELL");
+});
+
+test("research refresh becomes due after configured age", () => {
+  assert.equal(researchRefreshRequired({
+    lastResearchAt: "2026-09-18T06:00:00Z",
+    now: new Date("2026-09-18T12:30:00Z"),
+    maxAgeMinutes: 360,
+  }), true);
+
+  assert.equal(researchRefreshRequired({
+    lastResearchAt: "2026-09-18T10:00:00Z",
+    now: new Date("2026-09-18T12:30:00Z"),
+    maxAgeMinutes: 360,
+  }), false);
+
+  assert.equal(researchRefreshRequired({
+    lastResearchAt: null,
+    now: new Date("2026-09-18T12:30:00Z"),
+    maxAgeMinutes: 360,
+  }), true);
 });

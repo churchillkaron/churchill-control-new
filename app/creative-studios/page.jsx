@@ -15,6 +15,7 @@ const studios = [
     text: "Research, art direction, composition, production, critique, targeted repair, typography, layout and final delivery.",
     href: "/creative-studios/image",
     artKind: "image-studio",
+    image: "/art/creative-image.jpg",
     tags: "BRANDS  ·  CAMPAIGNS  ·  CONTENT",
   },
   {
@@ -24,6 +25,7 @@ const studios = [
     text: "Story and shot architecture, reconstruction execution, pass rendering, physical simulation, deep compositing, cinematic sound, optical finishing, edit, color and mastering.",
     href: "/creative-studios/video",
     artKind: "video-studio",
+    image: "/art/creative-video.jpg",
     tags: "FILM  ·  VFX  ·  COMPOSITING  ·  SURROUND  ·  MASTER",
   },
   {
@@ -33,6 +35,7 @@ const studios = [
     text: "Performance, recording, comping, vocal and instrument production, arrangement, editing, mix, premaster listening, mastering and translation QC.",
     href: "/creative-studios/music",
     artKind: "music-studio",
+    image: "/art/creative-music.jpg",
     tags: "MUSIC  ·  SFX  ·  VOICE  ·  MASTER",
   },
 ];
@@ -136,20 +139,14 @@ export default function Page() {
           </div>
 
           <div className="relative min-h-[430px] overflow-hidden bg-[#0f0d0b] lg:min-h-[540px]">
-            <div className="absolute inset-0 grid grid-cols-[1.28fr_.72fr] gap-px bg-white/[0.08]">
-              <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.02]"><PublicArtStage kind="video-studio" /></div></div>
-              <div className="grid grid-rows-2 gap-px bg-white/[0.08]">
-                <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.12]"><PublicArtStage kind="image-studio" /></div></div>
-                <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.12]"><PublicArtStage kind="music-studio" /></div></div>
-              </div>
-            </div>
-            <div className="absolute inset-y-0 left-0 w-[12%] bg-gradient-to-r from-[#f6f2eb] via-[#f6f2eb]/22 to-transparent" />
-            <div className="absolute right-[6%] top-[7%] rounded-full border border-[#D6A66A]/28 bg-[#11100E]/78 px-4 py-2 text-[7px] font-semibold uppercase tracking-[.2em] text-[#E0B77F] backdrop-blur-md">PROFESSIONAL PRODUCTION SYSTEM</div>
-            <div className="absolute bottom-6 left-[17%] right-[6%] hidden rounded-[22px] border border-white/[.10] bg-[#11100E]/86 px-5 py-4 text-white shadow-[0_28px_80px_rgba(0,0,0,.30)] backdrop-blur-xl md:block">
-              <div className="grid grid-cols-[1fr_auto] items-center gap-6">
-                <div><div className="text-[7px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">ONE PROFESSIONAL PRODUCTION FLOW</div><div className="mt-2 text-[13px] text-white/72">Source → production state → specialist passes → review → repair → master.</div></div>
-                <div className="grid grid-cols-3 gap-2 text-[6px] uppercase tracking-[.14em] text-white/34"><span>IMAGE</span><span>VIDEO</span><span>MUSIC</span></div>
-              </div>
+            <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/creative-video.jpg)"}} />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,8,6,.52),rgba(10,8,6,.06)_42%,rgba(10,8,6,.18)),linear-gradient(180deg,rgba(10,8,6,.03),rgba(10,8,6,.10)_52%,rgba(10,8,6,.72))]" />
+            <div className="absolute inset-y-0 left-0 w-[12%] bg-gradient-to-r from-[#f6f2eb] via-[#f6f2eb]/24 to-transparent" />
+            <div className="absolute right-6 top-6 rounded-full border border-white/[.18] bg-[#11100E]/58 px-4 py-2 text-[7px] font-semibold uppercase tracking-[.2em] text-[#E2BA84] backdrop-blur-md">FILM · VFX · SOUND · FINISH</div>
+            <div className="absolute bottom-7 left-[17%] max-w-[520px] rounded-[22px] border border-white/[.12] bg-[#11100E]/72 p-5 text-white shadow-[0_28px_80px_rgba(0,0,0,.28)] backdrop-blur-xl">
+              <div className="text-[7px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">VIDEO STUDIO</div>
+              <div className="mt-3 text-[24px] font-medium leading-[1.05] tracking-[-.035em] text-white/92">From shot design to final master.</div>
+              <div className="mt-3 text-[9px] leading-5 text-white/46">Reconstruction · simulation · compositing · optical finishing · cinematic sound · color.</div>
             </div>
           </div>
         </div>
@@ -161,33 +158,22 @@ export default function Page() {
             <a
               key={studio.name}
               href={studio.href}
-              className="group relative min-h-[420px] overflow-hidden rounded-[24px] border border-[#D6A66A]/18 bg-[#171614] shadow-[0_18px_48px_rgba(42,30,18,.11)]"
+              className="group overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_18px_48px_rgba(42,30,18,.07)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_70px_rgba(42,30,18,.10)]"
             >
-              <div className="absolute inset-0 scale-[1.06] transition duration-700 group-hover:scale-[1.09]">
-                <PublicArtStage kind={studio.artKind} />
+              <div className="relative h-[270px] overflow-hidden bg-[#171614]">
+                <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.025]" style={{backgroundImage:`url(${studio.image})`}} />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,6,.03),rgba(10,8,6,.10)_58%,rgba(10,8,6,.54))]" />
+                <div className="absolute left-5 right-5 top-5 flex items-center justify-between text-[8px] font-semibold uppercase tracking-[0.18em] text-[#F1C98E]">
+                  <span>{studio.name}</span><span>{studio.no}</span>
+                </div>
+                <div className="absolute bottom-5 left-5 right-5 text-[7px] font-semibold uppercase tracking-[.16em] text-white/52">{studio.tags}</div>
               </div>
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,6,.08)_0%,rgba(10,8,6,.03)_42%,rgba(10,8,6,.56)_72%,rgba(10,8,6,.94)_100%)]" />
-              <div className="absolute left-6 right-6 top-5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.18em] text-white drop-shadow-sm">
-                <span>{studio.name}</span>
-                <span>{studio.no}</span>
-              </div>
-              <div className="absolute inset-x-6 bottom-5">
-                <h2 className="text-[28px] font-normal tracking-[-0.045em] text-white">
-                  {studio.title}
-                </h2>
-                <p className="mt-2 min-h-[48px] max-w-[95%] text-[11px] leading-[1.75] text-white/52">
-                  {studio.text}
-                </p>
-                <div className="mt-4 flex items-end justify-between gap-3">
-                  <div className="flex items-center gap-3 text-[11px] font-medium text-white/82">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D6A66A]/45 text-[#D6A66A]">
-                      <Arrow className="h-4 w-4" />
-                    </span>
-                    Explore {studio.name}
-                  </div>
-                  <div className="pb-2 text-right text-[8px] font-semibold uppercase tracking-[0.18em] text-[#9d7448]">
-                    {studio.tags}
-                  </div>
+              <div className="p-6">
+                <h2 className="text-[28px] font-medium leading-[1.05] tracking-[-0.045em] text-[#211E1A]">{studio.title}</h2>
+                <p className="mt-3 min-h-[58px] text-[11px] leading-6 text-[#756E66]">{studio.text}</p>
+                <div className="mt-6 flex items-center justify-between border-t border-black/[0.07] pt-4">
+                  <div className="text-[10px] font-semibold text-[#7E5B38]">Explore {studio.name}</div>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D6A66A]/35 text-[#9A744B]"><Arrow className="h-3.5 w-3.5"/></span>
                 </div>
               </div>
             </a>

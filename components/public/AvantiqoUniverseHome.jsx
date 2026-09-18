@@ -1,5 +1,6 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import PublicArtStage from "@/components/public/PublicArtStage";
+import BusinessPartnerShowcase from "@/components/public/BusinessPartnerShowcase";
 
 const WORLDS = [
   ["RUN", "Business Products", "/products", "Run finance, people, customers, operations, stock and documents from one connected business context.", "/art/avantiqo-luxury/hospitality-hero.webp", "commerce"],
@@ -44,7 +45,7 @@ export default function AvantiqoUniverseHome(){
       <div className="mt-10 grid gap-2 md:grid-cols-7">{["Customers","Sales","Operations","People","Stock","Finance","Intelligence"].map((item,index)=><div key={item} className="relative rounded-[16px] border border-white/[0.08] bg-white/[0.025] px-4 py-5"><div className="text-[7px] font-semibold text-[#D6A66A]">0{index+1}</div><div className="mt-3 text-[9px] text-white/62">{item}</div>{index<6?<span className="absolute -right-2 top-1/2 hidden -translate-y-1/2 text-[#D6A66A]/50 md:block">→</span>:null}</div>)}</div>
       <div className="mt-10 grid gap-8 rounded-[28px] border border-white/[0.08] bg-white/[0.025] p-6 lg:grid-cols-[.8fr_1.2fr] lg:p-8">
         <div><div className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#D6A66A]">BUSINESS PARTNER</div><h3 className="mt-3 text-[30px] font-medium tracking-[-.045em]">Ask Avantiqo about your business.</h3><p className="mt-4 text-[11px] leading-6 text-white/45">Ask the question in normal language. Avantiqo can connect the answer to the records and the next piece of work.</p><a href="/intelligence-platform" className="mt-6 inline-flex text-[9px] font-semibold text-[#E8C28F]">Explore Business Partner →</a></div>
-        <div className="grid gap-2 sm:grid-cols-2">{["Why did food cost increase this week?","Which invoices are overdue?","Who has not arrived for their shift?","What should I order tomorrow?","Create the invoice and send it.","What needs my attention today?"].map((q,index)=><div key={q} className="flex items-center justify-between rounded-[14px] border border-white/[0.07] bg-black/15 px-4 py-4"><span className="text-[9px] text-white/60">{q}</span><span className="ml-3 text-[7px] text-[#D6A66A]">0{index+1}</span></div>)}</div>
+        <BusinessPartnerShowcase compact />
       </div>
     </div></section>
 

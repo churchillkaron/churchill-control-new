@@ -1,6 +1,7 @@
 import Image from "next/image";
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import PublicArtStage from "@/components/public/PublicArtStage";
+import BusinessPartnerShowcase from "@/components/public/BusinessPartnerShowcase";
 import ProductFinder from "@/components/public/ProductControlIndex";
 import { productCatalog } from "@/components/public/productCatalog";
 import { CUSTOMER_GROUPS, CUSTOMER_FEATURES, isCustomerProduct } from "@/components/public/customerProductGroups";
@@ -103,10 +104,7 @@ export default function ProductsCatalogPage(){
 
     <section className="border-b border-[#CFC5B8]/45 bg-[#EEE8DE]"><div className="mx-auto grid max-w-[1540px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[.85fr_1.15fr] lg:items-center lg:px-10 lg:py-20 xl:px-14">
       <div><p className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#9A744B]">BUSINESS PARTNER</p><h2 className="mt-3 text-[38px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[52px]">Ask Avantiqo about your business.</h2><p className="mt-5 max-w-xl text-[12px] leading-6 text-[#6D665E]">Instead of searching through screens, ask a direct business question. Avantiqo can use the connected records and take you to the work that needs attention.</p><a href="/intelligence-platform" className="mt-7 inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Explore Business Partner →</a></div>
-      <div className="rounded-[26px] border border-black/[0.08] bg-[#171614] p-4 shadow-[0_28px_80px_rgba(35,27,20,.16)] sm:p-5"><div className="rounded-[20px] border border-white/[0.08] bg-[#201D19] p-5 text-white">
-        <div className="text-[7px] font-semibold uppercase tracking-[.2em] text-[#D6A66A]">ASK THE BUSINESS</div>
-        <div className="mt-4 space-y-2">{["Why did food cost increase this week?","Which invoices are overdue?","Who has not arrived for their shift?","What should I order tomorrow?","Create the invoice and send it."].map((q,index)=><div key={q} className="flex items-center justify-between rounded-[13px] border border-white/[0.07] bg-white/[0.025] px-4 py-3"><span className="text-[9px] text-white/62">{q}</span><span className="text-[8px] text-[#D6A66A]">0{index+1}</span></div>)}</div>
-      </div></div>
+      <BusinessPartnerShowcase />
     </div></section>
 
     {CUSTOMER_GROUPS.map((group,index)=>{

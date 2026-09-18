@@ -27,3 +27,12 @@ test("receipt fingerprint canonicalizes nested object key ordering",()=>{
   reordered.final_diagnosis={diagnosis:{causal:{supported_context_ids:["weather"]},internal_coverage_incomplete:false,variance:{unexplained_residual:-5},residual_ratio:.25,residual_material:true,target_metric:{status:"TARGET_METRIC_READY"},final_evidence_state:"INTERNAL_AND_SUPPORTED_EXTERNAL"},metric:"profit"};
   assert.equal(build(reordered).receipt_fingerprint,first.receipt_fingerprint);
 });
+
+
+test("receipt records recommendation outcome enforcement",()=>{
+ const guarded=structuredClone(input);
+ guarded.answer_boundary={status:"REPLACED_UNSUPPORTED_RECOMMENDATION_OUTCOME",unsupported_recommendation_outcome_detected:true,required_uncertainty_appended:false,overclaim_detected:false};
+ const out=build(guarded);
+ assert.equal(out.answer_unsupported_recommendation_outcome_detected,true);
+ assert.equal(out.answer_boundary_status,"REPLACED_UNSUPPORTED_RECOMMENDATION_OUTCOME");
+});

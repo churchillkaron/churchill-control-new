@@ -94,6 +94,7 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
       final_evidence_state: text(diagnosis.final_evidence_state) || null,
       residual_material: diagnosis.residual_material === true,
       answer_boundary_status: text(diagnosis.answer_boundary_status) || null,
+      answer_unsupported_recommendation_outcome_detected: diagnosis.answer_unsupported_recommendation_outcome_detected === true,
       periods: {
         status: text(diagnosis?.periods?.status) || null,
         baseline_period_id: text(diagnosis?.periods?.baseline_period_id) || null,

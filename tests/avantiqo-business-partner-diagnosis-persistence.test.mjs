@@ -97,3 +97,22 @@ test("model conversation verifies diagnosis period scope while historical snapsh
   assert.match(runtime,/periodId: conversation\.period_id/);
   assert.match(runtime,/Historical UI remains visible across period changes/);
 });
+
+test("conversation memory RPC refreshes entity and period before verified history is reused",()=>{
+  const migration=fs.readFileSync("supabase/migrations/20260814072017_operator_conversation_memory_rpc_convergence.sql","utf8");
+  assert.match(migration,/if v_conversation\.entity_id is distinct from p_entity_id\s+or v_conversation\.period_id is distinct from p_period_id then/s);
+  assert.match(migration,/entity_id = p_entity_id/);
+  assert.match(migration,/period_id = p_period_id/);
+  assert.match(migration,/returning \* into v_conversation/);
+  const updateIndex=migration.indexOf("period_id = p_period_id");
+  const turnsIndex=migration.indexOf("from public.intelligence_turns");
+  assert.ok(updateIndex>=0&&turnsIndex>updateIndex);
+});
+
+test("operator passes resolved business period into conversation memory on every turn",()=>{
+  assert.match(route,/loadOrCreateIntelligenceConversation\(\{/);
+  assert.match(route,/periodId: businessContext\.periodId/);
+  const loadIndex=route.indexOf("loadOrCreateIntelligenceConversation({");
+  const turnIndex=route.indexOf("runSyntheticIntelligenceTurn",loadIndex);
+  assert.ok(loadIndex>=0&&turnIndex>loadIndex);
+});

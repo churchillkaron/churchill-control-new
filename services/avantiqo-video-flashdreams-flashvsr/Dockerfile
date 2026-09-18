@@ -14,6 +14,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
+    ffmpeg \
     git \
     build-essential \
     ninja-build \
@@ -37,6 +38,9 @@ RUN mkdir -p /opt/avantiqo-flashvsr && \
 
 WORKDIR /app
 COPY flashdreams_flashvsr_worker.py /app/flashdreams_flashvsr_worker.py
-RUN /opt/flashdreams/.venv/bin/python -m py_compile /app/flashdreams_flashvsr_worker.py
+COPY flashvsr_api.py /app/flashvsr_api.py
+RUN /opt/flashdreams/.venv/bin/python -m py_compile /app/flashdreams_flashvsr_worker.py /app/flashvsr_api.py
 
-CMD ["/opt/flashdreams/.venv/bin/python", "-u", "/app/flashdreams_flashvsr_worker.py"]
+ENV PORT=8000
+EXPOSE 8000
+CMD ["/opt/flashdreams/.venv/bin/python", "-u", "/app/flashvsr_api.py"]

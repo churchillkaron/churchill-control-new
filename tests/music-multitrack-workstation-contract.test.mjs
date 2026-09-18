@@ -84,3 +84,6 @@ test("Browser multitrack preview uses the real engineer signal order without rel
   assert.match(preview, /fader\.connect\(pan\)/);
   assert.match(preview, /release_master:\s*false/);
 });
+
+
+test("multitrack project persists cinematic sound objects and their layer assets are part of session evidence",async()=>{const runtime=await read("lib/creative/music/runtime/CreativeMusicMultitrackRuntime.js"),route=await read("app/api/creative/music/multitrack/route.js");assert.match(runtime,/sound_objects:/);assert.match(runtime,/cinematic_sound_objects_persisted: true/);assert.match(route,/session.sound_objects/);assert.match(route,/layer\.asset_id/);});

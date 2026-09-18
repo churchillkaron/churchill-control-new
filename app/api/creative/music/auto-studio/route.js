@@ -341,6 +341,8 @@ async function registerRecordedTake(body) {
     durationSeconds: serverVerification.duration_seconds,
     body,
   }) : null;
+  const revisionProject = multitrack ? null : await CreativeProjectRepository.getById(projectId);
+  const currentMultitrackRevision = multitrack?.revision ?? Math.max(0,Math.round(finite(revisionProject?.metadata?.[MULTITRACK_METADATA_KEY]?.revision,0)));
 
   return {
     success: true,
@@ -357,6 +359,7 @@ async function registerRecordedTake(body) {
     added_to_multitrack: Boolean(multitrack),
     quarantined_from_active_multitrack: promotion.promotion_allowed !== true,
     quarantine_reasons: promotion.quarantine_reasons,
+    current_multitrack_revision: currentMultitrackRevision,
     provider_job_submitted: false,
     endpoint_mutation_performed: false,
   };

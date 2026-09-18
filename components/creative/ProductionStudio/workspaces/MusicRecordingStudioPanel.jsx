@@ -92,6 +92,8 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
   const [meter, setMeter] = useState({ peak: -Infinity, rms: -Infinity, clipped: false });
   const [take, setTake] = useState(null);
   const [saved, setSaved] = useState(null);
+  const [quarantineAck, setQuarantineAck] = useState(false);
+  const [overrideNote, setOverrideNote] = useState("");
   const [error, setError] = useState("");
 
   const streamRef = useRef(null);
@@ -427,6 +429,39 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
     }
   }
 
+  async function promoteQuarantinedTake() {
+    if (!saved?.asset?.id || saved.quarantined_from_active_multitrack !== true || !quarantineAck) return;
+    setBusy(true);
+    setError("");
+    try {
+      const promoted = await request({
+        action: "promote_quarantined_take",
+        organization_id: organizationId,
+        creative_project_id: projectId,
+        asset_id: saved.asset.id,
+        expected_revision: saved.current_multitrack_revision,
+        acknowledge_quarantine_reasons: true,
+        override_note: overrideNote.trim() || null,
+        track_name: title,
+        timeline_start_seconds: 0,
+      });
+      const nextSaved = {
+        ...saved,
+        multitrack: promoted.multitrack,
+        added_to_multitrack: true,
+        quarantined_from_active_multitrack: false,
+        quarantine_override_applied: true,
+        current_multitrack_revision: promoted.promoted_revision,
+      };
+      setSaved(nextSaved);
+      onSaved?.(saved.asset, promoted.multitrack);
+    } catch (cause) {
+      setError(cause?.message || "Quarantined take could not be promoted");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="mx-auto max-w-7xl p-6">
       <div className="overflow-hidden rounded-3xl border border-[#d6a66a]/20 bg-gradient-to-b from-[#d6a66a]/[0.06] to-black/30">
@@ -471,12 +506,19 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
 
             {take ? <div className="mt-5 rounded-2xl border border-[#d6a66a]/15 bg-[#d6a66a]/[0.035] p-4"><div className="flex items-center gap-2 text-xs text-[#efd29f]/75"><Play className="h-4 w-4" /> Recorded take · {take.sampleRate} Hz · {take.channels}ch · 24-bit WAV container · input precision {take.capture_sample_size_bits ? `${take.capture_sample_size_bits}-bit reported` : "not reported"} · rate path {take.sample_rate_path_verification || "UNVERIFIED"} · channel path {take.channel_topology_verified === true ? "MATCHED" : take.channel_topology_verified === false ? "MISMATCH" : "UNVERIFIED"}</div><audio src={take.url} controls className="mt-3 w-full" /><button type="button" disabled={busy || Boolean(saved)} onClick={saveTake} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-4 py-3 text-xs font-medium text-[#efd29f] disabled:opacity-40"><Save className="h-4 w-4" />{saved ? "Original take saved" : busy ? "Saving…" : "Save original take to project"}</button></div> : <div className="mt-5 flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-white/8 text-center"><div><Headphones className="mx-auto h-6 w-6 text-white/15" /><div className="mt-2 text-xs text-white/28">Set gain while watching the meter, then record.</div></div></div>}
 
-            {saved ? <div className="mt-4 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.04] px-4 py-3 text-xs text-emerald-100/65">
+            {saved?.quarantined_from_active_multitrack === true ? <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] px-4 py-4 text-xs text-amber-100/75">
+              <div className="font-medium"><ShieldCheck className="mr-2 inline h-4 w-4" />Original take preserved, but quarantined from the active multitrack.</div>
+              <div className="mt-2 text-[10px] leading-4 text-amber-100/55">QC reasons: {(saved.quarantine_reasons || []).join(", ") || "Capture QC requires review"}. The file is preserved unchanged. Promoting it is an explicit override.</div>
+              <label className="mt-3 flex items-start gap-2 text-[10px] text-amber-100/65"><input type="checkbox" checked={quarantineAck} onChange={(event) => setQuarantineAck(event.target.checked)} className="mt-0.5" /><span>I reviewed the quarantine reasons and intentionally want this take in the active session.</span></label>
+              <textarea value={overrideNote} onChange={(event) => setOverrideNote(event.target.value)} placeholder="Optional reason for override" className="mt-3 min-h-16 w-full rounded-lg border border-amber-200/15 bg-black/25 px-3 py-2 text-[10px] text-white/65 outline-none" />
+              <div className="mt-2 text-[9px] text-amber-100/40">Current workstation revision {saved.current_multitrack_revision ?? "—"}. Promotion is revision-safe and permanently audited.</div>
+              <button type="button" disabled={busy || !quarantineAck} onClick={promoteQuarantinedTake} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-amber-200/25 bg-amber-200/10 px-3 py-2 text-[10px] font-medium text-amber-100 disabled:opacity-35"><SlidersHorizontal className="h-3.5 w-3.5" />{busy ? "Promoting…" : "Promote quarantined take"}</button>
+            </div> : saved ? <div className="mt-4 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.04] px-4 py-3 text-xs text-emerald-100/65">
               <div><ShieldCheck className="mr-2 inline h-4 w-4" />Original take preserved and added to the multitrack timeline.</div>
               <div className="mt-1 text-[10px] text-emerald-100/45">Revision {saved.multitrack?.revision ?? "—"} · track {saved.multitrack?.track_id || "ready"} · clip {saved.multitrack?.clip_id || "ready"}</div>
               {onOpenWorkstation ? <button type="button" onClick={onOpenWorkstation} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-3 py-2 text-[10px] font-medium text-[#efd29f]"><SlidersHorizontal className="h-3.5 w-3.5" />Open Workstation</button> : null}
             </div> : null}
-            <div className="mt-5 flex items-start gap-3 rounded-xl border border-white/7 bg-white/[0.015] p-4"><SlidersHorizontal className="mt-0.5 h-4 w-4 shrink-0 text-[#d6a66a]/60" /><div className="text-[10px] leading-4 text-white/30">Saved takes are already placed on the multitrack timeline. Open the Workstation to overdub, comp multiple takes, automate levels, route through the mixer, then run Avantiqo engineering on selected tracks or the full mix.</div></div>
+            <div className="mt-5 flex items-start gap-3 rounded-xl border border-white/7 bg-white/[0.015] p-4"><SlidersHorizontal className="mt-0.5 h-4 w-4 shrink-0 text-[#d6a66a]/60" /><div className="text-[10px] leading-4 text-white/30">Healthy and reviewable takes enter the multitrack timeline. Retake-required captures stay preserved but quarantined until a human explicitly acknowledges the QC reasons and promotes them.</div></div>
           </div>
         </div>
       </div>

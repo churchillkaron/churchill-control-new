@@ -5,7 +5,7 @@ import fs from "node:fs";
 const source=fs.readFileSync(new URL("../lib/creative/music/runtime/CreativeMusicMixEvidenceRuntime.js",import.meta.url),"utf8");
 
 test("mix evidence batches spectral and temporal measurements into one FFmpeg process",()=>{
-  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V19/);
+  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V20/);
   assert.match(source,/asplit=\$\{bands\.length\+2\}/);
   for(const name of ["full","sub","lowmid","warmth","boxiness","presence","air","sibilance"]) assert.match(source,new RegExp(`volumedetect@\\$\\{name\\}`));
   assert.match(source,/aformat=channel_layouts=stereo,asplit=5\[fullst\]\[presencest\]\[lowst\]\[bodyst\]\[harshst\]/);
@@ -76,5 +76,14 @@ test("one-pass evidence measures time-local body versus harshness without anothe
   assert.match(source,/dynamicHarshnessMetrics/);
   assert.match(source,/p90_harshness_vs_body_db/);
   assert.match(source,/intermittent_harshness_risk/);
+  assert.match(source,/analysis_process_count:1/);
+});
+
+
+test("one-pass evidence measures low-frequency stereo compatibility from existing low-band channels",()=>{
+  assert.match(source,/low_stereo:stereoMetrics\(channels\[4\],channels\[5\],sourceIsMono\)/);
+  assert.match(source,/low_stereo_correlation/);
+  assert.match(source,/low_mono_fold_down_loss_db/);
+  assert.match(source,/low_stereo_phase_risk/);
   assert.match(source,/analysis_process_count:1/);
 });

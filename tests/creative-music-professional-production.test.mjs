@@ -21,7 +21,7 @@ test("professional instrumental release does not require vocal production", () =
     plan: { objective: "Create instrumental music", selected_capabilities: [{ id: "compose_music" }] },
     input: { instrumental: true },
     evidence: {
-      source_generated: true, stems_ready: true, mix_passed: true, premaster_qc_passed: true,
+      source_generated: true, stems_ready: true, mix_passed: true, premaster_qc_passed: true, premaster_listening_passed: true,
       mastering_passed: true, perceptual_translation_passed: true, dailies_passed: true, tribunal_passed: true,
     },
   });

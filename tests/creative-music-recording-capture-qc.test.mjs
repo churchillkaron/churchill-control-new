@@ -8,7 +8,7 @@ function sine({amp=.2,dc=0,frames=48000,freq=440,rate=48000}={}){const a=new Flo
 test("capture QC measures headroom crest DC floor and channel balance without mutating audio",()=>{
   const left=sine({amp:.2}),right=sine({amp:.2});
   const qc=analyzeMusicCaptureQc([left,right],48000);
-  assert.equal(qc.contract,"AVANTIQO_MUSIC_CAPTURE_QC_V3");
+  assert.equal(qc.contract,"AVANTIQO_MUSIC_CAPTURE_QC_V4");
   assert.equal(qc.measured,true);
   assert.equal(qc.automatic_capture_repair_allowed,false);
   assert.equal(qc.immutable_original_take,true);
@@ -73,4 +73,24 @@ test("loud 50 Hz musical content without quiet reference is not mislabeled as ma
   assert.equal(qc.hum_measurement_confidence,"UNVERIFIED_NO_QUIET_WINDOWS");
   assert.equal(qc.hum_warning,false);
   assert.ok(!qc.warnings.includes("MAINS_HUM"));
+});
+
+
+test("capture QC fails closed on non-finite PCM",()=>{
+  const signal=sine({amp:.2});signal[100]=Number.NaN;signal[200]=Number.POSITIVE_INFINITY;
+  const qc=analyzeMusicCaptureQc([signal],48000);
+  assert.equal(qc.status,"RETAKE_REQUIRED");
+  assert.equal(qc.non_finite_sample_count,2);
+  assert.ok(qc.warnings.includes("NON_FINITE_PCM"));
+});
+
+test("capture QC rejects fully silent takes and reviews dead stereo channels",()=>{
+  const silent=new Float32Array(48000),healthy=sine({amp:.2});
+  const mono=analyzeMusicCaptureQc([silent],48000);
+  assert.equal(mono.status,"RETAKE_REQUIRED");
+  assert.ok(mono.warnings.includes("CAPTURE_SILENT"));
+  const stereo=analyzeMusicCaptureQc([healthy,silent],48000);
+  assert.equal(stereo.status,"REVIEW");
+  assert.ok(stereo.warnings.includes("SILENT_CHANNEL"));
+  assert.equal(stereo.silent_channel_count,1);
 });

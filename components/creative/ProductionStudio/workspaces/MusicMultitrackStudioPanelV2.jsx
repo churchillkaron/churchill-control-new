@@ -360,6 +360,8 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
           />
 
           {selectedTrack && selectedClip ? <MusicClipEditorPanel
+            organizationId={organizationId}
+            projectId={projectId}
             track={selectedTrack}
             clipId={selectedClip.id}
             playhead={playhead}

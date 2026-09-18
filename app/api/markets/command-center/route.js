@@ -86,10 +86,11 @@ async function loadState({ organizationId, entityId }) {
       automationPolicy: null,
       automationRuns: [],
       backtestRuns: [],
+      agentPerformance: [],
     };
   }
 
-  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult] = await Promise.all([
+  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult] = await Promise.all([
     supabaseAdmin.from("market_watchlist").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).neq("status", "REMOVED").order("added_at", { ascending: false }),
     supabaseAdmin.from("market_decisions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("created_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_paper_orders").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("submitted_at", { ascending: false }).limit(50),
@@ -107,9 +108,10 @@ async function loadState({ organizationId, entityId }) {
     supabaseAdmin.from("market_automation_policies").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).maybeSingle(),
     supabaseAdmin.from("market_automation_runs").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("started_at", { ascending: false }).limit(20),
     supabaseAdmin.from("market_backtest_runs").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("started_at", { ascending: false }).limit(50),
+    supabaseAdmin.from("market_agent_performance").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("agent_type", { ascending: true }),
   ]);
 
-  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult]) {
+  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult]) {
     if (result.error) throw result.error;
   }
 
@@ -134,6 +136,7 @@ async function loadState({ organizationId, entityId }) {
     automationPolicy: automationPolicyResult.data || null,
     automationRuns: automationRunsResult.data || [],
     backtestRuns: backtestRunsResult.data || [],
+    agentPerformance: agentPerformanceResult.data || [],
   };
 }
 

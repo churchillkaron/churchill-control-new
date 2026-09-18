@@ -143,6 +143,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   const automationPolicy = data?.automationPolicy || {};
   const automationRuns = Array.isArray(data?.automationRuns) ? data.automationRuns : [];
   const backtestRuns = Array.isArray(data?.backtestRuns) ? data.backtestRuns : [];
+  const agentPerformance = Array.isArray(data?.agentPerformance) ? data.agentPerformance : [];
   const policy = data?.riskPolicy || {};
   const latestBacktest = backtestRuns[0] || null;
   const completedBacktests = backtestRuns.filter((row) => row.status === "COMPLETED");
@@ -746,6 +747,28 @@ export default function MarketsCommandCenter({ organizationId }) {
                         <div className="mt-1 text-[14px] font-semibold">{value}</div>
                       </div>
                     ))}
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    {["TECHNICAL", "QUANT", "NEWS", "FUNDAMENTAL"].map((agentType) => {
+                      const performance = agentPerformance.find((row) => row.agent_type === agentType);
+                      return (
+                        <div key={agentType} className="flex items-center justify-between rounded-lg border border-black/[0.06] bg-[#FCFBF9] px-2.5 py-2">
+                          <div>
+                            <div className="text-[8px] font-medium text-[#5E5851]">{agentType}</div>
+                            <div className="mt-0.5 text-[8px] text-[#9A968E]">{Number(performance?.sample_count || 0)} matured samples</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-[11px] font-semibold">{Number(performance?.reliability_weight || 1).toFixed(2)}×</div>
+                            <div className="mt-0.5 text-[8px] text-[#9A968E]">
+                              {performance?.directional_hit_rate == null ? "neutral prior" : `${(Number(performance.directional_hit_rate) * 100).toFixed(1)}% hit`}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 text-[8px] leading-4 text-[#9A968E]">
+                    Reliability changes reasoning influence only. It cannot increase execution authority or bypass risk controls.
                   </div>
                 </div>
 

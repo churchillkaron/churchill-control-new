@@ -65,7 +65,7 @@ test("operator route surfaces diagnosis proof integrity failure instead of gener
 test("conversation memory excludes unverified diagnosis assistant turns before model context",()=>{
   const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
   assert.match(runtime,/loadVerifiedRecentConversationTurns/);
-  assert.match(runtime,/\.select\("role,content,evidence,created_at"\)/);
+  assert.match(runtime,/\.select\("id,role,content,evidence,created_at"\)/);
   assert.match(runtime,/sanitizeBusinessDiagnosisConversation/);
   assert.match(runtime,/return sanitizeBusinessDiagnosisConversation\(turns\.data \|\| \[\], \{/);
   assert.match(runtime,/OPERATOR_VERIFIED_RECENT_CONVERSATION_LOAD_FAILED/);
@@ -159,14 +159,17 @@ test("readiness and live-proof failures pair already-persisted user prompt with 
   assert.match(route,/BUSINESS_DIAGNOSIS_NOT_READY/);
   assert.match(route,/BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE/);
   assert.match(route,/persistGovernedDiagnosisFailureTurn/);
-  assert.match(route,/const userTurnPersisted = await userPersistPromise\.then\(\(\) => true\)\.catch\(\(\) => false\)/);
-  assert.match(route,/if \(userTurnPersisted\) \{/);
+  assert.match(route,/persistedUserTurn = await userPersistPromise\.catch\(\(\) => null\)/);
+  assert.match(route,/if \(text\(persistedUserTurn\?\.id\)\) \{/);
   assert.match(route,/This diagnosis was not started because required proof readiness was unavailable/);
   assert.match(route,/This diagnosis was stopped because its proof could not be verified/);
-  const join=route.indexOf("[result] = await Promise.all([");
-  const pair=route.indexOf("persistGovernedDiagnosisFailureTurn({",join);
-  const response=route.indexOf("const responseText =",join);
-  assert.ok(join>=0&&pair>join&&response>pair);
+  const join=route.indexOf("[result, persistedUserTurn] = await Promise.all([");
+  const catchStart=route.indexOf("} catch (operatorError) {",join);
+  const response=route.indexOf("const responseText =",catchStart);
+  const catchBlock=route.slice(catchStart,response);
+  assert.match(catchBlock,/persistGovernedDiagnosisFailureTurn\(\{/);
+  assert.match(catchBlock,/pairedUserTurnId: persistedUserTurn\.id/);
+  assert.ok(join>=0&&catchStart>join&&response>catchStart);
 });
 
 test("all governed diagnosis failure turns persist no execution or navigation",()=>{
@@ -190,9 +193,18 @@ test("persistence-stage proof rejection reuses the same governed pairing helper"
 test("assistant failure pairing is skipped if the user turn itself was not persisted",()=>{
   const join=route.indexOf("[result] = await Promise.all([");
   const catchBlock=route.slice(route.indexOf("} catch (operatorError) {",join),route.indexOf("const responseText =",join));
-  assert.match(catchBlock,/const userTurnPersisted = await userPersistPromise\.then\(\(\) => true\)\.catch\(\(\) => false\)/);
-  assert.match(catchBlock,/if \(userTurnPersisted\) \{/);
-  const guard=catchBlock.indexOf("if (userTurnPersisted)");
+  assert.match(catchBlock,/persistedUserTurn = await userPersistPromise\.catch\(\(\) => null\)/);
+  assert.match(catchBlock,/if \(text\(persistedUserTurn\?\.id\)\) \{/);
+  const guard=catchBlock.indexOf("if (text(persistedUserTurn?.id))");
   const pair=catchBlock.indexOf("persistGovernedDiagnosisFailureTurn",guard);
   assert.ok(guard>=0&&pair>guard);
+});
+
+
+test("governed failure persistence binds the assistant failure to the exact persisted user turn id",()=>{
+  assert.match(route,/diagnosis_failure_pair/);
+  assert.match(route,/user_turn_id: text\(pairedUserTurnId\)/);
+  assert.match(route,/\[result, persistedUserTurn\] = await Promise\.all/);
+  assert.match(route,/pairedUserTurnId: persistedUserTurn\.id/);
+  assert.match(route,/pairedUserTurnId: persistedUserTurn\?\.id \|\| null/);
 });

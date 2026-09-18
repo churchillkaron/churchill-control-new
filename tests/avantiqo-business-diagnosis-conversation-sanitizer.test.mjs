@@ -458,3 +458,22 @@ test("governed diagnosis failure turn remains visible in historical snapshot", (
   const turn={role:"assistant",content:"proof failed",evidence:{business_diagnosis_integrity_failure:{code:"BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_FAILURE",authority_effect:"NONE"}},decision:{response_text:"proof failed"}};
   assert.deepEqual(sanitizeBusinessDiagnosisSnapshotTurn(turn),turn);
 });
+
+
+test("failure pair uses exact persisted user turn id even when timestamp ordering is ambiguous", () => {
+  const rows=[
+    {id:"assistant-failure",role:"assistant",content:"proof failed",evidence:{business_diagnosis_integrity_failure:{code:"BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_FAILURE"},diagnosis_failure_pair:{user_turn_id:"user-target",authority_effect:"NONE"}},created_at:"2026-09-18T10:00:00.000Z"},
+    {id:"user-other",role:"user",content:"keep me",evidence:{},created_at:"2026-09-18T10:00:00.000Z"},
+    {id:"user-target",role:"user",content:"remove me",evidence:{},created_at:"2026-09-18T10:00:00.000Z"},
+  ];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[{role:"user",content:"keep me"}]);
+});
+
+test("duplicate governed failure turns tied to the same user do not leak the request", () => {
+  const rows=[
+    {id:"f2",role:"assistant",content:"failure two",evidence:{business_diagnosis_readiness_failure:{code:"BUSINESS_DIAGNOSIS_NOT_READY"},diagnosis_failure_pair:{user_turn_id:"u1"}}},
+    {id:"f1",role:"assistant",content:"failure one",evidence:{business_diagnosis_readiness_failure:{code:"BUSINESS_DIAGNOSIS_NOT_READY"},diagnosis_failure_pair:{user_turn_id:"u1"}}},
+    {id:"u1",role:"user",content:"diagnose this",evidence:{}},
+  ];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[]);
+});

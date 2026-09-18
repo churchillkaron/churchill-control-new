@@ -229,7 +229,7 @@ function governedDiagnosisFailurePersistence(error = {}) {
 }
 
 async function persistGovernedDiagnosisFailureTurn({
-  error, organizationId, conversationId, partyId, source, agreementState, projectState,
+  error, organizationId, conversationId, partyId, source, agreementState, projectState, pairedUserTurnId = null,
 } = {}) {
   const failure = governedDiagnosisFailurePersistence(error);
   if (!failure) return false;
@@ -251,7 +251,10 @@ async function persistGovernedDiagnosisFailureTurn({
       plan: [],
       authority_effect: "NONE",
     },
-    evidence: failure.evidence,
+    evidence: {
+      ...failure.evidence,
+      ...(text(pairedUserTurnId) ? { diagnosis_failure_pair: { user_turn_id: text(pairedUserTurnId), authority_effect: "NONE" } } : {}),
+    },
     execution: {},
     navigation: {},
     agreementState: object(agreementState),
@@ -737,14 +740,15 @@ export async function POST(request) {
     });
 
     let result;
+    let persistedUserTurn = null;
     try {
-      [result] = await Promise.all([
+      [result, persistedUserTurn] = await Promise.all([
         operatorPromise,
         userPersistPromise,
       ]);
     } catch (operatorError) {
-      const userTurnPersisted = await userPersistPromise.then(() => true).catch(() => false);
-      if (userTurnPersisted) {
+      persistedUserTurn = await userPersistPromise.catch(() => null);
+      if (text(persistedUserTurn?.id)) {
         await persistGovernedDiagnosisFailureTurn({
           error: operatorError,
           organizationId: businessContext.organizationId,
@@ -753,6 +757,7 @@ export async function POST(request) {
           source,
           agreementState,
           projectState: effectiveProjectState,
+          pairedUserTurnId: persistedUserTurn.id,
         });
       }
       throw operatorError;
@@ -807,6 +812,7 @@ export async function POST(request) {
         source,
         agreementState: nextAgreementState,
         projectState: nextProjectState,
+        pairedUserTurnId: persistedUserTurn?.id || null,
       });
       throw persistenceError;
     }

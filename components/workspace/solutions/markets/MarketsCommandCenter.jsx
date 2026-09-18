@@ -10,6 +10,23 @@ function money(value, currency = "USD") {
   return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 2 }).format(number);
 }
 
+function positionAgeDays(value) {
+  const time = new Date(value || 0).getTime();
+  if (!Number.isFinite(time) || time <= 0) return null;
+  return Math.max(0, (Date.now() - time) / (24 * 60 * 60 * 1000));
+}
+
+function trailingLevel(position, policy) {
+  if (policy?.trailing_stop_enabled === false) return null;
+  const entry = Number(position?.average_entry_price || 0);
+  const highWater = Number(position?.high_water_price || 0);
+  const fixedStop = Number(position?.stop_loss_price || 0);
+  const trailingPct = Number(policy?.default_trailing_stop_pct ?? 7.5);
+  if (!(entry > 0) || !(highWater > entry) || !(trailingPct > 0)) return null;
+  const candidate = highWater * (1 - (trailingPct / 100));
+  return candidate > fixedStop ? candidate : null;
+}
+
 export default function MarketsCommandCenter({ organizationId }) {
   const businessContext = useBusinessContext() || {};
   const entityId = businessContext.entity_id || businessContext.entity?.id || null;
@@ -97,6 +114,10 @@ export default function MarketsCommandCenter({ organizationId }) {
       protective_exits_enabled: policy.protective_exits_enabled !== false,
       default_stop_loss_pct: String(policy.default_stop_loss_pct ?? 5),
       default_take_profit_pct: String(policy.default_take_profit_pct ?? 10),
+      trailing_stop_enabled: policy.trailing_stop_enabled !== false,
+      default_trailing_stop_pct: String(policy.default_trailing_stop_pct ?? 7.5),
+      time_exit_enabled: policy.time_exit_enabled !== false,
+      max_holding_days: String(policy.max_holding_days ?? 30),
       historical_risk_min_observations: String(policy.historical_risk_min_observations ?? 60),
       max_portfolio_var_95_pct: String(policy.max_portfolio_var_95_pct ?? 5),
       max_portfolio_expected_shortfall_95_pct: String(policy.max_portfolio_expected_shortfall_95_pct ?? 8),
@@ -377,6 +398,9 @@ export default function MarketsCommandCenter({ organizationId }) {
                       <th className="px-4 py-3 font-medium">Value</th>
                       <th className="px-4 py-3 font-medium">Stop</th>
                       <th className="px-4 py-3 font-medium">Take profit</th>
+                      <th className="px-4 py-3 font-medium">High water</th>
+                      <th className="px-4 py-3 font-medium">Trailing</th>
+                      <th className="px-4 py-3 font-medium">Age</th>
                       <th className="px-4 py-3 font-medium">Unrealized</th>
                       <th className="px-4 py-3 font-medium">Realized</th>
                     </tr>
@@ -392,13 +416,16 @@ export default function MarketsCommandCenter({ organizationId }) {
                           <td className="px-4 py-3">{money(position.market_value, baseCurrency)}</td>
                           <td className="px-4 py-3">{position.stop_loss_price ? money(position.stop_loss_price, baseCurrency) : "—"}</td>
                           <td className="px-4 py-3">{position.take_profit_price ? money(position.take_profit_price, baseCurrency) : "—"}</td>
+                          <td className="px-4 py-3">{position.high_water_price ? money(position.high_water_price, baseCurrency) : "—"}</td>
+                          <td className="px-4 py-3">{trailingLevel(position, policy) ? money(trailingLevel(position, policy), baseCurrency) : "—"}</td>
+                          <td className="px-4 py-3">{positionAgeDays(position.opened_at) == null ? "—" : `${positionAgeDays(position.opened_at).toFixed(1)}d`}</td>
                           <td className="px-4 py-3">{money(position.unrealized_pnl, baseCurrency)}</td>
                           <td className="px-4 py-3">{money(position.realized_pnl, baseCurrency)}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={9} className="px-4 py-8 text-center text-[#9A968E]">
+                        <td colSpan={12} className="px-4 py-8 text-center text-[#9A968E]">
                           No paper positions yet. Only risk-approved simulated fills appear here.
                         </td>
                       </tr>
@@ -751,9 +778,41 @@ export default function MarketsCommandCenter({ organizationId }) {
                           className="h-4 w-4 accent-[#1F1E1B]"
                         />
                       </label>
+                      <label className="flex items-center justify-between gap-3 rounded-xl border border-black/[0.06] bg-white px-3 py-2.5">
+                        <div>
+                          <div className="text-[8px] uppercase tracking-[0.1em] text-[#968F86]">Trailing stop</div>
+                          <div className="mt-1 text-[8px] leading-4 text-[#817D76]">Ratchets upward from the highest admitted bid-side price. Never loosens automatically.</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={riskDraft?.trailing_stop_enabled !== false}
+                          onChange={(event) => setRiskDraft((current) => ({
+                            ...(current || {}),
+                            trailing_stop_enabled: event.target.checked,
+                          }))}
+                          className="h-4 w-4 accent-[#1F1E1B]"
+                        />
+                      </label>
+                      <label className="flex items-center justify-between gap-3 rounded-xl border border-black/[0.06] bg-white px-3 py-2.5">
+                        <div>
+                          <div className="text-[8px] uppercase tracking-[0.1em] text-[#968F86]">Maximum holding period</div>
+                          <div className="mt-1 text-[8px] leading-4 text-[#817D76]">Deterministically exits stale long PAPER positions after the configured age.</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={riskDraft?.time_exit_enabled !== false}
+                          onChange={(event) => setRiskDraft((current) => ({
+                            ...(current || {}),
+                            time_exit_enabled: event.target.checked,
+                          }))}
+                          className="h-4 w-4 accent-[#1F1E1B]"
+                        />
+                      </label>
                       {[
                         ["Default stop-loss %", "default_stop_loss_pct", "0.01", "50", "0.1"],
                         ["Default take-profit %", "default_take_profit_pct", "0.01", "200", "0.1"],
+                        ["Trailing stop %", "default_trailing_stop_pct", "0.01", "50", "0.1"],
+                        ["Max holding days", "max_holding_days", "1", "3650", "1"],
                       ].map(([label, key, min, max, step]) => (
                         <label key={key}>
                           <span className="text-[8px] text-[#968F86]">{label}</span>
@@ -794,6 +853,10 @@ export default function MarketsCommandCenter({ organizationId }) {
                         protective_exits_enabled: riskDraft?.protective_exits_enabled !== false,
                         default_stop_loss_pct: Number(riskDraft?.default_stop_loss_pct ?? 5),
                         default_take_profit_pct: Number(riskDraft?.default_take_profit_pct ?? 10),
+                        trailing_stop_enabled: riskDraft?.trailing_stop_enabled !== false,
+                        default_trailing_stop_pct: Number(riskDraft?.default_trailing_stop_pct ?? 7.5),
+                        time_exit_enabled: riskDraft?.time_exit_enabled !== false,
+                        max_holding_days: Number(riskDraft?.max_holding_days ?? 30),
                         historical_risk_min_observations: Number(riskDraft?.historical_risk_min_observations ?? 60),
                         max_portfolio_var_95_pct: Number(riskDraft?.max_portfolio_var_95_pct ?? 5),
                         max_portfolio_expected_shortfall_95_pct: Number(riskDraft?.max_portfolio_expected_shortfall_95_pct ?? 8),

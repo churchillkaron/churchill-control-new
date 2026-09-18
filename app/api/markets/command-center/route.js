@@ -594,6 +594,10 @@ export async function POST(request) {
         protective_exits_enabled: body.protective_exits_enabled ?? current.protective_exits_enabled ?? true,
         default_stop_loss_pct: Number(body.default_stop_loss_pct ?? current.default_stop_loss_pct ?? 5),
         default_take_profit_pct: Number(body.default_take_profit_pct ?? current.default_take_profit_pct ?? 10),
+        trailing_stop_enabled: body.trailing_stop_enabled ?? current.trailing_stop_enabled ?? true,
+        default_trailing_stop_pct: Number(body.default_trailing_stop_pct ?? current.default_trailing_stop_pct ?? 7.5),
+        time_exit_enabled: body.time_exit_enabled ?? current.time_exit_enabled ?? true,
+        max_holding_days: Number(body.max_holding_days ?? current.max_holding_days ?? 30),
         historical_risk_min_observations: Number(body.historical_risk_min_observations ?? current.historical_risk_min_observations ?? 60),
         max_portfolio_var_95_pct: Number(body.max_portfolio_var_95_pct ?? current.max_portfolio_var_95_pct ?? 5),
         max_portfolio_expected_shortfall_95_pct: Number(body.max_portfolio_expected_shortfall_95_pct ?? current.max_portfolio_expected_shortfall_95_pct ?? 8),
@@ -649,6 +653,12 @@ export async function POST(request) {
       }
       if (!(next.default_take_profit_pct > 0 && next.default_take_profit_pct <= 200)) {
         throw new Error("Default take-profit must be greater than 0 and at most 200%");
+      }
+      if (!(next.default_trailing_stop_pct > 0 && next.default_trailing_stop_pct <= 50)) {
+        throw new Error("Default trailing-stop must be greater than 0 and at most 50%");
+      }
+      if (!(next.max_holding_days >= 1 && next.max_holding_days <= 3650)) {
+        throw new Error("Maximum holding period must be between 1 and 3650 days");
       }
       if (!(next.historical_risk_min_observations >= 20 && next.historical_risk_min_observations <= 504)) {
         throw new Error("Historical risk observations must be between 20 and 504");

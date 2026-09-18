@@ -229,6 +229,28 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
     }
   }
 
+  async function createClientPeriod(candidate) {
+    if (!candidate?.idempotency_key || candidate.status !== "BLOCKED_PERIOD_CONFIGURATION" || materializingKey) return;
+    try {
+      setMaterializingKey(candidate.idempotency_key);
+      setMaterializeNotice(null);
+      const response = await fetch("/api/workspace/finance/practice-periods", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId, idempotencyKey: candidate.idempotency_key }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to create client accounting period");
+      setMaterializeNotice({ tone: "success", text: `${candidate.client_name || "Client"}: accounting period created in the exact client legal-entity scope.` });
+      await loadRecurring(true);
+    } catch (error) {
+      setMaterializeNotice({ tone: "error", text: error?.message || "Unable to create client accounting period" });
+    } finally {
+      setMaterializingKey(null);
+    }
+  }
+
   async function materializeRecurringCycle(candidate) {
     if (!candidate?.idempotency_key || candidate.status !== "READY_TO_CREATE" || materializingKey) return;
     try {
@@ -530,7 +552,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
               </div>
 
               {(recurring.candidates || []).filter((candidate) => !["READY_TO_CREATE", "ALREADY_EXISTS"].includes(candidate.status)).length ? (
-                <div className="rounded-2xl border border-amber-700/10 bg-[#FFF9EF] p-4"><div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">Configuration blockers</div><div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">{(recurring.candidates || []).filter((candidate) => !["READY_TO_CREATE", "ALREADY_EXISTS"].includes(candidate.status)).slice(0, 12).map((candidate) => <div key={candidate.idempotency_key} className="rounded-xl border border-black/[0.06] bg-white p-3"><div className="flex items-start justify-between gap-2"><div className="truncate text-[9px] font-semibold text-[#403C37]">{candidate.client_name || "Client"}</div><span className={`rounded-full border px-1.5 py-0.5 text-[6px] font-semibold uppercase ${statusTone(candidate.status)}`}>{label(candidate.status)}</span></div>{candidate.blockers?.[0] ? <div className="mt-2 text-[8px] leading-4 text-[#7D6A50]">{candidate.blockers[0]}</div> : null}</div>)}</div></div>
+                <div className="rounded-2xl border border-amber-700/10 bg-[#FFF9EF] p-4"><div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">Configuration blockers</div><div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">{(recurring.candidates || []).filter((candidate) => !["READY_TO_CREATE", "ALREADY_EXISTS"].includes(candidate.status)).slice(0, 12).map((candidate) => { const creatingPeriod = materializingKey === candidate.idempotency_key && candidate.status === "BLOCKED_PERIOD_CONFIGURATION"; return <div key={candidate.idempotency_key} className="rounded-xl border border-black/[0.06] bg-white p-3"><div className="flex items-start justify-between gap-2"><div className="truncate text-[9px] font-semibold text-[#403C37]">{candidate.client_name || "Client"}</div><span className={`rounded-full border px-1.5 py-0.5 text-[6px] font-semibold uppercase ${statusTone(candidate.status)}`}>{label(candidate.status)}</span></div>{candidate.blockers?.[0] ? <div className="mt-2 text-[8px] leading-4 text-[#7D6A50]">{candidate.blockers[0]}</div> : null}{candidate.status === "BLOCKED_PERIOD_CONFIGURATION" ? <button type="button" onClick={() => createClientPeriod(candidate)} disabled={Boolean(materializingKey)} className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-lg border border-[#A37849]/20 bg-[#FBF7F1] px-2.5 text-[7px] font-semibold text-[#76583A] disabled:opacity-40">{creatingPeriod ? <LoaderCircle size={9} className="animate-spin" /> : <CalendarClock size={9} />}{creatingPeriod ? "Creating…" : "Create client period"}</button> : null}</div>; })}</div></div>
               ) : null}
             </div>
           ) : <EmptyState title="No recurring cycle plan" detail="Recurring accounting work appears here when active engagements and templates require a new cycle." />}

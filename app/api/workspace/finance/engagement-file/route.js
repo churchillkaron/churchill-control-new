@@ -220,7 +220,7 @@ export async function GET(request) {
         ? supabaseAdmin.from("accounting_work_program_templates").select("id,template_key,name,service_key,cadence,version,is_system").in("id", templateIds)
         : Promise.resolve({ data: [], error: null }),
       periodIds.length
-        ? supabaseAdmin.from("financial_periods").select("id,period_name,start_date,end_date,status,closed_at").in("id", periodIds)
+        ? supabaseAdmin.from("accounting_periods").select("id,period_name,start_date,end_date,status,closed_at").in("id", periodIds)
         : Promise.resolve({ data: [], error: null }),
       runIds.length ? loadCompletePracticeRowsByIds({
         ids: runIds,

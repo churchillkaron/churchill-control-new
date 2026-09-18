@@ -119,6 +119,69 @@ function ChannelsArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#EFE7DC] text-[#171614]"><div className="absolute inset-0 grid grid-cols-[1.2fr_.8fr] gap-px bg-[#D6A66A]/20"><div className="relative"><Photo src="/churchill/1.jpg" position="center"/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.54))]"/><div className="absolute bottom-5 left-5"><Label>REAL BUSINESS SURFACE</Label><div className="mt-2 max-w-[330px] text-[20px] leading-6 text-white">Customer, staff and public experiences — one underlying business.</div></div></div><div className="grid grid-rows-3 gap-px bg-[#D6A66A]/20">{[["PUBLIC","Website · booking"],["STAFF","Mobile · kiosk · POS"],["EMBEDDED","Portal · widgets · partners"]].map(([a,b],i)=><div key={a} className="flex flex-col justify-between bg-[#F8F3EB] p-5"><span className="text-[7px] text-[#A37849]">0{i+1}</span><div><div className="text-[9px] font-semibold">{a}</div><div className="mt-2 text-[7px] text-black/38">{b}</div></div></div>)}</div></div></div>;
 }
 
+
+function AgentsArt(){
+  return <div className="absolute inset-0 overflow-hidden bg-[#0D0B09] text-white"><GridLines/><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(214,166,106,.16),transparent_34%)]"/>
+    <div className="absolute left-[7%] top-[9%] max-w-[350px]"><Label>CONTROLLED AGENTS</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">Automation should earn authority one exact action at a time.</div></div>
+    <div className="absolute left-1/2 top-[53%] flex h-[88px] w-[88px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#D6A66A]/45 bg-[#17130F] shadow-[0_0_60px_rgba(214,166,106,.14)]"><div className="text-center"><div className="text-[8px] font-semibold text-[#E6BE87]">AGENT</div><div className="mt-1 text-[6px] tracking-[.14em] text-white/26">SCOPED</div></div></div>
+    <div className="absolute inset-x-[7%] bottom-[9%] grid grid-cols-4 gap-2">{[["CONTEXT","Org · role · records"],["PREPARE","Research · plan"],["AUTHORIZE","Capability · approval"],["VERIFY","Result · proof"]].map(([a,b],i)=><div key={a} className="rounded-[16px] border border-white/[.08] bg-white/[.025] p-4"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-4 text-[8px] font-semibold tracking-[.11em]">{a}</div><div className="mt-2 text-[6px] text-white/30">{b}</div></div>)}</div>
+  </div>;
+}
+
+function InsightsArt(){
+  const bars=[42,58,51,74,67,88,79,96];
+  return <div className="absolute inset-0 overflow-hidden bg-[#0E0C0A] text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_74%_14%,rgba(214,166,106,.16),transparent_32%)]"/><GridLines/>
+    <div className="absolute left-[7%] top-[9%] max-w-[360px]"><Label>DECISION INTELLIGENCE</Label><div className="mt-4 text-[30px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">See the change. Understand the cause. Decide what matters next.</div></div>
+    <div className="absolute right-[7%] top-[18%] h-[38%] w-[44%] rounded-[22px] border border-white/[.08] bg-white/[.025] p-5"><div className="flex h-full items-end gap-2">{bars.map((h,i)=><div key={i} className="flex-1 rounded-t bg-[#D6A66A]/55" style={{height:`${h}%`}}/>)}</div></div>
+    <div className="absolute inset-x-[7%] bottom-[9%] grid grid-cols-4 gap-2">{[["OBSERVE","Current truth"],["DETECT","Exception"],["INTERPRET","Cause · forecast"],["ACT","Priority next step"]].map(([a,b],i)=><div key={a} className="rounded-[16px] border border-white/[.08] bg-[#17130F]/82 p-4"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-4 text-[8px]">{a}</div><div className="mt-1 text-[6px] text-white/30">{b}</div></div>)}</div>
+  </div>;
+}
+
+function IntegrationsArt(){
+  const nodes=[["MESSAGE","WhatsApp · Email"],["PAYMENT","Card · QR · Bank"],["DOCUMENT","OCR · Files"],["MARKETING","Ads · Social"]];
+  return <div className="absolute inset-0 overflow-hidden bg-[#0C0B09] text-white"><GridLines/><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(214,166,106,.16),transparent_30%)]"/>
+    <div className="absolute left-[7%] top-[9%] max-w-[360px]"><Label>CONNECTED SERVICES</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">External services should return to the workflow they started from.</div></div>
+    <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true"><path d="M140 440 C300 440 340 360 500 360 S710 440 860 440" fill="none" stroke="rgba(214,166,106,.35)" strokeWidth="1.2"/><path d="M500 245 V515" stroke="rgba(214,166,106,.24)" strokeWidth="1.1"/><circle cx="500" cy="360" r="52" fill="rgba(23,19,15,.92)" stroke="rgba(214,166,106,.50)" strokeWidth="1.3"/></svg>
+    <div className="absolute left-1/2 top-[51%] -translate-x-1/2 -translate-y-1/2 text-center"><div className="text-[8px] font-semibold text-[#E5BC84]">AVANTIQO</div><div className="mt-1 text-[6px] tracking-[.14em] text-white/26">WORKFLOW</div></div>
+    <div className="absolute inset-x-[7%] bottom-[8%] grid grid-cols-4 gap-2">{nodes.map(([a,b],i)=><div key={a} className="rounded-[16px] border border-white/[.08] bg-black/38 p-4"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-4 text-[8px]">{a}</div><div className="mt-1 text-[6px] text-white/30">{b}</div></div>)}</div>
+  </div>;
+}
+
+
+function EnterpriseArt(){
+  return <div className="absolute inset-0 overflow-hidden bg-[#0E0C0A] text-white"><GridLines/><div className="absolute inset-0 bg-[radial-gradient(circle_at_74%_18%,rgba(214,166,106,.16),transparent_32%)]"/>
+    <div className="absolute left-[7%] top-[9%] max-w-[370px]"><Label>ENTERPRISE OPERATING LAYER</Label><div className="mt-4 text-[30px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">One operating model across entities, locations and teams.</div></div>
+    <div className="absolute left-[8%] right-[8%] top-[38%] grid grid-cols-4 gap-3">{[["GROUP","Portfolio"],["ENTITY","Legal scope"],["LOCATION","Operating scope"],["TEAM","Permissions"]].map(([a,b],i)=><div key={a} className="rounded-[20px] border border-white/[.08] bg-[#17130F]/82 p-5 shadow-[0_18px_50px_rgba(0,0,0,.16)]"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-5 text-[9px] font-semibold tracking-[.12em]">{a}</div><div className="mt-1 text-[7px] text-white/30">{b}</div></div>)}</div>
+    <div className="absolute bottom-[9%] left-[8%] right-[8%] flex items-center gap-3 rounded-[18px] border border-[#D6A66A]/22 bg-white/[.025] px-4 py-3"><GoldDot/><span className="text-[7px] tracking-[.14em] text-white/44">SHARED GOVERNANCE · PORTFOLIO VISIBILITY · CONTROLLED AUTOMATION</span></div>
+  </div>;
+}
+
+function PartnersArt(){
+  return <div className="absolute inset-0 overflow-hidden bg-[#100D0A] text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(214,166,106,.15),transparent_36%)]"/><GridLines/>
+    <div className="absolute left-[7%] top-[9%] max-w-[370px]"><Label>PARTNER NETWORK</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">One trusted relationship. Many separately controlled client organizations.</div></div>
+    <div className="absolute left-[8%] right-[8%] top-[41%] grid grid-cols-[.85fr_1.3fr_.85fr] gap-3">
+      <div className="rounded-[18px] border border-white/[.08] bg-white/[.025] p-5"><div className="text-[7px] text-[#D6A66A]">PARTNER</div><div className="mt-5 text-[9px] text-white/72">Accounting · Agency · Consultant</div></div>
+      <div className="rounded-[22px] border border-[#D6A66A]/32 bg-[#18130E] p-5 text-center shadow-[0_0_55px_rgba(214,166,106,.11)]"><div className="text-[8px] font-semibold text-[#E4BB83]">AVANTIQO PORTFOLIO</div><div className="mt-2 text-[7px] text-white/32">Shared delivery · separate data</div></div>
+      <div className="rounded-[18px] border border-white/[.08] bg-white/[.025] p-5"><div className="text-[7px] text-[#D6A66A]">CLIENTS</div><div className="mt-5 text-[9px] text-white/72">Org A · Org B · Org C</div></div>
+    </div>
+    <div className="absolute bottom-[9%] left-[8%] right-[8%] grid grid-cols-4 gap-2">{["ADVISE","IMPLEMENT","OPERATE","IMPROVE"].map((x,i)=><div key={x} className="border-t border-white/[.10] pt-3 text-[7px] tracking-[.12em] text-white/42"><span className="mr-2 text-[#D6A66A]">0{i+1}</span>{x}</div>)}</div>
+  </div>;
+}
+
+function ServicesArt(){
+  return <div className="absolute inset-0 overflow-hidden bg-[#F1EADF] text-[#171614]"><div className="absolute inset-0 bg-[radial-gradient(circle_at_76%_16%,rgba(214,166,106,.24),transparent_32%)]"/><GridLines light/>
+    <div className="absolute left-[7%] top-[9%] max-w-[380px]"><Label dark>IMPLEMENTATION</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em]">From operating reality to verified go-live.</div></div>
+    <div className="absolute inset-x-[7%] bottom-[12%] grid grid-cols-4 gap-3">{[["DISCOVER","Entities · processes"],["MIGRATE","Data · opening truth"],["CONFIGURE","Roles · approvals"],["LAUNCH","Train · verify"]].map(([a,b],i)=><div key={a} className="rounded-[20px] border border-black/[.08] bg-white/72 p-5 shadow-[0_18px_45px_rgba(60,42,24,.08)]"><div className="text-[7px] font-semibold text-[#9A744B]">0{i+1}</div><div className="mt-6 text-[9px] font-semibold tracking-[.11em]">{a}</div><div className="mt-2 text-[7px] text-black/36">{b}</div><div className="mt-5 h-px bg-black/[.07]"><div className="h-px bg-[#D6A66A]" style={{width:`${35+i*18}%`}}/></div></div>)}</div>
+  </div>;
+}
+
+function MarketplaceArt(){
+  return <div className="absolute inset-0 overflow-hidden bg-[#0E0C0A] text-white"><GridLines/><div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(214,166,106,.14),transparent_30%)]"/>
+    <div className="absolute left-[7%] top-[9%] max-w-[370px]"><Label>AVANTIQO MARKETPLACE</Label><div className="mt-4 text-[30px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">Specialist capability, available exactly where the business needs it.</div></div>
+    <div className="absolute inset-x-[7%] bottom-[10%] grid grid-cols-2 gap-2">{[["CAPABILITY","Focused business action"],["AGENT","Repeatable intelligent work"],["SOLUTION","Industry operating pack"],["COMPUTE","Specialist capacity"]].map(([a,b],i)=><div key={a} className="rounded-[20px] border border-white/[.08] bg-[#17130F]/82 p-5"><div className="flex items-center justify-between"><span className="text-[7px] text-[#D6A66A]">0{i+1}</span><span className="text-[6px] tracking-[.13em] text-white/22">AVAILABLE</span></div><div className="mt-5 text-[11px] text-white/80">{a}</div><div className="mt-2 text-[7px] text-white/30">{b}</div></div>)}</div>
+  </div>;
+}
+
 function PortfolioArt({kind}){
   const cfg={
     enterprise:["PORTFOLIO CONTROL","Scale without losing control.",["GROUP","ENTITIES","LOCATIONS","TEAMS"]],
@@ -154,6 +217,12 @@ export default function PublicArtStage({kind="intelligence"}){
   if(kind==="creative") return <CreativeArt/>;
   if(kind==="channels") return <ChannelsArt/>;
   if(kind==="voice") return <VoiceArt/>;
-  if(["enterprise","partners","services","marketplace","agents","insights","integrations"].includes(kind)) return <PortfolioArt kind={kind}/>;
+  if(kind==="agents") return <AgentsArt/>;
+  if(kind==="insights") return <InsightsArt/>;
+  if(kind==="integrations") return <IntegrationsArt/>;
+  if(kind==="enterprise") return <EnterpriseArt/>;
+  if(kind==="partners") return <PartnersArt/>;
+  if(kind==="services") return <ServicesArt/>;
+  if(kind==="marketplace") return <MarketplaceArt/>;
   return <IntelligenceArt/>;
 }

@@ -440,7 +440,7 @@ export default function AvantiqoPublicHome() {
           <div className="relative min-h-[620px] overflow-hidden border-t border-black/[0.06] bg-[#171614] lg:min-h-0 lg:border-l lg:border-t-0">
             <div className="absolute inset-0 grid grid-cols-[1.5fr_.5fr] gap-px bg-[#D6A66A]/28">
               <div className="relative overflow-hidden">
-                <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url(/churchill/1.jpg)" }} />
+                <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url(/art/avantiqo-luxury/hospitality.webp)" }} />
                 <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,7,6,.16),rgba(8,7,6,.03)_50%,rgba(8,7,6,.40)),linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.10)_48%,rgba(8,7,6,.78))]" />
               </div>
               <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/28">

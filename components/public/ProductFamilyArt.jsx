@@ -1,3 +1,5 @@
+import PublicArtStage from "@/components/public/PublicArtStage";
+
 const FAMILY_ART = {
   "sell-serve": ["Demand", "Order / Booking", "Service", "Payment", "Repeat"],
   "people-work": ["Plan", "Assign", "Work", "Records", "Pay"],
@@ -11,17 +13,17 @@ const FAMILY_ART = {
   industry: ["Customer", "Operations", "People", "Money", "Control"],
 };
 
-const FAMILY_IMAGE = {
-  "sell-serve": "/art/avantiqo-luxury/hospitality.webp",
-  "people-work": "/art/avantiqo-luxury/people.webp",
-  "money-control": "/art/commercial-insights.jpg",
-  "stock-supply": "/churchill/bar.JPG",
-  "documents-automation": "/art/commercial-integrations.jpg",
-  "customer-growth": "/art/commercial-commerce.jpg",
-  intelligence: "/art/commercial-insights.jpg",
-  creative: "/art/creative-video.jpg",
-  platform: "/art/developer-work.jpg",
-  industry: "/art/commercial-solutions.jpg",
+const FAMILY_KIND = {
+  "sell-serve": "commerce",
+  "people-work": "workforce",
+  "money-control": "finance",
+  "stock-supply": "inventory",
+  "documents-automation": "documents",
+  "customer-growth": "commerce",
+  intelligence: "intelligence",
+  creative: "creative",
+  platform: "developer",
+  industry: "solutions",
 };
 
 const FAMILY_KICKER = {
@@ -39,8 +41,8 @@ const FAMILY_KICKER = {
 export default function ProductFamilyArt({ family, product }) {
   const steps = FAMILY_ART[family] || FAMILY_ART.platform;
   return <div className="relative min-h-[420px] overflow-hidden rounded-[30px] border border-[#BDAF9E]/35 bg-[#171614] p-7 text-white">
-    <div className="absolute inset-0 bg-cover bg-center opacity-[.24]" style={{backgroundImage:`url(${FAMILY_IMAGE[family] || FAMILY_IMAGE.platform})`}} />
-    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(13,11,9,.92),rgba(13,11,9,.72)_48%,rgba(13,11,9,.87)),linear-gradient(180deg,rgba(13,11,9,.18),rgba(13,11,9,.82))]" />
+    <div className="absolute inset-0 scale-[1.02] opacity-[.52]"><PublicArtStage kind={FAMILY_KIND[family] || "developer"} /></div>
+    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(13,11,9,.94),rgba(13,11,9,.76)_48%,rgba(13,11,9,.90)),linear-gradient(180deg,rgba(13,11,9,.28),rgba(13,11,9,.84))]" />
     <div className="absolute inset-0 opacity-[.11]" style={{backgroundImage:"linear-gradient(rgba(214,166,106,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(214,166,106,.10) 1px,transparent 1px)",backgroundSize:"56px 56px"}} />
     <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#D6A66A]/35 to-transparent" />
     <div className="relative z-10 flex items-start justify-between gap-8 border-b border-white/[.08] pb-6">

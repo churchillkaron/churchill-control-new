@@ -5,7 +5,7 @@ import GuidedStart from "@/components/public/GuidedStart";
 export const metadata = { title: "Start with Avantiqo | Avantiqo" };
 
 const PATHS = [
-  ["Run my business", "Business Products", "Finance, people, sales, operations, stock, documents and intelligence for day-to-day work.", "Operate", "/products", "Explore business products", "/churchill/1.jpg", "commerce"],
+  ["Run my business", "Business Products", "Finance, people, sales, operations, stock, documents and intelligence for day-to-day work.", "Operate", "/products", "Explore business products", "/art/avantiqo-luxury/hospitality.webp", "commerce"],
   ["Use a solution for my industry", "Industry Solutions", "Start with a restaurant, hotel, retail, service or professional setup that already matches the way the business works.", "Industry", "/solutions", "Explore industry solutions", "/art/commercial-solutions.jpg", "solutions"],
   ["Create something", "Creative Studios", "Image, video, music, voice and campaign production with direction, review and finishing.", "Create", "/creative-studios", "Enter Creative Studios", "/art/creative-video.jpg", "creative"],
   ["Build with Avantiqo", "Developers", "APIs, capabilities, integrations and software tools for products, internal systems and embedded experiences.", "Build", "/developers", "Enter Developers", "/art/developer-work.jpg", "developer"],

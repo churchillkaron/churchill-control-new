@@ -223,6 +223,10 @@ export async function GET(request) {
         product_area: productArea({ capability: row.capability, usageId: row.operation, provider: row.provider }),
         routing_class: classifyModalRouting(row).class,
         routing_reason: classifyModalRouting(row).reason,
+        modal_gpu: text(row.metadata?.provider_result?.modal_gpu || row.metadata?.provider_result?.output?.modal_gpu) || null,
+        infrastructure_provider: text(row.metadata?.provider_result?.infrastructure_provider || row.metadata?.provider_result?.output?.infrastructure_provider || row.metadata?.reservation_pricing?.pricing_metadata?.infrastructure_provider) || "MODAL",
+        execution_resource: "MODAL_GPU",
+        execution_path: `MODAL → ${requestPath}`,
       };
     });
     const operationalJobs = jobs.filter((job) => job.job_class === "OPERATIONAL");

@@ -97,6 +97,42 @@ test("rejects projected gross exposure above policy", () => {
   assert.ok(Math.abs(result.metrics.projected_gross_exposure_pct - 55) < 1e-9);
 });
 
+test("rejects projected industry concentration above policy", () => {
+  const result = evaluatePortfolioConcentration({
+    policy: {
+      max_gross_exposure_pct: 100,
+      max_sector_pct: 80,
+      max_industry_pct: 20,
+      max_correlated_exposure_pct: 100,
+    },
+    equity: 100000,
+    positions: [
+      { symbol: "AAA", market_value: 15000 },
+    ],
+    proposed: {
+      symbol: "BBB",
+      side: "BUY",
+      notional: 10000,
+    },
+    sectorBySymbol: {
+      AAA: "Technology",
+      BBB: "Technology",
+    },
+    industryBySymbol: {
+      AAA: "Semiconductors",
+      BBB: "Semiconductors",
+    },
+    returnsBySymbol: {
+      AAA: [],
+      BBB: [],
+    },
+  });
+
+  assert.equal(result.approved, false);
+  assert.equal(result.metrics.projected_industry_exposure_pct, 25);
+  assert.match(result.reasons.join(" "), /industry exposure/i);
+});
+
 test("rejects projected sector concentration above policy", () => {
   const result = evaluatePortfolioConcentration({
     policy: {
@@ -196,6 +232,53 @@ test("risk-budget scale shrinks smoothly near a hard limit", () => {
   assert.equal(result.binding_dimension, "GROSS_EXPOSURE");
   assert.ok(Math.abs(result.max_utilization - 0.9) < 1e-12);
   assert.ok(result.scale > 0.25);
+  assert.ok(result.scale < 1);
+});
+
+test("industry exposure can become the binding soft risk budget", () => {
+  const result = calculatePortfolioRiskBudgetScale({
+    metrics: {
+      projected_gross_exposure_pct: 30,
+      projected_sector_exposure_pct: 30,
+      projected_industry_exposure_pct: 18,
+      projected_correlated_exposure_pct: 10,
+      candidate_sector: "Technology",
+      candidate_industry: "Semiconductors",
+      historical_risk: {
+        portfolio: {
+          var_95_pct: 1,
+          expected_shortfall_95_pct: 2,
+        },
+        incremental_var_95_pct: 0.3,
+        incremental_expected_shortfall_95_pct: 0.5,
+      },
+      stress_risk: {
+        worst_scenario: { loss_pct_equity: 3 },
+      },
+      benchmark_beta: { projected_beta: 0.8 },
+      liquidity_capacity: {
+        projected_position_adv_pct: 3,
+        projected_days_to_liquidate: 1,
+      },
+    },
+    policy: {
+      max_gross_exposure_pct: 100,
+      max_sector_pct: 80,
+      max_industry_pct: 20,
+      max_correlated_exposure_pct: 35,
+      max_portfolio_var_95_pct: 5,
+      max_portfolio_expected_shortfall_95_pct: 8,
+      max_incremental_var_95_pct: 1.5,
+      max_incremental_expected_shortfall_95_pct: 2.5,
+      max_portfolio_stress_loss_pct: 12,
+      max_portfolio_beta: 1.5,
+      max_position_adv_pct: 10,
+      max_days_to_liquidate: 5,
+    },
+  });
+
+  assert.equal(result.binding_dimension, "INDUSTRY_EXPOSURE");
+  assert.ok(Math.abs(result.max_utilization - 0.9) < 1e-12);
   assert.ok(result.scale < 1);
 });
 

@@ -576,6 +576,7 @@ export async function POST(request) {
       const next = {
         max_position_pct: Number(body.max_position_pct ?? current.max_position_pct ?? 10),
         max_sector_pct: Number(body.max_sector_pct ?? current.max_sector_pct ?? 30),
+        max_industry_pct: Number(body.max_industry_pct ?? current.max_industry_pct ?? 20),
         max_daily_loss_pct: Number(body.max_daily_loss_pct ?? current.max_daily_loss_pct ?? 2),
         max_portfolio_drawdown_pct: Number(body.max_portfolio_drawdown_pct ?? current.max_portfolio_drawdown_pct ?? 10),
         min_decision_confidence: Number(body.min_decision_confidence ?? current.min_decision_confidence ?? 0.7),
@@ -630,6 +631,7 @@ export async function POST(request) {
       const percentageChecks = [
         ["Max position", next.max_position_pct, 0, 100],
         ["Sector cap", next.max_sector_pct, 0, 100],
+        ["Industry cap", next.max_industry_pct, 0, 100],
         ["Daily loss", next.max_daily_loss_pct, 0, 100],
         ["Max drawdown", next.max_portfolio_drawdown_pct, 0, 100],
         ["Gross exposure", next.max_gross_exposure_pct, 0, 300],

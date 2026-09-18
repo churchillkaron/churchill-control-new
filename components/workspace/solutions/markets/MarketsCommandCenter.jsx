@@ -98,6 +98,7 @@ export default function MarketsCommandCenter({ organizationId }) {
     setRiskDraft({
       max_position_pct: String(policy.max_position_pct ?? 10),
       max_sector_pct: String(policy.max_sector_pct ?? 30),
+      max_industry_pct: String(policy.max_industry_pct ?? 20),
       max_gross_exposure_pct: String(policy.max_gross_exposure_pct ?? 100),
       max_correlated_exposure_pct: String(policy.max_correlated_exposure_pct ?? 35),
       correlation_threshold: String(policy.correlation_threshold ?? 0.8),
@@ -601,6 +602,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                     {[
                       ["Max position", `${Number(policy.max_position_pct || 10)}%`],
                       ["Sector cap", `${Number(policy.max_sector_pct || 30)}%`],
+                      ["Industry cap", `${Number(policy.max_industry_pct || 20)}%`],
                       ["Gross exposure", `${Number(policy.max_gross_exposure_pct || 100)}%`],
                       ["Correlated cap", `${Number(policy.max_correlated_exposure_pct || 35)}%`],
                       ["Correlation gate", Number(policy.correlation_threshold || 0.8).toFixed(2)],
@@ -642,6 +644,12 @@ export default function MarketsCommandCenter({ organizationId }) {
                         <div className="text-[#9A968E]">Sector</div>
                         <div className="mt-0.5 font-semibold">
                           {latestPortfolioRisk ? `${Number(latestPortfolioRisk.projected_sector_exposure_pct || 0).toFixed(1)}%` : "—"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#9A968E]">Industry</div>
+                        <div className="mt-0.5 font-semibold">
+                          {latestPortfolioRisk ? `${Number(latestPortfolioRisk.projected_industry_exposure_pct || 0).toFixed(1)}%` : "—"}
                         </div>
                       </div>
                       <div>
@@ -734,6 +742,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                     {latestPortfolioRisk?.candidate_sector ? (
                       <div className="mt-2 text-[8px] text-[#9A968E]">
                         Last evaluated sector: {latestPortfolioRisk.candidate_sector}
+                        {latestPortfolioRisk?.candidate_industry ? ` · Industry: ${latestPortfolioRisk.candidate_industry}` : ""}
                       </div>
                     ) : null}
                     {latestPortfolioRiskBudget ? (
@@ -801,6 +810,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       {[
                         ["Position %", "max_position_pct", "0.1", "100", "0.1"],
                         ["Sector %", "max_sector_pct", "0.1", "100", "0.1"],
+                        ["Industry %", "max_industry_pct", "0.1", "100", "0.1"],
                         ["Gross %", "max_gross_exposure_pct", "0.1", "300", "0.1"],
                         ["Correlated %", "max_correlated_exposure_pct", "0.1", "100", "0.1"],
                         ["Correlation", "correlation_threshold", "0", "1", "0.01"],
@@ -975,6 +985,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       onClick={() => act("UPDATE_RISK_POLICY", {
                         max_position_pct: Number(riskDraft?.max_position_pct || 10),
                         max_sector_pct: Number(riskDraft?.max_sector_pct || 30),
+                        max_industry_pct: Number(riskDraft?.max_industry_pct || 20),
                         max_gross_exposure_pct: Number(riskDraft?.max_gross_exposure_pct || 100),
                         max_correlated_exposure_pct: Number(riskDraft?.max_correlated_exposure_pct || 35),
                         correlation_threshold: Number(riskDraft?.correlation_threshold ?? 0.8),

@@ -84,6 +84,9 @@ export default function MarketsCommandCenter({ organizationId }) {
       max_market_data_age_seconds: String(policy.max_market_data_age_seconds ?? 120),
       max_spread_bps: String(policy.max_spread_bps ?? 50),
       min_quote_notional: String(policy.min_quote_notional ?? 0),
+      block_corporate_action_buys: policy.block_corporate_action_buys !== false,
+      corporate_action_blackout_days_before: String(policy.corporate_action_blackout_days_before ?? 3),
+      corporate_action_blackout_days_after: String(policy.corporate_action_blackout_days_after ?? 1),
     });
   }, [data?.riskPolicy]);
 
@@ -153,6 +156,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   const backtestRuns = Array.isArray(data?.backtestRuns) ? data.backtestRuns : [];
   const agentPerformance = Array.isArray(data?.agentPerformance) ? data.agentPerformance : [];
   const portfolioPerformance = data?.portfolioPerformance?.summary || {};
+  const corporateActions = Array.isArray(data?.corporateActions) ? data.corporateActions : [];
   const policy = data?.riskPolicy || {};
   const latestBacktest = backtestRuns[0] || null;
   const completedBacktests = backtestRuns.filter((row) => row.status === "COMPLETED");
@@ -576,6 +580,41 @@ export default function MarketsCommandCenter({ organizationId }) {
                           className="mt-1 h-8 w-full rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-2 text-[9px] text-[#2E2B27] outline-none"
                         />
                       </label>
+                      <label className="col-span-2 flex items-center justify-between gap-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] px-3 py-2.5">
+                        <div>
+                          <div className="text-[8px] uppercase tracking-[0.1em] text-[#968F86]">Corporate-action BUY blackout</div>
+                          <div className="mt-1 text-[8px] leading-4 text-[#817D76]">Block new PAPER BUY exposure around known material corporate actions. SELL de-risking stays available.</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={riskDraft?.block_corporate_action_buys !== false}
+                          onChange={(event) => setRiskDraft((current) => ({
+                            ...(current || {}),
+                            block_corporate_action_buys: event.target.checked,
+                          }))}
+                          className="h-4 w-4 accent-[#1F1E1B]"
+                        />
+                      </label>
+                      {[
+                        ["Event blackout · days before", "corporate_action_blackout_days_before", "0", "30", "1"],
+                        ["Event blackout · days after", "corporate_action_blackout_days_after", "0", "30", "1"],
+                      ].map(([label, key, min, max, step]) => (
+                        <label key={key}>
+                          <span className="text-[8px] text-[#968F86]">{label}</span>
+                          <input
+                            type="number"
+                            min={min}
+                            max={max}
+                            step={step}
+                            value={riskDraft?.[key] ?? ""}
+                            onChange={(event) => setRiskDraft((current) => ({
+                              ...(current || {}),
+                              [key]: event.target.value,
+                            }))}
+                            className="mt-1 h-8 w-full rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-2 text-[9px] text-[#2E2B27] outline-none"
+                          />
+                        </label>
+                      ))}
                     </div>
                     <button
                       type="button"
@@ -593,11 +632,42 @@ export default function MarketsCommandCenter({ organizationId }) {
                         max_market_data_age_seconds: Number(riskDraft?.max_market_data_age_seconds ?? 120),
                         max_spread_bps: Number(riskDraft?.max_spread_bps ?? 50),
                         min_quote_notional: Number(riskDraft?.min_quote_notional ?? 0),
+                        block_corporate_action_buys: riskDraft?.block_corporate_action_buys !== false,
+                        corporate_action_blackout_days_before: Number(riskDraft?.corporate_action_blackout_days_before ?? 3),
+                        corporate_action_blackout_days_after: Number(riskDraft?.corporate_action_blackout_days_after ?? 1),
                       })}
                       className="mt-3 h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-medium text-white disabled:opacity-40"
                     >
                       {working === "UPDATE_RISK_POLICY" ? "Saving…" : "Save risk policy"}
                     </button>
+                  </div>
+                  <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">Known corporate actions</div>
+                      <div className="text-[8px] text-[#9A968E]">{corporateActions.length} recorded</div>
+                    </div>
+                    <div className="mt-2 space-y-1.5">
+                      {corporateActions.length ? corporateActions.slice(0, 6).map((event) => (
+                        <div key={event.id} className="flex items-center justify-between gap-3 rounded-lg border border-black/[0.05] bg-white px-2.5 py-2">
+                          <div className="min-w-0">
+                            <div className="text-[9px] font-semibold">{event.symbol}</div>
+                            <div className="mt-0.5 truncate text-[8px] text-[#817D76]">
+                              {String(event.action_type || "corporate_action").replaceAll("_", " ")}
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right text-[8px] text-[#8A867F]">
+                            {event.event_date || event.ex_date || event.process_date || "date unavailable"}
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="rounded-lg border border-dashed border-black/[0.08] px-2.5 py-3 text-[8px] text-[#9A968E]">
+                          No corporate-action records are currently stored for this portfolio.
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-2 text-[8px] leading-4 text-[#9A968E]">
+                      Provider coverage is not guaranteed and records may arrive late. An empty list is not proof that no corporate action exists.
+                    </div>
                   </div>
                   <div className="mt-3 rounded-xl border border-emerald-200/70 bg-emerald-50 px-3 py-2.5 text-[10px] text-emerald-700">
                     Live broker execution: <span className="font-semibold">DISABLED</span>

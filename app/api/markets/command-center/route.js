@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { resolveBusinessContext } from "@/lib/business-context/resolveBusinessContext";
 import { MarketAutonomousPaperRuntime } from "@/lib/markets/runtime/MarketAutonomousPaperRuntime";
+import { MarketCorporateActionRiskRuntime } from "@/lib/markets/runtime/MarketCorporateActionRiskRuntime";
 import { MarketIntelligenceIngestionRuntime } from "@/lib/markets/runtime/MarketIntelligenceIngestionRuntime";
 import { evaluateMarketMicrostructureRisk } from "@/lib/markets/runtime/MarketMicrostructureRiskModels";
 import { MarketPaperExecutionRuntime } from "@/lib/markets/runtime/MarketPaperExecutionRuntime";
@@ -93,10 +94,11 @@ async function loadState({ organizationId, entityId }) {
         snapshots: [],
         summary: null,
       },
+      corporateActions: [],
     };
   }
 
-  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult] = await Promise.all([
+  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult, corporateActionsResult] = await Promise.all([
     supabaseAdmin.from("market_watchlist").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).neq("status", "REMOVED").order("added_at", { ascending: false }),
     supabaseAdmin.from("market_decisions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("created_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_paper_orders").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("submitted_at", { ascending: false }).limit(50),
@@ -115,9 +117,10 @@ async function loadState({ organizationId, entityId }) {
     supabaseAdmin.from("market_automation_runs").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("started_at", { ascending: false }).limit(20),
     supabaseAdmin.from("market_backtest_runs").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("started_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_agent_performance").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("agent_type", { ascending: true }),
+    supabaseAdmin.from("market_corporate_actions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("event_date", { ascending: true }).limit(100),
   ]);
 
-  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult]) {
+  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult, corporateActionsResult]) {
     if (result.error) throw result.error;
   }
 
@@ -149,6 +152,7 @@ async function loadState({ organizationId, entityId }) {
     backtestRuns: backtestRunsResult.data || [],
     agentPerformance: agentPerformanceResult.data || [],
     portfolioPerformance,
+    corporateActions: corporateActionsResult.data || [],
   };
 }
 
@@ -409,14 +413,23 @@ async function submitPaperOrder({ organizationId, state, body }) {
     snapshot,
     side,
   });
+  const corporateActionRisk = await MarketCorporateActionRiskRuntime.evaluate({
+    organizationId,
+    portfolioId: state.portfolio.id,
+    symbol: decision.symbol,
+    policy: state.riskPolicy || {},
+    side,
+  });
   const allApproved =
     executionRisk.approved &&
     portfolioRisk.approved &&
-    microstructureRisk.approved;
+    microstructureRisk.approved &&
+    corporateActionRisk.approved;
   const riskReasons = [
     ...(executionRisk.reasons || []),
     ...(portfolioRisk.reasons || []),
     ...(microstructureRisk.reasons || []),
+    ...(corporateActionRisk.reasons || []),
   ];
   const risk = {
     approved: allApproved,
@@ -426,6 +439,7 @@ async function submitPaperOrder({ organizationId, state, body }) {
       ...(executionRisk.snapshot || {}),
       portfolio_concentration: portfolioRisk.metrics || {},
       market_microstructure: microstructureRisk.metrics || {},
+      corporate_action_risk: corporateActionRisk.metrics || {},
     },
   };
 
@@ -540,6 +554,9 @@ export async function POST(request) {
         max_market_data_age_seconds: Number(body.max_market_data_age_seconds ?? current.max_market_data_age_seconds ?? 120),
         max_spread_bps: Number(body.max_spread_bps ?? current.max_spread_bps ?? 50),
         min_quote_notional: Number(body.min_quote_notional ?? current.min_quote_notional ?? 0),
+        block_corporate_action_buys: body.block_corporate_action_buys ?? current.block_corporate_action_buys ?? true,
+        corporate_action_blackout_days_before: Number(body.corporate_action_blackout_days_before ?? current.corporate_action_blackout_days_before ?? 3),
+        corporate_action_blackout_days_after: Number(body.corporate_action_blackout_days_after ?? current.corporate_action_blackout_days_after ?? 1),
         live_execution_enabled: false,
         updated_at: new Date().toISOString(),
       };
@@ -574,6 +591,12 @@ export async function POST(request) {
       }
       if (!(next.min_quote_notional >= 0)) {
         throw new Error("Minimum quote notional cannot be negative");
+      }
+      if (!(next.corporate_action_blackout_days_before >= 0 && next.corporate_action_blackout_days_before <= 30)) {
+        throw new Error("Corporate-action blackout days before must be between 0 and 30");
+      }
+      if (!(next.corporate_action_blackout_days_after >= 0 && next.corporate_action_blackout_days_after <= 30)) {
+        throw new Error("Corporate-action blackout days after must be between 0 and 30");
       }
 
       const { data: riskPolicy, error: riskPolicyError } = await supabaseAdmin

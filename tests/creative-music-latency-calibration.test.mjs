@@ -17,13 +17,13 @@ test("correlation detector finds a deterministic loopback return",()=>{
 });
 
 test("calibration runtime distinguishes exact hardware loopback from acoustic evidence",()=>{
-  assert.match(runtime,/AVANTIQO_MUSIC_LATENCY_CALIBRATION_V2/);
+  assert.match(runtime,/AVANTIQO_MUSIC_LATENCY_CALIBRATION_V3/);
   assert.match(runtime,/HARDWARE_LOOPBACK/);
   assert.match(runtime,/ACOUSTIC_PATH/);
-  assert.match(runtime,/automatic_apply_allowed: direct && confidencePassed/);
+  assert.match(runtime,/automatic_apply_allowed: direct && confidencePassed && physicalLoopbackAttested/);
   assert.match(runtime,/context.setSinkId/);
   assert.match(runtime,/explicitOutputVerified/);
-  assert.match(runtime,/microphone_roundtrip_latency_measured: direct && confidencePassed/);
+  assert.match(runtime,/microphone_roundtrip_latency_measured: direct && confidencePassed && physicalLoopbackAttested/);
 });
 
 test("Workstation requires explicit apply action before measured latency changes offset",()=>{
@@ -74,4 +74,15 @@ test("Workstation refreshes device identity on browser devicechange",()=>{
   assert.match(panel,/removeEventListener\?\.\("devicechange", refresh\)/);
   assert.match(panel,/setInputGroupId/);
   assert.match(panel,/input_group_id: inputGroupId \|\| null/);
+});
+
+
+test("exact hardware latency requires physical-loopback acknowledgement and repeated stable returns",()=>{
+  assert.match(runtime,/scheduledStartTimes = \[0.45,0.78,1.11\]/);
+  assert.match(runtime,/repeatabilityPassed/);
+  assert.match(runtime,/maxDeviation<=1.5/);
+  assert.match(runtime,/hardwareLoopbackConfirmed===true/);
+  assert.match(panel,/I physically connected the selected output directly to the selected input/);
+  assert.match(panel,/!hardwareLoopbackConfirmed/);
+  assert.match(panel,/repeatability/);
 });

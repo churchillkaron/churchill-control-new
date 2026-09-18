@@ -44,13 +44,14 @@ if ((Test-Path $MusicGpuPython) -and (Test-Path $VocalRoleRunner)) {
   } catch { $VocalRoleRuntimeReady = $false }
 }
 $SeedVcRoot = 'C:\Avantiqo\seed-vc'
-$SeedVcRunner = 'C:\Avantiqo\music-gpu\singing_voice_runner.py'
+$SeedVcPython = 'C:\Avantiqo\seed-vc\.venv\Scripts\python.exe'
+$SeedVcRunner = 'C:\Avantiqo\seed-vc\avantiqo_singing_voice_runner.py'
 $SeedVcCheckpoint = 'C:\Avantiqo\seed-vc\checkpoints\DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ema.pth'
 $SeedVcConfig = 'C:\Avantiqo\seed-vc\configs\config_dit_mel_seed_uvit_whisper_base_f0_44k.yml'
 $SingingVoiceRuntimeReady = $false
-if ((Test-Path $MusicGpuPython) -and (Test-Path $SeedVcRunner) -and (Test-Path (Join-Path $SeedVcRoot 'inference.py')) -and (Test-Path $SeedVcCheckpoint) -and (Test-Path $SeedVcConfig)) {
+if ((Test-Path $SeedVcPython) -and (Test-Path $SeedVcRunner) -and (Test-Path (Join-Path $SeedVcRoot 'inference.py')) -and (Test-Path $SeedVcCheckpoint) -and (Test-Path $SeedVcConfig)) {
   try {
-    & $MusicGpuPython -c "import torch, librosa, soundfile" 2>$null
+    & $SeedVcPython -c "import torch, librosa, soundfile" 2>$null
     $SingingVoiceRuntimeReady = ($LASTEXITCODE -eq 0)
   } catch { $SingingVoiceRuntimeReady = $false }
 }
@@ -461,8 +462,8 @@ function RunMusicVocalRoleSeparationJob($Job) {
 function RunMusicSingingVoiceIdentityJob($Job) {
   $payload = $Job.payload
   if (-not $payload) { throw 'AVANTIQO_LOCAL_SINGING_VOICE_PAYLOAD_REQUIRED' }
-  $python = 'C:\Avantiqo\music-gpu\Scripts\python.exe'
-  $runner = 'C:\Avantiqo\music-gpu\singing_voice_runner.py'
+  $python = $SeedVcPython
+  $runner = $SeedVcRunner
   $ffmpeg = 'C:\Avantiqo\ffmpeg\bin'
   if (-not $SingingVoiceRuntimeReady) { throw 'AVANTIQO_LOCAL_SINGING_VOICE_RUNTIME_NOT_READY' }
   $tmp = Join-Path $env:TEMP ("avantiqo-singing-voice-" + [string]$Job.id + ".json")

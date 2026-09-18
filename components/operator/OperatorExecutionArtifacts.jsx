@@ -206,6 +206,7 @@ function diagnosisPresentationLabel(map, value, fallback) {
 
 function persistedProofLabel({ auditVerified = false, auditStatus = "" } = {}) {
   if (auditVerified && auditStatus === "VERIFIED") return "Verified live or after reload";
+  if (auditVerified && auditStatus === "VERIFIED_LEGACY") return "Verified legacy proof";
   if (auditStatus === "MISMATCH") return "Integrity mismatch";
   if (auditStatus === "NOT_AVAILABLE") return "Legacy proof · checksum unavailable";
   return "Live proof";

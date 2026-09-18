@@ -116,6 +116,7 @@ function businessDiagnosisAudit(result = {}) {
     class: projection.diagnosis_class,
     business_timezone: projection.business_timezone,
     receipt_fingerprint: projection.receipt_fingerprint,
+    audit_projection_contract: receipt.audit_projection_contract,
     audit_projection_fingerprint: receipt.audit_projection_fingerprint,
     final_evidence_state: projection.final_evidence_state,
     residual_material: projection.residual_material,
@@ -128,6 +129,7 @@ function businessDiagnosisAudit(result = {}) {
   if (verification.status !== "VERIFIED") throw businessDiagnosisProofIntegrityError("DIRECT_API_LIVE_RETURN");
   return {
     ...projection,
+    audit_projection_contract: cleanValue(receipt.audit_projection_contract),
     audit_projection_fingerprint: cleanValue(receipt.audit_projection_fingerprint),
     audit_projection_verification_status: verification.status,
     audit_projection_verified: verification.verified === true,

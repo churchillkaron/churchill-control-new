@@ -7,6 +7,7 @@ const route=fs.readFileSync("app/api/operator/turn/route.js","utf8");
 test("operator turn persists compact business diagnosis audit in evidence",()=>{
   assert.match(route,/function persistedBusinessDiagnosisEvidence/);
   assert.match(route,/receipt_fingerprint/);
+  assert.match(route,/audit_projection_contract/);
   assert.match(route,/audit_projection_fingerprint/);
   assert.match(route,/business_timezone/);
   assert.match(route,/validated_external_context_count/);
@@ -50,9 +51,9 @@ test("legacy persisted diagnosis without checksum is explicitly marked unavailab
 
 
 test("operator rejects malformed diagnosis proof before persistence",()=>{
-  assert.match(route,/businessDiagnosisAuditProjectionFingerprint\(projection\)/);
-  assert.match(route,/suppliedProjectionFingerprint/);
-  assert.match(route,/suppliedProjectionFingerprint !== expectedProjectionFingerprint/);
+  assert.match(route,/verifyBusinessDiagnosisAuditProjection/);
+  assert.match(route,/suppliedProjectionContract/);
+  assert.match(route,/verification\.status !== "VERIFIED"/);
   assert.match(route,/return \{\}/);
 });
 

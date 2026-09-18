@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildBusinessDiagnosisReceipt as build, buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection, businessDiagnosisProofIntegrityError, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime.js";
+import { createHash } from "node:crypto";
+import { buildBusinessDiagnosisReceipt as build, buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection, businessDiagnosisProofIntegrityError, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE, AVANTIQO_BUSINESS_DIAGNOSIS_AUDIT_PROJECTION_CONTRACT } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime.js";
 
 const input={organization_id:"org",entity_id:"entity",metric:"profit",diagnosis_class:"CAUSAL_DIAGNOSIS",business_timezone:"Asia/Bangkok",baseline_period_id:"2026-07",baseline_period_start_date:"2026-07-01",baseline_period_end_date:"2026-07-31",current_period_id:"2026-08",current_period_start_date:"2026-08-01",current_period_end_date:"2026-08-31",final_diagnosis:{metric:"profit",diagnosis:{final_evidence_state:"INTERNAL_AND_SUPPORTED_EXTERNAL",target_metric:{status:"TARGET_METRIC_READY"},residual_material:true,residual_ratio:.25,variance:{unexplained_residual:-5},internal_coverage_incomplete:false,causal:{supported_context_ids:["weather"]}}},external_research_plan:{status:"RESEARCH_ALLOWED"},external_evidence_assessment:{status:"ASSESSED"},external_diagnosis_closure:{validated_context_ids:["weather"],causal_evidence:[{context_id:"weather",source_refs:[{url:"https://example.gov/weather",publisher:"gov",independence_group:"example.gov",observed_at:"2026-08-31"}]}],validation_results:[{context_id:"weather",status:"CAUSAL_EVIDENCE_READY"},{context_id:"tourism",status:"EVIDENCE_INCOMPLETE",reason:"MISSING_REQUIRED_SUPPORT",missing_requirements:["CONFOUNDER_CHECK"]}]},answer_brief:{status:"INTERNAL_AND_SUPPORTED_EXTERNAL",unresolved:[{kind:"MATERIAL_UNEXPLAINED_RESIDUAL"}]},answer_boundary:{status:"APPENDED_REQUIRED_UNCERTAINTY",required_uncertainty_appended:true,overclaim_detected:false}};
 
@@ -47,7 +48,7 @@ test("receipt cryptographically binds period display dates",()=>{const a=build(i
 test("persisted audit projection verifies and detects changed safe fields",()=>{
  const receipt=build(input);
  const evidence={
-  class:receipt.diagnosis_class,business_timezone:receipt.business_timezone,receipt_fingerprint:receipt.receipt_fingerprint,audit_projection_fingerprint:receipt.audit_projection_fingerprint,
+  class:receipt.diagnosis_class,business_timezone:receipt.business_timezone,receipt_fingerprint:receipt.receipt_fingerprint,audit_projection_contract:receipt.audit_projection_contract,audit_projection_fingerprint:receipt.audit_projection_fingerprint,
   final_evidence_state:receipt.final_evidence_state,residual_material:receipt.residual_material,answer_boundary_status:receipt.answer_boundary_status,
   answer_unsupported_recommendation_outcome_detected:receipt.answer_unsupported_recommendation_outcome_detected,
   validated_external_context_count:receipt.validated_external_context_ids.length,unresolved_external_context_count:receipt.rejected_or_unresolved_external_contexts.length,
@@ -64,7 +65,7 @@ test("persisted audit projection verifies and detects changed safe fields",()=>{
 
 test("audit projection binds external evidence summary counts",()=>{
  const receipt=build(input);
- const evidence={class:receipt.diagnosis_class,business_timezone:receipt.business_timezone,receipt_fingerprint:receipt.receipt_fingerprint,audit_projection_fingerprint:receipt.audit_projection_fingerprint,final_evidence_state:receipt.final_evidence_state,residual_material:receipt.residual_material,answer_boundary_status:receipt.answer_boundary_status,answer_unsupported_recommendation_outcome_detected:receipt.answer_unsupported_recommendation_outcome_detected,validated_external_context_count:receipt.validated_external_context_ids.length,unresolved_external_context_count:receipt.rejected_or_unresolved_external_contexts.length,periods:{baseline_period_id:receipt.baseline_period_id,baseline_start_date:receipt.baseline_period_start_date,baseline_end_date:receipt.baseline_period_end_date,current_period_id:receipt.current_period_id,current_start_date:receipt.current_period_start_date,current_end_date:receipt.current_period_end_date}};
+ const evidence={class:receipt.diagnosis_class,business_timezone:receipt.business_timezone,receipt_fingerprint:receipt.receipt_fingerprint,audit_projection_contract:receipt.audit_projection_contract,audit_projection_fingerprint:receipt.audit_projection_fingerprint,final_evidence_state:receipt.final_evidence_state,residual_material:receipt.residual_material,answer_boundary_status:receipt.answer_boundary_status,answer_unsupported_recommendation_outcome_detected:receipt.answer_unsupported_recommendation_outcome_detected,validated_external_context_count:receipt.validated_external_context_ids.length,unresolved_external_context_count:receipt.rejected_or_unresolved_external_contexts.length,periods:{baseline_period_id:receipt.baseline_period_id,baseline_start_date:receipt.baseline_period_start_date,baseline_end_date:receipt.baseline_period_end_date,current_period_id:receipt.current_period_id,current_start_date:receipt.current_period_start_date,current_end_date:receipt.current_period_end_date}};
  assert.equal(verifyBusinessDiagnosisAuditProjection(evidence).status,"VERIFIED");
  assert.equal(verifyBusinessDiagnosisAuditProjection({...evidence,unresolved_external_context_count:99}).status,"MISMATCH");
 });
@@ -75,7 +76,7 @@ test("receipt and persisted audit cryptographically bind business timezone",()=>
  const utc=build({...input,business_timezone:"UTC"});
  assert.equal(bangkok.business_timezone,"Asia/Bangkok");
  assert.notEqual(bangkok.receipt_fingerprint,utc.receipt_fingerprint);
- const evidence={class:bangkok.diagnosis_class,business_timezone:bangkok.business_timezone,receipt_fingerprint:bangkok.receipt_fingerprint,audit_projection_fingerprint:bangkok.audit_projection_fingerprint,final_evidence_state:bangkok.final_evidence_state,residual_material:bangkok.residual_material,answer_boundary_status:bangkok.answer_boundary_status,answer_unsupported_recommendation_outcome_detected:bangkok.answer_unsupported_recommendation_outcome_detected,validated_external_context_count:bangkok.validated_external_context_ids.length,unresolved_external_context_count:bangkok.rejected_or_unresolved_external_contexts.length,periods:{baseline_period_id:bangkok.baseline_period_id,baseline_start_date:bangkok.baseline_period_start_date,baseline_end_date:bangkok.baseline_period_end_date,current_period_id:bangkok.current_period_id,current_start_date:bangkok.current_period_start_date,current_end_date:bangkok.current_period_end_date}};
+ const evidence={class:bangkok.diagnosis_class,business_timezone:bangkok.business_timezone,receipt_fingerprint:bangkok.receipt_fingerprint,audit_projection_contract:bangkok.audit_projection_contract,audit_projection_fingerprint:bangkok.audit_projection_fingerprint,final_evidence_state:bangkok.final_evidence_state,residual_material:bangkok.residual_material,answer_boundary_status:bangkok.answer_boundary_status,answer_unsupported_recommendation_outcome_detected:bangkok.answer_unsupported_recommendation_outcome_detected,validated_external_context_count:bangkok.validated_external_context_ids.length,unresolved_external_context_count:bangkok.rejected_or_unresolved_external_contexts.length,periods:{baseline_period_id:bangkok.baseline_period_id,baseline_start_date:bangkok.baseline_period_start_date,baseline_end_date:bangkok.baseline_period_end_date,current_period_id:bangkok.current_period_id,current_start_date:bangkok.current_period_start_date,current_end_date:bangkok.current_period_end_date}};
  assert.equal(verifyBusinessDiagnosisAuditProjection(evidence).status,"VERIFIED");
  assert.equal(verifyBusinessDiagnosisAuditProjection({...evidence,business_timezone:"UTC"}).status,"MISMATCH");
 });
@@ -100,4 +101,31 @@ test("proof integrity error is typed governed and non-authorizing",()=>{
  assert.equal(error.details.stage,"TEST_STAGE");
  assert.equal(error.details.retryable,true);
  assert.equal(error.details.authority_effect,"NONE");
+});
+
+
+test("new audit projections are explicitly versioned",()=>{
+ const receipt=build(input);
+ assert.equal(receipt.audit_projection_contract,AVANTIQO_BUSINESS_DIAGNOSIS_AUDIT_PROJECTION_CONTRACT);
+ const projection=buildBusinessDiagnosisAuditProjectionFromReceipt(receipt);
+ assert.equal(projection.projection_contract,AVANTIQO_BUSINESS_DIAGNOSIS_AUDIT_PROJECTION_CONTRACT);
+});
+
+test("legacy unversioned audit checksum remains verifiable",()=>{
+ const receipt=build(input);
+ const projection=buildBusinessDiagnosisAuditProjectionFromReceipt(receipt);
+ const legacy={...projection}; delete legacy.projection_contract;
+ const canonical=(value)=>Array.isArray(value)?value.map(canonical):value&&typeof value==="object"?Object.fromEntries(Object.keys(value).sort().map((key)=>[key,canonical(value[key])])):value;
+ const fingerprint=createHash("sha256").update(JSON.stringify(canonical(legacy))).digest("hex");
+ const verified=verifyBusinessDiagnosisAuditProjection({...legacy,class:legacy.diagnosis_class,audit_projection_fingerprint:fingerprint});
+ assert.equal(verified.status,"VERIFIED_LEGACY");
+ assert.equal(verified.verified,true);
+});
+
+test("unknown audit projection versions fail closed",()=>{
+ const receipt=build(input);
+ const projection=buildBusinessDiagnosisAuditProjectionFromReceipt(receipt);
+ const verified=verifyBusinessDiagnosisAuditProjection({...projection,class:projection.diagnosis_class,audit_projection_contract:"FUTURE_V99",audit_projection_fingerprint:receipt.audit_projection_fingerprint});
+ assert.equal(verified.status,"UNSUPPORTED_VERSION");
+ assert.equal(verified.verified,false);
 });

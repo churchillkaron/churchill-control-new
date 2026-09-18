@@ -195,6 +195,63 @@ def estimate_depth(data: dict[str, Any]) -> dict[str, Any]:
 
 @app.function(
     image=worker_image,
+    gpu="A10G",
+    volumes={"/models": model_volume},
+    timeout=20 * 60,
+    min_containers=0,
+    max_containers=1,
+    buffer_containers=0,
+    scaledown_window=5,
+)
+def estimate_materials(data: dict[str, Any]) -> dict[str, Any]:
+    """Owned semantic surface/material analysis for scene reconstruction."""
+    os.chdir("/app")
+    import handler_v9 as image_engine
+
+    capability = str(data.get("capability") or "").strip()
+    if capability != "creative.materials.estimate":
+        raise RuntimeError("AVANTIQO_IMAGE_MATERIAL_CAPABILITY_REQUIRED")
+    source_assets = data.get("source_assets") or []
+    if not source_assets:
+        raise RuntimeError("AVANTIQO_IMAGE_MATERIAL_SOURCE_REQUIRED")
+    instruction = (
+        "Analyze only visible physical surfaces and materials in this source image for high-end VFX scene reconstruction. "
+        "Return strict JSON with keys regions, global_materials, uncertainty. regions must be an array; each region must contain "
+        "id, material_class, visible_evidence, approximate_bbox_normalized [x,y,w,h], roughness_estimate 0-1, metallic_estimate 0-1, "
+        "reflective boolean, transparent_or_translucent boolean, shadow_receiver boolean, confidence 0-1. "
+        "Use only visibly supported classes such as glass, polished_metal, brushed_metal, painted_wall, wood, cloth, leather, stone, "
+        "ceramic, plastic, liquid, vegetation, skin, unknown. Do not invent hidden surfaces or brand/product identity. "
+        "global_materials must summarize dominant classes and VFX implications for reflections, contact shadows and relighting."
+    )
+    payload = dict(data)
+    payload["capability"] = "ai.image.analyze"
+    payload["instruction"] = instruction
+    image_engine._progress_update = lambda *_args, **_kwargs: None
+    started = time.perf_counter()
+    output = image_engine.handler({
+        "id": f"modal-material-{uuid.uuid4()}",
+        "input": payload,
+    })
+    if not isinstance(output, dict):
+        raise RuntimeError("AVANTIQO_IMAGE_MATERIAL_OUTPUT_OBJECT_REQUIRED")
+    return {
+        "success": True,
+        "status": "completed",
+        "contract": "AVANTIQO_MATERIAL_ESTIMATION_V1",
+        "capability": capability,
+        "provider": "avantiqo-image",
+        "model": "avantiqo-material-v1",
+        "foundation_model": ANALYZE_MODEL,
+        "result": output.get("result") or output.get("output") or output,
+        "source_visual_asset_count": len(source_assets),
+        "modal_gpu": "A10G",
+        "modal_elapsed_seconds": round(time.perf_counter() - started, 3),
+        "raw_reasoning_persisted": False,
+    }
+
+
+@app.function(
+    image=worker_image,
     gpu="A100-80GB",
     volumes={"/models": model_volume},
     timeout=20 * 60,

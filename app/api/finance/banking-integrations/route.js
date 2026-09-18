@@ -27,7 +27,7 @@ function resolveThailandBrankasBankCode(bankAccount = {}) {
 }
 
 
-function decorateIntegration(row, bankAccount = null) {
+function decorateIntegration(row, bankAccount = null, credential = null) {
   const connectionLabel =
     CONNECTION_TYPES[row.connection_type] ||
     String(row.connection_type || "Bank Connection")
@@ -56,6 +56,10 @@ function decorateIntegration(row, bankAccount = null) {
     last_error_code: row.last_error_code || null,
     last_error_message: row.last_error_message || null,
     provider_ready: Boolean(row.provider_credential_id),
+    provider_verification_status: credential?.metadata?.verification_status || (row.provider_credential_id ? "CONFIGURED_UNVERIFIED" : "NOT_CONFIGURED"),
+    provider_last_verified_at: credential?.metadata?.last_verified_at || null,
+    provider_last_verification_attempt_at: credential?.metadata?.last_verification_attempt_at || null,
+    provider_last_verification_error: credential?.metadata?.last_verification_error || null,
     created_at: row.created_at || null,
     updated_at: row.updated_at || null,
     name: accountName,
@@ -76,6 +80,15 @@ async function loadBankAccounts(organizationId, ids) {
 
   if (error) throw error;
   return new Map((data || []).map((row) => [String(row.id), row]));
+}
+
+async function loadProviderCredentials(organizationId, ids) {
+  const uniqueIds = [...new Set((ids || []).filter(Boolean))];
+  if (!uniqueIds.length) return new Map();
+  const { data, error } = await supabaseAdmin.from("provider_credentials")
+    .select("id,provider_id,status,metadata,updated_at").in("id", uniqueIds);
+  if (error) throw error;
+  return new Map((data || []).filter((row) => { const scope = String(row.metadata?.organization_id || "").trim(); return !scope || scope === organizationId; }).map((row) => [String(row.id), row]));
 }
 
 async function requireFinanceBanking(request, organizationId, permissionKey) {
@@ -126,8 +139,9 @@ export async function GET(request) {
       access.organizationId,
       (data || []).map((row) => row.bank_account_id)
     );
+    const credentials = await loadProviderCredentials(access.organizationId, (data || []).map((row) => row.provider_credential_id));
     const rows = (data || []).map((row) =>
-      decorateIntegration(row, accounts.get(String(row.bank_account_id)))
+      decorateIntegration(row, accounts.get(String(row.bank_account_id)), credentials.get(String(row.provider_credential_id)))
     );
 
     return NextResponse.json({

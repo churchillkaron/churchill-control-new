@@ -5,12 +5,16 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { resolveProviderCredentialSecret } from "@/lib/platform/service-runtime/credentials/runtime/ProviderCredentialSecretBroker";
+import { getBankFeedProvider } from "@/lib/finance/banking/providers/BankFeedProviderRegistry";
+import { getEInvoiceProvider } from "@/lib/finance/e-invoicing/providers/EInvoiceProviderRegistry";
 
 const ETAX_PROVIDERS = new Set(["certified_etax_rest", "netbay_invoicechain", "inet_etax"]);
 const EMAIL_PROVIDERS = new Set(["email_google", "email_microsoft", "email_imap"]);
 const text = (value, max = 4000) => String(value ?? "").trim().slice(0, max);
 const upper = (value) => text(value).toUpperCase();
 const now = () => new Date().toISOString();
+const parseSecret = (value) => { const raw = text(value, 20000); if (!raw) return {}; try { const parsed = JSON.parse(raw); return parsed && typeof parsed === "object" ? parsed : { api_key: raw }; } catch { return { api_key: raw }; } };
 
 async function requireConfig(request, organizationId) {
   const access = await requireOrganizationAccess({ organizationId, request });
@@ -40,6 +44,31 @@ async function provision({ organizationId, providerId, credentialType, secretPay
     throw new Error("FINANCE_PROVIDER_CREDENTIAL_PROVISION_RESULT_INVALID");
   }
   return row;
+}
+
+async function loadScopedCredential({ organizationId, providerId, credentialId = null, credentialType = null }) {
+  let query = supabaseAdmin.from("provider_credentials").select("id,provider_id,credential_type,secret_reference,status,metadata,created_at,updated_at").eq("status", "ACTIVE");
+  if (credentialId) query = query.eq("id", credentialId);
+  else query = query.eq("provider_id", providerId);
+  if (credentialType) query = query.eq("credential_type", credentialType);
+  const { data, error } = await query.order("updated_at", { ascending: false });
+  if (error) throw error;
+  const credential = (data || []).find((row) => { const scope = text(row.metadata?.organization_id); return !scope || scope === organizationId; }) || null;
+  if (!credential) throw new Error("FINANCE_PROVIDER_CREDENTIAL_REQUIRED");
+  return credential;
+}
+
+async function resolvedSecret({ organizationId, credential }) {
+  const resolved = await resolveProviderCredentialSecret({ credential_id: credential.id, provider_id: credential.provider_id, organization_id: organizationId, secret_reference: credential.secret_reference });
+  return parseSecret(resolved.secret);
+}
+
+async function recordCredentialVerification({ credential, status, detail = {}, error = null }) {
+  const stamp = now();
+  const metadata = { ...(credential.metadata || {}), verification_status: status, last_verification_attempt_at: stamp, ...(status === "VERIFIED" ? { last_verified_at: stamp } : {}), verification_detail: detail || {}, last_verification_error: error ? { code: text(error.code || "PROVIDER_VERIFICATION_FAILED", 200), message: text(error.message || error, 1000) } : null };
+  const result = await supabaseAdmin.from("provider_credentials").update({ metadata, updated_at: stamp }).eq("id", credential.id).select("id,provider_id,metadata,updated_at").single();
+  if (result.error) throw result.error;
+  return result.data;
 }
 
 async function snapshot(organizationId) {
@@ -76,7 +105,11 @@ async function snapshot(organizationId) {
       environment: bank.metadata?.environment || null,
       base_url: bank.metadata?.base_url || null,
       updated_at: bank.updated_at,
-    } : { ready: false, provider_id: "brankas_statement" },
+      verification_status: bank.metadata?.verification_status || "CONFIGURED_UNVERIFIED",
+      last_verified_at: bank.metadata?.last_verified_at || null,
+      last_verification_attempt_at: bank.metadata?.last_verification_attempt_at || null,
+      last_verification_error: bank.metadata?.last_verification_error || null,
+    } : { ready: false, provider_id: "brankas_statement", verification_status: "NOT_CONFIGURED" },
     etax: {
       ready: Boolean(etax && profileResult.data && upper(profileResult.data.status) === "ACTIVE" && profileResult.data.provider_credential_id === etax.id),
       credential: etax ? {
@@ -86,6 +119,10 @@ async function snapshot(organizationId) {
         upload_path: etax.metadata?.upload_path || null,
         status_path: etax.metadata?.status_path || null,
         updated_at: etax.updated_at,
+        verification_status: etax.metadata?.verification_status || "CONFIGURED_UNVERIFIED",
+        last_verified_at: etax.metadata?.last_verified_at || null,
+        last_verification_attempt_at: etax.metadata?.last_verification_attempt_at || null,
+        last_verification_error: etax.metadata?.last_verification_error || null,
       } : null,
       profile: profileResult.data || null,
     },
@@ -144,7 +181,7 @@ export async function POST(request) {
         providerId: "brankas_statement",
         credentialType: "finance_bank_feed_api",
         secretPayload: { api_key: apiKey },
-        metadata: { purpose: "FINANCE_BANK_FEED", environment, base_url: baseUrl },
+        metadata: { purpose: "FINANCE_BANK_FEED", environment, base_url: baseUrl, verification_status: "CONFIGURED_UNVERIFIED" },
       });
 
       const integrations = await supabaseAdmin.from("finance_banking_integrations").update({
@@ -204,10 +241,13 @@ export async function POST(request) {
 
       const metadata = {
         purpose: "FINANCE_ETAX_PROVIDER",
+        verification_status: "CONFIGURED_UNVERIFIED",
         base_url: baseUrl,
         upload_path: uploadPath,
         status_path: statusPath,
         ...(text(body.authPath || body.auth_path, 1000) ? { auth_path: text(body.authPath || body.auth_path, 1000) } : {}),
+        ...(text(body.healthPath || body.health_path, 1000) ? { health_path: text(body.healthPath || body.health_path, 1000) } : {}),
+        health_method: text(body.healthMethod || body.health_method || "GET", 16).toUpperCase(),
         auth_method: text(body.authMethod || body.auth_method || "POST", 16).toUpperCase(),
         upload_method: text(body.uploadMethod || body.upload_method || "POST", 16).toUpperCase(),
         status_method: text(body.statusMethod || body.status_method || "GET", 16).toUpperCase(),
@@ -296,6 +336,43 @@ export async function POST(request) {
         profile,
         status: await snapshot(orgId),
       });
+    }
+
+    if (action === "verify_bank_feed") {
+      const credential = await loadScopedCredential({ organizationId: orgId, providerId: "brankas_statement", credentialType: "finance_bank_feed_api" });
+      const provider = getBankFeedProvider("brankas_statement");
+      const secret = await resolvedSecret({ organizationId: orgId, credential });
+      try {
+        const result = await provider.verifyCredential({ secret, config: credential.metadata || {} });
+        await recordCredentialVerification({ credential, status: result.verified ? "VERIFIED" : "CONFIGURED_UNVERIFIED", detail: result });
+        return NextResponse.json({ success: true, activation: "BANK_FEED", verification: result, status: await snapshot(orgId) });
+      } catch (error) {
+        await recordCredentialVerification({ credential, status: "VERIFICATION_FAILED", error });
+        return NextResponse.json({ success: false, error: error?.message || "Bank provider verification failed", code: error?.code || "BANK_PROVIDER_VERIFICATION_FAILED", status: await snapshot(orgId) }, { status: 409 });
+      }
+    }
+
+    if (action === "verify_etax") {
+      const profileResult = await supabaseAdmin.from("finance_e_invoicing_settings").select("*").eq("organization_id", orgId).eq("jurisdiction_code", "TH").eq("document_type", "CUSTOMER_INVOICE").eq("status", "ACTIVE").order("updated_at", { ascending: false }).limit(1).maybeSingle();
+      if (profileResult.error) throw profileResult.error;
+      const profile = profileResult.data;
+      if (!profile?.provider_credential_id) return NextResponse.json({ success: false, error: "Active Thailand e-Tax provider credential required" }, { status: 400 });
+      const credential = await loadScopedCredential({ organizationId: orgId, providerId: profile.provider_code, credentialId: profile.provider_credential_id, credentialType: "finance_etax_provider" });
+      const provider = getEInvoiceProvider(profile.provider_code);
+      const secret = await resolvedSecret({ organizationId: orgId, credential });
+      try {
+        const result = await provider.verifyCredential({ secret, config: credential.metadata || {} });
+        const verificationStatus = result.verified ? "VERIFIED" : "CONFIGURED_UNVERIFIED";
+        await recordCredentialVerification({ credential, status: verificationStatus, detail: result });
+        const profilePatch = result.verified ? { provider_status: "VERIFIED", last_verified_at: now(), last_error_code: null, last_error_message: null, updated_at: now() } : { provider_status: "CONFIGURED_UNVERIFIED", last_verified_at: null, last_error_code: "E_INVOICE_PROVIDER_NON_MUTATING_VERIFICATION_UNAVAILABLE", last_error_message: result.reason || "Provider does not expose a non-mutating verification endpoint.", updated_at: now() };
+        const updated = await supabaseAdmin.from("finance_e_invoicing_settings").update(profilePatch).eq("organization_id", orgId).eq("id", profile.id);
+        if (updated.error) throw updated.error;
+        return NextResponse.json({ success: true, activation: "ETAX", verification: result, status: await snapshot(orgId) });
+      } catch (error) {
+        await recordCredentialVerification({ credential, status: "VERIFICATION_FAILED", error });
+        await supabaseAdmin.from("finance_e_invoicing_settings").update({ provider_status: "VERIFICATION_FAILED", last_verified_at: null, last_error_code: text(error?.code || "E_INVOICE_PROVIDER_VERIFICATION_FAILED", 200), last_error_message: text(error?.message || error, 1000), updated_at: now() }).eq("organization_id", orgId).eq("id", profile.id);
+        return NextResponse.json({ success: false, error: error?.message || "e-Tax provider verification failed", code: error?.code || "E_INVOICE_PROVIDER_VERIFICATION_FAILED", status: await snapshot(orgId) }, { status: 409 });
+      }
     }
 
     return NextResponse.json({ success: false, error: "Unsupported Finance provider activation action" }, { status: 400 });

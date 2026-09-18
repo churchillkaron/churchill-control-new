@@ -39,6 +39,7 @@ export default function FinanceProviderActivationForm({
     uploadPath: "",
     statusPath: "",
     authPath: "",
+    healthPath: "",
     apiKey: "",
     accessToken: "",
     username: "",
@@ -199,6 +200,9 @@ export default function FinanceProviderActivationForm({
       {expanded ? <div className="grid gap-2 rounded-lg bg-[#F8F6F2] p-2 sm:grid-cols-2">
         <label className="text-[8px] font-medium text-[#716B63]">Auth path
           <input value={etax.authPath} onChange={(e) => setEtax((f) => ({ ...f, authPath: e.target.value }))} placeholder="/oauth/token" className="mt-1 h-8 w-full rounded-lg border border-black/[0.08] px-2 text-[8px]"/>
+        </label>
+        <label className="text-[8px] font-medium text-[#716B63]">Read-only health path
+          <input value={etax.healthPath} onChange={(e) => setEtax((f) => ({ ...f, healthPath: e.target.value }))} placeholder="/health or /api/status" className="mt-1 h-8 w-full rounded-lg border border-black/[0.08] px-2 text-[8px]"/>
         </label>
         <label className="text-[8px] font-medium text-[#716B63]">Server key
           <input type="password" autoComplete="new-password" value={etax.serverKey} onChange={(e) => setEtax((f) => ({ ...f, serverKey: e.target.value }))} placeholder="Stored in Vault" className="mt-1 h-8 w-full rounded-lg border border-black/[0.08] px-2 text-[8px]"/>

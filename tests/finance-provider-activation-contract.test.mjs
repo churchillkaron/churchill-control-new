@@ -28,7 +28,9 @@ test("raw Finance provider secrets stay in Vault and cannot be smuggled into met
   assert.match(migration, /secret_reference/);
   assert.match(migration, /FINANCE_PROVIDER_SECRET_METADATA_FORBIDDEN/);
   assert.match(migration, /api_key.*access_token.*password.*secret.*server_key.*private_key.*client_secret/s);
-  assert.doesNotMatch(route, /select\([^)]*secret_reference/);
+  assert.match(route, /resolveProviderCredentialSecret/);
+  assert.match(route, /secret_reference: credential\.secret_reference/);
+  assert.doesNotMatch(route, /NextResponse\.json\([^)]*secret_reference/s);
   assert.doesNotMatch(route, /credential:\s*\{[^}]*api_key/s);
 });
 
@@ -83,4 +85,50 @@ test("portal mailbox blocker hands off to the existing Administration email conn
   assert.match(portal, /administration\/integrations\/email-connect/);
   assert.match(portal, /Connect email/);
   assert.match(route, /setup_path: `\/workspace\/\$\{organizationId\}\/administration\/integrations\/email-connect`/);
+});
+
+const bankProvider = read("lib/finance/banking/providers/BrankasStatementProvider.js");
+const bankRoute = read("app/api/finance/banking-integrations/route.js");
+
+test("Brankas verification is read-only and never imports a statement", () => {
+  assert.match(bankProvider, /async verifyCredential/);
+  assert.match(bankProvider, /path: "\/v1\/statements", method: "GET"/);
+  assert.match(bankProvider, /provider_status: "VERIFIED"/);
+  const block = bankProvider.slice(bankProvider.indexOf("async verifyCredential"), bankProvider.indexOf("async fetchStatement"));
+  assert.doesNotMatch(block, /create_finance_bank_statement_import|settleBankFeedStatement|POST/);
+});
+
+test("e-Tax verification uses only auth handshake or configured read-only health endpoint", () => {
+  assert.match(provider, /async verifyCredential/);
+  assert.match(provider, /verification_mode: "HEALTH_ENDPOINT"/);
+  assert.match(provider, /verification_mode: "AUTH_HANDSHAKE"/);
+  assert.match(provider, /NO_NON_MUTATING_PROVIDER_CHECK/);
+  const block = provider.slice(provider.indexOf("async verifyCredential"), provider.indexOf("async submit"));
+  assert.doesNotMatch(block, /xml_base64|document_number|submit\(/);
+});
+
+test("verification actions resolve existing Vault secret and persist only verification receipts", () => {
+  assert.match(route, /resolveProviderCredentialSecret/);
+  assert.match(route, /action === "verify_bank_feed"/);
+  assert.match(route, /action === "verify_etax"/);
+  assert.match(route, /recordCredentialVerification/);
+  assert.match(route, /verification_status/);
+  assert.match(route, /last_verified_at/);
+  assert.match(route, /VERIFICATION_FAILED/);
+  assert.doesNotMatch(route, /finance_post_journal|create_finance_bank_statement_import|source_xml:/);
+});
+
+test("bank connection payload and UI distinguish configured from verified", () => {
+  assert.match(bankRoute, /provider_verification_status/);
+  assert.match(bankRoute, /provider_last_verified_at/);
+  assert.match(bankPanel, /Provider verification/);
+  assert.match(bankPanel, /Test connection/);
+  assert.match(bankPanel, /No statement was imported/);
+});
+
+test("e-Tax UI shows verification status and explicit non-mutating provider test", () => {
+  assert.match(etaxPanel, /Provider connection/);
+  assert.match(etaxPanel, /Test provider/);
+  assert.match(etaxPanel, /verify_etax/);
+  assert.match(form, /Read-only health path/);
 });

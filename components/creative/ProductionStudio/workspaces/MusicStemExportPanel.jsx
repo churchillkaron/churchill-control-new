@@ -8,7 +8,11 @@ import {
   renderMusicTrackEvidenceOffline,
   renderMusicTrackStemOffline,
   renderMusicVariantMixOffline,
+  buildProfessionalAudioStemSession,
+  renderProfessionalAudioStemOffline,
 } from "@/lib/creative/music/client/MusicOfflineStemRenderRuntime";
+import { renderMusicSurroundPremasterOffline } from "@/lib/creative/music/client/MusicOfflineSurroundRenderRuntime";
+import { buildProfessionalAudioDeliveryManifest } from "@/lib/creative/music/runtime/CreativeProfessionalAudioEngineRuntime";
 
 function safeFile(value) {
   return String(value || "music-stem")
@@ -36,6 +40,7 @@ export default function MusicStemExportPanel({
   const [lastExport, setLastExport] = useState(null);
 
   const revision = Math.max(0, Math.round(Number(session?.revision) || 0));
+  const postManifest = useMemo(() => buildProfessionalAudioDeliveryManifest(session || {}), [session]);
   const stemOptions = useMemo(() => ({ mastering: plan?.master?.mastering || { profile: "streaming" }, release_mp3: false, track_stems: true, group_stems: true }), [plan]);
 
   async function request(payload) {
@@ -63,6 +68,14 @@ export default function MusicStemExportPanel({
         rendered = await renderMusicTrackEvidenceOffline({ session, assetUrls, trackId: targetId, expectedDurationSeconds: plan?.duration_seconds });
       } else if (kind === "GROUP_STEM") {
         rendered = await renderMusicGroupStemOffline({ session, assetUrls, groupId: targetId, expectedDurationSeconds: plan?.duration_seconds });
+      } else if (kind === "POST_STEM") {
+        if (session?.spatial_audio?.surround_enabled === true) {
+          const postSession = buildProfessionalAudioStemSession(session, targetId);
+          rendered = await renderMusicSurroundPremasterOffline({ session: postSession, assetUrls, expectedDurationSeconds: plan?.duration_seconds });
+          rendered = { ...rendered, contract: "AVANTIQO_PROFESSIONAL_AUDIO_SURROUND_STEM_RENDER_V1", render_kind: "POST_STEM", post_stem_id: targetId };
+        } else {
+          rendered = await renderProfessionalAudioStemOffline({ session, assetUrls, stemId: targetId, expectedDurationSeconds: plan?.duration_seconds });
+        }
       } else {
         rendered = await renderMusicVariantMixOffline({ session, assetUrls, variant: kind === "ACAPELLA" ? "acapella" : "instrumental", expectedDurationSeconds: plan?.duration_seconds });
       }
@@ -131,6 +144,8 @@ export default function MusicStemExportPanel({
         <select disabled={disabled || Boolean(busy) || !groups.length} value={groups.some((group) => group.id === groupId) ? groupId : groups[0]?.id || ""} onChange={(event) => setGroupId(event.target.value)} className="min-w-0 rounded-lg border border-white/7 bg-[#0a0a0a] px-2 py-2 text-[8px] text-white/45 disabled:opacity-25">{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select>
         <button type="button" disabled={disabled || Boolean(busy) || !groups.length} onClick={() => { const id = groups.some((group) => group.id === groupId) ? groupId : groups[0]?.id; const group = groups.find((entry) => entry.id === id); void exportStem("GROUP_STEM", id, `${group?.name || "Group"} Stem`); }} className="rounded-lg border border-white/8 px-3 py-2 text-[8px] text-white/42 disabled:opacity-25">Group stem</button>
       </div>
+
+      <div className="mt-3 rounded-lg border border-[#d6a66a]/10 bg-[#d6a66a]/[0.02] p-2"><div className="mb-2 text-[7px] uppercase tracking-[0.14em] text-[#efd29f]/45">Professional Audio Post stems</div><div className="grid grid-cols-3 gap-1.5">{postManifest.stems.filter(stem=>stem.id!=="FULL_PROGRAM").map(stem=><button key={stem.id} type="button" disabled={disabled || Boolean(busy) || !stem.available} onClick={()=>exportStem("POST_STEM",stem.id,stem.label)} className="rounded-lg border border-white/7 px-2 py-2 text-[7px] text-white/38 disabled:opacity-20">{stem.delivery_code}</button>)}</div><div className="mt-2 text-[7px] leading-3 text-white/18">DX / VO / ADR / MX / FX / Foley / Ambience / M&E use explicit declared track roles. Track names are never guessed. Surround projects export the same discrete session layout.</div></div>
 
       <div className="mt-2 grid grid-cols-2 gap-2">
         <button type="button" disabled={disabled || Boolean(busy) || !tracks.some((track) => track.type !== "vocal")} onClick={() => exportStem("INSTRUMENTAL", "instrumental", "Instrumental")} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/8 px-3 py-2 text-[8px] text-white/42 disabled:opacity-25"><Music2 className="h-3 w-3" /> Instrumental</button>

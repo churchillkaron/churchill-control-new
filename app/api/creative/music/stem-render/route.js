@@ -8,6 +8,7 @@ import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAss
 import * as CreativeProjectRepository from "@/lib/creative/projects/repositories/CreativeProjectRepository";
 import { buildMusicReleaseRenderPlan } from "@/lib/creative/music/runtime/CreativeMusicReleaseRenderPlanRuntime";
 import { musicTrackEvidenceInputFingerprint } from "@/lib/creative/music/runtime/CreativeMusicEvidenceLineageRuntime";
+import { professionalAudioStemDefinition, tracksForProfessionalAudioStem } from "@/lib/creative/music/runtime/CreativeProfessionalAudioEngineRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
@@ -15,7 +16,7 @@ const EXECUTION_PERMISSIONS = Object.freeze(["creative.execute", "creative.produ
 const MUSIC_BUCKET = "creative-assets";
 const MULTITRACK_METADATA_KEY = "music_multitrack_project";
 const MAX_STEM_BYTES = 2_147_483_648;
-const KINDS = new Set(["TRACK_STEM", "TRACK_EVIDENCE", "GROUP_STEM", "INSTRUMENTAL", "ACAPELLA"]);
+const KINDS = new Set(["TRACK_STEM", "TRACK_EVIDENCE", "GROUP_STEM", "INSTRUMENTAL", "ACAPELLA", "POST_STEM"]);
 
 function text(value) { return String(value ?? "").trim(); }
 function finite(value, fallback = null) { const number = Number(value); return Number.isFinite(number) ? number : fallback; }
@@ -95,6 +96,17 @@ function expectedStem(plan, kindInput, targetIdInput) {
       evidence_input_fingerprint: kind === "TRACK_EVIDENCE" ? musicTrackEvidenceInputFingerprint(track) : null,
       master_processing_applied: false,
       aux_returns_applied: false,
+    };
+  }
+  if (kind === "POST_STEM") {
+    const definition = professionalAudioStemDefinition(targetId);
+    const tracks = tracksForProfessionalAudioStem(plan.tracks, definition.id);
+    if (!tracks.length) throw new Error(`CREATIVE_PRO_AUDIO_STEM_EMPTY:${definition.id}`);
+    return {
+      kind, target_id: definition.id, label: definition.label, delivery_code: definition.delivery_code, audio_roles: definition.roles,
+      source_asset_ids: sortedUnique(tracks.flatMap((track) => track.clips.map((clip) => clip.source_asset_id))),
+      stage: "post-master-processing-pre-release-limiter", master_processing_applied: true, aux_returns_applied: true,
+      channels: plan.channels, channel_layout: plan.channel_layout, speaker_order: plan.speaker_order, professional_audio_engine: true,
     };
   }
   if (kind === "GROUP_STEM") {
@@ -178,11 +190,12 @@ async function registerStem(body) {
   const sampleRate = finite(body.sample_rate, null);
   const channels = finite(body.channels, null);
   const duration = finite(body.render_duration_seconds, null);
-  if (Math.round(sampleRate) !== Math.round(plan.sample_rate) || Math.round(channels) !== 2 || !Number.isFinite(duration) || duration <= 0) throw new Error("CREATIVE_MUSIC_STEM_FORMAT_INVALID");
+  const expectedChannels = stem.kind === "POST_STEM" ? Math.round(stem.channels || plan.channels || 2) : 2;
+  if (Math.round(sampleRate) !== Math.round(plan.sample_rate) || Math.round(channels) !== expectedChannels || !Number.isFinite(duration) || duration <= 0) throw new Error("CREATIVE_MUSIC_STEM_FORMAT_INVALID");
   const levels = body.levels || {};
   if (!Number.isFinite(finite(levels.peak_dbfs, null)) || !Number.isFinite(finite(levels.rms_dbfs, null))) throw new Error("CREATIVE_MUSIC_STEM_LEVEL_EVIDENCE_REQUIRED");
   const fileName = safeWavName(body.file_name);
-  const assetKind = stem.kind === "TRACK_EVIDENCE" ? "TRACK_EVIDENCE_RENDER" : stem.kind === "TRACK_STEM" ? "TRACK_STEM_RENDER" : stem.kind === "GROUP_STEM" ? "GROUP_STEM_RENDER" : stem.kind;
+  const assetKind = stem.kind === "TRACK_EVIDENCE" ? "TRACK_EVIDENCE_RENDER" : stem.kind === "TRACK_STEM" ? "TRACK_STEM_RENDER" : stem.kind === "GROUP_STEM" ? "GROUP_STEM_RENDER" : stem.kind === "POST_STEM" ? "PROFESSIONAL_AUDIO_STEM" : stem.kind;
   const asset = await CreativeAssetsRuntime.create({
     organization_id: organizationId,
     creative_project_id: projectId,
@@ -212,6 +225,11 @@ async function registerStem(body) {
       source_assets_preserved: true,
       sample_rate: sampleRate,
       channels,
+      channel_layout: stem.channel_layout || (channels === 2 ? "stereo" : plan.channel_layout),
+      speaker_order: stem.speaker_order || null,
+      professional_audio_delivery_code: stem.delivery_code || null,
+      professional_audio_roles: stem.audio_roles || null,
+      professional_audio_engine: stem.professional_audio_engine === true,
       bit_depth: 24,
       render_duration_seconds: duration,
       peak_dbfs: levels.peak_dbfs,

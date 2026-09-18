@@ -8,7 +8,7 @@ function sine({amp=.2,dc=0,frames=48000,freq=440,rate=48000}={}){const a=new Flo
 test("capture QC measures headroom crest DC floor and channel balance without mutating audio",()=>{
   const left=sine({amp:.2}),right=sine({amp:.2});
   const qc=analyzeMusicCaptureQc([left,right],48000);
-  assert.equal(qc.contract,"AVANTIQO_MUSIC_CAPTURE_QC_V5");
+  assert.equal(qc.contract,"AVANTIQO_MUSIC_CAPTURE_QC_V6");
   assert.equal(qc.measured,true);
   assert.equal(qc.automatic_capture_repair_allowed,false);
   assert.equal(qc.immutable_original_take,true);
@@ -108,4 +108,31 @@ test("capture continuity is verified when sequence/frame ledger is complete",()=
   const signal=sine({amp:.2});
   const qc=analyzeMusicCaptureQc([signal],48000,{chunk_gap_count:0,frame_discontinuity_count:0,expected_frame_count:signal.length});
   assert.equal(qc.capture_continuity_verified,true);
+});
+
+
+test("capture QC measures healthy stereo phase and mono compatibility",()=>{
+  const left=sine({amp:.2}),right=sine({amp:.2});
+  const qc=analyzeMusicCaptureQc([left,right],48000);
+  assert.equal(qc.stereo_phase_measured,true);
+  assert.ok(qc.stereo_correlation>.99);
+  assert.ok(Math.abs(qc.mono_fold_down_loss_db)<.01);
+  assert.equal(qc.stereo_phase_risk,false);
+  assert.equal(qc.mono_collapse_risk,false);
+  assert.ok(!qc.warnings.includes("STEREO_PHASE_RISK"));
+  assert.ok(!qc.warnings.includes("MONO_COLLAPSE_RISK"));
+});
+
+test("capture QC warns on destructive opposite-polarity stereo without mutating audio",()=>{
+  const left=sine({amp:.2}),right=new Float32Array(left.length);
+  for(let i=0;i<left.length;i+=1)right[i]=-left[i];
+  const qc=analyzeMusicCaptureQc([left,right],48000);
+  assert.equal(qc.status,"REVIEW");
+  assert.ok(qc.stereo_correlation<-.99);
+  assert.ok(qc.mono_fold_down_loss_db<-100);
+  assert.equal(qc.stereo_phase_risk,true);
+  assert.equal(qc.mono_collapse_risk,true);
+  assert.ok(qc.warnings.includes("STEREO_PHASE_RISK"));
+  assert.ok(qc.warnings.includes("MONO_COLLAPSE_RISK"));
+  assert.equal(qc.automatic_capture_repair_allowed,false);
 });

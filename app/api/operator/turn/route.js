@@ -4,7 +4,7 @@ export const maxDuration = 300;
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
-import { buildBusinessDiagnosisAuditProjection } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
+import { buildBusinessDiagnosisAuditProjection, businessDiagnosisAuditProjectionFingerprint } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
 import {
   resolveBusinessContext,
 } from "@/lib/business-context/resolveBusinessContext";
@@ -105,13 +105,16 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
     current_period_start_date: diagnosis?.periods?.current_start_date,
     current_period_end_date: diagnosis?.periods?.current_end_date,
   });
+  const expectedProjectionFingerprint = businessDiagnosisAuditProjectionFingerprint(projection);
+  const suppliedProjectionFingerprint = text(diagnosis.audit_projection_fingerprint) || null;
+  if (!suppliedProjectionFingerprint || suppliedProjectionFingerprint !== expectedProjectionFingerprint) return {};
   return {
     business_diagnosis: {
       contract: text(diagnosis.contract) || null,
       class: projection.diagnosis_class,
       business_timezone: projection.business_timezone,
       receipt_fingerprint: projection.receipt_fingerprint,
-      audit_projection_fingerprint: text(diagnosis.audit_projection_fingerprint) || null,
+      audit_projection_fingerprint: suppliedProjectionFingerprint,
       final_evidence_state: projection.final_evidence_state,
       residual_material: projection.residual_material,
       answer_boundary_status: projection.answer_boundary_status,

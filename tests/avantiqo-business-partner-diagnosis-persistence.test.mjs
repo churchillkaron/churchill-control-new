@@ -47,3 +47,11 @@ test("legacy persisted diagnosis without checksum is explicitly marked unavailab
   const runtime=fs.readFileSync("lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime.js","utf8");
   assert.match(runtime,/if\(!fingerprint\) return \{status:"NOT_AVAILABLE",verified:false\}/);
 });
+
+
+test("operator rejects malformed diagnosis proof before persistence",()=>{
+  assert.match(route,/businessDiagnosisAuditProjectionFingerprint\(projection\)/);
+  assert.match(route,/suppliedProjectionFingerprint/);
+  assert.match(route,/suppliedProjectionFingerprint !== expectedProjectionFingerprint/);
+  assert.match(route,/return \{\}/);
+});

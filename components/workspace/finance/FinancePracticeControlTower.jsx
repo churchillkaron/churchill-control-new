@@ -144,6 +144,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
   const [clientFilter, setClientFilter] = useState(() => initialView === "clients" ? "ALL" : "ATTENTION");
   const [clientSearch, setClientSearch] = useState("");
   const [selectedEngagementId, setSelectedEngagementId] = useState(null);
+  const [selectedEngagementTab, setSelectedEngagementTab] = useState("work");
   const [workPrograms, setWorkPrograms] = useState(null);
   const [workLoading, setWorkLoading] = useState(false);
   const [workError, setWorkError] = useState("");
@@ -337,6 +338,12 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
     setActiveView("clients");
   }
 
+  function openEngagement(engagementId, tab = "work") {
+    if (!engagementId) return;
+    setSelectedEngagementTab(tab);
+    setSelectedEngagementId(engagementId);
+  }
+
   if (practice.loading && !practice.data) {
     return <section className="rounded-[24px] border border-[#A37849]/15 bg-[#FBF8F3] p-5"><LoadingRow text="Preparing accounting practice workspace…" /></section>;
   }
@@ -356,7 +363,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
           <button type="button" onClick={() => setSelectedEngagementId(null)} className="inline-flex items-center gap-2 text-[10px] font-semibold text-[#76583A] hover:text-[#4E3822]">← Back to practice</button>
           <div className="text-[9px] text-[#99938A]">Client file · work · evidence · review</div>
         </div>
-        <FinanceEngagementFile organizationId={organizationId} engagementId={selectedEngagementId} onClose={() => setSelectedEngagementId(null)} />
+        <FinanceEngagementFile organizationId={organizationId} engagementId={selectedEngagementId} initialTab={selectedEngagementTab} onClose={() => setSelectedEngagementId(null)} onStaffingSaved={async () => { await Promise.all([loadPractice(), loadRecurring(true), loadCapacity(true)]); }} />
       </section>
     );
   }
@@ -400,7 +407,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
                 <div><div className="text-[10px] font-semibold text-[#403C37]">Priority clients</div><div className="mt-0.5 text-[9px] text-[#918B83]">Sorted by risk and next deadline. Open a client without losing your place.</div></div>
                 <button type="button" onClick={() => openFilteredClients("ALL")} className="text-[9px] font-semibold text-[#8A633C]">All clients</button>
               </div>
-              <ClientTable clients={focusClients} onOpen={setSelectedEngagementId} />
+              <ClientTable clients={focusClients} onOpen={(engagementId) => openEngagement(engagementId, "work")} />
             </div>
 
             <div className="rounded-2xl border border-black/[0.07] bg-white p-4">
@@ -437,7 +444,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
             </div>
           </div>
           <div className="text-[9px] text-[#918B83]">{filteredClients.length} client{filteredClients.length === 1 ? "" : "s"} in this view</div>
-          <ClientTable clients={filteredClients} onOpen={setSelectedEngagementId} />
+          <ClientTable clients={filteredClients} onOpen={(engagementId) => openEngagement(engagementId, "work")} />
         </div>
       ) : null}
 
@@ -467,7 +474,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
                     <div className="min-w-0"><div className="truncate font-medium text-[#37342F]">{item.title}</div><div className="mt-0.5 truncate text-[8px] text-[#99938A]">{item.assigned_accountant || "Unassigned preparer"}</div></div>
                     <div className="text-[#716B63]">{label(item.required_role)}</div>
                     <div><span className={`inline-flex rounded-full border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] ${statusTone(item.status)}`}>{label(item.status)}</span></div>
-                    <button type="button" onClick={() => setSelectedEngagementId(item.engagement_id)} className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-[#A37849]/20 bg-[#A37849]/[0.04] px-2 text-[7px] font-semibold uppercase tracking-[0.06em] text-[#76583A]"><FolderOpen size={9} /> Open</button>
+                    <button type="button" onClick={() => openEngagement(item.engagement_id, "work")} className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-[#A37849]/20 bg-[#A37849]/[0.04] px-2 text-[7px] font-semibold uppercase tracking-[0.06em] text-[#76583A]"><FolderOpen size={9} /> Open</button>
                   </div>
                 ))}
               </div>
@@ -529,10 +536,11 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
           {materializeNotice ? <div className={`mb-3 flex items-start gap-2 rounded-xl border p-3 text-[9px] ${materializeNotice.tone === "error" ? "border-red-700/15 bg-red-50 text-red-800" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>{materializeNotice.tone === "error" ? <AlertTriangle size={12} className="mt-0.5" /> : <CheckCircle2 size={12} className="mt-0.5" />}{materializeNotice.text}</div> : null}
           {recurringLoading && !recurring ? <LoadingRow text="Planning recurring accounting cycles…" /> : recurring ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
                 <SummaryButton label="Scheduled" value={recurring.summary?.total || 0} detail="90-day candidates" />
                 <SummaryButton label="Ready" value={recurring.summary?.ready_to_create || 0} detail="Safe to create" />
                 <SummaryButton label="Onboarding" value={recurring.summary?.blocked_onboarding || 0} detail="Authority setup incomplete" attention />
+                <SummaryButton label="Staffing" value={recurring.summary?.blocked_staff_assignment || 0} detail="Role or segregation issue" attention />
                 <SummaryButton label="Entity setup" value={recurring.summary?.blocked_entity_configuration || 0} detail="Legal entity missing" attention />
                 <SummaryButton label="Period setup" value={recurring.summary?.blocked_period_configuration || 0} detail="Financial period missing" attention />
                 <SummaryButton label="Existing" value={recurring.summary?.already_exists || 0} detail="Duplicate protected" />
@@ -552,7 +560,22 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
               </div>
 
               {(recurring.candidates || []).filter((candidate) => !["READY_TO_CREATE", "ALREADY_EXISTS"].includes(candidate.status)).length ? (
-                <div className="rounded-2xl border border-amber-700/10 bg-[#FFF9EF] p-4"><div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">Configuration blockers</div><div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">{(recurring.candidates || []).filter((candidate) => !["READY_TO_CREATE", "ALREADY_EXISTS"].includes(candidate.status)).slice(0, 12).map((candidate) => { const creatingPeriod = materializingKey === candidate.idempotency_key && candidate.status === "BLOCKED_PERIOD_CONFIGURATION"; return <div key={candidate.idempotency_key} className="rounded-xl border border-black/[0.06] bg-white p-3"><div className="flex items-start justify-between gap-2"><div className="truncate text-[9px] font-semibold text-[#403C37]">{candidate.client_name || "Client"}</div><span className={`rounded-full border px-1.5 py-0.5 text-[6px] font-semibold uppercase ${statusTone(candidate.status)}`}>{label(candidate.status)}</span></div>{candidate.blockers?.[0] ? <div className="mt-2 text-[8px] leading-4 text-[#7D6A50]">{candidate.blockers[0]}</div> : null}{candidate.status === "BLOCKED_PERIOD_CONFIGURATION" ? <button type="button" onClick={() => createClientPeriod(candidate)} disabled={Boolean(materializingKey)} className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-lg border border-[#A37849]/20 bg-[#FBF7F1] px-2.5 text-[7px] font-semibold text-[#76583A] disabled:opacity-40">{creatingPeriod ? <LoaderCircle size={9} className="animate-spin" /> : <CalendarClock size={9} />}{creatingPeriod ? "Creating…" : "Create client period"}</button> : null}</div>; })}</div></div>
+                <div className="rounded-2xl border border-amber-700/10 bg-[#FFF9EF] p-4">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">Configuration blockers</div>
+                  <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {(recurring.candidates || []).filter((candidate) => !["READY_TO_CREATE", "ALREADY_EXISTS"].includes(candidate.status)).slice(0, 12).map((candidate) => {
+                      const creatingPeriod = materializingKey === candidate.idempotency_key && candidate.status === "BLOCKED_PERIOD_CONFIGURATION";
+                      return (
+                        <div key={candidate.idempotency_key} className="rounded-xl border border-black/[0.06] bg-white p-3">
+                          <div className="flex items-start justify-between gap-2"><div className="truncate text-[9px] font-semibold text-[#403C37]">{candidate.client_name || "Client"}</div><span className={`rounded-full border px-1.5 py-0.5 text-[6px] font-semibold uppercase ${statusTone(candidate.status)}`}>{label(candidate.status)}</span></div>
+                          {candidate.blockers?.[0] ? <div className="mt-2 text-[8px] leading-4 text-[#7D6A50]">{candidate.blockers[0]}</div> : null}
+                          {candidate.status === "BLOCKED_PERIOD_CONFIGURATION" ? <button type="button" onClick={() => createClientPeriod(candidate)} disabled={Boolean(materializingKey)} className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-lg border border-[#A37849]/20 bg-[#FBF7F1] px-2.5 text-[7px] font-semibold text-[#76583A] disabled:opacity-40">{creatingPeriod ? <LoaderCircle size={9} className="animate-spin" /> : <CalendarClock size={9} />}{creatingPeriod ? "Creating…" : "Create client period"}</button> : null}
+                          {candidate.status === "BLOCKED_STAFF_ASSIGNMENT" ? <button type="button" onClick={() => openEngagement(candidate.engagement_id, "review")} className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-lg border border-[#A37849]/20 bg-[#FBF7F1] px-2.5 text-[7px] font-semibold text-[#76583A]"><Users size={9} /> Fix staffing</button> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               ) : null}
             </div>
           ) : <EmptyState title="No recurring cycle plan" detail="Recurring accounting work appears here when active engagements and templates require a new cycle." />}

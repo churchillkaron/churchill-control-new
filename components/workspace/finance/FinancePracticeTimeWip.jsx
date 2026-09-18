@@ -18,7 +18,7 @@ function Metric({ label, value, detail, attention = false }) {
   return <div className="rounded-xl border border-black/[0.07] bg-white px-3.5 py-3"><div className="text-[8px] font-medium uppercase tracking-[0.13em] text-[#8C877F]">{label}</div><div className={`mt-1.5 text-[19px] font-semibold tracking-[-0.03em] ${attention ? "text-[#9A533D]" : "text-[#2A2723]"}`}>{value}</div><div className="mt-0.5 text-[8px] text-[#99938A]">{detail}</div></div>;
 }
 
-export default function FinancePracticeTimeWip({ organizationId }) {
+export default function FinancePracticeTimeWip({ organizationId, initialEngagementId = "" }) {
   const [state, setState] = useState({ loading: true, error: "", data: null });
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
@@ -41,6 +41,11 @@ export default function FinancePracticeTimeWip({ organizationId }) {
   }
 
   useEffect(() => { load(); }, [organizationId]);
+
+  useEffect(() => {
+    if (!initialEngagementId || !(state.data?.engagement_context || []).some((row) => row.id === initialEngagementId)) return;
+    setBillingForm((current) => current.engagementId === initialEngagementId ? current : { ...current, engagementId: initialEngagementId });
+  }, [initialEngagementId, state.data]);
 
   const selectedWorkItem = useMemo(() => (state.data?.work_items || []).find((row) => row.id === form.workItemId) || null, [state.data, form.workItemId]);
   const selectedEngagement = useMemo(() => (state.data?.engagement_context || []).find((row) => row.id === billingForm.engagementId) || null, [state.data, billingForm.engagementId]);

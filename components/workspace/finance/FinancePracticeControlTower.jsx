@@ -156,6 +156,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
   const [recurringError, setRecurringError] = useState("");
   const [materializingKey, setMaterializingKey] = useState(null);
   const [materializeNotice, setMaterializeNotice] = useState(null);
+  const [billingFocusEngagementId, setBillingFocusEngagementId] = useState("");
 
   async function loadPractice() {
     if (!organizationId) return;
@@ -410,7 +411,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
             </div>
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
               <label className="flex h-9 w-full items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 xl:w-[300px]"><Search size={12} className="text-[#A29D95]" /><input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} placeholder="Search client or accountant" className="min-w-0 flex-1 bg-transparent text-[10px] text-[#403C37] outline-none placeholder:text-[#B2ADA5]" /></label>
-              <FinancePracticeClientSetup organizationId={organizationId} existingClients={clients} onCreated={async () => { await loadPractice(); setClientFilter("ALL"); }} />
+              <FinancePracticeClientSetup organizationId={organizationId} existingClients={clients} onCreated={async () => { await loadPractice(); setClientFilter("ALL"); setActiveView("onboarding"); }} />
             </div>
           </div>
           <div className="text-[9px] text-[#918B83]">{filteredClients.length} client{filteredClients.length === 1 ? "" : "s"} in this view</div>
@@ -419,7 +420,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
       ) : null}
 
       {activeView === "onboarding" ? (
-        <FinancePracticeOnboarding organizationId={organizationId} />
+        <FinancePracticeOnboarding organizationId={organizationId} onOpenBilling={(engagementId) => { setBillingFocusEngagementId(engagementId || ""); setActiveView("economics"); }} />
       ) : null}
 
       {activeView === "portal" ? (
@@ -454,7 +455,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
       ) : null}
 
       {activeView === "economics" ? (
-        <FinancePracticeTimeWip organizationId={organizationId} />
+        <FinancePracticeTimeWip organizationId={organizationId} initialEngagementId={billingFocusEngagementId} />
       ) : null}
 
       {activeView === "capacity" ? (
@@ -506,9 +507,10 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
           {materializeNotice ? <div className={`mb-3 flex items-start gap-2 rounded-xl border p-3 text-[9px] ${materializeNotice.tone === "error" ? "border-red-700/15 bg-red-50 text-red-800" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>{materializeNotice.tone === "error" ? <AlertTriangle size={12} className="mt-0.5" /> : <CheckCircle2 size={12} className="mt-0.5" />}{materializeNotice.text}</div> : null}
           {recurringLoading && !recurring ? <LoadingRow text="Planning recurring accounting cycles…" /> : recurring ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
                 <SummaryButton label="Scheduled" value={recurring.summary?.total || 0} detail="90-day candidates" />
                 <SummaryButton label="Ready" value={recurring.summary?.ready_to_create || 0} detail="Safe to create" />
+                <SummaryButton label="Onboarding" value={recurring.summary?.blocked_onboarding || 0} detail="Authority setup incomplete" attention />
                 <SummaryButton label="Entity setup" value={recurring.summary?.blocked_entity_configuration || 0} detail="Legal entity missing" attention />
                 <SummaryButton label="Period setup" value={recurring.summary?.blocked_period_configuration || 0} detail="Financial period missing" attention />
                 <SummaryButton label="Existing" value={recurring.summary?.already_exists || 0} detail="Duplicate protected" />

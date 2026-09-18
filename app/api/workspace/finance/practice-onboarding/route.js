@@ -9,6 +9,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { loadCompletePracticeRows, loadCompletePracticeRowsByIds } from "@/lib/finance/practice/FinancePracticePopulation";
+import { evaluatePracticeEngagementReadiness } from "@/lib/finance/practice/FinancePracticeOnboardingReadiness";
 
 const MANAGE_PERMISSIONS = ["finance.accounting.manage", "finance.configuration.manage"];
 function clean(value) { return String(value ?? "").trim(); }
@@ -22,17 +23,6 @@ async function requireManage(access) {
     catch (error) { lastError = error; }
   }
   throw lastError || new Error("Finance onboarding permission denied");
-}
-
-function readiness({ engagement, link, document, signatures, billingProfile }) {
-  if (!engagement.entity_id) return { state: "NEEDS_ENTITY", next_action: "Set the client legal entity before accounting work starts." };
-  if (!link || !document) return { state: "NEEDS_ENGAGEMENT_LETTER", next_action: "Link the approved engagement letter or contract." };
-  if (!document.approved_at && !["approved", "active"].includes(clean(document.document_status).toLowerCase())) return { state: "NEEDS_DOCUMENT_APPROVAL", next_action: "Approve the current engagement document version." };
-  if (!signatures.length) return { state: "NEEDS_SIGNATURE_REQUEST", next_action: "Choose the real signer and request signature." };
-  if (signatures.some((row) => row.status === "DECLINED")) return { state: "SIGNATURE_DECLINED", next_action: "Resolve the declined engagement signature before starting recurring work." };
-  if (!signatures.some((row) => row.status === "SIGNED")) return { state: "AWAITING_SIGNATURE", next_action: "Wait for the engagement signature or follow up deliberately." };
-  if (!billingProfile) return { state: "NEEDS_BILLING_POLICY", next_action: "Set the engagement billing method and commercial terms." };
-  return { state: "READY", next_action: "Engagement setup is complete. Recurring accounting work can proceed." };
 }
 
 export async function GET(request) {
@@ -55,11 +45,23 @@ export async function GET(request) {
     const engagementIds = engagements.map((row) => row.id);
     const clientIds = [...new Set(engagements.map((row) => row.organization_id).filter(Boolean))];
 
-    const [organizations, links, documents, billingProfiles] = await Promise.all([
+    const [organizations, clientEntities, links, documents, billingProfiles] = await Promise.all([
       clientIds.length ? loadCompletePracticeRowsByIds({
         ids: clientIds,
         label: "Accounting practice onboarding client organizations",
         buildQuery: (batch, from, to) => supabaseAdmin.from("organizations").select("id,name").in("id", batch).order("id", { ascending: true }).range(from, to),
+      }) : Promise.resolve([]),
+      clientIds.length ? loadCompletePracticeRowsByIds({
+        ids: clientIds,
+        label: "Accounting practice onboarding client legal entities",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("legal_entities")
+          .select("id,organization_id,code,legal_name,display_name,country,currency,is_active,is_default_accounting_entity")
+          .in("organization_id", batch)
+          .eq("is_active", true)
+          .order("is_default_accounting_entity", { ascending: false })
+          .order("legal_name", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
       }) : Promise.resolve([]),
       engagementIds.length ? loadCompletePracticeRowsByIds({
         ids: engagementIds,
@@ -108,6 +110,12 @@ export async function GET(request) {
     }) : [];
 
     const orgMap = new Map(organizations.map((row) => [row.id, row]));
+    const entitiesByOrganization = new Map();
+    for (const entity of clientEntities) {
+      const rows = entitiesByOrganization.get(entity.organization_id) || [];
+      rows.push(entity);
+      entitiesByOrganization.set(entity.organization_id, rows);
+    }
     const linkMap = new Map();
     for (const link of links) if (!linkMap.has(link.reference_id)) linkMap.set(link.reference_id, link);
     const documentMap = new Map(documents.map((row) => [row.id, row]));
@@ -123,10 +131,11 @@ export async function GET(request) {
       return {
         ...engagement,
         client_name: orgMap.get(engagement.organization_id)?.name || "Client organization",
+        legal_entities: entitiesByOrganization.get(engagement.organization_id) || [],
         engagement_document: document,
         signatures: signatureRows,
         billing_profile: billingProfile,
-        readiness: readiness({ engagement, link, document, signatures: signatureRows, billingProfile }),
+        readiness: evaluatePracticeEngagementReadiness({ engagement, link, document, signatures: signatureRows, billingProfile }),
       };
     });
     const approvedDocuments = documents.filter((document) => document.approved_at || ["approved", "active"].includes(clean(document.document_status).toLowerCase()));
@@ -149,7 +158,30 @@ export async function POST(request) {
     if (!engagement) return jsonError("Accounting engagement not found", 404);
     const action = clean(body.action).toLowerCase();
 
+    if (action === "set_entity") {
+      const entityId = clean(body.entityId || body.entity_id);
+      if (!entityId) return jsonError("Client legal entity is required", 400);
+      const { data: entity, error: entityError } = await supabaseAdmin.from("legal_entities")
+        .select("id,organization_id,is_active")
+        .eq("id", entityId)
+        .eq("organization_id", engagement.organization_id)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (entityError) throw entityError;
+      if (!entity) return jsonError("Selected legal entity is not active in this client organization", 409);
+      const { data: updated, error: updateError } = await supabaseAdmin.from("accounting_engagements")
+        .update({ entity_id: entity.id, updated_at: new Date().toISOString() })
+        .eq("id", engagement.id)
+        .eq("accounting_firm_id", access.organizationId)
+        .eq("organization_id", engagement.organization_id)
+        .select("id,organization_id,entity_id")
+        .single();
+      if (updateError) throw updateError;
+      return NextResponse.json({ success: true, engagement: updated });
+    }
+
     if (action === "link_engagement_document") {
+      if (!engagement.entity_id) return jsonError("Set the client legal entity before linking the engagement document", 409);
       const documentId = clean(body.documentId || body.document_id);
       if (!documentId) return jsonError("Controlled engagement document is required", 400);
       const link = await linkControlledDocument({ organizationId: access.organizationId, documentId, entityId: engagement.entity_id || null, actor: access, referenceType: "ACCOUNTING_ENGAGEMENT", referenceId: engagement.id, relationType: "CONTRACT" });
@@ -157,6 +189,7 @@ export async function POST(request) {
     }
 
     if (action === "request_signature") {
+      if (!engagement.entity_id) return jsonError("Set the client legal entity before requesting signature", 409);
       const { data: link, error: linkError } = await supabaseAdmin.from("enterprise_document_links").select("enterprise_document_id").eq("organization_id", access.organizationId).eq("reference_type", "ACCOUNTING_ENGAGEMENT").eq("reference_id", engagement.id).eq("relation_type", "CONTRACT").order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (linkError) throw linkError;
       if (!link) return jsonError("Link the engagement document before requesting signature", 409);

@@ -51,9 +51,9 @@ test("portal staffing functions are invoker-safe and service-role isolated", () 
   assert.match(migration, /to service_role/);
 });
 
-test("all run creation APIs expose portal-access failures as configuration conflicts", () => {
-  for (const route of [recurringRoute, manualRoute, rollForwardRoute]) {
-    assert.match(route, /PORTAL_ACCESS_REQUIRED/);
-    assert.match(route, /409/);
-  }
+test("canonical run creation exposes portal-access failures and shadow creators stay retired", () => {
+  assert.match(recurringRoute, /PORTAL_ACCESS_REQUIRED/);
+  assert.match(recurringRoute, /409/);
+  assert.match(manualRoute, /DIRECT_WORK_PROGRAM_CREATION_RETIRED/);
+  assert.match(rollForwardRoute, /DIRECT_WORK_PROGRAM_ROLL_FORWARD_RETIRED/);
 });

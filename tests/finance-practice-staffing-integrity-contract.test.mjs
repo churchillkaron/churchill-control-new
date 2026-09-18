@@ -40,13 +40,21 @@ test("staffing changes synchronize only unfinished unsigned role-owned work", ()
   assert.match(migration, /historical_or_signed_work_items_preserved/);
 });
 
-test("manual roll-forward and recurring routes expose database staffing failures as conflicts", () => {
-  for (const route of [recurringRoute, workProgramsRoute, rollForwardRoute]) {
-    assert.match(route, /ASSIGNMENT_REQUIRED/);
-    assert.match(route, /SEGREGATION_REQUIRED/);
-    assert.match(route, /NOT_ACTIVE_FIRM_MEMBER/);
-    assert.match(route, /409/);
-  }
+test("recurring materialization exposes database staffing failures as configuration conflicts", () => {
+  assert.match(recurringRoute, /ASSIGNMENT_REQUIRED/);
+  assert.match(recurringRoute, /SEGREGATION_REQUIRED/);
+  assert.match(recurringRoute, /NOT_ACTIVE_FIRM_MEMBER/);
+  assert.match(recurringRoute, /409/);
+});
+
+test("shadow manual and roll-forward mutation authorities are retired", () => {
+  assert.match(workProgramsRoute, /DIRECT_WORK_PROGRAM_CREATION_RETIRED/);
+  assert.match(workProgramsRoute, /recurring-materialize/);
+  assert.doesNotMatch(workProgramsRoute, /accounting_engagement_runs"\)\.insert/);
+  assert.match(rollForwardRoute, /DIRECT_WORK_PROGRAM_ROLL_FORWARD_RETIRED/);
+  assert.match(rollForwardRoute, /recurring-plan/);
+  assert.match(rollForwardRoute, /recurring-materialize/);
+  assert.doesNotMatch(rollForwardRoute, /accounting_engagement_runs"\)\.insert/);
 });
 test("staffing UI reports synchronized ownership without claiming history was rewritten", () => {
   assert.match(assignmentUi, /open_work_items_reassigned/);

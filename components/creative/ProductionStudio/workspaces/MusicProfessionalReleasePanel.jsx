@@ -17,6 +17,18 @@ const CUSTOMER_STAGE_LABELS = Object.freeze({
   DAILIES_LISTENING: "Listening review",
   FINAL_TRIBUNAL: "Final review",
 });
+const VOCAL_REVIEW_CRITERIA = Object.freeze([
+  ["pitch_naturalness", "Pitch naturalness"],
+  ["vibrato_preservation", "Vibrato preservation"],
+  ["timbre_and_formant_naturalness", "Timbre / formant naturalness"],
+  ["consonant_and_transient_integrity", "Consonants / transients"],
+  ["artifact_control", "Artifact control"],
+  ["timing_naturalness", "Timing naturalness"],
+  ["emotional_phrasing_preservation", "Emotional phrasing"],
+  ["before_after_improvement", "Before / after improvement"],
+  ["commercial_readiness", "Commercial readiness"],
+]);
+
 function customerStage(value) { return CUSTOMER_STAGE_LABELS[text(value)] || label(value); }
 function customerAction(stageId, hasVocalCandidate = false) {
   if (stageId === "VOCAL_PRODUCTION") return hasVocalCandidate ? "Review corrected vocal" : "Prepare vocal correction";
@@ -35,6 +47,10 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [vocalReviewScores, setVocalReviewScores] = useState({});
+  const [vocalReviewAB, setVocalReviewAB] = useState(false);
+  const [vocalReviewArtifact, setVocalReviewArtifact] = useState(false);
+  const [vocalReviewNotes, setVocalReviewNotes] = useState("");
   const request = useCallback(async (payload) => {
     const response = await fetch("/api/creative/music/professional-release", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const result = await response.json();
@@ -70,7 +86,7 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
     if (!candidateId) return;
     setBusy(true); setError("");
     try {
-      const result = await request({ action: "certify_vocal", organization_id: organizationId, creative_project_id: projectId, source_asset_id: state?.source_asset_id, corrected_vocal_asset_id: candidateId, human_listening_review_approved: true });
+      const result = await request({ action: "certify_vocal", organization_id: organizationId, creative_project_id: projectId, source_asset_id: state?.source_asset_id, corrected_vocal_asset_id: candidateId, human_listening_review_approved: true, human_listening_review: { contract: "AVANTIQO_PROFESSIONAL_VOCAL_LISTENING_REVIEW_V1", source_corrected_comparison_confirmed: vocalReviewAB, material_artifact_present: vocalReviewArtifact, criteria: VOCAL_REVIEW_CRITERIA.map(([id]) => ({ id, score_0_to_100: Number(vocalReviewScores[id]), notes: null })), notes: vocalReviewNotes || null } });
       setState((current) => ({ ...current, ...result, active: true, source_title: current?.source_title }));
       await refresh();
     } catch (cause) { setError(cause?.message || "Vocal review approval failed"); }
@@ -164,15 +180,12 @@ export default function MusicProfessionalReleasePanel({ organizationId, projectI
           {!complete ? <div className="flex flex-wrap gap-2">
             {vocalStage ? <button type="button" onClick={() => onOpen?.("vocal")} className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-[10px] text-white/68 hover:border-[#D6A66A]/30">Open vocals</button> : null}
             {workstationStage ? <button type="button" onClick={() => onOpen?.("workstation")} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-[10px] text-white/68 hover:border-[#D6A66A]/30"><SlidersHorizontal className="h-3 w-3" /> Open Workstation</button> : null}
-            {vocalStage && vocalCandidate ? <button type="button" disabled={busy} onClick={approveVocal} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300/25 bg-emerald-300/[0.08] px-3 py-2 text-[10px] font-semibold text-emerald-100/80 disabled:opacity-50">
-              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <BadgeCheck className="h-3 w-3" />}I listened — approve vocal
-            </button> : null}
             <button type="button" disabled={busy || Boolean(pendingExecution) || (vocalStage && Boolean(vocalCandidate))} onClick={continueStage} className="inline-flex items-center gap-1.5 rounded-lg border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-3 py-2 text-[10px] font-semibold text-[#E5C69D] disabled:opacity-50">
               {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <LockKeyhole className="h-3 w-3" />}{customerAction(stageId, Boolean(vocalCandidate))}
             </button>
           </div> : null}
         </div>
-        {vocalStage && vocalCandidate ? <div className="mt-3 rounded-lg border border-emerald-300/12 bg-emerald-300/[0.035] px-3 py-2 text-[9px] leading-4 text-emerald-100/60">Corrected vocal ready: {vocalCandidate.title}. Listen in Vocal Studio before approving it for the commercial mix.</div> : null}
+        {vocalStage && vocalCandidate ? <div className="mt-3 rounded-xl border border-emerald-300/12 bg-emerald-300/[0.035] p-3 text-[9px] leading-4 text-emerald-100/60"><div>Corrected vocal ready: {vocalCandidate.title}. Listen in Vocal Studio before approving it for the commercial mix.</div>{vocalCandidate.correction_evidence ? <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-lg border border-white/7 bg-black/15 px-2.5 py-2"><div className="text-[7px] uppercase tracking-[0.12em] text-white/24">Pitch events</div><div className="mt-1 text-[9px] text-white/58">{vocalCandidate.correction_evidence.applied_event_count ?? "—"} / {vocalCandidate.correction_evidence.approved_event_count ?? "—"}</div></div><div className="rounded-lg border border-white/7 bg-black/15 px-2.5 py-2"><div className="text-[7px] uppercase tracking-[0.12em] text-white/24">Phrase moves</div><div className="mt-1 text-[9px] text-white/58">{vocalCandidate.correction_evidence.approved_phrase_move_count ?? 0}{vocalCandidate.correction_evidence.timing_correction_applied ? " applied" : " reviewed"}</div></div><div className="rounded-lg border border-white/7 bg-black/15 px-2.5 py-2"><div className="text-[7px] uppercase tracking-[0.12em] text-white/24">Timbre drift</div><div className="mt-1 text-[9px] text-white/58">Median {vocalCandidate.correction_evidence.median_absolute_band_delta_db ?? "—"} dB · P95 {vocalCandidate.correction_evidence.p95_absolute_band_delta_db ?? "—"} dB</div></div><div className={`rounded-lg border px-2.5 py-2 ${vocalCandidate.correction_evidence.conservative_review_flag ? "border-amber-300/15 bg-amber-300/[0.03]" : "border-white/7 bg-black/15"}`}><div className="text-[7px] uppercase tracking-[0.12em] text-white/24">Centroid drift</div><div className="mt-1 text-[9px] text-white/58">{vocalCandidate.correction_evidence.median_spectral_centroid_delta_percent ?? "—"}%{vocalCandidate.correction_evidence.conservative_review_flag ? " · REVIEW" : ""}</div></div></div> : null}<div className="mt-2 text-[7px] leading-3 text-white/25">These are objective timbre-preservation proxies only. They do not prove formant preservation and never replace human A/B listening.</div><div className="mt-3 border-t border-white/7 pt-3"><div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-white/38">Human vocal review · every criterion must be ≥92</div><div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{VOCAL_REVIEW_CRITERIA.map(([id,name])=><label key={id} className="rounded-lg border border-white/7 bg-black/15 px-2.5 py-2"><div className="text-[7px] uppercase tracking-[0.1em] text-white/28">{name}</div><input type="number" min="0" max="100" step="1" value={vocalReviewScores[id] ?? ""} onChange={e=>setVocalReviewScores(current=>({...current,[id]:e.target.value}))} className="mt-1 w-full rounded-md border border-white/8 bg-black/30 px-2 py-1.5 text-[9px] text-white/60" placeholder="0–100"/></label>)}</div><div className="mt-2 grid gap-2 sm:grid-cols-2"><label className="flex items-center gap-2 rounded-lg border border-white/7 bg-black/15 px-2.5 py-2 text-[8px] text-white/38"><input type="checkbox" checked={vocalReviewAB} onChange={e=>setVocalReviewAB(e.target.checked)} className="accent-[#D6A66A]"/> I compared source and corrected vocal A/B</label><label className="flex items-center gap-2 rounded-lg border border-white/7 bg-black/15 px-2.5 py-2 text-[8px] text-white/38"><input type="checkbox" checked={vocalReviewArtifact} onChange={e=>setVocalReviewArtifact(e.target.checked)} className="accent-amber-400"/> Material artifact detected</label></div><textarea value={vocalReviewNotes} onChange={e=>setVocalReviewNotes(e.target.value)} placeholder="Engineer review notes" className="mt-2 min-h-16 w-full rounded-lg border border-white/8 bg-black/20 px-2.5 py-2 text-[9px] text-white/55"/><button type="button" disabled={busy || !vocalReviewAB || vocalReviewArtifact || VOCAL_REVIEW_CRITERIA.some(([id])=>!Number.isFinite(Number(vocalReviewScores[id])) || Number(vocalReviewScores[id])<92)} onClick={approveVocal} className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300/25 bg-emerald-300/[0.08] px-3 py-2 text-[10px] font-semibold text-emerald-100/80 disabled:opacity-30">{busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <BadgeCheck className="h-3 w-3" />}Approve professional vocal</button><div className="mt-2 text-[7px] leading-3 text-white/22">Approval is blocked if any criterion is below 92, if A/B comparison is unconfirmed, or if a material artifact is present. Scores are entered by the human reviewer; Avantiqo never generates them.</div></div></div> : null}
         {stageId === "PREMASTER_LISTENING" && state?.premaster_listening_repair?.actions?.length ? <div className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.04] p-3">
           <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-amber-100/65">Listening review found mix changes</div>
           <div className="mt-2 space-y-1">{state.premaster_listening_repair.actions.map((action) => <div key={action.code} className="text-[8px] leading-4 text-white/38"><span className="text-amber-100/60">{customerStage(action.code)}</span> — {action.instruction}</div>)}</div>

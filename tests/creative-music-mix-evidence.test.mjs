@@ -45,3 +45,28 @@ test("Workstation shows measured evidence with each mix decision",()=>{
   assert.match(panel,/sub\/low-mid/);
   assert.match(panel,/presence\/low-mid/);
 });
+
+
+test("mix evidence fails closed instead of attributing one source to a multi-source edited track",()=>{
+  assert.match(evidence,/new Set\(\(track\.clips\|\|\[\]\)\.filter\(c=>c\?\.muted!==true&&c\?\.source_asset_id\)\.map\(c=>c\.source_asset_id\)\)/);
+  assert.match(evidence,/sourceIds\.length>1/);
+  assert.match(evidence,/MULTIPLE_SOURCE_ASSETS_REQUIRE_TRACK_RENDER/);
+  assert.match(evidence,/timeline_evidence_safe:false/);
+  assert.match(evidence,/ambiguous_source_track_count/);
+  assert.match(evidence,/all_timeline_evidence_safe/);
+});
+
+test("muted alternate clips are excluded from source ambiguity detection",()=>{
+  assert.match(evidence,/filter\(c=>c\?\.muted!==true&&c\?\.source_asset_id\)/);
+  assert.match(evidence,/source_asset_count:sourceIds\.length/);
+});
+
+
+test("Mix Engineer reports when multi-source edited tracks need rendered evidence",()=>{
+  const session={tracks:[{id:"v",type:"vocal",name:"Lead Vocal",mute:false,pan:0,gain_db:0,channel_strip:{high_pass_hz:20,presence_db:0,high_shelf_db:0,compressor:{}}}]};
+  const plan=analyzeMusicMixEngineer(session,{contract:"AVANTIQO_MUSIC_MIX_EVIDENCE_V10",tracks:[{track_id:"v",measured:false,reason:"MULTIPLE_SOURCE_ASSETS_REQUIRE_TRACK_RENDER"}],ambiguous_source_track_count:1,all_timeline_evidence_safe:false});
+  const issue=plan.issues.find(row=>row.code==="TRACK_RENDER_REQUIRED_FOR_EVIDENCE");
+  assert.ok(issue);
+  assert.match(issue.message,/1 edited track/);
+  assert.match(issue.message,/track render/i);
+});

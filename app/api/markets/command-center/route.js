@@ -7,6 +7,7 @@ import { resolveBusinessContext } from "@/lib/business-context/resolveBusinessCo
 import { MarketAutonomousPaperRuntime } from "@/lib/markets/runtime/MarketAutonomousPaperRuntime";
 import { MarketCorporateActionAdjustmentRuntime } from "@/lib/markets/runtime/MarketCorporateActionAdjustmentRuntime";
 import { MarketCorporateActionRiskRuntime } from "@/lib/markets/runtime/MarketCorporateActionRiskRuntime";
+import { summarizeExecutionQuality } from "@/lib/markets/runtime/MarketExecutionQualityModels";
 import { MarketIntelligenceIngestionRuntime } from "@/lib/markets/runtime/MarketIntelligenceIngestionRuntime";
 import { evaluateMarketMicrostructureRisk } from "@/lib/markets/runtime/MarketMicrostructureRiskModels";
 import { MarketPaperExecutionRuntime } from "@/lib/markets/runtime/MarketPaperExecutionRuntime";
@@ -98,6 +99,15 @@ async function loadState({ organizationId, entityId }) {
       },
       corporateActions: [],
       corporateActionAdjustments: [],
+      executionQuality: {
+        sample_count: 0,
+        fill_notional: 0,
+        avg_implementation_shortfall_bps: null,
+        avg_top_of_book_slippage_bps: null,
+        avg_spread_bps: null,
+        avg_total_execution_cost_bps: null,
+        avg_displayed_liquidity_participation: null,
+      },
     };
   }
 
@@ -132,6 +142,7 @@ async function loadState({ organizationId, entityId }) {
     organizationId,
     portfolioId: portfolio.id,
   });
+  const executionQuality = summarizeExecutionQuality(paperFillsResult.data || []);
 
   return {
     portfolio,
@@ -158,6 +169,7 @@ async function loadState({ organizationId, entityId }) {
     portfolioPerformance,
     corporateActions: corporateActionsResult.data || [],
     corporateActionAdjustments: corporateActionAdjustmentsResult.data || [],
+    executionQuality,
   };
 }
 

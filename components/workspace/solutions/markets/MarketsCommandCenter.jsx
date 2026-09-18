@@ -156,6 +156,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   const backtestRuns = Array.isArray(data?.backtestRuns) ? data.backtestRuns : [];
   const agentPerformance = Array.isArray(data?.agentPerformance) ? data.agentPerformance : [];
   const portfolioPerformance = data?.portfolioPerformance?.summary || {};
+  const executionQuality = data?.executionQuality || {};
   const corporateActions = Array.isArray(data?.corporateActions) ? data.corporateActions : [];
   const corporateActionAdjustments = Array.isArray(data?.corporateActionAdjustments)
     ? data.corporateActionAdjustments
@@ -965,6 +966,30 @@ export default function MarketsCommandCenter({ organizationId }) {
                     {portfolioPerformance.risk_adjusted_history_sufficient
                       ? "Risk-adjusted statistics use the append-only daily paper-equity curve. Current risk-free input is 0% until a governed macro rate feed is wired."
                       : `Sharpe and Sortino remain hidden until at least ${Number(portfolioPerformance.minimum_risk_adjusted_observations || 20)} daily return observations exist.`}
+                  </div>
+                </div>
+
+                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                  <div className="flex items-center gap-2 text-[#A37849]"><Activity size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Execution quality</span></div>
+                  <h2 className="mt-2 text-[18px] font-semibold">Paper execution friction</h2>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {[
+                      ["Fill slices", Number(executionQuality.sample_count || 0)],
+                      ["Fill notional", money(executionQuality.fill_notional || 0, baseCurrency)],
+                      ["Avg spread", executionQuality.avg_spread_bps == null ? "—" : `${Number(executionQuality.avg_spread_bps).toFixed(2)} bps`],
+                      ["Top-of-book slip", executionQuality.avg_top_of_book_slippage_bps == null ? "—" : `${Number(executionQuality.avg_top_of_book_slippage_bps).toFixed(2)} bps`],
+                      ["Impl. shortfall", executionQuality.avg_implementation_shortfall_bps == null ? "—" : `${Number(executionQuality.avg_implementation_shortfall_bps).toFixed(2)} bps`],
+                      ["Total exec cost", executionQuality.avg_total_execution_cost_bps == null ? "—" : `${Number(executionQuality.avg_total_execution_cost_bps).toFixed(2)} bps`],
+                      ["Liquidity participation", executionQuality.avg_displayed_liquidity_participation == null ? "—" : `${(Number(executionQuality.avg_displayed_liquidity_participation) * 100).toFixed(1)}%`],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                        <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
+                        <div className="mt-1 text-[14px] font-semibold">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-[9px] leading-4 text-[#8A867F]">
+                    Metrics are notional-weighted from durable PAPER fill evidence. They measure simulation friction and never increase trading authority.
                   </div>
                 </div>
 

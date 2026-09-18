@@ -136,7 +136,7 @@ async function registerMix(body) {
   const channels = finite(body.channels, null);
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) throw new Error("CREATIVE_MUSIC_RELEASE_DURATION_REQUIRED");
   if (Math.abs(durationSeconds - plan.duration_seconds) > 0.25) throw new Error("CREATIVE_MUSIC_RELEASE_DURATION_MISMATCH");
-  if (Math.round(sampleRate) !== Math.round(plan.sample_rate) || Math.round(channels) !== 2) throw new Error("CREATIVE_MUSIC_RELEASE_FORMAT_MISMATCH");
+  if (Math.round(sampleRate) !== Math.round(plan.sample_rate) || Math.round(channels) !== Math.round(plan.channels)) throw new Error("CREATIVE_MUSIC_RELEASE_FORMAT_MISMATCH");
   const levels = body.levels || {};
   const peakDbfs = finite(levels.peak_dbfs, null);
   const rmsDbfs = finite(levels.rms_dbfs, null);
@@ -160,7 +160,7 @@ async function registerMix(body) {
     metadata: {
       media_kind: "MUSIC",
       mime_type: "audio/wav",
-      music_asset_kind: "MIX_RENDER",
+      music_asset_kind: plan.spatial_audio?.surround_enabled === true ? "SURROUND_PREMASTER" : "MIX_RENDER",
       release_render_contract: plan.contract,
       offline_render_contract: text(body.offline_render_contract || "AVANTIQO_MUSIC_OFFLINE_MIX_RENDER_V1"),
       render_plan_fingerprint: fingerprint,
@@ -169,6 +169,8 @@ async function registerMix(body) {
       render_duration_seconds: renderDurationSeconds,
       sample_rate: sampleRate,
       channels,
+      channel_layout: plan.channel_layout,
+      speaker_order: plan.speaker_order,
       bit_depth: 24,
       peak_dbfs: peakDbfs,
       rms_dbfs: rmsDbfs,
@@ -184,7 +186,7 @@ async function registerMix(body) {
       destructive_edit: false,
       rendered_at: new Date().toISOString(),
     },
-    tags: ["music", "mix", "premaster", "derived", "24-bit"],
+    tags: ["music", "mix", "premaster", ...(plan.spatial_audio?.surround_enabled === true ? ["surround", plan.channel_layout] : []), "derived", "24-bit"],
   });
 
   return {
@@ -218,6 +220,7 @@ async function finishRelease(body) {
   const currentSourceIds = sortedUnique(plan.source_asset_ids);
   if (JSON.stringify(currentSourceIds) !== JSON.stringify(sortedUnique(asset.metadata?.source_asset_ids || []))) throw new Error("CREATIVE_MUSIC_RELEASE_MIX_LINEAGE_STALE");
   if (!plan.readiness.release_render_ready) throw new Error("CREATIVE_MUSIC_RELEASE_CURRENT_PROJECT_NOT_READY");
+  if (plan.spatial_audio?.surround_enabled === true) throw new Error("CREATIVE_MUSIC_SURROUND_REQUIRES_MULTICHANNEL_FINISHER");
 
   const tasks = await ProductionTaskRuntime.list({ organization_id: organizationId, creative_project_id: projectId });
   let sourceTask = tasks.find((task) => text(task.metadata?.music_mix_asset_id) === mixAssetId && text(task.metadata?.music_pipeline_role) === "PREMASTER_SOURCE") || null;

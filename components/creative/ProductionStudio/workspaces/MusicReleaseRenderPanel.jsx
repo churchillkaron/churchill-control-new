@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Disc3, ShieldCheck, TriangleAlert } from "lucide-react";
 
 import { renderMusicMultitrackOffline } from "@/lib/creative/music/client/MusicOfflineMixRenderRuntime";
+import { renderMusicSurroundPremasterOffline } from "@/lib/creative/music/client/MusicOfflineSurroundRenderRuntime";
 import MusicStemExportPanel from "./MusicStemExportPanel";
 
 const PROFILES = [
@@ -45,6 +46,13 @@ export default function MusicReleaseRenderPanel({
     });
     const body = await response.json();
     if (!response.ok || body.success === false) throw new Error(body.error || "Music release request failed");
+    return body;
+  }
+
+  async function surroundValidationRequest(payload) {
+    const response = await fetch("/api/creative/music/surround-validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const body = await response.json();
+    if (!response.ok || body.success === false) throw new Error(body.error || `Surround validation failed: ${(body.validation?.failures || []).join(", ") || "TECHNICAL QC"}`);
     return body;
   }
 
@@ -94,8 +102,11 @@ export default function MusicReleaseRenderPanel({
         throw new Error(`Release blocked: ${codes}`);
       }
 
-      setStatus("OFFLINE RENDERING FULL MIX");
-      const rendered = await renderMusicMultitrackOffline({ session, assetUrls, expectedDurationSeconds: currentPlan.duration_seconds });
+      const surround = currentPlan?.spatial_audio?.surround_enabled === true;
+      setStatus(surround ? `OFFLINE RENDERING ${currentPlan.channel_layout} PRE-MASTER` : "OFFLINE RENDERING FULL MIX");
+      const rendered = surround
+        ? await renderMusicSurroundPremasterOffline({ session, assetUrls, expectedDurationSeconds: currentPlan.duration_seconds })
+        : await renderMusicMultitrackOffline({ session, assetUrls, expectedDurationSeconds: currentPlan.duration_seconds });
 
       const safeTitle = String(session.title || "music")
         .replace(/[^A-Za-z0-9._-]+/g, "-")
@@ -143,7 +154,14 @@ export default function MusicReleaseRenderPanel({
         options,
       });
 
-      if (professionalRelease?.active) {
+      if (currentPlan?.spatial_audio?.surround_enabled === true) {
+        setStatus(`${rendered.channel_layout} SERVER QC · CHANNELS / LFE / DOWNMIX`);
+        const technical = await surroundValidationRequest({ organization_id: organizationId, creative_project_id: projectId, asset_id: registered.asset_id });
+        const surroundResult = { ...registered, surround_premaster: true, channel_layout: rendered.channel_layout, channels: rendered.channels, speaker_order: rendered.speaker_order, stereo_downmix_qc: rendered.stereo_downmix_qc, per_speaker_levels: rendered.per_speaker_levels, surround_validation: technical.validation, surround_validation_passed: technical.validation?.passed === true, dolby_branded: false };
+        setResult(surroundResult);
+        setStatus(`${rendered.channel_layout} PRE-MASTER · TECHNICAL QC PASS`);
+        await onReleased?.(surroundResult);
+      } else if (professionalRelease?.active) {
         if (professionalRelease?.next_stage?.stage_id !== "MIX_ENGINEERING") {
           throw new Error(`Professional Release is at ${professionalRelease?.next_stage?.stage_id || "another stage"}; mastering must continue through the Professional Release gate.`);
         }
@@ -193,7 +211,7 @@ export default function MusicReleaseRenderPanel({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#d6a66a]/65"><Disc3 className="h-3.5 w-3.5" /> Release render</div>
-          <div className="mt-1 text-[8px] leading-4 text-white/22">{professionalRelease?.active ? "Professional Release: same mix graph offline → immutable 24-bit pre-master → separate QC/mastering gates." : "Same Music mix graph offline → immutable 24-bit pre-master → local loudness / true-peak finishing."}</div>
+          <div className="mt-1 text-[8px] leading-4 text-white/22">{plan?.spatial_audio?.surround_enabled ? `${plan.channel_layout} discrete surround: exact speaker render → stereo downmix QC → multichannel finishing. Dolby branding remains off until a licensed Dolby toolchain is present.` : professionalRelease?.active ? "Professional Release: same mix graph offline → immutable 24-bit pre-master → separate QC/mastering gates." : "Same Music mix graph offline → immutable 24-bit pre-master → local loudness / true-peak finishing."}</div>
         </div>
         <div className={`rounded-lg border px-2 py-1 text-[8px] ${ready ? "border-emerald-300/15 text-emerald-100/55" : "border-amber-300/15 text-amber-100/55"}`}>{ready ? "READY" : "CHECK"}</div>
       </div>

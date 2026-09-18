@@ -32,6 +32,7 @@ test('complete grounded reconstruction can certify and unlock base plate',()=>{
       {id:'shot-qc',role:'PERCEPTUAL_AND_TECHNICAL_QC',depends_on:['composite'],required:true},
     ]}}},
     {id:'pass:s1:scene-reconstruction',metadata:{},quality:{}},
+    {id:'s1:visual-derived-frame',metadata:{shot_id:'s1',base_plate_role:true},requirements:{},generation:{provider_parameters:{}}},
     {id:'pass:s1:base-plate',metadata:{},quality:{}},
     {id:'pass:s1:composite',metadata:{},quality:{}},
     {id:'pass:s1:shot-qc',metadata:{},quality:{}},
@@ -40,6 +41,10 @@ test('complete grounded reconstruction can certify and unlock base plate',()=>{
   const state=CreativeMultiPassExecutionRuntime.readiness({graph:certifiedGraph,shot_id:'s1',reconstruction_readiness:{ready:true}});
   assert.ok(state.next_ready_passes.some(p=>p.pass_id==='base-plate'));
   assert.equal(certifiedGraph.nodes.find(n=>n.id==='pass:s1:scene-reconstruction').quality.approved,true);
+  const executor=certifiedGraph.nodes.find(n=>n.id==='s1:visual-derived-frame');
+  assert.equal(executor.requirements.reconstruction_certification_passed,true);
+  assert.equal(executor.requirements.reconstruction_qc_certification_hash,result.certification_hash);
+  assert.equal(executor.requirements.reconstruction_artifact_node_ids.length,7);
 });
 
 test('missing semantic review fails closed',()=>{

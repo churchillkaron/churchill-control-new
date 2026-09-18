@@ -197,6 +197,9 @@ export default function MarketsCommandCenter({ organizationId }) {
   const latestPortfolioRiskBudget = orders
     .map((row) => row?.risk_snapshot?.portfolio_risk_budget)
     .find((row) => row && Object.keys(row).length) || null;
+  const latestMarketRegime = decisions
+    .map((row) => row?.decision_payload?.market_regime)
+    .find((row) => row && row.regime) || null;
   const baseCurrency = portfolio?.base_currency || paperAccount?.base_currency || "USD";
 
   const latestBySymbol = new Map();
@@ -622,6 +625,15 @@ export default function MarketsCommandCenter({ organizationId }) {
                         {Number(latestPortfolioRiskBudget.max_utilization || 0).toFixed(2)}× limit utilization
                         {" · "}
                         {(Number(latestPortfolioRiskBudget.scale || 1) * 100).toFixed(0)}% of pre-budget BUY notional
+                      </div>
+                    ) : null}
+                    {latestMarketRegime ? (
+                      <div className="mt-2 rounded-lg border border-black/[0.06] bg-white px-2.5 py-2 text-[8px] text-[#5E5851]">
+                        Benchmark regime: {String(latestMarketRegime.regime || "UNKNOWN").replaceAll("_", " ")}
+                        {" · "}
+                        {(Number(latestMarketRegime.confidence || 0) * 100).toFixed(0)}% classification confidence
+                        {" · "}
+                        {(Number(latestMarketRegime.sizing_scale || 1) * 100).toFixed(0)}% BUY sizing multiplier
                       </div>
                     ) : null}
                   </div>

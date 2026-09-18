@@ -64,6 +64,39 @@ test("ensemble produces governed action from two aligned specialists", () => {
   assert.ok(decision.confidence <= 0.95);
 });
 
+test("market regime changes specialist influence without changing authority", () => {
+  const decision = synthesizeMarketDecision({
+    symbol: "TEST",
+    theses: [
+      { agent_type: "TECHNICAL", stance: "BULLISH", confidence: 0.8 },
+      { agent_type: "NEWS", stance: "BEARISH", confidence: 0.8 },
+    ],
+    agentWeights: {
+      TECHNICAL: 1,
+      NEWS: 1,
+    },
+    marketRegime: {
+      regime: "HIGH_VOL_RISK_OFF",
+      confidence: 0.8,
+      specialist_weight_multipliers: {
+        TECHNICAL: 0.8,
+        NEWS: 1.2,
+      },
+      sizing_scale: 0.5,
+      metrics: {
+        annualized_volatility_pct: 42,
+      },
+    },
+  });
+
+  assert.equal(decision.decision_payload.agent_regime_weights.TECHNICAL, 0.8);
+  assert.equal(decision.decision_payload.agent_regime_weights.NEWS, 1.2);
+  assert.equal(decision.decision_payload.market_regime.regime, "HIGH_VOL_RISK_OFF");
+  assert.equal(decision.decision_payload.market_regime.sizing_scale, 0.5);
+  assert.equal(decision.decision_payload.authority_effect, "NONE");
+  assert.equal(decision.decision_payload.reasoning_influence_only, true);
+});
+
 test("decision confidence converts to bounded upward probability", () => {
   assert.equal(probabilityUpFromDecision({ action: "BUY", confidence: 0.8 }), 0.9);
   assert.ok(Math.abs(probabilityUpFromDecision({ action: "SELL", confidence: 0.8 }) - 0.1) < 1e-12);

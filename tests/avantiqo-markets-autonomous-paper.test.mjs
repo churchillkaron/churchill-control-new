@@ -101,6 +101,30 @@ test("low volatility keeps the confidence-scaled target", () => {
   assert.equal(result.target_position_pct, result.confidence_scaled_target_position_pct);
 });
 
+test("risk-off regime scales autonomous BUY target down", () => {
+  const normal = calculateAutonomousPaperOrder({
+    ...base,
+    decision: { action: "BUY", confidence: 0.875 },
+    marketPrice: 100,
+    position: { quantity: 0 },
+    candidateAnnualizedVolatilityPct: 25,
+    marketRegimeSizingScale: 1,
+  });
+  const riskOff = calculateAutonomousPaperOrder({
+    ...base,
+    decision: { action: "BUY", confidence: 0.875 },
+    marketPrice: 100,
+    position: { quantity: 0 },
+    candidateAnnualizedVolatilityPct: 25,
+    marketRegimeSizingScale: 0.5,
+  });
+
+  assert.equal(normal.executable, true);
+  assert.equal(riskOff.executable, true);
+  assert.equal(riskOff.market_regime_sizing_scale, 0.5);
+  assert.ok(Math.abs(riskOff.notional - (normal.notional * 0.5)) < 1e-9);
+});
+
 test("portfolio risk budget reduces BUY notional and quantity proportionally", () => {
   const sizing = calculateAutonomousPaperOrder({
     ...base,

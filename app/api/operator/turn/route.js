@@ -558,11 +558,8 @@ export async function POST(request) {
     }
     const longTermMemoryMs = Date.now() - longTermMemoryStartedAt;
 
-    const clientConversation = boundedConversation(body.conversation);
     const persistedConversation = boundedConversation(memory.recentConversation);
-    const conversation = persistedConversation.length
-      ? persistedConversation
-      : clientConversation;
+    const conversation = persistedConversation;
     // Authorization-critical Operator state is server-authoritative. Client
     // agreement_state may be stale or forged and is never merged into execution
     // state. Cross-conversation continuity intentionally recovers project state

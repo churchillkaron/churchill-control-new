@@ -31,9 +31,9 @@ test("conversation snapshot verifies persisted diagnosis audit projection before
   assert.match(runtime,/verifyBusinessDiagnosisAuditProjection/);
   assert.match(runtime,/audit_projection_verification_status:verification\.status/);
   assert.match(runtime,/audit_projection_verified:verification\.verified===true/);
-  const bounded=runtime.indexOf("function boundedTurns");
-  const verify=runtime.indexOf("verifyBusinessDiagnosisAuditProjection(diagnosis)");
-  assert.ok(bounded>=0&&verify>bounded);
+  const snapshot=runtime.indexOf("export async function loadIntelligenceConversationSnapshot");
+  const verify=runtime.indexOf("verifyBusinessDiagnosisAuditProjection(diagnosis)",snapshot);
+  assert.ok(snapshot>=0&&verify>snapshot);
 });
 
 
@@ -62,4 +62,22 @@ test("operator route surfaces diagnosis proof integrity failure instead of gener
   assert.match(route,/BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE/);
   assert.match(route,/Business diagnosis proof verification failed/);
   assert.match(route,/error\.details/);
+});
+
+
+test("conversation memory excludes unverified diagnosis assistant turns before model context",()=>{
+  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
+  assert.match(runtime,/loadVerifiedRecentConversationTurns/);
+  assert.match(runtime,/\.select\("role,content,evidence,created_at"\)/);
+  assert.match(runtime,/diagnosisTurnIsSafeForConversation/);
+  assert.match(runtime,/verifyBusinessDiagnosisAuditProjection\(diagnosis\)/);
+  assert.match(runtime,/verification\.status === "VERIFIED" \|\| verification\.status === "VERIFIED_LEGACY"/);
+  assert.match(runtime,/\.filter\(\(row\) => diagnosisTurnIsSafeForConversation\(row\)\)/);
+  assert.match(runtime,/OPERATOR_VERIFIED_RECENT_CONVERSATION_LOAD_FAILED/);
+  assert.match(runtime,/return \[\]/);
+});
+
+test("operator never falls back to client conversation after server memory filtering",()=>{
+  assert.match(route,/const conversation = persistedConversation;/);
+  assert.doesNotMatch(route,/persistedConversation\.length\s*\?\s*persistedConversation\s*:\s*clientConversation/);
 });

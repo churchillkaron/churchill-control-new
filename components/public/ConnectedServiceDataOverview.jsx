@@ -59,7 +59,7 @@ const providers = [
     name: "Other Business Providers",
     status: "Added as approved services",
     purpose:
-      "Avantiqo can support additional accounting, logistics, hospitality, service, document, automation and specialist providers as organizations enable them.",
+      "Connect additional accounting, logistics, hospitality, service, document, automation and specialist providers as your organization needs them.",
     data:
       "The minimum provider-specific data required to deliver the feature selected by the customer, subject to that provider's own authorization and Avantiqo's organization-level controls.",
   },

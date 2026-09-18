@@ -226,7 +226,7 @@ function SurfaceArt({ kind }) {
       support: "/art/commercial-agents.jpg",
       accent: "DECISION SIGNAL",
       metric: "LIVE",
-      detail: "Evidence · forecast · action",
+      detail: "Data · forecast · action",
       position: "center",
       supportPosition: "center",
     },

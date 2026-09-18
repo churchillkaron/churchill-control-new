@@ -34,14 +34,14 @@ const capabilityFamilies = [
     name: "Intelligence",
     code: "INT",
     description:
-      "Add business-aware reasoning, context and governed execution to your own product.",
+      "Add business-aware reasoning, organization scope and controlled execution to your own product.",
     capabilities: [
-      "Business context",
+      "Organization context",
       "Knowledge retrieval",
       "Planning",
       "Agent execution",
       "Verification",
-      "Decision evidence",
+      "Decision records",
     ],
   },
   {
@@ -90,7 +90,7 @@ const capabilityFamilies = [
 
 const integrationModes = [
   ["SDKs", "Build against stable Avantiqo contracts from your application code."],
-  ["Webhooks", "React to completed jobs, business events and governed execution outcomes."],
+  ["Webhooks", "React to completed jobs, business events and execution results."],
   ["Developer tools", "Use local tooling, test contexts and capability discovery while building integrations."],
   ["Embedded workflows", "Place selected Avantiqo flows inside your own product experience."],
 ];
@@ -178,7 +178,7 @@ export default function DevelopersPage() {
                 AVANTIQO DEVELOPERS
               </p>
               <h1 className="mt-5 text-[52px] font-medium leading-[.94] tracking-[-0.065em] text-[#F7F4EF] sm:text-[64px] lg:text-[72px] xl:text-[80px]">
-                Build on the operating layer.
+                Build with Avantiqo business capabilities.
               </h1>
               <p className="mt-7 max-w-[560px] text-[16px] leading-8 text-white/62">
                 SDKs, webhooks, developer tooling and embedded workflows for building on Avantiqo without entering the Business OS customer interface.
@@ -202,7 +202,7 @@ export default function DevelopersPage() {
                   "Capability based",
                   "Metered",
                   "Organization scoped",
-                  "Governed",
+                  "Controlled",
                 ].map((item) => (
                   <span key={item} className="inline-flex items-center gap-1.5">
                     <Check className="h-3 w-3 text-[#D6A66A]" />

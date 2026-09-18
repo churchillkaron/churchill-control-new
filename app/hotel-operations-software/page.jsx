@@ -16,7 +16,7 @@ const config = {
   tags: ['ROOMS', 'GUESTS', 'TEAMS', 'REVENUE'],
   valueTitle: 'Keep hotel teams connected instead of splitting work across separate systems.',
   value: [('Guest operations', 'Keep bookings, arrivals, requests and service activity connected.'), ('Property teams', 'Coordinate housekeeping, maintenance, staffing and exceptions.'), ('Revenue & finance', 'Connect operational events to billing, payments and reporting.')],
-  steps: [('Book', 'Capture the customer and stay context.'), ('Operate', 'Coordinate rooms, staff and service.'), ('Resolve', 'Surface exceptions and next actions.'), ('Settle', 'Connect payment and finance evidence.')],
+  steps: [('Book', 'Capture the customer and stay context.'), ('Operate', 'Coordinate rooms, staff and service.'), ('Resolve', 'Surface exceptions and next actions.'), ('Settle', 'Connect payments to the right finance records.')],
   cta: 'Give every property team one operating context.',
 };
 

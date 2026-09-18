@@ -15,7 +15,7 @@ const config = {
   panel: 'Extraction is only the start. The value is getting verified invoice data into the correct business workflow.',
   tags: ['CAPTURE', 'VALIDATE', 'APPROVE', 'POST'],
   valueTitle: 'Move from document handling to accountable finance execution.',
-  value: [('Extract', 'Read invoice fields and supporting evidence from documents.'), ('Validate', 'Check vendor, currency, tax and the correct organization before processing.'), ('Route & post', 'Send the invoice through the right approvals and finance workflow.')],
+  value: [('Extract', 'Read invoice fields and supporting information from documents.'), ('Validate', 'Check vendor, currency, tax and the correct organization before processing.'), ('Route & post', 'Send the invoice through the right approvals and finance workflow.')],
   steps: [('Receive', 'Email, upload or connected source supplies the invoice.'), ('Understand', 'Extract and classify the document.'), ('Validate', 'Check the organization, supplier, currency, tax and finance details.'), ('Execute', 'Approve, post and keep the source invoice and processing history attached.')],
   cta: 'Make invoice processing part of the finance operating system.',
 };

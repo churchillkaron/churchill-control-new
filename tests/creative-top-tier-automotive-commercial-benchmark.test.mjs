@@ -68,7 +68,7 @@ test("beyond-parity tier reports real advanced gaps without blocking minimum gra
   assert.ok(ids.includes("NATIVE_AXF_BTF_MATERIAL_INGEST"));
   assert.ok(ids.includes("NATIVE_DEEP_EXR_COMPOSITING"));
   assert.ok(ids.includes("OPENUSD_SCENE_COMPOSITION_AND_VARIANTS"));
-  assert.ok(ids.includes("SURROUND_OBJECT_AUDIO_5_1_7_1_7_1_4_ATMOS"));
+  assert.ok(ids.includes("AAF_EDITORIAL_INTERCHANGE"));
 });
 
 test("benchmark never claims brand affiliation", () => {

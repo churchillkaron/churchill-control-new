@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CircleAlert, Link2, RefreshCw, ShieldCheck } from "lucide-react";
+import FinanceProviderActivationForm from "@/components/workspace/finance/FinanceProviderActivationForm";
 
 function text(value) { return String(value ?? "").trim(); }
 function label(value) { return text(value).replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()); }
@@ -62,7 +63,7 @@ export default function FinanceBankFeedConnectionPanel({ connection, organizatio
       </div>
 
       {!providerReady ? (
-        <div className="mt-3 flex gap-2 rounded-lg border border-amber-700/15 bg-amber-50 p-2.5 text-[9px] leading-4 text-amber-900"><CircleAlert size={12} className="mt-0.5 shrink-0" /><div><b>Provider credential required.</b> The connection is prepared, but Avantiqo cannot send the customer to bank consent until the managed provider credential is installed.</div></div>
+        <div className="mt-3"><div className="flex gap-2 rounded-lg border border-amber-700/15 bg-amber-50 p-2.5 text-[9px] leading-4 text-amber-900"><CircleAlert size={12} className="mt-0.5 shrink-0" /><div><b>Provider credential required.</b> The connection is prepared, but Avantiqo cannot send the customer to bank consent until the managed provider credential is installed.</div></div><FinanceProviderActivationForm mode="bank" organizationId={organizationId} onActivated={onRefresh} /></div>
       ) : !hasConsent || !active ? (
         <div className="mt-3"><button type="button" onClick={connect} disabled={Boolean(busy)} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-semibold text-white disabled:opacity-40"><ShieldCheck size={11} />{busy === "connect" ? "Opening bank…" : hasConsent ? "Reconnect bank" : "Connect bank"}</button></div>
       ) : (

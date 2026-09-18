@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CircleAlert, FileCheck2, RefreshCw, Send, Settings2 } from "lucide-react";
+import FinanceProviderActivationForm from "@/components/workspace/finance/FinanceProviderActivationForm";
 
 const text = (value) => String(value ?? "").trim();
 const label = (value) => text(value).replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -53,5 +54,6 @@ export default function FinanceEInvoicePanel({ invoice, organizationId, entityId
     {latest ? <div className="mt-3 grid grid-cols-2 gap-2 text-[8px]"><div className="rounded-lg border border-black/[0.05] bg-white p-2"><div className="text-[#999188]">Provider reference</div><div className="mt-0.5 font-semibold break-all">{latest.provider_reference || latest.provider_tracking_id || "—"}</div></div><div className="rounded-lg border border-black/[0.05] bg-white p-2"><div className="text-[#999188]">Authority reference</div><div className="mt-0.5 font-semibold break-all">{latest.authority_reference || "—"}</div></div><div className="col-span-2 rounded-lg border border-black/[0.05] bg-white p-2"><div className="text-[#999188]">Last update</div><div className="mt-0.5 font-semibold">{shortTime(latest.updated_at)}</div>{latest.provider_status_message ? <div className="mt-1 text-[#817B73]">{latest.provider_status_message}</div> : null}</div></div> : null}
     {state.error ? <div className="mt-2 rounded-lg border border-red-700/15 bg-red-50 p-2 text-[8px] text-red-800">{state.error}</div> : null}
     <div className="mt-3 flex flex-wrap gap-2">{data?.ready && (!latest || ["FAILED"].includes(text(latest.status).toUpperCase())) ? <button type="button" disabled={Boolean(busy)} onClick={() => action("submit")} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1F1E1B] px-3 text-[8px] font-semibold text-white disabled:opacity-40"><Send size={10}/>{busy === "submit" ? "Submitting…" : latest ? "Retry transmission" : "Submit e-Tax"}</button> : null}{needsStatus ? <button type="button" disabled={Boolean(busy)} onClick={() => action("status", latest.id)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 text-[8px] font-semibold"><RefreshCw size={10} className={busy === "status" ? "animate-spin" : ""}/>Check status</button> : null}{hasProfileBlocker ? <button type="button" onClick={() => window.open(`/workspace/${organizationId}/finance/e-invoicing?create=1`, "_blank", "noopener,noreferrer")} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#A37849]/20 bg-white px-3 text-[8px] font-semibold text-[#76583A]"><Settings2 size={10}/>Configure e-Invoicing</button> : null}</div>
+    {hasProfileBlocker ? <FinanceProviderActivationForm mode="etax" organizationId={organizationId} onActivated={load} /> : null}
   </section>;
 }

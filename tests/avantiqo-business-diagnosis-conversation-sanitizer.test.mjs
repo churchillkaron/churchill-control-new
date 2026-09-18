@@ -477,3 +477,28 @@ test("duplicate governed failure turns tied to the same user do not leak the req
   ];
   assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[]);
 });
+
+
+test("unsafe diagnosis removes its exact persisted user turn id despite ambiguous ordering", () => {
+  const evidence=diagnosisEvidence({answer:"original diagnosis"});
+  evidence.business_diagnosis.scope_user_turn_id="user-target";
+  const rows=[
+    {id:"assistant-diagnosis",role:"assistant",content:"tampered diagnosis",evidence,created_at:"2026-09-18T10:00:00.000Z"},
+    {id:"user-other",role:"user",content:"keep me",evidence:{},created_at:"2026-09-18T10:00:00.000Z"},
+    {id:"user-target",role:"user",content:"remove me",evidence:{},created_at:"2026-09-18T10:00:00.000Z"},
+  ];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[{role:"user",content:"keep me"}]);
+});
+
+test("duplicate unsafe diagnosis turns tied to the same exact request do not leak it", () => {
+  const first=diagnosisEvidence({answer:"one"});
+  const second=diagnosisEvidence({answer:"two"});
+  first.business_diagnosis.scope_user_turn_id="u1";
+  second.business_diagnosis.scope_user_turn_id="u1";
+  const rows=[
+    {id:"d2",role:"assistant",content:"tampered two",evidence:second},
+    {id:"d1",role:"assistant",content:"tampered one",evidence:first},
+    {id:"u1",role:"user",content:"diagnose this",evidence:{}},
+  ];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[]);
+});

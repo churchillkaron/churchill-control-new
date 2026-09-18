@@ -208,3 +208,10 @@ test("governed failure persistence binds the assistant failure to the exact pers
   assert.match(route,/pairedUserTurnId: persistedUserTurn\.id/);
   assert.match(route,/pairedUserTurnId: persistedUserTurn\?\.id \|\| null/);
 });
+
+
+test("persisted diagnosis proof binds exact originating user turn id",()=>{
+  assert.match(route,/scope_user_turn_id: text\(userTurnId\) \|\| null/);
+  assert.match(route,/scope_user_turn_id: text\(persistedProof\.scope_user_turn_id\) \|\| null/);
+  assert.match(route,/userTurnId: persistedUserTurn\?\.id \|\| null/);
+});

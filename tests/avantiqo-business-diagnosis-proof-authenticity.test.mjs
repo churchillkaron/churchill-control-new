@@ -86,3 +86,15 @@ test("client proof redaction removes signing key id and MAC but keeps verificati
   assert.equal(safe.authenticity_verified, true);
   assert.equal(safe.receipt_fingerprint.length, 64);
 });
+
+
+test("client proof redaction removes all persisted scope identifiers", () => {
+  const safe = redactBusinessDiagnosisProofForClient({
+    scope_organization_id:"org",scope_conversation_id:"conv",scope_entity_id:"entity",scope_period_id:"period",scope_user_turn_id:"turn",
+    authenticity_key_id:"k1",authenticity_mac:"a".repeat(64),receipt_fingerprint:"b".repeat(64),
+  });
+  for(const key of ["scope_organization_id","scope_conversation_id","scope_entity_id","scope_period_id","scope_user_turn_id","authenticity_key_id","authenticity_mac"]){
+    assert.equal(Object.prototype.hasOwnProperty.call(safe,key),false);
+  }
+  assert.equal(safe.receipt_fingerprint.length,64);
+});

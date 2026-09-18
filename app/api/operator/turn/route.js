@@ -87,7 +87,7 @@ function object(value) {
     : {};
 }
 
-function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null, conversationId = null, entityId = null, periodId = null } = {}) {
+function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null, conversationId = null, entityId = null, periodId = null, userTurnId = null } = {}) {
   const diagnosis = object(result?.business_diagnosis);
   if (!text(diagnosis.receipt_fingerprint)) return {};
   const projection = buildBusinessDiagnosisAuditProjection({
@@ -130,6 +130,7 @@ function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null
     scope_conversation_id: text(conversationId) || null,
     scope_entity_id: text(entityId) || null,
     scope_period_id: diagnosedPeriodId || activePeriodId,
+    scope_user_turn_id: text(userTurnId) || null,
   };
   const persistenceSeal = sealBusinessDiagnosisProofAuthenticity(persistenceBase);
   const persistedProof = persistenceSeal.sealed ? persistenceSeal.proof : persistenceBase;
@@ -147,6 +148,7 @@ function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null
       scope_conversation_id: text(persistedProof.scope_conversation_id) || null,
       scope_entity_id: text(persistedProof.scope_entity_id) || null,
       scope_period_id: text(persistedProof.scope_period_id) || null,
+      scope_user_turn_id: text(persistedProof.scope_user_turn_id) || null,
       class: projection.diagnosis_class,
       business_timezone: projection.business_timezone,
       answer_content_fingerprint: projection.answer_content_fingerprint,
@@ -798,6 +800,7 @@ export async function POST(request) {
       conversationId: memory.conversation.id,
       entityId: businessContext.entityId,
       periodId: businessContext.periodId,
+      userTurnId: persistedUserTurn?.id || null,
     });
     const diagnosisResultPresent =
       Object.keys(object(result?.business_diagnosis)).length > 0 ||

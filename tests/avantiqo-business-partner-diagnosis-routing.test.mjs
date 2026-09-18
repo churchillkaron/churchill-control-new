@@ -1,12 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { isBusinessDiagnosisQuestion, resolveBusinessDiagnosisPeriods, runBusinessPartnerBusinessDiagnosis } from "../lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime.js";
+import { isBusinessDiagnosisQuestion, classifyBusinessDiagnosisQuestion, resolveBusinessDiagnosisPeriods, runBusinessPartnerBusinessDiagnosis } from "../lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime.js";
 
 test("business diagnosis classifier catches causal business questions",()=>{
  assert.equal(isBusinessDiagnosisQuestion("Why did our profit drop this month?"),true);
  assert.equal(isBusinessDiagnosisQuestion("Revenue is down, what changed?"),true);
  assert.equal(isBusinessDiagnosisQuestion("Show me the current invoices"),false);
+});
+
+
+test("business diagnosis classifier separates causal comparison recommendation and current reads",()=>{
+ assert.deepEqual(classifyBusinessDiagnosisQuestion("Why did our profit drop this month?"),{match:true,class:"CAUSAL_DIAGNOSIS"});
+ assert.deepEqual(classifyBusinessDiagnosisQuestion("Is revenue down compared with last month?"),{match:true,class:"PERIOD_COMPARISON"});
+ assert.deepEqual(classifyBusinessDiagnosisQuestion("What should we do about lower revenue?"),{match:true,class:"EVIDENCE_FIRST_RECOMMENDATION"});
+ assert.deepEqual(classifyBusinessDiagnosisQuestion("Revenue dropped this month"),{match:true,class:"CHANGE_DIAGNOSIS"});
+ assert.deepEqual(classifyBusinessDiagnosisQuestion("Show me the current revenue"),{match:false,class:null});
+ assert.deepEqual(classifyBusinessDiagnosisQuestion("What is our cash balance now?"),{match:false,class:null});
 });
 
 test("synthetic business partner routes diagnosis before fast conversation",()=>{
@@ -80,7 +90,7 @@ test("diagnosis adapter forwards authenticated scope and governed context at run
  assert.equal(received.party_id,"party");
  assert.equal(received.entity_id,"entity");
  assert.equal(received.period_id,"sep-entity");
- assert.deepEqual(received.context,{baseline_period_id:"aug-entity",current_period_id:"sep-entity"});
+ assert.deepEqual(received.context,{baseline_period_id:"aug-entity",current_period_id:"sep-entity",business_diagnosis_class:"CAUSAL_DIAGNOSIS"});
  assert.deepEqual(received.actor,actor);
  assert.deepEqual(received.permissions,permissions);
  assert.equal(received.callerRequest,callerRequest);

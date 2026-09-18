@@ -42,3 +42,16 @@ test("both live operator surfaces attach diagnosis audit to message evidence",()
     assert.match(source,/OperatorExecutionArtifacts/);
   }
 });
+
+
+test("both operator clients preserve and surface diagnosis proof-integrity failures",()=>{
+  for(const file of ["components/operator/HomeAvantiqoIntelligence.jsx","components/operator/AvantiqoOperator.jsx"]){
+    const source=fs.readFileSync(file,"utf8");
+    assert.match(source,/BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_FAILURE/);
+    assert.match(source,/operatorRequestError\(result/);
+    assert.match(source,/result\?\.details\?\.code/);
+    assert.match(source,/result\?\.details\?\.stage/);
+    assert.match(source,/its proof could not be verified/);
+    assert.match(source,/No action was executed/);
+  }
+});

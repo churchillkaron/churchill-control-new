@@ -28,6 +28,24 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+const BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE = "BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_FAILURE";
+
+function operatorRequestError(result = {}, fallback = "Avantiqo could not complete the request") {
+  const error = new Error(text(result?.error) || fallback);
+  error.code = text(result?.details?.code);
+  error.stage = text(result?.details?.stage);
+  error.authorityEffect = text(result?.details?.authority_effect);
+  error.retryable = result?.details?.retryable === true;
+  return error;
+}
+
+function operatorRequestErrorMessage(error) {
+  if (text(error?.code) === BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE) {
+    return "I stopped this diagnosis because its proof could not be verified. No action was executed. Please retry the diagnosis.";
+  }
+  return error?.message || "Avantiqo failed";
+}
+
 function assistantMessage(content, extra = {}) {
   return {
     id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -333,7 +351,7 @@ export default function AvantiqoOperator() {
 
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.success === false) {
-        throw new Error(result?.error || "Avantiqo could not complete the request");
+        throw operatorRequestError(result);
       }
 
       const decision = result?.decision || {};
@@ -363,8 +381,8 @@ export default function AvantiqoOperator() {
         }
       }
     } catch (sendError) {
-      const messageText = sendError?.message || "Avantiqo failed";
-      const responseText = `I couldn't complete that: ${messageText}`;
+      const messageText = operatorRequestErrorMessage(sendError);
+      const responseText = text(sendError?.code) === BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE ? messageText : `I couldn't complete that: ${messageText}`;
       setError(messageText);
       setMessages((current) => [
         ...current,

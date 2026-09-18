@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { resolveBusinessContext } from "@/lib/business-context/resolveBusinessContext";
 import { MarketAutonomousPaperRuntime } from "@/lib/markets/runtime/MarketAutonomousPaperRuntime";
 import { MarketIntelligenceIngestionRuntime } from "@/lib/markets/runtime/MarketIntelligenceIngestionRuntime";
+import { evaluateMarketMicrostructureRisk } from "@/lib/markets/runtime/MarketMicrostructureRiskModels";
 import { MarketPaperExecutionRuntime } from "@/lib/markets/runtime/MarketPaperExecutionRuntime";
 import { MarketPortfolioRiskRuntime } from "@/lib/markets/runtime/MarketPortfolioRiskRuntime";
 import { MarketPredictionOutcomeRuntime } from "@/lib/markets/runtime/MarketPredictionOutcomeRuntime";
@@ -344,6 +345,21 @@ async function submitPaperOrder({ organizationId, state, body }) {
     throw new Error("Insufficient paper cash for BUY order");
   }
 
+  const { data: queuedDuplicate, error: queuedDuplicateError } = await supabaseAdmin
+    .from("market_paper_orders")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("portfolio_id", state.portfolio.id)
+    .eq("symbol", clean(decision.symbol).toUpperCase())
+    .eq("side", side)
+    .eq("status", "QUEUED")
+    .limit(1)
+    .maybeSingle();
+  if (queuedDuplicateError) throw queuedDuplicateError;
+  if (queuedDuplicate) {
+    throw new Error("A matching paper order is already queued for this symbol and side");
+  }
+
   const currentPositionValue = heldQuantity * requestedPrice;
   const executionRisk = evaluatePaperTradeRisk({
     policy: state.riskPolicy || {},
@@ -368,19 +384,28 @@ async function submitPaperOrder({ organizationId, state, body }) {
       notional,
     },
   });
+  const microstructureRisk = evaluateMarketMicrostructureRisk({
+    policy: state.riskPolicy || {},
+    snapshot,
+    side,
+  });
+  const allApproved =
+    executionRisk.approved &&
+    portfolioRisk.approved &&
+    microstructureRisk.approved;
   const riskReasons = [
     ...(executionRisk.reasons || []),
     ...(portfolioRisk.reasons || []),
+    ...(microstructureRisk.reasons || []),
   ];
   const risk = {
-    approved: executionRisk.approved && portfolioRisk.approved,
-    status: executionRisk.approved && portfolioRisk.approved
-      ? "APPROVED_PAPER"
-      : "REJECTED",
+    approved: allApproved,
+    status: allApproved ? "APPROVED_PAPER" : "REJECTED",
     reasons: riskReasons,
     snapshot: {
       ...(executionRisk.snapshot || {}),
       portfolio_concentration: portfolioRisk.metrics || {},
+      market_microstructure: microstructureRisk.metrics || {},
     },
   };
 
@@ -466,6 +491,9 @@ export async function POST(request) {
         max_gross_exposure_pct: Number(body.max_gross_exposure_pct ?? current.max_gross_exposure_pct ?? 100),
         max_correlated_exposure_pct: Number(body.max_correlated_exposure_pct ?? current.max_correlated_exposure_pct ?? 35),
         correlation_threshold: Number(body.correlation_threshold ?? current.correlation_threshold ?? 0.8),
+        max_market_data_age_seconds: Number(body.max_market_data_age_seconds ?? current.max_market_data_age_seconds ?? 120),
+        max_spread_bps: Number(body.max_spread_bps ?? current.max_spread_bps ?? 50),
+        min_quote_notional: Number(body.min_quote_notional ?? current.min_quote_notional ?? 0),
         live_execution_enabled: false,
         updated_at: new Date().toISOString(),
       };
@@ -491,6 +519,15 @@ export async function POST(request) {
       }
       if (next.max_order_notional !== null && !(next.max_order_notional > 0)) {
         throw new Error("Maximum order notional must be greater than zero when configured");
+      }
+      if (!(next.max_market_data_age_seconds >= 1 && next.max_market_data_age_seconds <= 3600)) {
+        throw new Error("Maximum market data age must be between 1 and 3600 seconds");
+      }
+      if (!(next.max_spread_bps > 0 && next.max_spread_bps <= 10000)) {
+        throw new Error("Maximum spread must be greater than 0 and at most 10000 bps");
+      }
+      if (!(next.min_quote_notional >= 0)) {
+        throw new Error("Minimum quote notional cannot be negative");
       }
 
       const { data: riskPolicy, error: riskPolicyError } = await supabaseAdmin

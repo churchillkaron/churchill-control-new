@@ -76,6 +76,9 @@ export default function MarketsCommandCenter({ organizationId }) {
       max_portfolio_drawdown_pct: String(policy.max_portfolio_drawdown_pct ?? 10),
       min_decision_confidence: String(policy.min_decision_confidence ?? 0.7),
       max_order_notional: policy.max_order_notional == null ? "" : String(policy.max_order_notional),
+      max_market_data_age_seconds: String(policy.max_market_data_age_seconds ?? 120),
+      max_spread_bps: String(policy.max_spread_bps ?? 50),
+      min_quote_notional: String(policy.min_quote_notional ?? 0),
     });
   }, [data?.riskPolicy]);
 
@@ -521,6 +524,9 @@ export default function MarketsCommandCenter({ organizationId }) {
                         ["Daily loss %", "max_daily_loss_pct", "0.1", "100", "0.1"],
                         ["Drawdown %", "max_portfolio_drawdown_pct", "0.1", "100", "0.1"],
                         ["Min confidence", "min_decision_confidence", "0", "1", "0.01"],
+                        ["Quote age sec", "max_market_data_age_seconds", "1", "3600", "1"],
+                        ["Max spread bps", "max_spread_bps", "0.1", "10000", "0.1"],
+                        ["Min quote notional", "min_quote_notional", "0", "1000000000", "1"],
                       ].map(([label, key, min, max, step]) => (
                         <label key={key}>
                           <span className="text-[8px] text-[#968F86]">{label}</span>
@@ -566,6 +572,9 @@ export default function MarketsCommandCenter({ organizationId }) {
                         max_portfolio_drawdown_pct: Number(riskDraft?.max_portfolio_drawdown_pct || 10),
                         min_decision_confidence: Number(riskDraft?.min_decision_confidence ?? 0.7),
                         max_order_notional: riskDraft?.max_order_notional ?? "",
+                        max_market_data_age_seconds: Number(riskDraft?.max_market_data_age_seconds ?? 120),
+                        max_spread_bps: Number(riskDraft?.max_spread_bps ?? 50),
+                        min_quote_notional: Number(riskDraft?.min_quote_notional ?? 0),
                       })}
                       className="mt-3 h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-medium text-white disabled:opacity-40"
                     >

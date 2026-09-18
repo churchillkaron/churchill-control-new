@@ -6,6 +6,10 @@ test("shared operator artifact surface renders persisted diagnosis proof",()=>{
   const source=fs.readFileSync("components/operator/OperatorExecutionArtifacts.jsx","utf8");
   assert.match(source,/data-avantiqo-business-diagnosis-proof/);
   assert.match(source,/Verified diagnosis/);
+  assert.match(source,/Diagnosis proof/);
+  assert.match(source,/diagnosisProofHeading/);
+  assert.match(source,/auditStatus === "VERIFIED" \|\| auditStatus === "VERIFIED_LEGACY"/);
+  assert.match(source,/\{proofHeading\}/);
   assert.match(source,/receipt_fingerprint/);
   assert.match(source,/Request type/);
   assert.match(source,/diagnosis\.class/);

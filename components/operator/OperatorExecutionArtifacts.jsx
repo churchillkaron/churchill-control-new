@@ -213,6 +213,12 @@ function persistedProofLabel({ auditVerified = false, auditStatus = "" } = {}) {
   return "Live proof";
 }
 
+
+function diagnosisProofHeading({ auditVerified = false, auditStatus = "" } = {}) {
+  if (auditVerified && (auditStatus === "VERIFIED" || auditStatus === "VERIFIED_LEGACY")) return "Verified diagnosis";
+  return "Diagnosis proof";
+}
+
 function DiagnosisProof({ evidence = {} }) {
   const diagnosis = evidence?.business_diagnosis;
   if (!diagnosis?.receipt_fingerprint) return null;
@@ -232,10 +238,11 @@ function DiagnosisProof({ evidence = {} }) {
   const validatedExternalCount = Number.isFinite(Number(diagnosis.validated_external_context_count)) ? Number(diagnosis.validated_external_context_count) : 0;
   const unresolvedExternalCount = Number.isFinite(Number(diagnosis.unresolved_external_context_count)) ? Number(diagnosis.unresolved_external_context_count) : 0;
   const persistedProofStatus = persistedProofLabel({ auditVerified, auditStatus });
+  const proofHeading = diagnosisProofHeading({ auditVerified, auditStatus });
   return (
     <details data-avantiqo-business-diagnosis-proof="true" className="mt-3 overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] text-white/70">
-        <span className="flex items-center gap-2 font-medium text-[#E5C28D]"><BadgeCheck size={13} />Verified diagnosis</span>
+        <span className="flex items-center gap-2 font-medium text-[#E5C28D]"><BadgeCheck size={13} />{proofHeading}</span>
         <span className="text-[9px] text-white/35">{stateLabel}</span>
       </summary>
       <div className="grid gap-2 border-t border-white/[0.06] px-3 py-3 text-[9px] text-white/50 sm:grid-cols-2">

@@ -5,7 +5,7 @@ import fs from "node:fs";
 const source=fs.readFileSync(new URL("../lib/creative/music/runtime/CreativeMusicMixEvidenceRuntime.js",import.meta.url),"utf8");
 
 test("mix evidence batches spectral and temporal measurements into one FFmpeg process",()=>{
-  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V11/);
+  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V12/);
   assert.match(source,/asplit=\$\{bands\.length\+1\}/);
   for(const name of ["full","sub","lowmid","warmth","boxiness","presence","air","sibilance"]) assert.match(source,new RegExp(`volumedetect@\\$\\{name\\}`));
   assert.match(source,/asplit=3\[efull\]\[epresence\]\[elow\]/);
@@ -26,4 +26,16 @@ test("batched envelope graph preserves full, presence, and low evidence bands",(
   assert.match(source,/presence_envelope:envelopeRows\(channels\[1\]\)/);
   assert.match(source,/low_envelope:envelopeRows\(channels\[2\]\)/);
   assert.match(source,/TEMPORAL_SPECTRAL_COMPETITION/);
+});
+
+
+test("mix evidence covers the used song range instead of silently truncating at two minutes",()=>{
+  assert.match(source,/MAX_ANALYSIS_SECONDS = 600/);
+  assert.match(source,/analysisSecondsFor/);
+  assert.match(source,/source_offset_seconds/);
+  assert.match(source,/start_seconds/);
+  assert.match(source,/analysis_seconds/);
+  assert.match(source,/analysis_capped/);
+  assert.doesNotMatch(source,/rows\.slice\(0,240\)/);
+  assert.doesNotMatch(source,/WINDOW_SECONDS = 120/);
 });

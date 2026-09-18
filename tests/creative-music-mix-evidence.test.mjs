@@ -79,10 +79,19 @@ test("Mix Engineer reuses only current lineage-matched track stem renders",()=>{
   assert.match(route,/JSON\.stringify\(lineage\)!==JSON\.stringify\(expected\)/);
   assert.match(route,/track_render_urls\[trackId\]=await resolveCreativeProviderAssetUrl/);
   assert.match(evidence,/track_render_urls/);
-  assert.match(evidence,/evidence_source:sourceIds\.length>1\?"TRACK_STEM_RENDER":"SOURCE_ASSET"/);
-  assert.match(evidence,/evidence_timeline_basis:sourceIds\.length>1\?"TRACK_RENDER":"SOURCE_MEDIA"/);
+  assert.match(evidence,/evidence_source:useTrackRender\?"TRACK_STEM_RENDER":"SOURCE_ASSET"/);
+  assert.match(evidence,/const basis=useTrackRender\?"TRACK_RENDER":"SOURCE_MEDIA"/);
 });
 
 test("track-render temporal evidence is read in project timeline coordinates",()=>{
   assert.match(evidence,/evidence_timeline_basis==="TRACK_RENDER"\?time:/);
+});
+
+
+test("single-source edits also require rendered timeline evidence",()=>{
+  assert.match(evidence,/sourceMediaEvidenceExact/);
+  assert.match(evidence,/clips\.length===1/);
+  assert.match(evidence,/source_offset_seconds/);
+  assert.match(evidence,/EDITED_SOURCE_RANGE_REQUIRE_TRACK_RENDER/);
+  assert.match(route,/if\(!trackId\|\|!expected\|\|!expected\.length\)continue/);
 });

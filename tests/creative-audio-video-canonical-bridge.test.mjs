@@ -18,8 +18,16 @@ const finalMaster = fs.readFileSync(
   "lib/creative/release/runtime/CreativeFinalMasteringRuntime.js",
   "utf8",
 );
+const color = fs.readFileSync(
+  "lib/creative/color/runtime/CreativeColorFinishingRuntime.js",
+  "utf8",
+);
 const delivery = fs.readFileSync(
   "lib/creative/release/runtime/CreativeTemporalChannelDeliveryRuntime.js",
+  "utf8",
+);
+const postProduction = fs.readFileSync(
+  "lib/creative/post-production/runtime/CreativePostProductionRuntime.js",
   "utf8",
 );
 
@@ -50,4 +58,24 @@ test("final mastering and derivatives preserve Audio Studio QC evidence", () => 
   assert.match(delivery, /audio_studio_qc_sealed/);
   assert.match(delivery, /audio_studio_qc_seal_hash/);
   assert.match(delivery, /derivative_created_from_timeline_rerender/);
+});
+
+test("canonical post-production installs the soundtrack gate before professional finishing", () => {
+  const soundtrackIndex = postProduction.indexOf("CreativeMasterSoundtrackRenderGate");
+  const finishingIndex = postProduction.indexOf("CreativeProfessionalFinishingBootstrap");
+  assert.ok(soundtrackIndex >= 0);
+  assert.ok(finishingIndex > soundtrackIndex);
+});
+
+test("Color DI stream-copies audio, revalidates it, and preserves Audio Studio provenance", () => {
+  assert.match(color, /"-c:a",\s*"copy"/);
+  assert.match(color, /validateMasterAudioAfterColor/);
+  assert.match(color, /audio_studio_qc_sealed/);
+  assert.match(color, /audio_studio_qc_seal_hash/);
+  assert.match(color, /master_soundtrack_integrity_passed_after_color_finishing/);
+});
+
+test("canonical post-production is isolated from legacy investor self-mix runtimes", () => {
+  assert.doesNotMatch(postProduction, /AvantiqoInvestorFilm/);
+  assert.doesNotMatch(postProduction, /AvantiqoInvestorOpeningAssemblyRuntime/);
 });

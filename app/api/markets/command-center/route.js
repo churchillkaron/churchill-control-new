@@ -530,6 +530,7 @@ export async function POST(request) {
         bars: refreshed.bars,
         evidence: refreshed.evidence,
         filings: refreshed.filings,
+        fundamentals: refreshed.fundamentals,
         snapshot: refreshed.snapshot,
       });
 

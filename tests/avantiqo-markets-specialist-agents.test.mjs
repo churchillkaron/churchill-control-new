@@ -69,3 +69,49 @@ test("decision confidence converts to bounded upward probability", () => {
   assert.ok(Math.abs(probabilityUpFromDecision({ action: "SELL", confidence: 0.8 }) - 0.1) < 1e-12);
   assert.equal(probabilityUpFromDecision({ action: "HOLD", confidence: 0.9 }), 0.5);
 });
+
+test("news thesis decays stale events out of short-horizon decisions", () => {
+  const thesis = buildNewsThesis({
+    symbol: "TEST",
+    now: new Date("2026-09-18T12:00:00Z"),
+    evidence: [
+      {
+        evidence_type: "NEWS",
+        symbol: "TEST",
+        sentiment: 0.9,
+        materiality: 0.9,
+        observed_at: "2026-09-01T12:00:00Z",
+      },
+    ],
+  });
+
+  assert.equal(thesis.stance, "INSUFFICIENT_EVIDENCE");
+  assert.equal(thesis.confidence, 0);
+});
+
+test("fresh material news contributes a directional thesis", () => {
+  const thesis = buildNewsThesis({
+    symbol: "TEST",
+    now: new Date("2026-09-18T12:00:00Z"),
+    evidence: [
+      {
+        evidence_type: "NEWS",
+        symbol: "TEST",
+        sentiment: 0.8,
+        materiality: 0.9,
+        observed_at: "2026-09-18T11:00:00Z",
+      },
+      {
+        evidence_type: "NEWS",
+        symbol: "TEST",
+        sentiment: 0.4,
+        materiality: 0.5,
+        observed_at: "2026-09-18T10:00:00Z",
+      },
+    ],
+  });
+
+  assert.equal(thesis.stance, "BULLISH");
+  assert.ok(thesis.confidence > 0);
+  assert.equal(thesis.rationale.maximum_evidence_age_hours, 168);
+});

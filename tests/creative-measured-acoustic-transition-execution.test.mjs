@@ -1,0 +1,7 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+
+test("measured acoustic transition execution fingerprints both IR files before afir",()=>{const src=fs.readFileSync("lib/creative/music/runtime/CreativeMeasuredAcousticTransitionExecutionRuntime.js","utf8");assert.match(src,/FROM_IR_FINGERPRINT_MISMATCH/);assert.match(src,/TO_IR_FINGERPRINT_MISMATCH/);assert.match(src,/afir=dry=0:wet=1/);assert.match(src,/cos\(\(t-/);assert.match(src,/sin\(\(t-/);assert.match(src,/pcm_s24le/);assert.match(src,/provider_job_submitted:false/);assert.match(src,/release_master:false/);});
+test("transition render route scopes source and both IR assets to the project and creates a derived audition asset",()=>{const route=fs.readFileSync("app/api/creative/music/acoustic-transition-render/route.js","utf8");assert.match(route,/MEASURED_ACOUSTIC_TRANSITION_ASSET_SCOPE_MISMATCH/);assert.match(route,/CreativeAssetsRuntime.create/);assert.match(route,/MEASURED_ACOUSTIC_TRANSITION_RENDER/);assert.match(route,/fingerprint_verified:true/);assert.match(route,/endpoint_mutation_performed:true/);});
+test("Sound Design exposes saved transition audition rendering",()=>{const panel=fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicAdvancedSoundDesignPanel.jsx","utf8");assert.match(panel,/\/api\/creative\/music\/acoustic-transition-render/);assert.match(panel,/Transition audition render/);assert.match(panel,/Render 24-bit transition audition/);assert.match(panel,/Fingerprint-verified transition asset/);});

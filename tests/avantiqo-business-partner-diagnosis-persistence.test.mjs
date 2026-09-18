@@ -91,3 +91,13 @@ test("unsafe diagnosis history also removes its immediately preceding user reque
   assert.match(runtime,/if \(previous\?\.role === "user"\) safeRows\.pop\(\)/);
   assert.match(runtime,/continue;/);
 });
+
+
+test("conversation snapshot hides unverified historical diagnosis answer text",()=>{
+  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
+  assert.match(runtime,/const proofVerified=verification\.status==="VERIFIED"\|\|verification\.status==="VERIFIED_LEGACY"/);
+  assert.match(runtime,/This historical diagnosis is hidden because its proof could not be verified/);
+  assert.match(runtime,/No action was executed/);
+  assert.match(runtime,/execution:\{\}/);
+  assert.match(runtime,/navigation:\{\}/);
+});

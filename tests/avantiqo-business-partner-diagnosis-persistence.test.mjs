@@ -259,3 +259,11 @@ test("recent conversation loader fetches missing paired user turns only as verif
   assert.match(runtime,/\.in\("id", missingIds\.slice\(0, 24\)\)/);
   assert.match(runtime,/sanitizeBusinessDiagnosisConversation\(turns\.data \|\| \[\],[\s\S]*supportRows\)/);
 });
+
+
+test("historical snapshot loader fetches paired prompts across the 100-turn cutoff only as hidden verification support",()=>{
+  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
+  assert.match(runtime,/const snapshotSupportRows = await loadMissingDiagnosisVerificationUserTurns/);
+  assert.match(runtime,/sanitizeBusinessDiagnosisSnapshot\(turns\.data\|\|\[\],[\s\S]*snapshotSupportRows\)/);
+  assert.doesNotMatch(runtime,/turns\.data\s*=\s*\[\.\.\.turns\.data,\s*\.\.\.snapshotSupportRows\]/);
+});

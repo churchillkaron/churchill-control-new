@@ -639,3 +639,30 @@ test("missing support row still fails closed when origin binding is required", (
     if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED=oldRequired;
   }
 });
+
+
+test("historical snapshot can verify a diagnosis against a paired user turn outside the visible window without appending it", () => {
+  const evidence=diagnosisEvidence({answer:"diagnosis"});
+  const scoped=bindBusinessDiagnosisScopeChecksum({...evidence.business_diagnosis,scope_user_turn_id:"u-outside",scope_user_content_fingerprint:businessDiagnosisUserTurnContentFingerprint("older paired request")});
+  const visible=[{id:"d1",role:"assistant",content:"diagnosis",decision:{response_text:"diagnosis"},evidence:{business_diagnosis:scoped}}];
+  const support=[{id:"u-outside",role:"user",content:"older paired request",evidence:{}}];
+  const result=sanitizeBusinessDiagnosisSnapshot(visible,{},support);
+  assert.equal(result.length,1);
+  assert.equal(result[0].content,"diagnosis");
+  assert.equal(result[0].evidence.business_diagnosis.origin_user_verification_status,"ORIGIN_USER_VERIFIED");
+});
+
+test("historical snapshot still quarantines when paired user support cannot be loaded under strict origin policy", () => {
+  const oldRequired=process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED;
+  process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED="true";
+  try {
+    const evidence=diagnosisEvidence({answer:"diagnosis"});
+    const scoped=bindBusinessDiagnosisScopeChecksum({...evidence.business_diagnosis,scope_user_turn_id:"u-outside",scope_user_content_fingerprint:businessDiagnosisUserTurnContentFingerprint("older paired request")});
+    const visible=[{id:"d1",role:"assistant",content:"diagnosis",decision:{response_text:"diagnosis"},evidence:{business_diagnosis:scoped}}];
+    const result=sanitizeBusinessDiagnosisSnapshot(visible,{},[]);
+    assert.match(result[0].content,/historical diagnosis is hidden/i);
+    assert.equal(result[0].evidence.business_diagnosis.origin_user_accepted,false);
+  } finally {
+    if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED=oldRequired;
+  }
+});

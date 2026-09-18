@@ -55,6 +55,7 @@ test("paper fill worker reruns execution portfolio microstructure and corporate-
 });
 
 test("successful fill persists its risk revalidation with execution quality", () => {
+  assert.match(runtime, /execution_revision: number\(account\.execution_revision, 0\)/);
   assert.match(runtime, /risk_revalidation: riskRevalidation/);
   assert.match(runtime, /p_execution_quality: executionQuality/);
 });

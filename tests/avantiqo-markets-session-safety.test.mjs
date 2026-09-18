@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { evaluateMarketSessionSafety } from "../lib/markets/runtime/MarketSessionSafetyModels.js";
+import {
+  evaluateMarketSessionSafety,
+  evaluateTradingClockIntegrity,
+} from "../lib/markets/runtime/MarketSessionSafetyModels.js";
 
 const activeAsset = {
   status: "active",
@@ -46,6 +49,46 @@ test("extended-hours mode still blocks overnight halted asset", () => {
     allowExtendedHours: true,
   });
   assert.equal(result.approved, false);
+});
+
+test("fresh authoritative trading clock passes integrity", () => {
+  const result = evaluateTradingClockIntegrity({
+    clock: {
+      timestamp: "2026-09-18T14:00:00Z",
+      is_open: true,
+      next_close: "2026-09-18T20:00:00Z",
+      provenance: { fetched_at: "2026-09-18T14:00:01Z" },
+    },
+    now: new Date("2026-09-18T14:00:05Z"),
+  });
+  assert.equal(result.approved, true);
+});
+
+test("stale or malformed trading clock fails closed", () => {
+  const stale = evaluateTradingClockIntegrity({
+    clock: {
+      timestamp: "2026-09-18T13:00:00Z",
+      is_open: true,
+      next_close: "2026-09-18T20:00:00Z",
+      provenance: { fetched_at: "2026-09-18T13:00:00Z" },
+    },
+    now: new Date("2026-09-18T14:00:05Z"),
+    maxAgeSeconds: 120,
+  });
+  assert.equal(stale.approved, false);
+  assert.ok(stale.reasons.some((reason) => reason.includes("stale")));
+
+  const malformed = evaluateTradingClockIntegrity({
+    clock: {
+      timestamp: "2026-09-18T14:00:00Z",
+      is_open: true,
+      next_close: "2026-09-18T13:59:59Z",
+      provenance: { fetched_at: "2026-09-18T14:00:01Z" },
+    },
+    now: new Date("2026-09-18T14:00:05Z"),
+  });
+  assert.equal(malformed.approved, false);
+  assert.ok(malformed.reasons.some((reason) => reason.includes("next close")));
 });
 
 test("missing clock or asset metadata fails closed", () => {

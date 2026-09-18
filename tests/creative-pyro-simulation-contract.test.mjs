@@ -45,8 +45,8 @@ test('simulation executor routes smoke/fire through owned pyro backend',()=>{
   assert.match(executor,/simulation\.simulation_class==="PYRO_SMOKE_FIRE"/);
 });
 
-test('soft-body remains blocked until a dedicated soft-body solver backend is implemented',()=>{
-  const cloth={...pyro(),simulation_class:'DEFORMABLE_SOFT_BODY',simulation_intent:'Curtain reacts to wind.',attachment_and_pins:'top edge pinned',stretch_bend_shear:'fabric stiffness',self_collision:'prevent self intersection',aerodynamic_response:'wind from left'};
+test('hair/fur remains blocked until a dedicated strand solver backend is implemented',()=>{
+  const cloth={...pyro(),simulation_class:'HAIR_FUR',simulation_intent:'Curtain reacts to wind.',attachment_and_pins:'top edge pinned',stretch_bend_shear:'fabric stiffness',self_collision:'prevent self intersection',aerodynamic_response:'wind from left'};
   const result=CreativeSimulationRuntime.author({simulation:[cloth],subject:'curtain',action:'wind gust',frame_plan:{opening_frame:'still',progression:'moves',closing_frame:'settled'},continuity:{environment:'room'}});
   assert.equal(result.status,'BLOCKED');
   assert.ok(result.blocking_issues.some(x=>x.code==='SIMULATION_BACKEND_NOT_IMPLEMENTED'));

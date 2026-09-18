@@ -42,8 +42,8 @@ test('simulation executor routes cloth through owned cloth backend',()=>{
   assert.match(executor,/simulation\.simulation_class==="DEFORMABLE_CLOTH"/);
 });
 
-test('soft body remains blocked until its own solver backend exists',()=>{
-  const soft={...cloth(),simulation_class:'DEFORMABLE_SOFT_BODY',simulation_intent:'Rubber prop deforms under impact.',deformation_model:'elastic rubber',volume_preservation:'preserve plausible volume',recovery_and_damping:'damped elastic recovery'};
+test('hair/fur remains blocked until its strand solver backend exists',()=>{
+  const soft={...cloth(),simulation_class:'HAIR_FUR',simulation_intent:'Fur reacts to wind and motion.',root_attachment:'roots remain attached',strand_response:'strand bend inertia and drag',collision_response:'respect body collisions'};
   const result=CreativeSimulationRuntime.author({simulation:[soft],subject:'rubber prop',action:'impact',frame_plan:{opening_frame:'undeformed',progression:'compresses',closing_frame:'recovers'},continuity:{environment:'set'}});
   assert.equal(result.status,'BLOCKED');
   assert.ok(result.blocking_issues.some(x=>x.code==='SIMULATION_BACKEND_NOT_IMPLEMENTED'));

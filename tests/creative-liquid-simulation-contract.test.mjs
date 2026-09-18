@@ -45,8 +45,8 @@ test('simulation executor routes liquid through owned liquid backend',()=>{
   assert.match(executor,/simulation\.simulation_class==="LIQUID_FLUID"/);
 });
 
-test('soft-body remains blocked until its dedicated soft-body solver exists',()=>{
-  const cloth={...liquid(),simulation_class:'DEFORMABLE_SOFT_BODY',simulation_intent:'Curtain reacts to a wind gust.',attachment_and_pins:'top edge pinned',stretch_bend_shear:'fabric stiffness',self_collision:'prevent self intersection',aerodynamic_response:'wind from left'};
+test('hair/fur remains blocked until its dedicated strand solver exists',()=>{
+  const cloth={...liquid(),simulation_class:'HAIR_FUR',simulation_intent:'Curtain reacts to a wind gust.',attachment_and_pins:'top edge pinned',stretch_bend_shear:'fabric stiffness',self_collision:'prevent self intersection',aerodynamic_response:'wind from left'};
   const result=CreativeSimulationRuntime.author({simulation:[cloth],subject:'curtain',action:'wind gust',frame_plan:{opening_frame:'still',progression:'moves',closing_frame:'settles'},continuity:{environment:'room'}});
   assert.equal(result.status,'BLOCKED');
   assert.ok(result.blocking_issues.some(x=>x.code==='SIMULATION_BACKEND_NOT_IMPLEMENTED'));

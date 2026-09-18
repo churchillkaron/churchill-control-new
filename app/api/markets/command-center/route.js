@@ -594,6 +594,10 @@ export async function POST(request) {
         protective_exits_enabled: body.protective_exits_enabled ?? current.protective_exits_enabled ?? true,
         default_stop_loss_pct: Number(body.default_stop_loss_pct ?? current.default_stop_loss_pct ?? 5),
         default_take_profit_pct: Number(body.default_take_profit_pct ?? current.default_take_profit_pct ?? 10),
+        historical_risk_min_observations: Number(body.historical_risk_min_observations ?? current.historical_risk_min_observations ?? 60),
+        max_portfolio_var_95_pct: Number(body.max_portfolio_var_95_pct ?? current.max_portfolio_var_95_pct ?? 5),
+        max_portfolio_expected_shortfall_95_pct: Number(body.max_portfolio_expected_shortfall_95_pct ?? current.max_portfolio_expected_shortfall_95_pct ?? 8),
+        max_position_annualized_volatility_pct: Number(body.max_position_annualized_volatility_pct ?? current.max_position_annualized_volatility_pct ?? 100),
         live_execution_enabled: false,
         updated_at: new Date().toISOString(),
       };
@@ -640,6 +644,18 @@ export async function POST(request) {
       }
       if (!(next.default_take_profit_pct > 0 && next.default_take_profit_pct <= 200)) {
         throw new Error("Default take-profit must be greater than 0 and at most 200%");
+      }
+      if (!(next.historical_risk_min_observations >= 20 && next.historical_risk_min_observations <= 504)) {
+        throw new Error("Historical risk observations must be between 20 and 504");
+      }
+      if (!(next.max_portfolio_var_95_pct > 0 && next.max_portfolio_var_95_pct <= 100)) {
+        throw new Error("Maximum portfolio 95% VaR must be greater than 0 and at most 100%");
+      }
+      if (!(next.max_portfolio_expected_shortfall_95_pct > 0 && next.max_portfolio_expected_shortfall_95_pct <= 100)) {
+        throw new Error("Maximum portfolio 95% expected shortfall must be greater than 0 and at most 100%");
+      }
+      if (!(next.max_position_annualized_volatility_pct > 0 && next.max_position_annualized_volatility_pct <= 1000)) {
+        throw new Error("Maximum position annualized volatility must be greater than 0 and at most 1000%");
       }
 
       const { data: riskPolicy, error: riskPolicyError } = await supabaseAdmin

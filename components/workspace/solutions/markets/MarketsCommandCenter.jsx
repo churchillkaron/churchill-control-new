@@ -90,6 +90,10 @@ export default function MarketsCommandCenter({ organizationId }) {
       protective_exits_enabled: policy.protective_exits_enabled !== false,
       default_stop_loss_pct: String(policy.default_stop_loss_pct ?? 5),
       default_take_profit_pct: String(policy.default_take_profit_pct ?? 10),
+      historical_risk_min_observations: String(policy.historical_risk_min_observations ?? 60),
+      max_portfolio_var_95_pct: String(policy.max_portfolio_var_95_pct ?? 5),
+      max_portfolio_expected_shortfall_95_pct: String(policy.max_portfolio_expected_shortfall_95_pct ?? 8),
+      max_position_annualized_volatility_pct: String(policy.max_position_annualized_volatility_pct ?? 100),
     });
   }, [data?.riskPolicy]);
 
@@ -523,6 +527,9 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Correlation gate", Number(policy.correlation_threshold || 0.8).toFixed(2)],
                       ["Daily loss", `${Number(policy.max_daily_loss_pct || 2)}%`],
                       ["Max drawdown", `${Number(policy.max_portfolio_drawdown_pct || 10)}%`],
+                      ["Max VaR 95%", `${Number(policy.max_portfolio_var_95_pct || 5)}%`],
+                      ["Max ES 95%", `${Number(policy.max_portfolio_expected_shortfall_95_pct || 8)}%`],
+                      ["Max position vol", `${Number(policy.max_position_annualized_volatility_pct || 100)}%`],
                       ["Min confidence", `${(Number(policy.min_decision_confidence || 0.7) * 100).toFixed(0)}%`],
                     ].map(([label, value]) => (
                       <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
@@ -552,6 +559,30 @@ export default function MarketsCommandCenter({ organizationId }) {
                           {latestPortfolioRisk ? `${Number(latestPortfolioRisk.projected_correlated_exposure_pct || 0).toFixed(1)}%` : "—"}
                         </div>
                       </div>
+                      <div>
+                        <div className="text-[#9A968E]">VaR 95%</div>
+                        <div className="mt-0.5 font-semibold">
+                          {latestPortfolioRisk?.historical_risk?.portfolio?.var_95_pct == null
+                            ? "—"
+                            : `${Number(latestPortfolioRisk.historical_risk.portfolio.var_95_pct).toFixed(2)}%`}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#9A968E]">ES 95%</div>
+                        <div className="mt-0.5 font-semibold">
+                          {latestPortfolioRisk?.historical_risk?.portfolio?.expected_shortfall_95_pct == null
+                            ? "—"
+                            : `${Number(latestPortfolioRisk.historical_risk.portfolio.expected_shortfall_95_pct).toFixed(2)}%`}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#9A968E]">Candidate vol</div>
+                        <div className="mt-0.5 font-semibold">
+                          {latestPortfolioRisk?.historical_risk?.candidate?.annualized_volatility_pct == null
+                            ? "—"
+                            : `${Number(latestPortfolioRisk.historical_risk.candidate.annualized_volatility_pct).toFixed(1)}%`}
+                        </div>
+                      </div>
                     </div>
                     {latestPortfolioRisk?.candidate_sector ? (
                       <div className="mt-2 text-[8px] text-[#9A968E]">
@@ -574,6 +605,10 @@ export default function MarketsCommandCenter({ organizationId }) {
                         ["Quote age sec", "max_market_data_age_seconds", "1", "3600", "1"],
                         ["Max spread bps", "max_spread_bps", "0.1", "10000", "0.1"],
                         ["Min quote notional", "min_quote_notional", "0", "1000000000", "1"],
+                        ["Risk history days", "historical_risk_min_observations", "20", "504", "1"],
+                        ["Max VaR 95% %", "max_portfolio_var_95_pct", "0.01", "100", "0.1"],
+                        ["Max ES 95% %", "max_portfolio_expected_shortfall_95_pct", "0.01", "100", "0.1"],
+                        ["Max position vol %", "max_position_annualized_volatility_pct", "0.01", "1000", "0.1"],
                       ].map(([label, key, min, max, step]) => (
                         <label key={key}>
                           <span className="text-[8px] text-[#968F86]">{label}</span>
@@ -698,6 +733,10 @@ export default function MarketsCommandCenter({ organizationId }) {
                         protective_exits_enabled: riskDraft?.protective_exits_enabled !== false,
                         default_stop_loss_pct: Number(riskDraft?.default_stop_loss_pct ?? 5),
                         default_take_profit_pct: Number(riskDraft?.default_take_profit_pct ?? 10),
+                        historical_risk_min_observations: Number(riskDraft?.historical_risk_min_observations ?? 60),
+                        max_portfolio_var_95_pct: Number(riskDraft?.max_portfolio_var_95_pct ?? 5),
+                        max_portfolio_expected_shortfall_95_pct: Number(riskDraft?.max_portfolio_expected_shortfall_95_pct ?? 8),
+                        max_position_annualized_volatility_pct: Number(riskDraft?.max_position_annualized_volatility_pct ?? 100),
                       })}
                       className="mt-3 h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-medium text-white disabled:opacity-40"
                     >

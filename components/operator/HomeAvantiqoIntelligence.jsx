@@ -29,7 +29,7 @@ function operatorRequestError(result = {}, fallback = "Avantiqo could not comple
   error.stage = text(result?.details?.stage);
   error.authorityEffect = text(result?.details?.authority_effect);
   error.readinessStatus = text(result?.details?.readiness_status);
-  error.blockers = Array.isArray(result?.details?.blockers) ? result.details.blockers : [];
+  error.blockerCount = Number.isFinite(Number(result?.details?.blocker_count)) ? Number(result.details.blocker_count) : 0;
   error.retryable = result?.details?.retryable === true;
   return error;
 }

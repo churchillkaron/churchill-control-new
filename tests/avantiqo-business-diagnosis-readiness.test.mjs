@@ -139,3 +139,35 @@ test("organization readiness route uses only redacted readiness projection",()=>
   assert.doesNotMatch(route,/active_key_id/);
   assert.doesNotMatch(route,/verification_key_ids/);
 });
+
+
+test("diagnosis not-ready error exposes only sanitized customer details",()=>{
+  const env={AVANTIQO_BUSINESS_DIAGNOSIS_AUTHENTICITY_REQUIRED:"true"};
+  let captured=null;
+  try { assertBusinessDiagnosisReadiness({env}); } catch(error) { captured=error; }
+  assert.ok(captured);
+  assert.equal(captured.details.code,"BUSINESS_DIAGNOSIS_NOT_READY");
+  assert.equal(captured.details.readiness_status,"BLOCKED_AUTHENTICITY_REQUIRED");
+  assert.equal(captured.details.blocker_count,1);
+  assert.equal(Object.prototype.hasOwnProperty.call(captured.details,"blockers"),false);
+  assert.ok(Array.isArray(captured.internal_details.blockers));
+  assert.equal(captured.details.authority_effect,"NONE");
+});
+
+test("operator clients do not accept raw readiness blocker identifiers",()=>{
+  for(const file of ["components/operator/HomeAvantiqoIntelligence.jsx","components/operator/AvantiqoOperator.jsx"]){
+    const source=fs.readFileSync(file,"utf8");
+    assert.match(source,/details\?\.blocker_count/);
+    assert.doesNotMatch(source,/details\?\.blockers/);
+    assert.doesNotMatch(source,/error\.blockers/);
+  }
+});
+
+test("customer-facing readiness routes return sanitized error details only",()=>{
+  const operator=fs.readFileSync("app/api/operator/turn/route.js","utf8");
+  const business=fs.readFileSync("app/api/platform/intelligence/business/route.js","utf8");
+  assert.match(operator,/error\.details/);
+  assert.match(business,/error\.details/);
+  assert.doesNotMatch(operator,/internal_details/);
+  assert.doesNotMatch(business,/internal_details/);
+});

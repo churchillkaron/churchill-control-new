@@ -108,9 +108,12 @@ test("Service Runtime and cinematic state memory both target the V2 facade", () 
   assert.match(memory, /continuity:\s*governedContinuity/);
 });
 
-test("production registration keeps fast generation and temporal UHD mastering explicit", () => {
+test("production registration and owned certification agree on LTX plus temporal FlashVSR", () => {
   const registration = source(
     "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderRegistration.js",
+  );
+  const policy = source(
+    "lib/platform/service-runtime/providers/AvantiqoOwnedCertificationPolicy.js",
   );
 
   assert.match(registration, /FAST_PRODUCTION_RESOLUTION = "1920x1088"/);
@@ -118,4 +121,9 @@ test("production registration keeps fast generation and temporal UHD mastering e
   assert.match(registration, /HERO_NATIVE_RESOLUTION = "3840x2176"/);
   assert.match(registration, /hero_native_generation_default: false/);
   assert.match(registration, /temporal_4k_mastering_required_for_4k_delivery: true/);
+  assert.match(policy, /"Lightricks\/LTX-2\.5"/);
+  assert.match(policy, /"JunhaoZhuang\/FlashVSR-v1\.1"/);
+  const videoCatalog = policy.match(/"avantiqo-video": Object\.freeze\(\{([\s\S]*?)"avantiqo-audio":/)?.[1] || "";
+  assert.equal(videoCatalog.includes("Wan-AI/Wan2"), false);
+  assert.equal(videoCatalog.includes("swin2SR-realworld-sr-x4-64-bsrgan-psnr"), false);
 });

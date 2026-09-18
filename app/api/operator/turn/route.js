@@ -704,6 +704,50 @@ export async function POST(request) {
       project_state: object(nextProjectState),
     };
 
+    const diagnosisPersistenceEvidence = persistedBusinessDiagnosisEvidence(result, {
+      organizationId: businessContext.organizationId,
+      conversationId: memory.conversation.id,
+      entityId: businessContext.entityId,
+      periodId: businessContext.periodId,
+    });
+    const diagnosisResultPresent =
+      Object.keys(object(result?.business_diagnosis)).length > 0 ||
+      text(normalizedDecision.intent) === "business_diagnosis";
+    if (diagnosisResultPresent && !object(diagnosisPersistenceEvidence).business_diagnosis) {
+      const safeFailureText =
+        "This diagnosis was not saved because its proof could not be verified. No analysis result or action was persisted.";
+      await persistAssistantTurnAndConversationState({
+        organizationId: businessContext.organizationId,
+        conversationId: memory.conversation.id,
+        partyId,
+        source,
+        content: safeFailureText,
+        decision: {
+          response_text: safeFailureText,
+          intent: "business_diagnosis_integrity_failure",
+          confidence: 1,
+          agreement_state: object(nextAgreementState),
+          project_state: object(nextProjectState),
+          clarification: { required: false, question: null, options: [] },
+          navigation: { target_id: null },
+          execution: { capability_key: null, payload: {}, reason: null },
+          plan: [],
+        },
+        evidence: {
+          business_diagnosis_integrity_failure: {
+            code: BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE,
+            stage: "PERSISTENCE_PROOF_REJECTED",
+            authority_effect: "NONE",
+          },
+        },
+        execution: {},
+        navigation: {},
+        agreementState: nextAgreementState,
+        projectState: nextProjectState,
+      });
+      throw businessDiagnosisProofIntegrityError("PERSISTENCE_PROOF_REJECTED");
+    }
+
     const assistantPersistStartedAt = Date.now();
     const longTermLearnStartedAt = Date.now();
     let longTermLearned = 0;
@@ -716,12 +760,7 @@ export async function POST(request) {
       decision: persistedDecision,
       evidence: {
         ...object(result?.provider_evidence),
-        ...persistedBusinessDiagnosisEvidence(result, {
-          organizationId: businessContext.organizationId,
-          conversationId: memory.conversation.id,
-          entityId: businessContext.entityId,
-          periodId: businessContext.periodId,
-        }),
+        ...diagnosisPersistenceEvidence,
       },
       execution: object(result?.execution),
       navigation: object(result?.navigation),

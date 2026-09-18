@@ -17,7 +17,7 @@ test("operator turn persists compact business diagnosis audit in evidence",()=>{
   assert.match(route,/periods: \{ status: text\(diagnosis\?\.periods\?\.status\) \|\| null, \.\.\.projection\.periods \}/);
   assert.match(route,/raw_web_content_persisted: false/);
   assert.match(route,/raw_reasoning_persisted: false/);
-  assert.match(route,/\.\.\.persistedBusinessDiagnosisEvidence\(result, \{/);
+  assert.match(route,/const diagnosisPersistenceEvidence = persistedBusinessDiagnosisEvidence\(result, \{/);
 });
 
 test("business diagnosis audit persistence does not alter atomic assistant turn API",()=>{
@@ -127,4 +127,26 @@ test("persisted diagnosis scope uses the actual analyzed current period",()=>{
 test("model-context verification requires active period when proof is period-scoped",()=>{
   const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
   assert.match(runtime,/require_period_context: true/);
+});
+
+
+test("invalid diagnosis proof persists only paired safe failure turn before returning integrity error",()=>{
+  assert.match(route,/const diagnosisPersistenceEvidence = persistedBusinessDiagnosisEvidence\(result, \{/);
+  assert.match(route,/const diagnosisResultPresent =/);
+  assert.match(route,/business_diagnosis_integrity_failure/);
+  assert.match(route,/This diagnosis was not saved because its proof could not be verified/);
+  assert.match(route,/No analysis result or action was persisted/);
+  assert.match(route,/stage: "PERSISTENCE_PROOF_REJECTED"/);
+  assert.match(route,/throw businessDiagnosisProofIntegrityError\("PERSISTENCE_PROOF_REJECTED"\)/);
+  const guardIndex=route.indexOf("if (diagnosisResultPresent && !object(diagnosisPersistenceEvidence).business_diagnosis)");
+  const normalPersistIndex=route.indexOf("const assistantPersistStartedAt = Date.now()",guardIndex);
+  const longTermLearnIndex=route.indexOf("const longTermLearnPromise = learnProjectStateMemories",guardIndex);
+  assert.ok(guardIndex>=0&&normalPersistIndex>guardIndex&&longTermLearnIndex>normalPersistIndex);
+});
+
+test("normal assistant persistence reuses prevalidated diagnosis evidence instead of revalidating after content selection",()=>{
+  assert.match(route,/\.\.\.diagnosisPersistenceEvidence/);
+  const first=route.indexOf("persistedBusinessDiagnosisEvidence(result, {");
+  const second=route.indexOf("persistedBusinessDiagnosisEvidence(result, {",first+1);
+  assert.equal(second,-1);
 });

@@ -108,3 +108,16 @@ test("audible clip transforms cannot reuse raw-source evidence",()=>{
   assert.match(evidence,/warp_mode/);
   assert.match(evidence,/sourceMediaEvidenceExact/);
 });
+
+
+test("active source cleanup requires neutral rendered evidence instead of raw source analysis",()=>{
+  assert.match(evidence,/function sourceCleanupChangesAudio/);
+  assert.match(evidence,/dc_blocker\?\.enabled===true/);
+  assert.match(evidence,/hum_notch\?\.enabled===true/);
+  assert.match(evidence,/SOURCE_CLEANUP_REQUIRE_TRACK_RENDER/);
+  assert.match(evidence,/cleanup\.enabled!==false/);
+});
+
+test("explicitly disabled source cleanup does not force an evidence render",()=>{
+  assert.match(evidence,/cleanup\.enabled!==false&&/);
+});

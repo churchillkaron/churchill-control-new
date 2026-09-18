@@ -67,8 +67,8 @@ test("Mix Engineer reports when multi-source edited tracks need rendered evidenc
   const plan=analyzeMusicMixEngineer(session,{contract:"AVANTIQO_MUSIC_MIX_EVIDENCE_V10",tracks:[{track_id:"v",measured:false,reason:"MULTIPLE_SOURCE_ASSETS_REQUIRE_TRACK_RENDER"}],ambiguous_source_track_count:1,all_timeline_evidence_safe:false});
   const issue=plan.issues.find(row=>row.code==="TRACK_RENDER_REQUIRED_FOR_EVIDENCE");
   assert.ok(issue);
-  assert.match(issue.message,/1 edited track/);
-  assert.match(issue.message,/track render/i);
+  assert.match(issue.message,/1 track lacks current technically valid neutral evidence/);
+  assert.match(issue.message,/evidence render/i);
 });
 
 

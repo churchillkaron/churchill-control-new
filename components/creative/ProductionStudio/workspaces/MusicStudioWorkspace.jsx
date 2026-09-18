@@ -41,6 +41,7 @@ import MusicRemixPanel from "./MusicRemixPanel";
 import MusicRecordingStudioPanel from "./MusicRecordingStudioPanel";
 import MusicSpecialistStudioPanel from "./MusicSpecialistStudioPanel";
 import MusicUnifiedWorkstationShell from "./MusicUnifiedWorkstationShell";
+import { listProfessionalAudioRooms } from "@/lib/creative/music/runtime/CreativeProfessionalAudioEngineRuntime";
 import {
   listWorldClassMusicCapabilities,
   listWorldClassMusicWorkers,
@@ -101,6 +102,7 @@ const PRIMARY_MODE_IDS = Object.freeze(["compose", "auto", "backing", "record"])
 const SECONDARY_SECTIONS = Object.freeze(["Create & shape", "Produce & edit", "Edit", "Finish"]);
 const WORLD_CLASS_CAPABILITIES = listWorldClassMusicCapabilities();
 const WORLD_CLASS_WORKERS = listWorldClassMusicWorkers();
+const PROFESSIONAL_AUDIO_ROOMS = listProfessionalAudioRooms();
 const WORLD_CLASS_FLOW = Object.freeze(["Brief", "Research", "Direction", "Concepts", "Pre-production", "Production", "Listening", "Edit", "Mix", "Master", "Tribunal", "Release"]);
 
 function statusLabel(status) {
@@ -151,7 +153,7 @@ function MusicGeneratorGate({ status }) {
   );
 }
 
-function StudioHome({ modeState, composeReady, composeStatus, readinessError, onOpen, organizationId, projectId, projects = [], professionalReleaseRefreshKey }) {
+function StudioHome({ modeState, composeReady, composeStatus, readinessError, onOpen, onOpenRoom, organizationId, projectId, projects = [], professionalReleaseRefreshKey }) {
   const primaryModes = PRIMARY_MODE_IDS.map((id) => MODES.find((item) => item.id === id)).filter(Boolean);
 
   return (
@@ -160,7 +162,7 @@ function StudioHome({ modeState, composeReady, composeStatus, readinessError, on
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">
-              <AudioLines className="h-3.5 w-3.5" /> Avantiqo Music Studio
+              <AudioLines className="h-3.5 w-3.5" /> Avantiqo Professional Audio Studio
             </div>
             <span className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#746E66]">
               {WORLD_CLASS_WORKERS.length} specialists
@@ -170,7 +172,7 @@ function StudioHome({ modeState, composeReady, composeStatus, readinessError, on
             What do you want to make?
           </h1>
           <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[#6F6A62]">
-            Create new music, improve an existing recording, prepare a backing track or record directly. Avantiqo coordinates the production system behind the result.
+            Music production, cinematic sound design, audio post and mastering all run on the same Professional Audio Engine, project timeline and source lineage.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -195,6 +197,8 @@ function StudioHome({ modeState, composeReady, composeStatus, readinessError, on
           </div>
         </section>
       ) : null}
+
+      <section className="mt-6"><div className="mb-3 flex items-end justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.17em] text-[#9A744B]">Professional audio rooms</div><div className="mt-1 text-[11px] text-[#817B73]">Different engineering rooms, one project. Switching rooms never creates a second audio project or duplicates sources.</div></div><span className="rounded-full border border-black/[0.07] bg-white px-2.5 py-1 text-[8px] text-[#756F67]">AVANTIQO_PROFESSIONAL_AUDIO_ENGINE_V1</span></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{PROFESSIONAL_AUDIO_ROOMS.map((room,index)=><button key={room.id} type="button" onClick={()=>onOpenRoom(room)} className="rounded-[18px] border border-black/[0.075] bg-white p-4 text-left transition hover:border-[#B98A57]/35 hover:bg-[#FCFAF6]"><div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#A78158]">Room {index+1}</div><div className="mt-2 text-[15px] font-medium text-[#2B2722]">{room.name}</div><div className="mt-1.5 text-[10px] leading-5 text-[#8A857D]">{room.description}</div><div className="mt-3 text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8A643C]">Open room →</div></button>)}</div></section>
 
       <section className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         {primaryModes.map((item) => {
@@ -227,7 +231,7 @@ function StudioHome({ modeState, composeReady, composeStatus, readinessError, on
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
             <div className="text-[10px] font-semibold uppercase tracking-[0.17em] text-[#8D877E]">World-class production system</div>
-            <h2 className="mt-1.5 text-[18px] font-medium tracking-[-0.03em] text-[#1B1A18]">One studio, specialist workers, one governed production flow</h2>
+            <h2 className="mt-1.5 text-[18px] font-medium tracking-[-0.03em] text-[#1B1A18]">One Professional Audio Engine, four rooms, one governed production flow</h2>
             <p className="mt-1 text-[11px] leading-5 text-[#8F8981]">Music Studio and Business Partner use the same production system. Avantiqo selects the workers and gates needed for the job instead of exposing provider prompts.</p>
           </div>
           <div className="flex flex-wrap gap-2 text-[9px] text-[#756F67]">
@@ -270,6 +274,7 @@ function StudioHome({ modeState, composeReady, composeStatus, readinessError, on
 
 export default function MusicStudioWorkspace({ runtime, editor }) {
   const [mode, setMode] = useState("home");
+  const [audioRoom, setAudioRoom] = useState("MUSIC_PRODUCTION");
   const [readiness, setReadiness] = useState(null);
   const [professionalReleaseRevision, setProfessionalReleaseRevision] = useState(0);
   const [readinessError, setReadinessError] = useState("");
@@ -324,6 +329,8 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
   })), [composeStatus, readiness]);
 
   const activeMode = MODES.find((item) => item.id === mode) || null;
+  function openAudioRoom(room) { setAudioRoom(room.id); setMode(room.default_mode || "workstation"); }
+  function changeAudioRoom(roomId) { const room = PROFESSIONAL_AUDIO_ROOMS.find((item) => item.id === roomId); if (room) openAudioRoom(room); }
 
   return (
     <div className="min-h-full bg-[#F4F3EF] text-[#191919]">
@@ -334,6 +341,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           composeStatus={composeStatus}
           readinessError={readinessError}
           onOpen={setMode}
+          onOpenRoom={openAudioRoom}
           organizationId={organizationId}
           projectId={project?.id || null}
           projects={(runtime.projectRuntime?.items || []).filter((item) => { const value = `${item.production_type || ""} ${item.project_type || ""} ${item.metadata?.media_kind || ""} ${item.metadata?.studio || ""}`.toLowerCase(); return item.id === project?.id || /music|audio|song/.test(value); })}
@@ -349,7 +357,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
                   onClick={() => setMode("home")}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[11px] font-medium text-[#625D55] transition hover:border-[#B98A57]/35 hover:text-[#8A643C]"
                 >
-                  <ChevronLeft className="h-3.5 w-3.5" /> Music Studio
+                  <ChevronLeft className="h-3.5 w-3.5" /> Audio Studio
                 </button>
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-[#2F2B27]">{activeMode?.label || "Music Tool"}</div>
@@ -383,7 +391,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
             : <MusicGeneratorGate status={composeStatus} />)
           : mode === "auto" ? <MusicAutoStudioPanel {...specialistProps} onProfessionalReleaseStarted={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />
           : mode === "record" ? <MusicRecordingStudioPanel {...specialistProps} onSaved={() => runtime.refresh?.()} onOpenWorkstation={() => setMode("workstation")} />
-          : mode === "workstation" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Music Project"} onProfessionalReleaseAdvanced={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />
+          : mode === "workstation" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Audio Project"} audioRoom={audioRoom} onRoomChange={changeAudioRoom} onProfessionalReleaseAdvanced={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />
           : mode === "producer" ? <MusicProducerPanel organizationId={organizationId} projectId={project?.id || null} onOpen={setMode} />
           : mode === "arrange" ? <MusicArrangementPanel organizationId={organizationId} projectId={project?.id || null} />
           : mode === "midi" ? <MusicMidiStudioPanel organizationId={organizationId} projectId={project?.id || null} />
@@ -397,7 +405,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           : mode === "audio-video" ? <div className="min-h-[760px]"><div className="border-b border-black/[0.07] bg-white px-6 py-4"><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">Audio for Video</div><div className="mt-1 text-lg font-medium text-[#2F2B27]">Score picture and place sound against exact timecode</div><div className="mt-1 text-[10px] leading-5 text-[#817B73]">Use the canonical edit timeline for video, dialogue, music, SFX and captions. Audio tasks stay synchronized to the same cut and version history used by Video Studio.</div></div><TimelineWorkspace runtime={runtime} editor={editor} /></div>
           : mode === "backing" ? <div className="mx-auto max-w-6xl p-6"><MusicBackingTrackPanel {...specialistProps} onComplete={() => runtime.refresh?.()} /></div>
           : mode === "vocal" ? <MusicSpecialistStudioPanel mode="vocal" {...specialistProps} />
-          : mode === "mix" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Music Project"} onProfessionalReleaseAdvanced={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />
+          : mode === "mix" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Audio Project"} audioRoom={audioRoom} onRoomChange={changeAudioRoom} onProfessionalReleaseAdvanced={() => { setProfessionalReleaseRevision((value) => value + 1); runtime.refresh?.(); setMode("home"); }} />
           : mode === "deliverables" ? <MusicDeliverablesPanel {...specialistProps} />
           : mode === "master" ? <MusicMasterStudioPanel organizationId={organizationId} projectId={project?.id || null} />
           : <div className="mx-auto max-w-6xl p-6"><div className="rounded-[22px] border border-black/[0.07] bg-white p-6 text-xs text-[#817B73]"><AudioLines className="mb-3 h-5 w-5 text-[#A78158]" />Music Studio tool unavailable.</div></div>}

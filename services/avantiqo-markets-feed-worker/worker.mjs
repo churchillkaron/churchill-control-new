@@ -195,6 +195,9 @@ class FeedSession {
     this.pendingBars = new Map();
     this.pendingNews = new Map();
     this.lastMessageAt = null;
+    this.lastStockMessageAt = null;
+    this.lastNewsMessageAt = null;
+    this.lastStockFlushAt = null;
     this.stockReconnects = 0;
     this.newsReconnects = 0;
     this.flushing = false;
@@ -310,7 +313,9 @@ class FeedSession {
 
         const normalized = normalizeStockStreamMessage(message);
         if (!normalized) continue;
-        this.lastMessageAt = new Date().toISOString();
+        const receivedAt = new Date().toISOString();
+        this.lastMessageAt = receivedAt;
+        this.lastStockMessageAt = receivedAt;
         const current = this.latest.get(normalized.symbol) || {};
         this.latest.set(normalized.symbol, mergeSnapshotState(current, normalized));
         this.dirty.add(normalized.symbol);
@@ -353,7 +358,9 @@ class FeedSession {
 
         const article = normalizeNewsStreamMessage(message);
         if (!article) continue;
-        this.lastMessageAt = new Date().toISOString();
+        const receivedAt = new Date().toISOString();
+        this.lastMessageAt = receivedAt;
+        this.lastNewsMessageAt = receivedAt;
         this.pendingNews.set(article.id, article);
       }
     });
@@ -394,6 +401,9 @@ class FeedSession {
       subscribed_symbols: [...portfolio.symbols].sort(),
       last_connected_at: connectionState === "CONNECTED" ? now : undefined,
       last_message_at: this.lastMessageAt,
+      last_stock_message_at: this.lastStockMessageAt,
+      last_news_message_at: this.lastNewsMessageAt,
+      last_stock_flush_at: this.lastStockFlushAt,
       last_flush_at: lastFlushAt,
       reconnect_count: this.stockReconnects + this.newsReconnects,
       last_error: lastError,
@@ -463,6 +473,7 @@ class FeedSession {
             onConflict: "portfolio_id,symbol,provider,feed",
           });
         if (error) throw error;
+        this.lastStockFlushAt = flushedAt;
       }
 
       const barRows = [];

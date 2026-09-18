@@ -7,6 +7,7 @@ import { BusinessIntelligenceRuntime } from "@/lib/intelligence/runtime/Business
 import { BusinessIntelligenceAgentRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceAgentRuntime";
 import { buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAnswerContent, businessDiagnosisProofIntegrityError, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
 import { verifyBusinessDiagnosisProofAuthenticity, businessDiagnosisProofAuthenticityAcceptable } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
+import { assertBusinessDiagnosisReadiness } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReadinessRuntime";
 import { classifyBusinessDiagnosisQuestion, resolveBusinessDiagnosisPeriods } from "@/lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { resolveOrganizationTimeContext } from "@/lib/shared/time/organizationTime";
@@ -177,6 +178,7 @@ export async function POST(request) {
 
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return errorResponse(access.error, access.status);
+    assertBusinessDiagnosisReadiness();
 
     const diagnosisClassification = classifyBusinessDiagnosisQuestion(question);
     const diagnosisClass = diagnosisClassification.match === true
@@ -233,6 +235,9 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("BUSINESS_INTELLIGENCE_POST_ERROR", error);
+    if (error?.code === "BUSINESS_DIAGNOSIS_NOT_READY") {
+      return errorResponse("Business diagnosis is not ready", 503, error.details);
+    }
     if (error?.code === BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE) {
       return errorResponse("Business diagnosis proof verification failed", 500, error.details || { code: BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE, authority_effect: "NONE" });
     }

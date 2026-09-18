@@ -86,4 +86,14 @@ test("operator persists full proof server-side but redacts signing internals fro
   assert.match(route,/scope_organization_id/);
   assert.match(route,/scope_conversation_id/);
   assert.match(route,/scope_entity_id/);
+  assert.match(route,/scope_period_id/);
+  assert.match(route,/periodId: businessContext\.periodId/);
+});
+
+
+test("model conversation verifies diagnosis period scope while historical snapshot does not hide old periods",()=>{
+  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
+  assert.match(runtime,/period_id: periodId/);
+  assert.match(runtime,/periodId: conversation\.period_id/);
+  assert.match(runtime,/Historical UI remains visible across period changes/);
 });

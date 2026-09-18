@@ -217,3 +217,13 @@ test("diagnosis readiness exposes scope checksum enforcement policy without bloc
   const publicReadiness=getPublicBusinessDiagnosisReadiness({env});
   assert.equal(publicReadiness.proof.scope_checksum_required,true);
 });
+
+
+test("diagnosis readiness exposes originating-user enforcement policy without blocking new diagnoses",()=>{
+  const env={AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED:"true"};
+  const readiness=getBusinessDiagnosisReadiness({env});
+  assert.equal(readiness.ready,true);
+  assert.equal(readiness.proof.origin_user_required,true);
+  const publicReadiness=getPublicBusinessDiagnosisReadiness({env});
+  assert.equal(publicReadiness.proof.origin_user_required,true);
+});

@@ -584,3 +584,30 @@ test("historical snapshot keeps diagnosis verified when originating user text st
   assert.equal(result[1].evidence.business_diagnosis.origin_user_verified,true);
   assert.equal(result[1].evidence.business_diagnosis.audit_projection_verified,true);
 });
+
+
+test("legacy diagnosis without originating-user binding remains compatible when origin requirement is disabled", () => {
+  const oldRequired=process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED;
+  delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED;
+  try {
+    const rows=[{id:"d1",role:"assistant",content:"diagnosis",evidence:diagnosisEvidence({answer:"diagnosis"})},{id:"u1",role:"user",content:"why?",evidence:{}}];
+    assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[{role:"user",content:"why?"},{role:"assistant",content:"diagnosis"}]);
+  } finally {
+    if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED=oldRequired;
+  }
+});
+
+test("required originating-user binding quarantines legacy unbound diagnosis", () => {
+  const oldRequired=process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED;
+  process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED="true";
+  try {
+    const rows=[{id:"d1",role:"assistant",content:"diagnosis",evidence:diagnosisEvidence({answer:"diagnosis"})},{id:"u1",role:"user",content:"why?",evidence:{}}];
+    assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[]);
+    const snapshot=sanitizeBusinessDiagnosisSnapshot(rows);
+    assert.match(snapshot[0].content,/historical diagnosis is hidden/i);
+    assert.equal(snapshot[0].evidence.business_diagnosis.origin_user_verification_status,"ORIGIN_USER_NOT_BOUND");
+    assert.equal(snapshot[0].evidence.business_diagnosis.origin_user_accepted,false);
+  } finally {
+    if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_ORIGIN_USER_REQUIRED=oldRequired;
+  }
+});

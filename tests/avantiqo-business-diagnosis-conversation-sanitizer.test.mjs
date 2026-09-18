@@ -250,3 +250,24 @@ test("receipt and projection version mismatch is quarantined", () => {
   assert.equal(result.evidence.business_diagnosis.audit_projection_verification_status, "RECEIPT_PROJECTION_VERSION_MISMATCH");
   assert.equal(result.evidence.business_diagnosis.audit_projection_verified, false);
 });
+
+
+test("authenticated diagnosis proof with bad MAC is quarantined", () => {
+  const oldId=process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID;
+  const oldRing=process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON;
+  process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID="k1";
+  process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=JSON.stringify({k1:"11".repeat(32)});
+  try {
+    const evidence=diagnosisEvidence({answer:"diagnosis"});
+    evidence.business_diagnosis.authenticity_contract="AVANTIQO_BUSINESS_DIAGNOSIS_PROOF_AUTHENTICITY_V1";
+    evidence.business_diagnosis.authenticity_algorithm="HMAC-SHA256";
+    evidence.business_diagnosis.authenticity_key_id="k1";
+    evidence.business_diagnosis.authenticity_mac="00".repeat(32);
+    const result=businessDiagnosisTurnVerification({role:"assistant",content:"diagnosis",evidence});
+    assert.equal(result.safe,false);
+    assert.equal(result.status,"AUTHENTICITY_MISMATCH");
+  } finally {
+    if(oldId===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID=oldId;
+    if(oldRing===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=oldRing;
+  }
+});

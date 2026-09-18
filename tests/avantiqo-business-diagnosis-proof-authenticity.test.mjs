@@ -1,0 +1,53 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  sealBusinessDiagnosisProofAuthenticity,
+  verifyBusinessDiagnosisProofAuthenticity,
+  getBusinessDiagnosisProofAuthenticityStatus,
+} from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime.js";
+
+const env = {
+  AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID: "k1",
+  AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON: JSON.stringify({
+    k1: "11".repeat(32),
+    old: "22".repeat(32),
+  }),
+};
+const proof = {
+  receipt_contract: "AVANTIQO_BUSINESS_DIAGNOSIS_RECEIPT_V2",
+  receipt_fingerprint: "a".repeat(64),
+  audit_projection_contract: "AVANTIQO_BUSINESS_DIAGNOSIS_AUDIT_PROJECTION_V4",
+  audit_projection_fingerprint: "b".repeat(64),
+  answer_content_fingerprint: "c".repeat(64),
+};
+
+test("diagnosis proof authenticity seals and verifies with server keyring", () => {
+  const sealed = sealBusinessDiagnosisProofAuthenticity(proof, { env });
+  assert.equal(sealed.sealed, true);
+  assert.equal(sealed.proof.authenticity_key_id, "k1");
+  assert.equal(sealed.proof.authenticity_mac.length, 64);
+  assert.equal(verifyBusinessDiagnosisProofAuthenticity(sealed.proof, { env }).status, "AUTHENTICATED");
+});
+
+test("diagnosis proof authenticity detects recomputed structural metadata tampering", () => {
+  const sealed = sealBusinessDiagnosisProofAuthenticity(proof, { env }).proof;
+  const tampered = { ...sealed, audit_projection_fingerprint: "d".repeat(64) };
+  assert.equal(verifyBusinessDiagnosisProofAuthenticity(tampered, { env }).status, "AUTHENTICITY_MISMATCH");
+});
+
+test("diagnosis proof authenticity supports retired verification keys", () => {
+  const oldEnv = { ...env, AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID: "old" };
+  const sealed = sealBusinessDiagnosisProofAuthenticity(proof, { env: oldEnv }).proof;
+  assert.equal(verifyBusinessDiagnosisProofAuthenticity(sealed, { env }).status, "AUTHENTICATED");
+});
+
+test("missing keyring leaves proof unsigned without exposing secrets", () => {
+  const sealed = sealBusinessDiagnosisProofAuthenticity(proof, { env: {} });
+  assert.equal(sealed.sealed, false);
+  assert.equal(sealed.status, "AUTHENTICITY_NOT_AVAILABLE");
+  assert.equal(verifyBusinessDiagnosisProofAuthenticity(proof, { env: {} }).status, "AUTHENTICITY_NOT_AVAILABLE");
+  const status = getBusinessDiagnosisProofAuthenticityStatus({ env: {} });
+  assert.equal(status.available, false);
+  assert.equal(status.client_exposure_allowed, false);
+  assert.equal(status.database_stored_secret_allowed, false);
+});

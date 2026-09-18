@@ -5,6 +5,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import { buildBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAnswerContent, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
+import { verifyBusinessDiagnosisProofAuthenticity } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
 import {
   resolveBusinessContext,
 } from "@/lib/business-context/resolveBusinessContext";
@@ -116,11 +117,19 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
     audit_projection_fingerprint: suppliedProjectionFingerprint,
   });
   const answerVerification = verifyBusinessDiagnosisAnswerContent({audit_projection_contract:suppliedProjectionContract,answer_content_fingerprint:diagnosis.answer_content_fingerprint}, result?.decision?.response_text || result?.result?.response || "");
-  if (verification.status !== "VERIFIED" || answerVerification.status !== "VERIFIED") return {};
+  const authenticityVerification = verifyBusinessDiagnosisProofAuthenticity(diagnosis);
+  const authenticityAcceptable = authenticityVerification.status === "AUTHENTICATED" || authenticityVerification.status === "AUTHENTICITY_NOT_AVAILABLE";
+  if (verification.status !== "VERIFIED" || answerVerification.status !== "VERIFIED" || !authenticityAcceptable) return {};
   return {
     business_diagnosis: {
       contract: text(diagnosis.contract) || null,
       receipt_contract: projection.receipt_contract,
+      authenticity_contract: text(diagnosis.authenticity_contract) || null,
+      authenticity_algorithm: text(diagnosis.authenticity_algorithm) || null,
+      authenticity_key_id: text(diagnosis.authenticity_key_id) || null,
+      authenticity_mac: text(diagnosis.authenticity_mac) || null,
+      authenticity_status: authenticityVerification.status,
+      authenticity_verified: authenticityVerification.verified === true,
       class: projection.diagnosis_class,
       business_timezone: projection.business_timezone,
       answer_content_fingerprint: projection.answer_content_fingerprint,

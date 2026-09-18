@@ -6,6 +6,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { BusinessIntelligenceRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 import { BusinessIntelligenceAgentRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceAgentRuntime";
 import { buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAnswerContent, businessDiagnosisProofIntegrityError, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
+import { verifyBusinessDiagnosisProofAuthenticity } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
 import { classifyBusinessDiagnosisQuestion, resolveBusinessDiagnosisPeriods } from "@/lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { resolveOrganizationTimeContext } from "@/lib/shared/time/organizationTime";
@@ -129,7 +130,9 @@ function businessDiagnosisAudit(result = {}) {
     periods: projection.periods,
   });
   const answerVerification = verifyBusinessDiagnosisAnswerContent({audit_projection_contract:receipt.audit_projection_contract,answer_content_fingerprint:receipt.answer_content_fingerprint}, result?.result?.response || "");
-  if (verification.status !== "VERIFIED" || answerVerification.status !== "VERIFIED") throw businessDiagnosisProofIntegrityError("DIRECT_API_LIVE_RETURN");
+  const authenticityVerification = verifyBusinessDiagnosisProofAuthenticity(receipt);
+  const authenticityAcceptable = authenticityVerification.status === "AUTHENTICATED" || authenticityVerification.status === "AUTHENTICITY_NOT_AVAILABLE";
+  if (verification.status !== "VERIFIED" || answerVerification.status !== "VERIFIED" || !authenticityAcceptable) throw businessDiagnosisProofIntegrityError("DIRECT_API_LIVE_RETURN");
   return {
     ...projection,
     audit_projection_contract: cleanValue(receipt.audit_projection_contract),
@@ -140,6 +143,11 @@ function businessDiagnosisAudit(result = {}) {
     answer_content_verification_status: answerVerification.status,
     answer_content_verified: answerVerification.verified === true,
     receipt_contract: cleanValue(result.business_diagnosis_receipt_contract),
+    authenticity_contract: cleanValue(receipt.authenticity_contract),
+    authenticity_algorithm: cleanValue(receipt.authenticity_algorithm),
+    authenticity_key_id: cleanValue(receipt.authenticity_key_id),
+    authenticity_status: authenticityVerification.status,
+    authenticity_verified: authenticityVerification.verified === true,
     residual_ratio: Number.isFinite(Number(receipt.residual_ratio)) ? Number(receipt.residual_ratio) : null,
     internal_coverage_incomplete: receipt.internal_coverage_incomplete === true,
     supported_external_context_ids: listValue(receipt.supported_external_context_ids),

@@ -120,6 +120,9 @@ export default function MarketsCommandCenter({ organizationId }) {
   const automationPolicy = data?.automationPolicy || {};
   const automationRuns = Array.isArray(data?.automationRuns) ? data.automationRuns : [];
   const policy = data?.riskPolicy || {};
+  const latestPortfolioRisk = orders
+    .map((row) => row?.risk_snapshot?.portfolio_concentration)
+    .find((row) => row && Object.keys(row).length) || null;
   const baseCurrency = portfolio?.base_currency || paperAccount?.base_currency || "USD";
 
   const latestBySymbol = new Map();
@@ -411,6 +414,10 @@ export default function MarketsCommandCenter({ organizationId }) {
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     {[
                       ["Max position", `${Number(policy.max_position_pct || 10)}%`],
+                      ["Sector cap", `${Number(policy.max_sector_pct || 30)}%`],
+                      ["Gross exposure", `${Number(policy.max_gross_exposure_pct || 100)}%`],
+                      ["Correlated cap", `${Number(policy.max_correlated_exposure_pct || 35)}%`],
+                      ["Correlation gate", Number(policy.correlation_threshold || 0.8).toFixed(2)],
                       ["Daily loss", `${Number(policy.max_daily_loss_pct || 2)}%`],
                       ["Max drawdown", `${Number(policy.max_portfolio_drawdown_pct || 10)}%`],
                       ["Min confidence", `${(Number(policy.min_decision_confidence || 0.7) * 100).toFixed(0)}%`],
@@ -420,6 +427,34 @@ export default function MarketsCommandCenter({ organizationId }) {
                         <div className="mt-1 text-[14px] font-semibold">{value}</div>
                       </div>
                     ))}
+                  </div>
+                  <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] px-3 py-2.5">
+                    <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">Latest measured exposure</div>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-[9px] text-[#5E5851]">
+                      <div>
+                        <div className="text-[#9A968E]">Gross</div>
+                        <div className="mt-0.5 font-semibold">
+                          {latestPortfolioRisk ? `${Number(latestPortfolioRisk.projected_gross_exposure_pct || 0).toFixed(1)}%` : "—"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#9A968E]">Sector</div>
+                        <div className="mt-0.5 font-semibold">
+                          {latestPortfolioRisk ? `${Number(latestPortfolioRisk.projected_sector_exposure_pct || 0).toFixed(1)}%` : "—"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#9A968E]">Correlated</div>
+                        <div className="mt-0.5 font-semibold">
+                          {latestPortfolioRisk ? `${Number(latestPortfolioRisk.projected_correlated_exposure_pct || 0).toFixed(1)}%` : "—"}
+                        </div>
+                      </div>
+                    </div>
+                    {latestPortfolioRisk?.candidate_sector ? (
+                      <div className="mt-2 text-[8px] text-[#9A968E]">
+                        Last evaluated sector: {latestPortfolioRisk.candidate_sector}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="mt-3 rounded-xl border border-emerald-200/70 bg-emerald-50 px-3 py-2.5 text-[10px] text-emerald-700">
                     Live broker execution: <span className="font-semibold">DISABLED</span>

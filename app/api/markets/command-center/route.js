@@ -7,6 +7,7 @@ import { resolveBusinessContext } from "@/lib/business-context/resolveBusinessCo
 import { MarketAutonomousPaperRuntime } from "@/lib/markets/runtime/MarketAutonomousPaperRuntime";
 import { MarketIntelligenceIngestionRuntime } from "@/lib/markets/runtime/MarketIntelligenceIngestionRuntime";
 import { MarketPaperExecutionRuntime } from "@/lib/markets/runtime/MarketPaperExecutionRuntime";
+import { MarketPortfolioRiskRuntime } from "@/lib/markets/runtime/MarketPortfolioRiskRuntime";
 import { MarketPredictionOutcomeRuntime } from "@/lib/markets/runtime/MarketPredictionOutcomeRuntime";
 import { MarketSpecialistAgentRuntime } from "@/lib/markets/runtime/MarketSpecialistAgentRuntime";
 import { evaluatePaperTradeRisk } from "@/lib/markets/runtime/MarketRiskPolicyRuntime";
@@ -293,6 +294,7 @@ async function submitPaperOrder({ organizationId, state, body }) {
   }
 
   let markedPositionsValue = 0;
+  const markedPositions = [];
   for (const position of state.paperPositions) {
     const symbol = clean(position.symbol).toUpperCase();
     const latest = latestSnapshotBySymbol.get(symbol);
@@ -304,7 +306,14 @@ async function submitPaperOrder({ organizationId, state, body }) {
       ?? 0,
     );
     const quantityHeld = Number(position.quantity || 0);
-    markedPositionsValue += quantityHeld * (Number.isFinite(mark) ? mark : 0);
+    const marketValue = quantityHeld * (Number.isFinite(mark) ? mark : 0);
+    markedPositionsValue += marketValue;
+    markedPositions.push({
+      ...position,
+      symbol,
+      market_price: Number.isFinite(mark) ? mark : 0,
+      market_value: marketValue,
+    });
   }
 
   const equity = Number(account.cash_balance || 0) + markedPositionsValue;
@@ -329,7 +338,7 @@ async function submitPaperOrder({ organizationId, state, body }) {
   }
 
   const currentPositionValue = heldQuantity * requestedPrice;
-  const risk = evaluatePaperTradeRisk({
+  const executionRisk = evaluatePaperTradeRisk({
     policy: state.riskPolicy || {},
     decision,
     portfolio: {
@@ -340,6 +349,33 @@ async function submitPaperOrder({ organizationId, state, body }) {
     },
     order: { side, notional },
   });
+  const portfolioRisk = await MarketPortfolioRiskRuntime.evaluate({
+    organizationId,
+    portfolioId: state.portfolio.id,
+    policy: state.riskPolicy || {},
+    equity,
+    positions: markedPositions,
+    proposed: {
+      symbol: decision.symbol,
+      side,
+      notional,
+    },
+  });
+  const riskReasons = [
+    ...(executionRisk.reasons || []),
+    ...(portfolioRisk.reasons || []),
+  ];
+  const risk = {
+    approved: executionRisk.approved && portfolioRisk.approved,
+    status: executionRisk.approved && portfolioRisk.approved
+      ? "APPROVED_PAPER"
+      : "REJECTED",
+    reasons: riskReasons,
+    snapshot: {
+      ...(executionRisk.snapshot || {}),
+      portfolio_concentration: portfolioRisk.metrics || {},
+    },
+  };
 
   const { data: updatedDecision, error: decisionError } = await supabaseAdmin
     .from("market_decisions")

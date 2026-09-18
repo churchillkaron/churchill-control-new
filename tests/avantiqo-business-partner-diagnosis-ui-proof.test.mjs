@@ -55,3 +55,14 @@ test("both operator clients preserve and surface diagnosis proof-integrity failu
     assert.match(source,/No action was executed/);
   }
 });
+
+
+test("live operator transport preserves diagnosis proof-integrity status in progress events",()=>{
+  const source=fs.readFileSync("app/api/operator/turn/live/route.js","utf8");
+  assert.match(source,/BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_FAILURE/);
+  assert.match(source,/DIAGNOSIS_PROOF_INTEGRITY_FAILED/);
+  assert.match(source,/integrity_code:/);
+  assert.match(source,/integrity_stage:/);
+  assert.match(source,/authority_effect:/);
+  assert.match(source,/return response/);
+});

@@ -26,26 +26,33 @@ function object(value) {
 function completionEvent(result, response) {
   const execution = object(result?.execution);
   const capability = object(execution.capability);
+  const details = object(result?.details);
   const key = text(capability.key || result?.decision?.execution?.capability_key);
-  const status = text(execution.status || (response.ok ? "completed" : "failed"));
   const succeeded = response.ok && result?.success !== false;
+  const proofIntegrityFailure = text(details.code) === "BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_FAILURE";
   return {
     lane: key === "platform.code_ai_autonomous.execute" || key === "platform.product_engineering_cycle.execute"
       ? "code"
       : "intelligence",
-    phase: succeeded ? "TURN_COMPLETE" : "TURN_FAILED",
+    phase: succeeded ? "TURN_COMPLETE" : proofIntegrityFailure ? "DIAGNOSIS_PROOF_INTEGRITY_FAILED" : "TURN_FAILED",
     status: succeeded ? "completed" : "failed",
     description: succeeded
       ? key
         ? `Finished the governed ${key} turn.`
         : "Finished reasoning and preparing the response."
-      : "The Business Partner turn stopped before successful completion.",
+      : proofIntegrityFailure
+        ? "Stopped the diagnosis because its proof could not be verified."
+        : "The Business Partner turn stopped before successful completion.",
     capability_key: key || null,
     read_only: !key,
     mutation_possible: Boolean(key && capability.mode && capability.mode !== "read"),
     mutation_running: false,
     paid_execution_running: false,
     verification_running: false,
+    integrity_failure: proofIntegrityFailure,
+    integrity_code: proofIntegrityFailure ? text(details.code) : null,
+    integrity_stage: proofIntegrityFailure ? text(details.stage) : null,
+    authority_effect: proofIntegrityFailure ? text(details.authority_effect) || "NONE" : null,
     reason: succeeded ? null : text(result?.error || execution.reason || response.statusText),
   };
 }

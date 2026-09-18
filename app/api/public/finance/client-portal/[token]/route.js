@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { createControlledDocument } from "@/lib/documents/runtime/DocumentControlRuntime";
 import { resolveFinanceClientPortalGrant } from "@/lib/finance/practice/FinanceClientPortalGrant";
+import { loadFinanceClientPortalProjection } from "@/lib/finance/practice/FinanceClientPortalProjection";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -20,7 +21,7 @@ function coverage(categories, evidence) { return categories.map((category) => { 
 async function loadPortal(token, { markViewed = true } = {}) {
   const grant = await resolveFinanceClientPortalGrant(token, { markViewed });
   if (!grant) return { error: "This accounting client portal link is invalid or expired", status: 404 };
-  const { data: engagement, error: engagementError } = await supabaseAdmin.from("accounting_engagements").select("id,accounting_firm_id,organization_id,entity_id,service_package,status").eq("id", grant.engagement_id).eq("accounting_firm_id", grant.accounting_firm_id).eq("organization_id", grant.organization_id).maybeSingle();
+  const { data: engagement, error: engagementError } = await supabaseAdmin.from("accounting_engagements").select("id,accounting_firm_id,organization_id,entity_id,service_package,status,vat_enabled,tax_enabled,bookkeeping_enabled,payroll_enabled,reporting_enabled,accounting_standard,vat_frequency,year_end_date").eq("id", grant.engagement_id).eq("accounting_firm_id", grant.accounting_firm_id).eq("organization_id", grant.organization_id).maybeSingle();
   if (engagementError) throw engagementError;
   if (!engagement) return { error: "Accounting engagement is no longer available", status: 404 };
   return { grant, engagement };
@@ -76,17 +77,68 @@ async function audit(context, action, metadata = {}) {
 export async function GET(request, { params }) {
   try {
     const { token } = await params; const context = await loadPortal(clean(token)); if (context.error) return jsonError(context.error, context.status);
-    const [requests, organizationResult] = await Promise.all([loadRequests(context), supabaseAdmin.from("organizations").select("name").eq("id", context.grant.organization_id).maybeSingle()]);
+    const [requests, organizationResult, projection] = await Promise.all([
+      loadRequests(context),
+      supabaseAdmin.from("organizations").select("name").eq("id", context.grant.organization_id).maybeSingle(),
+      loadFinanceClientPortalProjection({ grant: context.grant, engagement: context.engagement, markMessagesRead: true }),
+    ]);
     if (organizationResult.error) throw organizationResult.error;
+    const outstanding = (projection.invoices || []).reduce((sum, row) => sum + Number(row.outstanding_amount || 0), 0);
+    const pendingApprovals = (projection.approvals || []).filter((row) => ["PENDING","SENT","VIEWED"].includes(String(row.status || "").toUpperCase())).length;
+    const upcomingFilings = (projection.filings || []).filter((row) => !["SUBMITTED","FILED","PAID","CLOSED"].includes(String(row.status || "").toUpperCase())).length;
+    const workStatus = { ...projection.work_status, overall: requests.length ? "WAITING_FOR_YOU" : projection.work_status?.overall || "WITH_ACCOUNTANT", waiting_for_you: requests.length };
     await audit(context, "ACCOUNTING_CLIENT_PORTAL_VIEWED", { open_requests: requests.length });
-    return NextResponse.json({ success: true, portal: { client_name: organizationResult.data?.name || context.grant.client_name || "Client", service_package: context.engagement.service_package || "Accounting engagement", expires_at: context.grant.expires_at }, requests });
+    return NextResponse.json({
+      success: true,
+      portal: {
+        firm_name: projection.firm_name,
+        client_name: organizationResult.data?.name || context.grant.client_name || "Client",
+        service_package: context.engagement.service_package || "Accounting engagement",
+        engagement_status: context.engagement.status || null,
+        expires_at: context.grant.expires_at,
+        general_erp_access: false,
+      },
+      summary: { open_requests: requests.length, documents: projection.documents.length, messages: projection.messages.length, invoices: projection.invoices.length, outstanding_amount: outstanding, pending_approvals: pendingApprovals, upcoming_filings: upcomingFilings },
+      profile: projection.profile,
+      contacts: projection.contacts,
+      work_status: workStatus,
+      requests,
+      documents: projection.documents,
+      messages: projection.messages,
+      invoices: projection.invoices,
+      payments: projection.payments,
+      filings: projection.filings,
+      approvals: projection.approvals,
+    });
   } catch (error) { return jsonError(error?.message || "Unable to load accounting client portal", 500); }
 }
 
 export async function POST(request, { params }) {
   try {
     const { token } = await params; const portal = await loadPortal(clean(token)); if (portal.error) return jsonError(portal.error, portal.status);
-    const form = await request.formData(); const action = clean(form.get("action")).toLowerCase(); const requestId = clean(form.get("requestId") || form.get("request_id")); if (!requestId) return jsonError("requestId is required");
+    const form = await request.formData(); const action = clean(form.get("action")).toLowerCase();
+    if (action === "message") {
+      const body = clean(form.get("message") || form.get("body"));
+      if (!body) return jsonError("Message is required", 400);
+      if (body.length > 4000) return jsonError("Message must be 4,000 characters or fewer", 400);
+      const now = new Date().toISOString();
+      const { data: message, error: messageError } = await supabaseAdmin.from("accounting_client_portal_messages").insert({
+        accounting_firm_id: portal.grant.accounting_firm_id,
+        organization_id: portal.grant.organization_id,
+        engagement_id: portal.engagement.id,
+        portal_grant_id: portal.grant.id,
+        sender_type: "CLIENT",
+        sender_name: portal.grant.client_name || null,
+        sender_email: portal.grant.client_email || null,
+        body,
+        read_by_client_at: now,
+        metadata: { source: "accounting_client_portal" },
+      }).select("id,sender_type,sender_name,sender_email,body,created_at").single();
+      if (messageError) throw messageError;
+      await audit(portal, "ACCOUNTING_CLIENT_PORTAL_MESSAGE_SENT", { message_id: message.id });
+      return NextResponse.json({ success: true, message }, { status: 201 });
+    }
+    const requestId = clean(form.get("requestId") || form.get("request_id")); if (!requestId) return jsonError("requestId is required");
     const exact = await exactRequestContext(portal, requestId); if (exact.error) return jsonError(exact.error, exact.status); const context = { ...portal, ...exact };
     const categories = verificationCategories(context.item);
     if (action === "upload") {

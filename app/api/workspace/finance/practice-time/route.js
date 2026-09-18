@@ -16,6 +16,40 @@ function jsonError(error, status = 400) { return NextResponse.json({ success: fa
 function money(value) { const n = Number(value); return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0; }
 function hours(minutes) { return Math.round((Number(minutes || 0) / 60) * 100) / 100; }
 
+const EU_COUNTRIES = new Set(["AT","BE","BG","HR","CY","CZ","DE","DK","EE","ES","FI","FR","GR","HU","IE","IT","LT","LU","LV","MT","NL","PL","PT","RO","SE","SI","SK"]);
+function normalizedCountry(value) { return clean(value).toUpperCase(); }
+function regimeMatchesCountry(regime, country) {
+  const normalizedRegime = clean(regime).toUpperCase();
+  const normalized = normalizedCountry(country);
+  if (!normalizedRegime || !normalized) return false;
+  if (normalized === "TH") return ["TH", "THA", "THAILAND"].includes(normalizedRegime);
+  if (EU_COUNTRIES.has(normalized)) return normalizedRegime === "EU" || normalizedRegime === normalized;
+  return normalizedRegime === normalized;
+}
+function effectiveToday(rule, today = new Date().toISOString().slice(0, 10)) {
+  return (!rule.effective_from || String(rule.effective_from).slice(0, 10) <= today) && (!rule.effective_to || String(rule.effective_to).slice(0, 10) >= today);
+}
+function salesTaxRule(rule) {
+  const type = clean(rule.tax_type).toUpperCase();
+  return type === "VAT" || type === "SALES_TAX" || type === "GST";
+}
+function dedupeBillingTaxRules(rules, accountingFirmId) {
+  const sorted = [...(rules || [])].sort((a, b) => {
+    const aLocal = String(a.organization_id || "") === String(accountingFirmId) ? 1 : 0;
+    const bLocal = String(b.organization_id || "") === String(accountingFirmId) ? 1 : 0;
+    if (aLocal !== bLocal) return bLocal - aLocal;
+    const updated = String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || ""));
+    return updated || String(a.id).localeCompare(String(b.id));
+  });
+  const seen = new Set();
+  return sorted.filter((rule) => {
+    const key = [clean(rule.tax_type).toUpperCase(), clean(rule.tax_regime).toUpperCase(), clean(rule.tax_code).toUpperCase(), Number(rule.tax_rate || 0)].join("|");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function requireView(access) {
   await checkFinancePermission({ organizationId: access.organizationId, userId: access.user?.id, permissionKey: "finance.view", fullAccess: access.permissions?.includes("*") === true });
 }
@@ -81,7 +115,7 @@ async function loadContext(accountingFirmId) {
     loadCompletePracticeRows({
       label: "Accounting firm billing entities",
       buildQuery: (from, to) => supabaseAdmin.from("legal_entities")
-        .select("id,code,legal_name,display_name,currency,is_active,is_default_accounting_entity")
+        .select("id,code,legal_name,display_name,country,currency,is_active,is_default_accounting_entity")
         .eq("organization_id", accountingFirmId)
         .eq("is_active", true)
         .order("is_default_accounting_entity", { ascending: false })
@@ -109,7 +143,7 @@ async function loadContext(accountingFirmId) {
     loadCompletePracticeRows({
       label: "Accounting firm billing tax rules",
       buildQuery: (from, to) => supabaseAdmin.from("tax_rules")
-        .select("id,tax_code,tax_name,tax_type,tax_rate,is_active,organization_id")
+        .select("id,tax_code,tax_name,tax_type,tax_rate,tax_regime,effective_from,effective_to,is_active,organization_id,created_at,updated_at")
         .or(`organization_id.eq.${accountingFirmId},organization_id.is.null`)
         .eq("is_active", true)
         .order("tax_name", { ascending: true })
@@ -118,10 +152,16 @@ async function loadContext(accountingFirmId) {
     }),
   ]);
 
+  const billingCountries = [...new Set(billingEntities.map((row) => normalizedCountry(row.country)).filter(Boolean))];
+  const filteredTaxRules = dedupeBillingTaxRules(
+    taxRules.filter((rule) => salesTaxRule(rule) && effectiveToday(rule) && billingCountries.some((country) => regimeMatchesCountry(rule.tax_regime, country))),
+    accountingFirmId,
+  ).map((rule) => ({ ...rule, applicable_countries: billingCountries.filter((country) => regimeMatchesCountry(rule.tax_regime, country)) }));
+
   return {
     engagements, organizations, profiles, workItems, billingProfiles, billingEntities, customerParties,
     revenueAccounts: accounts.filter((row) => { const type = String(row.account_type || row.type || "").toUpperCase(); return type.includes("REVENUE") || type.includes("INCOME"); }),
-    taxRules,
+    taxRules: filteredTaxRules,
   };
 }
 
@@ -274,9 +314,11 @@ export async function POST(request) {
       const revenueAccountId = clean(body.revenueAccountId || body.revenue_account_id);
       const taxRuleId = clean(body.taxRuleId || body.tax_rule_id);
       let taxRatePercent = 0;
+      let billingEntity = null;
       if (billingEntityId) {
-        const { data: entity, error: entityError } = await supabaseAdmin.from("legal_entities").select("id").eq("id", billingEntityId).eq("organization_id", access.organizationId).maybeSingle();
+        const { data: entity, error: entityError } = await supabaseAdmin.from("legal_entities").select("id,country").eq("id", billingEntityId).eq("organization_id", access.organizationId).eq("is_active", true).maybeSingle();
         if (entityError) throw entityError; if (!entity) return jsonError("Billing entity is outside the accounting firm", 403);
+        billingEntity = entity;
       }
       if (customerPartyId) {
         const { data: party, error: partyError } = await supabaseAdmin.from("parties").select("id").eq("id", customerPartyId).eq("organization_id", access.organizationId).maybeSingle();
@@ -290,9 +332,17 @@ export async function POST(request) {
         if (!type.includes("REVENUE") && !type.includes("INCOME")) return jsonError("Selected billing account must be a revenue/income account", 409);
       }
       if (taxRuleId) {
-        const { data: taxRule, error: taxRuleError } = await supabaseAdmin.from("tax_rules").select("id,tax_rate,is_active,organization_id").eq("id", taxRuleId).or(`organization_id.eq.${access.organizationId},organization_id.is.null`).eq("is_active", true).maybeSingle();
+        if (!billingEntityId || !billingEntity) return jsonError("Choose the billing entity before selecting a tax rule", 409);
+        const { data: taxRule, error: taxRuleError } = await supabaseAdmin.from("tax_rules")
+          .select("id,tax_rate,tax_type,tax_regime,effective_from,effective_to,is_active,organization_id")
+          .eq("id", taxRuleId)
+          .or(`organization_id.eq.${access.organizationId},organization_id.is.null`)
+          .eq("is_active", true)
+          .maybeSingle();
         if (taxRuleError) throw taxRuleError;
-        if (!taxRule) return jsonError("Selected tax rule is not available to the accounting firm", 409);
+        if (!taxRule || !salesTaxRule(taxRule) || !effectiveToday(taxRule) || !regimeMatchesCountry(taxRule.tax_regime, billingEntity.country)) {
+          return jsonError("Selected tax rule does not apply to the billing entity jurisdiction and current effective date", 409);
+        }
         taxRatePercent = Number(taxRule.tax_rate || 0) * 100;
       }
       const { data, error } = await supabaseAdmin.from("accounting_practice_billing_profiles").upsert({

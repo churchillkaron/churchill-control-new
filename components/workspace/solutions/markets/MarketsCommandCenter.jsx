@@ -87,6 +87,9 @@ export default function MarketsCommandCenter({ organizationId }) {
       block_corporate_action_buys: policy.block_corporate_action_buys !== false,
       corporate_action_blackout_days_before: String(policy.corporate_action_blackout_days_before ?? 3),
       corporate_action_blackout_days_after: String(policy.corporate_action_blackout_days_after ?? 1),
+      protective_exits_enabled: policy.protective_exits_enabled !== false,
+      default_stop_loss_pct: String(policy.default_stop_loss_pct ?? 5),
+      default_take_profit_pct: String(policy.default_take_profit_pct ?? 10),
     });
   }, [data?.riskPolicy]);
 
@@ -343,6 +346,8 @@ export default function MarketsCommandCenter({ organizationId }) {
                       <th className="px-4 py-3 font-medium">Average</th>
                       <th className="px-4 py-3 font-medium">Market</th>
                       <th className="px-4 py-3 font-medium">Value</th>
+                      <th className="px-4 py-3 font-medium">Stop</th>
+                      <th className="px-4 py-3 font-medium">Take profit</th>
                       <th className="px-4 py-3 font-medium">Unrealized</th>
                       <th className="px-4 py-3 font-medium">Realized</th>
                     </tr>
@@ -356,13 +361,15 @@ export default function MarketsCommandCenter({ organizationId }) {
                           <td className="px-4 py-3">{position.average_entry_price ? money(position.average_entry_price, baseCurrency) : "—"}</td>
                           <td className="px-4 py-3">{position.market_price ? money(position.market_price, baseCurrency) : "—"}</td>
                           <td className="px-4 py-3">{money(position.market_value, baseCurrency)}</td>
+                          <td className="px-4 py-3">{position.stop_loss_price ? money(position.stop_loss_price, baseCurrency) : "—"}</td>
+                          <td className="px-4 py-3">{position.take_profit_price ? money(position.take_profit_price, baseCurrency) : "—"}</td>
                           <td className="px-4 py-3">{money(position.unrealized_pnl, baseCurrency)}</td>
                           <td className="px-4 py-3">{money(position.realized_pnl, baseCurrency)}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-[#9A968E]">
+                        <td colSpan={9} className="px-4 py-8 text-center text-[#9A968E]">
                           No paper positions yet. Only risk-approved simulated fills appear here.
                         </td>
                       </tr>
@@ -629,6 +636,41 @@ export default function MarketsCommandCenter({ organizationId }) {
                           />
                         </label>
                       ))}
+                      <label className="col-span-2 flex items-center justify-between gap-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] px-3 py-2.5">
+                        <div>
+                          <div className="text-[8px] uppercase tracking-[0.1em] text-[#968F86]">Protective PAPER exits</div>
+                          <div className="mt-1 text-[8px] leading-4 text-[#817D76]">Deterministic stop-loss/take-profit exits for existing long PAPER positions. These are risk controls, not AI predictions.</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={riskDraft?.protective_exits_enabled !== false}
+                          onChange={(event) => setRiskDraft((current) => ({
+                            ...(current || {}),
+                            protective_exits_enabled: event.target.checked,
+                          }))}
+                          className="h-4 w-4 accent-[#1F1E1B]"
+                        />
+                      </label>
+                      {[
+                        ["Default stop-loss %", "default_stop_loss_pct", "0.01", "50", "0.1"],
+                        ["Default take-profit %", "default_take_profit_pct", "0.01", "200", "0.1"],
+                      ].map(([label, key, min, max, step]) => (
+                        <label key={key}>
+                          <span className="text-[8px] text-[#968F86]">{label}</span>
+                          <input
+                            type="number"
+                            min={min}
+                            max={max}
+                            step={step}
+                            value={riskDraft?.[key] ?? ""}
+                            onChange={(event) => setRiskDraft((current) => ({
+                              ...(current || {}),
+                              [key]: event.target.value,
+                            }))}
+                            className="mt-1 h-8 w-full rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-2 text-[9px] text-[#2E2B27] outline-none"
+                          />
+                        </label>
+                      ))}
                     </div>
                     <button
                       type="button"
@@ -649,6 +691,9 @@ export default function MarketsCommandCenter({ organizationId }) {
                         block_corporate_action_buys: riskDraft?.block_corporate_action_buys !== false,
                         corporate_action_blackout_days_before: Number(riskDraft?.corporate_action_blackout_days_before ?? 3),
                         corporate_action_blackout_days_after: Number(riskDraft?.corporate_action_blackout_days_after ?? 1),
+                        protective_exits_enabled: riskDraft?.protective_exits_enabled !== false,
+                        default_stop_loss_pct: Number(riskDraft?.default_stop_loss_pct ?? 5),
+                        default_take_profit_pct: Number(riskDraft?.default_take_profit_pct ?? 10),
                       })}
                       className="mt-3 h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-medium text-white disabled:opacity-40"
                     >

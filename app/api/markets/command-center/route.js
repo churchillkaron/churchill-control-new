@@ -585,6 +585,9 @@ export async function POST(request) {
         block_corporate_action_buys: body.block_corporate_action_buys ?? current.block_corporate_action_buys ?? true,
         corporate_action_blackout_days_before: Number(body.corporate_action_blackout_days_before ?? current.corporate_action_blackout_days_before ?? 3),
         corporate_action_blackout_days_after: Number(body.corporate_action_blackout_days_after ?? current.corporate_action_blackout_days_after ?? 1),
+        protective_exits_enabled: body.protective_exits_enabled ?? current.protective_exits_enabled ?? true,
+        default_stop_loss_pct: Number(body.default_stop_loss_pct ?? current.default_stop_loss_pct ?? 5),
+        default_take_profit_pct: Number(body.default_take_profit_pct ?? current.default_take_profit_pct ?? 10),
         live_execution_enabled: false,
         updated_at: new Date().toISOString(),
       };
@@ -626,6 +629,12 @@ export async function POST(request) {
       if (!(next.corporate_action_blackout_days_after >= 0 && next.corporate_action_blackout_days_after <= 30)) {
         throw new Error("Corporate-action blackout days after must be between 0 and 30");
       }
+      if (!(next.default_stop_loss_pct > 0 && next.default_stop_loss_pct <= 50)) {
+        throw new Error("Default stop-loss must be greater than 0 and at most 50%");
+      }
+      if (!(next.default_take_profit_pct > 0 && next.default_take_profit_pct <= 200)) {
+        throw new Error("Default take-profit must be greater than 0 and at most 200%");
+      }
 
       const { data: riskPolicy, error: riskPolicyError } = await supabaseAdmin
         .from("market_risk_policies")
@@ -636,9 +645,19 @@ export async function POST(request) {
         .single();
       if (riskPolicyError) throw riskPolicyError;
 
+      const { data: refreshedProtectionCount, error: protectionRefreshError } = await supabaseAdmin.rpc(
+        "market_refresh_portfolio_paper_protection",
+        {
+          p_organization_id: organizationId,
+          p_portfolio_id: state.portfolio.id,
+        },
+      );
+      if (protectionRefreshError) throw protectionRefreshError;
+
       return NextResponse.json({
         success: true,
         riskPolicy,
+        protective_positions_refreshed: Number(refreshedProtectionCount || 0),
         execution: { mode: "PAPER", live_enabled: false },
       });
     }

@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 357,
-    "passed": 357,
+    "tests": 363,
+    "passed": 363,
     "failed": 0
   },
   "workstreams": [
@@ -164,6 +164,22 @@
       "fx_revaluation_inputs": "Chart of accounts and active exchange-rate inputs are complete; only historical run display remains intentionally bounded.",
       "silent_decision_truncation_removed": true,
       "accounting_mutation_authority": false
+    },
+    {
+      "order": 12,
+      "name": "Accounting-firm multi-client scale integrity",
+      "commit": "fcb7c91bc4fb",
+      "status": "OPERATIONAL_COMPLETE_MULTI_CLIENT_PRACTICE_TRUTH",
+      "practice_control": "Complete active engagements, client profiles, reviews, runs, work items, review notes and client requests with no fixed 500/5000/10000 truth caps.",
+      "client_access": "Complete engagement/grant populations; conversations and delivery receipts are complete for active portals; unread client messages are marked read across the full firm/engagement scope.",
+      "onboarding": "Every firm engagement, contract link, controlled engagement document, signature and billing profile participates in readiness.",
+      "time_and_wip": "Complete firm-scoped engagement, work, billing configuration and time-entry populations drive WIP and invoice readiness.",
+      "client_route_default": "Dedicated Clients route defaults to ALL instead of hiding clear clients behind an ATTENTION filter.",
+      "live_wr_accounting_api_status": 200,
+      "live_wr_accounting_clients": 2,
+      "live_browser_errors": 0,
+      "silent_multi_client_truncation_removed": true,
+      "accounting_mutation_authority": false
     }
   ],
   "live_acceptance": {
@@ -183,7 +199,9 @@
     "etax_activation_insecure_endpoint_status": 400,
     "provider_verification_missing_bank_credential_status": 400,
     "provider_verification_missing_etax_credential_status": 400,
-    "provider_verification_events": 0
+    "provider_verification_events": 0,
+    "wr_accounting_active_clients": 2,
+    "wr_accounting_browser_errors": 0
   },
   "governance": {
     "no_parallel_accounting_truth": true,
@@ -208,6 +226,11 @@
     "account_health_complete_reconciliation_evidence": true,
     "exchange_rate_pair_filtered_before_population_read": true,
     "number_sequence_scope_lock_not_row_bounded": true,
-    "fx_revaluation_inputs_complete_population": true
+    "fx_revaluation_inputs_complete_population": true,
+    "practice_control_complete_multi_client_population": true,
+    "practice_client_access_complete_population": true,
+    "practice_onboarding_complete_population": true,
+    "practice_time_wip_complete_population": true,
+    "clients_route_defaults_to_complete_portfolio": true
   }
 }

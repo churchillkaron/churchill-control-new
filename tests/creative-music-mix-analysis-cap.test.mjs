@@ -4,10 +4,11 @@ import fs from "node:fs";
 const evidence=fs.readFileSync("lib/creative/music/runtime/CreativeMusicMixEvidenceRuntime.js","utf8");
 const engineer=fs.readFileSync("lib/creative/music/runtime/CreativeMusicMixEngineerRuntime.js","utf8");
 
-test("long tracks cannot silently promote capped evidence to whole-track decisions",()=>{
-  assert.match(evidence,/required<=MAX_ANALYSIS_SECONDS/);
-  assert.match(evidence,/measured:false,reason:"ANALYSIS_RANGE_INCOMPLETE"/);
-  assert.match(evidence,/timeline_evidence_safe:false/);
-  assert.match(engineer,/TRACK_ANALYSIS_RANGE_INCOMPLETE/);
-  assert.match(engineer,/Partial diagnostics are retained/);
+test("long tracks are fully analyzed in bounded chunks rather than blocked or partially promoted",()=>{
+  assert.match(evidence,/chunkCount=Math.max\(1,Math.ceil\(range\.required_seconds\/MAX_ANALYSIS_SECONDS\)\)/);
+  assert.match(evidence,/analysis_chunk_count:chunkCount/);
+  assert.match(evidence,/analysis_complete:true/);
+  assert.match(evidence,/analysis_coverage_ratio:1/);
+  assert.doesNotMatch(evidence,/ANALYSIS_RANGE_INCOMPLETE/);
+  assert.doesNotMatch(engineer,/TRACK_ANALYSIS_RANGE_INCOMPLETE/);
 });

@@ -35,8 +35,9 @@ test("accounting firm has a first-class Time and WIP practice view", () => {
   assert.match(tower, /id: "economics", label: "Time & WIP"/);
   assert.match(tower, /FinancePracticeTimeWip/);
   assert.match(ui, /Record actual time/);
-  assert.match(ui, /Client WIP/);
+  assert.match(ui, /Billing readiness/);
+  assert.match(ui, /Create invoice/);
   assert.match(ui, /Budget/);
   assert.match(ui, /Actual/);
-  assert.match(ui, /Billing ready/);
+  assert.match(ui, /Invoice ready/);
 });

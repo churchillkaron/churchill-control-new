@@ -102,23 +102,13 @@ test("Finance top navigation uses the same explicit route truth", () => {
   assert.match(informationArchitecture, /"\/finance\/approval-workflows"/);
 });
 
-test("Every stale Finance planned declaration has executable evidence before presentation activates it", () => {
+test("Finance registry has no planned or coming-soon capability states", () => {
   const financeStart = registryBase.indexOf("\n    finance: {");
   const financeEnd = registryBase.indexOf("\n    services: {", financeStart);
   assert.ok(financeStart >= 0 && financeEnd > financeStart, "Finance registry block must be found");
 
   const financeRegistry = registryBase.slice(financeStart, financeEnd);
-  const plannedIds = [...financeRegistry.matchAll(/id:\s*"([^"]+)"[^\n]*status:\s*"planned"/g)]
-    .map((match) => match[1]);
-
-  assert.ok(plannedIds.length >= 20, `Expected legacy Finance planned declarations, found ${plannedIds.length}`);
-  for (const capabilityId of plannedIds) {
-    const runtimeDefinition = runtimeManifest[capabilityId];
-    assert.ok(runtimeDefinition, `${capabilityId} is still planned without a Finance runtime definition`);
-    const contractBacked = new RegExp(`\\n\\s{2}${capabilityId}:\\s`).test(workspaceContracts);
-    const apiBacked = Boolean(runtimeDefinition.api);
-    assert.ok(contractBacked || apiBacked, `${capabilityId} is still planned without an executable workspace contract or API`);
-  }
+  assert.doesNotMatch(financeRegistry, /status:\s*"(?:planned|coming-soon|coming_soon|blocked|disabled|unavailable|partial|unproven)"/i);
 
   assert.match(workspaceRuntime, /export async function GET/);
   assert.match(workspaceRuntime, /export async function POST/);
@@ -130,10 +120,7 @@ test("Every stale Finance planned declaration has executable evidence before pre
   assert.match(presentationPolicy, /getFinanceWorkspaceContract/);
   assert.match(presentationPolicy, /function hasExecutableRuntimeEvidence/);
   assert.match(presentationPolicy, /configuredApi \|\| contract \|\| executableCreate \|\| executableAction/);
-  assert.doesNotMatch(presentationPolicy, /const runtimeBacked = Boolean\(runtimeDefinition\)/);
-  assert.match(presentationPolicy, /runtimeBacked && declaredStatus\.toLowerCase\(\) === "planned"/);
   assert.match(presentationPolicy, /item\.status = readiness\.effectiveStatus/);
-  assert.match(areaHub, /"planned", "blocked", "disabled", "unavailable"/);
 });
 
 test("Finance runtime coverage remains complete enough for the accountant surface", () => {

@@ -34,7 +34,7 @@ function staffId(access) {
 }
 
 async function loadContext(accountingFirmId) {
-  const [engagementsResult, organizationsResult, profilesResult, itemsResult, billingResult] = await Promise.all([
+  const [engagementsResult, organizationsResult, profilesResult, itemsResult, billingResult, entitiesResult, partiesResult, accountsResult, taxRulesResult] = await Promise.all([
     supabaseAdmin.from("accounting_engagements")
       .select("id,organization_id,entity_id,service_package,status")
       .eq("accounting_firm_id", accountingFirmId).order("created_at", { ascending: true }).limit(1000),
@@ -46,13 +46,19 @@ async function loadContext(accountingFirmId) {
       .select("id,organization_id,entity_id,run_id,title,status,assigned_to,budget_minutes,due_at")
       .eq("accounting_firm_id", accountingFirmId).in("status", OPEN_ITEM_STATUSES).order("due_at", { ascending: true, nullsFirst: false }).limit(10000),
     supabaseAdmin.from("accounting_practice_billing_profiles")
-      .select("id,organization_id,engagement_id,billing_method,currency_code,default_hourly_rate,fixed_fee_amount,status,updated_at")
+      .select("id,organization_id,engagement_id,billing_method,currency_code,default_hourly_rate,fixed_fee_amount,billing_entity_id,customer_party_id,revenue_account_id,tax_rule_id,tax_rate_percent,tax_treatment_confirmed,payment_terms_days,billing_cadence,next_billing_date,status,updated_at")
       .eq("accounting_firm_id", accountingFirmId),
+    supabaseAdmin.from("legal_entities").select("id,code,legal_name,display_name,currency,is_active,is_default_accounting_entity").eq("organization_id", accountingFirmId).eq("is_active", true).order("is_default_accounting_entity", { ascending: false }),
+    supabaseAdmin.from("parties").select("id,display_name,legal_name,email,party_type,status").eq("organization_id", accountingFirmId).order("display_name", { ascending: true }).limit(5000),
+    supabaseAdmin.from("chart_of_accounts").select("*").eq("organization_id", accountingFirmId).order("account_code", { ascending: true }).limit(5000),
+    supabaseAdmin.from("tax_rules").select("id,tax_code,tax_name,tax_type,tax_rate,is_active,organization_id").or(`organization_id.eq.${accountingFirmId},organization_id.is.null`).eq("is_active", true).order("tax_name", { ascending: true }).limit(1000),
   ]);
-  for (const result of [engagementsResult, organizationsResult, profilesResult, itemsResult, billingResult]) if (result.error) throw result.error;
+  for (const result of [engagementsResult, organizationsResult, profilesResult, itemsResult, billingResult, entitiesResult, partiesResult, accountsResult, taxRulesResult]) if (result.error) throw result.error;
   return {
     engagements: engagementsResult.data || [], organizations: organizationsResult.data || [], profiles: profilesResult.data || [],
-    workItems: itemsResult.data || [], billingProfiles: billingResult.data || [],
+    workItems: itemsResult.data || [], billingProfiles: billingResult.data || [], billingEntities: entitiesResult.data || [], customerParties: partiesResult.data || [],
+    revenueAccounts: (accountsResult.data || []).filter((row) => { const type = String(row.account_type || row.type || "").toUpperCase(); return type.includes("REVENUE") || type.includes("INCOME"); }),
+    taxRules: taxRulesResult.data || [],
   };
 }
 
@@ -104,6 +110,33 @@ function buildSummary({ context, entries }) {
     billing_ready: row.approved_unbilled_minutes > 0 && row.unpriced_minutes === 0,
   })).sort((a, b) => b.unbilled_value - a.unbilled_value || b.billable_minutes - a.billable_minutes || a.client_name.localeCompare(b.client_name));
 
+  const engagementWip = context.engagements.map((engagement) => {
+    const profile = billingByEngagement.get(engagement.id) || null;
+    const scoped = entries.filter((entry) => entry.engagement_id === engagement.id && entry.status === "APPROVED" && entry.billable);
+    const priced = scoped.filter((entry) => entry.billing_rate != null);
+    const timeValue = priced.reduce((sum, entry) => sum + Number(entry.billing_rate || 0) * Number(entry.minutes || 0) / 60, 0);
+    const fixedValue = ["FIXED_FEE", "HYBRID"].includes(profile?.billing_method) ? Number(profile?.fixed_fee_amount || 0) : 0;
+    const unpriced = scoped.filter((entry) => entry.billing_rate == null);
+    const amount = profile?.billing_method === "FIXED_FEE" ? fixedValue : profile?.billing_method === "HYBRID" ? fixedValue + timeValue : timeValue;
+    const blockers = [];
+    if (!profile) blockers.push("Billing policy missing");
+    if (profile && !profile.billing_entity_id) blockers.push("Billing entity missing");
+    if (profile && !profile.customer_party_id) blockers.push("Finance customer missing");
+    if (profile && !profile.revenue_account_id) blockers.push("Revenue account missing");
+    if (profile && !profile.tax_rule_id) blockers.push("Tax rule missing");
+    if (profile && profile.tax_treatment_confirmed !== true) blockers.push("Tax treatment not confirmed");
+    if (["FIXED_FEE", "HYBRID"].includes(profile?.billing_method) && fixedValue <= 0) blockers.push("Fixed fee missing");
+    if (["TIME_AND_MATERIALS", "HYBRID"].includes(profile?.billing_method) && unpriced.length) blockers.push("Unpriced approved time");
+    if (profile?.billing_method === "TIME_AND_MATERIALS" && !scoped.length) blockers.push("No approved WIP");
+    if (profile && profile.billing_cadence !== "ON_DEMAND" && !profile.next_billing_date) blockers.push("Next billing date missing");
+    if (profile?.billing_method === "NON_BILLABLE") blockers.push("Engagement is non-billable");
+    return {
+      engagement_id: engagement.id, organization_id: engagement.organization_id, client_name: orgNames.get(engagement.organization_id) || "Client organization",
+      service_package: engagement.service_package || "Accounting engagement", billing_profile: profile, approved_hours: hours(scoped.reduce((sum, entry) => sum + Number(entry.minutes || 0), 0)),
+      unpriced_hours: hours(unpriced.reduce((sum, entry) => sum + Number(entry.minutes || 0), 0)), unbilled_value: money(amount), blockers, invoice_ready: blockers.length === 0 && amount > 0,
+    };
+  }).sort((a, b) => Number(b.invoice_ready) - Number(a.invoice_ready) || b.unbilled_value - a.unbilled_value || a.client_name.localeCompare(b.client_name));
+
   return {
     totals: {
       hours: hours(totalMinutes), billable_hours: hours(billableMinutes), approved_unbilled_hours: hours(approvedUnbilledMinutes),
@@ -111,8 +144,10 @@ function buildSummary({ context, entries }) {
       utilization: totalMinutes > 0 ? Math.round((billableMinutes / totalMinutes) * 1000) / 10 : 0,
     },
     clients,
+    engagement_wip: engagementWip,
     work_items: workItems,
     billing_profiles: context.billingProfiles,
+    billing_options: { entities: context.billingEntities, customer_parties: context.customerParties, revenue_accounts: context.revenueAccounts, tax_rules: context.taxRules },
     engagement_context: context.engagements.map((engagement) => ({
       ...engagement,
       client_name: orgNames.get(engagement.organization_id) || "Client organization",
@@ -166,13 +201,57 @@ export async function POST(request) {
       const fixedFee = body.fixedFeeAmount == null && body.fixed_fee_amount == null ? null : Number(body.fixedFeeAmount ?? body.fixed_fee_amount);
       if (hourlyRate != null && (!Number.isFinite(hourlyRate) || hourlyRate < 0)) return jsonError("Hourly rate must be zero or greater", 400);
       if (fixedFee != null && (!Number.isFinite(fixedFee) || fixedFee < 0)) return jsonError("Fixed fee must be zero or greater", 400);
+      const billingEntityId = clean(body.billingEntityId || body.billing_entity_id);
+      const customerPartyId = clean(body.customerPartyId || body.customer_party_id);
+      const revenueAccountId = clean(body.revenueAccountId || body.revenue_account_id);
+      const taxRuleId = clean(body.taxRuleId || body.tax_rule_id);
+      let taxRatePercent = 0;
+      if (billingEntityId) {
+        const { data: entity, error: entityError } = await supabaseAdmin.from("legal_entities").select("id").eq("id", billingEntityId).eq("organization_id", access.organizationId).maybeSingle();
+        if (entityError) throw entityError; if (!entity) return jsonError("Billing entity is outside the accounting firm", 403);
+      }
+      if (customerPartyId) {
+        const { data: party, error: partyError } = await supabaseAdmin.from("parties").select("id").eq("id", customerPartyId).eq("organization_id", access.organizationId).maybeSingle();
+        if (partyError) throw partyError; if (!party) return jsonError("Billing customer party is outside the accounting firm", 403);
+      }
+      if (revenueAccountId) {
+        const { data: account, error: accountError } = await supabaseAdmin.from("chart_of_accounts").select("id,account_type").eq("id", revenueAccountId).eq("organization_id", access.organizationId).maybeSingle();
+        if (accountError) throw accountError;
+        if (!account) return jsonError("Revenue account is outside the accounting firm", 403);
+        const type = String(account.account_type || "").toUpperCase();
+        if (!type.includes("REVENUE") && !type.includes("INCOME")) return jsonError("Selected billing account must be a revenue/income account", 409);
+      }
+      if (taxRuleId) {
+        const { data: taxRule, error: taxRuleError } = await supabaseAdmin.from("tax_rules").select("id,tax_rate,is_active,organization_id").eq("id", taxRuleId).or(`organization_id.eq.${access.organizationId},organization_id.is.null`).eq("is_active", true).maybeSingle();
+        if (taxRuleError) throw taxRuleError;
+        if (!taxRule) return jsonError("Selected tax rule is not available to the accounting firm", 409);
+        taxRatePercent = Number(taxRule.tax_rate || 0) * 100;
+      }
       const { data, error } = await supabaseAdmin.from("accounting_practice_billing_profiles").upsert({
         accounting_firm_id: access.organizationId, organization_id: engagement.organization_id, engagement_id: engagement.id,
         billing_method: billingMethod, currency_code: clean(body.currencyCode || body.currency_code || "THB").toUpperCase(),
-        default_hourly_rate: hourlyRate, fixed_fee_amount: fixedFee, status: "ACTIVE", updated_by: actorStaffId, updated_at: new Date().toISOString(),
+        default_hourly_rate: hourlyRate, fixed_fee_amount: fixedFee,
+        billing_entity_id: clean(body.billingEntityId || body.billing_entity_id) || null,
+        customer_party_id: clean(body.customerPartyId || body.customer_party_id) || null,
+        revenue_account_id: revenueAccountId || null,
+        tax_rule_id: taxRuleId || null,
+        tax_rate_percent: Math.max(0, taxRatePercent),
+        tax_treatment_confirmed: body.taxTreatmentConfirmed === true || body.tax_treatment_confirmed === true,
+        payment_terms_days: Math.max(0, Math.round(Number(body.paymentTermsDays ?? body.payment_terms_days ?? 0) || 0)),
+        billing_cadence: ["ON_DEMAND","MONTHLY","QUARTERLY","ANNUAL"].includes(clean(body.billingCadence || body.billing_cadence || "ON_DEMAND").toUpperCase()) ? clean(body.billingCadence || body.billing_cadence || "ON_DEMAND").toUpperCase() : "ON_DEMAND",
+        next_billing_date: clean(body.nextBillingDate || body.next_billing_date) || null,
+        status: "ACTIVE", updated_by: actorStaffId, updated_at: new Date().toISOString(),
       }, { onConflict: "accounting_firm_id,engagement_id" }).select("*").single();
       if (error) throw error;
-      return NextResponse.json({ success: true, billing_profile: data });
+      let repriced_entries = 0;
+      if (body.applyRateToUnpriced === true && hourlyRate != null && billingMethod !== "NON_BILLABLE") {
+        const { data: repriced, error: repriceError } = await supabaseAdmin.from("accounting_practice_time_entries")
+          .update({ billing_rate: hourlyRate, currency_code: clean(body.currencyCode || body.currency_code || "THB").toUpperCase(), updated_at: new Date().toISOString() })
+          .eq("accounting_firm_id", access.organizationId).eq("engagement_id", engagement.id).eq("billable", true).in("status", ["DRAFT","SUBMITTED","APPROVED"]).is("billing_rate", null).select("id");
+        if (repriceError) throw repriceError;
+        repriced_entries = (repriced || []).length;
+      }
+      return NextResponse.json({ success: true, billing_profile: data, repriced_entries });
     }
 
     const workItemId = clean(body.workItemId || body.work_item_id);

@@ -29,7 +29,7 @@ const IDEMPOTENT_TABLES = new Set([
 const ARCHIVABLE_TABLES = new Set([
   "finance_opening_balance_batches",
   "finance_recurring_journal_templates",
-  "finance_collection_cases",
+  "customer_collection_cases",
   "finance_revenue_recognition_schedules",
   "finance_bank_statement_imports",
   "finance_bank_reconciliation_runs",

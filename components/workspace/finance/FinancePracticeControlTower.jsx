@@ -19,14 +19,20 @@ import {
   ShieldCheck,
   UserRoundCheck,
   Users,
+  UserPlus,
+  ExternalLink,
 } from "lucide-react";
 
 import FinanceEngagementFile from "@/components/workspace/finance/FinanceEngagementFile";
 import FinancePracticeTimeWip from "@/components/workspace/finance/FinancePracticeTimeWip";
+import FinancePracticeOnboarding from "@/components/workspace/finance/FinancePracticeOnboarding";
+import FinancePracticeClientPortal from "@/components/workspace/finance/FinancePracticeClientPortal";
 
 const TABS = [
   { id: "today", label: "Today", icon: Clock3 },
   { id: "clients", label: "Clients", icon: Users },
+  { id: "onboarding", label: "Onboarding", icon: UserPlus },
+  { id: "portal", label: "Client access", icon: ExternalLink },
   { id: "work", label: "Work", icon: ListChecks },
   { id: "economics", label: "Time & WIP", icon: WalletCards },
   { id: "capacity", label: "Capacity", icon: Gauge },
@@ -408,6 +414,14 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
         </div>
       ) : null}
 
+      {activeView === "onboarding" ? (
+        <FinancePracticeOnboarding organizationId={organizationId} />
+      ) : null}
+
+      {activeView === "portal" ? (
+        <FinancePracticeClientPortal organizationId={organizationId} />
+      ) : null}
+
       {activeView === "work" ? (
         <div className="mt-4">
           <div className="mb-3 flex items-end justify-between gap-3">
@@ -489,7 +503,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
           {recurringLoading && !recurring ? <LoadingRow text="Planning recurring accounting cycles…" /> : recurring ? (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-                <SummaryButton label="Planned" value={recurring.summary?.total || 0} detail="90-day candidates" />
+                <SummaryButton label="Scheduled" value={recurring.summary?.total || 0} detail="90-day candidates" />
                 <SummaryButton label="Ready" value={recurring.summary?.ready_to_create || 0} detail="Safe to create" />
                 <SummaryButton label="Entity setup" value={recurring.summary?.blocked_entity_configuration || 0} detail="Legal entity missing" attention />
                 <SummaryButton label="Period setup" value={recurring.summary?.blocked_period_configuration || 0} detail="Financial period missing" attention />

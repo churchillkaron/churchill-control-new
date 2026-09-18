@@ -35,7 +35,7 @@ const PROFESSIONAL_AUDIO_ROLES = listProfessionalAudioRoles();
 const TRACK_TYPES = [
   ["vocal", "Vocal"], ["guitar", "Guitar"], ["bass", "Bass"],
   ["keys", "Keys"], ["drums", "Drums"], ["instrument", "Instrument"],
-  ["backing", "Backing"], ["stem", "Stem"], ["audio", "Audio"],
+  ["foley", "Foley"], ["ambience", "Ambience"], ["backing", "Backing"], ["stem", "Stem"], ["audio", "Audio"],
 ];
 
 function clamp(value, min, max) {
@@ -74,7 +74,7 @@ function ensureSpatialTrack(track) {
 
 function makeTrack(type, index) {
   return {
-    id: crypto.randomUUID(), type, audio_role: type === "vocal" ? "SONG_VOCAL" : ["guitar","bass","keys","drums","instrument","backing"].includes(type) ? "INSTRUMENT" : "PROGRAM", vocal_role: type === "vocal" ? null : null,
+    id: crypto.randomUUID(), type, audio_role: type === "vocal" ? "SONG_VOCAL" : type === "foley" ? "FOLEY" : type === "ambience" ? "AMBIENCE" : ["guitar","bass","keys","drums","instrument","backing"].includes(type) ? "INSTRUMENT" : "PROGRAM", vocal_role: type === "vocal" ? null : null, foley_cue_id: null, picture_lock_digest: ["foley","ambience"].includes(type) ? (session?.picture_lock?.picture_lock_digest || null) : null,
     name: `${TRACK_TYPES.find(([id]) => id === type)?.[1] || "Audio"} ${index + 1}`,
     armed: false, input_device_id: null, input_channel: 1, monitor: "off",
     mute: false, solo: false, gain_db: 0, pan: 0, output_bus_id: "bus-master",

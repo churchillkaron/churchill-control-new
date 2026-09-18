@@ -19,6 +19,9 @@ import {
   processMusicVocalEngineeringLocal,
 } from "@/lib/creative/music/runtime/CreativeMusicVocalEngineeringRuntime";
 import {
+  buildAudioPostDialogueRestorationPlan,
+} from "@/lib/creative/music/runtime/CreativeAudioPostDialogueRestorationRuntime";
+import {
   buildMusicGenerationPlan,
   buildMusicTransformationPlan,
   MUSIC_SOURCE_AUDIO_RIGHTS_ATTESTATION_CONTRACT,
@@ -293,14 +296,18 @@ async function cleanAudio(body) {
   if (!sourceAudio) throw new Error("CREATIVE_MUSIC_CLEANUP_SOURCE_REQUIRED");
   if (body.source_rights_confirmed !== true) throw new Error("CREATIVE_MUSIC_SOURCE_RIGHTS_REQUIRED");
 
+  const sourceRole = text(body.source_role || "song");
   const restored = await processMusicVocalEngineeringLocal({
     organization_id: organizationId,
     creative_project_id: projectId,
     source_audio: sourceAudio,
-    source_role: text(body.source_role || "song"),
+    source_role: sourceRole,
     file_name: text(body.file_name || "audio-source"),
     mime_type: text(body.mime_type) || null,
   });
+  const dialogueRestorationPlan = sourceRole === "dialogue"
+    ? buildAudioPostDialogueRestorationPlan({ source_asset_id: sourceAudio, diagnostics: restored.analysis || {}, room_tone_asset_id: body.room_tone_asset_id })
+    : null;
   const reference = text(restored.restored?.storage_reference);
   const asset = await CreativeAssetsRuntime.create({
     organization_id: organizationId,
@@ -325,10 +332,11 @@ async function cleanAudio(body) {
       engineering: restored.engineering || {},
       analysis: restored.analysis || {},
       readiness: restored.readiness || {},
+      dialogue_restoration_plan: dialogueRestorationPlan,
     },
   });
   const playbackUrl = await resolveCreativeProviderAssetUrl({ organization_id: organizationId, value: reference });
-  return { success: true, pending: false, failed: false, asset: { ...publicAsset(asset), playback_url: playbackUrl }, restoration: restored };
+  return { success: true, pending: false, failed: false, asset: { ...publicAsset(asset), playback_url: playbackUrl }, restoration: restored, dialogue_restoration_plan: dialogueRestorationPlan };
 }
 
 async function backingPlan(body) {

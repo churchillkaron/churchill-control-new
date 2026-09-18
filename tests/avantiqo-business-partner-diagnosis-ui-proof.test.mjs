@@ -14,9 +14,14 @@ test("shared operator artifact surface renders persisted diagnosis proof",()=>{
   assert.match(source,/Persisted proof/);
   assert.match(source,/Verified after reload/);
   assert.match(source,/Integrity mismatch/);
+  assert.match(source,/Explained from internal business data/);
+  assert.match(source,/Why performance changed/);
+  assert.match(source,/Answer matched the verified evidence/);
+  assert.match(source,/Some of the change remains unexplained/);
+  assert.match(source,/font-mono text-\[8px\]/);
   assert.match(source,/baseline_start_date/);
   assert.match(source,/current_end_date/);
-  assert.match(source,/raw reasoning is not persisted/i);
+  assert.match(source,/raw reasoning is not stored/i);
   assert.match(source,/if \(!artifacts\.length\) return diagnosisProof/);
 });
 

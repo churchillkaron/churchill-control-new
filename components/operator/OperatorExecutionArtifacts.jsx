@@ -175,6 +175,34 @@ function ArtifactPreview({ artifact }) {
   return null;
 }
 
+
+const DIAGNOSIS_STATE_LABELS = Object.freeze({
+  TARGET_METRIC_EVIDENCE_GAP: "Not enough verified data yet",
+  INTERNAL_COVERAGE_INCOMPLETE_WITH_SUPPORTED_EXTERNAL: "Partly explained with external support",
+  INTERNAL_COVERAGE_INCOMPLETE: "Partly explained from internal data",
+  INTERNAL_AND_SUPPORTED_EXTERNAL: "Explained with internal and external evidence",
+  INTERNAL_WITH_UNRESOLVED_EXTERNAL_RESIDUAL: "Internal drivers found; some change remains unexplained",
+  INTERNAL_SUFFICIENT: "Explained from internal business data",
+  VERIFIED_EVIDENCE: "Verified business evidence",
+});
+const DIAGNOSIS_CLASS_LABELS = Object.freeze({
+  CAUSAL_DIAGNOSIS: "Why performance changed",
+  PERIOD_COMPARISON: "Period comparison",
+  EVIDENCE_FIRST_RECOMMENDATION: "Recommendation based on verified evidence",
+  CHANGE_DIAGNOSIS: "Business performance change",
+  DIRECT_GOVERNED_DIAGNOSIS: "Governed business analysis",
+});
+const ANSWER_BOUNDARY_LABELS = Object.freeze({
+  PASS: "Answer matched the verified evidence",
+  APPENDED_REQUIRED_UNCERTAINTY: "Uncertainty was added where evidence is incomplete",
+  REPLACED_OVERCLAIM: "An unsupported causal claim was removed",
+  REPLACED_UNSUPPORTED_RECOMMENDATION_OUTCOME: "An unsupported outcome promise was removed",
+});
+function diagnosisPresentationLabel(map, value, fallback) {
+  const key = text(value);
+  return map[key] || fallback || key.replaceAll("_", " ");
+}
+
 function DiagnosisProof({ evidence = {} }) {
   const diagnosis = evidence?.business_diagnosis;
   if (!diagnosis?.receipt_fingerprint) return null;
@@ -187,22 +215,25 @@ function DiagnosisProof({ evidence = {} }) {
   const auditStatus = text(diagnosis.audit_projection_verification_status);
   const baselinePeriodLabel = periodDisplayLabel(periods.baseline_start_date, periods.baseline_end_date, periods.baseline_period_id);
   const currentPeriodLabel = periodDisplayLabel(periods.current_start_date, periods.current_end_date, periods.current_period_id);
+  const stateLabel = diagnosisPresentationLabel(DIAGNOSIS_STATE_LABELS, state, "Verified business evidence");
+  const classLabel = diagnosisPresentationLabel(DIAGNOSIS_CLASS_LABELS, diagnosisClass, "Governed business diagnosis");
+  const boundaryLabel = diagnosisPresentationLabel(ANSWER_BOUNDARY_LABELS, boundary, "Answer checked against evidence");
   return (
     <details data-avantiqo-business-diagnosis-proof="true" className="mt-3 overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] text-white/70">
         <span className="flex items-center gap-2 font-medium text-[#E5C28D]"><BadgeCheck size={13} />Verified diagnosis</span>
-        <span className="text-[9px] text-white/35">{state.replaceAll("_", " ")}</span>
+        <span className="text-[9px] text-white/35">{stateLabel}</span>
       </summary>
       <div className="grid gap-2 border-t border-white/[0.06] px-3 py-3 text-[9px] text-white/50 sm:grid-cols-2">
-        <div><span className="text-white/30">Evidence state</span><div className="mt-0.5 text-white/65">{state.replaceAll("_", " ")}</div></div>
-        <div><span className="text-white/30">Request type</span><div className="mt-0.5 text-white/65">{diagnosisClass ? diagnosisClass.replaceAll("_", " ") : "Governed business diagnosis"}</div></div>
-        <div><span className="text-white/30">Answer boundary</span><div className="mt-0.5 text-white/65">{boundary.replaceAll("_", " ")}</div></div>
+        <div><span className="text-white/30">Evidence state</span><div className="mt-0.5 text-white/65">{stateLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{state}</div></div>
+        <div><span className="text-white/30">Request type</span><div className="mt-0.5 text-white/65">{classLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{diagnosisClass || "—"}</div></div>
+        <div><span className="text-white/30">Answer boundary</span><div className="mt-0.5 text-white/65">{boundaryLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{boundary}</div></div>
         <div><span className="text-white/30">Compared periods</span><div className="mt-0.5 text-white/65">{baselinePeriodLabel} → {currentPeriodLabel}</div></div>
-        <div><span className="text-white/30">Unexplained residual</span><div className="mt-0.5 text-white/65">{diagnosis.residual_material === true ? "Material residual remains" : "No material residual flagged"}</div></div>
+        <div><span className="text-white/30">Unexplained residual</span><div className="mt-0.5 text-white/65">{diagnosis.residual_material === true ? "Some of the change remains unexplained" : "No material unexplained change flagged"}</div></div>
         <div className="sm:col-span-2"><span className="text-white/30">Period IDs</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/40">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>
         <div><span className="text-white/30">Persisted proof</span><div className="mt-0.5 text-white/65">{auditVerified ? "Verified after reload" : auditStatus === "MISMATCH" ? "Integrity mismatch" : "Live proof"}</div></div>
         <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
-        <div className="sm:col-span-2 text-[8px] text-white/30">Read-only diagnosis · no execution authority · raw reasoning is not persisted.</div>
+        <div className="sm:col-span-2 text-[8px] text-white/30">Analysis only · no action was executed · raw reasoning is not stored.</div>
       </div>
     </details>
   );

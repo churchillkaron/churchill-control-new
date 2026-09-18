@@ -603,6 +603,26 @@ async function submitPaperOrder({ organizationId, state, body }) {
   return { approved: true, risk, decision: updatedDecision, order };
 }
 
+async function invalidatePaperDecision({ organizationId, portfolioId, body }) {
+  const decisionId = clean(body.decision_id || body.decisionId);
+  if (!decisionId) throw new Error("A governed decision is required");
+  const reason = clean(body.reason || body.invalidation_reason);
+  if (!reason) throw new Error("Decision cancellation or supersession requires a reason");
+  const supersededByDecisionId = clean(
+    body.superseded_by_decision_id || body.supersededByDecisionId,
+  ) || null;
+
+  const { data, error } = await supabaseAdmin.rpc("market_invalidate_paper_decision", {
+    p_organization_id: organizationId,
+    p_portfolio_id: portfolioId,
+    p_decision_id: decisionId,
+    p_reason: reason,
+    p_superseded_by_decision_id: supersededByDecisionId,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -1128,6 +1148,28 @@ export async function POST(request) {
       }
       const decision = await recordDecision({ organizationId, portfolioId: state.portfolio.id, body });
       return NextResponse.json({ success: true, decision });
+    }
+
+    if (action === "CANCEL_PAPER_DECISION" || action === "SUPERSEDE_PAPER_DECISION") {
+      requireMarketsAutomationAuthority(scope);
+      if (action === "SUPERSEDE_PAPER_DECISION" && !clean(
+        body.superseded_by_decision_id || body.supersededByDecisionId,
+      )) {
+        throw new Error("Supersession requires an exact approved replacement decision");
+      }
+      const invalidation = await invalidatePaperDecision({
+        organizationId,
+        portfolioId: state.portfolio.id,
+        body,
+      });
+      const refreshedState = await loadState({ organizationId, entityId });
+      return NextResponse.json({
+        success: true,
+        invalidation,
+        paperOrders: refreshedState.paperOrders,
+        decisions: refreshedState.decisions,
+        execution: { mode: "PAPER", live_enabled: false },
+      });
     }
 
     if (action === "SUBMIT_PAPER_ORDER") {

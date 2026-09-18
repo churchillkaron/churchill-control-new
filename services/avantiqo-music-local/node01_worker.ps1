@@ -46,8 +46,8 @@ if ((Test-Path $MusicGpuPython) -and (Test-Path $VocalRoleRunner)) {
 $SeedVcRoot = 'C:\Avantiqo\seed-vc'
 $SeedVcPython = 'C:\Avantiqo\seed-vc\.venv\Scripts\python.exe'
 $SeedVcRunner = 'C:\Avantiqo\seed-vc\avantiqo_singing_voice_runner.py'
-$SeedVcCheckpoint = 'C:\Avantiqo\seed-vc\checkpoints\DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ema.pth'
-$SeedVcConfig = 'C:\Avantiqo\seed-vc\configs\config_dit_mel_seed_uvit_whisper_base_f0_44k.yml'
+$SeedVcCheckpoint = 'C:\Avantiqo\seed-vc\checkpoints\DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ft_ema_v2.pth'
+$SeedVcConfig = 'C:\Avantiqo\seed-vc\configs\presets\config_dit_mel_seed_uvit_whisper_base_f0_44k.yml'
 $SingingVoiceRuntimeReady = $false
 if ((Test-Path $SeedVcPython) -and (Test-Path $SeedVcRunner) -and (Test-Path (Join-Path $SeedVcRoot 'inference.py')) -and (Test-Path $SeedVcCheckpoint) -and (Test-Path $SeedVcConfig)) {
   try {
@@ -476,8 +476,8 @@ function RunMusicSingingVoiceIdentityJob($Job) {
     $psi.Arguments = ('"' + $runner + '" --input "' + $tmp + '"')
     $psi.EnvironmentVariables['PATH'] = $ffmpeg + ';' + [Environment]::GetEnvironmentVariable('PATH')
     $psi.EnvironmentVariables['AVANTIQO_SEED_VC_ROOT'] = 'C:\Avantiqo\seed-vc'
-    $psi.EnvironmentVariables['AVANTIQO_SEED_VC_SVC_CHECKPOINT'] = 'C:\Avantiqo\seed-vc\checkpoints\DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ema.pth'
-    $psi.EnvironmentVariables['AVANTIQO_SEED_VC_SVC_CONFIG'] = 'C:\Avantiqo\seed-vc\configs\config_dit_mel_seed_uvit_whisper_base_f0_44k.yml'
+    $psi.EnvironmentVariables['AVANTIQO_SEED_VC_SVC_CHECKPOINT'] = 'C:\Avantiqo\seed-vc\checkpoints\DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ft_ema_v2.pth'
+    $psi.EnvironmentVariables['AVANTIQO_SEED_VC_SVC_CONFIG'] = 'C:\Avantiqo\seed-vc\configs\presets\config_dit_mel_seed_uvit_whisper_base_f0_44k.yml'
     $psi.UseShellExecute = $false; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
     $process = New-Object System.Diagnostics.Process; $process.StartInfo = $psi; [void]$process.Start()
     $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync(); $process.WaitForExit()

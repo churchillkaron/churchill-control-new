@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -11,16 +12,25 @@ CONTRACT = "AVANTIQO_MUSIC_SINGING_VOICE_ENGINE_V1"
 CAPABILITY = "ai.audio.singing-voice-convert"
 FOUNDATION_MODEL = "Plachta/Seed-VC"
 MODEL_LICENSE = "GPL-3.0"
-QUALITY_PROFILE = "SEED_VC_V1_SVC_44K_ZERO_SHOT_RESEARCH_V1"
+QUALITY_PROFILE = "SEED_VC_V1_SVC_44K_FT_EMA_V2_ZERO_SHOT_RESEARCH_V1"
+CHECKPOINT_SHA256 = "42aef93ffe65857c840d270252fa040f7ba04514945ec460f3ac1ac2a96de684"
 SEED_ROOT = Path(os.environ.get("AVANTIQO_SEED_VC_ROOT", r"C:\Avantiqo\seed-vc"))
-CHECKPOINT = Path(os.environ.get("AVANTIQO_SEED_VC_SVC_CHECKPOINT", str(SEED_ROOT / "checkpoints" / "DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ema.pth")))
-CONFIG = Path(os.environ.get("AVANTIQO_SEED_VC_SVC_CONFIG", str(SEED_ROOT / "configs" / "config_dit_mel_seed_uvit_whisper_base_f0_44k.yml")))
+CHECKPOINT = Path(os.environ.get("AVANTIQO_SEED_VC_SVC_CHECKPOINT", str(SEED_ROOT / "checkpoints" / "DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ft_ema_v2.pth")))
+CONFIG = Path(os.environ.get("AVANTIQO_SEED_VC_SVC_CONFIG", str(SEED_ROOT / "configs" / "presets" / "config_dit_mel_seed_uvit_whisper_base_f0_44k.yml")))
 MAX_SOURCE_BYTES = 600 * 1024 * 1024
 MAX_REFERENCE_BYTES = 20 * 1024 * 1024
 
 
 def text(value):
     return str(value or "").strip()
+
+def sha256_file(path: Path):
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
 
 
 def obj(value):
@@ -91,6 +101,9 @@ def main():
         raise RuntimeError("AVANTIQO_SINGING_VOICE_RAW_REFERENCE_FORBIDDEN")
     if not CHECKPOINT.is_file() or not CONFIG.is_file() or not (SEED_ROOT / "inference.py").is_file():
         raise RuntimeError("AVANTIQO_SINGING_VOICE_RUNTIME_FILES_REQUIRED")
+    checkpoint_hash = sha256_file(CHECKPOINT)
+    if checkpoint_hash.lower() != CHECKPOINT_SHA256:
+        raise RuntimeError(f"AVANTIQO_SINGING_VOICE_CHECKPOINT_HASH_MISMATCH:{checkpoint_hash}")
     source_url = text(payload.get("source_audio"))
     uploads = obj(payload.get("output_uploads"))
     audio_upload = obj(uploads.get("converted_vocal_wav"))
@@ -134,6 +147,8 @@ def main():
             "foundation_model": FOUNDATION_MODEL,
             "quality_profile": QUALITY_PROFILE,
             "model_license": MODEL_LICENSE,
+        "checkpoint_sha256": CHECKPOINT_SHA256,
+            "checkpoint_sha256": CHECKPOINT_SHA256,
             "gpl_compliance_review_required": True,
             "voice_profile_id": reference.get("profile_id"),
             "consent_basis": consent.get("basis"),
@@ -167,6 +182,7 @@ def main():
         "foundation_model": FOUNDATION_MODEL,
         "quality_profile": QUALITY_PROFILE,
         "model_license": MODEL_LICENSE,
+            "checkpoint_sha256": CHECKPOINT_SHA256,
         "gpl_compliance_review_required": True,
         "voice_profile_id": reference.get("profile_id"),
         "duration_drift_ms": round(duration_drift_ms, 3),

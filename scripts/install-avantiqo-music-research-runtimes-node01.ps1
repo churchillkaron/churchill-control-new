@@ -16,8 +16,9 @@ $Kara2Sha256 = 'bf32e15105a09c0f7dddd2b67346146334d6f3ecb399ed7638eba2ab07cbf5f4
 $SeedVcRoot = 'C:\Avantiqo\seed-vc'
 $SeedVcPython = Join-Path $SeedVcRoot '.venv\Scripts\python.exe'
 $SeedVcRunnerTarget = Join-Path $SeedVcRoot 'avantiqo_singing_voice_runner.py'
-$SeedVcCheckpoint = Join-Path $SeedVcRoot 'checkpoints\DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ema.pth'
-$SeedVcConfig = Join-Path $SeedVcRoot 'configs\config_dit_mel_seed_uvit_whisper_base_f0_44k.yml'
+$SeedVcCheckpoint = Join-Path $SeedVcRoot 'checkpoints\DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ft_ema_v2.pth'
+$SeedVcConfig = Join-Path $SeedVcRoot 'configs\presets\config_dit_mel_seed_uvit_whisper_base_f0_44k.yml'
+$SeedVcCheckpointSha256 = '42aef93ffe65857c840d270252fa040f7ba04514945ec460f3ac1ac2a96de684'
 $VocalRoleSource = Join-Path $RepoRoot 'services\avantiqo-music-local\vocal_role_separator_runner.py'
 $SeedVcRunnerSource = Join-Path $RepoRoot 'services\avantiqo-music-local\singing_voice_runner.py'
 $ReportPath = Join-Path $RepoRoot 'local-audit-output\music-research-runtime-install.json'
@@ -45,6 +46,7 @@ $plan = [ordered]@{
   seed_vc_python = $SeedVcPython
   seed_vc_runner_target = $SeedVcRunnerTarget
   checkpoint_required = $SeedVcCheckpoint
+  checkpoint_sha256 = $SeedVcCheckpointSha256
   config_required = $SeedVcConfig
   worker_restart_performed = $false
   provider_certification_mutation_performed = $false
@@ -85,6 +87,8 @@ if ($InstallSeedVcDependencies) {
 Copy-Item -Force $SeedVcRunnerSource $SeedVcRunnerTarget
 Require-File (Join-Path $SeedVcRoot 'inference.py') 'SEED_VC_INFERENCE_REQUIRED'
 Require-File $SeedVcCheckpoint 'SEED_VC_SINGING_CHECKPOINT_PROVISIONING_REQUIRED'
+$seedVcCheckpointActual = (Get-FileHash -Algorithm SHA256 $SeedVcCheckpoint).Hash.ToLowerInvariant()
+if ($seedVcCheckpointActual -ne $SeedVcCheckpointSha256) { throw "SEED_VC_SINGING_CHECKPOINT_HASH_MISMATCH:$seedVcCheckpointActual" }
 Require-File $SeedVcConfig 'SEED_VC_SINGING_CONFIG_REQUIRED'
 if (-not (Probe $SeedVcPython 'import torch, librosa, soundfile')) { throw 'SEED_VC_RUNTIME_IMPORT_PROBE_FAILED' }
 
@@ -105,6 +109,8 @@ $report = [ordered]@{
   seed_vc_gpl_compliance_approval_required_for_production = $true
   seed_vc_runtime_ready = $true
   seed_vc_checkpoint_present = (Test-Path $SeedVcCheckpoint)
+  seed_vc_checkpoint_sha256 = $SeedVcCheckpointSha256
+  seed_vc_checkpoint_sha256_verified = $true
   seed_vc_config_present = (Test-Path $SeedVcConfig)
   capability_advertisement_requires_worker_restart = $true
   worker_restart_performed = $false

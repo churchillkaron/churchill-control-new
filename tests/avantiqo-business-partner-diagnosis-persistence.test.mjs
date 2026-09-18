@@ -17,7 +17,7 @@ test("operator turn persists compact business diagnosis audit in evidence",()=>{
   assert.match(route,/periods: \{ status: text\(diagnosis\?\.periods\?\.status\) \|\| null, \.\.\.projection\.periods \}/);
   assert.match(route,/raw_web_content_persisted: false/);
   assert.match(route,/raw_reasoning_persisted: false/);
-  assert.match(route,/\.\.\.persistedBusinessDiagnosisEvidence\(result\)/);
+  assert.match(route,/\.\.\.persistedBusinessDiagnosisEvidence\(result, \{/);
 });
 
 test("business diagnosis audit persistence does not alter atomic assistant turn API",()=>{
@@ -30,7 +30,7 @@ test("business diagnosis audit persistence does not alter atomic assistant turn 
 test("conversation snapshot verifies persisted diagnosis audit projection before returning turns",()=>{
   const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
   assert.match(runtime,/sanitizeBusinessDiagnosisSnapshot/);
-  assert.match(runtime,/const verifiedTurns=sanitizeBusinessDiagnosisSnapshot\(turns\.data\|\|\[\]\)/);
+  assert.match(runtime,/const verifiedTurns=sanitizeBusinessDiagnosisSnapshot\(turns\.data\|\|\[\], \{/);
 });
 
 
@@ -67,7 +67,7 @@ test("conversation memory excludes unverified diagnosis assistant turns before m
   assert.match(runtime,/loadVerifiedRecentConversationTurns/);
   assert.match(runtime,/\.select\("role,content,evidence,created_at"\)/);
   assert.match(runtime,/sanitizeBusinessDiagnosisConversation/);
-  assert.match(runtime,/return sanitizeBusinessDiagnosisConversation\(turns\.data \|\| \[\]\)/);
+  assert.match(runtime,/return sanitizeBusinessDiagnosisConversation\(turns\.data \|\| \[\], \{/);
   assert.match(runtime,/OPERATOR_VERIFIED_RECENT_CONVERSATION_LOAD_FAILED/);
   assert.match(runtime,/return \[\]/);
 });
@@ -79,8 +79,11 @@ test("operator never falls back to client conversation after server memory filte
 
 
 test("operator persists full proof server-side but redacts signing internals from live response",()=>{
-  assert.match(route,/persistedBusinessDiagnosisEvidence\(result\)/);
+  assert.match(route,/persistedBusinessDiagnosisEvidence\(result, \{/);
   assert.match(route,/redactBusinessDiagnosisProofForClient\(normalizedResult\.business_diagnosis\)/);
   assert.match(route,/\.\.\.clientNormalizedResult/);
-  assert.ok(route.indexOf("persistedBusinessDiagnosisEvidence(result)") < route.indexOf("redactBusinessDiagnosisProofForClient(normalizedResult.business_diagnosis)"));
+  assert.ok(route.indexOf("persistedBusinessDiagnosisEvidence(result, {") < route.indexOf("redactBusinessDiagnosisProofForClient(normalizedResult.business_diagnosis)"));
+  assert.match(route,/scope_organization_id/);
+  assert.match(route,/scope_conversation_id/);
+  assert.match(route,/scope_entity_id/);
 });

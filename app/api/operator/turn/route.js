@@ -5,7 +5,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import { buildBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAnswerContent, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
-import { verifyBusinessDiagnosisProofAuthenticity, businessDiagnosisProofAuthenticityAcceptable, redactBusinessDiagnosisProofForClient } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
+import { verifyBusinessDiagnosisProofAuthenticity, businessDiagnosisProofAuthenticityAcceptable, redactBusinessDiagnosisProofForClient, sealBusinessDiagnosisProofAuthenticity } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
 import { businessDiagnosisReadinessInternalDiagnostic } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReadinessRuntime";
 import {
   resolveBusinessContext,
@@ -87,7 +87,7 @@ function object(value) {
     : {};
 }
 
-function persistedBusinessDiagnosisEvidence(result = {}) {
+function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null, conversationId = null, entityId = null } = {}) {
   const diagnosis = object(result?.business_diagnosis);
   if (!text(diagnosis.receipt_fingerprint)) return {};
   const projection = buildBusinessDiagnosisAuditProjection({
@@ -121,16 +121,27 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
   const authenticityVerification = verifyBusinessDiagnosisProofAuthenticity(diagnosis);
   const authenticityAcceptable = businessDiagnosisProofAuthenticityAcceptable(authenticityVerification);
   if (verification.status !== "VERIFIED" || answerVerification.status !== "VERIFIED" || !authenticityAcceptable) return {};
+  const persistenceBase = {
+    ...diagnosis,
+    scope_organization_id: text(organizationId) || null,
+    scope_conversation_id: text(conversationId) || null,
+    scope_entity_id: text(entityId) || null,
+  };
+  const persistenceSeal = sealBusinessDiagnosisProofAuthenticity(persistenceBase);
+  const persistedProof = persistenceSeal.sealed ? persistenceSeal.proof : persistenceBase;
   return {
     business_diagnosis: {
       contract: text(diagnosis.contract) || null,
       receipt_contract: projection.receipt_contract,
-      authenticity_contract: text(diagnosis.authenticity_contract) || null,
-      authenticity_algorithm: text(diagnosis.authenticity_algorithm) || null,
-      authenticity_key_id: text(diagnosis.authenticity_key_id) || null,
-      authenticity_mac: text(diagnosis.authenticity_mac) || null,
-      authenticity_status: authenticityVerification.status,
-      authenticity_verified: authenticityVerification.verified === true,
+      authenticity_contract: text(persistedProof.authenticity_contract) || null,
+      authenticity_algorithm: text(persistedProof.authenticity_algorithm) || null,
+      authenticity_key_id: text(persistedProof.authenticity_key_id) || null,
+      authenticity_mac: text(persistedProof.authenticity_mac) || null,
+      authenticity_status: persistenceSeal.sealed ? "AUTHENTICATED" : authenticityVerification.status,
+      authenticity_verified: persistenceSeal.sealed ? true : authenticityVerification.verified === true,
+      scope_organization_id: text(persistedProof.scope_organization_id) || null,
+      scope_conversation_id: text(persistedProof.scope_conversation_id) || null,
+      scope_entity_id: text(persistedProof.scope_entity_id) || null,
       class: projection.diagnosis_class,
       business_timezone: projection.business_timezone,
       answer_content_fingerprint: projection.answer_content_fingerprint,
@@ -700,7 +711,11 @@ export async function POST(request) {
       decision: persistedDecision,
       evidence: {
         ...object(result?.provider_evidence),
-        ...persistedBusinessDiagnosisEvidence(result),
+        ...persistedBusinessDiagnosisEvidence(result, {
+          organizationId: businessContext.organizationId,
+          conversationId: memory.conversation.id,
+          entityId: businessContext.entityId,
+        }),
       },
       execution: object(result?.execution),
       navigation: object(result?.navigation),

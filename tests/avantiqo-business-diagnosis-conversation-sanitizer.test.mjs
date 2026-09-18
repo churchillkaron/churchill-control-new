@@ -12,7 +12,7 @@ import {
   sanitizeBusinessDiagnosisConversation,
   sanitizeBusinessDiagnosisSnapshotTurn,
 } from "../lib/operator/runtime/BusinessDiagnosisConversationSanitizerRuntime.js";
-import { sealBusinessDiagnosisProofAuthenticity } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime.js";
+import { sealBusinessDiagnosisProofAuthenticity, verifyBusinessDiagnosisProofScope } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime.js";
 
 function diagnosisEvidence({ status = "verified", legacy = false, answer = "diagnosis" } = {}) {
   const projection = buildBusinessDiagnosisAuditProjection({
@@ -305,6 +305,47 @@ test("snapshot redaction never returns authenticity key id or MAC to clients", (
     assert.equal(Object.prototype.hasOwnProperty.call(result.evidence.business_diagnosis,"authenticity_key_id"),false);
     assert.equal(Object.prototype.hasOwnProperty.call(result.evidence.business_diagnosis,"authenticity_mac"),false);
     assert.equal(result.evidence.business_diagnosis.authenticity_status,"AUTHENTICATED");
+  } finally {
+    if(oldId===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID=oldId;
+    if(oldRing===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=oldRing;
+  }
+});
+
+
+test("scoped diagnosis proof verifies only in its persisted organization conversation and entity", () => {
+  const oldId=process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID;
+  const oldRing=process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON;
+  process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID="k1";
+  process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=JSON.stringify({k1:"11".repeat(32)});
+  try {
+    const evidence=diagnosisEvidence({answer:"diagnosis"});
+    const sealed=sealBusinessDiagnosisProofAuthenticity({
+      ...evidence.business_diagnosis,
+      scope_organization_id:"org-a",
+      scope_conversation_id:"conv-a",
+      scope_entity_id:"entity-a",
+    }).proof;
+    assert.equal(verifyBusinessDiagnosisProofScope(sealed,{organization_id:"org-a",conversation_id:"conv-a",entity_id:"entity-a"}).status,"SCOPE_VERIFIED");
+    assert.equal(verifyBusinessDiagnosisProofScope(sealed,{organization_id:"org-b",conversation_id:"conv-a",entity_id:"entity-a"}).status,"SCOPE_ORGANIZATION_MISMATCH");
+    assert.equal(verifyBusinessDiagnosisProofScope(sealed,{organization_id:"org-a",conversation_id:"conv-b",entity_id:"entity-a"}).status,"SCOPE_CONVERSATION_MISMATCH");
+    assert.equal(verifyBusinessDiagnosisProofScope(sealed,{organization_id:"org-a",conversation_id:"conv-a",entity_id:"entity-b"}).status,"SCOPE_ENTITY_MISMATCH");
+  } finally {
+    if(oldId===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID=oldId;
+    if(oldRing===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=oldRing;
+  }
+});
+
+test("replayed scoped diagnosis is quarantined from model context", () => {
+  const oldId=process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID;
+  const oldRing=process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON;
+  process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID="k1";
+  process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=JSON.stringify({k1:"11".repeat(32)});
+  try {
+    const evidence=diagnosisEvidence({answer:"diagnosis"});
+    const sealed=sealBusinessDiagnosisProofAuthenticity({...evidence.business_diagnosis,scope_organization_id:"org-a",scope_conversation_id:"conv-a",scope_entity_id:"entity-a"}).proof;
+    const rows=[{role:"assistant",content:"diagnosis",evidence:{business_diagnosis:sealed}},{role:"user",content:"why?",evidence:{}}];
+    assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows,{organization_id:"org-b",conversation_id:"conv-a",entity_id:"entity-a"}),[]);
+    assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows,{organization_id:"org-a",conversation_id:"conv-a",entity_id:"entity-a"}),[{role:"user",content:"why?"},{role:"assistant",content:"diagnosis"}]);
   } finally {
     if(oldId===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID=oldId;
     if(oldRing===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=oldRing;

@@ -242,6 +242,7 @@ export default function MusicTakeLaneCompPanel({
         channels: rendered.channels,
         source_take_ids: rendered.source_take_ids,
         source_asset_ids: rendered.source_asset_ids,
+        render_basis: rendered.render_basis,
       });
       setRenderStatus("24-BIT COMP SAVED");
       await onRendered?.(registered);

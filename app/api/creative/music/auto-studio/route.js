@@ -322,6 +322,8 @@ async function registerRecordedTake(body) {
       chunk_gap_count: Math.max(0,Math.round(finite(body.chunk_gap_count,0))),
       frame_discontinuity_count: Math.max(0,Math.round(finite(body.frame_discontinuity_count,0))),
       capture_continuity_verified: body.capture_continuity_verified === true,
+      capture_timing: body.capture_timing && typeof body.capture_timing === "object" ? body.capture_timing : null,
+      capture_clock_drift_ms: finite(body.capture_clock_drift_ms,null),
       source_rights_confirmed: body.source_rights_confirmed === true,
       source_is_user_recording: true,
       source_version: 0,

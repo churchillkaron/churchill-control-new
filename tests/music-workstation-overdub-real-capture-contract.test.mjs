@@ -24,7 +24,7 @@ test("raw Music capture preserves professional recording invariants", () => {
 });
 
 test("raw Music capture exposes governed software monitoring without changing the recorded PCM", () => {
-  assert.match(capture, /AVANTIQO_MUSIC_RAW_PCM_CAPTURE_V4/);
+  assert.match(capture, /AVANTIQO_MUSIC_RAW_PCM_CAPTURE_V5/);
   assert.match(capture, /software_monitoring_supported:\s*true/);
   assert.match(capture, /software_monitoring_default:\s*"off"/);
   assert.match(capture, /function setMonitor/);

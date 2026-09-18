@@ -254,6 +254,8 @@ export default function MusicWorkstationOverdubPanel({
       multitrack_track_id: selectedTrack.id,
       timeline_start_seconds: compensatedStart,
       capture_base_latency_seconds: take.capture_base_latency_seconds || 0,
+      capture_timing: take.capture_timing || null,
+      capture_clock_drift_ms: take.capture_clock_drift_ms ?? null,
       latency_compensation_seconds: latencyCompensationSeconds,
       overdub_mode: region.mode,
       overdub_pass_index: passIndex,

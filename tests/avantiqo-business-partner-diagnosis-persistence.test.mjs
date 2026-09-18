@@ -296,3 +296,16 @@ test("verification support caps match each bounded surface",()=>{
   assert.match(snapshot,/maxSupportRows: 100/);
   assert.doesNotMatch(recent,/maxSupportRows: 100/);
 });
+
+
+test("recent model context uses deterministic newest-first ordering before the 24-turn cutoff",()=>{
+  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
+  const start=runtime.indexOf("async function loadVerifiedRecentConversationTurns");
+  const end=runtime.indexOf("export async function loadOrCreateIntelligenceConversation",start);
+  const recent=runtime.slice(start,end);
+  assert.match(recent,/\.order\("created_at", \{ ascending: false \}\)/);
+  assert.match(recent,/\.order\("id", \{ ascending: false \}\)/);
+  assert.match(recent,/\.limit\(24\)/);
+  assert.ok(recent.indexOf('.order("created_at", { ascending: false })') < recent.indexOf('.order("id", { ascending: false })'));
+  assert.ok(recent.indexOf('.order("id", { ascending: false })') < recent.indexOf('.limit(24)'));
+});

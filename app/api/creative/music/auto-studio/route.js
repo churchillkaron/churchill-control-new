@@ -145,6 +145,11 @@ async function appendRecordedTakeToMultitrack({
     time_signature: project.metadata?.music_time_signature || "4/4",
     sample_rate: finite(body.sample_rate, 48000),
   });
+  const currentRevision = Math.max(0, Math.round(finite(current.revision, 0)));
+  if (body.expected_revision !== undefined && body.expected_revision !== null) {
+    const expectedRevision = Math.max(0, Math.round(finite(body.expected_revision, -1)));
+    if (expectedRevision !== currentRevision) { const error = new Error(`CREATIVE_MUSIC_MULTITRACK_REVISION_CONFLICT:expected=${expectedRevision}:current=${currentRevision}`); error.status = 409; throw error; }
+  }
   const next = structuredClone(current);
   const requestedTrackId = text(body.multitrack_track_id);
   let track = requestedTrackId
@@ -182,7 +187,7 @@ async function appendRecordedTakeToMultitrack({
   });
   track.takes.push(take);
   track.clips.push(clip);
-  next.revision = Math.max(0, Math.round(finite(current.revision, 0))) + 1;
+  next.revision = currentRevision + 1;
   next.timeline = {
     ...(next.timeline || {}),
     playhead_seconds: startSeconds + durationSeconds,
@@ -209,6 +214,29 @@ async function appendRecordedTakeToMultitrack({
     immutable_source_asset_id: asset.id,
     destructive_edit: false,
   };
+}
+
+async function promoteQuarantinedRecordedTake(body) {
+  const organizationId = text(body.organization_id), projectId = text(body.creative_project_id), assetId = text(body.asset_id);
+  if (!projectId) throw new Error("creative_project_id required");
+  if (!assetId) throw new Error("asset_id required");
+  if (body.acknowledge_quarantine_reasons !== true) throw new Error("CREATIVE_MUSIC_QUARANTINED_TAKE_ACKNOWLEDGEMENT_REQUIRED");
+  const asset = await CreativeAssetsRuntime.get(assetId);
+  if (!asset || text(asset.organization_id) !== organizationId || text(asset.creative_project_id) !== projectId) { const error = new Error("CREATIVE_MUSIC_QUARANTINED_TAKE_NOT_FOUND"); error.status = 404; throw error; }
+  const metadata = asset.metadata || {};
+  if (text(metadata.music_asset_kind) !== "RECORDED_TAKE" || metadata.immutable_original_take !== true) throw new Error("CREATIVE_MUSIC_QUARANTINED_TAKE_ASSET_INVALID");
+  if (metadata.server_media_verified !== true) throw new Error("CREATIVE_MUSIC_QUARANTINED_TAKE_SERVER_VERIFICATION_REQUIRED");
+  if (metadata.quarantined_from_active_multitrack !== true || metadata.multitrack_promotion_allowed === true) throw new Error("CREATIVE_MUSIC_QUARANTINED_TAKE_NOT_QUARANTINED");
+  const project = await CreativeProjectRepository.getById(projectId);
+  if (!project || text(project.organization_id) !== organizationId) { const error = new Error("CREATIVE_MUSIC_RECORDING_PROJECT_NOT_FOUND"); error.status = 404; throw error; }
+  const current = project.metadata?.[MULTITRACK_METADATA_KEY] || createMusicMultitrackProject({ id:`music-multitrack-${project.id}`, title:project.name||project.title||"Music Project", bpm:project.metadata?.music_bpm||96, time_signature:project.metadata?.music_time_signature||"4/4", sample_rate:finite(metadata.sample_rate,48000) });
+  const alreadyLinked = (current.tracks||[]).some(track => [...(track.takes||[]),...(track.clips||[])].some(item => text(item.source_asset_id) === assetId));
+  if (alreadyLinked) throw new Error("CREATIVE_MUSIC_QUARANTINED_TAKE_ALREADY_PROMOTED");
+  const quarantineReasons = Array.isArray(metadata.multitrack_quarantine_reasons) ? metadata.multitrack_quarantine_reasons.map(text).filter(Boolean) : [];
+  const multitrack = await appendRecordedTakeToMultitrack({ organizationId, projectId, asset, title:text(asset.title||asset.name||asset.file_name), trackRole:text(metadata.recording_track_role||"other"), durationSeconds:finite(metadata.duration_seconds,null), body:{ ...body, sample_rate:metadata.sample_rate, expected_revision:body.expected_revision } });
+  const promotedAt = new Date().toISOString();
+  await CreativeAssetsRuntime.update(asset.id, { metadata:{ ...metadata, multitrack_promotion_allowed:true, quarantined_from_active_multitrack:false, quarantine_override_applied:true, quarantine_override_acknowledged:true, quarantine_override_reasons:quarantineReasons, quarantine_override_note:text(body.override_note)||null, quarantine_promoted_at:promotedAt, quarantine_promoted_revision:multitrack.revision } });
+  return { success:true, contract:"AVANTIQO_MUSIC_QUARANTINED_TAKE_PROMOTION_V1", asset_id:asset.id, added_to_multitrack:true, quarantine_override_applied:true, quarantine_reasons_acknowledged:quarantineReasons, promoted_revision:multitrack.revision, multitrack, mutation_performed:true };
 }
 
 async function registerRecordedTake(body) {
@@ -465,6 +493,8 @@ export async function POST(request) {
       ? await prepareSourceUpload(body)
       : action === "register_recorded_take"
         ? await registerRecordedTake(body)
+        : action === "promote_quarantined_take"
+          ? await promoteQuarantinedRecordedTake(body)
         : action === "plan"
           ? buildPlan(body)
           : action === "execute_local"

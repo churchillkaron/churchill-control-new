@@ -203,6 +203,9 @@ export async function POST(request) {
     }
   } catch (error) {
     const message = error?.message || "Unable to create accounting work program run";
-    return jsonError(message, /permission denied/i.test(message) ? 403 : 500);
+    const status = /permission denied/i.test(message) ? 403
+      : /CLIENT_PROFILE_UNAVAILABLE|ASSIGNMENT_REQUIRED|SEGREGATION_REQUIRED|NOT_ACTIVE_FIRM_MEMBER/.test(message) ? 409
+        : 500;
+    return jsonError(message, status);
   }
 }

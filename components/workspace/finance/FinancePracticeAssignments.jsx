@@ -68,8 +68,13 @@ export default function FinancePracticeAssignments({ organizationId, engagementI
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to save engagement staffing");
-      setState((current) => ({ ...current, saving: false, notice: "Engagement staffing saved with segregation of duties enforced." }));
+      const assignment = body?.assignment || {};
       await load();
+      setState((current) => ({
+        ...current,
+        saving: false,
+        notice: `Engagement staffing saved. ${Number(assignment.open_work_items_reassigned || 0)} open work item${Number(assignment.open_work_items_reassigned || 0) === 1 ? "" : "s"} reassigned; ${Number(assignment.historical_or_signed_work_items_preserved || 0)} signed or completed item${Number(assignment.historical_or_signed_work_items_preserved || 0) === 1 ? "" : "s"} preserved.`,
+      }));
       await onSaved?.();
     } catch (error) {
       setState((current) => ({ ...current, saving: false, error: error?.message || "Unable to save engagement staffing" }));

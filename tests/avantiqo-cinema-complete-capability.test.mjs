@@ -34,6 +34,7 @@ test("owned Cinema separates target, implemented, and default-certified capabili
   assert.match(registration, /PROVIDER_VIDEO_CAPABILITY_CONFIGURATION_V4/);
   assert.match(registration, /implemented_capabilities: IMPLEMENTED_CAPABILITIES/);
   assert.match(registration, /certified_capabilities: capabilities/);
+  assert.equal(registration.includes("Wan-AI/Wan2"), false);
 });
 
 test("Cinema extend code remains present but is not falsely production-advertised", () => {
@@ -85,6 +86,9 @@ test("lip-sync is separately governed and is not claimed as owned Cinema product
   assert.match(validation, /AUDIO_CONDITIONED_LIPSYNC_VALIDATION_V2/);
   assert.match(validation, /HUMAN_FAIL_CLOSED_NO_TRUSTED_AUTOMATED_EVALUATOR/);
   assert.match(validation, /identity_profile_id/);
+  assert.match(validation, /MANAGED_LIPSYNC_ENDPOINT_REQUIRED/);
+  assert.equal(validation.includes("FalLipSyncProvider"), false);
+  assert.equal(validation.includes("FAL_SYNC_V3"), false);
 });
 
 test("Service Runtime and cinematic state memory both target the V2 facade", () => {

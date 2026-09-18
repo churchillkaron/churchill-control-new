@@ -115,9 +115,11 @@ const report = result.report || {};
 const readiness = report.readiness || {};
 const tuningEvidence = report.approved_tuning_plan || {};
 const timingEvidence = report.approved_timing_plan || null;
+const timbreProxy = report.timbre_preservation_proxy || null;
 if (tuningEvidence.fingerprint !== fingerprint(tuningPlan)) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_TUNING_FINGERPRINT_MISMATCH");
 if (timingPlan && timingEvidence?.fingerprint !== fingerprint(timingPlan)) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_TIMING_FINGERPRINT_MISMATCH");
 if (readiness.correction_pipeline_complete !== true || readiness.human_listening_review_required_for_certification !== true || readiness.production_certified !== false) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_TECHNICAL_GATE_FAILED");
+if (timbreProxy?.contract !== "AVANTIQO_MUSIC_VOCAL_TIMBRE_PROXY_V1" || timbreProxy?.measured !== true || timbreProxy?.formant_preservation_claimed !== false) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_TIMBRE_PROXY_EVIDENCE_REQUIRED");
 
 const evidence = {
   success: true,
@@ -153,6 +155,13 @@ const evidence = {
     time_stretch_used: report.timing?.time_stretch_used === true,
     syllable_warp_applied: report.timing?.syllable_warp_applied === true,
     tonality_compensation_explicitly_configured: report.pitch?.tonality_compensation_explicitly_configured === true,
+    timbre_proxy_contract: timbreProxy.contract,
+    timbre_proxy_measured: timbreProxy.measured === true,
+    median_absolute_band_delta_db: timbreProxy.median_absolute_band_delta_db ?? null,
+    p95_absolute_band_delta_db: timbreProxy.p95_absolute_band_delta_db ?? null,
+    median_spectral_centroid_delta_percent: timbreProxy.median_spectral_centroid_delta_percent ?? null,
+    timbre_proxy_conservative_review_flag: timbreProxy.conservative_review_flag === true,
+    timbre_proxy_is_not_formant_proof: timbreProxy.review_thresholds_are_qc_proxies_not_formant_proof === true,
     formant_preservation_claimed: false,
   },
   human_review: { required: true, status: "PENDING", automatic_approval_forbidden: true },

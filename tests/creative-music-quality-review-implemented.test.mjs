@@ -1,0 +1,8 @@
+import test from "node:test";import assert from "node:assert/strict";import fs from "node:fs";
+const registry=fs.readFileSync("lib/creative/music/runtime/CreativeMusicWorldClassStudioRuntime.js","utf8");
+const capability=fs.readFileSync("lib/creative/music/capabilities/reviewWorldClassMusicDailies.js","utf8");
+const dailies=fs.readFileSync("lib/creative/music/runtime/CreativeMusicDailiesListeningRuntime.js","utf8");
+const tribunal=fs.readFileSync("lib/creative/music/runtime/CreativeMusicRepairAndTribunalRuntime.js","utf8");
+test("world-class registry marks independent music quality review implemented",()=>{assert.match(registry,/\["quality_review"[\s\S]*"creative\.music\.quality", "IMPLEMENTED"\]/);});
+test("quality review has operator entrypoint and durable execution runtime",()=>{assert.match(capability,/reviewWorldClassDailies/);assert.match(capability,/operatorAutoExecute: true/);assert.match(capability,/runMusicDailiesListening/);assert.match(dailies,/CreativeAssetsRuntime\.update/);assert.match(dailies,/updateMusicConversationState/);assert.match(dailies,/music_dailies_report/);});
+test("quality review uses independent reviewers repair brief and final tribunal hard gates",()=>{assert.match(dailies,/MUSICALITY/);assert.match(dailies,/PERFORMANCE/);assert.match(dailies,/SONIC_IDENTITY/);assert.match(dailies,/TECHNICAL/);assert.match(dailies,/TRANSLATION/);assert.match(dailies,/INTENT_FIDELITY/);assert.match(dailies,/buildMusicDailiesRepairBrief/);assert.match(tribunal,/buildMusicQualityTribunal/);assert.match(tribunal,/independent_from_dailies_reviewers: true/);assert.match(tribunal,/release_ready/);});

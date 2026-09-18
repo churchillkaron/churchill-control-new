@@ -43,9 +43,21 @@ if ((Test-Path $MusicGpuPython) -and (Test-Path $VocalRoleRunner)) {
     $VocalRoleRuntimeReady = ($LASTEXITCODE -eq 0)
   } catch { $VocalRoleRuntimeReady = $false }
 }
+$SeedVcRoot = 'C:\Avantiqo\seed-vc'
+$SeedVcRunner = 'C:\Avantiqo\music-gpu\singing_voice_runner.py'
+$SeedVcCheckpoint = 'C:\Avantiqo\seed-vc\checkpoints\DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ema.pth'
+$SeedVcConfig = 'C:\Avantiqo\seed-vc\configs\config_dit_mel_seed_uvit_whisper_base_f0_44k.yml'
+$SingingVoiceRuntimeReady = $false
+if ((Test-Path $MusicGpuPython) -and (Test-Path $SeedVcRunner) -and (Test-Path (Join-Path $SeedVcRoot 'inference.py')) -and (Test-Path $SeedVcCheckpoint) -and (Test-Path $SeedVcConfig)) {
+  try {
+    & $MusicGpuPython -c "import torch, librosa, soundfile" 2>$null
+    $SingingVoiceRuntimeReady = ($LASTEXITCODE -eq 0)
+  } catch { $SingingVoiceRuntimeReady = $false }
+}
 $BaseCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech')
-$AllCapabilities = @($BaseCapabilities + $(if ($VocalRoleRuntimeReady) { @('ai.audio.vocal-role-separate') } else { @() }))
-$GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech') + $(if ($VocalRoleRuntimeReady) { @('ai.audio.vocal-role-separate') } else { @() })
+$ResearchCapabilities = @($(if ($VocalRoleRuntimeReady) { @('ai.audio.vocal-role-separate') } else { @() }) + $(if ($SingingVoiceRuntimeReady) { @('ai.audio.singing-voice-convert') } else { @() }))
+$AllCapabilities = @($BaseCapabilities + $ResearchCapabilities)
+$GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech') + $ResearchCapabilities
 $CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process','ai.music.generate')
 $Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } else { $AllCapabilities })
 if ($Lane -eq 'cpu') {
@@ -104,6 +116,7 @@ function ResourceProfile($Job) {
   if ($workload -eq 'image_upscale') { return @{ class='gpu_specialist'; gpu_vram_mb=1200; cpu_weight='light'; exclusive_gpu=$true; product='Image Studio' } }
   if ($workload -eq 'music_separator') { return @{ class='gpu_specialist'; gpu_vram_mb=3800; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
   if ($workload -eq 'music_vocal_role_separator') { return @{ class='gpu_specialist'; gpu_vram_mb=4300; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Vocal Roles'; mode='RESEARCH_CANDIDATE' } }
+  if ($workload -eq 'music_singing_voice_identity') { return @{ class='gpu_specialist'; gpu_vram_mb=5200; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Singing Voice'; mode='CONSENT_BOUND_RESEARCH_CANDIDATE' } }
   if ($workload -eq 'music_vocal_correction') { return @{ class='gpu_specialist'; gpu_vram_mb=3400; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
   if ($workload -eq 'voice_tts') { return @{ class='background_gpu'; gpu_vram_mb=6100; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / TTS'; mode='BATCH_BACKGROUND_ONLY' } }
   if ($workload -eq 'media_ffmpeg') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Video / Media' } }
@@ -445,6 +458,36 @@ function RunMusicVocalRoleSeparationJob($Job) {
   } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp }
 }
 
+function RunMusicSingingVoiceIdentityJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_SINGING_VOICE_PAYLOAD_REQUIRED' }
+  $python = 'C:\Avantiqo\music-gpu\Scripts\python.exe'
+  $runner = 'C:\Avantiqo\music-gpu\singing_voice_runner.py'
+  $ffmpeg = 'C:\Avantiqo\ffmpeg\bin'
+  if (-not $SingingVoiceRuntimeReady) { throw 'AVANTIQO_LOCAL_SINGING_VOICE_RUNTIME_NOT_READY' }
+  $tmp = Join-Path $env:TEMP ("avantiqo-singing-voice-" + [string]$Job.id + ".json")
+  try {
+    UnloadOllamaModel
+    [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 80 -Compress), (New-Object System.Text.UTF8Encoding($false)))
+    $started = Get-Date
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $python
+    $psi.Arguments = ('"' + $runner + '" --input "' + $tmp + '"')
+    $psi.EnvironmentVariables['PATH'] = $ffmpeg + ';' + [Environment]::GetEnvironmentVariable('PATH')
+    $psi.EnvironmentVariables['AVANTIQO_SEED_VC_ROOT'] = 'C:\Avantiqo\seed-vc'
+    $psi.EnvironmentVariables['AVANTIQO_SEED_VC_SVC_CHECKPOINT'] = 'C:\Avantiqo\seed-vc\checkpoints\DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ema.pth'
+    $psi.EnvironmentVariables['AVANTIQO_SEED_VC_SVC_CONFIG'] = 'C:\Avantiqo\seed-vc\configs\config_dit_mel_seed_uvit_whisper_base_f0_44k.yml'
+    $psi.UseShellExecute = $false; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
+    $process = New-Object System.Diagnostics.Process; $process.StartInfo = $psi; [void]$process.Start()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync(); $process.WaitForExit()
+    $rawOutput = [string]$stdoutTask.Result; $stderr = [string]$stderrTask.Result
+    if ([int]$process.ExitCode -ne 0) { $tail=$(if($stderr.Length -gt 1600){$stderr.Substring($stderr.Length-1600)}else{$stderr}); throw ('AVANTIQO_LOCAL_SINGING_VOICE_PROCESS_FAILED:' + $tail) }
+    $json=$rawOutput.Trim(); if(-not $json){ throw 'AVANTIQO_LOCAL_SINGING_VOICE_OUTPUT_REQUIRED' }
+    $result=$json | ConvertFrom-Json; $elapsed=[int](((Get-Date)-$started).TotalMilliseconds); $result | Add-Member -NotePropertyName node_id -NotePropertyValue $NodeId -Force
+    CompleteJob $Job $result @{ elapsed_ms=$elapsed; gpu_workload=$true; music_singing_voice_identity=$true; consent_bound=$true; research_candidate=$true }
+  } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp }
+}
+
 function RunMusicVocalCorrectionJob($Job) {
   $payload = $Job.payload
   if (-not $payload) { throw 'AVANTIQO_LOCAL_MUSIC_VOCAL_CORRECTION_PAYLOAD_REQUIRED' }
@@ -637,6 +680,7 @@ while ($true) {
         elseif ([string]$job.capability -eq 'ai.image.upscale') { RunImageUpscaleJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.stems') { RunMusicSeparatorJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.vocal-role-separate') { RunMusicVocalRoleSeparationJob $job }
+        elseif ([string]$job.capability -eq 'ai.audio.singing-voice-convert') { RunMusicSingingVoiceIdentityJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.vocal-correct') { RunMusicVocalCorrectionJob $job }
         elseif ([string]$job.capability -eq 'ai.music.generate') { RunMusicGenerationJob $job }
         elseif ([string]$job.capability -eq 'ai.text.to.speech') { RunVoiceTtsJob $job }

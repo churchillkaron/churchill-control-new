@@ -136,3 +136,16 @@ test("capture QC warns on destructive opposite-polarity stereo without mutating 
   assert.ok(qc.warnings.includes("MONO_COLLAPSE_RISK"));
   assert.equal(qc.automatic_capture_repair_allowed,false);
 });
+
+
+test("recording surfaces and persists phase evidence explicitly",()=>{
+  const panel=fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicRecordingStudioPanel.jsx","utf8");
+  const overdub=fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicWorkstationOverdubPanel.jsx","utf8");
+  const route=fs.readFileSync("app/api/creative/music/auto-studio/route.js","utf8");
+  assert.match(panel,/Phase \{take.captureQc.stereo_phase_measured/);
+  assert.match(panel,/stereo_correlation: take.captureQc\?\.stereo_correlation/);
+  assert.match(panel,/mono_fold_down_loss_db: take.captureQc\?\.mono_fold_down_loss_db/);
+  assert.match(overdub,/stereo_correlation: take.capture_qc\?\.stereo_correlation/);
+  assert.match(route,/stereo_correlation: finite\(body.stereo_correlation,null\)/);
+  assert.match(route,/mono_collapse_risk: body.mono_collapse_risk === true/);
+});

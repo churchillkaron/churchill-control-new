@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   evaluateLossStreakCooloff,
   evaluateOpenPositionLimit,
+  evaluateSymbolLossReentryLockout,
   summarizeClosedSellOrders,
 } from "../lib/markets/runtime/MarketExposureDisciplineModels.js";
 
@@ -102,6 +103,47 @@ test("a profitable close resets the loss streak", () => {
 
   assert.equal(result.approved, true);
   assert.equal(result.metrics.consecutive_losing_closes, 0);
+});
+
+test("recent realized loss locks only the same symbol from BUY re-entry", () => {
+  const fills = [
+    { ...fill({ order: "o2", pnl: -10, time: "2026-09-18T08:00:00Z" }), symbol: "AAA" },
+    { ...fill({ order: "o1", pnl: 5, time: "2026-09-18T06:00:00Z" }), symbol: "BBB" },
+  ];
+
+  const sameSymbol = evaluateSymbolLossReentryLockout({
+    action: "BUY",
+    proposedSymbol: "AAA",
+    fills,
+    policy: { loss_reentry_cooloff_hours: 24 },
+    now: new Date("2026-09-18T10:00:00Z"),
+  });
+  const otherSymbol = evaluateSymbolLossReentryLockout({
+    action: "BUY",
+    proposedSymbol: "BBB",
+    fills,
+    policy: { loss_reentry_cooloff_hours: 24 },
+    now: new Date("2026-09-18T10:00:00Z"),
+  });
+
+  assert.equal(sameSymbol.approved, false);
+  assert.equal(sameSymbol.metrics.lockout_active, true);
+  assert.equal(otherSymbol.approved, true);
+});
+
+test("symbol loss re-entry lockout expires after configured cool-off", () => {
+  const result = evaluateSymbolLossReentryLockout({
+    action: "BUY",
+    proposedSymbol: "AAA",
+    fills: [
+      { ...fill({ order: "o1", pnl: -10, time: "2026-09-17T08:00:00Z" }), symbol: "AAA" },
+    ],
+    policy: { loss_reentry_cooloff_hours: 24 },
+    now: new Date("2026-09-18T09:00:00Z"),
+  });
+
+  assert.equal(result.approved, true);
+  assert.equal(result.metrics.lockout_active, false);
 });
 
 test("SELL remains available during active loss-streak cool-off", () => {

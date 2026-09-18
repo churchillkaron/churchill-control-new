@@ -134,6 +134,7 @@ export default function MarketsCommandCenter({ organizationId }) {
       loss_streak_cooloff_hours: String(policy.loss_streak_cooloff_hours ?? 24),
       min_cash_reserve_pct: String(policy.min_cash_reserve_pct ?? 10),
       cash_reserve_execution_buffer_bps: String(policy.cash_reserve_execution_buffer_bps ?? 25),
+      loss_reentry_cooloff_hours: String(policy.loss_reentry_cooloff_hours ?? 24),
     });
   }, [data?.riskPolicy]);
 
@@ -242,6 +243,9 @@ export default function MarketsCommandCenter({ organizationId }) {
     .find((row) => row && Object.keys(row).length) || null;
   const latestCashReserve = orders
     .map((row) => row?.risk_snapshot?.cash_reserve)
+    .find((row) => row && Object.keys(row).length) || null;
+  const latestSymbolLossReentry = orders
+    .map((row) => row?.risk_snapshot?.symbol_loss_reentry)
     .find((row) => row && Object.keys(row).length) || null;
   const latestMarketRegime = decisions
     .map((row) => row?.decision_payload?.market_regime)
@@ -603,6 +607,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Max open positions", Number(policy.max_open_positions || 20)],
                       ["Loss-streak limit", Number(policy.max_consecutive_losing_closes || 3)],
                       ["Min cash reserve", `${Number(policy.min_cash_reserve_pct ?? 10)}%`],
+                      ["Loss re-entry lock", `${Number(policy.loss_reentry_cooloff_hours ?? 24)}h`],
                       ["Min confidence", `${(Number(policy.min_decision_confidence || 0.7) * 100).toFixed(0)}%`],
                     ].map(([label, value]) => (
                       <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
@@ -705,6 +710,20 @@ export default function MarketsCommandCenter({ organizationId }) {
                         {Number(latestCashReserve.execution_buffer_bps ?? policy.cash_reserve_execution_buffer_bps ?? 25).toFixed(0)} bps execution buffer
                       </div>
                     ) : null}
+                    {latestSymbolLossReentry ? (
+                      <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[8px] ${
+                        latestSymbolLossReentry.lockout_active
+                          ? "border-red-200 bg-red-50 text-red-700"
+                          : "border-black/[0.06] bg-white text-[#5E5851]"
+                      }`}>
+                        Symbol re-entry: {latestSymbolLossReentry.symbol || "—"}
+                        {" · "}
+                        {latestSymbolLossReentry.latest_close_outcome || "no realized close"}
+                        {latestSymbolLossReentry.lockout_active && latestSymbolLossReentry.reentry_allowed_at
+                          ? ` · locked until ${new Date(latestSymbolLossReentry.reentry_allowed_at).toLocaleString()}`
+                          : ""}
+                      </div>
+                    ) : null}
                     {(latestOpenPositionLimit || latestLossStreakCooloff) ? (
                       <div className="mt-2 rounded-lg border border-black/[0.06] bg-white px-2.5 py-2 text-[8px] text-[#5E5851]">
                         Discipline: {Number(latestOpenPositionLimit?.projected_open_positions || latestOpenPositionLimit?.open_positions || 0)}/{Number(latestOpenPositionLimit?.max_open_positions || policy.max_open_positions || 20)} projected positions
@@ -754,6 +773,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                         ["Loss cool-off hours", "loss_streak_cooloff_hours", "1", "720", "1"],
                         ["Min cash reserve %", "min_cash_reserve_pct", "0", "100", "0.1"],
                         ["Cash execution buffer bps", "cash_reserve_execution_buffer_bps", "0", "10000", "1"],
+                        ["Loss re-entry cool-off hours", "loss_reentry_cooloff_hours", "1", "720", "1"],
                       ].map(([label, key, min, max, step]) => (
                         <label key={key}>
                           <span className="text-[8px] text-[#968F86]">{label}</span>
@@ -930,6 +950,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                         loss_streak_cooloff_hours: Number(riskDraft?.loss_streak_cooloff_hours ?? 24),
                         min_cash_reserve_pct: Number(riskDraft?.min_cash_reserve_pct ?? 10),
                         cash_reserve_execution_buffer_bps: Number(riskDraft?.cash_reserve_execution_buffer_bps ?? 25),
+                        loss_reentry_cooloff_hours: Number(riskDraft?.loss_reentry_cooloff_hours ?? 24),
                       })}
                       className="mt-3 h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-medium text-white disabled:opacity-40"
                     >

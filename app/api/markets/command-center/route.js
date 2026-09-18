@@ -614,6 +614,7 @@ export async function POST(request) {
         loss_streak_cooloff_hours: Number(body.loss_streak_cooloff_hours ?? current.loss_streak_cooloff_hours ?? 24),
         min_cash_reserve_pct: Number(body.min_cash_reserve_pct ?? current.min_cash_reserve_pct ?? 10),
         cash_reserve_execution_buffer_bps: Number(body.cash_reserve_execution_buffer_bps ?? current.cash_reserve_execution_buffer_bps ?? 25),
+        loss_reentry_cooloff_hours: Number(body.loss_reentry_cooloff_hours ?? current.loss_reentry_cooloff_hours ?? 24),
         live_execution_enabled: false,
         updated_at: new Date().toISOString(),
       };
@@ -710,6 +711,9 @@ export async function POST(request) {
       }
       if (!(next.cash_reserve_execution_buffer_bps >= 0 && next.cash_reserve_execution_buffer_bps <= 10000)) {
         throw new Error("Cash-reserve execution buffer must be between 0 and 10000 bps");
+      }
+      if (!(next.loss_reentry_cooloff_hours >= 1 && next.loss_reentry_cooloff_hours <= 720)) {
+        throw new Error("Loss re-entry cool-off must be between 1 and 720 hours");
       }
 
       const { data: riskPolicy, error: riskPolicyError } = await supabaseAdmin

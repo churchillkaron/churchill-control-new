@@ -522,6 +522,12 @@ export async function POST(request) {
         allow_buys: body.allow_buys ?? current.allow_buys ?? true,
         allow_sells: body.allow_sells ?? current.allow_sells ?? true,
         kill_switch: body.kill_switch ?? current.kill_switch ?? false,
+        require_walk_forward_validation: body.require_walk_forward_validation ?? current.require_walk_forward_validation ?? true,
+        validation_max_age_hours: Number(body.validation_max_age_hours ?? current.validation_max_age_hours ?? 168),
+        validation_min_trades: Number(body.validation_min_trades ?? current.validation_min_trades ?? 5),
+        validation_min_directional_hit_rate: Number(body.validation_min_directional_hit_rate ?? current.validation_min_directional_hit_rate ?? 0.5),
+        validation_max_drawdown_pct: Number(body.validation_max_drawdown_pct ?? current.validation_max_drawdown_pct ?? 25),
+        validation_min_total_return: Number(body.validation_min_total_return ?? current.validation_min_total_return ?? 0),
         updated_at: new Date().toISOString(),
       };
 
@@ -539,6 +545,21 @@ export async function POST(request) {
       }
       if (!(next.cooldown_minutes >= 0 && next.cooldown_minutes <= 10080)) {
         throw new Error("Cooldown must be between 0 and 10080 minutes");
+      }
+      if (!(next.validation_max_age_hours >= 1 && next.validation_max_age_hours <= 8760)) {
+        throw new Error("Validation maximum age must be between 1 and 8760 hours");
+      }
+      if (!(next.validation_min_trades >= 0 && next.validation_min_trades <= 10000)) {
+        throw new Error("Validation minimum trades must be between 0 and 10000");
+      }
+      if (!(next.validation_min_directional_hit_rate >= 0 && next.validation_min_directional_hit_rate <= 1)) {
+        throw new Error("Validation minimum directional hit rate must be between 0 and 1");
+      }
+      if (!(next.validation_max_drawdown_pct >= 0 && next.validation_max_drawdown_pct <= 100)) {
+        throw new Error("Validation maximum drawdown must be between 0 and 100%");
+      }
+      if (!(next.validation_min_total_return >= -1 && next.validation_min_total_return <= 100)) {
+        throw new Error("Validation minimum total return must be between -1 and 100");
       }
 
       const { data: automationPolicy, error: automationError } = await supabaseAdmin

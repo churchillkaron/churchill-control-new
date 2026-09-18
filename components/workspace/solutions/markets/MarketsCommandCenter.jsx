@@ -54,6 +54,12 @@ export default function MarketsCommandCenter({ organizationId }) {
       min_confidence: String(policy.min_confidence ?? 0.75),
       max_trades_per_cycle: String(policy.max_trades_per_cycle ?? 3),
       cooldown_minutes: String(policy.cooldown_minutes ?? 60),
+      require_walk_forward_validation: policy.require_walk_forward_validation !== false,
+      validation_max_age_hours: String(policy.validation_max_age_hours ?? 168),
+      validation_min_trades: String(policy.validation_min_trades ?? 5),
+      validation_min_directional_hit_rate: String(policy.validation_min_directional_hit_rate ?? 0.5),
+      validation_max_drawdown_pct: String(policy.validation_max_drawdown_pct ?? 25),
+      validation_min_total_return: String(policy.validation_min_total_return ?? 0),
     });
   }, [data?.automationPolicy]);
 
@@ -618,6 +624,49 @@ export default function MarketsCommandCenter({ organizationId }) {
                     ))}
                   </div>
 
+                  <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                    <label className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">Walk-forward readiness gate</div>
+                        <div className="mt-1 text-[9px] leading-4 text-[#817D76]">Required before autonomous PAPER BUYs. SELL de-risking remains allowed.</div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={automationDraft?.require_walk_forward_validation !== false}
+                        onChange={(event) => setAutomationDraft((current) => ({
+                          ...(current || {}),
+                          require_walk_forward_validation: event.target.checked,
+                        }))}
+                        className="h-4 w-4 accent-[#1F1E1B]"
+                      />
+                    </label>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {[
+                        ["Max age hours", "validation_max_age_hours", "1", "8760", "1"],
+                        ["Min trades", "validation_min_trades", "0", "10000", "1"],
+                        ["Min hit rate", "validation_min_directional_hit_rate", "0", "1", "0.01"],
+                        ["Max drawdown %", "validation_max_drawdown_pct", "0", "100", "0.1"],
+                        ["Min total return", "validation_min_total_return", "-1", "100", "0.01"],
+                      ].map(([label, key, min, max, step]) => (
+                        <label key={key} className={key === "validation_min_total_return" ? "col-span-2" : ""}>
+                          <span className="text-[8px] text-[#968F86]">{label}</span>
+                          <input
+                            type="number"
+                            min={min}
+                            max={max}
+                            step={step}
+                            value={automationDraft?.[key] ?? ""}
+                            onChange={(event) => setAutomationDraft((current) => ({
+                              ...(current || {}),
+                              [key]: event.target.value,
+                            }))}
+                            className="mt-1 h-8 w-full rounded-lg border border-black/[0.09] bg-white px-2 text-[9px] text-[#2E2B27] outline-none"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -628,6 +677,12 @@ export default function MarketsCommandCenter({ organizationId }) {
                         min_confidence: Number(automationDraft?.min_confidence || 0.75),
                         max_trades_per_cycle: Number(automationDraft?.max_trades_per_cycle || 3),
                         cooldown_minutes: Number(automationDraft?.cooldown_minutes || 60),
+                        require_walk_forward_validation: automationDraft?.require_walk_forward_validation !== false,
+                        validation_max_age_hours: Number(automationDraft?.validation_max_age_hours || 168),
+                        validation_min_trades: Number(automationDraft?.validation_min_trades ?? 5),
+                        validation_min_directional_hit_rate: Number(automationDraft?.validation_min_directional_hit_rate ?? 0.5),
+                        validation_max_drawdown_pct: Number(automationDraft?.validation_max_drawdown_pct ?? 25),
+                        validation_min_total_return: Number(automationDraft?.validation_min_total_return ?? 0),
                       })}
                       className="h-8 rounded-lg border border-black/[0.08] bg-[#FCFBF9] px-2.5 text-[9px] font-medium text-[#5E5851] disabled:opacity-40"
                     >

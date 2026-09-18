@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { analyzeMusicCaptureQc } from "@/lib/creative/music/client/MusicCaptureQcRuntime";
+import { runMusicRecordingPreflight } from "@/lib/creative/music/client/MusicRecordingPreflightRuntime";
 import { CircleStop, Headphones, Mic2, Play, RotateCcw, Save, ShieldCheck, SlidersHorizontal } from "lucide-react";
 
 const TRACK_ROLES = [
@@ -95,6 +96,9 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
   const [quarantineAck, setQuarantineAck] = useState(false);
   const [overrideNote, setOverrideNote] = useState("");
   const [error, setError] = useState("");
+  const [recordingPreflight, setRecordingPreflight] = useState(null);
+  const [preflightBusy, setPreflightBusy] = useState(false);
+  const [preflightPhase, setPreflightPhase] = useState("IDLE");
 
   const streamRef = useRef(null);
   const contextRef = useRef(null);
@@ -161,6 +165,26 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
     if (take?.url) URL.revokeObjectURL(take.url);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function runPreflight() {
+    if (recording || preflightBusy) return;
+    setPreflightBusy(true);
+    setError("");
+    try {
+      const result = await runMusicRecordingPreflight({
+        deviceId: deviceId || null,
+        onLevel: ({ peak_dbfs, rms_dbfs, clipping }) => setMeter({ peak: peak_dbfs, rms: rms_dbfs, clipped: clipping === true }),
+        onPhase: setPreflightPhase,
+      });
+      setRecordingPreflight(result);
+    } catch (cause) {
+      setRecordingPreflight(null);
+      setPreflightPhase("FAILED");
+      setError(cause?.message || "Recording preflight failed");
+    } finally {
+      setPreflightBusy(false);
+    }
+  }
 
   async function startRecording() {
     setError("");
@@ -486,7 +510,7 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
           <div className="space-y-4">
             <label className="block"><div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-white/30">Take name</div><input value={title} onChange={(event) => setTitle(event.target.value)} disabled={recording} className="w-full rounded-xl border border-white/8 bg-black/30 px-4 py-3 text-sm text-white/75 outline-none" /></label>
             <label className="block"><div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-white/30">Track role</div><select value={trackRole} onChange={(event) => setTrackRole(event.target.value)} disabled={recording} className="w-full rounded-xl border border-white/8 bg-[#0a0a09] px-4 py-3 text-sm text-white/70 outline-none">{TRACK_ROLES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <label className="block"><div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-white/30">Input device</div><select value={deviceId} onChange={(event) => setDeviceId(event.target.value)} disabled={recording} className="w-full rounded-xl border border-white/8 bg-[#0a0a09] px-4 py-3 text-sm text-white/70 outline-none"><option value="">System default</option>{devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `Audio input ${index + 1}`}</option>)}</select></label>
+            <label className="block"><div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-white/30">Input device</div><select value={deviceId} onChange={(event) => { setDeviceId(event.target.value); setRecordingPreflight(null); setPreflightPhase("IDLE"); }} disabled={recording || preflightBusy} className="w-full rounded-xl border border-white/8 bg-[#0a0a09] px-4 py-3 text-sm text-white/70 outline-none"><option value="">System default</option>{devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `Audio input ${index + 1}`}</option>)}</select></label>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl border border-white/7 bg-black/25 p-3"><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Capture</div><div className="mt-1 text-xs text-white/65">24-bit WAV container · raw PCM path</div></div>
@@ -494,9 +518,11 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
             </div>
 
             <div className="flex gap-2">
-              {!recording ? <button type="button" disabled={busy} onClick={startRecording} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#d6a66a] px-4 py-3 text-sm font-semibold text-black disabled:opacity-40"><Mic2 className="h-4 w-4" />Record</button> : <button type="button" disabled={busy} onClick={stopRecording} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/25 bg-red-400/10 px-4 py-3 text-sm font-medium text-red-100"><CircleStop className="h-4 w-4" />Stop</button>}
+              {!recording ? <button type="button" disabled={busy || preflightBusy} onClick={runPreflight} className="rounded-xl border border-[#d6a66a]/20 bg-[#d6a66a]/[0.06] px-4 py-3 text-xs font-medium text-[#efd29f]/80 disabled:opacity-40">{preflightBusy ? preflightPhase === "ROOM_TONE" ? "Room tone…" : preflightPhase === "PERFORMANCE_LEVEL" ? "Perform…" : "Checking…" : "Run preflight"}</button> : null}
+              {!recording ? <button type="button" disabled={busy || preflightBusy} onClick={startRecording} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#d6a66a] px-4 py-3 text-sm font-semibold text-black disabled:opacity-40"><Mic2 className="h-4 w-4" />Record</button> : <button type="button" disabled={busy} onClick={stopRecording} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/25 bg-red-400/10 px-4 py-3 text-sm font-medium text-red-100"><CircleStop className="h-4 w-4" />Stop</button>}
               {take && !recording ? <button type="button" disabled={busy} onClick={discardTake} className="rounded-xl border border-white/9 px-4 py-3 text-white/45"><RotateCcw className="h-4 w-4" /></button> : null}
             </div>
+            {recordingPreflight ? <div className={`rounded-xl border px-4 py-3 text-[10px] ${recordingPreflight.status === "READY" ? "border-emerald-300/15 bg-emerald-300/[0.03] text-emerald-100/65" : recordingPreflight.status === "NOT_READY" ? "border-red-300/15 bg-red-300/[0.03] text-red-100/65" : "border-amber-300/15 bg-amber-300/[0.03] text-amber-100/65"}`}><div className="font-medium">Preflight {recordingPreflight.status}</div><div className="mt-1 leading-4 opacity-70">Peak {Number.isFinite(recordingPreflight.measurements?.peak_dbfs) ? `${recordingPreflight.measurements.peak_dbfs.toFixed(1)} dBFS` : "—"} · floor {Number.isFinite(recordingPreflight.measurements?.background_floor_estimate_dbfs) ? `${recordingPreflight.measurements.background_floor_estimate_dbfs.toFixed(1)} dBFS` : "—"} · phase {Number.isFinite(recordingPreflight.measurements?.stereo_correlation) ? recordingPreflight.measurements.stereo_correlation.toFixed(2) : "—"}</div>{recordingPreflight.blockers?.length || recordingPreflight.reviews?.length ? <div className="mt-1 leading-4 opacity-70">{[...(recordingPreflight.blockers || []), ...(recordingPreflight.reviews || [])].join(" · ")}</div> : null}<div className="mt-1 opacity-50">4-second diagnostic only · room tone first, then perform at real level · nothing saved</div></div> : null}
             {error ? <div className="rounded-xl border border-red-400/15 bg-red-400/[0.05] px-4 py-3 text-xs text-red-200/70">{error}</div> : null}
           </div>
 

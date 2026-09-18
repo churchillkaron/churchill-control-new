@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CircleStop, Headphones, Mic2, Radio, ShieldCheck } from "lucide-react";
 
 import { startMusicRawPcmCapture } from "@/lib/creative/music/client/MusicRawPcmCapture";
+import { runMusicRecordingPreflight } from "@/lib/creative/music/client/MusicRecordingPreflightRuntime";
 import { evaluateMusicLatencyCalibrationReuse, loadPersistedMusicLatencyCalibration, persistMusicLatencyCalibration, runMusicLatencyCalibration } from "@/lib/creative/music/client/MusicLatencyCalibrationRuntime";
 import { startMusicMultitrackPreview } from "@/lib/creative/music/client/MusicMultitrackPreviewEngine";
 import MusicTakeLaneCompPanel from "./MusicTakeLaneCompPanel";
@@ -105,6 +106,9 @@ export default function MusicWorkstationOverdubPanel({
   const [meter, setMeter] = useState({ peak_dbfs: -Infinity, rms_dbfs: -Infinity, clipping: false });
   const [error, setError] = useState("");
   const [savedPasses, setSavedPasses] = useState(0);
+  const [recordingPreflight, setRecordingPreflight] = useState(null);
+  const [preflightBusy, setPreflightBusy] = useState(false);
+  const [preflightPhase, setPreflightPhase] = useState("IDLE");
   const captureRef = useRef(null);
   const backingRef = useRef(null);
   const cancelledRef = useRef(false);
@@ -143,6 +147,7 @@ export default function MusicWorkstationOverdubPanel({
   }, [deviceId, inputGroupId, outputDeviceId, calibrationPath, session?.sample_rate]);
 
   useEffect(() => { setHardwareLoopbackConfirmed(false); }, [deviceId, outputDeviceId, calibrationPath]);
+  useEffect(() => { setRecordingPreflight(null); setPreflightPhase("IDLE"); }, [deviceId]);
 
   useEffect(() => {
     if (latencyCompSource !== "CALIBRATED") return;
@@ -355,6 +360,26 @@ export default function MusicWorkstationOverdubPanel({
     return backing;
   }
 
+  async function runRecordingPreflight() {
+    if (recording || preflightBusy) return;
+    setPreflightBusy(true);
+    setError("");
+    try {
+      const result = await runMusicRecordingPreflight({
+        deviceId: deviceId || null,
+        onLevel: ({ peak_dbfs, rms_dbfs, clipping }) => setMeter({ peak_dbfs, rms_dbfs, clipping: clipping === true }),
+        onPhase: setPreflightPhase,
+      });
+      setRecordingPreflight(result);
+    } catch (cause) {
+      setRecordingPreflight(null);
+      setPreflightPhase("FAILED");
+      setError(cause?.message || "Recording preflight failed");
+    } finally {
+      setPreflightBusy(false);
+    }
+  }
+
   async function calibrateLatency() {
     if (recording || calibrationBusy) return;
     setCalibrationBusy(true);
@@ -531,6 +556,8 @@ export default function MusicWorkstationOverdubPanel({
 
         {!loopEnabled && punchEnabled ? <div className="mt-3 grid grid-cols-2 gap-3"><input type="number" step="0.1" value={punchStart} onChange={(event) => setPunchStart(Math.max(0, finite(event.target.value, 0)))} disabled={recording} className="rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" /><input type="number" step="0.1" value={punchEnd} onChange={(event) => setPunchEnd(Math.max(punchStart + 0.1, finite(event.target.value, punchStart + 1)))} disabled={recording} className="rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" /></div> : null}
 
+        <div className="mt-4 rounded-xl border border-white/7 bg-black/20 p-3"><div className="flex items-center justify-between gap-3"><div><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Recording preflight</div><div className={`mt-1 text-[10px] ${recordingPreflight?.status === "READY" ? "text-emerald-100/60" : recordingPreflight?.status === "NOT_READY" ? "text-red-100/65" : "text-amber-100/55"}`}>{recordingPreflight ? recordingPreflight.status : "Not run"}</div></div><button type="button" onClick={runRecordingPreflight} disabled={recording || preflightBusy} className="rounded-lg border border-[#d6a66a]/18 bg-[#d6a66a]/[0.05] px-3 py-2 text-[9px] text-[#efd29f]/70 disabled:opacity-30">{preflightBusy ? preflightPhase === "ROOM_TONE" ? "Room tone…" : preflightPhase === "PERFORMANCE_LEVEL" ? "Perform…" : "Checking…" : "Run 4s preflight"}</button></div>{recordingPreflight ? <div className="mt-2 text-[8px] leading-4 text-white/26">Peak {Number.isFinite(recordingPreflight.measurements?.peak_dbfs) ? `${recordingPreflight.measurements.peak_dbfs.toFixed(1)} dBFS` : "—"} · floor {Number.isFinite(recordingPreflight.measurements?.background_floor_estimate_dbfs) ? `${recordingPreflight.measurements.background_floor_estimate_dbfs.toFixed(1)} dBFS` : "—"} · phase {Number.isFinite(recordingPreflight.measurements?.stereo_correlation) ? recordingPreflight.measurements.stereo_correlation.toFixed(2) : "—"}{recordingPreflight.blockers?.length || recordingPreflight.reviews?.length ? ` · ${[...(recordingPreflight.blockers || []), ...(recordingPreflight.reviews || [])].join(" · ")}` : ""}</div> : <div className="mt-2 text-[8px] text-white/18">Room tone first, then perform at real level. Diagnostic PCM is discarded; no project asset or provider job is created.</div>}</div>
+
         <div className="mt-4 rounded-xl border border-white/7 bg-black/25 p-3">
           <div className="flex items-center justify-between text-[9px] text-white/30"><span>PEAK {formatDb(meter.peak_dbfs)}</span><span>RMS {formatDb(meter.rms_dbfs)}</span></div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full bg-current text-red-200/65 transition-all" style={{ width: `${Math.max(0, Math.min(100, ((finite(meter.peak_dbfs, -60) + 60) / 60) * 100))}%` }} /></div>
@@ -539,7 +566,7 @@ export default function MusicWorkstationOverdubPanel({
 
         {error ? <div className="mt-3 text-[10px] text-red-100/70">{error}</div> : null}
         <div className="mt-4 flex gap-2">
-          {!recording ? <button type="button" disabled={!armed || !selectedTrack} onClick={begin} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/25 bg-red-400/[0.09] px-3 py-2.5 text-xs font-medium text-red-100 disabled:opacity-25"><Radio className="h-4 w-4" /> Record / Overdub</button> : <button type="button" onClick={stopOpenEnded} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/30 bg-red-400/[0.12] px-3 py-2.5 text-xs font-medium text-red-100"><CircleStop className="h-4 w-4" /> Stop & save</button>}
+          {!recording ? <button type="button" disabled={!armed || !selectedTrack || preflightBusy} onClick={begin} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/25 bg-red-400/[0.09] px-3 py-2.5 text-xs font-medium text-red-100 disabled:opacity-25"><Radio className="h-4 w-4" /> Record / Overdub</button> : <button type="button" onClick={stopOpenEnded} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/30 bg-red-400/[0.12] px-3 py-2.5 text-xs font-medium text-red-100"><CircleStop className="h-4 w-4" /> Stop & save</button>}
         </div>
         <div className="mt-3 flex items-start gap-2 text-[9px] leading-4 text-white/25"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-100/40" />Project revision is persisted before capture. Each pass is a new immutable WAV/take; browser AGC, echo cancellation and noise suppression stay disabled.</div>
         <div className="mt-2 flex items-center gap-2 text-[9px] text-white/20"><Headphones className="h-3.5 w-3.5" />Backing project playback follows the recording range. Software input monitoring is explicit and off by default; original recordings are never overwritten.</div>

@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -5,6 +7,10 @@ function text(value) {
 function number(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function fingerprint(parts) {
+  return crypto.createHash("sha256").update(parts.map((value) => String(value ?? "")).join("|")).digest("hex");
 }
 
 export function normalizeStockStreamMessage(message) {
@@ -20,6 +26,8 @@ export function normalizeStockStreamMessage(message) {
       patch: {
         latest_trade_price: number(message.p),
         latest_trade_size: number(message.s),
+        latest_trade_at: message.t || null,
+        latest_trade_id: message.i === undefined || message.i === null ? null : String(message.i),
       },
       raw: message,
     };
@@ -35,6 +43,11 @@ export function normalizeStockStreamMessage(message) {
         bid_size: number(message.bs),
         ask_price: number(message.ap),
         ask_size: number(message.as),
+        latest_quote_at: message.t || null,
+        latest_quote_fingerprint: fingerprint([
+          "alpaca", symbol, message.t, message.bp, message.bs, message.ap, message.as,
+          message.bx, message.ax, message.c, message.z,
+        ]),
       },
       raw: message,
     };

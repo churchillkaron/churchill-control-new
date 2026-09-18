@@ -34,6 +34,8 @@ test("normalizes Alpaca quote messages", () => {
   assert.equal(result.type, "QUOTE");
   assert.equal(result.patch.bid_price, 500.1);
   assert.equal(result.patch.ask_price, 500.2);
+  assert.equal(result.patch.latest_quote_at, "2026-09-18T12:00:01Z");
+  assert.match(result.patch.latest_quote_fingerprint, /^[a-f0-9]{64}$/);
 });
 
 test("normalizes minute bars and produces historical bar payload", () => {

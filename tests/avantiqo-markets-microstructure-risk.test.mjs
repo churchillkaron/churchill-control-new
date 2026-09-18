@@ -45,6 +45,26 @@ test("stale market state fails closed", () => {
   assert.ok(result.reasons.some((reason) => reason.includes("stale")));
 });
 
+test("fresh trade or bar timestamp cannot hide a stale quote", () => {
+  const result = evaluateMarketMicrostructureRisk({
+    policy: {
+      max_market_data_age_seconds: 60,
+      max_spread_bps: 50,
+      min_quote_notional: 0,
+    },
+    snapshot: {
+      captured_at: "2026-09-18T11:59:59Z",
+      latest_quote_at: "2026-09-18T11:50:00Z",
+      bid_price: 100,
+      ask_price: 100.1,
+    },
+    side: "BUY",
+    now,
+  });
+  assert.equal(result.approved, false);
+  assert.ok(result.reasons.some((reason) => reason.includes("stale")));
+});
+
 test("wide spread blocks new BUY exposure", () => {
   const result = evaluateMarketMicrostructureRisk({
     policy: {

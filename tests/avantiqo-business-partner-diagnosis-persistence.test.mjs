@@ -256,7 +256,9 @@ test("recent conversation loader fetches missing paired user turns only as verif
   assert.match(runtime,/function diagnosisVerificationUserTurnIds/);
   assert.match(runtime,/loadMissingDiagnosisVerificationUserTurns/);
   assert.match(runtime,/\.eq\("role", "user"\)/);
-  assert.match(runtime,/\.in\("id", missingIds\.slice\(0, 24\)\)/);
+  assert.match(runtime,/maxSupportRows = 24/);
+  assert.match(runtime,/missingIds\.slice\(0, Math\.max\(1, Number\(maxSupportRows\) \|\| 24\)\)/);
+  assert.match(runtime,/maxSupportRows: 24/);
   assert.match(runtime,/sanitizeBusinessDiagnosisConversation\(turns\.data \|\| \[\],[\s\S]*supportRows\)/);
 });
 
@@ -264,6 +266,7 @@ test("recent conversation loader fetches missing paired user turns only as verif
 test("historical snapshot loader fetches paired prompts across the 100-turn cutoff only as hidden verification support",()=>{
   const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
   assert.match(runtime,/const snapshotSupportRows = await loadMissingDiagnosisVerificationUserTurns/);
+  assert.match(runtime,/maxSupportRows: 100/);
   assert.match(runtime,/sanitizeBusinessDiagnosisSnapshot\(visibleTurns,[\s\S]*snapshotSupportRows\)/);
   assert.doesNotMatch(runtime,/turns\.data\s*=\s*\[\.\.\.turns\.data,\s*\.\.\.snapshotSupportRows\]/);
 });
@@ -280,4 +283,16 @@ test("historical snapshot returns the newest 100 turns in chronological display 
   assert.match(snapshot,/rows: visibleTurns/);
   assert.match(snapshot,/sanitizeBusinessDiagnosisSnapshot\(visibleTurns,/);
   assert.ok(snapshot.indexOf('.limit(100)') < snapshot.indexOf('const visibleTurns = (turns.data || []).slice().reverse()'));
+});
+
+
+test("verification support caps match each bounded surface",()=>{
+  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
+  const recentStart=runtime.indexOf("async function loadVerifiedRecentConversationTurns");
+  const snapshotStart=runtime.indexOf("export async function loadIntelligenceConversationSnapshot");
+  const recent=runtime.slice(recentStart,snapshotStart);
+  const snapshot=runtime.slice(snapshotStart);
+  assert.match(recent,/maxSupportRows: 24/);
+  assert.match(snapshot,/maxSupportRows: 100/);
+  assert.doesNotMatch(recent,/maxSupportRows: 100/);
 });

@@ -77,3 +77,24 @@ test("both operator clients preserve readiness details and show a governed no-an
     assert.match(source,/governedDiagnosisFailure/);
   }
 });
+
+
+test("system health exposes sanitized business diagnosis readiness and degrades when required authenticity is blocked",()=>{
+  const health=fs.readFileSync("lib/health/checkSystemHealth.js","utf8");
+  assert.match(health,/getBusinessDiagnosisReadiness/);
+  assert.match(health,/business_diagnosis:/);
+  assert.match(health,/authenticity_required:/);
+  assert.match(health,/authenticity_available:/);
+  assert.match(health,/blocker_count:/);
+  assert.match(health,/diagnosisOperational/);
+  assert.match(health,/healthy = databaseHealthy && queueOperational && diagnosisOperational/);
+});
+
+test("platform operator raises a dedicated business diagnosis readiness signal",()=>{
+  const operator=fs.readFileSync("lib/platform/operator/buildPlatformOperatorControl.js","utf8");
+  assert.match(operator,/business-diagnosis-readiness/);
+  assert.match(operator,/Business Diagnosis is not ready/);
+  assert.match(operator,/required diagnosis-proof authenticity is not operational/i);
+  assert.match(operator,/target: "business_diagnosis"/);
+  assert.match(operator,/authorityEffect: "NONE"/);
+});

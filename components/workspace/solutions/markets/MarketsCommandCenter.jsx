@@ -95,6 +95,11 @@ export default function MarketsCommandCenter({ organizationId }) {
       max_portfolio_var_95_pct: String(policy.max_portfolio_var_95_pct ?? 5),
       max_portfolio_expected_shortfall_95_pct: String(policy.max_portfolio_expected_shortfall_95_pct ?? 8),
       max_position_annualized_volatility_pct: String(policy.max_position_annualized_volatility_pct ?? 100),
+      max_portfolio_stress_loss_pct: String(policy.max_portfolio_stress_loss_pct ?? 12),
+      stress_market_shock_pct: String(policy.stress_market_shock_pct ?? 8),
+      stress_sector_shock_pct: String(policy.stress_sector_shock_pct ?? 12),
+      stress_correlated_cluster_shock_pct: String(policy.stress_correlated_cluster_shock_pct ?? 15),
+      stress_single_name_shock_pct: String(policy.stress_single_name_shock_pct ?? 20),
     });
   }, [data?.riskPolicy]);
 
@@ -534,6 +539,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Max VaR 95%", `${Number(policy.max_portfolio_var_95_pct || 5)}%`],
                       ["Max ES 95%", `${Number(policy.max_portfolio_expected_shortfall_95_pct || 8)}%`],
                       ["Max position vol", `${Number(policy.max_position_annualized_volatility_pct || 100)}%`],
+                      ["Max stress loss", `${Number(policy.max_portfolio_stress_loss_pct || 12)}%`],
                       ["Min confidence", `${(Number(policy.min_decision_confidence || 0.7) * 100).toFixed(0)}%`],
                     ].map(([label, value]) => (
                       <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
@@ -587,6 +593,22 @@ export default function MarketsCommandCenter({ organizationId }) {
                             : `${Number(latestPortfolioRisk.historical_risk.candidate.annualized_volatility_pct).toFixed(1)}%`}
                         </div>
                       </div>
+                      <div>
+                        <div className="text-[#9A968E]">Worst stress loss</div>
+                        <div className="mt-0.5 font-semibold">
+                          {latestPortfolioRisk?.stress_risk?.worst_scenario?.loss_pct_equity == null
+                            ? "—"
+                            : `${Number(latestPortfolioRisk.stress_risk.worst_scenario.loss_pct_equity).toFixed(2)}%`}
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <div className="text-[#9A968E]">Worst scenario</div>
+                        <div className="mt-0.5 font-semibold">
+                          {latestPortfolioRisk?.stress_risk?.worst_scenario?.id
+                            ? String(latestPortfolioRisk.stress_risk.worst_scenario.id).replaceAll("_", " ")
+                            : "—"}
+                        </div>
+                      </div>
                     </div>
                     {latestPortfolioRisk?.candidate_sector ? (
                       <div className="mt-2 text-[8px] text-[#9A968E]">
@@ -622,6 +644,11 @@ export default function MarketsCommandCenter({ organizationId }) {
                         ["Max VaR 95% %", "max_portfolio_var_95_pct", "0.01", "100", "0.1"],
                         ["Max ES 95% %", "max_portfolio_expected_shortfall_95_pct", "0.01", "100", "0.1"],
                         ["Max position vol %", "max_position_annualized_volatility_pct", "0.01", "1000", "0.1"],
+                        ["Max stress loss %", "max_portfolio_stress_loss_pct", "0.01", "100", "0.1"],
+                        ["Market shock %", "stress_market_shock_pct", "0.01", "100", "0.1"],
+                        ["Sector shock %", "stress_sector_shock_pct", "0.01", "100", "0.1"],
+                        ["Cluster shock %", "stress_correlated_cluster_shock_pct", "0.01", "100", "0.1"],
+                        ["Single-name gap %", "stress_single_name_shock_pct", "0.01", "100", "0.1"],
                       ].map(([label, key, min, max, step]) => (
                         <label key={key}>
                           <span className="text-[8px] text-[#968F86]">{label}</span>
@@ -750,6 +777,11 @@ export default function MarketsCommandCenter({ organizationId }) {
                         max_portfolio_var_95_pct: Number(riskDraft?.max_portfolio_var_95_pct ?? 5),
                         max_portfolio_expected_shortfall_95_pct: Number(riskDraft?.max_portfolio_expected_shortfall_95_pct ?? 8),
                         max_position_annualized_volatility_pct: Number(riskDraft?.max_position_annualized_volatility_pct ?? 100),
+                        max_portfolio_stress_loss_pct: Number(riskDraft?.max_portfolio_stress_loss_pct ?? 12),
+                        stress_market_shock_pct: Number(riskDraft?.stress_market_shock_pct ?? 8),
+                        stress_sector_shock_pct: Number(riskDraft?.stress_sector_shock_pct ?? 12),
+                        stress_correlated_cluster_shock_pct: Number(riskDraft?.stress_correlated_cluster_shock_pct ?? 15),
+                        stress_single_name_shock_pct: Number(riskDraft?.stress_single_name_shock_pct ?? 20),
                       })}
                       className="mt-3 h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-medium text-white disabled:opacity-40"
                     >

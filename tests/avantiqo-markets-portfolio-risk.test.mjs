@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   calculatePortfolioRiskBudgetScale,
   evaluatePortfolioConcentration,
+  evaluatePortfolioStressRisk,
   pearsonCorrelation,
   returnsFromBars,
 } from "../lib/markets/runtime/MarketPortfolioRiskModels.js";
@@ -147,6 +148,41 @@ test("risk-budget scale shrinks smoothly near a hard limit", () => {
   assert.ok(result.scale < 1);
 });
 
+test("stress loss can become the binding soft risk budget", () => {
+  const result = calculatePortfolioRiskBudgetScale({
+    metrics: {
+      projected_gross_exposure_pct: 30,
+      projected_sector_exposure_pct: 10,
+      projected_correlated_exposure_pct: 10,
+      candidate_sector: "Services",
+      historical_risk: {
+        portfolio: {
+          var_95_pct: 1,
+          expected_shortfall_95_pct: 2,
+        },
+      },
+      stress_risk: {
+        worst_scenario: {
+          id: "SINGLE_NAME_GAP",
+          loss_pct_equity: 10.8,
+        },
+      },
+    },
+    policy: {
+      max_gross_exposure_pct: 100,
+      max_sector_pct: 30,
+      max_correlated_exposure_pct: 35,
+      max_portfolio_var_95_pct: 5,
+      max_portfolio_expected_shortfall_95_pct: 8,
+      max_portfolio_stress_loss_pct: 12,
+    },
+  });
+
+  assert.equal(result.binding_dimension, "STRESS_LOSS");
+  assert.ok(Math.abs(result.max_utilization - 0.9) < 1e-12);
+  assert.ok(result.scale < 1);
+});
+
 test("risk-budget scale bottoms at configured floor at hard limit", () => {
   const result = calculatePortfolioRiskBudgetScale({
     metrics: {
@@ -172,6 +208,106 @@ test("risk-budget scale bottoms at configured floor at hard limit", () => {
   });
 
   assert.equal(result.scale, 0.25);
+});
+
+test("portfolio stress gate rejects BUY when worst scenario exceeds cap", () => {
+  const aligned = [0.01, 0.02, -0.01, 0.03, 0.015, -0.02, 0.01, 0.025, -0.005, 0.02, 0.01, -0.01];
+  const result = evaluatePortfolioStressRisk({
+    policy: {
+      max_portfolio_stress_loss_pct: 8,
+      stress_market_shock_pct: 10,
+      stress_sector_shock_pct: 12,
+      stress_correlated_cluster_shock_pct: 18,
+      stress_single_name_shock_pct: 25,
+      correlation_threshold: 0.8,
+    },
+    equity: 100000,
+    positions: [
+      { symbol: "AAA", market_value: 30000 },
+      { symbol: "CCC", market_value: 20000 },
+    ],
+    proposed: {
+      symbol: "BBB",
+      side: "BUY",
+      notional: 20000,
+    },
+    sectorBySymbol: {
+      AAA: "Technology",
+      BBB: "Technology",
+      CCC: "Consumer",
+    },
+    returnsBySymbol: {
+      AAA: aligned,
+      BBB: aligned.map((value) => value * 0.9),
+      CCC: aligned.map((value) => -value * 0.2),
+    },
+  });
+
+  assert.equal(result.approved, false);
+  assert.ok(result.metrics.worst_scenario);
+  assert.ok(result.metrics.worst_scenario.loss_pct_equity > 8);
+  assert.match(result.reasons.join(" "), /stress loss/i);
+});
+
+test("portfolio stress scenarios calculate market sector cluster and single-name losses", () => {
+  const aligned = [0.01, 0.02, -0.01, 0.03, 0.015, -0.02, 0.01, 0.025, -0.005, 0.02, 0.01, -0.01];
+  const result = evaluatePortfolioStressRisk({
+    policy: {
+      max_portfolio_stress_loss_pct: 100,
+      stress_market_shock_pct: 8,
+      stress_sector_shock_pct: 12,
+      stress_correlated_cluster_shock_pct: 15,
+      stress_single_name_shock_pct: 20,
+      correlation_threshold: 0.8,
+    },
+    equity: 100000,
+    positions: [{ symbol: "AAA", market_value: 25000 }],
+    proposed: {
+      symbol: "BBB",
+      side: "BUY",
+      notional: 10000,
+    },
+    sectorBySymbol: {
+      AAA: "Technology",
+      BBB: "Technology",
+    },
+    returnsBySymbol: {
+      AAA: aligned,
+      BBB: aligned,
+    },
+  });
+
+  const byId = Object.fromEntries(
+    result.metrics.scenarios.map((row) => [row.id, row]),
+  );
+
+  assert.ok(byId.MARKET_SELLOFF.loss_pct_equity > 0);
+  assert.ok(byId.SECTOR_SELLOFF.loss_pct_equity > 0);
+  assert.ok(byId.CORRELATED_CLUSTER_SELLOFF.loss_pct_equity > 0);
+  assert.ok(byId.SINGLE_NAME_GAP.loss_pct_equity > 0);
+});
+
+test("portfolio stress gate preserves SELL de-risking", () => {
+  const result = evaluatePortfolioStressRisk({
+    policy: {
+      max_portfolio_stress_loss_pct: 1,
+      stress_market_shock_pct: 20,
+      stress_sector_shock_pct: 20,
+      stress_correlated_cluster_shock_pct: 20,
+      stress_single_name_shock_pct: 20,
+    },
+    equity: 100000,
+    positions: [{ symbol: "AAA", market_value: 50000 }],
+    proposed: {
+      symbol: "AAA",
+      side: "SELL",
+      notional: 25000,
+    },
+    sectorBySymbol: { AAA: "Technology" },
+    returnsBySymbol: { AAA: [] },
+  });
+
+  assert.equal(result.approved, true);
 });
 
 test("SELL de-risks gross and sector exposure", () => {

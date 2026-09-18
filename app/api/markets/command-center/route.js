@@ -598,6 +598,11 @@ export async function POST(request) {
         max_portfolio_var_95_pct: Number(body.max_portfolio_var_95_pct ?? current.max_portfolio_var_95_pct ?? 5),
         max_portfolio_expected_shortfall_95_pct: Number(body.max_portfolio_expected_shortfall_95_pct ?? current.max_portfolio_expected_shortfall_95_pct ?? 8),
         max_position_annualized_volatility_pct: Number(body.max_position_annualized_volatility_pct ?? current.max_position_annualized_volatility_pct ?? 100),
+        max_portfolio_stress_loss_pct: Number(body.max_portfolio_stress_loss_pct ?? current.max_portfolio_stress_loss_pct ?? 12),
+        stress_market_shock_pct: Number(body.stress_market_shock_pct ?? current.stress_market_shock_pct ?? 8),
+        stress_sector_shock_pct: Number(body.stress_sector_shock_pct ?? current.stress_sector_shock_pct ?? 12),
+        stress_correlated_cluster_shock_pct: Number(body.stress_correlated_cluster_shock_pct ?? current.stress_correlated_cluster_shock_pct ?? 15),
+        stress_single_name_shock_pct: Number(body.stress_single_name_shock_pct ?? current.stress_single_name_shock_pct ?? 20),
         live_execution_enabled: false,
         updated_at: new Date().toISOString(),
       };
@@ -656,6 +661,17 @@ export async function POST(request) {
       }
       if (!(next.max_position_annualized_volatility_pct > 0 && next.max_position_annualized_volatility_pct <= 1000)) {
         throw new Error("Maximum position annualized volatility must be greater than 0 and at most 1000%");
+      }
+      for (const [label, value] of [
+        ["Maximum portfolio stress loss", next.max_portfolio_stress_loss_pct],
+        ["Market stress shock", next.stress_market_shock_pct],
+        ["Sector stress shock", next.stress_sector_shock_pct],
+        ["Correlated-cluster stress shock", next.stress_correlated_cluster_shock_pct],
+        ["Single-name stress shock", next.stress_single_name_shock_pct],
+      ]) {
+        if (!(value > 0 && value <= 100)) {
+          throw new Error(`${label} must be greater than 0 and at most 100%`);
+        }
       }
 
       const { data: riskPolicy, error: riskPolicyError } = await supabaseAdmin

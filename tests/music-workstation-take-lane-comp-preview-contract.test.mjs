@@ -31,7 +31,8 @@ test("take lane UI supports audition rating exact regions and non-destructive co
   assert.match(compPanel, /Add selected region/);
   assert.match(compPanel, /buildMusicComp/);
   assert.match(compPanel, /applyMusicCompToTrack/);
-  assert.match(compPanel, /Release output must be rendered to a new derived asset/);
+  assert.match(compPanel, /Render creates a new dry 24-bit derived asset/);
+  assert.match(compPanel, /mixer processing remains live\/non-destructive/);
 });
 
 test("Workstation persists comp changes through revision-safe multitrack save", () => {

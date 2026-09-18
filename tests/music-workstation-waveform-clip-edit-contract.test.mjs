@@ -25,9 +25,9 @@ test("waveform reflects source offset and trimmed duration", () => {
 });
 
 test("clip editor exposes musician editing operations", () => {
-  assert.match(editor, /Trim left → playhead/);
-  assert.match(editor, /Trim right ← playhead/);
-  assert.match(editor, /Split at playhead/);
+  assert.match(editor, /Trim left → \{beatSnap \? "grid" : "playhead"\}/);
+  assert.match(editor, /Trim right ← \{beatSnap \? "grid" : "playhead"\}/);
+  assert.match(editor, /Split at \{beatSnap \? "grid" : "playhead"\}/);
   assert.match(editor, /Duplicate after/);
   assert.match(editor, /Clip gain/);
   assert.match(editor, /Fade in/);

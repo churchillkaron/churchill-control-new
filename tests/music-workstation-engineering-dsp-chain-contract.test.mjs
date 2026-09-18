@@ -24,13 +24,14 @@ test("gate and de-esser are real audio worklet processors", () => {
 });
 
 test("browser preview enforces the professional processing order", () => {
-  const trim = preview.indexOf("trim.connect(polarity)");
-  const gate = preview.indexOf('enabledInsert(track, "gate")');
-  const highPass = preview.indexOf("chain.connect(highPass)");
-  const deesser = preview.indexOf('enabledInsert(track, "deesser")');
-  const saturation = preview.indexOf('enabledInsert(track, "saturation")');
-  const compressor = preview.indexOf("const compressor = context.createDynamicsCompressor()");
-  const fader = preview.indexOf("const fader = context.createGain()");
+  const strip = preview.slice(preview.indexOf("function connectTrackStrip"), preview.indexOf("function compPlaybackClips"));
+  const trim = strip.indexOf("trim.connect(polarity)");
+  const gate = strip.indexOf('enabledInsert(track, "gate")');
+  const highPass = strip.indexOf("chain.connect(highPass)");
+  const deesser = strip.indexOf('enabledInsert(track, "deesser")');
+  const saturation = strip.indexOf('enabledInsert(track, "saturation")');
+  const compressor = strip.indexOf("const compressor = context.createDynamicsCompressor()");
+  const fader = strip.indexOf("const fader = context.createGain()");
   assert.ok(trim >= 0);
   assert.ok(gate > trim);
   assert.ok(highPass > gate);

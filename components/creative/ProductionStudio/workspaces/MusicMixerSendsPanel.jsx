@@ -11,6 +11,7 @@ import MusicAutomationPanel from "./MusicAutomationPanel";
 import MusicEngineeringInsertsPanel from "./MusicEngineeringInsertsPanel";
 import MusicGroupBusPanel from "./MusicGroupBusPanel";
 import MusicLiveEngineeringMeters from "./MusicLiveEngineeringMeters";
+import MusicParametricEqPanel from "./MusicParametricEqPanel";
 import MusicSourceCleanupPanel from "./MusicSourceCleanupPanel";
 
 function finite(value, fallback = 0) {
@@ -125,6 +126,12 @@ export default function MusicMixerSendsPanel({ session, track, playhead = 0, dis
       />
 
       <MusicSourceCleanupPanel
+        track={currentTrack}
+        disabled={disabled}
+        onChange={replaceTrack}
+      />
+
+      <MusicParametricEqPanel
         track={currentTrack}
         disabled={disabled}
         onChange={replaceTrack}

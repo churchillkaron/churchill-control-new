@@ -35,7 +35,7 @@ test("overdub binds scheduled backing clock and capture clock on the same monoto
   assert.match(overdub,/AVANTIQO_MUSIC_OVERDUB_TIMING_V1/);
   assert.match(overdub,/browser_audio_clock_alignment_ms/);
   assert.match(overdub,/BROWSER_AUDIO_CLOCK_ALIGNMENT_ONLY/);
-  assert.match(overdub,/microphone_roundtrip_latency_measured: false/);
+  assert.match(overdub,/microphone_roundtrip_latency_measured: latencyCalibration\?\.microphone_roundtrip_latency_measured === true/);
   assert.match(overdub,/automatic_latency_compensation_allowed: false/);
   assert.match(route,/overdub_timing/);
   assert.match(route,/browser_audio_clock_alignment_ms/);

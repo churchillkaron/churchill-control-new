@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CircleStop, Headphones, Mic2, Radio, ShieldCheck } from "lucide-react";
 
 import { startMusicRawPcmCapture } from "@/lib/creative/music/client/MusicRawPcmCapture";
+import { runMusicLatencyCalibration } from "@/lib/creative/music/client/MusicLatencyCalibrationRuntime";
 import { startMusicMultitrackPreview } from "@/lib/creative/music/client/MusicMultitrackPreviewEngine";
 import MusicTakeLaneCompPanel from "./MusicTakeLaneCompPanel";
 
@@ -80,6 +81,9 @@ export default function MusicWorkstationOverdubPanel({
   const [loopPasses, setLoopPasses] = useState(3);
   const [latencyCompMs, setLatencyCompMs] = useState(0);
   const [clockAlignmentMs, setClockAlignmentMs] = useState(null);
+  const [latencyCalibration, setLatencyCalibration] = useState(null);
+  const [calibrationBusy, setCalibrationBusy] = useState(false);
+  const [calibrationPath, setCalibrationPath] = useState("HARDWARE_LOOPBACK");
   const [monitorEnabled, setMonitorEnabled] = useState(false);
   const [monitorGainDb, setMonitorGainDb] = useState(-18);
   const [recording, setRecording] = useState(false);
@@ -222,7 +226,9 @@ export default function MusicWorkstationOverdubPanel({
       capture_start_performance_ms: Number.isFinite(captureStartMs) ? captureStartMs : null,
       browser_audio_clock_alignment_ms: browserClockAlignmentMs,
       evidence_scope: "BROWSER_AUDIO_CLOCK_ALIGNMENT_ONLY",
-      microphone_roundtrip_latency_measured: false,
+      microphone_roundtrip_latency_measured: latencyCalibration?.microphone_roundtrip_latency_measured === true,
+      calibrated_roundtrip_latency_ms: Number.isFinite(Number(latencyCalibration?.roundtrip_latency_ms)) ? Number(latencyCalibration.roundtrip_latency_ms) : null,
+      latency_calibration: latencyCalibration || null,
       automatic_latency_compensation_allowed: false,
       manual_latency_compensation_seconds: latencyCompensationSeconds,
     };
@@ -286,6 +292,27 @@ export default function MusicWorkstationOverdubPanel({
     const backing = await startMusicMultitrackPreview({ session, assetUrls, startSeconds, stopAtSeconds });
     backingRef.current = backing;
     return backing;
+  }
+
+  async function calibrateLatency() {
+    if (recording || calibrationBusy) return;
+    setCalibrationBusy(true);
+    setError("");
+    try {
+      const result = await runMusicLatencyCalibration({ deviceId: deviceId || null, pathType: calibrationPath });
+      setLatencyCalibration(result);
+    } catch (cause) {
+      setLatencyCalibration(null);
+      setError(cause?.message || "Latency calibration failed");
+    } finally {
+      setCalibrationBusy(false);
+    }
+  }
+
+  function applyMeasuredLatency() {
+    const measured = Number(latencyCalibration?.roundtrip_latency_ms);
+    if (!Number.isFinite(measured) || latencyCalibration?.automatic_apply_allowed !== true) return;
+    setLatencyCompMs(Math.max(-500, Math.min(500, measured)));
   }
 
   async function begin() {
@@ -413,6 +440,12 @@ export default function MusicWorkstationOverdubPanel({
             <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/18">Measured/manual compensation; 0 ms means no assumed microphone latency correction.</span>
             <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/22">Browser clock alignment {Number.isFinite(clockAlignmentMs) ? `${clockAlignmentMs.toFixed(1)} ms` : "not measured yet"} · evidence only, never auto-applied as microphone latency.</span>
           </label>
+          <div className="col-span-2 rounded-xl border border-[#d6a66a]/12 bg-[#d6a66a]/[0.025] p-3">
+            <div className="flex items-center justify-between gap-3"><div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[#efd29f]/55">Roundtrip calibration</div><select value={calibrationPath} onChange={(event) => setCalibrationPath(event.target.value)} disabled={recording || calibrationBusy} className="rounded-md border border-white/8 bg-black/30 px-2 py-1 text-[9px] text-white/45"><option value="HARDWARE_LOOPBACK">Hardware loopback</option><option value="ACOUSTIC_PATH">Speaker → microphone</option></select></div>
+            <div className="mt-2 text-[8px] leading-4 text-white/22">For exact interface latency, route an output directly back to the selected input. Speaker → microphone includes speaker, air and microphone delay and is kept as acoustic-path evidence.</div>
+            <div className="mt-3 flex flex-wrap items-center gap-2"><button type="button" onClick={calibrateLatency} disabled={recording || calibrationBusy} className="rounded-lg border border-[#d6a66a]/20 bg-[#d6a66a]/8 px-3 py-2 text-[9px] font-medium text-[#efd29f]/75 disabled:opacity-35">{calibrationBusy ? "Measuring…" : "Run latency calibration"}</button>{latencyCalibration?.automatic_apply_allowed === true ? <button type="button" onClick={applyMeasuredLatency} disabled={recording} className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.04] px-3 py-2 text-[9px] text-emerald-100/65">Use {latencyCalibration.roundtrip_latency_ms.toFixed(1)} ms offset</button> : null}</div>
+            {latencyCalibration ? <div className="mt-2 text-[8px] leading-4 text-white/30">{latencyCalibration.status} · {latencyCalibration.path_type} · {Number.isFinite(latencyCalibration.roundtrip_latency_ms) ? `${latencyCalibration.roundtrip_latency_ms.toFixed(2)} ms` : "no reliable return detected"} · confidence {Number.isFinite(latencyCalibration.confidence) ? latencyCalibration.confidence.toFixed(2) : "—"}{latencyCalibration.path_type === "ACOUSTIC_PATH" ? " · acoustic result is never eligible as exact interface compensation" : ""}</div> : null}
+          </div>
           <div className="col-span-2 rounded-xl border border-white/8 bg-black/20 p-3">
             <div className="flex items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-[10px] text-white/48"><input type="checkbox" checked={monitorEnabled} onChange={(event) => setMonitorEnabled(event.target.checked)} className="accent-[#d6a66a]" /> Software input monitor</label>

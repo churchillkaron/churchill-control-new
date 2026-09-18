@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 343,
-    "passed": 343,
+    "tests": 347,
+    "passed": 347,
     "failed": 0
   },
   "workstreams": [
@@ -127,6 +127,18 @@
       "accounting_mutation_authority": false,
       "current_verification_event_count": 0,
       "test_artifacts_remaining": false
+    },
+    {
+      "order": 9,
+      "name": "Finance scale integrity closure",
+      "commit": "ba154f8c86e5",
+      "status": "OPERATIONAL_COMPLETE_POPULATION_INTEGRITY",
+      "live_runtime_verified": true,
+      "legal_entity_uniqueness": "Exact organization-scoped indexed conflict lookups replace the bounded 1000-row scan; database normalized unique indexes remain the race-safe backstop.",
+      "correction_duplicate_preflight": "Exact JSON correction identity is filtered before limit; database active-correction unique index remains authoritative.",
+      "correction_account_selector": "Complete paginated chart-of-accounts population replaces the prior 1000-row cap.",
+      "silent_population_truncation_removed": true,
+      "accounting_mutation_authority": false
     }
   ],
   "live_acceptance": {
@@ -160,6 +172,9 @@
     "provider_verification_never_imports_or_transmits_financial_documents": true,
     "provider_verification_history_append_only": true,
     "verification_receipt_and_latest_state_atomic": true,
-    "finance_connections_overview_is_read_only_projection": true
+    "finance_connections_overview_is_read_only_projection": true,
+    "legal_entity_uniqueness_not_bounded_by_ui_limits": true,
+    "correction_duplicate_preflight_exact_identity": true,
+    "correction_account_selector_complete_population": true
   }
 }

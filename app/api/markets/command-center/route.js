@@ -8,6 +8,7 @@ import { MarketAutonomousPaperRuntime } from "@/lib/markets/runtime/MarketAutono
 import { MarketIntelligenceIngestionRuntime } from "@/lib/markets/runtime/MarketIntelligenceIngestionRuntime";
 import { evaluateMarketMicrostructureRisk } from "@/lib/markets/runtime/MarketMicrostructureRiskModels";
 import { MarketPaperExecutionRuntime } from "@/lib/markets/runtime/MarketPaperExecutionRuntime";
+import { MarketPortfolioPerformanceRuntime } from "@/lib/markets/runtime/MarketPortfolioPerformanceRuntime";
 import { MarketPortfolioRiskRuntime } from "@/lib/markets/runtime/MarketPortfolioRiskRuntime";
 import { MarketPredictionOutcomeRuntime } from "@/lib/markets/runtime/MarketPredictionOutcomeRuntime";
 import { MarketSpecialistAgentRuntime } from "@/lib/markets/runtime/MarketSpecialistAgentRuntime";
@@ -88,6 +89,10 @@ async function loadState({ organizationId, entityId }) {
       automationRuns: [],
       backtestRuns: [],
       agentPerformance: [],
+      portfolioPerformance: {
+        snapshots: [],
+        summary: null,
+      },
     };
   }
 
@@ -116,6 +121,11 @@ async function loadState({ organizationId, entityId }) {
     if (result.error) throw result.error;
   }
 
+  const portfolioPerformance = await MarketPortfolioPerformanceRuntime.load({
+    organizationId,
+    portfolioId: portfolio.id,
+  });
+
   return {
     portfolio,
     watchlist: watchlistResult.data || [],
@@ -138,6 +148,7 @@ async function loadState({ organizationId, entityId }) {
     automationRuns: automationRunsResult.data || [],
     backtestRuns: backtestRunsResult.data || [],
     agentPerformance: agentPerformanceResult.data || [],
+    portfolioPerformance,
   };
 }
 
@@ -208,6 +219,15 @@ async function initializePortfolio({ organizationId, entityId, name = "Primary P
     kill_switch: false,
   });
   if (automationError) throw automationError;
+
+  await MarketPortfolioPerformanceRuntime.recordSnapshot({
+    organizationId,
+    portfolioId: portfolio.id,
+    sourceType: "INITIAL",
+    metadata: {
+      reason: "portfolio_initialization",
+    },
+  });
 
   return loadState({ organizationId, entityId });
 }
@@ -473,6 +493,32 @@ export async function POST(request) {
     const state = await loadState({ organizationId, entityId });
     if (!state.portfolio) {
       return NextResponse.json({ success: false, error: "Initialize Markets before using this action" }, { status: 409 });
+    }
+
+    if (action === "UPDATE_PORTFOLIO_BENCHMARK") {
+      requireMarketsAutomationAuthority(scope);
+      const benchmarkSymbol = clean(body.benchmark_symbol || body.benchmarkSymbol).toUpperCase();
+      if (!benchmarkSymbol || benchmarkSymbol.length > 32 || !/^[A-Z0-9.^_-]+$/.test(benchmarkSymbol)) {
+        throw new Error("Benchmark symbol must be a valid market symbol up to 32 characters");
+      }
+
+      const { data: portfolio, error: portfolioError } = await supabaseAdmin
+        .from("market_portfolios")
+        .update({
+          benchmark_symbol: benchmarkSymbol,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("organization_id", organizationId)
+        .eq("id", state.portfolio.id)
+        .select("*")
+        .single();
+      if (portfolioError) throw portfolioError;
+
+      return NextResponse.json({
+        success: true,
+        portfolio,
+        execution: { mode: "PAPER", live_enabled: false },
+      });
     }
 
     if (action === "UPDATE_RISK_POLICY") {

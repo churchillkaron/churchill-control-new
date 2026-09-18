@@ -21,6 +21,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   const [paperQuantityBySymbol, setPaperQuantityBySymbol] = useState({});
   const [automationDraft, setAutomationDraft] = useState(null);
   const [riskDraft, setRiskDraft] = useState(null);
+  const [benchmarkDraft, setBenchmarkDraft] = useState("SPY");
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -44,6 +45,10 @@ export default function MarketsCommandCenter({ organizationId }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setBenchmarkDraft(String(data?.portfolio?.benchmark_symbol || "SPY").toUpperCase());
+  }, [data?.portfolio?.benchmark_symbol]);
 
   useEffect(() => {
     const policy = data?.automationPolicy;
@@ -147,6 +152,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   const automationRuns = Array.isArray(data?.automationRuns) ? data.automationRuns : [];
   const backtestRuns = Array.isArray(data?.backtestRuns) ? data.backtestRuns : [];
   const agentPerformance = Array.isArray(data?.agentPerformance) ? data.agentPerformance : [];
+  const portfolioPerformance = data?.portfolioPerformance?.summary || {};
   const policy = data?.riskPolicy || {};
   const latestBacktest = backtestRuns[0] || null;
   const completedBacktests = backtestRuns.filter((row) => row.status === "COMPLETED");
@@ -180,6 +186,18 @@ export default function MarketsCommandCenter({ organizationId }) {
     : null;
   const averageLogLoss = logLossRows.length
     ? logLossRows.reduce((sum, value) => sum + value, 0) / logLossRows.length
+    : null;
+  const benchmarkOutcomes = outcomes.filter(
+    (row) => Number.isFinite(Number(row.benchmark_return)) && Number.isFinite(Number(row.excess_return)),
+  );
+  const averageBenchmarkReturn = benchmarkOutcomes.length
+    ? benchmarkOutcomes.reduce((sum, row) => sum + Number(row.benchmark_return), 0) / benchmarkOutcomes.length
+    : null;
+  const averageExcessReturn = benchmarkOutcomes.length
+    ? benchmarkOutcomes.reduce((sum, row) => sum + Number(row.excess_return), 0) / benchmarkOutcomes.length
+    : null;
+  const benchmarkOutperformanceRate = benchmarkOutcomes.length
+    ? (benchmarkOutcomes.filter((row) => Number(row.excess_return) > 0).length / benchmarkOutcomes.length) * 100
     : null;
 
   if (loading && !data) {
@@ -782,14 +800,18 @@ export default function MarketsCommandCenter({ organizationId }) {
                 </div>
 
                 <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
-                  <div className="flex items-center gap-2 text-[#A37849]"><TrendingUp size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Prediction calibration</span></div>
-                  <h2 className="mt-2 text-[18px] font-semibold">Measured outcomes</h2>
+                  <div className="flex items-center gap-2 text-[#A37849]"><Activity size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Portfolio performance</span></div>
+                  <h2 className="mt-2 text-[18px] font-semibold">Paper equity curve</h2>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     {[
-                      ["Evaluated", outcomes.length],
-                      ["Directional hit", hitRate === null ? "—" : `${hitRate.toFixed(1)}%`],
-                      ["Avg Brier", averageBrier === null ? "—" : averageBrier.toFixed(4)],
-                      ["Avg log loss", averageLogLoss === null ? "—" : averageLogLoss.toFixed(4)],
+                      ["Daily observations", Number(portfolioPerformance.daily_observation_count || 0)],
+                      ["Total return", portfolioPerformance.total_return == null ? "—" : `${(Number(portfolioPerformance.total_return) * 100).toFixed(2)}%`],
+                      ["Annualized return", portfolioPerformance.annualized_return == null ? "—" : `${(Number(portfolioPerformance.annualized_return) * 100).toFixed(2)}%`],
+                      ["Annualized vol", portfolioPerformance.annualized_volatility == null ? "—" : `${(Number(portfolioPerformance.annualized_volatility) * 100).toFixed(2)}%`],
+                      ["Max drawdown", portfolioPerformance.max_drawdown_pct == null ? "—" : `${Number(portfolioPerformance.max_drawdown_pct).toFixed(2)}%`],
+                      ["Positive days", portfolioPerformance.positive_day_rate == null ? "—" : `${(Number(portfolioPerformance.positive_day_rate) * 100).toFixed(1)}%`],
+                      ["Sharpe", portfolioPerformance.sharpe_ratio == null ? "—" : Number(portfolioPerformance.sharpe_ratio).toFixed(2)],
+                      ["Sortino", portfolioPerformance.sortino_ratio == null ? "—" : Number(portfolioPerformance.sortino_ratio).toFixed(2)],
                     ].map(([label, value]) => (
                       <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
                         <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
@@ -798,7 +820,58 @@ export default function MarketsCommandCenter({ organizationId }) {
                     ))}
                   </div>
                   <div className="mt-3 text-[9px] leading-4 text-[#8A867F]">
-                    Confidence is scored against realized market outcomes. High-confidence mistakes receive a larger calibration penalty.
+                    {portfolioPerformance.risk_adjusted_history_sufficient
+                      ? "Risk-adjusted statistics use the append-only daily paper-equity curve. Current risk-free input is 0% until a governed macro rate feed is wired."
+                      : `Sharpe and Sortino remain hidden until at least ${Number(portfolioPerformance.minimum_risk_adjusted_observations || 20)} daily return observations exist.`}
+                  </div>
+                </div>
+
+                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                  <div className="flex items-center gap-2 text-[#A37849]"><TrendingUp size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Prediction calibration</span></div>
+                  <h2 className="mt-2 text-[18px] font-semibold">Measured outcomes</h2>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {[
+                      ["Evaluated", outcomes.length],
+                      ["Directional hit", hitRate === null ? "—" : `${hitRate.toFixed(1)}%`],
+                      ["Avg Brier", averageBrier === null ? "—" : averageBrier.toFixed(4)],
+                      ["Avg log loss", averageLogLoss === null ? "—" : averageLogLoss.toFixed(4)],
+                      ["Benchmark samples", benchmarkOutcomes.length],
+                      ["Avg benchmark", averageBenchmarkReturn === null ? "—" : `${(averageBenchmarkReturn * 100).toFixed(2)}%`],
+                      ["Avg excess", averageExcessReturn === null ? "—" : `${(averageExcessReturn * 100).toFixed(2)}%`],
+                      ["Beat benchmark", benchmarkOutperformanceRate === null ? "—" : `${benchmarkOutperformanceRate.toFixed(1)}%`],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                        <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
+                        <div className="mt-1 text-[14px] font-semibold">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-[9px] leading-4 text-[#8A867F]">
+                    Confidence is scored against realized market outcomes. High-confidence mistakes receive a larger calibration penalty. Excess return compares the same forecast interval against the configured benchmark.
+                  </div>
+                  <div className="mt-3 border-t border-black/[0.06] pt-3">
+                    <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">Portfolio benchmark</div>
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        value={benchmarkDraft}
+                        onChange={(event) => setBenchmarkDraft(event.target.value.toUpperCase())}
+                        placeholder="SPY"
+                        className="h-8 min-w-0 flex-1 rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-2.5 text-[10px] uppercase text-[#2E2B27] outline-none"
+                      />
+                      <button
+                        type="button"
+                        disabled={Boolean(working)}
+                        onClick={() => act("UPDATE_PORTFOLIO_BENCHMARK", {
+                          benchmark_symbol: benchmarkDraft,
+                        })}
+                        className="h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-medium text-white disabled:opacity-40"
+                      >
+                        {working === "UPDATE_PORTFOLIO_BENCHMARK" ? "Saving…" : "Save"}
+                      </button>
+                    </div>
+                    <div className="mt-1.5 text-[8px] text-[#9A968E]">
+                      Current benchmark: {portfolio?.benchmark_symbol || "SPY"}
+                    </div>
                   </div>
                 </div>
 

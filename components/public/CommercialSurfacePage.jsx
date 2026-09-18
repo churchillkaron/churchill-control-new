@@ -571,6 +571,23 @@ function StoryRail({ kind }) {
   );
 }
 
+const RELATED_KIND = {
+  "Developers": "developer",
+  "Marketplace": "marketplace",
+  "Pricing": "pricing",
+  "Services": "services",
+  "Partners": "partners",
+  "Enterprise": "enterprise",
+  "Commerce": "commerce",
+  "Integrations": "integrations",
+  "Channels": "channels",
+  "Solutions": "solutions",
+  "Agents": "agents",
+  "Insights": "insights",
+  "Creative Studios": "creative",
+  "Compute": "compute",
+};
+
 const RELATED = {
   compute: [
     ["Developers", "/developers", "Run developer and production workloads on available capacity."],
@@ -838,20 +855,22 @@ export default function CommercialSurfacePage({ config }) {
                 <a
                   key={href}
                   href={href}
-                  className="group rounded-[22px] border border-black/[0.075] bg-white p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35"
+                  className="group overflow-hidden rounded-[22px] border border-black/[0.075] bg-white transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35 hover:shadow-[0_18px_45px_rgba(45,32,20,.08)]"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[8px] font-bold text-[#A37849]">
-                      0{i + 1}
-                    </span>
-                    <Arrow className="h-3.5 w-3.5 text-[#B9AA95] transition group-hover:translate-x-0.5 group-hover:text-[#9A744B]" />
+                  <div className="relative h-[122px] overflow-hidden bg-[#171614]">
+                    <div className="absolute inset-0 scale-[1.45] origin-center opacity-[.92] transition duration-700 group-hover:scale-[1.50]">
+                      <PublicArtStage kind={RELATED_KIND[label] || "intelligence"} />
+                    </div>
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,6,.04),rgba(10,8,6,.56))]" />
+                    <div className="absolute left-4 top-4 text-[7px] font-bold text-[#F1C98E]">0{i + 1}</div>
                   </div>
-                  <div className="mt-7 text-[14px] font-semibold text-[#302D29]">
-                    {label}
+                  <div className="p-5">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[14px] font-semibold text-[#302D29]">{label}</div>
+                      <Arrow className="h-3.5 w-3.5 text-[#B9AA95] transition group-hover:translate-x-0.5 group-hover:text-[#9A744B]" />
+                    </div>
+                    <p className="mt-2 text-[10px] leading-5 text-[#7A756E]">{text}</p>
                   </div>
-                  <p className="mt-2 text-[10px] leading-5 text-[#7A756E]">
-                    {text}
-                  </p>
                 </a>
               ),
             )}

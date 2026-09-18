@@ -4,6 +4,7 @@ export const maxDuration = 300;
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
+import { buildBusinessDiagnosisAuditProjection } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
 import {
   resolveBusinessContext,
 } from "@/lib/business-context/resolveBusinessContext";
@@ -87,28 +88,37 @@ function object(value) {
 function persistedBusinessDiagnosisEvidence(result = {}) {
   const diagnosis = object(result?.business_diagnosis);
   if (!text(diagnosis.receipt_fingerprint)) return {};
+  const projection = buildBusinessDiagnosisAuditProjection({
+    receipt_fingerprint: diagnosis.receipt_fingerprint,
+    diagnosis_class: diagnosis.class,
+    business_timezone: diagnosis.business_timezone,
+    final_evidence_state: diagnosis.final_evidence_state,
+    residual_material: diagnosis.residual_material,
+    answer_boundary_status: diagnosis.answer_boundary_status,
+    answer_unsupported_recommendation_outcome_detected: diagnosis.answer_unsupported_recommendation_outcome_detected,
+    validated_external_context_count: diagnosis.validated_external_context_count,
+    unresolved_external_context_count: diagnosis.unresolved_external_context_count,
+    baseline_period_id: diagnosis?.periods?.baseline_period_id,
+    baseline_period_start_date: diagnosis?.periods?.baseline_start_date,
+    baseline_period_end_date: diagnosis?.periods?.baseline_end_date,
+    current_period_id: diagnosis?.periods?.current_period_id,
+    current_period_start_date: diagnosis?.periods?.current_start_date,
+    current_period_end_date: diagnosis?.periods?.current_end_date,
+  });
   return {
     business_diagnosis: {
       contract: text(diagnosis.contract) || null,
-      class: text(diagnosis.class) || null,
-      business_timezone: text(diagnosis.business_timezone) || null,
-      receipt_fingerprint: text(diagnosis.receipt_fingerprint) || null,
+      class: projection.diagnosis_class,
+      business_timezone: projection.business_timezone,
+      receipt_fingerprint: projection.receipt_fingerprint,
       audit_projection_fingerprint: text(diagnosis.audit_projection_fingerprint) || null,
-      final_evidence_state: text(diagnosis.final_evidence_state) || null,
-      residual_material: diagnosis.residual_material === true,
-      answer_boundary_status: text(diagnosis.answer_boundary_status) || null,
-      answer_unsupported_recommendation_outcome_detected: diagnosis.answer_unsupported_recommendation_outcome_detected === true,
-      validated_external_context_count: Number.isFinite(Number(diagnosis.validated_external_context_count)) ? Number(diagnosis.validated_external_context_count) : 0,
-      unresolved_external_context_count: Number.isFinite(Number(diagnosis.unresolved_external_context_count)) ? Number(diagnosis.unresolved_external_context_count) : 0,
-      periods: {
-        status: text(diagnosis?.periods?.status) || null,
-        baseline_period_id: text(diagnosis?.periods?.baseline_period_id) || null,
-        baseline_start_date: text(diagnosis?.periods?.baseline_start_date) || null,
-        baseline_end_date: text(diagnosis?.periods?.baseline_end_date) || null,
-        current_period_id: text(diagnosis?.periods?.current_period_id) || null,
-        current_start_date: text(diagnosis?.periods?.current_start_date) || null,
-        current_end_date: text(diagnosis?.periods?.current_end_date) || null,
-      },
+      final_evidence_state: projection.final_evidence_state,
+      residual_material: projection.residual_material,
+      answer_boundary_status: projection.answer_boundary_status,
+      answer_unsupported_recommendation_outcome_detected: projection.answer_unsupported_recommendation_outcome_detected,
+      validated_external_context_count: projection.validated_external_context_count,
+      unresolved_external_context_count: projection.unresolved_external_context_count,
+      periods: { status: text(diagnosis?.periods?.status) || null, ...projection.periods },
       raw_web_content_persisted: false,
       raw_reasoning_persisted: false,
       authority_effect: "NONE",

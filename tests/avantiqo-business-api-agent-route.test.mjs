@@ -22,9 +22,8 @@ test("diagnosis POST binds organization identity actor and permissions server si
 });
 
 test("diagnosis POST returns compact privacy-safe audit receipt envelope",()=>{
-  assert.match(source,/receipt_fingerprint/);
-  assert.match(source,/final_evidence_state/);
-  assert.match(source,/answer_boundary_status/);
+  assert.match(source,/buildBusinessDiagnosisAuditProjectionFromReceipt/);
+  assert.match(source,/\.\.\.projection/);
   assert.match(source,/raw_web_content_exposed: false/);
   assert.match(source,/raw_reasoning_exposed: false/);
   assert.match(source,/authority_effect: "NONE"/);
@@ -42,8 +41,8 @@ test("diagnosis POST server-classifies request type and overrides client class",
   assert.doesNotMatch(source,/business_diagnosis_class:\s*cleanValue\(body/);
 });
 
-test("diagnosis POST audit exposes signed diagnosis class from receipt",()=>{
-  assert.match(source,/diagnosis_class: cleanValue\(receipt\.diagnosis_class\)/);
+test("diagnosis POST audit exposes signed diagnosis class from canonical receipt projection",()=>{
+  assert.match(source,/buildBusinessDiagnosisAuditProjectionFromReceipt\(receipt\)/);
   assert.doesNotMatch(source,/diagnosis_class: cleanValue\(body/);
 });
 
@@ -86,13 +85,18 @@ test("direct diagnosis resolves server-authoritative organization timezone for a
 
 
 test("direct diagnosis API exposes the same compact verifiable proof semantics",()=>{
+  assert.match(source,/buildBusinessDiagnosisAuditProjectionFromReceipt/);
   assert.match(source,/audit_projection_fingerprint: cleanValue\(receipt\.audit_projection_fingerprint\)/);
-  assert.match(source,/business_timezone: cleanValue\(receipt\.business_timezone\)/);
-  assert.match(source,/validated_external_context_count:/);
-  assert.match(source,/rejected_or_unresolved_external_context_count:/);
-  assert.match(source,/answer_unsupported_recommendation_outcome_detected:/);
-  assert.match(source,/baseline_period_id: cleanValue\(receipt\.baseline_period_id\)/);
-  assert.match(source,/current_period_end_date: cleanValue\(receipt\.current_period_end_date\)/);
+  assert.match(source,/rejected_or_unresolved_external_context_count: projection\.unresolved_external_context_count/);
+  assert.match(source,/baseline_period_id: projection\.periods\.baseline_period_id/);
+  assert.match(source,/current_period_end_date: projection\.periods\.current_end_date/);
   assert.doesNotMatch(source,/audit_projection_fingerprint:\s*cleanValue\(body/);
   assert.doesNotMatch(source,/business_timezone:\s*cleanValue\(body/);
+});
+
+
+test("direct API audit uses canonical diagnosis projection builder",()=>{
+  assert.match(source,/buildBusinessDiagnosisAuditProjectionFromReceipt/);
+  assert.match(source,/const projection = buildBusinessDiagnosisAuditProjectionFromReceipt\(receipt\)/);
+  assert.match(source,/\.\.\.projection/);
 });

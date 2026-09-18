@@ -11,9 +11,8 @@ test("operator turn persists compact business diagnosis audit in evidence",()=>{
   assert.match(route,/business_timezone/);
   assert.match(route,/validated_external_context_count/);
   assert.match(route,/unresolved_external_context_count/);
-  assert.match(route,/class: text\(diagnosis\.class\)/);
-  assert.match(route,/baseline_start_date: text\(diagnosis\?\.periods\?\.baseline_start_date\)/);
-  assert.match(route,/current_end_date: text\(diagnosis\?\.periods\?\.current_end_date\)/);
+  assert.match(route,/class: projection\.diagnosis_class/);
+  assert.match(route,/periods: \{ status: text\(diagnosis\?\.periods\?\.status\) \|\| null, \.\.\.projection\.periods \}/);
   assert.match(route,/raw_web_content_persisted: false/);
   assert.match(route,/raw_reasoning_persisted: false/);
   assert.match(route,/\.\.\.persistedBusinessDiagnosisEvidence\(result\)/);
@@ -34,4 +33,11 @@ test("conversation snapshot verifies persisted diagnosis audit projection before
   const bounded=runtime.indexOf("function boundedTurns");
   const verify=runtime.indexOf("verifyBusinessDiagnosisAuditProjection(diagnosis)");
   assert.ok(bounded>=0&&verify>bounded);
+});
+
+
+test("operator persistence uses canonical diagnosis audit projection builder",()=>{
+  assert.match(route,/buildBusinessDiagnosisAuditProjection/);
+  assert.match(route,/const projection = buildBusinessDiagnosisAuditProjection\(/);
+  assert.match(route,/\.\.\.projection\.periods/);
 });

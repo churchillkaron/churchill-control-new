@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { BusinessIntelligenceRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 import { BusinessIntelligenceAgentRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceAgentRuntime";
+import { buildBusinessDiagnosisAuditProjectionFromReceipt } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
 import { classifyBusinessDiagnosisQuestion, resolveBusinessDiagnosisPeriods } from "@/lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { resolveOrganizationTimeContext } from "@/lib/shared/time/organizationTime";
@@ -109,30 +110,24 @@ async function resolveDirectDiagnosisPeriods({ organizationId, entityId = null, 
 function businessDiagnosisAudit(result = {}) {
   const receipt = objectValue(result.business_diagnosis_receipt);
   const boundary = objectValue(result.business_answer_evidence_boundary);
+  const projection = buildBusinessDiagnosisAuditProjectionFromReceipt(receipt);
   return {
-    receipt_fingerprint: cleanValue(receipt.receipt_fingerprint),
+    ...projection,
     audit_projection_fingerprint: cleanValue(receipt.audit_projection_fingerprint),
     receipt_contract: cleanValue(result.business_diagnosis_receipt_contract),
-    final_evidence_state: cleanValue(receipt.final_evidence_state),
-    diagnosis_class: cleanValue(receipt.diagnosis_class),
-    business_timezone: cleanValue(receipt.business_timezone),
-    residual_material: receipt.residual_material === true,
     residual_ratio: Number.isFinite(Number(receipt.residual_ratio)) ? Number(receipt.residual_ratio) : null,
     internal_coverage_incomplete: receipt.internal_coverage_incomplete === true,
     supported_external_context_ids: listValue(receipt.supported_external_context_ids),
     validated_external_context_ids: listValue(receipt.validated_external_context_ids),
-    validated_external_context_count: listValue(receipt.validated_external_context_ids).length,
-    rejected_or_unresolved_external_context_count: listValue(receipt.rejected_or_unresolved_external_contexts).length,
-    answer_boundary_status: cleanValue(boundary.status || receipt.answer_boundary_status),
+    rejected_or_unresolved_external_context_count: projection.unresolved_external_context_count,
     answer_overclaim_detected: boundary.overclaim_detected === true,
-    answer_unsupported_recommendation_outcome_detected: boundary.unsupported_recommendation_outcome_detected === true || receipt.answer_unsupported_recommendation_outcome_detected === true,
     answer_uncertainty_appended: boundary.required_uncertainty_appended === true,
-    baseline_period_id: cleanValue(receipt.baseline_period_id),
-    baseline_period_start_date: cleanValue(receipt.baseline_period_start_date),
-    baseline_period_end_date: cleanValue(receipt.baseline_period_end_date),
-    current_period_id: cleanValue(receipt.current_period_id),
-    current_period_start_date: cleanValue(receipt.current_period_start_date),
-    current_period_end_date: cleanValue(receipt.current_period_end_date),
+    baseline_period_id: projection.periods.baseline_period_id,
+    baseline_period_start_date: projection.periods.baseline_start_date,
+    baseline_period_end_date: projection.periods.baseline_end_date,
+    current_period_id: projection.periods.current_period_id,
+    current_period_start_date: projection.periods.current_start_date,
+    current_period_end_date: projection.periods.current_end_date,
     raw_web_content_exposed: false,
     raw_reasoning_exposed: false,
     authority_effect: "NONE",

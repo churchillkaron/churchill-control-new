@@ -81,6 +81,38 @@ test("merges streaming patches without dropping prior quote state", () => {
   assert.equal(second.latest_trade_price, 200.5);
 });
 
+test("out-of-order quote cannot overwrite newer executable quote state", () => {
+  const newer = normalizeStockStreamMessage({
+    T: "q", S: "AAPL", bp: 201, bs: 4, ap: 202, as: 5,
+    t: "2026-09-18T12:00:02Z",
+  });
+  const older = normalizeStockStreamMessage({
+    T: "q", S: "AAPL", bp: 190, bs: 9, ap: 191, as: 9,
+    t: "2026-09-18T12:00:01Z",
+  });
+  const first = mergeSnapshotState({}, newer);
+  const second = mergeSnapshotState(first, older);
+  assert.equal(second.bid_price, 201);
+  assert.equal(second.ask_price, 202);
+  assert.equal(second.latest_quote_at, "2026-09-18T12:00:02Z");
+  assert.equal(second.latest_quote_fingerprint, first.latest_quote_fingerprint);
+});
+
+test("older trade cannot move captured state backward", () => {
+  const quote = normalizeStockStreamMessage({
+    T: "q", S: "AAPL", bp: 201, bs: 4, ap: 202, as: 5,
+    t: "2026-09-18T12:00:02Z",
+  });
+  const olderTrade = normalizeStockStreamMessage({
+    T: "t", S: "AAPL", p: 200, s: 1,
+    t: "2026-09-18T12:00:01Z",
+  });
+  const first = mergeSnapshotState({}, quote);
+  const second = mergeSnapshotState(first, olderTrade);
+  assert.equal(second.captured_at, "2026-09-18T12:00:02Z");
+  assert.equal(second.latest_trade_at, "2026-09-18T12:00:01Z");
+});
+
 test("normalizes relevant Alpaca news", () => {
   const result = normalizeNewsStreamMessage({
     T: "n",

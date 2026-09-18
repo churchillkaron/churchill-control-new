@@ -105,10 +105,36 @@ export function normalizeNewsStreamMessage(message) {
 
 export function mergeSnapshotState(previous = {}, normalized) {
   if (!normalized) return previous;
+  const incomingMs = new Date(normalized.timestamp || 0).getTime();
+  const quoteMs = new Date(previous.latest_quote_at || 0).getTime();
+  const tradeMs = new Date(previous.latest_trade_at || 0).getTime();
+
+  if (
+    normalized.type === "QUOTE" &&
+    Number.isFinite(quoteMs) && quoteMs > 0 &&
+    Number.isFinite(incomingMs) && incomingMs <= quoteMs
+  ) {
+    return previous;
+  }
+  if (
+    normalized.type === "TRADE" &&
+    Number.isFinite(tradeMs) && tradeMs > 0 &&
+    Number.isFinite(incomingMs) && incomingMs <= tradeMs
+  ) {
+    return previous;
+  }
+
+  const capturedMs = new Date(previous.captured_at || 0).getTime();
+  const capturedAt = Number.isFinite(incomingMs) && (
+    !Number.isFinite(capturedMs) || capturedMs <= 0 || incomingMs > capturedMs
+  )
+    ? normalized.timestamp
+    : previous.captured_at;
+
   return {
     ...previous,
     symbol: normalized.symbol,
-    captured_at: normalized.timestamp,
+    captured_at: capturedAt,
     ...(normalized.patch || {}),
     raw_payload: {
       ...(previous.raw_payload || {}),

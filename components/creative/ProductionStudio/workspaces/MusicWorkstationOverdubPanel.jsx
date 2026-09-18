@@ -90,6 +90,8 @@ export default function MusicWorkstationOverdubPanel({
   const [punchEnd, setPunchEnd] = useState(8);
   const [loopPasses, setLoopPasses] = useState(3);
   const [latencyCompMs, setLatencyCompMs] = useState(0);
+  const [latencyCompSource, setLatencyCompSource] = useState("MANUAL");
+  const [latencyCompCalibrationMeasuredAt, setLatencyCompCalibrationMeasuredAt] = useState(null);
   const [clockAlignmentMs, setClockAlignmentMs] = useState(null);
   const [latencyCalibration, setLatencyCalibration] = useState(null);
   const [calibrationReuse, setCalibrationReuse] = useState(null);
@@ -141,6 +143,15 @@ export default function MusicWorkstationOverdubPanel({
   }, [deviceId, inputGroupId, outputDeviceId, calibrationPath, session?.sample_rate]);
 
   useEffect(() => { setHardwareLoopbackConfirmed(false); }, [deviceId, outputDeviceId, calibrationPath]);
+
+  useEffect(() => {
+    if (latencyCompSource !== "CALIBRATED") return;
+    const sameCalibration = Boolean(latencyCompCalibrationMeasuredAt && latencyCalibration?.measured_at === latencyCompCalibrationMeasuredAt);
+    if (calibrationReuse?.reuse_allowed === true && sameCalibration) return;
+    setLatencyCompMs(0);
+    setLatencyCompSource("MANUAL");
+    setLatencyCompCalibrationMeasuredAt(null);
+  }, [calibrationReuse?.reuse_allowed, latencyCalibration?.measured_at, latencyCompCalibrationMeasuredAt, latencyCompSource]);
 
   useEffect(() => {
     setPunchStart(Math.max(0, finite(playhead, 0)));
@@ -271,6 +282,8 @@ export default function MusicWorkstationOverdubPanel({
       latency_calibration: latencyCalibration || null,
       automatic_latency_compensation_allowed: false,
       manual_latency_compensation_seconds: latencyCompensationSeconds,
+      latency_compensation_source: latencyCompSource,
+      latency_compensation_calibration_measured_at: latencyCompSource === "CALIBRATED" ? latencyCompCalibrationMeasuredAt : null,
       requested_compensated_start_seconds: requestedCompensatedStart,
       applied_timeline_start_seconds: compensatedStart,
       compensation_source_offset_seconds: compensationSourceOffsetSeconds,
@@ -359,6 +372,8 @@ export default function MusicWorkstationOverdubPanel({
     const measured = Number(latencyCalibration?.roundtrip_latency_ms);
     if (!Number.isFinite(measured) || latencyCalibration?.automatic_apply_allowed !== true || calibrationReuse?.reuse_allowed !== true) return;
     setLatencyCompMs(Math.max(-500, Math.min(500, measured)));
+    setLatencyCompSource("CALIBRATED");
+    setLatencyCompCalibrationMeasuredAt(latencyCalibration?.measured_at || null);
   }
 
   async function begin() {
@@ -489,8 +504,8 @@ export default function MusicWorkstationOverdubPanel({
             <input type="number" min="1" max="20" value={loopPasses} onChange={(event) => setLoopPasses(Math.max(1, Math.min(20, Math.round(finite(event.target.value, 3)))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
           </label> : <label className="flex items-center gap-2 self-end rounded-lg border border-white/8 px-2 py-2 text-[10px] text-white/45"><input type="checkbox" checked={punchEnabled} onChange={(event) => setPunchEnabled(event.target.checked)} disabled={recording} className="accent-red-300" /> Punch in/out</label>}
           <label className="col-span-2 block text-[9px] uppercase tracking-[0.14em] text-white/25">Recording offset (ms)
-            <input type="number" min="-500" max="500" step="1" value={latencyCompMs} onChange={(event) => setLatencyCompMs(Math.max(-500, Math.min(500, finite(event.target.value, 0))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
-            <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/18">Measured/manual compensation; 0 ms means no assumed microphone latency correction.</span>
+            <input type="number" min="-500" max="500" step="1" value={latencyCompMs} onChange={(event) => { setLatencyCompMs(Math.max(-500, Math.min(500, finite(event.target.value, 0)))); setLatencyCompSource("MANUAL"); setLatencyCompCalibrationMeasuredAt(null); }} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
+            <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/18">{latencyCompSource === "CALIBRATED" ? "Calibrated compensation" : "Manual compensation"}; 0 ms means no assumed microphone latency correction.</span>
             <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/22">Browser clock alignment {Number.isFinite(clockAlignmentMs) ? `${clockAlignmentMs.toFixed(1)} ms` : "not measured yet"} · evidence only, never auto-applied as microphone latency.</span>
           </label>
           <div className="col-span-2 rounded-xl border border-[#d6a66a]/12 bg-[#d6a66a]/[0.025] p-3">

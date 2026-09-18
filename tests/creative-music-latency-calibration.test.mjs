@@ -86,3 +86,15 @@ test("exact hardware latency requires physical-loopback acknowledgement and repe
   assert.match(panel,/!hardwareLoopbackConfirmed/);
   assert.match(panel,/repeatability/);
 });
+
+
+test("stale calibrated offsets are cleared while manual offsets remain engineer-owned",()=>{
+  assert.match(panel,/latencyCompSource/);
+  assert.match(panel,/latencyCompCalibrationMeasuredAt/);
+  assert.match(panel,/if \(latencyCompSource !== "CALIBRATED"\) return/);
+  assert.match(panel,/calibrationReuse\?\.reuse_allowed === true && sameCalibration/);
+  assert.match(panel,/setLatencyCompMs\(0\)/);
+  assert.match(panel,/setLatencyCompSource\("MANUAL"\)/);
+  assert.match(panel,/latency_compensation_source: latencyCompSource/);
+  assert.match(panel,/setLatencyCompSource\("CALIBRATED"\)/);
+});

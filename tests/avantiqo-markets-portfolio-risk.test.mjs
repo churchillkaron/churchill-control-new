@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  betaToBenchmark,
   calculatePortfolioRiskBudgetScale,
+  evaluatePortfolioBetaRisk,
   evaluatePortfolioConcentration,
   evaluatePortfolioStressRisk,
   pearsonCorrelation,
@@ -14,6 +16,55 @@ test("pearson correlation identifies strongly aligned returns", () => {
   const right = left.map((value) => value * 1.8);
   const correlation = pearsonCorrelation(left, right);
   assert.ok(correlation > 0.99);
+});
+
+test("benchmark beta identifies proportional systematic exposure", () => {
+  const benchmark = Array.from({ length: 80 }, (_, index) => (
+    index % 4 === 0 ? -0.01 : 0.006 + ((index % 3) * 0.001)
+  ));
+  const asset = benchmark.map((value) => value * 1.8);
+  const beta = betaToBenchmark(asset, benchmark);
+
+  assert.ok(Math.abs(beta - 1.8) < 1e-9);
+});
+
+test("projected beta above owner ceiling blocks BUY but not SELL", () => {
+  const benchmark = Array.from({ length: 80 }, (_, index) => (
+    index % 4 === 0 ? -0.01 : 0.006 + ((index % 3) * 0.001)
+  ));
+  const highBeta = benchmark.map((value) => value * 2);
+
+  const buy = evaluatePortfolioBetaRisk({
+    policy: {
+      historical_risk_min_observations: 60,
+      max_portfolio_beta: 1.5,
+    },
+    equity: 100000,
+    positions: [{ symbol: "AAA", market_value: 90000 }],
+    proposed: { symbol: "BBB", side: "BUY", notional: 10000 },
+    returnsBySymbol: {
+      AAA: highBeta,
+      BBB: highBeta,
+    },
+    benchmarkReturns: benchmark,
+    benchmarkSymbol: "SPY",
+  });
+  const sell = evaluatePortfolioBetaRisk({
+    policy: {
+      historical_risk_min_observations: 60,
+      max_portfolio_beta: 1.5,
+    },
+    equity: 100000,
+    positions: [{ symbol: "AAA", market_value: 90000 }],
+    proposed: { symbol: "AAA", side: "SELL", notional: 10000 },
+    returnsBySymbol: { AAA: highBeta },
+    benchmarkReturns: benchmark,
+    benchmarkSymbol: "SPY",
+  });
+
+  assert.equal(buy.approved, false);
+  assert.ok(buy.metrics.projected_beta > 1.5);
+  assert.equal(sell.approved, true);
 });
 
 test("returnsFromBars derives ordered close-to-close returns", () => {
@@ -145,6 +196,44 @@ test("risk-budget scale shrinks smoothly near a hard limit", () => {
   assert.equal(result.binding_dimension, "GROSS_EXPOSURE");
   assert.ok(Math.abs(result.max_utilization - 0.9) < 1e-12);
   assert.ok(result.scale > 0.25);
+  assert.ok(result.scale < 1);
+});
+
+test("portfolio beta can become the binding soft risk budget", () => {
+  const result = calculatePortfolioRiskBudgetScale({
+    metrics: {
+      projected_gross_exposure_pct: 30,
+      projected_sector_exposure_pct: 10,
+      projected_correlated_exposure_pct: 10,
+      candidate_sector: "Services",
+      historical_risk: {
+        portfolio: {
+          var_95_pct: 1,
+          expected_shortfall_95_pct: 2,
+        },
+      },
+      stress_risk: {
+        worst_scenario: {
+          loss_pct_equity: 3,
+        },
+      },
+      benchmark_beta: {
+        projected_beta: 1.35,
+      },
+    },
+    policy: {
+      max_gross_exposure_pct: 100,
+      max_sector_pct: 30,
+      max_correlated_exposure_pct: 35,
+      max_portfolio_var_95_pct: 5,
+      max_portfolio_expected_shortfall_95_pct: 8,
+      max_portfolio_stress_loss_pct: 12,
+      max_portfolio_beta: 1.5,
+    },
+  });
+
+  assert.equal(result.binding_dimension, "PORTFOLIO_BETA");
+  assert.ok(Math.abs(result.max_utilization - 0.9) < 1e-12);
   assert.ok(result.scale < 1);
 });
 

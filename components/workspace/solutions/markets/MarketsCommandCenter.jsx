@@ -135,6 +135,7 @@ export default function MarketsCommandCenter({ organizationId }) {
       min_cash_reserve_pct: String(policy.min_cash_reserve_pct ?? 10),
       cash_reserve_execution_buffer_bps: String(policy.cash_reserve_execution_buffer_bps ?? 25),
       loss_reentry_cooloff_hours: String(policy.loss_reentry_cooloff_hours ?? 24),
+      max_portfolio_beta: String(policy.max_portfolio_beta ?? 1.5),
     });
   }, [data?.riskPolicy]);
 
@@ -602,6 +603,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Max ES 95%", `${Number(policy.max_portfolio_expected_shortfall_95_pct || 8)}%`],
                       ["Max position vol", `${Number(policy.max_position_annualized_volatility_pct || 100)}%`],
                       ["Max stress loss", `${Number(policy.max_portfolio_stress_loss_pct || 12)}%`],
+                      ["Max portfolio beta", Number(policy.max_portfolio_beta ?? 1.5).toFixed(2)],
                       ["24h turnover cap", `${Number(policy.max_rolling_24h_turnover_pct || 100)}%`],
                       ["24h exec-cost cap", `${Number(policy.max_rolling_24h_execution_cost_pct_equity || 0.25)}%`],
                       ["Max open positions", Number(policy.max_open_positions || 20)],
@@ -667,6 +669,14 @@ export default function MarketsCommandCenter({ organizationId }) {
                           {latestPortfolioRisk?.stress_risk?.worst_scenario?.loss_pct_equity == null
                             ? "—"
                             : `${Number(latestPortfolioRisk.stress_risk.worst_scenario.loss_pct_equity).toFixed(2)}%`}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#9A968E]">Portfolio beta</div>
+                        <div className="mt-0.5 font-semibold">
+                          {latestPortfolioRisk?.benchmark_beta?.projected_beta == null
+                            ? "—"
+                            : Number(latestPortfolioRisk.benchmark_beta.projected_beta).toFixed(2)}
                         </div>
                       </div>
                       <div className="col-span-2">
@@ -762,6 +772,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                         ["Max ES 95% %", "max_portfolio_expected_shortfall_95_pct", "0.01", "100", "0.1"],
                         ["Max position vol %", "max_position_annualized_volatility_pct", "0.01", "1000", "0.1"],
                         ["Max stress loss %", "max_portfolio_stress_loss_pct", "0.01", "100", "0.1"],
+                        ["Max portfolio beta", "max_portfolio_beta", "0.1", "5", "0.01"],
                         ["Market shock %", "stress_market_shock_pct", "0.01", "100", "0.1"],
                         ["Sector shock %", "stress_sector_shock_pct", "0.01", "100", "0.1"],
                         ["Cluster shock %", "stress_correlated_cluster_shock_pct", "0.01", "100", "0.1"],
@@ -939,6 +950,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                         max_portfolio_expected_shortfall_95_pct: Number(riskDraft?.max_portfolio_expected_shortfall_95_pct ?? 8),
                         max_position_annualized_volatility_pct: Number(riskDraft?.max_position_annualized_volatility_pct ?? 100),
                         max_portfolio_stress_loss_pct: Number(riskDraft?.max_portfolio_stress_loss_pct ?? 12),
+                        max_portfolio_beta: Number(riskDraft?.max_portfolio_beta ?? 1.5),
                         stress_market_shock_pct: Number(riskDraft?.stress_market_shock_pct ?? 8),
                         stress_sector_shock_pct: Number(riskDraft?.stress_sector_shock_pct ?? 12),
                         stress_correlated_cluster_shock_pct: Number(riskDraft?.stress_correlated_cluster_shock_pct ?? 15),

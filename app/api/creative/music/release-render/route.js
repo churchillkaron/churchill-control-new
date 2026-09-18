@@ -58,6 +58,9 @@ function currentSession(project) {
 }
 
 
+
+function pictureBwf(session, sampleRate) { const lock=session?.picture_lock; if(!lock?.picture_lock_digest) return null; const parts=String(lock.start_timecode||"00:00:00:00").split(":").map(v=>Math.max(0,Math.floor(Number(v)||0))); const [h=0,m=0,s=0,f=0]=parts, fps=Math.max(1,Number(lock.frame_rate)||24); return { enabled:true, start_timecode:lock.start_timecode||"00:00:00:00", frame_rate:fps, time_reference_samples:Math.round((h*3600+m*60+s+f/fps)*sampleRate), description:`${session.title||"Avantiqo"} final master`, originator:"Avantiqo Professional Audio Engine", originator_reference:lock.picture_lock_digest }; }
+
 function versionedSession(session, languageInput) { if (!audioPostSessionHasLanguageRoles(session)) return { session, delivery_language: null }; const language = normalizeAudioPostLanguage(languageInput); return { session: buildAudioPostLanguageSession(session, language), delivery_language: language }; }
 
 function assertRevision(session, expectedRevision, prefix = "CREATIVE_MUSIC_RELEASE") {
@@ -149,6 +152,8 @@ async function registerMix(body) {
   const rmsDbfs = finite(levels.rms_dbfs, null);
   if (!Number.isFinite(peakDbfs) || !Number.isFinite(rmsDbfs)) throw new Error("CREATIVE_MUSIC_RELEASE_LEVEL_EVIDENCE_REQUIRED");
   const fileName = safeWavName(body.file_name);
+  const bwfVerification = version.session.picture_lock?.picture_lock_digest ? await verifyMusicBwfDelivery({ organization_id: organizationId, file_url: storageReference, file_name: fileName, expected: { start_timecode: version.session.picture_lock.start_timecode, frame_rate: version.session.picture_lock.frame_rate, sample_rate: plan.sample_rate, bit_depth: 24, channels: plan.channels, require_extensible: plan.channels > 2 } }) : null;
+  if (bwfVerification && !bwfVerification.passed) throw new Error(`CREATIVE_MUSIC_RELEASE_BWF_INVALID:${bwfVerification.failures.join(",")}`);
 
   const asset = await CreativeAssetsRuntime.create({
     organization_id: organizationId,
@@ -181,6 +186,11 @@ async function registerMix(body) {
       channel_layout: plan.channel_layout,
       speaker_order: plan.speaker_order,
       bit_depth: 24,
+      bwf_verification: bwfVerification,
+      bwf_verified: bwfVerification?.passed === true,
+      bext_present: bwfVerification?.bext_present === true,
+      time_reference_samples: bwfVerification?.bext?.time_reference_samples ?? null,
+      start_timecode: version.session.picture_lock?.start_timecode || null,
       peak_dbfs: peakDbfs,
       rms_dbfs: rmsDbfs,
       clipping: levels.clipping === true,
@@ -310,7 +320,7 @@ async function finishRelease(body) {
           sample_rate: plan.sample_rate,
           channels: 2,
           deliveries: [
-            { id: "release-wav", format: "wav", file_name: "master.wav", codec: "pcm_s24le", bit_depth: 24, dither_required: true },
+            { id: "release-wav", format: "wav", file_name: "master.wav", codec: "pcm_s24le", bit_depth: 24, dither_required: true, metadata: { bwf: pictureBwf(version.session, plan.sample_rate) } },
             ...(plan.exports.release_mp3.enabled ? [{ id: "release-mp3", format: "mp3", file_name: "master.mp3", bitrate: "320k" }] : []),
           ],
           waveform: { width: 1600, height: 400 },
@@ -343,6 +353,9 @@ async function finishRelease(body) {
   const masterReference = text(output.master_url || output.audio_url || output.file_url || output.url);
   if (!masterReference) throw new Error("CREATIVE_MUSIC_RELEASE_MASTER_REFERENCE_REQUIRED");
 
+  const finalBwfVerification = version.session.picture_lock?.picture_lock_digest ? await verifyMusicBwfDelivery({ organization_id: organizationId, file_url: masterReference, file_name: "master.wav", expected: { start_timecode: version.session.picture_lock.start_timecode, frame_rate: version.session.picture_lock.frame_rate, sample_rate: plan.sample_rate, bit_depth: 24, channels: 2, require_extensible: false } }) : null;
+  if (finalBwfVerification && !finalBwfVerification.passed) throw new Error(`CREATIVE_MUSIC_RELEASE_MASTER_BWF_INVALID:${finalBwfVerification.failures.join(",")}`);
+
   const existingAssets = await CreativeAssetsRuntime.list({ organization_id: organizationId, creative_project_id: projectId, limit: 1000 });
   let masterAsset = existingAssets.find((entry) => text(entry.metadata?.music_finish_task_id) === text(finishTask.id)) || null;
   if (!masterAsset) {
@@ -371,6 +384,11 @@ async function finishRelease(body) {
         render_plan_fingerprint: fingerprint,
         music_finish_task_id: finishTask.id,
         mastering_profile: mastering.profile,
+        bwf_verification: finalBwfVerification,
+        bwf_verified: finalBwfVerification?.passed === true,
+        bext_present: finalBwfVerification?.bext_present === true,
+        time_reference_samples: finalBwfVerification?.bext?.time_reference_samples ?? null,
+        start_timecode: version.session.picture_lock?.start_timecode || null,
         integrated_lufs: finite(report.master?.integrated_lufs, null),
         true_peak_dbtp: finite(report.master?.true_peak_dbtp, null),
         release_candidate: output.release_candidate === true,

@@ -62,7 +62,7 @@ test("24-bit WAV encoder preserves discrete 5.1 and 7.1 channel counts",async()=
   for(const count of [6,8]){
     const channels=Array.from({length:count},(_,channel)=>new Float32Array([channel/10,0,-channel/10]));
     const wav=encodeMusicChannelsWav24(channels,48000);
-    assert.equal(wav.contract,"AVANTIQO_MUSIC_WAV24_ENCODER_V3");
+    assert.equal(wav.contract,"AVANTIQO_MUSIC_WAV24_ENCODER_V4");
     assert.equal(wav.channels,count);
     const view=new DataView(wav.array_buffer);
     assert.equal(view.getUint16(20,true),0xfffe);

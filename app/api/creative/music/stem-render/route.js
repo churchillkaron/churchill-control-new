@@ -10,6 +10,7 @@ import { buildMusicReleaseRenderPlan } from "@/lib/creative/music/runtime/Creati
 import { musicTrackEvidenceInputFingerprint } from "@/lib/creative/music/runtime/CreativeMusicEvidenceLineageRuntime";
 import { professionalAudioStemDefinition, tracksForProfessionalAudioStem } from "@/lib/creative/music/runtime/CreativeProfessionalAudioEngineRuntime";
 import { filterTrackForAudioPostLanguage, isLanguageScopedPostStem, languageVersionAssetMetadata, normalizeAudioPostLanguage } from "@/lib/creative/music/runtime/CreativeAudioPostVersionRuntime";
+import { verifyMusicBwfDelivery } from "@/lib/creative/music/runtime/CreativeMusicBwfVerificationRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
@@ -197,6 +198,8 @@ async function registerStem(body) {
   const levels = body.levels || {};
   if (!Number.isFinite(finite(levels.peak_dbfs, null)) || !Number.isFinite(finite(levels.rms_dbfs, null))) throw new Error("CREATIVE_MUSIC_STEM_LEVEL_EVIDENCE_REQUIRED");
   const fileName = safeWavName(body.file_name);
+  const bwfVerification = session.picture_lock?.picture_lock_digest ? await verifyMusicBwfDelivery({ organization_id: organizationId, file_url: storageReference, file_name: fileName, expected: { start_timecode: session.picture_lock.start_timecode, frame_rate: session.picture_lock.frame_rate, sample_rate: plan.sample_rate, bit_depth: 24, channels: expectedChannels, require_extensible: expectedChannels > 2 } }) : null;
+  if (bwfVerification && !bwfVerification.passed) throw new Error(`CREATIVE_MUSIC_STEM_BWF_INVALID:${bwfVerification.failures.join(",")}`);
   const assetKind = stem.kind === "TRACK_EVIDENCE" ? "TRACK_EVIDENCE_RENDER" : stem.kind === "TRACK_STEM" ? "TRACK_STEM_RENDER" : stem.kind === "GROUP_STEM" ? "GROUP_STEM_RENDER" : stem.kind === "POST_STEM" ? "PROFESSIONAL_AUDIO_STEM" : stem.kind;
   const asset = await CreativeAssetsRuntime.create({
     organization_id: organizationId,
@@ -234,6 +237,11 @@ async function registerStem(body) {
       professional_audio_engine: stem.professional_audio_engine === true,
       ...languageVersionAssetMetadata(stem.target_id, stem.delivery_language),
       bit_depth: 24,
+      bwf_verification: bwfVerification,
+      bwf_verified: bwfVerification?.passed === true,
+      bext_present: bwfVerification?.bext_present === true,
+      time_reference_samples: bwfVerification?.bext?.time_reference_samples ?? null,
+      start_timecode: session.picture_lock?.start_timecode || null,
       render_duration_seconds: duration,
       peak_dbfs: levels.peak_dbfs,
       rms_dbfs: levels.rms_dbfs,

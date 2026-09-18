@@ -8,7 +8,7 @@ function sine({amp=.2,dc=0,frames=48000,freq=440,rate=48000}={}){const a=new Flo
 test("capture QC measures headroom crest DC floor and channel balance without mutating audio",()=>{
   const left=sine({amp:.2}),right=sine({amp:.2});
   const qc=analyzeMusicCaptureQc([left,right],48000);
-  assert.equal(qc.contract,"AVANTIQO_MUSIC_CAPTURE_QC_V4");
+  assert.equal(qc.contract,"AVANTIQO_MUSIC_CAPTURE_QC_V5");
   assert.equal(qc.measured,true);
   assert.equal(qc.automatic_capture_repair_allowed,false);
   assert.equal(qc.immutable_original_take,true);
@@ -93,4 +93,19 @@ test("capture QC rejects fully silent takes and reviews dead stereo channels",()
   assert.equal(stereo.status,"REVIEW");
   assert.ok(stereo.warnings.includes("SILENT_CHANNEL"));
   assert.equal(stereo.silent_channel_count,1);
+});
+
+
+test("capture QC fails closed on dropped/discontinuous recorder blocks",()=>{
+  const signal=sine({amp:.2});
+  const qc=analyzeMusicCaptureQc([signal],48000,{chunk_gap_count:1,frame_discontinuity_count:1,expected_frame_count:signal.length});
+  assert.equal(qc.status,"RETAKE_REQUIRED");
+  assert.equal(qc.capture_continuity_verified,false);
+  assert.ok(qc.warnings.includes("CAPTURE_DISCONTINUITY"));
+});
+
+test("capture continuity is verified when sequence/frame ledger is complete",()=>{
+  const signal=sine({amp:.2});
+  const qc=analyzeMusicCaptureQc([signal],48000,{chunk_gap_count:0,frame_discontinuity_count:0,expected_frame_count:signal.length});
+  assert.equal(qc.capture_continuity_verified,true);
 });

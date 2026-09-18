@@ -105,6 +105,7 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
   const startedAtRef = useRef(0);
   const timerRef = useRef(null);
   const finishResolverRef = useRef(null);
+  const continuityRef = useRef({ expectedSequence: 0, expectedFrameStart: 0, chunkGapCount: 0, frameDiscontinuityCount: 0 });
   const captureTruthRef = useRef({ browser_processing_disabled:false, browser_processing_verification:"UNVERIFIED", requested_browser_processing_disabled:true, wav_container_bit_depth:24, capture_sample_size_bits:null, native_capture_precision_verified:false, effective_capture_precision_known:false, device_sample_rate:null, device_channel_count:null });
 
   const qc = useMemo(() => levelStatus(meter.peak, meter.rms, meter.clipped), [meter]);
@@ -175,6 +176,7 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
       if (take?.url) URL.revokeObjectURL(take.url);
       setTake(null);
       chunksRef.current = [];
+      continuityRef.current = { expectedSequence: 0, expectedFrameStart: 0, chunkGapCount: 0, frameDiscontinuityCount: 0 };
       statsRef.current = { sumSquares: 0, samples: 0, peak: 0, clipped: false };
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -230,6 +232,12 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
 
       recorder.port.onmessage = (event) => {
         if (event.data?.type === "pcm" && Array.isArray(event.data.channels)) {
+          const continuity = continuityRef.current;
+          const sequence = Number(event.data.sequence), frameStart = Number(event.data.frame_start), frameEnd = Number(event.data.frame_end), frames = Number(event.data.frames);
+          if (!Number.isFinite(sequence) || sequence !== continuity.expectedSequence) continuity.chunkGapCount += 1;
+          if (!Number.isFinite(frameStart) || frameStart !== continuity.expectedFrameStart || !Number.isFinite(frameEnd) || !Number.isFinite(frames) || frameEnd - frameStart !== frames) continuity.frameDiscontinuityCount += 1;
+          continuity.expectedSequence = Number.isFinite(sequence) ? sequence + 1 : continuity.expectedSequence + 1;
+          continuity.expectedFrameStart = Number.isFinite(frameEnd) ? frameEnd : continuity.expectedFrameStart + Math.max(0, Number.isFinite(frames) ? frames : 0);
           const channels = event.data.channels.map((value) => new Float32Array(value));
           if (!chunksRef.current.length) chunksRef.current = channels.map(() => []);
           channels.forEach((chunk, index) => chunksRef.current[index]?.push(chunk));
@@ -302,9 +310,10 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
       const peak = dbfs(stats.peak);
       const rms = dbfs(Math.sqrt(stats.sumSquares / Math.max(1, stats.samples)));
       const clipped = stats.clipped || peak >= -0.1;
+      const captureQc = analyzeMusicCaptureQc(channels, context.sampleRate, { chunk_gap_count: continuityRef.current.chunkGapCount, frame_discontinuity_count: continuityRef.current.frameDiscontinuityCount, expected_frame_count: continuityRef.current.expectedFrameStart });
       const resultQc = levelStatus(peak, rms, clipped);
       const url = URL.createObjectURL(blob);
-      setTake({ blob, url, duration, sampleRate: context.sampleRate, channels: channels.length, peak, rms, clipped, qc: resultQc.status, ...captureTruthRef.current });
+      setTake({ blob, url, duration, sampleRate: context.sampleRate, channels: channels.length, peak, rms, clipped, qc: resultQc.status, captureQc, ...captureTruthRef.current });
       setMeter({ peak, rms, clipped });
       setElapsed(duration);
     } catch (cause) {
@@ -366,6 +375,9 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
         dc_offset: take.captureQc?.dc_offset ?? null,
         background_floor_estimate_dbfs: take.captureQc?.background_floor_estimate_dbfs ?? null,
         channel_imbalance_db: take.captureQc?.channel_imbalance_db ?? null,
+        chunk_gap_count: take.captureQc?.chunk_gap_count ?? 0,
+        frame_discontinuity_count: take.captureQc?.frame_discontinuity_count ?? 0,
+        capture_continuity_verified: take.captureQc?.capture_continuity_verified === true,
         browser_processing_disabled: take.browser_processing_disabled === true,
         browser_processing_verification: take.browser_processing_verification || "UNVERIFIED",
         requested_browser_processing_disabled: take.requested_browser_processing_disabled === true,

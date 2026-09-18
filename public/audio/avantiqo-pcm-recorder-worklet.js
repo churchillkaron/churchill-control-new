@@ -4,6 +4,8 @@ class AvantiqoPcmRecorderProcessor extends AudioWorkletProcessor {
     this.channelChunks = [];
     this.pendingFrames = 0;
     this.flushFrames = 4096;
+    this.sequence = 0;
+    this.totalFrames = 0;
     this.port.onmessage = (event) => {
       if (event?.data?.type === "flush") this.flush("manual");
     };
@@ -16,7 +18,7 @@ class AvantiqoPcmRecorderProcessor extends AudioWorkletProcessor {
   flush(reason = "chunk") {
     if (!this.pendingFrames || !this.channelChunks.length) {
       if (reason === "manual") {
-        this.port.postMessage({ type: "flushed", reason, channels: 0, frames: 0 });
+        this.port.postMessage({ type: "flushed", reason, channels: 0, frames: 0, sequence: this.sequence, total_frames: this.totalFrames });
       }
       return;
     }
@@ -34,12 +36,17 @@ class AvantiqoPcmRecorderProcessor extends AudioWorkletProcessor {
     this.channelChunks = this.channelChunks.map(() => []);
     const frames = this.pendingFrames;
     this.pendingFrames = 0;
+    const frameStart = this.totalFrames;
+    const frameEnd = frameStart + frames;
+    const sequence = this.sequence;
+    this.sequence += 1;
+    this.totalFrames = frameEnd;
     this.port.postMessage(
-      { type: "pcm", channels: output, frames },
+      { type: "pcm", channels: output, frames, sequence, frame_start: frameStart, frame_end: frameEnd },
       output.map((channel) => channel.buffer),
     );
     if (reason === "manual") {
-      this.port.postMessage({ type: "flushed", reason, channels: output.length, frames });
+      this.port.postMessage({ type: "flushed", reason, channels: output.length, frames, sequence: this.sequence, total_frames: this.totalFrames });
     }
   }
 

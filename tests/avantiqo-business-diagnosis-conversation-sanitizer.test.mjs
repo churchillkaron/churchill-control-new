@@ -138,3 +138,61 @@ test("unverified snapshot diagnosis is reduced to minimum safe payload", () => {
   assert.deepEqual(result.execution, {});
   assert.deepEqual(result.navigation, {});
 });
+
+test("multiple unsafe diagnosis pairs are removed without deleting surrounding safe conversation", () => {
+  const rows = [
+    { role: "assistant", content: "safe latest answer", evidence: {} },
+    { role: "user", content: "latest normal question", evidence: {} },
+    { role: "assistant", content: "unsafe two", evidence: diagnosisEvidence({ status: "mismatch" }) },
+    { role: "user", content: "unsafe question two", evidence: {} },
+    { role: "assistant", content: "verified diagnosis", evidence: diagnosisEvidence() },
+    { role: "user", content: "verified question", evidence: {} },
+    { role: "assistant", content: "unsafe one", evidence: diagnosisEvidence({ status: "mismatch" }) },
+    { role: "user", content: "unsafe question one", evidence: {} },
+    { role: "assistant", content: "safe oldest answer", evidence: {} },
+    { role: "user", content: "oldest normal question", evidence: {} },
+  ];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows), [
+    { role: "user", content: "oldest normal question" },
+    { role: "assistant", content: "safe oldest answer" },
+    { role: "user", content: "verified question" },
+    { role: "assistant", content: "verified diagnosis" },
+    { role: "user", content: "latest normal question" },
+    { role: "assistant", content: "safe latest answer" },
+  ]);
+});
+
+test("unsafe diagnosis without an immediately preceding user does not delete a safe assistant", () => {
+  const rows = [
+    { role: "assistant", content: "unsafe orphan diagnosis", evidence: diagnosisEvidence({ status: "mismatch" }) },
+    { role: "assistant", content: "safe answer", evidence: {} },
+    { role: "user", content: "safe question", evidence: {} },
+  ];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows), [
+    { role: "user", content: "safe question" },
+    { role: "assistant", content: "safe answer" },
+  ]);
+});
+
+test("two consecutive unsafe diagnosis pairs both disappear", () => {
+  const rows = [
+    { role: "assistant", content: "unsafe second", evidence: diagnosisEvidence({ status: "mismatch" }) },
+    { role: "user", content: "second unsafe question", evidence: {} },
+    { role: "assistant", content: "unsafe first", evidence: diagnosisEvidence({ status: "mismatch" }) },
+    { role: "user", content: "first unsafe question", evidence: {} },
+  ];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows), []);
+});
+
+test("snapshot sanitizer quarantines only unsafe diagnoses in a mixed transcript", () => {
+  const normal = { role: "assistant", content: "normal", evidence: { provider: "safe" }, decision: { response_text: "normal" } };
+  const verified = { role: "assistant", content: "verified", evidence: diagnosisEvidence(), decision: { response_text: "verified" } };
+  const unsafe = { role: "assistant", content: "unsafe", evidence: diagnosisEvidence({ status: "mismatch" }), decision: { response_text: "unsafe", clarification: { options: ["stale"] } }, execution: { status: "stale" } };
+  const result = [normal, verified, unsafe].map(sanitizeBusinessDiagnosisSnapshotTurn);
+  assert.equal(result[0].content, "normal");
+  assert.equal(result[0].evidence.provider, "safe");
+  assert.equal(result[1].content, "verified");
+  assert.equal(result[1].evidence.business_diagnosis.audit_projection_verified, true);
+  assert.match(result[2].content, /historical diagnosis is hidden/i);
+  assert.deepEqual(result[2].execution, {});
+});

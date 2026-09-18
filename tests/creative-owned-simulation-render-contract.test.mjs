@@ -33,7 +33,7 @@ test('particle simulation receives deterministic numeric execution authority at 
 });
 
 test('unsupported heavy solver remains blocked instead of being faked',()=>{
-  const authored=CreativeSimulationRuntime.author({simulation:[request('PYRO_SMOKE_FIRE')],subject:'flame source',action:'ignition',frame_plan:{opening_frame:'source cold',progression:'ignites',closing_frame:'smoke rises'},continuity:{environment:'kitchen'}});
+  const authored=CreativeSimulationRuntime.author({simulation:[request('LIQUID_FLUID')],subject:'flame source',action:'ignition',frame_plan:{opening_frame:'source cold',progression:'ignites',closing_frame:'smoke rises'},continuity:{environment:'kitchen'}});
   assert.equal(authored.status,'BLOCKED');
   assert.ok(authored.blocking_issues.some(x=>x.code==='SIMULATION_BACKEND_NOT_IMPLEMENTED'));
 });

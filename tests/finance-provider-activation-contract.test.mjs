@@ -154,3 +154,31 @@ test("Finance connection cards expose one exact setup path and verification acti
   assert.match(connectionsOverview, /verify_etax/);
   assert.match(connectionsOverview, /Test connection/);
 });
+
+const verificationMigration = read("supabase/migrations/20260918193000_finance_provider_verification_history.sql");
+
+test("provider verification history is append-only service-role evidence", () => {
+  assert.match(verificationMigration, /create table if not exists public\.finance_provider_verification_events/);
+  assert.match(verificationMigration, /verification_status.*VERIFIED.*CONFIGURED_UNVERIFIED.*VERIFICATION_FAILED/s);
+  assert.match(verificationMigration, /non_mutating boolean not null default true/);
+  assert.match(verificationMigration, /revoke all on table public\.finance_provider_verification_events from anon, authenticated/);
+  assert.match(verificationMigration, /grant select, insert on table public\.finance_provider_verification_events to service_role/);
+  assert.doesNotMatch(verificationMigration, /grant .*update.*finance_provider_verification_events/i);
+  assert.doesNotMatch(verificationMigration, /grant .*delete.*finance_provider_verification_events/i);
+});
+
+test("verification receipt and latest credential metadata are recorded atomically", () => {
+  assert.match(verificationMigration, /record_finance_provider_verification/);
+  assert.match(verificationMigration, /update public\.provider_credentials/);
+  assert.match(verificationMigration, /insert into public\.finance_provider_verification_events/);
+  assert.match(verificationMigration, /FINANCE_PROVIDER_VERIFICATION_SECRET_DETAIL_FORBIDDEN/);
+  assert.match(verificationMigration, /secret_reference/);
+  assert.match(route, /rpc\("record_finance_provider_verification"/);
+});
+
+test("Finance connection status returns recent durable provider verification evidence", () => {
+  assert.match(route, /finance_provider_verification_events/);
+  assert.match(route, /verification_history/);
+  assert.match(connectionsOverview, /Recent connection checks/);
+  assert.match(connectionsOverview, /verification_history/);
+});

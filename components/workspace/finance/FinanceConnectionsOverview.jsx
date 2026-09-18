@@ -16,7 +16,7 @@ function tone(status) {
   return "border-amber-700/15 bg-amber-50 text-amber-900";
 }
 
-function ConnectionCard({ icon: Icon, title, description, status, detail, href, actionLabel, onVerify, busy }) {
+function ConnectionCard({ icon: Icon, title, description, status, detail, history = [], href, actionLabel, onVerify, busy }) {
   return (
     <section className="rounded-2xl border border-black/[0.07] bg-white p-4">
       <div className="flex items-start justify-between gap-3">
@@ -30,6 +30,7 @@ function ConnectionCard({ icon: Icon, title, description, status, detail, href, 
         <span className={"shrink-0 rounded-full border px-2 py-1 text-[8px] font-semibold " + tone(status)}>{label(status || "Not configured")}</span>
       </div>
       <div className="mt-3 min-h-8 text-[8px] leading-4 text-[#817B73]">{detail || "No provider connection has been configured yet."}</div>
+      {history.length ? <div className="mt-2 space-y-1 rounded-lg bg-[#F8F6F2] p-2"><div className="text-[8px] font-semibold text-[#716B63]">Recent connection checks</div>{history.slice(0, 3).map((row) => <div key={row.id} className="flex items-center justify-between gap-2 text-[8px] text-[#918B83]"><span>{label(row.verification_status)}</span><span>{shortTime(row.verified_at)}</span></div>)}</div> : null}
       <div className="mt-3 flex flex-wrap gap-2">
         {onVerify ? <button type="button" onClick={onVerify} disabled={busy} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[8px] font-semibold text-[#514B44] disabled:opacity-40"><ShieldCheck size={10}/>{busy ? "Testing…" : "Test connection"}</button> : null}
         <Link href={href} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">{actionLabel}</Link>
@@ -126,6 +127,7 @@ export default function FinanceConnectionsOverview({ organizationId }) {
           description="Brankas statement feed for supported Thailand bank accounts."
           status={bankStatus}
           detail={bankDetail}
+          history={data?.bank?.verification_history || []}
           href={"/workspace/" + organizationId + "/finance/banking-integrations"}
           actionLabel={data?.bank?.ready ? "Open bank feeds" : "Set up bank feed"}
           onVerify={data?.bank?.ready ? () => verify("verify_bank_feed") : null}
@@ -137,6 +139,7 @@ export default function FinanceConnectionsOverview({ organizationId }) {
           description="ETDA source document flow through a certified external e-Tax provider."
           status={etaxStatus}
           detail={etaxDetail}
+          history={data?.etax?.credential?.verification_history || []}
           href={"/workspace/" + organizationId + "/finance/e-invoicing?create=1"}
           actionLabel={data?.etax?.ready ? "Open e-Tax" : "Set up e-Tax"}
           onVerify={data?.etax?.ready ? () => verify("verify_etax") : null}

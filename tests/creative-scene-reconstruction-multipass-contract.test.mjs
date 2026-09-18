@@ -22,8 +22,11 @@ test('Churchill-like venue still becomes reconstruction truth plus premium multi
   const multi=CreativeMultiPassShotRuntime.buildForShot(enriched);
   assert.equal(multi.contract,'CREATIVE_MULTIPASS_SHOT_CONTRACT_V1');
   const ids=multi.passes.map(p=>p.id);
-  for(const id of ['scene-reconstruction','base-plate','vfx-integration','lighting-interaction','reflection-shadow','composite','optical-finish','color-di','shot-qc']) assert.ok(ids.includes(id),id);
+  for(const id of ['scene-reconstruction','base-plate','vfx-integration','lighting-interaction','reflection-shadow','composite','optical-finish','shot-qc']) assert.ok(ids.includes(id),id);
   assert.equal(multi.rules.single_generation_equals_finished_shot_forbidden,true);
+  assert.equal(multi.rules.final_color_di_is_project_level_after_edit,true);
+  assert.equal(multi.rules.per_shot_final_color_di_forbidden,true);
+  assert.equal(multi.passes.some(p=>p.id==='color-di'),false);
 });
 
 test('synthetic hero VFX shot can use multipass production without venue reconstruction',()=>{

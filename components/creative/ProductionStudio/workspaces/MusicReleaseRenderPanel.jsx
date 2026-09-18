@@ -56,6 +56,13 @@ export default function MusicReleaseRenderPanel({
     return body;
   }
 
+  async function surroundFinishRequest(payload) {
+    const response = await fetch("/api/creative/music/surround-finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const body = await response.json();
+    if (!response.ok || body.success === false) throw new Error(body.error || "Surround finishing failed");
+    return body;
+  }
+
   async function professionalRequest(payload) {
     const response = await fetch("/api/creative/music/professional-release", {
       method: "POST",
@@ -157,9 +164,11 @@ export default function MusicReleaseRenderPanel({
       if (currentPlan?.spatial_audio?.surround_enabled === true) {
         setStatus(`${rendered.channel_layout} SERVER QC · CHANNELS / LFE / DOWNMIX`);
         const technical = await surroundValidationRequest({ organization_id: organizationId, creative_project_id: projectId, asset_id: registered.asset_id });
-        const surroundResult = { ...registered, surround_premaster: true, channel_layout: rendered.channel_layout, channels: rendered.channels, speaker_order: rendered.speaker_order, stereo_downmix_qc: rendered.stereo_downmix_qc, per_speaker_levels: rendered.per_speaker_levels, surround_validation: technical.validation, surround_validation_passed: technical.validation?.passed === true, dolby_branded: false };
+        setStatus(`${rendered.channel_layout} MASTERING · TWO-PASS LOUDNESS / TRUE PEAK`);
+        const finished = await surroundFinishRequest({ organization_id: organizationId, creative_project_id: projectId, premaster_asset_id: registered.asset_id, options });
+        const surroundResult = { ...registered, ...finished, surround_premaster: false, surround_master: true, channel_layout: rendered.channel_layout, channels: rendered.channels, speaker_order: rendered.speaker_order, stereo_downmix_qc: rendered.stereo_downmix_qc, per_speaker_levels: rendered.per_speaker_levels, premaster_surround_validation: technical.validation, surround_validation: finished.surround_validation, surround_validation_passed: finished.surround_validation?.passed === true, dolby_branded: false };
         setResult(surroundResult);
-        setStatus(`${rendered.channel_layout} PRE-MASTER · TECHNICAL QC PASS`);
+        setStatus(`${rendered.channel_layout} SURROUND MASTER · QC PASS`);
         await onReleased?.(surroundResult);
       } else if (professionalRelease?.active) {
         if (professionalRelease?.next_stage?.stage_id !== "MIX_ENGINEERING") {

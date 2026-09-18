@@ -96,7 +96,7 @@ test("surround renderer is a separate exact path and Release UI selects it",()=>
   assert.match(renderer,/explicit_send_only: true/);
   assert.match(renderer,/dolby_branded: false/);
   assert.match(panel,/renderMusicSurroundPremasterOffline/);
-  assert.match(panel,/TECHNICAL QC PASS/);
+  assert.match(panel,/SURROUND MASTER · QC PASS/);
 });
 
 
@@ -127,7 +127,7 @@ test("surround validation re-probes rendered file and verifies channel/LFE/downm
   assert.match(route,/SURROUND_PREMASTER/);
   assert.match(release,/SURROUND_PREMASTER/);
   assert.match(panel,/surroundValidationRequest/);
-  assert.match(panel,/TECHNICAL QC PASS/);
+  assert.match(panel,/SURROUND MASTER · QC PASS/);
 });
 
 

@@ -136,8 +136,10 @@ test("invalid diagnosis proof persists only paired safe failure turn before retu
   assert.match(route,/business_diagnosis_integrity_failure/);
   assert.match(route,/This diagnosis was not saved because its proof could not be verified/);
   assert.match(route,/No analysis result or action was persisted/);
-  assert.match(route,/stage: "PERSISTENCE_PROOF_REJECTED"/);
-  assert.match(route,/throw businessDiagnosisProofIntegrityError\("PERSISTENCE_PROOF_REJECTED"\)/);
+  assert.match(route,/const stage = text\(error\?\.details\?\.stage\) \|\| "LIVE_PROOF_REJECTED"/);
+  assert.match(route,/stage === "PERSISTENCE_PROOF_REJECTED"/);
+  assert.match(route,/const persistenceError = businessDiagnosisProofIntegrityError\("PERSISTENCE_PROOF_REJECTED"\)/);
+  assert.match(route,/throw persistenceError/);
   const guardIndex=route.indexOf("if (diagnosisResultPresent && !object(diagnosisPersistenceEvidence).business_diagnosis)");
   const normalPersistIndex=route.indexOf("const assistantPersistStartedAt = Date.now()",guardIndex);
   const longTermLearnIndex=route.indexOf("const longTermLearnPromise = learnProjectStateMemories",guardIndex);
@@ -149,4 +151,48 @@ test("normal assistant persistence reuses prevalidated diagnosis evidence instea
   const first=route.indexOf("persistedBusinessDiagnosisEvidence(result, {");
   const second=route.indexOf("persistedBusinessDiagnosisEvidence(result, {",first+1);
   assert.equal(second,-1);
+});
+
+
+test("readiness and live-proof failures pair already-persisted user prompt with a neutral assistant turn",()=>{
+  assert.match(route,/function governedDiagnosisFailurePersistence/);
+  assert.match(route,/BUSINESS_DIAGNOSIS_NOT_READY/);
+  assert.match(route,/BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE/);
+  assert.match(route,/persistGovernedDiagnosisFailureTurn/);
+  assert.match(route,/const userTurnPersisted = await userPersistPromise\.then\(\(\) => true\)\.catch\(\(\) => false\)/);
+  assert.match(route,/if \(userTurnPersisted\) \{/);
+  assert.match(route,/This diagnosis was not started because required proof readiness was unavailable/);
+  assert.match(route,/This diagnosis was stopped because its proof could not be verified/);
+  const join=route.indexOf("[result] = await Promise.all([");
+  const pair=route.indexOf("persistGovernedDiagnosisFailureTurn({",join);
+  const response=route.indexOf("const responseText =",join);
+  assert.ok(join>=0&&pair>join&&response>pair);
+});
+
+test("all governed diagnosis failure turns persist no execution or navigation",()=>{
+  const helperStart=route.indexOf("function governedDiagnosisFailurePersistence");
+  const helperEnd=route.indexOf("function prepaidBalanceBlockedResult",helperStart);
+  const helper=route.slice(helperStart,helperEnd);
+  assert.match(helper,/execution: \{\}/);
+  assert.match(helper,/navigation: \{\}/);
+  assert.match(helper,/authority_effect: "NONE"/);
+});
+
+test("persistence-stage proof rejection reuses the same governed pairing helper",()=>{
+  const guard=route.indexOf("if (diagnosisResultPresent && !object(diagnosisPersistenceEvidence).business_diagnosis)");
+  const after=route.slice(guard,route.indexOf("const assistantPersistStartedAt",guard));
+  assert.match(after,/businessDiagnosisProofIntegrityError\("PERSISTENCE_PROOF_REJECTED"\)/);
+  assert.match(after,/persistGovernedDiagnosisFailureTurn/);
+  assert.doesNotMatch(after,/persistAssistantTurnAndConversationState\(/);
+});
+
+
+test("assistant failure pairing is skipped if the user turn itself was not persisted",()=>{
+  const join=route.indexOf("[result] = await Promise.all([");
+  const catchBlock=route.slice(route.indexOf("} catch (operatorError) {",join),route.indexOf("const responseText =",join));
+  assert.match(catchBlock,/const userTurnPersisted = await userPersistPromise\.then\(\(\) => true\)\.catch\(\(\) => false\)/);
+  assert.match(catchBlock,/if \(userTurnPersisted\) \{/);
+  const guard=catchBlock.indexOf("if (userTurnPersisted)");
+  const pair=catchBlock.indexOf("persistGovernedDiagnosisFailureTurn",guard);
+  assert.ok(guard>=0&&pair>guard);
 });

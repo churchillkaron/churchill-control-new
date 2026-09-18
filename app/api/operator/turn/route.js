@@ -194,6 +194,73 @@ function isInsufficientWalletBalance(error) {
   return text(error?.message || error).includes("INSUFFICIENT_WALLET_BALANCE");
 }
 
+function governedDiagnosisFailurePersistence(error = {}) {
+  if (error?.code === "BUSINESS_DIAGNOSIS_NOT_READY") {
+    return {
+      content: "This diagnosis was not started because required proof readiness was unavailable. No analysis result or action was persisted.",
+      intent: "business_diagnosis_not_ready",
+      evidence: {
+        business_diagnosis_readiness_failure: {
+          code: "BUSINESS_DIAGNOSIS_NOT_READY",
+          readiness_status: text(error?.details?.readiness_status) || null,
+          blocker_count: Number.isFinite(Number(error?.details?.blocker_count)) ? Number(error.details.blocker_count) : 0,
+          authority_effect: "NONE",
+        },
+      },
+    };
+  }
+  if (error?.code === BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE) {
+    const stage = text(error?.details?.stage) || "LIVE_PROOF_REJECTED";
+    return {
+      content: stage === "PERSISTENCE_PROOF_REJECTED"
+        ? "This diagnosis was not saved because its proof could not be verified. No analysis result or action was persisted."
+        : "This diagnosis was stopped because its proof could not be verified. No analysis result or action was persisted.",
+      intent: "business_diagnosis_integrity_failure",
+      evidence: {
+        business_diagnosis_integrity_failure: {
+          code: BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE,
+          stage,
+          authority_effect: "NONE",
+        },
+      },
+    };
+  }
+  return null;
+}
+
+async function persistGovernedDiagnosisFailureTurn({
+  error, organizationId, conversationId, partyId, source, agreementState, projectState,
+} = {}) {
+  const failure = governedDiagnosisFailurePersistence(error);
+  if (!failure) return false;
+  await persistAssistantTurnAndConversationState({
+    organizationId,
+    conversationId,
+    partyId,
+    source,
+    content: failure.content,
+    decision: {
+      response_text: failure.content,
+      intent: failure.intent,
+      confidence: 1,
+      agreement_state: object(agreementState),
+      project_state: object(projectState),
+      clarification: { required: false, question: null, options: [] },
+      navigation: { target_id: null },
+      execution: { capability_key: null, payload: {}, reason: null },
+      plan: [],
+      authority_effect: "NONE",
+    },
+    evidence: failure.evidence,
+    execution: {},
+    navigation: {},
+    agreementState: object(agreementState),
+    projectState: object(projectState),
+  });
+  return true;
+}
+
+
 function prepaidBalanceBlockedResult({ agreementState, projectState } = {}) {
   return {
     decision: {
@@ -669,10 +736,27 @@ export async function POST(request) {
       return value;
     });
 
-    const [result] = await Promise.all([
-      operatorPromise,
-      userPersistPromise,
-    ]);
+    let result;
+    try {
+      [result] = await Promise.all([
+        operatorPromise,
+        userPersistPromise,
+      ]);
+    } catch (operatorError) {
+      const userTurnPersisted = await userPersistPromise.then(() => true).catch(() => false);
+      if (userTurnPersisted) {
+        await persistGovernedDiagnosisFailureTurn({
+          error: operatorError,
+          organizationId: businessContext.organizationId,
+          conversationId: memory.conversation.id,
+          partyId,
+          source,
+          agreementState,
+          projectState: effectiveProjectState,
+        });
+      }
+      throw operatorError;
+    }
 
     const responseText =
       text(result?.decision?.response_text) ||
@@ -714,38 +798,17 @@ export async function POST(request) {
       Object.keys(object(result?.business_diagnosis)).length > 0 ||
       text(normalizedDecision.intent) === "business_diagnosis";
     if (diagnosisResultPresent && !object(diagnosisPersistenceEvidence).business_diagnosis) {
-      const safeFailureText =
-        "This diagnosis was not saved because its proof could not be verified. No analysis result or action was persisted.";
-      await persistAssistantTurnAndConversationState({
+      const persistenceError = businessDiagnosisProofIntegrityError("PERSISTENCE_PROOF_REJECTED");
+      await persistGovernedDiagnosisFailureTurn({
+        error: persistenceError,
         organizationId: businessContext.organizationId,
         conversationId: memory.conversation.id,
         partyId,
         source,
-        content: safeFailureText,
-        decision: {
-          response_text: safeFailureText,
-          intent: "business_diagnosis_integrity_failure",
-          confidence: 1,
-          agreement_state: object(nextAgreementState),
-          project_state: object(nextProjectState),
-          clarification: { required: false, question: null, options: [] },
-          navigation: { target_id: null },
-          execution: { capability_key: null, payload: {}, reason: null },
-          plan: [],
-        },
-        evidence: {
-          business_diagnosis_integrity_failure: {
-            code: BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE,
-            stage: "PERSISTENCE_PROOF_REJECTED",
-            authority_effect: "NONE",
-          },
-        },
-        execution: {},
-        navigation: {},
         agreementState: nextAgreementState,
         projectState: nextProjectState,
       });
-      throw businessDiagnosisProofIntegrityError("PERSISTENCE_PROOF_REJECTED");
+      throw persistenceError;
     }
 
     const assistantPersistStartedAt = Date.now();

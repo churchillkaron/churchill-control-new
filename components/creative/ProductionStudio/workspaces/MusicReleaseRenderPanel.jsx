@@ -42,6 +42,10 @@ export default function MusicReleaseRenderPanel({
   const [deliveryProfileId, setDeliveryProfileId] = useState(session?.picture_lock?.picture_lock_digest ? "picture_post" : "music_release");
   const [deliveryTargetLufs, setDeliveryTargetLufs] = useState("");
   const [deliveryTruePeak, setDeliveryTruePeak] = useState("");
+  const [longFormPlan, setLongFormPlan] = useState(null);
+  const [longFormWorker, setLongFormWorker] = useState(null);
+  const [longFormJob, setLongFormJob] = useState(null);
+  const [longFormBusy, setLongFormBusy] = useState(false);
 
   const revision = Math.max(0, Math.round(finite(session?.revision, 0)));
   const languageVersioned = audioPostSessionHasLanguageRoles(session || {});
@@ -93,8 +97,9 @@ export default function MusicReleaseRenderPanel({
         request({ action: "plan", organization_id: organizationId, creative_project_id: projectId, delivery_language: languageVersioned ? deliveryLanguage : null, options }),
         professionalRequest({ action: "status", organization_id: organizationId, creative_project_id: projectId }).catch(() => null),
       ]);
-      setPlan(response.plan || null);
+      const nextPlan=response.plan||null; setPlan(nextPlan);
       setProfessionalRelease(professional?.active ? professional : null);
+      if(nextPlan?.long_form_delivery?.server_render_required){const lf=await fetch("/api/creative/music/long-form-render",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"plan",organization_id:organizationId,creative_project_id:projectId,delivery_language:languageVersioned?deliveryLanguage:null,options})}).then(r=>r.json());setLongFormPlan(lf.long_form_plan||null);setLongFormWorker(lf.worker||null);}else{setLongFormPlan(null);setLongFormWorker(null);}
     } catch (cause) {
       setError(cause?.message || "Release plan could not be prepared.");
     }
@@ -104,6 +109,11 @@ export default function MusicReleaseRenderPanel({
     void refreshPlan();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, projectId, revision, profile, deliveryProfileId, deliveryTargetLufs, deliveryTruePeak, releaseMp3, deliveryLanguage]);
+
+  async function startLongFormRender() {
+    if(!longFormWorker?.ready||longFormBusy)return; setLongFormBusy(true); setError("");
+    try{const response=await fetch("/api/creative/music/long-form-render",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"start",organization_id:organizationId,creative_project_id:projectId,delivery_language:languageVersioned?deliveryLanguage:null,options})}),body=await response.json();if(!response.ok||body.success===false)throw new Error(body.error||"Long-form render could not start");setLongFormJob({job_id:body.job_id,job_hash:body.job_hash,status:body.worker_response?.status||"SUBMITTED",progress_percent:body.worker_response?.progress_percent??0});}catch(cause){setError(cause?.message||"Long-form render could not start");}finally{setLongFormBusy(false);}
+  }
 
   async function renderAndMaster() {
     if (!session || busy || disabled) return;
@@ -248,6 +258,8 @@ export default function MusicReleaseRenderPanel({
         <label className="block"><div className="mb-1 text-[8px] uppercase tracking-[0.14em] text-white/22">Master profile</div><select disabled={disabled || busy} value={profile} onChange={(event) => setProfile(event.target.value)} className="w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-[9px] text-white/55 disabled:opacity-25">{PROFILES.map(([id, label, detail]) => <option key={id} value={id}>{label} · {detail}</option>)}</select></label>
         <label className="flex items-center gap-2 self-end rounded-lg border border-white/7 px-3 py-2 text-[9px] text-white/38"><input type="checkbox" disabled={disabled || busy} checked={releaseMp3} onChange={(event) => setReleaseMp3(event.target.checked)} className="accent-[#d6a66a]" /> 320k MP3 + WAV</label>
       </div>
+
+      {longFormPlan ? <div className="mt-3 rounded-xl border border-[#d6a66a]/14 bg-[#d6a66a]/[0.025] p-3"><div className="flex items-center justify-between gap-3"><div><div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#efd29f]/55">Long-form server render</div><div className="mt-1 text-[8px] text-white/26">{longFormPlan.chunk_count} chunks · {longFormPlan.chunk_body_seconds}s bodies · {longFormPlan.context_seconds}s DSP context · {longFormPlan.rf64_auto?"RF64 auto":"RIFF"}</div></div><div className={`rounded-full border px-2 py-1 text-[7px] ${longFormWorker?.ready?"border-emerald-300/15 text-emerald-100/55":"border-amber-300/15 text-amber-100/55"}`}>{longFormWorker?.ready?"PARITY WORKER READY":"WORKER BLOCKED"}</div></div><div className="mt-2 text-[7px] leading-3 text-white/18">Chunk loudness/limiting is forbidden. Chunks render with graph-state context, sample-exact trim and absolute automation time; whole-program mastering/QC happens only after assembly.</div>{!longFormWorker?.ready?<div className="mt-2 text-[7px] text-amber-100/40">{longFormWorker?.blocking_reason||"Parity-capable long-form audio worker not configured."} · FFmpeg-only fallback is forbidden.</div>:<button type="button" disabled={longFormBusy} onClick={()=>startLongFormRender()} className="mt-3 rounded-lg border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-3 py-2 text-[8px] text-[#efd29f]/70 disabled:opacity-30">{longFormBusy?"Submitting…":"Start long-form render"}</button>}{longFormJob?<div className="mt-2 font-mono text-[7px] text-white/25">{longFormJob.status} · {longFormJob.progress_percent}% · {longFormJob.job_id}</div>:null}</div> : null}
 
       {blockers.length ? <div className="mt-3 rounded-xl border border-amber-300/12 bg-amber-300/[0.02] p-3"><div className="flex items-center gap-2 text-[9px] text-amber-100/65"><TriangleAlert className="h-3.5 w-3.5" /> Release blockers</div><div className="mt-2 space-y-1">{blockers.map((item, index) => <div key={`${item.code}-${index}`} className="text-[8px] leading-4 text-white/28"><span className="text-amber-100/50">{item.code}</span> — {item.message}</div>)}</div></div> : null}
 

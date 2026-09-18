@@ -244,7 +244,9 @@ export default function MusicWorkstationOverdubPanel({
     });
     if (!upload.ok) throw new Error(`CREATIVE_MUSIC_OVERDUB_UPLOAD_${upload.status}`);
     const latencyCompensationSeconds = Math.max(-0.5, Math.min(0.5, finite(latencyCompMs, 0) / 1000));
-    const compensatedStart = Math.max(0, startSeconds - latencyCompensationSeconds);
+    const requestedCompensatedStart = startSeconds - latencyCompensationSeconds;
+    const compensatedStart = Math.max(0, requestedCompensatedStart);
+    const compensationSourceOffsetSeconds = Math.max(0, -requestedCompensatedStart);
     const captureStartMs = Number(take.capture_timing?.capture_start_performance_ms);
     const playbackStartMs = Number(backing?.playback_start_performance_ms);
     const browserClockAlignmentMs = Number.isFinite(captureStartMs) && Number.isFinite(playbackStartMs) ? Number((captureStartMs - playbackStartMs).toFixed(3)) : null;
@@ -262,6 +264,9 @@ export default function MusicWorkstationOverdubPanel({
       latency_calibration: latencyCalibration || null,
       automatic_latency_compensation_allowed: false,
       manual_latency_compensation_seconds: latencyCompensationSeconds,
+      requested_compensated_start_seconds: requestedCompensatedStart,
+      applied_timeline_start_seconds: compensatedStart,
+      compensation_source_offset_seconds: compensationSourceOffsetSeconds,
     };
     return request({
       action: "register_recorded_take",
@@ -307,6 +312,7 @@ export default function MusicWorkstationOverdubPanel({
       source_rights_confirmed: true,
       multitrack_track_id: selectedTrack.id,
       timeline_start_seconds: compensatedStart,
+      timeline_source_offset_seconds: compensationSourceOffsetSeconds,
       capture_base_latency_seconds: take.capture_base_latency_seconds || 0,
       capture_timing: take.capture_timing || null,
       capture_clock_drift_ms: take.capture_clock_drift_ms ?? null,

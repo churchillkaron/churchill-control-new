@@ -168,6 +168,9 @@ async function appendRecordedTakeToMultitrack({
     0,
     finite(body.timeline_start_seconds, finite(next.timeline?.playhead_seconds, 0)),
   );
+  const sourceOffsetSeconds = Math.max(0, finite(body.timeline_source_offset_seconds, 0));
+  const playableDurationSeconds = Math.max(0.001, durationSeconds - sourceOffsetSeconds);
+  if (sourceOffsetSeconds >= durationSeconds) throw new Error("CREATIVE_MUSIC_RECORDED_TAKE_COMPENSATION_EXCEEDS_DURATION");
   const take = createMusicTake({
     source_asset_id: asset.id,
     recorded_at: asset.created_at || new Date().toISOString(),
@@ -179,8 +182,8 @@ async function appendRecordedTakeToMultitrack({
     source_asset_id: asset.id,
     source_version: 0,
     start_seconds: startSeconds,
-    duration_seconds: durationSeconds,
-    source_offset_seconds: 0,
+    duration_seconds: playableDurationSeconds,
+    source_offset_seconds: sourceOffsetSeconds,
     gain_db: 0,
     fade_in_seconds: 0,
     fade_out_seconds: 0,
@@ -210,7 +213,9 @@ async function appendRecordedTakeToMultitrack({
     take_id: take.id,
     clip_id: clip.id,
     start_seconds: startSeconds,
-    duration_seconds: durationSeconds,
+    source_offset_seconds: sourceOffsetSeconds,
+    duration_seconds: playableDurationSeconds,
+    original_take_duration_seconds: durationSeconds,
     immutable_source_asset_id: asset.id,
     destructive_edit: false,
   };

@@ -66,6 +66,9 @@ test("recording offset is explicit rather than guessing microphone latency", () 
   assert.match(overdub, /Recording offset \(ms\)/);
   assert.match(overdub, /latencyCompensationSeconds/);
   assert.match(overdub, /timeline_start_seconds:\s*compensatedStart/);
+  assert.match(overdub, /timeline_source_offset_seconds:\s*compensationSourceOffsetSeconds/);
+  assert.match(overdub, /requestedCompensatedStart = startSeconds - latencyCompensationSeconds/);
+  assert.match(overdub, /compensationSourceOffsetSeconds = Math.max\(0, -requestedCompensatedStart\)/);
   assert.match(overdub, /0 ms means no assumed microphone latency correction/);
 });
 

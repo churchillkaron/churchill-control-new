@@ -25,6 +25,18 @@ function kindLabel(kind) {
   return labels[kind] || kind;
 }
 
+const MASTERING_REVIEW_CRITERIA = Object.freeze([
+  ["tonal_balance", "Tonal balance"],
+  ["low_end_authority", "Low-end authority"],
+  ["transient_life", "Transient life"],
+  ["stereo_and_mono_integrity", "Stereo / mono integrity"],
+  ["vocal_or_focus_presence", "Vocal / focus presence"],
+  ["harshness_and_fatigue_control", "Harshness / fatigue control"],
+  ["depth_and_front_to_back", "Depth / front-to-back"],
+  ["reference_translation", "Reference translation"],
+  ["overall_release_readiness", "Overall release readiness"],
+]);
+
 function dateLabel(value) {
   if (!value) return "—";
   const date = new Date(value);
@@ -40,6 +52,12 @@ export default function MusicMasterStudioPanel({ organizationId, projectId }) {
   const [referenceIds, setReferenceIds] = useState([]);
   const [referenceResult, setReferenceResult] = useState(null);
   const [referenceBusy, setReferenceBusy] = useState(false);
+  const [referenceFingerprint, setReferenceFingerprint] = useState("");
+  const [masteringReviewScores, setMasteringReviewScores] = useState({});
+  const [masteringReviewAB, setMasteringReviewAB] = useState(false);
+  const [masteringReviewArtifact, setMasteringReviewArtifact] = useState(false);
+  const [masteringReviewNotes, setMasteringReviewNotes] = useState("");
+  const [masteringReview, setMasteringReview] = useState(null);
 
   const load = useCallback(async () => {
     if (!organizationId || !projectId) return;
@@ -101,7 +119,22 @@ export default function MusicMasterStudioPanel({ organizationId, projectId }) {
       const body = await response.json();
       if (!response.ok || body.success === false) throw new Error(body.error || "Reference mastering analysis failed");
       setReferenceResult(body.result || null);
+      setReferenceFingerprint(body.reference_analysis_fingerprint || "");
+      setMasteringReview(body.current_review || null);
     } catch (cause) { setError(cause?.message || "Reference mastering analysis failed"); } finally { setReferenceBusy(false); }
+  }
+
+
+  async function approveMasteringReview() {
+    if (!currentMaster?.id || !referenceIds.length || !referenceFingerprint || referenceBusy) return;
+    setReferenceBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/creative/music/master-reference", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ organization_id:organizationId, creative_project_id:projectId, master_asset_id:currentMaster.id, reference_asset_ids:referenceIds, action:"review", review:{ contract:"AVANTIQO_MUSIC_MASTERING_LISTENING_REVIEW_V1", reference_analysis_fingerprint:referenceFingerprint, level_matched_reference_comparison_confirmed:masteringReviewAB, material_artifact_present:masteringReviewArtifact, criteria:MASTERING_REVIEW_CRITERIA.map(([id])=>({id,score_0_to_100:Number(masteringReviewScores[id]),notes:null})), notes:masteringReviewNotes||null } }) });
+      const body = await response.json();
+      if (!response.ok || body.success === false) throw new Error(body.error || "Mastering listening review failed");
+      setReferenceResult(body.result || null); setReferenceFingerprint(body.reference_analysis_fingerprint || ""); setMasteringReview(body.review || null);
+    } catch (cause) { setError(cause?.message || "Mastering listening review failed"); } finally { setReferenceBusy(false); }
   }
 
   const releases = useMemo(() => {
@@ -151,6 +184,7 @@ export default function MusicMasterStudioPanel({ organizationId, projectId }) {
         <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#efd29f]/55">Reference mastering</div><div className="mt-1 text-[10px] text-white/42">Level-matched A/B analysis for tonal balance, dynamics, stereo image and mono translation.</div><div className="mt-1 text-[7px] text-white/20">References guide human mastering review only. Avantiqo never auto-copies EQ, compression, width or loudness.</div></div><button type="button" disabled={!currentMaster || !referenceIds.length || referenceBusy} onClick={analyzeReferences} className="rounded-lg border border-[#d6a66a]/20 px-3 py-2 text-[8px] text-[#efd29f]/60 disabled:opacity-25">{referenceBusy ? "Analyzing…" : "Compare references"}</button></div>
         <div className="mt-3 flex flex-wrap gap-1.5">{(library.reference_candidates || []).filter(item=>item.id!==currentMaster?.id).slice(0,40).map(item=>{const selected=referenceIds.includes(item.id);return <button key={item.id} type="button" onClick={()=>setReferenceIds(current=>selected?current.filter(id=>id!==item.id):(current.length>=8?current:[...current,item.id]))} className={`rounded-lg border px-2 py-1.5 text-[7px] ${selected?"border-[#d6a66a]/30 bg-[#d6a66a]/10 text-[#efd29f]/70":"border-white/7 text-white/28"}`}>{item.name}</button>})}</div>
         {referenceResult?.references?.length ? <div className="mt-3 space-y-2">{referenceResult.references.map((row,index)=><div key={`${row.reference_asset_id||index}`} className="rounded-xl border border-white/7 bg-black/20 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-[9px] text-white/58">{row.reference_name || `Reference ${index+1}`}</div><div className="text-[7px] text-white/25">level match {row.loudness_match_gain_db >= 0 ? "+" : ""}{row.loudness_match_gain_db} dB</div></div><div className="mt-2 grid grid-cols-2 gap-2 text-[7px] text-white/30 sm:grid-cols-4"><span>Crest Δ {row.deltas?.crest_delta_db ?? "—"} dB</span><span>Stereo corr Δ {row.deltas?.stereo_correlation_delta ?? "—"}</span><span>Mono Δ {row.deltas?.mono_fold_down_delta_db ?? "—"} dB</span><span>{row.review_flags?.length ? `${row.review_flags.length} review flag(s)` : "No threshold flags"}</span></div><div className="mt-2 flex flex-wrap gap-1">{Object.entries(row.deltas?.band_deltas_db || {}).map(([band,value])=><span key={band} className="rounded-md border border-white/6 px-1.5 py-1 text-[7px] text-white/24">{band} {value >= 0 ? "+" : ""}{value} dB</span>)}</div>{row.review_flags?.length?<div className="mt-2 text-[7px] text-amber-100/45">Review: {row.review_flags.join(" · ")}</div>:null}</div>)}</div> : null}
+        {referenceResult?.references?.length ? <div className="mt-4 border-t border-white/7 pt-4"><div className="flex items-center justify-between gap-3"><div><div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-white/38">Human mastering review · every criterion ≥92</div><div className="mt-1 text-[7px] text-white/22">Bound to the exact current master, selected references and measured deltas.</div></div>{masteringReview?.status === "APPROVED" ? <span className="rounded-md border border-emerald-300/15 px-2 py-1 text-[7px] text-emerald-100/55">APPROVED · min {masteringReview.minimum_score_0_to_100}</span> : null}</div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{MASTERING_REVIEW_CRITERIA.map(([id,name])=><label key={id} className="rounded-lg border border-white/7 bg-black/15 px-2.5 py-2"><div className="text-[7px] uppercase tracking-[0.1em] text-white/28">{name}</div><input type="number" min="0" max="100" step="1" value={masteringReviewScores[id] ?? ""} onChange={e=>setMasteringReviewScores(current=>({...current,[id]:e.target.value}))} className="mt-1 w-full rounded-md border border-white/8 bg-black/30 px-2 py-1.5 text-[9px] text-white/60" placeholder="0–100"/></label>)}</div><div className="mt-2 grid gap-2 sm:grid-cols-2"><label className="flex items-center gap-2 rounded-lg border border-white/7 bg-black/15 px-2.5 py-2 text-[8px] text-white/38"><input type="checkbox" checked={masteringReviewAB} onChange={e=>setMasteringReviewAB(e.target.checked)} className="accent-[#D6A66A]"/> I performed level-matched A/B against the selected references</label><label className="flex items-center gap-2 rounded-lg border border-white/7 bg-black/15 px-2.5 py-2 text-[8px] text-white/38"><input type="checkbox" checked={masteringReviewArtifact} onChange={e=>setMasteringReviewArtifact(e.target.checked)} className="accent-amber-400"/> Material artifact detected</label></div><textarea value={masteringReviewNotes} onChange={e=>setMasteringReviewNotes(e.target.value)} placeholder="Mastering engineer notes" className="mt-2 min-h-16 w-full rounded-lg border border-white/8 bg-black/20 px-2.5 py-2 text-[9px] text-white/55"/><button type="button" disabled={referenceBusy || !masteringReviewAB || masteringReviewArtifact || MASTERING_REVIEW_CRITERIA.some(([id])=>!Number.isFinite(Number(masteringReviewScores[id])) || Number(masteringReviewScores[id])<92)} onClick={approveMasteringReview} className="mt-2 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.05] px-3 py-2 text-[8px] font-semibold text-emerald-100/65 disabled:opacity-25">Approve mastering review</button><div className="mt-2 text-[7px] text-white/20">Avantiqo never generates these scores and approval is invalidated by a changed analysis fingerprint.</div></div> : null}
       </div>
 
       <div className="mt-5 flex flex-wrap gap-1.5">

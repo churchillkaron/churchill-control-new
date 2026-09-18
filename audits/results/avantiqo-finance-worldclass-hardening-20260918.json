@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 379,
-    "passed": 379,
+    "tests": 382,
+    "passed": 382,
     "failed": 0
   },
   "workstreams": [
@@ -238,6 +238,23 @@
       "regression": "Any new fixed 50/100/200/250/500/1000/5000/10000 row cap under Finance runtime surfaces fails the regression guard unless explicitly reviewed as presentation-only.",
       "decision_truth": "Accounting, tax, review, reconciliation, provider, practice, health, anomaly and management-reporting decision populations remain complete or exact.",
       "accounting_mutation_authority": false
+    },
+    {
+      "order": 18,
+      "name": "Jurisdiction-aware practice billing tax selection",
+      "commit": "a556105b49c2",
+      "status": "OPERATIONAL_JURISDICTION_SCOPED_TAX_DROPDOWN",
+      "rule_scope": "Practice billing exposes only active, effective sales/VAT/GST rules whose tax regime matches the selected billing entity jurisdiction.",
+      "deduplication": "Organization-specific rules override global defaults and semantic duplicates are collapsed by type, regime, code and rate.",
+      "server_revalidation": "Billing policy save rejects missing-entity, stale, non-sales-tax and cross-jurisdiction tax rule IDs.",
+      "live_wr_accounting_entity_country": "TH",
+      "live_wr_accounting_tax_rule_count": 1,
+      "live_wr_accounting_tax_rule": "VAT \u00b7 Thailand VAT \u00b7 7% \u00b7 THAILAND",
+      "live_eu_tax_rules_visible": false,
+      "live_withholding_tax_rules_visible": false,
+      "live_semantic_duplicate_count": 0,
+      "live_browser_errors": 0,
+      "accounting_mutation_authority": false
     }
   ],
   "live_acceptance": {
@@ -304,6 +321,9 @@
     "number_sequence_workspace_population_complete": true,
     "generic_finance_workspace_population_complete": true,
     "finance_fixed_caps_allowlisted_to_presentation_history_only": true,
-    "new_decision_population_caps_fail_regression": true
+    "new_decision_population_caps_fail_regression": true,
+    "practice_billing_tax_rule_jurisdiction_scoped": true,
+    "practice_billing_tax_rule_server_revalidated": true,
+    "practice_billing_tax_rule_semantic_duplicates_removed": true
   }
 }

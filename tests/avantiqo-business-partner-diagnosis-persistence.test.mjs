@@ -55,3 +55,10 @@ test("operator rejects malformed diagnosis proof before persistence",()=>{
   assert.match(route,/suppliedProjectionFingerprint !== expectedProjectionFingerprint/);
   assert.match(route,/return \{\}/);
 });
+
+
+test("operator route surfaces diagnosis proof integrity failure instead of generic unavailable response",()=>{
+  assert.match(route,/BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE/);
+  assert.match(route,/Business diagnosis proof verification failed/);
+  assert.match(route,/error\.details/);
+});

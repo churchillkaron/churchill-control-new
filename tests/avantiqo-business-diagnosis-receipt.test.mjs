@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildBusinessDiagnosisReceipt as build, buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime.js";
+import { buildBusinessDiagnosisReceipt as build, buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection, businessDiagnosisProofIntegrityError, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime.js";
 
 const input={organization_id:"org",entity_id:"entity",metric:"profit",diagnosis_class:"CAUSAL_DIAGNOSIS",business_timezone:"Asia/Bangkok",baseline_period_id:"2026-07",baseline_period_start_date:"2026-07-01",baseline_period_end_date:"2026-07-31",current_period_id:"2026-08",current_period_start_date:"2026-08-01",current_period_end_date:"2026-08-31",final_diagnosis:{metric:"profit",diagnosis:{final_evidence_state:"INTERNAL_AND_SUPPORTED_EXTERNAL",target_metric:{status:"TARGET_METRIC_READY"},residual_material:true,residual_ratio:.25,variance:{unexplained_residual:-5},internal_coverage_incomplete:false,causal:{supported_context_ids:["weather"]}}},external_research_plan:{status:"RESEARCH_ALLOWED"},external_evidence_assessment:{status:"ASSESSED"},external_diagnosis_closure:{validated_context_ids:["weather"],causal_evidence:[{context_id:"weather",source_refs:[{url:"https://example.gov/weather",publisher:"gov",independence_group:"example.gov",observed_at:"2026-08-31"}]}],validation_results:[{context_id:"weather",status:"CAUSAL_EVIDENCE_READY"},{context_id:"tourism",status:"EVIDENCE_INCOMPLETE",reason:"MISSING_REQUIRED_SUPPORT",missing_requirements:["CONFOUNDER_CHECK"]}]},answer_brief:{status:"INTERNAL_AND_SUPPORTED_EXTERNAL",unresolved:[{kind:"MATERIAL_UNEXPLAINED_RESIDUAL"}]},answer_boundary:{status:"APPENDED_REQUIRED_UNCERTAINTY",required_uncertainty_appended:true,overclaim_detected:false}};
 
@@ -90,4 +90,14 @@ test("canonical audit projection from receipt matches persisted proof semantics"
  assert.equal(projection.validated_external_context_count,1);
  assert.equal(projection.unresolved_external_context_count,1);
  assert.equal(projection.periods.current_end_date,"2026-08-31");
+});
+
+
+test("proof integrity error is typed governed and non-authorizing",()=>{
+ const error=businessDiagnosisProofIntegrityError("TEST_STAGE");
+ assert.equal(error.code,BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE);
+ assert.equal(error.status,500);
+ assert.equal(error.details.stage,"TEST_STAGE");
+ assert.equal(error.details.retryable,true);
+ assert.equal(error.details.authority_effect,"NONE");
 });

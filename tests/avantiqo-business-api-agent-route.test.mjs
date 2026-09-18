@@ -104,7 +104,15 @@ test("direct API audit uses canonical diagnosis projection builder",()=>{
 
 test("direct API verifies compact live proof before returning audit",()=>{
   assert.match(source,/verifyBusinessDiagnosisAuditProjection/);
-  assert.match(source,/BUSINESS_DIAGNOSIS_LIVE_PROOF_MISMATCH/);
+  assert.match(source,/businessDiagnosisProofIntegrityError\("DIRECT_API_LIVE_RETURN"\)/);
   assert.match(source,/audit_projection_verification_status: verification\.status/);
   assert.match(source,/audit_projection_verified: verification\.verified === true/);
+});
+
+
+test("direct API surfaces proof-integrity failure explicitly",()=>{
+  assert.match(source,/BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE/);
+  assert.match(source,/Business diagnosis proof verification failed/);
+  assert.match(source,/error\.details/);
+  assert.match(source,/authority_effect: "NONE"/);
 });

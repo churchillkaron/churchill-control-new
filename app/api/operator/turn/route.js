@@ -4,7 +4,7 @@ export const maxDuration = 300;
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
-import { buildBusinessDiagnosisAuditProjection, businessDiagnosisAuditProjectionFingerprint } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
+import { buildBusinessDiagnosisAuditProjection, businessDiagnosisAuditProjectionFingerprint, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
 import {
   resolveBusinessContext,
 } from "@/lib/business-context/resolveBusinessContext";
@@ -792,6 +792,10 @@ export async function POST(request) {
     return response;
   } catch (error) {
     console.error("OPERATOR_TURN_ERROR", error);
+
+    if (error?.code === BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE) {
+      return errorResponse("Business diagnosis proof verification failed", 500, error.details || { code: BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE, authority_effect: "NONE" });
+    }
 
     const status = Number.isInteger(error?.status) ? error.status : 500;
     const isClientError = status >= 400 && status < 500;

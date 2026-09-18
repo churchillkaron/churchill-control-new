@@ -180,7 +180,7 @@ test("period resolver uses organization timezone at midnight boundary",async()=>
 test("business partner verifies live diagnosis proof before returning it",()=>{
  const source=fs.readFileSync("lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime.js","utf8");
  assert.match(source,/verifyBusinessDiagnosisAuditProjection/);
- assert.match(source,/BUSINESS_DIAGNOSIS_LIVE_PROOF_MISMATCH/);
+ assert.match(source,/businessDiagnosisProofIntegrityError\("BUSINESS_PARTNER_LIVE_RETURN"\)/);
  assert.match(source,/audit_projection_verification_status:liveProof\.status/);
  assert.match(source,/audit_projection_verified:true/);
 });

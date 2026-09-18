@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { BusinessIntelligenceRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 import { BusinessIntelligenceAgentRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceAgentRuntime";
-import { buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
+import { buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection, businessDiagnosisProofIntegrityError, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
 import { classifyBusinessDiagnosisQuestion, resolveBusinessDiagnosisPeriods } from "@/lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { resolveOrganizationTimeContext } from "@/lib/shared/time/organizationTime";
@@ -24,11 +24,12 @@ function cleanValue(value) {
   return normalized;
 }
 
-function errorResponse(error, status = 500) {
+function errorResponse(error, status = 500, details = null) {
   return NextResponse.json(
     {
       success: false,
       error,
+      ...(details ? { details } : {}),
     },
     { status },
   );
@@ -124,7 +125,7 @@ function businessDiagnosisAudit(result = {}) {
     unresolved_external_context_count: projection.unresolved_external_context_count,
     periods: projection.periods,
   });
-  if (verification.status !== "VERIFIED") throw new Error("BUSINESS_DIAGNOSIS_LIVE_PROOF_MISMATCH");
+  if (verification.status !== "VERIFIED") throw businessDiagnosisProofIntegrityError("DIRECT_API_LIVE_RETURN");
   return {
     ...projection,
     audit_projection_fingerprint: cleanValue(receipt.audit_projection_fingerprint),
@@ -216,6 +217,9 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("BUSINESS_INTELLIGENCE_POST_ERROR", error);
+    if (error?.code === BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE) {
+      return errorResponse("Business diagnosis proof verification failed", 500, error.details || { code: BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE, authority_effect: "NONE" });
+    }
     return errorResponse(error?.message || "Business intelligence diagnosis failed");
   }
 }

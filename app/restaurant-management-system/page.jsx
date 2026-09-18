@@ -11,7 +11,7 @@ const config = {
   lead: 'Connect service, POS, kitchen, inventory, purchasing, people and finance so staff can work from the same restaurant information instead of separate tools.',
   primary: 'Explore restaurant operations',
   primaryHref: '/solutions',
-  image: '/art/avantiqo-luxury/hospitality.webp',
+  image: '/art/avantiqo-luxury/hospitality-hero.webp',
   panelLabel: 'RESTAURANT OPERATIONS',
   panel: 'Orders, stock, staff, purchasing and finance stay connected to the same business truth.',
   tags: ['POS', 'INVENTORY', 'PEOPLE', 'FINANCE'],

@@ -49,7 +49,7 @@ function SolutionsArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#110E0B] text-white">
     <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px bg-[#D6A66A]/18">
       <div className="relative overflow-hidden">
-        <Photo src="/art/avantiqo-luxury/hospitality.webp" position="center"/>
+        <Photo src="/art/avantiqo-luxury/hospitality-hero.webp" position="center"/>
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,6,5,.04),rgba(8,6,5,.58))]"/>
         <div className="absolute bottom-4 left-4"><Label>01 · RESTAURANT</Label><div className="mt-2 text-[8px] text-white/50">Service · kitchen · stock · finance</div></div>
       </div>
@@ -107,9 +107,10 @@ function FinanceArt(){
 
 function WorkforceArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#11100E] text-white">
-    <Photo src="/art/avantiqo-luxury/people.webp" position="center" opacity={.82}/>
-    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,8,7,.78),rgba(9,8,7,.18)_52%,rgba(9,8,7,.50)),linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.70))]"/>
+    <Photo src="/art/avantiqo-luxury/hospitality-hero.webp" position="center" opacity={.20}/>
+    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,8,7,.96),rgba(9,8,7,.72)_55%,rgba(9,8,7,.90)),radial-gradient(circle_at_78%_18%,rgba(214,166,106,.17),transparent_34%)]"/><GridLines/>
     <div className="absolute left-[7%] top-[9%] max-w-[350px]"><Label>PEOPLE & WORK</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em] text-white/94">Schedule the team. Capture the work. Pay correctly.</div></div>
+    <div className="absolute right-[7%] top-[14%] w-[39%] rounded-[20px] border border-white/[.08] bg-[#17130F]/84 p-4"><div className="flex items-center justify-between"><span className="text-[6px] tracking-[.14em] text-[#D6A66A]">TODAY / ROSTER</span><span className="text-[6px] text-white/24">18 SEP</span></div><div className="mt-4 space-y-2">{[["KITCHEN","08:00–17:00","READY"],["SERVICE","15:00–00:00","12 STAFF"],["BAR","17:00–01:00","4 STAFF"],["MANAGER","14:00–23:00","ON DUTY"]].map(([a,b,c])=><div key={a} className="grid grid-cols-[.75fr_1fr_.65fr] items-center border-b border-white/[.07] pb-2 text-[6px]"><span className="text-white/52">{a}</span><span className="text-white/30">{b}</span><span className="text-right text-[#D6A66A]">{c}</span></div>)}</div></div>
     <div className="absolute bottom-[9%] left-[7%] right-[7%] grid grid-cols-4 gap-2">{[["PLAN","Roster"],["ARRIVE","Clock in"],["REVIEW","Exceptions"],["PAY","Payroll"]].map(([a,b],i)=><div key={a} className="rounded-[16px] border border-white/[.10] bg-black/48 p-4 backdrop-blur-md"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-4 text-[9px]">{a}</div><div className="mt-1 text-[7px] text-white/34">{b}</div></div>)}</div>
   </div>;
 }
@@ -125,7 +126,7 @@ function InventoryArt(){
 
 function RestaurantArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#0F0C09] text-white">
-    <Photo src="/art/avantiqo-luxury/hospitality.webp" position="center" opacity={.92}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,6,4,.62),rgba(8,6,4,.10)_55%,rgba(8,6,4,.52)),linear-gradient(180deg,rgba(0,0,0,.01),rgba(0,0,0,.68))]"/>
+    <Photo src="/art/avantiqo-luxury/hospitality-hero.webp" position="center" opacity={.92}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,6,4,.62),rgba(8,6,4,.10)_55%,rgba(8,6,4,.52)),linear-gradient(180deg,rgba(0,0,0,.01),rgba(0,0,0,.68))]"/>
     <div className="absolute left-[7%] top-[9%] max-w-[360px]"><Label>RESTAURANT OPERATING SYSTEM</Label><div className="mt-4 text-[30px] font-medium leading-[1.02] tracking-[-.04em] text-white/94">Service, kitchen, stock, people and finance — one operating picture.</div></div>
     <div className="absolute bottom-[9%] left-[7%] right-[7%] grid grid-cols-5 gap-2">{["SERVICE","POS","KITCHEN","STOCK","FINANCE"].map((x,i)=><div key={x} className="rounded-[15px] border border-white/[.10] bg-black/48 px-3 py-4 backdrop-blur-md"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-3 text-[7px] tracking-[.11em] text-white/64">{x}</div></div>)}</div>
   </div>;
@@ -140,14 +141,14 @@ function HotelArt(){
 }
 
 function CommerceArt(){
-  return <div className="absolute inset-0 overflow-hidden bg-[#140F0A] text-white"><Photo src="/art/avantiqo-luxury/hospitality.webp" position="center" opacity={.92}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,7,5,.50),rgba(10,7,5,.10)_54%,rgba(10,7,5,.58)),linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.70))]"/>
+  return <div className="absolute inset-0 overflow-hidden bg-[#140F0A] text-white"><Photo src="/art/avantiqo-luxury/hospitality-hero.webp" position="center" opacity={.92}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,7,5,.50),rgba(10,7,5,.10)_54%,rgba(10,7,5,.58)),linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.70))]"/>
     <div className="absolute left-[7%] top-[10%] max-w-[330px]"><Label>REAL COMMERCE</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em]">The customer experience and the books should tell the same story.</div></div>
     <div className="absolute bottom-[9%] left-[7%] right-[7%] grid grid-cols-4 gap-2">{[["SELL","Order · booking"],["PAY","Cash · card · QR"],["SETTLE","Match transaction"],["POST","Finance updated"]].map(([a,b],i)=><div key={a} className="rounded-[16px] border border-white/[.10] bg-black/52 p-4 backdrop-blur-md"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-4 text-[9px]">{a}</div><div className="mt-1 text-[7px] text-white/34">{b}</div></div>)}</div>
   </div>;
 }
 
 function ChannelsArt(){
-  return <div className="absolute inset-0 overflow-hidden bg-[#EFE7DC] text-[#171614]"><div className="absolute inset-0 grid grid-cols-[1.2fr_.8fr] gap-px bg-[#D6A66A]/20"><div className="relative"><Photo src="/art/avantiqo-luxury/hospitality.webp" position="center"/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.54))]"/><div className="absolute bottom-5 left-5"><Label>REAL BUSINESS SURFACE</Label><div className="mt-2 max-w-[330px] text-[20px] leading-6 text-white">Customer, staff and public experiences — one underlying business.</div></div></div><div className="grid grid-rows-3 gap-px bg-[#D6A66A]/20">{[["PUBLIC","Website · booking"],["STAFF","Mobile · kiosk · POS"],["EMBEDDED","Portal · widgets · partners"]].map(([a,b],i)=><div key={a} className="flex flex-col justify-between bg-[#F8F3EB] p-5"><span className="text-[7px] text-[#A37849]">0{i+1}</span><div><div className="text-[9px] font-semibold">{a}</div><div className="mt-2 text-[7px] text-black/38">{b}</div></div></div>)}</div></div></div>;
+  return <div className="absolute inset-0 overflow-hidden bg-[#EFE7DC] text-[#171614]"><div className="absolute inset-0 grid grid-cols-[1.2fr_.8fr] gap-px bg-[#D6A66A]/20"><div className="relative"><Photo src="/art/avantiqo-luxury/hospitality-hero.webp" position="center"/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.54))]"/><div className="absolute bottom-5 left-5"><Label>REAL BUSINESS SURFACE</Label><div className="mt-2 max-w-[330px] text-[20px] leading-6 text-white">Customer, staff and public experiences — one underlying business.</div></div></div><div className="grid grid-rows-3 gap-px bg-[#D6A66A]/20">{[["PUBLIC","Website · booking"],["STAFF","Mobile · kiosk · POS"],["EMBEDDED","Portal · widgets · partners"]].map(([a,b],i)=><div key={a} className="flex flex-col justify-between bg-[#F8F3EB] p-5"><span className="text-[7px] text-[#A37849]">0{i+1}</span><div><div className="text-[9px] font-semibold">{a}</div><div className="mt-2 text-[7px] text-black/38">{b}</div></div></div>)}</div></div></div>;
 }
 
 

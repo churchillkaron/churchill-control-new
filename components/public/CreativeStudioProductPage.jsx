@@ -24,7 +24,7 @@ const USE_CASE_ART = {
     "/art/commercial-commerce.jpg",
     "/art/commercial-channels.jpg",
     "/art/commercial-services.jpg",
-    "/art/avantiqo-luxury/hospitality.webp",
+    "/art/avantiqo-luxury/hospitality-hero.webp",
     "/art/creative-video.jpg",
   ],
   "Music Studio": [

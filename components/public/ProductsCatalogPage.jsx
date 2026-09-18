@@ -6,8 +6,8 @@ import { CUSTOMER_GROUPS, CUSTOMER_FEATURES, isCustomerProduct } from "@/compone
 
 const customerProducts = productCatalog.filter(isCustomerProduct);
 const GROUP_ART = {
-  "run-business": "/art/avantiqo-luxury/hospitality.webp",
-  people: "/art/avantiqo-luxury/people.webp",
+  "run-business": "/art/avantiqo-luxury/hospitality-hero.webp",
+  people: "/art/avantiqo-luxury/hospitality-hero.webp",
   finance: "/art/commercial-insights.jpg",
   stock: "/churchill/bar.JPG",
   documents: "/art/commercial-integrations.jpg",
@@ -25,6 +25,12 @@ function ProductLink({ product }) {
 }
 function CategoryArt({group,index,compact=false}) {
   const photo = GROUP_ART[group.id];
+  if (group.id === "people") return <div className="absolute inset-0 overflow-hidden bg-[#11100E] text-white">
+    <Image src="/art/avantiqo-luxury/hospitality-hero.webp" alt="" fill sizes={compact?"25vw":"40vw"} className="object-cover opacity-20"/>
+    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,8,6,.94),rgba(10,8,6,.70),rgba(10,8,6,.88))]"/>
+    <div className="absolute inset-x-[9%] top-[13%] grid grid-cols-2 gap-2">{[["08:00","KITCHEN","READY"],["15:00","SERVICE","12 STAFF"],["17:00","BAR","4 STAFF"],["14:00","MANAGER","ON DUTY"]].map(([t,a,b])=><div key={a} className="rounded-[12px] border border-white/[.08] bg-white/[.025] p-3"><div className="text-[6px] text-[#D6A66A]">{t}</div><div className="mt-2 text-[8px] tracking-[.12em] text-white/60">{a}</div><div className="mt-1 text-[6px] text-white/28">{b}</div></div>)}</div>
+    <div className="absolute bottom-4 left-4 text-[7px] font-semibold uppercase tracking-[.18em] text-[#F0C98F]">0{index+1} · {group.label}</div>
+  </div>;
   if (group.id === "finance") return <div className="absolute inset-0 overflow-hidden bg-[#12100E] text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(214,166,106,.18),transparent_32%)]"/><div className="absolute inset-x-[12%] top-[16%] space-y-3">{[["CASH","+6.4%"],["REVENUE","THB"],["PAYABLES","12"],["CLOSE","READY"]].map(([a,b],i)=><div key={a} className="flex items-center justify-between border-b border-white/[.09] pb-2"><span className="text-[7px] tracking-[.16em] text-white/42">{a}</span><span className="text-[9px] text-[#D6A66A]">{b}</span></div>)}</div><div className="absolute bottom-4 left-4 text-[7px] font-semibold uppercase tracking-[.18em] text-[#F0C98F]">0{index+1} · {group.label}</div></div>;
   if (group.id === "stock") return <div className="absolute inset-0 overflow-hidden bg-[#17130F] text-white">
     <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_18%,rgba(214,166,106,.18),transparent_32%)]" />
@@ -35,7 +41,7 @@ function CategoryArt({group,index,compact=false}) {
   </div>;
   if (group.id === "industry") return <div className="absolute inset-0 overflow-hidden bg-[#12100E]">
     <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px bg-[#D6A66A]/20">
-      {[["RESTAURANT","/art/avantiqo-luxury/hospitality.webp"],["HOTEL","/art/commercial-enterprise.jpg"],["RETAIL","/art/commercial-commerce.jpg"],["SERVICES","/art/commercial-services.jpg"]].map(([a,img])=><div key={a} className="relative overflow-hidden"><Image src={img} alt="" fill sizes="20vw" className="object-cover"/><div className="absolute inset-0 bg-black/32"/><div className="absolute bottom-2 left-2 text-[6px] tracking-[.14em] text-[#F0C98F]">{a}</div></div>)}
+      {[["RESTAURANT","/art/avantiqo-luxury/hospitality-hero.webp"],["HOTEL","/art/commercial-enterprise.jpg"],["RETAIL","/art/commercial-commerce.jpg"],["SERVICES","/art/commercial-services.jpg"]].map(([a,img])=><div key={a} className="relative overflow-hidden"><Image src={img} alt="" fill sizes="20vw" className="object-cover"/><div className="absolute inset-0 bg-black/32"/><div className="absolute bottom-2 left-2 text-[6px] tracking-[.14em] text-[#F0C98F]">{a}</div></div>)}
     </div>
     <div className="absolute bottom-4 left-4 text-[7px] font-semibold uppercase tracking-[.18em] text-[#F0C98F]">0{index+1} · {group.label}</div>
   </div>;

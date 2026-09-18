@@ -11,7 +11,7 @@ const config = {
   lead: 'Connect bookings, rooms, housekeeping, maintenance, guest service, people and finance so hotel teams work from the same up-to-date information.',
   primary: 'Explore hotel solutions',
   primaryHref: '/solutions',
-  image: '/art/avantiqo-luxury/hospitality.webp',
+  image: '/art/avantiqo-luxury/hospitality-hero.webp',
   panelLabel: 'PROPERTY OPERATIONS',
   panel: 'Keep guest activity, room status, team work, payments and operating records connected.',
   tags: ['ROOMS', 'GUESTS', 'TEAMS', 'REVENUE'],

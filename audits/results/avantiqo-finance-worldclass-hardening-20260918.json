@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 338,
-    "passed": 338,
+    "tests": 343,
+    "passed": 343,
     "failed": 0
   },
   "workstreams": [
@@ -111,6 +111,22 @@
       "live_no_credential_bank_verify_status": 400,
       "live_no_credential_etax_verify_status": 400,
       "test_artifacts_remaining": false
+    },
+    {
+      "order": 8,
+      "name": "Centralized connection health and durable verification evidence",
+      "commit": "b2fa60cfadc0",
+      "status": "OPERATIONAL_APPEND_ONLY_PROVIDER_EVIDENCE",
+      "live_schema": true,
+      "live_api_verified": true,
+      "live_ui_verified": true,
+      "settings_overview": "Finance Settings shows bank feeds, Thailand e-Tax and client email with exact current readiness and next action.",
+      "verification_history": "Every real provider verification attempt is append-only evidence with provider, status, verification mode, timestamp and bounded error/detail.",
+      "latest_state": "Provider credential metadata and durable verification event are updated atomically through one service-role RPC.",
+      "secret_protection": "Verification detail rejects secret fields and secret references.",
+      "accounting_mutation_authority": false,
+      "current_verification_event_count": 0,
+      "test_artifacts_remaining": false
     }
   ],
   "live_acceptance": {
@@ -129,7 +145,8 @@
     "bank_activation_missing_secret_status": 400,
     "etax_activation_insecure_endpoint_status": 400,
     "provider_verification_missing_bank_credential_status": 400,
-    "provider_verification_missing_etax_credential_status": 400
+    "provider_verification_missing_etax_credential_status": 400,
+    "provider_verification_events": 0
   },
   "governance": {
     "no_parallel_accounting_truth": true,
@@ -140,6 +157,9 @@
     "provider_secrets_vault_only": true,
     "finance_provider_activation_requires_configuration_manage": true,
     "provider_verification_is_read_only": true,
-    "provider_verification_never_imports_or_transmits_financial_documents": true
+    "provider_verification_never_imports_or_transmits_financial_documents": true,
+    "provider_verification_history_append_only": true,
+    "verification_receipt_and_latest_state_atomic": true,
+    "finance_connections_overview_is_read_only_projection": true
   }
 }

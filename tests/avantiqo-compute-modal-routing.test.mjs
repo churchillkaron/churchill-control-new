@@ -11,6 +11,9 @@ test('compute telemetry separates intentional Modal, fallback, and unclassified 
   assert.match(source,/modal_intentional_calls_30d/);
   assert.match(source,/fallback_cost_by_capability/);
   assert.match(source,/modalSummary\.local_fallback_calls/);
+  assert.match(source,/modal_gpu/);
+  assert.match(source,/execution_resource: "MODAL_GPU"/);
+  assert.match(source,/execution_path: `MODAL →/);
   assert.doesNotMatch(source,/modalCostsByCapability/);
   assert.doesNotMatch(source,/const operationalJobs = jobs\.filter\([\s\S]*?const operationalJobs = jobs\.filter/);
 });

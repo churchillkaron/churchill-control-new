@@ -45,6 +45,11 @@ test("Administration exposes Modal-like owned compute observability", () => {
   assert.match(page, /Production jobs/);
   assert.match(page, /Certification & migration/);
   assert.match(page, /Failure reason/);
+  assert.match(page, /Date & time/);
+  assert.match(page, /Asia\/Bangkok/);
+  assert.match(page, /Modal runtime model/);
+  assert.match(page, /Modal \${job.modal_gpu}/);
+  assert.match(page, /productionJobs/);
   assert.match(route, /classifyLocalJob/);
   assert.match(route, /operational_success_rate/);
   assert.match(command, /route: "\/administration\/compute"/);

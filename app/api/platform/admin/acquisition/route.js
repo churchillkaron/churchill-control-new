@@ -79,7 +79,7 @@ async function requireLead(leadId) {
   if (!leadId) return null;
   const { data, error } = await supabaseAdmin
     .from("organization_leads")
-    .select("id,status,organization_id,email,company,contact,created_at")
+    .select("id,status,organization_id,email,company,contact,created_at,request_type,requesting_organization_id,selected_products")
     .eq("id", leadId)
     .maybeSingle();
   if (error) throw error;
@@ -125,6 +125,32 @@ async function requireSubscription(subscriptionId, acquisition) {
     throw conflict;
   }
   return data;
+}
+
+async function requireUpgradeOrganizationLineage(acquisition, subscription) {
+  if (!acquisition?.lead_id) return null;
+  const lead = await requireLead(acquisition.lead_id);
+  if (text(lead?.request_type).toLowerCase() !== "upgrade") return null;
+
+  const requestingOrganizationId = uuidOrNull(lead.requesting_organization_id);
+  if (!requestingOrganizationId || requestingOrganizationId === PLATFORM_ORGANIZATION_ID) {
+    const invalid = new Error("ACQUISITION_UPGRADE_CUSTOMER_LINEAGE_INVALID");
+    invalid.status = 409;
+    throw invalid;
+  }
+  if (!subscription?.organization_id) {
+    const missing = new Error("ACQUISITION_UPGRADE_SUBSCRIPTION_CUSTOMER_REQUIRED");
+    missing.status = 409;
+    throw missing;
+  }
+  if (subscription.organization_id !== requestingOrganizationId) {
+    const mismatch = new Error("ACQUISITION_UPGRADE_CUSTOMER_MISMATCH");
+    mismatch.status = 409;
+    throw mismatch;
+  }
+
+  await requireCustomerOrganization(requestingOrganizationId);
+  return requestingOrganizationId;
 }
 
 async function requireCustomerOrganization(customerOrganizationId) {
@@ -326,6 +352,7 @@ export async function PATCH(request) {
         return Response.json({ success: false, error: "Qualified prospect identity is required before commitment" }, { status: 409 });
       }
       const subscription = await requireSubscription(subscriptionId, acquisition);
+      await requireUpgradeOrganizationLineage(acquisition, subscription);
       evidenceType = "SUBSCRIPTION_RECORD_VERIFIED";
       evidenceReference = subscription.id;
       note = note || `Subscription status: ${text(subscription.status) || "unknown"}`;
@@ -336,6 +363,7 @@ export async function PATCH(request) {
         return Response.json({ success: false, error: "A committed subscription is required before customer creation" }, { status: 409 });
       }
       const subscription = await requireSubscription(acquisition.subscription_id, acquisition);
+      await requireUpgradeOrganizationLineage(acquisition, subscription);
       if (!subscription.organization_id) {
         return Response.json(
           { success: false, error: "The committed subscription is not linked to a customer organization yet" },

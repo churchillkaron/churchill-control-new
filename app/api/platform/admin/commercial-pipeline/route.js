@@ -167,13 +167,20 @@ export async function GET(request) {
     }
 
     const enrichedAcquisitions = acquisitions.map((record) => {
-      const candidateSubscriptions = record.prospect_email
-        ? subscriptions.filter((subscription) => {
-          const lead = leadById.get(subscription.lead_id);
-          return lead && normalizedEmail(lead.email) === normalizedEmail(record.prospect_email);
-        })
-        : [];
       const lead = record.lead_id ? leadById.get(record.lead_id) || null : null;
+      const requestingOrganizationId = lead?.request_type === "upgrade" ? lead?.requesting_organization_id || null : null;
+      const candidateSubscriptions = record.lead_id
+        ? subscriptions.filter((subscription) => {
+          if (subscription.lead_id !== record.lead_id) return false;
+          if (requestingOrganizationId && subscription.organization_id !== requestingOrganizationId) return false;
+          return true;
+        })
+        : record.prospect_email
+          ? subscriptions.filter((subscription) => {
+            const subscriptionLead = leadById.get(subscription.lead_id);
+            return subscriptionLead && normalizedEmail(subscriptionLead.email) === normalizedEmail(record.prospect_email);
+          })
+          : [];
       const canonicalSubscription = record.subscription_id ? subscriptionById.get(record.subscription_id) || null : null;
       const verifiedCustomer = canonicalSubscription?.organization_id ? organizationById.get(canonicalSubscription.organization_id) || null : null;
       return {

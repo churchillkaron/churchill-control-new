@@ -6,7 +6,8 @@ from typing import Any
 
 import imageio.v3 as iio
 import torch
-from PIL import Image
+import numpy as np
+from PIL import Image, ImageFilter
 from transformers import pipeline
 
 import handler as legacy
@@ -25,8 +26,11 @@ MAX_UPSCALE_SOURCE_SECONDS = max(
 )
 MAX_UPSCALE_OUTPUT_PIXELS = max(
     921600,
-    min(8294400, int(os.getenv("AVANTIQO_VIDEO_UPSCALE_MAX_OUTPUT_PIXELS", "2073600"))),
+    min(8294400, int(os.getenv("AVANTIQO_VIDEO_UPSCALE_MAX_OUTPUT_PIXELS", "8294400"))),
 )
+TEMPORAL_BLEND_STRENGTH = max(0.0, min(0.35, float(os.getenv("AVANTIQO_VIDEO_UPSCALE_TEMPORAL_BLEND", "0.18"))))
+TEMPORAL_DIFF_THRESHOLD = max(4.0, min(96.0, float(os.getenv("AVANTIQO_VIDEO_UPSCALE_TEMPORAL_DIFF_THRESHOLD", "28"))))
+SOURCE_DETAIL_RESTORE = max(0.0, min(0.5, float(os.getenv("AVANTIQO_VIDEO_UPSCALE_SOURCE_DETAIL", "0.12"))))
 OUTPUT_DIR = Path(os.getenv("AVANTIQO_VIDEO_OUTPUT_DIR", "/tmp/avantiqo-video"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 _SPECIAL_PIPELINES: dict[str, Any] = {}
@@ -160,13 +164,17 @@ def _validate_special(job: dict[str, Any]) -> dict[str, Any]:
     )
     if aspect_ratio not in {"16:9", "9:16", "1:1"}:
         raise ValueError("AVANTIQO_VIDEO_ASPECT_RATIO_INVALID")
+    default_resolution = "2160p" if capability == UPSCALE_CAPABILITY else "720p"
     resolution = _text(
         data.get("resolution")
         or generation.get("resolution")
         or provider_parameters.get("resolution")
-        or "720p"
+        or default_resolution
     ).lower()
-    if resolution != "720p":
+    if capability == UPSCALE_CAPABILITY:
+        if resolution not in {"1080p", "2160p", "4k"}:
+            raise ValueError("AVANTIQO_VIDEO_UPSCALE_RESOLUTION_UNSUPPORTED")
+    elif resolution != "720p":
         raise ValueError("AVANTIQO_VIDEO_RESOLUTION_UNSUPPORTED")
 
     roles = _object(data.get("source_asset_roles"))
@@ -341,6 +349,64 @@ def _extend(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
         output_path.unlink(missing_ok=True)
 
 
+def _upscale_target_dimensions(aspect_ratio: str, resolution: str) -> tuple[int, int]:
+    if resolution == "1080p":
+        return {"16:9": (1920, 1080), "9:16": (1080, 1920), "1:1": (1080, 1080)}[aspect_ratio]
+    return {"16:9": (3840, 2160), "9:16": (2160, 3840), "1:1": (2160, 2160)}[aspect_ratio]
+
+
+def _normalize_superres(result: Any, target_width: int, target_height: int) -> Image.Image:
+    if isinstance(result, dict):
+        result = result.get("image") or result.get("images") or result.get("output")
+    if isinstance(result, list):
+        result = result[0] if result else None
+    if not isinstance(result, Image.Image):
+        raise RuntimeError("AVANTIQO_VIDEO_UPSCALE_FRAME_OUTPUT_INVALID")
+    image = result.convert("RGB")
+    if image.size != (target_width, target_height):
+        if image.width < target_width or image.height < target_height:
+            raise RuntimeError(
+                f"AVANTIQO_VIDEO_UPSCALE_MODEL_OUTPUT_TOO_SMALL:{image.width}x{image.height}:{target_width}x{target_height}"
+            )
+        image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+    return image
+
+
+def _source_detail(source: Image.Image, target_width: int, target_height: int) -> np.ndarray:
+    source = source.convert("RGB")
+    base = np.asarray(source, dtype=np.float32)
+    blurred = np.asarray(source.filter(ImageFilter.GaussianBlur(radius=0.8)), dtype=np.float32)
+    residual = np.clip(base - blurred + 128.0, 0.0, 255.0).astype(np.uint8)
+    enlarged = Image.fromarray(residual, mode="RGB").resize(
+        (target_width, target_height), Image.Resampling.BICUBIC
+    )
+    return np.asarray(enlarged, dtype=np.float32) - 128.0
+
+
+def _temporal_stabilize(
+    previous: Image.Image | None,
+    current: Image.Image,
+    following: Image.Image | None,
+    source: Image.Image,
+) -> Image.Image:
+    cur = np.asarray(current, dtype=np.float32)
+    accum = cur.copy()
+    weights = np.ones(cur.shape[:2], dtype=np.float32)
+    for neighbor in (previous, following):
+        if neighbor is None:
+            continue
+        other = np.asarray(neighbor, dtype=np.float32)
+        difference = np.mean(np.abs(cur - other), axis=2)
+        confidence = np.clip(1.0 - difference / TEMPORAL_DIFF_THRESHOLD, 0.0, 1.0) ** 2
+        weight = confidence * TEMPORAL_BLEND_STRENGTH
+        accum += other * weight[..., None]
+        weights += weight
+    stable = accum / weights[..., None]
+    if SOURCE_DETAIL_RESTORE > 0:
+        stable += _source_detail(source, current.width, current.height) * SOURCE_DETAIL_RESTORE
+    return Image.fromarray(np.clip(stable, 0.0, 255.0).astype(np.uint8), mode="RGB")
+
+
 def _upscale(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
     job_id = _text(job.get("id")) or str(int(time.time() * 1000))
     source_path = legacy._download_video(data["source_video"], job_id, "upscale-source")
@@ -349,47 +415,46 @@ def _upscale(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
     frames_dir.mkdir(parents=True, exist_ok=True)
     fps = data["fps"]
     max_frames = int(MAX_UPSCALE_SOURCE_SECONDS * fps)
+    target_width, target_height = _upscale_target_dimensions(data["aspect_ratio"], data["resolution"])
+    if target_width * target_height > MAX_UPSCALE_OUTPUT_PIXELS:
+        raise ValueError("AVANTIQO_VIDEO_UPSCALE_TARGET_PIXEL_LIMIT_EXCEEDED")
     upscaler = _upscale_pipeline()
-    frame_count = 0
     source_width = 0
     source_height = 0
-    output_width = 0
-    output_height = 0
+    read_count = 0
+    write_count = 0
+    previous_sr: Image.Image | None = None
+    current_sr: Image.Image | None = None
+    current_source: Image.Image | None = None
     try:
-        _progress_update(job, "upscaling cinematic frames")
+        _progress_update(job, "upscaling and temporally stabilizing cinematic frames")
         for frame in iio.imiter(source_path, plugin="FFMPEG", fps=fps):
-            if frame_count >= max_frames:
+            if read_count >= max_frames:
                 raise ValueError("AVANTIQO_VIDEO_UPSCALE_SOURCE_DURATION_EXCEEDED")
             source = Image.fromarray(frame).convert("RGB")
             source_width, source_height = source.size
-            result = upscaler(source)
-            if isinstance(result, dict):
-                result = result.get("image") or result.get("images") or result.get("output")
-            if isinstance(result, list):
-                result = result[0] if result else None
-            if not isinstance(result, Image.Image):
-                raise RuntimeError("AVANTIQO_VIDEO_UPSCALE_FRAME_OUTPUT_INVALID")
-            superres = result.convert("RGB")
-            ratio = min(1.0, (MAX_UPSCALE_OUTPUT_PIXELS / (superres.width * superres.height)) ** 0.5)
-            if ratio < 1.0:
-                superres = superres.resize(
-                    (
-                        max(2, int(superres.width * ratio) // 2 * 2),
-                        max(2, int(superres.height * ratio) // 2 * 2),
-                    ),
-                    Image.Resampling.LANCZOS,
-                )
-            output_width, output_height = superres.size
-            if output_width <= source_width or output_height <= source_height:
-                raise RuntimeError("AVANTIQO_VIDEO_UPSCALE_FACTOR_INVALID")
-            superres.save(frames_dir / f"{frame_count:08d}.png", format="PNG")
-            frame_count += 1
-        if frame_count < 2:
+            next_sr = _normalize_superres(upscaler(source), target_width, target_height)
+            read_count += 1
+            if current_sr is None:
+                current_sr = next_sr
+                current_source = source
+                continue
+            stable = _temporal_stabilize(previous_sr, current_sr, next_sr, current_source)
+            stable.save(frames_dir / f"{write_count:08d}.png", format="PNG")
+            write_count += 1
+            previous_sr = current_sr
+            current_sr = next_sr
+            current_source = source
+        if current_sr is not None and current_source is not None:
+            stable = _temporal_stabilize(previous_sr, current_sr, None, current_source)
+            stable.save(frames_dir / f"{write_count:08d}.png", format="PNG")
+            write_count += 1
+        if write_count < 2:
             raise ValueError("AVANTIQO_VIDEO_SOURCE_VIDEO_EMPTY")
         _run([
             "ffmpeg", "-y", "-framerate", str(fps),
             "-i", str(frames_dir / "%08d.png"), "-an",
-            "-c:v", "libx264", "-preset", "medium", "-crf", "16",
+            "-c:v", "libx264", "-preset", "slow", "-crf", "14",
             "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(output_path),
         ], "AVANTIQO_VIDEO_UPSCALE_ENCODE_FAILED")
         legacy._upload_video(output_path, data["storage_upload"])
@@ -405,12 +470,19 @@ def _upscale(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
             "foundation_model_source": "runpod-cache" if legacy._cached_model_path(UPSCALE_MODEL) else "huggingface",
             "source_width": source_width,
             "source_height": source_height,
-            "width": output_width,
-            "height": output_height,
+            "width": target_width,
+            "height": target_height,
             "fps": fps,
-            "frame_count": frame_count,
+            "frame_count": write_count,
             "size_bytes": size_bytes,
             "deterministic_frame_super_resolution": True,
+            "temporal_stabilization_contract": "AVANTIQO_TEMPORAL_SUPER_RESOLUTION_V1",
+            "temporal_neighbor_window": 3,
+            "temporal_confidence_gated": True,
+            "temporal_blend_strength": TEMPORAL_BLEND_STRENGTH,
+            "temporal_diff_threshold": TEMPORAL_DIFF_THRESHOLD,
+            "source_detail_restoration": SOURCE_DETAIL_RESTORE,
+            "delivery_4k": target_width * target_height >= 8294400,
             "temporal_quality_review_required": True,
             "native_audio": False,
             "certification_execution": data.get("certification_execution") is True,

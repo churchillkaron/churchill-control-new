@@ -351,3 +351,29 @@ test("replayed scoped diagnosis is quarantined from model context", () => {
     if(oldRing===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=oldRing;
   }
 });
+
+
+test("legacy unscoped diagnosis remains compatible when scope requirement is disabled", () => {
+  const oldRequired=process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_REQUIRED;
+  delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_REQUIRED;
+  try {
+    const result=businessDiagnosisTurnVerification({role:"assistant",content:"diagnosis",evidence:diagnosisEvidence({answer:"diagnosis"})},{organization_id:"org",conversation_id:"conv"});
+    assert.equal(result.safe,true);
+    assert.equal(result.scope_status,"SCOPE_NOT_BOUND");
+  } finally {
+    if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_REQUIRED=oldRequired;
+  }
+});
+
+test("required scope quarantines legacy unscoped diagnosis history", () => {
+  const oldRequired=process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_REQUIRED;
+  process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_REQUIRED="true";
+  try {
+    const result=businessDiagnosisTurnVerification({role:"assistant",content:"diagnosis",evidence:diagnosisEvidence({answer:"diagnosis"})},{organization_id:"org",conversation_id:"conv"});
+    assert.equal(result.safe,false);
+    assert.equal(result.status,"SCOPE_REQUIRED");
+    assert.equal(result.scope_status,"SCOPE_REQUIRED");
+  } finally {
+    if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_REQUIRED=oldRequired;
+  }
+});

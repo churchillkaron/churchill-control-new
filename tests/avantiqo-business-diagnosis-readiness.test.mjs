@@ -198,3 +198,12 @@ test("customer routes log readiness failures structurally before returning redac
   assert.ok(operator.indexOf("BUSINESS_DIAGNOSIS_READINESS_BLOCKED") < operator.indexOf("OPERATOR_TURN_ERROR"));
   assert.ok(business.indexOf("BUSINESS_DIAGNOSIS_READINESS_BLOCKED") < business.indexOf("BUSINESS_INTELLIGENCE_POST_ERROR"));
 });
+
+
+test("diagnosis readiness exposes scope-enforcement policy without blocking new diagnosis execution",()=>{
+  const readiness=getBusinessDiagnosisReadiness({env:{AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_REQUIRED:"true"}});
+  assert.equal(readiness.ready,true);
+  assert.equal(readiness.proof.scope_required,true);
+  const publicReadiness=getPublicBusinessDiagnosisReadiness({env:{AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_REQUIRED:"true"}});
+  assert.equal(publicReadiness.proof.scope_required,true);
+});

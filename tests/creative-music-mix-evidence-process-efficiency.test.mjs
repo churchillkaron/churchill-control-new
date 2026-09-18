@@ -5,12 +5,12 @@ import fs from "node:fs";
 const source=fs.readFileSync(new URL("../lib/creative/music/runtime/CreativeMusicMixEvidenceRuntime.js",import.meta.url),"utf8");
 
 test("each evidence chunk batches all measurements into one FFmpeg process",()=>{
-  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V22/);
+  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V23/);
   assert.match(source,/asplit=\$\{bands\.length\+2\}/);
   for(const name of ["full","sub","lowmid","warmth","boxiness","presence","air","sibilance"]) assert.match(source,new RegExp(`volumedetect@\\$\\{name\\}`));
   assert.match(source,/aformat=channel_layouts=stereo,asplit=5\[fullst\]\[presencest\]\[lowst\]\[bodyst\]\[harshst\]/);
   assert.match(source,/amerge=inputs=10/);
-  assert.match(source,/analysis_process_count:chunkCount/);
+  assert.match(source,/analysis_process_count:chunkCount\+\(chunkCount>1\?1:0\)/);
   assert.match(source,/spectral_process_count:chunkCount/);
   assert.match(source,/envelope_process_count:chunkCount/);
   assert.match(source,/analysis_processes_per_measured_track:"CHUNKED_FULL_RANGE"/);
@@ -66,7 +66,7 @@ test("one-pass evidence also measures EBU-style loudness and true peak without a
   assert.match(source,/true_peak_dbtp/);
   assert.match(source,/loudness_range_lu/);
   assert.match(source,/loudness_threshold_lufs/);
-  assert.match(source,/analysis_process_count:chunkCount/);
+  assert.match(source,/analysis_process_count:chunkCount\+\(chunkCount>1\?1:0\)/);
 });
 
 
@@ -76,7 +76,7 @@ test("one-pass evidence measures time-local body versus harshness without anothe
   assert.match(source,/dynamicHarshnessMetrics/);
   assert.match(source,/p90_harshness_vs_body_db/);
   assert.match(source,/intermittent_harshness_risk/);
-  assert.match(source,/analysis_process_count:chunkCount/);
+  assert.match(source,/analysis_process_count:chunkCount\+\(chunkCount>1\?1:0\)/);
 });
 
 
@@ -85,7 +85,7 @@ test("one-pass evidence measures low-frequency stereo compatibility from existin
   assert.match(source,/low_stereo_correlation/);
   assert.match(source,/low_mono_fold_down_loss_db/);
   assert.match(source,/low_stereo_phase_risk/);
-  assert.match(source,/analysis_process_count:chunkCount/);
+  assert.match(source,/analysis_process_count:chunkCount\+\(chunkCount>1\?1:0\)/);
 });
 
 
@@ -96,4 +96,15 @@ test("long tracks use bounded full-range chunking instead of partial evidence",(
   assert.match(source,/analysis_chunk_count:chunkCount/);
   assert.match(source,/analysis_coverage_ratio:1/);
   assert.doesNotMatch(source,/ANALYSIS_RANGE_INCOMPLETE/);
+});
+
+
+test("long-form chunk merge uses exact stereo accumulators and exact whole-range loudness",()=>{
+  assert.match(source,/function combineStereoMetrics/);
+  assert.match(source,/sumLR/);
+  assert.match(source,/monoSq/);
+  assert.match(source,/measureExactWholeRangeLoudness/);
+  assert.match(source,/if\(chunkCount>1\)combined\.loudness=await measureExactWholeRangeLoudness/);
+  assert.doesNotMatch(source,/weightedAverage\(stereoRows/);
+  assert.doesNotMatch(source,/weightedAverage\(loudRows/);
 });

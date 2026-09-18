@@ -8,6 +8,8 @@ test("long tracks are fully analyzed in bounded chunks rather than blocked or pa
   assert.match(evidence,/chunkCount=Math.max\(1,Math.ceil\(range\.required_seconds\/MAX_ANALYSIS_SECONDS\)\)/);
   assert.match(evidence,/analysis_chunk_count:chunkCount/);
   assert.match(evidence,/analysis_complete:true/);
+  assert.match(evidence,/measureExactWholeRangeLoudness/);
+  assert.match(evidence,/combineStereoMetrics/);
   assert.match(evidence,/analysis_coverage_ratio:1/);
   assert.doesNotMatch(evidence,/ANALYSIS_RANGE_INCOMPLETE/);
   assert.doesNotMatch(engineer,/TRACK_ANALYSIS_RANGE_INCOMPLETE/);

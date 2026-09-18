@@ -223,3 +223,10 @@ test("persisted diagnosis scope is checksummed before optional HMAC sealing",()=
   assert.match(route,/scope_checksum_contract:/);
   assert.match(route,/scope_checksum:/);
 });
+
+
+test("persisted diagnosis proof binds fingerprint of exact originating user content",()=>{
+  assert.match(route,/scope_user_content_fingerprint: text\(userTurnId\) \? businessDiagnosisUserTurnContentFingerprint\(userTurnContent\) : null/);
+  assert.match(route,/scope_user_content_fingerprint: text\(persistedProof\.scope_user_content_fingerprint\) \|\| null/);
+  assert.match(route,/userTurnContent: message/);
+});

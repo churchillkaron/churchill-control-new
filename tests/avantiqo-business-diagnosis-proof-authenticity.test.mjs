@@ -9,6 +9,8 @@ import {
   bindBusinessDiagnosisScopeChecksum,
   verifyBusinessDiagnosisScopeChecksum,
   verifyBusinessDiagnosisProofScope,
+  businessDiagnosisUserTurnContentFingerprint,
+  verifyBusinessDiagnosisOriginatingUserTurn,
 } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime.js";
 
 const env = {
@@ -124,4 +126,17 @@ test("client proof redaction removes scope checksum metadata", () => {
   const safe=redactBusinessDiagnosisProofForClient({scope_checksum_contract:"AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_V1",scope_checksum:"a".repeat(64),receipt_fingerprint:"b".repeat(64)});
   assert.equal(Object.prototype.hasOwnProperty.call(safe,"scope_checksum_contract"),false);
   assert.equal(Object.prototype.hasOwnProperty.call(safe,"scope_checksum"),false);
+});
+
+
+test("originating user turn content fingerprint detects prompt tampering", () => {
+  const proof={scope_user_turn_id:"u1",scope_user_content_fingerprint:businessDiagnosisUserTurnContentFingerprint("why did profit drop?")};
+  assert.equal(verifyBusinessDiagnosisOriginatingUserTurn(proof,{id:"u1",content:"why did profit drop?"}).status,"ORIGIN_USER_VERIFIED");
+  assert.equal(verifyBusinessDiagnosisOriginatingUserTurn(proof,{id:"u1",content:"show invoices"}).status,"ORIGIN_USER_CONTENT_MISMATCH");
+  assert.equal(verifyBusinessDiagnosisOriginatingUserTurn(proof,{id:"u2",content:"why did profit drop?"}).status,"ORIGIN_USER_ID_MISMATCH");
+});
+
+test("client redaction removes originating user content fingerprint", () => {
+  const safe=redactBusinessDiagnosisProofForClient({scope_user_content_fingerprint:"a".repeat(64),receipt_fingerprint:"b".repeat(64)});
+  assert.equal(Object.prototype.hasOwnProperty.call(safe,"scope_user_content_fingerprint"),false);
 });

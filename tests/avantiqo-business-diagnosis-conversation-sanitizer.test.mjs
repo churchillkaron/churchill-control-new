@@ -12,7 +12,7 @@ import {
   sanitizeBusinessDiagnosisConversation,
   sanitizeBusinessDiagnosisSnapshotTurn,
 } from "../lib/operator/runtime/BusinessDiagnosisConversationSanitizerRuntime.js";
-import { sealBusinessDiagnosisProofAuthenticity, verifyBusinessDiagnosisProofScope } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime.js";
+import { sealBusinessDiagnosisProofAuthenticity, verifyBusinessDiagnosisProofScope, bindBusinessDiagnosisScopeChecksum, businessDiagnosisUserTurnContentFingerprint } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime.js";
 
 function diagnosisEvidence({ status = "verified", legacy = false, answer = "diagnosis" } = {}) {
   const projection = buildBusinessDiagnosisAuditProjection({
@@ -530,4 +530,25 @@ test("required scope checksum quarantines legacy scoped diagnosis without checks
   } finally {
     if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_SCOPE_CHECKSUM_REQUIRED=oldRequired;
   }
+});
+
+
+test("diagnosis pair is excluded when originating persisted user text is altered", () => {
+  const evidence=diagnosisEvidence({answer:"diagnosis"});
+  const scoped=bindBusinessDiagnosisScopeChecksum({...evidence.business_diagnosis,scope_user_turn_id:"u1",scope_user_content_fingerprint:businessDiagnosisUserTurnContentFingerprint("why did profit drop?")});
+  const rows=[
+    {id:"d1",role:"assistant",content:"diagnosis",evidence:{business_diagnosis:scoped}},
+    {id:"u1",role:"user",content:"show invoices",evidence:{}},
+  ];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[]);
+});
+
+test("diagnosis pair remains reusable when originating persisted user text matches", () => {
+  const evidence=diagnosisEvidence({answer:"diagnosis"});
+  const scoped=bindBusinessDiagnosisScopeChecksum({...evidence.business_diagnosis,scope_user_turn_id:"u1",scope_user_content_fingerprint:businessDiagnosisUserTurnContentFingerprint("why did profit drop?")});
+  const rows=[
+    {id:"d1",role:"assistant",content:"diagnosis",evidence:{business_diagnosis:scoped}},
+    {id:"u1",role:"user",content:"why did profit drop?",evidence:{}},
+  ];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[{role:"user",content:"why did profit drop?"},{role:"assistant",content:"diagnosis"}]);
 });

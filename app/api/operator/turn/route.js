@@ -5,7 +5,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import { buildBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAnswerContent, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
-import { verifyBusinessDiagnosisProofAuthenticity, businessDiagnosisProofAuthenticityAcceptable, redactBusinessDiagnosisProofForClient, sealBusinessDiagnosisProofAuthenticity, bindBusinessDiagnosisScopeChecksum } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
+import { verifyBusinessDiagnosisProofAuthenticity, businessDiagnosisProofAuthenticityAcceptable, redactBusinessDiagnosisProofForClient, sealBusinessDiagnosisProofAuthenticity, bindBusinessDiagnosisScopeChecksum, businessDiagnosisUserTurnContentFingerprint } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
 import { businessDiagnosisReadinessInternalDiagnostic } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReadinessRuntime";
 import {
   resolveBusinessContext,
@@ -87,7 +87,7 @@ function object(value) {
     : {};
 }
 
-function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null, conversationId = null, entityId = null, periodId = null, userTurnId = null } = {}) {
+function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null, conversationId = null, entityId = null, periodId = null, userTurnId = null, userTurnContent = null } = {}) {
   const diagnosis = object(result?.business_diagnosis);
   if (!text(diagnosis.receipt_fingerprint)) return {};
   const projection = buildBusinessDiagnosisAuditProjection({
@@ -131,6 +131,7 @@ function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null
     scope_entity_id: text(entityId) || null,
     scope_period_id: diagnosedPeriodId || activePeriodId,
     scope_user_turn_id: text(userTurnId) || null,
+    scope_user_content_fingerprint: text(userTurnId) ? businessDiagnosisUserTurnContentFingerprint(userTurnContent) : null,
   };
   const checksummedPersistenceBase = bindBusinessDiagnosisScopeChecksum(persistenceBase);
   const persistenceSeal = sealBusinessDiagnosisProofAuthenticity(checksummedPersistenceBase);
@@ -150,6 +151,7 @@ function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null
       scope_entity_id: text(persistedProof.scope_entity_id) || null,
       scope_period_id: text(persistedProof.scope_period_id) || null,
       scope_user_turn_id: text(persistedProof.scope_user_turn_id) || null,
+      scope_user_content_fingerprint: text(persistedProof.scope_user_content_fingerprint) || null,
       scope_checksum_contract: text(persistedProof.scope_checksum_contract) || null,
       scope_checksum: text(persistedProof.scope_checksum) || null,
       class: projection.diagnosis_class,
@@ -804,6 +806,7 @@ export async function POST(request) {
       entityId: businessContext.entityId,
       periodId: businessContext.periodId,
       userTurnId: persistedUserTurn?.id || null,
+      userTurnContent: message,
     });
     const diagnosisResultPresent =
       Object.keys(object(result?.business_diagnosis)).length > 0 ||

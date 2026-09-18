@@ -6,6 +6,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { BusinessIntelligenceRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 import { BusinessIntelligenceAgentRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceAgentRuntime";
 import { classifyBusinessDiagnosisQuestion } from "@/lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function cleanValue(value) {
   const normalized = String(value ?? "").trim();
@@ -75,6 +76,40 @@ function listValue(value) {
   return Array.isArray(value) ? value : [];
 }
 
+
+async function bindDiagnosisPeriods({ organizationId, entityId = null, baselinePeriodId = null, currentPeriodId = null }) {
+  const ids = [...new Set([baselinePeriodId, currentPeriodId].filter(Boolean))];
+  if (!ids.length) return { success: true, periods: {} };
+  const { data, error } = await supabaseAdmin
+    .from("accounting_periods")
+    .select("id,organization_id,entity_id,start_date,end_date,status")
+    .eq("organization_id", organizationId)
+    .in("id", ids);
+  if (error) throw error;
+  const rows = Array.isArray(data) ? data : [];
+  const byId = new Map(rows.map((row) => [cleanValue(row?.id), row]));
+  for (const id of ids) {
+    const row = byId.get(id);
+    if (!row) return { success: false, error: "accounting period outside organization scope" };
+    const rowEntity = cleanValue(row.entity_id);
+    if (entityId && rowEntity && rowEntity !== entityId) return { success: false, error: "accounting period outside entity scope" };
+  }
+  const baseline = baselinePeriodId ? byId.get(baselinePeriodId) : null;
+  const current = currentPeriodId ? byId.get(currentPeriodId) : null;
+  if (baseline && current && cleanValue(baseline.start_date) >= cleanValue(current.start_date)) {
+    return { success: false, error: "baseline period must precede current period" };
+  }
+  return {
+    success: true,
+    periods: {
+      baseline_period_start_date: cleanValue(baseline?.start_date),
+      baseline_period_end_date: cleanValue(baseline?.end_date),
+      current_period_start_date: cleanValue(current?.start_date),
+      current_period_end_date: cleanValue(current?.end_date),
+    },
+  };
+}
+
 function businessDiagnosisAudit(result = {}) {
   const receipt = objectValue(result.business_diagnosis_receipt);
   const boundary = objectValue(result.business_answer_evidence_boundary);
@@ -113,10 +148,22 @@ export async function POST(request) {
     const diagnosisClass = diagnosisClassification.match === true
       ? diagnosisClassification.class
       : "DIRECT_GOVERNED_DIAGNOSIS";
+    const requestContext = objectValue(body.context);
+    const entityId = cleanValue(body.entity_id || body.entityId);
+    const baselinePeriodId = cleanValue(body.baseline_period_id || body.baselinePeriodId || requestContext.baseline_period_id);
+    const currentPeriodId = cleanValue(body.current_period_id || body.currentPeriodId || requestContext.current_period_id || body.period_id);
+    const boundPeriods = await bindDiagnosisPeriods({
+      organizationId: access.organizationId,
+      entityId,
+      baselinePeriodId,
+      currentPeriodId,
+    });
+    if (!boundPeriods.success) return errorResponse(boundPeriods.error, 400);
     const context = {
-      ...objectValue(body.context),
-      baseline_period_id: cleanValue(body.baseline_period_id || body.baselinePeriodId || objectValue(body.context).baseline_period_id),
-      current_period_id: cleanValue(body.current_period_id || body.currentPeriodId || objectValue(body.context).current_period_id || body.period_id),
+      ...requestContext,
+      baseline_period_id: baselinePeriodId,
+      current_period_id: currentPeriodId,
+      ...boundPeriods.periods,
       business_diagnosis_class: diagnosisClass,
     };
     const actor = {
@@ -127,7 +174,7 @@ export async function POST(request) {
     };
     const result = await BusinessIntelligenceAgentRuntime.run({
       organization_id: access.organizationId,
-      entity_id: cleanValue(body.entity_id || body.entityId),
+      entity_id: entityId,
       question,
       messages: listValue(body.messages),
       context,

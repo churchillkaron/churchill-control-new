@@ -36,7 +36,7 @@ test("diagnosis POST server-classifies request type and overrides client class",
   assert.match(source,/classifyBusinessDiagnosisQuestion\(question\)/);
   assert.match(source,/DIRECT_GOVERNED_DIAGNOSIS/);
   assert.match(source,/business_diagnosis_class: diagnosisClass/);
-  const spread=source.indexOf("...objectValue(body.context)");
+  const spread=source.indexOf("...requestContext");
   const bound=source.indexOf("business_diagnosis_class: diagnosisClass");
   assert.ok(spread>=0&&bound>spread);
   assert.doesNotMatch(source,/business_diagnosis_class:\s*cleanValue\(body/);
@@ -45,4 +45,26 @@ test("diagnosis POST server-classifies request type and overrides client class",
 test("diagnosis POST audit exposes signed diagnosis class from receipt",()=>{
   assert.match(source,/diagnosis_class: cleanValue\(receipt\.diagnosis_class\)/);
   assert.doesNotMatch(source,/diagnosis_class: cleanValue\(body/);
+});
+
+
+test("diagnosis POST binds period dates from authoritative accounting periods",()=>{
+  assert.match(source,/function bindDiagnosisPeriods/);
+  assert.match(source,/from\("accounting_periods"\)/);
+  assert.match(source,/\.eq\("organization_id", organizationId\)/);
+  assert.match(source,/\.in\("id", ids\)/);
+  assert.match(source,/baseline_period_start_date/);
+  assert.match(source,/baseline_period_end_date/);
+  assert.match(source,/current_period_start_date/);
+  assert.match(source,/current_period_end_date/);
+  assert.match(source,/\.\.\.boundPeriods\.periods/);
+});
+
+test("diagnosis POST rejects unverifiable or reversed period scope",()=>{
+  assert.match(source,/accounting period outside organization scope/);
+  assert.match(source,/accounting period outside entity scope/);
+  assert.match(source,/baseline period must precede current period/);
+  assert.match(source,/if \(!boundPeriods\.success\) return errorResponse\(boundPeriods\.error, 400\)/);
+  assert.doesNotMatch(source,/baseline_period_start_date:\s*cleanValue\(body/);
+  assert.doesNotMatch(source,/current_period_end_date:\s*cleanValue\(body/);
 });

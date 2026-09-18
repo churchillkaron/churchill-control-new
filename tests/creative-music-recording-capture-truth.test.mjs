@@ -40,3 +40,16 @@ test("capture truth distinguishes device rate from AudioContext/WAV rate and rep
   assert.match(overdub,/sample_rate_conversion_detected/);
   assert.match(route,/native_sample_rate_path_verified/);
 });
+
+
+test("capture truth follows device-reported channel topology when available",()=>{
+  assert.match(capture,/reportedInputChannels/);
+  assert.match(capture,/recorderChannels/);
+  assert.match(capture,/MEDIA_TRACK_SETTINGS/);
+  assert.match(capture,/MEDIA_STREAM_SOURCE_FALLBACK/);
+  assert.match(capture,/recorded_channel_count/);
+  assert.match(capture,/channel_topology_verified/);
+  assert.match(panel,/channel path/);
+  assert.match(overdub,/recorder_channel_count_requested/);
+  assert.match(route,/channel_topology_source/);
+});

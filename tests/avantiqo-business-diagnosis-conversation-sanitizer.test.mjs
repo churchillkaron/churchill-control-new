@@ -9,6 +9,7 @@ import {
 import {
   businessDiagnosisTurnVerification,
   sanitizeBusinessDiagnosisConversation,
+  sanitizeBusinessDiagnosisSnapshotTurn,
 } from "../lib/operator/runtime/BusinessDiagnosisConversationSanitizerRuntime.js";
 
 function diagnosisEvidence({ status = "verified", legacy = false } = {}) {
@@ -111,4 +112,29 @@ test("assistant without diagnosis evidence remains normal conversation", () => {
     { role: "user", content: "hello" },
     { role: "assistant", content: "normal answer" },
   ]);
+});
+
+
+test("verified snapshot diagnosis preserves answer and marks verification", () => {
+  const turn = { role: "assistant", content: "verified answer", decision: { response_text: "verified answer", clarification: { options: ["A"] } }, evidence: { provider: "safe", ...diagnosisEvidence() }, execution: { status: "read" }, navigation: { href: "/safe" } };
+  const result = sanitizeBusinessDiagnosisSnapshotTurn(turn);
+  assert.equal(result.content, "verified answer");
+  assert.deepEqual(result.decision.clarification.options, ["A"]);
+  assert.equal(result.evidence.provider, "safe");
+  assert.equal(result.evidence.business_diagnosis.audit_projection_verification_status, "VERIFIED");
+  assert.equal(result.evidence.business_diagnosis.audit_projection_verified, true);
+  assert.deepEqual(result.execution, { status: "read" });
+  assert.deepEqual(result.navigation, { href: "/safe" });
+});
+
+test("unverified snapshot diagnosis is reduced to minimum safe payload", () => {
+  const turn = { role: "assistant", content: "unsafe answer", decision: { response_text: "unsafe answer", clarification: { options: ["stale"] }, secret: "drop" }, evidence: { provider: "drop", ...diagnosisEvidence({ status: "mismatch" }) }, execution: { status: "danger" }, navigation: { href: "/stale" } };
+  const result = sanitizeBusinessDiagnosisSnapshotTurn(turn);
+  assert.match(result.content, /historical diagnosis is hidden/i);
+  assert.deepEqual(result.decision, { response_text: result.content });
+  assert.deepEqual(Object.keys(result.evidence), ["business_diagnosis"]);
+  assert.equal(result.evidence.business_diagnosis.audit_projection_verification_status, "MISMATCH");
+  assert.equal(result.evidence.business_diagnosis.audit_projection_verified, false);
+  assert.deepEqual(result.execution, {});
+  assert.deepEqual(result.navigation, {});
 });

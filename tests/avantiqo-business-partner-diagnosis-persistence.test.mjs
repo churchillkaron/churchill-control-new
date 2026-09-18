@@ -28,12 +28,8 @@ test("business diagnosis audit persistence does not alter atomic assistant turn 
 
 test("conversation snapshot verifies persisted diagnosis audit projection before returning turns",()=>{
   const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
-  assert.match(runtime,/verifyBusinessDiagnosisAuditProjection/);
-  assert.match(runtime,/audit_projection_verification_status:verification\.status/);
-  assert.match(runtime,/audit_projection_verified:verification\.verified===true/);
-  const snapshot=runtime.indexOf("export async function loadIntelligenceConversationSnapshot");
-  const verify=runtime.indexOf("verifyBusinessDiagnosisAuditProjection(diagnosis)",snapshot);
-  assert.ok(snapshot>=0&&verify>snapshot);
+  assert.match(runtime,/sanitizeBusinessDiagnosisSnapshot/);
+  assert.match(runtime,/const verifiedTurns=sanitizeBusinessDiagnosisSnapshot\(turns\.data\|\|\[\]\)/);
 });
 
 
@@ -78,28 +74,4 @@ test("conversation memory excludes unverified diagnosis assistant turns before m
 test("operator never falls back to client conversation after server memory filtering",()=>{
   assert.match(route,/const conversation = persistedConversation;/);
   assert.doesNotMatch(route,/persistedConversation\.length\s*\?\s*persistedConversation\s*:\s*clientConversation/);
-});
-
-
-
-
-test("conversation snapshot hides unverified historical diagnosis answer text",()=>{
-  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
-  assert.match(runtime,/const proofVerified=verification\.status==="VERIFIED"\|\|verification\.status==="VERIFIED_LEGACY"/);
-  assert.match(runtime,/This historical diagnosis is hidden because its proof could not be verified/);
-  assert.match(runtime,/No action was executed/);
-  assert.match(runtime,/execution:\{\}/);
-  assert.match(runtime,/navigation:\{\}/);
-});
-
-
-test("unverified snapshot diagnosis drops stale decisions and unrelated evidence",()=>{
-  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
-  const start=runtime.indexOf("const quarantineMessage=");
-  const end=runtime.indexOf("  });",start);
-  const quarantine=runtime.slice(start,end);
-  assert.match(quarantine,/decision:\{response_text:quarantineMessage\}/);
-  assert.match(quarantine,/evidence:\{business_diagnosis:verifiedDiagnosis\}/);
-  assert.doesNotMatch(quarantine,/\.\.\.object\(turn\?\.decision\)/);
-  assert.doesNotMatch(quarantine,/\.\.\.evidence/);
 });

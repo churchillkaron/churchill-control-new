@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 333,
-    "passed": 333,
+    "tests": 338,
+    "passed": 338,
     "failed": 0
   },
   "workstreams": [
@@ -96,6 +96,21 @@
       "secret_exposure": "No raw provider secret returned through Finance API or stored in Finance metadata",
       "current_business_blocker": "Real Brankas/e-Tax/mailbox provider credentials still need to be supplied by the organization/provider.",
       "test_artifacts_remaining": false
+    },
+    {
+      "order": 7,
+      "name": "Provider connection verification",
+      "commit": "25f89f6b111d",
+      "status": "OPERATIONAL_READ_ONLY_PROVIDER_VERIFICATION",
+      "live_api_verified": true,
+      "live_ui_verified": true,
+      "bank_verification": "Read-only Brankas GET /v1/statements validates credential without consent, import or reconciliation.",
+      "etax_verification": "Read-only provider health endpoint or auth handshake; otherwise remains configured-unverified instead of fabricating verification.",
+      "verification_receipt": "Provider metadata/profile records verification status, attempt time, successful verification time and bounded error detail.",
+      "accounting_mutation_authority": false,
+      "live_no_credential_bank_verify_status": 400,
+      "live_no_credential_etax_verify_status": 400,
+      "test_artifacts_remaining": false
     }
   ],
   "live_acceptance": {
@@ -112,7 +127,9 @@
     "staff_manual_signature_terminal_status": 409,
     "finance_provider_credentials": 0,
     "bank_activation_missing_secret_status": 400,
-    "etax_activation_insecure_endpoint_status": 400
+    "etax_activation_insecure_endpoint_status": 400,
+    "provider_verification_missing_bank_credential_status": 400,
+    "provider_verification_missing_etax_credential_status": 400
   },
   "governance": {
     "no_parallel_accounting_truth": true,
@@ -121,6 +138,8 @@
     "financial_approval_authority_not_increased_by_automation": true,
     "external_auditor_access_has_no_erp_mutation_authority": true,
     "provider_secrets_vault_only": true,
-    "finance_provider_activation_requires_configuration_manage": true
+    "finance_provider_activation_requires_configuration_manage": true,
+    "provider_verification_is_read_only": true,
+    "provider_verification_never_imports_or_transmits_financial_documents": true
   }
 }

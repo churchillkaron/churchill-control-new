@@ -33,3 +33,26 @@ test("rejects low-confidence decision", () => {
   assert.equal(result.approved, false);
   assert.match(result.reasons.join(" "), /below minimum/);
 });
+
+test("SELL de-risking remains executable after daily-loss and drawdown limits are breached", () => {
+  const result = evaluatePaperTradeRisk({
+    policy: {
+      max_position_pct: 10,
+      max_daily_loss_pct: 2,
+      max_portfolio_drawdown_pct: 10,
+      min_decision_confidence: 0.7,
+      live_execution_enabled: false,
+    },
+    decision: { action: "SELL", confidence: 0.9 },
+    portfolio: {
+      equity: 100000,
+      current_position_value: 25000,
+      daily_pnl: -5000,
+      drawdown_pct: 20,
+    },
+    order: { side: "SELL", notional: 5000 },
+  });
+
+  assert.equal(result.approved, true);
+  assert.deepEqual(result.reasons, []);
+});

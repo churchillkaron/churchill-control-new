@@ -4,6 +4,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 
 import { resolveBusinessContext } from "@/lib/business-context/resolveBusinessContext";
+import { MarketIntelligenceIngestionRuntime } from "@/lib/markets/runtime/MarketIntelligenceIngestionRuntime";
+import { MarketSpecialistAgentRuntime } from "@/lib/markets/runtime/MarketSpecialistAgentRuntime";
 import { evaluatePaperTradeRisk } from "@/lib/markets/runtime/MarketRiskPolicyRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -52,19 +54,25 @@ async function loadState({ organizationId, entityId }) {
       riskPolicy: null,
       evidence: [],
       theses: [],
+      snapshots: [],
+      filings: [],
+      outcomes: [],
     };
   }
 
-  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult] = await Promise.all([
+  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, snapshotsResult, filingsResult, outcomesResult] = await Promise.all([
     supabaseAdmin.from("market_watchlist").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).neq("status", "REMOVED").order("added_at", { ascending: false }),
     supabaseAdmin.from("market_decisions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("created_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_paper_orders").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("submitted_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_risk_policies").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).maybeSingle(),
-    supabaseAdmin.from("market_evidence_events").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("observed_at", { ascending: false }).limit(50),
-    supabaseAdmin.from("market_agent_theses").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("generated_at", { ascending: false }).limit(50),
+    supabaseAdmin.from("market_evidence_events").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("observed_at", { ascending: false }).limit(100),
+    supabaseAdmin.from("market_agent_theses").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("generated_at", { ascending: false }).limit(100),
+    supabaseAdmin.from("market_snapshots").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("captured_at", { ascending: false }).limit(100),
+    supabaseAdmin.from("market_filings").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("filed_at", { ascending: false }).limit(100),
+    supabaseAdmin.from("market_prediction_outcomes").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("evaluation_time", { ascending: false }).limit(100),
   ]);
 
-  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult]) {
+  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, snapshotsResult, filingsResult, outcomesResult]) {
     if (result.error) throw result.error;
   }
 
@@ -76,6 +84,9 @@ async function loadState({ organizationId, entityId }) {
     riskPolicy: policyResult.data || null,
     evidence: evidenceResult.data || [],
     theses: thesesResult.data || [],
+    snapshots: snapshotsResult.data || [],
+    filings: filingsResult.data || [],
+    outcomes: outcomesResult.data || [],
   };
 }
 
@@ -251,6 +262,42 @@ export async function POST(request) {
       }).select("*").single();
       if (error) throw error;
       return NextResponse.json({ success: true, watchlist_item: data });
+    }
+
+    if (action === "REFRESH_INTELLIGENCE") {
+      const symbol = clean(body.symbol).toUpperCase();
+      if (!symbol) return NextResponse.json({ success: false, error: "symbol is required" }, { status: 400 });
+
+      const start = new Date(Date.now() - (180 * 24 * 60 * 60 * 1000)).toISOString();
+      const refreshed = await MarketIntelligenceIngestionRuntime.refreshSymbol({
+        organizationId,
+        portfolioId: state.portfolio.id,
+        symbol,
+        exchange: clean(body.exchange) || null,
+        cik: clean(body.cik) || null,
+        feed: clean(body.feed || "iex"),
+        barsStart: clean(body.bars_start) || start,
+        barsEnd: clean(body.bars_end) || null,
+        barsTimeframe: clean(body.timeframe || "1Day"),
+        barsLimit: Number(body.bars_limit || 160),
+        newsLimit: Number(body.news_limit || 20),
+      });
+
+      const cycle = await MarketSpecialistAgentRuntime.persistCycle({
+        organizationId,
+        portfolioId: state.portfolio.id,
+        symbol,
+        bars: refreshed.bars,
+        evidence: refreshed.evidence,
+        filings: refreshed.filings,
+      });
+
+      return NextResponse.json({
+        success: true,
+        refresh: refreshed,
+        intelligence: cycle,
+        execution: { mode: "PAPER", live_enabled: false },
+      });
     }
 
     if (action === "RECORD_DECISION") {

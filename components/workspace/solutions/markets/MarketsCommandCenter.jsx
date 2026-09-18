@@ -78,6 +78,9 @@ export default function MarketsCommandCenter({ organizationId }) {
   const orders = Array.isArray(data?.paperOrders) ? data.paperOrders : [];
   const evidence = Array.isArray(data?.evidence) ? data.evidence : [];
   const theses = Array.isArray(data?.theses) ? data.theses : [];
+  const snapshots = Array.isArray(data?.snapshots) ? data.snapshots : [];
+  const filings = Array.isArray(data?.filings) ? data.filings : [];
+  const outcomes = Array.isArray(data?.outcomes) ? data.outcomes : [];
   const policy = data?.riskPolicy || {};
   const baseCurrency = portfolio?.base_currency || "USD";
 
@@ -85,11 +88,15 @@ export default function MarketsCommandCenter({ organizationId }) {
   for (const row of decisions) {
     if (!latestBySymbol.has(row.symbol)) latestBySymbol.set(row.symbol, row);
   }
+  const latestSnapshotBySymbol = new Map();
+  for (const row of snapshots) {
+    if (!latestSnapshotBySymbol.has(row.symbol)) latestSnapshotBySymbol.set(row.symbol, row);
+  }
 
   if (loading && !data) {
     return (
-      <main className="min-h-screen bg-[#080808] p-6 text-white">
-        <div className="flex min-h-[420px] items-center justify-center text-sm text-white/60">
+      <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919]">
+        <div className="flex min-h-[420px] items-center justify-center text-sm text-[#6C6963]">
           <LoaderCircle size={18} className="mr-2 animate-spin" /> Loading Avantiqo Markets…
         </div>
       </main>
@@ -97,36 +104,36 @@ export default function MarketsCommandCenter({ organizationId }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#080808] p-4 text-white md:p-6 lg:p-8">
+    <main className="min-h-screen bg-[#F7F6F3] p-4 text-[#191919] md:p-6 lg:p-8">
       <div className="mx-auto max-w-[1760px] space-y-5">
-        <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-6 shadow-2xl shadow-black/30 backdrop-blur-xl">
+        <section className="rounded-[26px] border border-black/[0.075] bg-white p-6 shadow-[0_12px_38px_rgba(31,27,20,0.045)]">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <div className="text-[10px] font-medium uppercase tracking-[0.28em] text-[#D6A66A]">Avantiqo Markets · Paper Lab</div>
+              <div className="text-[10px] font-medium uppercase tracking-[0.28em] text-[#A37849]">Avantiqo Markets · Paper Lab</div>
               <h1 className="mt-2 text-[32px] font-semibold tracking-[-0.045em]">Autonomous market intelligence, governed execution.</h1>
-              <p className="mt-2 max-w-4xl text-[12px] leading-5 text-white/55">
+              <p className="mt-2 max-w-4xl text-[12px] leading-5 text-[#706B64]">
                 Research, specialist theses, probabilistic decisions and deterministic risk control. Live broker execution is disabled in v1.
               </p>
             </div>
-            <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-[11px] text-white/80 disabled:opacity-40">
+            <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-4 text-[11px] font-medium text-white disabled:opacity-40">
               <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
             </button>
           </div>
         </section>
 
         {error ? (
-          <div className="rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-[11px] text-red-200">
+          <div className="rounded-xl border border-red-700/15 bg-red-50 px-4 py-3 text-[11px] text-red-800">
             <AlertTriangle size={13} className="mr-2 inline" />{error}
           </div>
         ) : null}
 
         {!portfolio ? (
-          <section className="rounded-[24px] border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] p-8">
+          <section className="rounded-[24px] border border-black/[0.075] bg-white p-8 shadow-[0_12px_38px_rgba(31,27,20,0.04)]">
             <div className="max-w-2xl">
               <div className="text-[10px] uppercase tracking-[0.2em] text-[#D6A66A]">First activation</div>
               <h2 className="mt-2 text-2xl font-semibold">Create the governed paper portfolio.</h2>
-              <p className="mt-2 text-[12px] leading-5 text-white/55">This creates the portfolio and its independent risk policy. No real-money execution path is created.</p>
-              <button type="button" disabled={working === "INITIALIZE"} onClick={() => act("INITIALIZE")} className="mt-5 rounded-xl bg-[#D6A66A] px-4 py-2.5 text-[11px] font-semibold text-black disabled:opacity-40">
+              <p className="mt-2 text-[12px] leading-5 text-[#706B64]">This creates the portfolio and its independent risk policy. No real-money execution path is created.</p>
+              <button type="button" disabled={working === "INITIALIZE"} onClick={() => act("INITIALIZE")} className="mt-5 rounded-xl bg-[#1F1E1B] px-4 py-2.5 text-[11px] font-medium text-white disabled:opacity-40">
                 {working === "INITIALIZE" ? "Initializing…" : "Initialize Markets"}
               </button>
             </div>
@@ -142,54 +149,93 @@ export default function MarketsCommandCenter({ organizationId }) {
                 ["Decisions", decisions.length, "Governed decisions"],
                 ["Paper orders", orders.length, "Simulation only"],
               ].map(([label, value, detail]) => (
-                <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-                  <div className="text-[9px] uppercase tracking-[0.16em] text-white/40">{label}</div>
+                <div key={label} className="rounded-2xl border border-black/[0.075] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
+                  <div className="text-[9px] font-medium uppercase tracking-[0.16em] text-[#817D76]">{label}</div>
                   <div className="mt-3 truncate text-xl font-semibold">{value}</div>
-                  <div className="mt-1 text-[10px] text-white/35">{detail}</div>
+                  <div className="mt-1 text-[10px] text-[#8A867F]">{detail}</div>
                 </div>
               ))}
             </section>
 
             <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-              <div className="rounded-[22px] border border-white/10 bg-white/[0.03]">
-                <div className="flex flex-col gap-3 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="rounded-[22px] border border-black/[0.075] bg-white">
+                <div className="flex flex-col gap-3 border-b border-black/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <div className="text-[9px] uppercase tracking-[0.16em] text-[#D6A66A]">Universe</div>
+                    <div className="text-[9px] uppercase tracking-[0.16em] text-[#A37849]">Universe</div>
                     <h2 className="mt-1 text-[18px] font-semibold">Watchlist & latest decisions</h2>
                   </div>
                   <form onSubmit={addWatchlist} className="flex gap-2">
-                    <input value={symbol} onChange={(event) => setSymbol(event.target.value)} placeholder="Ticker e.g. AAPL" className="h-9 w-40 rounded-lg border border-white/10 bg-black/40 px-3 text-[11px] uppercase outline-none placeholder:normal-case placeholder:text-white/25" />
-                    <button type="submit" disabled={working === "ADD_WATCHLIST"} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#D6A66A] px-3 text-[10px] font-semibold text-black disabled:opacity-40">
+                    <input value={symbol} onChange={(event) => setSymbol(event.target.value)} placeholder="Ticker e.g. AAPL" className="h-9 w-40 rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-3 text-[11px] uppercase text-[#2E2B27] outline-none placeholder:normal-case placeholder:text-[#AAA69E]" />
+                    <button type="submit" disabled={working === "ADD_WATCHLIST"} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#1F1E1B] px-3 text-[10px] font-medium text-white disabled:opacity-40">
                       <Plus size={12} /> Add
                     </button>
                   </form>
                 </div>
-                <div className="divide-y divide-white/[0.07]">
+                <div className="divide-y divide-black/[0.06]">
                   {watchlist.length ? watchlist.map((item) => {
                     const decision = latestBySymbol.get(item.symbol);
+                    const snapshot = latestSnapshotBySymbol.get(item.symbol);
+                    const refreshing = working === `REFRESH_INTELLIGENCE:${item.symbol}`;
                     return (
-                      <div key={item.id} className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                      <div key={item.id} className="grid gap-3 p-4 sm:grid-cols-[minmax(120px,1fr)_auto_auto_auto_auto] sm:items-center">
                         <div>
                           <div className="text-[14px] font-semibold">{item.symbol}</div>
-                          <div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-white/35">{item.asset_type} · {item.thesis_horizon}</div>
+                          <div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-[#938C83]">{item.asset_type} · {item.thesis_horizon}</div>
                         </div>
                         <div className="text-left sm:text-right">
-                          <div className="text-[9px] uppercase tracking-[0.12em] text-white/35">Latest decision</div>
+                          <div className="text-[9px] uppercase tracking-[0.12em] text-[#938C83]">Last</div>
+                          <div className="mt-1 text-[11px] font-medium">{snapshot?.latest_trade_price ? money(snapshot.latest_trade_price, baseCurrency) : "—"}</div>
+                        </div>
+                        <div className="text-left sm:text-right">
+                          <div className="text-[9px] uppercase tracking-[0.12em] text-[#938C83]">Decision</div>
                           <div className="mt-1 text-[11px] font-medium">{decision?.action || "NO DECISION"}</div>
                         </div>
                         <div className="text-left sm:text-right">
-                          <div className="text-[9px] uppercase tracking-[0.12em] text-white/35">Confidence</div>
+                          <div className="text-[9px] uppercase tracking-[0.12em] text-[#938C83]">Confidence</div>
                           <div className="mt-1 text-[11px] font-medium">{decision ? `${(Number(decision.confidence) * 100).toFixed(1)}%` : "—"}</div>
                         </div>
+                        <button
+                          type="button"
+                          disabled={Boolean(working)}
+                          onClick={async () => {
+                            setWorking(`REFRESH_INTELLIGENCE:${item.symbol}`);
+                            setError("");
+                            try {
+                              const response = await fetch("/api/markets/command-center", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                credentials: "include",
+                                body: JSON.stringify({
+                                  organizationId,
+                                  entityId,
+                                  action: "REFRESH_INTELLIGENCE",
+                                  symbol: item.symbol,
+                                  exchange: item.exchange || null,
+                                }),
+                              });
+                              const json = await response.json().catch(() => ({}));
+                              if (!response.ok || !json?.success) throw new Error(json?.error || "Unable to refresh intelligence");
+                              await load();
+                            } catch (refreshError) {
+                              setError(refreshError?.message || "Unable to refresh intelligence");
+                            } finally {
+                              setWorking("");
+                            }
+                          }}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-[#FCFBF9] px-2.5 text-[9px] font-medium text-[#5E5851] transition hover:border-[#D6A66A]/45 hover:text-[#8A6239] disabled:opacity-40"
+                        >
+                          <RefreshCw size={10} className={refreshing ? "animate-spin" : ""} />
+                          Refresh intelligence
+                        </button>
                       </div>
                     );
-                  }) : <div className="p-8 text-center text-[11px] text-white/35">Add the first instrument to start the research universe.</div>}
+                  }) : <div className="p-8 text-center text-[11px] text-[#8A867F]">Add the first instrument to start the research universe.</div>}
                 </div>
               </div>
 
               <div className="space-y-4">
-                <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
-                  <div className="flex items-center gap-2 text-[#D6A66A]"><ShieldCheck size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Risk authority</span></div>
+                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                  <div className="flex items-center gap-2 text-[#A37849]"><ShieldCheck size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Risk authority</span></div>
                   <h2 className="mt-2 text-[18px] font-semibold">Independent execution limits</h2>
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     {[
@@ -198,19 +244,19 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Max drawdown", `${Number(policy.max_portfolio_drawdown_pct || 10)}%`],
                       ["Min confidence", `${(Number(policy.min_decision_confidence || 0.7) * 100).toFixed(0)}%`],
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-xl border border-white/[0.07] bg-black/20 p-3">
-                        <div className="text-[8px] uppercase tracking-[0.12em] text-white/35">{label}</div>
+                      <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                        <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
                         <div className="mt-1 text-[14px] font-semibold">{value}</div>
                       </div>
                     ))}
                   </div>
-                  <div className="mt-3 rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] px-3 py-2.5 text-[10px] text-emerald-200">
+                  <div className="mt-3 rounded-xl border border-emerald-200/70 bg-emerald-50 px-3 py-2.5 text-[10px] text-emerald-700">
                     Live broker execution: <span className="font-semibold">DISABLED</span>
                   </div>
                 </div>
 
-                <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
-                  <div className="flex items-center gap-2 text-[#D6A66A]"><BrainCircuit size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Agent layer</span></div>
+                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                  <div className="flex items-center gap-2 text-[#A37849]"><BrainCircuit size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Agent layer</span></div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     {[
                       ["Research evidence", evidence.length],
@@ -218,8 +264,8 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Governed decisions", decisions.length],
                       ["Queued paper orders", orders.filter((row) => row.status === "QUEUED").length],
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-xl border border-white/[0.07] bg-black/20 p-3">
-                        <div className="text-[8px] uppercase tracking-[0.12em] text-white/35">{label}</div>
+                      <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                        <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
                         <div className="mt-1 text-[14px] font-semibold">{value}</div>
                       </div>
                     ))}
@@ -228,17 +274,17 @@ export default function MarketsCommandCenter({ organizationId }) {
               </div>
             </section>
 
-            <section className="rounded-[22px] border border-white/10 bg-white/[0.03]">
-              <div className="flex items-center justify-between border-b border-white/10 p-4">
+            <section className="rounded-[22px] border border-black/[0.075] bg-white">
+              <div className="flex items-center justify-between border-b border-black/[0.06] p-4">
                 <div>
-                  <div className="flex items-center gap-2 text-[#D6A66A]"><Activity size={14} /><span className="text-[9px] uppercase tracking-[0.16em]">Execution ledger</span></div>
+                  <div className="flex items-center gap-2 text-[#A37849]"><Activity size={14} /><span className="text-[9px] uppercase tracking-[0.16em]">Execution ledger</span></div>
                   <h2 className="mt-1 text-[18px] font-semibold">Paper orders</h2>
                 </div>
-                <div className="rounded-full border border-white/10 px-2.5 py-1 text-[9px] text-white/40">Simulation only</div>
+                <div className="rounded-full border border-black/[0.08] bg-[#FCFBF9] px-2.5 py-1 text-[9px] text-[#817D76]">Simulation only</div>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-[10px]">
-                  <thead className="text-white/35">
+                  <thead className="text-[#8A867F]">
                     <tr>
                       <th className="px-4 py-3 font-medium">Time</th>
                       <th className="px-4 py-3 font-medium">Symbol</th>
@@ -248,10 +294,10 @@ export default function MarketsCommandCenter({ organizationId }) {
                       <th className="px-4 py-3 font-medium">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.06]">
+                  <tbody className="divide-y divide-black/[0.06]">
                     {orders.length ? orders.map((order) => (
                       <tr key={order.id}>
-                        <td className="px-4 py-3 text-white/45">{new Date(order.submitted_at).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-[#8A867F]">{new Date(order.submitted_at).toLocaleString()}</td>
                         <td className="px-4 py-3 font-semibold">{order.symbol}</td>
                         <td className="px-4 py-3">{order.side}</td>
                         <td className="px-4 py-3">{order.quantity}</td>
@@ -259,15 +305,15 @@ export default function MarketsCommandCenter({ organizationId }) {
                         <td className="px-4 py-3">{order.status}</td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={6} className="px-4 py-10 text-center text-white/30">No paper orders yet. Orders can only be submitted after a governed decision passes risk.</td></tr>
+                      <tr><td colSpan={6} className="px-4 py-10 text-center text-[#9A968E]">No paper orders yet. Orders can only be submitted after a governed decision passes risk.</td></tr>
                     )}
                   </tbody>
                 </table>
               </div>
             </section>
 
-            <section className="rounded-[18px] border border-[#D6A66A]/15 bg-[#D6A66A]/[0.04] px-4 py-3 text-[10px] leading-4 text-white/45">
-              <TrendingUp size={13} className="mr-2 inline text-[#D6A66A]" />
+            <section className="rounded-[18px] border border-[#D6A66A]/25 bg-[#FBF7F1] px-4 py-3 text-[10px] leading-4 text-[#706B64]">
+              <TrendingUp size={13} className="mr-2 inline text-[#A37849]" />
               Markets v1 records probabilistic research and simulated execution. It does not claim certainty, and no live broker mutation path exists.
             </section>
           </>

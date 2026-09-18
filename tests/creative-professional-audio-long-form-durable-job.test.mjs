@@ -1,0 +1,9 @@
+import test from "node:test";import assert from "node:assert/strict";import fs from "node:fs";
+const route=fs.readFileSync("app/api/creative/music/long-form-render/route.js","utf8");
+const ui=fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicReleaseRenderPanel.jsx","utf8");
+test("long-form authorization is durably persisted before worker submission and bound to revision/profile/picture",()=>{assert.match(route,/audio_long_form_render_jobs/);assert.match(route,/AVANTIQO_AUDIO_LONG_FORM_JOB_AUTHORIZATION_V1/);const auth=route.indexOf('contract: "AVANTIQO_AUDIO_LONG_FORM_JOB_AUTHORIZATION_V1"'),submit=route.indexOf("const submission = await submitProfessionalAudioLongFormWorkerJob");assert.ok(auth>0&&submit>auth);assert.match(route,/project_revision: releasePlan\.project_revision/);assert.match(route,/picture_lock_digest/);assert.match(route,/delivery_profile_id/);});
+test("worker upload is just-in-time signed and finalization registers immutable pre-master",()=>{assert.match(route,/worker_prepare_upload/);assert.match(route,/createSignedUploadUrl/);assert.match(route,/planProfessionalAudioLongFormStorage/);assert.match(route,/worker_finalize/);assert.match(route,/LONG_FORM_PREMASTER/);assert.match(route,/final_mastering_required: true/);});
+test("Studio polls long-form job until immutable premaster asset is registered",()=>{assert.match(ui,/action: "status"/);assert.match(ui,/setTimeout/);assert.match(ui,/LONG-FORM PRE-MASTER REGISTERED/);assert.match(ui,/IMMUTABLE PRE-MASTER/);assert.match(ui,/asset_id/);});
+
+
+test("long-form start only bypasses the intentional browser-size blocker and preserves every other release blocker",()=>{assert.match(route,/nonLongFormBlockers/);assert.match(route,/item\.code !== "LONG_FORM_SERVER_RENDER_REQUIRED"/);assert.match(route,/CREATIVE_AUDIO_LONG_FORM_RENDER_BLOCKED/);});

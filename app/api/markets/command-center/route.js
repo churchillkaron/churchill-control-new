@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 
 import { resolveBusinessContext } from "@/lib/business-context/resolveBusinessContext";
+import { MarketAutonomousPaperRuntime } from "@/lib/markets/runtime/MarketAutonomousPaperRuntime";
 import { MarketIntelligenceIngestionRuntime } from "@/lib/markets/runtime/MarketIntelligenceIngestionRuntime";
 import { MarketPaperExecutionRuntime } from "@/lib/markets/runtime/MarketPaperExecutionRuntime";
 import { MarketPredictionOutcomeRuntime } from "@/lib/markets/runtime/MarketPredictionOutcomeRuntime";
@@ -14,6 +15,23 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function clean(value) {
   return String(value ?? "").trim();
+}
+
+const MARKETS_AUTOMATION_OWNER_ROLES = new Set([
+  "OWNER",
+  "ORGANIZATION_OWNER",
+  "ORG_OWNER",
+  "PLATFORM_OWNER",
+  "SUPER_ADMIN",
+]);
+
+function requireMarketsAutomationAuthority(scope) {
+  const role = clean(scope?.access?.role || scope?.access?.access?.role).toUpperCase();
+  if (!MARKETS_AUTOMATION_OWNER_ROLES.has(role)) {
+    const error = new Error("Owner or super-admin authority is required for Markets automation");
+    error.status = 403;
+    throw error;
+  }
 }
 
 async function resolveContext(request, source = {}) {
@@ -63,10 +81,12 @@ async function loadState({ organizationId, entityId }) {
       paperPositions: [],
       paperFills: [],
       feedStatus: null,
+      automationPolicy: null,
+      automationRuns: [],
     };
   }
 
-  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult] = await Promise.all([
+  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult] = await Promise.all([
     supabaseAdmin.from("market_watchlist").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).neq("status", "REMOVED").order("added_at", { ascending: false }),
     supabaseAdmin.from("market_decisions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("created_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_paper_orders").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("submitted_at", { ascending: false }).limit(50),
@@ -81,9 +101,11 @@ async function loadState({ organizationId, entityId }) {
     supabaseAdmin.from("market_paper_positions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("market_value", { ascending: false }),
     supabaseAdmin.from("market_paper_fills").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("filled_at", { ascending: false }).limit(100),
     supabaseAdmin.from("market_feed_status").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).eq("provider", "alpaca").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from("market_automation_policies").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).maybeSingle(),
+    supabaseAdmin.from("market_automation_runs").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("started_at", { ascending: false }).limit(20),
   ]);
 
-  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult]) {
+  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult]) {
     if (result.error) throw result.error;
   }
 
@@ -105,6 +127,8 @@ async function loadState({ organizationId, entityId }) {
     paperPositions: paperPositionsResult.data || [],
     paperFills: paperFillsResult.data || [],
     feedStatus: feedStatusResult.data || null,
+    automationPolicy: automationPolicyResult.data || null,
+    automationRuns: automationRunsResult.data || [],
   };
 }
 
@@ -167,6 +191,14 @@ async function initializePortfolio({ organizationId, entityId, name = "Primary P
     base_currency: clean(baseCurrency).toUpperCase() || "USD",
   });
   if (accountError) throw accountError;
+
+  const { error: automationError } = await supabaseAdmin.from("market_automation_policies").insert({
+    organization_id: organizationId,
+    portfolio_id: portfolio.id,
+    auto_paper_enabled: false,
+    kill_switch: false,
+  });
+  if (automationError) throw automationError;
 
   return loadState({ organizationId, entityId });
 }
@@ -375,6 +407,87 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Initialize Markets before using this action" }, { status: 409 });
     }
 
+    if (action === "UPDATE_AUTOMATION_POLICY") {
+      requireMarketsAutomationAuthority(scope);
+
+      const current = state.automationPolicy || {};
+      const next = {
+        organization_id: organizationId,
+        portfolio_id: state.portfolio.id,
+        auto_paper_enabled: body.auto_paper_enabled ?? current.auto_paper_enabled ?? false,
+        cycle_interval_seconds: Number(body.cycle_interval_seconds ?? current.cycle_interval_seconds ?? 300),
+        target_position_pct: Number(body.target_position_pct ?? current.target_position_pct ?? 2),
+        min_confidence: Number(body.min_confidence ?? current.min_confidence ?? 0.75),
+        max_trades_per_cycle: Number(body.max_trades_per_cycle ?? current.max_trades_per_cycle ?? 3),
+        cooldown_minutes: Number(body.cooldown_minutes ?? current.cooldown_minutes ?? 60),
+        allow_buys: body.allow_buys ?? current.allow_buys ?? true,
+        allow_sells: body.allow_sells ?? current.allow_sells ?? true,
+        kill_switch: body.kill_switch ?? current.kill_switch ?? false,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (!(next.cycle_interval_seconds >= 60 && next.cycle_interval_seconds <= 86400)) {
+        throw new Error("Cycle interval must be between 60 and 86400 seconds");
+      }
+      if (!(next.target_position_pct > 0 && next.target_position_pct <= 10)) {
+        throw new Error("Target position must be greater than 0% and at most 10%");
+      }
+      if (!(next.min_confidence >= 0 && next.min_confidence <= 1)) {
+        throw new Error("Automation confidence must be between 0 and 1");
+      }
+      if (!(next.max_trades_per_cycle >= 1 && next.max_trades_per_cycle <= 20)) {
+        throw new Error("Max trades per cycle must be between 1 and 20");
+      }
+      if (!(next.cooldown_minutes >= 0 && next.cooldown_minutes <= 10080)) {
+        throw new Error("Cooldown must be between 0 and 10080 minutes");
+      }
+
+      const { data: automationPolicy, error: automationError } = await supabaseAdmin
+        .from("market_automation_policies")
+        .upsert(next, { onConflict: "portfolio_id" })
+        .select("*")
+        .single();
+      if (automationError) throw automationError;
+
+      if (body.auto_paper_enabled !== undefined || body.kill_switch !== undefined) {
+        const delegated = automationPolicy.auto_paper_enabled === true && automationPolicy.kill_switch !== true;
+        const { error: riskAuthorityError } = await supabaseAdmin
+          .from("market_risk_policies")
+          .update({
+            require_human_approval: !delegated,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("organization_id", organizationId)
+          .eq("portfolio_id", state.portfolio.id);
+        if (riskAuthorityError) throw riskAuthorityError;
+      }
+
+      return NextResponse.json({
+        success: true,
+        automationPolicy,
+        execution: { mode: "PAPER", live_enabled: false },
+      });
+    }
+
+    if (action === "RUN_AUTONOMOUS_PAPER_CYCLE") {
+      requireMarketsAutomationAuthority(scope);
+      const run = await MarketAutonomousPaperRuntime.runCycle({
+        organizationId,
+        portfolioId: state.portfolio.id,
+      });
+      const refreshedState = await loadState({ organizationId, entityId });
+      return NextResponse.json({
+        success: true,
+        run,
+        automationPolicy: refreshedState.automationPolicy,
+        automationRuns: refreshedState.automationRuns,
+        paperAccount: refreshedState.paperAccount,
+        paperPositions: refreshedState.paperPositions,
+        paperOrders: refreshedState.paperOrders,
+        execution: { mode: "PAPER", live_enabled: false },
+      });
+    }
+
     if (action === "ADD_WATCHLIST") {
       const symbol = clean(body.symbol).toUpperCase();
       if (!symbol) return NextResponse.json({ success: false, error: "symbol is required" }, { status: 400 });
@@ -468,6 +581,10 @@ export async function POST(request) {
     return NextResponse.json({ success: false, error: "Unsupported Markets action" }, { status: 400 });
   } catch (error) {
     console.error("MARKETS_COMMAND_CENTER_POST_FAILED", error);
-    return NextResponse.json({ success: false, error: error?.message || "Unable to update Markets" }, { status: 500 });
+    const status = Number(error?.status) || 500;
+    return NextResponse.json(
+      { success: false, error: error?.message || "Unable to update Markets" },
+      { status },
+    );
   }
 }

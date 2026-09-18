@@ -19,6 +19,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   const [error, setError] = useState("");
   const [symbol, setSymbol] = useState("");
   const [paperQuantityBySymbol, setPaperQuantityBySymbol] = useState({});
+  const [automationDraft, setAutomationDraft] = useState(null);
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -42,6 +43,18 @@ export default function MarketsCommandCenter({ organizationId }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const policy = data?.automationPolicy;
+    if (!policy) return;
+    setAutomationDraft({
+      cycle_interval_seconds: String(policy.cycle_interval_seconds ?? 300),
+      target_position_pct: String(policy.target_position_pct ?? 2),
+      min_confidence: String(policy.min_confidence ?? 0.75),
+      max_trades_per_cycle: String(policy.max_trades_per_cycle ?? 3),
+      cooldown_minutes: String(policy.cooldown_minutes ?? 60),
+    });
+  }, [data?.automationPolicy]);
 
   async function act(action, payload = {}) {
     setWorking(action);
@@ -104,6 +117,8 @@ export default function MarketsCommandCenter({ organizationId }) {
   const paperPositions = Array.isArray(data?.paperPositions) ? data.paperPositions : [];
   const paperFills = Array.isArray(data?.paperFills) ? data.paperFills : [];
   const feedStatus = data?.feedStatus || null;
+  const automationPolicy = data?.automationPolicy || {};
+  const automationRuns = Array.isArray(data?.automationRuns) ? data.automationRuns : [];
   const policy = data?.riskPolicy || {};
   const baseCurrency = portfolio?.base_currency || paperAccount?.base_currency || "USD";
 
@@ -408,6 +423,113 @@ export default function MarketsCommandCenter({ organizationId }) {
                   </div>
                   <div className="mt-3 rounded-xl border border-emerald-200/70 bg-emerald-50 px-3 py-2.5 text-[10px] text-emerald-700">
                     Live broker execution: <span className="font-semibold">DISABLED</span>
+                  </div>
+                </div>
+
+                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-[#A37849]"><Activity size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Paper autopilot</span></div>
+                    <div className={`rounded-full px-2.5 py-1 text-[8px] font-medium ${
+                      automationPolicy.kill_switch
+                        ? "bg-red-50 text-red-700"
+                        : automationPolicy.auto_paper_enabled
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-[#F3F1ED] text-[#817D76]"
+                    }`}>
+                      {automationPolicy.kill_switch
+                        ? "KILL SWITCH"
+                        : automationPolicy.auto_paper_enabled
+                          ? "ENABLED"
+                          : "OFF"}
+                    </div>
+                  </div>
+                  <h2 className="mt-2 text-[18px] font-semibold">Autonomous simulation</h2>
+                  <p className="mt-1 text-[9px] leading-4 text-[#8A867F]">
+                    Research, decisions, sizing, risk checks and fills can run automatically in PAPER mode only.
+                  </p>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {[
+                      ["Cycle seconds", "cycle_interval_seconds", "60", "86400", "1"],
+                      ["Target position %", "target_position_pct", "0.1", "10", "0.1"],
+                      ["Min confidence", "min_confidence", "0", "1", "0.01"],
+                      ["Max trades/cycle", "max_trades_per_cycle", "1", "20", "1"],
+                      ["Cooldown minutes", "cooldown_minutes", "0", "10080", "1"],
+                    ].map(([label, key, min, max, step]) => (
+                      <label key={key} className={key === "cooldown_minutes" ? "col-span-2" : ""}>
+                        <span className="text-[8px] uppercase tracking-[0.1em] text-[#968F86]">{label}</span>
+                        <input
+                          type="number"
+                          min={min}
+                          max={max}
+                          step={step}
+                          value={automationDraft?.[key] ?? ""}
+                          onChange={(event) => setAutomationDraft((current) => ({
+                            ...(current || {}),
+                            [key]: event.target.value,
+                          }))}
+                          className="mt-1 h-8 w-full rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-2.5 text-[10px] text-[#2E2B27] outline-none"
+                        />
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={Boolean(working)}
+                      onClick={() => act("UPDATE_AUTOMATION_POLICY", {
+                        cycle_interval_seconds: Number(automationDraft?.cycle_interval_seconds || 300),
+                        target_position_pct: Number(automationDraft?.target_position_pct || 2),
+                        min_confidence: Number(automationDraft?.min_confidence || 0.75),
+                        max_trades_per_cycle: Number(automationDraft?.max_trades_per_cycle || 3),
+                        cooldown_minutes: Number(automationDraft?.cooldown_minutes || 60),
+                      })}
+                      className="h-8 rounded-lg border border-black/[0.08] bg-[#FCFBF9] px-2.5 text-[9px] font-medium text-[#5E5851] disabled:opacity-40"
+                    >
+                      Save limits
+                    </button>
+                    <button
+                      type="button"
+                      disabled={Boolean(working) || automationPolicy.kill_switch}
+                      onClick={() => act("UPDATE_AUTOMATION_POLICY", {
+                        auto_paper_enabled: !automationPolicy.auto_paper_enabled,
+                      })}
+                      className="h-8 rounded-lg bg-[#1F1E1B] px-2.5 text-[9px] font-medium text-white disabled:opacity-40"
+                    >
+                      {automationPolicy.auto_paper_enabled ? "Disable autopilot" : "Enable paper autopilot"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={Boolean(working)}
+                      onClick={() => act("UPDATE_AUTOMATION_POLICY", {
+                        kill_switch: !automationPolicy.kill_switch,
+                        auto_paper_enabled: automationPolicy.kill_switch
+                          ? automationPolicy.auto_paper_enabled
+                          : false,
+                      })}
+                      className={`h-8 rounded-lg px-2.5 text-[9px] font-medium ${
+                        automationPolicy.kill_switch
+                          ? "border border-black/[0.08] bg-[#FCFBF9] text-[#5E5851]"
+                          : "border border-red-200 bg-red-50 text-red-700"
+                      }`}
+                    >
+                      {automationPolicy.kill_switch ? "Reset kill switch" : "Kill switch"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={Boolean(working) || !automationPolicy.auto_paper_enabled || automationPolicy.kill_switch}
+                      onClick={() => act("RUN_AUTONOMOUS_PAPER_CYCLE")}
+                      className="h-8 rounded-lg border border-[#D6A66A]/35 bg-[#FBF7F1] px-2.5 text-[9px] font-medium text-[#8A6239] disabled:opacity-40"
+                    >
+                      {working === "RUN_AUTONOMOUS_PAPER_CYCLE" ? "Running…" : "Run cycle now"}
+                    </button>
+                  </div>
+
+                  <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] px-3 py-2.5 text-[9px] text-[#817D76]">
+                    Last run: {automationRuns[0]
+                      ? `${automationRuns[0].status} · ${automationRuns[0].orders_filled || 0} fills · ${new Date(automationRuns[0].started_at).toLocaleString()}`
+                      : "No autonomous cycle yet"}
                   </div>
                 </div>
 

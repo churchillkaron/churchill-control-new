@@ -65,10 +65,10 @@ test("beyond-parity tier reports real advanced gaps without blocking minimum gra
   assert.equal(result.beyond_parity_certified, false);
   assert.equal(result.beyond_parity_status, "UPGRADES_AVAILABLE");
   const ids = result.advanced_upgrades.map((item) => item.id);
-  assert.ok(ids.includes("NATIVE_AXF_BTF_MATERIAL_INGEST"));
-  assert.ok(ids.includes("NATIVE_DEEP_EXR_COMPOSITING"));
-  assert.ok(ids.includes("OPENUSD_SCENE_COMPOSITION_AND_VARIANTS"));
-  assert.ok(ids.includes("AAF_EDITORIAL_INTERCHANGE"));
+  assert.ok(ids.includes("COMPLEX_MATERIALX_GRAPH_TRANSLATION"));
+  assert.ok(ids.includes("NATIVE_AXF_SDK_INGEST"));
+  assert.ok(ids.includes("OPENVDB_USD_VOLUMETRIC_WORKFLOWS"));
+  assert.ok(ids.includes("MULTICAMERA_STEREO_VIRTUAL_PRODUCTION"));
 });
 
 test("benchmark never claims brand affiliation", () => {

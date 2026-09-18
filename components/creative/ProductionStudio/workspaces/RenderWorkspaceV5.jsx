@@ -11,6 +11,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import RenderWorkspaceV4 from "./RenderWorkspaceV4";
+import VideoVfxPipelinePanel from "./VideoVfxPipelinePanel";
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -28,6 +29,41 @@ function formatTimecode(seconds, fps = 25) {
   return [hour, minute, second, frame]
     .map((value) => String(value).padStart(2, "0"))
     .join(":");
+}
+
+const PROFESSIONAL_VIDEO_SYSTEMS = Object.freeze([
+  ["Deep EXR", "OpenImageIO deep pipeline"],
+  ["Render Farm", "Distributed worker execution"],
+  ["Matchmove", "Lens/camera solve"],
+  ["Roto", "Layered matte authority"],
+  ["Composite", "Scene-linear node graph"],
+  ["Editorial", "OTIO + AAF"],
+  ["Lens", "STMap calibration"],
+  ["Versions", "Publish/cache lineage"],
+  ["Delivery", "HDR / IMF / DCP authority"],
+]);
+
+function ProfessionalVideoSystems({ project }) {
+  const snapshots = project?.metadata?.creative_tool_snapshots || {};
+  return (
+    <div className="border-b border-black/[0.07] bg-[#F1ECE5] px-4 py-2.5 lg:px-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[7px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">Professional video systems</div>
+          <div className="mt-0.5 text-[6.5px] text-[#7D756C]">One canonical production path · governed VFX, editorial and delivery authorities.</div>
+        </div>
+        <div className="text-[6px] text-[#918B83]">OIIO {snapshots.openimageio?.ready ? "live" : "on demand"} · AAF {snapshots.aaf?.ready ? "live" : "on demand"}</div>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-1.5 md:grid-cols-5 xl:grid-cols-9">
+        {PROFESSIONAL_VIDEO_SYSTEMS.map(([name, detail]) => (
+          <div key={name} className="rounded-lg border border-black/[0.07] bg-white/65 px-2 py-1.5">
+            <div className="text-[6.5px] font-semibold text-[#4F4943]">{name}</div>
+            <div className="mt-0.5 text-[5.5px] leading-3 text-[#918B83]">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function UnitState({ unit }) {
@@ -157,6 +193,7 @@ export default function RenderWorkspaceV5({ runtime, editor }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#F6F3EE]">
+      <VideoVfxPipelinePanel project={project} />
       <div className="shrink-0 border-b border-black/[0.07] bg-[#E9E3DA] px-4 py-2.5 lg:px-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
@@ -255,6 +292,7 @@ export default function RenderWorkspaceV5({ runtime, editor }) {
         ) : null}
       </div>
 
+      <ProfessionalVideoSystems project={project} />
       <div className="min-h-0 flex-1">
         <RenderWorkspaceV4 runtime={runtime} editor={editor} />
       </div>

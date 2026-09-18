@@ -7,6 +7,7 @@ const route=fs.readFileSync("app/api/operator/turn/route.js","utf8");
 test("operator turn persists compact business diagnosis audit in evidence",()=>{
   assert.match(route,/function persistedBusinessDiagnosisEvidence/);
   assert.match(route,/receipt_fingerprint/);
+  assert.match(route,/class: text\(diagnosis\.class\)/);
   assert.match(route,/raw_web_content_persisted: false/);
   assert.match(route,/raw_reasoning_persisted: false/);
   assert.match(route,/\.\.\.persistedBusinessDiagnosisEvidence\(result\)/);

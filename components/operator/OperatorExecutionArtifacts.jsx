@@ -164,6 +164,7 @@ function DiagnosisProof({ evidence = {} }) {
   const fingerprint = text(diagnosis.receipt_fingerprint);
   const state = text(diagnosis.final_evidence_state) || "VERIFIED_EVIDENCE";
   const boundary = text(diagnosis.answer_boundary_status) || "PASS";
+  const diagnosisClass = text(diagnosis.class);
   const periods = diagnosis.periods || {};
   return (
     <details data-avantiqo-business-diagnosis-proof="true" className="mt-3 overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
@@ -173,6 +174,7 @@ function DiagnosisProof({ evidence = {} }) {
       </summary>
       <div className="grid gap-2 border-t border-white/[0.06] px-3 py-3 text-[9px] text-white/50 sm:grid-cols-2">
         <div><span className="text-white/30">Evidence state</span><div className="mt-0.5 text-white/65">{state.replaceAll("_", " ")}</div></div>
+        <div><span className="text-white/30">Request type</span><div className="mt-0.5 text-white/65">{diagnosisClass ? diagnosisClass.replaceAll("_", " ") : "Governed business diagnosis"}</div></div>
         <div><span className="text-white/30">Answer boundary</span><div className="mt-0.5 text-white/65">{boundary.replaceAll("_", " ")}</div></div>
         <div><span className="text-white/30">Compared periods</span><div className="mt-0.5 text-white/65">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>
         <div><span className="text-white/30">Unexplained residual</span><div className="mt-0.5 text-white/65">{diagnosis.residual_material === true ? "Material residual remains" : "No material residual flagged"}</div></div>

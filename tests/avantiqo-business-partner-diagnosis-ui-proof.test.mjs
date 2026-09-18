@@ -7,6 +7,8 @@ test("shared operator artifact surface renders persisted diagnosis proof",()=>{
   assert.match(source,/data-avantiqo-business-diagnosis-proof/);
   assert.match(source,/Verified diagnosis/);
   assert.match(source,/receipt_fingerprint/);
+  assert.match(source,/Request type/);
+  assert.match(source,/diagnosis\.class/);
   assert.match(source,/raw reasoning is not persisted/i);
   assert.match(source,/if \(!artifacts\.length\) return diagnosisProof/);
 });

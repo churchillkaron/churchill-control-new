@@ -90,6 +90,7 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
   return {
     business_diagnosis: {
       contract: text(diagnosis.contract) || null,
+      class: text(diagnosis.class) || null,
       receipt_fingerprint: text(diagnosis.receipt_fingerprint) || null,
       final_evidence_state: text(diagnosis.final_evidence_state) || null,
       residual_material: diagnosis.residual_material === true,

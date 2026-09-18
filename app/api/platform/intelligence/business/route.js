@@ -81,6 +81,7 @@ function businessDiagnosisAudit(result = {}) {
     receipt_fingerprint: cleanValue(receipt.receipt_fingerprint),
     receipt_contract: cleanValue(result.business_diagnosis_receipt_contract),
     final_evidence_state: cleanValue(receipt.final_evidence_state),
+    diagnosis_class: cleanValue(receipt.diagnosis_class),
     residual_material: receipt.residual_material === true,
     residual_ratio: Number.isFinite(Number(receipt.residual_ratio)) ? Number(receipt.residual_ratio) : null,
     internal_coverage_incomplete: receipt.internal_coverage_incomplete === true,

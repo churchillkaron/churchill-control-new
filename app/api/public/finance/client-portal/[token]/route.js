@@ -7,6 +7,7 @@ import { createControlledDocument } from "@/lib/documents/runtime/DocumentContro
 import { resolveFinanceClientPortalGrant } from "@/lib/finance/practice/FinanceClientPortalGrant";
 import { loadFinanceClientPortalProjection } from "@/lib/finance/practice/FinanceClientPortalProjection";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { fetchCompleteFinancePopulation } from "@/lib/finance/data/fetchCompleteFinancePopulation";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const ALLOWED_MIME_PREFIXES = ["image/"];
@@ -17,6 +18,8 @@ function jsonError(error, status = 400, details = undefined) { return NextRespon
 function allowedFile(file) { const mime = clean(file?.type).toLowerCase(); return !mime || ALLOWED_MIME_TYPES.has(mime) || ALLOWED_MIME_PREFIXES.some((prefix) => mime.startsWith(prefix)); }
 function verificationCategories(item) { const verification = item?.metadata?.system_verification; if (verification?.mode !== "DOCUMENT_CATEGORIES") return []; return (Array.isArray(verification.categories) ? verification.categories : []).map((category) => ({ key: clean(category?.key).toLowerCase(), label: clean(category?.label || category?.key), min_count: Math.max(1, Number(category?.min_count || 1)) })).filter((category) => category.key); }
 function coverage(categories, evidence) { return categories.map((category) => { const count = evidence.filter((row) => row.evidence_category === category.key).length; return { ...category, linked_count: count, missing_count: Math.max(0, category.min_count - count), satisfied: count >= category.min_count }; }); }
+function chunks(values, size = 200) { const rows = Array.isArray(values) ? values : []; const out = []; for (let i = 0; i < rows.length; i += size) out.push(rows.slice(i, i + size)); return out; }
+async function completeByIds({ ids, label, buildQuery }) { const all = []; for (const batch of chunks([...new Set((ids || []).filter(Boolean))])) { const result = await fetchCompleteFinancePopulation({ label: `${label} batch`, buildQuery: (from, to) => buildQuery(batch, from, to) }); all.push(...(result.rows || [])); } return all; }
 
 async function loadPortal(token, { markViewed = true } = {}) {
   const grant = await resolveFinanceClientPortalGrant(token, { markViewed });
@@ -28,23 +31,68 @@ async function loadPortal(token, { markViewed = true } = {}) {
 }
 
 async function loadRequests(context) {
-  const { data: runs, error: runError } = await supabaseAdmin.from("accounting_engagement_runs").select("id,engagement_id,organization_id,entity_id,period_id,status,locked_at,due_at").eq("accounting_firm_id", context.grant.accounting_firm_id).eq("engagement_id", context.engagement.id).order("due_at", { ascending: false, nullsFirst: false }).limit(200);
-  if (runError) throw runError;
-  const openRuns = (runs || []).filter((run) => !run.locked_at);
+  const runPopulation = await fetchCompleteFinancePopulation({
+    label: "Client portal active request runs",
+    buildQuery: (from, to) => supabaseAdmin.from("accounting_engagement_runs")
+      .select("id,engagement_id,organization_id,entity_id,period_id,status,locked_at,due_at")
+      .eq("accounting_firm_id", context.grant.accounting_firm_id)
+      .eq("engagement_id", context.engagement.id)
+      .order("due_at", { ascending: false, nullsFirst: false })
+      .order("id", { ascending: true })
+      .range(from, to),
+  });
+  const openRuns = (runPopulation.rows || []).filter((run) => !run.locked_at);
   const runIds = openRuns.map((run) => run.id);
   if (!runIds.length) return [];
-  const { data: requests, error: requestError } = await supabaseAdmin.from("accounting_client_requests").select("id,run_id,work_item_id,title,instructions,status,due_at,sent_at,submitted_at,client_response,updated_at").eq("accounting_firm_id", context.grant.accounting_firm_id).eq("organization_id", context.grant.organization_id).in("run_id", runIds).in("status", OPEN_REQUEST_STATUSES).order("due_at", { ascending: true, nullsFirst: false }).limit(1000);
-  if (requestError) throw requestError;
-  const itemIds = [...new Set((requests || []).map((row) => row.work_item_id).filter(Boolean))];
-  const { data: items, error: itemError } = itemIds.length ? await supabaseAdmin.from("accounting_engagement_work_items").select("id,run_id,title,work_type,capability_id,metadata,status").eq("accounting_firm_id", context.grant.accounting_firm_id).in("id", itemIds) : { data: [], error: null };
-  if (itemError) throw itemError;
-  const itemMap = new Map((items || []).map((row) => [row.id, row]));
-  const requestIds = (requests || []).map((row) => row.id);
-  const { data: links, error: linkError } = requestIds.length ? await supabaseAdmin.from("accounting_work_program_evidence_links").select("id,work_item_id,document_id,evidence_category,status,linked_at,metadata").eq("accounting_firm_id", context.grant.accounting_firm_id).in("work_item_id", itemIds).eq("status", "ACTIVE") : { data: [], error: null };
-  if (linkError) throw linkError;
-  return (requests || []).map((requestRow) => {
+
+  const requests = await completeByIds({
+    ids: runIds,
+    label: "Client portal open requests",
+    buildQuery: (batch, from, to) => supabaseAdmin.from("accounting_client_requests")
+      .select("id,run_id,work_item_id,title,instructions,status,due_at,sent_at,submitted_at,client_response,updated_at")
+      .eq("accounting_firm_id", context.grant.accounting_firm_id)
+      .eq("organization_id", context.grant.organization_id)
+      .in("run_id", batch)
+      .in("status", OPEN_REQUEST_STATUSES)
+      .order("due_at", { ascending: true, nullsFirst: false })
+      .order("id", { ascending: true })
+      .range(from, to),
+  });
+  requests.sort((a, b) => {
+    const left = a.due_at ? Date.parse(a.due_at) : Number.POSITIVE_INFINITY;
+    const right = b.due_at ? Date.parse(b.due_at) : Number.POSITIVE_INFINITY;
+    return left - right || String(a.id).localeCompare(String(b.id));
+  });
+
+  const itemIds = [...new Set(requests.map((row) => row.work_item_id).filter(Boolean))];
+  const items = itemIds.length ? await completeByIds({
+    ids: itemIds,
+    label: "Client portal request work items",
+    buildQuery: (batch, from, to) => supabaseAdmin.from("accounting_engagement_work_items")
+      .select("id,run_id,title,work_type,capability_id,metadata,status")
+      .eq("accounting_firm_id", context.grant.accounting_firm_id)
+      .in("id", batch)
+      .order("id", { ascending: true })
+      .range(from, to),
+  }) : [];
+  const itemMap = new Map(items.map((row) => [row.id, row]));
+  const links = itemIds.length ? await completeByIds({
+    ids: itemIds,
+    label: "Client portal request evidence",
+    buildQuery: (batch, from, to) => supabaseAdmin.from("accounting_work_program_evidence_links")
+      .select("id,work_item_id,document_id,evidence_category,status,linked_at,metadata")
+      .eq("accounting_firm_id", context.grant.accounting_firm_id)
+      .in("work_item_id", batch)
+      .eq("status", "ACTIVE")
+      .order("id", { ascending: true })
+      .range(from, to),
+  }) : [];
+  const evidenceByItem = new Map();
+  for (const row of links) { const rows = evidenceByItem.get(row.work_item_id) || []; rows.push(row); evidenceByItem.set(row.work_item_id, rows); }
+
+  return requests.map((requestRow) => {
     const item = itemMap.get(requestRow.work_item_id) || null;
-    const evidence = (links || []).filter((row) => row.work_item_id === requestRow.work_item_id);
+    const evidence = evidenceByItem.get(requestRow.work_item_id) || [];
     const categories = verificationCategories(item);
     const evidenceCoverage = coverage(categories, evidence);
     return { ...requestRow, item: item ? { id: item.id, title: item.title, work_type: item.work_type, capability_id: item.capability_id } : null, categories: evidenceCoverage, evidence_count: evidence.length, ready_to_submit: evidence.length > 0 && (evidenceCoverage.length === 0 || evidenceCoverage.every((row) => row.satisfied)) };
@@ -98,13 +146,14 @@ export async function GET(request, { params }) {
         expires_at: context.grant.expires_at,
         general_erp_access: false,
       },
-      summary: { open_requests: requests.length, documents: projection.documents.length, messages: projection.messages.length, invoices: projection.invoices.length, outstanding_amount: outstanding, pending_approvals: pendingApprovals, upcoming_filings: upcomingFilings },
+      summary: { open_requests: requests.length, documents: projection.documents.length, messages: projection.message_meta?.total ?? projection.messages.length, invoices: projection.invoices.length, outstanding_amount: outstanding, pending_approvals: pendingApprovals, upcoming_filings: upcomingFilings },
       profile: projection.profile,
       contacts: projection.contacts,
       work_status: workStatus,
       requests,
       documents: projection.documents,
       messages: projection.messages,
+      message_meta: projection.message_meta,
       invoices: projection.invoices,
       payments: projection.payments,
       filings: projection.filings,

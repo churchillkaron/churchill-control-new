@@ -99,7 +99,11 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
       periods: {
         status: text(diagnosis?.periods?.status) || null,
         baseline_period_id: text(diagnosis?.periods?.baseline_period_id) || null,
+        baseline_start_date: text(diagnosis?.periods?.baseline_start_date) || null,
+        baseline_end_date: text(diagnosis?.periods?.baseline_end_date) || null,
         current_period_id: text(diagnosis?.periods?.current_period_id) || null,
+        current_start_date: text(diagnosis?.periods?.current_start_date) || null,
+        current_end_date: text(diagnosis?.periods?.current_end_date) || null,
       },
       raw_web_content_persisted: false,
       raw_reasoning_persisted: false,

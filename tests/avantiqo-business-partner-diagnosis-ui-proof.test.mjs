@@ -9,6 +9,10 @@ test("shared operator artifact surface renders persisted diagnosis proof",()=>{
   assert.match(source,/receipt_fingerprint/);
   assert.match(source,/Request type/);
   assert.match(source,/diagnosis\.class/);
+  assert.match(source,/periodDisplayLabel/);
+  assert.match(source,/Period IDs/);
+  assert.match(source,/baseline_start_date/);
+  assert.match(source,/current_end_date/);
   assert.match(source,/raw reasoning is not persisted/i);
   assert.match(source,/if \(!artifacts\.length\) return diagnosisProof/);
 });

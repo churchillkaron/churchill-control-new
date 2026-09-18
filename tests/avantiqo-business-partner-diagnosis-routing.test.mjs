@@ -54,6 +54,8 @@ test("period resolver excludes future automatic current and prefers exact entity
  assert.equal(out.current_period_id,"sep-entity");
  assert.equal(out.baseline_period_id,"aug-entity");
  assert.equal(out.baseline_status,"CLOSED");
+ assert.equal(out.baseline_end_date,"2026-08-31");
+ assert.equal(out.current_end_date,"2026-09-30");
 });
 
 test("period resolver honors explicitly selected scoped period",async()=>{
@@ -90,7 +92,7 @@ test("diagnosis adapter forwards authenticated scope and governed context at run
  assert.equal(received.party_id,"party");
  assert.equal(received.entity_id,"entity");
  assert.equal(received.period_id,"sep-entity");
- assert.deepEqual(received.context,{baseline_period_id:"aug-entity",current_period_id:"sep-entity",business_diagnosis_class:"CAUSAL_DIAGNOSIS"});
+ assert.deepEqual(received.context,{baseline_period_id:"aug-entity",current_period_id:"sep-entity",baseline_period_start_date:"2026-08-01",baseline_period_end_date:"2026-08-31",current_period_start_date:"2026-09-01",current_period_end_date:"2026-09-30",business_diagnosis_class:"CAUSAL_DIAGNOSIS"});
  assert.deepEqual(received.actor,actor);
  assert.deepEqual(received.permissions,permissions);
  assert.equal(received.callerRequest,callerRequest);

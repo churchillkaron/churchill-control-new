@@ -17,6 +17,23 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function periodDateParts(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text(value));
+  if (!match) return null;
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return null;
+  return { year: match[1], month, day: match[3] };
+}
+function periodDisplayLabel(startDate, endDate, fallbackId) {
+  const start = periodDateParts(startDate);
+  const end = periodDateParts(endDate);
+  if (!start) return text(fallbackId) || "—";
+  if (!end || (start.year === end.year && start.month === end.month)) return `${MONTHS[start.month - 1]} ${start.year}`;
+  if (start.year === end.year) return `${MONTHS[start.month - 1]}–${MONTHS[end.month - 1]} ${start.year}`;
+  return `${MONTHS[start.month - 1]} ${start.year}–${MONTHS[end.month - 1]} ${end.year}`;
+}
+
 function safeArtifactUrl(value, organizationId) {
   const url = text(value);
   if (!url) return null;
@@ -166,6 +183,8 @@ function DiagnosisProof({ evidence = {} }) {
   const boundary = text(diagnosis.answer_boundary_status) || "PASS";
   const diagnosisClass = text(diagnosis.class);
   const periods = diagnosis.periods || {};
+  const baselinePeriodLabel = periodDisplayLabel(periods.baseline_start_date, periods.baseline_end_date, periods.baseline_period_id);
+  const currentPeriodLabel = periodDisplayLabel(periods.current_start_date, periods.current_end_date, periods.current_period_id);
   return (
     <details data-avantiqo-business-diagnosis-proof="true" className="mt-3 overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] text-white/70">
@@ -176,8 +195,9 @@ function DiagnosisProof({ evidence = {} }) {
         <div><span className="text-white/30">Evidence state</span><div className="mt-0.5 text-white/65">{state.replaceAll("_", " ")}</div></div>
         <div><span className="text-white/30">Request type</span><div className="mt-0.5 text-white/65">{diagnosisClass ? diagnosisClass.replaceAll("_", " ") : "Governed business diagnosis"}</div></div>
         <div><span className="text-white/30">Answer boundary</span><div className="mt-0.5 text-white/65">{boundary.replaceAll("_", " ")}</div></div>
-        <div><span className="text-white/30">Compared periods</span><div className="mt-0.5 text-white/65">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>
+        <div><span className="text-white/30">Compared periods</span><div className="mt-0.5 text-white/65">{baselinePeriodLabel} → {currentPeriodLabel}</div></div>
         <div><span className="text-white/30">Unexplained residual</span><div className="mt-0.5 text-white/65">{diagnosis.residual_material === true ? "Material residual remains" : "No material residual flagged"}</div></div>
+        <div className="sm:col-span-2"><span className="text-white/30">Period IDs</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/40">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>
         <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
         <div className="sm:col-span-2 text-[8px] text-white/30">Read-only diagnosis · no execution authority · raw reasoning is not persisted.</div>
       </div>

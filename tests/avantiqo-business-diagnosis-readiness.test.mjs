@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { getBusinessDiagnosisReadiness, getPublicBusinessDiagnosisReadiness, assertBusinessDiagnosisReadiness } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReadinessRuntime.js";
+import { getBusinessDiagnosisReadiness, getPublicBusinessDiagnosisReadiness, assertBusinessDiagnosisReadiness, businessDiagnosisReadinessInternalDiagnostic } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReadinessRuntime.js";
 
 const signedEnv = {
   AVANTIQO_BUSINESS_DIAGNOSIS_AUTHENTICITY_REQUIRED: "true",
@@ -170,4 +170,31 @@ test("customer-facing readiness routes return sanitized error details only",()=>
   assert.match(business,/error\.details/);
   assert.doesNotMatch(operator,/internal_details/);
   assert.doesNotMatch(business,/internal_details/);
+});
+
+
+test("server-only readiness diagnostic keeps actionable blocker context without secrets",()=>{
+  const env={AVANTIQO_BUSINESS_DIAGNOSIS_AUTHENTICITY_REQUIRED:"true"};
+  let captured=null;
+  try { assertBusinessDiagnosisReadiness({env}); } catch(error) { captured=error; }
+  const diagnostic=businessDiagnosisReadinessInternalDiagnostic(captured);
+  assert.equal(diagnostic.code,"BUSINESS_DIAGNOSIS_NOT_READY");
+  assert.equal(diagnostic.readiness_status,"BLOCKED_AUTHENTICITY_REQUIRED");
+  assert.ok(diagnostic.blockers.length>0);
+  assert.equal(diagnostic.authenticity_required,true);
+  assert.equal(diagnostic.authenticity_available,false);
+  assert.equal(diagnostic.authority_effect,"NONE");
+  assert.equal(Object.prototype.hasOwnProperty.call(diagnostic,"verification_key_ids"),false);
+  assert.equal(Object.prototype.hasOwnProperty.call(diagnostic,"keyring"),false);
+});
+
+test("customer routes log readiness failures structurally before returning redacted details",()=>{
+  const operator=fs.readFileSync("app/api/operator/turn/route.js","utf8");
+  const business=fs.readFileSync("app/api/platform/intelligence/business/route.js","utf8");
+  for(const source of [operator,business]){
+    assert.match(source,/BUSINESS_DIAGNOSIS_READINESS_BLOCKED/);
+    assert.match(source,/businessDiagnosisReadinessInternalDiagnostic\(error\)/);
+  }
+  assert.ok(operator.indexOf("BUSINESS_DIAGNOSIS_READINESS_BLOCKED") < operator.indexOf("OPERATOR_TURN_ERROR"));
+  assert.ok(business.indexOf("BUSINESS_DIAGNOSIS_READINESS_BLOCKED") < business.indexOf("BUSINESS_INTELLIGENCE_POST_ERROR"));
 });

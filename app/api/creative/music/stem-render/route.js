@@ -9,6 +9,7 @@ import * as CreativeProjectRepository from "@/lib/creative/projects/repositories
 import { buildMusicReleaseRenderPlan } from "@/lib/creative/music/runtime/CreativeMusicReleaseRenderPlanRuntime";
 import { musicTrackEvidenceInputFingerprint } from "@/lib/creative/music/runtime/CreativeMusicEvidenceLineageRuntime";
 import { professionalAudioStemDefinition, tracksForProfessionalAudioStem } from "@/lib/creative/music/runtime/CreativeProfessionalAudioEngineRuntime";
+import { filterTrackForAudioPostLanguage, isLanguageScopedPostStem, languageVersionAssetMetadata, normalizeAudioPostLanguage } from "@/lib/creative/music/runtime/CreativeAudioPostVersionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
@@ -79,7 +80,7 @@ function outputPathToGroup(groupId, groupsById, targetId) {
   return false;
 }
 
-function expectedStem(plan, kindInput, targetIdInput) {
+function expectedStem(plan, kindInput, targetIdInput, languageInput = null) {
   const kind = text(kindInput).toUpperCase();
   const targetId = text(targetIdInput);
   if (!KINDS.has(kind)) throw new Error(`CREATIVE_MUSIC_STEM_KIND_INVALID:${kind}`);
@@ -100,10 +101,11 @@ function expectedStem(plan, kindInput, targetIdInput) {
   }
   if (kind === "POST_STEM") {
     const definition = professionalAudioStemDefinition(targetId);
-    const tracks = tracksForProfessionalAudioStem(plan.tracks, definition.id);
-    if (!tracks.length) throw new Error(`CREATIVE_PRO_AUDIO_STEM_EMPTY:${definition.id}`);
+    const language = isLanguageScopedPostStem(definition.id) ? normalizeAudioPostLanguage(languageInput) : null;
+    const tracks = tracksForProfessionalAudioStem(plan.tracks, definition.id).map((track) => language ? filterTrackForAudioPostLanguage(track, language) : track).filter((track) => (track.clips || []).length > 0);
+    if (!tracks.length) throw new Error(`CREATIVE_PRO_AUDIO_STEM_EMPTY:${definition.id}${language ? `:${language}` : ""}`);
     return {
-      kind, target_id: definition.id, label: definition.label, delivery_code: definition.delivery_code, audio_roles: definition.roles,
+      kind, target_id: definition.id, label: definition.label, delivery_code: definition.delivery_code, audio_roles: definition.roles, delivery_language: language, language_scoped: Boolean(language), shared_across_language_versions: !language,
       source_asset_ids: sortedUnique(tracks.flatMap((track) => track.clips.map((clip) => clip.source_asset_id))),
       stage: "post-master-processing-pre-release-limiter", master_processing_applied: true, aux_returns_applied: true,
       channels: plan.channels, channel_layout: plan.channel_layout, speaker_order: plan.speaker_order, professional_audio_engine: true,
@@ -147,7 +149,7 @@ async function prepareUpload(body) {
   const revision = assertRevision(session, body.expected_revision);
   const plan = buildMusicReleaseRenderPlan(session, body.options || body);
   if (!plan.readiness.release_render_ready) throw new Error(`CREATIVE_MUSIC_STEM_RENDER_BLOCKED:${plan.readiness.blockers.map((item) => item.code).join(",") || "NOT_READY"}`);
-  const stem = expectedStem(plan, body.render_kind, body.target_id);
+  const stem = expectedStem(plan, body.render_kind, body.target_id, body.delivery_language);
   const sizeBytes = finite(body.size_bytes, null);
   if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_STEM_BYTES) throw new Error(`CREATIVE_MUSIC_STEM_SIZE_INVALID:max=${MAX_STEM_BYTES}`);
   const fileName = safeWavName(body.file_name);
@@ -182,7 +184,7 @@ async function registerStem(body) {
   if (!plan.readiness.release_render_ready) throw new Error("CREATIVE_MUSIC_STEM_CURRENT_PROJECT_NOT_READY");
   const planFingerprint = fingerprint(plan);
   if (text(body.render_plan_fingerprint) !== planFingerprint) throw new Error("CREATIVE_MUSIC_STEM_PLAN_FINGERPRINT_MISMATCH");
-  const stem = expectedStem(plan, body.render_kind, body.target_id);
+  const stem = expectedStem(plan, body.render_kind, body.target_id, body.delivery_language);
   const submittedSourceIds = sortedUnique(body.source_asset_ids || []);
   if (JSON.stringify(submittedSourceIds) !== JSON.stringify(stem.source_asset_ids)) throw new Error("CREATIVE_MUSIC_STEM_SOURCE_LINEAGE_MISMATCH");
   const storageReference = text(body.storage_reference);
@@ -230,6 +232,7 @@ async function registerStem(body) {
       professional_audio_delivery_code: stem.delivery_code || null,
       professional_audio_roles: stem.audio_roles || null,
       professional_audio_engine: stem.professional_audio_engine === true,
+      ...languageVersionAssetMetadata(stem.target_id, stem.delivery_language),
       bit_depth: 24,
       render_duration_seconds: duration,
       peak_dbfs: levels.peak_dbfs,

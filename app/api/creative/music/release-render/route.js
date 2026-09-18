@@ -9,6 +9,7 @@ import { dispatchAudioTask } from "@/lib/creative/audio/runtime/AudioQueueRuntim
 import { unwrapAudioOutput } from "@/lib/creative/audio/runtime/AudioFinishingContractRuntime";
 import * as CreativeProjectRepository from "@/lib/creative/projects/repositories/CreativeProjectRepository";
 import { buildMusicReleaseRenderPlan } from "@/lib/creative/music/runtime/CreativeMusicReleaseRenderPlanRuntime";
+import { audioPostSessionHasLanguageRoles, buildAudioPostLanguageSession, normalizeAudioPostLanguage } from "@/lib/creative/music/runtime/CreativeAudioPostVersionRuntime";
 import { ProductionTaskRuntime } from "@/lib/operations/tasks/runtime/ProductionTaskRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
@@ -56,6 +57,9 @@ function currentSession(project) {
   return session;
 }
 
+
+function versionedSession(session, languageInput) { if (!audioPostSessionHasLanguageRoles(session)) return { session, delivery_language: null }; const language = normalizeAudioPostLanguage(languageInput); return { session: buildAudioPostLanguageSession(session, language), delivery_language: language }; }
+
 function assertRevision(session, expectedRevision, prefix = "CREATIVE_MUSIC_RELEASE") {
   const current = Math.max(0, Math.round(finite(session.revision, 0)));
   const expected = Math.max(0, Math.round(finite(expectedRevision, -1)));
@@ -72,7 +76,8 @@ async function planRelease(body) {
   const projectId = text(body.creative_project_id);
   const project = await projectInScope(organizationId, projectId);
   const session = currentSession(project);
-  const plan = buildMusicReleaseRenderPlan(session, body.options || body);
+  const version = versionedSession(session, body.delivery_language);
+  const plan = buildMusicReleaseRenderPlan(version.session, body.options || body);
   return {
     success: true,
     contract: "AVANTIQO_MUSIC_RELEASE_PLAN_RESPONSE_V2",
@@ -89,7 +94,8 @@ async function prepareUpload(body) {
   const project = await projectInScope(organizationId, projectId);
   const session = currentSession(project);
   const revision = assertRevision(session, body.expected_revision);
-  const plan = buildMusicReleaseRenderPlan(session, body.options || body);
+  const version = versionedSession(session, body.delivery_language);
+  const plan = buildMusicReleaseRenderPlan(version.session, body.options || body);
   if (!plan.readiness.release_render_ready) throw new Error(`CREATIVE_MUSIC_RELEASE_RENDER_BLOCKED:${plan.readiness.blockers.map((item) => item.code).join(",") || "NOT_READY"}`);
   const fingerprint = planFingerprint(plan);
   const sizeBytes = finite(body.size_bytes, null);
@@ -120,7 +126,8 @@ async function registerMix(body) {
   const project = await projectInScope(organizationId, projectId);
   const session = currentSession(project);
   const revision = assertRevision(session, body.expected_revision);
-  const plan = buildMusicReleaseRenderPlan(session, body.options || body);
+  const version = versionedSession(session, body.delivery_language);
+  const plan = buildMusicReleaseRenderPlan(version.session, body.options || body);
   if (!plan.readiness.release_render_ready) throw new Error(`CREATIVE_MUSIC_RELEASE_RENDER_BLOCKED:${plan.readiness.blockers.map((item) => item.code).join(",") || "NOT_READY"}`);
   const fingerprint = planFingerprint(plan);
   if (text(body.render_plan_fingerprint) !== fingerprint) throw new Error("CREATIVE_MUSIC_RELEASE_PLAN_FINGERPRINT_MISMATCH");
@@ -165,6 +172,8 @@ async function registerMix(body) {
       offline_render_contract: text(body.offline_render_contract || "AVANTIQO_MUSIC_OFFLINE_MIX_RENDER_V1"),
       render_plan_fingerprint: fingerprint,
       project_revision: revision,
+      delivery_language: version.delivery_language || null,
+      language_versioned: Boolean(version.delivery_language),
       program_duration_seconds: durationSeconds,
       render_duration_seconds: renderDurationSeconds,
       sample_rate: sampleRate,
@@ -214,7 +223,10 @@ async function finishRelease(body) {
   if (!asset || String(asset.organization_id) !== String(organizationId) || String(asset.creative_project_id) !== String(projectId)) throw new Error("CREATIVE_MUSIC_RELEASE_MIX_ASSET_NOT_FOUND");
   if (text(asset.metadata?.music_asset_kind) !== "MIX_RENDER") throw new Error("CREATIVE_MUSIC_RELEASE_MIX_ASSET_INVALID");
   const revision = assertRevision(session, asset.metadata?.project_revision, "CREATIVE_MUSIC_RELEASE_MIX_STALE");
-  const plan = buildMusicReleaseRenderPlan(session, body.options || { mastering: asset.metadata?.mastering || {} });
+  const assetLanguage = asset.metadata?.delivery_language || body.delivery_language || null;
+  const version = versionedSession(session, assetLanguage);
+  if (asset.metadata?.delivery_language && body.delivery_language && normalizeAudioPostLanguage(body.delivery_language) !== asset.metadata.delivery_language) throw new Error("CREATIVE_MUSIC_RELEASE_LANGUAGE_MISMATCH");
+  const plan = buildMusicReleaseRenderPlan(version.session, body.options || { mastering: asset.metadata?.mastering || {} });
   const fingerprint = planFingerprint(plan);
   if (text(asset.metadata?.render_plan_fingerprint) !== fingerprint) throw new Error("CREATIVE_MUSIC_RELEASE_MIX_PLAN_STALE");
   const currentSourceIds = sortedUnique(plan.source_asset_ids);
@@ -249,6 +261,7 @@ async function finishRelease(body) {
         music_mix_asset_id: mixAssetId,
         render_plan_fingerprint: fingerprint,
         project_revision: revision,
+        delivery_language: asset.metadata?.delivery_language || null,
       },
     });
   }
@@ -318,6 +331,7 @@ async function finishRelease(body) {
         source_task_id: sourceTask.id,
         render_plan_fingerprint: fingerprint,
         project_revision: revision,
+        delivery_language: asset.metadata?.delivery_language || null,
         mastering_profile: mastering.profile,
         storage_policy: { bucket: MUSIC_BUCKET },
       },
@@ -352,6 +366,8 @@ async function finishRelease(body) {
         music_asset_kind: "MASTER",
         source_mix_asset_id: mixAssetId,
         project_revision: revision,
+        delivery_language: asset.metadata?.delivery_language || null,
+        language_versioned: Boolean(asset.metadata?.delivery_language),
         render_plan_fingerprint: fingerprint,
         music_finish_task_id: finishTask.id,
         mastering_profile: mastering.profile,

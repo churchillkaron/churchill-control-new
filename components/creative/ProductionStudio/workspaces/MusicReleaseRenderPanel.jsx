@@ -6,6 +6,7 @@ import { CheckCircle2, Disc3, ShieldCheck, TriangleAlert } from "lucide-react";
 import { renderMusicMultitrackOffline } from "@/lib/creative/music/client/MusicOfflineMixRenderRuntime";
 import { renderMusicSurroundPremasterOffline } from "@/lib/creative/music/client/MusicOfflineSurroundRenderRuntime";
 import MusicStemExportPanel from "./MusicStemExportPanel";
+import { audioPostSessionHasLanguageRoles, buildAudioPostLanguageSession } from "@/lib/creative/music/runtime/CreativeAudioPostVersionRuntime";
 
 const PROFILES = [
   ["streaming", "Streaming", "-14 LUFS · -1 dBTP"],
@@ -34,8 +35,11 @@ export default function MusicReleaseRenderPanel({
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [professionalRelease, setProfessionalRelease] = useState(null);
+  const [deliveryLanguage, setDeliveryLanguage] = useState("en");
 
   const revision = Math.max(0, Math.round(finite(session?.revision, 0)));
+  const languageVersioned = audioPostSessionHasLanguageRoles(session || {});
+  const renderSession = useMemo(() => languageVersioned ? buildAudioPostLanguageSession(session || {}, deliveryLanguage) : session, [session, languageVersioned, deliveryLanguage]);
   const options = useMemo(() => ({ mastering: { profile }, release_mp3: releaseMp3, track_stems: true, group_stems: true }), [profile, releaseMp3]);
 
   async function request(payload) {
@@ -79,7 +83,7 @@ export default function MusicReleaseRenderPanel({
     setError("");
     try {
       const [response, professional] = await Promise.all([
-        request({ action: "plan", organization_id: organizationId, creative_project_id: projectId, options }),
+        request({ action: "plan", organization_id: organizationId, creative_project_id: projectId, delivery_language: languageVersioned ? deliveryLanguage : null, options }),
         professionalRequest({ action: "status", organization_id: organizationId, creative_project_id: projectId }).catch(() => null),
       ]);
       setPlan(response.plan || null);
@@ -92,7 +96,7 @@ export default function MusicReleaseRenderPanel({
   useEffect(() => {
     void refreshPlan();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId, projectId, revision, profile, releaseMp3]);
+  }, [organizationId, projectId, revision, profile, releaseMp3, deliveryLanguage]);
 
   async function renderAndMaster() {
     if (!session || busy || disabled) return;
@@ -101,7 +105,7 @@ export default function MusicReleaseRenderPanel({
     setResult(null);
     try {
       setStatus("CHECKING RELEASE PLAN");
-      const planned = await request({ action: "plan", organization_id: organizationId, creative_project_id: projectId, options });
+      const planned = await request({ action: "plan", organization_id: organizationId, creative_project_id: projectId, delivery_language: languageVersioned ? deliveryLanguage : null, options });
       const currentPlan = planned.plan;
       setPlan(currentPlan);
       if (!currentPlan?.readiness?.release_render_ready) {
@@ -112,20 +116,22 @@ export default function MusicReleaseRenderPanel({
       const surround = currentPlan?.spatial_audio?.surround_enabled === true;
       setStatus(surround ? `OFFLINE RENDERING ${currentPlan.channel_layout} PRE-MASTER` : "OFFLINE RENDERING FULL MIX");
       const rendered = surround
-        ? await renderMusicSurroundPremasterOffline({ session, assetUrls, expectedDurationSeconds: currentPlan.duration_seconds })
-        : await renderMusicMultitrackOffline({ session, assetUrls, expectedDurationSeconds: currentPlan.duration_seconds });
+        ? await renderMusicSurroundPremasterOffline({ session: renderSession, assetUrls, expectedDurationSeconds: currentPlan.duration_seconds })
+        : await renderMusicMultitrackOffline({ session: renderSession, assetUrls, expectedDurationSeconds: currentPlan.duration_seconds });
 
       const safeTitle = String(session.title || "music")
         .replace(/[^A-Za-z0-9._-]+/g, "-")
         .replace(/^-+|-+$/g, "")
         .slice(0, 80) || "music";
-      const fileName = `${safeTitle}-premaster-r${revision}.wav`;
+      const languageSuffix = languageVersioned ? `-${deliveryLanguage.toLowerCase()}` : "";
+      const fileName = `${safeTitle}${languageSuffix}-premaster-r${revision}.wav`;
 
       setStatus("PREPARING SECURE UPLOAD");
       const target = await request({
         action: "prepare_upload",
         organization_id: organizationId,
         creative_project_id: projectId,
+        delivery_language: languageVersioned ? deliveryLanguage : null,
         expected_revision: revision,
         file_name: fileName,
         size_bytes: rendered.blob.size,
@@ -146,6 +152,7 @@ export default function MusicReleaseRenderPanel({
         action: "register",
         organization_id: organizationId,
         creative_project_id: projectId,
+        delivery_language: languageVersioned ? deliveryLanguage : null,
         expected_revision: revision,
         render_plan_fingerprint: target.render_plan_fingerprint,
         storage_reference: target.storage_reference,
@@ -165,7 +172,7 @@ export default function MusicReleaseRenderPanel({
         setStatus(`${rendered.channel_layout} SERVER QC · CHANNELS / LFE / DOWNMIX`);
         const technical = await surroundValidationRequest({ organization_id: organizationId, creative_project_id: projectId, asset_id: registered.asset_id });
         setStatus(`${rendered.channel_layout} MASTERING · TWO-PASS LOUDNESS / TRUE PEAK`);
-        const finished = await surroundFinishRequest({ organization_id: organizationId, creative_project_id: projectId, premaster_asset_id: registered.asset_id, options });
+        const finished = await surroundFinishRequest({ organization_id: organizationId, creative_project_id: projectId, premaster_asset_id: registered.asset_id, delivery_language: languageVersioned ? deliveryLanguage : null, options });
         const surroundResult = { ...registered, ...finished, surround_premaster: false, surround_master: true, channel_layout: rendered.channel_layout, channels: rendered.channels, speaker_order: rendered.speaker_order, stereo_downmix_qc: rendered.stereo_downmix_qc, per_speaker_levels: rendered.per_speaker_levels, premaster_surround_validation: technical.validation, surround_validation: finished.surround_validation, surround_validation_passed: finished.surround_validation?.passed === true, dolby_branded: false };
         setResult(surroundResult);
         setStatus(`${rendered.channel_layout} SURROUND MASTER · QC PASS`);
@@ -194,6 +201,7 @@ export default function MusicReleaseRenderPanel({
           action: "finish",
           organization_id: organizationId,
           creative_project_id: projectId,
+          delivery_language: languageVersioned ? deliveryLanguage : null,
           mix_asset_id: registered.asset_id,
           options,
         });
@@ -225,6 +233,8 @@ export default function MusicReleaseRenderPanel({
         <div className={`rounded-lg border px-2 py-1 text-[8px] ${ready ? "border-emerald-300/15 text-emerald-100/55" : "border-amber-300/15 text-amber-100/55"}`}>{ready ? "READY" : "CHECK"}</div>
       </div>
 
+      {languageVersioned ? <div className="mt-4 rounded-xl border border-[#d6a66a]/12 bg-[#d6a66a]/[0.02] p-3"><label className="flex items-center justify-between gap-3 text-[8px] uppercase tracking-[0.13em] text-[#efd29f]/50"><span>Full Mix language version</span><input value={deliveryLanguage} onChange={e=>setDeliveryLanguage(e.target.value.trim().toLowerCase())} className="w-24 rounded-lg border border-white/8 bg-black/25 px-2 py-1.5 text-[9px] normal-case tracking-normal text-white/55"/></label><div className="mt-1 text-[7px] text-white/18">Only DX / VO / ADR clips matching this language enter the Full Mix. M&E/common sound remains shared.</div></div> : null}
+
       <div className="mt-4 grid grid-cols-2 gap-3">
         <label className="block"><div className="mb-1 text-[8px] uppercase tracking-[0.14em] text-white/22">Master profile</div><select disabled={disabled || busy} value={profile} onChange={(event) => setProfile(event.target.value)} className="w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-[9px] text-white/55 disabled:opacity-25">{PROFILES.map(([id, label, detail]) => <option key={id} value={id}>{label} · {detail}</option>)}</select></label>
         <label className="flex items-center gap-2 self-end rounded-lg border border-white/7 px-3 py-2 text-[9px] text-white/38"><input type="checkbox" disabled={disabled || busy} checked={releaseMp3} onChange={(event) => setReleaseMp3(event.target.checked)} className="accent-[#d6a66a]" /> 320k MP3 + WAV</label>
@@ -246,6 +256,7 @@ export default function MusicReleaseRenderPanel({
         assetUrls={assetUrls}
         plan={plan}
         disabled={disabled || busy || !ready}
+        deliveryLanguage={deliveryLanguage}
       /></div> : null}
 
       <div className="mt-3 text-[7px] leading-3 text-white/15">No provider generation is used. Original takes/assets remain immutable. Release masters alone receive final limiter/loudness and true-peak certification. Track/group stems are 24-bit pre-Master engineering exports; Instrumental/Acapella preserve the mix graph but remain un-limited derived alternates unless separately mastered.</div>

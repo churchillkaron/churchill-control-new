@@ -75,3 +75,11 @@ test("diagnosis POST auto-resolves missing comparison periods instead of trustin
   assert.match(source,/loadPeriods: directDiagnosisPeriodRows/);
   assert.match(source,/period_id: context\.current_period_id/);
 });
+
+
+test("direct diagnosis resolves server-authoritative organization timezone for automatic period selection",()=>{
+  assert.match(source,/resolveOrganizationTimeContext/);
+  assert.match(source,/organizationId: access\.organizationId, entityId/);
+  assert.match(source,/timezone: organizationTime\.timezone/);
+  assert.doesNotMatch(source,/timezone:\s*cleanValue\(body/);
+});

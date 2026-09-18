@@ -153,3 +153,19 @@ test("period resolver honors explicit baseline and rejects reversed explicit pai
  const reversed=await resolveBusinessDiagnosisPeriods({organizationId:"org",entityId:"entity",baselinePeriodId:"sep-entity",currentPeriodId:"aug-entity",loadPeriods});
  assert.equal(reversed.status,"BASELINE_PERIOD_INVALID_ORDER");
 });
+
+
+test("period resolver uses organization timezone at midnight boundary",async()=>{
+ const rows=[
+  {id:"oct",organization_id:"org",entity_id:"entity",start_date:"2026-10-01",end_date:"2026-10-31",status:"OPEN"},
+  {id:"sep",organization_id:"org",entity_id:"entity",start_date:"2026-09-01",end_date:"2026-09-30",status:"CLOSED"},
+  {id:"aug",organization_id:"org",entity_id:"entity",start_date:"2026-08-01",end_date:"2026-08-31",status:"CLOSED"},
+ ];
+ const instant=new Date("2026-09-30T18:30:00Z");
+ const bangkok=await resolveBusinessDiagnosisPeriods({organizationId:"org",entityId:"entity",timezone:"Asia/Bangkok",now:instant,loadPeriods:async()=>rows});
+ const utc=await resolveBusinessDiagnosisPeriods({organizationId:"org",entityId:"entity",timezone:"UTC",now:instant,loadPeriods:async()=>rows});
+ assert.equal(bangkok.current_period_id,"oct");
+ assert.equal(bangkok.baseline_period_id,"sep");
+ assert.equal(utc.current_period_id,"sep");
+ assert.equal(utc.baseline_period_id,"aug");
+});

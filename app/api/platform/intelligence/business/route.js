@@ -7,6 +7,7 @@ import { BusinessIntelligenceRuntime } from "@/lib/intelligence/runtime/Business
 import { BusinessIntelligenceAgentRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceAgentRuntime";
 import { classifyBusinessDiagnosisQuestion, resolveBusinessDiagnosisPeriods } from "@/lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { resolveOrganizationTimeContext } from "@/lib/shared/time/organizationTime";
 
 function cleanValue(value) {
   const normalized = String(value ?? "").trim();
@@ -90,12 +91,13 @@ async function directDiagnosisPeriodRows({ organizationId, entityId = null } = {
   return Array.isArray(data) ? data : [];
 }
 
-async function resolveDirectDiagnosisPeriods({ organizationId, entityId = null, baselinePeriodId = null, currentPeriodId = null }) {
+async function resolveDirectDiagnosisPeriods({ organizationId, entityId = null, baselinePeriodId = null, currentPeriodId = null, timezone = "UTC" }) {
   const periods = await resolveBusinessDiagnosisPeriods({
     organizationId,
     entityId,
     baselinePeriodId,
     currentPeriodId,
+    timezone,
     loadPeriods: directDiagnosisPeriodRows,
   });
   if (periods.status !== "PERIOD_PAIR_READY") {
@@ -146,11 +148,13 @@ export async function POST(request) {
     const entityId = cleanValue(body.entity_id || body.entityId);
     const baselinePeriodId = cleanValue(body.baseline_period_id || body.baselinePeriodId || requestContext.baseline_period_id);
     const currentPeriodId = cleanValue(body.current_period_id || body.currentPeriodId || requestContext.current_period_id || body.period_id);
+    const organizationTime = await resolveOrganizationTimeContext({ organizationId: access.organizationId, entityId });
     const resolvedPeriods = await resolveDirectDiagnosisPeriods({
       organizationId: access.organizationId,
       entityId,
       baselinePeriodId,
       currentPeriodId,
+      timezone: organizationTime.timezone,
     });
     if (!resolvedPeriods.success) return errorResponse(resolvedPeriods.error, 400);
     const context = {

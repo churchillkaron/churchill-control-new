@@ -19,6 +19,29 @@ test("business diagnosis classifier separates causal comparison recommendation a
  assert.deepEqual(classifyBusinessDiagnosisQuestion("What is our cash balance now?"),{match:false,class:null});
 });
 
+
+test("business diagnosis classifier supports multilingual customer questions without hijacking current reads",()=>{
+ const cases=[
+  ["Varför har våra intäkter sjunkit den här månaden?","CAUSAL_DIAGNOSIS"],
+  ["Är omsättningen lägre jämfört med förra månaden?","PERIOD_COMPARISON"],
+  ["Vad ska vi göra åt lägre intäkter?","EVIDENCE_FIRST_RECOMMENDATION"],
+  ["Warum ist unser Umsatz gesunken?","CAUSAL_DIAGNOSIS"],
+  ["Ist der Umsatz niedriger verglichen mit letztem Monat?","PERIOD_COMPARISON"],
+  ["Was sollen wir wegen des niedrigeren Umsatzes tun?","EVIDENCE_FIRST_RECOMMENDATION"],
+  ["Pourquoi le revenu a baissé ce mois-ci ?","CAUSAL_DIAGNOSIS"],
+  ["Le revenu est-il plus bas par rapport au mois dernier ?","PERIOD_COMPARISON"],
+  ["Que devons-nous faire face à la baisse du revenu ?","EVIDENCE_FIRST_RECOMMENDATION"],
+  ["¿Por qué bajaron los ingresos este mes?","CAUSAL_DIAGNOSIS"],
+  ["¿Los ingresos están más bajos comparado con el mes pasado?","PERIOD_COMPARISON"],
+  ["¿Qué debemos hacer con los ingresos más bajos?","EVIDENCE_FIRST_RECOMMENDATION"],
+  ["ทำไมรายได้ลดลงเดือนนี้","CAUSAL_DIAGNOSIS"],
+  ["รายได้ต่ำลงเทียบกับเดือนที่แล้วหรือไม่","PERIOD_COMPARISON"],
+  ["เราควรทำอย่างไรเมื่อรายได้ต่ำลง","EVIDENCE_FIRST_RECOMMENDATION"],
+ ];
+ for(const [question,expected] of cases) assert.deepEqual(classifyBusinessDiagnosisQuestion(question),{match:true,class:expected},question);
+ for(const question of ["Visa nuvarande intäkter","Zeige mir den aktuellen Umsatz","Montre le revenu actuel","Muestra los ingresos actuales","แสดงรายได้ปัจจุบัน"]) assert.deepEqual(classifyBusinessDiagnosisQuestion(question),{match:false,class:null},question);
+});
+
 test("synthetic business partner routes diagnosis before fast conversation",()=>{
  const source=fs.readFileSync("lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js","utf8");
  const diagnosis=source.indexOf("runBusinessPartnerBusinessDiagnosis(effectiveOptions)");

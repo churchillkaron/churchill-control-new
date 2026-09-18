@@ -106,7 +106,7 @@ test("staffing blockers have a direct human repair handoff into the client revie
   assert.match(assignmentUi, /Reviewer/);
   assert.match(assignmentUi, /Partner/);
   assert.match(assignmentUi, /new Set\(\[form\.preparer, form\.reviewer, form\.partner\]\)\.size !== 3/);
-  assert.match(assignmentUi, /Three active firm members are required/);
+  assert.match(assignmentUi, /Three portal-ready active firm members are required/);
   assert.match(assignmentUi, /people\/directory/);
   assert.match(engagementFile, /FinancePracticeAssignments/);
   assert.match(engagementFile, /initialTab = "work"/);

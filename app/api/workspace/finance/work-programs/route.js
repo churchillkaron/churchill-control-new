@@ -204,7 +204,7 @@ export async function POST(request) {
   } catch (error) {
     const message = error?.message || "Unable to create accounting work program run";
     const status = /permission denied/i.test(message) ? 403
-      : /CLIENT_PROFILE_UNAVAILABLE|ASSIGNMENT_REQUIRED|SEGREGATION_REQUIRED|NOT_ACTIVE_FIRM_MEMBER/.test(message) ? 409
+      : /CLIENT_PROFILE_UNAVAILABLE|ASSIGNMENT_REQUIRED|SEGREGATION_REQUIRED|NOT_ACTIVE_FIRM_MEMBER|PORTAL_ACCESS_REQUIRED/.test(message) ? 409
         : 500;
     return jsonError(message, status);
   }

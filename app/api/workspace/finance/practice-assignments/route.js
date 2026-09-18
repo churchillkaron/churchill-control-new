@@ -79,7 +79,7 @@ async function loadStaffOptions(accountingFirmId) {
     ids: staffIds,
     label: "Accounting practice active staff accounts",
     buildQuery: (batch, from, to) => supabaseAdmin.from("staff_accounts")
-      .select("id,name,email,position,role,department,active")
+      .select("id,name,email,position,role,department,active,auth_user_id")
       .in("id", batch)
       .eq("active", true)
       .order("name", { ascending: true, nullsFirst: false })
@@ -92,6 +92,7 @@ async function loadStaffOptions(accountingFirmId) {
     email: row.email || null,
     position: row.position || row.role || null,
     department: row.department || null,
+    portal_access_ready: Boolean(row.auth_user_id),
   }));
 }
 

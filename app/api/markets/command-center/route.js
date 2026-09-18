@@ -464,6 +464,19 @@ async function submitPaperOrder({ organizationId, state, body }) {
     throw new Error("Insufficient paper cash for BUY order");
   }
 
+  const { data: decisionDuplicate, error: decisionDuplicateError } = await supabaseAdmin
+    .from("market_paper_orders")
+    .select("id,status")
+    .eq("organization_id", organizationId)
+    .eq("portfolio_id", state.portfolio.id)
+    .eq("decision_id", decision.id)
+    .limit(1)
+    .maybeSingle();
+  if (decisionDuplicateError) throw decisionDuplicateError;
+  if (decisionDuplicate) {
+    throw new Error("This governed decision has already created a paper order");
+  }
+
   const { data: queuedDuplicate, error: queuedDuplicateError } = await supabaseAdmin
     .from("market_paper_orders")
     .select("id")

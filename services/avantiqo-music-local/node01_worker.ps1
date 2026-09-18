@@ -55,7 +55,17 @@ if ((Test-Path $SeedVcPython) -and (Test-Path $SeedVcRunner) -and (Test-Path (Jo
     $SingingVoiceRuntimeReady = ($LASTEXITCODE -eq 0)
   } catch { $SingingVoiceRuntimeReady = $false }
 }
-$BaseCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech')
+$VocalCorrectionRunner = 'C:\Avantiqo\music-gpu\vocal_runner.py'
+$VocalCorrectionEngineRoot = 'C:\Avantiqo\music-gpu\vocal-correction-engine'
+$VocalCorrectionRuntimeReady = $false
+if ((Test-Path $MusicGpuPython) -and (Test-Path $VocalCorrectionRunner) -and (Test-Path (Join-Path $VocalCorrectionEngineRoot 'handler_v2.py'))) {
+  try {
+    $env:AVANTIQO_VOCAL_CORRECTION_ENGINE_ROOT = $VocalCorrectionEngineRoot
+    & $MusicGpuPython -c "import sys; sys.path.insert(0, r'C:\Avantiqo\music-gpu\vocal-correction-engine'); import handler_v2" 2>$null
+    $VocalCorrectionRuntimeReady = ($LASTEXITCODE -eq 0)
+  } catch { $VocalCorrectionRuntimeReady = $false }
+}
+$BaseCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.music.generate','ai.text.to.speech') + $(if ($VocalCorrectionRuntimeReady) { @('ai.audio.vocal-correct') } else { @() })
 $ResearchCapabilities = @($(if ($VocalRoleRuntimeReady) { @('ai.audio.vocal-role-separate') } else { @() }) + $(if ($SingingVoiceRuntimeReady) { @('ai.audio.singing-voice-convert') } else { @() }))
 $AllCapabilities = @($BaseCapabilities + $ResearchCapabilities)
 $GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech') + $ResearchCapabilities
@@ -401,6 +411,7 @@ function RunMusicSeparatorJob($Job) {
     UnloadOllamaModel
     [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 50 -Compress), (New-Object System.Text.UTF8Encoding($false)))
     $previousPath = $env:PATH; $env:PATH = "C:\Avantiqo\music-gpu\Scripts;$ffmpeg;$previousPath"
+    $env:AVANTIQO_VOCAL_CORRECTION_ENGINE_ROOT = $VocalCorrectionEngineRoot
     $started = Get-Date; $previousErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     $outFile = Join-Path $env:TEMP ("avantiqo-music-separator-" + [string]$Job.id + ".out")
     [IO.File]::WriteAllText($trace,'process')
@@ -493,7 +504,7 @@ function RunMusicVocalCorrectionJob($Job) {
   $payload = $Job.payload
   if (-not $payload) { throw 'AVANTIQO_LOCAL_MUSIC_VOCAL_CORRECTION_PAYLOAD_REQUIRED' }
   $python = 'C:\Avantiqo\music-gpu\Scripts\python.exe'
-  $runner = 'C:\Avantiqo\music-gpu\vocal_runner.py'
+  $runner = $VocalCorrectionRunner
   $ffmpeg = 'C:\Avantiqo\ffmpeg\bin'
   if (-not (Test-Path $python)) { throw 'AVANTIQO_LOCAL_MUSIC_VOCAL_CORRECTION_PYTHON_REQUIRED' }
   if (-not (Test-Path $runner)) { throw 'AVANTIQO_LOCAL_MUSIC_VOCAL_CORRECTION_RUNNER_REQUIRED' }

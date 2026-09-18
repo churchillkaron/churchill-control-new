@@ -1,7 +1,8 @@
 param(
   [Parameter(Mandatory=$true)][string]$RepoRoot,
   [switch]$Apply,
-  [switch]$InstallSeedVcDependencies
+  [switch]$InstallSeedVcDependencies,
+  [switch]$InstallVocalCorrectionDependencies
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,6 +21,10 @@ $SeedVcCheckpoint = Join-Path $SeedVcRoot 'checkpoints\DiT_seed_v2_uvit_whisper_
 $SeedVcConfig = Join-Path $SeedVcRoot 'configs\presets\config_dit_mel_seed_uvit_whisper_base_f0_44k.yml'
 $SeedVcCheckpointSha256 = '42aef93ffe65857c840d270252fa040f7ba04514945ec460f3ac1ac2a96de684'
 $VocalRoleSource = Join-Path $RepoRoot 'services\avantiqo-music-local\vocal_role_separator_runner.py'
+$VocalCorrectionRunnerSource = Join-Path $RepoRoot 'services\avantiqo-music-local\vocal_runner.py'
+$VocalCorrectionEngineSource = Join-Path $RepoRoot 'services\avantiqo-music-vocal-correction-engine'
+$VocalCorrectionRunnerTarget = Join-Path $MusicGpuRoot 'vocal_runner.py'
+$VocalCorrectionEngineTarget = Join-Path $MusicGpuRoot 'vocal-correction-engine'
 $SeedVcRunnerSource = Join-Path $RepoRoot 'services\avantiqo-music-local\singing_voice_runner.py'
 $ReportPath = Join-Path $RepoRoot 'local-audit-output\music-research-runtime-install.json'
 
@@ -28,6 +33,8 @@ function Run([string]$File,[string[]]$Args) { & $File @Args; if ($LASTEXITCODE -
 function Probe([string]$Python,[string]$Code) { & $Python -c $Code 2>$null; return ($LASTEXITCODE -eq 0) }
 
 Require-File $VocalRoleSource 'VOCAL_ROLE_RUNNER_SOURCE_REQUIRED'
+Require-File $VocalCorrectionRunnerSource 'VOCAL_CORRECTION_RUNNER_SOURCE_REQUIRED'
+Require-File (Join-Path $VocalCorrectionEngineSource 'handler_v2.py') 'VOCAL_CORRECTION_ENGINE_SOURCE_REQUIRED'
 Require-File $SeedVcRunnerSource 'SINGING_VOICE_RUNNER_SOURCE_REQUIRED'
 Require-File $MusicGpuPython 'MUSIC_GPU_PYTHON_REQUIRED'
 
@@ -45,6 +52,8 @@ $plan = [ordered]@{
   seed_vc_root = $SeedVcRoot
   seed_vc_python = $SeedVcPython
   seed_vc_runner_target = $SeedVcRunnerTarget
+  vocal_correction_runner_target = $VocalCorrectionRunnerTarget
+  vocal_correction_engine_target = $VocalCorrectionEngineTarget
   checkpoint_required = $SeedVcCheckpoint
   checkpoint_sha256 = $SeedVcCheckpointSha256
   config_required = $SeedVcConfig
@@ -67,6 +76,13 @@ Require-File $Kara2Model 'VOCAL_ROLE_KARA2_MODEL_REQUIRED'
 $kara2Actual = (Get-FileHash -Algorithm SHA256 $Kara2Model).Hash.ToLowerInvariant()
 if ($kara2Actual -ne $Kara2Sha256) { throw "VOCAL_ROLE_KARA2_HASH_MISMATCH:$kara2Actual" }
 if (-not (Probe $MusicGpuPython 'import demucs, audio_separator')) { throw 'VOCAL_ROLE_RUNTIME_IMPORT_PROBE_FAILED' }
+
+Copy-Item -Force $VocalCorrectionRunnerSource $VocalCorrectionRunnerTarget
+New-Item -ItemType Directory -Force $VocalCorrectionEngineTarget | Out-Null
+foreach ($name in @('handler.py','handler_v2.py','key_parser.py','timing.py','requirements.txt')) { Copy-Item -Force (Join-Path $VocalCorrectionEngineSource $name) (Join-Path $VocalCorrectionEngineTarget $name) }
+if ($InstallVocalCorrectionDependencies) { Run $MusicGpuPython @('-m','pip','install','-r',(Join-Path $VocalCorrectionEngineTarget 'requirements.txt')) }
+$env:AVANTIQO_VOCAL_CORRECTION_ENGINE_ROOT = $VocalCorrectionEngineTarget
+if (-not (Probe $MusicGpuPython "import sys; sys.path.insert(0, r'$VocalCorrectionEngineTarget'); import handler_v2")) { throw 'VOCAL_CORRECTION_RUNTIME_IMPORT_PROBE_FAILED' }
 
 if (-not (Test-Path (Join-Path $SeedVcRoot '.git'))) {
   New-Item -ItemType Directory -Force (Split-Path $SeedVcRoot) | Out-Null
@@ -101,6 +117,7 @@ $report = [ordered]@{
   kara2_model_license = 'MIT'
   kara2_attribution_required = $true
   vocal_role_runtime_ready = $true
+  vocal_correction_runtime_ready = $true
   kara2_model_sha256_verified = $true
   kara2_model_license = 'MIT'
   kara2_attribution_required = $true

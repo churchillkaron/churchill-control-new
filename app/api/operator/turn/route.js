@@ -121,12 +121,15 @@ function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null
   const authenticityVerification = verifyBusinessDiagnosisProofAuthenticity(diagnosis);
   const authenticityAcceptable = businessDiagnosisProofAuthenticityAcceptable(authenticityVerification);
   if (verification.status !== "VERIFIED" || answerVerification.status !== "VERIFIED" || !authenticityAcceptable) return {};
+  const diagnosedPeriodId = text(diagnosis?.periods?.current_period_id) || null;
+  const activePeriodId = text(periodId) || null;
+  if (diagnosedPeriodId && activePeriodId && diagnosedPeriodId !== activePeriodId) return {};
   const persistenceBase = {
     ...diagnosis,
     scope_organization_id: text(organizationId) || null,
     scope_conversation_id: text(conversationId) || null,
     scope_entity_id: text(entityId) || null,
-    scope_period_id: text(periodId) || null,
+    scope_period_id: diagnosedPeriodId || activePeriodId,
   };
   const persistenceSeal = sealBusinessDiagnosisProofAuthenticity(persistenceBase);
   const persistedProof = persistenceSeal.sealed ? persistenceSeal.proof : persistenceBase;

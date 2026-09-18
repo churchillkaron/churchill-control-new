@@ -412,3 +412,22 @@ test("historical snapshot remains visible after active period changes", () => {
     if(oldRing===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=oldRing;
   }
 });
+
+
+test("period-scoped diagnosis is excluded from model context when active period is unavailable", () => {
+  const oldId=process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID;
+  const oldRing=process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON;
+  process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID="k1";
+  process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=JSON.stringify({k1:"11".repeat(32)});
+  try {
+    const evidence=diagnosisEvidence({answer:"diagnosis"});
+    const sealed=sealBusinessDiagnosisProofAuthenticity({...evidence.business_diagnosis,scope_organization_id:"org-a",scope_conversation_id:"conv-a",scope_entity_id:"entity-a",scope_period_id:"2026-09"}).proof;
+    const rows=[{role:"assistant",content:"diagnosis",evidence:{business_diagnosis:sealed}},{role:"user",content:"why?",evidence:{}}];
+    assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows,{organization_id:"org-a",conversation_id:"conv-a",entity_id:"entity-a",require_period_context:true}),[]);
+    const verification=businessDiagnosisTurnVerification(rows[0],{organization_id:"org-a",conversation_id:"conv-a",entity_id:"entity-a",require_period_context:true});
+    assert.equal(verification.status,"SCOPE_PERIOD_CONTEXT_MISSING");
+  } finally {
+    if(oldId===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID=oldId;
+    if(oldRing===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=oldRing;
+  }
+});

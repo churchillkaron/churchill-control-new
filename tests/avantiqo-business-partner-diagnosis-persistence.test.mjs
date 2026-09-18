@@ -116,3 +116,15 @@ test("operator passes resolved business period into conversation memory on every
   const turnIndex=route.indexOf("runSyntheticIntelligenceTurn",loadIndex);
   assert.ok(loadIndex>=0&&turnIndex>loadIndex);
 });
+
+
+test("persisted diagnosis scope uses the actual analyzed current period",()=>{
+  assert.match(route,/const diagnosedPeriodId = text\(diagnosis\?\.periods\?\.current_period_id\) \|\| null/);
+  assert.match(route,/scope_period_id: diagnosedPeriodId \|\| activePeriodId/);
+  assert.match(route,/diagnosedPeriodId && activePeriodId && diagnosedPeriodId !== activePeriodId/);
+});
+
+test("model-context verification requires active period when proof is period-scoped",()=>{
+  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
+  assert.match(runtime,/require_period_context: true/);
+});

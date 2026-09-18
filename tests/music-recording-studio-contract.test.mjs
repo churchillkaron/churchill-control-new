@@ -54,7 +54,7 @@ test("PCM worklet manually flushes final partial recording frames", () => {
 
 
 test("saved recording take is immediately inserted into multitrack and can open the Workstation", () => {
-  assert.match(route, /added_to_multitrack:\s*true/);
+  assert.match(route, /added_to_multitrack:\s*Boolean\(multitrack\)/);
   assert.match(route, /multitrack,/);
   assert.match(panel, /setSaved\(registered\)/);
   assert.match(panel, /Original take preserved and added to the multitrack timeline/);

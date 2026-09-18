@@ -40,7 +40,7 @@ test("Recorded takes are preserved then linked into the workstation", async () =
   assert.match(route, /appendRecordedTakeToMultitrack/);
   assert.match(route, /createMusicTake/);
   assert.match(route, /createMusicClip/);
-  assert.match(route, /added_to_multitrack:\s*true/);
+  assert.match(route, /added_to_multitrack:\s*Boolean\(multitrack\)/);
   assert.match(route, /destructive_edit:\s*false/);
 });
 

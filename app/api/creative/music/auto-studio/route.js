@@ -43,6 +43,18 @@ function finite(value, fallback = null) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+const RETAKE_CAPTURE_WARNINGS = new Set(["CLIPPING", "NON_FINITE_PCM", "CAPTURE_SILENT", "CAPTURE_DISCONTINUITY"]);
+function recordedTakePromotionDecision(body = {}) {
+  const qc = body.capture_qc && typeof body.capture_qc === "object" ? body.capture_qc : {};
+  const warnings = Array.isArray(qc.warnings) ? qc.warnings.map(text).filter(Boolean) : [];
+  const reasons = [];
+  if (text(body.recording_qc_status).toUpperCase() === "RETAKE_REQUIRED") reasons.push("RETAKE_REQUIRED");
+  if (body.clipping_detected === true || warnings.includes("CLIPPING")) reasons.push("CLIPPING");
+  for (const code of warnings) if (RETAKE_CAPTURE_WARNINGS.has(code) && !reasons.includes(code)) reasons.push(code);
+  if (body.capture_continuity_verified === false && (finite(body.chunk_gap_count,0) > 0 || finite(body.frame_discontinuity_count,0) > 0)) reasons.push("CAPTURE_DISCONTINUITY");
+  return { promotion_allowed: reasons.length === 0, quarantine_reasons: [...new Set(reasons)] };
+}
+
 async function requireAccess(request, organizationId) {
   const access = await requireOrganizationAccess({
     organizationId,
@@ -223,6 +235,7 @@ async function registerRecordedTake(body) {
     file_name: fileName,
     declared: { duration_seconds: durationSeconds, sample_rate: sampleRate, channels },
   });
+  const promotion = recordedTakePromotionDecision(body);
 
   const asset = await CreativeAssetsRuntime.create({
     organization_id: organizationId,
@@ -284,11 +297,14 @@ async function registerRecordedTake(body) {
       source_rights_confirmed: body.source_rights_confirmed === true,
       source_is_user_recording: true,
       source_version: 0,
+      multitrack_promotion_allowed: promotion.promotion_allowed,
+      multitrack_quarantine_reasons: promotion.quarantine_reasons,
+      quarantined_from_active_multitrack: promotion.promotion_allowed !== true,
     },
-    tags: ["music", "recording", "original-take", trackRole],
+    tags: ["music", "recording", "original-take", trackRole, ...(promotion.promotion_allowed ? [] : ["quarantined-retake"])],
   });
 
-  const multitrack = await appendRecordedTakeToMultitrack({
+  const multitrack = promotion.promotion_allowed ? await appendRecordedTakeToMultitrack({
     organizationId,
     projectId,
     asset,
@@ -296,7 +312,7 @@ async function registerRecordedTake(body) {
     trackRole,
     durationSeconds: serverVerification.duration_seconds,
     body,
-  });
+  }) : null;
 
   return {
     success: true,
@@ -310,7 +326,9 @@ async function registerRecordedTake(body) {
     },
     multitrack,
     original_take_preserved: true,
-    added_to_multitrack: true,
+    added_to_multitrack: Boolean(multitrack),
+    quarantined_from_active_multitrack: promotion.promotion_allowed !== true,
+    quarantine_reasons: promotion.quarantine_reasons,
     provider_job_submitted: false,
     endpoint_mutation_performed: false,
   };

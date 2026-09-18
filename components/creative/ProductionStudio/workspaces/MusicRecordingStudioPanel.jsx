@@ -419,7 +419,7 @@ export default function MusicRecordingStudioPanel({ organizationId, projectId, m
         source_rights_confirmed: true,
       });
       setSaved(registered);
-      onSaved?.(registered.asset, registered.multitrack);
+      onSaved?.(registered.asset, registered.multitrack || null);
     } catch (cause) {
       setError(cause?.message || "Recording could not be saved");
     } finally {

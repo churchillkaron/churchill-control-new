@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildRiskControlEvidenceRefs,
   buildThesisEvidenceRefs,
   evidenceEventIdsFromRefs,
   mergeEvidenceRefs,
@@ -161,4 +162,23 @@ test("decision support excludes ineligible specialist theses", () => {
   });
 
   assert.deepEqual(supporting.map((row) => row.id), ["t1", "t2"]);
+});
+
+test("deterministic risk-control evidence references the triggering position and snapshot", () => {
+  const refs = buildRiskControlEvidenceRefs({
+    position: {
+      id: "00000000-0000-0000-0000-000000000007",
+      symbol: "AAA",
+      opened_at: "2026-09-10T12:00:00Z",
+    },
+    snapshot,
+  });
+
+  assert.deepEqual(refs.map((row) => row.type), [
+    "POSITION",
+    "MARKET_SNAPSHOT",
+  ]);
+  assert.equal(refs[0].symbol, "AAA");
+  assert.equal(refs[1].id, snapshot.id);
+  assert.deepEqual(evidenceEventIdsFromRefs(refs), []);
 });

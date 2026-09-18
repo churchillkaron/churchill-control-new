@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 373,
-    "passed": 373,
+    "tests": 377,
+    "passed": 377,
     "failed": 0
   },
   "workstreams": [
@@ -217,6 +217,17 @@
       "insights": "Food-cost, net-margin and cash signals derive from complete ledger truth.",
       "silent_management_reporting_truncation_removed": true,
       "accounting_mutation_authority": false
+    },
+    {
+      "order": 16,
+      "name": "Final Finance population-cap closure",
+      "commit": "eb037e4ea54c",
+      "status": "OPERATIONAL_NO_SILENT_CONFIGURATION_OR_DELIVERY_CAPS",
+      "forecast_escalations": "Every organization with unresolved forecast exception cases is discoverable for escalation delivery; no 10000-case cutoff.",
+      "number_sequences": "Allocation lock checks exact runtime aliases and configuration workspace reads the complete scoped sequence population.",
+      "generic_workspaces": "Schema-backed Finance workspaces read complete scoped populations instead of silently hiding record 251.",
+      "silent_operational_truncation_removed": true,
+      "accounting_mutation_authority": false
     }
   ],
   "live_acceptance": {
@@ -278,6 +289,9 @@
     "finance_anomalies_complete_journal_population": true,
     "executive_kpis_complete_ledger_population": true,
     "finance_kpi_api_complete_ledger_population": true,
-    "finance_insights_complete_ledger_population": true
+    "finance_insights_complete_ledger_population": true,
+    "forecast_delivery_organization_population_complete": true,
+    "number_sequence_workspace_population_complete": true,
+    "generic_finance_workspace_population_complete": true
   }
 }

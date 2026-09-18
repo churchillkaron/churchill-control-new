@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildManualDecisionEvidenceRefs,
   buildRiskControlEvidenceRefs,
   buildThesisEvidenceRefs,
   evidenceEventIdsFromRefs,
@@ -162,6 +163,29 @@ test("decision support excludes ineligible specialist theses", () => {
   });
 
   assert.deepEqual(supporting.map((row) => row.id), ["t1", "t2"]);
+});
+
+test("manual decision evidence includes selected thesis plus inherited evidence", () => {
+  const refs = buildManualDecisionEvidenceRefs({
+    evidenceRows: evidence,
+    theses: [{
+      id: "00000000-0000-0000-0000-000000000008",
+      symbol: "AAA",
+      agent_type: "NEWS",
+      evidence_refs: [{
+        type: "MARKET_SNAPSHOT",
+        id: snapshot.id,
+        symbol: "AAA",
+      }],
+    }],
+  });
+
+  assert.deepEqual(refs.map((row) => row.type), [
+    "EVIDENCE_EVENT",
+    "THESIS",
+    "MARKET_SNAPSHOT",
+  ]);
+  assert.deepEqual(evidenceEventIdsFromRefs(refs), [evidence[0].id]);
 });
 
 test("deterministic risk-control evidence references the triggering position and snapshot", () => {

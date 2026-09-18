@@ -7,6 +7,10 @@ import { resolveBusinessContext } from "@/lib/business-context/resolveBusinessCo
 import { MarketAutonomousPaperRuntime } from "@/lib/markets/runtime/MarketAutonomousPaperRuntime";
 import { MarketCorporateActionAdjustmentRuntime } from "@/lib/markets/runtime/MarketCorporateActionAdjustmentRuntime";
 import { MarketCorporateActionRiskRuntime } from "@/lib/markets/runtime/MarketCorporateActionRiskRuntime";
+import {
+  buildManualDecisionEvidenceRefs,
+  evidenceEventIdsFromRefs,
+} from "@/lib/markets/runtime/MarketDecisionEvidenceModels";
 import { summarizeExecutionQuality } from "@/lib/markets/runtime/MarketExecutionQualityModels";
 import { MarketIntelligenceIngestionRuntime } from "@/lib/markets/runtime/MarketIntelligenceIngestionRuntime";
 import { evaluateMarketMicrostructureRisk } from "@/lib/markets/runtime/MarketMicrostructureRiskModels";
@@ -259,20 +263,77 @@ async function initializePortfolio({ organizationId, entityId, name = "Primary P
 async function recordDecision({ organizationId, portfolioId, body }) {
   const action = clean(body.action).toUpperCase();
   const confidence = Number(body.confidence);
+  const symbol = clean(body.symbol).toUpperCase();
   if (!["BUY", "SELL", "HOLD", "NO_ACTION"].includes(action)) throw new Error("Invalid decision action");
   if (!(confidence >= 0 && confidence <= 1)) throw new Error("Decision confidence must be between 0 and 1");
+  if (!symbol) throw new Error("Decision symbol is required");
+
+  const requestedEvidenceIds = [...new Set(
+    (Array.isArray(body.evidence_ids) ? body.evidence_ids : []).map(clean).filter(Boolean),
+  )];
+  const requestedThesisIds = [...new Set(
+    (Array.isArray(body.thesis_ids) ? body.thesis_ids : []).map(clean).filter(Boolean),
+  )];
+
+  const [evidenceResult, thesisResult] = await Promise.all([
+    requestedEvidenceIds.length
+      ? supabaseAdmin
+          .from("market_evidence_events")
+          .select("id,symbol,evidence_type,source_name,observed_at")
+          .eq("organization_id", organizationId)
+          .eq("portfolio_id", portfolioId)
+          .eq("symbol", symbol)
+          .in("id", requestedEvidenceIds)
+      : Promise.resolve({ data: [], error: null }),
+    requestedThesisIds.length
+      ? supabaseAdmin
+          .from("market_agent_theses")
+          .select("id,symbol,agent_type,evidence_ids,evidence_refs")
+          .eq("organization_id", organizationId)
+          .eq("portfolio_id", portfolioId)
+          .eq("symbol", symbol)
+          .in("id", requestedThesisIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (evidenceResult.error) throw evidenceResult.error;
+  if (thesisResult.error) throw thesisResult.error;
+  const evidenceRows = evidenceResult.data || [];
+  const thesisRows = thesisResult.data || [];
+
+  if (evidenceRows.length !== requestedEvidenceIds.length) {
+    throw new Error("One or more decision evidence references are invalid for this organization, portfolio, or symbol");
+  }
+  if (thesisRows.length !== requestedThesisIds.length) {
+    throw new Error("One or more decision thesis references are invalid for this organization, portfolio, or symbol");
+  }
+  if (
+    ["BUY", "SELL"].includes(action) &&
+    requestedEvidenceIds.length === 0 &&
+    requestedThesisIds.length === 0
+  ) {
+    throw new Error("Executable manual decisions require validated evidence or thesis lineage");
+  }
+
+  const evidenceRefs = buildManualDecisionEvidenceRefs({
+    evidenceRows,
+    theses: thesisRows,
+  });
+  const validatedEvidenceIds = evidenceEventIdsFromRefs(evidenceRefs);
+  const validatedThesisIds = thesisRows.map((row) => row.id);
 
   const { data, error } = await supabaseAdmin.from("market_decisions").insert({
     organization_id: organizationId,
     portfolio_id: portfolioId,
-    symbol: clean(body.symbol).toUpperCase(),
+    symbol,
     horizon: clean(body.horizon || "MEDIUM").toUpperCase(),
     action,
     confidence,
     expected_return: body.expected_return ?? null,
     downside_risk: body.downside_risk ?? null,
-    evidence_ids: Array.isArray(body.evidence_ids) ? body.evidence_ids : [],
-    thesis_ids: Array.isArray(body.thesis_ids) ? body.thesis_ids : [],
+    evidence_ids: validatedEvidenceIds,
+    evidence_refs: evidenceRefs,
+    thesis_ids: validatedThesisIds,
     decision_payload: body.decision_payload || {},
     risk_status: "PENDING",
   }).select("*").single();

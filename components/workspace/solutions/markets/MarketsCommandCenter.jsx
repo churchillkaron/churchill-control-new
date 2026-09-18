@@ -144,6 +144,7 @@ export default function MarketsCommandCenter({ organizationId }) {
       max_position_adv_pct: String(policy.max_position_adv_pct ?? 10),
       liquidation_participation_pct: String(policy.liquidation_participation_pct ?? 10),
       max_days_to_liquidate: String(policy.max_days_to_liquidate ?? 5),
+      max_daily_bar_age_hours: String(policy.max_daily_bar_age_hours ?? 120),
     });
   }, [data?.riskPolicy]);
 
@@ -617,6 +618,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Max portfolio beta", Number(policy.max_portfolio_beta ?? 1.5).toFixed(2)],
                       ["Max position ADV", `${Number(policy.max_position_adv_pct ?? 10)}%`],
                       ["Max liquidation", `${Number(policy.max_days_to_liquidate ?? 5)}d`],
+                      ["Max daily-bar age", `${Number(policy.max_daily_bar_age_hours ?? 120)}h`],
                       ["24h turnover cap", `${Number(policy.max_rolling_24h_turnover_pct || 100)}%`],
                       ["24h exec-cost cap", `${Number(policy.max_rolling_24h_execution_cost_pct_equity || 0.25)}%`],
                       ["Max open positions", Number(policy.max_open_positions || 20)],
@@ -739,6 +741,19 @@ export default function MarketsCommandCenter({ organizationId }) {
                         </div>
                       </div>
                     </div>
+                    {latestPortfolioRisk?.historical_data_freshness ? (
+                      <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[8px] ${
+                        (latestPortfolioRisk.historical_data_freshness.stale_symbols || []).length
+                          ? "border-red-200 bg-red-50 text-red-700"
+                          : "border-black/[0.06] bg-white text-[#5E5851]"
+                      }`}>
+                        Historical data: {(latestPortfolioRisk.historical_data_freshness.stale_symbols || []).length
+                          ? `STALE · ${latestPortfolioRisk.historical_data_freshness.stale_symbols.join(", ")}`
+                          : "FRESH"}
+                        {" · "}
+                        {Number(latestPortfolioRisk.historical_data_freshness.max_daily_bar_age_hours ?? policy.max_daily_bar_age_hours ?? 120).toFixed(0)}h max age
+                      </div>
+                    ) : null}
                     {latestPortfolioRisk?.candidate_sector ? (
                       <div className="mt-2 text-[8px] text-[#9A968E]">
                         Last evaluated sector: {latestPortfolioRisk.candidate_sector}
@@ -833,6 +848,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                         ["Max position ADV %", "max_position_adv_pct", "0.1", "100", "0.1"],
                         ["Liquidation participation %", "liquidation_participation_pct", "0.1", "100", "0.1"],
                         ["Max days to liquidate", "max_days_to_liquidate", "0.1", "60", "0.1"],
+                        ["Max daily-bar age hours", "max_daily_bar_age_hours", "24", "720", "1"],
                         ["Market shock %", "stress_market_shock_pct", "0.01", "100", "0.1"],
                         ["Sector shock %", "stress_sector_shock_pct", "0.01", "100", "0.1"],
                         ["Cluster shock %", "stress_correlated_cluster_shock_pct", "0.01", "100", "0.1"],
@@ -1019,6 +1035,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                         max_position_adv_pct: Number(riskDraft?.max_position_adv_pct ?? 10),
                         liquidation_participation_pct: Number(riskDraft?.liquidation_participation_pct ?? 10),
                         max_days_to_liquidate: Number(riskDraft?.max_days_to_liquidate ?? 5),
+                        max_daily_bar_age_hours: Number(riskDraft?.max_daily_bar_age_hours ?? 120),
                         stress_market_shock_pct: Number(riskDraft?.stress_market_shock_pct ?? 8),
                         stress_sector_shock_pct: Number(riskDraft?.stress_sector_shock_pct ?? 12),
                         stress_correlated_cluster_shock_pct: Number(riskDraft?.stress_correlated_cluster_shock_pct ?? 15),

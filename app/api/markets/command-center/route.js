@@ -624,6 +624,7 @@ export async function POST(request) {
         max_position_adv_pct: Number(body.max_position_adv_pct ?? current.max_position_adv_pct ?? 10),
         liquidation_participation_pct: Number(body.liquidation_participation_pct ?? current.liquidation_participation_pct ?? 10),
         max_days_to_liquidate: Number(body.max_days_to_liquidate ?? current.max_days_to_liquidate ?? 5),
+        max_daily_bar_age_hours: Number(body.max_daily_bar_age_hours ?? current.max_daily_bar_age_hours ?? 120),
         live_execution_enabled: false,
         updated_at: new Date().toISOString(),
       };
@@ -748,6 +749,9 @@ export async function POST(request) {
       }
       if (!(next.max_days_to_liquidate > 0 && next.max_days_to_liquidate <= 60)) {
         throw new Error("Maximum days to liquidate must be greater than 0 and at most 60");
+      }
+      if (!(next.max_daily_bar_age_hours >= 24 && next.max_daily_bar_age_hours <= 720)) {
+        throw new Error("Maximum daily-bar age must be between 24 and 720 hours");
       }
 
       const { data: riskPolicy, error: riskPolicyError } = await supabaseAdmin

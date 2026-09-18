@@ -11,7 +11,7 @@ function source(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
 }
 
-test("owned Cinema implements all nine target capabilities without default over-certification", () => {
+test("owned Cinema separates target, implemented, and default-certified capabilities", () => {
   const registration = source(
     "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderRegistration.js",
   );
@@ -29,66 +29,62 @@ test("owned Cinema implements all nine target capabilities without default over-
   ]) {
     assert.match(registration, new RegExp(capability.replaceAll(".", "\\.")));
   }
-  assert.match(registration, /IMPLEMENTED_CAPABILITIES = Object\.freeze\(\[\.\.\.TARGET_CAPABILITIES\]\)/);
+  assert.match(registration, /const IMPLEMENTED_CAPABILITIES = Object\.freeze\(\[\s*"ai\.video\.generate",\s*"ai\.video\.image_to_video",\s*"ai\.video\.first_last_frame_to_video",\s*"ai\.video\.upscale",\s*\]\)/s);
   assert.match(registration, /DEFAULT_CERTIFIED_CAPABILITIES = Object\.freeze\(\[\s*"ai\.video\.generate",\s*"ai\.video\.image_to_video",\s*\]\)/s);
-  assert.match(registration, /PROVIDER_VIDEO_CAPABILITY_CONFIGURATION_V3/);
+  assert.match(registration, /PROVIDER_VIDEO_CAPABILITY_CONFIGURATION_V4/);
+  assert.match(registration, /implemented_capabilities: IMPLEMENTED_CAPABILITIES/);
+  assert.match(registration, /certified_capabilities: capabilities/);
 });
 
-test("Cinema extend continues from the exact source tail under governed cinematic control", () => {
-  const worker = source("services/avantiqo-video-engine/handler_v2.py");
-
-  assert.match(worker, /EXTEND_CAPABILITY = "ai\.video\.extend"/);
-  assert.match(worker, /source_asset_roles/);
-  assert.match(worker, /_structured_transport/);
-  assert.match(worker, /_governed_control/);
-  assert.match(worker, /boundary = _last_frame\(source_path\)/);
-  assert.match(worker, /prompt=legacy\._cinematic_instruction\(data\)/);
-  assert.match(worker, /boundary_frame_from_exact_source_tail": True/);
-  assert.match(worker, /source_then_generated_continuation": True/);
-  assert.match(worker, /cinematic_control_contract/);
-});
-
-test("Cinema upscale is bounded owned super-resolution with mandatory temporal review", () => {
+test("Cinema extend code remains present but is not falsely production-advertised", () => {
   const worker = source("services/avantiqo-video-engine/handler_v2.py");
   const registration = source(
     "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderRegistration.js",
   );
 
-  assert.match(worker, /UPSCALE_CAPABILITY = "ai\.video\.upscale"/);
-  assert.match(worker, /caidas\/swin2SR-realworld-sr-x4-64-bsrgan-psnr/);
-  assert.match(worker, /MAX_UPSCALE_SOURCE_SECONDS/);
-  assert.match(worker, /MAX_UPSCALE_OUTPUT_PIXELS/);
-  assert.match(worker, /deterministic_frame_super_resolution": True/);
-  assert.match(worker, /temporal_quality_review_required": True/);
-  assert.match(registration, /temporal_upscale_review_required:\s*true/);
+  assert.match(worker, /EXTEND_CAPABILITY = "ai\.video\.extend"/);
+  assert.match(worker, /boundary = _last_frame\(source_path\)/);
+  assert.match(worker, /boundary_frame_from_exact_source_tail": True/);
+  assert.match(worker, /source_then_generated_continuation": True/);
+  assert.match(registration, /"ai\.video\.extend"/);
+  const implementedBlock = registration.match(/const IMPLEMENTED_CAPABILITIES = Object\.freeze\(\[([\s\S]*?)\]\);/)?.[1] || "";
+  assert.equal(implementedBlock.includes('"ai.video.extend"'), false);
 });
 
-test("Cinema lip-sync is isolated, pinned, offline-cache-complete and quality-gated", () => {
-  const facade = source(
-    "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js",
+test("Cinema 4K delivery uses temporal FlashVSR rather than legacy frame SR", () => {
+  const provider = source(
+    "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrProvider.js",
   );
-  const worker = source("services/avantiqo-lipsync-engine/handler.py");
-  const docker = source("services/avantiqo-lipsync-engine/Dockerfile");
+  const registration = source(
+    "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderRegistration.js",
+  );
 
-  assert.match(facade, /RUNPOD_AVANTIQO_LIPSYNC_ENDPOINT_ID/);
-  assert.match(facade, /AVANTIQO_LIPSYNC_ENGINE_ENABLED/);
-  assert.match(facade, /LIPSYNC_JOB_PREFIX = "lipsync:"/);
-  assert.match(facade, /stripLipSyncJobPrefix/);
-  assert.match(facade, /lipsyncWorker\.getStatus/);
-  assert.match(worker, /ByteDance\/LatentSync-1\.6/);
-  assert.match(worker, /a229c3948406bc2cf6eaf4873e662e70c6a04746/);
-  assert.match(worker, /stabilityai\/sd-vae-ft-mse/);
-  assert.match(worker, /AVANTIQO_LIPSYNC_INSIGHTFACE_BUFFALO_L_REQUIRED/);
-  assert.match(worker, /AVANTIQO_LIPSYNC_SD_VAE_CACHE_REQUIRED/);
-  assert.match(worker, /local_files_only=True/);
-  assert.match(worker, /"HF_HUB_OFFLINE": "1"/);
-  assert.match(worker, /offline_model_cache_required": True/);
-  assert.match(worker, /identity_quality_review_required": True/);
-  assert.match(worker, /sync_quality_review_required": True/);
-  assert.match(docker, /git checkout a229c3948406bc2cf6eaf4873e662e70c6a04746/);
-  assert.match(docker, /HF_HOME=\/runpod-volume\/huggingface-cache/);
-  assert.match(docker, /HF_HUB_OFFLINE=1/);
-  assert.match(docker, /TRANSFORMERS_OFFLINE=1/);
+  assert.match(provider, /JunhaoZhuang\/FlashVSR-v1\.1/);
+  assert.match(provider, /temporal_super_resolution:true/);
+  assert.match(provider, /per_frame_independent_sr:false/);
+  assert.match(registration, /delivery_upscale_engine: "FlashVSR-v1\.1"/);
+  assert.match(registration, /temporal_super_resolution_engine: "FlashVSR-v1\.1"/);
+  assert.match(registration, /per_frame_independent_super_resolution_production_forbidden: true/);
+  assert.equal(registration.includes("swin2SR"), false);
+});
+
+test("lip-sync is separately governed and is not claimed as owned Cinema production certification", () => {
+  const registration = source(
+    "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderRegistration.js",
+  );
+  const managed = source(
+    "lib/platform/service-runtime/providers/lipsync/ManagedLipSyncProviderRegistration.js",
+  );
+  const validation = source(
+    "lib/platform/service-runtime/providers/lipsync/ManagedLipSyncProvider.js",
+  );
+
+  const implementedBlock = registration.match(/const IMPLEMENTED_CAPABILITIES = Object\.freeze\(\[([\s\S]*?)\]\);/)?.[1] || "";
+  assert.equal(implementedBlock.includes('"ai.video.lipsync"'), false);
+  assert.match(managed, /"ai\.video\.lipsync"/);
+  assert.match(validation, /AUDIO_CONDITIONED_LIPSYNC_VALIDATION_V2/);
+  assert.match(validation, /HUMAN_FAIL_CLOSED_NO_TRUSTED_AUTOMATED_EVALUATOR/);
+  assert.match(validation, /identity_profile_id/);
 });
 
 test("Service Runtime and cinematic state memory both target the V2 facade", () => {
@@ -108,15 +104,14 @@ test("Service Runtime and cinematic state memory both target the V2 facade", () 
   assert.match(memory, /continuity:\s*governedContinuity/);
 });
 
-test("advanced Cinema models are exact-capability license gated", () => {
-  const policy = source(
-    "lib/platform/service-runtime/providers/AvantiqoOwnedCertificationPolicy.js",
+test("production registration keeps fast generation and temporal UHD mastering explicit", () => {
+  const registration = source(
+    "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderRegistration.js",
   );
 
-  assert.match(policy, /"ai\.video\.image_to_video",\s*"ai\.video\.extend"/s);
-  assert.match(policy, /caidas\/swin2SR-realworld-sr-x4-64-bsrgan-psnr/);
-  assert.match(policy, /capabilities: Object\.freeze\(\["ai\.video\.upscale"\]\)/);
-  assert.match(policy, /ByteDance\/LatentSync-1\.6/);
-  assert.match(policy, /capabilities: Object\.freeze\(\["ai\.video\.lipsync"\]\)/);
-  assert.match(policy, /pinned_upstream_commit:\s*"a229c3948406bc2cf6eaf4873e662e70c6a04746"/);
+  assert.match(registration, /FAST_PRODUCTION_RESOLUTION = "1920x1088"/);
+  assert.match(registration, /DELIVERY_MASTER_RESOLUTION = "3840x2160"/);
+  assert.match(registration, /HERO_NATIVE_RESOLUTION = "3840x2176"/);
+  assert.match(registration, /hero_native_generation_default: false/);
+  assert.match(registration, /temporal_4k_mastering_required_for_4k_delivery: true/);
 });

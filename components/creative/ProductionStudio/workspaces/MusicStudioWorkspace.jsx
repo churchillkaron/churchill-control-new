@@ -105,13 +105,36 @@ const WORLD_CLASS_WORKERS = listWorldClassMusicWorkers();
 const PROFESSIONAL_AUDIO_ROOMS = listProfessionalAudioRooms();
 const WORLD_CLASS_FLOW = Object.freeze(["Brief", "Research", "Direction", "Concepts", "Pre-production", "Production", "Listening", "Edit", "Mix", "Master", "Tribunal", "Release"]);
 
-function statusLabel(status) {
-  if (status === "ACTIVE") return "Ready";
-  if (status === "LOCAL_ACCEPTANCE_READY") return "Local test ready";
-  if (status === "PLANNING_ONLY") return "Coming later";
-  if (status === "OWNED_RUNTIME_NOT_IMPLEMENTED") return "Coming later";
-  if (status === "CERTIFICATION_GATED") return "Temporarily unavailable";
-  return "Checking";
+const STATUS_LABELS = Object.freeze({
+  ACTIVE: "Ready",
+  CERTIFIED: "Certified",
+  LOCAL_ACCEPTANCE_READY: "Local acceptance ready",
+  BENCHMARK_REQUIRED: "Benchmark required",
+  BENCHMARK_AND_HUMAN_REVIEW_REQUIRED: "Benchmark + human review required",
+  CERTIFICATION_GATED: "Certification required",
+  CERTIFICATION_OR_CONFIGURATION_REQUIRED: "Certification / configuration required",
+  CURRENT_RUNTIME_CERTIFICATION_REQUIRED: "Current runtime certification required",
+  COMMERCIAL_ACTIVATION_REQUIRED: "Commercial activation required",
+  RESEARCH_GATED: "Research validation required",
+  ENGINE_GATED: "Engine certification required",
+  READINESS_DEPENDENT: "Runtime readiness required",
+  PLANNING_ONLY: "Planning only",
+  OWNED_RUNTIME_NOT_IMPLEMENTED: "Owned runtime not implemented",
+  STUDIO_TOOL: "Ready",
+  CHECKING: "Checking",
+});
+function statusLabel(status) { return STATUS_LABELS[status] || String(status || "Checking").replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (match) => match.toUpperCase()); }
+function statusExplanation(status) {
+  if (["ACTIVE","CERTIFIED"].includes(status)) return "The owned runtime is enabled for this workflow.";
+  if (status === "LOCAL_ACCEPTANCE_READY") return "The owned local runtime is available for acceptance testing; production routing remains separately certified.";
+  if (status === "BENCHMARK_REQUIRED") return "Execution stays gated until the owned runtime passes the required quality benchmark.";
+  if (status === "BENCHMARK_AND_HUMAN_REVIEW_REQUIRED") return "Execution stays gated until benchmark evidence and the required human quality review both pass.";
+  if (["CERTIFICATION_GATED","CURRENT_RUNTIME_CERTIFICATION_REQUIRED"].includes(status)) return "The implementation exists, but production execution remains disabled until the current runtime passes certification.";
+  if (status === "CERTIFICATION_OR_CONFIGURATION_REQUIRED") return "The workflow needs a certified and correctly configured owned runtime before production execution can start.";
+  if (status === "COMMERCIAL_ACTIVATION_REQUIRED") return "Technical certification is present; commercial activation remains required before production routing.";
+  if (status === "PLANNING_ONLY") return "Planning is available, but no executable runtime is registered for this workflow.";
+  if (status === "OWNED_RUNTIME_NOT_IMPLEMENTED") return "The owned execution runtime is not implemented, so the Studio will not pretend this workflow can run.";
+  return "Avantiqo is checking the exact runtime and certification state for this workflow.";
 }
 
 function MusicGeneratorGate({ status }) {
@@ -145,7 +168,7 @@ function MusicGeneratorGate({ status }) {
         <div className="border-t border-black/[0.06] bg-[#FCFBF8] px-5 py-4 md:px-6">
           <div className="flex items-start gap-2.5 text-[11px] text-[#817B73]">
             <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#A78158]" />
-            <div><span className="font-semibold text-[#514B44]">Generation is temporarily unavailable.</span> The tool stays visible while the owned music runtime completes its readiness gate.</div>
+            <div><span className="font-semibold text-[#514B44]">{statusLabel(status)}.</span> {statusExplanation(status)}</div>
           </div>
         </div>
       </div>

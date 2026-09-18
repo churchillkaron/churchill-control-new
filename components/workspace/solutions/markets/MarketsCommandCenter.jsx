@@ -20,6 +20,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   const [symbol, setSymbol] = useState("");
   const [paperQuantityBySymbol, setPaperQuantityBySymbol] = useState({});
   const [automationDraft, setAutomationDraft] = useState(null);
+  const [riskDraft, setRiskDraft] = useState(null);
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -55,6 +56,22 @@ export default function MarketsCommandCenter({ organizationId }) {
       cooldown_minutes: String(policy.cooldown_minutes ?? 60),
     });
   }, [data?.automationPolicy]);
+
+  useEffect(() => {
+    const policy = data?.riskPolicy;
+    if (!policy) return;
+    setRiskDraft({
+      max_position_pct: String(policy.max_position_pct ?? 10),
+      max_sector_pct: String(policy.max_sector_pct ?? 30),
+      max_gross_exposure_pct: String(policy.max_gross_exposure_pct ?? 100),
+      max_correlated_exposure_pct: String(policy.max_correlated_exposure_pct ?? 35),
+      correlation_threshold: String(policy.correlation_threshold ?? 0.8),
+      max_daily_loss_pct: String(policy.max_daily_loss_pct ?? 2),
+      max_portfolio_drawdown_pct: String(policy.max_portfolio_drawdown_pct ?? 10),
+      min_decision_confidence: String(policy.min_decision_confidence ?? 0.7),
+      max_order_notional: policy.max_order_notional == null ? "" : String(policy.max_order_notional),
+    });
+  }, [data?.riskPolicy]);
 
   async function act(action, payload = {}) {
     setWorking(action);
@@ -455,6 +472,69 @@ export default function MarketsCommandCenter({ organizationId }) {
                         Last evaluated sector: {latestPortfolioRisk.candidate_sector}
                       </div>
                     ) : null}
+                  </div>
+                  <div className="mt-3 border-t border-black/[0.06] pt-3">
+                    <div className="mb-2 text-[8px] uppercase tracking-[0.12em] text-[#968F86]">Owner policy controls</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        ["Position %", "max_position_pct", "0.1", "100", "0.1"],
+                        ["Sector %", "max_sector_pct", "0.1", "100", "0.1"],
+                        ["Gross %", "max_gross_exposure_pct", "0.1", "300", "0.1"],
+                        ["Correlated %", "max_correlated_exposure_pct", "0.1", "100", "0.1"],
+                        ["Correlation", "correlation_threshold", "0", "1", "0.01"],
+                        ["Daily loss %", "max_daily_loss_pct", "0.1", "100", "0.1"],
+                        ["Drawdown %", "max_portfolio_drawdown_pct", "0.1", "100", "0.1"],
+                        ["Min confidence", "min_decision_confidence", "0", "1", "0.01"],
+                      ].map(([label, key, min, max, step]) => (
+                        <label key={key}>
+                          <span className="text-[8px] text-[#968F86]">{label}</span>
+                          <input
+                            type="number"
+                            min={min}
+                            max={max}
+                            step={step}
+                            value={riskDraft?.[key] ?? ""}
+                            onChange={(event) => setRiskDraft((current) => ({
+                              ...(current || {}),
+                              [key]: event.target.value,
+                            }))}
+                            className="mt-1 h-8 w-full rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-2 text-[9px] text-[#2E2B27] outline-none"
+                          />
+                        </label>
+                      ))}
+                      <label className="col-span-2">
+                        <span className="text-[8px] text-[#968F86]">Max order notional · blank = uncapped</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={riskDraft?.max_order_notional ?? ""}
+                          onChange={(event) => setRiskDraft((current) => ({
+                            ...(current || {}),
+                            max_order_notional: event.target.value,
+                          }))}
+                          className="mt-1 h-8 w-full rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-2 text-[9px] text-[#2E2B27] outline-none"
+                        />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={Boolean(working)}
+                      onClick={() => act("UPDATE_RISK_POLICY", {
+                        max_position_pct: Number(riskDraft?.max_position_pct || 10),
+                        max_sector_pct: Number(riskDraft?.max_sector_pct || 30),
+                        max_gross_exposure_pct: Number(riskDraft?.max_gross_exposure_pct || 100),
+                        max_correlated_exposure_pct: Number(riskDraft?.max_correlated_exposure_pct || 35),
+                        correlation_threshold: Number(riskDraft?.correlation_threshold ?? 0.8),
+                        max_daily_loss_pct: Number(riskDraft?.max_daily_loss_pct || 2),
+                        max_portfolio_drawdown_pct: Number(riskDraft?.max_portfolio_drawdown_pct || 10),
+                        min_decision_confidence: Number(riskDraft?.min_decision_confidence ?? 0.7),
+                        max_order_notional: riskDraft?.max_order_notional ?? "",
+                      })}
+                      className="mt-3 h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-medium text-white disabled:opacity-40"
+                    >
+                      {working === "UPDATE_RISK_POLICY" ? "Saving…" : "Save risk policy"}
+                    </button>
                   </div>
                   <div className="mt-3 rounded-xl border border-emerald-200/70 bg-emerald-50 px-3 py-2.5 text-[10px] text-emerald-700">
                     Live broker execution: <span className="font-semibold">DISABLED</span>

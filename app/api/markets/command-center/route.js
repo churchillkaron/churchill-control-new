@@ -443,6 +443,65 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Initialize Markets before using this action" }, { status: 409 });
     }
 
+    if (action === "UPDATE_RISK_POLICY") {
+      requireMarketsAutomationAuthority(scope);
+
+      const current = state.riskPolicy || {};
+      const next = {
+        max_position_pct: Number(body.max_position_pct ?? current.max_position_pct ?? 10),
+        max_sector_pct: Number(body.max_sector_pct ?? current.max_sector_pct ?? 30),
+        max_daily_loss_pct: Number(body.max_daily_loss_pct ?? current.max_daily_loss_pct ?? 2),
+        max_portfolio_drawdown_pct: Number(body.max_portfolio_drawdown_pct ?? current.max_portfolio_drawdown_pct ?? 10),
+        min_decision_confidence: Number(body.min_decision_confidence ?? current.min_decision_confidence ?? 0.7),
+        max_order_notional: body.max_order_notional === "" || body.max_order_notional === null
+          ? null
+          : Number(body.max_order_notional ?? current.max_order_notional ?? 0) || null,
+        max_gross_exposure_pct: Number(body.max_gross_exposure_pct ?? current.max_gross_exposure_pct ?? 100),
+        max_correlated_exposure_pct: Number(body.max_correlated_exposure_pct ?? current.max_correlated_exposure_pct ?? 35),
+        correlation_threshold: Number(body.correlation_threshold ?? current.correlation_threshold ?? 0.8),
+        live_execution_enabled: false,
+        updated_at: new Date().toISOString(),
+      };
+
+      const percentageChecks = [
+        ["Max position", next.max_position_pct, 0, 100],
+        ["Sector cap", next.max_sector_pct, 0, 100],
+        ["Daily loss", next.max_daily_loss_pct, 0, 100],
+        ["Max drawdown", next.max_portfolio_drawdown_pct, 0, 100],
+        ["Gross exposure", next.max_gross_exposure_pct, 0, 300],
+        ["Correlated exposure", next.max_correlated_exposure_pct, 0, 100],
+      ];
+      for (const [label, value, minimum, maximum] of percentageChecks) {
+        if (!(value > minimum && value <= maximum)) {
+          throw new Error(`${label} must be greater than ${minimum} and at most ${maximum}`);
+        }
+      }
+      if (!(next.min_decision_confidence >= 0 && next.min_decision_confidence <= 1)) {
+        throw new Error("Minimum decision confidence must be between 0 and 1");
+      }
+      if (!(next.correlation_threshold >= 0 && next.correlation_threshold <= 1)) {
+        throw new Error("Correlation threshold must be between 0 and 1");
+      }
+      if (next.max_order_notional !== null && !(next.max_order_notional > 0)) {
+        throw new Error("Maximum order notional must be greater than zero when configured");
+      }
+
+      const { data: riskPolicy, error: riskPolicyError } = await supabaseAdmin
+        .from("market_risk_policies")
+        .update(next)
+        .eq("organization_id", organizationId)
+        .eq("portfolio_id", state.portfolio.id)
+        .select("*")
+        .single();
+      if (riskPolicyError) throw riskPolicyError;
+
+      return NextResponse.json({
+        success: true,
+        riskPolicy,
+        execution: { mode: "PAPER", live_enabled: false },
+      });
+    }
+
     if (action === "UPDATE_AUTOMATION_POLICY") {
       requireMarketsAutomationAuthority(scope);
 

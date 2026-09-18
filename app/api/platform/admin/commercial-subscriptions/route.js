@@ -57,17 +57,35 @@ export async function POST(request) {
 
     const { data: lead, error: leadError } = await supabaseAdmin
       .from("organization_leads")
-      .select("id,company,email,phone")
+      .select("id,company,email,phone,request_type,requesting_organization_id")
       .eq("id", acquisition.lead_id)
       .maybeSingle();
     if (leadError) throw leadError;
     if (!lead) return Response.json({ success: false, error: "Acquisition lead no longer exists" }, { status: 409 });
 
+    let customerOrganizationId = null;
+    if (text(lead.request_type).toLowerCase() === "upgrade") {
+      customerOrganizationId = uuid(lead.requesting_organization_id);
+      if (!customerOrganizationId || customerOrganizationId === PLATFORM_ORGANIZATION_ID) {
+        return Response.json({ success: false, error: "Upgrade lead is missing a valid customer organization lineage" }, { status: 409 });
+      }
+
+      const { data: customerOrganization, error: customerOrganizationError } = await supabaseAdmin
+        .from("organizations")
+        .select("id,name,status,organization_status")
+        .eq("id", customerOrganizationId)
+        .maybeSingle();
+      if (customerOrganizationError) throw customerOrganizationError;
+      if (!customerOrganization) {
+        return Response.json({ success: false, error: "Upgrade customer organization no longer exists" }, { status: 409 });
+      }
+    }
+
     const { data: subscription, error: subscriptionError } = await supabaseAdmin
       .from("subscriptions")
       .insert({
         lead_id: lead.id,
-        organization_id: null,
+        organization_id: customerOrganizationId,
         company: text(lead.company) || text(acquisition.prospect_company) || null,
         email: text(lead.email) || text(acquisition.prospect_email) || null,
         phone: text(lead.phone) || null,

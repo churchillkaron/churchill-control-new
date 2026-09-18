@@ -138,17 +138,38 @@ export async function POST(request) {
     if (organizationError) throw organizationError;
     if (!organization) return Response.json({ success: false, error: "Organization not found" }, { status: 404 });
 
-    const { data: pending, error: pendingError } = await supabaseAdmin
+    const { data: priorUpgradeLeads, error: priorUpgradeLeadError } = await supabaseAdmin
       .from("organization_leads")
-      .select("id,status,selected_products")
+      .select("id,status,selected_products,created_at")
       .eq("requesting_organization_id", access.organizationId)
       .eq("request_type", "upgrade")
-      .ilike("status", "new")
       .order("created_at", { ascending: false })
-      .limit(50);
-    if (pendingError) throw pendingError;
-    const pendingIds = new Set((pending || []).flatMap((lead) => Array.isArray(lead.selected_products) ? lead.selected_products.map((item) => typeof item === "string" ? item : item?.id).filter(Boolean) : []));
-    const newIds = requestedIds.filter((id) => !pendingIds.has(id));
+      .limit(200);
+    if (priorUpgradeLeadError) throw priorUpgradeLeadError;
+
+    const priorLeadIds = (priorUpgradeLeads || []).map((lead) => lead.id).filter(Boolean);
+    let priorAcquisitions = [];
+    if (priorLeadIds.length) {
+      const { data, error } = await supabaseAdmin
+        .from("platform_acquisition_records")
+        .select("lead_id,stage")
+        .eq("seller_organization_id", PLATFORM_ORGANIZATION_ID)
+        .in("lead_id", priorLeadIds);
+      if (error) throw error;
+      priorAcquisitions = data || [];
+    }
+
+    const acquisitionStageByLead = new Map(priorAcquisitions.map((row) => [row.lead_id, text(row.stage).toUpperCase()]));
+    const inFlightProductIds = new Set();
+    for (const lead of priorUpgradeLeads || []) {
+      const stage = acquisitionStageByLead.get(lead.id);
+      if (stage === "LOST") continue;
+      for (const productId of productIdsFrom(lead.selected_products)) {
+        if (PRODUCT_BY_ID.has(productId)) inFlightProductIds.add(productId);
+      }
+    }
+
+    const newIds = requestedIds.filter((id) => !inFlightProductIds.has(id));
     if (!newIds.length) return Response.json({ success: true, alreadyRequested: true, message: "This upgrade request is already with Avantiqo." });
 
     const selectedProducts = newIds.map((id) => ({ id, name: PRODUCT_BY_ID.get(id).name }));

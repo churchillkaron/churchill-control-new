@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import DynamicCustomerField from "./DynamicCustomerField";
 import DynamicTableField from "./DynamicTableField";
+import { getLookupCreatePolicy } from "@/lib/platform/forms/LookupCreatePolicy";
 
 const FIELD_CLASS =
   "h-11 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-white outline-none";
@@ -184,6 +185,17 @@ function normalizeJournalField(field) {
   return field;
 }
 
+
+function fieldIsVisible(field, values) {
+  const rule = field?.visibleWhen;
+  if (!rule?.field) return true;
+  const current = values?.[rule.field];
+  if (Object.prototype.hasOwnProperty.call(rule, "equals")) return String(current ?? "") === String(rule.equals ?? "");
+  if (Object.prototype.hasOwnProperty.call(rule, "notEquals")) return String(current ?? "") !== String(rule.notEquals ?? "");
+  if (Array.isArray(rule.in)) return rule.in.map(String).includes(String(current ?? ""));
+  return true;
+}
+
 export default function DynamicForm({
   schema = [],
   values = {},
@@ -201,7 +213,7 @@ export default function DynamicForm({
 
   return (
     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-      {fields.map((field) => (
+      {fields.filter((field) => fieldIsVisible(field, values)).map((field) => (
         <div
           key={field.name}
           className={getWidthClass(field.width)}
@@ -247,6 +259,7 @@ function FieldRenderer({
           onChange={onChange}
           organizationId={organizationId}
           entityId={entityId}
+          values={values}
         />
       );
 
@@ -268,6 +281,7 @@ function FieldRenderer({
           onChange={onChange}
           organizationId={organizationId}
           entityId={entityId}
+          values={values}
         />
       );
   }
@@ -311,7 +325,7 @@ function DependentSelectField({ field, value, values, onChange }) {
             : option;
           return (
             <option key={item.value} value={item.value}>
-              {item.label}
+              {item.description ? `${item.label} · ${item.description}` : item.label}
             </option>
           );
         })}
@@ -326,6 +340,7 @@ function PrimitiveField({
   onChange,
   organizationId,
   entityId,
+  values,
 }) {
   const label = (
     <label className={LABEL_CLASS}>
@@ -365,6 +380,7 @@ function PrimitiveField({
             onChange={onChange}
             organizationId={organizationId}
             entityId={entityId}
+            values={values}
           />
         );
       }
@@ -398,6 +414,18 @@ function PrimitiveField({
         </>
       );
 
+    case "vendor":
+      return (
+        <LookupField
+          field={{ ...field, type: "lookup", lookup: field.lookup || "vendors" }}
+          value={value}
+          onChange={onChange}
+          organizationId={organizationId}
+          entityId={entityId}
+          values={values}
+        />
+      );
+
     case "lookup":
       return (
         <LookupField
@@ -406,6 +434,7 @@ function PrimitiveField({
           onChange={onChange}
           organizationId={organizationId}
           entityId={entityId}
+          values={values}
         />
       );
 
@@ -417,6 +446,7 @@ function PrimitiveField({
           onChange={onChange}
           organizationId={organizationId}
           entityId={entityId}
+          values={values}
         />
       );
 
@@ -498,12 +528,21 @@ function LookupField({
   onChange,
   organizationId,
   entityId,
+  values = {},
 }) {
   const [options, setOptions] = useState(
     Array.isArray(field.options) ? field.options : []
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [creating, setCreating] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createCode, setCreateCode] = useState("");
+  const [createSaving, setCreateSaving] = useState(false);
+  const lookupKey = field.lookup || field.source;
+  const dependencyValue = field.dependsOn ? values?.[field.dependsOn] : null;
+  const createPolicy = getLookupCreatePolicy(lookupKey, organizationId);
 
   useEffect(() => {
     let active = true;
@@ -523,6 +562,9 @@ function LookupField({
       organizationId: organizationId || "",
       entityId: entityId || "",
     });
+    if (field.dependsOn && dependencyValue) {
+      params.set(field.dependsOn, String(dependencyValue));
+    }
 
     fetch(`/api/platform/lookups?${params.toString()}`, {
       cache: "no-store",
@@ -557,7 +599,35 @@ function LookupField({
     field.options,
     organizationId,
     entityId,
+    field.dependsOn,
+    dependencyValue,
+    refreshKey,
   ]);
+
+  async function createInlineOption() {
+    if (createPolicy?.mode !== "inline" || !createName.trim()) return;
+    try {
+      setCreateSaving(true);
+      setError("");
+      const response = await fetch("/api/platform/lookups", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lookup: lookupKey, organizationId, entityId, name: createName.trim(), code: createCode.trim() || undefined }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.success === false || !payload?.option?.value) throw new Error(payload?.error || `Unable to create ${createPolicy.label}`);
+      setOptions((current) => [payload.option, ...current.filter((item) => String(item?.value ?? item) !== String(payload.option.value))]);
+      onChange(field.name, payload.option.value);
+      setCreateName(""); setCreateCode(""); setCreating(false);
+    } catch (createError) { setError(createError?.message || `Unable to create ${createPolicy.label}`); }
+    finally { setCreateSaving(false); }
+  }
+
+  function openMasterCreate() {
+    if (!createPolicy?.href) return;
+    window.open(createPolicy.href, "_blank", "noopener,noreferrer");
+    const refreshOnReturn = () => { setRefreshKey((current) => current + 1); window.removeEventListener("focus", refreshOnReturn); };
+    window.addEventListener("focus", refreshOnReturn);
+  }
 
   return (
     <>
@@ -569,7 +639,7 @@ function LookupField({
       </label>
       <select
         value={value || ""}
-        disabled={loading || field.disabled}
+        disabled={loading || field.disabled || Boolean(field.dependsOn && !dependencyValue)}
         required={field.required}
         onChange={(event) =>
           onChange(field.name, event.target.value)
@@ -577,7 +647,7 @@ function LookupField({
         className={FIELD_CLASS}
       >
         <option value="">
-          {loading ? "Loading..." : `Select ${field.label}`}
+          {loading ? "Loading..." : field.dependsOn && !dependencyValue ? `Select ${field.dependsOnLabel || field.dependsOn} first` : `Select ${field.label}`}
         </option>
         {options.map((option) => {
           const item =
@@ -587,13 +657,36 @@ function LookupField({
 
           return (
             <option key={item.value} value={item.value}>
-              {item.label}
+              {item.description ? `${item.label} · ${item.description}` : item.label}
             </option>
           );
         })}
       </select>
+      {createPolicy ? (
+        <div className="mt-1.5">
+          {createPolicy.mode === "inline" ? (
+            !creating ? (
+              <button type="button" onClick={() => setCreating(true)} className="text-[10px] font-medium text-[#D6A66A] hover:text-[#E9C18E]">+ Create new {createPolicy.label}</button>
+            ) : (
+              <div className="space-y-2 rounded-lg border border-[#D6A66A]/20 bg-[#D6A66A]/[0.05] p-2.5">
+                <input autoFocus value={createName} onChange={(event) => setCreateName(event.target.value)} placeholder={`${createPolicy.label} name`} className={FIELD_CLASS} />
+                <input value={createCode} onChange={(event) => setCreateCode(event.target.value)} placeholder="Code (optional)" className={FIELD_CLASS} />
+                <div className="flex gap-2">
+                  <button type="button" onClick={createInlineOption} disabled={createSaving || !createName.trim()} className="h-8 rounded-lg bg-[#D6A66A] px-3 text-[10px] font-semibold text-black disabled:opacity-40">{createSaving ? "Saving…" : `Save ${createPolicy.label}`}</button>
+                  <button type="button" onClick={() => { setCreating(false); setCreateName(""); setCreateCode(""); setError(""); }} className="h-8 rounded-lg border border-white/10 px-3 text-[10px] text-white/60">Cancel</button>
+                </div>
+              </div>
+            )
+          ) : (
+            <button type="button" onClick={openMasterCreate} className="text-[10px] font-medium text-[#D6A66A] hover:text-[#E9C18E]">+ Create new {createPolicy.label}</button>
+          )}
+        </div>
+      ) : null}
       {error ? (
         <div className="mt-2 text-xs text-red-300">{error}</div>
+      ) : null}
+      {field.description || field.help ? (
+        <div className="mt-1.5 text-[10px] leading-4 text-white/35">{field.description || field.help}</div>
       ) : null}
     </>
   );
@@ -605,6 +698,7 @@ function CurrencyField({
   onChange,
   organizationId,
   entityId,
+  values = {},
 }) {
   return (
     <LookupField
@@ -619,6 +713,7 @@ function CurrencyField({
       onChange={onChange}
       organizationId={organizationId}
       entityId={entityId}
+      values={values}
     />
   );
 }

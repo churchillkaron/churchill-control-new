@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
@@ -169,6 +170,9 @@ export default function FinanceAccountantRecordsWorkCenter({
   periodId,
 }) {
   const config = capability?.ui || {};
+  const searchParams = useSearchParams();
+  const createRequested = searchParams?.get("create") === "1";
+  const createRequestHandled = useRef(false);
   const presentation = config.financePresentation || capability?.runtime?.financePresentation || {};
   const columns = useMemo(
     () => (Array.isArray(presentation.columns) ? presentation.columns : []),
@@ -360,6 +364,12 @@ export default function FinanceAccountantRecordsWorkCenter({
     setForm({});
     createEngine.show();
   }
+
+  useEffect(() => {
+    if (!createRequested || createRequestHandled.current || !create || !contextReady) return;
+    createRequestHandled.current = true;
+    openCreate();
+  }, [createRequested, create, contextReady]);
 
   async function saveCreate() {
     if (!create) return;

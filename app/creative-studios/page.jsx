@@ -3,7 +3,7 @@ import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 export const metadata = {
   title: "Creative Studios | Avantiqo",
   description:
-    "Avantiqo Creative Studios: image, video and music production powered by Avantiqo Intelligence.",
+    "Avantiqo Creative Studios: professional image and music production plus an advanced film-production and VFX environment with reconstruction, pass rendering, simulation, compositing, cinematic sound and optical finishing.",
 };
 
 const studios = [
@@ -19,11 +19,11 @@ const studios = [
   {
     no: "02",
     name: "Video Studio",
-    title: "From story to screen.",
-    text: "Story development, shot design, production, dailies, repair, edit, VFX, sound, color and mastering.",
+    title: "An intelligent film-production house.",
+    text: "Story and shot architecture, reconstruction execution, pass rendering, physical simulation, deep compositing, cinematic sound, optical finishing, edit, color and mastering.",
     href: "/creative-studios/video",
     image: "/art/creative-video.jpg",
-    tags: "FILMS  ·  ADS  ·  SOCIAL  ·  MORE",
+    tags: "FILM  ·  VFX  ·  COMPOSITING  ·  SURROUND  ·  MASTER",
   },
   {
     no: "03",
@@ -109,9 +109,10 @@ export default function Page() {
               Real business impact.
             </h1>
             <p className="mt-6 max-w-[680px] text-[16px] leading-7 text-[#5f5a53] sm:text-[17px]">
-              Professional image, video and music production with research,
-              direction, creation, review and delivery — all in one system,
-              powered by Avantiqo Intelligence.
+              Professional image, film and music production with research,
+              direction, executable production, review, repair and delivery — all in
+              one system, powered by Avantiqo Intelligence. Video Studio is being
+              built as a full film-production and VFX environment, not a prompt-to-video generator.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <a
@@ -251,7 +252,7 @@ export default function Page() {
       <section className="border-t border-black/[0.06] bg-[#f7f4ef] px-6 py-14 lg:px-10">
         <div className="mx-auto grid max-w-[1450px] gap-5 lg:grid-cols-3">
           <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7"><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">Image Studio</div><div className="mt-3 text-[24px] tracking-[-0.035em]">Campaign-ready visual production.</div><p className="mt-3 text-[11px] leading-6 text-[#716b64]">Brief, research, art direction, creation, critique, repair and delivery.</p></div>
-          <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7"><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">Video Studio</div><div className="mt-3 text-[24px] tracking-[-0.035em]">Professional film production.</div><p className="mt-3 text-[11px] leading-6 text-[#716b64]">Story, treatment, shots, continuity, dailies, repair, edit, sound and master.</p></div>
+          <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7"><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">Video Studio</div><div className="mt-3 text-[24px] tracking-[-0.035em]">AI film-production house.</div><p className="mt-3 text-[11px] leading-6 text-[#716b64]">Shot architecture, reconstruction, pass rendering, physical simulation, deep compositing, cinematic sound, optical finishing, edit, color and master.</p></div>
           <div className="rounded-[24px] border border-black/[0.07] bg-white/70 p-7"><div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9b7043]">Music Studio</div><div className="mt-3 text-[24px] tracking-[-0.035em]">Complete audio production.</div><p className="mt-3 text-[11px] leading-6 text-[#716b64]">Create, edit, remix, stems, vocal work, SFX, mix and master.</p></div>
         </div>
       </section>

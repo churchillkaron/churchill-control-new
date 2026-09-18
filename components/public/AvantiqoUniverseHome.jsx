@@ -4,7 +4,7 @@ import PublicArtStage from "@/components/public/PublicArtStage";
 const WORLDS = [
   ["RUN", "Business Products", "/products", "Run finance, people, customers, operations, stock and documents from one connected business context.", "/art/avantiqo-luxury/hospitality-hero.webp", "commerce"],
   ["INDUSTRY", "Solutions", "/solutions", "Start with a restaurant, hotel, retail or service setup shaped around the work your team already knows.", "/art/commercial-solutions.jpg", "solutions"],
-  ["CREATE", "Creative Studios", "/creative-studios", "Create image, video, music, voice and campaigns from brief to finished work.", "/art/creative-image.jpg", "creative"],
+  ["CREATE", "Creative Studios", "/creative-studios", "Create image, music and film from brief to finished master. Video Studio is a full film/VFX production pipeline — not a prompt-to-video generator.", "/art/creative-image.jpg", "creative"],
   ["BUILD", "Developers", "/developers", "Build software, integrations and embedded products with Avantiqo capabilities and APIs.", "/art/developer-work.jpg", "code"],
   ["SCALE", "Compute", "/compute", "Run inference, rendering and batch workloads with owned and elastic capacity.", "/art/commercial-compute.jpg", "compute"],
 ];

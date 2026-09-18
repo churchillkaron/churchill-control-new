@@ -297,11 +297,140 @@ function CapabilityNetwork({ studio }) {
   );
 }
 
+function SharedAudioArchitecture({ studio }) {
+  const video = studio.startsWith("Video");
+  const rooms = [
+    ["01", "Music Production", "Artist and record production: performance, recording, comping, arrangement, vocal and instrument production, editing, mix and master."],
+    ["02", "Sound Design", "Source recording and library search, Foley, ambience, machines, vehicles, objects, designed effects, impact sweeteners, sub and transition design."],
+    ["03", "Audio Post", "Spotting, dialogue, Foley, SFX, music editing, picture sync, object movement, spatial placement and premix against the locked picture."],
+    ["04", "Mastering & Delivery", "Stereo, surround and multichannel masters, stems, loudness profiles, translation QC, downmix checks and final picture mux packages."],
+  ];
+  const engine = [
+    "SAMPLE-ACCURATE TIMELINE","MULTICHANNEL BUSES","OBJECT POSITIONING","AUTOMATION","ROUTING","STEM ARCHITECTURE",
+    "PHASE / CORRELATION","LOUDNESS","TRUE PEAK","DYNAMIC RANGE","DOWNMIX QC","ROOM / REVERB MODELLING",
+    "LFE MANAGEMENT","PICTURE SYNC","IMMUTABLE SOURCES"
+  ];
+  return (
+    <section className="border-b border-black/[0.06] bg-[#F4EFE7] text-[#1A1815]">
+      <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
+        <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">{video ? "CINEMA / AUDIO ARCHITECTURE" : "MUSIC / AUDIO ARCHITECTURE"}</p>
+            <h2 className="mt-4 max-w-xl text-[40px] font-medium leading-[1.00] tracking-[-0.052em] sm:text-[52px]">
+              {video ? "Sound is a production department, not a background track." : "Record production, not AI song generation."}
+            </h2>
+          </div>
+          <div className="max-w-2xl lg:justify-self-end">
+            <p className="text-[14px] leading-7 text-[#6E675F]">
+              {video
+                ? "Every important object can carry its own sonic identity and evolve with camera position, movement, environment and story. A vehicle is not one engine file; it can be intake, exhaust, transmission, tires, wind, mechanical resonance, subharmonic design, transient layers and environmental reflections."
+                : "The target is a complete record-production chain: performance, source quality, timing, phase, comping, vocal and instrument production, arrangement, editing, depth, imaging, dynamics, ambience, automation, premaster listening, mastering and translation QC."}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-12 grid gap-3 lg:grid-cols-4">
+          {rooms.map(([n,t,d])=><div key={t} className="rounded-[24px] border border-black/[0.07] bg-white/72 p-6 shadow-[0_16px_42px_rgba(50,36,22,.04)]">
+            <div className="text-[8px] font-bold text-[#A37849]">{n}</div>
+            <h3 className="mt-8 text-[17px] font-semibold tracking-[-0.02em] text-[#2B2722]">{t}</h3>
+            <p className="mt-3 text-[9px] leading-5 text-[#746D64]">{d}</p>
+          </div>)}
+        </div>
+
+        <div className="mt-6 overflow-hidden rounded-[28px] border border-white/[0.06] bg-[#11100E] p-6 text-white shadow-[0_26px_80px_rgba(0,0,0,.20)] sm:p-7">
+          <div className="grid gap-8 lg:grid-cols-[.68fr_1.32fr]">
+            <div>
+              <p className="text-[8px] font-semibold uppercase tracking-[0.19em] text-[#D6A66A]">SHARED PROFESSIONAL AUDIO ENGINE</p>
+              <h3 className="mt-4 text-[30px] font-medium leading-[1.02] tracking-[-0.045em] text-white/92">One engine underneath all four rooms.</h3>
+              <p className="mt-4 text-[10px] leading-5 text-white/36">Music production, sound design, audio post and mastering share the same timing, routing, analysis, spatial and delivery truth.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {engine.map((x,i)=><div key={x} className="rounded-[13px] border border-white/[0.07] bg-white/[0.025] px-3 py-3"><div className="text-[6px] text-[#D6A66A]">{String(i+1).padStart(2,"0")}</div><div className="mt-2 text-[7px] font-semibold tracking-[0.10em] text-white/50">{x}</div></div>)}
+            </div>
+          </div>
+        </div>
+
+        {video ? <div className="mt-6 rounded-[22px] border border-[#D6A66A]/20 bg-white/55 p-5">
+          <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-[#9A744B]">SONIC OBJECT MODEL</div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {["SOURCE","MECHANICS","ENVIRONMENT","DESIGN","STORY MOTION"].map((x,i)=><div key={x} className="rounded-[14px] border border-black/[0.06] bg-white/70 p-3"><div className="text-[6px] text-[#A37849]">0{i+1}</div><div className="mt-3 text-[8px] font-semibold text-[#39342E]">{x}</div></div>)}
+          </div>
+          <p className="mt-4 max-w-4xl text-[9px] leading-5 text-[#756E65]">Major picture objects should be represented as layered sound objects whose components can change with speed, perspective, distance, environment, edit rhythm and emotional intent.</p>
+        </div> : null}
+      </div>
+    </section>
+  );
+}
+
+function VideoProductionArchitecture() {
+  const layers = [
+    ["01", "Reconstruction execution backend", "Break approved shots into geometry, depth, masks, motion, lighting and reconstruction tasks that can be executed and repaired independently."],
+    ["02", "Executable pass renderer / dispatcher", "Route exact production passes to the right render or generation engine, preserve dependencies and re-run only the failed pass instead of restarting the shot."],
+    ["03", "Physical simulation engine", "Handle particles, smoke, water, cloth, debris, atmosphere, collisions, light interaction and other simulation-heavy details as controlled production layers."],
+    ["04", "Deep compositing", "Nuke-style node thinking for mattes, depth, relighting, keying, tracking, cleanup, roto, integration, atmosphere and shot-level VFX assembly."],
+    ["05", "Cinematic sound-event engine", "Layer dialogue, Foley, ambience, impacts, movement, environments and spatial events into a designed multichannel soundtrack instead of adding one flat audio track."],
+    ["06", "Optical & lens finishing", "Finish the image with lens response, motion character, halation, grain, depth cues, bloom, distortion, chromatic behavior and final cinematic consistency."],
+  ];
+  return (
+    <section className="border-b border-white/[0.07] bg-[#0D0C0A] text-white">
+      <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
+        <div className="grid gap-10 lg:grid-cols-[.76fr_1.24fr] lg:items-end">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">VIDEO STUDIO / PRODUCTION ARCHITECTURE</p>
+            <h2 className="mt-4 max-w-xl text-[40px] font-medium leading-[1.00] tracking-[-0.052em] text-[#F7F4EF] sm:text-[52px]">
+              An AI film-production house. Not an AI-video website.
+            </h2>
+          </div>
+          <div className="max-w-2xl lg:justify-self-end">
+            <p className="text-[14px] leading-7 text-white/55">
+              The direction is a real post-production and VFX pipeline around intelligent production: shots become executable layers, passes, simulations, composites, sound events and finishing decisions. Generation is only one production department inside the system.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {["SHOT RECONSTRUCTION","PASS RENDERING","PHYSICAL SIMULATION","VFX COMPOSITING","SURROUND SOUND","OPTICAL FINISH"].map((x)=><span key={x} className="rounded-full border border-[#D6A66A]/24 bg-[#D6A66A]/[.05] px-3 py-1.5 text-[7px] font-semibold tracking-[.14em] text-[#E5BC84]">{x}</span>)}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-12 overflow-hidden rounded-[30px] border border-white/[0.09] bg-[#14120F] shadow-[0_34px_100px_rgba(0,0,0,.34)]">
+          <div className="grid lg:grid-cols-[.72fr_1.28fr]">
+            <div className="relative min-h-[460px] overflow-hidden border-b border-white/[0.08] p-6 lg:border-b-0 lg:border-r lg:p-8">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_58%_45%,rgba(214,166,106,.17),transparent_24%),linear-gradient(135deg,#16130F,#0A0908)]"/>
+              <div className="absolute inset-0 opacity-[.10]" style={{backgroundImage:"linear-gradient(rgba(214,166,106,.15) 1px,transparent 1px),linear-gradient(90deg,rgba(214,166,106,.15) 1px,transparent 1px)",backgroundSize:"54px 54px"}}/>
+              <svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 620 500" preserveAspectRatio="none">
+                <path d="M82 250 H235 M385 250 H538 M310 85 V178 M310 322 V415" stroke="rgba(214,166,106,.34)" strokeWidth="1.2"/>
+                <path d="M128 128 C210 128 214 214 258 236 M492 128 C410 128 406 214 362 236 M128 372 C210 372 214 286 258 264 M492 372 C410 372 406 286 362 264" fill="none" stroke="rgba(214,166,106,.22)" strokeWidth="1.1"/>
+                <circle cx="310" cy="250" r="66" fill="rgba(24,19,14,.96)" stroke="rgba(214,166,106,.55)" strokeWidth="1.4"/>
+              </svg>
+              <div className="absolute left-1/2 top-1/2 w-[150px] -translate-x-1/2 -translate-y-1/2 text-center">
+                <div className="text-[9px] font-semibold tracking-[.16em] text-[#E9C28C]">SHOT STATE</div>
+                <div className="mt-2 text-[7px] leading-4 text-white/34">Geometry · depth · masks · motion · light · sound</div>
+              </div>
+              {[["RECONSTRUCT","left-[7%] top-[14%]"],["SIMULATE","right-[7%] top-[14%]"],["COMPOSITE","left-[7%] bottom-[14%]"],["FINISH","right-[7%] bottom-[14%]"]].map(([x,pos],i)=><div key={x} className={"absolute " + pos + " w-[118px] rounded-[15px] border border-white/[.08] bg-black/30 p-3 backdrop-blur-sm"}><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-2 text-[8px] font-semibold tracking-[.11em] text-white/62">{x}</div></div>)}
+              <div className="absolute bottom-6 left-6 right-6 border-t border-white/[.08] pt-4 text-[7px] leading-4 text-white/31">Approved layers stay locked. A failed pass can be repaired without destroying the rest of the shot.</div>
+            </div>
+            <div className="grid sm:grid-cols-2">
+              {layers.map(([n,t,d],i)=><div key={t} className={"min-h-[230px] p-5 sm:p-6 " + (i%2===0 ? "sm:border-r sm:border-white/[.08] " : "") + (i<4 ? "border-b border-white/[.08]" : "")}>
+                <div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#D6A66A]">{n}</span><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]/70"/></div>
+                <h3 className="mt-8 text-[15px] font-semibold leading-5 text-white/82">{t}</h3>
+                <p className="mt-3 text-[9px] leading-5 text-white/35">{d}</p>
+              </div>)}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-[20px] border border-[#D6A66A]/18 bg-[#D6A66A]/[.035] p-5 text-[9px] leading-5 text-white/38">
+          <span className="font-semibold text-[#DDB47C]">Positioning:</span> this is being built toward cinema-grade production, VFX, compositing and multichannel sound workflows. Avantiqo should only use Dolby-certified language when the final delivery chain is actually licensed and certified; the Studio can still support surround and delivery-ready multichannel mastering.
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function StudioWorkspace({ studio }) {
   const video = studio.startsWith("Video");
   const music = studio.startsWith("Music");
   const labels = video
-    ? ["Story", "Scenes", "Shots", "Dailies", "Edit", "Master"]
+    ? ["Story", "Shot Build", "Passes", "Composite", "Sound", "Master"]
     : music
       ? ["Compose", "Arrange", "Vocals", "SFX", "Mix", "Master"]
       : ["Research", "Direction", "Create", "Review", "Repair", "Deliver"];
@@ -327,9 +456,10 @@ function StudioWorkspace({ studio }) {
               A real production workspace, connected end to end.
             </h2>
             <p className="mt-5 max-w-lg text-[13px] leading-7 text-[#706A62]">
-              Direction, production state, review and approved output stay
-              connected while the creative work remains human, visual and
-              grounded in the real world.
+              Direction, shot state, reconstruction passes, simulation, compositing,
+              sound events, review and approved output stay connected. Video Studio
+              behaves like a production pipeline with repairable departments, not a
+              one-click generator.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
@@ -486,8 +616,8 @@ export default function CreativeStudioProductPage({
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">
             A complete production system
           </p>
-          <h2 className="mt-3 max-w-3xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] sm:text-[46px]">
-            Not a generator. A professional creative workflow.
+          <h2 className="mt-3 max-w-4xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] sm:text-[46px]">
+            {studio.startsWith("Video") ? "Not a generator. A complete film-production system." : studio.startsWith("Music") ? "Not an AI song generator. A complete record-production system." : "Not a generator. A professional creative workflow."}
           </h2>
           <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {capabilities.map(([name, text], i) => (
@@ -510,6 +640,10 @@ export default function CreativeStudioProductPage({
           </div>
         </div>
       </section>
+
+      {studio.startsWith("Video") ? <VideoProductionArchitecture /> : null}
+
+      {(studio.startsWith("Video") || studio.startsWith("Music")) ? <SharedAudioArchitecture studio={studio} /> : null}
 
       <StudioWorkspace studio={studio} />
 

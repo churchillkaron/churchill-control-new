@@ -195,6 +195,30 @@ export default function Page() {
         </div>
       </section>
 
+      <section className="border-y border-black/[0.06] bg-[#EFEAE2] px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1450px]">
+          <div className="grid gap-7 lg:grid-cols-[.55fr_1.45fr] lg:items-end">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.20em] text-[#9A744B]">SPECIALIST ROOMS</p>
+              <h2 className="mt-3 text-[34px] font-medium leading-[1.02] tracking-[-0.045em] text-[#1E1B18]">The same production standard extends beyond image, film and music.</h2>
+            </div>
+            <p className="max-w-2xl text-[11px] leading-6 text-[#736C64] lg:justify-self-end">Voice and Code use the same Avantiqo principle: real source state, specialist execution, deterministic review and durable proof — not decorative AI effects.</p>
+          </div>
+          <div className="mt-7 grid gap-4 lg:grid-cols-2">
+            {[
+              ["Voice Studio","/voice","voice","Source audio → transcript → business context → authorized action","PCM · STT · TTS · REALTIME · TELEPHONY"],
+              ["Code Studio","/code","code-studio","Repository truth → exact change → tests → review → verified result","REPO · BUILD · TEST · VERIFY · DEPLOY"],
+            ].map(([name,href,kind,copy,tags])=><a key={name} href={href} className="group grid min-h-[330px] overflow-hidden rounded-[26px] border border-black/[0.08] bg-[#11100E] shadow-[0_20px_55px_rgba(48,34,20,.09)] sm:grid-cols-[1.08fr_.92fr]">
+              <div className="relative min-h-[260px] overflow-hidden"><div className="absolute inset-0 scale-[1.06] transition duration-700 group-hover:scale-[1.09]"><PublicArtStage kind={kind}/></div></div>
+              <div className="flex flex-col justify-between border-t border-white/[.07] p-6 text-white sm:border-l sm:border-t-0">
+                <div><div className="text-[8px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">{name}</div><div className="mt-5 text-[25px] leading-[1.06] tracking-[-.04em] text-white/88">{copy}</div></div>
+                <div><div className="mb-4 text-[6px] uppercase tracking-[.14em] text-white/28">{tags}</div><div className="text-[9px] font-semibold text-[#DDB47C]">Explore {name} →</div></div>
+              </div>
+            </a>)}
+          </div>
+        </div>
+      </section>
+
       <section
         id="how-it-works"
         className="bg-[#f8f5f0] px-4 pb-7 sm:px-6 lg:px-8"

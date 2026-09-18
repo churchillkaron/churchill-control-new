@@ -11,32 +11,82 @@ const process = [
   ["07", "Delivery", "Delivery-ready masters and variants"],
 ];
 
-const USE_CASE_ART = {
-  "Image Studio": [
-    "/art/studio/image-production.svg",
-    "/art/commercial-commerce.jpg",
-    "/art/commercial-channels.jpg",
-    "/art/commercial-commerce.jpg",
-    "/art/commercial-services.jpg",
-    "/art/commercial-enterprise.jpg",
-  ],
-  "Video Studio": [
-    "/art/studio/video-vfx.svg",
-    "/art/commercial-commerce.jpg",
-    "/art/commercial-channels.jpg",
-    "/art/commercial-services.jpg",
-    "/art/avantiqo-luxury/hospitality-hero.webp",
-    "/art/creative-video.jpg",
-  ],
-  "Music Studio": [
-    "/art/studio/music-production.svg",
-    "/art/commercial-commerce.jpg",
-    "/art/commercial-channels.jpg",
-    "/art/commercial-services.jpg",
-    "/art/commercial-enterprise.jpg",
-    "/art/creative-music.jpg",
-  ],
-};
+function StudioUseCaseArt({ studio, index }) {
+  const video = studio.startsWith("Video");
+  const music = studio.startsWith("Music");
+
+  if (video) {
+    const modes = [
+      ["COMPOSITE", ["PLATE", "DEPTH", "MATTE", "LIGHT"]],
+      ["SIMULATION", ["SOURCE", "RIGID", "SMOKE", "DEBRIS"]],
+      ["OPTICAL", ["LENS", "GRAIN", "HALATION", "MOTION"]],
+      ["SOUND TO PICTURE", ["DX", "FOLEY", "FX", "MX"]],
+      ["COLOR / DI", ["BALANCE", "MATCH", "LOOK", "QC"]],
+      ["MASTER", ["PICTURE", "5.1", "7.1", "STEMS"]],
+    ];
+    const [label, items] = modes[index % modes.length];
+    return (
+      <div className="absolute inset-0 overflow-hidden bg-[#0D0C0A] text-white">
+        <div className="absolute inset-0 opacity-[.10]" style={{backgroundImage:"linear-gradient(rgba(255,255,255,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.12) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_26%,rgba(214,166,106,.10),transparent_34%)]"/>
+        <div className="absolute left-3 top-3 text-[6px] font-semibold tracking-[.15em] text-[#D6A66A]">{label}</div>
+        <div className="absolute inset-x-3 top-[34px] grid grid-cols-2 gap-2">
+          {items.map((item,i)=><div key={item} className="rounded-[9px] border border-white/[.07] bg-white/[.025] px-2.5 py-2">
+            <div className="text-[5px] text-[#D6A66A]">0{i+1}</div>
+            <div className="mt-1.5 text-[6px] tracking-[.10em] text-white/46">{item}</div>
+          </div>)}
+        </div>
+        <div className="absolute bottom-3 left-3 right-3 flex items-center gap-1.5">
+          {[28,52,74,44,86,61,92].map((h,i)=><span key={i} className="h-[2px] flex-1 bg-white/[.07]"><span className="block h-full bg-[#D6A66A]/50" style={{width:`${h}%`}}/></span>)}
+        </div>
+      </div>
+    );
+  }
+
+  if (music) {
+    const modes = [
+      ["RECORDING", ["TAKE 01", "TAKE 02", "COMP", "SOURCE"]],
+      ["VOCAL PRODUCTION", ["TIMING", "TUNING", "DYNAMICS", "DEPTH"]],
+      ["MIX", ["VOX", "DRUMS", "BASS", "MUSIC"]],
+      ["AUTOMATION", ["LEVEL", "PAN", "SEND", "FX"]],
+      ["PREMASTER", ["PHASE", "PEAK", "LOUDNESS", "MONO"]],
+      ["DELIVERY", ["MASTER", "INSTR.", "ACAP.", "STEMS"]],
+    ];
+    const [label, items] = modes[index % modes.length];
+    return (
+      <div className="absolute inset-0 overflow-hidden bg-[#100E0C] text-white">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(214,166,106,.05),transparent_45%)]"/>
+        <div className="absolute left-3 top-3 text-[6px] font-semibold tracking-[.15em] text-[#D6A66A]">{label}</div>
+        <div className="absolute inset-x-3 top-[33px] space-y-2">
+          {items.map((item,i)=><div key={item} className="grid grid-cols-[38px_1fr_20px] items-center gap-2">
+            <span className="text-[5px] tracking-[.08em] text-white/28">{item}</span>
+            <span className="relative h-[8px] overflow-hidden rounded-sm bg-white/[.05]"><span className="absolute inset-y-0 left-0 bg-white/28" style={{width:`${[64,82,53,74][i]}%`}}/><span className="absolute inset-y-0 left-[62%] w-px bg-[#D6A66A]/55"/></span>
+            <span className="text-right text-[5px] text-white/20">0{i+1}</span>
+          </div>)}
+        </div>
+        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between border-t border-white/[.07] pt-2 text-[5px] tracking-[.10em] text-white/24"><span>24-BIT / 48 KHZ</span><span>PHASE COHERENT</span></div>
+      </div>
+    );
+  }
+
+  const modes = [
+    ["ART DIRECTION", ["REFERENCE", "COMPOSITION", "LIGHT", "TYPE"]],
+    ["CAMPAIGN", ["HERO", "DETAIL", "SOCIAL", "OOH"]],
+    ["PRODUCT", ["SOURCE", "RETOUCH", "COLOR", "LAYOUT"]],
+    ["BRAND SYSTEM", ["GRID", "TYPE", "IMAGE", "LOCKUP"]],
+    ["REPAIR", ["MASK", "DETAIL", "MATCH", "QC"]],
+    ["DELIVERY", ["4:5", "1:1", "16:9", "PRINT"]],
+  ];
+  const [label, items] = modes[index % modes.length];
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-[#EEE8DF] text-[#171614]">
+      <div className="absolute inset-0 opacity-[.24]" style={{backgroundImage:"linear-gradient(rgba(82,67,52,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(82,67,52,.12) 1px,transparent 1px)",backgroundSize:"30px 30px"}}/>
+      <div className="absolute left-3 top-3 text-[6px] font-semibold tracking-[.15em] text-[#9A744B]">{label}</div>
+      <div className="absolute inset-x-3 top-[34px] grid grid-cols-2 gap-2">{items.map((item,i)=><div key={item} className="relative h-[34px] overflow-hidden rounded-[8px] border border-black/[.07] bg-white/60 p-2"><div className="text-[5px] text-[#9A744B]">0{i+1}</div><div className="mt-1 text-[6px] tracking-[.08em] text-black/45">{item}</div></div>)}</div>
+      <div className="absolute bottom-3 left-3 right-3 flex gap-1">{[1,2,3,4,5].map((n)=><span key={n} className="h-[2px] flex-1 bg-black/[.08]"><span className="block h-full bg-[#A37849]/45" style={{width:`${32+n*11}%`}}/></span>)}</div>
+    </div>
+  );
+}
 
 function Arrow({ className = "" }) {
   return (
@@ -305,33 +355,57 @@ function SharedAudioArchitecture({ studio }) {
           </div>
         </div>
 
-        <div className="mt-12 grid gap-3 lg:grid-cols-4">
-          {rooms.map(([n,t,d])=><div key={t} className="rounded-[24px] border border-black/[0.07] bg-white/72 p-6 shadow-[0_16px_42px_rgba(50,36,22,.04)]">
-            <div className="text-[8px] font-bold text-[#A37849]">{n}</div>
-            <h3 className="mt-8 text-[17px] font-semibold tracking-[-0.02em] text-[#2B2722]">{t}</h3>
-            <p className="mt-3 text-[9px] leading-5 text-[#746D64]">{d}</p>
-          </div>)}
-        </div>
-
-        <div className="mt-6 overflow-hidden rounded-[28px] border border-white/[0.06] bg-[#11100E] p-6 text-white shadow-[0_26px_80px_rgba(0,0,0,.20)] sm:p-7">
-          <div className="grid gap-8 lg:grid-cols-[.68fr_1.32fr]">
-            <div>
-              <p className="text-[8px] font-semibold uppercase tracking-[0.19em] text-[#D6A66A]">SHARED PROFESSIONAL AUDIO ENGINE</p>
-              <h3 className="mt-4 text-[30px] font-medium leading-[1.02] tracking-[-0.045em] text-white/92">One engine underneath all four rooms.</h3>
-              <p className="mt-4 text-[10px] leading-5 text-white/36">Music production, sound design, audio post and mastering share the same timing, routing, analysis, spatial and delivery truth.</p>
+        <div className="relative mt-12 overflow-hidden rounded-[28px] border border-white/[.07] bg-[#11100E] text-white shadow-[0_30px_90px_rgba(0,0,0,.18)]">
+          <div className="absolute inset-0 opacity-[.07]" style={{backgroundImage:"linear-gradient(rgba(255,255,255,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.12) 1px,transparent 1px)",backgroundSize:"44px 44px"}}/>
+          <div className="relative border-b border-white/[.08] px-6 py-5 sm:px-7">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div><p className="text-[8px] font-semibold uppercase tracking-[.19em] text-[#D6A66A]">ONE CANONICAL STUDIO PROJECT</p><div className="mt-2 text-[12px] text-white/46">Media pool · timecode · picture lock · audio sources · automation · version lineage · QC evidence</div></div>
+              <div className="font-mono text-[7px] tracking-[.12em] text-white/22">PROJECT / SHARED TIMELINE</div>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {engine.map((x,i)=><div key={x} className="rounded-[13px] border border-white/[0.07] bg-white/[0.025] px-3 py-3"><div className="text-[6px] text-[#D6A66A]">{String(i+1).padStart(2,"0")}</div><div className="mt-2 text-[7px] font-semibold tracking-[0.10em] text-white/50">{x}</div></div>)}
+          </div>
+          <div className="relative grid lg:grid-cols-4">
+            {rooms.map(([n,t,d],i)=><div key={t} className={"min-h-[250px] p-6 " + (i<3 ? "border-b border-white/[.07] lg:border-b-0 lg:border-r" : "")}>
+              <div className="flex items-center justify-between"><span className="text-[7px] font-bold text-[#D6A66A]">{n}</span><span className="h-1.5 w-1.5 rounded-full bg-white/16"/></div>
+              <h3 className="mt-8 text-[17px] font-semibold tracking-[-0.02em] text-white/82">{t}</h3>
+              <p className="mt-3 text-[9px] leading-5 text-white/34">{d}</p>
+              <div className="mt-7 border-t border-white/[.07] pt-3 text-[6px] tracking-[.12em] text-white/22">SHARED ENGINE / SAME TIMECODE</div>
+            </div>)}
+          </div>
+          <div className="relative border-t border-white/[.08] p-6 sm:p-7">
+            <div className="grid gap-8 lg:grid-cols-[.60fr_1.40fr]">
+              <div>
+                <p className="text-[8px] font-semibold uppercase tracking-[0.19em] text-[#D6A66A]">PROFESSIONAL AUDIO ENGINE</p>
+                <h3 className="mt-4 text-[30px] font-medium leading-[1.02] tracking-[-0.045em] text-white/92">One deterministic engine underneath all four rooms.</h3>
+                <p className="mt-4 text-[10px] leading-5 text-white/34">Music, sound design, audio post and mastering share the same routing, spatial state, source lineage, analysis and render truth.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-x-5 gap-y-0 sm:grid-cols-3">
+                {engine.map((x,i)=><div key={x} className="flex min-h-[48px] items-center border-b border-white/[.07] py-3">
+                  <span className="mr-3 font-mono text-[6px] text-[#D6A66A]">{String(i+1).padStart(2,"0")}</span>
+                  <span className="text-[7px] font-semibold tracking-[0.09em] text-white/43">{x}</span>
+                </div>)}
+              </div>
             </div>
           </div>
         </div>
 
-        {video ? <div className="mt-6 rounded-[22px] border border-[#D6A66A]/20 bg-white/55 p-5">
-          <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-[#9A744B]">SONIC OBJECT MODEL</div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            {["SOURCE","MECHANICS","ENVIRONMENT","DESIGN","STORY MOTION"].map((x,i)=><div key={x} className="rounded-[14px] border border-black/[0.06] bg-white/70 p-3"><div className="text-[6px] text-[#A37849]">0{i+1}</div><div className="mt-3 text-[8px] font-semibold text-[#39342E]">{x}</div></div>)}
+        {video ? <div className="mt-6 overflow-hidden rounded-[22px] border border-black/[0.08] bg-white/55">
+          <div className="grid lg:grid-cols-[.42fr_1.58fr]">
+            <div className="border-b border-black/[.07] p-5 lg:border-b-0 lg:border-r">
+              <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-[#9A744B]">SONIC OBJECT MODEL</div>
+              <h3 className="mt-4 text-[24px] font-medium leading-[1.05] tracking-[-.04em] text-[#27231F]">One picture object can carry an entire sound system.</h3>
+              <p className="mt-4 text-[9px] leading-5 text-[#756E65]">Layers change with velocity, screen position, distance, environment, camera relation and story intensity.</p>
+            </div>
+            <div className="p-5">
+              <div className="grid gap-px overflow-hidden border border-black/[.07] bg-black/[.07] sm:grid-cols-5">
+                {[["SOURCE","Intake · exhaust"],["MECHANICS","Transmission · body"],["ENVIRONMENT","Tires · wind · reflections"],["DESIGN","Growl · sub · transient"],["MOTION","Position · distance · trajectory"]].map(([a,b],i)=><div key={a} className="bg-[#F7F3EC] p-4">
+                  <div className="text-[6px] font-semibold text-[#A37849]">0{i+1}</div>
+                  <div className="mt-4 text-[8px] font-semibold tracking-[.10em] text-[#332E29]">{a}</div>
+                  <div className="mt-2 text-[7px] leading-4 text-[#7B736B]">{b}</div>
+                </div>)}
+              </div>
+              <div className="mt-4 flex items-center gap-2 border-t border-black/[.07] pt-4 text-[6px] tracking-[.11em] text-[#8A8178]"><span className="h-1.5 w-1.5 rounded-full bg-[#A37849]"/><span>OBJECT STATE DRIVES ROUTING · AUTOMATION · ROOM RESPONSE · LFE ELIGIBILITY</span></div>
+            </div>
           </div>
-          <p className="mt-4 max-w-4xl text-[9px] leading-5 text-[#756E65]">Major picture objects should be represented as layered sound objects whose components can change with speed, perspective, distance, environment, edit rhythm and emotional intent.</p>
         </div> : null}
       </div>
     </section>
@@ -354,7 +428,7 @@ function VideoProductionArchitecture() {
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">VIDEO STUDIO / PRODUCTION ARCHITECTURE</p>
             <h2 className="mt-4 max-w-xl text-[40px] font-medium leading-[1.00] tracking-[-0.052em] text-[#F7F4EF] sm:text-[52px]">
-              An AI film-production house. Not an AI-video website.
+              A film-production house with intelligence built into the pipeline.
             </h2>
           </div>
           <div className="max-w-2xl lg:justify-self-end">
@@ -651,30 +725,9 @@ export default function CreativeStudioProductPage({
                 className="group rounded-[20px] border border-white/[0.08] bg-white/[0.025] p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/25 hover:bg-white/[0.04]"
               >
                 <div className="relative h-36 overflow-hidden rounded-[16px] border border-white/[0.08] bg-[#15120e]">
-                  <div
-                    className="absolute inset-0 bg-cover transition duration-700 group-hover:scale-[1.04]"
-                    style={{
-                      backgroundImage: `url(${(USE_CASE_ART[studio] || USE_CASE_ART["Image Studio"])[index % 6]})`,
-                      backgroundPosition: [
-                        "50% 42%",
-                        "62% 48%",
-                        "38% 46%",
-                        "70% 52%",
-                        "46% 58%",
-                        "58% 38%",
-                      ][index % 6],
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.12)_48%,rgba(7,6,5,.74))]" />
-                  <div className="absolute left-3 top-3 rounded-full border border-white/18 bg-black/24 px-2.5 py-1 text-[7px] font-semibold uppercase tracking-[0.15em] text-[#E9C28C] backdrop-blur-xl">
+                  <StudioUseCaseArt studio={studio} index={index} />
+                  <div className="absolute left-3 top-3 rounded-full border border-white/[.12] bg-[#11100E]/70 px-2.5 py-1 text-[7px] font-semibold uppercase tracking-[0.15em] text-[#E9C28C] backdrop-blur-xl">
                     0{index + 1}
-                  </div>
-                  <div className="absolute bottom-3 left-3 right-3 text-[7px] uppercase tracking-[0.15em] text-white/48">
-                    {studio.startsWith("Video")
-                      ? "Production frame"
-                      : studio.startsWith("Music")
-                        ? "Studio session"
-                        : "Visual direction"}
                   </div>
                 </div>
                 <h3 className="mt-5 text-[14px] font-semibold text-white/82">

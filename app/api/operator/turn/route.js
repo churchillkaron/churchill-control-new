@@ -92,6 +92,7 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
       contract: text(diagnosis.contract) || null,
       class: text(diagnosis.class) || null,
       receipt_fingerprint: text(diagnosis.receipt_fingerprint) || null,
+      audit_projection_fingerprint: text(diagnosis.audit_projection_fingerprint) || null,
       final_evidence_state: text(diagnosis.final_evidence_state) || null,
       residual_material: diagnosis.residual_material === true,
       answer_boundary_status: text(diagnosis.answer_boundary_status) || null,

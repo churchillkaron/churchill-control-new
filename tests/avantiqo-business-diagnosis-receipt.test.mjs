@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildBusinessDiagnosisReceipt as build } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime.js";
+import { buildBusinessDiagnosisReceipt as build, verifyBusinessDiagnosisAuditProjection } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime.js";
 
 const input={organization_id:"org",entity_id:"entity",metric:"profit",diagnosis_class:"CAUSAL_DIAGNOSIS",baseline_period_id:"2026-07",baseline_period_start_date:"2026-07-01",baseline_period_end_date:"2026-07-31",current_period_id:"2026-08",current_period_start_date:"2026-08-01",current_period_end_date:"2026-08-31",final_diagnosis:{metric:"profit",diagnosis:{final_evidence_state:"INTERNAL_AND_SUPPORTED_EXTERNAL",target_metric:{status:"TARGET_METRIC_READY"},residual_material:true,residual_ratio:.25,variance:{unexplained_residual:-5},internal_coverage_incomplete:false,causal:{supported_context_ids:["weather"]}}},external_research_plan:{status:"RESEARCH_ALLOWED"},external_evidence_assessment:{status:"ASSESSED"},external_diagnosis_closure:{validated_context_ids:["weather"],causal_evidence:[{context_id:"weather",source_refs:[{url:"https://example.gov/weather",publisher:"gov",independence_group:"example.gov",observed_at:"2026-08-31"}]}],validation_results:[{context_id:"weather",status:"CAUSAL_EVIDENCE_READY"},{context_id:"tourism",status:"EVIDENCE_INCOMPLETE",reason:"MISSING_REQUIRED_SUPPORT",missing_requirements:["CONFOUNDER_CHECK"]}]},answer_brief:{status:"INTERNAL_AND_SUPPORTED_EXTERNAL",unresolved:[{kind:"MATERIAL_UNEXPLAINED_RESIDUAL"}]},answer_boundary:{status:"APPENDED_REQUIRED_UNCERTAINTY",required_uncertainty_appended:true,overclaim_detected:false}};
 
@@ -42,3 +42,20 @@ test("receipt cryptographically binds diagnosis routing class",()=>{const a=buil
 
 
 test("receipt cryptographically binds period display dates",()=>{const a=build(input),b=build({...input,current_period_end_date:"2026-08-30"});assert.equal(a.current_period_start_date,"2026-08-01");assert.equal(a.current_period_end_date,"2026-08-31");assert.notEqual(a.receipt_fingerprint,b.receipt_fingerprint);});
+
+
+test("persisted audit projection verifies and detects changed safe fields",()=>{
+ const receipt=build(input);
+ const evidence={
+  class:receipt.diagnosis_class,receipt_fingerprint:receipt.receipt_fingerprint,audit_projection_fingerprint:receipt.audit_projection_fingerprint,
+  final_evidence_state:receipt.final_evidence_state,residual_material:receipt.residual_material,answer_boundary_status:receipt.answer_boundary_status,
+  answer_unsupported_recommendation_outcome_detected:receipt.answer_unsupported_recommendation_outcome_detected,
+  periods:{baseline_period_id:receipt.baseline_period_id,baseline_start_date:receipt.baseline_period_start_date,baseline_end_date:receipt.baseline_period_end_date,current_period_id:receipt.current_period_id,current_start_date:receipt.current_period_start_date,current_end_date:receipt.current_period_end_date},
+ };
+ const verified=verifyBusinessDiagnosisAuditProjection(evidence);
+ assert.equal(verified.status,"VERIFIED");
+ assert.equal(verified.verified,true);
+ const changed=verifyBusinessDiagnosisAuditProjection({...evidence,class:"PERIOD_COMPARISON"});
+ assert.equal(changed.status,"MISMATCH");
+ assert.equal(changed.verified,false);
+});

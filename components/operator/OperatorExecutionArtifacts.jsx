@@ -183,6 +183,8 @@ function DiagnosisProof({ evidence = {} }) {
   const boundary = text(diagnosis.answer_boundary_status) || "PASS";
   const diagnosisClass = text(diagnosis.class);
   const periods = diagnosis.periods || {};
+  const auditVerified = diagnosis.audit_projection_verified === true;
+  const auditStatus = text(diagnosis.audit_projection_verification_status);
   const baselinePeriodLabel = periodDisplayLabel(periods.baseline_start_date, periods.baseline_end_date, periods.baseline_period_id);
   const currentPeriodLabel = periodDisplayLabel(periods.current_start_date, periods.current_end_date, periods.current_period_id);
   return (
@@ -198,6 +200,7 @@ function DiagnosisProof({ evidence = {} }) {
         <div><span className="text-white/30">Compared periods</span><div className="mt-0.5 text-white/65">{baselinePeriodLabel} → {currentPeriodLabel}</div></div>
         <div><span className="text-white/30">Unexplained residual</span><div className="mt-0.5 text-white/65">{diagnosis.residual_material === true ? "Material residual remains" : "No material residual flagged"}</div></div>
         <div className="sm:col-span-2"><span className="text-white/30">Period IDs</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/40">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>
+        <div><span className="text-white/30">Persisted proof</span><div className="mt-0.5 text-white/65">{auditVerified ? "Verified after reload" : auditStatus === "MISMATCH" ? "Integrity mismatch" : "Live proof"}</div></div>
         <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
         <div className="sm:col-span-2 text-[8px] text-white/30">Read-only diagnosis · no execution authority · raw reasoning is not persisted.</div>
       </div>

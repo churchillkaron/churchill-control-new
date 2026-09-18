@@ -78,5 +78,5 @@ export const CUSTOMER_EXCLUDED_PRODUCT_IDS = new Set([
 ]);
 
 export function isCustomerProduct(product) {
-  return product.family !== "platform" && !CUSTOMER_EXCLUDED_PRODUCT_IDS.has(product.id);
+  return product.family !== "platform" && product.status !== "planned" && !CUSTOMER_EXCLUDED_PRODUCT_IDS.has(product.id);
 }

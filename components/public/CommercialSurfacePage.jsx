@@ -127,7 +127,7 @@ const SURFACE_ART = {
     chips: ["SOFTWARE", "USAGE", "SERVICES"],
     panel: [
       ["BUSINESS OS", "Recurring"],
-      ["WALLET", "Usage"],
+      ["USAGE", "Metered"],
       ["OPTIONAL", "Client value"],
     ],
   },
@@ -384,10 +384,10 @@ const PAGE_STORY = {
     title: "One platform. Different operating worlds.",
     lead: "Each industry view uses the workflows and language that matter to that business while shared organization data and controls stay connected.",
     steps: [
-      ["01", "Restaurant", "Service · kitchen · stock · finance"],
-      ["02", "Hotel", "Rooms · guests · teams · revenue"],
-      ["03", "Retail", "Sell · stock · purchase · settle"],
-      ["04", "Services", "Projects · clients · documents · people"],
+      ["01", "Restaurant", "Service · kitchen · stock · finance", "/restaurant-management-system"],
+      ["02", "Hotel", "Rooms · guests · teams · revenue", "/hotel-operations-software"],
+      ["03", "Retail", "Sell · stock · purchase · settle", "/products"],
+      ["04", "Services", "Projects · clients · documents · people", "/products"],
     ],
   },
   services: {
@@ -538,7 +538,7 @@ function StoryRail({ kind }) {
             <PublicArtStage kind={kind} />
           </div>
           <div className="grid sm:grid-cols-2">
-            {story.steps.map(([no, title, text], i) => (
+            {story.steps.map(([no, title, text, href], i) => (
               <div
                 key={title}
                 className={`relative min-h-[210px] p-5 sm:p-6 ${i % 2 === 0 ? "sm:border-r sm:border-white/[0.08]" : ""} ${i < 2 ? "border-b border-white/[0.08]" : ""}`}
@@ -555,6 +555,7 @@ function StoryRail({ kind }) {
                 <div className="mt-2 text-[9px] leading-5 text-white/38">
                   {text}
                 </div>
+                {href ? <a href={href} className="mt-5 inline-flex text-[8px] font-semibold text-[#D6A66A]">Open this solution →</a> : null}
                 <div className="absolute inset-x-5 bottom-5 h-px bg-white/[0.07]">
                   <div
                     className="h-px bg-[#D6A66A]/60"

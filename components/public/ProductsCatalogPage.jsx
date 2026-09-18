@@ -5,6 +5,16 @@ import { productCatalog } from "@/components/public/productCatalog";
 import { CUSTOMER_GROUPS, CUSTOMER_FEATURES, isCustomerProduct } from "@/components/public/customerProductGroups";
 
 const customerProducts = productCatalog.filter(isCustomerProduct);
+const GROUP_ART = {
+  "run-business": "/art/commercial-commerce.jpg",
+  people: "/art/commercial-channels.jpg",
+  finance: "/art/commercial-enterprise.jpg",
+  stock: "/art/commercial-solutions.jpg",
+  documents: "/art/commercial-integrations.jpg",
+  intelligence: "/art/commercial-agents.jpg",
+  creative: "/art/creative-video.jpg",
+  industry: "/art/commercial-services.jpg",
+};
 const byId = Object.fromEntries(customerProducts.map((product) => [product.id, product]));
 
 function ProductLink({ product }) {
@@ -86,10 +96,28 @@ export default function ProductsCatalogPage(){
     </section>
     <section className="border-b border-[#CFC5B8]/45 bg-[#FBFAF8]"><div className="mx-auto max-w-[1540px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
       <div className="grid gap-6 lg:grid-cols-[.65fr_1.35fr] lg:items-end"><div><p className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#9A744B]">CHOOSE BY BUSINESS NEED</p><h2 className="mt-3 text-[40px] font-medium leading-[1] tracking-[-.05em] sm:text-[54px]">Where do you want to improve first?</h2></div><p className="max-w-2xl text-[12px] leading-6 text-[#6E675F] lg:justify-self-end">Choose the business problem you want to solve. Avantiqo shows the products that help you do it.</p></div>
-      <div className="mt-10 grid gap-x-8 md:grid-cols-2 xl:grid-cols-4">{CUSTOMER_GROUPS.map((group)=><a key={group.id} href={`#${group.id}`} className="group border-t border-[#CFC5B8] py-6 transition hover:border-[#9E774B]"><div className="text-[8px] font-semibold uppercase tracking-[.14em] text-[#A37849]">{group.label}</div><h3 className="mt-4 text-[23px] font-medium leading-[1.05] tracking-[-.04em] text-[#29251F]">{group.headline}</h3><p className="mt-3 text-[10px] leading-5 text-[#756E66]">{group.description}</p><div className="mt-5 text-[8px] font-semibold text-[#815B36]">Explore this area</div></a>)}</div>
+      <div className="mt-10 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{CUSTOMER_GROUPS.map((group,index)=><a key={group.id} href={`#${group.id}`} className="group overflow-hidden rounded-[22px] border border-black/[0.07] bg-white shadow-[0_12px_34px_rgba(42,32,22,.04)] transition hover:-translate-y-0.5 hover:border-[#C59A66]/50">
+        <div className="relative h-[150px] overflow-hidden bg-[#171614]"><Image src={GROUP_ART[group.id]} alt="" fill sizes="(min-width:1280px) 25vw, (min-width:768px) 50vw, 100vw" className="object-cover transition duration-700 group-hover:scale-[1.025]" /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,6,.03),rgba(10,8,6,.62))]" /><div className="absolute bottom-4 left-4 text-[7px] font-semibold uppercase tracking-[.18em] text-[#F0C98F]">0{index+1} · {group.label}</div></div>
+        <div className="p-5"><h3 className="text-[21px] font-medium leading-[1.05] tracking-[-.04em] text-[#29251F]">{group.headline}</h3><p className="mt-3 text-[10px] leading-5 text-[#756E66]">{group.description}</p><div className="mt-5 text-[8px] font-semibold text-[#815B36]">Explore this area →</div></div>
+      </a>)}</div>
     </div></section>
 
     <section className="border-b border-[#CFC5B8]/45 bg-[#171614] text-white"><div className="mx-auto grid max-w-[1540px] gap-8 px-5 py-10 sm:px-7 lg:grid-cols-[.75fr_1.25fr] lg:px-10 xl:px-14"><div><p className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#D6A66A]">BUILT AROUND YOUR BUSINESS</p><h2 className="mt-3 text-[30px] font-medium tracking-[-.04em]">Start focused. Expand when you are ready.</h2></div><p className="max-w-3xl text-[12px] leading-6 text-white/58">A restaurant can start with POS. A hotel can start with front desk. An employer can start with Workforce. A finance team can start with invoicing. Add the rest only when it creates value.</p></div></section>
+
+    <section className="border-b border-[#CFC5B8]/45 bg-[#171614] text-white"><div className="mx-auto max-w-[1540px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
+      <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end"><div><p className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#D6A66A]">HOW AVANTIQO CONNECTS THE WORK</p><h2 className="mt-3 text-[36px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[50px]">One action can move the whole business forward.</h2></div><p className="max-w-2xl text-[12px] leading-6 text-white/50 lg:justify-self-end">The value is not another collection of modules. It is the connection between the work people already do.</p></div>
+      <div className="mt-10 grid gap-3 lg:grid-cols-2">
+        {[["A sale happens",["POS sale","Stock changes","Revenue posts","Payment reconciles","Business Partner understands it"]],["A person starts work",["Clock in","Schedule updates","Hours accumulate","Payroll uses the record","Finance receives the result"]]].map(([title,steps])=><div key={title} className="rounded-[24px] border border-white/[0.08] bg-white/[0.025] p-6"><div className="text-[9px] font-semibold text-white/82">{title}</div><div className="mt-6 grid gap-2 sm:grid-cols-5">{steps.map((step,index)=><div key={step} className="relative rounded-[14px] border border-white/[0.07] bg-black/15 px-3 py-4"><div className="text-[7px] font-semibold text-[#D6A66A]">0{index+1}</div><div className="mt-2 text-[8px] leading-4 text-white/58">{step}</div>{index<steps.length-1?<span className="absolute -right-2 top-1/2 hidden -translate-y-1/2 text-[10px] text-[#D6A66A]/50 sm:block">→</span>:null}</div>)}</div></div>)}
+      </div>
+    </div></section>
+
+    <section className="border-b border-[#CFC5B8]/45 bg-[#EEE8DE]"><div className="mx-auto grid max-w-[1540px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[.85fr_1.15fr] lg:items-center lg:px-10 lg:py-20 xl:px-14">
+      <div><p className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#9A744B]">BUSINESS PARTNER</p><h2 className="mt-3 text-[38px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[52px]">Ask Avantiqo about your business.</h2><p className="mt-5 max-w-xl text-[12px] leading-6 text-[#6D665E]">Instead of searching through screens, ask a direct business question. Avantiqo can use the connected records and take you to the work that needs attention.</p><a href="/intelligence-platform" className="mt-7 inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Explore Business Partner →</a></div>
+      <div className="rounded-[26px] border border-black/[0.08] bg-[#171614] p-4 shadow-[0_28px_80px_rgba(35,27,20,.16)] sm:p-5"><div className="rounded-[20px] border border-white/[0.08] bg-[#201D19] p-5 text-white">
+        <div className="text-[7px] font-semibold uppercase tracking-[.2em] text-[#D6A66A]">ASK THE BUSINESS</div>
+        <div className="mt-4 space-y-2">{["Why did food cost increase this week?","Which invoices are overdue?","Who has not arrived for their shift?","What should I order tomorrow?","Create the invoice and send it."].map((q,index)=><div key={q} className="flex items-center justify-between rounded-[13px] border border-white/[0.07] bg-white/[0.025] px-4 py-3"><span className="text-[9px] text-white/62">{q}</span><span className="text-[8px] text-[#D6A66A]">0{index+1}</span></div>)}</div>
+      </div></div>
+    </div></section>
 
     {CUSTOMER_GROUPS.map((group,index)=>{
       const featured=(CUSTOMER_FEATURES[group.id]||[]).map((id)=>byId[id]).filter(Boolean);
@@ -98,7 +126,7 @@ export default function ProductsCatalogPage(){
         <div className="mt-10 grid gap-x-8 md:grid-cols-2 lg:grid-cols-3">{featured.map((product)=><ProductLink key={product.id} product={product}/>)}</div>
       </div></section>;
     })}
-    <div id="all-products"><ProductFinder products={customerProducts} groups={CUSTOMER_GROUPS} /></div>
+    <ProductFinder products={customerProducts} groups={CUSTOMER_GROUPS} />
 
     <section className="border-b border-[#CFC5B8]/45 bg-[#F3EEE5]"><div className="mx-auto grid max-w-[1320px] gap-8 px-5 py-16 sm:px-7 lg:grid-cols-[1fr_auto] lg:items-center lg:px-10"><div><p className="text-[8px] font-semibold uppercase tracking-[.18em] text-[#9A744B]">BUILDING WITH AVANTIQO?</p><h2 className="mt-3 text-[34px] font-medium tracking-[-.045em]">APIs, integrations and platform tools live in Developers.</h2><p className="mt-3 max-w-3xl text-[11px] leading-6 text-[#6F685F]">Business teams can stay focused on products and outcomes, while developers get a separate area for APIs, integrations and technical tools.</p></div><a href="/developers" className="text-[10px] font-semibold text-[#815B36]">Explore Developers</a></div></section>
 

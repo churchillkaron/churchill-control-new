@@ -1,18 +1,15 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import PublicArtStage from "@/components/public/PublicArtStage";
+import GuidedStart from "@/components/public/GuidedStart";
 
 export const metadata = { title: "Start with Avantiqo | Avantiqo" };
 
 const PATHS = [
-  ["Run", "Business OS", "Run finance, operations, supply chain, sales, people, projects and analytics from one connected business workspace.", "Operate", "/business", "Enter Business OS", "/bg-hero-control.jpg", null],
-  ["Think", "Intelligence", "Ask questions, research decisions, use agents, review insights and carry approved work forward.", "Reason & act", "/intelligence-platform", "Enter Intelligence", "/branding/avantiqo-intelligence-core-hero.webp", "intelligence"],
-  ["Create", "Creative Studios", "Image, video, music and production missions with research, direction, review and repair.", "Produce", "/creative-studios", "Enter Creative Studios", "/art/creative-image.jpg", null],
-  ["Speak", "Voice", "Speech-to-text, realtime transcription, TTS, voice production and telephony connected to intelligence.", "Listen & respond", "/voice", "Enter Voice", "/art/creative-music.jpg", "voice"],
-  ["Build", "Avantiqo Code", "Software work from understanding and planning through build, test, integration and verification.", "Engineer", "/code", "Enter Code", "/art/developer-work.jpg", "code"],
-  ["Process", "Documents", "OCR, extraction, classification, validation and document understanding connected to business workflows.", "Understand files", "/documents", "Enter Documents", "/art/commercial-integrations.jpg", "documents"],
-  ["Develop", "Developer Platform", "SDKs, tools and embedded experiences for teams building on Avantiqo.", "Build on Avantiqo", "/developers", "Enter Developers", "/art/developer-work.jpg", "developer"],
-  ["Connect", "API Platform", "Use Avantiqo capabilities through APIs, jobs and webhooks, with usage and results tracked.", "Consume capabilities", "/api-platform", "Enter API Platform", "/art/commercial-integrations.jpg", "api"],
-  ["Scale", "Compute", "Run inference, rendering, batch and creative workloads with owned capacity first and extra hardware when needed.", "Run workloads", "/compute", "Enter Compute", "/art/commercial-compute.jpg", "compute"],
+  ["Run my business", "Business Products", "Finance, people, sales, operations, stock, documents and intelligence for day-to-day work.", "Operate", "/products", "Explore business products", "/bg-hero-control.jpg", null],
+  ["Use a solution for my industry", "Industry Solutions", "Start with a restaurant, hotel, retail, service or professional setup that already matches the way the business works.", "Industry", "/solutions", "Explore industry solutions", "/art/commercial-solutions.jpg", null],
+  ["Create something", "Creative Studios", "Image, video, music, voice and campaign production with direction, review and finishing.", "Create", "/creative-studios", "Enter Creative Studios", "/art/creative-video.jpg", null],
+  ["Build with Avantiqo", "Developers", "APIs, capabilities, integrations and software tools for products, internal systems and embedded experiences.", "Build", "/developers", "Enter Developers", "/art/developer-work.jpg", "developer"],
+  ["Run workloads", "Compute", "Use owned and elastic compute for inference, rendering, batch jobs and production workloads.", "Scale", "/compute", "Explore Compute", "/art/commercial-compute.jpg", "compute"],
 ];
 
 function Arrow() {
@@ -47,17 +44,17 @@ export default function StartPage() {
                 START WITH AVANTIQO
               </p>
               <h1 className="mt-5 text-[50px] font-medium leading-[.96] tracking-[-0.06em] text-[#171614] sm:text-[64px] lg:text-[72px]">
-                Enter the Avantiqo world you need.
+                Start with the problem you want to solve.
               </h1>
               <p className="mt-7 max-w-xl text-[16px] leading-8 text-[#625F59]">
-                Run a company, work with intelligence, create, speak, build software, process documents, use APIs or run compute. Choose the area that matches what you want to do. Your account, organization and work stay connected as you move between Avantiqo products.
+                You do not need to understand Avantiqo before you begin. Choose what you want to improve, create or build. Avantiqo will take you to the right starting point and keep the rest connected when you need more.
               </p>
               <div className="mt-9 flex flex-wrap gap-2.5">
                 <a
                   href="#paths"
                   className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white"
                 >
-                  Choose a workspace <Arrow />
+                  Find my starting point <Arrow />
                 </a>
                 <a
                   href="/pricing"
@@ -79,19 +76,20 @@ export default function StartPage() {
               ))}
             </div>
             <div className="absolute left-7 top-7 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]">
-              AVANTIQO / CHOOSE YOUR WORKSPACE
+              AVANTIQO / START WITH THE WORK
             </div>
             <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-white/[0.14] bg-[#11100E]/74 p-5 text-white shadow-[0_28px_80px_rgba(0,0,0,.28)] backdrop-blur-xl sm:p-6">
               <div className="text-[7px] font-semibold uppercase tracking-[0.21em] text-[#D6A66A]">
-                RUN · THINK · CREATE · VOICE · CODE · DOCUMENTS · API · COMPUTE
+                RUN THE BUSINESS · INDUSTRY · CREATE · BUILD · COMPUTE
               </div>
               <div className="mt-3 max-w-2xl text-[14px] leading-6 text-white/70">
-                Choose the workspace that matches your task. Avantiqo keeps your organization, permissions and work connected across products.
+                Start with the outcome you need now. Finance, people, documents, intelligence and other capabilities stay available as the business grows.
               </div>
             </div>
           </div>
         </div>
       </section>
+      <GuidedStart />
       <section id="paths" className="bg-[#FBFAF8]">
         <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
           <div className="grid gap-3 md:grid-cols-2">
@@ -140,22 +138,22 @@ export default function StartPage() {
       <section className="border-y border-black/[0.06] bg-[#F4F0E8]">
         <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
           <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
-            <div><p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">ONE ACCOUNT · USE WHAT YOU NEED</p><h2 className="mt-3 text-[36px] font-medium leading-[1.03] tracking-[-0.05em] text-[#1D1B18] sm:text-[48px]">Choose the products and services that fit the work.</h2></div>
-            <p className="max-w-2xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">Use business software for everyday operations, Creative Studios for production work, APIs for integrations, Compute for workloads, and Enterprise services when your rollout needs more support.</p>
+            <div><p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">ONE ACCOUNT · ADD WHAT HELPS</p><h2 className="mt-3 text-[36px] font-medium leading-[1.03] tracking-[-0.05em] text-[#1D1B18] sm:text-[48px]">Start focused. Expand without starting over.</h2></div>
+            <p className="max-w-2xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">Your business context stays connected while you add the products, channels, intelligence, creative tools or infrastructure that create the next piece of value.</p>
           </div>
           <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {[["Business OS","Subscription","/business"],["Creative Studios","Mission / package","/creative-studios"],["Developers & API","Usage","/developers"],["Compute","Usage / reserved","/compute"],["Enterprise","Contract / services","/enterprise"]].map(([title,model,href],i)=>(<a key={title} href={href} className="group rounded-[22px] border border-black/[0.075] bg-white/72 p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/40"><div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#A37849]">0{i+1}</span><span className="text-[8px] text-[#9A8F82]">→</span></div><div className="mt-8 text-[15px] font-semibold text-[#302D29]">{title}</div><div className="mt-2 text-[9px] uppercase tracking-[0.15em] text-[#9A744B]">{model}</div></a>))}
+            {[["Business Products","Recurring software","/products"],["Creative Studios","Mission / package","/creative-studios"],["Developers & API","Usage","/developers"],["Compute","Usage / reserved","/compute"],["Enterprise","Rollout / services","/enterprise"]].map(([title,model,href],i)=>(<a key={title} href={href} className="group rounded-[22px] border border-black/[0.075] bg-white/72 p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/40"><div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#A37849]">0{i+1}</span><span className="text-[8px] text-[#9A8F82]">→</span></div><div className="mt-8 text-[15px] font-semibold text-[#302D29]">{title}</div><div className="mt-2 text-[9px] uppercase tracking-[0.15em] text-[#9A744B]">{model}</div></a>))}
           </div>
         </div>
       </section>
       <section className="bg-[#171716] text-white">
         <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:px-10 lg:py-20">
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">ONE AVANTIQO CORE</p>
-            <h2 className="mt-3 max-w-3xl text-[38px] font-medium leading-[1.03] tracking-[-0.05em] text-[#F7F4EF] sm:text-[50px]">Different workspaces. One connected Avantiqo account.</h2>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">ONE COMPANY CONTEXT</p>
+            <h2 className="mt-3 max-w-3xl text-[38px] font-medium leading-[1.03] tracking-[-0.05em] text-[#F7F4EF] sm:text-[50px]">Different tools. One connected picture of the business.</h2>
           </div>
           <div className="flex flex-wrap gap-2">
-            {["Identity","Organization","Business Data","Capabilities","Intelligence","Wallet","Execution","Records","Billing"].map((x, i) => (
+            {["Company","People","Customers","Money","Work","Documents","Intelligence","History","Usage"].map((x, i) => (
               <div key={x} className="flex items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.035] px-4 py-3 text-[9px] text-white/58">
                 <span className="text-[7px] font-semibold text-[#D6A66A]">0{String(i + 1).padStart(2,"0")}</span>{x}
               </div>

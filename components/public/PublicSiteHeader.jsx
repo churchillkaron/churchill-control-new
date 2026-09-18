@@ -146,8 +146,11 @@ export default function PublicSiteHeader({ context, links = [], action = { label
             </div>
           </details>
           <a href="/start" className="ml-1 hidden h-9 shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/55 px-4 text-[9px] font-semibold text-[#F2D2A5] transition hover:border-[#D6A66A]/90 hover:bg-[#D6A66A]/[0.08] xl:inline-flex">Start Now <Arrow className="h-3 w-3" /></a>
-          <a href={action.href} className="hidden h-9 shrink-0 items-center gap-2 rounded-full border border-white/[0.12] bg-[#0F0F0E] px-4 text-[9px] font-semibold text-white/82 transition hover:border-[#D6A66A]/45 hover:bg-[#211D18] sm:inline-flex">{action.label}<Arrow className="h-3 w-3" /></a>
-          <a href="/login?portal=developer" className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/45 bg-[#D6A66A]/[0.08] px-4 text-[9px] font-semibold text-[#F1D5AF] transition hover:border-[#D6A66A]/80 hover:bg-[#D6A66A]/[0.14]">Developer Login<Arrow className="h-3 w-3" /></a>
+          {["developers","api","compute"].includes(audience) ? (
+            <a href="/login?portal=developer" className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/45 bg-[#D6A66A]/[0.08] px-4 text-[9px] font-semibold text-[#F1D5AF] transition hover:border-[#D6A66A]/80 hover:bg-[#D6A66A]/[0.14]">Developer Login<Arrow className="h-3 w-3" /></a>
+          ) : (
+            <a href={action.href} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-white/[0.12] bg-[#0F0F0E] px-4 text-[9px] font-semibold text-white/82 transition hover:border-[#D6A66A]/45 hover:bg-[#211D18]">{action.label}<Arrow className="h-3 w-3" /></a>
+          )}
         </nav>
       </div>
     </header>

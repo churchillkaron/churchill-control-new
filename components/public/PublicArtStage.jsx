@@ -46,9 +46,40 @@ function PricingArt(){
 }
 
 function SolutionsArt(){
-  const tiles=[["RESTAURANT","/art/avantiqo-luxury/hospitality.webp","center"],["HOTEL","/art/commercial-enterprise.jpg","center"],["RETAIL","/art/commercial-commerce.jpg","center"],["SERVICES","/art/commercial-services.jpg","center"]];
-  return <div className="absolute inset-0 overflow-hidden bg-[#110E0B] text-white"><div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px bg-[#D6A66A]/18">{tiles.map(([label,img,pos],i)=><div key={label} className="relative overflow-hidden"><Photo src={img} position={pos}/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,6,5,.05),rgba(8,6,5,.54))]"/><div className="absolute bottom-4 left-4 flex items-center gap-2"><GoldDot/><span className="text-[7px] font-semibold tracking-[.18em] text-[#F0C98F]">0{i+1} · {label}</span></div></div>)}</div>
-    <div className="absolute left-1/2 top-1/2 w-[52%] -translate-x-1/2 -translate-y-1/2 rounded-[28px] border border-[#D6A66A]/34 bg-[#15110D]/92 p-6 text-center shadow-[0_36px_100px_rgba(0,0,0,.44)] backdrop-blur-xl"><Label>ONE BUSINESS CONTEXT</Label><div className="mt-4 text-[23px] leading-7 text-white/90">Different industries. The same connected company truth.</div><div className="mt-5 flex flex-wrap justify-center gap-2">{["PEOPLE","MONEY","CUSTOMERS","STOCK","WORK","INTELLIGENCE"].map(x=><Chip key={x}>{x}</Chip>)}</div></div>
+  return <div className="absolute inset-0 overflow-hidden bg-[#110E0B] text-white">
+    <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px bg-[#D6A66A]/18">
+      <div className="relative overflow-hidden">
+        <Photo src="/art/avantiqo-luxury/hospitality.webp" position="center"/>
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,6,5,.04),rgba(8,6,5,.58))]"/>
+        <div className="absolute bottom-4 left-4"><Label>01 · RESTAURANT</Label><div className="mt-2 text-[8px] text-white/50">Service · kitchen · stock · finance</div></div>
+      </div>
+      <div className="relative overflow-hidden bg-[#17130F]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(214,166,106,.18),transparent_34%)]"/>
+        <div className="absolute inset-x-[12%] top-[15%] grid grid-cols-2 gap-2">
+          {[["ARRIVALS","12"],["ROOMS","94%"],["HK","6 active"],["REVENUE","Live"]].map(([a,b])=><div key={a} className="rounded-[13px] border border-white/[.08] bg-white/[.025] p-3"><div className="text-[6px] tracking-[.13em] text-white/32">{a}</div><div className="mt-2 text-[11px] text-white/78">{b}</div></div>)}
+        </div>
+        <div className="absolute bottom-4 left-4"><Label>02 · HOTEL</Label><div className="mt-2 text-[8px] text-white/44">Guests · rooms · teams · revenue</div></div>
+      </div>
+      <div className="relative overflow-hidden bg-[#F1EADF] text-[#171614]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_20%,rgba(214,166,106,.22),transparent_36%)]"/>
+        <div className="absolute inset-x-[10%] top-[15%] space-y-3">
+          {[["SALE","THB 2,480"],["STOCK","18 units"],["PAYMENT","Matched"]].map(([a,b],i)=><div key={a} className="flex items-center justify-between border-b border-black/[.08] pb-2"><span className="text-[6px] tracking-[.13em] text-black/35">0{i+1} · {a}</span><span className="text-[9px] text-[#8A633C]">{b}</span></div>)}
+        </div>
+        <div className="absolute bottom-4 left-4"><Label dark>03 · RETAIL</Label><div className="mt-2 text-[8px] text-black/38">Sell · stock · purchase · settle</div></div>
+      </div>
+      <div className="relative overflow-hidden bg-[#0F0D0B]">
+        <GridLines/>
+        <div className="absolute inset-x-[10%] top-[15%] grid grid-cols-2 gap-2">
+          {[["PROJECTS","8 live"],["CLIENTS","24"],["DOCUMENTS","Ready"],["TEAM","12"]].map(([a,b])=><div key={a} className="rounded-[13px] border border-white/[.08] bg-white/[.025] p-3"><div className="text-[6px] tracking-[.13em] text-white/30">{a}</div><div className="mt-2 text-[10px] text-white/72">{b}</div></div>)}
+        </div>
+        <div className="absolute bottom-4 left-4"><Label>04 · SERVICES</Label><div className="mt-2 text-[8px] text-white/44">Projects · clients · people · finance</div></div>
+      </div>
+    </div>
+    <div className="absolute left-1/2 top-1/2 w-[54%] -translate-x-1/2 -translate-y-1/2 rounded-[28px] border border-[#D6A66A]/34 bg-[#15110D]/94 p-6 text-center shadow-[0_36px_100px_rgba(0,0,0,.44)] backdrop-blur-xl">
+      <Label>ONE BUSINESS CONTEXT</Label>
+      <div className="mt-4 text-[23px] leading-7 text-white/90">Different industries. The same connected company truth.</div>
+      <div className="mt-5 flex flex-wrap justify-center gap-2">{["PEOPLE","MONEY","CUSTOMERS","STOCK","WORK","INTELLIGENCE"].map(x=><Chip key={x}>{x}</Chip>)}</div>
+    </div>
   </div>;
 }
 

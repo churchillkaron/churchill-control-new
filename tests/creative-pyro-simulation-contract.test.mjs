@@ -45,9 +45,9 @@ test('simulation executor routes smoke/fire through owned pyro backend',()=>{
   assert.match(executor,/simulation\.simulation_class==="PYRO_SMOKE_FIRE"/);
 });
 
-test('liquid remains blocked until a dedicated free-surface solver backend is implemented',()=>{
-  const liquid={...pyro(),simulation_class:'LIQUID_FLUID',simulation_intent:'Water pours into a glass.',density_and_viscosity:'water-like',volume_continuity:'preserve volume',surface_response:'splash and surface tension',wetting_and_collision:'glass collision'};
-  const result=CreativeSimulationRuntime.author({simulation:[liquid],subject:'water',action:'pours',frame_plan:{opening_frame:'glass empty',progression:'pour',closing_frame:'settled'},continuity:{environment:'bar'}});
+test('cloth remains blocked until a dedicated deformable solver backend is implemented',()=>{
+  const cloth={...pyro(),simulation_class:'DEFORMABLE_CLOTH',simulation_intent:'Curtain reacts to wind.',attachment_and_pins:'top edge pinned',stretch_bend_shear:'fabric stiffness',self_collision:'prevent self intersection',aerodynamic_response:'wind from left'};
+  const result=CreativeSimulationRuntime.author({simulation:[cloth],subject:'curtain',action:'wind gust',frame_plan:{opening_frame:'still',progression:'moves',closing_frame:'settled'},continuity:{environment:'room'}});
   assert.equal(result.status,'BLOCKED');
   assert.ok(result.blocking_issues.some(x=>x.code==='SIMULATION_BACKEND_NOT_IMPLEMENTED'));
 });

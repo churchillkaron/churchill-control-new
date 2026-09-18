@@ -45,7 +45,7 @@ test("provider registry keeps vocal-role separation research-gated", () => {
   assert.match(registration, /production_routing_allowed: false/);
   assert.match(registration, /ordinary_stem_separator_substitution_forbidden: true/);
   assert.match(registration, /UVR_MDXNET_KARA_2\.onnx/);
-  assert.match(registration, /model_license_verified: false/);
+  assert.match(registration, /model_license_verified: true/);
   assert.match(registration, /replace_certified_demucs_automatically: false/);
 });
 

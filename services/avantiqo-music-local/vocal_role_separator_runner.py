@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -12,12 +13,22 @@ CAPABILITY = "ai.audio.vocal-role-separate"
 STAGE1_MODEL = "htdemucs_ft"
 STAGE2_MODEL = "UVR_MDXNET_KARA_2.onnx"
 QUALITY_PROFILE = "DEMUCS_HTDEMUCS_FT_PLUS_UVR_KARA2_VOCAL_ROLE_RESEARCH_V1"
+STAGE2_SHA256 = "bf32e15105a09c0f7dddd2b67346146334d6f3ecb399ed7638eba2ab07cbf5f4"
+STAGE2_LICENSE = "MIT"
 MODEL_DIR = Path(os.environ.get("AVANTIQO_AUDIO_SEPARATOR_MODEL_DIR", r"C:\Avantiqo\audio-separator-models"))
 MAX_SOURCE_BYTES = 600 * 1024 * 1024
 
 
 def text(value):
     return str(value or "").strip()
+
+def sha256_file(path: Path):
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
 
 
 def obj(value):
@@ -110,6 +121,13 @@ def main():
         if not all_vocals.exists() or not instrumental.exists():
             raise RuntimeError("AVANTIQO_VOCAL_ROLE_STAGE1_OUTPUTS_REQUIRED")
 
+        kara_model = MODEL_DIR / STAGE2_MODEL
+        if not kara_model.is_file():
+            raise RuntimeError("AVANTIQO_VOCAL_ROLE_KARA2_MODEL_REQUIRED")
+        actual_hash = sha256_file(kara_model)
+        if actual_hash.lower() != STAGE2_SHA256:
+            raise RuntimeError(f"AVANTIQO_VOCAL_ROLE_KARA2_HASH_MISMATCH:{actual_hash}")
+
         from audio_separator import Separator
         kara_out = root / "kara2"
         kara_out.mkdir(parents=True, exist_ok=True)
@@ -144,7 +162,10 @@ def main():
             "timing_preservation_review_required": True,
             "role_leakage_measurement_required": True,
             "human_listening_review_required": True,
-            "model_license_verified": False,
+            "model_license_verified": True,
+            "model_license": STAGE2_LICENSE,
+            "model_sha256": STAGE2_SHA256,
+            "attribution_required": True,
             "production_certified": False,
             "production_routing_allowed": False,
             "ordinary_four_stem_substitution_forbidden": True,
@@ -169,7 +190,10 @@ def main():
         "storage_references": {k: v["storage_reference"] for k, v in required_uploads.items()},
         "elapsed_ms": int((time.perf_counter() - started) * 1000),
         "research_candidate": True,
-        "model_license_verified": False,
+        "model_license_verified": True,
+            "model_license": STAGE2_LICENSE,
+            "model_sha256": STAGE2_SHA256,
+            "attribution_required": True,
         "human_listening_review_required": True,
         "production_certified": False,
         "production_routing_allowed": False,

@@ -11,6 +11,8 @@ $SeedVcCommit = '51383efd921027683c89e5348211d93ff12ac2a8'
 $MusicGpuRoot = 'C:\Avantiqo\music-gpu'
 $MusicGpuPython = Join-Path $MusicGpuRoot 'Scripts\python.exe'
 $VocalRoleTarget = Join-Path $MusicGpuRoot 'vocal_role_separator_runner.py'
+$Kara2Model = 'C:\Avantiqo\audio-separator-models\UVR_MDXNET_KARA_2.onnx'
+$Kara2Sha256 = 'bf32e15105a09c0f7dddd2b67346146334d6f3ecb399ed7638eba2ab07cbf5f4'
 $SeedVcRoot = 'C:\Avantiqo\seed-vc'
 $SeedVcPython = Join-Path $SeedVcRoot '.venv\Scripts\python.exe'
 $SeedVcRunnerTarget = Join-Path $SeedVcRoot 'avantiqo_singing_voice_runner.py'
@@ -32,6 +34,10 @@ $plan = [ordered]@{
   contract = 'AVANTIQO_MUSIC_RESEARCH_RUNTIME_INSTALL_PLAN_V1'
   mode = $(if($Apply){'APPLY'}else{'PLAN_ONLY'})
   audio_separator_version = $AudioSeparatorVersion
+  kara2_model = $Kara2Model
+  kara2_sha256 = $Kara2Sha256
+  kara2_model_license = 'MIT'
+  kara2_attribution_required = $true
   seed_vc_repository = $SeedVcRepo
   seed_vc_commit = $SeedVcCommit
   vocal_role_target = $VocalRoleTarget
@@ -55,6 +61,9 @@ if (-not $Apply) {
 
 Run $MusicGpuPython @('-m','pip','install',"audio-separator==$AudioSeparatorVersion")
 Copy-Item -Force $VocalRoleSource $VocalRoleTarget
+Require-File $Kara2Model 'VOCAL_ROLE_KARA2_MODEL_REQUIRED'
+$kara2Actual = (Get-FileHash -Algorithm SHA256 $Kara2Model).Hash.ToLowerInvariant()
+if ($kara2Actual -ne $Kara2Sha256) { throw "VOCAL_ROLE_KARA2_HASH_MISMATCH:$kara2Actual" }
 if (-not (Probe $MusicGpuPython 'import demucs, audio_separator')) { throw 'VOCAL_ROLE_RUNTIME_IMPORT_PROBE_FAILED' }
 
 if (-not (Test-Path (Join-Path $SeedVcRoot '.git'))) {
@@ -83,7 +92,14 @@ $report = [ordered]@{
   contract = 'AVANTIQO_MUSIC_RESEARCH_RUNTIME_INSTALL_RESULT_V1'
   success = $true
   audio_separator_version = $AudioSeparatorVersion
+  kara2_model = $Kara2Model
+  kara2_sha256 = $Kara2Sha256
+  kara2_model_license = 'MIT'
+  kara2_attribution_required = $true
   vocal_role_runtime_ready = $true
+  kara2_model_sha256_verified = $true
+  kara2_model_license = 'MIT'
+  kara2_attribution_required = $true
   seed_vc_commit = $actualCommit
   seed_vc_model_license = 'GPL-3.0'
   seed_vc_gpl_compliance_approval_required_for_production = $true

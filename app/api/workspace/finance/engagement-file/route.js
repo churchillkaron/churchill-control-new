@@ -7,6 +7,7 @@ import { evaluateEngagementReviewPortfolio } from "@/lib/finance/practice/engage
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { loadCompletePracticeRows, loadCompletePracticeRowsByIds } from "@/lib/finance/practice/FinancePracticePopulation";
 
 const CLOSED_RUN_STATUSES = new Set(["COMPLETE", "CANCELLED"]);
 const CLOSED_ITEM_STATUSES = new Set(["COMPLETE", "SKIPPED"]);
@@ -152,7 +153,7 @@ export async function GET(request) {
     if (engagementError) throw engagementError;
     if (!engagement) return jsonError("Accounting engagement not found for this firm", 404);
 
-    const [organizationResult, profileResult, entityResult, runsResult, reviewsResult, documentsResult, capacityResult] = await Promise.all([
+    const [organizationResult, profileResult, entityResult, runs, reviews, documents, capacityRows] = await Promise.all([
       supabaseAdmin.from("organizations").select("id,name").eq("id", engagement.organization_id).maybeSingle(),
       supabaseAdmin
         .from("accounting_client_profiles")
@@ -163,97 +164,125 @@ export async function GET(request) {
       engagement.entity_id
         ? supabaseAdmin.from("legal_entities").select("id,code,legal_name,display_name,tax_id,registration_number,country,currency,is_active,is_default_accounting_entity,timezone,locale").eq("id", engagement.entity_id).eq("organization_id", engagement.organization_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
-      supabaseAdmin
-        .from("accounting_engagement_runs")
-        .select("id,organization_id,entity_id,engagement_id,template_id,period_id,run_key,cadence,status,start_at,due_at,completed_at,locked_at,completion_snapshot,rolled_from_run_id,metadata,created_at,updated_at")
-        .eq("accounting_firm_id", access.organizationId)
-        .eq("engagement_id", engagement.id)
-        .order("created_at", { ascending: false })
-        .limit(36),
-      supabaseAdmin
-        .from("finance_review_items")
-        .select("id,entity_id,period_id,capability_id,record_key,record_type,record_label,status,priority,preparer_id,reviewer_id,due_at,metadata,created_at,updated_at")
-        .eq("organization_id", engagement.organization_id)
-        .order("updated_at", { ascending: false })
-        .limit(500),
-      supabaseAdmin
-        .from("organization_documents")
-        .select("id,file_url,file_name,mime_type,ai_module,ai_type,approval_required,financial_impact,status,destination_module,destination_record_id,approved_by,approved_at,created_at,updated_at")
-        .eq("organization_id", engagement.organization_id)
-        .order("created_at", { ascending: false })
-        .limit(200),
-      supabaseAdmin
-        .from("accounting_practice_staff_capacity")
-        .select("staff_account_id,display_name,primary_role,weekly_capacity_minutes,utilization_target,effective_from,effective_to,status")
-        .eq("accounting_firm_id", access.organizationId)
-        .eq("status", "ACTIVE")
-        .order("effective_from", { ascending: false }),
+      loadCompletePracticeRows({
+        label: "Engagement file runs",
+        buildQuery: (from, to) => supabaseAdmin.from("accounting_engagement_runs")
+          .select("id,organization_id,entity_id,engagement_id,template_id,period_id,run_key,cadence,status,start_at,due_at,completed_at,locked_at,completion_snapshot,rolled_from_run_id,metadata,created_at,updated_at")
+          .eq("accounting_firm_id", access.organizationId)
+          .eq("engagement_id", engagement.id)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }),
+      loadCompletePracticeRows({
+        label: "Engagement file review items",
+        buildQuery: (from, to) => supabaseAdmin.from("finance_review_items")
+          .select("id,entity_id,period_id,capability_id,record_key,record_type,record_label,status,priority,preparer_id,reviewer_id,due_at,metadata,created_at,updated_at")
+          .eq("organization_id", engagement.organization_id)
+          .order("updated_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }),
+      loadCompletePracticeRows({
+        label: "Engagement file documents",
+        buildQuery: (from, to) => supabaseAdmin.from("organization_documents")
+          .select("id,file_url,file_name,mime_type,ai_module,ai_type,approval_required,financial_impact,status,destination_module,destination_record_id,approved_by,approved_at,created_at,updated_at")
+          .eq("organization_id", engagement.organization_id)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }),
+      loadCompletePracticeRows({
+        label: "Engagement file staff capacity",
+        buildQuery: (from, to) => supabaseAdmin.from("accounting_practice_staff_capacity")
+          .select("staff_account_id,display_name,primary_role,weekly_capacity_minutes,utilization_target,effective_from,effective_to,status")
+          .eq("accounting_firm_id", access.organizationId)
+          .eq("status", "ACTIVE")
+          .order("effective_from", { ascending: false })
+          .order("staff_account_id", { ascending: true })
+          .range(from, to),
+      }),
     ]);
 
-    for (const result of [organizationResult, profileResult, entityResult, runsResult, reviewsResult, documentsResult, capacityResult]) {
+    for (const result of [organizationResult, profileResult, entityResult]) {
       if (result?.error) throw result.error;
     }
 
     const profile = profileResult.data || {};
-    const runs = runsResult.data || [];
-    const reviews = reviewsResult.data || [];
-    const documents = documentsResult.data || [];
     const documentsById = new Map(documents.map((row) => [row.id, row]));
     const runIds = runs.map((row) => row.id);
     const templateIds = [...new Set(runs.map((row) => row.template_id).filter(Boolean))];
     const periodIds = [...new Set(runs.map((row) => row.period_id).filter(Boolean))];
     const reviewIds = reviews.map((row) => row.id);
 
-    const [templatesResult, periodsResult, workItemsResult, requestsResult, notesResult, signoffsResult, evidenceLinksResult] = await Promise.all([
+    const [templatesResult, periodsResult, items, requests, notes, signoffs, evidenceLinks] = await Promise.all([
       templateIds.length
         ? supabaseAdmin.from("accounting_work_program_templates").select("id,template_key,name,service_key,cadence,version,is_system").in("id", templateIds)
         : Promise.resolve({ data: [], error: null }),
       periodIds.length
         ? supabaseAdmin.from("financial_periods").select("id,period_name,start_date,end_date,status,closed_at").in("id", periodIds)
         : Promise.resolve({ data: [], error: null }),
-      runIds.length
-        ? supabaseAdmin
-            .from("accounting_engagement_work_items")
-            .select("id,entity_id,run_id,template_step_id,step_key,sequence_no,title,description,work_type,required_role,assigned_to,status,start_at,due_at,completed_at,completed_by,blocked_reason,dependency_step_keys,capability_id,finance_review_item_id,evidence,conclusion,metadata,budget_minutes,scheduled_start_at,scheduled_end_at,updated_at")
-            .eq("accounting_firm_id", access.organizationId)
-            .in("run_id", runIds)
-            .order("sequence_no", { ascending: true })
-        : Promise.resolve({ data: [], error: null }),
-      runIds.length
-        ? supabaseAdmin
-            .from("accounting_client_requests")
-            .select("id,entity_id,run_id,work_item_id,title,instructions,status,due_at,sent_at,submitted_at,accepted_at,accepted_by,changes_requested_at,reminder_policy,client_response,metadata,updated_at")
-            .eq("accounting_firm_id", access.organizationId)
-            .in("run_id", runIds)
-            .order("due_at", { ascending: true, nullsFirst: false })
-        : Promise.resolve({ data: [], error: null }),
-      reviewIds.length
-        ? supabaseAdmin.from("finance_review_notes").select("id,review_item_id,note_type,body,status,assigned_to,created_by,resolved_by,resolved_at,created_at,updated_at").in("review_item_id", reviewIds).order("created_at", { ascending: false }).limit(1000)
-        : Promise.resolve({ data: [], error: null }),
-      reviewIds.length
-        ? supabaseAdmin.from("finance_review_signoffs").select("id,review_item_id,signoff_role,signed_by,signed_at,note,cycle_no,revoked_at,revoked_by,revocation_reason").in("review_item_id", reviewIds).order("signed_at", { ascending: false }).limit(1000)
-        : Promise.resolve({ data: [], error: null }),
-      runIds.length
-        ? supabaseAdmin
-            .from("accounting_work_program_evidence_links")
-            .select("id,run_id,work_item_id,document_id,evidence_category,status,is_primary,linked_by,linked_at,metadata,created_at,updated_at")
-            .eq("accounting_firm_id", access.organizationId)
-            .in("run_id", runIds)
-            .order("linked_at", { ascending: false })
-        : Promise.resolve({ data: [], error: null }),
+      runIds.length ? loadCompletePracticeRowsByIds({
+        ids: runIds,
+        label: "Engagement file work items",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("accounting_engagement_work_items")
+          .select("id,entity_id,run_id,template_step_id,step_key,sequence_no,title,description,work_type,required_role,assigned_to,status,start_at,due_at,completed_at,completed_by,blocked_reason,dependency_step_keys,capability_id,finance_review_item_id,evidence,conclusion,metadata,budget_minutes,scheduled_start_at,scheduled_end_at,updated_at")
+          .eq("accounting_firm_id", access.organizationId)
+          .in("run_id", batch)
+          .order("sequence_no", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }) : Promise.resolve([]),
+      runIds.length ? loadCompletePracticeRowsByIds({
+        ids: runIds,
+        label: "Engagement file client requests",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("accounting_client_requests")
+          .select("id,entity_id,run_id,work_item_id,title,instructions,status,due_at,sent_at,submitted_at,accepted_at,accepted_by,changes_requested_at,reminder_policy,client_response,metadata,updated_at")
+          .eq("accounting_firm_id", access.organizationId)
+          .in("run_id", batch)
+          .order("due_at", { ascending: true, nullsFirst: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }) : Promise.resolve([]),
+      reviewIds.length ? loadCompletePracticeRowsByIds({
+        ids: reviewIds,
+        label: "Engagement file review notes",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("finance_review_notes")
+          .select("id,review_item_id,note_type,body,status,assigned_to,created_by,resolved_by,resolved_at,created_at,updated_at")
+          .in("review_item_id", batch)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }) : Promise.resolve([]),
+      reviewIds.length ? loadCompletePracticeRowsByIds({
+        ids: reviewIds,
+        label: "Engagement file review signoffs",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("finance_review_signoffs")
+          .select("id,review_item_id,signoff_role,signed_by,signed_at,note,cycle_no,revoked_at,revoked_by,revocation_reason")
+          .in("review_item_id", batch)
+          .order("signed_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }) : Promise.resolve([]),
+      runIds.length ? loadCompletePracticeRowsByIds({
+        ids: runIds,
+        label: "Engagement file evidence links",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("accounting_work_program_evidence_links")
+          .select("id,run_id,work_item_id,document_id,evidence_category,status,is_primary,linked_by,linked_at,metadata,created_at,updated_at")
+          .eq("accounting_firm_id", access.organizationId)
+          .in("run_id", batch)
+          .order("linked_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }) : Promise.resolve([]),
     ]);
 
-    for (const result of [templatesResult, periodsResult, workItemsResult, requestsResult, notesResult, signoffsResult, evidenceLinksResult]) {
+    for (const result of [templatesResult, periodsResult]) {
       if (result?.error) throw result.error;
     }
 
     const templates = new Map((templatesResult.data || []).map((row) => [row.id, row]));
     const periods = new Map((periodsResult.data || []).map((row) => [row.id, row]));
-    const items = workItemsResult.data || [];
-    const requests = requestsResult.data || [];
-    const notes = notesResult.data || [];
-    const signoffs = signoffsResult.data || [];
-    const evidenceLinks = evidenceLinksResult.data || [];
     const today = new Date().toISOString().slice(0, 10);
 
     const notesByReview = new Map();
@@ -370,7 +399,7 @@ export async function GET(request) {
       return financeModule === "ACCOUNTING" || financeModule === "FINANCE" || financeModule === "REVIEW" || document.financial_impact === true;
     });
 
-    const staffCapacity = capacityResult.data || [];
+    const staffCapacity = capacityRows || [];
     const staff = {
       preparer: {
         id: profile.assigned_accountant_id || null,

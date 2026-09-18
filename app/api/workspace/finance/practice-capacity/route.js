@@ -7,6 +7,7 @@ import { planRecurringAccountingCycles } from "@/lib/finance/practice/recurringC
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { loadCompletePracticeRows } from "@/lib/finance/practice/FinancePracticePopulation";
 
 const MANAGE_PERMISSIONS = ["finance.accounting.manage", "finance.configuration.manage"];
 const OPEN_ITEM_STATUSES = ["NOT_STARTED", "READY", "IN_PROGRESS", "WAITING_ON_CLIENT", "BLOCKED", "READY_FOR_REVIEW", "CHANGES_REQUESTED"];
@@ -187,10 +188,18 @@ export async function GET(request) {
     const forecastEnd = addDays(today, 90);
     const weekCount = horizonDays / 7;
 
-    const [itemsResult, profilesResult, capacityResult, recurringPlan] = await Promise.all([
-      supabaseAdmin.from("accounting_engagement_work_items")
-        .select("id,organization_id,entity_id,run_id,title,required_role,assigned_to,status,due_at,budget_minutes,scheduled_start_at,scheduled_end_at")
-        .eq("accounting_firm_id", access.organizationId).in("status", OPEN_ITEM_STATUSES).lte("due_at", `${forecastEnd}T23:59:59.999Z`).order("due_at", { ascending: true, nullsFirst: false }).limit(10000),
+    const [allItems, profilesResult, capacityResult, recurringPlan] = await Promise.all([
+      loadCompletePracticeRows({
+        label: "Accounting practice capacity open work",
+        buildQuery: (from, to) => supabaseAdmin.from("accounting_engagement_work_items")
+          .select("id,organization_id,entity_id,run_id,title,required_role,assigned_to,status,due_at,budget_minutes,scheduled_start_at,scheduled_end_at")
+          .eq("accounting_firm_id", access.organizationId)
+          .in("status", OPEN_ITEM_STATUSES)
+          .lte("due_at", `${forecastEnd}T23:59:59.999Z`)
+          .order("due_at", { ascending: true, nullsFirst: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }),
       supabaseAdmin.from("accounting_client_profiles")
         .select("organization_id,assigned_accountant_id,assigned_accountant_name,assigned_reviewer_id,assigned_reviewer_name,assigned_partner_id,assigned_partner_name")
         .eq("accounting_firm_id", access.organizationId),
@@ -199,11 +208,9 @@ export async function GET(request) {
         .eq("accounting_firm_id", access.organizationId).eq("status", "ACTIVE").lte("effective_from", forecastEnd),
       planRecurringAccountingCycles({ accountingFirmId: access.organizationId, horizonDays: 90 }),
     ]);
-    if (itemsResult.error) throw itemsResult.error;
     if (profilesResult.error) throw profilesResult.error;
     if (capacityResult.error) throw capacityResult.error;
 
-    const allItems = itemsResult.data || [];
     const items = allItems.filter((item) => !dateOnly(item.due_at) || dateOnly(item.due_at) <= horizonEnd);
     const profiles = profilesResult.data || [];
     const profileMap = new Map(profiles.map((row) => [row.organization_id, row]));

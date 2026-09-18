@@ -8,6 +8,7 @@ import { createCustomerInvoiceCommand } from "@/lib/finance/accounts-receivable/
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { loadCompletePracticeRows } from "@/lib/finance/practice/FinancePracticePopulation";
 
 function clean(value) { return String(value ?? "").trim(); }
 function jsonError(error, status = 400) { return NextResponse.json({ success: false, error }, { status }); }
@@ -62,11 +63,18 @@ export async function POST(request) {
     if (!party) return jsonError("Configured Finance customer party is not available", 409);
     if (!engagement) return jsonError("Accounting engagement not found", 404);
 
-    const { data: entries, error: entriesError } = await supabaseAdmin.from("accounting_practice_time_entries")
-      .select("id,work_date,minutes,billing_rate,currency_code,status,billable")
-      .eq("accounting_firm_id", access.organizationId).eq("engagement_id", engagementId).eq("status", "APPROVED").eq("billable", true).order("work_date", { ascending: true }).limit(10000);
-    if (entriesError) throw entriesError;
-    const rows = entries || [];
+    const rows = await loadCompletePracticeRows({
+      label: "Accounting practice approved billable time",
+      buildQuery: (from, to) => supabaseAdmin.from("accounting_practice_time_entries")
+        .select("id,work_date,minutes,billing_rate,currency_code,status,billable")
+        .eq("accounting_firm_id", access.organizationId)
+        .eq("engagement_id", engagementId)
+        .eq("status", "APPROVED")
+        .eq("billable", true)
+        .order("work_date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    });
     const unpriced = rows.filter((row) => row.billing_rate == null);
     if (profile.billing_method === "TIME_AND_MATERIALS" && !rows.length) return jsonError("No approved unbilled time is available for this time-and-materials engagement", 409);
     if (["TIME_AND_MATERIALS","HYBRID"].includes(profile.billing_method) && unpriced.length) return jsonError("All approved billable time must have a governed billing rate before invoicing", 409);

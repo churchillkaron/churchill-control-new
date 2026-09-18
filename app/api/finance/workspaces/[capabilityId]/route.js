@@ -198,9 +198,11 @@ function failureResponse(error, fallback) {
   const message = error?.message || fallback;
   const status = /permission denied/i.test(message)
     ? 403
-    : /required|not found|read-only|valid JSON|duplicate|unique|already exists|must be|not supported|greater than|no editable fields|does not support archive/i.test(message)
-      ? 400
-      : 500;
+    : /credential|configuration|configure|before activating|not configured/i.test(message)
+      ? 409
+      : /required|not found|read-only|valid JSON|duplicate|unique|already exists|must be|not supported|greater than|no editable fields|does not support archive/i.test(message)
+        ? 400
+        : 500;
 
   return NextResponse.json({ success: false, error: message }, { status });
 }

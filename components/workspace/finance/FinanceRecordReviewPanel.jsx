@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import FinanceBankFeedConnectionPanel from "@/components/workspace/finance/FinanceBankFeedConnectionPanel";
+import FinanceEInvoicePanel from "@/components/workspace/finance/FinanceEInvoicePanel";
 
 import {
   Check,
@@ -274,6 +275,7 @@ export default function FinanceRecordReviewPanel({
         {tab === "overview" ? (
           <>
             {capability?.id === "banking_integrations" ? <FinanceBankFeedConnectionPanel connection={selected} organizationId={organizationId} onRefresh={onRefresh} /> : null}
+            {capability?.id === "customer_invoices" ? <FinanceEInvoicePanel invoice={selected} organizationId={organizationId} entityId={selectedEntityId} /> : null}
           <dl className="mt-3 divide-y divide-black/[0.055]">
             {detailFields.map((field) => (
               <div key={field.label} className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-2.5 text-[10px]">

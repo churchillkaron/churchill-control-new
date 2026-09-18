@@ -5,7 +5,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import { buildBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAnswerContent, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
-import { verifyBusinessDiagnosisProofAuthenticity } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
+import { verifyBusinessDiagnosisProofAuthenticity, businessDiagnosisProofAuthenticityAcceptable } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
 import {
   resolveBusinessContext,
 } from "@/lib/business-context/resolveBusinessContext";
@@ -118,7 +118,7 @@ function persistedBusinessDiagnosisEvidence(result = {}) {
   });
   const answerVerification = verifyBusinessDiagnosisAnswerContent({audit_projection_contract:suppliedProjectionContract,answer_content_fingerprint:diagnosis.answer_content_fingerprint}, result?.decision?.response_text || result?.result?.response || "");
   const authenticityVerification = verifyBusinessDiagnosisProofAuthenticity(diagnosis);
-  const authenticityAcceptable = authenticityVerification.status === "AUTHENTICATED" || authenticityVerification.status === "AUTHENTICITY_NOT_AVAILABLE";
+  const authenticityAcceptable = businessDiagnosisProofAuthenticityAcceptable(authenticityVerification);
   if (verification.status !== "VERIFIED" || answerVerification.status !== "VERIFIED" || !authenticityAcceptable) return {};
   return {
     business_diagnosis: {

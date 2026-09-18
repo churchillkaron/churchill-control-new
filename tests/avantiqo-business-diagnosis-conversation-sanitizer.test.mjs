@@ -271,3 +271,22 @@ test("authenticated diagnosis proof with bad MAC is quarantined", () => {
     if(oldRing===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=oldRing;
   }
 });
+
+
+test("required authenticity quarantines otherwise valid unsigned diagnosis", () => {
+  const oldRequired=process.env.AVANTIQO_BUSINESS_DIAGNOSIS_AUTHENTICITY_REQUIRED;
+  const oldId=process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID;
+  const oldRing=process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON;
+  process.env.AVANTIQO_BUSINESS_DIAGNOSIS_AUTHENTICITY_REQUIRED="true";
+  delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID;
+  delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON;
+  try {
+    const result=businessDiagnosisTurnVerification({role:"assistant",content:"diagnosis",evidence:diagnosisEvidence({answer:"diagnosis"})});
+    assert.equal(result.safe,false);
+    assert.equal(result.authenticity_status,"AUTHENTICITY_NOT_AVAILABLE");
+  } finally {
+    if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_AUTHENTICITY_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_AUTHENTICITY_REQUIRED=oldRequired;
+    if(oldId===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID=oldId;
+    if(oldRing===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=oldRing;
+  }
+});

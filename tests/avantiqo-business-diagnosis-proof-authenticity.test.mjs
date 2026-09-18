@@ -4,6 +4,7 @@ import {
   sealBusinessDiagnosisProofAuthenticity,
   verifyBusinessDiagnosisProofAuthenticity,
   getBusinessDiagnosisProofAuthenticityStatus,
+  businessDiagnosisProofAuthenticityAcceptable,
 } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime.js";
 
 const env = {
@@ -50,4 +51,19 @@ test("missing keyring leaves proof unsigned without exposing secrets", () => {
   assert.equal(status.available, false);
   assert.equal(status.client_exposure_allowed, false);
   assert.equal(status.database_stored_secret_allowed, false);
+});
+
+
+test("diagnosis authenticity requirement is an explicit readiness gate", () => {
+  const optional = getBusinessDiagnosisProofAuthenticityStatus({ env: {} });
+  assert.equal(optional.required, false);
+  assert.equal(optional.ready, true);
+  assert.equal(businessDiagnosisProofAuthenticityAcceptable({ status: "AUTHENTICITY_NOT_AVAILABLE" }, { env: {} }), true);
+
+  const requiredEnv = { AVANTIQO_BUSINESS_DIAGNOSIS_AUTHENTICITY_REQUIRED: "true" };
+  const required = getBusinessDiagnosisProofAuthenticityStatus({ env: requiredEnv });
+  assert.equal(required.required, true);
+  assert.equal(required.ready, false);
+  assert.equal(businessDiagnosisProofAuthenticityAcceptable({ status: "AUTHENTICITY_NOT_AVAILABLE" }, { env: requiredEnv }), false);
+  assert.equal(businessDiagnosisProofAuthenticityAcceptable({ status: "AUTHENTICATED" }, { env: requiredEnv }), true);
 });

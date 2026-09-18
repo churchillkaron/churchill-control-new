@@ -6,7 +6,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { BusinessIntelligenceRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 import { BusinessIntelligenceAgentRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceAgentRuntime";
 import { buildBusinessDiagnosisAuditProjectionFromReceipt, verifyBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAnswerContent, businessDiagnosisProofIntegrityError, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
-import { verifyBusinessDiagnosisProofAuthenticity } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
+import { verifyBusinessDiagnosisProofAuthenticity, businessDiagnosisProofAuthenticityAcceptable } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
 import { classifyBusinessDiagnosisQuestion, resolveBusinessDiagnosisPeriods } from "@/lib/operator/runtime/BusinessPartnerBusinessDiagnosisRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { resolveOrganizationTimeContext } from "@/lib/shared/time/organizationTime";
@@ -131,7 +131,7 @@ function businessDiagnosisAudit(result = {}) {
   });
   const answerVerification = verifyBusinessDiagnosisAnswerContent({audit_projection_contract:receipt.audit_projection_contract,answer_content_fingerprint:receipt.answer_content_fingerprint}, result?.result?.response || "");
   const authenticityVerification = verifyBusinessDiagnosisProofAuthenticity(receipt);
-  const authenticityAcceptable = authenticityVerification.status === "AUTHENTICATED" || authenticityVerification.status === "AUTHENTICITY_NOT_AVAILABLE";
+  const authenticityAcceptable = businessDiagnosisProofAuthenticityAcceptable(authenticityVerification);
   if (verification.status !== "VERIFIED" || answerVerification.status !== "VERIFIED" || !authenticityAcceptable) throw businessDiagnosisProofIntegrityError("DIRECT_API_LIVE_RETURN");
   return {
     ...projection,

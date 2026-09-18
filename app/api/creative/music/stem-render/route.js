@@ -226,6 +226,7 @@ async function registerStem(body) {
       evidence_input_fingerprint: stem.evidence_input_fingerprint || null,
       project_revision: revision,
       render_plan_fingerprint: planFingerprint,
+      delivery_profile_id: plan.delivery_profile?.id || "music_release",
       source_asset_ids: stem.source_asset_ids,
       source_assets_preserved: true,
       sample_rate: sampleRate,

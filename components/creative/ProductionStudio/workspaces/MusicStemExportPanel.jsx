@@ -30,6 +30,7 @@ export default function MusicStemExportPanel({
   assetUrls,
   plan,
   deliveryLanguage: deliveryLanguageProp = "en",
+  deliveryProfileId = "music_release",
   disabled = false,
 }) {
   const tracks = useMemo(() => (session?.tracks || []).filter((track) => track.mute !== true), [session]);
@@ -44,7 +45,7 @@ export default function MusicStemExportPanel({
 
   const revision = Math.max(0, Math.round(Number(session?.revision) || 0));
   const postManifest = useMemo(() => buildProfessionalAudioDeliveryManifest(session || {}), [session]);
-  const stemOptions = useMemo(() => ({ mastering: plan?.master?.mastering || { profile: "streaming" }, release_mp3: false, track_stems: true, group_stems: true }), [plan]);
+  const stemOptions = useMemo(() => ({ mastering: plan?.master?.mastering || { profile: "streaming" }, delivery_profile: deliveryProfileId, release_mp3: false, track_stems: true, group_stems: true }), [plan, deliveryProfileId]);
 
   async function request(payload) {
     const response = await fetch("/api/creative/music/stem-render", {

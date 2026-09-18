@@ -7,6 +7,9 @@ import { renderMusicMultitrackOffline } from "@/lib/creative/music/client/MusicO
 import { renderMusicSurroundPremasterOffline } from "@/lib/creative/music/client/MusicOfflineSurroundRenderRuntime";
 import MusicStemExportPanel from "./MusicStemExportPanel";
 import { audioPostSessionHasLanguageRoles, buildAudioPostLanguageSession } from "@/lib/creative/music/runtime/CreativeAudioPostVersionRuntime";
+import { listProfessionalAudioDeliveryProfiles } from "@/lib/creative/music/runtime/CreativeProfessionalAudioDeliveryProfileRuntime";
+
+const DELIVERY_PROFILES = listProfessionalAudioDeliveryProfiles();
 
 const PROFILES = [
   ["streaming", "Streaming", "-14 LUFS · -1 dBTP"],
@@ -36,11 +39,15 @@ export default function MusicReleaseRenderPanel({
   const [result, setResult] = useState(null);
   const [professionalRelease, setProfessionalRelease] = useState(null);
   const [deliveryLanguage, setDeliveryLanguage] = useState("en");
+  const [deliveryProfileId, setDeliveryProfileId] = useState(session?.picture_lock?.picture_lock_digest ? "picture_post" : "music_release");
+  const [deliveryTargetLufs, setDeliveryTargetLufs] = useState("");
+  const [deliveryTruePeak, setDeliveryTruePeak] = useState("");
 
   const revision = Math.max(0, Math.round(finite(session?.revision, 0)));
   const languageVersioned = audioPostSessionHasLanguageRoles(session || {});
   const renderSession = useMemo(() => languageVersioned ? buildAudioPostLanguageSession(session || {}, deliveryLanguage) : session, [session, languageVersioned, deliveryLanguage]);
-  const options = useMemo(() => ({ mastering: { profile }, release_mp3: releaseMp3, track_stems: true, group_stems: true }), [profile, releaseMp3]);
+  const explicitDeliveryTarget = ["broadcast_handoff","cinema_handoff"].includes(deliveryProfileId);
+  const options = useMemo(() => ({ mastering: { profile, ...(explicitDeliveryTarget && deliveryTargetLufs !== "" ? { target_lufs: Number(deliveryTargetLufs) } : {}), ...(explicitDeliveryTarget && deliveryTruePeak !== "" ? { true_peak_dbtp: Number(deliveryTruePeak) } : {}) }, delivery_profile: deliveryProfileId, release_mp3: releaseMp3, track_stems: true, group_stems: true }), [profile, deliveryProfileId, explicitDeliveryTarget, deliveryTargetLufs, deliveryTruePeak, releaseMp3]);
 
   async function request(payload) {
     const response = await fetch("/api/creative/music/release-render", {
@@ -96,7 +103,7 @@ export default function MusicReleaseRenderPanel({
   useEffect(() => {
     void refreshPlan();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId, projectId, revision, profile, releaseMp3, deliveryLanguage]);
+  }, [organizationId, projectId, revision, profile, deliveryProfileId, deliveryTargetLufs, deliveryTruePeak, releaseMp3, deliveryLanguage]);
 
   async function renderAndMaster() {
     if (!session || busy || disabled) return;
@@ -235,6 +242,8 @@ export default function MusicReleaseRenderPanel({
 
       {languageVersioned ? <div className="mt-4 rounded-xl border border-[#d6a66a]/12 bg-[#d6a66a]/[0.02] p-3"><label className="flex items-center justify-between gap-3 text-[8px] uppercase tracking-[0.13em] text-[#efd29f]/50"><span>Full Mix language version</span><input value={deliveryLanguage} onChange={e=>setDeliveryLanguage(e.target.value.trim().toLowerCase())} className="w-24 rounded-lg border border-white/8 bg-black/25 px-2 py-1.5 text-[9px] normal-case tracking-normal text-white/55"/></label><div className="mt-1 text-[7px] text-white/18">Only DX / VO / ADR clips matching this language enter the Full Mix. M&E/common sound remains shared.</div></div> : null}
 
+      <div className="mt-4 rounded-xl border border-white/7 bg-black/15 p-3"><label className="block"><div className="mb-1 text-[8px] uppercase tracking-[0.14em] text-white/22">Delivery profile</div><select disabled={disabled || busy} value={deliveryProfileId} onChange={e=>setDeliveryProfileId(e.target.value)} className="w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-[9px] text-white/55">{DELIVERY_PROFILES.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label><div className="mt-2 text-[7px] text-white/18">{plan?.delivery_profile ? `${plan.delivery_profile.label} · ${plan.delivery_profile.bwf_required ? "BWF required" : "BWF optional"} · ${plan.delivery_profile.required_sample_rate ? `${plan.delivery_profile.required_sample_rate/1000} kHz` : "session sample rate"} · ${plan.delivery_profile.allowed_layouts.join(" / ")}` : "Select a handoff contract."}</div>{explicitDeliveryTarget ? <div className="mt-3 grid grid-cols-2 gap-2"><label><div className="mb-1 text-[7px] uppercase tracking-[0.12em] text-white/18">Target LUFS</div><input type="number" step="0.1" value={deliveryTargetLufs} onChange={e=>setDeliveryTargetLufs(e.target.value)} placeholder="required" className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-1.5 text-[9px] text-white/55"/></label><label><div className="mb-1 text-[7px] uppercase tracking-[0.12em] text-white/18">True peak dBTP</div><input type="number" step="0.1" value={deliveryTruePeak} onChange={e=>setDeliveryTruePeak(e.target.value)} placeholder="required" className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-1.5 text-[9px] text-white/55"/></label><div className="col-span-2 text-[7px] text-amber-100/35">Broadcast/Cinema targets are explicit delivery requirements; Avantiqo does not silently assume one global regional standard.</div></div> : null}</div>
+
       <div className="mt-4 grid grid-cols-2 gap-3">
         <label className="block"><div className="mb-1 text-[8px] uppercase tracking-[0.14em] text-white/22">Master profile</div><select disabled={disabled || busy} value={profile} onChange={(event) => setProfile(event.target.value)} className="w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-[9px] text-white/55 disabled:opacity-25">{PROFILES.map(([id, label, detail]) => <option key={id} value={id}>{label} · {detail}</option>)}</select></label>
         <label className="flex items-center gap-2 self-end rounded-lg border border-white/7 px-3 py-2 text-[9px] text-white/38"><input type="checkbox" disabled={disabled || busy} checked={releaseMp3} onChange={(event) => setReleaseMp3(event.target.checked)} className="accent-[#d6a66a]" /> 320k MP3 + WAV</label>
@@ -257,6 +266,7 @@ export default function MusicReleaseRenderPanel({
         plan={plan}
         disabled={disabled || busy || !ready}
         deliveryLanguage={deliveryLanguage}
+        deliveryProfileId={deliveryProfileId}
       /></div> : null}
 
       <div className="mt-3 text-[7px] leading-3 text-white/15">No provider generation is used. Original takes/assets remain immutable. Release masters alone receive final limiter/loudness and true-peak certification. Track/group stems are 24-bit pre-Master engineering exports; Instrumental/Acapella preserve the mix graph but remain un-limited derived alternates unless separately mastered.</div>

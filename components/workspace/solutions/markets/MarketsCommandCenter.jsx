@@ -157,6 +157,19 @@ export default function MarketsCommandCenter({ organizationId }) {
   const agentPerformance = Array.isArray(data?.agentPerformance) ? data.agentPerformance : [];
   const portfolioPerformance = data?.portfolioPerformance?.summary || {};
   const corporateActions = Array.isArray(data?.corporateActions) ? data.corporateActions : [];
+  const corporateActionAdjustments = Array.isArray(data?.corporateActionAdjustments)
+    ? data.corporateActionAdjustments
+    : [];
+  const corporateActionAdjustmentCounts = corporateActionAdjustments.reduce(
+    (counts, row) => {
+      const status = String(row?.status || "").toUpperCase();
+      if (status === "APPLIED") counts.applied += 1;
+      if (status === "UNRESOLVED") counts.unresolved += 1;
+      if (status === "SKIPPED") counts.skipped += 1;
+      return counts;
+    },
+    { applied: 0, unresolved: 0, skipped: 0 },
+  );
   const policy = data?.riskPolicy || {};
   const latestBacktest = backtestRuns[0] || null;
   const completedBacktests = backtestRuns.filter((row) => row.status === "COMPLETED");
@@ -667,6 +680,65 @@ export default function MarketsCommandCenter({ organizationId }) {
                     </div>
                     <div className="mt-2 text-[8px] leading-4 text-[#9A968E]">
                       Provider coverage is not guaranteed and records may arrive late. An empty list is not proof that no corporate action exists.
+                    </div>
+                  </div>
+                  <div className="mt-3 rounded-xl border border-black/[0.06] bg-white p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">Paper accounting ledger</div>
+                      <div className="text-[8px] text-[#9A968E]">PAPER only</div>
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {[
+                        ["Applied", corporateActionAdjustmentCounts.applied],
+                        ["Unresolved", corporateActionAdjustmentCounts.unresolved],
+                        ["Skipped", corporateActionAdjustmentCounts.skipped],
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-lg border border-black/[0.05] bg-[#FCFBF9] px-2.5 py-2">
+                          <div className="text-[7px] uppercase tracking-[0.1em] text-[#9A968E]">{label}</div>
+                          <div className="mt-0.5 text-[13px] font-semibold">{value}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 space-y-1.5">
+                      {corporateActionAdjustments.length ? corporateActionAdjustments.slice(0, 6).map((adjustment) => {
+                        const status = String(adjustment.status || "").toUpperCase();
+                        const detail = adjustment.adjustment_type === "SPLIT" && adjustment.split_ratio
+                          ? `ratio ${Number(adjustment.split_ratio).toFixed(4)}×`
+                          : adjustment.adjustment_type === "CASH_DIVIDEND" && adjustment.cash_amount != null
+                            ? `cash ${formatMoney(adjustment.cash_amount, baseCurrency)} · qty ${Number(adjustment.entitlement_quantity || 0).toFixed(4)}`
+                            : adjustment.reason || "No accounting mutation";
+                        return (
+                          <div key={adjustment.id} className="rounded-lg border border-black/[0.05] bg-[#FCFBF9] px-2.5 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-[9px] font-semibold">
+                                  {adjustment.symbol} · {String(adjustment.adjustment_type || "UNSUPPORTED").replaceAll("_", " ")}
+                                </div>
+                                <div className="mt-0.5 truncate text-[8px] text-[#817D76]">{detail}</div>
+                              </div>
+                              <div className={`shrink-0 rounded-full px-2 py-0.5 text-[7px] font-medium ${
+                                status === "APPLIED"
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : status === "UNRESOLVED"
+                                    ? "bg-amber-50 text-amber-700"
+                                    : "bg-[#F3F1ED] text-[#817D76]"
+                              }`}>
+                                {status || "UNKNOWN"}
+                              </div>
+                            </div>
+                            {adjustment.reason ? (
+                              <div className="mt-1 text-[8px] leading-4 text-[#9A968E]">{adjustment.reason}</div>
+                            ) : null}
+                          </div>
+                        );
+                      }) : (
+                        <div className="rounded-lg border border-dashed border-black/[0.08] px-2.5 py-3 text-[8px] text-[#9A968E]">
+                          No corporate-action accounting adjustments have been recorded yet.
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-2 text-[8px] leading-4 text-[#9A968E]">
+                      Ambiguous or late events remain UNRESOLVED and do not mutate PAPER positions or cash. This ledger never changes live-execution authority.
                     </div>
                   </div>
                   <div className="mt-3 rounded-xl border border-emerald-200/70 bg-emerald-50 px-3 py-2.5 text-[10px] text-emerald-700">

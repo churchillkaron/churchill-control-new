@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { resolveBusinessContext } from "@/lib/business-context/resolveBusinessContext";
 import { MarketAutonomousPaperRuntime } from "@/lib/markets/runtime/MarketAutonomousPaperRuntime";
+import { MarketCorporateActionAdjustmentRuntime } from "@/lib/markets/runtime/MarketCorporateActionAdjustmentRuntime";
 import { MarketCorporateActionRiskRuntime } from "@/lib/markets/runtime/MarketCorporateActionRiskRuntime";
 import { MarketIntelligenceIngestionRuntime } from "@/lib/markets/runtime/MarketIntelligenceIngestionRuntime";
 import { evaluateMarketMicrostructureRisk } from "@/lib/markets/runtime/MarketMicrostructureRiskModels";
@@ -95,10 +96,11 @@ async function loadState({ organizationId, entityId }) {
         summary: null,
       },
       corporateActions: [],
+      corporateActionAdjustments: [],
     };
   }
 
-  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult, corporateActionsResult] = await Promise.all([
+  const [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult, corporateActionsResult, corporateActionAdjustmentsResult] = await Promise.all([
     supabaseAdmin.from("market_watchlist").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).neq("status", "REMOVED").order("added_at", { ascending: false }),
     supabaseAdmin.from("market_decisions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("created_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_paper_orders").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("submitted_at", { ascending: false }).limit(50),
@@ -118,9 +120,10 @@ async function loadState({ organizationId, entityId }) {
     supabaseAdmin.from("market_backtest_runs").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("started_at", { ascending: false }).limit(50),
     supabaseAdmin.from("market_agent_performance").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("agent_type", { ascending: true }),
     supabaseAdmin.from("market_corporate_actions").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("event_date", { ascending: true }).limit(100),
+    supabaseAdmin.from("market_corporate_action_adjustments").select("*").eq("organization_id", organizationId).eq("portfolio_id", portfolio.id).order("created_at", { ascending: false }).limit(100),
   ]);
 
-  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult, corporateActionsResult]) {
+  for (const result of [watchlistResult, decisionsResult, ordersResult, policyResult, evidenceResult, thesesResult, liveSnapshotsResult, snapshotsResult, filingsResult, outcomesResult, paperAccountResult, paperPositionsResult, paperFillsResult, feedStatusResult, automationPolicyResult, automationRunsResult, backtestRunsResult, agentPerformanceResult, corporateActionsResult, corporateActionAdjustmentsResult]) {
     if (result.error) throw result.error;
   }
 
@@ -153,6 +156,7 @@ async function loadState({ organizationId, entityId }) {
     agentPerformance: agentPerformanceResult.data || [],
     portfolioPerformance,
     corporateActions: corporateActionsResult.data || [],
+    corporateActionAdjustments: corporateActionAdjustmentsResult.data || [],
   };
 }
 
@@ -814,8 +818,23 @@ export async function POST(request) {
     }
 
     if (action === "SUBMIT_PAPER_ORDER") {
-      const result = await submitPaperOrder({ organizationId, state, body });
-      return NextResponse.json({ success: true, ...result }, { status: result.approved ? 200 : 409 });
+      const corporateActionAccounting = await MarketCorporateActionAdjustmentRuntime.applyDue({
+        organizationId,
+        portfolioId: state.portfolio.id,
+      });
+      const authoritativeState = corporateActionAccounting.applied > 0
+        ? await loadState({ organizationId, entityId })
+        : state;
+      const result = await submitPaperOrder({
+        organizationId,
+        state: authoritativeState,
+        body,
+      });
+      return NextResponse.json({
+        success: true,
+        corporateActionAccounting,
+        ...result,
+      }, { status: result.approved ? 200 : 409 });
     }
 
     if (action === "PROCESS_PAPER_ORDERS") {

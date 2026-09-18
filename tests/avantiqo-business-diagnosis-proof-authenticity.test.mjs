@@ -140,3 +140,12 @@ test("client redaction removes originating user content fingerprint", () => {
   const safe=redactBusinessDiagnosisProofForClient({scope_user_content_fingerprint:"a".repeat(64),receipt_fingerprint:"b".repeat(64)});
   assert.equal(Object.prototype.hasOwnProperty.call(safe,"scope_user_content_fingerprint"),false);
 });
+
+
+test("originating user fingerprint covers the full persisted prompt beyond 12000 characters", () => {
+  const prefix="x".repeat(12000);
+  const first=businessDiagnosisUserTurnContentFingerprint(prefix+"A");
+  const second=businessDiagnosisUserTurnContentFingerprint(prefix+"B");
+  assert.notEqual(first,second);
+  assert.equal(first,businessDiagnosisUserTurnContentFingerprint(`  ${prefix}A  `));
+});

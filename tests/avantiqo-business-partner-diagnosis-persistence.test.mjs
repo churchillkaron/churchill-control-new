@@ -230,3 +230,13 @@ test("persisted diagnosis proof binds fingerprint of exact originating user cont
   assert.match(route,/scope_user_content_fingerprint: text\(persistedProof\.scope_user_content_fingerprint\) \|\| null/);
   assert.match(route,/userTurnContent: message/);
 });
+
+
+test("originating diagnosis prompt fingerprint is not truncated below persisted text capacity",()=>{
+  const auth=fs.readFileSync("lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime.js","utf8");
+  assert.match(auth,/const canonicalContent = String\(content \?\? ""\)\.trim\(\)/);
+  assert.doesNotMatch(auth,/businessDiagnosisUserTurnContentFingerprint[\s\S]{0,250}text\(content, 12000\)/);
+  const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
+  assert.match(runtime,/const normalizedContent = text\(content\)/);
+  assert.match(runtime,/content: normalizedContent/);
+});

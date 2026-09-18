@@ -6,12 +6,31 @@ const runtime = fs.readFileSync(
   new URL("../lib/markets/runtime/MarketPaperExecutionRuntime.js", import.meta.url),
   "utf8",
 );
+const mutationMigration = fs.readFileSync(
+  new URL("../supabase/migrations/20260918132124_avantiqo_markets_fill_mutation_binding_v1.sql", import.meta.url),
+  "utf8",
+);
 
 test("paper fill worker requires the governed decision to remain approved", () => {
   assert.match(
     runtime,
     /decision\.risk_status !== "APPROVED_PAPER"[\s\S]*?GOVERNED_DECISION_NOT_APPROVED/,
   );
+});
+
+test("paper fill worker binds order symbol and side to the governed decision", () => {
+  assert.match(
+    runtime,
+    /decision\.symbol[\s\S]*?order\.symbol[\s\S]*?decision\.action[\s\S]*?order\.side[\s\S]*?ORDER_DECISION_MUTATION_MISMATCH/,
+  );
+});
+
+test("database fill wrapper enforces the same decision mutation binding", () => {
+  assert.match(
+    mutationMigration,
+    /v_decision\.symbol[\s\S]*?v_order\.symbol[\s\S]*?v_decision\.action[\s\S]*?v_order\.side[\s\S]*?PAPER_ORDER_DECISION_MUTATION_MISMATCH/,
+  );
+  assert.match(mutationMigration, /grant execute[\s\S]*?to service_role/);
 });
 
 test("paper BUY fill worker honors the live circuit-breaker latch", () => {

@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 382,
-    "passed": 382,
+    "tests": 383,
+    "passed": 383,
     "failed": 0
   },
   "workstreams": [
@@ -255,6 +255,22 @@
       "live_semantic_duplicate_count": 0,
       "live_browser_errors": 0,
       "accounting_mutation_authority": false
+    },
+    {
+      "order": 19,
+      "name": "No-dead-end practice billing references",
+      "commit": "8b239ffbfa73",
+      "status": "OPERATIONAL_GOVERNED_REFERENCE_CREATION_PATHS",
+      "customer": "Finance customer dropdown links to the canonical Customers workspace in create mode.",
+      "revenue_account": "Revenue-account dropdown links to the canonical Chart of Accounts workspace in create mode.",
+      "tax_rule": "Tax-rule dropdown links to the canonical Tax Codes workspace in create mode.",
+      "workflow": "Create links open separately so unsaved practice billing policy state is not discarded; existing Refresh reloads governed choices.",
+      "live_wr_accounting_create_customer": true,
+      "live_wr_accounting_create_account": true,
+      "live_wr_accounting_create_tax_rule": true,
+      "live_browser_errors": 0,
+      "duplicate_creation_authority": false,
+      "accounting_mutation_authority": false
     }
   ],
   "live_acceptance": {
@@ -324,6 +340,8 @@
     "new_decision_population_caps_fail_regression": true,
     "practice_billing_tax_rule_jurisdiction_scoped": true,
     "practice_billing_tax_rule_server_revalidated": true,
-    "practice_billing_tax_rule_semantic_duplicates_removed": true
+    "practice_billing_tax_rule_semantic_duplicates_removed": true,
+    "practice_billing_creatable_references_have_governed_create_paths": true,
+    "practice_billing_does_not_duplicate_customer_account_tax_creation_engines": true
   }
 }

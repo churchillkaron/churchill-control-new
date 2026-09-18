@@ -4,7 +4,7 @@ export const metadata = { title: 'Finish the record, not just the generation. | 
 
 const config = {
   context: 'Music Studio',
-  artKind: 'creative',
+  artKind: 'music-studio',
   audience: 'creative',
   eyebrow: 'AVANTIQO / AUDIO MASTERING',
   title: 'Finish the record, not just the generation.',

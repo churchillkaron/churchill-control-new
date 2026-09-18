@@ -4,9 +4,9 @@ export const metadata = { title: 'From idea to finished film. | Avantiqo', descr
 
 const config = {
   context: 'Video Studio',
-  artKind: 'creative',
+  artKind: 'video-studio',
   audience: 'creative',
-  eyebrow: 'AVANTIQO / AI VIDEO PRODUCTION',
+  eyebrow: 'AVANTIQO / FILM PRODUCTION',
   title: 'From idea to finished film.',
   lead: 'Research, story development, direction, shot design, continuity, generation, dailies, repair, edit, VFX, sound, color and final delivery in one production workflow.',
   primary: 'Enter Video Studio',

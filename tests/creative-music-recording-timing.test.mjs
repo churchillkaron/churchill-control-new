@@ -48,3 +48,11 @@ test("backing playback and calibration share the explicitly selected output sink
   assert.match(preview,/output_sink_verified/);
   assert.match(overdub,/startMusicMultitrackPreview\(\{ session, assetUrls, startSeconds, stopAtSeconds, outputDeviceId: outputDeviceId \|\| null \}\)/);
 });
+
+
+test("count-in uses the same selected output and sample rate as overdub playback",()=>{
+  assert.match(overdub,/playCountIn\(\{ bpm, bars: countInBars, signature, outputDeviceId: outputDeviceId \|\| null, sampleRate: finite\(session\?\.sample_rate, null\) \}\)/);
+  assert.match(overdub,/CREATIVE_MUSIC_COUNT_IN_OUTPUT_SELECTION_UNSUPPORTED/);
+  assert.match(overdub,/CREATIVE_MUSIC_COUNT_IN_OUTPUT_SELECTION_UNVERIFIED/);
+  assert.match(overdub,/context.setSinkId\(outputDeviceId\)/);
+});

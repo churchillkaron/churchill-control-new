@@ -30,15 +30,22 @@ async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function playCountIn({ bpm, bars, signature }) {
+async function playCountIn({ bpm, bars, signature, outputDeviceId = null, sampleRate = null }) {
   if (!bars) return;
   const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
   if (!AudioContextClass) {
     await sleep(bars * beatsPerBar(signature) * (60_000 / bpm));
     return;
   }
-  const context = new AudioContextClass({ latencyHint: "interactive" });
+  const context = new AudioContextClass({ latencyHint: "interactive", ...(Number.isFinite(Number(sampleRate)) && Number(sampleRate) > 0 ? { sampleRate: Number(sampleRate) } : {}) });
   await context.resume();
+  if (outputDeviceId) {
+    if (typeof context.setSinkId !== "function") { await context.close().catch(() => {}); throw new Error("CREATIVE_MUSIC_COUNT_IN_OUTPUT_SELECTION_UNSUPPORTED"); }
+    await context.setSinkId(outputDeviceId);
+    const sink = context.sinkId;
+    const sinkId = typeof sink === "string" ? sink : sink?.deviceId;
+    if (sinkId !== outputDeviceId) { await context.close().catch(() => {}); throw new Error("CREATIVE_MUSIC_COUNT_IN_OUTPUT_SELECTION_UNVERIFIED"); }
+  }
   const beats = bars * beatsPerBar(signature);
   const secondsPerBeat = 60 / bpm;
   const start = context.currentTime + 0.03;
@@ -375,7 +382,7 @@ export default function MusicWorkstationOverdubPanel({
       });
       captureRef.current = capture;
       setPhase("COUNT-IN");
-      await playCountIn({ bpm, bars: countInBars, signature });
+      await playCountIn({ bpm, bars: countInBars, signature, outputDeviceId: outputDeviceId || null, sampleRate: finite(session?.sample_rate, null) });
       if (cancelledRef.current) return;
       await capture.splitPass({ allowEmpty: true });
 

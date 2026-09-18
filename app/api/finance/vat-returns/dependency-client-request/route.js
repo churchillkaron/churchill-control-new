@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { fetchCompleteFinancePopulation } from "@/lib/finance/data/fetchCompleteFinancePopulation";
 import { buildFinanceVatReturnPreflight } from "@/lib/finance/tax/FinanceVatReturnPreflight";
 import { applyFinanceTaxCalendarToPreflight } from "@/lib/finance/tax/FinanceTaxCalendarPolicy";
 import { applyFinanceVatCalculationMethodToPreflight } from "@/lib/finance/tax/FinanceVatCalculationMethodPolicy";
@@ -106,15 +107,17 @@ async function loadGovernedRequestContexts({ organizationId, entityId, requests 
 }
 
 async function listAuthenticRequests({ organizationId, entityId }) {
-  const { data, error } = await supabaseAdmin
-    .from("accounting_client_requests")
-    .select("id,accounting_firm_id,organization_id,entity_id,run_id,work_item_id,title,status,due_at,sent_at,submitted_at,accepted_at,updated_at")
-    .eq("organization_id", organizationId)
-    .eq("entity_id", entityId)
-    .order("updated_at", { ascending: false })
-    .limit(100);
-  if (error) throw new Error(error.message);
-  return loadGovernedRequestContexts({ organizationId, entityId, requests: data || [] });
+  const population = await fetchCompleteFinancePopulation({
+    label: "VAT dependency authentic client requests",
+    buildQuery: (from, to) => supabaseAdmin.from("accounting_client_requests")
+      .select("id,accounting_firm_id,organization_id,entity_id,run_id,work_item_id,title,status,due_at,sent_at,submitted_at,accepted_at,updated_at")
+      .eq("organization_id", organizationId)
+      .eq("entity_id", entityId)
+      .order("updated_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to),
+  });
+  return loadGovernedRequestContexts({ organizationId, entityId, requests: population.rows || [] });
 }
 
 async function loadEnvelope({ organizationId, entityId, vatReturnId, dependencyCode }) {

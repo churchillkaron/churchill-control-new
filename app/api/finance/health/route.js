@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { fetchCompleteFinancePopulation } from "@/lib/finance/data/fetchCompleteFinancePopulation";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 
@@ -50,18 +51,20 @@ export async function GET(request) {
       issues: [],
     };
 
-    const { data: journals, error: journalsError } = await supabaseAdmin
-      .from("journal_entries")
-      .select(`
-        *,
-        journal_entry_lines (*)
-      `)
-      .eq("organization_id", organizationId)
-      .limit(5000);
+    const journalPopulation = await fetchCompleteFinancePopulation({
+      label: "Finance health journal population",
+      buildQuery: (from, to) => supabaseAdmin.from("journal_entries")
+        .select(`
+          *,
+          journal_entry_lines (*)
+        `)
+        .eq("organization_id", organizationId)
+        .order("id", { ascending: true })
+        .range(from, to),
+    });
+    const journals = journalPopulation.rows || [];
 
-    if (journalsError) throw journalsError;
-
-    report.journalCount = journals?.length || 0;
+    report.journalCount = journals.length;
     const seen = new Set();
 
     for (const journal of journals || []) {

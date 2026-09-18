@@ -25,5 +25,5 @@ test("invalid evidence reason reaches analysis instead of degrading to generic m
   assert.match(evidence,/track_render_rejections/);
   assert.match(evidence,/invalid_evidence_render_count/);
   assert.match(evidence,/blocked_evidence_track_count/);
-  assert.match(engineer,/current technically valid neutral evidence/);
+  assert.match(engineer,/complete technically valid neutral evidence/);
 });

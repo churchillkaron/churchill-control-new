@@ -5,7 +5,7 @@ import fs from "node:fs";
 const source=fs.readFileSync(new URL("../lib/creative/music/runtime/CreativeMusicMixEvidenceRuntime.js",import.meta.url),"utf8");
 
 test("mix evidence batches spectral and temporal measurements into one FFmpeg process",()=>{
-  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V20/);
+  assert.match(source,/AVANTIQO_MUSIC_MIX_EVIDENCE_V21/);
   assert.match(source,/asplit=\$\{bands\.length\+2\}/);
   for(const name of ["full","sub","lowmid","warmth","boxiness","presence","air","sibilance"]) assert.match(source,new RegExp(`volumedetect@\\$\\{name\\}`));
   assert.match(source,/aformat=channel_layouts=stereo,asplit=5\[fullst\]\[presencest\]\[lowst\]\[bodyst\]\[harshst\]/);
@@ -31,7 +31,7 @@ test("batched envelope graph preserves full, presence, and low evidence bands",(
 
 test("mix evidence covers the used song range instead of silently truncating at two minutes",()=>{
   assert.match(source,/MAX_ANALYSIS_SECONDS = 600/);
-  assert.match(source,/analysisSecondsFor/);
+  assert.match(source,/analysisRangeFor/);
   assert.match(source,/source_offset_seconds/);
   assert.match(source,/start_seconds/);
   assert.match(source,/analysis_seconds/);
@@ -86,4 +86,14 @@ test("one-pass evidence measures low-frequency stereo compatibility from existin
   assert.match(source,/low_mono_fold_down_loss_db/);
   assert.match(source,/low_stereo_phase_risk/);
   assert.match(source,/analysis_process_count:1/);
+});
+
+
+test("analysis cap becomes fail-closed partial diagnostics instead of full-track evidence",()=>{
+  assert.match(source,/analysis_required_seconds/);
+  assert.match(source,/analysis_coverage_ratio/);
+  assert.match(source,/analysis_complete/);
+  assert.match(source,/ANALYSIS_RANGE_INCOMPLETE/);
+  assert.match(source,/partial_measurement:true/);
+  assert.match(source,/incomplete_analysis_range_count/);
 });

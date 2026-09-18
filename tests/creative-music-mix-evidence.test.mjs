@@ -70,3 +70,19 @@ test("Mix Engineer reports when multi-source edited tracks need rendered evidenc
   assert.match(issue.message,/1 edited track/);
   assert.match(issue.message,/track render/i);
 });
+
+
+test("Mix Engineer reuses only current lineage-matched track stem renders",()=>{
+  assert.match(route,/music_asset_kind\)!=="TRACK_STEM_RENDER"/);
+  assert.match(route,/render_kind\)!=="TRACK_STEM"/);
+  assert.match(route,/project_revision/);
+  assert.match(route,/JSON\.stringify\(lineage\)!==JSON\.stringify\(expected\)/);
+  assert.match(route,/track_render_urls\[trackId\]=await resolveCreativeProviderAssetUrl/);
+  assert.match(evidence,/track_render_urls/);
+  assert.match(evidence,/evidence_source:sourceIds\.length>1\?"TRACK_STEM_RENDER":"SOURCE_ASSET"/);
+  assert.match(evidence,/evidence_timeline_basis:sourceIds\.length>1\?"TRACK_RENDER":"SOURCE_MEDIA"/);
+});
+
+test("track-render temporal evidence is read in project timeline coordinates",()=>{
+  assert.match(evidence,/evidence_timeline_basis==="TRACK_RENDER"\?time:/);
+});

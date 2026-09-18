@@ -37,6 +37,9 @@ export default function MusicMasterStudioPanel({ organizationId, projectId }) {
   const [validatingId, setValidatingId] = useState("");
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("ALL");
+  const [referenceIds, setReferenceIds] = useState([]);
+  const [referenceResult, setReferenceResult] = useState(null);
+  const [referenceBusy, setReferenceBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!organizationId || !projectId) return;
@@ -88,6 +91,19 @@ export default function MusicMasterStudioPanel({ organizationId, projectId }) {
     }
   }
 
+
+  async function analyzeReferences() {
+    if (!currentMaster?.id || !referenceIds.length || referenceBusy) return;
+    setReferenceBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/creative/music/master-reference", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ organization_id:organizationId, creative_project_id:projectId, master_asset_id:currentMaster.id, reference_asset_ids:referenceIds }) });
+      const body = await response.json();
+      if (!response.ok || body.success === false) throw new Error(body.error || "Reference mastering analysis failed");
+      setReferenceResult(body.result || null);
+    } catch (cause) { setError(cause?.message || "Reference mastering analysis failed"); } finally { setReferenceBusy(false); }
+  }
+
   const releases = useMemo(() => {
     const all = Array.isArray(library.releases) ? library.releases : [];
     return filter === "ALL" ? all : all.filter((item) => item.kind === filter);
@@ -130,6 +146,12 @@ export default function MusicMasterStudioPanel({ organizationId, projectId }) {
       </div>
 
       {error ? <div className="mt-4 rounded-xl border border-red-300/12 bg-red-400/[0.025] px-4 py-3 text-[9px] text-red-100/65">{error}</div> : null}
+
+      <div className="mt-5 rounded-2xl border border-[#d6a66a]/12 bg-[#d6a66a]/[0.018] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#efd29f]/55">Reference mastering</div><div className="mt-1 text-[10px] text-white/42">Level-matched A/B analysis for tonal balance, dynamics, stereo image and mono translation.</div><div className="mt-1 text-[7px] text-white/20">References guide human mastering review only. Avantiqo never auto-copies EQ, compression, width or loudness.</div></div><button type="button" disabled={!currentMaster || !referenceIds.length || referenceBusy} onClick={analyzeReferences} className="rounded-lg border border-[#d6a66a]/20 px-3 py-2 text-[8px] text-[#efd29f]/60 disabled:opacity-25">{referenceBusy ? "Analyzing…" : "Compare references"}</button></div>
+        <div className="mt-3 flex flex-wrap gap-1.5">{(library.reference_candidates || []).filter(item=>item.id!==currentMaster?.id).slice(0,40).map(item=>{const selected=referenceIds.includes(item.id);return <button key={item.id} type="button" onClick={()=>setReferenceIds(current=>selected?current.filter(id=>id!==item.id):(current.length>=8?current:[...current,item.id]))} className={`rounded-lg border px-2 py-1.5 text-[7px] ${selected?"border-[#d6a66a]/30 bg-[#d6a66a]/10 text-[#efd29f]/70":"border-white/7 text-white/28"}`}>{item.name}</button>})}</div>
+        {referenceResult?.references?.length ? <div className="mt-3 space-y-2">{referenceResult.references.map((row,index)=><div key={`${row.reference_asset_id||index}`} className="rounded-xl border border-white/7 bg-black/20 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-[9px] text-white/58">{row.reference_name || `Reference ${index+1}`}</div><div className="text-[7px] text-white/25">level match {row.loudness_match_gain_db >= 0 ? "+" : ""}{row.loudness_match_gain_db} dB</div></div><div className="mt-2 grid grid-cols-2 gap-2 text-[7px] text-white/30 sm:grid-cols-4"><span>Crest Δ {row.deltas?.crest_delta_db ?? "—"} dB</span><span>Stereo corr Δ {row.deltas?.stereo_correlation_delta ?? "—"}</span><span>Mono Δ {row.deltas?.mono_fold_down_delta_db ?? "—"} dB</span><span>{row.review_flags?.length ? `${row.review_flags.length} review flag(s)` : "No threshold flags"}</span></div><div className="mt-2 flex flex-wrap gap-1">{Object.entries(row.deltas?.band_deltas_db || {}).map(([band,value])=><span key={band} className="rounded-md border border-white/6 px-1.5 py-1 text-[7px] text-white/24">{band} {value >= 0 ? "+" : ""}{value} dB</span>)}</div>{row.review_flags?.length?<div className="mt-2 text-[7px] text-amber-100/45">Review: {row.review_flags.join(" · ")}</div>:null}</div>)}</div> : null}
+      </div>
 
       <div className="mt-5 flex flex-wrap gap-1.5">
         {["ALL", "MASTER", "MIX_RENDER", "TRACK_STEM_RENDER", "GROUP_STEM_RENDER", "INSTRUMENTAL", "ACAPELLA"].map((id) => (

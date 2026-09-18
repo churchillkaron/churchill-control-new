@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildFundamentalSnapshot } from "../lib/markets/runtime/MarketFundamentalModels.js";
-import { buildFundamentalThesis } from "../lib/markets/runtime/MarketSpecialistModels.js";
+import {
+  assessFundamentalFreshness,
+  buildFundamentalThesis,
+} from "../lib/markets/runtime/MarketSpecialistModels.js";
 
 function duration(start, end, val, concept, form = "10-K") {
   return {
@@ -129,10 +132,92 @@ test("fundamental specialist consumes admitted deterministic snapshot", () => {
       stance: snapshot.stance,
       ratios: snapshot.ratios,
       metrics: snapshot.metrics,
+      facts_used: snapshot.facts_used,
     }],
+    now: new Date("2027-03-01T00:00:00Z"),
   });
 
   assert.equal(thesis.stance, "BULLISH");
   assert.ok(thesis.confidence > 0.7);
   assert.equal(thesis.rationale.method, "SEC XBRL deterministic fundamental composite");
+  assert.equal(thesis.rationale.freshness.fresh, true);
+});
+
+test("quarterly fundamental evidence expires after the freshness window", () => {
+  const freshness = assessFundamentalFreshness({
+    fundamental: {
+      facts_used: {
+        revenue: {
+          filed: "2026-01-15",
+          form: "10-Q",
+        },
+      },
+    },
+    now: new Date("2026-08-01T00:00:00Z"),
+  });
+
+  assert.equal(freshness.fresh, false);
+  assert.equal(freshness.reason, "STALE_FILING_EVIDENCE");
+  assert.equal(freshness.max_age_days, 180);
+});
+
+test("annual fundamental evidence uses a longer bounded freshness window", () => {
+  const freshness = assessFundamentalFreshness({
+    fundamental: {
+      facts_used: {
+        revenue: {
+          filed: "2026-02-20",
+          form: "10-K",
+        },
+      },
+    },
+    now: new Date("2027-03-01T00:00:00Z"),
+  });
+
+  assert.equal(freshness.fresh, true);
+  assert.equal(freshness.max_age_days, 450);
+});
+
+test("future-dated filing evidence fails closed", () => {
+  const freshness = assessFundamentalFreshness({
+    fundamental: {
+      facts_used: {
+        revenue: {
+          filed: "2026-10-01",
+          form: "10-Q",
+        },
+      },
+    },
+    now: new Date("2026-09-18T00:00:00Z"),
+  });
+
+  assert.equal(freshness.fresh, false);
+  assert.equal(freshness.reason, "FUTURE_DATED_FILING_EVIDENCE");
+});
+
+test("stale admitted fundamentals lose their specialist vote", () => {
+  const thesis = buildFundamentalThesis({
+    symbol: "TEST",
+    filings: [{ symbol: "TEST", form_type: "10-Q" }],
+    fundamentals: [{
+      symbol: "TEST",
+      period_end: "2025-12-31",
+      score: 0.7,
+      confidence: 0.85,
+      stance: "BULLISH",
+      ratios: {},
+      metrics: {},
+      facts_used: {
+        revenue: {
+          filed: "2026-01-15",
+          form: "10-Q",
+        },
+      },
+    }],
+    now: new Date("2026-09-18T00:00:00Z"),
+  });
+
+  assert.equal(thesis.stance, "INSUFFICIENT_EVIDENCE");
+  assert.equal(thesis.confidence, 0);
+  assert.equal(thesis.rationale.freshness.reason, "STALE_FILING_EVIDENCE");
 });

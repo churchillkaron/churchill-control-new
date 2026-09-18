@@ -85,12 +85,22 @@ export default function MusicTakeLaneCompPanel({
     const audio = new Audio(url);
     audioRef.current = audio;
     setAuditioning(take.id);
-    audio.onended = stopAudition;
+    const sourceOffset = Math.max(0, finite(take.source_offset_seconds, 0));
+    const playableDuration = Math.max(0, finite(take.duration_seconds, 0));
+    let auditionTimer = null;
+    const startPlayback = () => {
+      try { audio.currentTime = sourceOffset; } catch {}
+      if (playableDuration > 0) auditionTimer = setTimeout(stopAudition, Math.ceil(playableDuration * 1000));
+      void audio.play();
+    };
+    audio.onloadedmetadata = startPlayback;
+    audio.onended = () => { if (auditionTimer) clearTimeout(auditionTimer); stopAudition(); };
     audio.onerror = () => {
+      if (auditionTimer) clearTimeout(auditionTimer);
       setError("Take audition failed.");
       stopAudition();
     };
-    void audio.play();
+    if (audio.readyState >= 1) startPlayback();
   }
 
   function rateTake(takeId, rating) {

@@ -11,9 +11,21 @@ const CONNECTION_TYPES = Object.freeze({
   BALANCE_SYNC: "Balance Sync",
 });
 
+const PROVIDER_LABELS = Object.freeze({
+  brankas_statement: "Brankas Statement",
+  AVANTIQO_MANAGED: "Avantiqo Managed",
+});
+
 function normalizeConnectionType(value) {
   return String(value || "").trim().toUpperCase();
 }
+
+function resolveThailandBrankasBankCode(bankAccount = {}) {
+  const haystack = `${bankAccount.bank_name || ""} ${bankAccount.account_name || ""}`.toUpperCase();
+  if (/KASIKORN|K-BANK|KBANK|K BANK/.test(haystack)) return "KASIKORNBANK_PERSONAL";
+  return null;
+}
+
 
 function decorateIntegration(row, bankAccount = null) {
   const connectionLabel =
@@ -32,10 +44,18 @@ function decorateIntegration(row, bankAccount = null) {
     currency_code: bankAccount?.currency_code || bankAccount?.currency || null,
     connection_type: row.connection_type,
     connection_label: connectionLabel,
-    provider_name: "AVANTIQO_MANAGED",
-    provider_display_name: "Avantiqo Managed",
+    provider_name: row.provider_name || "AVANTIQO_MANAGED",
+    provider_display_name: PROVIDER_LABELS[row.provider_name] || row.provider_name || "Avantiqo Managed",
+    provider_country_code: row.provider_country_code || null,
+    provider_bank_code: row.provider_bank_code || null,
     status: row.status || "PENDING_SETUP",
-    last_sync_at: row.last_sync_at || null,
+    sync_status: row.sync_status || "NEVER_SYNCED",
+    last_sync_at: row.last_sync_at || row.last_sync_completed_at || null,
+    last_sync_completed_at: row.last_sync_completed_at || null,
+    consent_expires_at: row.consent_expires_at || null,
+    last_error_code: row.last_error_code || null,
+    last_error_message: row.last_error_message || null,
+    provider_ready: Boolean(row.provider_credential_id),
     created_at: row.created_at || null,
     updated_at: row.updated_at || null,
     name: accountName,
@@ -96,7 +116,7 @@ export async function GET(request) {
 
     const { data, error } = await supabaseAdmin
       .from("finance_banking_integrations")
-      .select("id, organization_id, bank_account_id, provider_name, connection_type, status, last_sync_at, created_at, updated_at")
+      .select("id, organization_id, entity_id, bank_account_id, provider_name, provider_country_code, provider_bank_code, provider_credential_id, external_connection_id, external_account_id, connection_type, status, sync_status, last_sync_at, last_sync_completed_at, consent_expires_at, last_error_code, last_error_message, created_at, updated_at")
       .eq("organization_id", access.organizationId)
       .order("created_at", { ascending: false });
 
@@ -186,6 +206,33 @@ export async function POST(request) {
       );
     }
 
+    let providerName = "AVANTIQO_MANAGED";
+    let providerCredentialId = null;
+    let providerCountryCode = null;
+    let providerBankCode = null;
+    let status = "PENDING_SETUP";
+    if (connectionType === "TRANSACTION_FEED") {
+      let entity = null;
+      if (bankAccount.entity_id) {
+        const result = await supabaseAdmin.from("legal_entities").select("id,country,is_active").eq("organization_id", access.organizationId).eq("id", bankAccount.entity_id).maybeSingle();
+        if (result.error) throw result.error; entity = result.data || null;
+      }
+      if (!entity?.country) {
+        const result = await supabaseAdmin.from("finance_organization_profiles").select("country_code").eq("organization_id", access.organizationId).maybeSingle();
+        if (result.error) throw result.error; providerCountryCode = String(result.data?.country_code || "").trim().toUpperCase() || null;
+      } else providerCountryCode = String(entity.country || "").trim().toUpperCase() || null;
+      if (providerCountryCode === "TH") {
+        providerName = "brankas_statement";
+        providerBankCode = resolveThailandBrankasBankCode(bankAccount);
+      }
+      else throw new Error(`No managed live bank-feed provider is configured for ${providerCountryCode || "this country"}`);
+      const credentials = await supabaseAdmin.from("provider_credentials").select("id,metadata,created_at").eq("provider_id", providerName).eq("status", "ACTIVE").order("created_at", { ascending: false });
+      if (credentials.error) throw credentials.error;
+      const match = (credentials.data || []).find((row) => { const scoped = String(row.metadata?.organization_id || "").trim(); return !scoped || scoped === access.organizationId; });
+      providerCredentialId = match?.id || null;
+      status = providerCredentialId ? "PENDING_CONSENT" : "PENDING_CREDENTIAL";
+    }
+
     const now = new Date().toISOString();
     const { data: created, error: createError } = await supabaseAdmin
       .from("finance_banking_integrations")
@@ -193,20 +240,27 @@ export async function POST(request) {
         organization_id: access.organizationId,
         bank_account_id: bankAccountId,
         connection_type: connectionType,
-        provider_name: "AVANTIQO_MANAGED",
-        credential_reference: null,
-        status: "PENDING_SETUP",
+        provider_name: providerName,
+        provider_credential_id: providerCredentialId,
+        credential_reference: providerCredentialId,
+        entity_id: bankAccount.entity_id || null,
+        provider_country_code: providerCountryCode,
+        provider_bank_code: providerBankCode,
+        status,
+        sync_status: "NEVER_SYNCED",
         created_by: access.user?.id || null,
         updated_at: now,
       })
-      .select("id, organization_id, bank_account_id, provider_name, connection_type, status, last_sync_at, created_at, updated_at")
+      .select("id, organization_id, entity_id, bank_account_id, provider_name, provider_country_code, provider_bank_code, provider_credential_id, external_connection_id, external_account_id, connection_type, status, sync_status, last_sync_at, last_sync_completed_at, consent_expires_at, last_error_code, last_error_message, created_at, updated_at")
       .single();
 
     if (createError) throw createError;
 
     return NextResponse.json({
       success: true,
-      message: "Bank connection requested. Avantiqo will configure the compatible managed provider.",
+      message: providerCredentialId
+        ? "Bank feed is ready for customer consent."
+        : "Bank feed requested. Add the managed provider credential to enable customer consent.",
       record: decorateIntegration(created, bankAccount),
     });
   } catch (error) {

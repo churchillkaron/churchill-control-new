@@ -697,6 +697,7 @@ export default function FinanceAccountantRecordsWorkCenter({
                   presentation={presentation}
                   rows={visibleRows}
                   onSelect={(row) => row && setSelectedId(row.id || null)}
+                  onRefresh={refresh}
                 />
               </aside>
             </div>

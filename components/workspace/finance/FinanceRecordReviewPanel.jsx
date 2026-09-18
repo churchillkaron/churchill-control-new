@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import FinanceBankFeedConnectionPanel from "@/components/workspace/finance/FinanceBankFeedConnectionPanel";
+
 import {
   Check,
   ChevronLeft,
@@ -116,6 +118,7 @@ export default function FinanceRecordReviewPanel({
   presentation,
   rows = [],
   onSelect,
+  onRefresh,
 }) {
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(false);
@@ -269,6 +272,8 @@ export default function FinanceRecordReviewPanel({
         {loading ? <div className="mt-4 flex items-center gap-2 text-[10px] text-[#817B73]"><RefreshCw size={12} className="animate-spin" /> Loading review evidence…</div> : null}
 
         {tab === "overview" ? (
+          <>
+            {capability?.id === "banking_integrations" ? <FinanceBankFeedConnectionPanel connection={selected} organizationId={organizationId} onRefresh={onRefresh} /> : null}
           <dl className="mt-3 divide-y divide-black/[0.055]">
             {detailFields.map((field) => (
               <div key={field.label} className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-2.5 text-[10px]">
@@ -277,6 +282,7 @@ export default function FinanceRecordReviewPanel({
               </div>
             ))}
           </dl>
+          </>
         ) : null}
 
         {tab === "lines" ? (

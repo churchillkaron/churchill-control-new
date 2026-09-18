@@ -132,3 +132,25 @@ test("e-Tax UI shows verification status and explicit non-mutating provider test
   assert.match(etaxPanel, /verify_etax/);
   assert.match(form, /Read-only health path/);
 });
+
+const connectionsOverview = read("components/workspace/finance/FinanceConnectionsOverview.jsx");
+const configurePage = read("app/(system)/workspace/[organizationId]/finance/configure/page.jsx");
+
+test("Finance Settings centralizes external provider readiness without inventing another authority", () => {
+  assert.match(configurePage, /FinanceConnectionsOverview/);
+  assert.match(connectionsOverview, /External finance connections/);
+  assert.match(connectionsOverview, /Bank feeds/);
+  assert.match(connectionsOverview, /Thailand e-Tax/);
+  assert.match(connectionsOverview, /Client email/);
+  assert.match(connectionsOverview, /\/api\/finance\/provider-activation/);
+  assert.doesNotMatch(connectionsOverview, /provider_credentials|secret_reference|vault\./);
+});
+
+test("Finance connection cards expose one exact setup path and verification action", () => {
+  assert.match(connectionsOverview, /finance\/banking-integrations/);
+  assert.match(connectionsOverview, /finance\/e-invoicing\?create=1/);
+  assert.match(connectionsOverview, /administration\/integrations\/email-connect/);
+  assert.match(connectionsOverview, /verify_bank_feed/);
+  assert.match(connectionsOverview, /verify_etax/);
+  assert.match(connectionsOverview, /Test connection/);
+});

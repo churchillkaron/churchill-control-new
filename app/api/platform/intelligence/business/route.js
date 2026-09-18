@@ -146,7 +146,6 @@ function businessDiagnosisAudit(result = {}) {
     receipt_contract: cleanValue(result.business_diagnosis_receipt_contract),
     authenticity_contract: cleanValue(receipt.authenticity_contract),
     authenticity_algorithm: cleanValue(receipt.authenticity_algorithm),
-    authenticity_key_id: cleanValue(receipt.authenticity_key_id),
     authenticity_status: authenticityVerification.status,
     authenticity_verified: authenticityVerification.verified === true,
     residual_ratio: Number.isFinite(Number(receipt.residual_ratio)) ? Number(receipt.residual_ratio) : null,

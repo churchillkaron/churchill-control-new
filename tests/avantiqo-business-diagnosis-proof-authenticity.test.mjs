@@ -5,6 +5,7 @@ import {
   verifyBusinessDiagnosisProofAuthenticity,
   getBusinessDiagnosisProofAuthenticityStatus,
   businessDiagnosisProofAuthenticityAcceptable,
+  redactBusinessDiagnosisProofForClient,
 } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime.js";
 
 const env = {
@@ -66,4 +67,22 @@ test("diagnosis authenticity requirement is an explicit readiness gate", () => {
   assert.equal(required.ready, false);
   assert.equal(businessDiagnosisProofAuthenticityAcceptable({ status: "AUTHENTICITY_NOT_AVAILABLE" }, { env: requiredEnv }), false);
   assert.equal(businessDiagnosisProofAuthenticityAcceptable({ status: "AUTHENTICATED" }, { env: requiredEnv }), true);
+});
+
+
+test("client proof redaction removes signing key id and MAC but keeps verification status", () => {
+  const safe = redactBusinessDiagnosisProofForClient({
+    receipt_fingerprint: "a".repeat(64),
+    authenticity_key_id: "k1",
+    authenticity_mac: "b".repeat(64),
+    authenticity_contract: "AVANTIQO_BUSINESS_DIAGNOSIS_PROOF_AUTHENTICITY_V1",
+    authenticity_algorithm: "HMAC-SHA256",
+    authenticity_status: "AUTHENTICATED",
+    authenticity_verified: true,
+  });
+  assert.equal(Object.prototype.hasOwnProperty.call(safe, "authenticity_key_id"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(safe, "authenticity_mac"), false);
+  assert.equal(safe.authenticity_status, "AUTHENTICATED");
+  assert.equal(safe.authenticity_verified, true);
+  assert.equal(safe.receipt_fingerprint.length, 64);
 });

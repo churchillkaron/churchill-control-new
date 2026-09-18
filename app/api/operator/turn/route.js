@@ -5,7 +5,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import { buildBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAnswerContent, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
-import { verifyBusinessDiagnosisProofAuthenticity, businessDiagnosisProofAuthenticityAcceptable } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
+import { verifyBusinessDiagnosisProofAuthenticity, businessDiagnosisProofAuthenticityAcceptable, redactBusinessDiagnosisProofForClient } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
 import { businessDiagnosisReadinessInternalDiagnostic } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReadinessRuntime";
 import {
   resolveBusinessContext,
@@ -765,8 +765,15 @@ export async function POST(request) {
       }),
     );
 
-    const response = Response.json({
+    const clientNormalizedResult = {
       ...normalizedResult,
+      ...(normalizedResult?.business_diagnosis
+        ? { business_diagnosis: redactBusinessDiagnosisProofForClient(normalizedResult.business_diagnosis) }
+        : {}),
+    };
+
+    const response = Response.json({
+      ...clientNormalizedResult,
       agreement_state: object(persistedState.agreement_state),
       project_state: object(persistedState.project_state),
       project_continuity: {

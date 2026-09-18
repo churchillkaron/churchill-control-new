@@ -118,3 +118,10 @@ test("direct API surfaces proof-integrity failure explicitly",()=>{
   assert.match(source,/error\.details/);
   assert.match(source,/authority_effect: "NONE"/);
 });
+
+
+test("direct business API audit does not expose authenticity key identifier or MAC",()=>{
+  assert.doesNotMatch(source,/authenticity_key_id: cleanValue\(receipt\.authenticity_key_id\)/);
+  assert.doesNotMatch(source,/authenticity_mac:/);
+  assert.match(source,/authenticity_status: authenticityVerification\.status/);
+});

@@ -76,3 +76,11 @@ test("operator never falls back to client conversation after server memory filte
   assert.match(route,/const conversation = persistedConversation;/);
   assert.doesNotMatch(route,/persistedConversation\.length\s*\?\s*persistedConversation\s*:\s*clientConversation/);
 });
+
+
+test("operator persists full proof server-side but redacts signing internals from live response",()=>{
+  assert.match(route,/persistedBusinessDiagnosisEvidence\(result\)/);
+  assert.match(route,/redactBusinessDiagnosisProofForClient\(normalizedResult\.business_diagnosis\)/);
+  assert.match(route,/\.\.\.clientNormalizedResult/);
+  assert.ok(route.indexOf("persistedBusinessDiagnosisEvidence(result)") < route.indexOf("redactBusinessDiagnosisProofForClient(normalizedResult.business_diagnosis)"));
+});

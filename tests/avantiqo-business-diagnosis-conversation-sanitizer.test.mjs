@@ -12,6 +12,7 @@ import {
   sanitizeBusinessDiagnosisConversation,
   sanitizeBusinessDiagnosisSnapshotTurn,
 } from "../lib/operator/runtime/BusinessDiagnosisConversationSanitizerRuntime.js";
+import { sealBusinessDiagnosisProofAuthenticity } from "../lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime.js";
 
 function diagnosisEvidence({ status = "verified", legacy = false, answer = "diagnosis" } = {}) {
   const projection = buildBusinessDiagnosisAuditProjection({
@@ -286,6 +287,25 @@ test("required authenticity quarantines otherwise valid unsigned diagnosis", () 
     assert.equal(result.authenticity_status,"AUTHENTICITY_NOT_AVAILABLE");
   } finally {
     if(oldRequired===undefined) delete process.env.AVANTIQO_BUSINESS_DIAGNOSIS_AUTHENTICITY_REQUIRED; else process.env.AVANTIQO_BUSINESS_DIAGNOSIS_AUTHENTICITY_REQUIRED=oldRequired;
+    if(oldId===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID=oldId;
+    if(oldRing===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=oldRing;
+  }
+});
+
+
+test("snapshot redaction never returns authenticity key id or MAC to clients", () => {
+  const oldId=process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID;
+  const oldRing=process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON;
+  process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID="k1";
+  process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=JSON.stringify({k1:"11".repeat(32)});
+  try {
+    const evidence=diagnosisEvidence({answer:"diagnosis"});
+    const sealed=sealBusinessDiagnosisProofAuthenticity(evidence.business_diagnosis).proof;
+    const result=sanitizeBusinessDiagnosisSnapshotTurn({role:"assistant",content:"diagnosis",evidence:{business_diagnosis:sealed}});
+    assert.equal(Object.prototype.hasOwnProperty.call(result.evidence.business_diagnosis,"authenticity_key_id"),false);
+    assert.equal(Object.prototype.hasOwnProperty.call(result.evidence.business_diagnosis,"authenticity_mac"),false);
+    assert.equal(result.evidence.business_diagnosis.authenticity_status,"AUTHENTICATED");
+  } finally {
     if(oldId===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID=oldId;
     if(oldRing===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=oldRing;
   }

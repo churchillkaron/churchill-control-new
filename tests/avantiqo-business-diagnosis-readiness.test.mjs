@@ -98,3 +98,25 @@ test("platform operator raises a dedicated business diagnosis readiness signal",
   assert.match(operator,/target: "business_diagnosis"/);
   assert.match(operator,/authorityEffect: "NONE"/);
 });
+
+
+test("public system health redacts diagnosis security posture",()=>{
+  const route=fs.readFileSync("app/api/health/system/route.js","utf8");
+  assert.match(route,/function publicSystemHealth/);
+  assert.match(route,/status: diagnosis\.ready === true \? "available" : "unavailable"/);
+  assert.match(route,/ready: diagnosis\.ready === true/);
+  assert.doesNotMatch(route,/authenticity_required:/);
+  assert.doesNotMatch(route,/authenticity_available:/);
+  assert.doesNotMatch(route,/blocker_count:/);
+  assert.match(route,/cache-control.*no-store/s);
+});
+
+test("internal system health still retains detailed diagnosis readiness for authenticated operator control",()=>{
+  const health=fs.readFileSync("lib/health/checkSystemHealth.js","utf8");
+  assert.match(health,/authenticity_required:/);
+  assert.match(health,/authenticity_available:/);
+  assert.match(health,/blocker_count:/);
+  const platform=fs.readFileSync("app/(system)/platform/page.jsx","utf8");
+  assert.match(platform,/requirePlatformAdminAccess/);
+  assert.match(platform,/checkSystemHealth\(\)/);
+});

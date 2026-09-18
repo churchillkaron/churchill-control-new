@@ -50,3 +50,30 @@ test("both direct API and Business Partner preflight readiness before diagnosis 
   assert.match(partner, /assertBusinessDiagnosisReadiness\(\)/);
   assert.ok(partner.indexOf("assertBusinessDiagnosisReadiness()") < partner.indexOf("runDiagnosis({"));
 });
+
+
+test("operator route surfaces diagnosis readiness failure with structured details",()=>{
+  const route=fs.readFileSync("app/api/operator/turn/route.js","utf8");
+  assert.match(route,/BUSINESS_DIAGNOSIS_NOT_READY/);
+  assert.match(route,/Business diagnosis is not ready/);
+  assert.match(route,/error\.details/);
+});
+
+test("live transport emits diagnosis-not-ready instead of generic turn failure",()=>{
+  const live=fs.readFileSync("app/api/operator/turn/live/route.js","utf8");
+  assert.match(live,/DIAGNOSIS_NOT_READY/);
+  assert.match(live,/diagnosis_not_ready:/);
+  assert.match(live,/readiness_status:/);
+  assert.match(live,/required proof authenticity is not ready/);
+});
+
+test("both operator clients preserve readiness details and show a governed no-analysis message",()=>{
+  for(const file of ["components/operator/HomeAvantiqoIntelligence.jsx","components/operator/AvantiqoOperator.jsx"]){
+    const source=fs.readFileSync(file,"utf8");
+    assert.match(source,/BUSINESS_DIAGNOSIS_NOT_READY/);
+    assert.match(source,/result\?\.details\?\.readiness_status/);
+    assert.match(source,/required proof authenticity is not ready/);
+    assert.match(source,/No analysis or action was executed/);
+    assert.match(source,/governedDiagnosisFailure/);
+  }
+});

@@ -811,6 +811,9 @@ export async function POST(request) {
   } catch (error) {
     console.error("OPERATOR_TURN_ERROR", error);
 
+    if (error?.code === "BUSINESS_DIAGNOSIS_NOT_READY") {
+      return errorResponse("Business diagnosis is not ready", 503, error.details || { code: "BUSINESS_DIAGNOSIS_NOT_READY", authority_effect: "NONE" });
+    }
     if (error?.code === BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE) {
       return errorResponse("Business diagnosis proof verification failed", 500, error.details || { code: BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE, authority_effect: "NONE" });
     }

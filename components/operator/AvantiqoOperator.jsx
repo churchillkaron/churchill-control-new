@@ -29,12 +29,15 @@ function text(value) {
 }
 
 const BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE = "BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_FAILURE";
+const BUSINESS_DIAGNOSIS_NOT_READY_CODE = "BUSINESS_DIAGNOSIS_NOT_READY";
 
 function operatorRequestError(result = {}, fallback = "Avantiqo could not complete the request") {
   const error = new Error(text(result?.error) || fallback);
   error.code = text(result?.details?.code);
   error.stage = text(result?.details?.stage);
   error.authorityEffect = text(result?.details?.authority_effect);
+  error.readinessStatus = text(result?.details?.readiness_status);
+  error.blockers = Array.isArray(result?.details?.blockers) ? result.details.blockers : [];
   error.retryable = result?.details?.retryable === true;
   return error;
 }
@@ -42,6 +45,9 @@ function operatorRequestError(result = {}, fallback = "Avantiqo could not comple
 function operatorRequestErrorMessage(error) {
   if (text(error?.code) === BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE) {
     return "I stopped this diagnosis because its proof could not be verified. No action was executed. Please retry the diagnosis.";
+  }
+  if (text(error?.code) === BUSINESS_DIAGNOSIS_NOT_READY_CODE) {
+    return "I did not start this diagnosis because required proof authenticity is not ready. No analysis or action was executed.";
   }
   return error?.message || "Avantiqo failed";
 }
@@ -382,7 +388,8 @@ export default function AvantiqoOperator() {
       }
     } catch (sendError) {
       const messageText = operatorRequestErrorMessage(sendError);
-      const responseText = text(sendError?.code) === BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE ? messageText : `I couldn't complete that: ${messageText}`;
+      const governedDiagnosisFailure = [BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE, BUSINESS_DIAGNOSIS_NOT_READY_CODE].includes(text(sendError?.code));
+      const responseText = governedDiagnosisFailure ? messageText : `I couldn't complete that: ${messageText}`;
       setError(messageText);
       setMessages((current) => [
         ...current,

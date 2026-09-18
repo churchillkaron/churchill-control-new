@@ -30,11 +30,12 @@ function completionEvent(result, response) {
   const key = text(capability.key || result?.decision?.execution?.capability_key);
   const succeeded = response.ok && result?.success !== false;
   const proofIntegrityFailure = text(details.code) === "BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_FAILURE";
+  const diagnosisNotReady = text(details.code) === "BUSINESS_DIAGNOSIS_NOT_READY";
   return {
     lane: key === "platform.code_ai_autonomous.execute" || key === "platform.product_engineering_cycle.execute"
       ? "code"
       : "intelligence",
-    phase: succeeded ? "TURN_COMPLETE" : proofIntegrityFailure ? "DIAGNOSIS_PROOF_INTEGRITY_FAILED" : "TURN_FAILED",
+    phase: succeeded ? "TURN_COMPLETE" : proofIntegrityFailure ? "DIAGNOSIS_PROOF_INTEGRITY_FAILED" : diagnosisNotReady ? "DIAGNOSIS_NOT_READY" : "TURN_FAILED",
     status: succeeded ? "completed" : "failed",
     description: succeeded
       ? key
@@ -42,7 +43,9 @@ function completionEvent(result, response) {
         : "Finished reasoning and preparing the response."
       : proofIntegrityFailure
         ? "Stopped the diagnosis because its proof could not be verified."
-        : "The Business Partner turn stopped before successful completion.",
+        : diagnosisNotReady
+          ? "Stopped before diagnosis because required proof authenticity is not ready."
+          : "The Business Partner turn stopped before successful completion.",
     capability_key: key || null,
     read_only: !key,
     mutation_possible: Boolean(key && capability.mode && capability.mode !== "read"),
@@ -50,9 +53,12 @@ function completionEvent(result, response) {
     paid_execution_running: false,
     verification_running: false,
     integrity_failure: proofIntegrityFailure,
+    diagnosis_not_ready: diagnosisNotReady,
     integrity_code: proofIntegrityFailure ? text(details.code) : null,
     integrity_stage: proofIntegrityFailure ? text(details.stage) : null,
-    authority_effect: proofIntegrityFailure ? text(details.authority_effect) || "NONE" : null,
+    readiness_code: diagnosisNotReady ? text(details.code) : null,
+    readiness_status: diagnosisNotReady ? text(details.readiness_status) : null,
+    authority_effect: proofIntegrityFailure || diagnosisNotReady ? text(details.authority_effect) || "NONE" : null,
     reason: succeeded ? null : text(result?.error || execution.reason || response.statusText),
   };
 }

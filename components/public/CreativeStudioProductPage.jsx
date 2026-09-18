@@ -1,4 +1,5 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+import PublicArtStage from "@/components/public/PublicArtStage";
 
 const process = [
   ["01", "Brief", "Objective, audience and constraints"],
@@ -12,7 +13,7 @@ const process = [
 
 const USE_CASE_ART = {
   "Image Studio": [
-    "/art/creative-image.jpg",
+    "/art/studio/image-production.svg",
     "/art/commercial-commerce.jpg",
     "/art/commercial-channels.jpg",
     "/art/commercial-commerce.jpg",
@@ -20,7 +21,7 @@ const USE_CASE_ART = {
     "/art/commercial-enterprise.jpg",
   ],
   "Video Studio": [
-    "/art/creative-video.jpg",
+    "/art/studio/video-vfx.svg",
     "/art/commercial-commerce.jpg",
     "/art/commercial-channels.jpg",
     "/art/commercial-services.jpg",
@@ -28,7 +29,7 @@ const USE_CASE_ART = {
     "/art/creative-video.jpg",
   ],
   "Music Studio": [
-    "/art/creative-music.jpg",
+    "/art/studio/music-production.svg",
     "/art/commercial-commerce.jpg",
     "/art/commercial-channels.jpg",
     "/art/commercial-services.jpg",
@@ -59,63 +60,38 @@ function Arrow({ className = "" }) {
 function StudioArtwork({ studio }) {
   const video = studio.startsWith("Video");
   const music = studio.startsWith("Music");
-  const art = video
-    ? "/art/creative-video.jpg"
-    : music
-      ? "/art/creative-music.jpg"
-      : "/art/creative-image.jpg";
+  const kind = video ? "video-studio" : music ? "music-studio" : "image-studio";
   const mode = video
-    ? "DIRECT / SHOOT / FINISH"
+    ? "VFX / SIMULATION / COMPOSITE / FINISH"
     : music
-      ? "COMPOSE / RECORD / MASTER"
-      : "CONCEPT / CREATE / DELIVER";
+      ? "RECORD / PRODUCE / MIX / MASTER"
+      : "ART DIRECTION / LAYOUT / DELIVERY";
   const caption = video
-    ? "Storytelling in motion"
+    ? "Picture craft, not prompt-to-video"
     : music
-      ? "Sound with emotion"
-      : "Visual ideas made real";
+      ? "Record production, not AI song generation"
+      : "Commercial visual production, not image prompting";
   return (
-    <div className="relative min-h-[590px] overflow-hidden rounded-[32px] border border-black/[0.08] bg-[#EAE3D8] shadow-[0_38px_110px_rgba(68,47,25,.18)]">
-      <div
-        className="absolute inset-0 bg-cover bg-center transition duration-700"
-        style={{ backgroundImage: `url(${art})` }}
-      />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.03),transparent_40%,rgba(8,7,6,.72))]" />
-      <div className="absolute left-5 top-5 rounded-full border border-white/35 bg-white/76 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#6E4D2D] shadow-sm backdrop-blur-xl">
+    <div className="relative min-h-[590px] overflow-hidden rounded-[32px] border border-black/[0.08] bg-[#151310] shadow-[0_38px_110px_rgba(68,47,25,.18)]">
+      <PublicArtStage kind={kind} />
+      <div className="absolute left-5 top-5 rounded-full border border-white/15 bg-[#11100E]/78 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#E1B87F] shadow-sm backdrop-blur-xl">
         AVANTIQO {studio}
       </div>
-      <div className="absolute right-5 top-5 hidden rounded-[16px] border border-white/24 bg-black/25 px-3 py-2 text-right backdrop-blur-xl sm:block">
-        <div className="text-[7px] uppercase tracking-[0.2em] text-[#E8C18D]">
-          {mode}
-        </div>
-        <div className="mt-1 text-[8px] text-white/58">
-          Professional production
-        </div>
+      <div className="absolute right-5 top-5 hidden rounded-[16px] border border-white/12 bg-[#11100E]/72 px-3 py-2 text-right backdrop-blur-xl sm:block">
+        <div className="text-[7px] uppercase tracking-[0.2em] text-[#DDB27A]">{mode}</div>
+        <div className="mt-1 text-[8px] text-white/42">Professional production environment</div>
       </div>
-      <div className="absolute bottom-5 left-5 right-5 rounded-[20px] border border-white/18 bg-black/30 p-4 text-white backdrop-blur-xl sm:p-5">
+      <div className="absolute bottom-5 left-5 right-5 rounded-[20px] border border-white/12 bg-[#11100E]/76 p-4 text-white shadow-[0_24px_70px_rgba(0,0,0,.28)] backdrop-blur-xl sm:p-5">
         <div className="flex items-end justify-between gap-5">
           <div>
-            <div className="text-[8px] font-semibold uppercase tracking-[0.2em] text-[#E8C18D]">
-              {caption}
-            </div>
-            <div className="mt-2 max-w-md text-[11px] leading-5 text-white/66">
-              Real people, real production context and one connected creative
-              system from direction through delivery.
+            <div className="text-[8px] font-semibold uppercase tracking-[0.2em] text-[#E0B77F]">{caption}</div>
+            <div className="mt-2 max-w-lg text-[11px] leading-5 text-white/52">
+              Real production state, specialist passes, review evidence and deterministic finishing stay connected from source through master.
             </div>
           </div>
           <div className="hidden gap-1.5 sm:flex">
-            {(video
-              ? ["STORY", "SHOT", "MASTER"]
-              : music
-                ? ["COMPOSE", "MIX", "MASTER"]
-                : ["BRIEF", "ART", "DELIVER"]
-            ).map((x) => (
-              <span
-                key={x}
-                className="rounded-full border border-white/18 bg-white/[0.04] px-2 py-1 text-[7px] tracking-[0.13em] text-white/58"
-              >
-                {x}
-              </span>
+            {(video ? ["PASSES","COMPOSITE","MASTER"] : music ? ["TAKES","MIX","MASTER"] : ["BRIEF","LAYOUT","MASTER"]).map((x) => (
+              <span key={x} className="rounded-full border border-white/12 bg-white/[0.025] px-2 py-1 text-[7px] tracking-[0.13em] text-white/46">{x}</span>
             ))}
           </div>
         </div>
@@ -434,11 +410,7 @@ function StudioWorkspace({ studio }) {
     : music
       ? ["Compose", "Arrange", "Vocals", "SFX", "Mix", "Master"]
       : ["Research", "Direction", "Create", "Review", "Repair", "Deliver"];
-  const art = video
-    ? "/art/creative-video.jpg"
-    : music
-      ? "/art/creative-music.jpg"
-      : "/art/creative-image.jpg";
+  const artKind = video ? "video-studio" : music ? "music-studio" : "image-studio";
   const status = video
     ? "SHOT 024 / REVIEW"
     : music
@@ -474,11 +446,8 @@ function StudioWorkspace({ studio }) {
           </div>
         </div>
         <div className="relative mt-10 min-h-[560px] overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#CFC4B4] shadow-[0_34px_100px_rgba(71,50,28,.16)]">
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${art})` }}
-          />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(16,13,10,.58),rgba(16,13,10,.08)_38%,rgba(16,13,10,.06)_64%,rgba(16,13,10,.56)),linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.12)_54%,rgba(8,7,6,.58))]" />
+          <div className="absolute inset-0 scale-[1.02]"><PublicArtStage kind={artKind} /></div>
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.05)_58%,rgba(8,7,6,.34))]" />
           <div className="absolute left-5 top-5 rounded-full border border-white/22 bg-black/28 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-[#F0C98F] backdrop-blur-xl">
             {status}
           </div>

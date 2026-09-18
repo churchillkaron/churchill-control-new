@@ -85,15 +85,80 @@ function SolutionsArt(){
 }
 
 function CreativeArt(){
-  return <div className="absolute inset-0 overflow-hidden bg-[#0E0C0A] text-white">
-    <div className="absolute inset-0 grid grid-cols-[1.25fr_.75fr] gap-px bg-[#D6A66A]/25">
-      <div className="relative overflow-hidden"><Photo src="/art/creative-video.jpg" position="center"/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,6,5,.04),rgba(8,6,5,.72))]"/><div className="absolute left-5 top-5"><Label>VIDEO · STORY · MOTION</Label></div><div className="absolute bottom-5 left-5 right-5 text-[17px] leading-5 text-white/88">Film production from shot architecture through VFX, sound and finished master.</div></div>
-      <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/25"><div className="relative overflow-hidden"><Photo src="/art/creative-image.jpg"/><div className="absolute inset-0 bg-black/28"/><div className="absolute bottom-4 left-4"><Label>IMAGE STUDIO</Label></div></div><div className="relative overflow-hidden"><Photo src="/art/creative-music.jpg"/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.58))]"/><div className="absolute bottom-4 left-4"><Label>MUSIC STUDIO</Label></div></div></div>
+  return <div className="absolute inset-0 overflow-hidden bg-[#0D0C0A] text-white">
+    <div className="absolute inset-0 grid grid-cols-[1.24fr_.76fr] gap-px bg-white/[.08]">
+      <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.10]"><VideoStudioArt/></div></div>
+      <div className="grid grid-rows-2 gap-px bg-white/[.08]">
+        <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.20]"><ImageStudioArt/></div></div>
+        <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.20]"><MusicStudioArt/></div></div>
+      </div>
     </div>
-    <div className="absolute bottom-[7%] left-[8%] right-[8%] rounded-[20px] border border-white/[.13] bg-[#15120F]/78 px-5 py-4 shadow-[0_26px_70px_rgba(0,0,0,.28)] backdrop-blur-xl"><div className="flex items-center justify-between gap-6"><div><Label>CREATIVE INTELLIGENCE</Label><div className="mt-2 text-[10px] text-white/62">Research → direction → production → critique → repair → delivery.</div></div><div className="hidden gap-2 sm:flex">{["IMAGE","VIDEO","MUSIC"].map(x=><Chip key={x}>{x}</Chip>)}</div></div></div>
+    <div className="absolute bottom-[7%] left-[8%] right-[8%] rounded-[20px] border border-white/[.11] bg-[#11100E]/86 px-5 py-4 shadow-[0_26px_70px_rgba(0,0,0,.30)] backdrop-blur-xl"><div className="flex items-center justify-between gap-6"><div><Label>PROFESSIONAL PRODUCTION SYSTEM</Label><div className="mt-2 text-[10px] text-white/55">Production state → specialist passes → review → targeted repair → master.</div></div><div className="hidden gap-2 sm:flex">{["IMAGE","VIDEO","MUSIC"].map(x=><Chip key={x}>{x}</Chip>)}</div></div></div>
   </div>;
 }
 
+
+function VideoStudioArt(){
+  const passes=[["PLATE","100%"],["DEPTH","86%"],["MATTE","74%"],["SIM","62%"],["LIGHT","78%"],["REFL","58%"]];
+  return <div className="absolute inset-0 overflow-hidden bg-[#0C0B0A] text-white">
+    <Photo src="/art/studio/video-vfx.svg" position="center" opacity={.94}/>
+    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,7,6,.96),rgba(8,7,6,.68)_50%,rgba(8,7,6,.90)),linear-gradient(180deg,rgba(8,7,6,.14),rgba(8,7,6,.78))]"/><GridLines/>
+    <div className="absolute left-[6%] top-[9%] right-[6%] flex items-start justify-between gap-5">
+      <div className="max-w-[350px]"><Label>SHOT 024 / VFX BUILD</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">One shot. Multiple controlled passes. One finished image.</div></div>
+      <div className="hidden rounded-[14px] border border-white/[.08] bg-black/28 px-4 py-3 text-right sm:block"><div className="text-[6px] tracking-[.13em] text-white/24">TIMECODE</div><div className="mt-1 font-mono text-[11px] text-white/68">01:00:12:08</div></div>
+    </div>
+    <div className="absolute left-[6%] right-[6%] top-[36%] grid grid-cols-[1.12fr_.88fr] gap-3">
+      <div className="relative min-h-[190px] overflow-hidden rounded-[18px] border border-white/[.08] bg-[#151310]">
+        <Photo src="/art/creative-video.jpg" position="center" opacity={.68}/>
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.03),rgba(0,0,0,.44))]"/>
+        <div className="absolute left-3 top-3 text-[6px] tracking-[.13em] text-[#D6A66A]">FINAL COMPOSITE</div>
+        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-[6px] text-white/36"><span>Lens matched</span><span>QC 96</span></div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">{passes.map(([a,w],i)=><div key={a} className="rounded-[14px] border border-white/[.07] bg-white/[.025] p-3"><div className="flex items-center justify-between"><span className="text-[6px] text-[#D6A66A]">0{i+1}</span><span className="text-[6px] text-white/20">{w}</span></div><div className="mt-5 text-[7px] tracking-[.12em] text-white/56">{a}</div><div className="mt-2 h-px bg-white/[.07]"><div className="h-px bg-[#D6A66A]/65" style={{width:w}}/></div></div>)}</div>
+    </div>
+    <div className="absolute bottom-[8%] left-[6%] right-[6%] rounded-[17px] border border-white/[.08] bg-black/34 px-4 py-3">
+      <div className="flex items-center gap-2">{["SOURCE","RECONSTRUCT","SIMULATE","COMPOSITE","OPTICAL","REVIEW"].map((x,i)=><div key={x} className="flex min-w-0 flex-1 items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]"/><span className="truncate text-[6px] tracking-[.10em] text-white/38">{x}</span>{i<5?<span className="ml-auto text-[#D6A66A]/30">→</span>:null}</div>)}</div>
+    </div>
+  </div>;
+}
+
+function MusicStudioArt(){
+  const tracks=[["VOX",68],["DRUMS",82],["BASS",58],["KEYS",46],["GTR",64],["FX",38]];
+  return <div className="absolute inset-0 overflow-hidden bg-[#0E0C0A] text-white">
+    <Photo src="/art/studio/music-production.svg" position="center" opacity={.92}/>
+    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,9,8,.97),rgba(10,9,8,.76)_56%,rgba(10,9,8,.92)),radial-gradient(circle_at_76%_18%,rgba(214,166,106,.10),transparent_30%)]"/><GridLines/>
+    <div className="absolute left-[6%] top-[9%] max-w-[360px]"><Label>SESSION / MIX 07</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">Performance, phase, depth and dynamics — all visible before master.</div></div>
+    <div className="absolute right-[6%] top-[12%] w-[41%] rounded-[18px] border border-white/[.08] bg-[#15130F]/92 p-4">
+      <div className="flex items-center justify-between"><span className="text-[6px] tracking-[.13em] text-[#D6A66A]">MULTITRACK</span><span className="text-[6px] text-white/20">48 kHz / 24-bit</span></div>
+      <div className="mt-4 space-y-2">{tracks.map(([a,v],i)=><div key={a} className="grid grid-cols-[42px_1fr_30px] items-center gap-2"><span className="text-[6px] text-white/34">{a}</span><div className="relative h-[11px] overflow-hidden rounded-sm bg-white/[.05]"><div className="absolute inset-y-0 left-0 bg-[#D6A66A]/45" style={{width:`${v}%`}}/><div className="absolute inset-y-0 left-[62%] w-px bg-white/28"/></div><span className="text-right text-[6px] text-white/24">0{i+1}</span></div>)}</div>
+    </div>
+    <div className="absolute left-[6%] bottom-[9%] right-[6%] grid grid-cols-4 gap-2">{[["PHASE","+0.82"],["TRUE PEAK","-1.0 dBTP"],["DYNAMICS","10.8 LU"],["PREMASTER","LISTENING"]].map(([a,b],i)=><div key={a} className="rounded-[15px] border border-white/[.08] bg-black/32 p-4"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-4 text-[6px] tracking-[.11em] text-white/28">{a}</div><div className="mt-1 text-[9px] text-white/66">{b}</div></div>)}</div>
+  </div>;
+}
+
+function ImageStudioArt(){
+  return <div className="absolute inset-0 overflow-hidden bg-[#EDE7DD] text-[#171614]">
+    <Photo src="/art/studio/image-production.svg" position="center" opacity={.94}/>
+    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(244,239,231,.98),rgba(244,239,231,.76)_58%,rgba(237,229,218,.90))]"/><GridLines light/>
+    <div className="absolute left-[6%] top-[9%] max-w-[350px]"><Label dark>CAMPAIGN / ART DIRECTION</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em]">Concept, composition, typography and delivery — not a prompt gallery.</div></div>
+    <div className="absolute right-[6%] top-[12%] w-[42%] rounded-[18px] border border-black/[.08] bg-white/72 p-3 shadow-[0_22px_60px_rgba(50,36,22,.08)]">
+      <div className="grid grid-cols-2 gap-2">{[0,1,2,3].map((i)=><div key={i} className="relative aspect-[4/3] overflow-hidden rounded-[10px] border border-black/[.06] bg-[#E4DDD2]"><Photo src={i%2?"/art/commercial-commerce.jpg":"/art/creative-image.jpg"} position={i%2?"center":"center"} opacity={.72}/><div className="absolute inset-0 bg-black/[.08]"/><div className="absolute bottom-2 left-2 text-[6px] font-semibold text-white/78">FRAME 0{i+1}</div></div>)}</div>
+    </div>
+    <div className="absolute left-[6%] bottom-[9%] right-[6%] grid grid-cols-4 gap-2">{[["RESEARCH","Reference truth"],["DIRECTION","Visual system"],["REPAIR","Targeted correction"],["DELIVERY","Layout · type · variants"]].map(([a,b],i)=><div key={a} className="rounded-[15px] border border-black/[.07] bg-white/62 p-4"><div className="text-[6px] text-[#9A744B]">0{i+1}</div><div className="mt-4 text-[7px] font-semibold tracking-[.10em]">{a}</div><div className="mt-1 text-[6px] text-black/30">{b}</div></div>)}</div>
+  </div>;
+}
+
+function CodeStudioArt(){
+  const code=["mission: repair invoice workflow","inspect capability graph","patch exact path","run focused tests","verify runtime contract","result recorded"];
+  return <div className="absolute inset-0 overflow-hidden bg-[#0B0B0A] text-white"><Photo src="/art/studio/code-studio.svg" opacity={.90}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,7,6,.80),rgba(8,7,6,.28)_56%,rgba(8,7,6,.62)),linear-gradient(180deg,rgba(8,7,6,.02),rgba(8,7,6,.52))]"/><GridLines/><div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_16%,rgba(214,166,106,.11),transparent_30%)]"/>
+    <div className="absolute left-[6%] top-[9%] max-w-[350px]"><Label>CODE / REPOSITORY WORK</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">Read the real system. Change the exact capability. Prove the result.</div></div>
+    <div className="absolute right-[6%] top-[12%] w-[48%] rounded-[18px] border border-white/[.08] bg-[#11110F] p-4 shadow-[0_24px_65px_rgba(0,0,0,.22)]">
+      <div className="flex items-center gap-2 border-b border-white/[.07] pb-3"><span className="h-1.5 w-1.5 rounded-full bg-white/16"/><span className="h-1.5 w-1.5 rounded-full bg-white/16"/><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]/55"/><span className="ml-3 font-mono text-[6px] text-white/24">mission.plan</span></div>
+      <div className="mt-4 space-y-3 font-mono">{code.map((x,i)=><div key={x} className="grid grid-cols-[24px_1fr] text-[7px]"><span className="text-[#D6A66A]">{String(i+1).padStart(2,"0")}</span><span className={i===5?"text-[#D6A66A]":"text-white/48"}>{x}</span></div>)}</div>
+    </div>
+    <div className="absolute bottom-[9%] left-[6%] right-[6%] grid grid-cols-4 gap-2">{[["CONTEXT","Repository"],["TEST","Focused"],["REVIEW","Controlled"],["VERIFY","Durable proof"]].map(([a,b],i)=><div key={a} className="rounded-[14px] border border-white/[.07] bg-white/[.025] p-4"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-4 text-[8px] text-white/58">{a}</div><div className="mt-1 text-[6px] text-white/24">{b}</div></div>)}</div>
+  </div>;
+}
 
 function FinanceArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#0D0C0A] text-white">
@@ -232,7 +297,18 @@ function PortfolioArt({kind}){
   </div>;
 }
 
-function VoiceArt(){return <div className="absolute inset-0 overflow-hidden bg-[#0D0B09] text-white"><GridLines/><div className="absolute left-[8%] top-[12%] right-[8%] rounded-[28px] border border-white/[.09] bg-white/[.025] p-6"><Label>VOICE → WORK</Label><div className="mt-8 flex h-24 items-center gap-1">{[24,48,76,39,88,55,31,68,42,81,51,29,64,37,73,45,86,58].map((h,i)=><span key={i} className="flex-1 rounded-full bg-[#D6A66A]/70" style={{height:h}}/>)}</div></div><div className="absolute bottom-[10%] left-[8%] right-[8%] flex gap-2">{["LISTEN","UNDERSTAND","AUTHORIZE","RESULT"].map((x,i)=><div key={x} className="flex-1 rounded-xl border border-white/[.08] p-4"><span className="text-[6px] text-[#D6A66A]">0{i+1}</span><div className="mt-2 text-[8px] text-white/55">{x}</div></div>)}</div></div>}
+function VoiceArt(){
+  const wave=[18,34,62,28,76,46,22,58,31,70,44,20,54,26,64,38,74,48,24,56,34,68,42,20,50,30,60,36];
+  return <div className="absolute inset-0 overflow-hidden bg-[#0D0C0A] text-white"><Photo src="/art/studio/voice-studio.svg" opacity={.92}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,8,7,.76),rgba(9,8,7,.22)_58%,rgba(9,8,7,.58)),linear-gradient(180deg,rgba(9,8,7,.02),rgba(9,8,7,.56))]"/><GridLines/><div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_16%,rgba(214,166,106,.11),transparent_30%)]"/>
+    <div className="absolute left-[6%] top-[9%] max-w-[360px]"><Label>VOICE / REALTIME SESSION</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">Speech becomes transcript, intent, action and proof — without losing the audio source.</div></div>
+    <div className="absolute right-[6%] top-[12%] w-[43%] rounded-[18px] border border-white/[.08] bg-[#14120F]/92 p-4">
+      <div className="flex items-center justify-between"><span className="text-[6px] tracking-[.13em] text-[#D6A66A]">LIVE INPUT</span><span className="font-mono text-[6px] text-white/24">48 kHz PCM</span></div>
+      <div className="mt-5 flex h-20 items-center gap-[2px]">{wave.map((h,i)=><span key={i} className="w-[3px] rounded-full bg-white/44" style={{height:`${h}%`}}/>)}</div>
+      <div className="mt-4 border-t border-white/[.07] pt-3 text-[7px] leading-4 text-white/36">“Move tomorrow's briefing to 09:30 and send the updated note.”</div>
+    </div>
+    <div className="absolute bottom-[9%] left-[6%] right-[6%] grid grid-cols-4 gap-2">{[["LISTEN","Source preserved"],["TRANSCRIBE","Timestamped"],["UNDERSTAND","Business context"],["ACT","Authorized result"]].map(([a,b],i)=><div key={a} className="rounded-[15px] border border-white/[.08] bg-black/28 p-4"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-4 text-[8px] text-white/58">{a}</div><div className="mt-1 text-[6px] text-white/24">{b}</div></div>)}</div>
+  </div>;
+}
 
 export default function PublicArtStage({kind="intelligence"}){
   if(kind==="documents") return <DocumentsArt/>;
@@ -248,6 +324,10 @@ export default function PublicArtStage({kind="intelligence"}){
   if(kind==="hotel") return <HotelArt/>;
   if(kind==="commerce") return <CommerceArt/>;
   if(kind==="creative") return <CreativeArt/>;
+  if(kind==="video-studio") return <VideoStudioArt/>;
+  if(kind==="music-studio") return <MusicStudioArt/>;
+  if(kind==="image-studio") return <ImageStudioArt/>;
+  if(kind==="code-studio") return <CodeStudioArt/>;
   if(kind==="channels") return <ChannelsArt/>;
   if(kind==="voice") return <VoiceArt/>;
   if(kind==="agents") return <AgentsArt/>;

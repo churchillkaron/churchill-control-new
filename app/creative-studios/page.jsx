@@ -1,4 +1,5 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+import PublicArtStage from "@/components/public/PublicArtStage";
 
 export const metadata = {
   title: "Creative Studios | Avantiqo",
@@ -10,10 +11,10 @@ const studios = [
   {
     no: "01",
     name: "Image Studio",
-    title: "From concept to campaign.",
-    text: "Research, art direction, image production, critique, repair, typography and final delivery.",
+    title: "A commercial image-production room.",
+    text: "Research, art direction, composition, production, critique, targeted repair, typography, layout and final delivery.",
     href: "/creative-studios/image",
-    image: "/art/creative-image.jpg",
+    artKind: "image-studio",
     tags: "BRANDS  ·  CAMPAIGNS  ·  CONTENT",
   },
   {
@@ -22,16 +23,16 @@ const studios = [
     title: "An intelligent film-production house.",
     text: "Story and shot architecture, reconstruction execution, pass rendering, physical simulation, deep compositing, cinematic sound, optical finishing, edit, color and mastering.",
     href: "/creative-studios/video",
-    image: "/art/creative-video.jpg",
+    artKind: "video-studio",
     tags: "FILM  ·  VFX  ·  COMPOSITING  ·  SURROUND  ·  MASTER",
   },
   {
     no: "03",
     name: "Music Studio",
-    title: "From idea to full production.",
-    text: "Composition, arrangement, edit, remix, stems, vocal work, SFX, mix and master.",
+    title: "A world-class record-production room.",
+    text: "Performance, recording, comping, vocal and instrument production, arrangement, editing, mix, premaster listening, mastering and translation QC.",
     href: "/creative-studios/music",
-    image: "/art/creative-music.jpg",
+    artKind: "music-studio",
     tags: "MUSIC  ·  SFX  ·  VOICE  ·  MASTER",
   },
 ];
@@ -135,30 +136,19 @@ export default function Page() {
           </div>
 
           <div className="relative min-h-[430px] overflow-hidden bg-[#0f0d0b] lg:min-h-[540px]">
-            <div className="absolute inset-0 grid grid-cols-[1.28fr_.72fr] gap-px bg-[#D6A66A]/30">
-              <div className="relative overflow-hidden">
-                <div className="absolute inset-0 scale-[1.025] bg-cover bg-center" style={{ backgroundImage: "url(/art/creative-video.jpg)" }} />
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(12,9,7,.35),rgba(12,9,7,.03)_42%,rgba(12,9,7,.34)),linear-gradient(180deg,rgba(12,9,7,.02),rgba(12,9,7,.10)_45%,rgba(12,9,7,.76))]" />
-                <div className="absolute left-7 top-7 text-[7px] font-semibold uppercase tracking-[.22em] text-[#f0c98f]">FILM · STORY · MOTION</div>
-                <div className="absolute bottom-7 left-7 max-w-[420px] text-white">
-                  <div className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#D6A66A]">VIDEO STUDIO</div>
-                  <div className="mt-2 text-[22px] leading-[1.05] tracking-[-.035em] text-white/90">Direction before generation. Review before delivery.</div>
-                </div>
-              </div>
-              <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/30">
-                {[["IMAGE STUDIO","/art/creative-image.jpg","Campaign · brand · art direction"],["MUSIC STUDIO","/art/creative-music.jpg","Composition · voice · mix · master"]].map(([label,img,note])=><div key={label} className="relative overflow-hidden">
-                  <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${img})` }} />
-                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(12,9,7,.06),rgba(12,9,7,.70))]" />
-                  <div className="absolute bottom-5 left-5 right-4 text-white"><div className="text-[7px] font-semibold tracking-[.18em] text-[#F0C98F]">{label}</div><div className="mt-2 text-[8px] text-white/52">{note}</div></div>
-                </div>)}
+            <div className="absolute inset-0 grid grid-cols-[1.28fr_.72fr] gap-px bg-white/[0.08]">
+              <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.02]"><PublicArtStage kind="video-studio" /></div></div>
+              <div className="grid grid-rows-2 gap-px bg-white/[0.08]">
+                <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.12]"><PublicArtStage kind="image-studio" /></div></div>
+                <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.12]"><PublicArtStage kind="music-studio" /></div></div>
               </div>
             </div>
-            <div className="absolute inset-y-0 left-0 w-[12%] bg-gradient-to-r from-[#f6f2eb] via-[#f6f2eb]/26 to-transparent" />
-            <div className="absolute right-[6%] top-[7%] rounded-full border border-[#D6A66A]/40 bg-[#15120f]/72 px-4 py-2 text-[7px] font-semibold uppercase tracking-[.2em] text-[#efd0a4] backdrop-blur-md">CREATIVE INTELLIGENCE</div>
-            <div className="absolute bottom-6 left-[17%] right-[6%] hidden rounded-[22px] border border-white/15 bg-[#15120f]/82 px-5 py-4 text-white shadow-[0_28px_80px_rgba(0,0,0,.30)] backdrop-blur-xl md:block">
+            <div className="absolute inset-y-0 left-0 w-[12%] bg-gradient-to-r from-[#f6f2eb] via-[#f6f2eb]/22 to-transparent" />
+            <div className="absolute right-[6%] top-[7%] rounded-full border border-[#D6A66A]/28 bg-[#11100E]/78 px-4 py-2 text-[7px] font-semibold uppercase tracking-[.2em] text-[#E0B77F] backdrop-blur-md">PROFESSIONAL PRODUCTION SYSTEM</div>
+            <div className="absolute bottom-6 left-[17%] right-[6%] hidden rounded-[22px] border border-white/[.10] bg-[#11100E]/86 px-5 py-4 text-white shadow-[0_28px_80px_rgba(0,0,0,.30)] backdrop-blur-xl md:block">
               <div className="grid grid-cols-[1fr_auto] items-center gap-6">
-                <div><div className="text-[7px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">ONE PROFESSIONAL PRODUCTION FLOW</div><div className="mt-2 text-[13px] text-white/80">Research → direction → production → critique → repair → finish.</div></div>
-                <div className="grid grid-cols-3 gap-2 text-[6px] uppercase tracking-[.14em] text-white/38"><span>IMAGE</span><span>VIDEO</span><span>MUSIC</span></div>
+                <div><div className="text-[7px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">ONE PROFESSIONAL PRODUCTION FLOW</div><div className="mt-2 text-[13px] text-white/72">Source → production state → specialist passes → review → repair → master.</div></div>
+                <div className="grid grid-cols-3 gap-2 text-[6px] uppercase tracking-[.14em] text-white/34"><span>IMAGE</span><span>VIDEO</span><span>MUSIC</span></div>
               </div>
             </div>
           </div>
@@ -173,11 +163,10 @@ export default function Page() {
               href={studio.href}
               className="group relative min-h-[420px] overflow-hidden rounded-[24px] border border-[#D6A66A]/18 bg-[#171614] shadow-[0_18px_48px_rgba(42,30,18,.11)]"
             >
-              <div
-                className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.035]"
-                style={{ backgroundImage: `url(${studio.image})` }}
-              />
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,6,.18)_0%,rgba(10,8,6,.04)_42%,rgba(10,8,6,.60)_70%,rgba(10,8,6,.94)_100%)]" />
+              <div className="absolute inset-0 scale-[1.06] transition duration-700 group-hover:scale-[1.09]">
+                <PublicArtStage kind={studio.artKind} />
+              </div>
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,6,.08)_0%,rgba(10,8,6,.03)_42%,rgba(10,8,6,.56)_72%,rgba(10,8,6,.94)_100%)]" />
               <div className="absolute left-6 right-6 top-5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.18em] text-white drop-shadow-sm">
                 <span>{studio.name}</span>
                 <span>{studio.no}</span>

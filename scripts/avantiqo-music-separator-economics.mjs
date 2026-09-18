@@ -86,7 +86,8 @@ function assertBenchmark(report = {}) {
 }
 
 function resolveGpuRate(benchmark) {
-  return { gpu_type_id: "A10G", usd_per_gpu_hour: MODAL_A10G_USD_PER_SECOND * 3600, source: "MODAL_A10G_MEASURED_RATE", public_pricing_verified_at: null };
+  if (text(benchmark?.infrastructure_provider) === "AVANTIQO_LOCAL_NODE_V1") return { gpu_type_id: text(benchmark?.node_id) || "avantiqo-node-01", usd_per_gpu_hour: 0, source: "OWNED_LOCAL_NODE_EXTERNAL_PROVIDER_COST_ZERO", public_pricing_verified_at: null, local_owned_compute: true };
+  return { gpu_type_id: "A10G", usd_per_gpu_hour: MODAL_A10G_USD_PER_SECOND * 3600, source: "MODAL_A10G_MEASURED_RATE", public_pricing_verified_at: null, local_owned_compute: false };
 }
 
 function legacyResolveGpuRate(benchmark) {
@@ -124,7 +125,7 @@ async function main() {
   const benchmark = JSON.parse(await readFile(INPUT, "utf8"));
   const observations = assertBenchmark(benchmark);
   const rate = resolveGpuRate(benchmark);
-  const billedGpuCount = positive(
+  const billedGpuCount = rate.local_owned_compute ? 1 : positive(
     process.env.AVANTIQO_MUSIC_SEPARATOR_BILLED_GPU_COUNT || 1,
     "AVANTIQO_MUSIC_SEPARATOR_BILLED_GPU_COUNT_INVALID",
   );
@@ -210,7 +211,9 @@ async function main() {
       production_certified: false,
       next_gate: "SEPARATOR_HUMAN_QUALITY_REVIEW_REQUIRED",
     },
-    infrastructure_provider: "MODAL_DIRECT_A10G_ASYNC_V1",
+    infrastructure_provider: text(benchmark.infrastructure_provider) || "MODAL_DIRECT_A10G_ASYNC_V1",
+    external_provider_cost_zero: rate.local_owned_compute === true,
+    local_owned_compute_electricity_and_hardware_cost_not_in_external_provider_cost: rate.local_owned_compute === true,
     fx_thb_per_usd: FX_THB_PER_USD,
     pricing_status: "NOT_PRODUCTION_CERTIFIED",
     pricing_activation_performed: false,

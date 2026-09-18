@@ -41,10 +41,11 @@ test("lead-only removal never falls back to four-stem Demucs", () => {
 });
 test("provider registry keeps vocal-role separation research-gated", () => {
   assert.match(registration, /VOCAL_ROLE_SEPARATOR_CAPABILITY = "ai\.audio\.vocal-role-separate"/);
-  assert.match(registration, /RESEARCH_BENCHMARK_REQUIRED/);
+  assert.match(registration, /RESEARCH_RUNTIME_IMPLEMENTED_CERTIFICATION_REQUIRED/);
   assert.match(registration, /production_routing_allowed: false/);
   assert.match(registration, /ordinary_stem_separator_substitution_forbidden: true/);
-  assert.match(registration, /BS_ROFORMER_MULTISTEM_CANDIDATE/);
+  assert.match(registration, /UVR_MDXNET_KARA_2\.onnx/);
+  assert.match(registration, /model_license_verified: false/);
   assert.match(registration, /replace_certified_demucs_automatically: false/);
 });
 

@@ -216,7 +216,7 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {[
           ["STANDARD_STEMS", "Standard stems", "Vocals, drums, bass and other · certified separator path"],
-          ["VOCAL_ROLES", "Vocal roles", "Lead, supporting vocals and instrumental · research / benchmark gated"],
+          ["VOCAL_ROLES", "Vocal roles", "Lead, supporting vocals and instrumental · owned research runtime ready · certification + license review required"],
         ].map(([id, label, description]) => (
           <button key={id} type="button" onClick={() => { setSeparationMode(id); setPlan(null); setSession(null); }}
             className={`rounded-xl border p-3 text-left ${separationMode === id ? "border-[#d6a66a]/30 bg-[#d6a66a]/[0.07]" : "border-white/8 bg-white/[0.018]"}`}>
@@ -247,7 +247,7 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
         <div className="mt-5 rounded-xl border border-white/8 bg-black/25 p-4">
           <div className="text-[9px] uppercase tracking-[0.18em] text-white/28">Separation plan</div>
           <div className="mt-2 text-xs text-white/60">{separationMode === "VOCAL_ROLES" ? "Dedicated vocal-role separator · no ordinary Demucs fallback · private outputs" : "Demucs HTDemucs FT · four-stem separation · private outputs"}</div>
-          <div className="mt-1 text-[10px] text-white/30">Status: {separationMode === "VOCAL_ROLES" ? "Research / benchmark required" : (plan.production_certified ? "Production certified" : plan.local_acceptance ? "Local owned acceptance · production certification still pending" : (plan.plan?.certification || "Pending certification"))}</div>
+          <div className="mt-1 text-[10px] text-white/30">Status: {separationMode === "VOCAL_ROLES" ? "Owned research runtime ready · certification + model-license review required" : (plan.production_certified ? "Production certified" : plan.local_acceptance ? "Local owned acceptance · production certification still pending" : (plan.plan?.certification || "Pending certification"))}</div>
         </div>
       ) : null}
 

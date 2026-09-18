@@ -34,8 +34,18 @@ $NightLearningEndHour = 6
 $script:LastGpuWorkAt = Get-Date
 $script:LastIdleLearningAt = [datetime]::MinValue
 $script:LearningCursor = 0
-$AllCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech')
-$GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
+$MusicGpuPython = 'C:\Avantiqo\music-gpu\Scripts\python.exe'
+$VocalRoleRunner = 'C:\Avantiqo\music-gpu\vocal_role_separator_runner.py'
+$VocalRoleRuntimeReady = $false
+if ((Test-Path $MusicGpuPython) -and (Test-Path $VocalRoleRunner)) {
+  try {
+    & $MusicGpuPython -c "import demucs, audio_separator" 2>$null
+    $VocalRoleRuntimeReady = ($LASTEXITCODE -eq 0)
+  } catch { $VocalRoleRuntimeReady = $false }
+}
+$BaseCapabilities = @('ai.text.generate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech')
+$AllCapabilities = @($BaseCapabilities + $(if ($VocalRoleRuntimeReady) { @('ai.audio.vocal-role-separate') } else { @() }))
+$GpuCapabilities = @('ai.text.generate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech') + $(if ($VocalRoleRuntimeReady) { @('ai.audio.vocal-role-separate') } else { @() })
 $CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process','ai.music.generate')
 $Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } else { $AllCapabilities })
 if ($Lane -eq 'cpu') {
@@ -93,6 +103,7 @@ function ResourceProfile($Job) {
   if ($workload -eq 'voice_stt') { return @{ class='interactive_gpu'; gpu_vram_mb=5900; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / STT' } }
   if ($workload -eq 'image_upscale') { return @{ class='gpu_specialist'; gpu_vram_mb=1200; cpu_weight='light'; exclusive_gpu=$true; product='Image Studio' } }
   if ($workload -eq 'music_separator') { return @{ class='gpu_specialist'; gpu_vram_mb=3800; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
+  if ($workload -eq 'music_vocal_role_separator') { return @{ class='gpu_specialist'; gpu_vram_mb=4300; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Vocal Roles'; mode='RESEARCH_CANDIDATE' } }
   if ($workload -eq 'music_vocal_correction') { return @{ class='gpu_specialist'; gpu_vram_mb=3400; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
   if ($workload -eq 'voice_tts') { return @{ class='background_gpu'; gpu_vram_mb=6100; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / TTS'; mode='BATCH_BACKGROUND_ONLY' } }
   if ($workload -eq 'media_ffmpeg') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Video / Media' } }
@@ -404,6 +415,36 @@ function RunMusicSeparatorJob($Job) {
   } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp,$err,$outFile }
 }
 
+function RunMusicVocalRoleSeparationJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_VOCAL_ROLE_PAYLOAD_REQUIRED' }
+  $python = 'C:\Avantiqo\music-gpu\Scripts\python.exe'
+  $runner = 'C:\Avantiqo\music-gpu\vocal_role_separator_runner.py'
+  $ffmpeg = 'C:\Avantiqo\ffmpeg\bin'
+  if (-not $VocalRoleRuntimeReady) { throw 'AVANTIQO_LOCAL_VOCAL_ROLE_RUNTIME_NOT_READY' }
+  if (-not (Test-Path $python)) { throw 'AVANTIQO_LOCAL_VOCAL_ROLE_PYTHON_REQUIRED' }
+  if (-not (Test-Path $runner)) { throw 'AVANTIQO_LOCAL_VOCAL_ROLE_RUNNER_REQUIRED' }
+  $tmp = Join-Path $env:TEMP ("avantiqo-vocal-role-" + [string]$Job.id + ".json")
+  try {
+    UnloadOllamaModel
+    [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 60 -Compress), (New-Object System.Text.UTF8Encoding($false)))
+    $started = Get-Date
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $python
+    $psi.Arguments = ('"' + $runner + '" --input "' + $tmp + '"')
+    $psi.EnvironmentVariables['PATH'] = $ffmpeg + ';' + [Environment]::GetEnvironmentVariable('PATH')
+    $psi.EnvironmentVariables['AVANTIQO_AUDIO_SEPARATOR_MODEL_DIR'] = 'C:\Avantiqo\audio-separator-models'
+    $psi.UseShellExecute = $false; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
+    $process = New-Object System.Diagnostics.Process; $process.StartInfo = $psi; [void]$process.Start()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync(); $process.WaitForExit()
+    $rawOutput = [string]$stdoutTask.Result; $stderr = [string]$stderrTask.Result
+    if ([int]$process.ExitCode -ne 0) { $tail=$(if($stderr.Length -gt 1600){$stderr.Substring($stderr.Length-1600)}else{$stderr}); throw ('AVANTIQO_LOCAL_VOCAL_ROLE_PROCESS_FAILED:' + $tail) }
+    $json=$rawOutput.Trim(); if(-not $json){ throw 'AVANTIQO_LOCAL_VOCAL_ROLE_OUTPUT_REQUIRED' }
+    $result=$json | ConvertFrom-Json; $elapsed=[int](((Get-Date)-$started).TotalMilliseconds); $result | Add-Member -NotePropertyName node_id -NotePropertyValue $NodeId -Force
+    CompleteJob $Job $result @{ elapsed_ms=$elapsed; gpu_workload=$true; music_vocal_role_separator=$true; research_candidate=$true }
+  } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp }
+}
+
 function RunMusicVocalCorrectionJob($Job) {
   $payload = $Job.payload
   if (-not $payload) { throw 'AVANTIQO_LOCAL_MUSIC_VOCAL_CORRECTION_PAYLOAD_REQUIRED' }
@@ -595,6 +636,7 @@ while ($true) {
         elseif ([string]$job.capability -eq 'ai.speech.to.text') { RunVoiceSttJob $job }
         elseif ([string]$job.capability -eq 'ai.image.upscale') { RunImageUpscaleJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.stems') { RunMusicSeparatorJob $job }
+        elseif ([string]$job.capability -eq 'ai.audio.vocal-role-separate') { RunMusicVocalRoleSeparationJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.vocal-correct') { RunMusicVocalCorrectionJob $job }
         elseif ([string]$job.capability -eq 'ai.music.generate') { RunMusicGenerationJob $job }
         elseif ([string]$job.capability -eq 'ai.text.to.speech') { RunVoiceTtsJob $job }

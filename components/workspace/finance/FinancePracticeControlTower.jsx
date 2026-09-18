@@ -27,6 +27,7 @@ import FinanceEngagementFile from "@/components/workspace/finance/FinanceEngagem
 import FinancePracticeTimeWip from "@/components/workspace/finance/FinancePracticeTimeWip";
 import FinancePracticeOnboarding from "@/components/workspace/finance/FinancePracticeOnboarding";
 import FinancePracticeClientPortal from "@/components/workspace/finance/FinancePracticeClientPortal";
+import FinancePracticeClientSetup from "@/components/workspace/finance/FinancePracticeClientSetup";
 
 const TABS = [
   { id: "today", label: "Today", icon: Clock3 },
@@ -407,7 +408,10 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
                 <button key={filter.id} type="button" onClick={() => setClientFilter(filter.id)} className={`h-8 shrink-0 rounded-lg border px-2.5 text-[8px] font-semibold uppercase tracking-[0.08em] ${clientFilter === filter.id ? "border-[#A37849]/25 bg-[#A37849]/[0.08] text-[#76583A]" : "border-black/[0.07] bg-white text-[#817D76]"}`}>{filter.label}</button>
               ))}
             </div>
-            <label className="flex h-9 w-full items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 xl:w-[300px]"><Search size={12} className="text-[#A29D95]" /><input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} placeholder="Search client or accountant" className="min-w-0 flex-1 bg-transparent text-[10px] text-[#403C37] outline-none placeholder:text-[#B2ADA5]" /></label>
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
+              <label className="flex h-9 w-full items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 xl:w-[300px]"><Search size={12} className="text-[#A29D95]" /><input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} placeholder="Search client or accountant" className="min-w-0 flex-1 bg-transparent text-[10px] text-[#403C37] outline-none placeholder:text-[#B2ADA5]" /></label>
+              <FinancePracticeClientSetup organizationId={organizationId} existingClients={clients} onCreated={async () => { await loadPractice(); setClientFilter("ALL"); }} />
+            </div>
           </div>
           <div className="text-[9px] text-[#918B83]">{filteredClients.length} client{filteredClients.length === 1 ? "" : "s"} in this view</div>
           <ClientTable clients={filteredClients} onOpen={setSelectedEngagementId} />

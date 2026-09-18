@@ -56,6 +56,7 @@ export default function MarketsCommandCenter({ organizationId }) {
     setAutomationDraft({
       cycle_interval_seconds: String(policy.cycle_interval_seconds ?? 300),
       target_position_pct: String(policy.target_position_pct ?? 2),
+      target_annualized_volatility_pct: String(policy.target_annualized_volatility_pct ?? 25),
       min_confidence: String(policy.min_confidence ?? 0.75),
       max_trades_per_cycle: String(policy.max_trades_per_cycle ?? 3),
       cooldown_minutes: String(policy.cooldown_minutes ?? 60),
@@ -892,6 +893,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                     {[
                       ["Cycle seconds", "cycle_interval_seconds", "60", "86400", "1"],
                       ["Target position %", "target_position_pct", "0.1", "10", "0.1"],
+                      ["Target annualized vol %", "target_annualized_volatility_pct", "1", "300", "0.1"],
                       ["Min confidence", "min_confidence", "0", "1", "0.01"],
                       ["Max trades/cycle", "max_trades_per_cycle", "1", "20", "1"],
                       ["Cooldown minutes", "cooldown_minutes", "0", "10080", "1"],
@@ -964,6 +966,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       onClick={() => act("UPDATE_AUTOMATION_POLICY", {
                         cycle_interval_seconds: Number(automationDraft?.cycle_interval_seconds || 300),
                         target_position_pct: Number(automationDraft?.target_position_pct || 2),
+                        target_annualized_volatility_pct: Number(automationDraft?.target_annualized_volatility_pct || 25),
                         min_confidence: Number(automationDraft?.min_confidence || 0.75),
                         max_trades_per_cycle: Number(automationDraft?.max_trades_per_cycle || 3),
                         cooldown_minutes: Number(automationDraft?.cooldown_minutes || 60),

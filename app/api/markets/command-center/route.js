@@ -732,6 +732,7 @@ export async function POST(request) {
         auto_paper_enabled: body.auto_paper_enabled ?? current.auto_paper_enabled ?? false,
         cycle_interval_seconds: Number(body.cycle_interval_seconds ?? current.cycle_interval_seconds ?? 300),
         target_position_pct: Number(body.target_position_pct ?? current.target_position_pct ?? 2),
+        target_annualized_volatility_pct: Number(body.target_annualized_volatility_pct ?? current.target_annualized_volatility_pct ?? 25),
         min_confidence: Number(body.min_confidence ?? current.min_confidence ?? 0.75),
         max_trades_per_cycle: Number(body.max_trades_per_cycle ?? current.max_trades_per_cycle ?? 3),
         cooldown_minutes: Number(body.cooldown_minutes ?? current.cooldown_minutes ?? 60),
@@ -752,6 +753,9 @@ export async function POST(request) {
       }
       if (!(next.target_position_pct > 0 && next.target_position_pct <= 10)) {
         throw new Error("Target position must be greater than 0% and at most 10%");
+      }
+      if (!(next.target_annualized_volatility_pct > 0 && next.target_annualized_volatility_pct <= 300)) {
+        throw new Error("Target annualized volatility must be greater than 0 and at most 300%");
       }
       if (!(next.min_confidence >= 0 && next.min_confidence <= 1)) {
         throw new Error("Automation confidence must be between 0 and 1");

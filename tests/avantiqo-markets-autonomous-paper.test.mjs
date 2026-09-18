@@ -11,6 +11,7 @@ const base = {
     auto_paper_enabled: true,
     kill_switch: false,
     target_position_pct: 2,
+    target_annualized_volatility_pct: 25,
     min_confidence: 0.75,
     allow_buys: true,
     allow_sells: true,
@@ -60,6 +61,43 @@ test("BUY quantity is derived from bounded target position", () => {
   assert.ok(result.notional > 1000);
   assert.ok(result.notional <= 2000);
   assert.equal(result.quantity, result.notional / 100);
+});
+
+test("high volatility scales autonomous BUY target down", () => {
+  const baseline = calculateAutonomousPaperOrder({
+    ...base,
+    decision: { action: "BUY", confidence: 0.875 },
+    marketPrice: 100,
+    position: { quantity: 0 },
+    candidateAnnualizedVolatilityPct: 25,
+  });
+  const volatile = calculateAutonomousPaperOrder({
+    ...base,
+    decision: { action: "BUY", confidence: 0.875 },
+    marketPrice: 100,
+    position: { quantity: 0 },
+    candidateAnnualizedVolatilityPct: 50,
+  });
+
+  assert.equal(baseline.executable, true);
+  assert.equal(volatile.executable, true);
+  assert.ok(Math.abs(volatile.volatility_scale - 0.5) < 1e-12);
+  assert.ok(Math.abs(volatile.target_position_pct - (baseline.target_position_pct * 0.5)) < 1e-12);
+  assert.ok(Math.abs(volatile.notional - (baseline.notional * 0.5)) < 1e-9);
+});
+
+test("low volatility keeps the confidence-scaled target", () => {
+  const result = calculateAutonomousPaperOrder({
+    ...base,
+    decision: { action: "BUY", confidence: 0.875 },
+    marketPrice: 100,
+    position: { quantity: 0 },
+    candidateAnnualizedVolatilityPct: 15,
+  });
+
+  assert.equal(result.executable, true);
+  assert.equal(result.volatility_scale, 1);
+  assert.equal(result.target_position_pct, result.confidence_scaled_target_position_pct);
 });
 
 test("BUY does nothing when target is already reached", () => {

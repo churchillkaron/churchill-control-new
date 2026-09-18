@@ -5,8 +5,8 @@
   "production_deployment_performed": false,
   "main_worktree_modified": false,
   "finance_regression": {
-    "tests": 377,
-    "passed": 377,
+    "tests": 379,
+    "passed": 379,
     "failed": 0
   },
   "workstreams": [
@@ -228,6 +228,16 @@
       "generic_workspaces": "Schema-backed Finance workspaces read complete scoped populations instead of silently hiding record 251.",
       "silent_operational_truncation_removed": true,
       "accounting_mutation_authority": false
+    },
+    {
+      "order": 17,
+      "name": "Fixed-cap boundary regression guard",
+      "commit": "15579f23fbdc",
+      "status": "OPERATIONAL_PRESENTATION_WINDOWS_ONLY",
+      "boundary": "Fixed row caps are allowlisted only for explicit Finance history/list preview surfaces.",
+      "regression": "Any new fixed 50/100/200/250/500/1000/5000/10000 row cap under Finance runtime surfaces fails the regression guard unless explicitly reviewed as presentation-only.",
+      "decision_truth": "Accounting, tax, review, reconciliation, provider, practice, health, anomaly and management-reporting decision populations remain complete or exact.",
+      "accounting_mutation_authority": false
     }
   ],
   "live_acceptance": {
@@ -292,6 +302,8 @@
     "finance_insights_complete_ledger_population": true,
     "forecast_delivery_organization_population_complete": true,
     "number_sequence_workspace_population_complete": true,
-    "generic_finance_workspace_population_complete": true
+    "generic_finance_workspace_population_complete": true,
+    "finance_fixed_caps_allowlisted_to_presentation_history_only": true,
+    "new_decision_population_caps_fail_regression": true
   }
 }

@@ -129,6 +129,9 @@ export default function MarketsCommandCenter({ organizationId }) {
       stress_single_name_shock_pct: String(policy.stress_single_name_shock_pct ?? 20),
       max_rolling_24h_turnover_pct: String(policy.max_rolling_24h_turnover_pct ?? 100),
       max_rolling_24h_execution_cost_pct_equity: String(policy.max_rolling_24h_execution_cost_pct_equity ?? 0.25),
+      max_open_positions: String(policy.max_open_positions ?? 20),
+      max_consecutive_losing_closes: String(policy.max_consecutive_losing_closes ?? 3),
+      loss_streak_cooloff_hours: String(policy.loss_streak_cooloff_hours ?? 24),
     });
   }, [data?.riskPolicy]);
 
@@ -228,6 +231,12 @@ export default function MarketsCommandCenter({ organizationId }) {
     .find((row) => row && Object.keys(row).length) || null;
   const latestTradingBudget = orders
     .map((row) => row?.risk_snapshot?.trading_budget_24h)
+    .find((row) => row && Object.keys(row).length) || null;
+  const latestOpenPositionLimit = orders
+    .map((row) => row?.risk_snapshot?.open_position_limit)
+    .find((row) => row && Object.keys(row).length) || null;
+  const latestLossStreakCooloff = orders
+    .map((row) => row?.risk_snapshot?.loss_streak_cooloff)
     .find((row) => row && Object.keys(row).length) || null;
   const latestMarketRegime = decisions
     .map((row) => row?.decision_payload?.market_regime)
@@ -586,6 +595,8 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Max stress loss", `${Number(policy.max_portfolio_stress_loss_pct || 12)}%`],
                       ["24h turnover cap", `${Number(policy.max_rolling_24h_turnover_pct || 100)}%`],
                       ["24h exec-cost cap", `${Number(policy.max_rolling_24h_execution_cost_pct_equity || 0.25)}%`],
+                      ["Max open positions", Number(policy.max_open_positions || 20)],
+                      ["Loss-streak limit", Number(policy.max_consecutive_losing_closes || 3)],
                       ["Min confidence", `${(Number(policy.min_decision_confidence || 0.7) * 100).toFixed(0)}%`],
                     ].map(([label, value]) => (
                       <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
@@ -679,6 +690,14 @@ export default function MarketsCommandCenter({ organizationId }) {
                         {Number(latestTradingBudget.fill_count || 0)} fills
                       </div>
                     ) : null}
+                    {(latestOpenPositionLimit || latestLossStreakCooloff) ? (
+                      <div className="mt-2 rounded-lg border border-black/[0.06] bg-white px-2.5 py-2 text-[8px] text-[#5E5851]">
+                        Discipline: {Number(latestOpenPositionLimit?.projected_open_positions || latestOpenPositionLimit?.open_positions || 0)}/{Number(latestOpenPositionLimit?.max_open_positions || policy.max_open_positions || 20)} projected positions
+                        {" · "}
+                        {Number(latestLossStreakCooloff?.consecutive_losing_closes || 0)} consecutive losing closes
+                        {latestLossStreakCooloff?.cooloff_active ? " · COOL-OFF ACTIVE" : ""}
+                      </div>
+                    ) : null}
                     {latestMarketRegime ? (
                       <div className="mt-2 rounded-lg border border-black/[0.06] bg-white px-2.5 py-2 text-[8px] text-[#5E5851]">
                         Benchmark regime: {String(latestMarketRegime.regime || "UNKNOWN").replaceAll("_", " ")}
@@ -715,6 +734,9 @@ export default function MarketsCommandCenter({ organizationId }) {
                         ["Single-name gap %", "stress_single_name_shock_pct", "0.01", "100", "0.1"],
                         ["24h turnover cap %", "max_rolling_24h_turnover_pct", "0.1", "1000", "0.1"],
                         ["24h exec-cost cap % equity", "max_rolling_24h_execution_cost_pct_equity", "0.001", "10", "0.001"],
+                        ["Max open positions", "max_open_positions", "1", "500", "1"],
+                        ["Losses before cool-off", "max_consecutive_losing_closes", "1", "50", "1"],
+                        ["Loss cool-off hours", "loss_streak_cooloff_hours", "1", "720", "1"],
                       ].map(([label, key, min, max, step]) => (
                         <label key={key}>
                           <span className="text-[8px] text-[#968F86]">{label}</span>
@@ -886,6 +908,9 @@ export default function MarketsCommandCenter({ organizationId }) {
                         stress_single_name_shock_pct: Number(riskDraft?.stress_single_name_shock_pct ?? 20),
                         max_rolling_24h_turnover_pct: Number(riskDraft?.max_rolling_24h_turnover_pct ?? 100),
                         max_rolling_24h_execution_cost_pct_equity: Number(riskDraft?.max_rolling_24h_execution_cost_pct_equity ?? 0.25),
+                        max_open_positions: Number(riskDraft?.max_open_positions ?? 20),
+                        max_consecutive_losing_closes: Number(riskDraft?.max_consecutive_losing_closes ?? 3),
+                        loss_streak_cooloff_hours: Number(riskDraft?.loss_streak_cooloff_hours ?? 24),
                       })}
                       className="mt-3 h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-medium text-white disabled:opacity-40"
                     >

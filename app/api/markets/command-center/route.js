@@ -609,6 +609,9 @@ export async function POST(request) {
         stress_single_name_shock_pct: Number(body.stress_single_name_shock_pct ?? current.stress_single_name_shock_pct ?? 20),
         max_rolling_24h_turnover_pct: Number(body.max_rolling_24h_turnover_pct ?? current.max_rolling_24h_turnover_pct ?? 100),
         max_rolling_24h_execution_cost_pct_equity: Number(body.max_rolling_24h_execution_cost_pct_equity ?? current.max_rolling_24h_execution_cost_pct_equity ?? 0.25),
+        max_open_positions: Number(body.max_open_positions ?? current.max_open_positions ?? 20),
+        max_consecutive_losing_closes: Number(body.max_consecutive_losing_closes ?? current.max_consecutive_losing_closes ?? 3),
+        loss_streak_cooloff_hours: Number(body.loss_streak_cooloff_hours ?? current.loss_streak_cooloff_hours ?? 24),
         live_execution_enabled: false,
         updated_at: new Date().toISOString(),
       };
@@ -690,6 +693,15 @@ export async function POST(request) {
       }
       if (!(next.max_rolling_24h_execution_cost_pct_equity > 0 && next.max_rolling_24h_execution_cost_pct_equity <= 10)) {
         throw new Error("Rolling 24-hour execution-cost cap must be greater than 0 and at most 10% of equity");
+      }
+      if (!(next.max_open_positions >= 1 && next.max_open_positions <= 500)) {
+        throw new Error("Maximum open positions must be between 1 and 500");
+      }
+      if (!(next.max_consecutive_losing_closes >= 1 && next.max_consecutive_losing_closes <= 50)) {
+        throw new Error("Maximum consecutive losing closes must be between 1 and 50");
+      }
+      if (!(next.loss_streak_cooloff_hours >= 1 && next.loss_streak_cooloff_hours <= 720)) {
+        throw new Error("Loss-streak cool-off must be between 1 and 720 hours");
       }
 
       const { data: riskPolicy, error: riskPolicyError } = await supabaseAdmin

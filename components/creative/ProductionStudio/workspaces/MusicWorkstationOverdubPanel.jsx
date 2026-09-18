@@ -79,6 +79,7 @@ export default function MusicWorkstationOverdubPanel({
   const [punchEnd, setPunchEnd] = useState(8);
   const [loopPasses, setLoopPasses] = useState(3);
   const [latencyCompMs, setLatencyCompMs] = useState(0);
+  const [clockAlignmentMs, setClockAlignmentMs] = useState(null);
   const [monitorEnabled, setMonitorEnabled] = useState(false);
   const [monitorGainDb, setMonitorGainDb] = useState(-18);
   const [recording, setRecording] = useState(false);
@@ -188,7 +189,7 @@ export default function MusicWorkstationOverdubPanel({
     }
   }
 
-  async function savePass(take, passIndex, startSeconds) {
+  async function savePass(take, passIndex, startSeconds, backing = null) {
     const base = `${selectedTrack?.name || "track"}-take-${String(Date.now()).slice(-6)}-${passIndex + 1}`
       .replace(/[^A-Za-z0-9._-]+/g, "-")
       .replace(/^-+|-+$/g, "")
@@ -209,6 +210,22 @@ export default function MusicWorkstationOverdubPanel({
     if (!upload.ok) throw new Error(`CREATIVE_MUSIC_OVERDUB_UPLOAD_${upload.status}`);
     const latencyCompensationSeconds = Math.max(-0.5, Math.min(0.5, finite(latencyCompMs, 0) / 1000));
     const compensatedStart = Math.max(0, startSeconds - latencyCompensationSeconds);
+    const captureStartMs = Number(take.capture_timing?.capture_start_performance_ms);
+    const playbackStartMs = Number(backing?.playback_start_performance_ms);
+    const browserClockAlignmentMs = Number.isFinite(captureStartMs) && Number.isFinite(playbackStartMs) ? Number((captureStartMs - playbackStartMs).toFixed(3)) : null;
+    if (Number.isFinite(browserClockAlignmentMs)) setClockAlignmentMs(browserClockAlignmentMs);
+    const overdubTiming = {
+      contract: "AVANTIQO_MUSIC_OVERDUB_TIMING_V1",
+      capture_timing: take.capture_timing || null,
+      playback_preview_contract: backing?.contract || null,
+      playback_start_performance_ms: Number.isFinite(playbackStartMs) ? playbackStartMs : null,
+      capture_start_performance_ms: Number.isFinite(captureStartMs) ? captureStartMs : null,
+      browser_audio_clock_alignment_ms: browserClockAlignmentMs,
+      evidence_scope: "BROWSER_AUDIO_CLOCK_ALIGNMENT_ONLY",
+      microphone_roundtrip_latency_measured: false,
+      automatic_latency_compensation_allowed: false,
+      manual_latency_compensation_seconds: latencyCompensationSeconds,
+    };
     return request({
       action: "register_recorded_take",
       organization_id: organizationId,
@@ -256,6 +273,8 @@ export default function MusicWorkstationOverdubPanel({
       capture_base_latency_seconds: take.capture_base_latency_seconds || 0,
       capture_timing: take.capture_timing || null,
       capture_clock_drift_ms: take.capture_clock_drift_ms ?? null,
+      overdub_timing: overdubTiming,
+      browser_audio_clock_alignment_ms: browserClockAlignmentMs,
       latency_compensation_seconds: latencyCompensationSeconds,
       overdub_mode: region.mode,
       overdub_pass_index: passIndex,
@@ -299,27 +318,27 @@ export default function MusicWorkstationOverdubPanel({
         for (let passIndex = 0; passIndex < loopPasses; passIndex += 1) {
           if (cancelledRef.current) break;
           setPhase(`RECORDING PASS ${passIndex + 1}/${loopPasses}`);
-          await startBacking(region.start, region.end);
+          const backing = await startBacking(region.start, region.end);
           await sleep(passDuration * 1000);
           backingRef.current?.stop?.();
           backingRef.current = null;
           const pass = passIndex === loopPasses - 1 ? await capture.stop() : await capture.splitPass();
           if (pass) {
             setPhase(`SAVING PASS ${passIndex + 1}`);
-            await savePass(pass, passIndex, region.start);
+            await savePass(pass, passIndex, region.start, backing);
             setSavedPasses(passIndex + 1);
           }
         }
       } else {
         setPhase(region.mode === "PUNCH_IN_OUT" ? "PUNCH RECORDING" : "OVERDUB RECORDING");
-        await startBacking(region.start, region.end);
+        const backing = await startBacking(region.start, region.end);
         if (region.end !== null) {
           await sleep((region.end - region.start) * 1000);
           backingRef.current?.stop?.();
           backingRef.current = null;
           const take = await capture.stop();
           setPhase("SAVING TAKE");
-          await savePass(take, 0, region.start);
+          await savePass(take, 0, region.start, backing);
           setSavedPasses(1);
         } else {
           return;
@@ -346,13 +365,14 @@ export default function MusicWorkstationOverdubPanel({
     if (!recording || !captureRef.current) return;
     cancelledRef.current = true;
     try {
+      const backing = backingRef.current;
       backingRef.current?.stop?.();
       backingRef.current = null;
       setPhase("FINALIZING TAKE");
       const take = await captureRef.current.stop();
       captureRef.current = null;
       setPhase("SAVING TAKE");
-      await savePass(take, 0, region.start);
+      await savePass(take, 0, region.start, backing);
       setSavedPasses(1);
       await onReload?.();
       setPhase("SAVED");
@@ -391,6 +411,7 @@ export default function MusicWorkstationOverdubPanel({
           <label className="col-span-2 block text-[9px] uppercase tracking-[0.14em] text-white/25">Recording offset (ms)
             <input type="number" min="-500" max="500" step="1" value={latencyCompMs} onChange={(event) => setLatencyCompMs(Math.max(-500, Math.min(500, finite(event.target.value, 0))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
             <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/18">Measured/manual compensation; 0 ms means no assumed microphone latency correction.</span>
+            <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/22">Browser clock alignment {Number.isFinite(clockAlignmentMs) ? `${clockAlignmentMs.toFixed(1)} ms` : "not measured yet"} · evidence only, never auto-applied as microphone latency.</span>
           </label>
           <div className="col-span-2 rounded-xl border border-white/8 bg-black/20 p-3">
             <div className="flex items-center justify-between gap-3">

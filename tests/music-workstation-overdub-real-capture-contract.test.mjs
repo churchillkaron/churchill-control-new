@@ -57,7 +57,7 @@ test("Workstation overdub persists the track before microphone capture", () => {
 test("overdub loop passes remain independent immutable uploads", () => {
   assert.match(overdub, /capture\.splitPass/);
   assert.match(overdub, /loopPasses/);
-  assert.match(overdub, /await savePass\(pass, passIndex, region\.start\)/);
+  assert.match(overdub, /await savePass\(pass, passIndex, region\.start, backing\)/);
   assert.match(overdub, /action:\s*"register_recorded_take"/);
   assert.match(overdub, /source_rights_confirmed:\s*true/);
 });

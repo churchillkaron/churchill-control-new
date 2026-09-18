@@ -324,6 +324,8 @@ async function registerRecordedTake(body) {
       capture_continuity_verified: body.capture_continuity_verified === true,
       capture_timing: body.capture_timing && typeof body.capture_timing === "object" ? body.capture_timing : null,
       capture_clock_drift_ms: finite(body.capture_clock_drift_ms,null),
+      overdub_timing: body.overdub_timing && typeof body.overdub_timing === "object" ? body.overdub_timing : null,
+      browser_audio_clock_alignment_ms: finite(body.browser_audio_clock_alignment_ms,null),
       source_rights_confirmed: body.source_rights_confirmed === true,
       source_is_user_recording: true,
       source_version: 0,

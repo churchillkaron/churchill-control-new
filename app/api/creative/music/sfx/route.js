@@ -77,6 +77,7 @@ async function execute(body = {}) {
       description: reviewed.instruction,
       quantity: reviewed.duration_seconds,
       currency: text(body.currency || "THB"),
+      execution_class: text(body.execution_class || (body.local_batch === true ? "local_batch" : "interactive")).toLowerCase(),
       generation: reviewed.generation,
       requirements: { output_spec: { format: "wav", sample_rate: 48000, channels: 2, duration_seconds: reviewed.duration_seconds } },
       output_spec: { format: "wav", sample_rate: 48000, channels: 2, duration_seconds: reviewed.duration_seconds },

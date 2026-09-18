@@ -10,6 +10,11 @@ test("shared operator artifact surface renders persisted diagnosis proof",()=>{
   assert.match(source,/diagnosisProofHeading/);
   assert.match(source,/auditStatus === "VERIFIED" \|\| auditStatus === "VERIFIED_LEGACY"/);
   assert.match(source,/\{proofHeading\}/);
+  assert.match(source,/const proofTrusted = auditVerified/);
+  assert.match(source,/const summaryLabel = proofTrusted \? stateLabel : persistedProofStatus/);
+  assert.match(source,/This proof is not verified/);
+  assert.match(source,/Diagnosis details are hidden/);
+  assert.match(source,/!proofTrusted \?/);
   assert.match(source,/receipt_fingerprint/);
   assert.match(source,/Request type/);
   assert.match(source,/diagnosis\.class/);

@@ -239,12 +239,22 @@ function DiagnosisProof({ evidence = {} }) {
   const unresolvedExternalCount = Number.isFinite(Number(diagnosis.unresolved_external_context_count)) ? Number(diagnosis.unresolved_external_context_count) : 0;
   const persistedProofStatus = persistedProofLabel({ auditVerified, auditStatus });
   const proofHeading = diagnosisProofHeading({ auditVerified, auditStatus });
+  const proofTrusted = auditVerified && (auditStatus === "VERIFIED" || auditStatus === "VERIFIED_LEGACY");
+  const summaryLabel = proofTrusted ? stateLabel : persistedProofStatus;
   return (
     <details data-avantiqo-business-diagnosis-proof="true" className="mt-3 overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] text-white/70">
         <span className="flex items-center gap-2 font-medium text-[#E5C28D]"><BadgeCheck size={13} />{proofHeading}</span>
-        <span className="text-[9px] text-white/35">{stateLabel}</span>
+        <span className="text-[9px] text-white/35">{summaryLabel}</span>
       </summary>
+      {!proofTrusted ? (
+        <div className="grid gap-2 border-t border-white/[0.06] px-3 py-3 text-[9px] text-white/50 sm:grid-cols-2">
+          <div><span className="text-white/30">Proof status</span><div className="mt-0.5 text-white/65">{persistedProofStatus}</div></div>
+          <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
+          <div className="sm:col-span-2 text-[8px] text-white/35">This proof is not verified. Diagnosis details are hidden and should not be relied on until verification succeeds.</div>
+          <div className="sm:col-span-2 text-[8px] text-white/30">Analysis only · no action was executed · raw reasoning is not stored.</div>
+        </div>
+      ) : (
       <div className="grid gap-2 border-t border-white/[0.06] px-3 py-3 text-[9px] text-white/50 sm:grid-cols-2">
         <div><span className="text-white/30">Evidence state</span><div className="mt-0.5 text-white/65">{stateLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{state}</div></div>
         <div><span className="text-white/30">Request type</span><div className="mt-0.5 text-white/65">{classLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{diagnosisClass || "—"}</div></div>
@@ -258,6 +268,7 @@ function DiagnosisProof({ evidence = {} }) {
         <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
         <div className="sm:col-span-2 text-[8px] text-white/30">Analysis only · no action was executed · raw reasoning is not stored.</div>
       </div>
+      )}
     </details>
   );
 }

@@ -431,3 +431,30 @@ test("period-scoped diagnosis is excluded from model context when active period 
     if(oldRing===undefined) delete process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON; else process.env.AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON=oldRing;
   }
 });
+
+
+test("governed diagnosis readiness failure pair stays out of future model context", () => {
+  const rows=[
+    {role:"assistant",content:"not started",evidence:{business_diagnosis_readiness_failure:{code:"BUSINESS_DIAGNOSIS_NOT_READY",authority_effect:"NONE"}}},
+    {role:"user",content:"why did profit drop?",evidence:{}},
+    {role:"assistant",content:"normal answer",evidence:{}},
+    {role:"user",content:"hello",evidence:{}},
+  ];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[
+    {role:"user",content:"hello"},
+    {role:"assistant",content:"normal answer"},
+  ]);
+});
+
+test("governed diagnosis integrity failure pair stays out of future model context", () => {
+  const rows=[
+    {role:"assistant",content:"proof failed",evidence:{business_diagnosis_integrity_failure:{code:"BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_FAILURE",stage:"LIVE_PROOF_REJECTED",authority_effect:"NONE"}}},
+    {role:"user",content:"why is revenue down?",evidence:{}},
+  ];
+  assert.deepEqual(sanitizeBusinessDiagnosisConversation(rows),[]);
+});
+
+test("governed diagnosis failure turn remains visible in historical snapshot", () => {
+  const turn={role:"assistant",content:"proof failed",evidence:{business_diagnosis_integrity_failure:{code:"BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_FAILURE",authority_effect:"NONE"}},decision:{response_text:"proof failed"}};
+  assert.deepEqual(sanitizeBusinessDiagnosisSnapshotTurn(turn),turn);
+});

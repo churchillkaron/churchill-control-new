@@ -203,6 +203,14 @@ function diagnosisPresentationLabel(map, value, fallback) {
   return map[key] || fallback || key.replaceAll("_", " ");
 }
 
+
+function persistedProofLabel({ auditVerified = false, auditStatus = "" } = {}) {
+  if (auditVerified) return "Verified after reload";
+  if (auditStatus === "MISMATCH") return "Integrity mismatch";
+  if (auditStatus === "NOT_AVAILABLE") return "Legacy proof · checksum unavailable";
+  return "Live proof";
+}
+
 function DiagnosisProof({ evidence = {} }) {
   const diagnosis = evidence?.business_diagnosis;
   if (!diagnosis?.receipt_fingerprint) return null;
@@ -221,6 +229,7 @@ function DiagnosisProof({ evidence = {} }) {
   const boundaryLabel = diagnosisPresentationLabel(ANSWER_BOUNDARY_LABELS, boundary, "Answer checked against evidence");
   const validatedExternalCount = Number.isFinite(Number(diagnosis.validated_external_context_count)) ? Number(diagnosis.validated_external_context_count) : 0;
   const unresolvedExternalCount = Number.isFinite(Number(diagnosis.unresolved_external_context_count)) ? Number(diagnosis.unresolved_external_context_count) : 0;
+  const persistedProofStatus = persistedProofLabel({ auditVerified, auditStatus });
   return (
     <details data-avantiqo-business-diagnosis-proof="true" className="mt-3 overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] text-white/70">
@@ -236,7 +245,7 @@ function DiagnosisProof({ evidence = {} }) {
         <div><span className="text-white/30">Unexplained residual</span><div className="mt-0.5 text-white/65">{diagnosis.residual_material === true ? "Some of the change remains unexplained" : "No material unexplained change flagged"}</div></div>
         <div><span className="text-white/30">External evidence</span><div className="mt-0.5 text-white/65">{validatedExternalCount ? `${validatedExternalCount} validated` : "No validated external evidence"}{unresolvedExternalCount ? ` · ${unresolvedExternalCount} unresolved` : ""}</div></div>
         <div className="sm:col-span-2"><span className="text-white/30">Period IDs</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/40">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>
-        <div><span className="text-white/30">Persisted proof</span><div className="mt-0.5 text-white/65">{auditVerified ? "Verified after reload" : auditStatus === "MISMATCH" ? "Integrity mismatch" : "Live proof"}</div></div>
+        <div><span className="text-white/30">Persisted proof</span><div className="mt-0.5 text-white/65">{persistedProofStatus}</div></div>
         <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
         <div className="sm:col-span-2 text-[8px] text-white/30">Analysis only · no action was executed · raw reasoning is not stored.</div>
       </div>

@@ -41,3 +41,9 @@ test("operator persistence uses canonical diagnosis audit projection builder",()
   assert.match(route,/const projection = buildBusinessDiagnosisAuditProjection\(/);
   assert.match(route,/\.\.\.projection\.periods/);
 });
+
+
+test("legacy persisted diagnosis without checksum is explicitly marked unavailable on reload",()=>{
+  const runtime=fs.readFileSync("lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime.js","utf8");
+  assert.match(runtime,/if\(!fingerprint\) return \{status:"NOT_AVAILABLE",verified:false\}/);
+});

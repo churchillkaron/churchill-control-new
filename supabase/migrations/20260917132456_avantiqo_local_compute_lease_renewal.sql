@@ -1,4 +1,5 @@
-create or replace function public.renew_avantiqo_local_compute_job_lease(
+pwd
+te or replace function public.renew_avantiqo_local_compute_job_lease(
   p_node_id text,
   p_node_token text,
   p_job_id uuid,

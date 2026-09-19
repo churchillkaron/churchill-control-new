@@ -19,6 +19,9 @@
     "app/api/internal/reputation/google-reviews/process/route.js": {
       "maxDuration": 300
     },
+    "app/api/internal/reputation/google-reviews/repair-duplicates/route.js": {
+      "maxDuration": 300
+    },
     "app/api/internal/commercial/communications/meta-history-sync/route.js": {
       "maxDuration": 300
     },
@@ -131,6 +134,10 @@
     {
       "path": "/api/internal/reputation/google-reviews/process",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/internal/reputation/google-reviews/repair-duplicates?organization_id=33336a72-acb5-474e-856b-8be0269360e2&limit=5",
+      "schedule": "0 0 1 1 *"
     },
     {
       "path": "/api/internal/commercial/loyalty/process-events",

@@ -15,6 +15,7 @@ const recoveryLeaseGuardMigration = fs.readFileSync(new URL("../supabase/migrati
 const retryLivenessMigration = fs.readFileSync(new URL("../supabase/migrations/20260919123000_accounting_practice_billing_retry_liveness.sql", import.meta.url), "utf8");
 const commercialSnapshotMigration = fs.readFileSync(new URL("../supabase/migrations/20260919131500_accounting_practice_billing_commercial_snapshot.sql", import.meta.url), "utf8");
 const executionPreflightMigration = fs.readFileSync(new URL("../supabase/migrations/20260919134500_accounting_practice_billing_execution_preflight.sql", import.meta.url), "utf8");
+const executionFenceMigration = fs.readFileSync(new URL("../supabase/migrations/20260919143000_accounting_practice_billing_execution_fence.sql", import.meta.url), "utf8");
 
 test("practice billing hands off only through canonical customer invoice authority", () => {
   assert.match(route, /createCustomerInvoiceCommand/);
@@ -439,4 +440,49 @@ test("execution preflight stays invoker-safe and service-role isolated", () => {
   assert.match(executionPreflightMigration, /revoke all on function public\.preflight_accounting_practice_billing_execution/);
   assert.match(executionPreflightMigration, /from public, anon, authenticated/);
   assert.match(executionPreflightMigration, /to service_role/);
+});
+
+test("active invoice leases fence billing policy mutation at the database boundary", () => {
+  assert.match(executionFenceMigration, /accounting_practice_billing_profile_execution_fence/);
+  assert.match(executionFenceMigration, /b\.engagement_id = old\.engagement_id/);
+  assert.match(executionFenceMigration, /b\.invoice_lease_expires_at > now\(\)/);
+  assert.match(executionFenceMigration, /PRACTICE_BILLING_EXECUTION_IN_PROGRESS/);
+  assert.match(executionFenceMigration, /before update or delete on public\.accounting_practice_billing_profiles/);
+});
+
+test("leased WIP rows cannot change billing evidence while AR execution is in flight", () => {
+  assert.match(executionFenceMigration, /old\.id = any\(b\.time_entry_ids\)/);
+  assert.match(executionFenceMigration, /new\.work_date is distinct from old\.work_date/);
+  assert.match(executionFenceMigration, /new\.minutes is distinct from old\.minutes/);
+  assert.match(executionFenceMigration, /new\.billable is distinct from old\.billable/);
+  assert.match(executionFenceMigration, /new\.billing_rate is distinct from old\.billing_rate/);
+  assert.match(executionFenceMigration, /new\.currency_code is distinct from old\.currency_code/);
+  assert.match(executionFenceMigration, /new\.status is distinct from old\.status/);
+  assert.match(executionFenceMigration, /before update or delete on public\.accounting_practice_time_entries/);
+});
+
+test("execution fence permits only the exact approved-to-billed finalization transition", () => {
+  assert.match(executionFenceMigration, /old\.status = 'APPROVED'/);
+  assert.match(executionFenceMigration, /new\.status = 'BILLED'/);
+  assert.match(executionFenceMigration, /new\.billing_reference/);
+  assert.match(executionFenceMigration, /new\.billed_at is not null/);
+  assert.match(executionFenceMigration, /new\.billing_rate is not distinct from old\.billing_rate/);
+  assert.match(executionFenceMigration, /new\.minutes is not distinct from old\.minutes/);
+});
+
+test("finalization clears its lease transactionally before recurring policy advancement", () => {
+  const clearLeaseIndex = executionFenceMigration.indexOf("set invoice_lease_token = null");
+  const profileUpdateIndex = executionFenceMigration.indexOf("update public.accounting_practice_billing_profiles");
+  const invoicedIndex = executionFenceMigration.indexOf("set status = 'INVOICED'");
+  assert.ok(clearLeaseIndex >= 0 && profileUpdateIndex > clearLeaseIndex && invoicedIndex > profileUpdateIndex);
+  assert.match(executionFenceMigration, /invoice_lease_expires_at = null/);
+  assert.match(executionFenceMigration, /set next_billing_date = v_next_billing_date/);
+});
+
+test("execution fence functions remain invoker-safe and service-role isolated", () => {
+  assert.match(executionFenceMigration, /security invoker/);
+  assert.match(executionFenceMigration, /revoke all on function public\.guard_accounting_practice_billing_profile_execution_fence/);
+  assert.match(executionFenceMigration, /revoke all on function public\.guard_accounting_practice_time_entry_execution_fence/);
+  assert.match(executionFenceMigration, /from public, anon, authenticated/);
+  assert.match(executionFenceMigration, /to service_role/);
 });

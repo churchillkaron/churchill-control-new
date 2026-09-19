@@ -41,6 +41,10 @@ const PROFESSIONAL_VIDEO_SYSTEMS = Object.freeze([
   ["Lens", "STMap calibration"],
   ["Versions", "Publish/cache lineage"],
   ["Delivery", "HDR / IMF / DCP authority"],
+  ["MaterialX Graph", "Complex graph translation"],
+  ["Native AxF", "Licensed SDK ingest"],
+  ["Volumes", "OpenVDB + USD volumes"],
+  ["Virtual Production", "Multi-cam / stereo / LED frustum"],
 ]);
 
 function ProfessionalVideoSystems({ project }) {

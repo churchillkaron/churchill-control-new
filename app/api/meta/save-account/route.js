@@ -51,10 +51,13 @@ export async function POST(request) {
       return errorResponse("page_id required", 400);
     }
 
-    const credential = await CredentialRuntime.store({
+    const credential = await CredentialRuntime.storeSecret({
       provider_id: "meta",
       credential_type: "oauth_token",
-      secret_reference: accessToken,
+      secret: accessToken,
+      organization_id: access.organizationId,
+      vault_name: `meta-page-${access.organizationId}-${pageId}`,
+      vault_description: "Avantiqo Meta Page credential",
       metadata: {
         page_id: pageId,
         page_name: pageName,

@@ -184,7 +184,13 @@ const storyboardMeasured = Boolean(
   && Array.isArray(storyboardBenchmark?.references)
   && storyboardBenchmark.references.length >= 5,
 );
-const departmentBenchmark = evaluateEliteFilmProductionBenchmark();
+const eliteDepartmentBenchmarkPlan = {
+  visual_world: { name: "Certified authored world", visual_thesis: "A physically authored premium temporal world with clear visual logic.", taste_gate: { passed: true, overall: 100, art_direction: 100, cinematic_invention: 100 }, signature_images: ["a", "b", "c", "d"], anti_flatness_rules: ["depth evolves", "light evolves", "blocking evolves"] },
+  scenes: [{ id: "scene-1", shots: [{ camera: { platform: "dolly", platform_motivation: "Controlled parallax reveals subject and environment with physical depth." }, cinematic_beauty_intent: { required: true, composition: "Layered foreground, hero midground and evolving background geometry." }, audio: { mix_intent: "Physical sync sound drives the cut and reveal.", sync_events: ["impact-to-cut"] } }] }],
+  shot_invention_map: [{ scene_id: "scene-1", invention_thesis: "A restrained physical reveal uses motivated camera movement and material detail to build anticipation.", shot_ideas: ["parallax reveal"] }],
+  cinematic_coverage: { film_coverage: { contrast_architecture: "Dark-to-warm contrast evolves with the reveal and preserves clear focal hierarchy.", material_world: "Glass metal stone and atmosphere carry tactile physical response under motivated light.", vfx_philosophy: "Invisible compositing supports physical truth and never becomes decorative spectacle.", sound_picture_causality: "Every major visual transition is caused or reinforced by a concrete synchronized sound event." } },
+};
+const departmentBenchmark = evaluateEliteFilmProductionBenchmark({ plan: eliteDepartmentBenchmarkPlan });
 const sealedPrevis = buildShotPrevisualizationBlueprint(goodShot);
 const sealedHandoff = buildDepartmentHandoffChain({
   previsualization: sealedPrevis,

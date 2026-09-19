@@ -33,11 +33,13 @@ test('production staging uses immutable content-addressed project path',()=>{
   assert.equal(manifest.policy.immutable_frame_cache,true);
 });
 
-test('render-farm executor is chunk-scoped and never retries whole job',()=>{
+test('render-farm executor dispatches assigned chunks to remote workers without local fallback',()=>{
   const source=fs.readFileSync('lib/creative/render-farm/runtime/CreativeRenderFarmExecutionRuntime.js','utf8');
-  assert.match(source,/frame_start:assignment\.frame_start/);
-  assert.match(source,/frame_end:assignment\.frame_end/);
+  assert.match(source,/CreativeDistributedRenderWorkerRuntime\.dispatch/);
+  assert.match(source,/workers,fetch_impl/);
   assert.match(source,/Promise\.all/);
+  assert.match(source,/distributed_worker_execution:true/);
+  assert.match(source,/local_render_fallback_used:false/);
   assert.match(source,/whole_job_retry_performed:false/);
-  assert.match(source,/provider_calls_performed:false/);
+  assert.doesNotMatch(source,/CreativeCyclesProductionRenderRuntime/);
 });

@@ -333,10 +333,13 @@ export async function GET(request) {
     });
     const readinessMetadata = messagingReadinessMetadata(messagingReadiness);
 
-    const credential = await CredentialRuntime.store({
+    const credential = await CredentialRuntime.storeSecret({
       provider_id: "meta",
       credential_type: "oauth_page_token",
-      secret_reference: primaryPage.access_token,
+      secret: primaryPage.access_token,
+      organization_id: organizationId,
+      vault_name: `meta-page-${organizationId}-${primaryPage.id}`,
+      vault_description: "Avantiqo Meta Page messaging credential",
       metadata: {
         organization_id: organizationId,
         page_id: primaryPage.id,

@@ -23,7 +23,12 @@ test("existing protected Creative worker wakes Partner missions", () => {
   assert.match(cronRoute, /CREATIVE_EXECUTION_WORKER_SECRET/);
 });
 
-test("scheduler only scans active production states", () => {
+test("scheduler scans the autonomous lifecycle before and during production", () => {
+  assert.match(stateRepository, /UNDERSTANDING/);
+  assert.match(stateRepository, /RESEARCHING/);
+  assert.match(stateRepository, /BUILDING_CONCEPT/);
+  assert.match(stateRepository, /PLANNING_PRODUCTION/);
+  assert.match(stateRepository, /READY_FOR_EXECUTION/);
   assert.match(stateRepository, /PRODUCING/);
   assert.match(stateRepository, /RENDERING/);
   assert.match(stateRepository, /REVIEWING/);

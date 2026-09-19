@@ -19,10 +19,9 @@ test("rejected Tribunal emits a sealed deterministic resume package", () => {
   assert.match(tribunal, /error\.resume_package = resumePackage/);
 });
 
-test("resume package settles passed reviewers only", () => {
-  assert.match(tribunal, /review\.passed === true/);
-  assert.match(tribunal, /finite\(review\.score\) >= floor/);
-  assert.match(tribunal, /!text\(review\.fatal_rejection_reason\)/);
+test("resume package preserves every settled exact-plan reviewer result", () => {
+  assert.match(tribunal, /Boolean\(reviewerId\) && finite\(review\.score\) !== null/);
+  assert.match(tribunal, /repaired_plan: reviewSourcePlan/);
 });
 
 test("approved Council workflow consumes Tribunal resume package directly", () => {
@@ -31,4 +30,6 @@ test("approved Council workflow consumes Tribunal resume package directly", () =
   assert.match(workflow, /tribunalResume\.settled_reviews/);
   assert.match(workflow, /tribunalResume\.settled_review_plan_hash/);
   assert.match(workflow, /tribunalResume\.settled_review_source_plan/);
+  assert.match(workflow, /tribunalResume\.repaired_plan/);
+  assert.match(workflow, /master: tribunalMaster/);
 });

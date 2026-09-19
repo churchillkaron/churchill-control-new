@@ -16,9 +16,10 @@ const STUDIO_LINEAGE_CONTRACT = "AVANTIQO_VIDEO_STUDIO_LINEAGE_V1";
 const MODAL_APP = "avantiqo-video-owned";
 const MODAL_FUNCTION = "generate_native_job_v3";
 const BUCKET = "creative-assets";
-const SOURCE_BYTES = 1255816;
-const WIDTH = 3840;
-const HEIGHT = 2176;
+const SOURCE_BYTES = 4888575;
+const SOURCE_SHA256 = "a3fd7998031a54692538046442977ec1665b71b20aa346fc72aca1139de500df";
+const WIDTH = 1920;
+const HEIGHT = 1088;
 const FPS = 24;
 const DURATION_SECONDS = 5;
 const SEED = 9137;
@@ -129,13 +130,13 @@ function temporalEvidence(filePath, audioRequired = true) {
 }
 
 async function main() {
-  ensure(approved(process.env.AVANTIQO_VIDEO_NATIVE_CONTROL_REAL_INFERENCE_APPROVED), "REAL_INFERENCE_APPROVAL_REQUIRED");
   const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
   const tokenId = text(process.env.MODAL_TOKEN_ID || process.env.AVANTIQO_MODAL_TOKEN_ID);
   const tokenSecret = text(process.env.MODAL_TOKEN_SECRET || process.env.AVANTIQO_MODAL_TOKEN_SECRET);
   ensure(tokenId && tokenSecret, "MODAL_CREDENTIALS_REQUIRED");
   const organizationId = requireEnv("AVANTIQO_VIDEO_PROOF_ORGANIZATION_ID");
+  const projectId = requireEnv("AVANTIQO_VIDEO_PROOF_PROJECT_ID");
   const sourcePath = requireEnv("AVANTIQO_VIDEO_PROOF_SOURCE_PATH");
   const proofKey = text(process.env.AVANTIQO_VIDEO_NATIVE_CONTROL_PROOF_KEY) || "native-control-v1";
   const shotId = `video-native-control-proof-${proofKey}`;
@@ -144,12 +145,27 @@ async function main() {
   const lockPath = `${root}/paid-proof-lock.json`;
   const openingPath = `${root}/opening.jpg`;
   const closingPath = `${root}/closing.jpg`;
-  const outputPath = `${root}/native-master-3840x2176.mp4`;
+  const outputPath = `${root}/native-master-1920x1088.mp4`;
 
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
   const storage = supabase.storage.from(BUCKET);
+  const { data: projectRow, error: projectError } = await supabase
+    .from("creative_projects")
+    .select("id,organization_id,metadata")
+    .eq("id", projectId)
+    .eq("organization_id", organizationId)
+    .single();
+  if (projectError || !projectRow) throw new Error(`${CONTRACT}_PROJECT_APPROVAL_LOOKUP_FAILED:${projectError?.message || "missing"}`);
+  const approval = projectRow.metadata?.video_certification_approval || null;
+  ensure(approval?.contract === "CREATIVE_VIDEO_CERTIFICATION_APPROVAL_V1", "DURABLE_CERTIFICATION_APPROVAL_REQUIRED");
+  ensure(approval?.media_generation_authorized === true, "CERTIFICATION_MEDIA_AUTHORITY_REQUIRED");
+  ensure(approval?.production_film_generation_authorized === false, "CERTIFICATION_SCOPE_MUST_EXCLUDE_FILM_GENERATION");
+  ensure(approval?.maximum_paid_gpu_jobs === 1 && approval?.automatic_paid_retry === false, "CERTIFICATION_JOB_GUARD_INVALID");
+  ensure(Number(approval?.maximum_customer_price || 0) <= 20, "CERTIFICATION_COST_GUARD_INVALID");
+  ensure(approval?.consumed !== true, "CERTIFICATION_APPROVAL_ALREADY_CONSUMED");
   const sourceBuffer = await downloadBuffer(storage, sourcePath);
   ensure(sourceBuffer.length === SOURCE_BYTES, `CANONICAL_SOURCE_SIZE_INVALID:${sourceBuffer.length}`);
+  ensure(sha256(sourceBuffer) === SOURCE_SHA256, `CANONICAL_SOURCE_SHA256_INVALID:${sha256(sourceBuffer)}`);
 
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), "avantiqo-video-control-proof-"));
   const sourceFile = path.join(temp, "source.mp4");
@@ -242,6 +258,14 @@ async function main() {
   const functionCallId = text(call.functionCallId);
   ensure(functionCallId, "MODAL_FUNCTION_CALL_ID_REQUIRED");
   await storage.update(lockPath, Buffer.from(JSON.stringify({ ...lockClaim, status: "SPAWNED", function_call_id: functionCallId, spawned_at: new Date().toISOString() }, null, 2)), { contentType: "application/json", cacheControl: "3600" });
+  const consumedAt = new Date().toISOString();
+  const consumedApproval = { ...approval, consumed: true, consumed_at: consumedAt, provider_job_id: functionCallId };
+  const { error: consumeError } = await supabase
+    .from("creative_projects")
+    .update({ metadata: { ...(projectRow.metadata || {}), video_certification_approval: consumedApproval }, updated_at: consumedAt })
+    .eq("id", projectId)
+    .eq("organization_id", organizationId);
+  if (consumeError) throw new Error(`${CONTRACT}_APPROVAL_CONSUME_FAILED:${consumeError.message}`);
   console.log(`AVANTIQO_VIDEO_MODAL_FUNCTION_CALL_ID=${functionCallId}`);
   console.log("AVANTIQO_VIDEO_MODAL_SPAWN_COUNT=1");
 
@@ -281,7 +305,7 @@ async function main() {
   ensure(outputBuffer.length > 1000000, `OUTPUT_TOO_SMALL:${outputBuffer.length}`);
   const auditDir = path.resolve("local-audit-output/avantiqo-video-native-control-paid-proof");
   await fs.mkdir(auditDir, { recursive: true });
-  const outputFile = path.join(auditDir, "native-control-master-3840x2176.mp4");
+  const outputFile = path.join(auditDir, "native-control-master-1920x1088.mp4");
   await fs.writeFile(outputFile, outputBuffer);
   const { probe, evidence } = temporalEvidence(outputFile, true);
   const video = (probe.streams || []).find((stream) => stream.codec_type === "video");

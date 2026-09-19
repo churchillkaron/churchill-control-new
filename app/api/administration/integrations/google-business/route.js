@@ -211,12 +211,16 @@ export async function POST(request) {
         retryAt && new Date(retryAt).getTime() > Date.now()
       );
 
-      if (discoveryStatus === "API_ACCESS_PENDING" && body.force !== true) {
+      if (
+        discoveryStatus === "API_ACCESS_PENDING" &&
+        retryBlocked &&
+        body.force !== true
+      ) {
         return NextResponse.json(
           {
             success: false,
             code: "GOOGLE_API_ACCESS_PENDING",
-            error: "Google authorization is active, but this Avantiqo Google Cloud project is still waiting for Google Business Profile API access. Reconnecting Google will not fix this state.",
+            error: "Google authorization is active. Avantiqo will retry Google Business Profile discovery after the displayed retry time; reconnecting Google is not required.",
             retryAt,
             ...(await integrationSnapshot(context.organizationId)),
           },

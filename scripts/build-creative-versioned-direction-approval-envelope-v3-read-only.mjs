@@ -113,7 +113,12 @@ function assertMarkers(sources = []) {
   const joined = sources.map((item) => item.source).join("\n");
   const markers = [
     "TEMPORAL_MASTER_PLAN_BASE_V1",
-    "TEMPORAL_SCENE_ARCHITECTURE_V1",
+    "TEMPORAL_VISUAL_WORLD_ART_V1",
+  "TEMPORAL_VISUAL_WORLD_CINEMATOGRAPHY_V1",
+  "TEMPORAL_VISUAL_WORLD_VFX_MOTION_V1",
+  "TEMPORAL_VISUAL_WORLD_SELECTION_V1",
+  "TEMPORAL_SHOT_INVENTION_MAP_V1",
+  "TEMPORAL_SCENE_ARCHITECTURE_V1",
     "TEMPORAL_SCENE_SHOT_DIRECTION_V1",
     "CREATIVE_CONCEPT_DIRECTOR_",
     "CREATIVE_CONCEPT_CRITIC_",
@@ -177,7 +182,12 @@ function cinematicCritiqueOutputTokens(duration) {
 function operationDefinitions(sceneCount, duration) {
   return [
     { operation: "TEMPORAL_MASTER_PLAN_BASE_V1", count: 1, max_output_tokens: 16000, stage: "BASE_PLAN" },
+    { operation: "TEMPORAL_VISUAL_WORLD_ART_V1", count: 1, max_output_tokens: 7000, stage: "VISUAL_WORLD_COMPETITION" },
+    { operation: "TEMPORAL_VISUAL_WORLD_CINEMATOGRAPHY_V1", count: 1, max_output_tokens: 7000, stage: "VISUAL_WORLD_COMPETITION" },
+    { operation: "TEMPORAL_VISUAL_WORLD_VFX_MOTION_V1", count: 1, max_output_tokens: 7000, stage: "VISUAL_WORLD_COMPETITION" },
+    { operation: "TEMPORAL_VISUAL_WORLD_SELECTION_V1", count: 1, max_output_tokens: 8000, stage: "VISUAL_WORLD_TASTE_SELECTION" },
     { operation: "TEMPORAL_SCENE_ARCHITECTURE_V1", count: 1, max_output_tokens: 14000, stage: "SCENE_ARCHITECTURE" },
+    { operation: "TEMPORAL_SHOT_INVENTION_MAP_V1", count: 1, max_output_tokens: 12000, stage: "SHOT_INVENTION" },
     { operation: "TEMPORAL_SCENE_SHOT_DIRECTION_V1", count: sceneCount, max_output_tokens: 15000, stage: "SHOT_DIRECTION_PER_SCENE" },
     { operation: "CREATIVE_CONCEPT_DIRECTOR_CONCEPT-A_V1", count: 1, max_output_tokens: 8000, stage: "CONCEPT_DIRECTOR" },
     { operation: "CREATIVE_CONCEPT_DIRECTOR_CONCEPT-B_V1", count: 1, max_output_tokens: 8000, stage: "CONCEPT_DIRECTOR" },

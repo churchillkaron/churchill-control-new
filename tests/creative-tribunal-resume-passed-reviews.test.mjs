@@ -2,12 +2,16 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 const source=fs.readFileSync(new URL("../lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js",import.meta.url),"utf8");
-test("Tribunal strips transport mirror from reviewer evidence",()=>{
+test("Tribunal strips transport and historical audit mirrors from active reviewer evidence",()=>{
   assert.match(source,/delete canonical\.common_plan_contract/);
-  assert.match(source,/plan: canonicalReviewPlan\(plan\)/);
+  assert.match(source,/delete canonical\.context/);
+  assert.match(source,/delete canonical\.concept_candidates/);
+  assert.match(source,/delete canonical\.concept_council/);
+  assert.match(source,/delete canonical\.validation_summary/);
+  assert.match(source,/plan: reviewerPlanEvidence\(reviewer, plan\)/);
 });
-test("Tribunal resumes passed reviewers and reruns only failed ones",()=>{
-  assert.match(source,/settled\?\.review\?\.passed === true/);
+test("Tribunal resumes any settled reviewer result for the exact same evidence",()=>{
+  assert.match(source,/finite\(settled\.review\.score\) !== null/);
   assert.match(source,/reused: true/);
   assert.match(source,/reused: false/);
 });

@@ -39,3 +39,27 @@ test("completes governance-only temporal roles and evidence-derived repair detai
   const shot=plan.scenes[0].shots[0];
   assert.ok(shot.negative_constraints.length); assert.ok(shot.known_failure_modes.length); assert.ok(shot.repair_instructions.length); assert.ok(shot.frame_plan.progression.length >= 40);
 });
+
+
+test("derives choreography for authored micro-actions detected by downstream motion validation", () => {
+  const plan = normalizeTemporalMechanicalContract({
+    temporal_contract:{duration_seconds:4},
+    deliverables:[{output_spec:{duration_seconds:4,aspect_ratio:"16:9",resolution:"1920x1080",frame_rate:24}}],
+    scenes:[{id:"s1",duration_seconds:4,location:{city:"Mumbai",context:"office"},shots:[{
+      id:"micro-1",duration_seconds:4,subject:"pen tip",
+      action:"Three precise pen clicks on the table surface.",
+      performance:"The hand remains still between clicks and repeats the same physical action.",
+      frame_plan:{opening_frame:"Pen tip rests above the wood surface.",progression:"The pen moves down for each click and lifts back to the same position.",closing_frame:"Pen tip rests after the third click."},
+      camera:{framing:"extreme close-up",focus_target:"pen tip",movement_path:"locked off",platform:"tripod"},
+      lighting:{source:"window daylight",direction:"camera left",contrast:"soft contrast",colour:"warm daylight",exposure_intent:"protect wood grain"},
+      production_design:{materials:"wood and metal",texture_detail:"visible wood grain"},
+      continuity_invariants:["same pen","same table"]
+    }]}]
+  });
+  const motion=plan.scenes[0].shots[0].subject_motion_choreography;
+  assert.equal(motion.required,true);
+  assert.match(motion.path,/Three precise pen clicks/);
+  assert.ok(motion.start_state.length >= 15);
+  assert.ok(motion.end_state.length >= 15);
+  assert.ok(motion.clearance_and_contact_constraints.length);
+});

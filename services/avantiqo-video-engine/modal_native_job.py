@@ -94,6 +94,24 @@ def _generation_settings(data: dict[str, Any]) -> tuple[int, int]:
     return duration, seed
 
 
+def _requested_dimensions(data: dict[str, Any], capability: str) -> tuple[int, int]:
+    specification = _object(data.get("structured_specification"))
+    generation = _object(specification.get("generation"))
+    provider_parameters = {**_object(generation.get("provider_parameters")), **_object(specification.get("provider_parameters"))}
+    resolution = _text(
+        generation.get("resolution")
+        or provider_parameters.get("resolution")
+        or specification.get("resolution")
+    ).lower().replace(" ", "")
+    if resolution in {"3840x2176", "native_4k", "native4k", "4k"}:
+        return LTX_MASTER_WIDTH, LTX_MASTER_HEIGHT
+    if resolution in {"1920x1088", "1920x1080", "1080p", "fhd"}:
+        return 1920, 1088
+    if capability in {"ai.video.image_to_video", "ai.video.first_last_frame_to_video"}:
+        return 1920, 1088
+    return LTX_MASTER_WIDTH, LTX_MASTER_HEIGHT
+
+
 def _studio_lineage(data: dict[str, Any]) -> dict[str, Any] | None:
     specification = _object(data.get("structured_specification"))
     metadata = _object(specification.get("metadata"))
@@ -192,6 +210,7 @@ def _validate_job(data: dict[str, Any]) -> dict[str, Any]:
     if not signed_url.startswith("https://") or not storage_reference.startswith("storage://creative-assets/"):
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_STORAGE_TARGET_INVALID")
     duration, seed = _generation_settings(data)
+    width, height = _requested_dimensions(data, capability)
     return {
         "capability": capability,
         "organization_id": organization_id,
@@ -202,6 +221,8 @@ def _validate_job(data: dict[str, Any]) -> dict[str, Any]:
         "storage_reference": storage_reference,
         "duration_seconds": duration,
         "seed": seed,
+        "width": width,
+        "height": height,
         "studio_lineage": lineage,
         "native_control": control,
     }
@@ -315,7 +336,16 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
     usage = _path_token(job["usage_id"], "usage")
     relative_root = Path("runtime-jobs") / organization / usage / job_id
     candidate_t2v = job["capability"] == "ai.video.generate" and not job["native_control"] and not job["source_urls"]
-    output_relative = str(relative_root / ("candidate-master-1920x1088.mp4" if candidate_t2v else "native-master-3840x2176.mp4"))
+    conditioned_i2v = bool(job["source_urls"]) and not job["native_control"]
+    output_relative = str(
+        relative_root / (
+            "candidate-master-1920x1088.mp4"
+            if candidate_t2v
+            else f"conditioned-master-{job['width']}x{job['height']}.mp4"
+            if conditioned_i2v
+            else "native-master-3840x2176.mp4"
+        )
+    )
     output_path = Path("/models") / output_relative
     staged_paths: list[Path] = []
     reference_bytes = 0
@@ -331,7 +361,15 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
             staged_paths = [reference_path]
             reference_bytes = _download_reference(job["source_urls"][0], reference_path)
             model_volume.commit()
-            generation = generate_native_master.remote(reference_relative, output_relative, job["instruction"], job["duration_seconds"], job["seed"])
+            generation = generate_native_master.remote(
+                reference_relative,
+                output_relative,
+                job["instruction"],
+                job["duration_seconds"],
+                job["seed"],
+                job["width"],
+                job["height"],
+            )
         else:
             if job["duration_seconds"] > 12:
                 raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_CANDIDATE_DURATION_INVALID")
@@ -363,6 +401,7 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
             "num_inference_steps": int(generation.get("num_inference_steps") or generation.get("stage_1_steps") or LTX_NUM_INFERENCE_STEPS),
             "candidate_foundation": candidate_t2v,
             "candidate_foundation_resolution": "1920x1088" if candidate_t2v else None,
+            "conditioned_resolution": f"{job['width']}x{job['height']}" if conditioned_i2v else None,
             "master_promotion_required": candidate_t2v,
             "duration_seconds": job["duration_seconds"],
             "seed": job["seed"],

@@ -15,7 +15,7 @@ test('document vision benchmark proves all owned analysis semantics', () => {
 
 test('Modal image volume seeds the owned Qwen VL model offline', () => {
   assert.match(modalApp, /Qwen\/Qwen2\.5-VL-7B-Instruct/);
-  assert.match(modalApp, /_seed_one_model\(ANALYZE_MODEL/);
+  assert.match(modalApp, /_seed_one_model\(\s*ANALYZE_MODEL/);
   assert.match(modalApp, /AVANTIQO_IMAGE_CERTIFIED_CAPABILITIES/);
 });
 

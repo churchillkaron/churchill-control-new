@@ -12,13 +12,13 @@ import {
 } from "lucide-react";
 
 const STATUS_STYLES = {
-  PUBLISHED: "border-emerald-400/20 bg-emerald-400/10 text-emerald-200",
-  PENDING_APPROVAL: "border-amber-400/20 bg-amber-400/10 text-amber-200",
-  ESCALATED: "border-red-400/20 bg-red-400/10 text-red-200",
-  FAILED: "border-red-400/20 bg-red-400/10 text-red-200",
-  PROCESSING: "border-blue-400/20 bg-blue-400/10 text-blue-200",
-  PUBLISHING: "border-blue-400/20 bg-blue-400/10 text-blue-200",
-  NEEDS_REVIEW: "border-white/10 bg-white/5 text-white/60",
+  PUBLISHED: "border-emerald-300/55 bg-emerald-100/75 text-emerald-800",
+  PENDING_APPROVAL: "border-amber-300/55 bg-amber-100/75 text-amber-800",
+  ESCALATED: "border-red-300/55 bg-red-100/75 text-red-700",
+  FAILED: "border-red-300/55 bg-red-100/75 text-red-700",
+  PROCESSING: "border-sky-300/55 bg-sky-100/75 text-sky-700",
+  PUBLISHING: "border-sky-300/55 bg-sky-100/75 text-sky-700",
+  NEEDS_REVIEW: "border-[#8c6b42]/15 bg-white/45 text-[#755f48]",
 };
 
 function statusLabel(status) {
@@ -28,7 +28,7 @@ function statusLabel(status) {
 function Stars({ rating }) {
   const rounded = Math.round(Number(rating || 0));
   return (
-    <span aria-label={`${rounded} out of 5 stars`} className="text-[#E6C18C]">
+    <span aria-label={`${rounded} out of 5 stars`} className="text-[#df981f]">
       {Array.from({ length: 5 }, (_, index) =>
         index < rounded ? "★" : "☆"
       ).join("")}
@@ -190,14 +190,14 @@ export default function ReviewFeed({
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-6">
+      <section className="rounded-[30px] border border-white/60 bg-[linear-gradient(135deg,rgba(255,252,247,0.96),rgba(239,224,203,0.92))] p-6 shadow-[0_26px_80px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.95)] backdrop-blur-3xl">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
-            <div className="flex items-center gap-2 text-sm text-[#E6C18C]">
+            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-[#a67943]">
               <Sparkles className="h-4 w-4" />
               Google response automation
             </div>
-            <h2 className="mt-2 text-2xl font-light text-white">
+            <h2 className="mt-2 text-[28px] font-semibold tracking-[-0.04em] text-[#21170f]">
               {googleApiAccessPending
                 ? "Google connected — Business Profile API approval pending"
                 : googleRateLimited
@@ -208,7 +208,7 @@ export default function ReviewFeed({
                       ? "Connected and monitored"
                       : "Google setup required"}
             </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
+            <p className="mt-2 max-w-3xl text-[12px] leading-6 text-[#7c6853]">
               {googleApiAccessPending
                 ? "The Google authorization is active and safe. Avantiqo is waiting for Google to enable Business Profile API access for the platform Cloud project. Automatic discovery is paused, and reconnecting Google is not required."
                 : googleRateLimited
@@ -226,7 +226,7 @@ export default function ReviewFeed({
               type="button"
               onClick={syncReviews}
               disabled={syncing}
-              className="flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black transition disabled:opacity-50"
+              className="flex items-center gap-2 rounded-2xl border border-[#a9773e]/25 bg-[linear-gradient(180deg,#d7b17f,#ae7a40)] px-5 py-3 text-[11px] font-semibold text-white shadow-[0_8px_18px_rgba(128,87,40,0.20)] transition disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
               {syncing ? "Checking…" : "Sync now"}
@@ -234,7 +234,7 @@ export default function ReviewFeed({
           ) : (
             <a
               href={integrationUrl}
-              className="flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black"
+              className="flex items-center gap-2 rounded-2xl border border-[#a9773e]/25 bg-[linear-gradient(180deg,#d7b17f,#ae7a40)] px-5 py-3 text-[11px] font-semibold text-white shadow-[0_8px_18px_rgba(128,87,40,0.20)]"
             >
               <Settings2 className="h-4 w-4" />
               {googleApiAccessPending ? "Check Google access" : "Open Google setup"}
@@ -243,7 +243,7 @@ export default function ReviewFeed({
         </div>
 
         {policy && (
-          <div className="mt-5 text-xs text-white/35">
+          <div className="mt-5 text-[10px] text-[#8b755f]">
             Active policy: {policy.brand_name} · full history {policy.backfill_completed_at ? "processed" : "will be processed on first successful sync"} · ready connections checked automatically
           </div>
         )}
@@ -253,8 +253,8 @@ export default function ReviewFeed({
         <div
           className={`rounded-2xl border px-4 py-3 text-sm ${
             error
-              ? "border-red-400/20 bg-red-400/10 text-red-100"
-              : "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+              ? "border-red-300/50 bg-red-50/90 text-red-700"
+              : "border-emerald-300/50 bg-emerald-50/90 text-emerald-700"
           }`}
         >
           {error || notice}
@@ -268,9 +268,9 @@ export default function ReviewFeed({
           ["Awaiting approval", stats.approval],
           ["Recovery cases", stats.escalated],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="text-xs uppercase tracking-[0.18em] text-white/30">{label}</div>
-            <div className="mt-2 text-3xl font-light text-white">{value}</div>
+          <div key={label} className="rounded-2xl border border-white/60 bg-[linear-gradient(145deg,rgba(255,252,247,0.93),rgba(238,224,204,0.86))] p-5 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
+            <div className="text-[9px] uppercase tracking-[0.18em] text-[#8f7962]">{label}</div>
+            <div className="mt-2 text-[30px] font-semibold tracking-[-0.04em] text-[#21170f]">{value}</div>
           </div>
         ))}
       </div>
@@ -296,20 +296,26 @@ export default function ReviewFeed({
             return (
               <article
                 key={review.id}
-                className="rounded-[28px] border border-white/10 bg-white/[0.03] p-6"
+                className="rounded-[28px] border border-white/60 bg-[linear-gradient(145deg,rgba(255,252,247,0.94),rgba(239,225,205,0.88))] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.9)]"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <div className="font-medium text-white">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white/90 p-2 shadow-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/icons/google.png" alt="Google" className="h-full w-full object-contain" />
+                    </div>
+                    <div>
+                    <div className="font-semibold text-[#2a1e15]">
                       {review.author_name || "Google guest"}
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-white/35">
+                    <div className="mt-1 flex flex-wrap items-center gap-3 text-[10px] text-[#8c7863]">
                       <Stars rating={review.rating} />
                       <span>
                         {review.review_time
                           ? new Date(review.review_time).toLocaleString()
                           : "Date unavailable"}
                       </span>
+                    </div>
                     </div>
                   </div>
 
@@ -322,13 +328,13 @@ export default function ReviewFeed({
                   </div>
                 </div>
 
-                <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-white/70">
+                <p className="mt-5 whitespace-pre-wrap text-[12px] leading-6 text-[#5f4e3d]">
                   {review.review_text || "The guest left a rating without written comments."}
                 </p>
 
                 {review.response_text && (
-                  <div className="mt-5 rounded-2xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.05] p-4">
-                    <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-[#D6A66A]">
+                  <div className="mt-5 rounded-2xl border border-[#c7985d]/18 bg-[#f2dfc3]/58 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]">
+                    <div className="mb-2 flex items-center gap-2 text-[9px] uppercase tracking-[0.14em] text-[#9e713d]">
                       {status === "PUBLISHED" ? (
                         <CheckCircle2 className="h-4 w-4" />
                       ) : (
@@ -348,10 +354,10 @@ export default function ReviewFeed({
                           }))
                         }
                         rows={4}
-                        className="w-full resize-y rounded-xl border border-white/10 bg-black/30 p-3 text-sm leading-6 text-white outline-none focus:border-[#D6A66A]/40"
+                        className="w-full resize-y rounded-xl border border-[#8c6b42]/14 bg-white/58 p-3 text-[12px] leading-6 text-[#2f241b] outline-none focus:border-[#b9874c]/35"
                       />
                     ) : (
-                      <p className="whitespace-pre-wrap text-sm leading-6 text-white/65">
+                      <p className="whitespace-pre-wrap text-[12px] leading-6 text-[#5f4e3d]">
                         {review.response_text}
                       </p>
                     )}
@@ -359,11 +365,11 @@ export default function ReviewFeed({
                 )}
 
                 {review.recovery_case && (
-                  <div className="mt-4 flex gap-3 rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-100">
+                  <div className="mt-4 flex gap-3 rounded-2xl border border-red-300/45 bg-red-50/82 p-4 text-[12px] text-red-700">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <div>
                       <div className="font-medium">Critical recovery case open</div>
-                      <div className="mt-1 text-red-100/65">
+                      <div className="mt-1 text-red-700/70">
                         Management follow-up is required before publishing a public response.
                       </div>
                     </div>
@@ -376,7 +382,7 @@ export default function ReviewFeed({
                       type="button"
                       onClick={() => approveReview(review.id)}
                       disabled={publishingId === review.id || !drafts[review.id]?.trim()}
-                      className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-40"
+                      className="flex items-center gap-2 rounded-xl bg-[linear-gradient(180deg,#d4ae7a,#aa773d)] px-4 py-2 text-[11px] font-semibold text-white shadow-[0_7px_16px_rgba(128,87,40,0.20)] disabled:opacity-40"
                     >
                       <Send className="h-4 w-4" />
                       {publishingId === review.id
@@ -387,7 +393,7 @@ export default function ReviewFeed({
                 )}
 
                 {review.last_response_error && (
-                  <div className="mt-3 text-xs text-red-300/70">
+                  <div className="mt-3 text-[10px] text-red-700/70">
                     {review.last_response_error}
                   </div>
                 )}

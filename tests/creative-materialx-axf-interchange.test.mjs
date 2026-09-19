@@ -31,11 +31,11 @@ test("MaterialX Standard Surface maps reproducible automotive PBR properties", (
   assert.equal(result.material.pbr.ior, 1.52);
   assert.equal(result.material.pbr.coat_weight, 1);
   assert.equal(result.material.material_interchange.source_checksum, result.source_checksum);
-});test("MaterialX complex graphs fail closed instead of silently flattening", () => {
-  const xml = `<materialx version="1.38"><nodegraph name="g"><image name="i"/></nodegraph><standard_surface name="s" type="surfaceshader"><input name="base_color" type="color3" nodename="i"/></standard_surface></materialx>`;
+});test("MaterialX complex graphs require governed resource bindings instead of flattening", () => {
+  const xml = `<materialx version="1.38"><nodegraph name="g"><image name="i" type="color3"><input name="file" type="filename" value="paint.exr"/></image><output name="out" type="color3" nodename="i"/></nodegraph><standard_surface name="s" type="surfaceshader"><input name="base_color" type="color3" nodegraph="g" output="out"/></standard_surface></materialx>`;
   assert.throws(
     () => CreativeMaterialXInterchangeRuntime.importStandardSurface({ xml }),
-    /MATERIALX_COMPLEX_GRAPH_REQUIRES_BAKED_OR_GRAPH_TRANSLATION/,
+    /MATERIALX_GRAPH_RESOURCE_BINDING_REQUIRED:paint.exr/,
   );
 });
 

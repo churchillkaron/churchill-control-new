@@ -42,10 +42,14 @@ export async function POST(request) {
     }
 
     const discovery = await googleDiscoveryState(context.organizationId);
-    if (
-      String(discovery.location_discovery_status || "").toUpperCase() ===
-      "API_ACCESS_PENDING"
-    ) {
+    const discoveryStatus = String(
+      discovery.location_discovery_status || "",
+    ).toUpperCase();
+    const discoveryRetryAt = discovery.location_discovery_retry_at || null;
+    const retryStillBlocked = Boolean(
+      discoveryRetryAt && new Date(discoveryRetryAt).getTime() > Date.now(),
+    );
+    if (discoveryStatus === "API_ACCESS_PENDING" && retryStillBlocked) {
       return NextResponse.json({
         success: true,
         organizationId: context.organizationId,
@@ -56,9 +60,9 @@ export async function POST(request) {
         backfillRemaining: null,
         skipped: true,
         reason: "GOOGLE_API_ACCESS_PENDING",
-        retryAt: discovery.location_discovery_retry_at || null,
+        retryAt: discoveryRetryAt,
         message:
-          "Google authorization is active. Review synchronization is waiting for Google Business Profile API access approval for the Avantiqo Cloud project.",
+          "Google Business Profile access is waiting for the next governed discovery retry.",
       });
     }
 

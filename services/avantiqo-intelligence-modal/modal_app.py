@@ -282,7 +282,7 @@ def _tool_calls(raw: str) -> tuple[str, list[dict[str, Any]]]:
 
 
 
-def _excerpt(value: Any, limit: int = 16000) -> str:
+def _excerpt(value: Any, limit: int = 48000) -> str:
     source = _text(value)
     if len(source) <= limit:
         return source

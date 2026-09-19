@@ -24,12 +24,14 @@ HF_CACHE_ROOT = "/models/huggingface-cache/hub"
 MODEL_VOLUME_NAME = "avantiqo-image-models"
 MODEL_SECRET_NAME = "huggingface-secret"
 INVESTOR_KEYFRAME_CONTRACT = "AVANTIQO_IMAGE_INVESTOR_PHOTOREAL_KEYFRAME_V1"
+PHOTOREAL_CACHE_CONTRACT = "AVANTIQO_IMAGE_PHOTOREAL_CACHE_COMPLETION_V1"
+MODAL_CACHE_CONTRACT = "AVANTIQO_IMAGE_MODAL_CACHE_COMPLETION_V2"
 
 app = modal.App(APP_NAME)
 model_volume = modal.Volume.from_name(MODEL_VOLUME_NAME, create_if_missing=False)
 
 
-def _seed_one_model(model_id: str, marker_name: str) -> Path:
+def _seed_one_model(model_id: str, marker_name: str, marker_contract: str) -> Path:
     from huggingface_hub import snapshot_download
 
     resolved = Path(snapshot_download(
@@ -42,7 +44,7 @@ def _seed_one_model(model_id: str, marker_name: str) -> Path:
         raise RuntimeError(f"AVANTIQO_IMAGE_MODAL_MODEL_SNAPSHOT_MISSING:{model_id}")
     marker = resolved / marker_name
     marker.write_text(json.dumps({
-        "contract": "AVANTIQO_IMAGE_MODAL_CACHE_COMPLETION_V2",
+        "contract": marker_contract,
         "target_model": model_id,
         "snapshot_revision": resolved.name,
         "snapshot_download_completed": True,
@@ -53,9 +55,21 @@ def _seed_one_model(model_id: str, marker_name: str) -> Path:
 
 
 def _seed_model() -> None:
-    _seed_one_model(FOUNDATION_MODEL, ".avantiqo-photoreal-cache-complete.json")
-    _seed_one_model(ANALYZE_MODEL, ".avantiqo-vision-cache-complete.json")
-    _seed_one_model(DEPTH_MODEL, ".avantiqo-depth-cache-complete.json")
+    _seed_one_model(
+        FOUNDATION_MODEL,
+        ".avantiqo-photoreal-cache-complete.json",
+        PHOTOREAL_CACHE_CONTRACT,
+    )
+    _seed_one_model(
+        ANALYZE_MODEL,
+        ".avantiqo-vision-cache-complete.json",
+        MODAL_CACHE_CONTRACT,
+    )
+    _seed_one_model(
+        DEPTH_MODEL,
+        ".avantiqo-depth-cache-complete.json",
+        MODAL_CACHE_CONTRACT,
+    )
 
 seed_image = modal.Image.debian_slim(python_version="3.12").pip_install("huggingface_hub")
 
@@ -126,6 +140,40 @@ def generate(data: dict[str, Any]) -> dict[str, Any]:
     result["raw_reasoning_persisted"] = False
     return result
 
+@app.function(
+    image=worker_image,
+    gpu="A10G",
+    volumes={"/models": model_volume},
+    timeout=20 * 60,
+    min_containers=0,
+    max_containers=1,
+    buffer_containers=0,
+    scaledown_window=5,
+)
+def analyze(data: dict[str, Any]) -> dict[str, Any]:
+    os.chdir("/app")
+    import handler_v9 as image_engine
+
+    capability = str(data.get("capability") or "").strip()
+    if capability not in {"ai.image.analyze", "document.ocr", "document.classify"}:
+        raise RuntimeError("AVANTIQO_IMAGE_ANALYZE_CAPABILITY_REQUIRED")
+    image_engine._progress_update = lambda *_args, **_kwargs: None
+    started = time.perf_counter()
+    output = image_engine.handler({
+        "id": f"modal-analyze-{uuid.uuid4()}",
+        "input": data,
+    })
+    if not isinstance(output, dict):
+        raise RuntimeError("AVANTIQO_IMAGE_MODAL_OUTPUT_OBJECT_REQUIRED")
+    result = dict(output)
+    result["infrastructure_provider"] = "MODAL"
+    result["modal_gpu"] = "A10G"
+    result["modal_elapsed_seconds"] = round(time.perf_counter() - started, 3)
+    result["runpod_inference_performed"] = False
+    result["raw_reasoning_persisted"] = False
+    return result
+
+
 
 @app.function(
     image=worker_image,
@@ -153,21 +201,27 @@ def estimate_depth(data: dict[str, Any]) -> dict[str, Any]:
     if not source_assets:
         raise RuntimeError("AVANTIQO_IMAGE_DEPTH_SOURCE_REQUIRED")
     source_url = str(source_assets[0] or "").strip()
+    if not source_url:
+        raise RuntimeError("AVANTIQO_IMAGE_DEPTH_SOURCE_REQUIRED")
     storage_upload = data.get("storage_upload") or {}
     signed_upload_url = str(storage_upload.get("signed_url") or "").strip()
     storage_reference = str(storage_upload.get("storage_reference") or "").strip()
-    if not source_url or not signed_upload_url or not storage_reference:
-        raise RuntimeError("AVANTIQO_IMAGE_DEPTH_INPUT_OR_STORAGE_REQUIRED")
+    if not signed_upload_url or not storage_reference:
+        raise RuntimeError("AVANTIQO_IMAGE_DEPTH_STORAGE_UPLOAD_REQUIRED")
 
     started = time.perf_counter()
     response = requests.get(source_url, timeout=60)
     response.raise_for_status()
     image = Image.open(io.BytesIO(response.content)).convert("RGB")
-    processor = AutoImageProcessor.from_pretrained(DEPTH_MODEL, cache_dir=HF_CACHE_ROOT, local_files_only=True)
+
+    processor = AutoImageProcessor.from_pretrained(
+        DEPTH_MODEL, cache_dir=HF_CACHE_ROOT, local_files_only=True,
+    )
     model = AutoModelForDepthEstimation.from_pretrained(
         DEPTH_MODEL, cache_dir=HF_CACHE_ROOT, local_files_only=True, torch_dtype=torch.float16,
     ).to("cuda").eval()
-    inputs = {key: value.to("cuda") for key, value in processor(images=image, return_tensors="pt").items()}
+    inputs = processor(images=image, return_tensors="pt")
+    inputs = {key: value.to("cuda") for key, value in inputs.items()}
     with torch.inference_mode():
         predicted = model(**inputs).predicted_depth
     predicted = F.interpolate(
@@ -176,22 +230,37 @@ def estimate_depth(data: dict[str, Any]) -> dict[str, Any]:
     minimum = float(torch.quantile(predicted, 0.01))
     maximum = float(torch.quantile(predicted, 0.99))
     normalized = ((predicted - minimum) / max(1e-6, maximum - minimum)).clamp(0, 1)
-    depth_image = Image.fromarray((normalized * 65535.0).round().to(torch.uint16).numpy(), mode="I;16")
+    depth_u16 = (normalized * 65535.0).round().to(torch.uint16).numpy()
+    depth_image = Image.fromarray(depth_u16, mode="I;16")
     buffer = io.BytesIO()
     depth_image.save(buffer, format="PNG", optimize=False)
-    upload = requests.put(signed_upload_url, data=buffer.getvalue(), headers={"Content-Type": "image/png"}, timeout=90)
+    payload = buffer.getvalue()
+    upload = requests.put(
+        signed_upload_url, data=payload, headers={"Content-Type": "image/png"}, timeout=90,
+    )
     upload.raise_for_status()
+
     return {
-        "success": True, "status": "completed", "contract": "AVANTIQO_DEPTH_ESTIMATION_V1",
-        "capability": capability, "provider": "avantiqo-image", "model": "avantiqo-depth-v1",
-        "foundation_model": DEPTH_MODEL, "storage_reference": storage_reference,
-        "width": image.width, "height": image.height, "bit_depth": 16,
+        "success": True,
+        "status": "completed",
+        "contract": "AVANTIQO_DEPTH_ESTIMATION_V1",
+        "capability": capability,
+        "provider": "avantiqo-image",
+        "model": "avantiqo-depth-v1",
+        "foundation_model": DEPTH_MODEL,
+        "storage_reference": storage_reference,
+        "width": image.width,
+        "height": image.height,
+        "bit_depth": 16,
+        "depth_order_convention": "MODEL_PREDICTION_LOW_TO_HIGH_PRESERVED",
+        "higher_normalized_value_means_larger_model_predicted_depth": True,
+        "metric_depth": False,
         "normalization": {"near_quantile": 0.01, "far_quantile": 0.99, "raw_min": minimum, "raw_max": maximum},
-        "source_visual_asset_count": 1, "modal_gpu": "A10G",
+        "source_visual_asset_count": 1,
+        "modal_gpu": "A10G",
         "modal_elapsed_seconds": round(time.perf_counter() - started, 3),
         "raw_reasoning_persisted": False,
     }
-
 
 @app.function(
     image=worker_image,

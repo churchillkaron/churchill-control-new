@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-11T10:55:22.226Z",
+  "generated_at": "2026-09-16T06:46:54.223Z",
   "mode": "OFFLINE_ZERO_MEDIA_GENERATION",
   "provider_calls_executed": 0,
   "media_generation_executed": 0,
@@ -343,6 +343,6 @@
     "known_failure_suite_passed": true,
     "generation_unlocked": false,
     "benchmark_suite_digest": "3e100b503a52bd16c7004133bfb7cf61d57ee916ced7f4bd6dd2b26733685705",
-    "certified_at": "2026-09-11T10:55:22.226Z"
+    "certified_at": "2026-09-16T06:46:54.223Z"
   }
 }

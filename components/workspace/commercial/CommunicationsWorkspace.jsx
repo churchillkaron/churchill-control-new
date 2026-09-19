@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Inbox, Mail, Sparkles, Users, Zap } from "lucide-react";
 
 const CHANNELS = [
   ["all", "All"],
@@ -36,6 +37,39 @@ function family(row) {
 
 function channelName(row) {
   return row?.channelLabel || row?.label || row?.family || row?.provider || "Channel";
+}
+
+function channelLogoSrc(value) {
+  const key = typeof value === "string" ? value.toLowerCase() : family(value);
+  const logos = {
+    whatsapp: "/icons/whatsapp.png",
+    instagram: "/icons/instagram.png",
+    line: "/icons/line.png",
+    email: "/icons/email.png",
+    messenger: "/brand-icons/messenger.svg",
+    facebook: "/icons/facebook.png",
+    tiktok: "/icons/tiktok.png",
+    linkedin: "/brand-icons/linkedin.svg",
+    threads: "/brand-icons/threads.svg",
+    x: "/brand-icons/x.svg",
+    google: "/icons/google.png",
+    tripadvisor: "/brand-icons/tripadvisor.svg",
+  };
+  return logos[key] || null;
+}
+
+function BrandLogo({ value, label, size = "md" }) {
+  const src = channelLogoSrc(value);
+  const box = size === "sm" ? "h-7 w-7 rounded-lg" : "h-10 w-10 rounded-xl";
+  if (!src) {
+    return <div className={`flex ${box} items-center justify-center bg-[linear-gradient(145deg,#b9864a,#d4ad75)] text-[9px] font-bold text-white`}>{String(label || "CH").slice(0, 2).toUpperCase()}</div>;
+  }
+  return (
+    <div className={`flex ${box} items-center justify-center overflow-hidden border border-white/65 bg-white/90 p-1.5 shadow-sm`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={`${label || value} logo`} className="h-full w-full object-contain" />
+    </div>
+  );
 }
 
 function participant(row) {
@@ -340,13 +374,13 @@ export default function CommunicationsWorkspace({ organizationId }) {
   const activeLabel = CHANNELS.find(([id]) => id === channel)?.[1] || "All";
 
   return (
-    <div className="min-h-[calc(100vh-80px)] p-4 text-white md:p-6">
-      <div className="mx-auto max-w-[1780px]">
-        <header className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <div className="min-h-[calc(100vh-80px)] bg-[radial-gradient(circle_at_18%_0%,rgba(214,166,106,0.14),transparent_30%),linear-gradient(180deg,#12100d_0%,#070707_100%)] p-3 text-[#241a12] md:p-5">
+      <div className="mx-auto max-w-[1840px]">
+        <header className="mb-3 flex flex-col gap-3 text-[#f1dfc7] xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.28em] text-amber-300/55">Commercial · Customer Management</div>
-            <h1 className="mt-2 text-[34px] font-light tracking-[-0.05em] md:text-[42px]">Communications</h1>
-            <p className="mt-1 text-[12px] text-white/38">Internal team messages and connected customer conversations in one inbox.</p>
+            <div className="text-[10px] uppercase tracking-[0.32em] text-[#d6a66a]/75">AVANTIQO · Commercial</div>
+            <h1 className="mt-1 text-[30px] font-light tracking-[-0.05em] md:text-[36px]">Unified Communications</h1>
+            <p className="mt-1 text-[11px] text-[#d7c3a9]/55">Real conversations, reputation and approvals in one operating surface.</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2 text-[10px] text-white/40">
@@ -361,19 +395,19 @@ export default function CommunicationsWorkspace({ organizationId }) {
         {error ? <div className="mb-4 rounded-2xl border border-red-400/15 bg-red-400/[0.06] px-4 py-3 text-[12px] text-red-200">{error}</div> : null}
         {notice ? <div className="mb-4 rounded-2xl border border-amber-300/15 bg-amber-300/[0.05] px-4 py-3 text-[12px] text-amber-100/75">{notice}</div> : null}
 
-        <div className="grid min-h-[720px] overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#070707]/90 shadow-2xl shadow-black/25 xl:grid-cols-[190px_360px_minmax(0,1fr)]">
-          <aside className="border-b border-white/[0.07] bg-black/30 p-3 xl:border-b-0 xl:border-r">
-            <div className="px-2 pb-3 pt-1 text-[9px] uppercase tracking-[0.22em] text-white/25">Channels</div>
+        <div className="grid min-h-[760px] overflow-hidden rounded-[34px] border border-white/55 bg-[linear-gradient(135deg,rgba(255,252,247,0.96),rgba(239,224,203,0.92))] shadow-[0_34px_100px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.95)] backdrop-blur-3xl xl:grid-cols-[185px_365px_minmax(0,1fr)_330px]">
+          <aside className="relative border-b border-[#8c6b42]/14 bg-[linear-gradient(180deg,rgba(255,249,239,0.92),rgba(238,221,197,0.86))] p-3 xl:border-b-0 xl:border-r">
+            <div className="px-2 pb-5 pt-2 text-[15px] font-medium tracking-[0.24em] text-[#8f6d43]">AVANTIQO</div>
             <div className="flex gap-2 overflow-x-auto xl:block xl:space-y-1 xl:overflow-visible">
               {CHANNELS.map(([id, label]) => {
                 const active = channel === id;
                 const isConnected = id === "all" || connectedFamilies.has(id) || Number(counts[id] || 0) > 0;
                 return (
-                  <button key={id} type="button" onClick={() => { setChannel(id); setQuery(""); setNotice(""); }} className={`flex min-w-[130px] items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition xl:w-full ${active ? "border-amber-300/25 bg-amber-300/[0.08] text-amber-100" : "border-transparent text-white/48 hover:bg-white/[0.035] hover:text-white/75"}`}>
-                    <span className="text-[11px] font-medium">{label}</span>
+                  <button key={id} type="button" onClick={() => { setChannel(id); setQuery(""); setNotice(""); }} className={`flex min-w-[130px] items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition xl:w-full ${active ? "border-[#b9874c]/30 bg-[#ead7bb]/72 text-[#5b4228] shadow-sm" : "border-transparent text-[#806b55] hover:bg-white/48 hover:text-[#4c3825]"}`}>
+                    <span className="flex min-w-0 items-center gap-2.5"><span className="shrink-0">{id === "all" ? <Inbox size={17} strokeWidth={1.7} /> : id === "internal" ? <Users size={17} strokeWidth={1.7} /> : <BrandLogo value={id} label={label} size="sm" />}</span><span className="truncate text-[11px] font-medium">{label}</span></span>
                     <span className="flex items-center gap-1.5">
-                      {isConnected && id !== "all" ? <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80" /> : null}
-                      {Number(unread[id] || 0) > 0 ? <span className="rounded-full bg-amber-300 px-1.5 py-0.5 text-[9px] font-bold text-black">{unread[id]}</span> : Number(counts[id] || 0) > 0 ? <span className="text-[9px] text-white/28">{counts[id]}</span> : null}
+                      {isConnected && id !== "all" ? <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> : null}
+                      {Number(unread[id] || 0) > 0 ? <span className="rounded-full bg-[#a9783e] px-1.5 py-0.5 text-[9px] font-bold text-white">{unread[id]}</span> : Number(counts[id] || 0) > 0 ? <span className="text-[9px] text-[#9a8670]">{counts[id]}</span> : null}
                     </span>
                   </button>
                 );
@@ -381,20 +415,20 @@ export default function CommunicationsWorkspace({ organizationId }) {
             </div>
           </aside>
 
-          <section className="border-b border-white/[0.07] bg-black/18 xl:border-b-0 xl:border-r">
-            <div className="border-b border-white/[0.06] p-4">
+          <section className="border-b border-[#8c6b42]/14 bg-white/22 xl:border-b-0 xl:border-r">
+            <div className="border-b border-[#8c6b42]/12 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-[9px] uppercase tracking-[0.2em] text-white/25">Inbox</div>
-                  <div className="mt-1 text-[15px] text-white/80">{activeLabel}</div>
+                  <div className="text-[26px] font-semibold tracking-[-0.045em] text-[#1f160f]">Unified Inbox</div>
+                  <div className="mt-1 text-[10px] text-[#8a735d]">{activeLabel} · {conversations.length} conversations</div>
                 </div>
-                <div className="text-[10px] text-white/28">{conversations.length}</div>
+                <div className="text-[10px] text-[#8c765f]">{conversations.length}</div>
               </div>
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${activeLabel}`} className="mt-4 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-4 text-[12px] text-white outline-none placeholder:text-white/24 focus:border-amber-300/25" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${activeLabel}`} className="mt-4 h-11 w-full rounded-xl border border-[#8c6b42]/14 bg-white/48 px-4 text-[12px] text-[#2d2118] outline-none placeholder:text-[#9b8874] focus:border-[#b9874c]/35" />
             </div>
 
             <div className="max-h-[650px] overflow-y-auto p-2">
-              {loading ? <div className="p-4 text-[12px] text-white/35">Loading inbox…</div> : null}
+              {loading ? <div className="p-4 text-[12px] text-[#8f7a65]">Loading inbox…</div> : null}
               {!loading && !conversations.length ? (
                 <div className="m-2 rounded-2xl border border-white/[0.06] bg-white/[0.018] p-5">
                   <div className="text-[13px] text-white/65">No {activeLabel === "All" ? "conversations" : `${activeLabel} conversations`} loaded yet.</div>
@@ -405,23 +439,24 @@ export default function CommunicationsWorkspace({ organizationId }) {
               {conversations.map((row) => {
                 const active = row.id === selectedId;
                 return (
-                  <button key={row.id} type="button" onClick={() => { setSelectedId(row.id); setNotice(""); setPendingAttachments([]); }} className={`mb-1 w-full rounded-2xl border p-3.5 text-left transition ${active ? "border-amber-300/18 bg-amber-300/[0.055]" : "border-transparent hover:border-white/[0.05] hover:bg-white/[0.025]"}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="truncate text-[13px] font-semibold text-white/84">{participant(row)}</div>
-                        <div className="mt-1 text-[9px] uppercase tracking-[0.16em] text-amber-200/45">{channelName(row)}</div>
+                  <button key={row.id} type="button" onClick={() => { setSelectedId(row.id); setNotice(""); setPendingAttachments([]); }} className={`mb-1 w-full rounded-2xl border p-3.5 text-left transition ${active ? "border-[#c99658]/24 bg-[#ead7bb]/58 shadow-[0_8px_18px_rgba(116,78,36,0.07)]" : "border-transparent hover:border-[#8c6b42]/10 hover:bg-white/38"}`}>
+                    <div className="flex items-start gap-3">
+                      <BrandLogo value={row} label={channelName(row)} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13px] font-semibold text-[#2a1e15]">{participant(row)}</div>
+                        <div className="mt-1 text-[9px] uppercase tracking-[0.16em] text-[#a27745]">{channelName(row)}</div>
                       </div>
-                      <div className="shrink-0 text-[9px] text-white/24">{dateTime(row.last_message_at || row.updated_at)}</div>
+                      <div className="shrink-0 text-[9px] text-[#9a8874]">{dateTime(row.last_message_at || row.updated_at)}</div>
                     </div>
-                    <div className="mt-2 line-clamp-2 text-[11px] leading-5 text-white/38">{messagePreview(row.latestMessage) || row.subject || "No message preview"}</div>
-                    {Number(row.unread_count || 0) > 0 ? <div className="mt-2 inline-flex min-w-5 items-center justify-center rounded-full bg-amber-300 px-1.5 py-0.5 text-[9px] font-bold text-black">{row.unread_count}</div> : null}
+                    <div className="mt-2 line-clamp-2 text-[11px] leading-5 text-[#7e6c59]">{messagePreview(row.latestMessage) || row.subject || "No message preview"}</div>
+                    {Number(row.unread_count || 0) > 0 ? <div className="mt-2 inline-flex min-w-5 items-center justify-center rounded-full bg-[#a9783e] px-1.5 py-0.5 text-[9px] font-bold text-white">{row.unread_count}</div> : null}
                   </button>
                 );
               })}
             </div>
           </section>
 
-          <main className="flex min-h-[720px] flex-col bg-black/8">
+          <main className="flex min-h-[760px] flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.36),rgba(255,247,236,0.26))]">
             {!selected ? (
               <div className="flex flex-1 items-center justify-center p-8 text-center">
                 <div className="max-w-md">
@@ -432,14 +467,17 @@ export default function CommunicationsWorkspace({ organizationId }) {
             ) : (
               <>
                 <header className="flex items-center justify-between gap-4 border-b border-white/[0.07] px-5 py-4 md:px-6">
-                  <div className="min-w-0">
-                    <div className="truncate text-[16px] font-semibold text-white/88">{participant(selected)}</div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.15em] text-white/28">
-                      <span className="text-amber-200/55">{channelName(selected)}</span>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <BrandLogo value={selected} label={channelName(selected)} />
+                    <div className="min-w-0">
+                    <div className="truncate text-[16px] font-semibold text-[#251a12]">{participant(selected)}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.15em] text-[#8b755f]">
+                      <span className="text-[#a27745]">{channelName(selected)}</span>
                       {selectedFamily !== "internal" ? <><span>·</span><span>{selected.external_participant_address || selected.external_participant_id}</span></> : <><span>·</span><span>Team conversation</span></>}
                     </div>
+                    </div>
                   </div>
-                  <div className="rounded-lg border border-white/[0.07] bg-white/[0.025] px-2.5 py-1.5 text-[9px] text-white/38">{selected.status || "OPEN"}</div>
+                  <div className="rounded-lg border border-[#8c6b42]/12 bg-white/45 px-2.5 py-1.5 text-[9px] text-[#78634d]">{selected.status || "OPEN"}</div>
                 </header>
 
                 <div className="flex-1 space-y-3 overflow-y-auto p-5 md:p-7">
@@ -499,6 +537,32 @@ export default function CommunicationsWorkspace({ organizationId }) {
               </>
             )}
           </main>
+
+          <aside className="border-t border-[#8c6b42]/14 bg-white/24 p-5 xl:border-l xl:border-t-0">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-[24px] font-semibold tracking-[-0.04em] text-[#21170f]">Reputation</h2>
+              <span className="rounded-xl border border-[#8c6b42]/12 bg-white/45 px-3 py-2 text-[9px] text-[#745f4a]">Last 30 days</span>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <div className="rounded-2xl border border-[#8c6b42]/12 bg-white/48 p-3 shadow-sm"><div className="text-[27px] font-semibold">4.8</div><div className="mt-1 text-[12px] tracking-[0.08em] text-[#df981f]">★★★★★</div><div className="mt-1 text-[9px] text-emerald-700">+0.3</div></div>
+              <div className="rounded-2xl border border-[#8c6b42]/12 bg-white/48 p-3 shadow-sm"><div className="text-[27px] font-semibold">{conversations.length}</div><div className="mt-1 text-[9px] text-[#826e5a]">Conversations</div><div className="mt-1 text-[9px] text-emerald-700">Live</div></div>
+            </div>
+            <div className="mt-4 flex gap-5 border-b border-[#8c6b42]/12 text-[10px] text-[#816d58]"><button className="border-b-2 border-[#b48449] pb-2 font-semibold text-[#4a3826]">Reviews</button><button className="pb-2">Drafts</button><button className="pb-2">Approved</button></div>
+            <div className="mt-3 space-y-2">
+              <div className="rounded-2xl border border-[#8c6b42]/10 bg-white/42 p-3"><div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2"><BrandLogo value="google" label="Google" size="sm" /><span className="text-[11px] font-semibold">Google</span></span><span className="rounded-lg bg-emerald-100 px-2 py-1 text-[8px] text-emerald-700">Replied</span></div><p className="mt-2 text-[10px] leading-4 text-[#806d59]">Excellent service and quick response.</p></div>
+              <div className="rounded-2xl border border-[#8c6b42]/10 bg-white/42 p-3"><div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2"><BrandLogo value="tripadvisor" label="Tripadvisor" size="sm" /><span className="text-[11px] font-semibold">Tripadvisor</span></span><span className="rounded-lg bg-emerald-100 px-2 py-1 text-[8px] text-emerald-700">Approved</span></div><p className="mt-2 text-[10px] leading-4 text-[#806d59]">Beautiful experience and professional team.</p></div>
+              <div className="rounded-2xl border border-[#8c6b42]/10 bg-white/42 p-3"><div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2"><BrandLogo value="email" label="Customer" size="sm" /><span className="text-[11px] font-semibold">Customer</span></span><span className="rounded-lg bg-red-100 px-2 py-1 text-[8px] text-red-700">Escalated</span></div><p className="mt-2 text-[10px] leading-4 text-[#806d59]">Follow-up needed on latest request.</p></div>
+            </div>
+            <div className="mt-4 flex items-center gap-3 rounded-2xl border border-[#8c6b42]/12 bg-[linear-gradient(135deg,#f8ecd9,#ead6b9)] p-4"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/65 text-[#9c713e]"><Sparkles size={17} /></div><div><div className="text-[11px] font-semibold">AI Assistant</div><div className="mt-0.5 text-[9px] leading-4 text-[#806b56]">Draft replies, detect sentiment, and suggest actions.</div></div></div>
+            <button type="button" onClick={() => syncConnectedChannels()} disabled={syncing} className="mt-4 w-full rounded-xl border border-[#8c6b42]/14 bg-white/44 px-3 py-2.5 text-[10px] font-semibold text-[#6f5538] hover:bg-white/65 disabled:opacity-40">{syncing ? "Synchronizing…" : "Sync connected channels"}</button>
+          </aside>
+        </div>
+        <div className="mx-auto -mt-1 flex max-w-[860px] items-center justify-between rounded-b-[22px] border-x border-b border-white/55 bg-[#f1dfc7]/94 px-6 py-3 shadow-[0_16px_40px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.8)]">
+          <div className="flex items-center gap-2"><Inbox size={18} /><div><div className="text-[10px] font-semibold">Read</div><div className="text-[8px] text-[#8b765f]">Across channels</div></div></div>
+          <div className="flex items-center gap-2"><Mail size={18} /><div><div className="text-[10px] font-semibold">Answer</div><div className="text-[8px] text-[#8b765f]">With AI assistance</div></div></div>
+          <div className="flex items-center gap-2"><Users size={18} /><div><div className="text-[10px] font-semibold">Route</div><div className="text-[8px] text-[#8b765f]">To the right team</div></div></div>
+          <div className="flex items-center gap-2"><Check size={18} /><div><div className="text-[10px] font-semibold">Approve</div><div className="text-[8px] text-[#8b765f]">Keep it on brand</div></div></div>
+          <div className="flex items-center gap-2"><Zap size={18} /><div><div className="text-[10px] font-semibold">Act</div><div className="text-[8px] text-[#8b765f]">Turn feedback into growth</div></div></div>
         </div>
       </div>
     </div>

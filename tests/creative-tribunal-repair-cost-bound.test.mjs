@@ -6,9 +6,9 @@ const source = await readFile(new URL("../lib/creative/director/runtime/Creative
 
 test("dynamic tribunal repair uses blocker-scoped compact context", () => {
   assert.match(source, /function tribunalRepairPlanView\(plan = \{\}, blocking = \[\]\)/);
-  assert.match(source, /function tribunalRepairContextView\(context = \{\}\)/);
+  assert.match(source, /function tribunalRepairContextView\(context = \{\}, blocking = \[\]\)/);
   assert.match(source, /plan: tribunalRepairPlanView\(plan, blocking\)/);
-  assert.match(source, /context: tribunalRepairContextView\(context\)/);
+  assert.match(source, /context: tribunalRepairContextView\(context, blocking\)/);
 });
 
 test("dynamic tribunal repair prompt uses structural scene and shot patches", () => {
@@ -19,6 +19,6 @@ test("dynamic tribunal repair prompt uses structural scene and shot patches", ()
 
 test("dynamic tribunal repair output is capped below legacy 20k ceiling", () => {
   const repairCall = source.slice(source.indexOf('operation: "CREATIVE_DYNAMIC_TRIBUNAL_REPAIR_V1"'), source.indexOf('repairUsage = repair.result.usage'));
-  assert.match(repairCall, /max_output_tokens: 6000/);
+  assert.match(repairCall, /max_output_tokens: 3500/);
   assert.doesNotMatch(repairCall, /max_output_tokens: 20000/);
 });

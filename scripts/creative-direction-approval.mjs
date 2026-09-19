@@ -57,6 +57,11 @@ const TEMPORAL_OPERATIONS = Object.freeze([
   "TEMPORAL_MASTER_PLAN_CONTRACT_REPAIR_V1",
   "UNIVERSAL_MUSIC_WORLD_IDENTITY_SYNTHESIS_V1",
   "TEMPORAL_MASTER_PLAN_BASE_V1",
+  "TEMPORAL_VISUAL_WORLD_ART_V1",
+  "TEMPORAL_VISUAL_WORLD_CINEMATOGRAPHY_V1",
+  "TEMPORAL_VISUAL_WORLD_VFX_MOTION_V1",
+  "TEMPORAL_VISUAL_WORLD_SELECTION_V1",
+  "TEMPORAL_SHOT_INVENTION_MAP_V1",
   "TEMPORAL_SCENE_ARCHITECTURE_V1",
   "TEMPORAL_SCENE_SHOT_DIRECTION_V1",
   "CREATIVE_CONCEPT_DIRECTOR_*",
@@ -157,10 +162,10 @@ function directionBudgetShape(productionType, duration) {
 
   const maximumSceneCalls = maximumTemporalSceneCalls(duration);
   return {
-    // Current universal council: base plan + three directors + six critics +
+    // Current universal council: base plan + four visual-world calls + shot-invention map + three directors + six critics +
     // executive selection + selected-plan revision + two bounded repairs,
     // plus one scene-direction call per maximum temporal scene.
-    maximum_calls: 14 + maximumSceneCalls,
+    maximum_calls: 19 + maximumSceneCalls,
     maximum_scene_direction_calls: maximumSceneCalls,
     allowed_operations: [...TEMPORAL_OPERATIONS],
     calculation: "UNIVERSAL_TEMPORAL_COUNCIL_AND_SCENE_MAXIMUM",

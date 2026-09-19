@@ -361,6 +361,8 @@ def generate_native_master(
     instruction: str,
     duration_seconds: int = 5,
     seed: int = 4747,
+    width: int = LTX_MASTER_WIDTH,
+    height: int = LTX_MASTER_HEIGHT,
 ) -> dict[str, Any]:
     """Generate one untouched native LTX-2.5 full-dev BF16 master.
 
@@ -378,6 +380,10 @@ def generate_native_master(
         raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_STUDIO_REFERENCE_INVALID")
     if int(duration_seconds) <= 0 or int(duration_seconds) > 20:
         raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_DURATION_INVALID")
+    width = int(width)
+    height = int(height)
+    if (width, height) not in {(1920, 1088), (LTX_MASTER_WIDTH, LTX_MASTER_HEIGHT)}:
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_RESOLUTION_INVALID")
     output.parent.mkdir(parents=True, exist_ok=True)
 
     transformer = root / LTX_REQUIRED[0]
@@ -395,12 +401,12 @@ def generate_native_master(
         "--video-vae-path", str(video_vae),
         "--audio-vae-path", str(audio_vae),
         "--num-frames", str(frames),
-        "--width", str(LTX_MASTER_WIDTH),
-        "--height", str(LTX_MASTER_HEIGHT),
+        "--width", str(width),
+        "--height", str(height),
         "--frame-rate", str(LTX_FPS),
         "--num-inference-steps", str(LTX_NUM_INFERENCE_STEPS),
         "--seed", str(int(seed)),
-        "--max-batch-size", str(LTX_MAX_BATCH_SIZE),
+        "--max-batch-size", "1" if reference is not None else str(LTX_MAX_BATCH_SIZE),
         "--output-path", str(output),
         "--prompt", _ltx_prompt(instruction),
         "--negative-prompt", _ltx_negative_prompt(),
@@ -433,9 +439,11 @@ def generate_native_master(
         ) from exc
     generation_seconds = round(time.perf_counter() - generation_started, 3)
     if completed.returncode != 0:
+        detail = _sanitize(completed.stdout, 10000)
+        print(f"AVANTIQO_VIDEO_LTX25_MODAL_COMMAND_STDOUT={detail}", flush=True)
         raise RuntimeError(
             f"AVANTIQO_VIDEO_LTX25_MODAL_COMMAND_FAILED:{completed.returncode}:"
-            f"{_sanitize(completed.stdout)}"
+            f"{detail}"
         )
     if not output.is_file() or output.stat().st_size <= 1_000_000:
         raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_OUTPUT_INVALID")
@@ -445,7 +453,7 @@ def generate_native_master(
         "success": True,
         "status": "completed",
         "contract": LTX_RUNTIME_CONTRACT,
-        "quality_contract": LTX_QUALITY_CONTRACT,
+        "quality_contract": LTX_QUALITY_CONTRACT if (width, height) == (LTX_MASTER_WIDTH, LTX_MASTER_HEIGHT) else "AVANTIQO_VIDEO_LTX25_CONDITIONED_1920X1088_V1",
         "engine_contract": NATIVE_ENGINE_CONTRACT,
         "provider": "avantiqo-video",
         "model": "avantiqo-ltx-2.5",
@@ -455,8 +463,8 @@ def generate_native_master(
         "precision": "BF16",
         "quantization": "NONE",
         "modal_gpu": LTX_GPU,
-        "width": LTX_MASTER_WIDTH,
-        "height": LTX_MASTER_HEIGHT,
+        "width": width,
+        "height": height,
         "fps": LTX_FPS,
         "num_inference_steps": LTX_NUM_INFERENCE_STEPS,
         "frame_count": frames,

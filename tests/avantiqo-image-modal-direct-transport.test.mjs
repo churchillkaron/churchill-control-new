@@ -71,10 +71,17 @@ test("Image direct transport preserves private Avantiqo output storage", () => {
 });
 
 test("Image direct transport prefers cinematic generation instructions over task labels", () => {
-  assert.match(sharedWorker, /input\.generation\?\.instructions \|\| input\.description \|\| input\.title/);
+  assert.match(sharedWorker, /const canonicalGenerationInstruction = text\(input\.generation\?\.instructions\)/);
+  assert.match(sharedWorker, /if \(canonicalGenerationInstruction\) return canonicalGenerationInstruction/);
 });
 
 test("Image direct transport promotes nested output and provider controls to engine spec", () => {
   assert.match(sharedWorker, /output_spec: input\.output_spec \|\| input\.generation\?\.output_spec \|\| input\.requirements\?\.output_spec/);
   assert.match(sharedWorker, /provider_parameters: \{ \.\.\.object\(input\.generation\?\.provider_parameters\), \.\.\.object\(input\.provider_parameters\) \}/);
+});
+
+test("Image Modal cache seeding writes the photoreal contract expected by Z-Image runtime", () => {
+  assert.match(modalApp, /PHOTOREAL_CACHE_CONTRACT = "AVANTIQO_IMAGE_PHOTOREAL_CACHE_COMPLETION_V1"/);
+  assert.match(modalApp, /_seed_one_model\(\s*FOUNDATION_MODEL,[\s\S]*PHOTOREAL_CACHE_CONTRACT/);
+  assert.match(modalApp, /_seed_one_model\(\s*ANALYZE_MODEL,[\s\S]*MODAL_CACHE_CONTRACT/);
 });

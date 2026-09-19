@@ -70,3 +70,20 @@ test("controlled LTX master uses exact frame-index image conditioning without up
   assert.match(master, /"master_is_exact_model_output": True/);
   assert.match(master, /retries=0/);
 });
+
+test("descriptive frame prose is never promoted to a source asset id", async () => {
+  const { applyCreativeVideoNativeControls } = await import("../lib/creative/video/runtime/CreativeVideoNativeControlRuntime.js");
+  const result = applyCreativeVideoNativeControls({
+    shot_bible: {
+      contract: "CREATIVE_SHOT_BIBLE_V1",
+      shot_id: "shot-prose",
+      frame_plan: {
+        opening_frame: "Extreme close-up of a hand placing a crystal on weathered oak",
+        closing_frame: "Crystal resting on the table with visible wood grain refraction",
+      },
+    },
+  });
+  assert.deepEqual(result.source_assets, []);
+  assert.equal(result.first_frame, undefined);
+  assert.equal(result.last_frame, undefined);
+});

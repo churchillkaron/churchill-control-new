@@ -1,16 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getLookupCreatePolicy } from "@/lib/platform/forms/LookupCreatePolicy";
 
 const INPUT_CLASS =
   "h-10 min-w-0 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-[#D6A66A]/50";
-
-const CREATABLE_LOOKUPS = Object.freeze({
-  items: "Item / Service",
-  cost_centers: "Cost Centre",
-  departments: "Department",
-  projects: "Project",
-});
 
 function initialValue(column) {
   if (column.defaultValue !== undefined) return column.defaultValue;
@@ -58,7 +52,8 @@ function TypedLookupCell({ column, row, value, organizationId, entityId, onChang
   const [createName, setCreateName] = useState("");
   const [createCode, setCreateCode] = useState("");
   const [createSaving, setCreateSaving] = useState(false);
-  const createLabel = CREATABLE_LOOKUPS[column.lookup] || null;
+  const createPolicy = getLookupCreatePolicy(column.lookup, organizationId);
+  const createLabel = createPolicy?.label || null;
 
   useEffect(() => {
     let active = true;
@@ -105,7 +100,7 @@ function TypedLookupCell({ column, row, value, organizationId, entityId, onChang
 
   async function createOption() {
     const name = createName.trim();
-    if (!name || !createLabel) return;
+    if (!name || !createLabel || createPolicy?.mode !== "inline") return;
 
     try {
       setCreateSaving(true);
@@ -143,6 +138,22 @@ function TypedLookupCell({ column, row, value, organizationId, entityId, onChang
     }
   }
 
+  function openMasterCreate() {
+    if (!createPolicy?.href) return;
+    window.open(createPolicy.href, "_blank", "noopener,noreferrer");
+    const refreshOnReturn = () => {
+      setLoading(true);
+      const query = new URLSearchParams({ lookup: column.lookup, organizationId: organizationId || "", entityId: entityId || "" });
+      fetch(`/api/platform/lookups?${query.toString()}`, { cache: "no-store", credentials: "include" })
+        .then((response) => response.json())
+        .then((payload) => setOptions(Array.isArray(payload) ? payload : []))
+        .catch(() => {})
+        .finally(() => setLoading(false));
+      window.removeEventListener("focus", refreshOnReturn);
+    };
+    window.addEventListener("focus", refreshOnReturn);
+  }
+
   return (
     <div className="min-w-0">
       <select
@@ -168,7 +179,7 @@ function TypedLookupCell({ column, row, value, organizationId, entityId, onChang
         </option>
         {options.map((option) => {
           const item = typeof option === "string" ? { value: option, label: option } : option;
-          const optionLabel = item.description && column.lookup === "tax_codes"
+          const optionLabel = item.description
             ? `${item.label} · ${item.description}`
             : item.label;
           return (
@@ -181,7 +192,9 @@ function TypedLookupCell({ column, row, value, organizationId, entityId, onChang
 
       {createLabel ? (
         <div className="mt-1.5">
-          {!creating ? (
+          {createPolicy?.mode === "master" ? (
+            <button type="button" onClick={openMasterCreate} className="text-[10px] font-medium text-[#D6A66A] hover:text-[#E9C18E]">+ Create new {createLabel}</button>
+          ) : !creating ? (
             <button
               type="button"
               onClick={() => {

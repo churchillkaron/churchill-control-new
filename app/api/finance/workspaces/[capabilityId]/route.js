@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { fetchCompleteFinancePopulation } from "@/lib/finance/data/fetchCompleteFinancePopulation";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 import { getFinanceWorkspaceContract } from "@/lib/finance/workspaces/FinanceWorkspaceContracts";
@@ -29,7 +30,7 @@ const IDEMPOTENT_TABLES = new Set([
 const ARCHIVABLE_TABLES = new Set([
   "finance_opening_balance_batches",
   "finance_recurring_journal_templates",
-  "finance_collection_cases",
+  "customer_collection_cases",
   "finance_revenue_recognition_schedules",
   "finance_bank_statement_imports",
   "finance_bank_reconciliation_runs",
@@ -176,31 +177,34 @@ function scopedMutation(query, { contract, access, entityId }) {
 }
 
 async function readTable({ table, contract, organizationId, entityId }) {
-  let query = supabaseAdmin
-    .from(table)
-    .select("*")
-    .eq("organization_id", organizationId)
-    .limit(250);
-
-  if (contract.scope === "entity") query = query.eq("entity_id", entityId);
-
-  const { data, error } = await query;
-
-  if (error) {
+  try {
+    const population = await fetchCompleteFinancePopulation({
+      label: `Finance workspace ${table}`,
+      buildQuery: (from, to) => {
+        let query = supabaseAdmin.from(table)
+          .select("*")
+          .eq("organization_id", organizationId)
+          .order("id", { ascending: true });
+        if (contract.scope === "entity") query = query.eq("entity_id", entityId);
+        return query.range(from, to);
+      },
+    });
+    return population.rows || [];
+  } catch (error) {
     if (isMissingRelation(error)) return null;
     throw new Error(`Unable to load ${table}: ${error.message}`);
   }
-
-  return Array.isArray(data) ? data : [];
 }
 
 function failureResponse(error, fallback) {
   const message = error?.message || fallback;
   const status = /permission denied/i.test(message)
     ? 403
-    : /required|not found|read-only|valid JSON|duplicate|unique|already exists|must be|not supported|greater than|no editable fields|does not support archive/i.test(message)
-      ? 400
-      : 500;
+    : /credential|configuration|configure|before activating|not configured/i.test(message)
+      ? 409
+      : /required|not found|read-only|valid JSON|duplicate|unique|already exists|must be|not supported|greater than|no editable fields|does not support archive/i.test(message)
+        ? 400
+        : 500;
 
   return NextResponse.json({ success: false, error: message }, { status });
 }

@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { fetchCompleteFinancePopulation } from "@/lib/finance/data/fetchCompleteFinancePopulation";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 
@@ -37,26 +38,30 @@ export async function GET(request) {
     const organizationId = access.organizationId;
     const anomalies = [];
 
-    const { data: journals } = await supabaseAdmin
-      .from("journal_entries")
-      .select(`
-        *,
-        journal_entry_lines (
+    const journalPopulation = await fetchCompleteFinancePopulation({
+      label: "Finance anomaly journal population",
+      buildQuery: (from, to) => supabaseAdmin.from("journal_entries")
+        .select(`
           *,
-          chart_of_accounts (
-            id,
-            account_code,
-            account_name,
-            account_category,
-            account_type
+          journal_entry_lines (
+            *,
+            chart_of_accounts (
+              id,
+              account_code,
+              account_name,
+              account_category,
+              account_type
+            )
           )
-        )
-      `)
-      .eq("organization_id", organizationId)
-      .order("created_at", { ascending: false })
-      .limit(500);
+        `)
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to),
+    });
+    const journals = journalPopulation.rows || [];
 
-    for (const journal of journals || []) {
+    for (const journal of journals) {
       let debits = 0;
       let credits = 0;
 

@@ -7,10 +7,12 @@ const source = await readFile(new URL("../components/workspace/finance/FinanceBo
 test("Finance Books uses explicit registry groups instead of keyword classification", () => {
   assert.match(source, /BOOK_AREA_BY_GROUP/);
   assert.match(source, /accounting: "ledger"/);
-  assert.match(source, /order_to_cash: "receivables"/);
-  assert.match(source, /procure_to_pay: "payables"/);
+  assert.match(source, /order_to_cash: "sales"/);
+  assert.match(source, /procure_to_pay: "purchases"/);
   assert.match(source, /treasury: "banking"/);
-  assert.match(source, /compliance: "tax"/);
+  assert.doesNotMatch(source, /compliance: "tax"/);
+  assert.match(source, /"vat_returns"/);
+  assert.match(source, /"statutory_filings"/);
   assert.doesNotMatch(source, /REPORT_WORDS|CONFIGURE_WORDS|firstMatch|classificationText/);
 });
 

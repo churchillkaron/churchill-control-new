@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
@@ -18,6 +19,7 @@ import PreviewEngine from "@/components/workspace/engines/PreviewEngine";
 import WorkspaceEventHub from "@/components/workspace/WorkspaceEventHub";
 import useCreateEngine from "@/components/workspace/engines/useCreateEngine";
 import FinanceRecordReviewPanel from "@/components/workspace/finance/FinanceRecordReviewPanel";
+import FinanceApIntakePanel from "@/components/workspace/finance/FinanceApIntakePanel";
 import { getForm } from "@/lib/platform/forms";
 import { resolveFinanceActionPresentation } from "@/lib/finance/actions/resolveFinanceAction";
 
@@ -169,6 +171,9 @@ export default function FinanceAccountantRecordsWorkCenter({
   periodId,
 }) {
   const config = capability?.ui || {};
+  const searchParams = useSearchParams();
+  const createRequested = searchParams?.get("create") === "1";
+  const createRequestHandled = useRef(false);
   const presentation = config.financePresentation || capability?.runtime?.financePresentation || {};
   const columns = useMemo(
     () => (Array.isArray(presentation.columns) ? presentation.columns : []),
@@ -203,6 +208,7 @@ export default function FinanceAccountantRecordsWorkCenter({
   const [submissionKey, setSubmissionKey] = useState(null);
   const [savedViews, setSavedViews] = useState([]);
   const [selectedViewId, setSelectedViewId] = useState("");
+  const [pageIndex, setPageIndex] = useState(0);
 
   const currencyCode =
     payload?.currencyCode || payload?.currency_code || payload?.context?.currency || rows.find((row) => row?.currency_code)?.currency_code || null;
@@ -327,7 +333,17 @@ export default function FinanceAccountantRecordsWorkCenter({
     });
   }, [rows, query, statusFilter, config.search, columns, sortIndex, sortDirection]);
 
-  const selected = filteredRows.find((row) => row.id === selectedId) || filteredRows[0] || null;
+  const pageSize = Number(config.pageSize || 0) > 0 ? Number(config.pageSize) : 0;
+  const pageCount = pageSize ? Math.max(1, Math.ceil(filteredRows.length / pageSize)) : 1;
+  const safePageIndex = Math.min(pageIndex, pageCount - 1);
+  const visibleRows = pageSize
+    ? filteredRows.slice(safePageIndex * pageSize, (safePageIndex + 1) * pageSize)
+    : filteredRows;
+  const selected = visibleRows.find((row) => row.id === selectedId) || visibleRows[0] || filteredRows[0] || null;
+
+  useEffect(() => {
+    setPageIndex(0);
+  }, [query, statusFilter, sortIndex, sortDirection, capability?.id, entityId, periodId]);
 
   useEffect(() => {
     function handleKeydown(event) {
@@ -338,17 +354,17 @@ export default function FinanceAccountantRecordsWorkCenter({
         searchRef.current?.focus();
         return;
       }
-      if (!["ArrowDown", "ArrowUp"].includes(event.key) || filteredRows.length === 0) return;
+      if (!["ArrowDown", "ArrowUp"].includes(event.key) || visibleRows.length === 0) return;
       event.preventDefault();
-      const index = Math.max(0, filteredRows.findIndex((row) => row === selected || (row?.id && row.id === selected?.id)));
+      const index = Math.max(0, visibleRows.findIndex((row) => row === selected || (row?.id && row.id === selected?.id)));
       const nextIndex = event.key === "ArrowDown"
-        ? Math.min(filteredRows.length - 1, index + 1)
+        ? Math.min(visibleRows.length - 1, index + 1)
         : Math.max(0, index - 1);
-      setSelectedId(filteredRows[nextIndex]?.id || null);
+      setSelectedId(visibleRows[nextIndex]?.id || null);
     }
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [filteredRows, selected]);
+  }, [visibleRows, selected]);
 
   function refresh() {
     setRefreshKey((value) => value + 1);
@@ -360,6 +376,12 @@ export default function FinanceAccountantRecordsWorkCenter({
     setForm({});
     createEngine.show();
   }
+
+  useEffect(() => {
+    if (!createRequested || createRequestHandled.current || !create || !contextReady) return;
+    createRequestHandled.current = true;
+    openCreate();
+  }, [createRequested, create, contextReady]);
 
   async function saveCreate() {
     if (!create) return;
@@ -569,6 +591,7 @@ export default function FinanceAccountantRecordsWorkCenter({
           <section className="mt-4 rounded-xl border border-amber-700/15 bg-amber-50 p-4 text-[12px] text-amber-900">Finance is preparing the company accounting context. If this remains here, complete the legal company setup before creating financial documents.</section>
         ) : (
           <>
+            {capability?.id === "vendor_bills" ? <FinanceApIntakePanel organizationId={organizationId} entityId={entityId} onVendorBillsChanged={refresh} /> : null}
             <section className="mt-4 grid gap-2 rounded-xl border border-black/[0.07] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.02)] lg:grid-cols-[minmax(260px,1fr)_180px_200px_auto]">
               <div className="flex min-w-0 items-center gap-2 rounded-lg border border-black/[0.08] bg-[#FAF9F7] px-3">
                 <Search size={14} className="text-[#9A958D]" />
@@ -593,6 +616,13 @@ export default function FinanceAccountantRecordsWorkCenter({
               <button type="button" onClick={saveCurrentView} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-[10px] font-medium text-[#625D56]"><BookmarkPlus size={12} /> Save view</button>
               <div className="flex flex-wrap items-center gap-2 lg:col-span-4 text-[10px] text-[#777169]">
                 <span className="rounded-lg bg-[#F7F6F3] px-2.5 py-1.5 font-medium">{filteredRows.length} of {rows.length}</span>
+                {pageSize ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.07] bg-white px-1.5 py-1">
+                    <button type="button" disabled={safePageIndex <= 0} onClick={() => setPageIndex((current) => Math.max(0, current - 1))} className="rounded px-2 py-0.5 font-medium disabled:opacity-30">Previous</button>
+                    <span className="px-1 tabular-nums">Page {safePageIndex + 1} of {pageCount}</span>
+                    <button type="button" disabled={safePageIndex >= pageCount - 1} onClick={() => setPageIndex((current) => Math.min(pageCount - 1, current + 1))} className="rounded px-2 py-0.5 font-medium disabled:opacity-30">Next</button>
+                  </span>
+                ) : null}
                 {summary.map(([status, count]) => <span key={status} className={`rounded-lg border px-2.5 py-1.5 font-medium ${statusTone(status)}`}>{label(status)} {count}</span>)}
               </div>
             </section>
@@ -623,7 +653,7 @@ export default function FinanceAccountantRecordsWorkCenter({
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredRows.map((row, rowIndex) => {
+                        {visibleRows.map((row, rowIndex) => {
                           const active = selected?.id === row.id || (!row.id && selected === row);
                           const rowKey = row.id || `${capability?.id}-${rowIndex}`;
                           const rowStatus = statusValue(row);
@@ -667,8 +697,9 @@ export default function FinanceAccountantRecordsWorkCenter({
                   entityId={entityId}
                   periodId={periodId}
                   presentation={presentation}
-                  rows={filteredRows}
+                  rows={visibleRows}
                   onSelect={(row) => row && setSelectedId(row.id || null)}
+                  onRefresh={refresh}
                 />
               </aside>
             </div>

@@ -7,6 +7,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { buildFxRevaluationPlan, normalizeFxAccountIds } from "@/lib/finance/currencies/FinanceFxRevaluationPlan";
+import { fetchCompleteFinancePopulation } from "@/lib/finance/data/fetchCompleteFinancePopulation";
 
 const ELIGIBLE_ACCOUNT_TYPES = ["ASSET", "CURRENT_ASSET", "CASH", "LIABILITY"];
 
@@ -67,20 +68,27 @@ async function entityContext(organizationId, entityId) {
 async function loadWorkspaceData({ organizationId, entityId }) {
   const [entity, accountResult, rateResult, runResult] = await Promise.all([
     entityContext(organizationId, entityId),
-    supabaseAdmin
-      .from("chart_of_accounts")
-      .select("id,account_code,account_name,account_category,account_type,normal_balance,currency_code,is_active")
-      .eq("organization_id", organizationId)
-      .eq("entity_id", entityId)
-      .eq("is_active", true)
-      .order("account_code", { ascending: true }),
-    supabaseAdmin
-      .from("finance_exchange_rates")
-      .select("id,entity_id,base_currency,quote_currency,from_currency,to_currency,rate,effective_date,source,rate_type,status")
-      .eq("organization_id", organizationId)
-      .eq("status", "ACTIVE")
-      .order("effective_date", { ascending: false })
-      .limit(500),
+    fetchCompleteFinancePopulation({
+      label: "FX revaluation chart of accounts",
+      buildQuery: (from, to) => supabaseAdmin.from("chart_of_accounts")
+        .select("id,account_code,account_name,account_category,account_type,normal_balance,currency_code,is_active")
+        .eq("organization_id", organizationId)
+        .eq("entity_id", entityId)
+        .eq("is_active", true)
+        .order("account_code", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    }),
+    fetchCompleteFinancePopulation({
+      label: "FX revaluation exchange rates",
+      buildQuery: (from, to) => supabaseAdmin.from("finance_exchange_rates")
+        .select("id,entity_id,base_currency,quote_currency,from_currency,to_currency,rate,effective_date,source,rate_type,status")
+        .eq("organization_id", organizationId)
+        .eq("status", "ACTIVE")
+        .order("effective_date", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to),
+    }),
     supabaseAdmin
       .from("finance_fx_revaluation_runs")
       .select("id,period_id,revaluation_date,currency_code,rate_source,status,account_ids,closing_exchange_rate,functional_currency,journal_entry_id,total_adjustment,completed_at,created_at,updated_at,notes,unrealized_gain_account_id,unrealized_loss_account_id")
@@ -91,16 +99,14 @@ async function loadWorkspaceData({ organizationId, entityId }) {
       .limit(250),
   ]);
 
-  if (accountResult.error) throw accountResult.error;
-  if (rateResult.error) throw rateResult.error;
   if (runResult.error) throw runResult.error;
 
-  const allAccounts = accountResult.data || [];
+  const allAccounts = accountResult.rows || [];
   const eligibleAccounts = allAccounts.filter(account => ELIGIBLE_ACCOUNT_TYPES.includes(text(account.account_type).toUpperCase()));
   const accountMap = new Map(allAccounts.map(account => [String(account.id), account]));
   const functionalCurrency = entity.functional_currency;
 
-  const applicableRates = (rateResult.data || []).filter(rate => !rate.entity_id || String(rate.entity_id) === String(entityId));
+  const applicableRates = (rateResult.rows || []).filter(rate => !rate.entity_id || String(rate.entity_id) === String(entityId));
   const currencies = new Set();
   for (const rate of applicableRates) {
     const base = text(rate.base_currency || rate.from_currency).toUpperCase();

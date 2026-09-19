@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { fetchCompleteFinancePopulation } from "@/lib/finance/data/fetchCompleteFinancePopulation";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 
@@ -36,22 +37,24 @@ export async function GET(request) {
 
     const organizationId = access.organizationId;
 
-    const { data: ledger, error } = await supabaseAdmin
-      .from("general_ledger")
-      .select(`
-        *,
-        chart_of_accounts!fk_general_ledger_account (
-          id,
-          account_code,
-          account_name,
-          account_category,
-          account_type
-        )
-      `)
-      .eq("organization_id", organizationId)
-      .limit(10000);
-
-    if (error) throw error;
+    const population = await fetchCompleteFinancePopulation({
+      label: "Finance KPI general ledger population",
+      buildQuery: (from, to) => supabaseAdmin.from("general_ledger")
+        .select(`
+          *,
+          chart_of_accounts!fk_general_ledger_account (
+            id,
+            account_code,
+            account_name,
+            account_category,
+            account_type
+          )
+        `)
+        .eq("organization_id", organizationId)
+        .order("id", { ascending: true })
+        .range(from, to),
+    });
+    const ledger = population.rows || [];
 
     let revenue = 0;
     let cogs = 0;

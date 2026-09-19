@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { loadCompletePracticeRows, loadCompletePracticeRowsByIds } from "@/lib/finance/practice/FinancePracticePopulation";
 
 const ACTIVE_ENGAGEMENT_STATUSES = ["active", "ACTIVE", "enabled", "ENABLED"];
 const OPEN_REVIEW_STATUSES = ["OPEN", "IN_PREPARATION", "READY_FOR_REVIEW", "CHANGES_REQUESTED", "REVIEWED"];
@@ -65,17 +66,19 @@ export async function GET(request) {
     await requireFinanceView(access);
     const viewer = viewerFromAccess(access);
 
-    const { data: engagements, error: engagementError } = await supabaseAdmin
-      .from("accounting_engagements")
-      .select("id, organization_id, service_package, status, renewal_date, year_end_date, bookkeeping_enabled, vat_enabled, payroll_enabled, tax_enabled, reporting_enabled, audit_enabled")
-      .eq("accounting_firm_id", access.organizationId)
-      .in("status", ACTIVE_ENGAGEMENT_STATUSES)
-      .order("created_at", { ascending: true })
-      .limit(500);
-    if (engagementError) throw engagementError;
+    const engagements = await loadCompletePracticeRows({
+      label: "Accounting practice active client engagements",
+      buildQuery: (from, to) => supabaseAdmin.from("accounting_engagements")
+        .select("id, organization_id, service_package, status, renewal_date, year_end_date, bookkeeping_enabled, vat_enabled, payroll_enabled, tax_enabled, reporting_enabled, audit_enabled")
+        .eq("accounting_firm_id", access.organizationId)
+        .in("status", ACTIVE_ENGAGEMENT_STATUSES)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    });
 
-    const clientIds = [...new Set((engagements || []).map((row) => row.organization_id).filter(Boolean))];
-    const engagementIds = (engagements || []).map((row) => row.id).filter(Boolean);
+    const clientIds = [...new Set(engagements.map((row) => row.organization_id).filter(Boolean))];
+    const engagementIds = engagements.map((row) => row.id).filter(Boolean);
     if (!clientIds.length) {
       return NextResponse.json({
         success: true,
@@ -97,84 +100,94 @@ export async function GET(request) {
       });
     }
 
-    const [organizationsResult, profilesResult, reviewsResult, runsResult] = await Promise.all([
-      supabaseAdmin.from("organizations").select("id,name").in("id", clientIds),
-      supabaseAdmin
-        .from("accounting_client_profiles")
-        .select("organization_id, assigned_accountant_id, assigned_accountant_name, assigned_reviewer_id, assigned_reviewer_name, assigned_partner_id, assigned_partner_name, status")
-        .eq("accounting_firm_id", access.organizationId)
-        .in("organization_id", clientIds),
-      supabaseAdmin
-        .from("finance_review_items")
-        .select("id, organization_id, entity_id, period_id, capability_id, record_key, record_label, status, priority, due_at, preparer_id, reviewer_id, updated_at")
-        .in("organization_id", clientIds)
-        .in("status", OPEN_REVIEW_STATUSES)
-        .order("due_at", { ascending: true, nullsFirst: false })
-        .order("updated_at", { ascending: false })
-        .limit(5000),
-      engagementIds.length
-        ? supabaseAdmin
-            .from("accounting_engagement_runs")
-            .select("id,organization_id,engagement_id,template_id,run_key,cadence,status,start_at,due_at,completed_at,updated_at")
-            .eq("accounting_firm_id", access.organizationId)
-            .in("engagement_id", engagementIds)
-            .in("status", OPEN_RUN_STATUSES)
-            .order("due_at", { ascending: true, nullsFirst: false })
-            .limit(5000)
-        : Promise.resolve({ data: [], error: null }),
+    const [organizations, profiles, reviews, runs] = await Promise.all([
+      loadCompletePracticeRowsByIds({
+        ids: clientIds,
+        label: "Accounting practice control client organizations",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("organizations")
+          .select("id,name")
+          .in("id", batch)
+          .order("id", { ascending: true })
+          .range(from, to),
+      }),
+      loadCompletePracticeRowsByIds({
+        ids: clientIds,
+        label: "Accounting practice control client profiles",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("accounting_client_profiles")
+          .select("organization_id, assigned_accountant_id, assigned_accountant_name, assigned_reviewer_id, assigned_reviewer_name, assigned_partner_id, assigned_partner_name, status")
+          .eq("accounting_firm_id", access.organizationId)
+          .in("organization_id", batch)
+          .order("organization_id", { ascending: true })
+          .range(from, to),
+      }),
+      loadCompletePracticeRowsByIds({
+        ids: clientIds,
+        label: "Accounting practice control review items",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("finance_review_items")
+          .select("id, organization_id, entity_id, period_id, capability_id, record_key, record_label, status, priority, due_at, preparer_id, reviewer_id, updated_at")
+          .in("organization_id", batch)
+          .in("status", OPEN_REVIEW_STATUSES)
+          .order("due_at", { ascending: true, nullsFirst: false })
+          .order("updated_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }),
+      loadCompletePracticeRowsByIds({
+        ids: engagementIds,
+        label: "Accounting practice control engagement runs",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("accounting_engagement_runs")
+          .select("id,organization_id,engagement_id,template_id,run_key,cadence,status,start_at,due_at,completed_at,updated_at")
+          .eq("accounting_firm_id", access.organizationId)
+          .in("engagement_id", batch)
+          .in("status", OPEN_RUN_STATUSES)
+          .order("due_at", { ascending: true, nullsFirst: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }),
     ]);
 
-    if (organizationsResult.error) throw organizationsResult.error;
-    if (profilesResult.error) throw profilesResult.error;
-    if (reviewsResult.error) throw reviewsResult.error;
-    if (runsResult.error) throw runsResult.error;
-
-    const reviews = reviewsResult.data || [];
     const reviewIds = reviews.map((row) => row.id).filter(Boolean);
-    const runs = runsResult.data || [];
     const runIds = runs.map((row) => row.id).filter(Boolean);
 
-    const [notesResult, workItemsResult, requestsResult] = await Promise.all([
-      reviewIds.length
-        ? supabaseAdmin
-            .from("finance_review_notes")
-            .select("id, review_item_id, status, assigned_to, created_at")
-            .in("review_item_id", reviewIds)
-            .neq("status", "RESOLVED")
-            .limit(5000)
-        : Promise.resolve({ data: [], error: null }),
-      runIds.length
-        ? supabaseAdmin
-            .from("accounting_engagement_work_items")
-            .select("id,organization_id,run_id,step_key,sequence_no,title,work_type,required_role,assigned_to,status,due_at,blocked_reason,capability_id,updated_at")
-            .eq("accounting_firm_id", access.organizationId)
-            .in("run_id", runIds)
-            .in("status", OPEN_WORK_ITEM_STATUSES)
-            .order("due_at", { ascending: true, nullsFirst: false })
-            .limit(10000)
-        : Promise.resolve({ data: [], error: null }),
-      runIds.length
-        ? supabaseAdmin
-            .from("accounting_client_requests")
-            .select("id,organization_id,run_id,work_item_id,title,status,due_at,sent_at,submitted_at,updated_at")
-            .eq("accounting_firm_id", access.organizationId)
-            .in("run_id", runIds)
-            .in("status", OPEN_CLIENT_REQUEST_STATUSES)
-            .order("due_at", { ascending: true, nullsFirst: false })
-            .limit(10000)
-        : Promise.resolve({ data: [], error: null }),
+    const [notes, workItems, clientRequests] = await Promise.all([
+      reviewIds.length ? loadCompletePracticeRowsByIds({
+        ids: reviewIds,
+        label: "Accounting practice control review notes",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("finance_review_notes")
+          .select("id, review_item_id, status, assigned_to, created_at")
+          .in("review_item_id", batch)
+          .neq("status", "RESOLVED")
+          .order("id", { ascending: true })
+          .range(from, to),
+      }) : Promise.resolve([]),
+      runIds.length ? loadCompletePracticeRowsByIds({
+        ids: runIds,
+        label: "Accounting practice control work items",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("accounting_engagement_work_items")
+          .select("id,organization_id,run_id,step_key,sequence_no,title,work_type,required_role,assigned_to,status,due_at,blocked_reason,capability_id,updated_at")
+          .eq("accounting_firm_id", access.organizationId)
+          .in("run_id", batch)
+          .in("status", OPEN_WORK_ITEM_STATUSES)
+          .order("due_at", { ascending: true, nullsFirst: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }) : Promise.resolve([]),
+      runIds.length ? loadCompletePracticeRowsByIds({
+        ids: runIds,
+        label: "Accounting practice control client requests",
+        buildQuery: (batch, from, to) => supabaseAdmin.from("accounting_client_requests")
+          .select("id,organization_id,run_id,work_item_id,title,status,due_at,sent_at,submitted_at,updated_at")
+          .eq("accounting_firm_id", access.organizationId)
+          .in("run_id", batch)
+          .in("status", OPEN_CLIENT_REQUEST_STATUSES)
+          .order("due_at", { ascending: true, nullsFirst: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      }) : Promise.resolve([]),
     ]);
 
-    if (notesResult.error) throw notesResult.error;
-    if (workItemsResult.error) throw workItemsResult.error;
-    if (requestsResult.error) throw requestsResult.error;
-
-    const notes = notesResult.data || [];
-    const workItems = workItemsResult.data || [];
-    const clientRequests = requestsResult.data || [];
-
-    const organizationMap = new Map((organizationsResult.data || []).map((row) => [row.id, row]));
-    const profileMap = new Map((profilesResult.data || []).map((row) => [row.organization_id, row]));
+    const organizationMap = new Map(organizations.map((row) => [row.id, row]));
+    const profileMap = new Map(profiles.map((row) => [row.organization_id, row]));
     const reviewsByClient = new Map();
     const runsByClient = new Map();
     const workItemsByClient = new Map();
@@ -203,7 +216,7 @@ export async function GET(request) {
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const clients = (engagements || []).map((engagement) => {
+    const clients = engagements.map((engagement) => {
       const organization = organizationMap.get(engagement.organization_id) || {};
       const profile = profileMap.get(engagement.organization_id) || {};
       const clientReviews = reviewsByClient.get(engagement.organization_id) || [];

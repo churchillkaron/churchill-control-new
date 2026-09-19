@@ -280,6 +280,7 @@ export async function GET(request) {
       context: {
         organizationId: access.organizationId,
         entityId,
+        dimensionId: cleanValue(searchParams.get("dimension_id") || searchParams.get("dimensionId")),
       },
     });
 

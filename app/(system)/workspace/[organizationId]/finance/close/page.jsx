@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import FinanceCloseCockpit from "@/components/workspace/finance/FinanceCloseCockpit";
+import FinanceAreaHub from "@/components/workspace/finance/FinanceAreaHub";
 import FinanceClosePackageFreshnessRail from "@/components/workspace/finance/FinanceClosePackageFreshnessRail";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default function FinanceClosePage() {
     <div className="space-y-4">
       <FinanceClosePackageFreshnessRail organizationId={organizationId} />
       <FinanceCloseCockpit organizationId={organizationId} />
+      <FinanceAreaHub organizationId={organizationId} area="close" />
     </div>
   );
 }

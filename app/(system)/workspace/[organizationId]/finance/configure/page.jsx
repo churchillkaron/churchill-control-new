@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import FinanceAreaHub from "@/components/workspace/finance/FinanceAreaHub";
+import FinanceConnectionsOverview from "@/components/workspace/finance/FinanceConnectionsOverview";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default function FinanceConfigurePage() {
 
   return (
     <div className="space-y-3">
+      {organizationId ? <FinanceConnectionsOverview organizationId={organizationId} /> : null}
       <FinanceAreaHub organizationId={organizationId} area="configure" />
       {organizationId ? (
         <div className="mx-auto max-w-[1720px] px-1">

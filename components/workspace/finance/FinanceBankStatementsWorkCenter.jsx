@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, RefreshCw, Search, Upload } from "lucide-react";
 
@@ -120,6 +121,9 @@ export default function FinanceBankStatementsWorkCenter({
 }) {
   const create = capability?.create?.enabled === true ? capability.create : null;
   const createEngine = useCreateEngine();
+  const searchParams = useSearchParams();
+  const createRequested = searchParams?.get("create") === "1";
+  const createRequestHandled = useRef(false);
   const searchRef = useRef(null);
 
   const [statements, setStatements] = useState([]);
@@ -286,6 +290,12 @@ export default function FinanceBankStatementsWorkCenter({
     setForm({});
     createEngine.show();
   }
+
+  useEffect(() => {
+    if (!createRequested || createRequestHandled.current || !create || !organizationId || !entityId) return;
+    createRequestHandled.current = true;
+    openCreate();
+  }, [createRequested, create, organizationId, entityId]);
 
   async function saveCreate() {
     if (!create) return;

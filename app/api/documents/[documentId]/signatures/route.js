@@ -53,6 +53,14 @@ export async function PATCH(request, { params }) {
     if (!context.success) {
       return NextResponse.json({ success: false, error: context.error, code: context.code }, { status: context.status || 403 });
     }
+    const requestedStatus = clean(body.status).toUpperCase();
+    if (["SIGNED", "DECLINED"].includes(requestedStatus)) {
+      return NextResponse.json({
+        success: false,
+        error: "Completed signature states must come from the governed signer or provider execution runtime.",
+        code: "DOCUMENT_SIGNATURE_TERMINAL_STATUS_REQUIRES_EXECUTION_EVIDENCE",
+      }, { status: 409 });
+    }
 
     const signature = await updateSignatureRequest({
       organizationId: context.organizationId,

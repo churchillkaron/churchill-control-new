@@ -5,6 +5,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 import { createCustomerInvoiceCommand } from "@/lib/finance/accounts-receivable/runtime/AccountsReceivableApplicationService";
+import { upsertCustomerParty } from "@/lib/commercial/customers/CustomerService";
 
 function statusFor(message) {
   const normalized = String(message || "").toLowerCase();
@@ -53,10 +54,21 @@ export async function POST(request) {
     if (!currencyCode) throw new Error("currency_code required");
     if (!idempotencyKey) throw new Error("idempotency_key required");
 
+    let partyId = String(body.party_id || body.partyId || body.customer?.party_id || body.customer?.partyId || "").trim() || null;
+    if (!partyId && body.customer && typeof body.customer === "object") {
+      const customer = await upsertCustomerParty({
+        access,
+        body: body.customer,
+        organizationId: access.organizationId,
+      });
+      partyId = String(customer?.party_id || customer?.id || "").trim() || null;
+    }
+    if (!partyId) throw new Error("customer party required");
+
     const result = await createCustomerInvoiceCommand({
       organization_id: access.organizationId,
       entity_id: entity.id,
-      party_id: body.party_id || body.partyId,
+      party_id: partyId,
       invoice_date: body.invoice_date,
       due_date: body.due_date,
       currency_code: currencyCode,

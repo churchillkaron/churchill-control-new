@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { fetchCompleteFinancePopulation } from "@/lib/finance/data/fetchCompleteFinancePopulation";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
@@ -84,18 +85,20 @@ function runtimeAliases(documentType) {
 }
 
 async function hasAllocatedNumbers(organizationId, sequence) {
-  const { data, error } = await supabaseAdmin
-    .from("document_number_sequences")
-    .select("id, document_type")
-    .eq("organization_id", organizationId)
-    .eq("entity_id", sequence.entity_id)
-    .limit(250);
-
-  if (error) throw error;
   const aliases = runtimeAliases(sequence.document_type);
-  return (data || []).some((row) =>
-    aliases.includes(String(row.document_type || "").trim().toUpperCase())
-  );
+  const matches = await Promise.all(aliases.map(async (alias) => {
+    const literal = String(alias).replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+    const { data, error } = await supabaseAdmin.from("document_number_sequences")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("entity_id", sequence.entity_id)
+      .ilike("document_type", literal)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }));
+  return matches.some(Boolean);
 }
 
 export async function GET(request) {
@@ -107,20 +110,22 @@ export async function GET(request) {
     const searchParams = new URL(request.url).searchParams;
     const requestedEntityId = value(searchParams, "entityId", "entity_id");
 
-    let query = supabaseAdmin
-      .from("finance_number_sequences")
-      .select("*")
-      .eq("organization_id", access.organizationId)
-      .order("document_type", { ascending: true })
-      .limit(250);
-
-    if (requestedEntityId) {
-      const entityId = await resolveLegalEntity(access.organizationId, requestedEntityId);
-      query = query.eq("entity_id", entityId);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
+    const resolvedEntityId = requestedEntityId
+      ? await resolveLegalEntity(access.organizationId, requestedEntityId)
+      : null;
+    const population = await fetchCompleteFinancePopulation({
+      label: "Finance number sequence workspace",
+      buildQuery: (from, to) => {
+        let query = supabaseAdmin.from("finance_number_sequences")
+          .select("*")
+          .eq("organization_id", access.organizationId)
+          .order("document_type", { ascending: true })
+          .order("id", { ascending: true });
+        if (resolvedEntityId) query = query.eq("entity_id", resolvedEntityId);
+        return query.range(from, to);
+      },
+    });
+    const data = population.rows || [];
 
     return NextResponse.json({
       success: true,

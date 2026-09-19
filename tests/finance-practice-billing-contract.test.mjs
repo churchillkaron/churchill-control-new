@@ -1,0 +1,488 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+
+const migration = fs.readFileSync(new URL("../supabase/migrations/20260918094500_accounting_practice_billing_authority.sql", import.meta.url), "utf8");
+const route = fs.readFileSync(new URL("../app/api/workspace/finance/practice-billing/route.js", import.meta.url), "utf8");
+const practiceTime = fs.readFileSync(new URL("../app/api/workspace/finance/practice-time/route.js", import.meta.url), "utf8");
+const ui = fs.readFileSync(new URL("../components/workspace/finance/FinancePracticeTimeWip.jsx", import.meta.url), "utf8");
+const atomicPolicyMigration = fs.readFileSync(new URL("../supabase/migrations/20260919102500_accounting_practice_billing_policy_atomicity.sql", import.meta.url), "utf8");
+const atomicFinalizationMigration = fs.readFileSync(new URL("../supabase/migrations/20260919104500_accounting_practice_billing_finalization_atomicity.sql", import.meta.url), "utf8");
+const recoveryMigration = fs.readFileSync(new URL("../supabase/migrations/20260919111500_accounting_practice_billing_recovery.sql", import.meta.url), "utf8");
+const batchClaimMigration = fs.readFileSync(new URL("../supabase/migrations/20260919114000_accounting_practice_billing_batch_claim.sql", import.meta.url), "utf8");
+const invoiceLeaseMigration = fs.readFileSync(new URL("../supabase/migrations/20260919114900_accounting_practice_billing_invoice_lease.sql", import.meta.url), "utf8");
+const recoveryLeaseGuardMigration = fs.readFileSync(new URL("../supabase/migrations/20260919120500_accounting_practice_billing_recovery_lease_guard.sql", import.meta.url), "utf8");
+const retryLivenessMigration = fs.readFileSync(new URL("../supabase/migrations/20260919123000_accounting_practice_billing_retry_liveness.sql", import.meta.url), "utf8");
+const commercialSnapshotMigration = fs.readFileSync(new URL("../supabase/migrations/20260919131500_accounting_practice_billing_commercial_snapshot.sql", import.meta.url), "utf8");
+const executionPreflightMigration = fs.readFileSync(new URL("../supabase/migrations/20260919134500_accounting_practice_billing_execution_preflight.sql", import.meta.url), "utf8");
+const executionFenceMigration = fs.readFileSync(new URL("../supabase/migrations/20260919143000_accounting_practice_billing_execution_fence.sql", import.meta.url), "utf8");
+
+test("practice billing hands off only through canonical customer invoice authority", () => {
+  assert.match(route, /createCustomerInvoiceCommand/);
+  assert.match(route, /finance\.receivables\.manage/);
+  assert.match(route, /source_document_type: "ACCOUNTING_PRACTICE_WIP"/);
+  assert.doesNotMatch(route, /from\(["']customer_invoices["']\)\.insert/);
+});
+
+test("practice billing requires exact firm billing identity and accounting policy", () => {
+  assert.match(route, /Billing entity must be configured before invoicing/);
+  assert.match(route, /Finance customer party must be configured before invoicing/);
+  assert.match(route, /Revenue account must be configured before invoicing/);
+  assert.match(route, /Finance tax rule must be configured before invoicing/);
+  assert.match(route, /Tax treatment must be confirmed before invoicing/);
+  assert.match(practiceTime, /Billing customer party is outside the accounting firm/);
+  assert.match(practiceTime, /Selected Finance customer must be active/);
+  assert.match(practiceTime, /Selected revenue account must be active/);
+  assert.match(practiceTime, /Selected billing account must be a revenue\/income account/);
+  assert.match(practiceTime, /Billing currency must use a three-letter currency code/);
+});
+
+test("practice tax rate is snapshotted from governed Finance tax rule", () => {
+  assert.match(practiceTime, /from\("tax_rules"\)/);
+  assert.match(atomicPolicyMigration, /v_tax_rate_percent := greatest\(0, least\(100, coalesce\(v_tax\.tax_rate, 0\) \* 100\)\)/);
+  assert.match(route, /const taxRatePercent = Number\(profile\.tax_rate_percent \|\| 0\)/);
+  assert.match(route, /const taxAmount = Math\.round\(subtotal \* taxRatePercent\) \/ 100/);
+  assert.match(route, /tax_rate_percent: taxRatePercent/);
+  assert.match(ui, /Select Finance tax rule/);
+  assert.doesNotMatch(ui, /Tax rate %/);
+});
+
+test("practice billing is durable and idempotent at exact WIP or billing period scope", () => {
+  assert.match(migration, /accounting_practice_billing_batches/);
+  assert.match(migration, /time_entry_ids uuid\[\]/);
+  assert.match(migration, /billing_period_key text not null/);
+  assert.match(migration, /unique \(accounting_firm_id, idempotency_key\)/);
+  assert.match(route, /entryIds = rows\.map/);
+  assert.match(route, /billingPeriodKey/);
+  assert.match(route, /idempotency_key: key/);
+  assert.match(route, /batch\.status === "INVOICED"/);
+});
+
+test("practice billing finalizes exact approved entries only after invoice authority returns an id", () => {
+  const invoiceIndex = route.indexOf("const createdInvoiceId = invoiceId(result)");
+  const finalizeIndex = route.indexOf('rpc("finalize_accounting_practice_billing_batch"');
+  assert.ok(invoiceIndex >= 0 && finalizeIndex > invoiceIndex);
+  assert.match(route, /Customer invoice authority returned no invoice id/);
+  assert.match(atomicFinalizationMigration, /e\.id = any\(v_batch\.time_entry_ids\)/);
+  assert.match(atomicFinalizationMigration, /e\.status = 'APPROVED'/);
+  assert.match(atomicFinalizationMigration, /e\.billing_reference = p_invoice_id::text/);
+  assert.match(atomicFinalizationMigration, /PRACTICE_BILLING_WIP_SCOPE_CHANGED/);
+});
+
+test("fixed recurring practice fees are period-idempotent and advance only inside atomic finalization", () => {
+  assert.match(migration, /billing_cadence in \('ON_DEMAND','MONTHLY','QUARTERLY','ANNUAL'\)/);
+  assert.match(migration, /next_billing_date date/);
+  assert.match(route, /periodKey\(billingDate, cadence\)/);
+  assert.match(route, /Next billing date must be configured for recurring practice billing/);
+  assert.match(route, /billing_cadence: cadence/);
+  assert.match(route, /billing_date: billingDate/);
+  assert.match(atomicFinalizationMigration, /PRACTICE_BILLING_CADENCE_CHANGED_DURING_INVOICE/);
+  assert.match(atomicFinalizationMigration, /PRACTICE_BILLING_DATE_CHANGED_DURING_INVOICE/);
+  assert.match(atomicFinalizationMigration, /set next_billing_date = v_next_billing_date/);
+  assert.match(ui, /Billing cadence/);
+  assert.match(ui, /Next billing date/);
+});
+
+test("human WIP screen explains blockers and exposes invoice action only from ready engagement", () => {
+  assert.match(ui, /Billing readiness/);
+  assert.match(ui, /Avantiqo tells you exactly what is missing before invoice creation is allowed/);
+  assert.match(ui, /row\.blockers/);
+  assert.match(ui, /row\.invoice_ready/);
+  assert.match(ui, /Create invoice/);
+  assert.match(ui, /createInvoice\(row\.engagement_id\)/);
+  assert.match(ui, /Apply rate to unpriced WIP/);
+});
+
+test("billing policy save and optional WIP repricing use one atomic database mutation", () => {
+  assert.match(practiceTime, /\.rpc\("upsert_accounting_practice_billing_policy"/);
+  assert.doesNotMatch(practiceTime, /from\("accounting_practice_billing_profiles"\)\.upsert/);
+  assert.match(atomicPolicyMigration, /insert into public\.accounting_practice_billing_profiles/);
+  assert.match(atomicPolicyMigration, /update public\.accounting_practice_time_entries/);
+  assert.match(atomicPolicyMigration, /get diagnostics v_repriced = row_count/);
+  assert.match(atomicPolicyMigration, /'repriced_entries', v_repriced/);
+});
+
+test("atomic billing policy independently validates exact firm scope and live references", () => {
+  assert.match(atomicPolicyMigration, /accounting_firm_id = p_accounting_firm_id/);
+  assert.match(atomicPolicyMigration, /status = 'ACTIVE'/);
+  assert.match(atomicPolicyMigration, /organization_id = p_accounting_firm_id[\s\S]*coalesce\(is_active, true\) = true/);
+  assert.match(atomicPolicyMigration, /public\.parties[\s\S]*upper\(coalesce\(status, ''\)\) = 'ACTIVE'/);
+  assert.match(atomicPolicyMigration, /public\.chart_of_accounts[\s\S]*is_active = true/);
+  assert.match(atomicPolicyMigration, /PRACTICE_BILLING_REVENUE_ACCOUNT_INVALID/);
+});
+
+test("atomic billing policy derives the tax snapshot from the governed live tax rule", () => {
+  assert.match(atomicPolicyMigration, /public\.tax_rules/);
+  assert.match(atomicPolicyMigration, /v_tax\.effective_from/);
+  assert.match(atomicPolicyMigration, /v_tax\.effective_to/);
+  assert.match(atomicPolicyMigration, /v_tax_rate_percent := greatest\(0, least\(100, coalesce\(v_tax\.tax_rate, 0\) \* 100\)\)/);
+  assert.doesNotMatch(practiceTime, /p_tax_rate_percent/);
+});
+
+test("atomic billing policy mutation is invoker-safe and service-role isolated", () => {
+  assert.match(atomicPolicyMigration, /security invoker/);
+  assert.match(atomicPolicyMigration, /revoke all on function public\.upsert_accounting_practice_billing_policy/);
+  assert.match(atomicPolicyMigration, /from public, anon, authenticated/);
+  assert.match(atomicPolicyMigration, /grant execute on function public\.upsert_accounting_practice_billing_policy[\s\S]*to service_role/);
+});
+
+test("billing policy route rejects malformed cadence terms before the atomic mutation", () => {
+  assert.match(practiceTime, /Payment terms must be between 0 and 3650 days/);
+  assert.match(practiceTime, /Unsupported billing cadence/);
+  assert.match(practiceTime, /Next billing date must use YYYY-MM-DD/);
+});
+
+test("billing finalization proves the exact canonical invoice source and is retry-idempotent", () => {
+  assert.match(atomicFinalizationMigration, /upper\(coalesce\(source_document_type, ''\)\) = 'ACCOUNTING_PRACTICE_WIP'/);
+  assert.match(atomicFinalizationMigration, /source_document_id = v_batch\.id/);
+  assert.match(atomicFinalizationMigration, /if v_batch\.status = 'INVOICED' then/);
+  assert.match(atomicFinalizationMigration, /v_batch\.invoice_id is distinct from p_invoice_id/);
+  assert.match(atomicFinalizationMigration, /'idempotent', true/);
+});
+
+test("billing finalization cannot be downgraded by the route failure recorder", () => {
+  assert.match(route, /\.in\("status", \["PREPARING", "FAILED"\]\)/);
+  assert.doesNotMatch(route, /\.update\(\{ status: "FAILED"[\s\S]*\.eq\("id", batch\.id\);/);
+});
+
+test("billing finalization is one invoker-safe service-role-only database transaction", () => {
+  assert.match(atomicFinalizationMigration, /security invoker/);
+  assert.match(atomicFinalizationMigration, /update public\.accounting_practice_time_entries/);
+  assert.match(atomicFinalizationMigration, /update public\.accounting_practice_billing_profiles/);
+  assert.match(atomicFinalizationMigration, /update public\.accounting_practice_billing_batches/);
+  assert.match(atomicFinalizationMigration, /revoke all on function public\.finalize_accounting_practice_billing_batch/);
+  assert.match(atomicFinalizationMigration, /to service_role/);
+});
+
+test("stranded billing batches recover before any new billing scope is evaluated", () => {
+  const recoveryIndex = route.indexOf('rpc("recover_accounting_practice_billing_batch"');
+  const profileIndex = route.indexOf('from("accounting_practice_billing_profiles")');
+  assert.ok(recoveryIndex >= 0 && profileIndex > recoveryIndex);
+  assert.match(route, /\.in\("status", \["PREPARING", "FAILED"\]\)/);
+  assert.match(route, /RECOVERED_INVOICE/);
+  assert.match(route, /VOIDED_UNINVOICED/);
+  assert.match(route, /recoveryState === "WAITING"/);
+});
+
+test("recovery finalizes an existing canonical invoice or voids only safe uninvoiced stale work", () => {
+  assert.match(recoveryMigration, /upper\(coalesce\(source_document_type, ''\)\) = 'ACCOUNTING_PRACTICE_WIP'/);
+  assert.match(recoveryMigration, /source_document_id = v_batch\.id/);
+  assert.match(recoveryMigration, /finalize_accounting_practice_billing_batch/);
+  assert.match(recoveryMigration, /v_batch\.status = 'FAILED'/);
+  assert.match(recoveryMigration, /v_batch\.created_at <= now\(\) - greatest/);
+  assert.match(recoveryMigration, /set status = 'VOID'/);
+  assert.match(recoveryMigration, /'state', 'WAITING'/);
+});
+
+test("slow concurrent invoice creation must acquire the batch lease immediately before AR authority", () => {
+  const leaseIndex = route.indexOf('rpc("acquire_accounting_practice_billing_invoice_lease"');
+  const invoiceIndex = route.indexOf("const result = await createCustomerInvoiceCommand");
+  assert.ok(leaseIndex >= 0 && invoiceIndex > leaseIndex);
+  assert.match(route, /leaseState === "BUSY"/);
+  assert.match(route, /leaseState !== "ACQUIRED"/);
+  assert.match(route, /invoiceLeaseToken = lease\.lease_token/);
+});
+
+test("Time and WIP visibly exposes unresolved billing recovery instead of another invoice action", () => {
+  assert.match(practiceTime, /Accounting practice unresolved billing batches/);
+  assert.match(practiceTime, /billing_recovery: billingRecovery/);
+  assert.match(practiceTime, /Billing batch requires recovery/);
+  assert.match(ui, /recovery required/);
+  assert.match(ui, /Recover billing/);
+  assert.match(ui, /Recovered existing Finance AR invoice and completed billing settlement/);
+});
+
+test("billing recovery remains invoker-safe and service-role isolated", () => {
+  assert.match(recoveryMigration, /security invoker/);
+  assert.match(recoveryMigration, /revoke all on function public\.recover_accounting_practice_billing_batch/);
+  assert.match(recoveryMigration, /from public, anon, authenticated/);
+  assert.match(recoveryMigration, /grant execute on function public\.recover_accounting_practice_billing_batch[\s\S]*to service_role/);
+});
+
+test("billing batch creation is one atomic claim instead of select then insert", () => {
+  assert.match(route, /\.rpc\("claim_accounting_practice_billing_batch"/);
+  assert.doesNotMatch(route, /from\("accounting_practice_billing_batches"\)\.insert/);
+  assert.match(batchClaimMigration, /on conflict \(accounting_firm_id, idempotency_key\) do nothing/);
+  assert.match(batchClaimMigration, /returning \* into v_batch/);
+  assert.match(batchClaimMigration, /select \* into v_batch[\s\S]*for update/);
+});
+
+test("an existing billing idempotency key must still represent the exact same billing scope", () => {
+  assert.match(batchClaimMigration, /v_batch\.organization_id is distinct from p_organization_id/);
+  assert.match(batchClaimMigration, /v_batch\.engagement_id is distinct from p_engagement_id/);
+  assert.match(batchClaimMigration, /v_batch\.billing_profile_id is distinct from p_billing_profile_id/);
+  assert.match(batchClaimMigration, /v_batch\.time_entry_ids is distinct from v_entry_ids/);
+  assert.match(batchClaimMigration, /v_batch\.subtotal/);
+  assert.match(batchClaimMigration, /v_batch\.tax_amount/);
+  assert.match(batchClaimMigration, /v_batch\.total_amount/);
+  assert.match(batchClaimMigration, /PRACTICE_BILLING_IDEMPOTENCY_SCOPE_CONFLICT/);
+});
+
+test("billing batch claim independently validates engagement profile totals currency and authority", () => {
+  assert.match(batchClaimMigration, /PRACTICE_BILLING_ENGAGEMENT_UNAVAILABLE/);
+  assert.match(batchClaimMigration, /PRACTICE_BILLING_PROFILE_UNAVAILABLE/);
+  assert.match(batchClaimMigration, /PRACTICE_BILLING_TOTAL_MISMATCH/);
+  assert.match(batchClaimMigration, /PRACTICE_BILLING_CURRENCY_INVALID/);
+  assert.match(batchClaimMigration, /security invoker/);
+  assert.match(batchClaimMigration, /revoke all on function public\.claim_accounting_practice_billing_batch/);
+  assert.match(batchClaimMigration, /to service_role/);
+});
+
+test("invoice creation is protected by a token-bound expiring batch lease", () => {
+  assert.match(route, /\.rpc\("acquire_accounting_practice_billing_invoice_lease"/);
+  assert.match(route, /invoiceLeaseToken = lease\.lease_token/);
+  assert.match(route, /leaseState === "BUSY"/);
+  assert.match(route, /Billing invoice creation is already processing/);
+  assert.match(invoiceLeaseMigration, /invoice_lease_token uuid/);
+  assert.match(invoiceLeaseMigration, /invoice_lease_expires_at timestamptz/);
+  assert.match(invoiceLeaseMigration, /v_batch\.invoice_lease_expires_at > now\(\)/);
+  assert.match(invoiceLeaseMigration, /'state', 'BUSY'/);
+  assert.match(invoiceLeaseMigration, /v_token := gen_random_uuid\(\)/);
+});
+
+test("expired invoice leases are reclaimable and bounded by a short server lease", () => {
+  assert.match(invoiceLeaseMigration, /greatest\(60, least\(coalesce\(p_lease_seconds, 300\), 900\)\)/);
+  assert.match(invoiceLeaseMigration, /invoice_lease_expires_at > now\(\) then[\s\S]*'state', 'BUSY'/);
+  assert.match(invoiceLeaseMigration, /v_token := gen_random_uuid\(\)/);
+  assert.match(invoiceLeaseMigration, /invoice_lease_token = v_token/);
+  assert.match(invoiceLeaseMigration, /invoice_lease_expires_at = now\(\) \+ make_interval/);
+});
+
+test("only the owning invoice lease token can record a failed billing attempt", () => {
+  assert.match(route, /\.rpc\("fail_accounting_practice_billing_invoice_lease"/);
+  assert.match(route, /p_lease_token: invoiceLeaseToken/);
+  assert.match(invoiceLeaseMigration, /v_batch\.invoice_lease_token is distinct from p_lease_token/);
+  assert.match(invoiceLeaseMigration, /PRACTICE_BILLING_INVOICE_LEASE_MISMATCH/);
+  assert.match(invoiceLeaseMigration, /set status = 'FAILED'/);
+  assert.match(invoiceLeaseMigration, /invoice_lease_token = null/);
+});
+
+test("terminal practice billing states clear invoice leases automatically", () => {
+  assert.match(invoiceLeaseMigration, /new\.status in \('INVOICED','VOID'\)/);
+  assert.match(invoiceLeaseMigration, /new\.invoice_lease_token := null/);
+  assert.match(invoiceLeaseMigration, /new\.invoice_lease_expires_at := null/);
+  assert.match(invoiceLeaseMigration, /before update of status on public\.accounting_practice_billing_batches/);
+});
+
+test("billing invoice lease functions stay invoker-safe and service-role isolated", () => {
+  assert.match(invoiceLeaseMigration, /security invoker/);
+  assert.match(invoiceLeaseMigration, /revoke all on function public\.acquire_accounting_practice_billing_invoice_lease/);
+  assert.match(invoiceLeaseMigration, /revoke all on function public\.fail_accounting_practice_billing_invoice_lease/);
+  assert.match(invoiceLeaseMigration, /from public, anon, authenticated/);
+  assert.match(invoiceLeaseMigration, /to service_role/);
+});
+
+test("recovery honors a fresh invoice lease before considering stale batch voiding", () => {
+  const invoiceLookupIndex = recoveryLeaseGuardMigration.indexOf("from public.customer_invoices");
+  const activeLeaseIndex = recoveryLeaseGuardMigration.indexOf("v_batch.invoice_lease_expires_at > now()");
+  const staleVoidIndex = recoveryLeaseGuardMigration.indexOf("v_batch.created_at <= now()");
+  assert.ok(invoiceLookupIndex >= 0 && activeLeaseIndex > invoiceLookupIndex && staleVoidIndex > activeLeaseIndex);
+  assert.match(recoveryLeaseGuardMigration, /'reason', 'ACTIVE_INVOICE_LEASE'/);
+  assert.match(recoveryLeaseGuardMigration, /'state', 'WAITING'/);
+});
+
+test("recovery may still finish an already-created canonical invoice while a lease exists", () => {
+  const invoiceFoundIndex = recoveryLeaseGuardMigration.indexOf("if found then");
+  const finalizationIndex = recoveryLeaseGuardMigration.indexOf("finalize_accounting_practice_billing_batch");
+  const activeLeaseIndex = recoveryLeaseGuardMigration.indexOf("v_batch.invoice_lease_expires_at > now()");
+  assert.ok(invoiceFoundIndex >= 0 && finalizationIndex > invoiceFoundIndex && activeLeaseIndex > finalizationIndex);
+  assert.match(recoveryLeaseGuardMigration, /'state', 'RECOVERED_INVOICE'/);
+});
+
+test("stale batch voiding rechecks lease expiry inside the guarded update", () => {
+  assert.match(recoveryLeaseGuardMigration, /status in \('PREPARING','FAILED'\)[\s\S]*invoice_lease_token is null[\s\S]*invoice_lease_expires_at <= now\(\)/);
+  assert.match(recoveryLeaseGuardMigration, /'reason', 'LEASE_ACQUIRED_DURING_RECOVERY'/);
+  assert.match(recoveryLeaseGuardMigration, /invoice_lease_token = null/);
+  assert.match(recoveryLeaseGuardMigration, /invoice_lease_expires_at = null/);
+});
+
+test("lease-aware recovery remains invoker-safe and service-role isolated", () => {
+  assert.match(recoveryLeaseGuardMigration, /security invoker/);
+  assert.match(recoveryLeaseGuardMigration, /revoke all on function public\.recover_accounting_practice_billing_batch/);
+  assert.match(recoveryLeaseGuardMigration, /from public, anon, authenticated/);
+  assert.match(recoveryLeaseGuardMigration, /to service_role/);
+});
+
+test("governed recovery marks automatic voids so the same durable billing identity can retry", () => {
+  assert.match(retryLivenessMigration, /'recovery_auto_void', true/);
+  assert.match(retryLivenessMigration, /'recovery_auto_voided_at', now\(\)/);
+  assert.match(retryLivenessMigration, /'recovery_auto_void_reason', v_void_reason/);
+  assert.match(retryLivenessMigration, /if v_batch\.status = 'VOID' then/);
+  assert.match(retryLivenessMigration, /coalesce\(v_batch\.metadata->>'recovery_auto_void', 'false'\) <> 'true'/);
+  assert.match(retryLivenessMigration, /PRACTICE_BILLING_VOID_BATCH_NOT_RETRYABLE/);
+});
+
+test("exact-scope auto-voided batches reopen instead of dead-ending on the unique idempotency key", () => {
+  const scopeIndex = retryLivenessMigration.indexOf("PRACTICE_BILLING_IDEMPOTENCY_SCOPE_CONFLICT");
+  const reopenIndex = retryLivenessMigration.indexOf("set status = 'PREPARING'");
+  assert.ok(scopeIndex >= 0 && reopenIndex > scopeIndex);
+  assert.match(retryLivenessMigration, /'recovery_auto_void', false/);
+  assert.match(retryLivenessMigration, /'recovery_reopened_at', now\(\)/);
+  assert.match(retryLivenessMigration, /'recovery_reopen_count', v_reopen_count \+ 1/);
+  assert.match(retryLivenessMigration, /failure_reason = null/);
+});
+
+test("a late canonical invoice on an auto-voided batch is finalized before any retry can create another invoice", () => {
+  const invoiceLookupIndex = retryLivenessMigration.indexOf("from public.customer_invoices");
+  const finalizationIndex = retryLivenessMigration.lastIndexOf("finalize_accounting_practice_billing_batch");
+  assert.ok(invoiceLookupIndex >= 0 && finalizationIndex > invoiceLookupIndex);
+  assert.match(retryLivenessMigration, /source_document_id = v_batch\.id/);
+  assert.match(retryLivenessMigration, /if v_invoice\.id is not null then/);
+  assert.match(retryLivenessMigration, /select \* into v_batch[\s\S]*accounting_practice_billing_batches/);
+});
+
+test("retry-liveness claim and recovery replacements remain service-role-only", () => {
+  assert.match(retryLivenessMigration, /security invoker/);
+  assert.match(retryLivenessMigration, /revoke all on function public\.recover_accounting_practice_billing_batch/);
+  assert.match(retryLivenessMigration, /revoke all on function public\.claim_accounting_practice_billing_batch/);
+  assert.match(retryLivenessMigration, /from public, anon, authenticated/);
+  assert.match(retryLivenessMigration, /to service_role/);
+});
+
+test("practice invoice defaults use the billing legal entity calendar rather than UTC", () => {
+  assert.match(route, /localDateString, validTimezone/);
+  assert.match(route, /select\("id,currency,timezone"\)/);
+  assert.match(route, /const billingTimezone = validTimezone\(entity\.timezone\)/);
+  assert.match(route, /Billing entity timezone must be configured before invoicing/);
+  assert.match(route, /requestedInvoiceDate \|\| localDateString\(new Date\(\), billingTimezone\)/);
+  assert.doesNotMatch(route, /body\.invoiceDate[\s\S]{0,120}new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
+});
+
+test("invoice and due dates are validated before durable batch claim", () => {
+  const invoiceValidationIndex = route.indexOf("Invoice date must use a valid YYYY-MM-DD date");
+  const dueValidationIndex = route.indexOf("Due date must use a valid YYYY-MM-DD date");
+  const claimIndex = route.indexOf('rpc("claim_accounting_practice_billing_batch"');
+  assert.ok(invoiceValidationIndex >= 0 && dueValidationIndex > invoiceValidationIndex && claimIndex > dueValidationIndex);
+  assert.match(route, /Due date cannot be before invoice date/);
+  assert.match(route, /function validIsoDate/);
+});
+
+test("practice billing idempotency binds commercial dates currency references and timezone", () => {
+  assert.match(route, /invoiceDate,/);
+  assert.match(route, /dueDate,/);
+  assert.match(route, /currencyCode: batchCurrency/);
+  assert.match(route, /billingEntityId: profile\.billing_entity_id/);
+  assert.match(route, /customerPartyId: profile\.customer_party_id/);
+  assert.match(route, /revenueAccountId: profile\.revenue_account_id/);
+  assert.match(route, /taxRuleId: profile\.tax_rule_id/);
+  assert.match(route, /billingTimezone: billingTimezone/);
+  assert.match(route, /invoice_date: invoiceDate/);
+  assert.match(route, /due_date: dueDate/);
+  assert.match(route, /billing_timezone: billingTimezone/);
+});
+
+test("billing batch persists typed commercial date and timezone evidence", () => {
+  assert.match(commercialSnapshotMigration, /add column if not exists invoice_date date/);
+  assert.match(commercialSnapshotMigration, /add column if not exists due_date date/);
+  assert.match(commercialSnapshotMigration, /add column if not exists billing_timezone text/);
+  assert.match(commercialSnapshotMigration, /accounting_practice_billing_batches_due_date_check/);
+  assert.match(commercialSnapshotMigration, /due_date >= invoice_date/);
+  assert.match(commercialSnapshotMigration, /PRACTICE_BILLING_INVOICE_DATE_INVALID/);
+  assert.match(commercialSnapshotMigration, /PRACTICE_BILLING_DUE_DATE_INVALID/);
+  assert.match(commercialSnapshotMigration, /PRACTICE_BILLING_TIMEZONE_REQUIRED/);
+});
+
+test("billing batch idempotency independently compares typed commercial snapshots", () => {
+  assert.match(commercialSnapshotMigration, /v_batch\.invoice_date is distinct from v_invoice_date/);
+  assert.match(commercialSnapshotMigration, /v_batch\.due_date is distinct from v_due_date/);
+  assert.match(commercialSnapshotMigration, /v_batch\.billing_timezone is distinct from v_billing_timezone/);
+  assert.match(commercialSnapshotMigration, /PRACTICE_BILLING_IDEMPOTENCY_SCOPE_CONFLICT/);
+  assert.match(commercialSnapshotMigration, /security invoker/);
+  assert.match(commercialSnapshotMigration, /revoke all on function public\.claim_accounting_practice_billing_batch/);
+  assert.match(commercialSnapshotMigration, /to service_role/);
+});
+
+test("AR execution is blocked behind token-bound database preflight", () => {
+  const preflightIndex = route.indexOf('rpc("preflight_accounting_practice_billing_execution"');
+  const invoiceIndex = route.indexOf("const result = await createCustomerInvoiceCommand");
+  assert.ok(preflightIndex >= 0 && invoiceIndex > preflightIndex);
+  assert.match(route, /p_lease_token: invoiceLeaseToken/);
+  assert.match(route, /executionPreflight\.billing_batch/);
+  assert.match(executionPreflightMigration, /v_batch\.invoice_lease_token is distinct from p_lease_token/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_INVOICE_LEASE_EXPIRED/);
+});
+
+test("execution preflight re-proves active billing policy and governed references", () => {
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_PROFILE_UNAVAILABLE/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_ENTITY_INVALID/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_CUSTOMER_INVALID/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_REVENUE_ACCOUNT_INVALID/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_TAX_RULE_INVALID/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_TAX_RATE_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_TAX_TREATMENT_UNCONFIRMED/);
+});
+
+test("execution preflight re-proves exact WIP identity pricing currency and amount before AR", () => {
+  assert.match(executionPreflightMigration, /e\.id = any\(v_batch\.time_entry_ids\)/);
+  assert.match(executionPreflightMigration, /e\.status = 'APPROVED'/);
+  assert.match(executionPreflightMigration, /e\.billable = true/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_WIP_SCOPE_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_WIP_PRICING_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_WIP_VALUE_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_SUBTOTAL_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_TOTAL_CHANGED/);
+});
+
+test("execution preflight rejects policy drift before customer invoice side effects", () => {
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_METHOD_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_CURRENCY_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_CADENCE_CHANGED_DURING_INVOICE/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_ENTITY_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_CUSTOMER_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_REVENUE_ACCOUNT_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_TAX_RULE_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_PAYMENT_TERMS_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_TIMEZONE_CHANGED/);
+});
+
+test("execution preflight stays invoker-safe and service-role isolated", () => {
+  assert.match(executionPreflightMigration, /security invoker/);
+  assert.match(executionPreflightMigration, /revoke all on function public\.preflight_accounting_practice_billing_execution/);
+  assert.match(executionPreflightMigration, /from public, anon, authenticated/);
+  assert.match(executionPreflightMigration, /to service_role/);
+});
+
+test("active invoice leases fence billing policy mutation at the database boundary", () => {
+  assert.match(executionFenceMigration, /accounting_practice_billing_profile_execution_fence/);
+  assert.match(executionFenceMigration, /b\.engagement_id = old\.engagement_id/);
+  assert.match(executionFenceMigration, /b\.invoice_lease_expires_at > now\(\)/);
+  assert.match(executionFenceMigration, /PRACTICE_BILLING_EXECUTION_IN_PROGRESS/);
+  assert.match(executionFenceMigration, /before update or delete on public\.accounting_practice_billing_profiles/);
+});
+
+test("leased WIP rows cannot change billing evidence while AR execution is in flight", () => {
+  assert.match(executionFenceMigration, /old\.id = any\(b\.time_entry_ids\)/);
+  assert.match(executionFenceMigration, /new\.work_date is distinct from old\.work_date/);
+  assert.match(executionFenceMigration, /new\.minutes is distinct from old\.minutes/);
+  assert.match(executionFenceMigration, /new\.billable is distinct from old\.billable/);
+  assert.match(executionFenceMigration, /new\.billing_rate is distinct from old\.billing_rate/);
+  assert.match(executionFenceMigration, /new\.currency_code is distinct from old\.currency_code/);
+  assert.match(executionFenceMigration, /new\.status is distinct from old\.status/);
+  assert.match(executionFenceMigration, /before update or delete on public\.accounting_practice_time_entries/);
+});
+
+test("execution fence permits only the exact approved-to-billed finalization transition", () => {
+  assert.match(executionFenceMigration, /old\.status = 'APPROVED'/);
+  assert.match(executionFenceMigration, /new\.status = 'BILLED'/);
+  assert.match(executionFenceMigration, /new\.billing_reference/);
+  assert.match(executionFenceMigration, /new\.billed_at is not null/);
+  assert.match(executionFenceMigration, /new\.billing_rate is not distinct from old\.billing_rate/);
+  assert.match(executionFenceMigration, /new\.minutes is not distinct from old\.minutes/);
+});
+
+test("finalization clears its lease transactionally before recurring policy advancement", () => {
+  const clearLeaseIndex = executionFenceMigration.indexOf("set invoice_lease_token = null");
+  const profileUpdateIndex = executionFenceMigration.indexOf("update public.accounting_practice_billing_profiles");
+  const invoicedIndex = executionFenceMigration.indexOf("set status = 'INVOICED'");
+  assert.ok(clearLeaseIndex >= 0 && profileUpdateIndex > clearLeaseIndex && invoicedIndex > profileUpdateIndex);
+  assert.match(executionFenceMigration, /invoice_lease_expires_at = null/);
+  assert.match(executionFenceMigration, /set next_billing_date = v_next_billing_date/);
+});
+
+test("execution fence functions remain invoker-safe and service-role isolated", () => {
+  assert.match(executionFenceMigration, /security invoker/);
+  assert.match(executionFenceMigration, /revoke all on function public\.guard_accounting_practice_billing_profile_execution_fence/);
+  assert.match(executionFenceMigration, /revoke all on function public\.guard_accounting_practice_time_entry_execution_fence/);
+  assert.match(executionFenceMigration, /from public, anon, authenticated/);
+  assert.match(executionFenceMigration, /to service_role/);
+});

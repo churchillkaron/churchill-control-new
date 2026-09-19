@@ -723,7 +723,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   ["Unrealized P&L", paperAccount ? money(paperAccount.unrealized_pnl, baseCurrency) : "—"],
                   ["Positions", paperPositions.filter((row) => Number(row.quantity || 0) > 0).length],
                 ].map(([label, value]) => (
-                  <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                  <div key={label} className="rounded-xl border border-[#CDAA78]/15 bg-white/75 p-3">
                     <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
                     <div className="mt-1 text-[14px] font-semibold">{value}</div>
                   </div>
@@ -957,7 +957,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Loss re-entry lock", `${Number(policy.loss_reentry_cooloff_hours ?? 24)}h`],
                       ["Min confidence", `${(Number(policy.min_decision_confidence || 0.7) * 100).toFixed(0)}%`],
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                      <div key={label} className="rounded-xl border border-[#CDAA78]/15 bg-white/75 p-3">
                         <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
                         <div className="mt-1 text-[14px] font-semibold">{value}</div>
                       </div>
@@ -1537,7 +1537,16 @@ export default function MarketsCommandCenter({ organizationId }) {
                     </div>
                   ) : null}
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <details className="group mt-3 overflow-hidden rounded-2xl border border-[#CDAA78]/18 bg-white/80">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3 text-[9px] font-medium text-[#655B51] transition hover:bg-[#FBF7F1]">
+                      <span>
+                        <span className="block text-[8px] uppercase tracking-[0.14em] text-[#9A7449]">Automation controls</span>
+                        <span className="mt-1 block text-[8px] font-normal text-[#91887E]">Sizing, cadence, validation and drift thresholds</span>
+                      </span>
+                      <ChevronDown size={13} className="text-[#9A7449] transition group-open:rotate-180" />
+                    </summary>
+                    <div className="border-t border-[#CDAA78]/15 px-3.5 py-3">
+                  <div className="grid grid-cols-2 gap-2">
                     {[
                       ["Cycle seconds", "cycle_interval_seconds", "60", "86400", "1"],
                       ["Target position %", "target_position_pct", "0.1", "10", "0.1"],
@@ -1564,7 +1573,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                     ))}
                   </div>
 
-                  <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                  <div className="mt-3 rounded-xl border border-[#CDAA78]/15 bg-white/75 p-3">
                     <label className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">Walk-forward readiness gate</div>
@@ -1607,7 +1616,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                     </div>
                   </div>
 
-                  <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                  <div className="mt-3 rounded-xl border border-[#CDAA78]/15 bg-white/75 p-3">
                     <label className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">Strategy health drift gate</div>
@@ -1669,6 +1678,9 @@ export default function MarketsCommandCenter({ organizationId }) {
                     </div>
                   </div>
 
+                  </div>
+                  </details>
+
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -1693,7 +1705,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                         strategy_health_min_directional_hit_rate: Number(automationDraft?.strategy_health_min_directional_hit_rate ?? 0.45),
                         strategy_health_min_avg_excess_return: Number(automationDraft?.strategy_health_min_avg_excess_return ?? -0.01),
                       })}
-                      className="h-8 rounded-lg border border-black/[0.08] bg-[#FCFBF9] px-2.5 text-[9px] font-medium text-[#5E5851] disabled:opacity-40"
+                      className="h-8 rounded-xl border border-[#CDAA78]/20 bg-white px-3 text-[9px] font-medium text-[#655B51] transition hover:border-[#B98B54]/35 hover:bg-[#FBF7F1] disabled:opacity-40"
                     >
                       Save limits
                     </button>
@@ -1703,7 +1715,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       onClick={() => act("UPDATE_AUTOMATION_POLICY", {
                         auto_paper_enabled: !automationPolicy.auto_paper_enabled,
                       })}
-                      className="h-8 rounded-lg bg-[#1F1E1B] px-2.5 text-[9px] font-medium text-white disabled:opacity-40"
+                      className="h-8 rounded-xl bg-[#2B2723] px-3 text-[9px] font-medium text-white shadow-[0_5px_14px_rgba(43,39,35,0.12)] transition hover:bg-[#1F1C19] disabled:opacity-40"
                     >
                       {automationPolicy.auto_paper_enabled ? "Disable autopilot" : "Enable paper autopilot"}
                     </button>
@@ -1748,7 +1760,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                     </button>
                   </div>
 
-                  <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] px-3 py-2.5 text-[9px] text-[#817D76]">
+                  <div className="mt-3 rounded-xl border border-[#CDAA78]/15 bg-white/75 px-3 py-2.5 text-[9px] text-[#817D76]">
                     Last run: {automationRuns[0]
                       ? `${automationRuns[0].status} · ${automationRuns[0].orders_filled || 0} fills · ${new Date(automationRuns[0].started_at).toLocaleString()}`
                       : "No autonomous cycle yet"}
@@ -1764,7 +1776,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Governed decisions", decisions.length],
                       ["Active paper orders", orders.filter((row) => ["QUEUED", "PARTIALLY_FILLED"].includes(row.status)).length],
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                      <div key={label} className="rounded-xl border border-[#CDAA78]/15 bg-white/75 p-3">
                         <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
                         <div className="mt-1 text-[14px] font-semibold">{value}</div>
                       </div>
@@ -1808,7 +1820,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Sharpe", portfolioPerformance.sharpe_ratio == null ? "—" : Number(portfolioPerformance.sharpe_ratio).toFixed(2)],
                       ["Sortino", portfolioPerformance.sortino_ratio == null ? "—" : Number(portfolioPerformance.sortino_ratio).toFixed(2)],
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                      <div key={label} className="rounded-xl border border-[#CDAA78]/15 bg-white/75 p-3">
                         <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
                         <div className="mt-1 text-[14px] font-semibold">{value}</div>
                       </div>
@@ -1834,7 +1846,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Total exec cost", executionQuality.avg_total_execution_cost_bps == null ? "—" : `${Number(executionQuality.avg_total_execution_cost_bps).toFixed(2)} bps`],
                       ["Liquidity participation", executionQuality.avg_displayed_liquidity_participation == null ? "—" : `${(Number(executionQuality.avg_displayed_liquidity_participation) * 100).toFixed(1)}%`],
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                      <div key={label} className="rounded-xl border border-[#CDAA78]/15 bg-white/75 p-3">
                         <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
                         <div className="mt-1 text-[14px] font-semibold">{value}</div>
                       </div>
@@ -1859,7 +1871,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Avg excess", averageExcessReturn === null ? "—" : `${(averageExcessReturn * 100).toFixed(2)}%`],
                       ["Beat benchmark", benchmarkOutperformanceRate === null ? "—" : `${benchmarkOutperformanceRate.toFixed(1)}%`],
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                      <div key={label} className="rounded-xl border border-[#CDAA78]/15 bg-white/75 p-3">
                         <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
                         <div className="mt-1 text-[14px] font-semibold">{value}</div>
                       </div>
@@ -1883,7 +1895,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                         onClick={() => act("UPDATE_PORTFOLIO_BENCHMARK", {
                           benchmark_symbol: benchmarkDraft,
                         })}
-                        className="h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-medium text-white disabled:opacity-40"
+                        className="h-8 rounded-xl bg-[#2B2723] px-3 text-[9px] font-medium text-white shadow-[0_5px_14px_rgba(43,39,35,0.12)] transition hover:bg-[#1F1C19] disabled:opacity-40"
                       >
                         {working === "UPDATE_PORTFOLIO_BENCHMARK" ? "Saving…" : "Save"}
                       </button>
@@ -1906,7 +1918,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       ["Latest trades", latestBacktest?.status === "COMPLETED" ? Number(latestBacktest.trade_count || 0) : "—"],
                       ["Directional hit", latestBacktest?.directional_hit_rate == null ? "—" : `${(Number(latestBacktest.directional_hit_rate) * 100).toFixed(1)}%`],
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                      <div key={label} className="rounded-xl border border-[#CDAA78]/15 bg-white/75 p-3">
                         <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
                         <div className="mt-1 text-[14px] font-semibold">{value}</div>
                       </div>
@@ -1925,7 +1937,10 @@ export default function MarketsCommandCenter({ organizationId }) {
                   <div className="flex items-center gap-2 text-[#A37849]"><Activity size={14} /><span className="text-[9px] uppercase tracking-[0.16em]">Execution ledger</span></div>
                   <h2 className="mt-1 text-[18px] font-semibold">Paper orders</h2>
                 </div>
-                <div className="rounded-full border border-black/[0.08] bg-[#FCFBF9] px-2.5 py-1 text-[9px] text-[#817D76]">Simulation only</div>
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-[#CDAA78]/20 bg-[#FBF7F1] px-2.5 py-1 text-[8px] font-medium text-[#7B654A]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#B98B54]" />
+                  Simulation only
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-[10px]">
@@ -1986,7 +2001,7 @@ export default function MarketsCommandCenter({ organizationId }) {
               </div>
             </section>
 
-            <section className="rounded-[18px] border border-[#D6A66A]/25 bg-[#FBF7F1] px-4 py-3 text-[10px] leading-4 text-[#706B64]">
+            <section className="rounded-[18px] border border-[#CDAA78]/20 bg-[#FFFDF9] px-4 py-3 text-[9px] leading-4 text-[#746B61] shadow-[0_8px_24px_rgba(73,55,35,0.035)]">
               <TrendingUp size={13} className="mr-2 inline text-[#A37849]" />
               Markets v1 records probabilistic research and simulated execution. It does not claim certainty, and no live broker mutation path exists.
             </section>

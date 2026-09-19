@@ -314,13 +314,15 @@ export async function POST(request) {
         billingEntity = entity;
       }
       if (customerPartyId) {
-        const { data: party, error: partyError } = await supabaseAdmin.from("parties").select("id").eq("id", customerPartyId).eq("organization_id", access.organizationId).maybeSingle();
+        const { data: party, error: partyError } = await supabaseAdmin.from("parties").select("id,status").eq("id", customerPartyId).eq("organization_id", access.organizationId).maybeSingle();
         if (partyError) throw partyError; if (!party) return jsonError("Billing customer party is outside the accounting firm", 403);
+        if (String(party.status || "").toUpperCase() !== "ACTIVE") return jsonError("Selected Finance customer must be active", 409);
       }
       if (revenueAccountId) {
-        const { data: account, error: accountError } = await supabaseAdmin.from("chart_of_accounts").select("id,account_type").eq("id", revenueAccountId).eq("organization_id", access.organizationId).maybeSingle();
+        const { data: account, error: accountError } = await supabaseAdmin.from("chart_of_accounts").select("id,account_type,is_active").eq("id", revenueAccountId).eq("organization_id", access.organizationId).maybeSingle();
         if (accountError) throw accountError;
         if (!account) return jsonError("Revenue account is outside the accounting firm", 403);
+        if (account.is_active !== true) return jsonError("Selected revenue account must be active", 409);
         const type = String(account.account_type || "").toUpperCase();
         if (!type.includes("REVENUE") && !type.includes("INCOME")) return jsonError("Selected billing account must be a revenue/income account", 409);
       }
@@ -338,9 +340,11 @@ export async function POST(request) {
         }
         taxRatePercent = Number(taxRule.tax_rate || 0) * 100;
       }
+      const currencyCode = clean(body.currencyCode || body.currency_code || "THB").toUpperCase();
+      if (!/^[A-Z]{3}$/.test(currencyCode)) return jsonError("Billing currency must use a three-letter currency code", 400);
       const { data, error } = await supabaseAdmin.from("accounting_practice_billing_profiles").upsert({
         accounting_firm_id: access.organizationId, organization_id: engagement.organization_id, engagement_id: engagement.id,
-        billing_method: billingMethod, currency_code: clean(body.currencyCode || body.currency_code || "THB").toUpperCase(),
+        billing_method: billingMethod, currency_code: currencyCode,
         default_hourly_rate: hourlyRate, fixed_fee_amount: fixedFee,
         billing_entity_id: clean(body.billingEntityId || body.billing_entity_id) || null,
         customer_party_id: clean(body.customerPartyId || body.customer_party_id) || null,
@@ -357,7 +361,7 @@ export async function POST(request) {
       let repriced_entries = 0;
       if (body.applyRateToUnpriced === true && hourlyRate != null && billingMethod !== "NON_BILLABLE") {
         const { data: repriced, error: repriceError } = await supabaseAdmin.from("accounting_practice_time_entries")
-          .update({ billing_rate: hourlyRate, currency_code: clean(body.currencyCode || body.currency_code || "THB").toUpperCase(), updated_at: new Date().toISOString() })
+          .update({ billing_rate: hourlyRate, currency_code: currencyCode, updated_at: new Date().toISOString() })
           .eq("accounting_firm_id", access.organizationId).eq("engagement_id", engagement.id).eq("billable", true).in("status", ["DRAFT","SUBMITTED","APPROVED"]).is("billing_rate", null).select("id");
         if (repriceError) throw repriceError;
         repriced_entries = (repriced || []).length;

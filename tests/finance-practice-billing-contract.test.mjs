@@ -21,7 +21,10 @@ test("practice billing requires exact firm billing identity and accounting polic
   assert.match(route, /Finance tax rule must be configured before invoicing/);
   assert.match(route, /Tax treatment must be confirmed before invoicing/);
   assert.match(practiceTime, /Billing customer party is outside the accounting firm/);
+  assert.match(practiceTime, /Selected Finance customer must be active/);
+  assert.match(practiceTime, /Selected revenue account must be active/);
   assert.match(practiceTime, /Selected billing account must be a revenue\/income account/);
+  assert.match(practiceTime, /Billing currency must use a three-letter currency code/);
 });
 
 test("practice tax rate is snapshotted from governed Finance tax rule", () => {

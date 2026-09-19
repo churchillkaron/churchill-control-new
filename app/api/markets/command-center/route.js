@@ -1034,10 +1034,25 @@ export async function POST(request) {
         killSwitchCancellation = data || null;
       }
 
+      const {
+        data: automationPermissionCancellation,
+        error: automationPermissionCancellationError,
+      } = await supabaseAdmin.rpc(
+        "market_cancel_disallowed_automation_authority",
+        {
+          p_organization_id: organizationId,
+          p_portfolio_id: state.portfolio.id,
+        },
+      );
+      if (automationPermissionCancellationError) {
+        throw automationPermissionCancellationError;
+      }
+
       return NextResponse.json({
         success: true,
         automationPolicy,
         kill_switch_cancellation: killSwitchCancellation,
+        automation_permission_cancellation: automationPermissionCancellation || null,
         execution: { mode: "PAPER", live_enabled: false },
       });
     }

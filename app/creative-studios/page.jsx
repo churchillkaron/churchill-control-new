@@ -1,3 +1,4 @@
+import Image from "next/image";
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 
 export const metadata = {
@@ -63,7 +64,6 @@ const studios = [
   },
 ];
 const process=[["01","Brief"],["02","Research"],["03","Direction"],["04","Creation"],["05","Review"],["06","Repair"],["07","Delivery"]];
-function Arrow({className=""}){return <svg viewBox="0 0 20 20" className={className} fill="none"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
 function Core(){return <div className="relative mx-auto min-h-[580px] w-full overflow-hidden rounded-[30px] border border-white/[0.08] bg-[#090908] shadow-[0_42px_120px_rgba(35,22,10,.28)]"><Image src="/branding/avantiqo-intelligence-core-hero.webp" alt="Avantiqo Intelligence Core" fill sizes="(max-width: 1024px) 100vw, 54vw" className="object-cover object-center" priority/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.08),transparent_55%,rgba(0,0,0,.78))]"/><div className="absolute left-5 top-5 rounded-full border border-[#D6A66A]/25 bg-black/45 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#E5C08A] backdrop-blur-xl">AVANTIQO INTELLIGENCE CORE</div><div className="absolute inset-x-5 bottom-5 border-t border-white/[0.1] pt-4"><div className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">People / ideas / possibilities</div><div className="mt-1 text-[10px] text-white/45">One intelligence layer. Three world-class production disciplines.</div></div></div>}
 
 function Arrow({ className = "" }) {

@@ -1,12 +1,7 @@
 name: Avantiqo Video LTX-2.5 HQ4K Runtime Build
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - services/avantiqo-video-engine/Dockerfile.ltx25.hq4k-runtime
   workflow_dispatch:
-
 permissions:
   contents: read
   packages: write

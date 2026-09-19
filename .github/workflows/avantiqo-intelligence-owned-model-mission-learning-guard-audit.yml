@@ -1,29 +1,7 @@
 name: Avantiqo Intelligence Owned Model Mission Learning Guard
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "lib/intelligence/runtime/AvantiqoOwnedModelMissionLearningCertificationRuntime.mjs"
-      - "scripts/audit-avantiqo-owned-model-mission-learning-guard-local.mjs"
-      - "scripts/certify-avantiqo-owned-model-mission-learning-live.mjs"
-      - "lib/operator/runtime/OperatorReasoningRuntime.js"
-      - "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js"
-      - "services/avantiqo-intelligence-modal/modal_app.py"
-      - ".github/workflows/avantiqo-intelligence-owned-model-mission-learning.yml"
-      - ".github/workflows/avantiqo-intelligence-owned-model-mission-learning-guard-audit.yml"
-  pull_request:
-    paths:
-      - "lib/intelligence/runtime/AvantiqoOwnedModelMissionLearningCertificationRuntime.mjs"
-      - "scripts/audit-avantiqo-owned-model-mission-learning-guard-local.mjs"
-      - "scripts/certify-avantiqo-owned-model-mission-learning-live.mjs"
-      - "lib/operator/runtime/OperatorReasoningRuntime.js"
-      - "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js"
-      - "services/avantiqo-intelligence-modal/modal_app.py"
-      - ".github/workflows/avantiqo-intelligence-owned-model-mission-learning.yml"
-      - ".github/workflows/avantiqo-intelligence-owned-model-mission-learning-guard-audit.yml"
   workflow_dispatch:
-
 permissions:
   contents: read
 

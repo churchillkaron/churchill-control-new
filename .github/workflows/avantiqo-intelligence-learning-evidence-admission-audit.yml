@@ -1,28 +1,7 @@
 name: Avantiqo Intelligence Learning Evidence Admission Audit
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoContinuousLearningRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
-      - "scripts/audit-avantiqo-learning-evidence-candidate-admission-local.mjs"
-      - ".github/workflows/avantiqo-intelligence-learning-evidence-admission-audit.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoContinuousLearningRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
-      - "scripts/audit-avantiqo-learning-evidence-candidate-admission-local.mjs"
-      - ".github/workflows/avantiqo-intelligence-learning-evidence-admission-audit.yml"
   workflow_dispatch:
-
 permissions:
   contents: read
 

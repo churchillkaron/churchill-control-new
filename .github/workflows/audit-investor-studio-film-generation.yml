@@ -1,62 +1,7 @@
 name: Audit Investor Studio Film Generation
 
 on:
-  push:
-    paths:
-      - "lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationPlan.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationRuntime.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorStudioExecutionRuntime.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorCapabilityVisualChoreography.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorOwnedExecutionPolicy.js"
-      - "lib/creative/video/runtime/CreativeInvestorHumanGenerationPolicy.js"
-      - "lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorProductProofPlan.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorFinalActPlan.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js"
-      - "services/avantiqo-image-engine/investor_first_minute_keyframes.py"
-      - "services/avantiqo-image-engine/modal_character_keyframe_runtime.py"
-      - "services/avantiqo-video-engine/modal_investor_t2v.py"
-      - "services/avantiqo-video-engine/investor_human_release_gate.py"
-      - "services/avantiqo-video-engine/investor_human_qc_pack.py"
-      - "services/avantiqo-video-engine/investor_human_vbench_qc.py"
-      - "services/avantiqo-video-engine/modal_human_multi_keyframe_render.py"
-      - "scripts/investor-human-proof-pipeline.py"
-      - "scripts/test_investor_human_generation_policy.mjs"
-      - "scripts/test_investor_human_release_gate.py"
-      - "scripts/test_investor_human_qc_pack.py"
-      - "scripts/test_investor_human_vbench_qc.py"
-      - "scripts/avantiqo-investor-studio-scenes.mjs"
-      - "scripts/investor-studio-film-generation-audit.mjs"
-      - ".github/workflows/audit-investor-studio-film-generation.yml"
-  pull_request:
-    paths:
-      - "lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationPlan.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationRuntime.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorStudioExecutionRuntime.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorCapabilityVisualChoreography.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorOwnedExecutionPolicy.js"
-      - "lib/creative/video/runtime/CreativeInvestorHumanGenerationPolicy.js"
-      - "lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorProductProofPlan.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorFinalActPlan.js"
-      - "lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js"
-      - "services/avantiqo-image-engine/investor_first_minute_keyframes.py"
-      - "services/avantiqo-image-engine/modal_character_keyframe_runtime.py"
-      - "services/avantiqo-video-engine/modal_investor_t2v.py"
-      - "services/avantiqo-video-engine/investor_human_release_gate.py"
-      - "services/avantiqo-video-engine/investor_human_qc_pack.py"
-      - "services/avantiqo-video-engine/investor_human_vbench_qc.py"
-      - "services/avantiqo-video-engine/modal_human_multi_keyframe_render.py"
-      - "scripts/investor-human-proof-pipeline.py"
-      - "scripts/test_investor_human_generation_policy.mjs"
-      - "scripts/test_investor_human_release_gate.py"
-      - "scripts/test_investor_human_qc_pack.py"
-      - "scripts/test_investor_human_vbench_qc.py"
-      - "scripts/avantiqo-investor-studio-scenes.mjs"
-      - "scripts/investor-studio-film-generation-audit.mjs"
-      - ".github/workflows/audit-investor-studio-film-generation.yml"
   workflow_dispatch:
-
 permissions:
   contents: read
 

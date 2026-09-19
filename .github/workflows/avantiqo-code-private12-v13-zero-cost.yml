@@ -1,12 +1,7 @@
 name: Avantiqo Code Private12 V13 Zero Cost Admission
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/triggers/avantiqo-code-private12-v13-zero-cost.trigger'
-
+  workflow_dispatch:
 permissions:
   contents: read
 

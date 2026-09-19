@@ -1,28 +1,7 @@
 name: Avantiqo Intelligence Learning Evidence Mechanism Agenda Audit
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
-      - "scripts/audit-avantiqo-learning-evidence-mechanism-agenda-local.mjs"
-      - "scripts/audit-avantiqo-reusable-knowledge-row-admission-local.mjs"
-      - ".github/workflows/avantiqo-intelligence-learning-evidence-mechanism-agenda-audit.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
-      - "scripts/audit-avantiqo-learning-evidence-mechanism-agenda-local.mjs"
-      - "scripts/audit-avantiqo-reusable-knowledge-row-admission-local.mjs"
-      - ".github/workflows/avantiqo-intelligence-learning-evidence-mechanism-agenda-audit.yml"
   workflow_dispatch:
-
 permissions:
   contents: read
 

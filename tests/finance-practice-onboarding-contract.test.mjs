@@ -40,6 +40,13 @@ test("onboarding resolves legal entity inside the governed engagement scope", ()
   assert.match(ui, /Set entity/);
 });
 
+test("missing client legal entity has a direct handoff to canonical client Finance setup", () => {
+  assert.match(ui, /Create client legal entity/);
+  assert.match(ui, /\/workspace\/\$\{engagement\.organization_id\}\/finance\/legal-entities/);
+  assert.match(ui, /canonical Legal Entities workspace/);
+  assert.doesNotMatch(ui, /fetch\("\/api\/finance\/legal-entities\/create"/);
+});
+
 test("contract and signature cannot run before exact client entity scope exists", () => {
   assert.match(route, /Set the client legal entity before linking the engagement document/);
   assert.match(route, /Set the client legal entity before requesting signature/);

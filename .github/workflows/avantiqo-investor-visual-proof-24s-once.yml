@@ -2,11 +2,7 @@ name: Avantiqo Investor Visual Proof 24s Once
 
 # Registered one-shot investor workflow. Purpose-generated visuals only.
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-visual-proof-24s-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

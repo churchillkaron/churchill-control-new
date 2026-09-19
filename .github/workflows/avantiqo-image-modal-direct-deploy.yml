@@ -1,11 +1,7 @@
 name: Avantiqo Image Modal Direct Function Deploy
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-image-modal-direct-deploy.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

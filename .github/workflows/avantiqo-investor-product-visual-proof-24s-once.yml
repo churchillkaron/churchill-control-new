@@ -2,11 +2,7 @@
 name: Avantiqo Investor Product Visual Proof 24s Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-product-visual-proof-24s-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

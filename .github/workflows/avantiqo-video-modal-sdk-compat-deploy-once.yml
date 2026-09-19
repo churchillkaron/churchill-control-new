@@ -1,11 +1,7 @@
 name: Avantiqo Video Modal SDK Compatibility Deploy Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-modal-sdk-compat-deploy-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

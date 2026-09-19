@@ -1,12 +1,7 @@
 name: Avantiqo Video Modal V3 Diagnostic Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/diagnose-avantiqo-video-modal-v3.mjs'
-      - '.github/workflows/avantiqo-video-modal-v3-diagnostic-once.yml'
-
+  workflow_dispatch:
 permissions:
   contents: read
 

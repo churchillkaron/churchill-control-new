@@ -1,11 +1,7 @@
 name: Avantiqo Investor Worldclass Native 4K Proof Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-worldclass-native4k-proof-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

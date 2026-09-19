@@ -1,10 +1,7 @@
 name: Avantiqo Code Qwen3.8 CPU Bootstrap
 
 on:
-  push:
-    paths:
-      - .github/avantiqo-code-qwen38-bootstrap-once.txt
-
+  workflow_dispatch:
 permissions:
   contents: read
 

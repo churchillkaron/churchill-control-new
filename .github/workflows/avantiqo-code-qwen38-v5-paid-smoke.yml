@@ -2,17 +2,6 @@ name: Avantiqo Code Qwen3.8 V5 Paid Smoke
 
 on:
   workflow_dispatch:
-    inputs:
-      approved:
-        description: 'Type YES to allow one isolated Qwen3.8 H100 V5 smoke'
-        required: true
-        default: 'NO'
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/triggers/avantiqo-code-qwen38-v5-smoke-20260903-2.trigger'
-
 permissions:
   contents: read
 

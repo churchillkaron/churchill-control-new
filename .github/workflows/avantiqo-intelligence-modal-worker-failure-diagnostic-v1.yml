@@ -1,11 +1,7 @@
 name: Avantiqo Intelligence Modal Worker Failure Diagnostic V1
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-intelligence-modal-worker-failure-diagnostic-v1.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

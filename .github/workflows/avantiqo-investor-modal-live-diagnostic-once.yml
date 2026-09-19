@@ -2,11 +2,7 @@
 name: Avantiqo Investor Modal Live Diagnostic Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-modal-live-diagnostic-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

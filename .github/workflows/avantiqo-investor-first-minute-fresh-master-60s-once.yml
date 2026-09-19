@@ -1,11 +1,7 @@
 name: Avantiqo Investor First Minute Fresh Master 60s Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-first-minute-fresh-master-60s-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

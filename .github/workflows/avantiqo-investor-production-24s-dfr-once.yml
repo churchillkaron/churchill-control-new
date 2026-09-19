@@ -1,11 +1,7 @@
 name: Avantiqo Investor Production 24s DFR Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-production-24s-dfr-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

@@ -1,12 +1,7 @@
 name: Avantiqo Intelligence - Governed Preflight
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/avantiqo-intelligence-governed-preflight.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

@@ -1,11 +1,7 @@
 name: Avantiqo Video Native Control Recover V3 Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-native-control-recover-v3-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

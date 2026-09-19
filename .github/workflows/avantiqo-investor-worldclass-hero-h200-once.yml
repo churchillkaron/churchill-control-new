@@ -1,11 +1,7 @@
 name: Avantiqo Investor Worldclass Hero H200 Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-worldclass-hero-h200-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

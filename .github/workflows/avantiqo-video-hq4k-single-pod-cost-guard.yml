@@ -1,11 +1,7 @@
 name: Avantiqo Video Distilled Runtime Deploy Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-hq4k-single-pod-cost-guard.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

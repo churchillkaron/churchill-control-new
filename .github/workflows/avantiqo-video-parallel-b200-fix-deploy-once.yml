@@ -1,11 +1,7 @@
 name: Avantiqo Video Parallel B200 Fix Deploy Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-parallel-b200-fix-deploy-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

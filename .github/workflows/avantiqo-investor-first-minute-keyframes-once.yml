@@ -1,11 +1,7 @@
 name: Avantiqo Investor First Minute Photoreal Keyframes Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-first-minute-keyframes-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

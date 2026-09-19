@@ -2,17 +2,6 @@ name: Avantiqo Code Qwen3.8 Hard 10 Benchmark
 
 on:
   workflow_dispatch:
-    inputs:
-      approved:
-        description: 'Type YES to allow one isolated Qwen3.8 H100 hard-10 benchmark'
-        required: true
-        default: 'NO'
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/avantiqo-code-qwen38-hard10-once.txt'
-
 permissions:
   contents: read
 

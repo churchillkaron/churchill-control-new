@@ -1,11 +1,7 @@
 name: Avantiqo Video Churchill Pool Party Paid Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-churchill-pool-party-paid-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

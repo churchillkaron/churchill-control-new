@@ -1,11 +1,7 @@
 name: Avantiqo Investor Native-4K B200 Smoke Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-single-b200-smoke-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

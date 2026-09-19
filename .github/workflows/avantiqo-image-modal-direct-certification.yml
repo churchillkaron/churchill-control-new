@@ -1,11 +1,7 @@
 name: Avantiqo Image Modal Direct Certification
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-image-modal-direct-certification.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

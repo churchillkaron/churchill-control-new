@@ -1,11 +1,7 @@
 name: Avantiqo Video Native Control Paid Proof Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-native-control-paid-proof-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

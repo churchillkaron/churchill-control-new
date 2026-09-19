@@ -4,11 +4,7 @@ name: Avantiqo Investor Worldclass Hero Proof Once
 # deployed owned Avantiqo LTX-2.5 DFR generator with placement alternatives so
 # GPU scarcity cannot silently turn into a fake quality failure.
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-worldclass-hero-proof-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

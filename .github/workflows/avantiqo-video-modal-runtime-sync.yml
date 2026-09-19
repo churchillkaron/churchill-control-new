@@ -3,15 +3,7 @@ name: Avantiqo Video Modal Runtime Sync
 # The mastered runtime mirrors Audio/Intelligence: one governed payload -> Modal FunctionCall.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-modal-runtime-sync.yml
-      - services/avantiqo-video-engine/modal_app.py
-      - services/avantiqo-video-engine/modal_native_job.py
-      - lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js
   workflow_dispatch:
-
 permissions:
   contents: read
 

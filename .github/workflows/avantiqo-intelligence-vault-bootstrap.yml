@@ -1,12 +1,7 @@
 name: Avantiqo Intelligence - Vault Credential Bootstrap
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/avantiqo-intelligence-vault-bootstrap.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

@@ -6,6 +6,7 @@ const migration = fs.readFileSync(new URL("../supabase/migrations/20260918094500
 const route = fs.readFileSync(new URL("../app/api/workspace/finance/practice-billing/route.js", import.meta.url), "utf8");
 const practiceTime = fs.readFileSync(new URL("../app/api/workspace/finance/practice-time/route.js", import.meta.url), "utf8");
 const ui = fs.readFileSync(new URL("../components/workspace/finance/FinancePracticeTimeWip.jsx", import.meta.url), "utf8");
+const atomicPolicyMigration = fs.readFileSync(new URL("../supabase/migrations/20260919102500_accounting_practice_billing_policy_atomicity.sql", import.meta.url), "utf8");
 
 test("practice billing hands off only through canonical customer invoice authority", () => {
   assert.match(route, /createCustomerInvoiceCommand/);
@@ -29,7 +30,7 @@ test("practice billing requires exact firm billing identity and accounting polic
 
 test("practice tax rate is snapshotted from governed Finance tax rule", () => {
   assert.match(practiceTime, /from\("tax_rules"\)/);
-  assert.match(practiceTime, /taxRatePercent = Number\(taxRule\.tax_rate \|\| 0\) \* 100/);
+  assert.match(atomicPolicyMigration, /v_tax_rate_percent := greatest\(0, least\(100, coalesce\(v_tax\.tax_rate, 0\) \* 100\)\)/);
   assert.match(route, /subtotal \* Number\(profile\.tax_rate_percent \|\| 0\)\) \/ 100/);
   assert.match(ui, /Select Finance tax rule/);
   assert.doesNotMatch(ui, /Tax rate %/);
@@ -74,4 +75,43 @@ test("human WIP screen explains blockers and exposes invoice action only from re
   assert.match(ui, /Create invoice/);
   assert.match(ui, /createInvoice\(row\.engagement_id\)/);
   assert.match(ui, /Apply rate to unpriced WIP/);
+});
+
+test("billing policy save and optional WIP repricing use one atomic database mutation", () => {
+  assert.match(practiceTime, /\.rpc\("upsert_accounting_practice_billing_policy"/);
+  assert.doesNotMatch(practiceTime, /from\("accounting_practice_billing_profiles"\)\.upsert/);
+  assert.match(atomicPolicyMigration, /insert into public\.accounting_practice_billing_profiles/);
+  assert.match(atomicPolicyMigration, /update public\.accounting_practice_time_entries/);
+  assert.match(atomicPolicyMigration, /get diagnostics v_repriced = row_count/);
+  assert.match(atomicPolicyMigration, /'repriced_entries', v_repriced/);
+});
+
+test("atomic billing policy independently validates exact firm scope and live references", () => {
+  assert.match(atomicPolicyMigration, /accounting_firm_id = p_accounting_firm_id/);
+  assert.match(atomicPolicyMigration, /status = 'ACTIVE'/);
+  assert.match(atomicPolicyMigration, /organization_id = p_accounting_firm_id[\s\S]*coalesce\(is_active, true\) = true/);
+  assert.match(atomicPolicyMigration, /public\.parties[\s\S]*upper\(coalesce\(status, ''\)\) = 'ACTIVE'/);
+  assert.match(atomicPolicyMigration, /public\.chart_of_accounts[\s\S]*is_active = true/);
+  assert.match(atomicPolicyMigration, /PRACTICE_BILLING_REVENUE_ACCOUNT_INVALID/);
+});
+
+test("atomic billing policy derives the tax snapshot from the governed live tax rule", () => {
+  assert.match(atomicPolicyMigration, /public\.tax_rules/);
+  assert.match(atomicPolicyMigration, /v_tax\.effective_from/);
+  assert.match(atomicPolicyMigration, /v_tax\.effective_to/);
+  assert.match(atomicPolicyMigration, /v_tax_rate_percent := greatest\(0, least\(100, coalesce\(v_tax\.tax_rate, 0\) \* 100\)\)/);
+  assert.doesNotMatch(practiceTime, /p_tax_rate_percent/);
+});
+
+test("atomic billing policy mutation is invoker-safe and service-role isolated", () => {
+  assert.match(atomicPolicyMigration, /security invoker/);
+  assert.match(atomicPolicyMigration, /revoke all on function public\.upsert_accounting_practice_billing_policy/);
+  assert.match(atomicPolicyMigration, /from public, anon, authenticated/);
+  assert.match(atomicPolicyMigration, /grant execute on function public\.upsert_accounting_practice_billing_policy[\s\S]*to service_role/);
+});
+
+test("billing policy route rejects malformed cadence terms before the atomic mutation", () => {
+  assert.match(practiceTime, /Payment terms must be between 0 and 3650 days/);
+  assert.match(practiceTime, /Unsupported billing cadence/);
+  assert.match(practiceTime, /Next billing date must use YYYY-MM-DD/);
 });

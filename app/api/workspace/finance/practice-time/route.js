@@ -306,7 +306,6 @@ export async function POST(request) {
       const customerPartyId = clean(body.customerPartyId || body.customer_party_id);
       const revenueAccountId = clean(body.revenueAccountId || body.revenue_account_id);
       const taxRuleId = clean(body.taxRuleId || body.tax_rule_id);
-      let taxRatePercent = 0;
       let billingEntity = null;
       if (billingEntityId) {
         const { data: entity, error: entityError } = await supabaseAdmin.from("legal_entities").select("id,country").eq("id", billingEntityId).eq("organization_id", access.organizationId).eq("is_active", true).maybeSingle();
@@ -338,34 +337,38 @@ export async function POST(request) {
         if (!taxRule || !salesTaxRule(taxRule) || !effectiveToday(taxRule) || !regimeMatchesCountry(taxRule.tax_regime, billingEntity.country)) {
           return jsonError("Selected tax rule does not apply to the billing entity jurisdiction and current effective date", 409);
         }
-        taxRatePercent = Number(taxRule.tax_rate || 0) * 100;
       }
       const currencyCode = clean(body.currencyCode || body.currency_code || "THB").toUpperCase();
       if (!/^[A-Z]{3}$/.test(currencyCode)) return jsonError("Billing currency must use a three-letter currency code", 400);
-      const { data, error } = await supabaseAdmin.from("accounting_practice_billing_profiles").upsert({
-        accounting_firm_id: access.organizationId, organization_id: engagement.organization_id, engagement_id: engagement.id,
-        billing_method: billingMethod, currency_code: currencyCode,
-        default_hourly_rate: hourlyRate, fixed_fee_amount: fixedFee,
-        billing_entity_id: clean(body.billingEntityId || body.billing_entity_id) || null,
-        customer_party_id: clean(body.customerPartyId || body.customer_party_id) || null,
-        revenue_account_id: revenueAccountId || null,
-        tax_rule_id: taxRuleId || null,
-        tax_rate_percent: Math.max(0, taxRatePercent),
-        tax_treatment_confirmed: body.taxTreatmentConfirmed === true || body.tax_treatment_confirmed === true,
-        payment_terms_days: Math.max(0, Math.round(Number(body.paymentTermsDays ?? body.payment_terms_days ?? 0) || 0)),
-        billing_cadence: ["ON_DEMAND","MONTHLY","QUARTERLY","ANNUAL"].includes(clean(body.billingCadence || body.billing_cadence || "ON_DEMAND").toUpperCase()) ? clean(body.billingCadence || body.billing_cadence || "ON_DEMAND").toUpperCase() : "ON_DEMAND",
-        next_billing_date: clean(body.nextBillingDate || body.next_billing_date) || null,
-        status: "ACTIVE", updated_by: actorStaffId, updated_at: new Date().toISOString(),
-      }, { onConflict: "accounting_firm_id,engagement_id" }).select("*").single();
-      if (error) throw error;
-      let repriced_entries = 0;
-      if (body.applyRateToUnpriced === true && hourlyRate != null && billingMethod !== "NON_BILLABLE") {
-        const { data: repriced, error: repriceError } = await supabaseAdmin.from("accounting_practice_time_entries")
-          .update({ billing_rate: hourlyRate, currency_code: currencyCode, updated_at: new Date().toISOString() })
-          .eq("accounting_firm_id", access.organizationId).eq("engagement_id", engagement.id).eq("billable", true).in("status", ["DRAFT","SUBMITTED","APPROVED"]).is("billing_rate", null).select("id");
-        if (repriceError) throw repriceError;
-        repriced_entries = (repriced || []).length;
-      }
+      const paymentTermsDays = Math.round(Number(body.paymentTermsDays ?? body.payment_terms_days ?? 0));
+      if (!Number.isFinite(paymentTermsDays) || paymentTermsDays < 0 || paymentTermsDays > 3650) return jsonError("Payment terms must be between 0 and 3650 days", 400);
+      const billingCadence = clean(body.billingCadence || body.billing_cadence || "ON_DEMAND").toUpperCase();
+      if (!["ON_DEMAND","MONTHLY","QUARTERLY","ANNUAL"].includes(billingCadence)) return jsonError("Unsupported billing cadence", 400);
+      const nextBillingDate = clean(body.nextBillingDate || body.next_billing_date) || null;
+      if (nextBillingDate && !/^\d{4}-\d{2}-\d{2}$/.test(nextBillingDate)) return jsonError("Next billing date must use YYYY-MM-DD", 400);
+
+      const { data: mutation, error: mutationError } = await supabaseAdmin.rpc("upsert_accounting_practice_billing_policy", {
+        p_accounting_firm_id: access.organizationId,
+        p_engagement_id: engagement.id,
+        p_billing_method: billingMethod,
+        p_currency_code: currencyCode,
+        p_default_hourly_rate: hourlyRate,
+        p_fixed_fee_amount: fixedFee,
+        p_billing_entity_id: billingEntityId || null,
+        p_customer_party_id: customerPartyId || null,
+        p_revenue_account_id: revenueAccountId || null,
+        p_tax_rule_id: taxRuleId || null,
+        p_tax_treatment_confirmed: body.taxTreatmentConfirmed === true || body.tax_treatment_confirmed === true,
+        p_payment_terms_days: paymentTermsDays,
+        p_billing_cadence: billingCadence,
+        p_next_billing_date: nextBillingDate,
+        p_apply_rate_to_unpriced: body.applyRateToUnpriced === true,
+        p_updated_by: actorStaffId,
+      });
+      if (mutationError) throw mutationError;
+      const data = mutation?.billing_profile || null;
+      if (!data?.id) throw new Error("Atomic billing policy mutation returned no billing profile");
+      const repriced_entries = Number(mutation?.repriced_entries || 0);
       return NextResponse.json({ success: true, billing_profile: data, billing_policy_blockers: practiceBillingPolicyBlockers(data), repriced_entries });
     }
 

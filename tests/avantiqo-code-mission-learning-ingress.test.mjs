@@ -109,7 +109,7 @@ test("verified Code feedback becomes an existing continuous-learning evidence ca
   });
 
   assert.equal(first.memory_scope, "platform_learning_evidence_candidates");
-  assert.equal(first.memory_type, "evidence");
+  assert.equal(first.memory_type, "fact");
   assert.equal(first.metadata.contract, "AVANTIQO_CONTINUOUS_LEARNING_EVIDENCE_CANDIDATE_V1");
   assert.equal(first.metadata.ingress_contract, AVANTIQO_CODE_MISSION_LEARNING_INGRESS_CONTRACT);
   assert.equal(first.metadata.epistemic_state, "EVIDENCE_CANDIDATE_NOT_RELEASED");

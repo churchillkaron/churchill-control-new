@@ -15,14 +15,36 @@ function failedExecution(reason, overrides = {}) {
   };
 }
 
-test("observes real failed capability executions", () => {
+test("provider timeout is classified as runtime noise, not capability reliability failure", () => {
   const observed = observeVerifiedExecutionFailure(
     failedExecution("Provider timeout request_id=req_123456789"),
   );
 
   assert.equal(observed.capability_key, "finance.invoice.post");
+  assert.equal(observed.failure_class, "TRANSPORT_RUNTIME_FAILURE");
+  assert.equal(observed.affects_capability_reliability, false);
+  assert.equal(observed.transport_runtime_signal, true);
   assert.match(observed.normalized_reason, /provider timeout/i);
   assert.ok(observed.fingerprint);
+});
+
+test("failed post-action verification is a true business outcome failure", () => {
+  const observed = observeVerifiedExecutionFailure(failedExecution(
+    "Posted invoice but verification found no business effect",
+    { action_call_completed: true, business_effect_verified: false },
+  ));
+  assert.equal(observed.failure_class, "BUSINESS_OUTCOME_FAILURE");
+  assert.equal(observed.affects_capability_reliability, true);
+  assert.equal(observed.post_action_verification_failed, true);
+});
+
+test("model reasoning failure is separated from capability reliability", () => {
+  const observed = observeVerifiedExecutionFailure(
+    failedExecution("Planner produced invalid plan schema output"),
+  );
+  assert.equal(observed.failure_class, "MODEL_REASONING_FAILURE");
+  assert.equal(observed.affects_capability_reliability, false);
+  assert.equal(observed.model_weakness_signal, true);
 });
 
 test("normalizes volatile ids so the same failure pattern matches", () => {

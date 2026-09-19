@@ -1,3 +1,4 @@
+import { runCronRouteLocalFirst } from "@/lib/platform/service-runtime/policy/CronRouteComputePolicyRuntime";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 // Direction can legitimately contain several serialized governed reasoning calls.
@@ -89,6 +90,10 @@ export async function POST(request) {
   return processRequest(request, body);
 }
 
-export async function GET(request) {
+async function handleCronGet(request) {
   return processRequest(request, {});
+}
+
+export async function GET(request) {
+  return runCronRouteLocalFirst(() => handleCronGet(request), { source: "VERCEL_CRON" });
 }

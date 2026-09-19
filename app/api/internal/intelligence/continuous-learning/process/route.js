@@ -1,3 +1,26 @@
+import { runCronRouteLocalFirst } from "@/lib/platform/service-runtime/policy/CronRouteComputePolicyRuntime";
+import { reconcileAvantiqoGeneralIntelligenceCurriculum } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceCurriculumRuntime";
+import { reconcileAvantiqoCapabilityIntelligenceCurriculum } from "@/lib/intelligence/runtime/AvantiqoCapabilityIntelligenceCurriculumRuntime";
+import { runAvantiqoCapabilityCompetenceExam } from "@/lib/intelligence/runtime/AvantiqoCapabilityCompetenceExamRuntime";
+import { runAvantiqoMissionCompositionCompetence } from "@/lib/intelligence/runtime/AvantiqoMissionCompositionCompetenceRuntime";
+import { runAvantiqoLongHorizonProblemSolvingCompetence } from "@/lib/intelligence/runtime/AvantiqoLongHorizonProblemSolvingCompetenceRuntime";
+import { runAvantiqoAdversarialSelfCritiqueCompetence } from "@/lib/intelligence/runtime/AvantiqoAdversarialSelfCritiqueCompetenceRuntime";
+import { runAvantiqoMetacognitiveEscalationCompetence } from "@/lib/intelligence/runtime/AvantiqoMetacognitiveEscalationCompetenceRuntime";
+import { runAvantiqoIntelligenceImprovementLoop } from "@/lib/intelligence/runtime/AvantiqoIntelligenceImprovementLoopRuntime";
+import { reconcileAvantiqoArenaWeaknessCurriculum } from "@/lib/intelligence/runtime/AvantiqoArenaWeaknessCurriculumRuntime";
+import { runAvantiqoArenaWeaknessPractice } from "@/lib/intelligence/runtime/AvantiqoArenaWeaknessPracticeRuntime";
+import { runAvantiqoStructuredOutputPractice } from "@/lib/intelligence/runtime/AvantiqoStructuredOutputPracticeRuntime";
+import { runAvantiqoBusinessPartnerExperiencePractice } from "@/lib/intelligence/runtime/AvantiqoBusinessPartnerExperiencePracticeRuntime";
+import { reconcileAvantiqoBusinessPartnerExperiencePracticeEffectiveness } from "@/lib/intelligence/runtime/AvantiqoBusinessPartnerExperiencePracticeEffectivenessRuntime";
+import { reconcileAvantiqoVerifiedOutcomePatterns } from "@/lib/intelligence/runtime/AvantiqoVerifiedOutcomePatternRuntime";
+import { runAvantiqoNightlyLearningSynthesis } from "@/lib/intelligence/runtime/AvantiqoNightlyLearningSynthesisRuntime";
+import { runAvantiqoGeneralIntelligenceExam } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceExamRuntime";
+import { runAvantiqoGeneralIntelligenceRetention } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceRetentionRuntime";
+import { runAvantiqoGeneralIntelligenceTransferPractice } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceTransferPracticeRuntime";
+import { reconcileAvantiqoGeneralIntelligenceMasteryEvidence } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceMasteryEvidenceRuntime";
+import { seedAvantiqoGeneralIntelligenceTrainingCandidates } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceTrainingCandidateRuntime";
+import { runAvantiqoGeneralIntelligenceShadowBenchmark } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceShadowBenchmarkRuntime";
+import { benchmarkPendingAvantiqoGeneralIntelligenceCandidates } from "@/lib/intelligence/runtime/AvantiqoGeneralIntelligenceCandidateBenchmarkRuntime";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -127,7 +150,7 @@ function authorized(request) {
   return (request.headers.get("authorization") || "") === `Bearer ${secret}`;
 }
 
-export async function GET(request) {
+async function handleCronGet(request) {
   if (!authorized(request)) {
     return Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
@@ -136,7 +159,9 @@ export async function GET(request) {
     const url = new URL(request.url);
     const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 1, 3));
 
+    const generalIntelligenceCurriculum = await reconcileAvantiqoGeneralIntelligenceCurriculum();
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
+    const capabilityIntelligenceCurriculumPreExam = await reconcileAvantiqoCapabilityIntelligenceCurriculum();
     const knowledgeLifecycle = await reconcileAvantiqoKnowledgeLifecycle();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
     const learningEffectiveness = await evaluateAvantiqoLearningEffectiveness();
@@ -435,10 +460,62 @@ export async function GET(request) {
           };
 
     const result = await runAvantiqoContinuousLearningBatch({ limit });
+    const postResearchEvidenceCandidateBridge =
+      await reconcileAvantiqoLearningEvidenceCandidates();
+    const postResearchMechanismFirstLearning =
+      await reconcileAvantiqoMechanismFirstLearning();
+    const nightlyLocalSynthesis = await runAvantiqoNightlyLearningSynthesis();
+    const generalIntelligenceExam = await runAvantiqoGeneralIntelligenceExam({
+      topicKey: nightlyLocalSynthesis?.status === "COMPLETED" ? nightlyLocalSynthesis.topic_key : null,
+    });
+    const generalIntelligenceRetention = await runAvantiqoGeneralIntelligenceRetention();
+    const capabilityCompetenceExam = await runAvantiqoCapabilityCompetenceExam();
+    const capabilityIntelligenceCurriculum = await reconcileAvantiqoCapabilityIntelligenceCurriculum();
+    const missionCompositionCompetence = await runAvantiqoMissionCompositionCompetence();
+    const longHorizonProblemSolvingCompetence = await runAvantiqoLongHorizonProblemSolvingCompetence();
+    const adversarialSelfCritiqueCompetence = await runAvantiqoAdversarialSelfCritiqueCompetence();
+    const metacognitiveEscalationCompetence = await runAvantiqoMetacognitiveEscalationCompetence();
+    const verifiedOutcomePatterns = await reconcileAvantiqoVerifiedOutcomePatterns();
+    const intelligenceImprovementLoop = await runAvantiqoIntelligenceImprovementLoop();
+    const arenaWeaknessCurriculum = await reconcileAvantiqoArenaWeaknessCurriculum();
+    const arenaWeaknessPractice = await runAvantiqoArenaWeaknessPractice();
+    const experiencePracticeEffectiveness = await reconcileAvantiqoBusinessPartnerExperiencePracticeEffectiveness();
+    const experienceFailurePractice = await runAvantiqoBusinessPartnerExperiencePractice();
+    const structuredOutputPractice = await runAvantiqoStructuredOutputPractice();
+    const generalIntelligenceTransferPractice = await runAvantiqoGeneralIntelligenceTransferPractice();
+    const generalIntelligenceMasteryEvidence = await reconcileAvantiqoGeneralIntelligenceMasteryEvidence();
+    const generalIntelligenceTrainingCandidates = await seedAvantiqoGeneralIntelligenceTrainingCandidates();
+    const generalIntelligenceShadowBenchmark = await runAvantiqoGeneralIntelligenceShadowBenchmark();
+    const generalIntelligenceCandidateBenchmark = await benchmarkPendingAvantiqoGeneralIntelligenceCandidates();
 
     return Response.json(
       {
         ...result,
+        general_intelligence_curriculum: generalIntelligenceCurriculum,
+        capability_intelligence_curriculum: capabilityIntelligenceCurriculum,
+        capability_intelligence_curriculum_pre_exam: capabilityIntelligenceCurriculumPreExam,
+        nightly_local_4b_synthesis: nightlyLocalSynthesis,
+        general_intelligence_exam: generalIntelligenceExam,
+        general_intelligence_retention: generalIntelligenceRetention,
+        capability_competence_exam: capabilityCompetenceExam,
+        mission_composition_competence: missionCompositionCompetence,
+        long_horizon_problem_solving_competence: longHorizonProblemSolvingCompetence,
+        adversarial_self_critique_competence: adversarialSelfCritiqueCompetence,
+        metacognitive_escalation_competence: metacognitiveEscalationCompetence,
+        verified_outcome_patterns: verifiedOutcomePatterns,
+        intelligence_improvement_loop: intelligenceImprovementLoop,
+        arena_weakness_curriculum: arenaWeaknessCurriculum,
+        arena_weakness_practice: arenaWeaknessPractice,
+        business_partner_experience_practice_effectiveness: experiencePracticeEffectiveness,
+        business_partner_experience_practice: experienceFailurePractice,
+        structured_output_practice: structuredOutputPractice,
+        general_intelligence_transfer_practice: generalIntelligenceTransferPractice,
+        general_intelligence_mastery_evidence: generalIntelligenceMasteryEvidence,
+        general_intelligence_training_candidates: generalIntelligenceTrainingCandidates,
+        general_intelligence_shadow_benchmark: generalIntelligenceShadowBenchmark,
+        general_intelligence_candidate_benchmark: generalIntelligenceCandidateBenchmark,
+        post_research_learning_evidence_candidate_bridge: postResearchEvidenceCandidateBridge,
+        post_research_mechanism_first_learning: postResearchMechanismFirstLearning,
         internal_product_knowledge: internalProductKnowledge,
         knowledge_lifecycle: knowledgeLifecycle,
         learning_coverage: learningCoverage,
@@ -527,4 +604,7 @@ export async function GET(request) {
       { status: 500 },
     );
   }
+}
+export async function GET(request) {
+  return runCronRouteLocalFirst(() => handleCronGet(request), { source: "VERCEL_CRON" });
 }

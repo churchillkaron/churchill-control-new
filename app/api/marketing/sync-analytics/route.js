@@ -1,3 +1,4 @@
+import { runCronRouteLocalFirst } from "@/lib/platform/service-runtime/policy/CronRouteComputePolicyRuntime";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -204,7 +205,7 @@ async function persistAnalytics({ row, campaign, providerResults }) {
   return { engagementScore, metrics };
 }
 
-export async function GET(request) {
+async function handleCronGet(request) {
   if (!authorized(request)) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },
@@ -291,4 +292,8 @@ export async function GET(request) {
       { status: 500 },
     );
   }
+}
+
+export async function GET(request) {
+  return runCronRouteLocalFirst(() => handleCronGet(request), { source: "VERCEL_CRON" });
 }

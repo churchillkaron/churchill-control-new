@@ -4,6 +4,9 @@ export const maxDuration = 300;
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
+import { buildBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAuditProjection, verifyBusinessDiagnosisAnswerContent, BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReceiptRuntime";
+import { verifyBusinessDiagnosisProofAuthenticity, businessDiagnosisProofAuthenticityAcceptable, redactBusinessDiagnosisProofForClient, sealBusinessDiagnosisProofAuthenticity, bindBusinessDiagnosisScopeChecksum, businessDiagnosisUserTurnContentFingerprint } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisProofAuthenticityRuntime";
+import { businessDiagnosisReadinessInternalDiagnostic } from "@/lib/intelligence/runtime/AvantiqoBusinessDiagnosisReadinessRuntime";
 import {
   resolveBusinessContext,
 } from "@/lib/business-context/resolveBusinessContext";
@@ -90,6 +93,93 @@ function object(value) {
     : {};
 }
 
+function persistedBusinessDiagnosisEvidence(result = {}, { organizationId = null, conversationId = null, entityId = null, periodId = null, userTurnId = null, userTurnContent = null } = {}) {
+  const diagnosis = object(result?.business_diagnosis);
+  if (!text(diagnosis.receipt_fingerprint)) return {};
+  const projection = buildBusinessDiagnosisAuditProjection({
+    receipt_fingerprint: diagnosis.receipt_fingerprint,
+    receipt_contract: diagnosis.receipt_contract,
+    diagnosis_class: diagnosis.class,
+    business_timezone: diagnosis.business_timezone,
+    answer_content_fingerprint: diagnosis.answer_content_fingerprint,
+    final_evidence_state: diagnosis.final_evidence_state,
+    residual_material: diagnosis.residual_material,
+    answer_boundary_status: diagnosis.answer_boundary_status,
+    answer_unsupported_recommendation_outcome_detected: diagnosis.answer_unsupported_recommendation_outcome_detected,
+    validated_external_context_count: diagnosis.validated_external_context_count,
+    unresolved_external_context_count: diagnosis.unresolved_external_context_count,
+    baseline_period_id: diagnosis?.periods?.baseline_period_id,
+    baseline_period_start_date: diagnosis?.periods?.baseline_start_date,
+    baseline_period_end_date: diagnosis?.periods?.baseline_end_date,
+    current_period_id: diagnosis?.periods?.current_period_id,
+    current_period_start_date: diagnosis?.periods?.current_start_date,
+    current_period_end_date: diagnosis?.periods?.current_end_date,
+  });
+  const suppliedProjectionFingerprint = text(diagnosis.audit_projection_fingerprint) || null;
+  const suppliedProjectionContract = text(diagnosis.audit_projection_contract) || null;
+  const verification = verifyBusinessDiagnosisAuditProjection({
+    ...projection,
+    class: projection.diagnosis_class,
+    audit_projection_contract: suppliedProjectionContract,
+    audit_projection_fingerprint: suppliedProjectionFingerprint,
+  });
+  const answerVerification = verifyBusinessDiagnosisAnswerContent({audit_projection_contract:suppliedProjectionContract,answer_content_fingerprint:diagnosis.answer_content_fingerprint}, result?.decision?.response_text || result?.result?.response || "");
+  const authenticityVerification = verifyBusinessDiagnosisProofAuthenticity(diagnosis);
+  const authenticityAcceptable = businessDiagnosisProofAuthenticityAcceptable(authenticityVerification);
+  if (verification.status !== "VERIFIED" || answerVerification.status !== "VERIFIED" || !authenticityAcceptable) return {};
+  const diagnosedPeriodId = text(diagnosis?.periods?.current_period_id) || null;
+  const activePeriodId = text(periodId) || null;
+  if (diagnosedPeriodId && activePeriodId && diagnosedPeriodId !== activePeriodId) return {};
+  const persistenceBase = {
+    ...diagnosis,
+    scope_organization_id: text(organizationId) || null,
+    scope_conversation_id: text(conversationId) || null,
+    scope_entity_id: text(entityId) || null,
+    scope_period_id: diagnosedPeriodId || activePeriodId,
+    scope_user_turn_id: text(userTurnId) || null,
+    scope_user_content_fingerprint: text(userTurnId) ? businessDiagnosisUserTurnContentFingerprint(userTurnContent) : null,
+  };
+  const checksummedPersistenceBase = bindBusinessDiagnosisScopeChecksum(persistenceBase);
+  const persistenceSeal = sealBusinessDiagnosisProofAuthenticity(checksummedPersistenceBase);
+  const persistedProof = persistenceSeal.sealed ? persistenceSeal.proof : checksummedPersistenceBase;
+  return {
+    business_diagnosis: {
+      contract: text(diagnosis.contract) || null,
+      receipt_contract: projection.receipt_contract,
+      authenticity_contract: text(persistedProof.authenticity_contract) || null,
+      authenticity_algorithm: text(persistedProof.authenticity_algorithm) || null,
+      authenticity_key_id: text(persistedProof.authenticity_key_id) || null,
+      authenticity_mac: text(persistedProof.authenticity_mac) || null,
+      authenticity_status: persistenceSeal.sealed ? "AUTHENTICATED" : authenticityVerification.status,
+      authenticity_verified: persistenceSeal.sealed ? true : authenticityVerification.verified === true,
+      scope_organization_id: text(persistedProof.scope_organization_id) || null,
+      scope_conversation_id: text(persistedProof.scope_conversation_id) || null,
+      scope_entity_id: text(persistedProof.scope_entity_id) || null,
+      scope_period_id: text(persistedProof.scope_period_id) || null,
+      scope_user_turn_id: text(persistedProof.scope_user_turn_id) || null,
+      scope_user_content_fingerprint: text(persistedProof.scope_user_content_fingerprint) || null,
+      scope_checksum_contract: text(persistedProof.scope_checksum_contract) || null,
+      scope_checksum: text(persistedProof.scope_checksum) || null,
+      class: projection.diagnosis_class,
+      business_timezone: projection.business_timezone,
+      answer_content_fingerprint: projection.answer_content_fingerprint,
+      receipt_fingerprint: projection.receipt_fingerprint,
+      audit_projection_contract: suppliedProjectionContract,
+      audit_projection_fingerprint: suppliedProjectionFingerprint,
+      final_evidence_state: projection.final_evidence_state,
+      residual_material: projection.residual_material,
+      answer_boundary_status: projection.answer_boundary_status,
+      answer_unsupported_recommendation_outcome_detected: projection.answer_unsupported_recommendation_outcome_detected,
+      validated_external_context_count: projection.validated_external_context_count,
+      unresolved_external_context_count: projection.unresolved_external_context_count,
+      periods: { status: text(diagnosis?.periods?.status) || null, ...projection.periods },
+      raw_web_content_persisted: false,
+      raw_reasoning_persisted: false,
+      authority_effect: "NONE",
+    },
+  };
+}
+
 function errorResponse(error, status = 500, details = null) {
   return Response.json(
     {
@@ -143,6 +233,76 @@ function fastIntelligenceTimeoutDetails(error) {
       "I’m still here, but my fast intelligence lane did not return within the conversational time limit even after one safe retry. I stopped the stalled provider job instead of leaving you waiting. Your conversation is preserved and I did not replay or assume any business action. The next turn can continue from the same context.",
   };
 }
+
+function governedDiagnosisFailurePersistence(error = {}) {
+  if (error?.code === "BUSINESS_DIAGNOSIS_NOT_READY") {
+    return {
+      content: "This diagnosis was not started because required proof readiness was unavailable. No analysis result or action was persisted.",
+      intent: "business_diagnosis_not_ready",
+      evidence: {
+        business_diagnosis_readiness_failure: {
+          code: "BUSINESS_DIAGNOSIS_NOT_READY",
+          readiness_status: text(error?.details?.readiness_status) || null,
+          blocker_count: Number.isFinite(Number(error?.details?.blocker_count)) ? Number(error.details.blocker_count) : 0,
+          authority_effect: "NONE",
+        },
+      },
+    };
+  }
+  if (error?.code === BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE) {
+    const stage = text(error?.details?.stage) || "LIVE_PROOF_REJECTED";
+    return {
+      content: stage === "PERSISTENCE_PROOF_REJECTED"
+        ? "This diagnosis was not saved because its proof could not be verified. No analysis result or action was persisted."
+        : "This diagnosis was stopped because its proof could not be verified. No analysis result or action was persisted.",
+      intent: "business_diagnosis_integrity_failure",
+      evidence: {
+        business_diagnosis_integrity_failure: {
+          code: BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE,
+          stage,
+          authority_effect: "NONE",
+        },
+      },
+    };
+  }
+  return null;
+}
+
+async function persistGovernedDiagnosisFailureTurn({
+  error, organizationId, conversationId, partyId, source, agreementState, projectState, pairedUserTurnId = null,
+} = {}) {
+  const failure = governedDiagnosisFailurePersistence(error);
+  if (!failure) return false;
+  await persistAssistantTurnAndConversationState({
+    organizationId,
+    conversationId,
+    partyId,
+    source,
+    content: failure.content,
+    decision: {
+      response_text: failure.content,
+      intent: failure.intent,
+      confidence: 1,
+      agreement_state: object(agreementState),
+      project_state: object(projectState),
+      clarification: { required: false, question: null, options: [] },
+      navigation: { target_id: null },
+      execution: { capability_key: null, payload: {}, reason: null },
+      plan: [],
+      authority_effect: "NONE",
+    },
+    evidence: {
+      ...failure.evidence,
+      ...(text(pairedUserTurnId) ? { diagnosis_failure_pair: { user_turn_id: text(pairedUserTurnId), authority_effect: "NONE" } } : {}),
+    },
+    execution: {},
+    navigation: {},
+    agreementState: object(agreementState),
+    projectState: object(projectState),
+  });
+  return true;
+}
+
 
 function prepaidBalanceBlockedResult({ agreementState, projectState } = {}) {
   return {
@@ -642,13 +802,8 @@ export async function POST(request) {
     }
     const longTermMemoryMs = Date.now() - longTermMemoryStartedAt;
 
-    const clientConversation = boundedConversation(body.conversation);
     const persistedConversation = boundedConversation(memory.recentConversation);
-    const conversation = skipHistoricalContext
-      ? []
-      : persistedConversation.length
-        ? persistedConversation
-        : clientConversation;
+    const conversation = persistedConversation;
     // Authorization-critical Operator state is server-authoritative. Client
     // agreement_state may be stale or forged and is never merged into execution
     // state. Cross-conversation continuity intentionally recovers project state
@@ -749,10 +904,29 @@ export async function POST(request) {
       return value;
     });
 
-    const [result] = await Promise.all([
-      operatorPromise,
-      userPersistPromise,
-    ]);
+    let result;
+    let persistedUserTurn = null;
+    try {
+      [result, persistedUserTurn] = await Promise.all([
+        operatorPromise,
+        userPersistPromise,
+      ]);
+    } catch (operatorError) {
+      persistedUserTurn = await userPersistPromise.catch(() => null);
+      if (text(persistedUserTurn?.id)) {
+        await persistGovernedDiagnosisFailureTurn({
+          error: operatorError,
+          organizationId: businessContext.organizationId,
+          conversationId: memory.conversation.id,
+          partyId,
+          source,
+          agreementState,
+          projectState: effectiveProjectState,
+          pairedUserTurnId: persistedUserTurn.id,
+        });
+      }
+      throw operatorError;
+    }
 
     const responseText =
       text(result?.decision?.response_text) ||
@@ -830,6 +1004,32 @@ export async function POST(request) {
     delete persistedDecision.agreement_state;
     delete persistedDecision.project_state;
 
+    const diagnosisPersistenceEvidence = persistedBusinessDiagnosisEvidence(result, {
+      organizationId: businessContext.organizationId,
+      conversationId: memory.conversation.id,
+      entityId: businessContext.entityId,
+      periodId: businessContext.periodId,
+      userTurnId: persistedUserTurn?.id || null,
+      userTurnContent: message,
+    });
+    const diagnosisResultPresent =
+      Object.keys(object(result?.business_diagnosis)).length > 0 ||
+      text(normalizedDecision.intent) === "business_diagnosis";
+    if (diagnosisResultPresent && !object(diagnosisPersistenceEvidence).business_diagnosis) {
+      const persistenceError = businessDiagnosisProofIntegrityError("PERSISTENCE_PROOF_REJECTED");
+      await persistGovernedDiagnosisFailureTurn({
+        error: persistenceError,
+        organizationId: businessContext.organizationId,
+        conversationId: memory.conversation.id,
+        partyId,
+        source,
+        agreementState: nextAgreementState,
+        projectState: nextProjectState,
+        pairedUserTurnId: persistedUserTurn?.id || null,
+      });
+      throw persistenceError;
+    }
+
     const assistantPersistStartedAt = Date.now();
     const longTermLearnStartedAt = Date.now();
     let longTermLearned = 0;
@@ -842,37 +1042,33 @@ export async function POST(request) {
       source,
       content: responseText,
       decision: persistedDecision,
-      evidence: normalizedProviderEvidence,
+      evidence: {
+        ...object(result?.provider_evidence),
+        ...diagnosisPersistenceEvidence,
+      },
       execution: object(result?.execution),
       navigation: object(result?.navigation),
       agreementState: nextAgreementState,
       projectState: nextProjectState,
     });
-    const longTermLearnPromise = learnProjectStateMemories({
-      organizationId: businessContext.organizationId,
-      partyId,
-      entityId: businessContext.entityId,
-      conversationId: memory.conversation.id,
-      previousProjectState: effectiveProjectState,
-      nextProjectState,
-    })
-      .then(async (learned) => {
-        longTermLearned = Number(learned?.learned || 0);
-        projectStateMemoryReused = Number(learned?.reused || 0);
-        projectStateMemoryRepaired = Number(learned?.repaired || 0);
-        if (longTermLearned > 0 || projectStateMemoryRepaired > 0) {
-          await consolidateOperatorMemory({
-            organizationId: businessContext.organizationId,
-            partyId,
-            entityId: businessContext.entityId,
-          }).catch((consolidationError) => {
-            console.error("OPERATOR_MEMORY_CONSOLIDATION_FAILED", consolidationError);
+    const longTermLearnPromise = diagnosisResultPresent
+      ? Promise.resolve({ learned: 0, skipped: "BUSINESS_DIAGNOSIS_NOT_MEMORY_PROMOTABLE" })
+      : learnProjectStateMemories({
+          organizationId: businessContext.organizationId,
+          partyId,
+          entityId: businessContext.entityId,
+          conversationId: memory.conversation.id,
+          previousProjectState: effectiveProjectState,
+          nextProjectState,
+        })
+          .then((learned) => {
+            longTermLearned = Number(learned?.learned || 0);
+            return learned;
+          })
+          .catch((memoryError) => {
+            console.error("OPERATOR_LONG_TERM_MEMORY_LEARN_FAILED", memoryError);
+            return { learned: 0, failed: true };
           });
-        }
-      })
-      .catch((memoryError) => {
-        console.error("OPERATOR_LONG_TERM_MEMORY_LEARN_FAILED", memoryError);
-      });
 
     const [persisted] = await Promise.all([
       assistantPersistPromise,
@@ -938,8 +1134,15 @@ export async function POST(request) {
     );
 
 
-    const response = Response.json({
+    const clientNormalizedResult = {
       ...normalizedResult,
+      ...(normalizedResult?.business_diagnosis
+        ? { business_diagnosis: redactBusinessDiagnosisProofForClient(normalizedResult.business_diagnosis) }
+        : {}),
+    };
+
+    const response = Response.json({
+      ...clientNormalizedResult,
       agreement_state: object(persistedState.agreement_state),
       project_state: object(persistedState.project_state),
       project_continuity: {
@@ -988,7 +1191,15 @@ export async function POST(request) {
 
     return response;
   } catch (error) {
+    if (error?.code === "BUSINESS_DIAGNOSIS_NOT_READY") {
+      console.error("BUSINESS_DIAGNOSIS_READINESS_BLOCKED", businessDiagnosisReadinessInternalDiagnostic(error));
+      return errorResponse("Business diagnosis is not ready", 503, error.details || { code: "BUSINESS_DIAGNOSIS_NOT_READY", authority_effect: "NONE" });
+    }
+
     console.error("OPERATOR_TURN_ERROR", error);
+    if (error?.code === BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE) {
+      return errorResponse("Business diagnosis proof verification failed", 500, error.details || { code: BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE, authority_effect: "NONE" });
+    }
 
     const status = Number.isInteger(error?.status) ? error.status : 500;
     const isClientError = status >= 400 && status < 500;

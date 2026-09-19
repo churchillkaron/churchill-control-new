@@ -104,10 +104,6 @@
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/marketing/process-queue",
-      "schedule": "*/5 * * * *"
-    },
-    {
       "path": "/api/marketing/retry-generation-jobs",
       "schedule": "*/3 * * * *"
     },
@@ -150,10 +146,6 @@
     {
       "path": "/api/internal/commercial/communications/email-inbox-sync",
       "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/internal/commercial/communications/email-subscriptions",
-      "schedule": "17 2 * * *"
     },
     {
       "path": "/api/internal/commerce/shopify/project-events",
@@ -233,7 +225,7 @@
     },
     {
       "path": "/api/internal/intelligence/continuous-learning/process",
-      "schedule": "17 * * * *"
+      "schedule": "0 19 * * *"
     },
     {
       "path": "/api/internal/intelligence/model-improvement/readiness/process",

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowUpRight, Download, FileSpreadsheet, FileText, Folder, ImageIcon, Music2, Video } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, Download, FileSpreadsheet, FileText, Folder, ImageIcon, Music2, Video } from "lucide-react";
 
 const URL_KEYS = new Set([
   "url", "href", "file_url", "signed_url", "inspection_url", "asset_url",
@@ -15,6 +15,23 @@ const URL_KEYS = new Set([
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function periodDateParts(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text(value));
+  if (!match) return null;
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return null;
+  return { year: match[1], month, day: match[3] };
+}
+function periodDisplayLabel(startDate, endDate, fallbackId) {
+  const start = periodDateParts(startDate);
+  const end = periodDateParts(endDate);
+  if (!start) return text(fallbackId) || "—";
+  if (!end || (start.year === end.year && start.month === end.month)) return `${MONTHS[start.month - 1]} ${start.year}`;
+  if (start.year === end.year) return `${MONTHS[start.month - 1]}–${MONTHS[end.month - 1]} ${start.year}`;
+  return `${MONTHS[start.month - 1]} ${start.year}–${MONTHS[end.month - 1]} ${end.year}`;
 }
 
 function safeArtifactUrl(value, organizationId) {
@@ -191,9 +208,125 @@ function ArtifactPreview({ artifact }) {
   return null;
 }
 
+
+const DIAGNOSIS_STATE_LABELS = Object.freeze({
+  TARGET_METRIC_EVIDENCE_GAP: "Not enough verified data yet",
+  INTERNAL_COVERAGE_INCOMPLETE_WITH_SUPPORTED_EXTERNAL: "Partly explained with external support",
+  INTERNAL_COVERAGE_INCOMPLETE: "Partly explained from internal data",
+  INTERNAL_AND_SUPPORTED_EXTERNAL: "Explained with internal and external evidence",
+  INTERNAL_WITH_UNRESOLVED_EXTERNAL_RESIDUAL: "Internal drivers found; some change remains unexplained",
+  INTERNAL_SUFFICIENT: "Explained from internal business data",
+  VERIFIED_EVIDENCE: "Verified business evidence",
+});
+const DIAGNOSIS_CLASS_LABELS = Object.freeze({
+  CAUSAL_DIAGNOSIS: "Why performance changed",
+  PERIOD_COMPARISON: "Period comparison",
+  EVIDENCE_FIRST_RECOMMENDATION: "Recommendation based on verified evidence",
+  CHANGE_DIAGNOSIS: "Business performance change",
+  DIRECT_GOVERNED_DIAGNOSIS: "Governed business analysis",
+});
+const ANSWER_BOUNDARY_LABELS = Object.freeze({
+  PASS: "Answer matched the verified evidence",
+  APPENDED_REQUIRED_UNCERTAINTY: "Uncertainty was added where evidence is incomplete",
+  REPLACED_OVERCLAIM: "An unsupported causal claim was removed",
+  REPLACED_UNSUPPORTED_RECOMMENDATION_OUTCOME: "An unsupported outcome promise was removed",
+});
+function diagnosisPresentationLabel(map, value, fallback) {
+  const key = text(value);
+  return map[key] || fallback || key.replaceAll("_", " ");
+}
+
+
+function persistedProofLabel({ auditVerified = false, auditStatus = "" } = {}) {
+  if (auditVerified && auditStatus === "VERIFIED") return "Verified live or after reload";
+  if (auditVerified && auditStatus === "VERIFIED_LEGACY") return "Verified legacy proof";
+  if (auditStatus === "MISMATCH") return "Integrity mismatch";
+  if (auditStatus === "ANSWER_MISMATCH") return "Answer integrity mismatch";
+  if (auditStatus === "UNSUPPORTED_VERSION") return "Unsupported proof version";
+  if (auditStatus === "UNSUPPORTED_RECEIPT_VERSION") return "Unsupported receipt version";
+  if (auditStatus === "RECEIPT_CONTRACT_MISSING") return "Receipt contract missing";
+  if (auditStatus === "RECEIPT_PROJECTION_VERSION_MISMATCH") return "Receipt/proof version mismatch";
+  if (auditStatus === "AUTHENTICITY_MISMATCH") return "Proof authenticity mismatch";
+  if (auditStatus === "AUTHENTICITY_KEY_UNKNOWN") return "Proof signing key unavailable";
+  if (auditStatus === "AUTHENTICITY_FORMAT_INVALID") return "Proof authenticity format invalid";
+  if (auditStatus === "AUTHENTICITY_KEYRING_UNAVAILABLE") return "Proof authenticity cannot be checked";
+  if (auditStatus === "NOT_AVAILABLE") return "Legacy proof · checksum unavailable";
+  return "Live proof";
+}
+
+
+function diagnosisProofHeading({ auditVerified = false, auditStatus = "" } = {}) {
+  if (auditVerified && (auditStatus === "VERIFIED" || auditStatus === "VERIFIED_LEGACY")) return "Verified diagnosis";
+  return "Diagnosis proof";
+}
+
+function DiagnosisProof({ evidence = {} }) {
+  const diagnosis = evidence?.business_diagnosis;
+  if (!diagnosis?.receipt_fingerprint) return null;
+  const fingerprint = text(diagnosis.receipt_fingerprint);
+  const state = text(diagnosis.final_evidence_state) || "VERIFIED_EVIDENCE";
+  const boundary = text(diagnosis.answer_boundary_status) || "PASS";
+  const diagnosisClass = text(diagnosis.class);
+  const receiptContract = text(diagnosis.receipt_contract);
+  const auditProjectionContract = text(diagnosis.audit_projection_contract);
+  const businessTimezone = text(diagnosis.business_timezone);
+  const periods = diagnosis.periods || {};
+  const auditVerified = diagnosis.audit_projection_verified === true;
+  const auditStatus = text(diagnosis.audit_projection_verification_status);
+  const receiptIntegrityStatus = text(diagnosis.receipt_contract_verification_status);
+  const answerIntegrityStatus = text(diagnosis.answer_content_verification_status);
+  const authenticityStatus = text(diagnosis.authenticity_status);
+  const baselinePeriodLabel = periodDisplayLabel(periods.baseline_start_date, periods.baseline_end_date, periods.baseline_period_id);
+  const currentPeriodLabel = periodDisplayLabel(periods.current_start_date, periods.current_end_date, periods.current_period_id);
+  const stateLabel = diagnosisPresentationLabel(DIAGNOSIS_STATE_LABELS, state, "Verified business evidence");
+  const classLabel = diagnosisPresentationLabel(DIAGNOSIS_CLASS_LABELS, diagnosisClass, "Governed business diagnosis");
+  const boundaryLabel = diagnosisPresentationLabel(ANSWER_BOUNDARY_LABELS, boundary, "Answer checked against evidence");
+  const validatedExternalCount = Number.isFinite(Number(diagnosis.validated_external_context_count)) ? Number(diagnosis.validated_external_context_count) : 0;
+  const unresolvedExternalCount = Number.isFinite(Number(diagnosis.unresolved_external_context_count)) ? Number(diagnosis.unresolved_external_context_count) : 0;
+  const persistedProofStatus = persistedProofLabel({ auditVerified, auditStatus });
+  const proofHeading = diagnosisProofHeading({ auditVerified, auditStatus });
+  const proofTrusted = auditVerified && (auditStatus === "VERIFIED" || auditStatus === "VERIFIED_LEGACY");
+  const summaryLabel = proofTrusted ? stateLabel : persistedProofStatus;
+  return (
+    <details data-avantiqo-business-diagnosis-proof="true" className="mt-3 overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] text-white/70">
+        <span className="flex items-center gap-2 font-medium text-[#E5C28D]"><BadgeCheck size={13} />{proofHeading}</span>
+        <span className="text-[9px] text-white/35">{summaryLabel}</span>
+      </summary>
+      {!proofTrusted ? (
+        <div className="grid gap-2 border-t border-white/[0.06] px-3 py-3 text-[9px] text-white/50 sm:grid-cols-2">
+          <div><span className="text-white/30">Proof status</span><div className="mt-0.5 text-white/65">{persistedProofStatus}</div></div>
+          <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
+          <div className="sm:col-span-2 text-[8px] text-white/35">This proof is not verified. Diagnosis details are hidden and should not be relied on until verification succeeds.</div>
+          <div className="sm:col-span-2 text-[8px] text-white/30">Analysis only · no action was executed · raw reasoning is not stored.</div>
+        </div>
+      ) : (
+      <div className="grid gap-2 border-t border-white/[0.06] px-3 py-3 text-[9px] text-white/50 sm:grid-cols-2">
+        <div><span className="text-white/30">Evidence state</span><div className="mt-0.5 text-white/65">{stateLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{state}</div></div>
+        <div><span className="text-white/30">Request type</span><div className="mt-0.5 text-white/65">{classLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{diagnosisClass || "—"}</div></div>
+        <div><span className="text-white/30">Answer boundary</span><div className="mt-0.5 text-white/65">{boundaryLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{boundary}</div></div>
+        <div><span className="text-white/30">Compared periods</span><div className="mt-0.5 text-white/65">{baselinePeriodLabel} → {currentPeriodLabel}</div></div>
+        <div><span className="text-white/30">Business timezone</span><div className="mt-0.5 text-white/65">{businessTimezone || "UTC"}</div></div>
+        <div><span className="text-white/30">Unexplained residual</span><div className="mt-0.5 text-white/65">{diagnosis.residual_material === true ? "Some of the change remains unexplained" : "No material unexplained change flagged"}</div></div>
+        <div><span className="text-white/30">External evidence</span><div className="mt-0.5 text-white/65">{validatedExternalCount ? `${validatedExternalCount} validated` : "No validated external evidence"}{unresolvedExternalCount ? ` · ${unresolvedExternalCount} unresolved` : ""}</div></div>
+        <div className="sm:col-span-2"><span className="text-white/30">Period IDs</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/40">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>
+        <div><span className="text-white/30">Persisted proof</span><div className="mt-0.5 text-white/65">{persistedProofStatus}</div></div>
+        <div><span className="text-white/30">Proof format</span><div className="mt-0.5 text-white/65">{receiptContract || "Legacy receipt"} · {auditProjectionContract || "Legacy projection"}</div></div>
+        <div><span className="text-white/30">Receipt integrity</span><div className="mt-0.5 text-white/65">{receiptIntegrityStatus === "VERIFIED" ? "Verified" : receiptIntegrityStatus === "VERIFIED_LEGACY" ? "Verified legacy receipt" : receiptIntegrityStatus || "Not verified"}</div></div>
+        <div><span className="text-white/30">Proof authenticity</span><div className="mt-0.5 text-white/65">{authenticityStatus === "AUTHENTICATED" ? "Authenticated" : authenticityStatus === "AUTHENTICITY_NOT_AVAILABLE" ? "Unsigned · server keyring unavailable" : authenticityStatus || "Unsigned"}</div></div>
+        <div><span className="text-white/30">Answer integrity</span><div className="mt-0.5 text-white/65">{answerIntegrityStatus === "VERIFIED" ? "Verified" : auditStatus === "VERIFIED_LEGACY" && answerIntegrityStatus === "VERIFIED" ? "Verified" : auditStatus === "VERIFIED_LEGACY" ? "Legacy proof · answer text was not signed" : "Not verified"}</div></div>
+        <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
+        <div className="sm:col-span-2 text-[8px] text-white/30">Analysis only · no action was executed · raw reasoning is not stored.</div>
+      </div>
+      )}
+    </details>
+  );
+}
+
 export default function OperatorExecutionArtifacts({ execution = {}, evidence = {}, organizationId = null }) {
   const artifacts = operatorExecutionArtifacts({ execution, evidence, organizationId });
-  if (!artifacts.length) return null;
+  const diagnosisProof = <DiagnosisProof evidence={evidence} />;
+  if (!artifacts.length) return diagnosisProof;
 
   const folders = artifacts.reduce((map, artifact) => {
     if (!map.has(artifact.folder)) map.set(artifact.folder, []);
@@ -202,7 +335,9 @@ export default function OperatorExecutionArtifacts({ execution = {}, evidence = 
   }, new Map());
 
   return (
-    <div data-avantiqo-execution-artifacts="true" data-avantiqo-universal-preview="true" className="mt-3 space-y-2">
+    <>
+      {diagnosisProof}
+      <div data-avantiqo-execution-artifacts="true" data-avantiqo-universal-preview="true" className="mt-3 space-y-2">
       {[...folders.entries()].map(([folder, folderItems]) => (
         <details key={folder} open className="overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[11px] font-medium text-[#E5C28D]">
@@ -228,6 +363,7 @@ export default function OperatorExecutionArtifacts({ execution = {}, evidence = 
           </div>
         </details>
       ))}
-    </div>
+      </div>
+    </>
   );
 }

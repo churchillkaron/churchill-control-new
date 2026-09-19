@@ -23,6 +23,30 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+const BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE = "BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_FAILURE";
+const BUSINESS_DIAGNOSIS_NOT_READY_CODE = "BUSINESS_DIAGNOSIS_NOT_READY";
+
+function operatorRequestError(result = {}, fallback = "Avantiqo could not complete the request") {
+  const error = new Error(text(result?.error) || fallback);
+  error.code = text(result?.details?.code);
+  error.stage = text(result?.details?.stage);
+  error.authorityEffect = text(result?.details?.authority_effect);
+  error.readinessStatus = text(result?.details?.readiness_status);
+  error.blockerCount = Number.isFinite(Number(result?.details?.blocker_count)) ? Number(result.details.blocker_count) : 0;
+  error.retryable = result?.details?.retryable === true;
+  return error;
+}
+
+function operatorRequestErrorMessage(error) {
+  if (text(error?.code) === BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE) {
+    return "I stopped this diagnosis because its proof could not be verified. No action was executed. Please retry the diagnosis.";
+  }
+  if (text(error?.code) === BUSINESS_DIAGNOSIS_NOT_READY_CODE) {
+    return "I did not start this diagnosis because required proof authenticity is not ready. No analysis or action was executed.";
+  }
+  return error?.message || "Avantiqo failed";
+}
+
 async function fetchWithTimeout(
   url,
   options,
@@ -529,21 +553,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         result = await response.json().catch(() => ({}));
       }
       if (!response.ok || result?.success === false) {
-        const conversationalFailure = text(
-          result?.details?.conversation_response || result?.conversation_response,
-        );
-        if (conversationalFailure) {
-          setError("");
-          setMessages((current) => [
-            ...current,
-            createMessage("assistant", conversationalFailure, {
-              recovery: result?.details || {},
-            }),
-          ]);
-          if (source === "voice") speakResponse(conversationalFailure);
-          return;
-        }
-        throw new Error(result?.error || "Avantiqo could not complete the request");
+        throw operatorRequestError(result);
       }
 
       const decision = result?.decision || {};
@@ -569,7 +579,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
             : [],
           clarification: decision?.clarification || null,
           execution: result?.execution || {},
-          evidence: result?.provider_evidence || {},
+          evidence: { ...(result?.provider_evidence || {}), ...(result?.business_diagnosis ? { business_diagnosis: result.business_diagnosis } : {}) },
           navigation: result?.navigation || {},
           governance: operatorExecutionStatePresentation(result),
         }),
@@ -583,8 +593,9 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         router.push(result.navigation.href);
       }
     } catch (requestError) {
-      const messageText = requestError?.message || "Avantiqo failed";
-      const responseText = `I couldn't complete that: ${messageText}`;
+      const messageText = operatorRequestErrorMessage(requestError);
+      const governedDiagnosisFailure = [BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_ERROR_CODE, BUSINESS_DIAGNOSIS_NOT_READY_CODE].includes(text(requestError?.code));
+      const responseText = governedDiagnosisFailure ? messageText : `I couldn't complete that: ${messageText}`;
       setError(messageText);
       setMessages((current) => [
         ...current,

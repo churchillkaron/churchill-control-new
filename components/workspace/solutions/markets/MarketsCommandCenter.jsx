@@ -1,7 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Activity, AlertTriangle, BrainCircuit, LoaderCircle, Plus, RefreshCw, ShieldCheck, TrendingUp } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  Bell,
+  BookOpen,
+  BrainCircuit,
+  ChevronDown,
+  Database,
+  Lightbulb,
+  LoaderCircle,
+  Plus,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
@@ -214,6 +231,18 @@ export default function MarketsCommandCenter({ organizationId }) {
   const backtestRuns = Array.isArray(data?.backtestRuns) ? data.backtestRuns : [];
   const agentPerformance = Array.isArray(data?.agentPerformance) ? data.agentPerformance : [];
   const portfolioPerformance = data?.portfolioPerformance?.summary || {};
+  const equitySnapshots = Array.isArray(data?.portfolioPerformance?.snapshots)
+    ? data.portfolioPerformance.snapshots
+    : [];
+  const equityChartRows = equitySnapshots.slice(-20);
+  const equityChartValues = equityChartRows
+    .map((row) => Number(row.equity))
+    .filter(Number.isFinite);
+  const equityChartMin = equityChartValues.length ? Math.min(...equityChartValues) : null;
+  const equityChartMax = equityChartValues.length ? Math.max(...equityChartValues) : null;
+  const equityChartRange = equityChartMin != null && equityChartMax != null
+    ? Math.max(1, equityChartMax - equityChartMin)
+    : 1;
   const executionQuality = data?.executionQuality || {};
   const corporateActions = Array.isArray(data?.corporateActions) ? data.corporateActions : [];
   const corporateActionAdjustments = Array.isArray(data?.corporateActionAdjustments)
@@ -265,6 +294,17 @@ export default function MarketsCommandCenter({ organizationId }) {
     .find((row) => row && row.status) || null;
   const baseCurrency = portfolio?.base_currency || paperAccount?.base_currency || "USD";
   const canExecutePaper = data?.execution?.can_execute_paper === true;
+  const openPositions = paperPositions.filter((row) => Number(row.quantity || 0) > 0);
+  const portfolioReturnPct = portfolioPerformance.total_return == null
+    ? null
+    : Number(portfolioPerformance.total_return) * 100;
+  const openRiskEvents = riskEvents.filter((row) => row.status === "OPEN").length;
+  const liveEvidenceCount = [
+    feedStatus?.connection_state === "CONNECTED",
+    evidence.length > 0,
+    filings.length > 0,
+    snapshots.length > 0,
+  ].filter(Boolean).length;
 
   const latestBySymbol = new Map();
   for (const row of decisions) {
@@ -318,37 +358,71 @@ export default function MarketsCommandCenter({ organizationId }) {
   return (
     <main className="min-h-screen bg-[#F7F6F3] p-4 text-[#191919] md:p-6 lg:p-8">
       <div className="mx-auto max-w-[1760px] space-y-5">
-        <section className="rounded-[26px] border border-black/[0.075] bg-white p-6 shadow-[0_12px_38px_rgba(31,27,20,0.045)]">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-            <div>
-              <div className="text-[10px] font-medium uppercase tracking-[0.28em] text-[#A37849]">Avantiqo Markets · Paper Lab</div>
-              <h1 className="mt-2 text-[32px] font-semibold tracking-[-0.045em]">Autonomous market intelligence, governed execution.</h1>
-              <p className="mt-2 max-w-4xl text-[12px] leading-5 text-[#706B64]">
-                Research, specialist theses, probabilistic decisions and deterministic risk control. Live broker execution is disabled in v1.
-              </p>
+        <section className="overflow-hidden rounded-[28px] border border-[#CDAA78]/25 bg-[#FFFDF9] shadow-[0_26px_80px_rgba(73,55,35,0.10)]">
+          <div className="flex min-h-16 items-center gap-3 border-b border-black/[0.055] px-5 py-3 md:px-6">
+            <div className="hidden min-w-[150px] items-center gap-2 lg:flex">
+              <div className="h-8 w-8 rounded-full border border-[#B98B54]/30 bg-[radial-gradient(circle_at_30%_30%,#fff_0%,#f8efe2_65%,#ead7bc_100%)] shadow-inner" />
+              <span className="text-[11px] font-semibold tracking-[0.34em] text-[#8A6239]">AVANTIQO</span>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="rounded-xl border border-black/[0.07] bg-[#FCFBF9] px-3 py-2">
-                <div className="text-[8px] uppercase tracking-[0.14em] text-[#968F86]">Live feed</div>
-                <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-medium text-[#4E4A44]">
-                  <span className={`h-1.5 w-1.5 rounded-full ${
+
+            <form onSubmit={addWatchlist} className="relative min-w-0 flex-1">
+              <Search size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9B9288]" />
+              <input
+                value={symbol}
+                onChange={(event) => setSymbol(event.target.value)}
+                placeholder="Search markets, companies, themes…"
+                className="h-10 w-full rounded-xl border border-black/[0.07] bg-white/70 pl-10 pr-4 text-[11px] uppercase text-[#2D2925] outline-none backdrop-blur placeholder:normal-case placeholder:text-[#A49C92] focus:border-[#B98B54]/40"
+              />
+            </form>
+
+            <div className="hidden items-center gap-2 sm:flex">
+              <div className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#B98B54]/25 bg-[#FBF5EA] px-3 text-[10px] font-semibold text-[#6F4D2B]">
+                <TrendingUp size={13} />
+                Paper Trading Mode
+                <ChevronDown size={12} className="opacity-65" />
+              </div>
+              <button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-black/[0.06] bg-white/80 text-[#665F57]" aria-label="Market alerts">
+                <Bell size={14} />
+              </button>
+              <button type="button" onClick={load} disabled={loading} className="grid h-10 w-10 place-items-center rounded-xl border border-black/[0.06] bg-white/80 text-[#665F57] disabled:opacity-40" aria-label="Refresh Markets">
+                <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+              </button>
+            </div>
+          </div>
+
+          <div className="px-5 py-5 md:px-6 md:py-6">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.22em] text-[#A37849]">
+                  <span>Markets</span>
+                  <span className="h-1 w-1 rounded-full bg-[#D8C0A0]" />
+                  <span>Governed paper execution</span>
+                </div>
+                <h1 className="mt-2 text-[34px] font-semibold tracking-[-0.05em] text-[#1F1C19] md:text-[40px]">Markets</h1>
+                <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[#746C63]">
+                  Research, test and operate market decisions with live evidence, deterministic risk controls and auditable paper execution.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-start gap-2 xl:items-end">
+                <div className="flex flex-wrap items-center gap-2 text-[9px] text-[#766E65]">
+                  <span>Live market data</span>
+                  <span className="text-[#C3B8AA]">•</span>
+                  <span>Governed execution</span>
+                  <span className="text-[#C3B8AA]">•</span>
+                  <span>Learn & improve</span>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/80 px-3 py-1.5 text-[9px] font-medium text-[#5E5850]">
+                  <span className={`h-2 w-2 rounded-full ${
                     feedStatus?.connection_state === "CONNECTED"
                       ? "bg-emerald-500"
                       : feedStatus?.connection_state === "DEGRADED" || feedStatus?.connection_state === "CONNECTING"
                         ? "bg-amber-500"
-                        : "bg-[#A09A91]"
+                        : "bg-[#B7B0A7]"
                   }`} />
-                  {feedStatus?.connection_state || "NOT STARTED"}
-                </div>
-                <div className="mt-0.5 text-[8px] text-[#9A968E]">
-                  {feedStatus?.last_message_at
-                    ? `Last message ${new Date(feedStatus.last_message_at).toLocaleTimeString()}`
-                    : "No streaming message yet"}
+                  {feedStatus?.connection_state === "CONNECTED" ? "All market systems active" : feedStatus?.connection_state || "Market feed not started"}
                 </div>
               </div>
-              <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-4 text-[11px] font-medium text-white disabled:opacity-40">
-                <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
-              </button>
             </div>
           </div>
         </section>
@@ -373,20 +447,207 @@ export default function MarketsCommandCenter({ organizationId }) {
         ) : (
           <>
 
-            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              {[
-                ["Portfolio", portfolio.name, portfolio.execution_mode],
-                ["Watchlist", watchlist.length, "Tracked instruments"],
-                ["Evidence", evidence.length, "Recent evidence events"],
-                ["Decisions", decisions.length, "Governed decisions"],
-                ["Paper orders", orders.length, "Simulation only"],
-              ].map(([label, value, detail]) => (
-                <div key={label} className="rounded-2xl border border-black/[0.075] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
-                  <div className="text-[9px] font-medium uppercase tracking-[0.16em] text-[#817D76]">{label}</div>
-                  <div className="mt-3 truncate text-xl font-semibold">{value}</div>
-                  <div className="mt-1 text-[10px] text-[#8A867F]">{detail}</div>
+            <section className="overflow-hidden rounded-[26px] border border-[#CDAA78]/20 bg-[#FFFDF9] shadow-[0_18px_55px_rgba(73,55,35,0.07)]">
+              <div className="grid border-b border-black/[0.055] sm:grid-cols-2 xl:grid-cols-4">
+                {watchlist.slice(0, 4).map((item, index) => {
+                  const snapshot = latestSnapshotBySymbol.get(item.symbol);
+                  const decision = latestBySymbol.get(item.symbol);
+                  return (
+                    <div
+                      key={item.id}
+                      className={index > 0 ? "border-t border-black/[0.05] px-4 py-3.5 sm:border-l sm:border-t-0" : "px-4 py-3.5"}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-[9px] font-semibold tracking-[0.05em] text-[#554E46]">{item.symbol}</div>
+                          <div className="mt-1 text-[15px] font-semibold tracking-[-0.02em] text-[#25211E]">
+                            {snapshot?.latest_trade_price ? money(snapshot.latest_trade_price, baseCurrency) : "—"}
+                          </div>
+                        </div>
+                        <div className={
+                          decision?.action === "BUY"
+                            ? "rounded-full bg-emerald-50 px-2 py-1 text-[8px] font-semibold text-emerald-700"
+                            : decision?.action === "SELL"
+                              ? "rounded-full bg-red-50 px-2 py-1 text-[8px] font-semibold text-red-700"
+                              : "rounded-full bg-[#F2EEE8] px-2 py-1 text-[8px] font-semibold text-[#766E65]"
+                        }>
+                          {decision?.action || "WATCH"}
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-[8px] text-[#938B81]">
+                        <span>{item.asset_type || "EQUITY"}</span>
+                        <span>{decision ? (Number(decision.confidence || 0) * 100).toFixed(0) + "% confidence" : "Awaiting decision"}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {!watchlist.length ? (
+                  <div className="col-span-full px-5 py-4 text-[10px] text-[#8F877E]">
+                    Add a symbol above to populate the live market strip.
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="grid gap-3 p-3 lg:grid-cols-[1.04fr_1.24fr_0.72fr]">
+                <div className="rounded-[22px] border border-black/[0.06] bg-white p-5 shadow-[0_10px_28px_rgba(67,50,31,0.045)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[9px] font-medium uppercase tracking-[0.16em] text-[#9A7449]">Portfolio · Paper Trading</div>
+                      <div className="mt-1 text-[10px] text-[#9A938A]">{portfolio.name}</div>
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-700/10 bg-emerald-50 px-2.5 py-1 text-[8px] font-semibold text-emerald-700">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      {paperAccount?.status || "ACTIVE"}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex items-end justify-between gap-4">
+                    <div>
+                      <div className="text-[30px] font-semibold tracking-[-0.055em] text-[#1E1B18]">
+                        {paperAccount ? money(paperAccount.equity, baseCurrency) : "—"}
+                      </div>
+                      <div className="mt-1 text-[9px] text-[#918A81]">Current portfolio equity</div>
+                    </div>
+                    <div className={
+                      portfolioReturnPct == null
+                        ? "text-right text-[#8C857C]"
+                        : portfolioReturnPct >= 0
+                          ? "text-right text-emerald-700"
+                          : "text-right text-red-700"
+                    }>
+                      <div className="text-[19px] font-semibold">
+                        {portfolioReturnPct == null ? "—" : (portfolioReturnPct >= 0 ? "+" : "") + portfolioReturnPct.toFixed(2) + "%"}
+                      </div>
+                      <div className="mt-1 text-[8px] text-[#9A938A]">Total return</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 h-24 overflow-hidden rounded-2xl border border-[#CDAA78]/15 bg-[linear-gradient(180deg,#FFFBF5_0%,#FBF7F0_100%)] px-4 py-3">
+                    {equityChartRows.length ? (
+                      <div className="flex h-full items-end gap-1">
+                        {equityChartRows.map((row) => {
+                          const equity = Number(row.equity);
+                          const normalized = Number.isFinite(equity) && equityChartMin != null
+                            ? 18 + (((equity - equityChartMin) / equityChartRange) * 76)
+                            : 18;
+                          return (
+                            <div
+                              key={row.id}
+                              title={money(equity, baseCurrency)}
+                              className="flex-1 rounded-t-full bg-[#B98B54]/24"
+                              style={{ height: normalized + "%" }}
+                            />
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-[9px] text-[#9D958C]">
+                        Equity history will appear after the first recorded portfolio snapshots.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-4 gap-2">
+                    {[
+                      ["Cash", paperAccount ? money(paperAccount.cash_balance, baseCurrency) : "—"],
+                      ["Positions", openPositions.length],
+                      ["Orders", orders.filter((row) => ["QUEUED", "PARTIALLY_FILLED"].includes(row.status)).length],
+                      ["Breaches", openRiskEvents],
+                    ].map(([label, value]) => (
+                      <div key={label}>
+                        <div className="text-[8px] text-[#9A938A]">{label}</div>
+                        <div className="mt-1 truncate text-[11px] font-semibold text-[#443E37]">{value}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
+
+                <div className="grid gap-3">
+                  {[
+                    ["01", "Research", "Find opportunities with live market data, filings and specialist evidence.", BrainCircuit, evidence.length + " evidence events · " + watchlist.length + " tracked"],
+                    ["02", "Decide", "Turn evidence into explicit, confidence-scored investment decisions.", Lightbulb, decisions.length + " governed decisions"],
+                    ["03", "Risk", "Apply portfolio limits, market freshness, liquidity and execution controls.", ShieldCheck, openRiskEvents ? openRiskEvents + " open risk event" + (openRiskEvents === 1 ? "" : "s") : "Within current controls"],
+                    ["04", "Learn", "Measure outcomes, strategy health and walk-forward performance.", BookOpen, outcomes.length + " measured outcomes"],
+                  ].map(([step, label, description, Icon, detail]) => (
+                    <div key={step} className="group rounded-[18px] border border-black/[0.055] bg-white px-4 py-3.5 transition hover:border-[#B98B54]/25 hover:shadow-[0_8px_24px_rgba(83,59,32,0.05)]">
+                      <div className="grid grid-cols-[38px_1fr_auto] items-center gap-3">
+                        <div className="grid h-9 w-9 place-items-center rounded-xl border border-[#CDAA78]/25 bg-[#FBF5EA] text-[#8A6239]">
+                          <Icon size={15} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-semibold text-[#B08352]">{step}</span>
+                            <span className="text-[13px] font-semibold text-[#2B2723]">{label}</span>
+                          </div>
+                          <div className="mt-0.5 text-[9px] leading-4 text-[#817A72]">{description}</div>
+                          <div className="mt-1.5 text-[8px] font-medium text-[#A1784A]">{detail}</div>
+                        </div>
+                        <div className="grid h-8 w-8 place-items-center rounded-full bg-[#F5F0E9] text-[#7B6D5D] transition group-hover:bg-[#EEE3D4] group-hover:text-[#8A6239]">
+                          <ArrowRight size={13} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid gap-3">
+                  <div className="rounded-[20px] border border-black/[0.055] bg-white p-4">
+                    <div className="flex items-center gap-2">
+                      <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#FBF5EA] text-[#8A6239]">
+                        <Sparkles size={14} />
+                      </div>
+                      <div>
+                        <div className="text-[11px] font-semibold text-[#332E29]">Market Intelligence</div>
+                        <div className="text-[8px] text-[#999188]">Latest governed context</div>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      {decisions.slice(0, 3).map((decision) => (
+                        <div key={decision.id} className="rounded-xl border border-black/[0.05] bg-[#FCFAF7] px-3 py-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[9px] font-semibold text-[#413B35]">{decision.symbol}</span>
+                            <span className="text-[8px] font-semibold text-[#9A7449]">{decision.action}</span>
+                          </div>
+                          <div className="mt-1 truncate text-[8px] text-[#8B837B]">
+                            {(Number(decision.confidence || 0) * 100).toFixed(0)}% confidence · {decision.risk_status}
+                          </div>
+                        </div>
+                      ))}
+                      {!decisions.length ? (
+                        <div className="rounded-xl border border-dashed border-black/[0.08] px-3 py-5 text-center text-[9px] text-[#938B82]">
+                          No governed decisions yet.
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[20px] border border-black/[0.055] bg-white p-4">
+                    <div className="flex items-center gap-2 text-[#8A6239]">
+                      <Database size={14} />
+                      <span className="text-[10px] font-semibold">Live Market Evidence</span>
+                    </div>
+                    <div className="mt-3 space-y-2 text-[9px]">
+                      {[
+                        ["Market feed", feedStatus?.connection_state === "CONNECTED"],
+                        ["Research evidence", evidence.length > 0],
+                        ["Company filings", filings.length > 0],
+                        ["Market snapshots", snapshots.length > 0],
+                      ].map(([label, active]) => (
+                        <div key={label} className="flex items-center justify-between">
+                          <span className="flex items-center gap-2 text-[#6E675F]">
+                            <span className={active ? "h-1.5 w-1.5 rounded-full bg-emerald-500" : "h-1.5 w-1.5 rounded-full bg-[#C8C1B8]"} />
+                            {label}
+                          </span>
+                          <span className={active ? "font-medium text-emerald-700" : "text-[#AAA39A]"}>{active ? "Live" : "Waiting"}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 rounded-xl bg-[#FBF7F1] px-3 py-2.5 text-[8px] text-[#897E72]">
+                      {liveEvidenceCount}/4 evidence channels currently active.
+                    </div>
+                  </div>
+                </div>
+              </div>
             </section>
 
             <section className="rounded-[22px] border border-black/[0.075] bg-white">

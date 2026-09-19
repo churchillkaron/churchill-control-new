@@ -201,5 +201,11 @@ export async function POST(request) {
     }
 
     return jsonError("Unsupported onboarding action", 400);
-  } catch (error) { return jsonError(error?.message || "Unable to update practice onboarding", error?.status || 500); }
+  } catch (error) {
+    const message = error?.message || "Unable to update practice onboarding";
+    const status = /ENGAGEMENT_ENTITY_IMMUTABLE|ENGAGEMENT_ENTITY_SCOPE_MISMATCH/.test(message)
+      ? 409
+      : error?.status || 500;
+    return jsonError(message, status);
+  }
 }

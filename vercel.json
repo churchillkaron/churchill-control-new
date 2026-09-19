@@ -58,6 +58,9 @@
     "app/api/internal/operator/autonomous-watch/process/route.js": {
       "maxDuration": 300
     },
+    "app/api/internal/markets/autopilot/process/route.js": {
+      "maxDuration": 300
+    },
     "app/api/internal/operator/external-waits/process/route.js": {
       "maxDuration": 300
     },
@@ -182,6 +185,10 @@
     {
       "path": "/api/internal/operator/autonomous-watch/process",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/internal/markets/autopilot/process",
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/internal/operator/repair-continuations/process",

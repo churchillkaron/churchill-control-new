@@ -52,3 +52,7 @@ backups/
 # reads them from disk rather than from the repository -- a filled-in clearance file committed here would
 # put legal document identifiers into git history permanently.
 clearances*.json
+
+# Python bytecode
+__pycache__/
+*.py[cod]

@@ -51,6 +51,33 @@ function validCreativeFloorPlan() {
         exit_trigger: "Cut only when a gesture, sound, environmental change or completed action changes what the audience understands.",
         anti_stasis_rule: "Every hold must continue evolving through performance, sound, weather, depth, focus or composition.",
       },
+      world_class_execution_design: {
+        human_consequence: "The audience sees that reducing coordination friction protects a real person's attention for the work that still requires judgment and responsibility.",
+        physical_evidence: [{
+          detail: "A damp handwritten note bends under a gloved thumb beside a vibrating metal machine housing.",
+          material_behavior: "Moisture softens the paper while machine vibration makes the unsecured edge flutter against the work surface.",
+          story_consequence: "The worker secures the note, changes a physical control and only then can the next operation begin correctly.",
+        }],
+        sound_tension: {
+          sonic_motif: "A restrained mechanical pulse enters only when separated actions begin sharing a causal rhythm.",
+          silence_strategy: "The score drops away around the decisive handoff so wind, paper and machine state carry the question.",
+          picture_locked_punctuation: "Consequential state changes are punctuated by their real acoustic events instead of generic impacts.",
+          escalation: "Sparse environmental sound gradually acquires structured rhythmic relationships as the connection becomes legible.",
+        },
+        causal_connection: {
+          opening_question: "Why do isolated work actions begin resolving with the same strange precision across distant environments?",
+          propagation_rule: "Every new consequence must be triggered by a prior observable action or state change instead of coincidence or explanatory graphics.",
+          proof_chain: ["handoff changes machine state", "machine state changes downstream timing"],
+          connection_reveal: "The audience recognizes one coordination logic linking the separate consequences before any explanatory brand statement appears.",
+        },
+        pacing: {
+          breathing_space: "Hold long enough to watch one physical action complete and its consequence register before geography changes.",
+          minimum_hero_hold_seconds: 4,
+          location_change_rule: "A new place is earned only after the current place completes a causal beat, never merely to manufacture global scale.",
+          anti_montage_rule: "Every cut must transfer a question, action, sound or consequence rather than substitute another attractive location.",
+        },
+        payoff_realization: "The final beat changes the audience from observing isolated efficiencies to understanding that one connected intelligence shaped the causal chain all along.",
+      },
     },
     story: {
       hook: "Begin with one precise human action whose consequence is larger than the person can see.",
@@ -76,7 +103,7 @@ test("creative floor passes evidence-backed human place patience and bounded tas
   assert.equal(result.passed, true, result.failures.join(","));
 });
 
-test("concept competition requires three distinct concepts five critics and human-place critique", () => {
+test("concept competition requires three distinct concepts independent critics and human-place critique", () => {
   const concepts = ["a", "b", "c"].map((id) => ({ id }));
   const critics = ["originality", "music_energy", "brand_commercial", "production", "human_place_patience"]
     .map((id) => ({ id }));

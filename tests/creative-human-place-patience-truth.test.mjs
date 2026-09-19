@@ -32,6 +32,33 @@ function groundedPlan() {
         exit_trigger: "Cut when a gesture, sound or completed action changes what the audience understands.",
         anti_stasis_rule: "Performance, sound, weather, depth, focus or composition must evolve during every held moment.",
       },
+      world_class_execution_design: {
+        human_consequence: "A small reduction in coordination friction gives a real person uninterrupted attention for the work that carries responsibility.",
+        physical_evidence: [{
+          detail: "A damp paper handoff bends around a gloved thumb beside a vibrating machine housing.",
+          material_behavior: "Moisture softens the paper while vibration makes an unsecured edge flutter against the metal surface.",
+          story_consequence: "The worker physically secures the note, changes a machine setting and only then does the next action become possible.",
+        }],
+        sound_tension: {
+          sonic_motif: "A restrained mechanical pulse appears only when separate actions begin to align causally.",
+          silence_strategy: "Remove score around the decisive handoff so wind, paper and machine state carry the audience question before the system is understood.",
+          picture_locked_punctuation: "Each consequential state change is punctuated by its real acoustic event rather than a generic cinematic impact.",
+          escalation: "Sparse environmental sound gradually gains structured rhythmic relationship as the causal connection becomes undeniable.",
+        },
+        causal_connection: {
+          opening_question: "Why do isolated physical actions in distant operating environments begin resolving with the same strange precision?",
+          propagation_rule: "Every new consequence must be triggered by a prior observable action or state change rather than coincidence or explanatory graphics.",
+          proof_chain: ["paper handoff changes machine state", "machine state changes downstream human timing"],
+          connection_reveal: "The audience recognizes that the same invisible coordination logic links the previously separate consequences before any explanatory brand statement appears.",
+        },
+        pacing: {
+          breathing_space: "Hold long enough to watch one physical action complete and its consequence register before geography or subject changes.",
+          minimum_hero_hold_seconds: 4,
+          location_change_rule: "A new place is earned only after the current place has delivered a complete causal beat, not to manufacture scale through rapid montage.",
+          anti_montage_rule: "Do not cut merely because another attractive location exists; each cut must transfer question, action, sound or consequence.",
+        },
+        payoff_realization: "The final beat changes the audience from observing isolated efficiencies to understanding that one connected intelligence has been shaping the causal chain all along.",
+      },
     },
   };
 }
@@ -79,10 +106,31 @@ test("generic soul/place/patience language fails closed", () => {
   assert.ok(conceptFailures.includes("CONCEPT_HUMAN_EVIDENCE_REQUIRED"));
   assert.ok(conceptFailures.includes("CONCEPT_PLACE_SPECIFICITY_REQUIRED"));
   assert.ok(conceptFailures.includes("CONCEPT_PATIENCE_EXIT_TRIGGER_REQUIRED"));
+  assert.ok(conceptFailures.includes("CONCEPT_PHYSICAL_EVIDENCE_REQUIRED"));
+  assert.ok(conceptFailures.includes("CONCEPT_PICTURE_LOCKED_SOUND_REQUIRED"));
+  assert.ok(conceptFailures.includes("CONCEPT_CAUSAL_PROOF_CHAIN_REQUIRED"));
+  assert.ok(conceptFailures.includes("CONCEPT_EARNED_PAYOFF_REALIZATION_REQUIRED"));
 });
 
 test("patient scene without internal evolution fails", () => {
   const scene = groundedScene();
   scene.human_place_patience.patience_design.internal_change = "cinematic";
   assert.ok(creativeSceneHumanPlacePatienceFailures(scene).includes("SCENE_PATIENCE_INTERNAL_CHANGE_REQUIRED"));
+});
+
+test("beautiful technology montage fails without causal film language", () => {
+  const plan = groundedPlan();
+  plan.concept.world_class_execution_design = {
+    human_consequence: "Technology makes the world more efficient in a premium and cinematic way.",
+    physical_evidence: [],
+    sound_tension: { sonic_motif: "cinematic", silence_strategy: "beautiful", picture_locked_punctuation: "premium", escalation: "emotional" },
+    causal_connection: { opening_question: "something happens", propagation_rule: "things synchronize", proof_chain: [], connection_reveal: "the logo appears" },
+    pacing: { breathing_space: "cinematic", minimum_hero_hold_seconds: 2, location_change_rule: "fast global montage", anti_montage_rule: "premium" },
+    payoff_realization: "A beautiful raindrop reflects the logo.",
+  };
+  const failures = creativeConceptHumanPlacePatienceFailures(plan);
+  assert.ok(failures.includes("CONCEPT_PHYSICAL_EVIDENCE_REQUIRED"));
+  assert.ok(failures.includes("CONCEPT_MINIMUM_HERO_HOLD_REQUIRED"));
+  assert.ok(failures.includes("CONCEPT_CAUSAL_PROOF_CHAIN_REQUIRED"));
+  assert.ok(failures.includes("CONCEPT_PICTURE_LOCKED_SOUND_REQUIRED"));
 });

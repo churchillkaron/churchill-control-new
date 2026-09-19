@@ -1141,6 +1141,24 @@ export async function POST(request) {
         newsLimit: Number(body.news_limit || 20),
       });
 
+      const watchlistItem = state.watchlist.find(
+        (row) => clean(row.symbol).toUpperCase() === symbol,
+      ) || null;
+      if (watchlistItem) {
+        const { error: watchlistMetadataError } = await supabaseAdmin
+          .from("market_watchlist")
+          .update({
+            metadata: {
+              ...(watchlistItem.metadata || {}),
+              news_refreshed_at: refreshed.refreshed_at || new Date().toISOString(),
+            },
+          })
+          .eq("organization_id", organizationId)
+          .eq("portfolio_id", state.portfolio.id)
+          .eq("id", watchlistItem.id);
+        if (watchlistMetadataError) throw watchlistMetadataError;
+      }
+
       const cycle = await MarketSpecialistAgentRuntime.persistCycle({
         organizationId,
         portfolioId: state.portfolio.id,

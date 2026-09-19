@@ -109,7 +109,31 @@ export default function ImageStudioWorkspace({ runtime }) {
       sort_order: index,
       status: asset.approval_state || asset.status || "DRAFT",
     }));
-    const layers = images.map((asset, index) => ({ id: `asset-layer-${asset.id || index + 1}`, artboard_id: artboards[index]?.id, parent_layer_id: null, source_asset_id: asset.id || null, layer_type: "IMAGE", name: label(asset, index), bounds: { x: 0, y: 0, width: artboards[index]?.width || 1080, height: artboards[index]?.height || 1350 }, transform: { rotation: 0 }, style: {}, content: {}, sort_order: 0, visible: true, locked: false, metadata: { bootstrap_source: true } }));
+    const layers = images.map((asset, index) => {
+      const sourceWidth = Number(asset.width || asset.metadata?.width || asset.metadata?.pixel_width || 0) || null;
+      const sourceHeight = Number(asset.height || asset.metadata?.height || asset.metadata?.pixel_height || 0) || null;
+      return {
+        id: `asset-layer-${asset.id || index + 1}`,
+        artboard_id: artboards[index]?.id,
+        parent_layer_id: null,
+        source_asset_id: asset.id || null,
+        layer_type: "IMAGE",
+        name: label(asset, index),
+        bounds: { x: 0, y: 0, width: artboards[index]?.width || 1080, height: artboards[index]?.height || 1350 },
+        transform: { rotation: 0 },
+        style: {},
+        content: {},
+        sort_order: 0,
+        visible: true,
+        locked: false,
+        metadata: {
+          bootstrap_source: true,
+          source_width: sourceWidth,
+          source_height: sourceHeight,
+          source_dimensions: { width: sourceWidth, height: sourceHeight },
+        },
+      };
+    });
     workspace.hydrate({ project_id: projectId, organization_id: organizationId, artboards, layers });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runtime.projectRuntime?.current?.id, runtime.organization_id, images, persistence.hydrationState, persistence.hydratedScope, workspace]);

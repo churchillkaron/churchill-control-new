@@ -257,3 +257,11 @@ test("Image Studio uses the Avantiqo light workspace visual system", () => {
   assert.doesNotMatch(source, /text-white\//);
   assert.doesNotMatch(source, /border-white\//);
 });
+
+
+test("Image Studio bootstrap preserves source pixel dimensions for professional print preflight", () => {
+  const source = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioWorkspace.jsx", import.meta.url), "utf8");
+  assert.match(source, /sourceWidth = Number\(asset\.width \|\| asset\.metadata\?\.width \|\| asset\.metadata\?\.pixel_width/);
+  assert.match(source, /sourceHeight = Number\(asset\.height \|\| asset\.metadata\?\.height \|\| asset\.metadata\?\.pixel_height/);
+  assert.match(source, /source_dimensions: \{ width: sourceWidth, height: sourceHeight \}/);
+});

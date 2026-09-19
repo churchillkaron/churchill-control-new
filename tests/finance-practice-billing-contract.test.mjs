@@ -11,6 +11,7 @@ const atomicFinalizationMigration = fs.readFileSync(new URL("../supabase/migrati
 const recoveryMigration = fs.readFileSync(new URL("../supabase/migrations/20260919111500_accounting_practice_billing_recovery.sql", import.meta.url), "utf8");
 const batchClaimMigration = fs.readFileSync(new URL("../supabase/migrations/20260919114000_accounting_practice_billing_batch_claim.sql", import.meta.url), "utf8");
 const invoiceLeaseMigration = fs.readFileSync(new URL("../supabase/migrations/20260919114900_accounting_practice_billing_invoice_lease.sql", import.meta.url), "utf8");
+const recoveryLeaseGuardMigration = fs.readFileSync(new URL("../supabase/migrations/20260919120500_accounting_practice_billing_recovery_lease_guard.sql", import.meta.url), "utf8");
 
 test("practice billing hands off only through canonical customer invoice authority", () => {
   assert.match(route, /createCustomerInvoiceCommand/);
@@ -262,4 +263,35 @@ test("billing invoice lease functions stay invoker-safe and service-role isolate
   assert.match(invoiceLeaseMigration, /revoke all on function public\.fail_accounting_practice_billing_invoice_lease/);
   assert.match(invoiceLeaseMigration, /from public, anon, authenticated/);
   assert.match(invoiceLeaseMigration, /to service_role/);
+});
+
+test("recovery honors a fresh invoice lease before considering stale batch voiding", () => {
+  const invoiceLookupIndex = recoveryLeaseGuardMigration.indexOf("from public.customer_invoices");
+  const activeLeaseIndex = recoveryLeaseGuardMigration.indexOf("v_batch.invoice_lease_expires_at > now()");
+  const staleVoidIndex = recoveryLeaseGuardMigration.indexOf("v_batch.created_at <= now()");
+  assert.ok(invoiceLookupIndex >= 0 && activeLeaseIndex > invoiceLookupIndex && staleVoidIndex > activeLeaseIndex);
+  assert.match(recoveryLeaseGuardMigration, /'reason', 'ACTIVE_INVOICE_LEASE'/);
+  assert.match(recoveryLeaseGuardMigration, /'state', 'WAITING'/);
+});
+
+test("recovery may still finish an already-created canonical invoice while a lease exists", () => {
+  const invoiceFoundIndex = recoveryLeaseGuardMigration.indexOf("if found then");
+  const finalizationIndex = recoveryLeaseGuardMigration.indexOf("finalize_accounting_practice_billing_batch");
+  const activeLeaseIndex = recoveryLeaseGuardMigration.indexOf("v_batch.invoice_lease_expires_at > now()");
+  assert.ok(invoiceFoundIndex >= 0 && finalizationIndex > invoiceFoundIndex && activeLeaseIndex > finalizationIndex);
+  assert.match(recoveryLeaseGuardMigration, /'state', 'RECOVERED_INVOICE'/);
+});
+
+test("stale batch voiding rechecks lease expiry inside the guarded update", () => {
+  assert.match(recoveryLeaseGuardMigration, /status in \('PREPARING','FAILED'\)[\s\S]*invoice_lease_token is null[\s\S]*invoice_lease_expires_at <= now\(\)/);
+  assert.match(recoveryLeaseGuardMigration, /'reason', 'LEASE_ACQUIRED_DURING_RECOVERY'/);
+  assert.match(recoveryLeaseGuardMigration, /invoice_lease_token = null/);
+  assert.match(recoveryLeaseGuardMigration, /invoice_lease_expires_at = null/);
+});
+
+test("lease-aware recovery remains invoker-safe and service-role isolated", () => {
+  assert.match(recoveryLeaseGuardMigration, /security invoker/);
+  assert.match(recoveryLeaseGuardMigration, /revoke all on function public\.recover_accounting_practice_billing_batch/);
+  assert.match(recoveryLeaseGuardMigration, /from public, anon, authenticated/);
+  assert.match(recoveryLeaseGuardMigration, /to service_role/);
 });

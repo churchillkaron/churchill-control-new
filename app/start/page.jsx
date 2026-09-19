@@ -1,0 +1,166 @@
+import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+import PublicArtStage from "@/components/public/PublicArtStage";
+import GuidedStart from "@/components/public/GuidedStart";
+
+export const metadata = { title: "Start with Avantiqo | Avantiqo" };
+
+const PATHS = [
+  ["Run my business", "Business Products", "Finance, people, sales, operations, stock, documents and intelligence for day-to-day work.", "Operate", "/products", "Explore business products", "/art/avantiqo-luxury/hospitality-hero.webp", "commerce"],
+  ["Use a solution for my industry", "Industry Solutions", "Start with a restaurant, hotel, retail, service or professional setup that already matches the way the business works.", "Industry", "/solutions", "Explore industry solutions", "/art/commercial-solutions.jpg", "solutions"],
+  ["Create something", "Creative Studios", "Image, video, music, voice and campaign production with direction, review and finishing.", "Create", "/creative-studios", "Enter Creative Studios", "/art/creative-video.jpg", "creative"],
+  ["Build with Avantiqo", "Developers", "APIs, capabilities, integrations and software tools for products, internal systems and embedded experiences.", "Build", "/developers", "Enter Developers", "/art/developer-work.jpg", "developer"],
+  ["Run workloads", "Compute", "Use owned and elastic compute for inference, rendering, batch jobs and production workloads.", "Scale", "/compute", "Explore Compute", "/art/commercial-compute.jpg", "compute"],
+];
+
+function Arrow() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      className="h-3.5 w-3.5"
+      fill="none"
+    >
+      <path
+        d="M4 10h11M11 6l4 4-4 4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export default function StartPage() {
+  return (
+    <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
+      <PublicSiteHeader context="Start" audience="platform" />
+      <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F4F0E8]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(214,166,106,.14),transparent_30%)]" />
+        <div className="relative mx-auto grid max-w-[1540px] lg:min-h-[690px] lg:grid-cols-[43%_57%]">
+          <div className="flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
+            <div className="max-w-[620px]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.30em] text-[#9A744B]">
+                START WITH AVANTIQO
+              </p>
+              <h1 className="mt-5 text-[50px] font-medium leading-[.96] tracking-[-0.06em] text-[#171614] sm:text-[64px] lg:text-[72px]">
+                Start with the problem you want to solve.
+              </h1>
+              <p className="mt-7 max-w-xl text-[16px] leading-8 text-[#625F59]">
+                You do not need to understand Avantiqo before you begin. Choose what you want to improve, create or build. Avantiqo will take you to the right starting point and keep the rest connected when you need more.
+              </p>
+              <div className="mt-9 flex flex-wrap gap-2.5">
+                <a
+                  href="#paths"
+                  className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white"
+                >
+                  Find my starting point <Arrow />
+                </a>
+                <a
+                  href="/pricing"
+                  className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A]"
+                >
+                  See pricing
+                </a>
+              </div>
+            </div>
+          </div>
+          <div className="relative min-h-[560px] overflow-hidden border-t border-black/[0.06] bg-[#171614] lg:min-h-0 lg:border-l lg:border-t-0">
+            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px bg-[#D6A66A]/28">
+              {[["RUN","commerce"],["CREATE","creative"],["BUILD","developer"],["SCALE","compute"]].map(([label,kind]) => (
+                <div key={label} className="relative overflow-hidden">
+                  <div className="absolute inset-0 scale-[1.03]"><PublicArtStage kind={kind} /></div>
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,6,5,.02),rgba(7,6,5,.15)_50%,rgba(7,6,5,.70))]" />
+                  <div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.22em] text-[#F1C98E]">{label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="absolute left-7 top-7 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]">
+              AVANTIQO / START WITH THE WORK
+            </div>
+            <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-white/[0.14] bg-[#11100E]/74 p-5 text-white shadow-[0_28px_80px_rgba(0,0,0,.28)] backdrop-blur-xl sm:p-6">
+              <div className="text-[7px] font-semibold uppercase tracking-[0.21em] text-[#D6A66A]">
+                RUN THE BUSINESS · INDUSTRY · CREATE · BUILD · COMPUTE
+              </div>
+              <div className="mt-3 max-w-2xl text-[14px] leading-6 text-white/70">
+                Start with the outcome you need now. Finance, people, documents, intelligence and other capabilities stay available as the business grows.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <GuidedStart />
+      <section id="paths" className="bg-[#FBFAF8]">
+        <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-3 md:grid-cols-2">
+            {PATHS.map(([title, area, description, status, href, cta, image, artKind], i) => (
+              <a
+                key={area}
+                href={href}
+                className="group overflow-hidden rounded-[26px] border border-black/[0.075] bg-white shadow-[0_14px_45px_rgba(40,30,20,.035)] transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35"
+              >
+                <div className="relative h-[220px] overflow-hidden bg-[#171614]">
+                  {artKind ? <PublicArtStage kind={artKind} /> : <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{ backgroundImage: `url(${image})` }} />}
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.03),rgba(0,0,0,.12)_48%,rgba(8,7,6,.72))]" />
+                  <div className="absolute left-5 top-5 rounded-full border border-white/20 bg-black/22 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.16em] text-[#F1C98E] backdrop-blur-xl">AVANTIQO / {area}</div>
+                  <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-5">
+                    <div className="text-[10px] font-medium text-white/74">{status}</div>
+                    <div className="text-[7px] uppercase tracking-[0.16em] text-white/34">Focused workspace</div>
+                  </div>
+                </div>
+                <div className="p-6 sm:p-7">
+                <div className="flex items-start justify-between gap-5">
+                  <div>
+                    <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-[#A37849]">
+                      0{i + 1} · {area}
+                    </div>
+                    <h2 className="mt-5 text-[28px] font-medium tracking-[-0.045em] text-[#1D1B18]">
+                      {title}
+                    </h2>
+                  </div>
+                  <span className="rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] px-2.5 py-1.5 text-[7px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">
+                    {status}
+                  </span>
+                </div>
+                <p className="mt-4 max-w-xl text-[11px] leading-6 text-[#746F68]">
+                  {description}
+                </p>
+                <div className="mt-7 inline-flex items-center gap-2 text-[10px] font-semibold text-[#8A633C]">
+                  {cta}
+                  <Arrow />
+                </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="border-y border-black/[0.06] bg-[#F4F0E8]">
+        <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <div><p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">ONE ACCOUNT · ADD WHAT HELPS</p><h2 className="mt-3 text-[36px] font-medium leading-[1.03] tracking-[-0.05em] text-[#1D1B18] sm:text-[48px]">Start focused. Expand without starting over.</h2></div>
+            <p className="max-w-2xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">Your business context stays connected while you add the products, channels, intelligence, creative tools or infrastructure that create the next piece of value.</p>
+          </div>
+          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {[["Business Products","Recurring software","/products"],["Creative Studios","Mission / package","/creative-studios"],["Developers & API","Usage","/developers"],["Compute","Usage / reserved","/compute"],["Enterprise","Rollout / services","/enterprise"]].map(([title,model,href],i)=>(<a key={title} href={href} className="group rounded-[22px] border border-black/[0.075] bg-white/72 p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/40"><div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#A37849]">0{i+1}</span><span className="text-[8px] text-[#9A8F82]">→</span></div><div className="mt-8 text-[15px] font-semibold text-[#302D29]">{title}</div><div className="mt-2 text-[9px] uppercase tracking-[0.15em] text-[#9A744B]">{model}</div></a>))}
+          </div>
+        </div>
+      </section>
+      <section className="bg-[#171716] text-white">
+        <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:px-10 lg:py-20">
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">ONE COMPANY CONTEXT</p>
+            <h2 className="mt-3 max-w-3xl text-[38px] font-medium leading-[1.03] tracking-[-0.05em] text-[#F7F4EF] sm:text-[50px]">Different tools. One connected picture of the business.</h2>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {["Company","People","Customers","Money","Work","Documents","Intelligence","History","Usage"].map((x, i) => (
+              <div key={x} className="flex items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.035] px-4 py-3 text-[9px] text-white/58">
+                <span className="text-[7px] font-semibold text-[#D6A66A]">0{String(i + 1).padStart(2,"0")}</span>{x}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}

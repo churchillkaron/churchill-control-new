@@ -22,7 +22,7 @@ function hasAll(content, markers) {
   }
 }
 
-test("Music Auto Studio is the default full-auto surface", async () => {
+test("Music Studio exposes Auto Studio from the outcome-first home surface", async () => {
   const [director, panel, workspace] = await Promise.all([
     source(files.director),
     source(files.panel),
@@ -36,9 +36,8 @@ test("Music Auto Studio is the default full-auto surface", async () => {
     "full_auto_studio_ready",
     "ENGINE_COMPLETION_REQUIRED",
     "CERTIFICATION_REQUIRED",
-    "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
+    "AVANTIQO_AUDIO_MODAL_A10G_V1",
     "direct_workers_max_write_allowed: false",
-    "runpod_job_outside_safe_lease_allowed: false",
   ]);
   hasAll(panel, [
     "Full Auto Studio",
@@ -52,7 +51,7 @@ test("Music Auto Studio is the default full-auto surface", async () => {
   ]);
   hasAll(workspace, [
     '{ id: "auto", label: "Auto Studio"',
-    'useState("auto")',
+    'useState("home")',
   ]);
 });
 
@@ -76,16 +75,14 @@ test("local Auto Studio restoration and finishing stay provider-free and canonic
     "music_source_version: 1",
     "vocal_correction_task_id",
     "CERTIFIED_VOCAL_CORRECTION_PENDING",
-    "ISOLATED_VOCAL_STEM_REQUIRED",
+    "AVANTIQO_AUDIO_MODAL_A10G_V1",
     "dispatchAudioTask(finishTask)",
     "local_restoration_complete",
     "local_execution: true",
     "mastered_music_source_version: 1",
-    "runpod_used: false",
     "provider_job_submitted: false",
     "endpoint_mutation_performed: false",
     "direct_workers_max_write: false",
-    "safe_lease_required_for_this_execution: false",
   ]);
   hasAll(vocal, [
     "AVANTIQO_MUSIC_VOCAL_ENGINEERING_LOCAL_V1",
@@ -97,9 +94,8 @@ test("local Auto Studio restoration and finishing stay provider-free and canonic
     "safety_limiter",
     "CERTIFIED_PITCH_LANE_REQUIRED",
     "CERTIFIED_TIMING_LANE_REQUIRED",
-    "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
+    "AVANTIQO_AUDIO_MODAL_A10G_V1",
     "provider_job_submitted: false",
-    "runpod_used: false",
     "endpoint_mutation_performed: false",
     "direct_workers_max_write: false",
   ]);
@@ -108,16 +104,14 @@ test("local Auto Studio restoration and finishing stay provider-free and canonic
     "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2",
     "TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2",
     "ai.audio.vocal-correct",
-    "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
-    "music-vocal-correction",
+    "AVANTIQO_AUDIO_MODAL_A10G_V1",
+    "ProductionTaskRuntime.create",
     "source_music_version: 1",
     "target_music_version: 2",
-    "direct_runpod_submission_allowed: false",
     "direct_workers_max_write_allowed: false",
     "production_certification_required: true",
     "human_listening_review_required: true",
     "STEM_SEPARATION_REQUIRED_BEFORE_VOCAL_CORRECTION",
-    "ISOLATED_VOCAL_STEM_REQUIRED",
   ]);
   hasAll(route, [
     'action === "execute_local"',

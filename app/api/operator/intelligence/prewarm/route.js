@@ -4,6 +4,9 @@ import {
 import {
   getAvantiqoIntelligenceRuntimeConfiguration,
 } from "@/lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider";
+import {
+  prewarmIntelligenceModalFront,
+} from "@/lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime";
 
 const CONTRACT = "AVANTIQO_INTELLIGENCE_OPERATOR_PREWARM_V2";
 
@@ -25,16 +28,21 @@ export async function POST(request) {
     }
 
     const runtime = getAvantiqoIntelligenceRuntimeConfiguration();
+    const warmed = await prewarmIntelligenceModalFront();
     return Response.json({
       success: true,
       contract: CONTRACT,
-      status: "prewarm_not_required",
-      ready: runtime.runtime_ready === true,
+      status: "ready",
+      ready: warmed.ready === true,
       already_warm: false,
-      warmup_latency_ms: 0,
-      infrastructure_provider: runtime.infrastructure_provider,
+      warmup_latency_ms: Number(warmed.latency_ms || 0),
+      infrastructure_provider: warmed.infrastructure_provider || "MODAL_CPU_SNAPSHOT_V1",
+      model: warmed.model || runtime.front_model || null,
+      front_runtime_contract: warmed.runtime_contract || null,
       modal_only: runtime.modal_only === true,
-      scale_to_zero: runtime.scale_to_zero === true,
+      scale_to_zero: true,
+      min_containers: Number(warmed.min_containers || runtime?.execution_lanes?.front?.min_containers || 0),
+      scaledown_window_seconds: 30,
       prewarm_required: false,
       customer_inference_performed: false,
       wallet_mutation_performed: false,

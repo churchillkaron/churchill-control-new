@@ -32,6 +32,12 @@ export default function PreviewEngine({
   const [data,setData] =
     useState(payload);
 
+  const invoiceId = String(payload?.id || payload?.invoice_id || "").trim();
+  const canonicalInvoicePdf =
+    documentType === "CustomerInvoice" && invoiceId && organizationId
+      ? `/api/finance/customer-invoices/${encodeURIComponent(invoiceId)}/pdf?organizationId=${encodeURIComponent(organizationId)}${entityId ? `&entityId=${encodeURIComponent(entityId)}` : ""}`
+      : null;
+
 
   console.log(
     "DOCUMENT PREVIEW PAYLOAD",
@@ -66,6 +72,14 @@ export default function PreviewEngine({
   useEffect(()=>{
 
     async function loadDocument(){
+
+      if (canonicalInvoicePdf) {
+        setRenderedBrand(null);
+        setRenderedData(null);
+        setRenderedDocument(null);
+        setLoading(false);
+        return;
+      }
 
       setLoading(true);
 
@@ -183,6 +197,7 @@ export default function PreviewEngine({
     documentType,
     organizationId,
     entityId,
+    canonicalInvoicePdf,
   ]);
 
 
@@ -209,7 +224,15 @@ export default function PreviewEngine({
 
         <div className="mt-8 max-h-[70vh] overflow-auto">
 
-          {loading ? (
+          {canonicalInvoicePdf ? (
+            <div className="overflow-hidden rounded-2xl bg-white">
+              <iframe
+                title="Customer invoice PDF preview"
+                src={canonicalInvoicePdf}
+                className="h-[68vh] w-full bg-white"
+              />
+            </div>
+          ) : loading ? (
 
             <div className="text-white/50">
               Rendering document...
@@ -230,6 +253,17 @@ export default function PreviewEngine({
 
         <div className="mt-8 flex justify-end gap-3">
 
+
+          {canonicalInvoicePdf ? (
+            <a
+              href={canonicalInvoicePdf}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border border-amber-300/30 px-5 py-3 text-amber-200"
+            >
+              Open PDF
+            </a>
+          ) : null}
 
           <button
             onClick={onClose}

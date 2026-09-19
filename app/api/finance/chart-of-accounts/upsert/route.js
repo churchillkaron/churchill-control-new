@@ -36,7 +36,7 @@ export async function POST(request) {
       values: body,
     });
 
-    return NextResponse.json({ success: true, account });
+    return NextResponse.json({ success: true, account, account_id: account?.id || null });
   } catch (error) {
     const message = error?.message || "Account could not be saved";
     return NextResponse.json(

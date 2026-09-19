@@ -1,0 +1,108 @@
+{
+  "contract": "AVANTIQO_MODAL_CANONICAL_RUNTIME_V2",
+  "policy": {
+    "minimum_containers": 0,
+    "legacy_gateways_forbidden": true,
+    "legacy_canaries_forbidden": true,
+    "wan_forbidden": true,
+    "direct_sdk_primary": true,
+    "local_first_by_default": true,
+    "modal_specialist_or_fallback_only": true,
+    "idle_scale_to_zero_required": true
+  },
+  "apps": [
+    {
+      "name": "avantiqo-code-real-write-one-shot",
+      "role": "code-invent-and-hard-code-specialist"
+    },
+    {
+      "name": "avantiqo-image-owned",
+      "role": "high-end-image-and-general-vision-specialist-document-fallback"
+    },
+    {
+      "name": "avantiqo-video-owned",
+      "role": "video-ltx25-specialist"
+    },
+    {
+      "name": "avantiqo-voice-owned",
+      "role": "voice-local-outage-fallback"
+    },
+    {
+      "name": "avantiqo-intelligence-owned",
+      "role": "deep-intelligence-specialist"
+    },
+    {
+      "name": "avantiqo-intelligence-front-owned",
+      "role": "local-intelligence-outage-fallback"
+    },
+    {
+      "name": "avantiqo-audio-owned",
+      "role": "music-local-outage-or-acceleration-fallback"
+    },
+    {
+      "name": "avantiqo-sfx-owned",
+      "role": "sfx-local-outage-or-latency-fallback"
+    },
+    {
+      "name": "avantiqo-intelligence-trainer-owned",
+      "role": "explicit-approved-training-only"
+    },
+    {
+      "name": "avantiqo-music-separator-owned",
+      "role": "separator-local-outage-fallback"
+    }
+  ],
+  "models": [
+    "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+    "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+    "Tongyi-MAI/Z-Image",
+    "Qwen/Qwen2.5-VL-7B-Instruct",
+    "Lightricks/LTX-2.5",
+    "openai/whisper-large-v3-turbo",
+    "resemble-ai/chatterbox:multilingual-v3",
+    "Qwen/Qwen3-30B-A3B-Instruct-2507",
+    "Qwen/Qwen3-30B-A3B-Thinking-2507",
+    "Qwen/Qwen3-4B-GGUF:Q4_K_M",
+    "Qwen/Qwen3-1.7B-GGUF:Q8_0",
+    "ACE-Step/Ace-Step1.5",
+    "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+    "facebookresearch/demucs:htdemucs_ft"
+  ],
+  "local_first_capabilities": [
+    "ai.text.generate",
+    "ai.code.generate",
+    "ai.code.edit",
+    "ai.code.refactor",
+    "ai.code.review",
+    "ai.code.debug",
+    "ai.code.test",
+    "ai.web.build",
+    "ai.web.repair",
+    "ai.app.build",
+    "ai.integration.build",
+    "ai.music.generate",
+    "ai.sfx.generate",
+    "ai.speech.to.text",
+    "ai.text.to.speech",
+    "ai.audio.stems",
+    "ai.audio.vocal-correct",
+    "ai.audio.elastic-warp",
+    "media.ffmpeg.process",
+    "ai.image.upscale",
+    "document.ocr",
+    "document.classify"
+  ],
+  "modal_specialist_capabilities": [
+    "ai.reasoning.execute:deep",
+    "ai.code.invent",
+    "ai.video.generate",
+    "ai.video.image_to_video",
+    "ai.video.first_last_frame_to_video",
+    "ai.image.generate",
+    "ai.image.edit",
+    "ai.image.inpaint",
+    "ai.image.outpaint",
+    "ai.image.analyze",
+    "explicit-approved-training"
+  ]
+}

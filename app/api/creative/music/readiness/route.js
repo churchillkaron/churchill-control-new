@@ -7,6 +7,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 import { PROVIDER_REGISTRY } from "@/lib/platform/service-runtime/providers/ProviderRegistry";
 import "@/lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration";
+import { buildMusicPreUiAcceptance } from "@/lib/creative/music/runtime/CreativeMusicPreUiAcceptanceRuntime.js";
 
 const EXECUTION_PERMISSIONS = Object.freeze([
   "creative.execute",
@@ -65,8 +66,9 @@ function musicRuntimeHealth() {
 
   const checks = {
     engine_enabled: configuration.enabled === true,
-    endpoint_configured: configuration.runpod_endpoint_configured === true,
-    api_key_configured: configuration.runpod_api_key_configured === true,
+    modal_configured: configuration.modal_configured === true,
+    modal_token_id_configured: configuration.modal_token_id_configured === true,
+    modal_token_secret_configured: configuration.modal_token_secret_configured === true,
     foundation_model_configured: configuration.foundation_model_configured === true,
     model_variant_configured: configuration.model_variant_configured === true,
     lm_enabled: configuration.lm_enabled === true,
@@ -77,7 +79,6 @@ function musicRuntimeHealth() {
 
   return {
     ready: configuration.primary_audio_runtime_available === true &&
-      checks.management_api_key_configured === true &&
       Object.values(checks).every(Boolean),
     primary_audio_runtime_available: configuration.primary_audio_runtime_available === true,
     checks,
@@ -101,12 +102,12 @@ export async function POST(request) {
       supabase
         .from("provider_pricing")
         .select("provider,capability,active,metadata")
-        .in("capability", ["ai.music.generate", "ai.sfx.generate"]),
+        .in("capability", ["ai.music.generate", "ai.audio.remix", "ai.audio.edit", "ai.audio.extend", "ai.audio.stems", "ai.audio.elastic-warp", "ai.audio.vocal-correct", "ai.sfx.generate"]),
       supabase
         .from("organization_services")
         .select("service_id,status,fallback_enabled,configuration")
         .eq("organization_id", organizationId)
-        .in("service_id", ["ai.music.generate", "ai.sfx.generate"]),
+        .in("service_id", ["ai.music.generate", "ai.audio.remix", "ai.audio.edit", "ai.audio.extend", "ai.audio.stems", "ai.audio.elastic-warp", "ai.audio.vocal-correct", "ai.sfx.generate"]),
     ]);
 
     if (pricingError) throw pricingError;
@@ -115,6 +116,12 @@ export async function POST(request) {
     const rows = Array.isArray(pricing) ? pricing : [];
     const organizationServices = Array.isArray(services) ? services : [];
     const music = ownedCapability(rows, "ai.music.generate");
+    const remix = ownedCapability(rows, "ai.audio.remix");
+    const edit = ownedCapability(rows, "ai.audio.edit");
+    const extend = ownedCapability(rows, "ai.audio.extend");
+    const stems = ownedCapability(rows, "ai.audio.stems");
+    const elastic = ownedCapability(rows, "ai.audio.elastic-warp");
+    const vocalCorrection = ownedCapability(rows, "ai.audio.vocal-correct");
     const sfx = ownedCapability(rows, "ai.sfx.generate");
     const sfxService = organizationServices.find((entry) => entry.service_id === "ai.sfx.generate") || null;
     const externalSfxActive = rows.some((entry) => (
@@ -123,12 +130,30 @@ export async function POST(request) {
       entry.active === true
     ));
     const runtimeHealth = musicRuntimeHealth();
+    const providerSeparatorRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.separator_runtime || {};
+    const separatorRuntimeReady = providerSeparatorRuntime.production_routing_allowed === true;
+    const stemsReady = stems.ready === true && separatorRuntimeReady;
+    const providerElasticRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.elastic_audio_runtime || {};
+    const elasticRuntimeReady = providerElasticRuntime.production_routing_allowed === true;
+    const elasticReady = elastic.ready === true && elasticRuntimeReady;
+    const providerVocalCorrectionRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.vocal_correction_runtime || {};
+    const vocalCorrectionRuntimeReady = providerVocalCorrectionRuntime.production_routing_allowed === true;
+    const vocalCorrectionReady = vocalCorrection.ready === true && vocalCorrectionRuntimeReady;
+    const providerSfxRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.sfx_runtime || {};
+    const sfxRuntimeReady = providerSfxRuntime.production_routing_allowed === true;
+    const sfxReady = sfx.ready === true && sfxRuntimeReady;
+    const preUiAcceptance = buildMusicPreUiAcceptance({
+      provider: PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider] || {},
+      capabilities: { music, remix, edit, extend, stems, elastic, vocalCorrection, sfx },
+      defer_singing_identity: true,
+    });
 
     return NextResponse.json({
       success: true,
       owner: "AVANTIQO",
       policy: "OWNED_ONLY",
       runtime: runtimeHealth,
+      pre_ui_acceptance: preUiAcceptance,
       capabilities: {
         compose: {
           ...music,
@@ -136,13 +161,45 @@ export async function POST(request) {
           runtime_ready: runtimeHealth.primary_audio_runtime_available === true,
           certification_ready: music.ready === true,
         },
-        remix: { capability: "ai.audio.remix", ready: false, status: "PLANNING_ONLY" },
-        edit: { capability: "ai.audio.edit", ready: false, status: "PLANNING_ONLY" },
-        extend: { capability: "ai.audio.extend", ready: false, status: "PLANNING_ONLY" },
+        remix: { ...remix, status: remix.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
+        edit: { ...edit, status: edit.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
+        extend: { ...extend, status: extend.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
+        stems: { ...stems, ready: stemsReady, status: stemsReady ? "CERTIFIED" : (separatorRuntimeReady ? "BENCHMARK_AND_HUMAN_REVIEW_REQUIRED" : "CERTIFICATION_OR_CONFIGURATION_REQUIRED"), runtime_ready: separatorRuntimeReady, certification_ready: stems.ready === true, runtime_status: text(providerSeparatorRuntime.runtime_status) || null, model: text(providerSeparatorRuntime.model) || null, quality_profile: text(providerSeparatorRuntime.quality_profile) || null },
+        elastic: {
+          ...elastic,
+          ready: elasticReady,
+          status: elasticReady ? "CERTIFIED" : (elasticRuntimeReady ? "COMMERCIAL_ACTIVATION_REQUIRED" : "CURRENT_RUNTIME_CERTIFICATION_REQUIRED"),
+          runtime_ready: elasticRuntimeReady,
+          database_certification_ready: elastic.ready === true,
+          stale_database_certification_ignored: elastic.ready === true && !elasticRuntimeReady,
+          runtime_status: text(providerElasticRuntime.runtime_status) || null,
+          model: text(providerElasticRuntime.model) || null,
+          quality_profile: text(providerElasticRuntime.quality_profile) || null,
+        },
+        vocal_correction: {
+          ...vocalCorrection,
+          ready: vocalCorrectionReady,
+          status: vocalCorrectionReady ? "CERTIFIED" : (vocalCorrectionRuntimeReady ? "COMMERCIAL_ACTIVATION_REQUIRED" : "CURRENT_RUNTIME_CERTIFICATION_REQUIRED"),
+          runtime_ready: vocalCorrectionRuntimeReady,
+          database_certification_ready: vocalCorrection.ready === true,
+          stale_database_certification_ignored: vocalCorrection.ready === true && !vocalCorrectionRuntimeReady,
+          runtime_status: text(providerVocalCorrectionRuntime.runtime_status) || null,
+          model: text(providerVocalCorrectionRuntime.model) || null,
+          quality_profile: text(providerVocalCorrectionRuntime.quality_profile) || null,
+        },
         sfx: {
           ...sfx,
-          ready: false,
-          status: "OWNED_RUNTIME_NOT_IMPLEMENTED",
+          ready: sfxReady,
+          status: sfxReady
+            ? "CERTIFIED"
+            : (sfxRuntimeReady
+              ? (sfx.benchmark_certified === true ? "COMMERCIAL_ACTIVATION_REQUIRED" : "BENCHMARK_REQUIRED")
+              : "CERTIFICATION_OR_CONFIGURATION_REQUIRED"),
+          runtime_ready: sfxRuntimeReady,
+          certification_ready: sfx.ready === true,
+          runtime_status: text(providerSfxRuntime.runtime_status) || null,
+          foundation_model: text(providerSfxRuntime.foundation_model) || null,
+          quality_profile: text(providerSfxRuntime.quality_profile) || null,
           external_fallback_enabled: sfxService?.fallback_enabled === true,
           external_provider_active: externalSfxActive,
         },

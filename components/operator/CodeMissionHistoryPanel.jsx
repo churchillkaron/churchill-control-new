@@ -36,6 +36,7 @@ export default function CodeMissionHistoryPanel({
   const [selected, setSelected] = useState(null);
   const [performance, setPerformance] = useState(null);
   const [improvementBacklog, setImprovementBacklog] = useState(null);
+  const [competitiveEvidence, setCompetitiveEvidence] = useState(null);
   const [query, setQuery] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -71,6 +72,9 @@ export default function CodeMissionHistoryPanel({
         : null);
       setImprovementBacklog(body?.improvement_backlog && typeof body.improvement_backlog === "object"
         ? body.improvement_backlog
+        : null);
+      setCompetitiveEvidence(body?.competitive_evidence && typeof body.competitive_evidence === "object"
+        ? body.competitive_evidence
         : null);
       setSelected((current) => {
         if (!current) return null;
@@ -208,6 +212,27 @@ export default function CodeMissionHistoryPanel({
           <span>Direct first pass {Math.round((performance.first_pass_success_rate || 0) * 100)}%</span>
           <span>Reasoning avg {performance.average_reasoning_calls || 0}</span>
           <span>Efficiency {performance.engineering_efficiency_score || 0}/100</span>
+        </div>
+      ) : null}
+
+      {competitiveEvidence?.contract ? (
+        <div
+          data-avantiqo-code-competitive-evidence="true"
+          className={compact
+            ? "mt-2 rounded-lg border border-[#9A744B]/15 bg-[#FBFAF8] px-2.5 py-2 text-[9px] text-[#77716A]"
+            : "mt-2 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.035] px-3 py-2.5 text-[10px] text-white/40"}
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>Competitive evidence {competitiveEvidence.evidence_current ? "current" : "stale"}</span>
+            <span>{competitiveEvidence.competitive_certified ? "benchmark certified" : "benchmark not certified"}</span>
+            <span>{competitiveEvidence.superiority_claim_allowed ? "superiority evidence active" : "no superiority claim"}</span>
+            <span>{Array.isArray(competitiveEvidence.comparisons) ? competitiveEvidence.comparisons.length : 0} references</span>
+          </div>
+          {competitiveEvidence?.improvement_backlog?.[0] ? (
+            <div className="mt-1">
+              Next competitive gap: {competitiveEvidence.improvement_backlog[0].title || competitiveEvidence.improvement_backlog[0].case_id}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

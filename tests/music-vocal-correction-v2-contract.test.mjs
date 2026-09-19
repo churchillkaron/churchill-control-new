@@ -7,8 +7,8 @@ const files = Object.freeze({
   keyParser: "services/avantiqo-music-vocal-correction-engine/key_parser.py",
   handlerV2: "services/avantiqo-music-vocal-correction-engine/handler_v2.py",
   docker: "services/avantiqo-music-vocal-correction-engine/Dockerfile",
-  provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicVocalCorrectionProvider.js",
-  leasePolicy: "config/avantiqo-runpod-safe-lease-policy.json",
+  provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicVocalCorrectionModalProvider.js",
+  modal: "services/avantiqo-music-vocal-correction-modal/modal_app.py",
 });
 
 async function source(path) {
@@ -42,7 +42,9 @@ test("Music vocal correction V2 adds conservative whole-phrase timing", async ()
     "apply_phrase_timing_correction",
     '"whole_phrase_timing_only": True',
     '"syllable_time_stretch_forbidden": True',
-    '"unsafe_phrase_moves_skipped": True',
+    '"approved_timing_plan_exact_moves_required_when_supplied": True',
+    '"automatic_timing_forbidden_with_musician_plans": True',
+    '"unsafe_phrase_moves_rejected": True',
     '"human_listening_review_required_for_certification": True',
     '"production_certified": False',
   ], "V2 handler");
@@ -71,7 +73,8 @@ test("V2 pitch readiness is explicit and cannot pass from a nonnegative event co
     '"pitch_status": pitch_readiness["status"]',
     '"pitch_correction_complete": pitch_readiness["complete"]',
     '"correction_pipeline_complete": correction_pipeline_complete',
-    '"formant_compensation_explicitly_configured": False',
+    '"tonality_compensation_explicitly_configured": True',
+    '"tonality_limit_hz": TONALITY_LIMIT_HZ',
     '"formant_preservation_claimed": False',
     '"unverified_formant_preservation_claim_forbidden": True',
     "AVANTIQO_MUSIC_VOCAL_CORRECTION_KEY_INVALID",
@@ -95,30 +98,25 @@ test("immutable Music correction image boots V2 and performs real dependency smo
   ], "Dockerfile");
 });
 
-test("Music correction transport requires certification and exact Safe Lease V2 lane", async () => {
-  const [provider, leasePolicy] = await Promise.all([
+test("Music correction transport is Modal-direct and remains certification gated", async () => {
+  const [provider, modal] = await Promise.all([
     source(files.provider),
-    source(files.leasePolicy),
+    source(files.modal),
   ]);
   hasAll(provider, [
     "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2",
-    "TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2",
     "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_NOT_CERTIFIED",
-    "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
-    'const SAFE_LEASE_LANE = "music-vocal-correction"',
-    "AVANTIQO_MUSIC_VOCAL_CORRECTION_SAFE_LEASE_ENDPOINT_MISMATCH",
-    'fetchWithTimeout(`${baseUrl}/run`',
+    'transportMode: "direct-sdk"',
+    'appName: "avantiqo-music-vocal-correction-owned"',
+    'functionName: "correct"',
+    'corrected_vocal_wav: "wav"',
+    'correction_report_json: "json"',
   ], "provider");
-  hasAll(leasePolicy, [
-    '"music-vocal-correction": "avantiqo-music-vocal-correction-v1"',
-    '"resting_workers_max": 0',
-    '"max_workers_per_lease": 1',
-    '"max_jobs_per_lease": 1',
-  ], "safe lease policy");
-
-  const guard = provider.indexOf("const { baseUrl, apiKey, timeoutMs, lease } = configuration()");
-  const run = provider.indexOf('fetchWithTimeout(`${baseUrl}/run`');
-  assert.ok(guard >= 0 && run > guard, "safe-lease/certification configuration must run before /run submission");
-  assert.equal(/workersMax\s*[:=]\s*1/.test(provider), false);
-  assert.equal(/rest\.runpod\.io/.test(provider), false);
+  hasAll(modal, [
+    "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2",
+    "TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2",
+    "WORKER_IMAGE",
+    "raw_reasoning_persisted",
+  ], "modal wrapper");
+  assert.equal(/RUNPOD|SAFE_LEASE/.test(provider), false);
 });

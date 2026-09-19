@@ -1,0 +1,5 @@
+import assert from "node:assert/strict";import {readFile} from "node:fs/promises";import test from "node:test";
+const source=await readFile("scripts/run-avantiqo-music-sfx-certification-matrix-local.mjs","utf8");
+test("SFX matrix runner uses one aggregate spend ceiling and stops fail closed",()=>{assert.match(source,/AVANTIQO_MUSIC_SFX_MATRIX_SPEND_CEILING_THB/);assert.match(source,/aggregate_spend_ceiling_thb/);assert.match(source,/AGGREGATE_SPEND_CEILING_EXCEEDED/);assert.match(source,/spawnSync/);});
+test("SFX matrix runner prepares each sample for human review and never activates production",()=>{assert.match(source,/prepare-avantiqo-music-sfx-human-review/);assert.match(source,/human_review_status:\"PENDING\"/);assert.match(source,/production_routing_allowed:false/);assert.match(source,/production_activation_performed:false/);});
+test("SFX matrix runner can reuse exact alarm economics evidence instead of regenerating it",()=>{assert.match(source,/AVANTIQO_MUSIC_SFX_MATRIX_SEED_REPORT/);assert.match(source,/exactLegacyAlarm/);assert.match(source,/exactCurrentAlarm/);assert.match(source,/MUSIC_SFX_CERTIFICATION_FIXTURES\[0\]\.instruction/);});

@@ -22,6 +22,14 @@ if (production && message.includes(marker)) {
   if (proof.status !== 0) process.exit(proof.status || 1);
 }
 
+const productEvidence = spawnSync(process.execPath, ["scripts/generate-business-partner-product-surface-evidence.mjs"], {
+  cwd: process.cwd(),
+  env: process.env,
+  encoding: "utf8",
+  stdio: "inherit",
+});
+if (productEvidence.status !== 0) process.exit(productEvidence.status || 1);
+
 const build = spawnSync(process.execPath, ["node_modules/next/dist/bin/next", "build"], {
   cwd: process.cwd(),
   env: process.env,

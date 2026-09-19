@@ -59,7 +59,7 @@ const providers = [
     name: "Other Business Providers",
     status: "Added as approved services",
     purpose:
-      "Avantiqo can support additional accounting, logistics, hospitality, service, document, automation and specialist providers as organizations enable them.",
+      "Connect additional accounting, logistics, hospitality, service, document, automation and specialist providers as your organization needs them.",
     data:
       "The minimum provider-specific data required to deliver the feature selected by the customer, subject to that provider's own authorization and Avantiqo's organization-level controls.",
   },
@@ -67,7 +67,7 @@ const providers = [
 
 export default function ConnectedServiceDataOverview() {
   return (
-    <section id="connected-service-data" className="border-b border-white/[0.07] bg-[#070812] text-white">
+    <section id="connected-service-data" className="border-b border-white/[0.07] bg-[#12110f] text-white">
       <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-24">
         <div className="max-w-5xl">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#D6A66A]">
@@ -102,7 +102,7 @@ export default function ConnectedServiceDataOverview() {
           ))}
         </div>
 
-        <div className="mt-8 rounded-[26px] border border-white/[0.08] bg-[#090909] p-7">
+        <div className="mt-8 rounded-[26px] border border-white/[0.08] bg-[#0D0C0B] p-7">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#D6A66A]">Customer control</p>
           <div className="mt-5 grid gap-5 text-sm leading-7 text-white/48 md:grid-cols-3">
             <p><strong className="font-medium text-white/82">Authorization:</strong> external access begins only after an authorized customer user connects the service through the provider&apos;s own authorization flow.</p>

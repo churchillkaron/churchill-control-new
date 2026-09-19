@@ -69,7 +69,10 @@ export async function POST(request) {
       document_prefix: body.document_prefix || body.invoice_prefix || "INV",
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      ...result,
+      invoice_id: result?.invoice_id || result?.customer_invoice_id || result?.invoice?.id || result?.id || null,
+    });
   } catch (error) {
     const message = error.message || "Customer invoice creation failed";
     return NextResponse.json({ success: false, error: message }, { status: statusFor(message) });

@@ -128,6 +128,19 @@ test("Business Partner and Code Studio receive the same safe roadmap through exi
   assert.match(portfolioCard, /Current main is authoritative/);
 });
 
+
+test("Code hotspot evidence survives mission state and reaches Product Engineering assessment", async () => {
+  const canonical = await readFile("lib/code/runtime/CodeAIEmployeeCanonicalExecutionRuntime.js", "utf8");
+  const history = await readFile("lib/code/runtime/CodeAIMissionHistoryRuntime.js", "utf8");
+  const benchmark = await readFile("lib/code/runtime/CodeAIEngineeringPerformanceBenchmarkRuntime.js", "utf8");
+  const metrics = await readFile("lib/code/runtime/CodeAIEngineeringPerformanceMetricsRuntime.js", "utf8");
+  assert.match(canonical, /state: \{ \.\.\.resultState, world_class_intelligence: finalizedIntelligence \}/);
+  assert.match(history, /engineering_hotspot_backlog: engineeringHotspotBacklog/);
+  assert.match(metrics, /AVANTIQO_CODE_AI_ENGINEERING_HOTSPOT_BACKLOG_V1/);
+  assert.match(benchmark, /engineering_hotspot_backlog: history\.engineering_hotspot_backlog/);
+  assert.match(portfolioCapability, /engineering_hotspot\[/);
+});
+
 test("portfolio has no implicit persistence, deployment, migration or knowledge authority", () => {
   assert.match(portfolioRuntime, /automatic_commit_allowed:\s*false/);
   assert.match(portfolioRuntime, /automatic_deploy_allowed:\s*false/);

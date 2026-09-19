@@ -1,0 +1,26 @@
+#!/usr/bin/env node
+import { execFileSync, spawnSync } from "node:child_process";
+import { readFile, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+const CONTRACT="AVANTIQO_MUSIC_SFX_TECHNICAL_QUALITY_V1";
+const text=(v)=>String(v??"").trim();
+const arg=(p)=>text(process.argv.slice(2).find((e)=>e.startsWith(p))?.slice(p.length));
+const input=resolve(arg("--input=")||""); if(!arg("--input=")) throw new Error("AVANTIQO_MUSIC_SFX_TECHNICAL_INPUT_REQUIRED");
+await readFile(input);
+const probe=JSON.parse(execFileSync("ffprobe",["-v","error","-show_entries","stream=codec_name,sample_rate,channels,bits_per_sample:format=duration,size","-of","json",input],{encoding:"utf8"}));
+const ff=spawnSync("ffmpeg",["-hide_banner","-nostats","-i",input,"-af","astats=metadata=1:reset=0,ebur128=peak=true","-f","null","-"],{encoding:"utf8"}); if(ff.status!==0) throw new Error(`AVANTIQO_MUSIC_SFX_FFMPEG_ANALYSIS_FAILED:${text(ff.stderr).slice(0,500)}`); const stderr=text(ff.stderr);
+const number=(pattern)=>{const m=stderr.match(pattern);return m?Number(m[1]):null;}; const lastNumber=(pattern)=>{const matches=[...stderr.matchAll(pattern)];return matches.length?Number(matches.at(-1)[1]):null;};
+const duration=Number(probe?.format?.duration||0),stream=probe?.streams?.[0]||{};
+const peakDbfs=number(/Peak level dB:\s*(-?[0-9.]+)/),dc=number(/DC offset:\s*(-?[0-9.]+)/),lufs=lastNumber(/I:\s*(-?[0-9.]+) LUFS/g),lra=lastNumber(/LRA:\s*([0-9.]+) LU/g);
+const hardFailures=[]; const warnings=[];
+if(text(stream.codec_name)!=="pcm_s24le") hardFailures.push("SFX_PCM24_REQUIRED");
+if(Number(stream.sample_rate)!==48000) hardFailures.push("SFX_48KHZ_REQUIRED");
+if(Number(stream.channels)<1||Number(stream.channels)>2) hardFailures.push("SFX_CHANNEL_COUNT_INVALID");
+if(!(duration>=0.5&&duration<=30.05)) hardFailures.push("SFX_DURATION_INVALID");
+if(!Number.isFinite(peakDbfs)||peakDbfs>0) hardFailures.push("SFX_DIGITAL_CLIPPING_DETECTED");
+if(!Number.isFinite(dc)||Math.abs(dc)>0.01) hardFailures.push("SFX_DC_OFFSET_EXCESSIVE");
+if(Number.isFinite(peakDbfs)&&peakDbfs>-0.1) warnings.push("SFX_EXTREMELY_LOW_HEADROOM");
+if(Number.isFinite(lufs)&&lufs>-6) warnings.push("SFX_VERY_HIGH_INTEGRATED_LOUDNESS");
+const report={success:hardFailures.length===0,contract:CONTRACT,generated_at:new Date().toISOString(),input_path:input,format:{codec:text(stream.codec_name),sample_rate:Number(stream.sample_rate),channels:Number(stream.channels),bits_per_sample:Number(stream.bits_per_sample),duration_seconds:duration,size_bytes:Number(probe?.format?.size||0)},signal:{peak_dbfs:peakDbfs,dc_offset:dc,integrated_lufs:lufs,loudness_range_lu:lra},hard_failures:hardFailures,warnings,technical_quality_passed:hardFailures.length===0,human_listening_still_required:true,semantic_quality_claimed:false,production_activation_allowed:false};
+const output=resolve(arg("--output=")||"/tmp/avantiqo-music-sfx-technical-quality.json"); await writeFile(output,JSON.stringify(report,null,2)+"\n");
+console.log(JSON.stringify({...report,output_path:output},null,2)); if(hardFailures.length) process.exit(1);

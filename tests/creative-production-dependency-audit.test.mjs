@@ -17,5 +17,6 @@ test("early creative dependencies are stage-specific rather than waiting on late
   assert.deepEqual(dependenciesForProductionWorkstream("CREATIVE_FLOOR", 16), [1]);
   assert.deepEqual(dependenciesForProductionWorkstream("CREATIVE_FLOOR", 20), [1]);
   assert.deepEqual(dependenciesForProductionWorkstream("TECHNICAL_SCOUT", 5), [1, 3]);
+  assert.deepEqual(dependenciesForProductionWorkstream("PREVIS", 13), [3, 6]);
   assert.deepEqual(dependenciesForProductionWorkstream("PREVIS", 19), [7, 12]);
 });

@@ -42,7 +42,7 @@ test("Music stems engine is implemented but certification gated", () => {
 
 test("Music Studio exposes a dedicated Stems tab", () => {
   assert.match(workspace, /id: "stems"/);
-  assert.match(workspace, /label: "Stems"/);
+  assert.match(workspace, /label: "Separate Stems"/);
   assert.match(workspace, /MusicStemsPanel/);
 });
 
@@ -57,12 +57,13 @@ test("Music Stems panel uses private upload and explicit rights confirmation", (
   assert.match(panel, /disabled=!executionReady|disabled=\{!executionReady\}/);
 });
 
-test("Music Stems route remains plan-only while certification is pending", () => {
+test("Music Stems route stays certification-gated before provider execution", () => {
   assert.match(route, /buildMusicTransformationPlan\("stems"/);
   assert.match(route, /music-stems/);
   assert.match(route, /createSignedUploadUrl/);
   assert.match(route, /ready_for_execution: stemPlan\.executable === true/);
-  assert.doesNotMatch(route, /executeService/);
-  assert.doesNotMatch(route, /settlePendingService/);
+  assert.match(route, /stemPlan\.executable !== true \|\| stemPlan\.certification !== "CERTIFIED"/);
+  assert.match(route, /executeService/);
+  assert.match(route, /settlePendingService/);
   assert.doesNotMatch(route, /pricing_activation/);
 });

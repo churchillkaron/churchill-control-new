@@ -34,9 +34,20 @@ test("universal preview keeps unsafe URL schemes out", () => {
 
 test("universal preview treats Excel and CSV as spreadsheet outputs with download preserved", () => {
   assert.match(renderer, /spreadsheet\|excel\|csv/);
-  assert.match(renderer, /\\.\(xlsx\?\|csv\)\$/);
+  assert.match(renderer, /xlsx\?\|xlsm\|csv\|tsv/);
   assert.match(renderer, /FileSpreadsheet/);
   assert.match(renderer, /SpreadsheetPreview/);
   assert.match(renderer, /preview_rows/);
-  assert.match(renderer, /<a href=\{artifact\.url\} download/);
+  assert.match(renderer, /<a href=\{artifact\.download_url \|\| artifact\.url\} download/);
+});
+
+
+test("universal preview classifies media from MIME or extension before generic master keys", () => {
+  const audioCheck = renderer.indexOf('mime.startsWith("audio/")');
+  const videoCheck = renderer.indexOf('mime.startsWith("video/")');
+  const masterCheck = renderer.indexOf('/master/.test(field)');
+  assert.ok(audioCheck >= 0 && videoCheck >= 0 && masterCheck > videoCheck);
+  assert.match(renderer, /\.\(mp3\|wav\|m4a\|aac\|ogg\|flac\)\$/);
+  assert.match(renderer, /\.\(pdf\|docx\?\|odt\|rtf\|txt\|md\)\$/);
+  assert.match(renderer, /preview_text/);
 });

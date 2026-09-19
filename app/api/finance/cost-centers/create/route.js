@@ -57,6 +57,7 @@ export async function POST(request) {
     return NextResponse.json({
       ...result,
       configuration: configured.configuration,
+      cost_center_id: result?.costCenter?.id || result?.id || null,
     });
   } catch (error) {
     return failure(error);

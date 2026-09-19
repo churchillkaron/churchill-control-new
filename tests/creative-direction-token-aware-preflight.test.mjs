@@ -7,6 +7,8 @@ const temporal = fs.readFileSync("lib/creative/director/runtime/CreativeTemporal
 
 test("direction preflight prices the actual bounded request instead of the generic pricing maximum", () => {
   assert.match(cost, /estimatedDirectionUsage\(input\)/);
+  assert.match(cost, /DIRECTION_INPUT_TOKEN_RESERVATION_HEADROOM = 1\.15/);
+  assert.match(cost, /Math\.ceil\(heuristicInputTokens \* DIRECTION_INPUT_TOKEN_RESERVATION_HEADROOM\)/);
   assert.match(cost, /boundedDirectionUsage/);
   assert.match(cost, /pricing = bounded\.pricing/);
   assert.match(cost, /estimated_input_tokens: estimatedUsage\.input_tokens/);

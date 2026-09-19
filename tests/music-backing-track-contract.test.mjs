@@ -12,7 +12,7 @@ import {
 
 const separatorProvider = fs.readFileSync(
   new URL(
-    "../lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicSeparatorProvider.js",
+    "../lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicSeparatorModalProvider.js",
     import.meta.url,
   ),
   "utf8",
@@ -116,15 +116,15 @@ test("backing track normalization supports performance controls", () => {
 
 test("separator transport is isolated from the certified generation endpoint", () => {
   assert.match(audioProvider, /isSeparatorCapability/);
-  assert.match(audioProvider, /AVANTIQO_MUSIC_SEPARATOR_JOB_PREFIX/);
-  assert.match(separatorProvider, /RUNPOD_AVANTIQO_MUSIC_SEPARATOR_ENDPOINT_ID/);
+  assert.match(audioProvider, /AVANTIQO_MUSIC_SEPARATOR_MODAL_JOB_PREFIX/);
+  assert.match(separatorProvider, /AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED/);
   assert.match(separatorProvider, /AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED/);
   assert.match(separatorProvider, /output_uploads/);
-  assert.match(separatorProvider, /backing-track\.wav/);
-  assert.match(separatorProvider, /vocals\.wav/);
-  assert.match(separatorProvider, /drums\.wav/);
-  assert.match(separatorProvider, /bass\.wav/);
-  assert.match(separatorProvider, /other\.wav/);
+  assert.match(separatorProvider, /backing_track_wav/);
+  assert.match(separatorProvider, /vocals/);
+  assert.match(separatorProvider, /drums/);
+  assert.match(separatorProvider, /bass/);
+  assert.match(separatorProvider, /other/);
 });
 
 test("separator worker enforces rights, duration and immutable Demucs model contract", () => {

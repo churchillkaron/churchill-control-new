@@ -98,3 +98,10 @@ test("normal post-action verification emits the same canonical business effect e
   assert.match(synthetic, /action_identity_evidence:\s*list\(recoveryState\.failure_evidence/);
   assert.match(synthetic, /server_scope_bound:\s*true/);
 });
+
+test("mission failure receipts preserve normalized identity evidence for authoritative reinspection", () => {
+  const mission = fs.readFileSync("lib/platform/capabilities/createOperatorMissionCapability.js", "utf8");
+  assert.match(mission, /action_identity_evidence: normalizedActionIdentityEvidence\(error\?\.action_identity_evidence\)/);
+  assert.match(mission, /verifierPayloadFromActionIdentityEvidence\(declaration, error\?\.action_identity_evidence\)/);
+  assert.match(mission, /mutation_completion_proven: false/);
+});

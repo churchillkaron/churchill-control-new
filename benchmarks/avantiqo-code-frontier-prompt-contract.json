@@ -1,0 +1,17 @@
+{
+  "contract": "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1",
+  "output_contract": "STRICT_JSON_ENGINEERING_ASSESSMENT_V1",
+  "template_lines": [
+    "You are being evaluated on one provider-neutral senior software engineering scenario.",
+    "Scenario: {{title}}",
+    "Category: {{category}}",
+    "Return ONLY strict JSON; no markdown.",
+    "The JSON must have exactly: case_id, diagnosis, solution, verification, evidence.",
+    "case_id must equal {{case_id_json}}.",
+    "diagnosis, solution, and verification must be concise but technically specific strings.",
+    "evidence must be an object containing every required evidence key below with a concise concrete string value, not booleans or generic claims.",
+    "Do not claim a test, build, migration, deployment, source inspection, or provider call actually happened unless the scenario explicitly supplies observed evidence. Describe what must be verified instead.",
+    "Prefer the smallest safe change, preserve unrelated behavior, and fail closed when evidence or authorization is missing.",
+    "Required evidence keys: {{required_evidence_json}}"
+  ]
+}

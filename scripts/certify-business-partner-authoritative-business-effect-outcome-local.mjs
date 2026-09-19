@@ -49,7 +49,7 @@ report.domain_evidence = {
   explicit_absence_only: has(outcome, /explicitState === "NOT_COMPLETED"/) && has(outcome, /explicit\.business_effect_absent === true/) && has(outcome, /explicit\.safe_to_retry === true/),
   normal_write_emits_outcome: has(core, /business_effect_outcome:/),
   ambiguous_write_consumes_outcome: has(ambiguous, /const evidence = normalizeAuthoritativeBusinessEffectOutcome/),
-  failure_receipt_identity_supported: has(mission, /action_identity_evidence: Array\.isArray\(error\?\.action_identity_evidence\)/),
+  failure_receipt_identity_supported: has(mission, /action_identity_evidence: normalizedActionIdentityEvidence\(error\?\.action_identity_evidence\)/) && has(mission, /verifierPayloadFromActionIdentityEvidence\(declaration, error\?\.action_identity_evidence\)/),
   completed_never_replayed: has(ambiguous, /mutation_replay_allowed:\s*false/),
   not_completed_requires_fresh_governance: has(ambiguous, /retry_requires_fresh_governance:\s*true/),
   canonical_verified_mutation_preserved: has(operator, /VERIFIED_MUTATION_OUTCOME_CONTRACT/),

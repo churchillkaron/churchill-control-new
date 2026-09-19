@@ -6,7 +6,7 @@ function read(path) { return fs.readFileSync(new URL(`../${path}`, import.meta.u
 
 const forbiddenDirectProvider = /api\.runpod|rest\.runpod|RUNPOD_API_KEY|RUNPOD_MANAGEMENT_API_KEY|AVANTIQO_[A-Z0-9_]*RUNPOD[A-Z0-9_]*API_KEY/i;
 
-test("owned provider registrations are Modal-only", () => {
+test("owned provider registrations contain no retired RunPod provider credentials", () => {
   for (const path of [
     "lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProviderRegistration.js",
     "lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderRegistration.js",

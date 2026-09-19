@@ -7,6 +7,7 @@ import { classifyOperatorFailureRecovery } from "../lib/operator/runtime/Operato
 const turn = fs.readFileSync("lib/operator/runtime/OperatorTurnRuntime.js", "utf8");
 const core = fs.readFileSync("lib/operator/runtime/OperatorTurnRuntimeCore.js", "utf8");
 const repair = fs.readFileSync("lib/operator/runtime/OperatorRepairSupervisionRuntime.js", "utf8");
+const synthetic = fs.readFileSync("lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js", "utf8");
 
 function failed({ code = "RUNTIME_FAILURE", status = null, reason = "OPERATOR_DELEGATED_EXECUTION_FAILED" } = {}) {
   return { execution: { status: "failed", reason, failure_evidence: { error_code: code, status_code: status } } };
@@ -45,4 +46,24 @@ test("owned repair Intelligence receives the deterministic routing guard", () =>
   assert.match(repair, /PRODUCT_DEFECT_CANDIDATE may recommend governed Product Engineering/);
   assert.match(repair, /code_engineering_candidate/);
   assert.match(repair, /Do not retry or execute writes in this phase/);
+});
+
+
+test("repair supervisor transient timeout remains recoverable without code mutation authority", () => {
+  assert.match(repair, /PENDING_SETTLEMENT_TIMEOUT/);
+  assert.match(repair, /recovery_classification: supervisorTransient \? "TRANSIENT_RUNTIME"/);
+  assert.match(repair, /REPAIR_SUPERVISOR_TRANSIENT_TIMEOUT/);
+  assert.match(repair, /retry_policy: "safe_reinspect_then_retry"/);
+  assert.match(repair, /needs_human: false/);
+  assert.match(repair, /code_engineering_candidate: false/);
+});
+
+test("a clearly new semantic goal supersedes stale recovery but never a live pending action", () => {
+  assert.match(synthetic, /!pendingCapabilityKey[\s\S]*goal_relation[\s\S]*=== "new"/);
+  assert.match(synthetic, /delete nextAgreementState\.business_partner_recovery/);
+  assert.match(synthetic, /delete nextAgreementState\.implementation_repair_resume/);
+  assert.match(synthetic, /objective: text\(object\(semanticUnderstanding\)\.user_goal/);
+  assert.match(synthetic, /completed_steps: \[\]/);
+  assert.match(synthetic, /progress_summary: null/);
+  assert.match(synthetic, /last_execution: null/);
 });

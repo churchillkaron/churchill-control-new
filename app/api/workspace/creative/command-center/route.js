@@ -80,13 +80,14 @@ export async function GET(request) {
         if (error) throw error;
         return data || [];
       }),
-      safe("creative_publish_jobs", async () => {
+      safe("creative_asset_nodes_publication", async () => {
         const { data, error } = await supabaseAdmin
-          .from("creative_publish_jobs")
-          .select("id,creative_mission_id,creative_project_id,asset_id,channel,destination,status,scheduled_at,completed_at,failed_at,error_message,updated_at,created_at")
+          .from("creative_asset_nodes")
+          .select("id,creative_project_id,creative_asset_id,parent_asset_node_id,type,status,name,description,metadata,updated_at,created_at")
           .eq("organization_id", orgId)
+          .in("type", ["PUBLISH_COMMAND", "PUBLISH_EXECUTION", "PUBLICATION_EVIDENCE", "FINAL_RENDER"])
           .order("updated_at", { ascending: false })
-          .limit(500);
+          .limit(1500);
         if (error) throw error;
         return data || [];
       }),
@@ -116,7 +117,12 @@ export async function GET(request) {
     const projects = projectsSource.data || [];
     const tasks = tasksSource.data || [];
     const assets = assetsSource.data || [];
-    const publishJobs = publishSource.data || [];
+    const publishNodes = publishSource.data || [];
+    const publishCommands = publishNodes.filter((row) => row.type === "PUBLISH_COMMAND");
+    const publishExecutions = publishNodes.filter((row) => row.type === "PUBLISH_EXECUTION");
+    const publicationEvidence = publishNodes.filter((row) =>
+      row.type === "PUBLICATION_EVIDENCE" && row.metadata?.remote_verified === true && row.metadata?.published === true,
+    );
     const publications = publicationsSource.data || [];
     const outcomes = outcomesSource.data || [];
 
@@ -126,10 +132,25 @@ export async function GET(request) {
     const waitingTasks = tasks.filter((row) => ["waiting", "ready", "queued", "running"].includes(normalized(row.status)));
     const approvalAssets = assets.filter((row) => ["pending", "review", "in_review", "pending_approval"].includes(normalized(row.approval_state)));
     const approvedAssets = assets.filter((row) => normalized(row.approval_state) === "approved");
-    const openPublishJobs = publishJobs.filter((row) => !["completed", "published", "cancelled"].includes(normalized(row.status)));
-    const failedPublishJobs = publishJobs.filter((row) => normalized(row.status) === "failed" || Boolean(row.error_message));
+    const publicationState = (row) => normalized(row.metadata?.execution_status || row.metadata?.state || row.status);
+    const openPublishJobs = [...publishCommands, ...publishExecutions].filter((row) =>
+      !["completed", "published", "cancelled", "archived", "remote_verified"].includes(publicationState(row)),
+    );
+    const failedPublishJobs = [...publishCommands, ...publishExecutions].filter((row) =>
+      ["failed", "evidence_required"].includes(publicationState(row)) || Boolean(row.metadata?.error || row.metadata?.error_message),
+    );
     const observedProjectIds = new Set(outcomes.map((row) => row.creative_project_id).filter(Boolean));
-    const publishedAssetIds = new Set(publications.map((row) => row.asset_id).filter(Boolean));
+    const nodesById = new Map(publishNodes.map((row) => [row.id, row]));
+    const commandsById = new Map(publishCommands.map((row) => [row.id, row]));
+    const canonicalPublishedAssetIds = publicationEvidence.map((evidence) => {
+      const command = commandsById.get(evidence.metadata?.publish_command_asset_node_id);
+      const master = nodesById.get(command?.metadata?.release_master_asset_node_id);
+      return master?.creative_asset_id || null;
+    }).filter(Boolean);
+    const publishedAssetIds = new Set([
+      ...publications.map((row) => row.asset_id).filter(Boolean),
+      ...canonicalPublishedAssetIds,
+    ]);
     const approvedNotPublished = approvedAssets.filter((row) => !publishedAssetIds.has(row.id));
     const completedProjectsWithoutOutcome = projects.filter((row) =>
       ["completed", "published", "delivered"].includes(normalized(row.status)) && !observedProjectIds.has(row.id),
@@ -158,8 +179,8 @@ export async function GET(request) {
       id: `publish:${row.id}`,
       priority: "attention",
       kind: "publishing",
-      title: `Publishing failed${row.channel ? ` · ${row.channel}` : ""}`,
-      detail: row.error_message || row.destination || "Publishing requires attention.",
+      title: `Publishing failed${row.metadata?.channel || row.metadata?.publish_target?.channel ? ` · ${row.metadata?.channel || row.metadata?.publish_target?.channel}` : ""}`,
+      detail: row.metadata?.error_message || row.metadata?.error || row.description || "Publishing requires attention.",
       status: "Retry",
       href: `/creative/studio/publishing/${row.creative_project_id || row.creative_mission_id || ""}`,
     }));
@@ -193,7 +214,7 @@ export async function GET(request) {
         approved_not_published: approvedNotPublished.length,
         publish_open: openPublishJobs.length,
         publish_failed: failedPublishJobs.length,
-        publications: publications.length,
+        publications: publicationEvidence.length || publications.length,
         outcomes: outcomes.length,
       },
       queue: queue.slice(0, 24),

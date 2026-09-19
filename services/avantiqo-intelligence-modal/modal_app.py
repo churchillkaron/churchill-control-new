@@ -1,10 +1,8 @@
-"""Scale-to-zero Modal workers for owned Avantiqo Intelligence Fast + Deep.
+"""Owned Avantiqo Intelligence Fast + Deep Modal workers.
 
 No Modal Volume is created. Each exact Qwen snapshot is baked into its own
-immutable Modal Image layer. Deploying these worker definitions downloads the
-pinned public model snapshot once; invoking Fast/Deep is the only action that
-starts an H100. The gateway lives in modal_service.py and never imports this
-module. A warm container reuses its vLLM engine until Modal scales it to zero.
+immutable Modal Image layer. Fast and Deep both scale to zero after a five-second idle window.
+Production uses direct Modal SDK transport; no gateway app is required.
 """
 from __future__ import annotations
 
@@ -36,8 +34,8 @@ DEEP_MAX_MODEL_LEN = 131072
 FAST_MAX_INPUT_CHARACTERS = 100000
 DEEP_MAX_INPUT_CHARACTERS = 500000
 MAX_OUTPUT_TOKENS = 16384
-FAST_SCALEDOWN_WINDOW_SECONDS = 10
-DEEP_SCALEDOWN_WINDOW_SECONDS = 5
+FAST_SCALEDOWN_WINDOW_SECONDS = 5
+DEEP_SCALEDOWN_WINDOW_SECONDS = max(5, int(os.environ.get("AVANTIQO_INTELLIGENCE_DEEP_SCALEDOWN_SECONDS", "5") or "5"))
 FAST_RUNTIME_CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_WARM_FUNCTION_V1"
 PRIVATE_KEYS = {
     "reasoning", "reasoning_content", "chain_of_thought", "chainofthought",
@@ -366,6 +364,7 @@ def _llm(model: str) -> Any:
         "tensor_parallel_size": 1,
         "gpu_memory_utilization": 0.97 if model == DEEP_MODEL else 0.90,
         "trust_remote_code": False,
+        "enable_prefix_caching": True,
     }
     if model == FAST_MODEL:
         # Match Code's proven warm vLLM path: CUDA graphs plus weight prefetch.
@@ -376,6 +375,47 @@ def _llm(model: str) -> Any:
     engine = LLM(**options)
     _LLM_CACHE[model] = engine
     return engine
+
+
+def _request_timing_usage(request_output: Any) -> dict[str, int]:
+    metrics = getattr(request_output, "metrics", None)
+    if metrics is None:
+        return {}
+
+    def seconds(name: str) -> float | None:
+        value = getattr(metrics, name, None)
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            return None
+        return parsed if parsed >= 0 else None
+
+    arrival = seconds("arrival_time")
+    scheduled = seconds("first_scheduled_time")
+    first_token = seconds("first_token_time")
+    finished = seconds("finished_time")
+    queue = seconds("time_in_queue")
+    if queue is None and arrival is not None and scheduled is not None and scheduled >= arrival:
+        queue = scheduled - arrival
+
+    values: dict[str, int] = {}
+    if queue is not None:
+        values["request_queue_ms"] = round(queue * 1000)
+    if arrival is not None and first_token is not None and first_token >= arrival:
+        values["time_to_first_token_ms"] = round((first_token - arrival) * 1000)
+    if scheduled is not None and first_token is not None and first_token >= scheduled:
+        values["prefill_ms"] = round((first_token - scheduled) * 1000)
+    if first_token is not None and finished is not None and finished >= first_token:
+        values["decode_ms"] = round((finished - first_token) * 1000)
+    for source, target in (
+        ("scheduler_time", "scheduler_ms"),
+        ("model_forward_time", "model_forward_ms"),
+        ("model_execute_time", "model_execute_ms"),
+    ):
+        value = seconds(source)
+        if value is not None:
+            values[target] = round(value * 1000)
+    return values
 
 
 def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
@@ -424,13 +464,17 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
     )
     warm_engine_reused = model in _LLM_CACHE
     started = time.perf_counter()
+    engine_prepare_started = time.perf_counter()
     engine = _llm(model)
+    engine_prepare_ms = round((time.perf_counter() - engine_prepare_started) * 1000)
+    generation_started = time.perf_counter()
     results = engine.chat(
         messages,
         sampling_params=sampling,
         use_tqdm=False,
         tools=tools,
     )
+    generation_ms = round((time.perf_counter() - generation_started) * 1000)
     if not results or not results[0].outputs:
         raise RuntimeError("AVANTIQO_INTELLIGENCE_MODAL_OUTPUT_REQUIRED")
     request_output = results[0]
@@ -448,6 +492,7 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         raise RuntimeError("AVANTIQO_INTELLIGENCE_MODAL_FINAL_OUTPUT_REQUIRED")
 
     structured_json_finalization_performed = False
+    structured_finalization_ms = 0
     structured_input_tokens = 0
     structured_output_tokens = 0
     json_object_required = (
@@ -483,12 +528,14 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
             max_tokens=max_tokens,
             structured_outputs=StructuredOutputsParams(json_object=True),
         )
+        structured_finalization_started = time.perf_counter()
         finalize_results = engine.chat(
             finalize_messages,
             sampling_params=finalize_sampling,
             use_tqdm=False,
             tools=None,
         )
+        structured_finalization_ms = round((time.perf_counter() - structured_finalization_started) * 1000)
         if not finalize_results or not finalize_results[0].outputs:
             raise RuntimeError("AVANTIQO_INTELLIGENCE_STRUCTURED_FINALIZATION_OUTPUT_REQUIRED")
         finalize_request_output = finalize_results[0]
@@ -504,10 +551,17 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         structured_output_tokens = len(finalize_generated.token_ids or [])
         structured_json_finalization_performed = True
 
+    cached_input_tokens = max(0, int(getattr(request_output, "num_cached_tokens", 0) or 0))
     usage = {
         "input_tokens": len(request_output.prompt_token_ids or []) + structured_input_tokens,
         "output_tokens": len(generated.token_ids or []) + structured_output_tokens,
+        "cached_input_tokens": cached_input_tokens,
+        "engine_prepare_ms": engine_prepare_ms,
+        "generation_ms": generation_ms,
+        "structured_finalization_ms": structured_finalization_ms,
+        "compute_ms": generation_ms + structured_finalization_ms,
     }
+    usage.update(_request_timing_usage(request_output))
     usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
     return {
         "status": "completed",
@@ -529,6 +583,10 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
             else None
         ),
         "warm_engine_reused": warm_engine_reused,
+        "prefix_cache_enabled": True,
+        "prefix_cache_hit": cached_input_tokens > 0,
+        "cached_input_tokens": cached_input_tokens,
+        "cache_context": _safe(data.get("cache_context")),
         "raw_reasoning_persisted": False,
         "infrastructure_provider": "MODAL_H100_ASYNC_V1",
         "modal_gpu": GPU,
@@ -551,6 +609,7 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
     buffer_containers=0,
     scaledown_window=FAST_SCALEDOWN_WINDOW_SECONDS,
 )
+@modal.concurrent(max_inputs=1)
 def fast(data: dict[str, Any]) -> dict[str, Any]:
     result = dict(_run(data, model=FAST_MODEL, lane="fast"))
     result["fast_runtime_contract"] = FAST_RUNTIME_CONTRACT
@@ -569,5 +628,6 @@ def fast(data: dict[str, Any]) -> dict[str, Any]:
     buffer_containers=0,
     scaledown_window=DEEP_SCALEDOWN_WINDOW_SECONDS,
 )
+@modal.concurrent(max_inputs=1)
 def deep(data: dict[str, Any]) -> dict[str, Any]:
     return _run(data, model=DEEP_MODEL, lane="deep")

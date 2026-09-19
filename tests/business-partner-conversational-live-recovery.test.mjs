@@ -1,0 +1,74 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+import { parse } from "@babel/parser";
+
+function source(path) {
+  return fs.readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+}
+
+test("Business Partner fast lane uses an interactive settlement budget", () => {
+  const reasoning = source("lib/intelligence/runtime/AvantiqoIntelligenceReasoningRuntime.js");
+  const owned = source("lib/operator/runtime/OperatorOwnedIntelligenceServiceRuntime.js");
+  assert.match(reasoning, /FAST_PENDING_SETTLEMENT_DEADLINE_MS = 35_000/);
+  assert.match(reasoning, /FAST_PENDING_QUEUE_GRACE_MS = 10_000/);
+  assert.match(owned, /DEFAULT_FRONT_MAX_POLLS = 20/);
+  assert.match(owned, /DEFAULT_FAST_MAX_POLLS = 45/);
+  assert.match(owned, /executionLane === "front"/);
+  assert.match(owned, /DEFAULT_FRONT_MAX_POLLS/);
+  assert.match(owned, /DEFAULT_DEEP_MAX_POLLS/);
+});
+
+test("Business Partner stops a stalled evidence job and preserves a persistent answer", () => {
+  const fast = source("lib/operator/runtime/OperatorFastConversationRuntime.js");
+  assert.match(fast, /function fastIntelligenceTimeout/);
+  assert.match(fast, /FAST_INTELLIGENCE_RETRY/);
+  assert.match(fast, /persistent answer instead of making you wait through another long retry/);
+  assert.match(fast, /FRONT_EVIDENCE_TIMEOUT_FALLBACK/);
+  assert.match(fast, /persistent_timeout_fallback: true/);
+  assert.doesNotMatch(fast, /liveReadReceipts\.length = 0;[\s\S]{0,180}evidenceExecution = await runEvidenceTurn\(\)/);
+});
+
+test("terminal fast timeout returns recoverable conversation instead of a generic dead end", () => {
+  const route = source("app/api/operator/turn/route.js");
+  assert.match(route, /isFastIntelligenceSettlementTimeout/);
+  assert.match(route, /conversation_response/);
+  assert.match(route, /conversation_preserved: true/);
+  assert.match(route, /business_action_replayed: false/);
+  assert.match(route, /mutation_assumed_complete: false/);
+});
+
+test("Business Partner renders live execution as ephemeral gray status only", () => {
+  const ui = source("components/operator/HomeAvantiqoIntelligence.jsx");
+  const route = source("app/api/operator/turn/route.js");
+  parse(ui, { sourceType: "module", plugins: ["jsx"] });
+  assert.match(ui, /conversationalProgressStatus/);
+  assert.match(ui, /data-avantiqo-live-status="true"/);
+  assert.match(ui, /text-white\/35/);
+  assert.match(ui, /latest\?\.description/);
+  assert.doesNotMatch(ui, /latest\?\.capability_key/);
+  assert.doesNotMatch(ui, /latest\?\.command/);
+  assert.doesNotMatch(ui, /Still working on the same request\. Waiting for a verified result/);
+  assert.match(ui, /result\?\.details\?\.conversation_response/);
+  assert.doesNotMatch(ui, /data-avantiqo-conversation-progress="true"/);
+  assert.doesNotMatch(ui, /busyRequestStatus\(/);
+  assert.match(route, /persistAssistantTurnAndConversationState/);
+  assert.doesNotMatch(route, /persistAssistantTurnAndConversationState\([\s\S]{0,500}live_execution/);
+});
+
+
+test("Business Partner live status renders elapsed time exactly once", () => {
+  const ui = source("components/operator/HomeAvantiqoIntelligence.jsx");
+  assert.doesNotMatch(ui, /return `\$\{detail\}.*\$\{busyElapsedSeconds\}s`/s);
+  assert.equal((ui.match(/aria-label="elapsed time"/g) || []).length, 1);
+  assert.match(ui, /<span aria-label="elapsed time">· \{busyElapsedSeconds\}s<\/span>/);
+});
+
+test("obvious UI code inspections start with Code Studio live status", () => {
+  const liveRoute = source("app/api/operator/turn/live/route.js");
+  assert.match(liveRoute, /function codeInspectionRequest/);
+  assert.match(liveRoute, /code\|ui\|user interface\|page\|pages/);
+  assert.match(liveRoute, /check\|inspect\|review\|audit\|fix\|repair/);
+  assert.match(liveRoute, /CODE_INSPECTION_ROUTING/);
+  assert.match(liveRoute, /relevant pages, components and verification path/);
+});

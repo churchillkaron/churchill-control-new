@@ -70,14 +70,6 @@ function humanPhase(value) {
   return phase.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function activityMode(event) {
-  if (event?.mutation_running === true) return "Editing / executing";
-  if (event?.verification_running === true) return "Verifying";
-  if (event?.paid_execution_running === true) return "Owned AI running";
-  if (event?.read_only === true) return "Read only";
-  return "Governed execution";
-}
-
 function recentLiveExecution(value) {
   if (!value || value.active !== true) return false;
   const updated = eventTimestamp(value.updated_at || value.latest_event?.at);
@@ -457,12 +449,11 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       const conversationRowsChanged = mutations.some(
         (mutation) =>
           mutation.type === "childList" &&
-          mutation.target === scroller &&
           (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0),
       );
       if (conversationRowsChanged) scheduleLatest("smooth");
     });
-    observer.observe(scroller, { childList: true });
+    observer.observe(scroller, { childList: true, subtree: true });
 
     markGenericThinkingRows();
     scheduleLatest("auto");
@@ -504,7 +495,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         ) : (
           <Paperclip size={11} />
         )}
-        {developerAttachmentPending ? "Uploading" : "Attach files"}
+        {developerAttachmentPending ? "Uploading" : "Upload files"}
       </button>
 
       {developerAttachmentSet?.files?.map((file) => (
@@ -540,7 +531,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
             ? "Understanding files…"
             : developerAttachmentSet.analysis_complete
               ? "Understood · next turn only"
-              : "Ready · analysis retries on send"}
+              : "Ready to use"}
         </span>
       ) : null}
     </div>
@@ -562,34 +553,13 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[#D6A66A]/80">
                 <Loader2 size={12} className="animate-spin" />
-                <span>{text(liveEvent.lane).toUpperCase() || "AVANTIQO"}</span>
+                <span>Avantiqo</span>
                 <span className="text-white/25">·</span>
                 <span>{humanPhase(liveEvent.phase)}</span>
-                <span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] text-white/45">
-                  {activityMode(liveEvent)}
-                </span>
               </div>
               <div className="mt-2 text-sm font-light leading-5 text-white/80">
-                {liveEvent.description || "Working on the current request."}
+                I’m working through your request and I’ll keep the conversation updated as meaningful progress is ready.
               </div>
-
-              {text(liveEvent.capability_key) ? (
-                <div className="mt-1.5 text-[10px] leading-4 text-white/35">
-                  Capability: {liveEvent.capability_key}
-                </div>
-              ) : null}
-
-              {Array.isArray(liveEvent.files_changed) && liveEvent.files_changed.length ? (
-                <div className="mt-1.5 text-[10px] leading-4 text-white/35">
-                  Files: {liveEvent.files_changed.slice(-4).join(", ")}
-                </div>
-              ) : null}
-
-              {text(liveEvent.command) ? (
-                <div className="mt-1.5 break-all font-mono text-[10px] leading-4 text-white/35">
-                  Running: {liveEvent.command}{Array.isArray(liveEvent.command_args) && liveEvent.command_args.length ? ` ${liveEvent.command_args.join(" ")}` : ""}
-                </div>
-              ) : null}
 
               {liveExecution?.stop_requested === true || stopPending ? (
                 <div className="mt-2 text-[10px] leading-4 text-amber-200/65">

@@ -173,6 +173,11 @@ class SfxEngine:
         }
 
 
+@app.function(image=image, timeout=20 * 60)
+def generate(data: dict[str, Any]) -> dict[str, Any]:
+    return SfxEngine().generate.remote(data)
+
+
 @app.function(image=image)
 @modal.fastapi_endpoint(method="POST")
 def generate_endpoint(data: dict[str, Any]) -> dict[str, Any]:

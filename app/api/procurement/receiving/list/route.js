@@ -130,6 +130,14 @@ export async function GET(req) {
     const organizationId =
       searchParams.get("organizationId") ||
       searchParams.get("organization_id");
+    const entityId =
+      searchParams.get("entityId") ||
+      searchParams.get("entity_id") ||
+      null;
+    const goodsReceiptId =
+      searchParams.get("goods_receipt_id") ||
+      searchParams.get("id") ||
+      null;
 
     const access =
       await requireOrganizationAccess({
@@ -148,10 +156,7 @@ export async function GET(req) {
       );
     }
 
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("goods_receipts")
       .select(`
         *,
@@ -165,10 +170,14 @@ export async function GET(req) {
           status
         )
       `)
-      .eq("organization_id", access.organizationId)
-      .order("received_date", {
-        ascending: false,
-      });
+      .eq("organization_id", access.organizationId);
+
+    if (entityId) query = query.eq("entity_id", entityId);
+    if (goodsReceiptId) query = query.eq("id", goodsReceiptId);
+
+    const { data, error } = await query.order("received_date", {
+      ascending: false,
+    });
 
     if (error) throw error;
 

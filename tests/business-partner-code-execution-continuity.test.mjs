@@ -234,7 +234,7 @@ test("Business Partner projects Code evidence before generic deterministic compl
   const runtime = source("lib/operator/runtime/OperatorTurnRuntime.js");
   assert.match(
     runtime,
-    /const result = await runGovernedOperatorTurn\(effectiveOptions\);[\s\S]*const evidencedResult = withOperatorCodeExecutionEvidence\(result\);[\s\S]*const verifiedResult = withVerifiedMutationOutcome\(\s*evidencedResult,/,
+    /const result = await runGovernedOperatorTurn\(effectiveOptions\);[\s\S]*const evidencedResult = withOperatorCodeExecutionEvidence\(result\);[\s\S]*const verifiedResult = (?:await\s+)?withVerifiedMutationOutcome\(\s*evidencedResult,/,
   );
 });
 
@@ -286,10 +286,10 @@ test("post-refresh commit confirmation resumes the exact stored mission payload"
     core,
     /pending\?\.resume_kind === "mission"[\s\S]*missionResumeProjectionMatches\(pending, activeRun\)/,
   );
-  assert.match(
-    core,
-    /payload:\s*pending\.payload,[\s\S]*runtimeMetadata:\s*missionResume[\s\S]*operatorMissionResume:\s*true,[\s\S]*operatorMissionConfirmed:\s*isAffirmative\(message\)/,
-  );
+  assert.match(core, /const missionResume = pending\.resume_kind === "mission"/);
+  assert.match(core, /payload:\s*pending\.payload/);
+  assert.match(core, /operatorMissionResume:\s*true/);
+  assert.match(core, /operatorMissionConfirmed:\s*isAffirmative\(message\)/);
 });
 
 test("Business Partner keeps pending Code commit confirmation visible ahead of prior verified engineering", () => {

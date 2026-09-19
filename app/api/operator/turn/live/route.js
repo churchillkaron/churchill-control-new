@@ -1,4 +1,5 @@
 import { POST as runOperatorTurnPost } from "../route";
+import { resolveOperatorInstantGreeting } from "@/lib/operator/runtime/OperatorInstantGreetingPolicy.js";
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
@@ -6,6 +7,9 @@ import {
   beginAvantiqoLiveExecution,
   publishAvantiqoLiveExecution,
 } from "@/lib/platform/runtime/AvantiqoLiveExecutionRuntime";
+import {
+  classifyPendingOperatorReply,
+} from "@/lib/operator/runtime/OperatorHumanDecisionClassifier.js";
 
 export const runtime = "nodejs";
 // Owned Intelligence is zero-idle. A cold Fast request may first prove that
@@ -23,6 +27,12 @@ function object(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function codeInspectionRequest(message) {
+  const value = text(message);
+  return /\b(code|ui|user interface|page|pages|route|routes|component|components|file|files)\b/i.test(value) &&
+    /\b(check|inspect|review|audit|fix|repair|finished|complete|completed|missing|improve)\b/i.test(value);
+}
+
 function completionEvent(result, response) {
   const execution = object(result?.execution);
   const capability = object(execution.capability);
@@ -36,9 +46,7 @@ function completionEvent(result, response) {
     phase: succeeded ? "TURN_COMPLETE" : "TURN_FAILED",
     status: succeeded ? "completed" : "failed",
     description: succeeded
-      ? key
-        ? `Finished the governed ${key} turn.`
-        : "Finished reasoning and preparing the response."
+      ? text(result?.decision?.response_text) || (key ? "Finished the requested action." : "Finished preparing the response.")
       : "The Business Partner turn stopped before successful completion.",
     capability_key: key || null,
     read_only: !key,
@@ -58,33 +66,54 @@ export async function POST(request) {
     if (organizationId) {
       const access = await requireOrganizationAccess({ organizationId, request });
       if (access.success) {
+        const instantGreeting = resolveOperatorInstantGreeting({
+          message: body.message,
+          source: body.source || "text",
+        });
+        if (instantGreeting) {
+          return Response.json({
+            success: true,
+            decision: {
+              response_text: instantGreeting,
+              response_language: text(body.locale) || null,
+              intent: "answer",
+              confidence: 1,
+              clarification: { required: false, question: null, options: [] },
+              navigation: { target_id: null },
+              execution: { capability_key: null, payload: {}, reason: null },
+              plan: [],
+            },
+            state_unchanged: true,
+            navigation: null,
+            execution: null,
+            provider_evidence: { provider: "avantiqo-local", model: "operator-instant-social-reflex-v1", usage_id: null },
+            operator_catalog: {
+              instant_response: true,
+              intelligence_lease_required: false,
+              provider_request_performed: false,
+              project_context_loaded: false,
+              memory_loaded: false,
+              mutation_executed: false,
+            },
+          });
+        }
         context = {
           organizationId: access.organizationId || organizationId,
           partyId: access.staff?.party_id || access.staff?.partyId || null,
-          actor: {
-            id: access.user?.id || access.userId || null,
-          },
+          actor: { id: access.user?.id || access.userId || null },
         };
-        await beginAvantiqoLiveExecution({
-          context,
-          lane: "intelligence",
-          description:
-            "Understanding your request, checking current context and deciding which governed evidence or capability is needed.",
-        }).catch(() => null);
-        await publishAvantiqoLiveExecution({
-          context,
-          event: {
-            lane: "intelligence",
-            phase: "REQUEST_ROUTING",
-            status: "running",
-            description:
-              "Resolving the request against current business context and registered capabilities.",
-            read_only: true,
-            mutation_possible: false,
-            paid_execution_possible: false,
-            paid_execution_running: false,
-          },
-        }).catch(() => null);
+        const codeInspection = codeInspectionRequest(body.message);
+        if (codeInspection) {
+          await beginAvantiqoLiveExecution({ context, lane: "code", description: "I’m checking the requested UI and code surface now." }).catch(() => null);
+          await publishAvantiqoLiveExecution({
+            context,
+            event: {
+              lane: "code", phase: "CODE_INSPECTION_ROUTING", status: "running",
+              description: "I’m checking the relevant pages, components and verification path before making any change.",
+              read_only: true, mutation_possible: false, paid_execution_possible: false, paid_execution_running: false,
+            },
+          }).catch(() => null);
+        }
       }
     }
   } catch {

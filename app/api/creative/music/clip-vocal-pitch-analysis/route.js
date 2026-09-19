@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 import { NextResponse } from "next/server";
 
@@ -11,6 +12,7 @@ import { validateMusicClipEdit } from "@/lib/creative/music/runtime/CreativeMusi
 import { ensureMusicEngineeringBuses, validateMusicMixerRouting } from "@/lib/creative/music/runtime/CreativeMusicMixerRoutingRuntime";
 import { validateMusicMultitrackProject } from "@/lib/creative/music/runtime/CreativeMusicMultitrackRuntime";
 import { analyzeMusicVocalPitch } from "@/lib/creative/music/runtime/CreativeMusicVocalPitchAnalysisRuntime";
+import { analyzeMusicVocalEngineeringEvidence } from "@/lib/creative/music/runtime/CreativeMusicVocalEngineeringRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 const EXECUTION_PERMISSIONS = Object.freeze(["creative.execute", "creative.production.run", "creative.*"]);
@@ -80,24 +82,42 @@ export async function POST(request) {
       throw new Error("CREATIVE_MUSIC_VOCAL_PITCH_SOURCE_ASSET_NOT_FOUND");
     }
 
-    const analysis = await analyzeMusicVocalPitch({
-      organization_id: organizationId,
-      source_url: asset.file_url,
-      source_file_name: asset.file_name || `${asset.id}.wav`,
-      source_mime_type: asset.metadata?.mime_type || null,
-      source_offset_seconds: clip.source_offset_seconds,
-      duration_seconds: clip.duration_seconds,
-    });
+    const [analysis, engineeringEvidence] = await Promise.all([
+      analyzeMusicVocalPitch({
+        organization_id: organizationId,
+        source_url: asset.file_url,
+        source_file_name: asset.file_name || `${asset.id}.wav`,
+        source_mime_type: asset.metadata?.mime_type || null,
+        source_offset_seconds: clip.source_offset_seconds,
+        duration_seconds: clip.duration_seconds,
+      }),
+      analyzeMusicVocalEngineeringEvidence({
+        organization_id: organizationId,
+        source_media: asset.file_url,
+        file_name: asset.file_name || `${asset.id}.wav`,
+        mime_type: asset.metadata?.mime_type || null,
+        source_offset_seconds: clip.source_offset_seconds,
+        duration_seconds: clip.duration_seconds,
+      }),
+    ]);
 
     const next = structuredClone(session);
     const nextTrack = next.tracks.find((entry) => entry.id === trackId);
     const nextClip = nextTrack.clips.find((entry) => entry.id === clipId);
+    const analysedAt = new Date().toISOString();
     nextClip.vocal_pitch_analysis = {
       ...analysis,
       source_asset_id: clip.source_asset_id,
       source_offset_seconds: clip.source_offset_seconds,
       source_duration_seconds: clip.duration_seconds,
-      analysed_at: new Date().toISOString(),
+      analysed_at: analysedAt,
+    };
+    nextClip.vocal_engineering_evidence = {
+      ...engineeringEvidence,
+      source_asset_id: clip.source_asset_id,
+      source_offset_seconds: clip.source_offset_seconds,
+      source_duration_seconds: clip.duration_seconds,
+      analysed_at: analysedAt,
     };
     next.revision = currentRevision + 1;
     normalizeSession(next);
@@ -114,6 +134,7 @@ export async function POST(request) {
       success: true,
       contract: "AVANTIQO_MUSIC_CLIP_VOCAL_PITCH_ANALYSIS_V1",
       analysis,
+      engineering_evidence: nextClip.vocal_engineering_evidence,
       revision: next.revision,
       correction_applied: false,
       auto_tune_applied: false,

@@ -3,7 +3,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_BENCHMARK_V1";
+const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_BENCHMARK_V2";
 const ECONOMICS_CONTRACT = "AVANTIQO_MUSIC_SEPARATOR_ECONOMICS_V1";
 const REVIEW_CONTRACT = "AVANTIQO_MUSIC_SEPARATOR_HUMAN_REVIEW_V1";
 const EXPECTED_PROVIDER = "avantiqo-audio";
@@ -39,7 +39,6 @@ const benchmarkChecks = [
   benchmark?.summary?.passed === true,
   text(benchmark?.provider) === EXPECTED_PROVIDER,
   text(benchmark?.capability) === EXPECTED_CAPABILITY,
-  text(benchmark?.catalog_model) === EXPECTED_CATALOG_MODEL,
   text(benchmark?.runtime_model) === EXPECTED_RUNTIME_MODEL,
   text(benchmark?.quality_profile) === EXPECTED_QUALITY_PROFILE,
   benchmark?.certification?.runtime_benchmark_passed === true,
@@ -140,7 +139,7 @@ const review = {
   activation_allowed: false,
   items: observations.map((observation) => ({
     run: observation.run,
-    runpod_job_id: observation.runpod_job_id || null,
+    modal_job_id: observation.modal_job_id || null,
     source_duration_seconds: observation.source_duration_seconds || null,
     source_storage_reference: observation.source_storage_reference || null,
     storage_references: observation.storage_references || {},

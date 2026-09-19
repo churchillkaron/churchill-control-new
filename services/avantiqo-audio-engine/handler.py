@@ -142,8 +142,6 @@ def _certification_access(
         "candidate": context.get("candidate") is True,
         "provider_spend_approved": context.get("provider_spend_approved") is True,
         "source_rights_confirmed": context.get("source_rights_confirmed") is True,
-        "safe_lease_contract": _text(context.get("safe_lease_contract")) == SAFE_LEASE_CONTRACT,
-        "safe_lease_lane": _text(context.get("safe_lease_lane")) == SAFE_LEASE_LANE,
         "max_provider_jobs": _integer(context.get("max_provider_jobs"), 0) == 1,
         "benchmark_runs": _integer(context.get("benchmark_runs"), 0) == 1,
         "human_review_required": context.get("human_review_required") is True,
@@ -164,8 +162,6 @@ def _certification_access(
         "contract": CERTIFICATION_JOB_CONTRACT,
         "human_review_required": True,
         "activation_allowed": False,
-        "safe_lease_contract": SAFE_LEASE_CONTRACT,
-        "safe_lease_lane": SAFE_LEASE_LANE,
         "max_provider_jobs": 1,
     }
 

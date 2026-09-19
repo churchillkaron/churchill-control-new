@@ -14,7 +14,9 @@ test("post-release replay is certified only by the canonical Platform self-heali
   assert.match(core, /verifyPlatformSelfHealingReplay/);
   assert.match(core, /repaired_commit:\s*text\(commit\.commit_sha/);
   assert.match(core, /observed_commit:\s*text\(deployment\.observed_commit_sha/);
-  assert.match(core, /original_action_replayed:\s*true/);
+  assert.match(core, /original_action_replayed:\s*exactReplayBindingVerified/);
+  assert.match(core, /replay_binding_verified:\s*exactReplayBindingVerified/);
+  assert.match(core, /validateBusinessPartnerRecoveryReplayBinding/);
   assert.match(core, /authoritative_server_evidence:\s*authoritativeBusinessOutcome/);
 });
 
@@ -29,4 +31,12 @@ test("verified replay receipt survives recovery cleanup and permits larger missi
   assert.match(core, /selfHealingReplayVerification\.fixed !== true/);
   assert.match(core, /clearBusinessPartnerRecovery\(nextAgreementState\)/);
   assert.match(core, /businessPartnerMissionContinuation/);
+});
+
+
+test("post-release replay passes independently recomputed exact-action binding hashes to Platform verification", () => {
+  assert.match(core, /replayedActionBinding\s*=\s*exactReplayBindingVerified/);
+  assert.match(core, /buildBusinessPartnerRecoveryReplayBinding\(\{[\s\S]*capabilityKey:\s*pending\.capability_key[\s\S]*payload:\s*pending\.payload/);
+  assert.match(core, /original_action_binding_sha256:\s*text\(recovery\?\.replay_binding\?\.binding_sha256/);
+  assert.match(core, /replayed_action_binding_sha256:\s*text\(replayedActionBinding\?\.binding_sha256/);
 });

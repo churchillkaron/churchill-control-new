@@ -1,133 +1,33 @@
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-
-import {
-  PublishingRuntime,
-} from "@/lib/creative/publishing/runtime/PublishingRuntime";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { CreativePublishingInspectionRuntimeV4 } from "@/lib/creative/release/runtime/CreativePublishingInspectionRuntimeV4";
 
 export async function GET(req) {
-
   try {
-
-    const {
-      searchParams,
-    } = new URL(req.url);
-
-    const organizationId =
-      searchParams.get("organizationId");
-
-    const creativeProjectId =
-      searchParams.get("creativeProjectId");
-
-    const access =
-      await requireOrganizationAccess({
-        organizationId,
-      });
-
-    if (!access.success)
-      return NextResponse.json(
-        access,
-        {
-          status:
-            access.status,
-        },
-      );
-
-    const jobs =
-      await PublishingRuntime.list({
-
-        organization_id:
-          organizationId,
-
-        creative_project_id:
-          creativeProjectId,
-
-      });
-
-    return NextResponse.json({
-
-      success: true,
-
-      jobs,
-
+    const { searchParams } = new URL(req.url);
+    const organizationId = searchParams.get("organizationId") || searchParams.get("organization_id");
+    const creativeProjectId = searchParams.get("creativeProjectId") || searchParams.get("creative_project_id");
+    if (!organizationId || !creativeProjectId) {
+      return NextResponse.json({ success: false, error: "organizationId and creativeProjectId required" }, { status: 400 });
+    }
+    const access = await requireOrganizationAccess({ organizationId, request: req });
+    if (!access.success) return NextResponse.json(access, { status: access.status });
+    const publishing = await CreativePublishingInspectionRuntimeV4.inspect({
+      organization_id: access.organizationId,
+      creative_project_id: creativeProjectId,
     });
-
+    return NextResponse.json({ success: true, publishing });
   } catch (error) {
-
-    return NextResponse.json({
-
-      success: false,
-
-      error:
-        error.message,
-
-    }, {
-
-      status: 500,
-
-    });
-
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
-
 }
 
-export async function POST(req) {
-
-  try {
-
-    const body =
-      await req.json();
-
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          body.organization_id,
-
-      });
-
-    if (!access.success)
-      return NextResponse.json(
-        access,
-        {
-          status:
-            access.status,
-        },
-      );
-
-    const job =
-      await PublishingRuntime.create(
-        body,
-      );
-
-    return NextResponse.json({
-
-      success: true,
-
-      job,
-
-    });
-
-  } catch (error) {
-
-    return NextResponse.json({
-
-      success: false,
-
-      error:
-        error.message,
-
-    }, {
-
-      status: 500,
-
-    });
-
-  }
-
+export async function POST() {
+  return NextResponse.json({
+    success: false,
+    error: "CREATIVE_LEGACY_PUBLISHING_ENDPOINT_RETIRED_USE_RELEASE_AUTHORITY",
+  }, { status: 410 });
 }

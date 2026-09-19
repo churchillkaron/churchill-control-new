@@ -1,0 +1,9 @@
+"use client";
+import {useEffect,useMemo,useState} from "react";
+const cssFamily=(id)=>`AvantiqoImageStudio-${String(id||"").replace(/[^A-Za-z0-9_-]/g,"-")}`;
+export function useImageStudioFonts(workspace){const [catalog,setCatalog]=useState([]);const [loaded,setLoaded]=useState(()=>new Set());const scope=workspace.organization_id&&workspace.project_id?`${workspace.organization_id}:${workspace.project_id}`:null;
+ useEffect(()=>{if(!scope)return;let active=true;fetch(`/api/workspace/creative/image-studio/font?organization_id=${encodeURIComponent(workspace.organization_id)}&project_id=${encodeURIComponent(workspace.project_id)}`).then(r=>r.ok?r.json():null).then(payload=>{if(active&&payload?.catalog?.fonts)setCatalog(payload.catalog.fonts);}).catch(()=>{});return()=>{active=false;};},[scope,workspace.organization_id,workspace.project_id]);
+ const used=useMemo(()=>[...new Set((workspace.layers||[]).filter(layer=>layer.layer_type==="TEXT").map(layer=>layer.style?.font_asset_id).filter(Boolean))],[workspace.layers]);
+ useEffect(()=>{if(!scope||typeof FontFace==="undefined")return;let cancelled=false;for(const id of used){if(loaded.has(id))continue;const family=cssFamily(id);const url=`/api/workspace/creative/image-studio/font?organization_id=${encodeURIComponent(workspace.organization_id)}&project_id=${encodeURIComponent(workspace.project_id)}&font_asset_id=${encodeURIComponent(id)}`;const face=new FontFace(family,`url(${url})`);face.load().then(font=>{if(cancelled)return;document.fonts.add(font);setLoaded(current=>new Set([...current,id]));}).catch(()=>{});}return()=>{cancelled=true;};},[scope,used,workspace.organization_id,workspace.project_id,loaded]);
+ return{catalog,loaded,fontFamilyFor:(style={})=>style.font_asset_id&&loaded.has(style.font_asset_id)?cssFamily(style.font_asset_id):(style.font_family||"Arial, Helvetica, sans-serif"),cssFamily};}
+export default useImageStudioFonts;

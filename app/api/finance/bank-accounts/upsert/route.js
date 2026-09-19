@@ -36,7 +36,10 @@ export async function POST(request) {
       organizationId: access.organizationId,
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      ...result,
+      bank_account_id: result?.bankAccount?.id || result?.id || null,
+    });
   } catch (error) {
     const message = error.message || "Bank account update failed";
     return NextResponse.json({ success: false, error: message }, { status: statusFor(message) });

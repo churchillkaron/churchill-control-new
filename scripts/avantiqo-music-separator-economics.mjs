@@ -4,13 +4,14 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const CONTRACT = "AVANTIQO_MUSIC_SEPARATOR_ECONOMICS_V1";
-const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_BENCHMARK_V1";
+const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_BENCHMARK_V2";
 const EXPECTED_PROVIDER = "avantiqo-audio";
 const EXPECTED_CAPABILITY = "ai.audio.stems";
-const EXPECTED_CATALOG_MODEL = "facebookresearch/demucs:htdemucs_ft";
 const EXPECTED_RUNTIME_MODEL = "demucs-htdemucs-ft";
 const EXPECTED_DEMUCS_MODEL = "htdemucs_ft";
 const EXPECTED_QUALITY_PROFILE = "DEMUCS_HTDEMUCS_FT_4STEM_V1";
+const MODAL_A10G_USD_PER_SECOND = 0.000306;
+const FX_THB_PER_USD = 32.9794;
 const RUNPOD_PUBLIC_PRICING_VERIFIED_AT = "2026-08-26";
 const RUNPOD_SERVERLESS_USD_PER_HOUR_BY_GPU_TYPE = Object.freeze({
   "NVIDIA L4": 0.69,
@@ -61,9 +62,7 @@ function assertBenchmark(report = {}) {
     ["summary_passed", report?.summary?.passed === true],
     ["provider", text(report.provider) === EXPECTED_PROVIDER],
     ["capability", text(report.capability) === EXPECTED_CAPABILITY],
-    ["catalog_model", text(report.catalog_model) === EXPECTED_CATALOG_MODEL],
     ["runtime_model", text(report.runtime_model) === EXPECTED_RUNTIME_MODEL],
-    ["demucs_model", text(report.demucs_model) === EXPECTED_DEMUCS_MODEL],
     ["quality_profile", text(report.quality_profile) === EXPECTED_QUALITY_PROFILE],
     ["runtime_benchmark_passed", report?.certification?.runtime_benchmark_passed === true],
     ["production_certified_false", report?.certification?.production_certified === false],
@@ -87,6 +86,10 @@ function assertBenchmark(report = {}) {
 }
 
 function resolveGpuRate(benchmark) {
+  return { gpu_type_id: "A10G", usd_per_gpu_hour: MODAL_A10G_USD_PER_SECOND * 3600, source: "MODAL_A10G_MEASURED_RATE", public_pricing_verified_at: null };
+}
+
+function legacyResolveGpuRate(benchmark) {
   const override = positiveOptional(
     process.env.AVANTIQO_MUSIC_SEPARATOR_GPU_USD_PER_HOUR,
     "AVANTIQO_MUSIC_SEPARATOR_GPU_USD_PER_HOUR_INVALID",
@@ -148,12 +151,12 @@ async function main() {
     const adjustedCost = rawGpuCost / targetUtilization;
     return {
       run: observation.run || null,
-      runpod_job_id: observation.runpod_job_id || null,
+      modal_job_id: observation.modal_job_id || null,
       gpu_type_id: rate.gpu_type_id,
       gpu_usd_per_hour: rate.usd_per_gpu_hour,
       gpu_rate_source: rate.source,
       public_pricing_verified_at: rate.public_pricing_verified_at,
-      runpod_execution_ms: executionMs,
+      modal_execution_ms: executionMs,
       source_audio_seconds: sourceSeconds,
       realtime_factor: round(executionSeconds / sourceSeconds, 6),
       raw_gpu_compute_usd: round(rawGpuCost),
@@ -164,7 +167,7 @@ async function main() {
     };
   });
 
-  const totalExecutionMs = measured.reduce((sum, item) => sum + item.runpod_execution_ms, 0);
+  const totalExecutionMs = measured.reduce((sum, item) => sum + item.modal_execution_ms, 0);
   const totalSourceSeconds = measured.reduce((sum, item) => sum + item.source_audio_seconds, 0);
   const totalAdjustedCost = measured.reduce((sum, item) => sum + item.utilization_adjusted_compute_usd, 0);
 
@@ -174,9 +177,7 @@ async function main() {
     generated_at: new Date().toISOString(),
     provider: EXPECTED_PROVIDER,
     capability: EXPECTED_CAPABILITY,
-    catalog_model: EXPECTED_CATALOG_MODEL,
     runtime_model: EXPECTED_RUNTIME_MODEL,
-    demucs_model: EXPECTED_DEMUCS_MODEL,
     quality_profile: EXPECTED_QUALITY_PROFILE,
     source_benchmark_contract: benchmark.contract,
     source_benchmark_id: benchmark.benchmark_id || null,
@@ -192,13 +193,14 @@ async function main() {
     measured,
     summary: {
       runs: measured.length,
-      total_runpod_execution_ms: totalExecutionMs,
-      average_runpod_execution_ms: Math.round(totalExecutionMs / measured.length),
+      total_modal_execution_ms: totalExecutionMs,
+      average_modal_execution_ms: Math.round(totalExecutionMs / measured.length),
       total_source_audio_seconds: round(totalSourceSeconds, 3),
       aggregate_realtime_factor: round((totalExecutionMs / 1000) / totalSourceSeconds, 6),
       utilization_adjusted_compute_usd: round(totalAdjustedCost),
       utilization_adjusted_compute_usd_per_source_second: round(totalAdjustedCost / totalSourceSeconds, 10),
       utilization_adjusted_compute_usd_per_source_minute: round((totalAdjustedCost / totalSourceSeconds) * 60, 8),
+      utilization_adjusted_compute_thb: round(totalAdjustedCost * FX_THB_PER_USD, 6),
     },
     certification: {
       runtime_benchmark_passed: true,
@@ -208,6 +210,8 @@ async function main() {
       production_certified: false,
       next_gate: "SEPARATOR_HUMAN_QUALITY_REVIEW_REQUIRED",
     },
+    infrastructure_provider: "MODAL_DIRECT_A10G_ASYNC_V1",
+    fx_thb_per_usd: FX_THB_PER_USD,
     pricing_status: "NOT_PRODUCTION_CERTIFIED",
     pricing_activation_performed: false,
     provider_certification_mutation_performed: false,

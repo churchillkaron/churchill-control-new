@@ -9,10 +9,10 @@ const executor = fs.readFileSync("lib/platform/service-runtime/providers/Provide
 
 test("owned Intelligence settlement has real lane-specific wall-clock deadlines", () => {
   assert.match(reasoning, /FAST_PENDING_SETTLEMENT_DEADLINE_MS\s*=\s*210_000/);
-  assert.match(reasoning, /DEEP_PENDING_SETTLEMENT_DEADLINE_MS\s*=\s*300_000/);
+  assert.match(reasoning, /DEEP_PENDING_SETTLEMENT_DEADLINE_MS\s*=\s*480_000/);
   assert.match(reasoning, /let deadlineAt = startedAt \+ deadlineMs/);
   assert.match(reasoning, /FAST_PENDING_QUEUE_GRACE_MS\s*=\s*180_000/);
-  assert.match(reasoning, /DEEP_PENDING_QUEUE_GRACE_MS\s*=\s*120_000/);
+  assert.match(reasoning, /DEEP_PENDING_QUEUE_GRACE_MS\s*=\s*180_000/);
   assert.match(reasoning, /providerStatus === "queued"/);
   assert.match(reasoning, /deadlineAt \+= queueGraceMs/);
   assert.match(reasoning, /queueGraceApplied = true/);
@@ -27,10 +27,17 @@ test("timed out reasoning cancels only its exact provider job", () => {
   assert.match(executor, /const cancelFunction = runtime\.cancel \|\| runtime\.cancelJob \|\| runtime\.cancelExecution/);
 });
 
-test("Modal Intelligence cancellation never terminates the shared worker container", () => {
-  assert.match(provider, /call\.cancel\(\{ terminateContainers: false \}\)/);
+test("Modal Intelligence cancellation terminates only Fast call containers", () => {
+  assert.match(provider, /const terminateContainers = lane === "fast"/);
+  assert.match(provider, /call\.cancel\(\{ terminateContainers \}\)/);
   assert.match(provider, /exact_job_only: true/);
-  assert.match(provider, /terminate_containers: false/);
+  assert.match(provider, /terminate_containers: terminateContainers/);
+  assert.match(provider, /execution_lane: lane/);
+});
+
+test("reasoning timeout propagates the exact execution lane into cancellation", () => {
+  assert.match(reasoning, /execution_lane: executionLane/);
+  assert.match(service, /execution_lane: input\.execution_lane \|\| metadata\?\.intelligence_execution_lane \|\| null/);
 });
 
 test("Service cancellation fails only the bound usage and releases its reservation", () => {

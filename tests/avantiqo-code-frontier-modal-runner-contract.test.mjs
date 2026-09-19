@@ -20,6 +20,14 @@ test("frontier runner defaults to bounded smoke execution and requires explicit 
   assert.match(runner, /if not args\.full/);
 });
 
+test("frontier runner binds owned evidence to current clean main and shared prompt contract", () => {
+  assert.match(runner, /current_clean_main_provenance/);
+  assert.match(runner, /CURRENT_MAIN_REQUIRED/);
+  assert.match(runner, /CLEAN_REPOSITORY_REQUIRED/);
+  assert.match(runner, /runner_source_commit/);
+  assert.match(runner, /prompt_contract_sha256/);
+});
+
 test("frontier runner grades strict evidence and blocks fake completion claims", () => {
   assert.match(runner, /EXACT_EVIDENCE_KEYS_REQUIRED/);
   assert.match(runner, /UNOBSERVED_COMPLETION_CLAIM/);

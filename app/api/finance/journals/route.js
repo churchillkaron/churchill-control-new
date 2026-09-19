@@ -44,6 +44,7 @@ export async function GET(request) {
     const requestedOrganizationId =
       searchParams.get("organizationId") || searchParams.get("organization_id");
     const entityId = searchParams.get("entityId") || searchParams.get("entity_id");
+    const journalId = searchParams.get("journal_id") || searchParams.get("id") || null;
 
     if (!requestedOrganizationId) {
       return NextResponse.json(
@@ -79,7 +80,7 @@ export async function GET(request) {
     });
 
     const organizationId = access.organizationId;
-    const { data: journals, error } = await supabaseAdmin
+    let journalQuery = supabaseAdmin
       .from("journal_entries")
       .select(`
         *,
@@ -95,7 +96,11 @@ export async function GET(request) {
         )
       `)
       .eq("organization_id", organizationId)
-      .eq("entity_id", entityId)
+      .eq("entity_id", entityId);
+
+    if (journalId) journalQuery = journalQuery.eq("id", journalId);
+
+    const { data: journals, error } = await journalQuery
       .order("posting_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(500);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import {
   ArrowRight,
   Bell,
@@ -13,6 +13,7 @@ import {
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAlertBridge";
+import { getOwnedWorkspaceDomainIds, hasExactProductOwnership } from "@/lib/platform/entitlements/productWorkspaceVisibility";
 import BusinessPartnerCodeMissionPanel from "@/components/operator/BusinessPartnerCodeMissionPanel";
 import HomeAvantiqoIntelligenceDock from "@/components/operator/HomeAvantiqoIntelligenceDock";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
@@ -80,13 +81,17 @@ export default function OrganizationWorkspacePage() {
   const activity = Array.isArray(runtime?.activity) ? runtime.activity : [];
   const homeQueue = Array.isArray(runtime?.home_queue) ? runtime.home_queue : [];
   const homeDomains = Array.isArray(runtime?.home_domains) ? runtime.home_domains : [];
+  const productEntitlements = Array.isArray(businessContext.product_entitlements) ? businessContext.product_entitlements : [];
+  const modules = Array.isArray(businessContext.modules) ? businessContext.modules : [];
+  const exactProductOwnership = hasExactProductOwnership(productEntitlements);
 
-  const domainTargets = useMemo(() => {
-    if (!organizationId) return [];
-    return listOperatorNavigationTargets({ organizationId })
-      .filter((target) => target.kind === "domain")
-      .slice(0, 12);
-  }, [organizationId]);
+  const visibleDomainIds = getOwnedWorkspaceDomainIds({ productEntitlements, modules });
+  const domainTargets = organizationId
+    ? listOperatorNavigationTargets({ organizationId })
+        .filter((target) => target.kind === "domain" && visibleDomainIds.has(target.domain_id))
+        .slice(0, 12)
+    : [];
+  const visibleHomeDomains = homeDomains.filter((domain) => visibleDomainIds.has(domain.id));
 
   const metricCards = [
     {
@@ -270,7 +275,7 @@ export default function OrganizationWorkspacePage() {
               </section>
             </div>
 
-            {homeDomains.length ? (
+            {visibleHomeDomains.length ? (
               <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
                 <div className="flex flex-wrap items-end justify-between gap-4">
                   <div>
@@ -285,7 +290,7 @@ export default function OrganizationWorkspacePage() {
                 </div>
 
                 <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                  {homeDomains.map((domain) => (
+                  {visibleHomeDomains.map((domain) => (
                     <Link key={domain.id} href={domain.href} className="group rounded-xl border border-black/[0.065] bg-[#FCFBF9] p-3.5 transition hover:border-[#D6A66A]/40 hover:bg-white">
                       <div className="flex items-start justify-between gap-3">
                         <div className="text-[12px] font-medium text-[#403C36]">{domain.label}</div>
@@ -303,15 +308,15 @@ export default function OrganizationWorkspacePage() {
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A867F]">
-                    Business areas
+                    {exactProductOwnership ? "Your business areas" : "Business areas"}
                   </div>
                   <h2 className="mt-1.5 text-[20px] font-medium tracking-[-0.025em] text-[#1B1A18]">
-                    Everything Avantiqo can operate
+                    {exactProductOwnership ? "Workspaces included with your Avantiqo products" : "Workspaces available to your organization"}
                   </h2>
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-[#8A867F]">
                   <Search size={12} />
-                  Registry-driven · no industry hardcoding
+                  {exactProductOwnership ? `${productEntitlements.length} active product${productEntitlements.length === 1 ? "" : "s"}` : "Current enabled business areas"}
                 </div>
               </div>
 
@@ -360,6 +365,7 @@ export default function OrganizationWorkspacePage() {
               <BusinessPartnerCodeMissionPanel organizationId={organizationId} />
               <HomeAvantiqoIntelligenceDock organizationId={organizationId} />
             </div>
+
           </aside>
         </div>
       </div>

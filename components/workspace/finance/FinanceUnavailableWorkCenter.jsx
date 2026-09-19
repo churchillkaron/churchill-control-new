@@ -20,14 +20,14 @@ export default function FinanceUnavailableWorkCenter({ capability }) {
     <main className="min-h-[calc(100vh-112px)] bg-[#F7F6F3] text-[#1B1A18]">
       <div className="mx-auto max-w-[1500px] px-4 py-5 sm:px-5 lg:px-6">
         <header className="border-b border-black/[0.07] pb-4">
-          <div className="text-[9px] font-semibold uppercase tracking-[0.21em] text-[#9A7045]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.21em] text-[#9A7045]">
             Finance / {presentation.family_label || "Capability"}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-3">
             <h1 className="text-[29px] font-semibold tracking-[-0.035em]">
               {capability?.name || "Finance workspace"}
             </h1>
-            <span className="rounded-full border border-amber-700/15 bg-amber-50 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+            <span className="rounded-full border border-amber-700/15 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-800">
               {state}
             </span>
           </div>
@@ -47,7 +47,7 @@ export default function FinanceUnavailableWorkCenter({ capability }) {
                 Avantiqo keeps this capability visible but does not imitate a working accounting screen until its data contract, governed actions and end-to-end evidence are available. This prevents accountants from relying on controls that are only decorative.
               </p>
               {presentation.review_label ? (
-                <div className="mt-3 rounded-lg border border-black/[0.06] bg-[#FAF9F7] px-3 py-2 text-[10px] text-[#817B73]">
+                <div className="mt-3 rounded-lg border border-black/[0.06] bg-[#FAF9F7] px-3 py-2 text-[11px] text-[#817B73]">
                   Intended workflow: {presentation.review_label}
                 </div>
               ) : null}

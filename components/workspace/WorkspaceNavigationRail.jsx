@@ -7,6 +7,7 @@ import {
   Activity,
   Boxes,
   ChartNoAxesCombined,
+  Code2,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -24,10 +25,13 @@ import {
 } from "lucide-react";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import { getOwnedWorkspaceDomainIds } from "@/lib/platform/entitlements/productWorkspaceVisibility";
 import { getErpDomains } from "@/lib/platform/registry/erpRegistry";
 import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
 
 const NAV_EXPANDED_KEY = "avantiqo.erp.navigation.expanded.v1";
+const DEVELOPER_ROLES = new Set(["OWNER", "ORGANIZATION_OWNER", "ORG_OWNER", "PLATFORM_OWNER", "SUPER_ADMIN", "ADMIN", "DEVELOPER", "INTEGRATOR", "PARTNER"]);
+const ADMINISTRATION_ROLES = new Set(["OWNER", "ORGANIZATION_OWNER", "ORG_OWNER", "PLATFORM_OWNER", "SUPER_ADMIN", "ADMIN"]);
 
 const DOMAIN_ICONS = {
   finance: Landmark,
@@ -120,8 +124,15 @@ export default function WorkspaceNavigationRail() {
   if (!organizationId) return null;
 
   const homeHref = `/workspace/${encodeURIComponent(organizationId)}`;
+  const role = String(businessContext.role || "").trim().toUpperCase();
+  const canUseDeveloperWorkspace = DEVELOPER_ROLES.has(role);
+  const visibleDomainIds = getOwnedWorkspaceDomainIds({
+    productEntitlements: businessContext.product_entitlements,
+    modules: businessContext.modules,
+  });
+  if (ADMINISTRATION_ROLES.has(role)) visibleDomainIds.add("administration");
   const domains = getErpDomains()
-    .filter((domain) => domain.id !== "services")
+    .filter((domain) => domain.id !== "services" && visibleDomainIds.has(domain.id))
     .map((domain) => {
       const href = resolveWorkspaceRoute({
         organizationId,
@@ -168,6 +179,24 @@ export default function WorkspaceNavigationRail() {
           Icon={Home}
           expanded={expanded}
         />
+
+        <RailLink
+          href={`/workspace/${encodeURIComponent(organizationId)}/products`}
+          label="Products"
+          active={pathname === `/workspace/${organizationId}/products` || pathname.startsWith(`/workspace/${organizationId}/products/`)}
+          Icon={LayoutGrid}
+          expanded={expanded}
+        />
+
+        {canUseDeveloperWorkspace ? (
+          <RailLink
+            href={`/workspace/${encodeURIComponent(organizationId)}/developers`}
+            label="Developer"
+            active={pathname === `/workspace/${organizationId}/developers` || pathname.startsWith(`/workspace/${organizationId}/developers/`)}
+            Icon={Code2}
+            expanded={expanded}
+          />
+        ) : null}
 
         <button
           type="button"

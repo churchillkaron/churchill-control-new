@@ -54,6 +54,7 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
   const [duration, setDuration] = useState(null);
   const [storageReference, setStorageReference] = useState("");
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
+  const [separationMode, setSeparationMode] = useState("STANDARD_STEMS");
   const [plan, setPlan] = useState(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -136,6 +137,7 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
         source_audio: storageReference,
         source_duration_seconds: duration,
         source_rights_confirmed: true,
+        vocal_role_mode: separationMode === "VOCAL_ROLES" ? "ROLE_STEMS" : null,
       });
       setPlan(result);
     } catch (cause) {
@@ -184,6 +186,19 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
         {storageReference ? <div className="mt-3 flex items-center gap-2 text-[10px] text-emerald-200/65"><BadgeCheck className="h-3.5 w-3.5" /> Private source ready</div> : null}
       </div>
 
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {[
+          ["STANDARD_STEMS", "Standard stems", "Vocals, drums, bass and other · certified separator path"],
+          ["VOCAL_ROLES", "Vocal roles", "Lead, supporting vocals and instrumental · research / benchmark gated"],
+        ].map(([id, label, description]) => (
+          <button key={id} type="button" onClick={() => { setSeparationMode(id); setPlan(null); }}
+            className={`rounded-xl border p-3 text-left ${separationMode === id ? "border-[#d6a66a]/30 bg-[#d6a66a]/[0.07]" : "border-white/8 bg-white/[0.018]"}`}>
+            <div className="text-xs font-medium text-white/68">{label}</div>
+            <div className="mt-1 text-[9px] leading-4 text-white/28">{description}</div>
+          </button>
+        ))}
+      </div>
+
       <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/8 bg-white/[0.018] p-4">
         <input type="checkbox" checked={rightsConfirmed} onChange={(event) => { setRightsConfirmed(event.target.checked); setPlan(null); }} className="mt-0.5 h-4 w-4 accent-[#d6a66a]" />
         <span>
@@ -192,8 +207,8 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
         </span>
       </label>
 
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {["Vocals", "Drums", "Bass", "Other"].map((stem) => (
+      <div className={`mt-5 grid grid-cols-2 gap-3 ${separationMode === "VOCAL_ROLES" ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
+        {(separationMode === "VOCAL_ROLES" ? ["Lead vocal", "Supporting vocals", "Instrumental"] : ["Vocals", "Drums", "Bass", "Other"]).map((stem) => (
           <div key={stem} className="rounded-xl border border-white/8 bg-black/25 px-4 py-4 text-center">
             <div className="text-[9px] uppercase tracking-[0.16em] text-white/28">Stem</div>
             <div className="mt-1 text-sm text-white/65">{stem}</div>
@@ -204,8 +219,8 @@ export default function MusicStemsPanel({ organizationId, projectId = null, miss
       {plan ? (
         <div className="mt-5 rounded-xl border border-white/8 bg-black/25 p-4">
           <div className="text-[9px] uppercase tracking-[0.18em] text-white/28">Separation plan</div>
-          <div className="mt-2 text-xs text-white/60">Demucs HTDemucs FT · four-stem separation · private outputs</div>
-          <div className="mt-1 text-[10px] text-white/30">Status: {plan.plan?.certification || "Pending certification"}</div>
+          <div className="mt-2 text-xs text-white/60">{separationMode === "VOCAL_ROLES" ? "Dedicated vocal-role separator · no ordinary Demucs fallback · private outputs" : "Demucs HTDemucs FT · four-stem separation · private outputs"}</div>
+          <div className="mt-1 text-[10px] text-white/30">Status: {separationMode === "VOCAL_ROLES" ? "Research / benchmark required" : (plan.plan?.certification || "Pending certification")}</div>
         </div>
       ) : null}
 

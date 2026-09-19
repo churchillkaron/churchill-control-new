@@ -6,7 +6,7 @@ const files = Object.freeze({
   handler: "services/avantiqo-music-vocal-correction-engine/handler.py",
   requirements: "services/avantiqo-music-vocal-correction-engine/requirements.txt",
   dockerfile: "services/avantiqo-music-vocal-correction-engine/Dockerfile",
-  provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicVocalCorrectionProvider.js",
+  provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicVocalCorrectionModalProvider.js",
 });
 
 async function source(path) {
@@ -51,29 +51,21 @@ test("Music vocal correction uses pinned MIT-compatible pitch/stretch stack", as
     "torch==2.7.1",
     "torchaudio==2.7.1",
     "AVANTIQO_MUSIC_VOCAL_CORRECTION_DEPENDENCY_SMOKE=PASS",
-    'CMD ["python3", "/app/handler.py"]',
+    'CMD ["python3", "/app/handler_v2.py"]',
   ]);
 });
 
-test("Music vocal correction provider fails closed outside Safe Lease V2", async () => {
+test("Music vocal correction provider is Modal-direct and fails closed until certified", async () => {
   const provider = await source(files.provider);
   hasAll(provider, [
-    'const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2"',
-    'const SAFE_LEASE_LANE = "music-vocal-correction"',
-    "AVANTIQO_MUSIC_VOCAL_CORRECTION_SAFE_LEASE_ACTIVE_REQUIRED",
-    "AVANTIQO_MUSIC_VOCAL_CORRECTION_SAFE_LEASE_CONTRACT_INVALID",
-    "AVANTIQO_MUSIC_VOCAL_CORRECTION_SAFE_LEASE_LANE_INVALID",
-    "AVANTIQO_MUSIC_VOCAL_CORRECTION_SAFE_LEASE_ENDPOINT_MISMATCH",
+    'transportMode: "direct-sdk"',
+    'appName: "avantiqo-music-vocal-correction-owned"',
+    'functionName: "correct"',
     "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_NOT_CERTIFIED",
-    "AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID",
-    "AVANTIQO_RUNPOD_SAFE_LEASE_LANE",
+    'corrected_vocal_wav: "wav"',
+    'correction_report_json: "json"',
   ]);
-  const configurationIndex = provider.indexOf("const lease = assertSafeLease(endpointId)");
-  const submissionIndex = provider.indexOf('fetchWithTimeout(`${baseUrl}/run`');
-  assert.ok(configurationIndex >= 0, "safe lease configuration gate required");
-  assert.ok(submissionIndex > configurationIndex, "safe lease must be validated before provider submission");
-  assert.equal(/workersMax\s*[:=]\s*1/.test(provider), false);
-  assert.equal(/rest\.runpod\.io/.test(provider), false);
+  assert.equal(/RUNPOD|SAFE_LEASE|rest\.runpod\.io/.test(provider), false);
 });
 
 test("worker performs restrained pitch correction and only analyzes timing until phrase warp is certified", async () => {

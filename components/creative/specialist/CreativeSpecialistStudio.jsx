@@ -15,6 +15,7 @@ import BottomDock from "@/components/creative/ProductionStudio/layout/BottomDock
 import MusicStudioWorkspace from "@/components/creative/ProductionStudio/workspaces/MusicStudioWorkspace";
 import ProductionWorkspace from "@/components/creative/ProductionStudio/workspaces/ProductionWorkspace";
 import { resolveCreativeCommands } from "@/lib/creative/studio/commands/CreativeCommandResolver";
+import { buildCreativeImageStudioOperatingState } from "@/lib/creative/stills/runtime/CreativeImageStudioOperatingRuntime";
 
 import ImageStudioWorkspace from "./ImageStudioWorkspace";
 import VoiceStudioWorkspace from "./VoiceStudioWorkspace";
@@ -70,9 +71,16 @@ function SpecialistHeader({ mode, runtime }) {
   const assetCount = runtime.assetRuntime?.items?.length || 0;
   const taskCount = runtime.taskRuntime?.items?.length || 0;
   const isVideo = mode === "video";
-  const activeStage = isVideo ? videoStageIndex(runtime.stateRuntime?.current?.stage) : -1;
+  const isImage = mode === "image";
+  const imageOperating = isImage ? buildCreativeImageStudioOperatingState(runtime) : null;
+  const activeStage = isVideo
+    ? videoStageIndex(runtime.stateRuntime?.current?.stage)
+    : isImage
+      ? imageOperating.active_stage_index
+      : -1;
+  const stageLabels = isImage ? imageOperating.stages.map((stage) => stage.label) : meta.stages;
 
-  if (isVideo) {
+  if (isVideo || isImage) {
     return (
       <header className="shrink-0 border-b border-black/[0.07] bg-[#FBF8F3] text-[#2A2723]">
         <div className="px-4 py-3 sm:px-5 lg:px-6">
@@ -121,7 +129,7 @@ function SpecialistHeader({ mode, runtime }) {
 
         <div className="overflow-x-auto border-t border-black/[0.055] bg-white px-4 sm:px-5 lg:px-6">
           <div className="flex min-w-max items-center gap-1 py-1.5">
-            {meta.stages.map((stage, index) => {
+            {stageLabels.map((stage, index) => {
               const active = index === activeStage;
               const complete = index < activeStage;
               return (

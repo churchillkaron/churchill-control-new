@@ -18,6 +18,7 @@ import {
 } from "@/lib/operator/runtime/IntelligenceConversationRuntime";
 import {
   learnProjectStateMemories,
+  consolidateOperatorMemory,
   recallIntelligenceMemory,
 } from "@/lib/operator/runtime/IntelligenceMemoryRuntime";
 import {
@@ -69,6 +70,11 @@ import {
   matchAnalyzedAttachmentToBusiness,
 } from "@/lib/platform/runtime/UniversalAttachmentBusinessMatchRuntime";
 import { attachmentLogicalObjects } from "@/lib/platform/runtime/ConversationAttachmentObjectRuntime";
+import { buildIntelligenceContextBudget } from "@/lib/operator/runtime/IntelligenceContextBudgetRuntime";
+import { resolveOperatorInstantGreeting } from "@/lib/operator/runtime/OperatorInstantGreetingPolicy.js";
+import { preflightHumanBusinessPartnerTurn } from "@/lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js";
+import { resolvePreSemanticReadIntent } from "@/lib/operator/runtime/OperatorPreSemanticReadRuntime.js";
+import { collectOperatorPresentationArtifacts } from "@/lib/operator/runtime/OperatorPresentationArtifactRuntime";
 
 function readValue(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -103,12 +109,39 @@ function boundedConversation(value) {
     .map((message) => ({
       role: message?.role === "assistant" ? "assistant" : "user",
       content: text(message?.content).slice(0, 6000),
+      ...(message?.role === "assistant" && message?.clarification && typeof message.clarification === "object" && !Array.isArray(message.clarification)
+        ? { clarification: {
+            required: message.clarification.required === true,
+            field_key: text(message.clarification.field_key).slice(0, 120) || null,
+            capability_key: text(message.clarification.capability_key).slice(0, 300) || null,
+            accepts_device_location: message.clarification.accepts_device_location === true,
+          } }
+        : {}),
     }))
     .filter((message) => message.content);
 }
 
 function isInsufficientWalletBalance(error) {
   return text(error?.message || error).includes("INSUFFICIENT_WALLET_BALANCE");
+}
+function isFastIntelligenceSettlementTimeout(error) {
+  return /AVANTIQO_(?:INTELLIGENCE|OPERATOR_INTELLIGENCE)_PENDING_SETTLEMENT_TIMEOUT(?::fast)?/i.test(
+    text(error?.message || error),
+  );
+}
+
+function fastIntelligenceTimeoutDetails(error) {
+  const code = text(error?.message || error).split(" ")[0].slice(0, 240);
+  return {
+    code: code || "AVANTIQO_FAST_INTELLIGENCE_TIMEOUT",
+    recoverable: true,
+    retryable: true,
+    conversation_preserved: true,
+    business_action_replayed: false,
+    mutation_assumed_complete: false,
+    conversation_response:
+      "I’m still here, but my fast intelligence lane did not return within the conversational time limit even after one safe retry. I stopped the stalled provider job instead of leaving you waiting. Your conversation is preserved and I did not replay or assume any business action. The next turn can continue from the same context.",
+  };
 }
 
 function prepaidBalanceBlockedResult({ agreementState, projectState } = {}) {
@@ -274,6 +307,32 @@ export async function POST(request) {
 
     const { access, partyId } = resolved;
 
+    const instantGreeting = resolveOperatorInstantGreeting({ message, source });
+    if (instantGreeting) {
+      const totalMs = Date.now() - turnStartedAt;
+      const response = Response.json({
+        success: true,
+        decision: {
+          response_text: instantGreeting,
+          response_language: text(body.locale) || null,
+          intent: "answer", confidence: 1,
+          clarification: { required: false, question: null, options: [] },
+          navigation: { target_id: null },
+          execution: { capability_key: null, payload: {}, reason: null },
+          plan: [],
+        },
+        state_unchanged: true,
+        navigation: null, execution: null,
+        provider_evidence: { provider: "avantiqo-local", model: "operator-instant-social-reflex-v1", usage_id: null },
+        operator_catalog: {
+          instant_response: true, intelligence_lease_required: false, provider_request_performed: false,
+          project_context_loaded: false, memory_loaded: false, mutation_executed: false,
+        },
+      });
+      response.headers.set("Server-Timing", `access;dur=${accessMs}, social_reflex;dur=${totalMs}, total;dur=${totalMs}`);
+      return response;
+    }
+
     const contextStartedAt = Date.now();
     const businessContext = await resolveBusinessContext({
       organizationId: access.organizationId,
@@ -304,6 +363,66 @@ export async function POST(request) {
     };
 
     const attachmentSetId = conversationAttachmentSetIdFromRequest(request);
+    const immediateConversation = boundedConversation(body.conversation).slice(-2);
+    let preflightSemanticUnderstanding = null;
+    if (!attachmentSetId && source !== "event") {
+      try {
+        preflightSemanticUnderstanding = resolvePreSemanticReadIntent({
+          message,
+          immediateConversation: [...immediateConversation, { role: "user", content: message }],
+          deviceLocation: object(body?.clientContext).deviceLocation || null,
+        });
+        if (
+          preflightSemanticUnderstanding?.client_location_requested === true &&
+          !object(body?.clientContext).deviceLocation
+        ) {
+          return Response.json({
+            success: true,
+            state_unchanged: true,
+            client_context_request: {
+              kind: "device_location",
+              field_key: text(preflightSemanticUnderstanding.clarification_field).slice(0, 120) || "location",
+              capability_key: text(preflightSemanticUnderstanding.capability_key).slice(0, 300) || null,
+            },
+            authorization_effect: "NONE",
+          });
+        }
+        const preflight = preflightSemanticUnderstanding || await preflightHumanBusinessPartnerTurn({
+          organizationId: businessContext.organizationId,
+          partyId,
+          entityId: businessContext.entityId,
+          message,
+          immediateConversation,
+        });
+        const selfContained = Boolean(
+          preflight &&
+          preflight.context_required !== true &&
+          preflight.requires_mutation !== true &&
+          text(preflight.goal_relation).toLowerCase() === "new"
+        );
+        const immediateContextSufficient = Boolean(
+          preflight &&
+          preflight.immediate_context_sufficient === true &&
+          preflight.requires_mutation !== true
+        );
+        if (selfContained || immediateContextSufficient) {
+          const externalFact =
+            preflight.route === "evidence" &&
+            ["external", "both"].includes(text(preflight.evidence_scope).toLowerCase()) &&
+            preflight.needs_current_evidence === true;
+          preflightSemanticUnderstanding = {
+            ...preflight,
+            state_neutral_turn: externalFact,
+            preflight_reused_without_durable_reclassification: true,
+          };
+        }
+      } catch (preflightError) {
+        console.warn("OPERATOR_CONTEXT_FREE_PREFLIGHT_SKIPPED", {
+          error: text(preflightError?.message || preflightError).slice(0, 300),
+          authorization_effect: "NONE",
+        });
+      }
+    }
     const conversationAttachments = attachmentSetId
       ? await loadConversationAttachmentSet({
           context: { organizationId: businessContext.organizationId, actor },
@@ -447,33 +566,49 @@ export async function POST(request) {
 
     const continuityStartedAt = Date.now();
     const longTermMemoryStartedAt = Date.now();
-    const continuityPromise = recoverCrossConversationProject({
-      organizationId: businessContext.organizationId,
-      partyId,
-      currentConversationId: memory.conversation.id,
-      message,
-      currentProjectState: memory.projectState,
-    }).catch((continuityError) => {
-      console.error(
-        "OPERATOR_CROSS_CONVERSATION_CONTINUITY_FAILED",
-        continuityError,
-      );
-      return {
-        recovered: false,
-        ambiguous: false,
-        reason: "RECOVERY_FAILED",
-      };
-    });
-    const currentProjectMemoryPromise = recallIntelligenceMemory({
-      organizationId: businessContext.organizationId,
-      partyId,
-      entityId: businessContext.entityId,
-      message,
-      projectState: object(memory.projectState),
-    }).catch((memoryError) => {
-      console.error("OPERATOR_LONG_TERM_MEMORY_RECALL_FAILED", memoryError);
-      return [];
-    });
+    const memoryCostTelemetry = {
+      recall_passes: 0,
+      recall_scope_count: 0,
+      recall_candidate_limit: 0,
+      recall_candidate_rows: 0,
+      recall_unique_candidates: 0,
+      recall_selected_rows: 0,
+      recall_metadata_rows_hydrated: 0,
+      recall_telemetry_writes: 0,
+    };
+    const skipHistoricalContext = Boolean(preflightSemanticUnderstanding);
+    const continuityPromise = skipHistoricalContext
+      ? Promise.resolve({ recovered: false, ambiguous: false, reason: "SELF_CONTAINED_PREFLIGHT" })
+      : recoverCrossConversationProject({
+          organizationId: businessContext.organizationId,
+          partyId,
+          currentConversationId: memory.conversation.id,
+          message,
+          currentProjectState: memory.projectState,
+        }).catch((continuityError) => {
+          console.error(
+            "OPERATOR_CROSS_CONVERSATION_CONTINUITY_FAILED",
+            continuityError,
+          );
+          return {
+            recovered: false,
+            ambiguous: false,
+            reason: "RECOVERY_FAILED",
+          };
+        });
+    const currentProjectMemoryPromise = skipHistoricalContext
+      ? Promise.resolve([])
+      : recallIntelligenceMemory({
+          organizationId: businessContext.organizationId,
+          partyId,
+          entityId: businessContext.entityId,
+          message,
+          projectState: object(memory.projectState),
+          telemetry: memoryCostTelemetry,
+        }).catch((memoryError) => {
+          console.error("OPERATOR_LONG_TERM_MEMORY_RECALL_FAILED", memoryError);
+          return [];
+        });
 
     const [continuity, currentProjectMemory] = await Promise.all([
       continuityPromise,
@@ -496,6 +631,7 @@ export async function POST(request) {
           entityId: businessContext.entityId,
           message,
           projectState: effectiveProjectState,
+          telemetry: memoryCostTelemetry,
         });
       } catch (memoryError) {
         console.error(
@@ -508,15 +644,37 @@ export async function POST(request) {
 
     const clientConversation = boundedConversation(body.conversation);
     const persistedConversation = boundedConversation(memory.recentConversation);
-    const conversation = persistedConversation.length
-      ? persistedConversation
-      : clientConversation;
+    const conversation = skipHistoricalContext
+      ? []
+      : persistedConversation.length
+        ? persistedConversation
+        : clientConversation;
     // Authorization-critical Operator state is server-authoritative. Client
     // agreement_state may be stale or forged and is never merged into execution
     // state. Cross-conversation continuity intentionally recovers project state
     // only; it never recovers agreement_state, pending confirmations, approvals,
     // or prior mutable business evidence.
     const agreementState = object(memory.agreementState);
+    const contextBudget = buildIntelligenceContextBudget({
+      conversation,
+      projectState: effectiveProjectState,
+      longTermMemory,
+      attachments: preparedConversationAttachments,
+      lane: "fast",
+      scope: {
+        organization_id: businessContext.organizationId,
+        entity_id: businessContext.entityId || null,
+      },
+    });
+    const boundedConversationContext = contextBudget.recent_conversation;
+    const boundedLongTermMemory = contextBudget.durable_memory;
+
+    console.info("OPERATOR_CONTEXT_BUDGET_V1", JSON.stringify({
+      organization_id: businessContext.organizationId,
+      entity_scoped: Boolean(businessContext.entityId),
+      source,
+      ...contextBudget.telemetry,
+    }));
 
     let operatorMs = 0;
     let userTurnPersistMs = 0;
@@ -552,11 +710,13 @@ export async function POST(request) {
           pathname: text(body.pathname) || null,
           agreementState,
           projectState: effectiveProjectState,
-          conversation,
-          longTermMemory,
-          conversationAttachments: preparedConversationAttachments,
+          conversation: boundedConversationContext,
+          longTermMemory: boundedLongTermMemory,
+          conversationAttachments: contextBudget.attachments,
+          contextFingerprint: contextBudget.context_fingerprint,
           callerRequest: request,
           conversationId: memory.conversation.id,
+          semanticUnderstanding: preflightSemanticUnderstanding,
         })
           .then((value) => {
             operatorMs = Date.now() - operatorStartedAt;
@@ -610,23 +770,71 @@ export async function POST(request) {
       !Array.isArray(returnedAgreementState)
         ? returnedAgreementState
         : agreementState;
+    const presentationArtifacts = collectOperatorPresentationArtifacts({
+      execution: object(result?.execution),
+      provider_evidence: object(result?.provider_evidence),
+    });
+    const recommendationLearningContext = object(
+      object(nextAgreementState).recommended_action ||
+      object(agreementState).recommended_action,
+    );
+    const recommendationLearningProof = object(recommendationLearningContext.proof);
+    const learningSignals = {
+      semantic_correction:
+        object(result?.provider_evidence).semantic_correction_or_revision === true ||
+        object(result?.operator_catalog).semantic_correction_or_revision === true,
+      recommendation_rejected:
+        object(result?.operator_catalog).recommendation_proposal_rejected === true,
+      recommendation_selected:
+        object(result?.operator_catalog).recommendation_selected === true,
+      recommendation_capability_key:
+        text(recommendationLearningContext.capability_key).slice(0, 300) || null,
+      recommendation_evidence_class:
+        text(recommendationLearningProof.evidence_class).slice(0, 80) || null,
+      clarification_required:
+        object(normalizedDecision.clarification).required === true,
+      artifact_reused:
+        object(result?.operator_catalog).semantic_artifact_reuse === true ||
+        object(result?.operator_catalog).artifact_reused === true ||
+        object(result?.operator_catalog).prior_artifact_reused === true,
+      response_detail_deep:
+        String(object(result?.provider_evidence).semantic_response_detail || "").toLowerCase() === "deep",
+      response_detail_brief:
+        String(object(result?.provider_evidence).semantic_response_detail || "").toLowerCase() === "brief",
+      context_expanded:
+        String(object(result?.provider_evidence).semantic_context_depth || "").toLowerCase() === "expanded",
+      authorization_effect: "NONE",
+    };
+    const normalizedProviderEvidence = {
+      ...object(result?.provider_evidence),
+      learning_signals: learningSignals,
+      ...(presentationArtifacts.length ? { presentation_artifacts: presentationArtifacts } : {}),
+    };
     const normalizedResult = {
       ...object(result),
       decision: normalizedDecision,
+      provider_evidence: normalizedProviderEvidence,
+      presentation_artifacts: presentationArtifacts,
     };
     const nextProjectState = deriveProjectState(
       effectiveProjectState,
       normalizedResult,
     );
-    const persistedDecision = {
-      ...normalizedDecision,
+    const turnDuplicatePayloadBytesAvoided = Buffer.byteLength(JSON.stringify({
+      response_text: responseText,
       agreement_state: object(nextAgreementState),
       project_state: object(nextProjectState),
-    };
+    }), "utf8");
+    const persistedDecision = { ...normalizedDecision };
+    delete persistedDecision.response_text;
+    delete persistedDecision.agreement_state;
+    delete persistedDecision.project_state;
 
     const assistantPersistStartedAt = Date.now();
     const longTermLearnStartedAt = Date.now();
     let longTermLearned = 0;
+    let projectStateMemoryReused = 0;
+    let projectStateMemoryRepaired = 0;
     const assistantPersistPromise = persistAssistantTurnAndConversationState({
       organizationId: businessContext.organizationId,
       conversationId: memory.conversation.id,
@@ -634,7 +842,7 @@ export async function POST(request) {
       source,
       content: responseText,
       decision: persistedDecision,
-      evidence: object(result?.provider_evidence),
+      evidence: normalizedProviderEvidence,
       execution: object(result?.execution),
       navigation: object(result?.navigation),
       agreementState: nextAgreementState,
@@ -648,8 +856,19 @@ export async function POST(request) {
       previousProjectState: effectiveProjectState,
       nextProjectState,
     })
-      .then((learned) => {
+      .then(async (learned) => {
         longTermLearned = Number(learned?.learned || 0);
+        projectStateMemoryReused = Number(learned?.reused || 0);
+        projectStateMemoryRepaired = Number(learned?.repaired || 0);
+        if (longTermLearned > 0 || projectStateMemoryRepaired > 0) {
+          await consolidateOperatorMemory({
+            organizationId: businessContext.organizationId,
+            partyId,
+            entityId: businessContext.entityId,
+          }).catch((consolidationError) => {
+            console.error("OPERATOR_MEMORY_CONSOLIDATION_FAILED", consolidationError);
+          });
+        }
       })
       .catch((memoryError) => {
         console.error("OPERATOR_LONG_TERM_MEMORY_LEARN_FAILED", memoryError);
@@ -697,6 +916,27 @@ export async function POST(request) {
           continuity.source_conversation_id || null,
       }),
     );
+    console.info(
+      "OPERATOR_INTELLIGENCE_COST_V1",
+      JSON.stringify({
+        organization_id: businessContext.organizationId,
+        entity_scoped: Boolean(businessContext.entityId),
+        source,
+        ...memoryCostTelemetry,
+        context_estimated_input_tokens: contextBudget.telemetry.estimated_input_tokens,
+        context_estimated_bytes: contextBudget.telemetry.estimated_context_bytes,
+        context_source_turns: contextBudget.telemetry.source_turns,
+        context_dropped_turns: contextBudget.telemetry.dropped_turns,
+        context_source_memory_items: contextBudget.telemetry.source_memory_items,
+        context_dropped_memory_items: contextBudget.telemetry.dropped_memory_items,
+        project_state_memory_learned: longTermLearned,
+        project_state_memory_reused: projectStateMemoryReused,
+        project_state_memory_repaired: projectStateMemoryRepaired,
+        turn_duplicate_payload_bytes_avoided: turnDuplicatePayloadBytesAvoided,
+        continuity_memory_reread: longTermMemoryReread,
+      }),
+    );
+
 
     const response = Response.json({
       ...normalizedResult,
@@ -715,6 +955,11 @@ export async function POST(request) {
         key: persistedState.conversation_key,
         status: persistedState.status,
         persistent: true,
+      },
+      context_budget: {
+        contract: contextBudget.contract,
+        lane: contextBudget.lane,
+        ...contextBudget.telemetry,
       },
       context: {
         organization_id: businessContext.organizationId,
@@ -747,6 +992,14 @@ export async function POST(request) {
 
     const status = Number.isInteger(error?.status) ? error.status : 500;
     const isClientError = status >= 400 && status < 500;
+
+    if (isFastIntelligenceSettlementTimeout(error)) {
+      return errorResponse(
+        "Fast Intelligence exceeded the conversational time limit.",
+        503,
+        fastIntelligenceTimeoutDetails(error),
+      );
+    }
 
     return errorResponse(
       isClientError

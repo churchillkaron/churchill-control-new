@@ -17,30 +17,43 @@ import {
 import { getWorkspaceGroups } from "@/lib/platform/registry/erpRegistry";
 import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
 
-const REPORT_WORDS = [
-  "report", "statement of cash flows", "financial statement", "analytics", "forecast", "budget", "insight", "kpi", "health", "dashboard",
-];
+const BOOK_AREA_BY_GROUP = Object.freeze({
+  accounting: "ledger",
+  order_to_cash: "receivables",
+  procure_to_pay: "payables",
+  treasury: "banking",
+  compliance: "tax",
+});
 
-const CONFIGURE_WORDS = [
-  "setting", "configuration", "configure", "fiscal period", "dimension", "currency", "exchange rate", "posting rule", "payment term", "template", "work program", "tax setup", "vat setup",
-];
+const BOOK_AREA_BY_ITEM = Object.freeze({
+  fixed_assets: "assets",
+  depreciation: "assets",
+});
+
+const BOOK_EXCLUDED_ITEMS = new Set([
+  "fiscal_periods",
+  "dimensions",
+  "audit_trail",
+  "period_close",
+  "year_end",
+]);
 
 const AREAS = [
-  { id: "ledger", label: "Ledger", icon: BookOpenCheck, words: ["ledger", "journal", "trial balance", "chart of account", "account balance", "opening balance", "accounting entry", "recurring journal"] },
-  { id: "receivables", label: "Receivables", icon: ReceiptText, words: ["receivable", "customer invoice", "customer payment", "customer credit", "customer statement", "collection", "dunning", "revenue recognition"] },
-  { id: "payables", label: "Payables", icon: Banknote, words: ["payable", "vendor bill", "vendor invoice", "supplier invoice", "vendor payment", "supplier payment", "vendor statement", "supplier statement", "expense claim"] },
-  { id: "banking", label: "Banking", icon: Landmark, words: ["bank", "reconciliation", "cash management", "treasury", "cash account", "payment run"] },
-  { id: "assets", label: "Assets", icon: Building2, words: ["fixed asset", "asset register", "depreciation", "asset"] },
-  { id: "tax", label: "Tax", icon: ShieldCheck, words: ["vat", "tax", "statutory", "withholding", "filing", "gst"] },
+  { id: "ledger", label: "Ledger", icon: BookOpenCheck },
+  { id: "receivables", label: "Receivables", icon: ReceiptText },
+  { id: "payables", label: "Payables", icon: Banknote },
+  { id: "banking", label: "Banking", icon: Landmark },
+  { id: "assets", label: "Assets", icon: Building2 },
+  { id: "tax", label: "Tax", icon: ShieldCheck },
 ];
 
 const CORE_DESK = [
-  { label: "Trial Balance", words: ["trial balance"] },
-  { label: "General Ledger", words: ["general ledger"] },
-  { label: "Customer Invoices", words: ["customer invoice"] },
-  { label: "Vendor Bills", words: ["vendor bill", "vendor invoice"] },
-  { label: "Bank Reconciliation", words: ["bank reconciliation"] },
-  { label: "Journals", words: ["journal"] },
+  { id: "trial_balance", label: "Trial Balance" },
+  { id: "general_ledger", label: "General Ledger" },
+  { id: "customer_invoices", label: "Customer Invoices" },
+  { id: "vendor_bills", label: "Vendor Bills" },
+  { id: "bank_reconciliation", label: "Bank Reconciliation" },
+  { id: "journals", label: "Journals" },
 ];
 
 function clean(value) {
@@ -65,20 +78,12 @@ function searchText(group, item) {
     .toLowerCase();
 }
 
-function isBooksItem(item) {
-  const haystack = capabilityText(item);
-  return !REPORT_WORDS.some((word) => haystack.includes(word)) && !CONFIGURE_WORDS.some((word) => haystack.includes(word));
+function isBooksItem(group, item) {
+  return Boolean(BOOK_AREA_BY_GROUP[group?.id]) && !BOOK_EXCLUDED_ITEMS.has(item?.id);
 }
 
 function resolveArea(item) {
-  for (const area of AREAS) {
-    if (area.words.some((word) => item.classificationText.includes(word))) return area.id;
-  }
-  return "ledger";
-}
-
-function firstMatch(items, words, used) {
-  return items.find((item) => !used.has(item.id) && words.some((word) => item.classificationText.includes(word)) && !item.disabled) || null;
+  return BOOK_AREA_BY_ITEM[item?.id] || BOOK_AREA_BY_GROUP[item?.groupId] || "ledger";
 }
 
 export default function FinanceBooksDesk({ organizationId }) {
@@ -88,26 +93,21 @@ export default function FinanceBooksDesk({ organizationId }) {
   const groups = useMemo(() => getWorkspaceGroups("finance"), []);
 
   const items = useMemo(() => groups.flatMap((group) => (group.items || [])
-    .filter((item) => isBooksItem(item))
+    .filter((item) => isBooksItem(group, item))
     .map((item) => ({
       ...item,
       groupId: group.id,
       groupName: group.name,
-      classificationText: capabilityText(item),
       searchText: searchText(group, item),
       disabled: unavailable(item),
     }))), [groups]);
 
   const categorizedItems = useMemo(() => items.map((item) => ({ ...item, area: resolveArea(item) })), [items]);
 
-  const coreItems = useMemo(() => {
-    const used = new Set();
-    return CORE_DESK.map((slot) => {
-      const item = firstMatch(categorizedItems, slot.words, used);
-      if (item) used.add(item.id);
-      return item ? { ...item, deskLabel: slot.label } : null;
-    }).filter(Boolean);
-  }, [categorizedItems]);
+  const coreItems = useMemo(() => CORE_DESK.map((slot) => {
+    const item = categorizedItems.find((candidate) => candidate.id === slot.id && !candidate.disabled);
+    return item ? { ...item, deskLabel: slot.label } : null;
+  }).filter(Boolean), [categorizedItems]);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -142,7 +142,7 @@ export default function FinanceBooksDesk({ organizationId }) {
       <section className="rounded-[24px] border border-black/[0.07] bg-[#FBF8F3] p-4 md:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><BookOpenCheck size={11} /> Accounting records</div>
+            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><BookOpenCheck size={11} /> Accounting records</div>
             <h1 className="mt-1.5 text-[22px] font-semibold tracking-[-0.03em]">Books</h1>
             <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[#756F67]">Work directly in the accounting truth. Core books stay one click away; specialist records remain organized by accounting purpose.</p>
           </div>
@@ -151,15 +151,15 @@ export default function FinanceBooksDesk({ organizationId }) {
 
         <div className="mt-5 border-t border-black/[0.06] pt-4">
           <div className="flex items-center justify-between gap-3">
-            <div><div className="text-[9px] font-semibold text-[#4B4640]">Core desk</div><div className="mt-0.5 text-[8px] text-[#99938A]">The books accountants reach for most often.</div></div>
-            <span className="text-[8px] text-[#A09990]">{categorizedItems.length} book capabilities</span>
+            <div><div className="text-[11px] font-semibold text-[#4B4640]">Core desk</div><div className="mt-0.5 text-[11px] text-[#99938A]">The books accountants reach for most often.</div></div>
+            <span className="text-[11px] text-[#A09990]">{categorizedItems.length} book capabilities</span>
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {coreItems.map((item) => (
               <Link key={item.id} href={hrefFor(item)} onClick={() => remember(item.id)} className="group rounded-xl border border-black/[0.07] bg-white px-3 py-3 transition hover:border-[#D6A66A]/45 hover:bg-[#FFFCF7]">
                 <div className="flex items-start justify-between gap-2"><WalletCards size={12} className="text-[#9A7045]" /><ArrowRight size={10} className="text-[#B5AFA7] transition group-hover:translate-x-0.5 group-hover:text-[#9A7045]" /></div>
                 <div className="mt-2 text-[10px] font-semibold text-[#47423D]">{item.deskLabel}</div>
-                <div className="mt-0.5 truncate text-[8px] text-[#9A948B]">{item.groupName}</div>
+                <div className="mt-0.5 truncate text-[11px] text-[#9A948B]">{item.groupName}</div>
               </Link>
             ))}
           </div>
@@ -167,8 +167,8 @@ export default function FinanceBooksDesk({ organizationId }) {
 
         {recentItems.length ? (
           <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-black/[0.055] pt-3">
-            <span className="mr-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#9B948B]">Recent</span>
-            {recentItems.map((item) => <Link key={item.id} href={hrefFor(item)} onClick={() => remember(item.id)} className="rounded-lg border border-black/[0.065] bg-white px-2.5 py-1.5 text-[8px] font-medium text-[#625D56] transition hover:border-[#D6A66A]/40 hover:text-[#7A5838]">{item.name}</Link>)}
+            <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9B948B]">Recent</span>
+            {recentItems.map((item) => <Link key={item.id} href={hrefFor(item)} onClick={() => remember(item.id)} className="rounded-lg border border-black/[0.065] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#625D56] transition hover:border-[#D6A66A]/40 hover:text-[#7A5838]">{item.name}</Link>)}
           </div>
         ) : null}
 
@@ -177,21 +177,21 @@ export default function FinanceBooksDesk({ organizationId }) {
             {AREAS.map((area) => {
               const Icon = area.icon;
               const selected = !needle && activeArea === area.id;
-              return <button key={area.id} type="button" onClick={() => { setQuery(""); setActiveArea(area.id); }} className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left transition ${selected ? "bg-[#A37849]/[0.09] text-[#6F5032]" : "text-[#68625B] hover:bg-[#FAF8F4]"}`}><span className="flex items-center gap-2 text-[9px] font-semibold"><Icon size={11} />{area.label}</span><span className="text-[8px] tabular-nums text-[#A49E95]">{areaCounts[area.id] || 0}</span></button>;
+              return <button key={area.id} type="button" onClick={() => { setQuery(""); setActiveArea(area.id); }} className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left transition ${selected ? "bg-[#A37849]/[0.09] text-[#6F5032]" : "text-[#68625B] hover:bg-[#FAF8F4]"}`}><span className="flex items-center gap-2 text-[11px] font-semibold"><Icon size={11} />{area.label}</span><span className="text-[11px] tabular-nums text-[#A49E95]">{areaCounts[area.id] || 0}</span></button>;
             })}
           </aside>
 
           <section className="overflow-hidden rounded-2xl border border-black/[0.065] bg-white">
             <div className="flex items-center justify-between gap-3 border-b border-black/[0.055] px-4 py-3">
-              <div><div className="text-[10px] font-semibold text-[#45413C]">{needle ? "Search results" : AREAS.find((area) => area.id === activeArea)?.label}</div><div className="mt-0.5 text-[8px] text-[#99938A]">{visibleItems.length} capability{visibleItems.length === 1 ? "" : "ies"}</div></div>
-              {needle ? <button type="button" onClick={() => setQuery("")} className="text-[8px] font-medium text-[#8A633C]">Clear search</button> : null}
+              <div><div className="text-[10px] font-semibold text-[#45413C]">{needle ? "Search results" : AREAS.find((area) => area.id === activeArea)?.label}</div><div className="mt-0.5 text-[11px] text-[#99938A]">{visibleItems.length} capability{visibleItems.length === 1 ? "" : "ies"}</div></div>
+              {needle ? <button type="button" onClick={() => setQuery("")} className="text-[11px] font-medium text-[#8A633C]">Clear search</button> : null}
             </div>
             <div className="divide-y divide-black/[0.05]">
               {visibleItems.map((item) => {
-                const row = <><div className="min-w-0"><div className="truncate text-[10px] font-medium text-[#47423D]">{item.name}</div><div className="mt-0.5 line-clamp-1 text-[8px] text-[#99938A]">{item.description || item.groupName}</div></div><div className="flex shrink-0 items-center gap-3"><span className="hidden text-[8px] text-[#AAA39A] md:block">{item.groupName}</span>{item.disabled ? <span className="text-[7px] font-semibold uppercase tracking-[0.06em] text-[#A39D95]">{clean(item.status) || "Unavailable"}</span> : <ArrowRight size={10} className="text-[#B3ADA5]" />}</div></>;
+                const row = <><div className="min-w-0"><div className="truncate text-[10px] font-medium text-[#47423D]">{item.name}</div><div className="mt-0.5 line-clamp-1 text-[11px] text-[#99938A]">{item.description || item.groupName}</div></div><div className="flex shrink-0 items-center gap-3"><span className="hidden text-[11px] text-[#AAA39A] md:block">{item.groupName}</span>{item.disabled ? <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A39D95]">{clean(item.status) || "Unavailable"}</span> : <ArrowRight size={10} className="text-[#B3ADA5]" />}</div></>;
                 return item.disabled ? <div key={item.id} className="flex items-center justify-between gap-4 px-4 py-3 opacity-45">{row}</div> : <Link key={item.id} href={hrefFor(item)} onClick={() => remember(item.id)} className="group flex items-center justify-between gap-4 px-4 py-3 transition hover:bg-[#FCFAF6]">{row}</Link>;
               })}
-              {!visibleItems.length ? <div className="px-4 py-8 text-center text-[9px] text-[#918B83]">No book capabilities match this view.</div> : null}
+              {!visibleItems.length ? <div className="px-4 py-8 text-center text-[11px] text-[#918B83]">No book capabilities match this view.</div> : null}
             </div>
           </section>
         </div>

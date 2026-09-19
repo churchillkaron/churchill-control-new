@@ -4,10 +4,9 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_HUMAN_REVIEW_RESULT_V1";
-const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_BENCHMARK_V2";
+const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_BENCHMARK_V3";
 const CONTINUITY_FIXTURE_CONTRACT = "AVANTIQO_MUSIC_CONTINUITY_FIXTURE_V1";
 const EXPECTED_CAPABILITY = "ai.audio.extend";
-const SAFE_LEASE_LANE = "music-transform-candidate";
 
 const text = (value) => String(value ?? "").trim();
 function arg(prefix) { return text(process.argv.slice(2).find((entry) => entry.startsWith(prefix))?.slice(prefix.length)); }
@@ -18,6 +17,11 @@ const verdict = requiredArg("--verdict=", "AVANTIQO_MUSIC_TRANSFORM_REVIEW_VERDI
 if (!["APPROVED", "REJECTED"].includes(verdict)) throw new Error("AVANTIQO_MUSIC_TRANSFORM_REVIEW_VERDICT_INVALID");
 const reviewer = requiredArg("--reviewer=", "AVANTIQO_MUSIC_TRANSFORM_REVIEWER_REQUIRED");
 const notes = arg("--notes=");
+const scoresRaw = requiredArg("--scores=", "AVANTIQO_MUSIC_TRANSFORM_REVIEW_SCORES_REQUIRED");
+const scores = scoresRaw.split(",").map((value) => Number(value.trim()));
+if (scores.length !== 6 || scores.some((value) => !Number.isFinite(value) || value < 0 || value > 100)) throw new Error("AVANTIQO_MUSIC_TRANSFORM_REVIEW_SCORES_INVALID");
+const averageScore = scores.reduce((sum, value) => sum + value, 0) / scores.length;
+if (verdict === "APPROVED" && averageScore < 92) throw new Error("AVANTIQO_MUSIC_TRANSFORM_REVIEW_SCORE_BELOW_THRESHOLD");
 
 const report = JSON.parse(await readFile(reportPath, "utf8"));
 if (
@@ -25,6 +29,7 @@ if (
   report?.passed !== true ||
   text(report?.capability) !== EXPECTED_CAPABILITY ||
   report?.provider_jobs_submitted !== 1 ||
+  text(report?.infrastructure_provider) !== "MODAL_DIRECT_A10G_ASYNC_V1" ||
   report?.temporal_extension_technical_proven !== true ||
   report?.human_review_required !== true ||
   text(report?.human_review_status) !== "PENDING" ||
@@ -37,7 +42,6 @@ if (
   report?.production_activation_allowed !== false ||
   report?.pricing_activation_allowed !== false ||
   report?.provider_selection_change_allowed !== false ||
-  text(report?.safe_lease_lane) !== SAFE_LEASE_LANE ||
   report?.output?.certification_candidate !== true ||
   report?.output?.production_certified !== false ||
   report?.output?.activation_allowed !== false ||
@@ -55,7 +59,6 @@ const result = {
   capability: EXPECTED_CAPABILITY,
   benchmark_job_id: text(report?.job_id),
   endpoint_id: text(report?.endpoint_id),
-  safe_lease_lane: SAFE_LEASE_LANE,
   source_mode: "MUSICAL_CONTINUITY",
   source_fixture_contract: CONTINUITY_FIXTURE_CONTRACT,
   source_fixture_progression: report?.source_fixture?.progression || null,
@@ -66,11 +69,15 @@ const result = {
   human_review_status: verdict,
   reviewer,
   notes: notes || null,
+  criterion_scores: scores,
+  average_score: Number(averageScore.toFixed(2)),
+  minimum_average_score: 92,
+  automatic_human_approval_forbidden: true,
   production_activation_allowed: false,
   pricing_activation_allowed: false,
   provider_selection_change_allowed: false,
   provider_jobs_submitted: 0,
-  runpod_lease_opened: false,
+  modal_direct_execution: true,
   production_activation_performed: false,
   pricing_activation_performed: false,
   provider_selection_change_performed: false,
@@ -87,7 +94,7 @@ console.log(JSON.stringify({
   human_review_status: verdict,
   eligible_for_later_release_decision: verdict === "APPROVED",
   provider_jobs_submitted: 0,
-  runpod_lease_opened: false,
+  modal_direct_execution: true,
   production_activation_performed: false,
   output_path: outputPath,
 }, null, 2));

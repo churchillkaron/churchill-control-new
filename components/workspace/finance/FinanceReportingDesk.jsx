@@ -117,14 +117,14 @@ function SummaryCard({ eyebrow, title, value, secondary, state, href, icon: Icon
   return (
     <Link href={href} className="group rounded-2xl border border-black/[0.07] bg-white p-4 transition hover:border-[#A37849]/30 hover:bg-[#FFFCF8]">
       <div className="flex items-start justify-between gap-3">
-        <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8C877F]">{eyebrow}</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8C877F]">{eyebrow}</div>
         <Icon size={13} className="text-[#A37849]" />
       </div>
       <div className="mt-2 text-[12px] font-semibold text-[#403C37]">{title}</div>
       <div className="mt-2 text-[19px] font-semibold tracking-[-0.035em] text-[#24211E]">{value}</div>
-      <div className="mt-1 text-[8px] leading-4 text-[#918B83]">{secondary}</div>
+      <div className="mt-1 text-[11px] leading-4 text-[#918B83]">{secondary}</div>
       <div className="mt-3 flex items-center justify-between gap-2">
-        <span className={`rounded-full border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.06em] ${state?.tone === "attention" ? "border-amber-700/15 bg-amber-50 text-amber-800" : state?.tone === "error" ? "border-red-700/15 bg-red-50 text-red-800" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>{state?.label || "Available"}</span>
+        <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] ${state?.tone === "attention" ? "border-amber-700/15 bg-amber-50 text-amber-800" : state?.tone === "error" ? "border-red-700/15 bg-red-50 text-red-800" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>{state?.label || "Available"}</span>
         <ArrowRight size={9} className="text-[#B0AAA2] group-hover:text-[#8A633C]" />
       </div>
     </Link>
@@ -136,10 +136,10 @@ function CapabilityRow({ item, organizationId, onOpen }) {
   const body = (
     <>
       <div className="min-w-0">
-        <div className="truncate text-[9px] font-semibold text-[#4A4640]">{item.name}</div>
-        <div className="mt-0.5 line-clamp-1 text-[8px] text-[#99938A]">{item.description || "Finance reporting capability"}</div>
+        <div className="truncate text-[11px] font-semibold text-[#4A4640]">{item.name}</div>
+        <div className="mt-0.5 line-clamp-1 text-[11px] text-[#99938A]">{item.description || "Finance reporting capability"}</div>
       </div>
-      {disabled ? <span className="shrink-0 text-[7px] font-semibold uppercase tracking-[0.06em] text-[#A39D95]">{clean(item.status) || "Unavailable"}</span> : <ArrowRight size={9} className="shrink-0 text-[#B3ADA5]" />}
+      {disabled ? <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A39D95]">{clean(item.status) || "Unavailable"}</span> : <ArrowRight size={9} className="shrink-0 text-[#B3ADA5]" />}
     </>
   );
   return disabled
@@ -275,29 +275,29 @@ export default function FinanceReportingDesk({ organizationId }) {
       <section className="rounded-[24px] border border-black/[0.07] bg-[#FBF8F3] p-4 md:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><FileBarChart size={11} /> Accounting output</div>
+            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><FileBarChart size={11} /> Accounting output</div>
             <h1 className="mt-1.5 text-[22px] font-semibold tracking-[-0.03em]">Reports</h1>
-            <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[#756F67]">Start with the accounting result and control state, then open the report that explains it. Planning and specialist reporting stay one level below daily financial truth.</p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[8px] text-[#918B83]"><span className="font-semibold text-[#625D56]">{entityName}</span><span>·</span><span>{periodLabel(businessContext.period)}</span></div>
+            <p className="mt-1 max-w-3xl text-[11px] leading-5 text-[#756F67]">Start with the accounting result and control state, then open the report that explains it. Planning and specialist reporting stay one level below daily financial truth.</p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#918B83]"><span className="font-semibold text-[#625D56]">{entityName}</span><span>·</span><span>{periodLabel(businessContext.period)}</span></div>
           </div>
           <div className="flex w-full gap-2 lg:w-auto">
-            <label className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 lg:w-[300px]"><Search size={11} className="text-[#A29D95]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a report or analysis…" className="min-w-0 flex-1 bg-transparent text-[9px] text-[#403C37] outline-none placeholder:text-[#B2ADA5]" /></label>
-            <button type="button" onClick={load} disabled={state.loading} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-black/[0.08] bg-white px-3 text-[8px] font-semibold text-[#716B63] disabled:opacity-50"><RefreshCw size={10} className={state.loading ? "animate-spin" : ""} /> Refresh</button>
+            <label className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 lg:w-[300px]"><Search size={11} className="text-[#A29D95]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a report or analysis…" className="min-w-0 flex-1 bg-transparent text-[11px] text-[#403C37] outline-none placeholder:text-[#B2ADA5]" /></label>
+            <button type="button" onClick={load} disabled={state.loading} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-black/[0.08] bg-white px-3 text-[11px] font-semibold text-[#716B63] disabled:opacity-50"><RefreshCw size={10} className={state.loading ? "animate-spin" : ""} /> Refresh</button>
           </div>
         </div>
       </section>
 
-      {!entityId || !periodId ? <section className="rounded-2xl border border-amber-700/15 bg-amber-50 p-5 text-[10px] text-amber-900">Select a legal entity and accounting period in the Finance top bar to load the reporting pulse.</section> : null}
-      {state.error ? <section className="rounded-2xl border border-red-700/15 bg-red-50 p-4 text-[9px] text-red-800"><div className="flex items-start gap-2"><AlertTriangle size={12} className="mt-0.5" /><span>{state.error}</span></div></section> : null}
-      {state.loading && entityId && periodId && !state.pnl ? <div className="flex min-h-[190px] items-center justify-center rounded-2xl border border-black/[0.07] bg-white text-[9px] text-[#817D76]"><LoaderCircle size={13} className="mr-2 animate-spin text-[#A37849]" />Reading current accounting reports…</div> : null}
+      {!entityId || !periodId ? <section className="rounded-2xl border border-amber-700/15 bg-amber-50 p-5 text-[11px] text-amber-900">Select a legal entity and accounting period in the Finance top bar to load the reporting pulse.</section> : null}
+      {state.error ? <section className="rounded-2xl border border-red-700/15 bg-red-50 p-4 text-[11px] text-red-800"><div className="flex items-start gap-2"><AlertTriangle size={12} className="mt-0.5" /><span>{state.error}</span></div></section> : null}
+      {state.loading && entityId && periodId && !state.pnl ? <div className="flex min-h-[190px] items-center justify-center rounded-2xl border border-black/[0.07] bg-white text-[11px] text-[#817D76]"><LoaderCircle size={13} className="mr-2 animate-spin text-[#A37849]" />Reading current accounting reports…</div> : null}
 
       {entityId && periodId && (state.pnl || !state.loading) ? <>
         <Link href={recommendation.href} className={`group block rounded-[22px] border p-4 transition md:p-5 ${recommendation.tone === "error" ? "border-red-700/12 bg-red-50" : recommendation.tone === "attention" ? "border-amber-700/12 bg-[#FFF9EF]" : "border-emerald-700/10 bg-emerald-50/45"}`}>
-          <div className="flex items-center justify-between gap-4"><div className="flex items-start gap-3">{recommendation.tone === "ready" ? <BadgeCheck size={17} className="mt-0.5 text-[#657A61]" /> : <Sparkles size={17} className={recommendation.tone === "error" ? "mt-0.5 text-[#9A533D]" : "mt-0.5 text-[#A37849]"} />}<div><div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8A867F]">Recommended next</div><div className="mt-1 text-[15px] font-semibold tracking-[-0.02em] text-[#3D3832]">{recommendation.title}</div><div className="mt-1 text-[9px] leading-4 text-[#756F67]">{recommendation.detail}</div></div></div><ArrowRight size={12} className="shrink-0 text-[#9A7045] transition group-hover:translate-x-0.5" /></div>
+          <div className="flex items-center justify-between gap-4"><div className="flex items-start gap-3">{recommendation.tone === "ready" ? <BadgeCheck size={17} className="mt-0.5 text-[#657A61]" /> : <Sparkles size={17} className={recommendation.tone === "error" ? "mt-0.5 text-[#9A533D]" : "mt-0.5 text-[#A37849]"} />}<div><div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8A867F]">Recommended next</div><div className="mt-1 text-[15px] font-semibold tracking-[-0.02em] text-[#3D3832]">{recommendation.title}</div><div className="mt-1 text-[11px] leading-4 text-[#756F67]">{recommendation.detail}</div></div></div><ArrowRight size={12} className="shrink-0 text-[#9A7045] transition group-hover:translate-x-0.5" /></div>
         </Link>
 
         <section>
-          <div className="mb-2"><div className="text-[9px] font-medium uppercase tracking-[0.15em] text-[#8A867F]">Current period pulse</div><div className="mt-0.5 text-[9px] text-[#918B83]">Canonical report outputs, not recalculated dashboard approximations.</div></div>
+          <div className="mb-2"><div className="text-[11px] font-medium uppercase tracking-[0.15em] text-[#8A867F]">Current period pulse</div><div className="mt-0.5 text-[11px] text-[#918B83]">Canonical report outputs, not recalculated dashboard approximations.</div></div>
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
             <SummaryCard eyebrow="Profit & loss" title="Net profit" value={state.pnl?.ok ? money(netProfit, currency) : "Unavailable"} secondary={state.pnl?.ok ? `Revenue ${money(revenue, currency)} · Gross margin ${grossMargin === null ? "—" : percent(grossMargin)}` : state.pnl?.error || "P&L source unavailable"} state={{ label: state.pnl?.ok ? (netProfit < 0 ? "Needs explanation" : "Current") : "Source error", tone: state.pnl?.ok ? (netProfit < 0 ? "attention" : "ready") : "error" }} href={analytics ? reportRoute(organizationId, analytics) : financeHref(organizationId, "/finance/reports")} icon={ChartNoAxesCombined} />
             <SummaryCard eyebrow="Balance sheet" title="Assets" value={state.balance?.ok ? money(balanceSummary.totalAssets, currency) : "Unavailable"} secondary={state.balance?.ok ? `Liabilities ${money(balanceSummary.totalLiabilities, currency)} · Equity ${money(balanceSummary.totalEquity, currency)}` : state.balance?.error || "Balance-sheet source unavailable"} state={{ label: state.balance?.ok ? (Math.abs(balanceDifference) > 0.01 ? "Review equation" : "Current") : "Source error", tone: state.balance?.ok ? (Math.abs(balanceDifference) > 0.01 ? "attention" : "ready") : "error" }} href={financialStatements ? reportRoute(organizationId, financialStatements) : financeHref(organizationId, "/finance/statements")} icon={Calculator} />
@@ -308,31 +308,31 @@ export default function FinanceReportingDesk({ organizationId }) {
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
           <section className="rounded-[22px] border border-black/[0.07] bg-white p-4 md:p-5">
-            <div><div className="text-[9px] font-medium uppercase tracking-[0.15em] text-[#8A867F]">Reporting library</div><h2 className="mt-1 text-[16px] font-semibold tracking-[-0.02em]">Reports by accounting purpose</h2><div className="mt-0.5 text-[9px] text-[#918B83]">Deterministic capability mapping keeps reporting stable even when registry wording changes.</div></div>
+            <div><div className="text-[11px] font-medium uppercase tracking-[0.15em] text-[#8A867F]">Reporting library</div><h2 className="mt-1 text-[16px] font-semibold tracking-[-0.02em]">Reports by accounting purpose</h2><div className="mt-0.5 text-[11px] text-[#918B83]">Deterministic capability mapping keeps reporting stable even when registry wording changes.</div></div>
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
-              {familyRows.map((family) => <div key={family.id} className="overflow-hidden rounded-xl border border-black/[0.065] bg-[#FCFBF9]"><div className="border-b border-black/[0.055] px-3.5 py-3"><div className="text-[9px] font-semibold text-[#4A4640]">{family.label}</div><div className="mt-0.5 text-[7px] leading-3.5 text-[#99938A]">{family.description}</div></div><div className="divide-y divide-black/[0.05] bg-white">{family.items.map((item) => <CapabilityRow key={item.id} item={item} organizationId={organizationId} onOpen={remember} />)}</div></div>)}
+              {familyRows.map((family) => <div key={family.id} className="overflow-hidden rounded-xl border border-black/[0.065] bg-[#FCFBF9]"><div className="border-b border-black/[0.055] px-3.5 py-3"><div className="text-[11px] font-semibold text-[#4A4640]">{family.label}</div><div className="mt-0.5 text-[11px] leading-3.5 text-[#99938A]">{family.description}</div></div><div className="divide-y divide-black/[0.05] bg-white">{family.items.map((item) => <CapabilityRow key={item.id} item={item} organizationId={organizationId} onOpen={remember} />)}</div></div>)}
             </div>
-            {!familyRows.length ? <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#FAF9F7] p-6 text-center text-[9px] text-[#918B83]">No reporting capability matches this search.</div> : null}
+            {!familyRows.length ? <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#FAF9F7] p-6 text-center text-[11px] text-[#918B83]">No reporting capability matches this search.</div> : null}
           </section>
 
           <div className="space-y-4">
             <section className="rounded-[22px] border border-black/[0.07] bg-white p-4 md:p-5">
-              <div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-medium uppercase tracking-[0.15em] text-[#8A867F]">Reporting controls</div><h2 className="mt-1 text-[15px] font-semibold">Can I rely on this period?</h2></div><Gauge size={13} className="text-[#9A7045]" /></div>
+              <div className="flex items-start justify-between gap-3"><div><div className="text-[11px] font-medium uppercase tracking-[0.15em] text-[#8A867F]">Reporting controls</div><h2 className="mt-1 text-[15px] font-semibold">Can I rely on this period?</h2></div><Gauge size={13} className="text-[#9A7045]" /></div>
               <div className="mt-3 divide-y divide-black/[0.055]">
-                <Link href={financeHref(organizationId, "/finance/review")} className="flex items-center justify-between gap-3 py-2.5"><div><div className="text-[8px] font-semibold text-[#514C46]">Open review</div><div className="mt-0.5 text-[7px] text-[#99938A]">Accounting items still under review</div></div><span className={`text-[12px] font-semibold ${(command?.metrics?.review?.count || 0) > 0 ? "text-[#9A7045]" : "text-[#65765F]"}`}>{command?.metrics?.review?.count || 0}</span></Link>
-                <Link href={financeHref(organizationId, "/finance/bank-reconciliation")} className="flex items-center justify-between gap-3 py-2.5"><div><div className="text-[8px] font-semibold text-[#514C46]">Reconciliation exceptions</div><div className="mt-0.5 text-[7px] text-[#99938A]">Bank controls requiring attention</div></div><span className={`text-[12px] font-semibold ${(command?.metrics?.reconciliation?.count || 0) > 0 ? "text-[#9A533D]" : "text-[#65765F]"}`}>{command?.metrics?.reconciliation?.count || 0}</span></Link>
-                <Link href={financeHref(organizationId, "/finance/close")} className="flex items-center justify-between gap-3 py-2.5"><div><div className="text-[8px] font-semibold text-[#514C46]">Close progress</div><div className="mt-0.5 text-[7px] text-[#99938A]">Governed period-close completion</div></div><span className="text-[12px] font-semibold text-[#76583A]">{command?.metrics?.close?.progress || 0}%</span></Link>
+                <Link href={financeHref(organizationId, "/finance/review")} className="flex items-center justify-between gap-3 py-2.5"><div><div className="text-[11px] font-semibold text-[#514C46]">Open review</div><div className="mt-0.5 text-[11px] text-[#99938A]">Accounting items still under review</div></div><span className={`text-[12px] font-semibold ${(command?.metrics?.review?.count || 0) > 0 ? "text-[#9A7045]" : "text-[#65765F]"}`}>{command?.metrics?.review?.count || 0}</span></Link>
+                <Link href={financeHref(organizationId, "/finance/bank-reconciliation")} className="flex items-center justify-between gap-3 py-2.5"><div><div className="text-[11px] font-semibold text-[#514C46]">Reconciliation exceptions</div><div className="mt-0.5 text-[11px] text-[#99938A]">Bank controls requiring attention</div></div><span className={`text-[12px] font-semibold ${(command?.metrics?.reconciliation?.count || 0) > 0 ? "text-[#9A533D]" : "text-[#65765F]"}`}>{command?.metrics?.reconciliation?.count || 0}</span></Link>
+                <Link href={financeHref(organizationId, "/finance/close")} className="flex items-center justify-between gap-3 py-2.5"><div><div className="text-[11px] font-semibold text-[#514C46]">Close progress</div><div className="mt-0.5 text-[11px] text-[#99938A]">Governed period-close completion</div></div><span className="text-[12px] font-semibold text-[#76583A]">{command?.metrics?.close?.progress || 0}%</span></Link>
               </div>
             </section>
 
             <section className="rounded-[22px] border border-black/[0.07] bg-white p-4 md:p-5">
-              <div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-medium uppercase tracking-[0.15em] text-[#8A867F]">Recent reports</div><h2 className="mt-1 text-[15px] font-semibold">Continue where you were</h2></div><BarChart3 size={13} className="text-[#9A7045]" /></div>
-              <div className="mt-3 divide-y divide-black/[0.055]">{recentItems.map((item) => <Link key={item.id} href={reportRoute(organizationId, item)} onClick={() => remember(item)} className="group flex items-center justify-between gap-3 py-2.5"><div className="min-w-0"><div className="truncate text-[8px] font-semibold text-[#514C46]">{item.name}</div><div className="mt-0.5 truncate text-[7px] text-[#99938A]">{item.description || "Finance report"}</div></div><ArrowRight size={8} className="shrink-0 text-[#B0AAA2] group-hover:text-[#8A633C]" /></Link>)}{!recentItems.length ? <div className="py-4 text-[8px] leading-4 text-[#918B83]">Reports you open from this desk will appear here. This is browser-local recency, not fabricated usage analytics.</div> : null}</div>
+              <div className="flex items-start justify-between gap-3"><div><div className="text-[11px] font-medium uppercase tracking-[0.15em] text-[#8A867F]">Recent reports</div><h2 className="mt-1 text-[15px] font-semibold">Continue where you were</h2></div><BarChart3 size={13} className="text-[#9A7045]" /></div>
+              <div className="mt-3 divide-y divide-black/[0.055]">{recentItems.map((item) => <Link key={item.id} href={reportRoute(organizationId, item)} onClick={() => remember(item)} className="group flex items-center justify-between gap-3 py-2.5"><div className="min-w-0"><div className="truncate text-[11px] font-semibold text-[#514C46]">{item.name}</div><div className="mt-0.5 truncate text-[11px] text-[#99938A]">{item.description || "Finance report"}</div></div><ArrowRight size={8} className="shrink-0 text-[#B0AAA2] group-hover:text-[#8A633C]" /></Link>)}{!recentItems.length ? <div className="py-4 text-[11px] leading-4 text-[#918B83]">Reports you open from this desk will appear here. This is browser-local recency, not fabricated usage analytics.</div> : null}</div>
             </section>
           </div>
         </div>
 
-        <div className="rounded-xl border border-black/[0.06] bg-[#FAF9F7] px-3 py-2.5 text-[8px] leading-4 text-[#817D76]">The reporting pulse reads the same canonical P&amp;L, balance-sheet, cash-flow and trial-balance runtimes used by Finance report workspaces. The landing page only prioritizes and explains those outputs; it does not create a second reporting ledger.</div>
+        <div className="rounded-xl border border-black/[0.06] bg-[#FAF9F7] px-3 py-2.5 text-[11px] leading-4 text-[#817D76]">The reporting pulse reads the same canonical P&amp;L, balance-sheet, cash-flow and trial-balance runtimes used by Finance report workspaces. The landing page only prioritizes and explains those outputs; it does not create a second reporting ledger.</div>
       </> : null}
     </div>
   );

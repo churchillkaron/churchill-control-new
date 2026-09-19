@@ -6,7 +6,7 @@ import { readFile } from "node:fs/promises";
 const files = {
   analysis: "lib/creative/music/runtime/CreativeMusicElasticAudioRuntime.js",
   route: "app/api/creative/music/elastic-audio/route.js",
-  provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicElasticAudioProvider.js",
+  provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicElasticModalProvider.js",
   worker: "services/avantiqo-music-elastic-engine/handler.py",
   panel: "components/creative/ProductionStudio/workspaces/MusicElasticAudioPanel.jsx",
   workspace: "components/creative/ProductionStudio/workspaces/MusicStudioWorkspace.jsx",
@@ -44,8 +44,10 @@ assert.match(source.provider, /AVANTIQO_MUSIC_ELASTIC_AUDIO_ENGINE_V1/);
 assert.match(source.provider, /ai\.audio\.elastic-warp/);
 assert.match(source.provider, /signalsmith-stretch/);
 assert.match(source.provider, /AVANTIQO_MUSIC_ELASTIC_ENGINE_NOT_CERTIFIED/);
-assert.match(source.provider, /AVANTIQO_RUNPOD_SAFE_LEASE_V2/);
-assert.match(source.provider, /output_storage_reference/);
+assert.match(source.provider, /transportMode: "direct-sdk"/);
+assert.match(source.provider, /avantiqo-music-elastic-owned/);
+assert.doesNotMatch(source.provider, /RUNPOD|SAFE_LEASE/i);
+assert.match(source.provider, /WORKER.execute/);
 
 assert.match(source.worker, /AVANTIQO_MUSIC_ELASTIC_AUDIO_ENGINE_V1/);
 assert.match(source.worker, /AVANTIQO_MUSIC_ELASTIC_AUDIO_RENDER_REPORT_V1/);
@@ -91,7 +93,7 @@ assert.match(source.panel, /render_status/);
 assert.match(source.panel, /apply_render/);
 assert.match(source.panel, /revert_render/);
 assert.match(source.panel, /Original audio always remains recoverable/);
-assert.match(source.workspace, /label: "Elastic Audio"/);
+assert.match(source.workspace, /label: "Time & Pitch"/);
 assert.match(source.workspace, /MusicElasticAudioPanel/);
 assert.match(source.catalog, /ai\.audio\.elastic-warp/);
 

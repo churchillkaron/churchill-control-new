@@ -35,7 +35,9 @@ export async function GET(request) {
       fullAccess: access.permissions?.includes("*") === true,
     });
 
-    const { data, error } = await supabaseAdmin
+    const partyId = searchParams.get("party_id") || searchParams.get("id") || null;
+
+    let query = supabaseAdmin
       .from("supplier_profiles")
       .select(`
         *,
@@ -50,8 +52,11 @@ export async function GET(request) {
           status
         )
       `)
-      .eq("organization_id", access.organizationId)
-      .order("created_at", { ascending: false });
+      .eq("organization_id", access.organizationId);
+
+    if (partyId) query = query.eq("party_id", partyId);
+
+    const { data, error } = await query.order("created_at", { ascending: false });
 
     if (error) {
       return NextResponse.json({

@@ -5,14 +5,10 @@ import { inferredVerificationDeclaration } from "../lib/operator/runtime/Operato
 
 const source = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 
-test("generated locator inference requires one exact required stable read locator", () => {
+test("generated locator inference is fail-closed without an explicit result binding", () => {
   const write = { domain:"platform", capability:"secretary_event_coordination", action:"start", mode:"write", input_schema:{type:"object",properties:{title:{type:"string"}}} };
   const read = { key:"platform.secretary_event_coordination.read", domain:"platform", capability:"secretary_event_coordination", action:"read", mode:"read", input_schema:{type:"object",required:["coordination_id"],properties:{coordination_id:{type:"string"}}} };
-  assert.deepEqual(inferredVerificationDeclaration(write,[write,read]), {
-    capability_key: read.key,
-    payload_from_result: { coordination_id: ["coordination_id"] },
-    derivation: "same_capability_registered_read_result_locator",
-  });
+  assert.equal(inferredVerificationDeclaration(write,[write,read]), null);
 });
 
 test("generated locator inference refuses ambiguous multi-locator reads", () => {

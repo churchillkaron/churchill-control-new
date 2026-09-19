@@ -9,7 +9,7 @@ test("direction contracts output tokens to the remaining approved money", () => 
   assert.match(source, /DIRECTION_BUDGET_TOKEN_SAFETY_RATIO = 0\.88/);
   assert.match(source, /maximumForCall \* DIRECTION_BUDGET_TOKEN_SAFETY_RATIO/);
   assert.match(source, /max_output_tokens: estimatedUsage\.output_tokens/);
-  assert.match(source, /direction_budget_token_cap_applied: bounded\.capped/);
+  assert.match(source, /\[`\$\{channel\.metadataPrefix\}_budget_token_cap_applied`\]: bounded\.capped/);
 });
 
 test("direction tail fails before provider when budget cannot buy a useful response", () => {

@@ -19,6 +19,9 @@ export async function GET(request, { params }) {
     const entityId =
       searchParams.get("entityId") || searchParams.get("entity_id") || null;
     const mode = searchParams.get("mode") || "auto";
+    const download = ["1", "true", "yes"].includes(
+      String(searchParams.get("download") || "").toLowerCase(),
+    );
     if (!invoiceId) return jsonError("invoiceId required");
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return jsonError(access.error, access.status);
@@ -50,7 +53,7 @@ export async function GET(request, { params }) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${rendered.filename}"`,
+        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${rendered.filename}"`,
         "Cache-Control": "private, no-store",
       },
     });

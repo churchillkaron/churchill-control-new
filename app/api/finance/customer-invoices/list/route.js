@@ -47,6 +47,8 @@ export async function GET(request) {
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false });
     if (entity?.id) invoiceQuery = invoiceQuery.eq("entity_id", entity.id);
+    const invoiceId = searchParams.get("invoice_id") || searchParams.get("customer_invoice_id") || searchParams.get("id");
+    if (invoiceId) invoiceQuery = invoiceQuery.eq("id", invoiceId);
 
     const { data: rawInvoices, error: invoiceError } = await invoiceQuery;
     if (invoiceError) throw invoiceError;

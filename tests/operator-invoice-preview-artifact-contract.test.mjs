@@ -4,6 +4,7 @@ import test from "node:test";
 
 const route = fs.readFileSync(new URL("../app/api/finance/customer-invoices/route.js", import.meta.url), "utf8");
 const bridge = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligenceToolBridgeRuntime.js", import.meta.url), "utf8");
+const artifacts = fs.readFileSync(new URL("../lib/operator/runtime/OperatorPresentationArtifactRuntime.js", import.meta.url), "utf8");
 
 test("customer invoice reads expose real invoice and paid receipt preview URLs", () => {
   assert.match(route, /preview_url: base/);
@@ -13,16 +14,16 @@ test("customer invoice reads expose real invoice and paid receipt preview URLs",
 });
 
 test("live read receipts preserve only sanitized presentation artifacts for chat", () => {
-  assert.match(bridge, /presentationArtifacts/);
-  assert.match(bridge, /presentation_artifacts: presentationArtifacts/);
+  assert.match(bridge, /collectOperatorPresentationArtifacts/);
+  assert.match(bridge, /presentation_artifacts: collectOperatorPresentationArtifacts/);
   assert.match(bridge, /authorization_effect: "NONE"/);
-  assert.match(bridge, /reference\.startsWith\("storage:\/\/"\)/);
-  assert.match(bridge, /\^https\?:\\\/\\\//i);
+  assert.match(artifacts, /reference\.startsWith\("storage:\/\/"\)/);
+  assert.match(artifacts, /\^https\?:\\\/\\\//i);
 });
 
 
 test("live read presentation evidence recognizes existing Avantiqo media URL aliases", () => {
   for (const signal of ["playback_url", "primary_url", "master_signed_url", "uri", "output_reference"]) {
-    assert.match(bridge, new RegExp(`\\"${signal}\\"`));
+    assert.match(artifacts, new RegExp(`\\"${signal}\\"`));
   }
 });

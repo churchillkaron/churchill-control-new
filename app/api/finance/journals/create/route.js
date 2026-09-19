@@ -82,7 +82,17 @@ export async function POST(request) {
       },
     });
 
-    return NextResponse.json({ success: true, data: result });
+    return NextResponse.json({
+      success: true,
+      data: result,
+      journal_id:
+        result?.journal_id ||
+        result?.journal_entry_id ||
+        result?.journal?.id ||
+        result?.ledger?.journalEntryId ||
+        result?.id ||
+        null,
+    });
   } catch (error) {
     const message = error.message || "Journal creation failed";
     return NextResponse.json(

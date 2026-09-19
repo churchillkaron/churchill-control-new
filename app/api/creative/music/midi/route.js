@@ -20,6 +20,7 @@ import {
   validateMusicMidiProject,
 } from "@/lib/creative/music/runtime/CreativeMusicMidiRuntime";
 import { createMusicMultitrackProject, validateMusicMultitrackProject } from "@/lib/creative/music/runtime/CreativeMusicMultitrackRuntime";
+import { designMusicOwnedInstrument, normalizeMusicOwnedInstrument } from "@/lib/creative/music/runtime/CreativeMusicOwnedInstrumentRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 const EXECUTION_PERMISSIONS = Object.freeze(["creative.execute", "creative.production.run", "creative.*"]);
@@ -215,6 +216,22 @@ async function mutate(body) {
     const selected = selectMidiClip(next, text(body.track_id), text(body.clip_id));
     const restored = restoreMusicMidiOriginalPerformance(selected.clip);
     selected.track.clips = selected.track.clips.map((clip) => clip.id === restored.id ? restored : clip);
+  } else if (action === "set_instrument_design") {
+    const track = selectMidiTrack(next, text(body.track_id));
+    const normalizedDesign = body.design && typeof body.design === "object"
+      ? normalizeMusicOwnedInstrument(body.design, body.preset_id || track.instrument?.preset_id || "studio_keys")
+      : designMusicOwnedInstrument({ ...(body.instrument || {}), intent: body.intent || body.description || body.instrument?.intent, preset_id: body.preset_id || body.instrument?.preset_id });
+    const design = { ...normalizedDesign, intent: text(body.design?.intent || body.intent || normalizedDesign.intent) || null };
+    track.instrument = {
+      ...(track.instrument || {}),
+      kind: "owned_synth",
+      instrument_id: design.fingerprint,
+      preset_id: design.preset_id,
+      design,
+      owned_instrument_required: true,
+      external_plugin_hosted: false,
+    };
+    mutationEvidence = { instrument_design_updated: true, instrument_fingerprint: design.fingerprint, instrument_contract: design.contract };
   } else if (action === "update_input") {
     next.midi.input = {
       ...next.midi.input,

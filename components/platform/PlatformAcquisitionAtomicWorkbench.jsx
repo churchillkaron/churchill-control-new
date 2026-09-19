@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { productCatalog } from "@/components/public/productCatalog";
+import { isCustomerProduct } from "@/components/public/customerProductGroups";
+import { PRODUCT_MODULE_REQUIREMENTS } from "@/lib/platform/entitlements/productProvisioningRegistry";
 import {
   ArrowRight,
   CheckCircle2,
@@ -17,6 +20,7 @@ import {
 const PLATFORM_ORGANIZATION_ID = "9a148429-b6a0-4bc6-ac83-a35c64fb7045";
 const LOSS_STAGES = new Set(["PROSPECT", "QUALIFIED", "COMMITMENT_PENDING", "COMMITTED"]);
 const TERMINAL_STAGES = new Set(["FIRST_VALUE", "LOST"]);
+const SELLABLE_PRODUCTS = productCatalog.filter((product) => isCustomerProduct(product) && PRODUCT_MODULE_REQUIREMENTS[product.id]);
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -161,6 +165,17 @@ async function createProspect(body) {
   return payload;
 }
 
+async function createCommercialSubscription(body) {
+  const scope = encodeURIComponent(PLATFORM_ORGANIZATION_ID);
+  const response = await fetch(`/api/platform/admin/commercial-subscriptions?organizationId=${scope}`, {
+    method: "POST", cache: "no-store", credentials: "same-origin",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.success === false) throw new Error(payload?.error || "Unable to record commercial subscription");
+  return payload;
+}
+
 async function transitionAcquisition(body) {
   const scope = encodeURIComponent(PLATFORM_ORGANIZATION_ID);
   const response = await fetch(`/api/platform/admin/acquisition?organizationId=${scope}`, {
@@ -203,6 +218,9 @@ export default function PlatformAcquisitionAtomicWorkbench() {
   const [evidenceReference, setEvidenceReference] = useState("");
   const [evidenceNote, setEvidenceNote] = useState("");
   const [subscriptionId, setSubscriptionId] = useState("");
+  const [selectedProductIds, setSelectedProductIds] = useState([]);
+  const [subscriptionMonthlyTotal, setSubscriptionMonthlyTotal] = useState("");
+  const [subscriptionBillingCycle, setSubscriptionBillingCycle] = useState("monthly");
   const [nextDueAt, setNextDueAt] = useState("");
   const [nextScheduleNote, setNextScheduleNote] = useState("");
   const [lossReference, setLossReference] = useState("");
@@ -251,10 +269,13 @@ export default function PlatformAcquisitionAtomicWorkbench() {
     setNextScheduleNote("");
     const candidates = Array.isArray(selected?.verifiedSubscriptionCandidates) ? selected.verifiedSubscriptionCandidates : [];
     setSubscriptionId(selected?.subscription_id || candidates[0]?.id || "");
+    setSelectedProductIds(Array.isArray(selected?.requestedProducts) ? selected.requestedProducts.map((product) => typeof product === "string" ? product : product?.id).filter(Boolean) : []);
+    setSubscriptionMonthlyTotal("");
+    setSubscriptionBillingCycle("monthly");
     setLossReference("");
     setLossNote("");
     setShowLoss(false);
-  }, [selectedId, selected?.id, selected?.prospect_company, selected?.prospect_contact, selected?.prospect_email, selected?.subscription_id, selected?.verifiedSubscriptionCandidates]);
+  }, [selectedId, selected?.id, selected?.prospect_company, selected?.prospect_contact, selected?.prospect_email, selected?.subscription_id, selected?.verifiedSubscriptionCandidates, selected?.requestedProducts]);
 
   const submitProspect = useCallback(async (event) => {
     event.preventDefault();
@@ -280,6 +301,28 @@ export default function PlatformAcquisitionAtomicWorkbench() {
       setSaving(false);
     }
   }, [canCreate, load, originDueAt, originNote, originReference, originScheduleNote, saving, source, sourceReference]);
+
+  const recordCommercialSubscription = useCallback(async () => {
+    if (!selected || saving || selected.stage !== "COMMITMENT_PENDING") return;
+    const monthlyTotal = Number(subscriptionMonthlyTotal);
+    if (!selectedProductIds.length || !Number.isFinite(monthlyTotal) || monthlyTotal < 0) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const result = await createCommercialSubscription({
+        acquisitionId: selected.id, productIds: selectedProductIds, monthlyTotal,
+        billingCycle: subscriptionBillingCycle, currency: "THB",
+      });
+      setSubscriptionId(result?.subscription?.id || "");
+      setNotice("Committed commercial subscription recorded with exact Avantiqo products.");
+      await load();
+    } catch (saveError) {
+      setError(saveError?.message || "Unable to record commercial subscription");
+    } finally { setSaving(false); }
+  }, [load, saving, selected, selectedProductIds, subscriptionBillingCycle, subscriptionMonthlyTotal]);
+
+  const toggleSubscriptionProduct = useCallback((productId) => {
+    setSelectedProductIds((current) => current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId]);
+  }, []);
 
   const advance = useCallback(async (toStage) => {
     if (!selected || saving) return;
@@ -349,11 +392,24 @@ export default function PlatformAcquisitionAtomicWorkbench() {
 
     if (selected.stage === "COMMITMENT_PENDING") {
       const verified = subscriptionId && candidates.some((candidate) => candidate.id === subscriptionId);
+      const commercialReady = selectedProductIds.length > 0 && Number.isFinite(Number(subscriptionMonthlyTotal)) && Number(subscriptionMonthlyTotal) >= 0;
       return <div className="space-y-3">
+        <div className="rounded-xl border border-[#B98A57]/20 bg-[#FBF7F1] p-3.5">
+          <div className="text-[8px] font-semibold uppercase tracking-[0.11em] text-[#8A643C]">Commercial subscription</div>
+          <p className="mt-1 text-[8px] leading-4 text-[#91877A]">Record exactly what Avantiqo is selling. Customer-requested products are preselected when the opportunity came from an existing workspace.</p>{selected?.requestNote ? <p className="mt-2 rounded-lg border border-[#B98A57]/15 bg-white px-2.5 py-2 text-[8px] leading-4 text-[#6F655A]">Customer note: {selected.requestNote}</p> : null}
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {SELLABLE_PRODUCTS.map((product) => <label key={product.id} className={`flex cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-2 ${selectedProductIds.includes(product.id) ? "border-[#B98A57]/40 bg-white" : "border-black/[0.06] bg-white/60"}`}><input type="checkbox" checked={selectedProductIds.includes(product.id)} onChange={() => toggleSubscriptionProduct(product.id)} className="mt-0.5"/><span><span className="block text-[8px] font-semibold text-[#514B44]">{product.name}</span><span className="mt-0.5 block text-[7px] leading-3 text-[#999187]">{product.summary}</span></span></label>)}
+          </div>
+          <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+            <Field label="Package monthly total · THB *" type="number" value={subscriptionMonthlyTotal} onChange={setSubscriptionMonthlyTotal} placeholder="0.00" />
+            <label className="block"><span className="text-[8px] font-medium text-[#777168]">Billing cycle *</span><select value={subscriptionBillingCycle} onChange={(event)=>setSubscriptionBillingCycle(event.target.value)} className="mt-1 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-2.5 text-[9px] text-[#48423C]"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></label>
+          </div>
+          <button type="button" disabled={!commercialReady || saving} onClick={recordCommercialSubscription} className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#1D1B18] px-3 text-[9px] font-semibold text-white disabled:opacity-40">{saving ? <RefreshCw size={11} className="animate-spin" /> : <CirclePlus size={11} />} Record committed subscription</button>
+        </div>
         <div className="rounded-xl border border-black/[0.065] bg-[#FBFAF8] p-3.5">
           <div className="text-[8px] font-semibold uppercase tracking-[0.11em] text-[#8D877E]">Verified subscription candidates</div>
           <p className="mt-1 text-[8px] leading-4 text-[#918B83]">Only a subscription whose persisted lead identity matches this qualified prospect can establish commitment.</p>
-          {candidates.length ? <select value={subscriptionId} onChange={(event) => setSubscriptionId(event.target.value)} className="mt-2.5 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-2.5 text-[9px] text-[#48423C] outline-none focus:border-[#B98A57]/45">{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{compactId(candidate.id)} · {humanStage(candidate.status)} · {relativeTime(candidate.createdAt, authoritativeNow)}</option>)}</select> : <div className="mt-2.5 rounded-lg border border-amber-700/15 bg-amber-50 px-3 py-2.5 text-[8px] leading-4 text-amber-800">No subscription currently proves this prospect identity. Complete the real commercial subscription first.</div>}
+          {candidates.length ? <select value={subscriptionId} onChange={(event) => setSubscriptionId(event.target.value)} className="mt-2.5 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-2.5 text-[9px] text-[#48423C] outline-none focus:border-[#B98A57]/45">{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{compactId(candidate.id)} · {humanStage(candidate.status)} · {candidate.selectedProducts?.length || 0} product(s) · {candidate.currency || "THB"} {Number(candidate.monthlyTotal || 0).toLocaleString()} / month</option>)}</select> : <div className="mt-2.5 rounded-lg border border-amber-700/15 bg-amber-50 px-3 py-2.5 text-[8px] leading-4 text-amber-800">No subscription currently proves this prospect identity. Record the committed commercial subscription above.</div>}
         </div>
         {renderNextObligation()}
         <button type="button" disabled={!verified || !nextReady || saving} onClick={() => advance("COMMITTED")} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#B98A57]/25 bg-[#FBF7F1] px-3 text-[9px] font-semibold text-[#8A643C] disabled:opacity-40">{saving ? <RefreshCw size={11} className="animate-spin" /> : <ShieldCheck size={11} />} Verify commitment + schedule activation</button>

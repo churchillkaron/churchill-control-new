@@ -76,8 +76,8 @@ function ControlRow({ label, value, detail, href, attention = false }) {
   const content = (
     <>
       <div className="min-w-0">
-        <div className="text-[8px] font-semibold uppercase tracking-[0.11em] text-[#8D877F]">{label}</div>
-        <div className="mt-0.5 truncate text-[8px] text-[#9A948B]">{detail}</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.11em] text-[#8D877F]">{label}</div>
+        <div className="mt-0.5 truncate text-[11px] text-[#9A948B]">{detail}</div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <div className={`text-right text-[11px] font-semibold tabular-nums ${attention ? "text-[#9A533D]" : "text-[#37332F]"}`}>{value}</div>
@@ -137,7 +137,7 @@ export default function FinanceAccountantOverview({ organizationId }) {
       <section className="rounded-[22px] border border-black/[0.07] bg-[#FBF8F3] px-4 py-4 md:px-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8A633C]">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-[#8A633C]">
               <span>Accountant workspace</span>
               {practice.active_clients > 0 ? (
                 <span className="rounded-full border border-[#A37849]/18 bg-white px-2 py-1 tracking-[0.07em] text-[#76583A]">
@@ -146,7 +146,7 @@ export default function FinanceAccountantOverview({ organizationId }) {
               ) : null}
             </div>
             <h1 className="mt-1.5 text-[22px] font-semibold tracking-[-0.03em]">What needs attention now</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[8px] text-[#817B73]">
+            <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-[#817B73]">
               <span className="font-semibold text-[#5F5952]">{entityName}</span>
               <span>·</span>
               <span>{periodLabel(period)}</span>
@@ -155,10 +155,10 @@ export default function FinanceAccountantOverview({ organizationId }) {
             </div>
           </div>
           <div className="flex items-center gap-2 self-start lg:self-auto">
-            <Link href={financeHref(organizationId, "/finance/work")} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-white">
+            <Link href={financeHref(organizationId, "/finance/work")} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[11px] font-semibold text-white">
               My work <ArrowRight size={9} />
             </Link>
-            <button type="button" onClick={refresh} disabled={refreshing} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[8px] font-semibold text-[#716B63] disabled:opacity-50">
+            <button type="button" onClick={refresh} disabled={refreshing} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[11px] font-semibold text-[#716B63] disabled:opacity-50">
               <RefreshCw size={10} className={refreshing ? "animate-spin" : ""} /> Refresh
             </button>
           </div>
@@ -170,7 +170,7 @@ export default function FinanceAccountantOverview({ organizationId }) {
           Select a legal entity and accounting period in the top bar to load accounting work, balances and close status.
         </section>
       ) : error && !data ? (
-        <section className="rounded-2xl border border-red-700/15 bg-red-50 p-4 text-[9px] text-red-800">
+        <section className="rounded-2xl border border-red-700/15 bg-red-50 p-4 text-[11px] text-red-800">
           <div className="flex items-start gap-2"><AlertTriangle size={12} className="mt-0.5" /><div><div className="font-semibold">Finance could not load</div><div className="mt-1">{error}</div></div></div>
         </section>
       ) : loading && !data ? (
@@ -183,28 +183,28 @@ export default function FinanceAccountantOverview({ organizationId }) {
             <div className="border-b border-black/[0.06] px-4 py-3.5 md:px-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#8A867F]">Priority work</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8A867F]">Priority work</div>
                   <h2 className="mt-1 text-[15px] font-semibold tracking-[-0.02em]">Work ranked by what a person can move</h2>
-                  <p className="mt-0.5 text-[8px] text-[#918B83]">Changes, overdue controls and decisions stay ahead of passive waiting.</p>
+                  <p className="mt-0.5 text-[11px] text-[#918B83]">Changes, overdue controls and decisions stay ahead of passive waiting.</p>
                 </div>
-                <Link href={financeHref(organizationId, "/finance/work")} className="text-[8px] font-semibold text-[#76583A]">Open full work list →</Link>
+                <Link href={financeHref(organizationId, "/finance/work")} className="text-[11px] font-semibold text-[#76583A]">Open full work list →</Link>
               </div>
 
               <div className={`mt-3 flex items-start justify-between gap-3 rounded-xl border px-3 py-2.5 ${recommendation ? "border-[#A37849]/15 bg-[#FBF8F3]" : "border-emerald-700/10 bg-emerald-50/50"}`}>
                 <div className="min-w-0">
-                  <div className="text-[7px] font-semibold uppercase tracking-[0.11em] text-[#918A82]">Recommended next human action</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.11em] text-[#918A82]">Recommended next human action</div>
                   <div className="mt-0.5 truncate text-[10px] font-semibold text-[#3E3934]">{recommendation ? recommendation.title : "No surfaced exception needs intervention"}</div>
-                  <div className="mt-0.5 text-[8px] text-[#817A72]">{recommendation ? recommendation.detail || titleCase(recommendation.kind) : "Continue normal accounting work or review the selected period."}</div>
+                  <div className="mt-0.5 text-[11px] text-[#817A72]">{recommendation ? recommendation.detail || titleCase(recommendation.kind) : "Continue normal accounting work or review the selected period."}</div>
                 </div>
                 {recommendation ? (
-                  <Link href={financeHref(organizationId, recommendation.href)} className="inline-flex shrink-0 items-center gap-1 text-[8px] font-semibold text-[#76583A]">
+                  <Link href={financeHref(organizationId, recommendation.href)} className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-[#76583A]">
                     {actionForKind(recommendation.kind, recommendation.status)} <ArrowRight size={8} />
                   </Link>
                 ) : <CheckCircle2 size={12} className="shrink-0 text-emerald-700" />}
               </div>
             </div>
 
-            <div className="hidden grid-cols-[minmax(240px,1.45fr)_minmax(220px,1fr)_120px_70px] gap-3 border-b border-black/[0.05] bg-[#FCFBF8] px-4 py-2 text-[7px] font-semibold uppercase tracking-[0.11em] text-[#969087] md:grid md:px-5">
+            <div className="hidden grid-cols-[minmax(240px,1.45fr)_minmax(220px,1fr)_120px_70px] gap-3 border-b border-black/[0.05] bg-[#FCFBF8] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.11em] text-[#969087] md:grid md:px-5">
               <span>Work</span><span>Why now</span><span>Status</span><span></span>
             </div>
 
@@ -213,26 +213,26 @@ export default function FinanceAccountantOverview({ organizationId }) {
                 <div className="flex min-w-0 items-start gap-2.5">
                   <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${item.priority === "attention" ? "bg-[#A9543F]" : "bg-[#A37849]"}`} />
                   <div className="min-w-0">
-                    <div className="truncate text-[9px] font-semibold text-[#403C37]">{item.title}</div>
-                    <div className="mt-0.5 text-[7px] uppercase tracking-[0.08em] text-[#A09A92]">{titleCase(item.kind)}</div>
+                    <div className="truncate text-[11px] font-semibold text-[#403C37]">{item.title}</div>
+                    <div className="mt-0.5 text-[11px] uppercase tracking-[0.08em] text-[#A09A92]">{titleCase(item.kind)}</div>
                   </div>
                 </div>
-                <div className="min-w-0 truncate text-[8px] text-[#807A72]">{item.detail || "Accounting control requires attention"}</div>
-                <div><span className={`inline-flex rounded-full border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.05em] ${statusTone(item.priority)}`}>{titleCase(item.status || item.priority)}</span></div>
-                <div className="flex justify-end"><span className="inline-flex items-center gap-1 text-[8px] font-semibold text-[#76583A]">Open <ArrowRight size={8} /></span></div>
+                <div className="min-w-0 truncate text-[11px] text-[#807A72]">{item.detail || "Accounting control requires attention"}</div>
+                <div><span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.05em] ${statusTone(item.priority)}`}>{titleCase(item.status || item.priority)}</span></div>
+                <div className="flex justify-end"><span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#76583A]">Open <ArrowRight size={8} /></span></div>
               </Link>
             ))}
 
             {!queue.length ? (
-              <div className="flex items-center gap-2 px-5 py-8 text-[9px] text-[#65715F]"><BadgeCheck size={13} /> Nothing currently requires intervention.</div>
+              <div className="flex items-center gap-2 px-5 py-8 text-[11px] text-[#65715F]"><BadgeCheck size={13} /> Nothing currently requires intervention.</div>
             ) : null}
           </section>
 
           <aside className="h-fit overflow-hidden rounded-[22px] border border-black/[0.07] bg-white">
             <div className="border-b border-black/[0.06] px-4 py-3.5">
-              <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#8A867F]">Control state</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8A867F]">Control state</div>
               <h2 className="mt-1 text-[14px] font-semibold tracking-[-0.02em]">Accounting context, not a dashboard</h2>
-              <p className="mt-0.5 text-[8px] leading-4 text-[#918B83]">Only numbers that help decide where to work next.</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-[#918B83]">Only numbers that help decide where to work next.</p>
             </div>
             <div className="divide-y divide-black/[0.055]">
               <ControlRow label="Receivables" value={money(metrics.receivables?.amount, currency)} detail={`${metrics.receivables?.count || 0} open · ${metrics.receivables?.overdue || 0} overdue`} attention={(metrics.receivables?.overdue || 0) > 0} href={financeHref(organizationId, "/finance/ar")} />
@@ -242,7 +242,7 @@ export default function FinanceAccountantOverview({ organizationId }) {
               <ControlRow label="Statutory filings" value={String(metrics.filings?.count || 0)} detail={`${metrics.filings?.overdue || 0} overdue`} attention={(metrics.filings?.overdue || 0) > 0} href={financeHref(organizationId, "/finance/statutory-filings")} />
               <ControlRow label="Period close" value={`${close.completed || 0}/${close.total || 0}`} detail={`${openCloseSteps} open · ${close.progress || 0}% complete`} attention={openCloseSteps > 0} href={financeHref(organizationId, "/finance/close")} />
             </div>
-            <div className="border-t border-black/[0.05] bg-[#FCFBF8] px-4 py-3 text-[7px] text-[#8E887F]">
+            <div className="border-t border-black/[0.05] bg-[#FCFBF8] px-4 py-3 text-[11px] text-[#8E887F]">
               <div className="flex items-center gap-1.5"><ShieldCheck size={9} className={sourceHealth.errors ? "text-[#9A533D]" : "text-[#66765F]"} /><span className="font-semibold">{sourceHealth.connected}/{sourceHealth.total || sourceHealth.connected} control sources connected</span>{sourceHealth.errors ? <span>· {sourceHealth.errors} warning{sourceHealth.errors === 1 ? "" : "s"}</span> : null}</div>
               <div className="mt-1">{error && stale ? `Refresh delayed · ${error}` : "No recommendation bypasses approval, review, partner clearance or period-close controls."}</div>
             </div>

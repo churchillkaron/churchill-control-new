@@ -57,13 +57,22 @@ function PlatformIdentity({ brand }) {
 }
 
 function callbackPath() {
-  if (typeof window === "undefined") return "/login/callback";
+  if (typeof window === "undefined") return "/login/callback?portal=business";
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next");
-  if (!next || !next.startsWith("/workspace") || next.startsWith("//")) {
-    return "/login/callback";
+  const portal = params.get("portal") === "developer" ? "developer" : "business";
+  const callback = new URLSearchParams({ portal });
+  if (next && next.startsWith("/workspace") && !next.startsWith("//")) {
+    callback.set("next", next);
   }
-  return `/login/callback?next=${encodeURIComponent(next)}`;
+  return `/login/callback?${callback.toString()}`;
+}
+
+function portalIntent() {
+  if (typeof window === "undefined") return "business";
+  return new URLSearchParams(window.location.search).get("portal") === "developer"
+    ? "developer"
+    : "business";
 }
 
 export default function LoginPage() {
@@ -274,9 +283,12 @@ export default function LoginPage() {
   }
 
   const recoveryMode = mode === "recovery";
+  const portal = portalIntent();
   const loginTitle = recoveryMode
     ? "Create password"
-    : brand?.welcomeTitle || "Secure login";
+    : portal === "developer"
+      ? "Developer Login"
+      : brand?.welcomeTitle || "Business Login";
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#030303] px-5 py-10 text-white">
@@ -301,7 +313,9 @@ export default function LoginPage() {
           <p className="mt-2 text-[11px] tracking-[0.08em] text-[#D6A66A]/65">
             {recoveryMode
               ? "Secure your account"
-              : "Secure access to your organisation"}
+              : portal === "developer"
+                ? "APIs, capabilities, webhooks and usage"
+                : "Secure access to your organisation"}
           </p>
         </div>
 
@@ -434,6 +448,14 @@ export default function LoginPage() {
             </>
           )}
         </div>
+
+        {!recoveryMode ? (
+          <div className="mt-6 flex items-center justify-center gap-3 text-[10px]">
+            <a href="/login?portal=business" className={portal === "business" ? "font-semibold text-[#F2D2A5]" : "text-white/38 transition hover:text-white/70"}>Business Login</a>
+            <span className="text-white/15">/</span>
+            <a href="/login?portal=developer" className={portal === "developer" ? "font-semibold text-[#F2D2A5]" : "text-white/38 transition hover:text-white/70"}>Developer Login</a>
+          </div>
+        ) : null}
 
         <div className="mt-7 flex items-center justify-center gap-2 text-[9px] uppercase tracking-[0.16em] text-white/25">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />

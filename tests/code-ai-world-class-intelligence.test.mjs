@@ -9,6 +9,7 @@ import {
   prepareCodeAIWorldClassMission,
   finalizeCodeAIWorldClassMission,
   formatCodeAISolutionStrategyCompetitionForObjective,
+  deriveCodeAIEngineeringHotspots,
 } from "../lib/code/runtime/CodeAIWorldClassIntelligenceRuntime.js";
 
 test("world-class controller covers all ten intelligence layers without mutation authority", () => {
@@ -54,6 +55,63 @@ test("world-class controller covers all ten intelligence layers without mutation
   assert.ok(control.negative_engineering_memory.length >= 1);
   assert.equal(control.cross_domain_business_recovery.active, true);
   assert.match(prepared.options.objective, /AVANTIQO WORLD-CLASS ENGINEERING CONTROL V1/);
+});
+
+
+test("engineering hotspots rank evidence-backed prevention opportunities without mutation authority", () => {
+  const hotspots = deriveCodeAIEngineeringHotspots({
+    causalGraph: {
+      node_count: 24,
+      static_import_edges_observed: 32,
+      unresolved_relative_import_count: 3,
+      nodes: ["lib/shared.js", "app/a.js", "app/b.js"],
+      changed_path_consumers: [{
+        path: "lib/shared.js",
+        observed_consumers: ["app/a.js", "app/b.js", "app/c.js", "app/d.js"],
+        observed_symbol_calls: [
+          { caller: "app/a.js", target_symbol: "run" },
+          { caller: "app/b.js", target_symbol: "run" },
+          { caller: "app/c.js", target_symbol: "run" },
+          { caller: "app/d.js", target_symbol: "run" },
+        ],
+      }],
+    },
+    scoreboard: {
+      verification_failed: 1,
+      repair_count: 2,
+      controller_retry_count: 1,
+      candidate_assisted_completion: true,
+    },
+    negative: ["a", "b", "c", "d"],
+  });
+
+  assert.equal(hotspots.contract, "AVANTIQO_CODE_AI_ENGINEERING_HOTSPOT_PROJECTION_V1");
+  assert.equal(hotspots.items[0].priority, "P0");
+  assert.equal(hotspots.items[0].area, "verification_failure");
+  const fanout = hotspots.items.find((item) => item.area === "caller_fanout");
+  assert.ok(fanout);
+  assert.match(fanout.evidence, /lib\/shared\.js/);
+  assert.ok(fanout.affected_paths.includes("lib/shared.js"));
+  assert.ok(hotspots.items.some((item) => item.area === "dependency_uncertainty"));
+  assert.equal(hotspots.automatic_source_mutation_authority, false);
+  assert.equal(hotspots.commit_authority, false);
+  assert.equal(hotspots.deploy_authority, false);
+});
+
+test("world-class control exposes structured engineering hotspots and derives proactive text from them", () => {
+  const prepared = prepareCodeAIWorldClassMission({
+    objective: "Repair a shared runtime",
+    objective_context: { negative_engineering_memory: ["a", "b", "c", "d"] },
+    resume_state: {
+      files_changed: ["lib/shared.js"],
+      verification: [{ passed: false }],
+      failures: [{ message: "failed once" }, { message: "failed twice" }],
+      repairs: [{}, {}],
+    },
+  });
+  assert.equal(prepared.control.engineering_hotspots.contract, "AVANTIQO_CODE_AI_ENGINEERING_HOTSPOT_PROJECTION_V1");
+  assert.ok(prepared.control.engineering_hotspots.hotspot_count >= 1);
+  assert.ok(prepared.control.proactive_improvement_opportunities.every((item) => /^\[P[012]\]/.test(item)));
 });
 
 test("strategy competition is deterministic and adds no reasoning calls", () => {
@@ -127,7 +185,8 @@ test("specialist strategy competition is formatted into the implementation objec
     "lib/code/runtime/CodeAIStrategicReasoningRuntime.js",
     "utf8",
   );
-  assert.match(strategic, /const solutionStrategyCompetition = competeCodeAISolutionStrategies/);
+  assert.match(strategic, /const rawSolutionStrategyCompetition = competeCodeAISolutionStrategies/);
+  assert.match(strategic, /filterCodeAIStrategyCompetitionByObservedContracts/);
   assert.match(strategic, /solution_strategy_competition: solutionStrategyCompetition/);
   assert.match(strategic, /formatCodeAISolutionStrategyCompetitionForObjective/);
 
@@ -279,4 +338,138 @@ test("adaptive reasoning budgets can escalate after strategic evidence while cal
   assert.match(strategic, /const effectiveReasoningBudget = adaptiveBudgetMayEscalate[\s\S]*Math\.max/);
   assert.match(strategic, /effective_reasoning_call_budget/);
   assert.match(strategic, /caller_reasoning_budget_preserved/);
+});
+
+test("causal graph observes imported symbol calls and alias consumers without claiming compiler authority", () => {
+  const graph = deriveCodeAICausalGraph({
+    files_changed: ["lib/core/runtime.js"],
+    source_changes: [{
+      path: "lib/core/runtime.js",
+      operation: "write",
+      content: [
+        "export function runMission() { return true; }",
+        "export default function createRuntime() { return {}; }",
+        "export const helper = () => true;",
+      ].join("\n"),
+    }],
+    evidence: [
+      {
+        action: "read",
+        result: {
+          file_path: "lib/consumer/service.js",
+          content: [
+            'import createRuntime, { runMission as invokeMission, helper } from "../core/runtime.js";',
+            "invokeMission();",
+            "helper();",
+            "createRuntime();",
+          ].join("\n"),
+        },
+      },
+      {
+        action: "read",
+        result: {
+          file_path: "lib/consumer/namespace.js",
+          content: [
+            'import * as runtime from "../core/runtime.js";',
+            "runtime.runMission();",
+          ].join("\n"),
+        },
+      },
+    ],
+  });
+
+  assert.equal(graph.authoritative_call_graph, false);
+  assert.equal(graph.bounded_symbol_call_analysis, true);
+  assert.ok(graph.imported_symbol_call_edges_observed >= 4);
+  assert.ok(graph.edges.some((edge) =>
+    edge.relation === "calls_imported_symbol" &&
+    edge.from === "lib/consumer/service.js" &&
+    edge.to === "lib/core/runtime.js" &&
+    edge.local_binding === "invokeMission" &&
+    edge.target_symbol === "runMission" &&
+    edge.target_export_observed === true
+  ));
+  assert.ok(graph.edges.some((edge) =>
+    edge.relation === "calls_imported_symbol" &&
+    edge.local_binding === "createRuntime" &&
+    edge.target_symbol === "default" &&
+    edge.target_export_observed === true
+  ));
+  assert.ok(graph.edges.some((edge) =>
+    edge.relation === "calls_imported_symbol" &&
+    edge.local_binding === "runtime.runMission" &&
+    edge.target_symbol === "runMission"
+  ));
+
+  const changed = graph.changed_path_consumers.find((entry) => entry.path === "lib/core/runtime.js");
+  assert.ok(changed);
+  assert.ok(changed.observed_exports.includes("runMission"));
+  assert.ok(changed.observed_exports.includes("default"));
+  assert.ok(changed.observed_symbol_calls.some((call) =>
+    call.caller === "lib/consumer/service.js" && call.target_symbol === "runMission"
+  ));
+  assert.equal(graph.incomplete_evidence_must_not_be_treated_as_no_dependency, true);
+});
+
+test("causal graph keeps symbol-call analysis bounded", () => {
+  const calls = Array.from({ length: 120 }, (_, index) => `run${index % 10}();`).join("\n");
+  const imports = Array.from({ length: 10 }, (_, index) => `run${index}`).join(", ");
+  const exports = Array.from({ length: 10 }, (_, index) => `export function run${index}(){ return ${index}; }`).join("\n");
+  const graph = deriveCodeAICausalGraph({
+    files_changed: ["lib/core/many.js"],
+    source_changes: [{ path: "lib/core/many.js", operation: "write", content: exports }],
+    evidence: [{
+      action: "read",
+      result: {
+        file_path: "lib/consumer/many.js",
+        content: `import { ${imports} } from "../core/many.js";\n${calls}`,
+      },
+    }],
+  });
+  assert.ok(graph.imported_symbol_call_edges_observed <= 80);
+  assert.ok(graph.edge_count <= 200);
+  assert.equal(graph.authoritative_call_graph, false);
+});
+
+test("observed symbol callers become explicit compatibility obligations and measurable evidence", () => {
+  const resumeState = {
+    files_changed: ["lib/core/runtime.js"],
+    source_changes: [{
+      path: "lib/core/runtime.js",
+      operation: "write",
+      content: "export function runMission() { return true; }\n",
+    }],
+    evidence: [{
+      action: "read",
+      result: {
+        file_path: "lib/consumer/service.js",
+        content: 'import { runMission as invokeMission } from "../core/runtime.js";\ninvokeMission();\n',
+      },
+    }],
+  };
+  const prepared = prepareCodeAIWorldClassMission({
+    objective: "Repair runtime behavior without breaking callers.",
+    resume_state: resumeState,
+  });
+  assert.match(prepared.options.objective, /OBSERVED CALLER COMPATIBILITY OBLIGATIONS/);
+  assert.match(prepared.options.objective, /lib\/consumer\/service\.js -> lib\/core\/runtime\.js#runMission/);
+  assert.match(prepared.options.objective, /via invokeMission/);
+
+  const finalized = finalizeCodeAIWorldClassMission({
+    prepared_control: prepared.control,
+    result: {
+      state: {
+        ...resumeState,
+        tests: [{ exit_code: 0 }],
+        verification: [{ passed: true }],
+        failures: [],
+        repairs: [],
+        work_package_control: { reasoning_calls_used: 1 },
+      },
+    },
+    options: prepared.options,
+  });
+  assert.equal(finalized.benchmark_scorecard.caller_awareness_evidence_present, true);
+  assert.equal(finalized.benchmark_scorecard.observed_imported_symbol_call_edges, 1);
+  assert.equal(finalized.benchmark_scorecard.changed_modules_with_observed_symbol_callers, 1);
 });

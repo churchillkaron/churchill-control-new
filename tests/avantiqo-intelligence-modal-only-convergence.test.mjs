@@ -42,14 +42,16 @@ test("legacy direct RunPod Learning child is absent", () => {
   assert.equal(fs.existsSync(new URL("../scripts/run-avantiqo-learning-mechanism-synthesis-child-local.mjs", import.meta.url)), false);
 });
 
-test("canonical owned Intelligence execution is Modal-only for Business Partner and Studio", () => {
+test("canonical owned Intelligence is local-first for bounded lanes with Modal retained for heavy Studio and fallback", () => {
+  assert.match(providerV2, /executeIntelligenceLocalQueue/);
   assert.match(providerV2, /executeIntelligenceModalDirect/);
+  assert.match(providerV2, /getIntelligenceLocalQueueStatus/);
   assert.match(providerV2, /getIntelligenceModalDirectStatus/);
   assert.doesNotMatch(providerV2, /RunPod|runpod|OwnedIntelligence.*Pod/);
   assert.doesNotMatch(providerExecutor, /RunPod|runpod|OwnedIntelligence.*Pod/);
-  assert.match(providerRegistration, /infrastructure_provider:\s*"MODAL_H100_ASYNC_V1"/);
-  assert.match(providerRegistration, /modal_only:\s*true/);
-  assert.match(providerRegistration, /infrastructure_fallback:\s*null/);
+  assert.match(providerRegistration, /local_compute_primary:\s*localComputeConfigured/);
+  assert.match(providerRegistration, /infrastructure_fallback:\s*"MODAL_H100_ASYNC_V1"/);
+  assert.match(providerRegistration, /modal_only:\s*false/);
   assert.match(studioReasoning, /AvantiqoStructuredIntelligenceSupervisorRuntime/);
   assert.match(studioReasoning, /service_id:\s*"ai\.reasoning\.execute"/);
 });

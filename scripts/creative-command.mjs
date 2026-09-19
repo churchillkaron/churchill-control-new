@@ -8,7 +8,6 @@ import WebSocket from "ws";
 
 const { loadEnvConfig } = nextEnv;
 loadEnvConfig(process.cwd());
-
 if (!globalThis.WebSocket) globalThis.WebSocket = WebSocket;
 
 const intent = process.argv.slice(2).join(" ").trim();
@@ -24,6 +23,7 @@ const [
   { CreativeProjectRuntime },
   CreativeAssetGraphRepository,
   { CreativeDirectorRuntime },
+  { CreativeHumanIntentUnderstandingRuntime },
   { OrganizationServiceRuntime },
   { resolveProvider },
   { PricingRuntime },
@@ -36,6 +36,7 @@ const [
   import("@/lib/creative/projects/runtime/CreativeProjectRuntime"),
   import("@/lib/creative/assets/graph/repositories/CreativeAssetGraphRepository"),
   import("@/lib/creative/director/runtime/CreativeDirectorRuntime"),
+  import("@/lib/creative/missions/runtime/CreativeHumanIntentUnderstandingRuntime"),
   import("@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime"),
   import("@/lib/platform/service-runtime/providers/ProviderResolver"),
   import("@/lib/platform/service-runtime/pricing/PricingRuntime"),
@@ -63,48 +64,6 @@ function normalized(value) {
     .trim();
 }
 
-function significantTokens(value) {
-  const ignored = new Set([
-    "and", "bar", "co", "company", "ltd", "limited", "restaurant", "the",
-  ]);
-  return normalized(value)
-    .split(/\s+/)
-    .filter((token) => token.length > 2 && !ignored.has(token));
-}
-
-function inferDuration(value) {
-  const match = normalized(value).match(/\b(\d+(?:\.\d+)?)\s*(?:second|seconds|sec|secs|s)\b/);
-  return match ? Number(match[1]) : 30;
-}
-
-function inferChannels(value) {
-  const source = normalized(value);
-  const channels = [];
-  if (source.includes("facebook")) channels.push("facebook");
-  if (source.includes("instagram")) channels.push("instagram");
-  if (source.includes("tiktok") || source.includes("tik tok")) channels.push("tiktok");
-  if (source.includes("youtube")) channels.push("youtube");
-  if (source.includes("linkedin")) channels.push("linkedin");
-  if (source.includes("website") || source.includes("web page") || source.includes("webpage")) channels.push("website");
-  return [...new Set(channels)];
-}
-
-function inferProductionType(value) {
-  const source = normalized(value);
-  if (/\b(video|film|reel|trailer|commercial|motion)\b/.test(source)) return "VIDEO";
-  if (/\b(poster|image|photo|banner|graphic|social post)\b/.test(source)) return "IMAGE";
-  if (/\b(menu|brochure|document|report|presentation|deck)\b/.test(source)) return "DOCUMENT";
-  if (/\b(website|webpage|web page|landing page)\b/.test(source)) return "WEBSITE";
-  if (/\b(audio|music|song|podcast|voice)\b/.test(source)) return "AUDIO";
-  return "CAMPAIGN";
-}
-
-function verticalRequested(value, channels) {
-  const source = normalized(value);
-  return source.includes("vertical") || source.includes("portrait") ||
-    channels.some((channel) => ["facebook", "instagram", "tiktok"].includes(channel));
-}
-
 function commandIdentity(organizationId, value) {
   return crypto
     .createHash("sha256")
@@ -124,48 +83,20 @@ async function resolveOrganization() {
     process.env.ACTIVE_ORGANIZATION_ID ||
     process.env.ORGANIZATION_ID,
   );
+  if (!explicit) {
+    throw new Error(
+      "CREATIVE_BUSINESS_CONTEXT_REQUIRED: organization scope must come from Business Context, not language parsing",
+    );
+  }
+
   const { data, error } = await supabaseAdmin
     .from("organizations")
     .select("id,name")
-    .limit(1000);
+    .eq("id", explicit)
+    .maybeSingle();
   if (error) throw error;
-
-  const organizations = (data || []).filter((item) => item?.id && item?.name);
-  if (explicit) {
-    const match = organizations.find((item) => String(item.id) === explicit);
-    if (!match) throw new Error(`CREATIVE_ORGANIZATION_NOT_FOUND:${explicit}`);
-    return match;
-  }
-
-  const command = normalized(intent);
-  const ranked = organizations
-    .map((organization) => {
-      const name = normalized(organization.name);
-      const tokens = significantTokens(organization.name);
-      let score = 0;
-      if (name && command.includes(name)) score += 1000;
-      for (const token of tokens) {
-        if (new RegExp(`\\b${token}\\b`, "i").test(command)) score += 150;
-      }
-      return { organization, score };
-    })
-    .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score);
-
-  if (!ranked.length) {
-    throw new Error(
-      "CREATIVE_ORGANIZATION_NOT_RESOLVED: mention the company name in the command",
-    );
-  }
-  if (ranked[1] && ranked[1].score === ranked[0].score) {
-    throw new Error(
-      `CREATIVE_ORGANIZATION_AMBIGUOUS:${ranked
-        .filter((entry) => entry.score === ranked[0].score)
-        .map((entry) => entry.organization.name)
-        .join(",")}`,
-    );
-  }
-  return ranked[0].organization;
+  if (!data?.id) throw new Error(`CREATIVE_ORGANIZATION_NOT_FOUND:${explicit}`);
+  return data;
 }
 
 function cleanSelection(selection = {}) {
@@ -192,18 +123,7 @@ function reusableMission(missions, identity) {
   const inactive = new Set(["completed", "archived", "cancelled", "canceled"]);
   return (missions || []).find((mission) => {
     if (inactive.has(text(mission.status).toLowerCase())) return false;
-    const metadata = mission.metadata || {};
-    return (
-      text(metadata.command_identity) === identity ||
-      (
-        normalized(metadata.original_intent) === normalized(intent) &&
-        [
-          "natural_language_creative_command_cli",
-          "natural_language_creative_intent",
-          "natural_language_creative_command",
-        ].includes(text(metadata.source))
-      )
-    );
+    return text(mission.metadata?.command_identity) === identity;
   }) || null;
 }
 
@@ -236,9 +156,7 @@ async function researchEstimate(organizationId) {
 
   const service = resolveServiceCapabilities(RESEARCH_SERVICE_ID);
   const capability = resolvePrimaryExecutionCapability(service?.capabilities || []);
-  if (!capability) {
-    throw new Error(`No execution capability found for ${RESEARCH_SERVICE_ID}`);
-  }
+  if (!capability) throw new Error(`No execution capability found for ${RESEARCH_SERVICE_ID}`);
 
   const selected = await resolveProvider({
     organization_id: organizationId,
@@ -248,9 +166,7 @@ async function researchEstimate(organizationId) {
     currency: null,
     policy: organizationService.provider_policy || {},
   });
-  if (!selected?.pricing_id) {
-    throw new Error("CREATIVE_RESEARCH_PRICING_ID_REQUIRED");
-  }
+  if (!selected?.pricing_id) throw new Error("CREATIVE_RESEARCH_PRICING_ID_REQUIRED");
 
   const pricing = await PricingRuntime.resolveById({
     pricing_id: selected.pricing_id,
@@ -268,7 +184,6 @@ async function researchEstimate(organizationId) {
     currency: pricing.currency,
     estimated_input_tokens: pricing.input_tokens,
     estimated_output_tokens: pricing.output_tokens,
-    pricing_estimated: pricing.estimated === true,
   };
 }
 
@@ -285,28 +200,20 @@ async function requestResearchApproval(estimate) {
   console.log(`RESEARCH_PRICING_ID=${estimate.pricing_id}`);
   console.log(`RESEARCH_MAXIMUM_CUSTOMER_PRICE=${price}`);
   console.log(`RESEARCH_CURRENCY=${currency}`);
-  console.log(`RESEARCH_ESTIMATED_INPUT_TOKENS=${estimate.estimated_input_tokens || 0}`);
-  console.log(`RESEARCH_ESTIMATED_OUTPUT_TOKENS=${estimate.estimated_output_tokens || 0}`);
   console.log("MEDIA_GENERATION_AUTHORIZED=NO");
   console.log("PUBLICATION_AUTHORIZED=NO");
   console.log("============================================================");
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     const headlessPhrase = text(process.env.CREATIVE_RESEARCH_APPROVAL_PHRASE);
-    if (!headlessPhrase) {
-      throw new Error("CREATIVE_INTERACTIVE_RESEARCH_APPROVAL_REQUIRED");
-    }
+    if (!headlessPhrase) throw new Error("CREATIVE_INTERACTIVE_RESEARCH_APPROVAL_REQUIRED");
     if (normalized(headlessPhrase) !== normalized(phrase)) {
       throw new Error("CREATIVE_HEADLESS_RESEARCH_APPROVAL_MISMATCH");
     }
-    console.log("RESEARCH_APPROVAL_MODE=HEADLESS_EXACT_PHRASE");
     return true;
   }
 
-  const terminal = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+  const terminal = createInterface({ input: process.stdin, output: process.stdout });
   try {
     const answer = await terminal.question(`Type ${phrase} to continue, or press Enter to stop: `);
     return normalized(answer) === normalized(phrase);
@@ -315,31 +222,44 @@ async function requestResearchApproval(estimate) {
   }
 }
 
-function stoppedBeforeResearch({ organization, mission, projectId, estimate }) {
-  console.log("============================================================");
-  console.log("AVANTIQO CREATIVE COMMAND PAUSED");
-  console.log("============================================================");
-  console.log(`ORGANIZATION_ID=${organization.id}`);
-  console.log(`ORGANIZATION_NAME=${organization.name}`);
-  console.log(`CREATIVE_MISSION_ID=${mission.id}`);
-  console.log(`CREATIVE_PROJECT_ID=${projectId}`);
-  console.log(`RESEARCH_PROVIDER=${estimate.provider}`);
-  console.log(`RESEARCH_MODEL=${estimate.model || ""}`);
-  console.log(`RESEARCH_MAXIMUM_CUSTOMER_PRICE=${amountText(estimate.maximum_customer_price)}`);
-  console.log(`RESEARCH_CURRENCY=${estimate.currency}`);
-  console.log("PAID_RESEARCH_AUTHORIZED=NO");
-  console.log("PAID_MEDIA_EXECUTION_AUTHORIZED=NO");
-  console.log("PUBLICATION_AUTHORIZED=NO");
-  console.log("NEXT_ACTION=RERUN_THE_SAME_COMMAND_AND_APPROVE_RESEARCH");
-  console.log("============================================================");
+function semanticDuration(semantic) {
+  return Number(
+    semantic.chapter_duration_seconds || semantic.primary_duration_seconds || 30,
+  );
+}
+
+function exportProfile(semantic) {
+  if (semantic.orientation === "PORTRAIT") return "master-vertical-h264";
+  if (semantic.orientation === "SQUARE") return "master-square-h264";
+  return "master-landscape-h264";
+}
+
+function masterStoryMinutes(semantic) {
+  const minimum = semantic.master_story_duration_minutes?.minimum || null;
+  const maximum = semantic.master_story_duration_minutes?.maximum || null;
+  if (!minimum && !maximum) return null;
+  if (minimum && maximum) return `${minimum}-${maximum}`;
+  return String(minimum || maximum);
 }
 
 try {
   const organization = await resolveOrganization();
-  const channels = inferChannels(intent);
-  const productionType = inferProductionType(intent);
-  const duration = inferDuration(intent);
-  const vertical = verticalRequested(intent, channels);
+  const semantic = await CreativeHumanIntentUnderstandingRuntime.understand({
+    organization_id: organization.id,
+    organization_name: organization.name,
+    intent,
+  });
+  if (!semantic) throw new Error("CREATIVE_SEMANTIC_UNDERSTANDING_REQUIRED");
+  if (semantic.clarification_required) {
+    throw new Error(
+      `CREATIVE_SEMANTIC_CLARIFICATION_REQUIRED:${semantic.clarification_question || "clarification required"}`,
+    );
+  }
+
+  const channels = semantic.channels || [];
+  const productionType = semantic.production_type || "CAMPAIGN";
+  const duration = semanticDuration(semantic);
+  const profile = exportProfile(semantic);
   const identity = commandIdentity(organization.id, intent);
 
   const selection = await CreativeAssetAutoSelectionRuntime.resolve({
@@ -351,11 +271,7 @@ try {
   const assets = selection.assets || [];
   if (!assets.length) {
     throw new Error(
-      `CREATIVE_VERIFIED_SOURCE_ASSETS_NOT_FOUND:` +
-      `assets=${selection.scanned_asset_count || 0},` +
-      `nodes=${selection.scanned_asset_node_count || 0},` +
-      `verified_visuals=${selection.verified_visual_asset_count || 0},` +
-      `candidates=${selection.candidate_count || 0}`,
+      `CREATIVE_VERIFIED_SOURCE_ASSETS_NOT_FOUND:assets=${selection.scanned_asset_count || 0},nodes=${selection.scanned_asset_node_count || 0},verified_visuals=${selection.verified_visual_asset_count || 0},candidates=${selection.candidate_count || 0}`,
     );
   }
 
@@ -364,11 +280,18 @@ try {
     source: "natural_language_creative_command_cli",
     command_identity: identity,
     original_intent: intent,
+    semantic_creative_understanding: semantic,
     production_type: productionType,
     target_duration: duration,
     target_languages: ["en"],
-    default_export_profile_id:
-      vertical ? "master-vertical-h264" : "master-landscape-h264",
+    default_export_profile_id: profile,
+    autonomous_story_required: semantic.story_autonomy === "STUDIO_LED",
+    master_story_required: semantic.master_story_required === true,
+    full_master_film_target_minutes: masterStoryMinutes(semantic),
+    generate_only_chapter_1:
+      semantic.generation_scope === "CHAPTER_ONLY" && Number(semantic.chapter_number || 1) === 1,
+    generation_scope: semantic.generation_scope,
+    chapter_number: semantic.chapter_number || null,
     public_publish_authorized: false,
     publish_authorized: false,
     publication_requires_human_approval: true,
@@ -377,9 +300,7 @@ try {
     asset_selection: cleanSelection(selection),
   };
 
-  const missions = await CreativeMissionRuntime.list({
-    organization_id: organization.id,
-  });
+  const missions = await CreativeMissionRuntime.list({ organization_id: organization.id });
   const existingMission = reusableMission(missions, identity);
   const mission = existingMission
     ? await CreativeMissionRuntime.update(existingMission.id, {
@@ -403,10 +324,8 @@ try {
         channels,
         metadata,
       });
-  const executionMode = existingMission
-    ? "RESUMED_EXISTING_MISSION"
-    : "CREATED_NEW_MISSION";
 
+  const executionMode = existingMission ? "RESUMED_EXISTING_MISSION" : "CREATED_NEW_MISSION";
   const started = await CreativeMissionRuntime.start(mission.id);
   const projectId = started.runtime_context?.creative_project_id;
   const briefId = started.runtime_context?.creative_brief_id;
@@ -425,17 +344,10 @@ try {
   let updatedProject = await CreativeProjectRuntime.update(projectId, {
     metadata: {
       ...(project.metadata || {}),
+      ...metadata,
       organization_name: organization.name,
-      command_identity: identity,
-      target_duration: duration,
-      selected_asset_ids: selectedIds,
       selected_assets_locked_at: new Date().toISOString(),
       selected_assets_source: selection.source,
-      asset_selection: cleanSelection(selection),
-      public_publish_authorized: false,
-      publish_authorized: false,
-      publication_requires_human_approval: true,
-      production_dossier_approval_required: true,
     },
   });
 
@@ -444,15 +356,7 @@ try {
   if (!researchApproval) {
     const estimate = await researchEstimate(organization.id);
     const approved = await requestResearchApproval(estimate);
-    if (!approved) {
-      stoppedBeforeResearch({
-        organization,
-        mission: started,
-        projectId,
-        estimate,
-      });
-      process.exit(0);
-    }
+    if (!approved) process.exit(0);
 
     const approvedAt = new Date();
     researchApproval = {
@@ -496,7 +400,7 @@ try {
       creative_brief_id: briefId,
       mission: started,
       project: updatedProject,
-      objective: intent,
+      objective: semantic.user_goal || intent,
       business_goal: intent,
       audience: {},
       assets,
@@ -514,15 +418,6 @@ try {
     creative_project_id: projectId,
   });
   const dossier = projectNodes.find((node) => node.type === "PRODUCTION_DOSSIER") || null;
-  const estimatedCost =
-    dossier?.metadata?.estimated_production_cost ??
-    dossier?.metadata?.estimated_cost ??
-    dossier?.cost?.estimated ??
-    null;
-  const currency =
-    dossier?.metadata?.currency ??
-    dossier?.cost?.currency ??
-    null;
 
   console.log("============================================================");
   console.log("AVANTIQO CREATIVE COMMAND");
@@ -532,21 +427,16 @@ try {
   console.log(`COMMAND_EXECUTION_MODE=${executionMode}`);
   console.log(`ORGANIZATION_ID=${organization.id}`);
   console.log(`ORGANIZATION_NAME=${organization.name}`);
+  console.log(`SEMANTIC_CONTRACT=${semantic.contract}`);
+  console.log(`SEMANTIC_CONFIDENCE=${semantic.confidence}`);
   console.log(`PRODUCTION_TYPE=${productionType}`);
   console.log(`TARGET_DURATION_SECONDS=${duration}`);
   console.log(`CHANNELS=${channels.join(",")}`);
-  console.log(`EXPORT_PROFILE=${vertical ? "master-vertical-h264" : "master-landscape-h264"}`);
-  console.log(`ASSET_SELECTION_SOURCE=${selection.source}`);
-  console.log(`SCANNED_ASSET_COUNT=${selection.scanned_asset_count || 0}`);
-  console.log(`SCANNED_ASSET_NODE_COUNT=${selection.scanned_asset_node_count || 0}`);
-  console.log(`VERIFIED_VISUAL_ASSET_COUNT=${selection.verified_visual_asset_count || 0}`);
-  console.log(`ORIGINAL_SOURCE_CANDIDATE_COUNT=${selection.candidate_count || 0}`);
-  console.log(`SELECTED_ASSET_COUNT=${selectedIds.length}`);
-  for (const selected of selection.selected_assets || []) {
-    console.log(
-      `SELECTED_ASSET=${selected.selected_role || "SOURCE"}|${selected.name || selected.file_name || selected.asset_id}|${selected.asset_id}`,
-    );
-  }
+  console.log(`EXPORT_PROFILE=${profile}`);
+  console.log(`MASTER_STORY_REQUIRED=${semantic.master_story_required ? "YES" : "NO"}`);
+  console.log(`MASTER_STORY_MINUTES=${masterStoryMinutes(semantic) || ""}`);
+  console.log(`GENERATION_SCOPE=${semantic.generation_scope}`);
+  console.log(`STORY_AUTONOMY=${semantic.story_autonomy}`);
   console.log(`CREATIVE_MISSION_ID=${started.id}`);
   console.log(`CREATIVE_PROJECT_ID=${projectId}`);
   console.log(`CREATIVE_BRIEF_ID=${briefId || ""}`);
@@ -554,18 +444,15 @@ try {
   console.log(`RESEARCH_APPROVAL_MODE=${researchApprovalMode}`);
   console.log(`RESEARCH_PROVIDER=${researchApproval.provider}`);
   console.log(`RESEARCH_MODEL=${researchApproval.model || ""}`);
-  console.log(`RESEARCH_PRICING_ID=${researchApproval.pricing_id}`);
   console.log(`RESEARCH_MAXIMUM_CUSTOMER_PRICE=${amountText(researchApproval.maximum_customer_price)}`);
   console.log(`RESEARCH_CURRENCY=${researchApproval.currency}`);
   console.log(`PRODUCTION_DOSSIER_ID=${dossier?.id || ""}`);
-  console.log(`ESTIMATED_PRODUCTION_COST=${estimatedCost ?? "PENDING"}`);
-  console.log(`CURRENCY=${currency || "PENDING"}`);
   console.log(`PIPELINE_STATUS=${execution?.status || execution?.production?.status || "WAITING_FOR_PRODUCTION_APPROVAL"}`);
   console.log(`PIPELINE_BOUNDARY=${executionError || "PRODUCTION_DOSSIER_APPROVAL_REQUIRED"}`);
+  console.log("SEMANTIC_UNDERSTANDING_AUTHORIZATION_EFFECT=NONE");
   console.log("PAID_RESEARCH_AUTHORIZED=YES");
   console.log("PAID_MEDIA_EXECUTION_AUTHORIZED=NO");
   console.log("PUBLICATION_AUTHORIZED=NO");
-  console.log("NEXT_ACTION=REVIEW_AND_APPROVE_PRODUCTION_DOSSIER");
   console.log("============================================================");
 } catch (error) {
   console.error("============================================================");

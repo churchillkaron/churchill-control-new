@@ -8,7 +8,7 @@
   "stretch_engine": "signalsmith-stretch-python-0.3.1",
   "capability": "ai.audio.vocal-correct",
   "source": "main",
-  "hardening_revision": 2,
+  "hardening_revision": 3,
   "explicit_pitch_readiness_required": true,
   "torchcrepe_inference_smoke_required": true,
   "unverified_formant_preservation_claim_forbidden": true,
@@ -16,5 +16,9 @@
   "runpod_endpoint_mutation_requested": false,
   "provider_job_requested": false,
   "pricing_activation_requested": false,
-  "human_listening_review_required_before_certification": true
+  "human_listening_review_required_before_certification": true,
+  "musician_approved_tuning_plan_required": true,
+  "musician_approved_timing_plan_supported": true,
+  "automatic_timing_with_musician_plan_forbidden": true,
+  "tonality_compensation_explicitly_configured": true
 }

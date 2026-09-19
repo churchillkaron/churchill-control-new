@@ -12,20 +12,25 @@ const files = {
 
 const source = Object.fromEntries(await Promise.all(Object.entries(files).map(async ([key, file]) => [key, await readFile(file, "utf8")])));
 
-test("owned SFX is Modal-only and fail-closed until certified", () => {
-  assert.match(source.registration, /AVANTIQO_SFX_MODAL_ENDPOINT_URL/);
+test("owned SFX remains certified and supports local-first with Modal fallback", () => {
   assert.match(source.registration, /AVANTIQO_SFX_ENGINE_CERTIFIED/);
-  assert.match(source.registration, /infrastructure_provider: "MODAL"/);
+  assert.match(source.registration, /AVANTIQO_SFX_CERTIFICATION_EVIDENCE_SHA256/);
+  assert.match(source.registration, /sfxCertificationEvidenceBound/);
+  assert.match(source.registration, /modal_direct_configured: modalConfigured/);
+  assert.match(source.registration, /AVANTIQO_LOCAL_NODE_V1_PRIMARY_MODAL_FALLBACK/);
+  assert.doesNotMatch(source.registration, /AVANTIQO_SFX_MODAL_ENDPOINT_URL/);
   assert.doesNotMatch(source.provider, /RUNPOD/);
-  assert.doesNotMatch(source.provider, /fal-ai|FAL_|provider.*fal/i);
+  assert.doesNotMatch(source.provider, /fal-ai|FAL_/i);
 });
 
 test("ai.sfx.generate routes through dedicated owned SFX provider", () => {
   assert.match(source.audio, /isSfxCapability/);
   assert.match(source.audio, /AvantiqoSfxModalProvider\.execute/);
   assert.match(source.provider, /ai\.sfx\.generate/);
-  assert.match(source.provider, /OUTPUT_BUCKET = "creative-assets"/);
-  assert.match(source.provider, /storage:\/\/\$\{OUTPUT_BUCKET\}/);
+  assert.match(source.provider, /createAvantiqoOwnedModalWorker/);
+  assert.match(source.provider, /transportMode: "direct-sdk"/);
+  assert.match(source.provider, /APP_NAME = "avantiqo-sfx-owned"/);
+  assert.match(source.provider, /FUNCTION_NAME = "generate"/);
 });
 
 test("MOSS SFX model is governed and canonical", () => {
@@ -35,4 +40,5 @@ test("MOSS SFX model is governed and canonical", () => {
   assert.match(source.modal, /MossSoundEffectPipeline/);
   assert.match(source.modal, /MAX_SECONDS = 30\.0/);
   assert.match(source.modal, /MODAL_A10G_ASYNC_V1/);
+  assert.match(source.modal, /def generate\(data: dict\[str, Any\]\)/);
 });

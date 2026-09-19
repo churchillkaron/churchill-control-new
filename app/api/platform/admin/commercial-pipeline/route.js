@@ -102,12 +102,12 @@ export async function GET(request) {
         .order("id", { ascending: true })),
       readPaged(() => supabaseAdmin
         .from("organization_leads")
-        .select("id,organization_id,status,email,company,contact,created_at,final_monthly_total,final_yearly_total,currency")
+        .select("id,organization_id,status,email,company,contact,created_at,final_monthly_total,final_yearly_total,currency,selected_products,requesting_organization_id,request_type,request_note")
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })),
       readPaged(() => supabaseAdmin
         .from("subscriptions")
-        .select("id,organization_id,lead_id,status,email,created_at,final_monthly_total,final_yearly_total,currency")
+        .select("id,organization_id,lead_id,status,email,created_at,final_monthly_total,final_yearly_total,currency,billing_cycle,selected_products")
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })),
       readPaged(() => supabaseAdmin
@@ -167,12 +167,20 @@ export async function GET(request) {
     }
 
     const enrichedAcquisitions = acquisitions.map((record) => {
-      const candidateSubscriptions = record.prospect_email
+      const lead = record.lead_id ? leadById.get(record.lead_id) || null : null;
+      const requestingOrganizationId = lead?.request_type === "upgrade" ? lead?.requesting_organization_id || null : null;
+      const candidateSubscriptions = record.lead_id
         ? subscriptions.filter((subscription) => {
-          const lead = leadById.get(subscription.lead_id);
-          return lead && normalizedEmail(lead.email) === normalizedEmail(record.prospect_email);
+          if (subscription.lead_id !== record.lead_id) return false;
+          if (requestingOrganizationId && subscription.organization_id !== requestingOrganizationId) return false;
+          return true;
         })
-        : [];
+        : record.prospect_email
+          ? subscriptions.filter((subscription) => {
+            const subscriptionLead = leadById.get(subscription.lead_id);
+            return subscriptionLead && normalizedEmail(subscriptionLead.email) === normalizedEmail(record.prospect_email);
+          })
+          : [];
       const canonicalSubscription = record.subscription_id ? subscriptionById.get(record.subscription_id) || null : null;
       const verifiedCustomer = canonicalSubscription?.organization_id ? organizationById.get(canonicalSubscription.organization_id) || null : null;
       return {
@@ -180,12 +188,20 @@ export async function GET(request) {
         nextStage: nextStageFor(record.stage),
         nextAction: nextActionFor(record.stage),
         events: (eventsByAcquisition.get(record.id) || []).slice(0, 8),
+        requestedProducts: Array.isArray(lead?.selected_products) ? lead.selected_products : [],
+        requestingOrganizationId: lead?.requesting_organization_id || null,
+        requestType: lead?.request_type || null,
+        requestNote: lead?.request_note || null,
         verifiedSubscriptionCandidates: candidateSubscriptions.map((subscription) => ({
           id: subscription.id,
           leadId: subscription.lead_id,
           status: subscription.status,
           createdAt: subscription.created_at,
           customerOrganizationId: subscription.organization_id || null,
+          billingCycle: subscription.billing_cycle || null,
+          monthlyTotal: Number(subscription.final_monthly_total || 0),
+          currency: subscription.currency || null,
+          selectedProducts: Array.isArray(subscription.selected_products) ? subscription.selected_products : [],
         })),
         verifiedCustomerCandidate: verifiedCustomer ? { id: verifiedCustomer.id, name: verifiedCustomer.name, status: verifiedCustomer.organization_status || verifiedCustomer.status || null } : null,
       };

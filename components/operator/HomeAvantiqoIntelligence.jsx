@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Loader2, Send, Sparkles } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import { operatorReferenceNeedsDeviceLocation } from "@/lib/operator/contracts/OperatorSymbolicReference.js";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import OperatorExecutionArtifacts from "@/components/operator/OperatorExecutionArtifacts";
+import OperatorConversationText from "@/components/operator/OperatorConversationText";
 import {
   operatorExecutionStatePresentation,
 } from "@/lib/operator/presentation/OperatorExecutionStatePresentation";
@@ -15,6 +17,7 @@ import {
 const OPERATOR_TURN_TIMEOUT_MS = 12 * 60 * 1000;
 const CODE_PREWARM_POLL_MS = 5000;
 const CODE_PREWARM_MAX_POLLS = 90;
+const INTELLIGENCE_PREWARM_TIMEOUT_MS = 30 * 1000;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -42,6 +45,27 @@ async function fetchWithTimeout(
   } finally {
     window.clearTimeout(timer);
   }
+}
+
+
+function browserLocation() {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      resolve({ status: "unavailable" });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({
+        status: "granted",
+        latitude: Number(position.coords.latitude),
+        longitude: Number(position.coords.longitude),
+        accuracy_m: Number(position.coords.accuracy || 0) || null,
+        captured_at: new Date(position.timestamp || Date.now()).toISOString(),
+      }),
+      (error) => resolve({ status: error?.code === 1 ? "denied" : "unavailable" }),
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 5 * 60 * 1000 },
+    );
+  });
 }
 
 function createMessage(role, content, extra = {}) {
@@ -93,12 +117,8 @@ function busyRequestStatus(message, entityId, liveExecution, elapsedSeconds, sta
     return description;
   }
 
-  const scope = entityId ? "legal entity scoped" : "organization scoped";
-  if (elapsed < 2) return `${request || "Request"} - Matching registered capability - ${scope} - ${elapsed}s`;
-  if (elapsed < 6) return `Reading current business data - ${scope} - ${elapsed}s`;
-  if (elapsed < 15) return `Waiting for the governed read to return - ${elapsed}s`;
-  if (elapsed < 30) return `Still waiting for the server response - ${elapsed}s`;
-  return `This is taking unusually long - ${elapsed}s - the blocker will be surfaced instead of claiming progress`;
+  if (!latest) return "Understanding your request…";
+  return text(latest?.description) || text(latest?.phase).replaceAll("_", " ") || "Working…";
 }
 
 function thesisInterruptionSpeech(thesis) {
@@ -121,7 +141,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   const messagesRef = useRef([]);
   const agreementStateRef = useRef({});
   const busyRef = useRef(false);
-  const voiceQueueRef = useRef([]);
+  const pendingTurnQueueRef = useRef([]);
 
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -131,7 +151,6 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   const [error, setError] = useState("");
   const [messages, setMessages] = useState([greetingMessage()]);
   const [projectState, setProjectState] = useState({});
-  const [activeRequest, setActiveRequest] = useState("");
   const [activeRequestStartedAt, setActiveRequestStartedAt] = useState(null);
   const [busyElapsedSeconds, setBusyElapsedSeconds] = useState(0);
   const [liveExecution, setLiveExecution] = useState(null);
@@ -206,6 +225,30 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     if (!organizationId) return undefined;
 
     const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), INTELLIGENCE_PREWARM_TIMEOUT_MS);
+
+    fetch("/api/operator/intelligence/prewarm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      signal: controller.signal,
+      body: JSON.stringify({ organizationId }),
+    }).catch((prewarmError) => {
+      if (prewarmError?.name !== "AbortError") {
+        console.debug("AVANTIQO_INTELLIGENCE_FRONT_PREWARM_ADVISORY_FAILURE", prewarmError?.message || prewarmError);
+      }
+    }).finally(() => window.clearTimeout(timer));
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (!organizationId) return undefined;
+
+    const controller = new AbortController();
     let timer = null;
     let polls = 0;
 
@@ -242,7 +285,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   useEffect(() => {
     if (!organizationId) {
       agreementStateRef.current = {};
-      voiceQueueRef.current = [];
+      pendingTurnQueueRef.current = [];
       setProjectState({});
       setAttention(null);
       setMessages([greetingMessage()]);
@@ -407,29 +450,39 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     const message = text(rawValue);
     if (!message || !organizationId) return;
 
-    if (busyRef.current || restoring) {
-      if (source === "voice") {
-        const previous = voiceQueueRef.current[voiceQueueRef.current.length - 1];
-        if (text(previous?.message) !== message) {
-          voiceQueueRef.current = [
-            ...voiceQueueRef.current,
-            { message, source },
-          ].slice(-3);
-        }
+    if (restoring) return;
+
+    if (busyRef.current) {
+      const previous = pendingTurnQueueRef.current[pendingTurnQueueRef.current.length - 1];
+      if (text(previous?.message) !== message) {
+        pendingTurnQueueRef.current = [
+          ...pendingTurnQueueRef.current,
+          { message, source },
+        ].slice(-3);
       }
+      setInput("");
+      fetch("/api/operator/live-execution", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ organizationId }),
+      }).catch(() => null);
       return;
     }
 
-    const priorConversation = messagesRef.current.map(({ role, content }) => ({
-      role,
-      content,
+    const priorConversation = messagesRef.current.map(({ role, content, clarification }) => ({
+      role, content, ...(clarification ? { clarification } : {}),
     }));
+    const previousAssistant = [...messagesRef.current].reverse().find((item) => item?.role === "assistant") || null;
+    let deviceLocation = null;
+    if (operatorReferenceNeedsDeviceLocation({ fieldKey: previousAssistant?.clarification?.field_key, value: message })) {
+      deviceLocation = await browserLocation();
+    }
 
     setMessages((current) => [...current, createMessage("user", message)]);
     setInput("");
     setError("");
     setBusy(true);
-    setActiveRequest(message);
     setActiveRequestStartedAt(Date.now());
     setBusyElapsedSeconds(0);
     setLiveExecution(null);
@@ -456,14 +509,40 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
                 : null,
             agreementState: agreementStateRef.current,
             conversation: priorConversation,
+            ...(locationContext ? { clientContext: { deviceLocation: locationContext } } : {}),
           }),
         },
         OPERATOR_TURN_TIMEOUT_MS,
         "Avantiqo took too long to complete that request. Please try again.",
       );
 
-      const result = await response.json().catch(() => ({}));
+      let response = await requestTurn(deviceLocation);
+      let result = await response.json().catch(() => ({}));
+      if (
+        response.ok &&
+        result?.success !== false &&
+        result?.client_context_request?.kind === "device_location" &&
+        !deviceLocation
+      ) {
+        deviceLocation = await browserLocation();
+        response = await requestTurn(deviceLocation);
+        result = await response.json().catch(() => ({}));
+      }
       if (!response.ok || result?.success === false) {
+        const conversationalFailure = text(
+          result?.details?.conversation_response || result?.conversation_response,
+        );
+        if (conversationalFailure) {
+          setError("");
+          setMessages((current) => [
+            ...current,
+            createMessage("assistant", conversationalFailure, {
+              recovery: result?.details || {},
+            }),
+          ]);
+          if (source === "voice") speakResponse(conversationalFailure);
+          return;
+        }
         throw new Error(result?.error || "Avantiqo could not complete the request");
       }
 
@@ -474,11 +553,13 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           "Avantiqo returned no reliable response. No action was assumed complete.",
         );
       }
-      agreementStateRef.current =
-        result?.agreement_state ||
-        decision?.agreement_state ||
-        agreementStateRef.current;
-      setProjectState(result?.project_state || decision?.project_state || {});
+      if (result?.state_unchanged !== true) {
+        agreementStateRef.current =
+          result?.agreement_state ||
+          decision?.agreement_state ||
+          agreementStateRef.current;
+        setProjectState(result?.project_state || decision?.project_state || {});
+      }
 
       setMessages((current) => [
         ...current,
@@ -486,6 +567,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           options: Array.isArray(decision?.clarification?.options)
             ? decision.clarification.options
             : [],
+          clarification: decision?.clarification || null,
           execution: result?.execution || {},
           evidence: result?.provider_evidence || {},
           navigation: result?.navigation || {},
@@ -534,10 +616,10 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   useEffect(() => {
     if (restoring || busy || busyRef.current) return;
 
-    const nextVoiceCommand = voiceQueueRef.current.shift();
-    if (!nextVoiceCommand?.message) return;
+    const nextQueuedTurn = pendingTurnQueueRef.current.shift();
+    if (!nextQueuedTurn?.message) return;
 
-    sendMessage(nextVoiceCommand.message, nextVoiceCommand.source || "voice");
+    sendMessage(nextQueuedTurn.message, nextQueuedTurn.source || "text");
   }, [busy, restoring, organizationId, entityId, periodId, pathname]);
 
   const attentionItems = Array.isArray(attention?.items) ? attention.items : [];
@@ -551,6 +633,15 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   return (
     <section
       data-avantiqo-home-intelligence="true"
+      data-avantiqo-clipboard-boundary="true"
+      onKeyDownCapture={(event) => {
+        const command = event.metaKey || event.ctrlKey;
+        const key = String(event.key || "").toLowerCase();
+        if (command && ["a", "c", "v", "x"].includes(key)) event.stopPropagation();
+      }}
+      onCopy={(event) => event.stopPropagation()}
+      onCut={(event) => event.stopPropagation()}
+      onPaste={(event) => event.stopPropagation()}
       className="flex min-h-[620px] flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-6"
     >
       <div>
@@ -751,12 +842,16 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
             className={
               message.role === "user"
                 ? "ml-10 rounded-2xl rounded-br-md border border-[#D6A66A]/20 bg-[#D6A66A]/10 px-4 py-3"
-                : "mr-8 rounded-2xl rounded-bl-md border border-white/[0.07] bg-black/25 px-4 py-3"
+                : "mr-8 px-1 py-3"
             }
           >
-            <div className="whitespace-pre-wrap text-sm font-light leading-6 text-white/80">
-              {message.content}
-            </div>
+            {message.role === "assistant" ? (
+              <OperatorConversationText content={message.content} />
+            ) : (
+              <div className="whitespace-pre-wrap text-sm font-light leading-6 text-white/80">
+                {message.content}
+              </div>
+            )}
 
             {message.role === "assistant" ? (
               <OperatorExecutionArtifacts execution={message.execution || {}} evidence={message.evidence || {}} organizationId={organizationId} />
@@ -801,9 +896,14 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         ))}
 
         {busy ? (
-          <div className="mr-16 flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-3 text-xs text-white/45">
-            <Loader2 size={14} className="animate-spin text-[#D6A66A]" />
-            {busyRequestStatus(activeRequest, entityId, liveExecution, busyElapsedSeconds, activeRequestStartedAt)}
+          <div
+            data-avantiqo-live-status="true"
+            aria-live="polite"
+            className="mr-8 flex items-center gap-2 px-1 py-1 text-xs font-light text-white/35"
+          >
+            <Loader2 size={12} className="animate-spin text-white/25" />
+            <span>{conversationalProgressStatus(liveExecution, activeRequestStartedAt)}</span>
+            <span aria-label="elapsed time">· {busyElapsedSeconds}s</span>
           </div>
         ) : null}
       </div>
@@ -820,7 +920,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
             data-avantiqo-home-input="true"
             value={input}
             rows={1}
-            disabled={busy || restoring}
+            disabled={restoring}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
@@ -828,18 +928,18 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
                 sendMessage(input);
               }
             }}
-            placeholder={restoring ? "Restoring conversation…" : "Ask Avantiqo anything…"}
+            placeholder={restoring ? "Restoring conversation…" : busy ? "Correct or redirect Avantiqo while it works…" : "Ask Avantiqo anything…"}
             className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm leading-5 text-white outline-none placeholder:text-white/25 disabled:opacity-50"
           />
 
           <button
             type="button"
             onClick={() => sendMessage(input)}
-            disabled={busy || restoring || !text(input)}
+            disabled={restoring || !text(input)}
             className="flex h-11 items-center gap-2 rounded-xl bg-[#D6A66A] px-4 text-sm font-medium text-black transition hover:bg-[#E7C48E] disabled:cursor-not-allowed disabled:opacity-30"
           >
-            {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            Send
+            <Send size={15} />
+            {busy ? "Update" : "Send"}
           </button>
         </div>
       </div>

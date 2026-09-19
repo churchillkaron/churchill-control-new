@@ -36,11 +36,17 @@ function mediaKind(value, mimeType = "", key = "") {
   const mime = text(mimeType).toLowerCase();
   const source = text(value).toLowerCase().split("?")[0];
   const field = text(key).toLowerCase();
-  if (mime.startsWith("image/") || /image|screenshot|thumbnail/.test(field) || /\.(png|jpe?g|webp|gif|avif)$/.test(source)) return "image";
-  if (mime.startsWith("video/") || /video|master/.test(field) || /\.(mp4|webm|mov|m4v)$/.test(source)) return "video";
-  if (mime.startsWith("audio/") || /audio/.test(field) || /\.(mp3|wav|m4a|aac|ogg|flac)$/.test(source)) return "audio";
-  if (mime === "application/pdf" || /pdf|receipt|document/.test(field) || /\.pdf$/.test(source)) return "document";
-  if (/spreadsheet|excel|csv/.test(mime) || /\.(xlsx?|csv)$/.test(source)) return "spreadsheet";
+  if (mime.startsWith("image/") || /\.(png|jpe?g|webp|gif|avif)$/.test(source)) return "image";
+  if (mime.startsWith("audio/") || /\.(mp3|wav|m4a|aac|ogg|flac)$/.test(source)) return "audio";
+  if (mime.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/.test(source)) return "video";
+  if (/spreadsheet|excel|csv/.test(mime) || /\.(xlsx?|xlsm|csv|tsv)$/.test(source)) return "spreadsheet";
+  if (mime === "application/pdf" || /\.(pdf|docx?|odt|rtf|txt|md)$/.test(source)) return "document";
+  if (/image|screenshot|thumbnail/.test(field)) return "image";
+  if (/audio|music|waveform/.test(field)) return "audio";
+  if (/video|render/.test(field)) return "video";
+  if (/pdf|receipt|document/.test(field)) return "document";
+  if (/spreadsheet|excel|csv/.test(field)) return "spreadsheet";
+  if (/master/.test(field)) return mime.startsWith("audio/") ? "audio" : mime.startsWith("video/") ? "video" : "file";
   return "file";
 }
 
@@ -69,13 +75,22 @@ export function operatorExecutionArtifacts({ execution = {}, evidence = {}, orga
     const mimeType = text(owner?.mime_type || owner?.mimeType || owner?.content_type || owner?.mime);
     const kind = mediaKind(raw, mimeType, key);
     seen.add(url);
+    const downloadUrl = safeArtifactUrl(owner?.download_url, organizationId) || url;
     items.push({
       url,
+      download_url: downloadUrl,
       kind,
       mime_type: mimeType || null,
       label: itemLabel(owner, parent, kind, items.length),
       folder: folderLabel(owner, parent, kind),
-      preview_rows: Array.isArray(owner?.rows) ? owner.rows.slice(0, 20) : Array.isArray(owner?.data) ? owner.data.slice(0, 20) : null,
+      preview_rows: Array.isArray(owner?.preview_rows)
+        ? owner.preview_rows.slice(0, 20)
+        : Array.isArray(owner?.rows)
+          ? owner.rows.slice(0, 20)
+          : Array.isArray(owner?.data)
+            ? owner.data.slice(0, 20)
+            : null,
+      preview_text: text(owner?.preview_text || owner?.text_preview || owner?.excerpt || owner?.summary) || null,
     });
   }
 
@@ -89,7 +104,16 @@ export function operatorExecutionArtifacts({ execution = {}, evidence = {}, orga
 
     for (const [key, raw] of Object.entries(value)) {
       const normalizedKey = text(key).toLowerCase();
-      if (typeof raw === "string" && URL_KEYS.has(normalizedKey)) add(raw, value, parent || {}, normalizedKey);
+      const ownerHasPreview = Boolean(
+        safeArtifactUrl(value?.preview_url, organizationId) ||
+        safeArtifactUrl(value?.pdf_url, organizationId) ||
+        safeArtifactUrl(value?.document_url, organizationId),
+      );
+      if (
+        typeof raw === "string" &&
+        URL_KEYS.has(normalizedKey) &&
+        !(normalizedKey === "download_url" && ownerHasPreview)
+      ) add(raw, value, parent || {}, normalizedKey);
       if (raw && typeof raw === "object") visit(raw, depth + 1, value);
     }
   }
@@ -107,7 +131,13 @@ function KindIcon({ kind }) {
 }
 
 function SpreadsheetPreview({ rows = [] }) {
-  if (!Array.isArray(rows) || !rows.length) return null;
+  if (!Array.isArray(rows) || !rows.length) {
+    return (
+      <div className="border-b border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[11px] leading-5 text-white/60">
+        Spreadsheet preview data is not embedded in this result yet. Open or download the file below.
+      </div>
+    );
+  }
   const objectRows = rows.every((row) => row && typeof row === "object" && !Array.isArray(row));
   const columns = objectRows
     ? [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 12)
@@ -115,7 +145,7 @@ function SpreadsheetPreview({ rows = [] }) {
 
   return (
     <div className="max-h-[360px] overflow-auto border-b border-white/[0.06] bg-black/15">
-      <table className="min-w-full border-collapse text-left text-[9px] text-white/65">
+      <table className="min-w-full border-collapse text-left text-[11px] text-white/65">
         {objectRows && columns.length ? (
           <>
             <thead className="sticky top-0 bg-[#151411] text-[#E5C28D]">
@@ -150,6 +180,9 @@ function ArtifactPreview({ artifact }) {
     return <audio src={artifact.url} controls preload="metadata" className="w-full" />;
   }
   if (artifact.kind === "document") {
+    if (artifact.preview_text) {
+      return <div className="max-h-[420px] overflow-auto whitespace-pre-wrap border-b border-white/[0.06] bg-white/[0.03] p-4 text-[11px] leading-5 text-white/70">{artifact.preview_text}</div>;
+    }
     return <iframe src={artifact.url} title={artifact.label} loading="lazy" className="h-[420px] w-full bg-white" />;
   }
   if (artifact.kind === "spreadsheet") {
@@ -172,22 +205,22 @@ export default function OperatorExecutionArtifacts({ execution = {}, evidence = 
     <div data-avantiqo-execution-artifacts="true" data-avantiqo-universal-preview="true" className="mt-3 space-y-2">
       {[...folders.entries()].map(([folder, folderItems]) => (
         <details key={folder} open className="overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] font-medium text-[#E5C28D]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[11px] font-medium text-[#E5C28D]">
             <span className="flex items-center gap-2"><Folder size={13} />{folder}</span>
-            <span className="text-[9px] text-white/35">{folderItems.length}</span>
+            <span className="text-[11px] text-white/35">{folderItems.length}</span>
           </summary>
           <div className="space-y-2 border-t border-white/[0.06] p-2">
             {folderItems.map((artifact, index) => (
               <div key={`${artifact.url}-${index}`} className="overflow-hidden rounded-lg border border-white/[0.07] bg-black/25">
                 <ArtifactPreview artifact={artifact} />
                 <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-                  <span className="flex min-w-0 items-center gap-2 text-[10px] text-white/65">
+                  <span className="flex min-w-0 items-center gap-2 text-[11px] text-white/65">
                     <KindIcon kind={artifact.kind} />
                     <span className="truncate">{artifact.label}</span>
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
-                    <a href={artifact.url} target="_blank" rel="noreferrer noopener" className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Open ${artifact.label}`}><ArrowUpRight size={11} /></a>
-                    <a href={artifact.url} download className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Download ${artifact.label}`}><Download size={11} /></a>
+                    <a href={artifact.url} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Open ${artifact.label}`}><ArrowUpRight size={11} /></a>
+                    <a href={artifact.download_url || artifact.url} download onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Download ${artifact.label}`}><Download size={11} /></a>
                   </span>
                 </div>
               </div>

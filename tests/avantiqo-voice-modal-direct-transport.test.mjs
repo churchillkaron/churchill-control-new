@@ -110,7 +110,7 @@ test("Voice registration treats direct Modal credentials as primary readiness", 
   assert.match(registration, /modal_gateway_required:\s*false/);
   assert.match(registration, /direct_async_function_call:\s*true/);
   assert.match(registration, /tts_final_artifact_persistence:\s*"AVANTIQO_SERVICE_RUNTIME"/);
-  assert.match(registration, /legacy_modal_gateway_migration_debt:\s*true/);
-  assert.match(registration, /modal_only_execution:\s*true/);
+  assert.match(registration, /modal_only_execution:\s*false/);
+  assert.match(registration, /modal_fallback:\s*true/);
   assert.doesNotMatch(registration, /RUNPOD_API_KEY|RUNPOD_MANAGEMENT_API_KEY|RUNPOD_SERVERLESS/);
 });

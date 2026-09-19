@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { getAvailableModules } from "@/lib/platform/getAvailableModules";
+import { getOrganizationProductEntitlements } from "@/lib/platform/getOrganizationProductEntitlements";
 import { resolvePlatformOperatorOrganizationId } from "@/lib/platform/security/PlatformOperatorWorkspaceRuntime";
 import { evaluateOrganizationAppAccess } from "@/lib/platform/security/organizationAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -183,10 +184,11 @@ async function loadBootstrapPayload({ request, user }) {
 
   const supabase = createServerSupabase();
 
-  const [organizations, entities, modules, operatorOrganizationId] = await Promise.all([
+  const [organizations, entities, modules, productEntitlements, operatorOrganizationId] = await Promise.all([
     loadOrganizations(context.availableOrganizationIds || [organizationId]),
     loadEntities({ organizationId }),
     getAvailableModules({ organizationId, supabase }),
+    getOrganizationProductEntitlements({ organizationId, supabase }),
     resolvePlatformOperatorOrganizationId().catch(() => null),
   ]);
 
@@ -240,6 +242,7 @@ async function loadBootstrapPayload({ request, user }) {
       country: entity?.country || organization.country || null,
       currency: entity?.currency || organization.default_currency || null,
       modules,
+      product_entitlements: productEntitlements,
       permissions: context.permissions || [],
       role: context.role || context.staff?.role || "staff",
       access_policy: accessPolicy.policy.access,

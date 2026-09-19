@@ -213,7 +213,7 @@ export default function FinanceAccountantReportWorkCenter({
         <header className="border-b border-black/[0.07] pb-4">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <div className="text-[9px] font-semibold uppercase tracking-[0.21em] text-[#9A7045]">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.21em] text-[#9A7045]">
                 Finance / {presentation.family_label || "Reporting"}
               </div>
               <h1 className="mt-1.5 text-[28px] font-semibold tracking-[-0.035em] sm:text-[31px]">
@@ -222,7 +222,7 @@ export default function FinanceAccountantReportWorkCenter({
               <p className="mt-1 max-w-4xl text-[12px] leading-5 text-[#777169]">
                 {capability?.description || "Review the selected accounting context and drill into supporting evidence."}
               </p>
-              <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-[#777169]">
+              <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-[#777169]">
                 {payload?.startDate || payload?.endDate ? (
                   <span className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1">
                     {date(payload?.startDate)} – {date(payload?.endDate)}
@@ -257,21 +257,21 @@ export default function FinanceAccountantReportWorkCenter({
             {isTrialBalance ? (
               <section className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
                 <div className="rounded-xl border border-black/[0.07] bg-white p-3.5">
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8E887F]">Accounts</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8E887F]">Accounts</div>
                   <div className="mt-1.5 text-[21px] font-semibold tabular-nums">{payload?.accountCount ?? rows.length}</div>
                 </div>
                 <div className="rounded-xl border border-black/[0.07] bg-white p-3.5">
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8E887F]">Debit balances</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8E887F]">Debit balances</div>
                   <div className="mt-1.5 text-[18px] font-semibold tabular-nums">{money(payload?.totalDebits, currencyCode)}</div>
                 </div>
                 <div className="rounded-xl border border-black/[0.07] bg-white p-3.5">
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8E887F]">Credit balances</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8E887F]">Credit balances</div>
                   <div className="mt-1.5 text-[18px] font-semibold tabular-nums">{money(payload?.totalCredits, currencyCode)}</div>
                 </div>
                 <div className={`rounded-xl border p-3.5 ${statusTone(Boolean(payload?.balanced))}`}>
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.12em] opacity-70">Control</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-70">Control</div>
                   <div className="mt-1.5 text-[18px] font-semibold">{payload?.balanced ? "Balanced" : "Review difference"}</div>
-                  <div className="mt-0.5 text-[10px] opacity-70">Difference {money(payload?.difference, currencyCode)}</div>
+                  <div className="mt-0.5 text-[11px] opacity-70">Difference {money(payload?.difference, currencyCode)}</div>
                 </div>
               </section>
             ) : null}
@@ -288,7 +288,7 @@ export default function FinanceAccountantReportWorkCenter({
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full border-collapse text-left text-[11px]">
-                    <thead className="sticky top-0 border-b border-black/[0.07] bg-[#FAF9F7] text-[9px] font-semibold uppercase tracking-[0.11em] text-[#858078]">
+                    <thead className="sticky top-0 border-b border-black/[0.07] bg-[#FAF9F7] text-[11px] font-semibold uppercase tracking-[0.11em] text-[#858078]">
                       <tr>
                         {normalizedColumns.map((column) => (
                           <th key={column.key} className={`whitespace-nowrap px-3 py-2.5 ${column.align === "right" ? "text-right" : "text-left"}`}>{column.label}</th>
@@ -328,9 +328,9 @@ export default function FinanceAccountantReportWorkCenter({
           <section className="max-h-[86vh] w-full max-w-6xl overflow-hidden rounded-2xl border border-black/[0.1] bg-[#F7F6F3] shadow-[0_28px_90px_rgba(0,0,0,0.28)]">
             <header className="flex items-start justify-between gap-4 border-b border-black/[0.07] bg-white p-5">
               <div>
-                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#9A7045]">Ledger drill-through</div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9A7045]">Ledger drill-through</div>
                 <h2 className="mt-1 text-[21px] font-semibold tracking-[-0.025em]">{selectedAccount.account_code} · {selectedAccount.account_name}</h2>
-                <div className="mt-1 text-[10px] text-[#89837B]">{date(payload?.startDate)} – {date(payload?.endDate)}</div>
+                <div className="mt-1 text-[11px] text-[#89837B]">{date(payload?.startDate)} – {date(payload?.endDate)}</div>
               </div>
               <button type="button" onClick={() => setSelectedAccount(null)} className="rounded-lg border border-black/[0.08] bg-white p-2 text-[#6F6961] hover:bg-[#F7F6F3]"><X size={15} /></button>
             </header>
@@ -341,8 +341,8 @@ export default function FinanceAccountantReportWorkCenter({
                 <div className="p-5 text-[11px] text-[#817B73]">No ledger activity exists for this account in the selected period.</div>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-black/[0.07] bg-white">
-                  <table className="min-w-full text-left text-[10px]">
-                    <thead className="border-b border-black/[0.07] bg-[#FAF9F7] text-[9px] font-semibold uppercase tracking-[0.1em] text-[#858078]">
+                  <table className="min-w-full text-left text-[11px]">
+                    <thead className="border-b border-black/[0.07] bg-[#FAF9F7] text-[11px] font-semibold uppercase tracking-[0.1em] text-[#858078]">
                       <tr><th className="px-3 py-2.5">Date</th><th className="px-3 py-2.5">Journal / reference</th><th className="px-3 py-2.5">Description</th><th className="px-3 py-2.5 text-right">Debit</th><th className="px-3 py-2.5 text-right">Credit</th></tr>
                     </thead>
                     <tbody className="divide-y divide-black/[0.05]">

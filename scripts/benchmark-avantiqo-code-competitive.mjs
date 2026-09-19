@@ -1,11 +1,15 @@
+import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { verifyCodeAICompetitiveReferenceReport } from "../lib/code/runtime/CodeAICompetitiveReferenceAttestationRuntime.js";
 
 const CONTRACT = "AVANTIQO_CODE_COMPETITIVE_BENCHMARK_V1";
 const DEFAULT_OWNED = "/tmp/avantiqo-code-certification-benchmark.json";
 const DEFAULT_OUTPUT = "/tmp/avantiqo-code-competitive-benchmark.json";
 const DEFAULT_SUITE = "benchmarks/avantiqo-code-frontier-engineering-suite.json";
+const DEFAULT_PROMPT_CONTRACT = "benchmarks/avantiqo-code-frontier-prompt-contract.json";
 const SUITE_CONTRACT = "AVANTIQO_CODE_FRONTIER_ENGINEERING_SUITE_V1";
+const PROMPT_CONTRACT = "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1";
 const MIN_CASES = 20;
 const MAX_REFERENCE_AGE_DAYS = 30;
 const MIN_WIN_RATE = 0.55;
@@ -15,6 +19,7 @@ const MAX_COST_RATIO = 1.25;
 const text = (value) => String(value ?? "").trim();
 const finite = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
 const list = (value) => Array.isArray(value) ? value : [];
+const sha256 = (value) => createHash("sha256").update(String(value ?? ""), "utf8").digest("hex");
 
 function percentile(values, p) {
   const safe = values.map(finite).filter((value) => value !== null).sort((a, b) => a - b);
@@ -130,14 +135,16 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
 
 const ownedPath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_OWNED || DEFAULT_OWNED);
 const suitePath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_SUITE || DEFAULT_SUITE);
+const promptContractPath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_PROMPT_CONTRACT || DEFAULT_PROMPT_CONTRACT);
 const referencePaths = text(process.env.AVANTIQO_CODE_COMPETITIVE_REFERENCES)
   .split(",")
   .map((item) => text(item))
   .filter(Boolean)
-  .map(resolve);
+  .map((item) => resolve(item));
 if (!referencePaths.length) throw new Error("AVANTIQO_CODE_COMPETITIVE_REFERENCES_REQUIRED");
 
-const suite = JSON.parse(await readFile(suitePath, "utf8"));
+const suiteSource = await readFile(suitePath, "utf8");
+const suite = JSON.parse(suiteSource);
 if (text(suite?.contract) !== SUITE_CONTRACT) throw new Error("AVANTIQO_CODE_COMPETITIVE_SUITE_CONTRACT_INVALID");
 const requiredCaseIds = list(suite?.cases).map((item) => text(item?.case_id)).filter(Boolean).sort();
 if (requiredCaseIds.length < MIN_CASES || new Set(requiredCaseIds).size !== requiredCaseIds.length) {
@@ -147,7 +154,36 @@ const owned = JSON.parse(await readFile(ownedPath, "utf8"));
 if (owned?.summary?.passed !== true || owned?.summary?.complete_suite !== true) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_OWNED_BENCHMARK_MUST_PASS");
 }
+const ownedRunnerCommit = text(owned?.runner_source_commit);
+if (!/^[a-f0-9]{40}$/i.test(ownedRunnerCommit) || text(owned?.runner_ref) !== "main" || owned?.runner_repository_clean !== true) {
+  throw new Error("AVANTIQO_CODE_COMPETITIVE_OWNED_CURRENT_CLEAN_MAIN_REQUIRED");
+}
+const suiteSha256 = sha256(suiteSource);
+const promptContractSource = await readFile(promptContractPath, "utf8");
+const promptContract = JSON.parse(promptContractSource);
+if (text(promptContract?.contract) !== PROMPT_CONTRACT) {
+  throw new Error("AVANTIQO_CODE_COMPETITIVE_PROMPT_CONTRACT_INVALID");
+}
+const promptContractSha256 = sha256(promptContractSource);
+if (
+  text(owned?.prompt_contract) !== PROMPT_CONTRACT ||
+  text(owned?.prompt_contract_sha256).toLowerCase() !== promptContractSha256.toLowerCase()
+) {
+  throw new Error("AVANTIQO_CODE_COMPETITIVE_OWNED_PROMPT_CONTRACT_MISMATCH");
+}
 const references = await Promise.all(referencePaths.map(async (path) => JSON.parse(await readFile(path, "utf8"))));
+for (const reference of references) {
+  verifyCodeAICompetitiveReferenceReport(reference, {
+    suite_contract: SUITE_CONTRACT,
+    suite_sha256: suiteSha256,
+    prompt_contract: PROMPT_CONTRACT,
+    prompt_contract_sha256: promptContractSha256,
+    required_case_ids: requiredCaseIds,
+  });
+  if (text(reference?.runner_source_commit).toLowerCase() !== ownedRunnerCommit.toLowerCase()) {
+    throw new Error("AVANTIQO_CODE_COMPETITIVE_RUNNER_SOURCE_COMMIT_MISMATCH");
+  }
+}
 const comparisons = references.map((reference) => compareReference(owned, reference, requiredCaseIds));
 const competitiveCertified = comparisons.length >= 2 && comparisons.every((item) => item.passed);
 
@@ -169,6 +205,11 @@ const report = {
     maximum_cost_ratio: MAX_COST_RATIO,
     identical_task_ids_required: true,
     canonical_suite_exact_match_required: true,
+    cryptographic_reference_attestation_required: true,
+    exact_suite_sha256_binding_required: true,
+    exact_prompt_contract_sha256_binding_required: true,
+    live_reference_provider_execution_required: true,
+    exact_runner_source_commit_required: true,
   },
   comparisons,
   competitive_certified: competitiveCertified,

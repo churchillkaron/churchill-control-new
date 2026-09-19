@@ -19,6 +19,8 @@ test("authoritative completed outcome never permits mutation replay", () => {
   });
   assert.equal(result.status, "COMPLETED");
   assert.equal(result.business_effect_verified, true);
+  assert.equal(result.business_effect_outcome.state, "COMPLETED");
+  assert.equal(result.business_effect_outcome.authoritative_server_evidence, true);
   assert.equal(result.mutation_replay_allowed, false);
   assert.equal(result.authorization_effect, "NONE");
 });
@@ -31,6 +33,8 @@ test("authoritative non-completion can only request fresh governed retry", () =>
   assert.equal(result.status, "NOT_COMPLETED");
   assert.equal(result.mutation_replay_allowed, true);
   assert.equal(result.retry_requires_fresh_governance, true);
+  assert.equal(result.business_effect_outcome.state, "NOT_COMPLETED");
+  assert.equal(result.business_effect_outcome.business_effect_absent, true);
   assert.equal(result.authorization_effect, "SAME_ACTION_ONLY");
 });
 test("missing authority or exact scope remains uncertain", () => {

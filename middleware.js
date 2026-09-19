@@ -129,6 +129,9 @@ export async function middleware(request, event) {  if (request.nextUrl.pathname
     loginUrl.pathname = "/login";
     loginUrl.search = "";
     loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+    if (/^\/workspace\/[^/]+\/developers(?:\/|$)/.test(request.nextUrl.pathname)) {
+      loginUrl.searchParams.set("portal", "developer");
+    }
     return NextResponse.redirect(loginUrl, 307);
   }
 

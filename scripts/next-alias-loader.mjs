@@ -58,5 +58,21 @@ export async function resolve(specifier, context, nextResolve) {
     return resolveFileUrl(new URL(specifier), context, nextResolve);
   }
 
+  // Node ESM does not add extensions for package subpaths such as `next/headers`,
+  // while Next.js deliberately publishes `headers.js` and accepts the extensionless
+  // form through its bundler. Static Operator discovery runs under raw Node, so keep
+  // that discovery environment compatible without changing application imports.
+  if (specifier.startsWith("next/") && !path.extname(specifier)) {
+    try {
+      return await nextResolve(specifier, context);
+    } catch (originalError) {
+      try {
+        return await nextResolve(`${specifier}.js`, context);
+      } catch {
+        throw originalError;
+      }
+    }
+  }
+
   return nextResolve(specifier, context);
 }

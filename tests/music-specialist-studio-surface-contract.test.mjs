@@ -25,15 +25,15 @@ const source = "storage://creative-assets/example/source.wav";
 
 for (const [id, label] of [
   ["auto", "Auto Studio"],
-  ["compose", "Compose"],
+  ["compose", "Create a Song"],
   ["remix", "Remix"],
-  ["edit", "Edit / Repaint"],
+  ["edit", "AI Edit"],
   ["extend", "Extend"],
-  ["stems", "Stems"],
-  ["backing", "Backing Track"],
-  ["vocal", "Vocal Studio"],
-  ["mix", "Mix Studio"],
-  ["master", "Master Studio"],
+  ["stems", "Separate Stems"],
+  ["backing", "Make a Backing Track"],
+  ["vocal", "Vocals"],
+  ["mix", "Mix"],
+  ["master", "Master"],
 ]) {
   test(`Music Studio exposes ${label}`, () => {
     assert.match(workspace, new RegExp(`id: "${id}"`));
@@ -83,14 +83,15 @@ test("Extend uses XL temporal outpaint and remains benchmark gated", () => {
   assert.equal(plan.output_spec.duration_rule, "SOURCE_DURATION_PLUS_EXTENSION_SECONDS_BOUNDED_BY_WORKER_MAX");
 });
 
-test("Shared transform route is plan-only for remix edit and extend", () => {
+test("Shared transform route stays certification-gated before execution", () => {
   assert.match(transformRoute, /new Set\(\["remix", "edit", "extend"\]\)/);
   assert.match(transformRoute, /buildTemporalExtendPlan/);
   assert.match(transformRoute, /XL_TURBO_REPAINT_RIGHT_OUTPAINT/);
   assert.doesNotMatch(transformRoute, /XL_TURBO_REPAINT_RIGHT_OUTPAINT_V1/);
   assert.match(transformRoute, /execution_submitted: false/);
-  assert.match(transformRoute, /execution_route_enabled: false/);
-  assert.doesNotMatch(transformRoute, /executeService/);
+  assert.match(transformRoute, /execution_route_enabled: transformPlan\.executable === true/);
+  assert.match(transformRoute, /transform\.executable !== true \|\| transform\.certification !== "CERTIFIED"/);
+  assert.match(transformRoute, /executeService/);
   assert.doesNotMatch(transformRoute, /settlePendingService/);
 });
 

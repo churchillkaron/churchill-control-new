@@ -20,6 +20,12 @@ test("parallel discovery preserves cache and capability safety metadata", () => 
   assert.match(source, /operator_enabled: operatorEnabled/);
   assert.match(source, /transactional: manifest\?\.transactional === true/);
   assert.match(source, /requires_confirmation:/);
-  assert.match(source, /permissions: values\(manifest\?\.permissions\)/);
+  assert.match(source, /permissions: normalizedPermissions\(manifest \|\| \{\},/);
   assert.match(source, /context_scope: normalizeContextScope/);
+});
+
+
+test("explicit operator disable overrides legacy ai visibility", () => {
+  assert.match(source, /const operatorFlagDeclared =/);
+  assert.match(source, /operatorFlagDeclared\s*\?[^:]+operatorEnabled === true[^:]+operator_enabled === true[^:]+:\s*aiEnabled/s);
 });

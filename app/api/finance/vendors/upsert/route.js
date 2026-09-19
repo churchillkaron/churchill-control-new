@@ -51,7 +51,7 @@ export async function POST(request) {
       is_blocked: Boolean(body.is_blocked),
     });
 
-    return NextResponse.json({ success: true, vendor });
+    return NextResponse.json({ success: true, vendor, party_id: vendor?.party_id || vendor?.id || null });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error?.message || "Vendor upsert failed" },

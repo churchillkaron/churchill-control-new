@@ -184,6 +184,7 @@ export async function POST(request) {
       ...imported,
       reconciliation,
       payment_evidence: paymentEvidence,
+      statement_import_id: statementImportId,
     });
   } catch (error) {
     const message = error?.message || "Bank statement import failed";

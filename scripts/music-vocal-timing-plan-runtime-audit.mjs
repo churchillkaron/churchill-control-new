@@ -13,7 +13,8 @@ const paths = {
   renderPanel: "components/creative/ProductionStudio/workspaces/MusicVocalTuningPlanPanel.jsx",
   timing: "services/avantiqo-music-vocal-correction-engine/timing.py",
   engine: "services/avantiqo-music-vocal-correction-engine/handler_v2.py",
-  provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicVocalCorrectionProvider.js",
+  provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicVocalCorrectionModalProvider.js",
+  modal: "services/avantiqo-music-vocal-correction-modal/modal_app.py",
 };
 
 const source = Object.fromEntries(
@@ -79,8 +80,9 @@ assert.match(source.engine, /AVANTIQO_MUSIC_VOCAL_TIMING_PLAN_V1/);
 assert.match(source.engine, /apply_approved_phrase_timing_plan/);
 assert.match(source.engine, /approved_timing_plan_exact_moves_required_when_supplied/);
 assert.match(source.engine, /automatic_timing_forbidden_with_musician_plans/);
-assert.match(source.provider, /approved_timing_plan: approvedTimingPlan/);
-assert.match(source.provider, /timing_plan_contract/);
+assert.match(source.provider, /avantiqo-music-vocal-correction-owned/);
+assert.match(source.modal, /params\.get\("approved_timing_plan"\)/);
+assert.match(source.modal, /params\.get\("source_window"\)/);
 
 for (const value of Object.values(source)) {
   assert.doesNotMatch(value, /direct[_ -]?runpod[_ -]?call/i);

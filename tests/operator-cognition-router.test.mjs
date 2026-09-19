@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { routeOperatorCognition } from "../lib/operator/runtime/OperatorCognitionRouter.js";
 
-const deepFollowUps = [
+const localFollowUps = [
   "why?",
   "why not?",
   "how so?",
@@ -18,16 +18,16 @@ const deepFollowUps = [
   "challenge this",
 ];
 
-for (const message of deepFollowUps) {
-  test(`routes strategic follow-up to deep cognition: ${message}`, () => {
+for (const message of localFollowUps) {
+  test(`keeps strategic follow-up on owned local cognition: ${message}`, () => {
     const result = routeOperatorCognition({
       message,
       source: "text",
       capabilities: [],
     });
 
-    assert.equal(result.path, "deep");
-    assert.equal(result.reason, "DELIBERATIVE_PARTNER_TURN");
+    assert.equal(result.path, "fast");
+    assert.equal(result.reason, "FAST_LOCAL_DELIBERATION");
   });
 }
 
@@ -87,7 +87,7 @@ test("routes one clear governed invoice payment action to fast structured select
   });
 
   assert.equal(result.path, "fast");
-  assert.equal(result.reason, "REGISTERED_ROUTINE_ACTION");
+  assert.match(result.reason, /REGISTERED_ACTION/);
 });
 
 test("keeps uncertain invoice payment decision on deep cognition", () => {

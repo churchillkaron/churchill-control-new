@@ -31,6 +31,15 @@ DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.float16 if DEVICE.startswith("cuda") else torch.float32
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
 MAX_VOCABULARY_CONTEXT_CHARS = 512
+
+def _batch_size() -> int:
+    try:
+        value = int(os.getenv("AVANTIQO_VOICE_STT_BATCH_SIZE", "8"))
+    except (TypeError, ValueError):
+        value = 8
+    return max(1, min(8, value))
+
+BATCH_SIZE = _batch_size()
 _PIPELINE: Any | None = None
 
 
@@ -112,6 +121,7 @@ def _runtime_probe(data: dict[str, Any]) -> dict[str, Any]:
         "torch_version": torch.__version__,
         "torch_cuda_version": torch.version.cuda,
         "recognizer_initialized": _PIPELINE is not None,
+        "batch_size": BATCH_SIZE,
         "generation_requested": False,
         "transcription_requested": False,
         "inference_performed": False,
@@ -147,7 +157,7 @@ def _recognizer():
         torch_dtype=DTYPE,
         device=0 if DEVICE.startswith("cuda") else -1,
         chunk_length_s=30,
-        batch_size=8,
+        batch_size=BATCH_SIZE,
         return_timestamps=False,
     )
     return _PIPELINE

@@ -64,8 +64,8 @@ test("virtual rehearsal passes only with executable coverage lighting and editab
 });
 
 test("dailies rejects one weak department even when the others pass", () => {
-  const families = ["DIRECTING", "CINEMATOGRAPHY", "CONTINUITY", "TECHNICAL_TRUTH", "PERCEPTUAL_QUALITY"];
-  const reviews = families.map((family) => ({ reviewer_id: family.toLowerCase(), family, score: family === "CONTINUITY" ? 91 : 97, passed: family !== "CONTINUITY", evidence: ["frame review"] }));
+  const families = ["DIRECTING", "CINEMATOGRAPHY", "CONTINUITY", "TECHNICAL_TRUTH", "PERCEPTUAL_QUALITY", "INTENT_FIDELITY"];
+  const reviews = families.map((family) => ({ reviewer_id: family.toLowerCase(), family, score: family === "CONTINUITY" ? 91 : 97, passed: family !== "CONTINUITY", evidence: ["frame review"], ...(family === "INTENT_FIDELITY" ? { rendered_against_authored_contracts: true, comparison: { frame_design: 97, dp_intent: 97, physical_world: 97, visual_journey: 97, benchmark_craft: 97 } } : {}) }));
   const report = evaluateDailiesTake({ take: { id: "take-a" }, reviews });
   assert.equal(report.passed, false);
   assert.match(report.failures.join(" "), /CONTINUITY|continuity/i);
@@ -90,10 +90,43 @@ test("vfx color sound master and release rooms enforce specialist approvals", ()
     mix: { picture_lock_digest: "edit123", sync_events: [{ at: 1.2, event: "rotor blade pass" }], dynamics_score: 96, approved: true },
   }).passed, true);
   const verdicts = ["DIRECTOR", "EDITOR", "CINEMATOGRAPHY", "POST", "SOUND"].map((family) => ({ family, score: 96, passed: true, evidence: ["approved review"] }));
-  assert.equal(evaluateMasterDirectorReview({ department_verdicts: verdicts, final_repairs: [] }).passed, true);
+  const intent_fidelity = Object.fromEntries(["story", "visual_journey", "frame_design", "dp_intent", "physical_world", "dailies", "editorial"].map((family) => [family, { score: 96, passed: true, evidence: [`${family} conformance verified`] }]));
+  Object.assign(intent_fidelity, { temporal_continuity_sealed: true, bounded_repairs_resolved: true, vfx_inheritance_verified: true });
+  assert.equal(evaluateMasterDirectorReview({ department_verdicts: verdicts, final_repairs: [], intent_fidelity }).passed, true);
   assert.equal(evaluateReleaseRoom({
     master_qc: { checksum_verified: true, duration_verified: true, audio_verified: true, video_verified: true, no_rejected_assets_in_master: true },
     rights: { cleared: true, evidence: ["rights manifest"] },
     delivery: { approved: true, profile_id: "master-prores", master_digest: "master123" },
   }).passed, true);
+});
+
+test("dailies rejects beautiful take that drifts from authored intent", () => {
+  const families = ["DIRECTING", "CINEMATOGRAPHY", "CONTINUITY", "TECHNICAL_TRUTH", "PERCEPTUAL_QUALITY"];
+  const reviews = families.map((family) => ({ reviewer_id: family.toLowerCase(), family, score: 98, passed: true, evidence: ["strong rendered result"] }));
+  reviews.push({ reviewer_id: "intent", family: "INTENT_FIDELITY", score: 98, passed: true, evidence: ["render compared with shot bible"], rendered_against_authored_contracts: true, comparison: { frame_design: 98, dp_intent: 98, physical_world: 98, visual_journey: 91, benchmark_craft: 98 } });
+  const report = evaluateDailiesTake({ take: { id: "take-drift" }, reviews });
+  assert.equal(report.passed, false);
+  assert.match(report.failures.join(" "), /visual_journey/i);
+});
+
+
+test("editorial rejects metronomic repeated-scale montage before master", () => {
+  const clips = [1, 2, 3, 4].map((n) => ({
+    take_id: `take-${n}`, story_reason: "advances story", cut_reason: "state change",
+    duration_seconds: 2, scale_role: "WORLD", camera_behavior: "SLOW_PUSH",
+    transition_motivation: n === 1 ? "" : "causal cut", energy_level: 60,
+  }));
+  const report = evaluateEditorialRoom({
+    approved_take_ids: clips.map((clip) => clip.take_id),
+    assembly: { clips, coverage_gaps: [], pacing_strategy: "authored", silence_or_density_drop_present: true, payoff_build_verified: true },
+  });
+  assert.equal(report.passed, false);
+  assert.match(report.failures.join(" "), /METRONOMIC|REPEATED_SCALE|REPEATED_CAMERA|ENERGY_CURVE/);
+});
+
+test("master rejects final film when original authored intent is not proven", () => {
+  const verdicts = ["DIRECTOR", "EDITOR", "CINEMATOGRAPHY", "POST", "SOUND"].map((family) => ({ family, score: 98, passed: true, evidence: ["department approved"] }));
+  const report = evaluateMasterDirectorReview({ department_verdicts: verdicts, final_repairs: [], intent_fidelity: {} });
+  assert.equal(report.passed, false);
+  assert.match(report.failures.join(" "), /MASTER_INTENT_FIDELITY/);
 });

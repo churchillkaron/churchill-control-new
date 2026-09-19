@@ -12,7 +12,7 @@ import { loadCompletePracticeRows } from "@/lib/finance/practice/FinancePractice
 import { loadPracticeBillingReferenceBlockers } from "@/lib/finance/practice/FinancePracticeBillingReferenceReadiness";
 
 function clean(value) { return String(value ?? "").trim(); }
-function jsonError(error, status = 400) { return NextResponse.json({ success: false, error }, { status }); }
+function jsonError(error, status = 400, extra = {}) { return NextResponse.json({ success: false, error, ...extra }, { status }); }
 function staffId(access) { return access?.access?.staffAccountId || access?.staff?.id || null; }
 function addDays(date, days) { const value = new Date(`${date}T00:00:00.000Z`); value.setUTCDate(value.getUTCDate() + Number(days || 0)); return value.toISOString().slice(0, 10); }
 function periodKey(date, cadence) {
@@ -35,6 +35,50 @@ export async function POST(request) {
     if (!access.success) return jsonError(access.error, access.status || 403);
     await checkFinancePermission({ organizationId: access.organizationId, userId: access.user?.id, permissionKey: "finance.receivables.manage", fullAccess: access.permissions?.includes("*") === true });
     if (!engagementId) return jsonError("engagementId is required");
+
+    for (let recoveryPass = 0; recoveryPass < 20; recoveryPass += 1) {
+      const { data: unresolvedBatch, error: unresolvedError } = await supabaseAdmin.from("accounting_practice_billing_batches")
+        .select("*")
+        .eq("accounting_firm_id", access.organizationId)
+        .eq("engagement_id", engagementId)
+        .in("status", ["PREPARING", "FAILED"])
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (unresolvedError) throw unresolvedError;
+      if (!unresolvedBatch) { batch = null; break; }
+
+      batch = unresolvedBatch;
+      const { data: recovery, error: recoveryError } = await supabaseAdmin.rpc("recover_accounting_practice_billing_batch", {
+        p_accounting_firm_id: access.organizationId,
+        p_batch_id: unresolvedBatch.id,
+        p_actor_id: staffId(access),
+      });
+      if (recoveryError) throw recoveryError;
+      const recoveryState = clean(recovery?.state).toUpperCase();
+      if (["RECOVERED_INVOICE", "INVOICED"].includes(recoveryState)) {
+        return NextResponse.json({
+          success: true,
+          idempotent: true,
+          recovered: true,
+          billing_batch: recovery?.billing_batch || unresolvedBatch,
+          invoice_id: recovery?.invoice_id || recovery?.billing_batch?.invoice_id || null,
+        });
+      }
+      if (recoveryState === "WAITING") {
+        return jsonError("A billing batch is already preparing for this engagement. Retry after the existing batch completes or becomes recoverable.", 409, {
+          billing_batch_id: unresolvedBatch.id,
+          billing_batch_status: unresolvedBatch.status,
+          retry_after: recovery?.retry_after || null,
+        });
+      }
+      if (!["VOIDED_UNINVOICED", "VOID"].includes(recoveryState)) {
+        return jsonError("Existing billing batch could not be reconciled safely", 409, { billing_batch_id: unresolvedBatch.id });
+      }
+      batch = null;
+    }
+
+    if (batch?.id) return jsonError("Too many unresolved billing batches require recovery before new invoicing", 409);
 
     const { data: profile, error: profileError } = await supabaseAdmin.from("accounting_practice_billing_profiles")
       .select("*").eq("accounting_firm_id", access.organizationId).eq("engagement_id", engagementId).eq("status", "ACTIVE").maybeSingle();
@@ -106,6 +150,16 @@ export async function POST(request) {
     }
     if (batch.status === "INVOICED" && batch.invoice_id) return NextResponse.json({ success: true, idempotent: true, billing_batch: batch, invoice_id: batch.invoice_id });
 
+    const { data: liveBatch, error: liveBatchError } = await supabaseAdmin.from("accounting_practice_billing_batches")
+      .select("id,status")
+      .eq("id", batch.id)
+      .eq("accounting_firm_id", access.organizationId)
+      .maybeSingle();
+    if (liveBatchError) throw liveBatchError;
+    if (!liveBatch || !["PREPARING", "FAILED"].includes(liveBatch.status)) {
+      return jsonError("Billing batch changed before invoice creation; refresh and retry", 409, { billing_batch_id: batch.id, billing_batch_status: liveBatch?.status || null });
+    }
+
     const dueDate = clean(body.dueDate || body.due_date || addDays(invoiceDate, profile.payment_terms_days || 0));
     const currencyCode = clean(profile.currency_code || entity.currency || "THB").toUpperCase();
     const description = `${engagement.service_package || "Professional accounting services"} · ${periodStart} to ${periodEnd}`;
@@ -136,6 +190,7 @@ export async function POST(request) {
       } catch {}
     }
     const message = error?.message || "Unable to create practice billing invoice";
-    return jsonError(message, /permission denied/i.test(message) ? 403 : 500);
+    const status = /permission denied/i.test(message) ? 403 : /PRACTICE_BILLING_|billing batch|billing policy/i.test(message) ? 409 : 500;
+    return jsonError(message, status);
   }
 }

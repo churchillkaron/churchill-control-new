@@ -8,6 +8,7 @@ const practiceTime = fs.readFileSync(new URL("../app/api/workspace/finance/pract
 const ui = fs.readFileSync(new URL("../components/workspace/finance/FinancePracticeTimeWip.jsx", import.meta.url), "utf8");
 const atomicPolicyMigration = fs.readFileSync(new URL("../supabase/migrations/20260919102500_accounting_practice_billing_policy_atomicity.sql", import.meta.url), "utf8");
 const atomicFinalizationMigration = fs.readFileSync(new URL("../supabase/migrations/20260919104500_accounting_practice_billing_finalization_atomicity.sql", import.meta.url), "utf8");
+const recoveryMigration = fs.readFileSync(new URL("../supabase/migrations/20260919111500_accounting_practice_billing_recovery.sql", import.meta.url), "utf8");
 
 test("practice billing hands off only through canonical customer invoice authority", () => {
   assert.match(route, /createCustomerInvoiceCommand/);
@@ -141,4 +142,48 @@ test("billing finalization is one invoker-safe service-role-only database transa
   assert.match(atomicFinalizationMigration, /update public\.accounting_practice_billing_batches/);
   assert.match(atomicFinalizationMigration, /revoke all on function public\.finalize_accounting_practice_billing_batch/);
   assert.match(atomicFinalizationMigration, /to service_role/);
+});
+
+test("stranded billing batches recover before any new billing scope is evaluated", () => {
+  const recoveryIndex = route.indexOf('rpc("recover_accounting_practice_billing_batch"');
+  const profileIndex = route.indexOf('from("accounting_practice_billing_profiles")');
+  assert.ok(recoveryIndex >= 0 && profileIndex > recoveryIndex);
+  assert.match(route, /\.in\("status", \["PREPARING", "FAILED"\]\)/);
+  assert.match(route, /RECOVERED_INVOICE/);
+  assert.match(route, /VOIDED_UNINVOICED/);
+  assert.match(route, /recoveryState === "WAITING"/);
+});
+
+test("recovery finalizes an existing canonical invoice or voids only safe uninvoiced stale work", () => {
+  assert.match(recoveryMigration, /upper\(coalesce\(source_document_type, ''\)\) = 'ACCOUNTING_PRACTICE_WIP'/);
+  assert.match(recoveryMigration, /source_document_id = v_batch\.id/);
+  assert.match(recoveryMigration, /finalize_accounting_practice_billing_batch/);
+  assert.match(recoveryMigration, /v_batch\.status = 'FAILED'/);
+  assert.match(recoveryMigration, /v_batch\.created_at <= now\(\) - greatest/);
+  assert.match(recoveryMigration, /set status = 'VOID'/);
+  assert.match(recoveryMigration, /'state', 'WAITING'/);
+});
+
+test("slow concurrent invoice creation rechecks the live billing batch immediately before AR authority", () => {
+  const liveIndex = route.indexOf("const { data: liveBatch");
+  const invoiceIndex = route.indexOf("const result = await createCustomerInvoiceCommand");
+  assert.ok(liveIndex >= 0 && invoiceIndex > liveIndex);
+  assert.match(route, /!\["PREPARING", "FAILED"\]\.includes\(liveBatch\.status\)/);
+  assert.match(route, /Billing batch changed before invoice creation/);
+});
+
+test("Time and WIP visibly exposes unresolved billing recovery instead of another invoice action", () => {
+  assert.match(practiceTime, /Accounting practice unresolved billing batches/);
+  assert.match(practiceTime, /billing_recovery: billingRecovery/);
+  assert.match(practiceTime, /Billing batch requires recovery/);
+  assert.match(ui, /recovery required/);
+  assert.match(ui, /Recover billing/);
+  assert.match(ui, /Recovered existing Finance AR invoice and completed billing settlement/);
+});
+
+test("billing recovery remains invoker-safe and service-role isolated", () => {
+  assert.match(recoveryMigration, /security invoker/);
+  assert.match(recoveryMigration, /revoke all on function public\.recover_accounting_practice_billing_batch/);
+  assert.match(recoveryMigration, /from public, anon, authenticated/);
+  assert.match(recoveryMigration, /grant execute on function public\.recover_accounting_practice_billing_batch[\s\S]*to service_role/);
 });

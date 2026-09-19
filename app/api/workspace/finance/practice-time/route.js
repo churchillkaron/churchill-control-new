@@ -81,7 +81,7 @@ async function loadContext(accountingFirmId) {
   });
   const clientIds = [...new Set(engagements.map((row) => row.organization_id).filter(Boolean))];
 
-  const [organizations, profiles, workItems, billingProfiles, billingEntities, customerParties, accounts, taxRules] = await Promise.all([
+  const [organizations, profiles, workItems, billingProfiles, billingBatches, billingEntities, customerParties, accounts, taxRules] = await Promise.all([
     clientIds.length ? loadCompletePracticeRowsByIds({
       ids: clientIds,
       label: "Accounting practice Time & WIP client organizations",
@@ -110,6 +110,16 @@ async function loadContext(accountingFirmId) {
       buildQuery: (from, to) => supabaseAdmin.from("accounting_practice_billing_profiles")
         .select("id,organization_id,engagement_id,billing_method,currency_code,default_hourly_rate,fixed_fee_amount,billing_entity_id,customer_party_id,revenue_account_id,tax_rule_id,tax_rate_percent,tax_treatment_confirmed,payment_terms_days,billing_cadence,next_billing_date,status,updated_at")
         .eq("accounting_firm_id", accountingFirmId)
+        .order("id", { ascending: true })
+        .range(from, to),
+    }),
+    loadCompletePracticeRows({
+      label: "Accounting practice unresolved billing batches",
+      buildQuery: (from, to) => supabaseAdmin.from("accounting_practice_billing_batches")
+        .select("id,organization_id,engagement_id,billing_period_key,billing_profile_id,invoice_id,time_entry_ids,total_amount,currency_code,status,failure_reason,metadata,created_at,updated_at")
+        .eq("accounting_firm_id", accountingFirmId)
+        .in("status", ["PREPARING", "FAILED"])
+        .order("created_at", { ascending: true })
         .order("id", { ascending: true })
         .range(from, to),
     }),
@@ -160,7 +170,7 @@ async function loadContext(accountingFirmId) {
   ).map((rule) => ({ ...rule, applicable_countries: billingCountries.filter((country) => regimeMatchesCountry(rule.tax_regime, country)) }));
 
   return {
-    engagements, organizations, profiles, workItems, billingProfiles, billingEntities, customerParties,
+    engagements, organizations, profiles, workItems, billingProfiles, billingBatches, billingEntities, customerParties,
     revenueAccounts: accounts.filter((row) => { const type = String(row.account_type || row.type || "").toUpperCase(); return type.includes("REVENUE") || type.includes("INCOME"); }),
     taxRules: filteredTaxRules,
   };
@@ -170,6 +180,8 @@ function buildSummary({ context, entries }) {
   const orgNames = new Map(context.organizations.map((row) => [row.id, row.name || "Client organization"]));
   const engagementById = new Map(context.engagements.map((row) => [row.id, row]));
   const billingByEngagement = new Map(context.billingProfiles.map((row) => [row.engagement_id, row]));
+  const recoveryByEngagement = new Map();
+  for (const batch of context.billingBatches || []) if (!recoveryByEngagement.has(batch.engagement_id)) recoveryByEngagement.set(batch.engagement_id, batch);
   const workItemById = new Map(context.workItems.map((row) => [row.id, row]));
   const clientMap = new Map();
   let totalMinutes = 0, billableMinutes = 0, unbilledValue = 0, unpricedMinutes = 0, approvedUnbilledMinutes = 0;
@@ -223,13 +235,15 @@ function buildSummary({ context, entries }) {
     const unpriced = scoped.filter((entry) => entry.billing_rate == null);
     const amount = profile?.billing_method === "FIXED_FEE" ? fixedValue : profile?.billing_method === "HYBRID" ? fixedValue + timeValue : timeValue;
     const blockers = practiceBillingPolicyBlockers(profile);
+    const billingRecovery = recoveryByEngagement.get(engagement.id) || null;
+    if (billingRecovery) blockers.push("Billing batch requires recovery");
     if (["TIME_AND_MATERIALS", "HYBRID"].includes(profile?.billing_method) && unpriced.length) blockers.push("Unpriced approved time");
     if (profile?.billing_method === "TIME_AND_MATERIALS" && !scoped.length) blockers.push("No approved WIP");
     if (profile?.billing_method === "NON_BILLABLE") blockers.push("Engagement is non-billable");
     return {
       engagement_id: engagement.id, organization_id: engagement.organization_id, client_name: orgNames.get(engagement.organization_id) || "Client organization",
       service_package: engagement.service_package || "Accounting engagement", billing_profile: profile, approved_hours: hours(scoped.reduce((sum, entry) => sum + Number(entry.minutes || 0), 0)),
-      unpriced_hours: hours(unpriced.reduce((sum, entry) => sum + Number(entry.minutes || 0), 0)), unbilled_value: money(amount), blockers, invoice_ready: blockers.length === 0 && amount > 0,
+      unpriced_hours: hours(unpriced.reduce((sum, entry) => sum + Number(entry.minutes || 0), 0)), unbilled_value: money(amount), blockers, billing_recovery: billingRecovery, invoice_ready: blockers.length === 0 && amount > 0,
     };
   }).sort((a, b) => Number(b.invoice_ready) - Number(a.invoice_ready) || b.unbilled_value - a.unbilled_value || a.client_name.localeCompare(b.client_name));
 
@@ -243,6 +257,7 @@ function buildSummary({ context, entries }) {
     engagement_wip: engagementWip,
     work_items: workItems,
     billing_profiles: context.billingProfiles,
+    billing_recovery_batches: context.billingBatches || [],
     billing_options: { entities: context.billingEntities, customer_parties: context.customerParties, revenue_accounts: context.revenueAccounts, tax_rules: context.taxRules },
     engagement_context: context.engagements.map((engagement) => ({
       ...engagement,

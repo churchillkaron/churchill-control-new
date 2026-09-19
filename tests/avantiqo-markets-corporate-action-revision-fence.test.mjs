@@ -18,9 +18,14 @@ test("corporate-action evaluation ensures a lockable revision row even for empty
 });
 
 test("corporate-action risk evidence seals exact per-symbol dataset revision", () => {
-  assert.match(runtime, /dataset_revision: Number\(revisionResult\.data\?\.revision \|\| 0\)/);
+  assert.match(runtime, /const revisionBeforeResult = await revisionQuery\(\)/);
+  assert.match(runtime, /const revisionAfterResult = await revisionQuery\(\)/);
+  assert.match(runtime, /revisionBefore !== revisionAfter/);
+  assert.match(runtime, /CHANGED_DURING_EVALUATION/);
+  assert.match(runtime, /dataset_revision: revisionAfter/);
   assert.match(runtime, /dataset_revision_updated_at/);
   assert.match(runtime, /revision_scope_symbol: ticker/);
+  assert.match(runtime, /consistency_status: "STABLE"/);
 });
 
 test("database revision advances on insert update and delete", () => {

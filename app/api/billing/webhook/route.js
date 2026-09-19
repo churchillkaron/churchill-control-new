@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/billing/stripe";
 import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { finalizeCustomerPortalCardPayment, failCustomerPortalCardPayment } from "@/lib/customer-portal/CustomerPortalPaymentSettlementRuntime";
 
 async function invalidateHotelSettlement(organizationId, action) {
   await broadcastHotelReadinessChanged({
@@ -36,6 +37,18 @@ async function finalizeHotelPayment(event, session) {
     p_provider_payment_id: session.payment_intent ? String(session.payment_intent) : null,
   });
   if (error) throw error;
+
+  if (session?.metadata?.portalPaymentRequestId) {
+    const portalUpdate = await supabaseAdmin.from("customer_portal_payment_requests").update({
+      status: "PAID",
+      provider_session_id: session.id,
+      provider_payment_id: session.payment_intent ? String(session.payment_intent) : null,
+      provider_event_id: event.id,
+      settled_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("organization_id", scope.organization_id).eq("id", session.metadata.portalPaymentRequestId);
+    if (portalUpdate.error) throw portalUpdate.error;
+  }
 
   await invalidateHotelSettlement(scope.organization_id, "PAYMENT_SETTLED");
   return data;
@@ -113,6 +126,8 @@ export async function POST(req) {
       const session = event.data.object;
       if (session?.metadata?.domain === "hotel") {
         await finalizeHotelPayment(event, session);
+      } else if (session?.metadata?.domain === "customer_portal") {
+        await finalizeCustomerPortalCardPayment({ event, session });
       } else if (event.type === "checkout.session.completed") {
         const { organizationId, plan } = session.metadata || {};
         if (organizationId && plan) {
@@ -132,6 +147,12 @@ export async function POST(req) {
           event.type === "checkout.session.expired" ? "Stripe Checkout session expired" : "Stripe asynchronous payment failed",
           event.id,
         );
+      } else if (session?.metadata?.domain === "customer_portal") {
+        await failCustomerPortalCardPayment({
+          event,
+          session,
+          reason: event.type === "checkout.session.expired" ? "Stripe Checkout session expired" : "Stripe asynchronous payment failed",
+        });
       }
     }
 

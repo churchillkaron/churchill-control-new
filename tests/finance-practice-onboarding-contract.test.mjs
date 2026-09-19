@@ -47,6 +47,15 @@ test("missing client legal entity has a direct handoff to canonical client Finan
   assert.doesNotMatch(ui, /fetch\("\/api\/finance\/legal-entities\/create"/);
 });
 
+test("missing approved engagement letter hands off to the firm Documents approval workflow", () => {
+  assert.match(ui, /No approved engagement document is available yet/);
+  assert.match(ui, /\/workspace\/\$\{organizationId\}\/documents/);
+  assert.match(ui, /request and complete approval there/);
+  assert.match(ui, /Approval remains bound to the controlled document version/);
+  assert.match(ui, /Open Documents/);
+  assert.doesNotMatch(ui, /enterprise_documents.*insert/);
+});
+
 test("contract and signature cannot run before exact client entity scope exists", () => {
   assert.match(route, /Set the client legal entity before linking the engagement document/);
   assert.match(route, /Set the client legal entity before requesting signature/);

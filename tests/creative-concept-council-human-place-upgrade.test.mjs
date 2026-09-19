@@ -32,7 +32,7 @@ function humanReport(passed = true) {
     critic_id: "human_place_patience",
     evaluations: concepts.map((concept) => ({
       concept_id: concept.id,
-      score: passed || concept.id !== "concept-b" ? 92 : 70,
+      score: passed || concept.id !== "concept-b" ? 96 : 70,
       passed: passed || concept.id !== "concept-b",
       mandatory_repairs: [],
       failures: passed || concept.id !== "concept-b" ? [] : ["patient consequence beat missing"],
@@ -49,7 +49,7 @@ test("human/place/patience critic preserves weighted score while adding veto cov
   assert.equal(baseline.council.critic_reports.length, 6);
   assert.equal(baseline.selected_scorecard.weighted_score, 90.3);
   assert.equal(baseline.selected_concept_passed, true);
-  assert.equal(baseline.selected_scorecard.critic_scores.human_place_patience, 92);
+  assert.equal(baseline.selected_scorecard.critic_scores.human_place_patience, 96);
 });
 
 test("zero-weight human/place/patience critic still vetoes selected concept", () => {

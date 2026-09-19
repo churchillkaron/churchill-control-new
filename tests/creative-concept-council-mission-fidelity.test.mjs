@@ -20,6 +20,6 @@ test("Concept Council critic weights remain normalized", () => {
   const end = source.indexOf("\n]);", start);
   const block = start >= 0 && end > start ? source.slice(start, end) : "";
   const weights = [...block.matchAll(/weight: ([0-9.]+)/g)].map((match) => Number(match[1]));
-  assert.equal(weights.length, 5);
+  assert.equal(weights.length, 6);
   assert.ok(Math.abs(weights.reduce((sum, value) => sum + value, 0) - 1) < 1e-9);
 });

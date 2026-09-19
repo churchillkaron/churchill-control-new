@@ -1,12 +1,7 @@
 name: Avantiqo Image Worker Image
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/avantiqo-image-worker-image-request.json
-
+  workflow_dispatch:
 permissions:
   contents: write
   packages: write

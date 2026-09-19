@@ -1,12 +1,7 @@
 name: Avantiqo Video GPU-Only Worker
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/avantiqo-video-worker-gpu-only-request.json
-
+  workflow_dispatch:
 permissions:
   contents: write
   packages: write

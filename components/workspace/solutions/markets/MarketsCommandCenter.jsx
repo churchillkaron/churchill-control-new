@@ -372,6 +372,15 @@ export default function MarketsCommandCenter({ organizationId }) {
   const focusedOpenOrder = focusedSymbol
     ? orders.find((row) => row.symbol === focusedSymbol && ["QUEUED", "PARTIALLY_FILLED"].includes(row.status)) || null
     : null;
+  const focusedEvidence = focusedSymbol
+    ? evidence.filter((row) => row.symbol === focusedSymbol).slice(0, 4)
+    : [];
+  const focusedTheses = focusedSymbol
+    ? theses.filter((row) => row.symbol === focusedSymbol).slice(0, 4)
+    : [];
+  const focusedFilings = focusedSymbol
+    ? filings.filter((row) => row.symbol === focusedSymbol).slice(0, 3)
+    : [];
   const focusedEvidenceCount = focusedSymbol
     ? evidence.filter((row) => row.symbol === focusedSymbol).length
     : 0;
@@ -1012,6 +1021,126 @@ export default function MarketsCommandCenter({ organizationId }) {
                           </button>
                         ) : null}
                       </div>
+
+                      <details className="group mt-4 overflow-hidden rounded-2xl border border-[#CDAA78]/15 bg-[#FFFDF9]">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3">
+                          <div>
+                            <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#9A7449]">Research behind this decision</div>
+                            <div className="mt-1 text-[8px] text-[#91887E]">
+                              {focusedTheses.length} specialist theses · {focusedEvidenceCount} evidence events · {focusedFilingCount} filings
+                            </div>
+                          </div>
+                          <ChevronDown size={13} className="text-[#9A7449] transition group-open:rotate-180" />
+                        </summary>
+
+                        <div className="grid gap-3 border-t border-[#CDAA78]/15 p-3.5 xl:grid-cols-3">
+                          <div>
+                            <div className="mb-2 text-[8px] font-medium uppercase tracking-[0.12em] text-[#8C7A66]">Specialist theses</div>
+                            <div className="space-y-2">
+                              {focusedTheses.length ? focusedTheses.map((row) => (
+                                <div key={row.id} className="rounded-xl border border-[#CDAA78]/12 bg-white px-3 py-2.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[9px] font-semibold text-[#433D36]">{row.agent_type}</span>
+                                    <span className={
+                                      row.stance === "BULLISH"
+                                        ? "rounded-full bg-emerald-50 px-2 py-0.5 text-[7px] font-semibold text-emerald-700"
+                                        : row.stance === "BEARISH"
+                                          ? "rounded-full bg-red-50 px-2 py-0.5 text-[7px] font-semibold text-red-700"
+                                          : "rounded-full bg-[#F2EEE8] px-2 py-0.5 text-[7px] font-semibold text-[#766E65]"
+                                    }>
+                                      {row.stance}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1.5 text-[8px] text-[#8B837B]">
+                                    {(Number(row.confidence || 0) * 100).toFixed(1)}% confidence
+                                    {row.expected_return == null ? "" : " · " + (Number(row.expected_return) * 100).toFixed(2) + "% expected"}
+                                  </div>
+                                </div>
+                              )) : (
+                                <div className="rounded-xl border border-dashed border-black/[0.08] px-3 py-4 text-[8px] text-[#999188]">
+                                  Refresh research to generate specialist theses.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="mb-2 text-[8px] font-medium uppercase tracking-[0.12em] text-[#8C7A66]">Evidence</div>
+                            <div className="space-y-2">
+                              {focusedEvidence.length ? focusedEvidence.map((row) => {
+                                const payloadLabel = typeof row.payload?.headline === "string"
+                                  ? row.payload.headline
+                                  : typeof row.payload?.title === "string"
+                                    ? row.payload.title
+                                    : typeof row.payload?.summary === "string"
+                                      ? row.payload.summary
+                                      : row.evidence_type;
+                                return (
+                                  <div key={row.id} className="rounded-xl border border-[#CDAA78]/12 bg-white px-3 py-2.5">
+                                    <div className="line-clamp-2 text-[9px] font-medium leading-4 text-[#433D36]">{payloadLabel}</div>
+                                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[7px] text-[#91887E]">
+                                      <span>{row.source_name}</span>
+                                      <span>·</span>
+                                      <span>{new Date(row.observed_at).toLocaleString()}</span>
+                                      {row.materiality == null ? null : (
+                                        <>
+                                          <span>·</span>
+                                          <span>Materiality {(Number(row.materiality) * 100).toFixed(0)}%</span>
+                                        </>
+                                      )}
+                                    </div>
+                                    {row.source_uri ? (
+                                      <a
+                                        href={row.source_uri}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="mt-1.5 inline-flex text-[8px] font-medium text-[#9A7449] hover:text-[#6F4D2B]"
+                                      >
+                                        Open source
+                                      </a>
+                                    ) : null}
+                                  </div>
+                                );
+                              }) : (
+                                <div className="rounded-xl border border-dashed border-black/[0.08] px-3 py-4 text-[8px] text-[#999188]">
+                                  No evidence events for this symbol yet.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="mb-2 text-[8px] font-medium uppercase tracking-[0.12em] text-[#8C7A66]">Filings</div>
+                            <div className="space-y-2">
+                              {focusedFilings.length ? focusedFilings.map((row) => (
+                                <div key={row.id} className="rounded-xl border border-[#CDAA78]/12 bg-white px-3 py-2.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[9px] font-semibold text-[#433D36]">{row.form_type}</span>
+                                    <span className="text-[7px] text-[#91887E]">{row.filed_at || "—"}</span>
+                                  </div>
+                                  <div className="mt-1 line-clamp-2 text-[8px] leading-4 text-[#817970]">
+                                    {row.description || row.primary_document || "SEC filing"}
+                                  </div>
+                                  {row.filing_url ? (
+                                    <a
+                                      href={row.filing_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="mt-1.5 inline-flex text-[8px] font-medium text-[#9A7449] hover:text-[#6F4D2B]"
+                                    >
+                                      Open filing
+                                    </a>
+                                  ) : null}
+                                </div>
+                              )) : (
+                                <div className="rounded-xl border border-dashed border-black/[0.08] px-3 py-4 text-[8px] text-[#999188]">
+                                  No filing evidence for this symbol yet.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </details>
                     </div>
                   </div>
                 ) : null}

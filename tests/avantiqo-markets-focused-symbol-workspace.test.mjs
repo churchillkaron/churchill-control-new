@@ -36,3 +36,13 @@ test("owner can cancel focused governed decision and linked order authority", ()
   assert.match(source, /Cancelled by owner from Markets workspace/);
   assert.match(source, /Cancel decision & order/);
 });
+
+test("focused symbol exposes the research trail behind the decision", () => {
+  assert.match(source, /const focusedEvidence = focusedSymbol/);
+  assert.match(source, /const focusedTheses = focusedSymbol/);
+  assert.match(source, /const focusedFilings = focusedSymbol/);
+  assert.match(source, /Research behind this decision/);
+  assert.match(source, /Specialist theses/);
+  assert.match(source, /Open source/);
+  assert.match(source, /Open filing/);
+});

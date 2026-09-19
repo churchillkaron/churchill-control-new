@@ -1,12 +1,7 @@
 name: Avantiqo Video FlashVSR Worker
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/avantiqo-video-flashvsr-worker-request.json
-
+  workflow_dispatch:
 permissions:
   contents: write
   packages: write

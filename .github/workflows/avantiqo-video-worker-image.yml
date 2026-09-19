@@ -1,12 +1,7 @@
 name: Avantiqo Video Worker Image
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/avantiqo-video-worker-image-request.json
-
+  workflow_dispatch:
 permissions:
   contents: write
   packages: write

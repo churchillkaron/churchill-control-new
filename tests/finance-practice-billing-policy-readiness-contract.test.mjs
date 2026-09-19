@@ -9,6 +9,9 @@ const onboarding = fs.readFileSync(new URL("../lib/finance/practice/FinancePract
 const timeRoute = fs.readFileSync(new URL("../app/api/workspace/finance/practice-time/route.js", import.meta.url), "utf8");
 const timeUi = fs.readFileSync(new URL("../components/workspace/finance/FinancePracticeTimeWip.jsx", import.meta.url), "utf8");
 const planner = fs.readFileSync(new URL("../lib/finance/practice/recurringCyclePlanner.js", import.meta.url), "utf8");
+const onboardingRoute = fs.readFileSync(new URL("../app/api/workspace/finance/practice-onboarding/route.js", import.meta.url), "utf8");
+const billingRoute = fs.readFileSync(new URL("../app/api/workspace/finance/practice-billing/route.js", import.meta.url), "utf8");
+const referenceRuntime = fs.readFileSync(new URL("../lib/finance/practice/FinancePracticeBillingReferenceReadiness.js", import.meta.url), "utf8");
 
 const complete = {
   billing_method: "TIME_AND_MATERIALS",
@@ -74,4 +77,27 @@ test("recurring planner loads the full billing policy consumed by onboarding rea
     "billing_cadence",
     "next_billing_date",
   ]) assert.match(planner, new RegExp(field));
+});
+
+test("live billing reference freshness validates operational evidence, not saved UUID presence", () => {
+  assert.match(referenceRuntime, /legal_entities/);
+  assert.match(referenceRuntime, /\.eq\("is_active", true\)/);
+  assert.match(referenceRuntime, /parties/);
+  assert.match(referenceRuntime, /upper\(row\.status\) === "ACTIVE"/);
+  assert.match(referenceRuntime, /chart_of_accounts/);
+  assert.match(referenceRuntime, /type\.includes\("REVENUE"\) \|\| type\.includes\("INCOME"\)/);
+  assert.match(referenceRuntime, /tax_rules/);
+  assert.match(referenceRuntime, /effectiveToday/);
+  assert.match(referenceRuntime, /regimeMatchesCountry/);
+});
+
+test("onboarding recurring planning and invoice creation all fail closed on stale billing references", () => {
+  assert.match(onboarding, /billingReferenceBlockers/);
+  assert.match(onboardingRoute, /loadPracticeBillingReferenceBlockers/);
+  assert.match(onboardingRoute, /billingReferenceBlockers\.get\(billingProfile\.id\)/);
+  assert.match(planner, /loadPracticeBillingReferenceBlockers/);
+  assert.match(planner, /billingReferenceBlockers\.get\(billingProfile\.id\)/);
+  assert.match(billingRoute, /loadPracticeBillingReferenceBlockers/);
+  assert.match(billingRoute, /Billing policy references are no longer valid/);
+  assert.match(billingRoute, /409/);
 });

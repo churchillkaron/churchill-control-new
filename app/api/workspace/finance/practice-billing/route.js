@@ -9,6 +9,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { loadCompletePracticeRows } from "@/lib/finance/practice/FinancePracticePopulation";
+import { loadPracticeBillingReferenceBlockers } from "@/lib/finance/practice/FinancePracticeBillingReferenceReadiness";
 
 function clean(value) { return String(value ?? "").trim(); }
 function jsonError(error, status = 400) { return NextResponse.json({ success: false, error }, { status }); }
@@ -52,6 +53,9 @@ export async function POST(request) {
     if (!profile.revenue_account_id) return jsonError("Revenue account must be configured before invoicing", 409);
     if (!profile.tax_rule_id) return jsonError("Finance tax rule must be configured before invoicing", 409);
     if (profile.tax_treatment_confirmed !== true) return jsonError("Tax treatment must be confirmed before invoicing", 409);
+    const liveReferenceBlockers = await loadPracticeBillingReferenceBlockers({ accountingFirmId: access.organizationId, profiles: [profile] });
+    const referenceBlockers = liveReferenceBlockers.get(profile.id) || [];
+    if (referenceBlockers.length) return jsonError(`Billing policy references are no longer valid: ${referenceBlockers.join(", ")}`, 409);
 
     const [{ data: entity, error: entityError }, { data: party, error: partyError }, { data: engagement, error: engagementError }] = await Promise.all([
       supabaseAdmin.from("legal_entities").select("id,currency").eq("id", profile.billing_entity_id).eq("organization_id", access.organizationId).eq("is_active", true).maybeSingle(),

@@ -399,17 +399,13 @@ async function submitPaperOrder({ organizationId, state, body }) {
 
   const today = new Date().toISOString().slice(0, 10);
   if (clean(account.daily_equity_date) !== today) {
-    const { data, error } = await supabaseAdmin
-      .from("market_paper_accounts")
-      .update({
-        daily_equity_start: account.equity,
-        daily_equity_date: today,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", account.id)
-      .eq("organization_id", organizationId)
-      .select("*")
-      .single();
+    const { data, error } = await supabaseAdmin.rpc(
+      "market_roll_paper_daily_equity_if_needed",
+      {
+        p_organization_id: organizationId,
+        p_portfolio_id: state.portfolio.id,
+      },
+    );
     if (error) throw error;
     account = data;
   }

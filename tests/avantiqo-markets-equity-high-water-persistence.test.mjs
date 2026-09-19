@@ -6,6 +6,10 @@ const runtime = fs.readFileSync(
   new URL("../lib/markets/runtime/MarketPortfolioPerformanceRuntime.js", import.meta.url),
   "utf8",
 );
+const autonomousRuntime = fs.readFileSync(
+  new URL("../lib/markets/runtime/MarketAutonomousPaperRuntime.js", import.meta.url),
+  "utf8",
+);
 const migration = fs.readFileSync(
   new URL("../supabase/migrations/20260919013003_markets_equity_high_water_persistence.sql", import.meta.url),
   "utf8",
@@ -36,27 +40,39 @@ test("high-water promotion RPC is service-role only", () => {
   );
 });
 
-test("existing equity history backfills missing account peaks", () => {
-  assert.match(migration, /from public\.market_portfolio_equity_snapshots/);
-  assert.match(migration, /max\(greatest\(equity, high_water_equity\)\)/);
-  assert.match(
-    migration,
-    /historical\.high_water_equity > account\.high_water_equity/,
-  );
-  assert.match(
-    migration,
-    /execution_revision = execution_revision \+ 1/,
-  );
+test("older uncertified equity history is intentionally not backfilled into authority", () => {
+  assert.doesNotMatch(migration, /from public\.market_portfolio_equity_snapshots/);
+  assert.match(migration, /Existing historical equity snapshots are intentionally not backfilled/);
 });
 
-test("new equity snapshots promote observed marked equity", () => {
-  assert.match(runtime, /market_promote_paper_high_water/);
+test("only explicitly authoritative marked snapshots promote observed equity", () => {
+  assert.match(runtime, /highWaterAuthoritative = markedPortfolio\?\.high_water_authoritative === true/);
+  assert.match(runtime, /high_water_authoritative: highWaterAuthoritative/);
+  assert.match(runtime, /if \(highWaterAuthoritative\)[\s\S]*?promotePaperHighWater\(\{/);
   assert.match(runtime, /observedEquity: equity/);
 });
 
 test("idempotent snapshot retries still repair high water", () => {
   const occurrences = runtime.match(/observedEquity: Math\.max\(number\(existing\.equity, 0\), equity\)/g) || [];
   assert.equal(occurrences.length, 2);
+});
+
+test("live-only midpoint portfolio marks certify high-water authority", () => {
+  assert.match(
+    autonomousRuntime,
+    /markPortfolioForCircuitBreaker[\s\S]*?high_water_authoritative: true/,
+  );
+  assert.match(
+    autonomousRuntime,
+    /const finalMarked = finalAuthoritative\.approved[\s\S]*?\? finalAuthoritative[\s\S]*?: markPortfolio/,
+  );
+});
+
+test("fallback cycle marks remain uncertified and cannot promote high water", () => {
+  const genericStart = autonomousRuntime.indexOf("function markPortfolio({");
+  const genericEnd = autonomousRuntime.indexOf("function markPortfolioForCircuitBreaker", genericStart);
+  const generic = autonomousRuntime.slice(genericStart, genericEnd);
+  assert.doesNotMatch(generic, /high_water_authoritative: true/);
 });
 
 test("snapshot recorder does not directly update paper accounts", () => {

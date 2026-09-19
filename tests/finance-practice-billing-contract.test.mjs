@@ -7,6 +7,7 @@ const route = fs.readFileSync(new URL("../app/api/workspace/finance/practice-bil
 const practiceTime = fs.readFileSync(new URL("../app/api/workspace/finance/practice-time/route.js", import.meta.url), "utf8");
 const ui = fs.readFileSync(new URL("../components/workspace/finance/FinancePracticeTimeWip.jsx", import.meta.url), "utf8");
 const atomicPolicyMigration = fs.readFileSync(new URL("../supabase/migrations/20260919102500_accounting_practice_billing_policy_atomicity.sql", import.meta.url), "utf8");
+const atomicFinalizationMigration = fs.readFileSync(new URL("../supabase/migrations/20260919104500_accounting_practice_billing_finalization_atomicity.sql", import.meta.url), "utf8");
 
 test("practice billing hands off only through canonical customer invoice authority", () => {
   assert.match(route, /createCustomerInvoiceCommand/);
@@ -47,22 +48,26 @@ test("practice billing is durable and idempotent at exact WIP or billing period 
   assert.match(route, /batch\.status === "INVOICED"/);
 });
 
-test("practice billing marks only exact approved entries billed after invoice authority returns an id", () => {
+test("practice billing finalizes exact approved entries only after invoice authority returns an id", () => {
   const invoiceIndex = route.indexOf("const createdInvoiceId = invoiceId(result)");
-  const billedIndex = route.indexOf('status: "BILLED"');
-  assert.ok(invoiceIndex >= 0 && billedIndex > invoiceIndex);
-  assert.match(route, /\.in\("id", entryIds\)\.eq\("status", "APPROVED"\)/);
+  const finalizeIndex = route.indexOf('rpc("finalize_accounting_practice_billing_batch"');
+  assert.ok(invoiceIndex >= 0 && finalizeIndex > invoiceIndex);
   assert.match(route, /Customer invoice authority returned no invoice id/);
+  assert.match(atomicFinalizationMigration, /e\.id = any\(v_batch\.time_entry_ids\)/);
+  assert.match(atomicFinalizationMigration, /e\.status = 'APPROVED'/);
+  assert.match(atomicFinalizationMigration, /e\.billing_reference = p_invoice_id::text/);
+  assert.match(atomicFinalizationMigration, /PRACTICE_BILLING_WIP_SCOPE_CHANGED/);
 });
 
-test("fixed recurring practice fees are period-idempotent and advance only after invoice success", () => {
+test("fixed recurring practice fees are period-idempotent and advance only inside atomic finalization", () => {
   assert.match(migration, /billing_cadence in \('ON_DEMAND','MONTHLY','QUARTERLY','ANNUAL'\)/);
   assert.match(migration, /next_billing_date date/);
   assert.match(route, /periodKey\(billingDate, cadence\)/);
   assert.match(route, /Next billing date must be configured for recurring practice billing/);
-  const invoiceIndex = route.indexOf("const createdInvoiceId = invoiceId(result)");
-  const advanceIndex = route.indexOf("const nextBillingDate = addCadence");
-  assert.ok(invoiceIndex >= 0 && advanceIndex > invoiceIndex);
+  assert.match(route, /billing_cadence: cadence, billing_date: billingDate/);
+  assert.match(atomicFinalizationMigration, /PRACTICE_BILLING_CADENCE_CHANGED_DURING_INVOICE/);
+  assert.match(atomicFinalizationMigration, /PRACTICE_BILLING_DATE_CHANGED_DURING_INVOICE/);
+  assert.match(atomicFinalizationMigration, /set next_billing_date = v_next_billing_date/);
   assert.match(ui, /Billing cadence/);
   assert.match(ui, /Next billing date/);
 });
@@ -114,4 +119,26 @@ test("billing policy route rejects malformed cadence terms before the atomic mut
   assert.match(practiceTime, /Payment terms must be between 0 and 3650 days/);
   assert.match(practiceTime, /Unsupported billing cadence/);
   assert.match(practiceTime, /Next billing date must use YYYY-MM-DD/);
+});
+
+test("billing finalization proves the exact canonical invoice source and is retry-idempotent", () => {
+  assert.match(atomicFinalizationMigration, /upper\(coalesce\(source_document_type, ''\)\) = 'ACCOUNTING_PRACTICE_WIP'/);
+  assert.match(atomicFinalizationMigration, /source_document_id = v_batch\.id/);
+  assert.match(atomicFinalizationMigration, /if v_batch\.status = 'INVOICED' then/);
+  assert.match(atomicFinalizationMigration, /v_batch\.invoice_id is distinct from p_invoice_id/);
+  assert.match(atomicFinalizationMigration, /'idempotent', true/);
+});
+
+test("billing finalization cannot be downgraded by the route failure recorder", () => {
+  assert.match(route, /\.in\("status", \["PREPARING", "FAILED"\]\)/);
+  assert.doesNotMatch(route, /\.update\(\{ status: "FAILED"[\s\S]*\.eq\("id", batch\.id\);/);
+});
+
+test("billing finalization is one invoker-safe service-role-only database transaction", () => {
+  assert.match(atomicFinalizationMigration, /security invoker/);
+  assert.match(atomicFinalizationMigration, /update public\.accounting_practice_time_entries/);
+  assert.match(atomicFinalizationMigration, /update public\.accounting_practice_billing_profiles/);
+  assert.match(atomicFinalizationMigration, /update public\.accounting_practice_billing_batches/);
+  assert.match(atomicFinalizationMigration, /revoke all on function public\.finalize_accounting_practice_billing_batch/);
+  assert.match(atomicFinalizationMigration, /to service_role/);
 });

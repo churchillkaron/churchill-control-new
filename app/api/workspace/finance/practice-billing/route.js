@@ -15,13 +15,6 @@ function clean(value) { return String(value ?? "").trim(); }
 function jsonError(error, status = 400) { return NextResponse.json({ success: false, error }, { status }); }
 function staffId(access) { return access?.access?.staffAccountId || access?.staff?.id || null; }
 function addDays(date, days) { const value = new Date(`${date}T00:00:00.000Z`); value.setUTCDate(value.getUTCDate() + Number(days || 0)); return value.toISOString().slice(0, 10); }
-function addCadence(date, cadence) {
-  const value = new Date(`${date}T00:00:00.000Z`);
-  if (cadence === "MONTHLY") value.setUTCMonth(value.getUTCMonth() + 1);
-  else if (cadence === "QUARTERLY") value.setUTCMonth(value.getUTCMonth() + 3);
-  else if (cadence === "ANNUAL") value.setUTCFullYear(value.getUTCFullYear() + 1);
-  return value.toISOString().slice(0, 10);
-}
 function periodKey(date, cadence) {
   const d = new Date(`${date}T00:00:00.000Z`);
   if (cadence === "MONTHLY") return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -107,7 +100,7 @@ export async function POST(request) {
       const { data, error } = await supabaseAdmin.from("accounting_practice_billing_batches").insert({
         accounting_firm_id: access.organizationId, organization_id: engagement.organization_id, engagement_id: engagement.id, billing_period_key: billingPeriodKey, billing_profile_id: profile.id,
         time_entry_ids: entryIds, service_period_start: periodStart, service_period_end: periodEnd, subtotal, tax_amount: taxAmount, total_amount: totalAmount,
-        currency_code: profile.currency_code || entity.currency || "THB", status: "PREPARING", idempotency_key: key, prepared_by: staffId(access), metadata: { billing_method: profile.billing_method, time_value: timeValue, fixed_fee_value: fixedValue },
+        currency_code: profile.currency_code || entity.currency || "THB", status: "PREPARING", idempotency_key: key, prepared_by: staffId(access), metadata: { billing_method: profile.billing_method, time_value: timeValue, fixed_fee_value: fixedValue, billing_cadence: cadence, billing_date: billingDate },
       }).select("*").single();
       if (error) throw error; batch = data;
     }
@@ -126,23 +119,20 @@ export async function POST(request) {
     const createdInvoiceId = invoiceId(result);
     if (!createdInvoiceId) throw new Error("Customer invoice authority returned no invoice id");
 
-    const now = new Date().toISOString();
-    if (entryIds.length) {
-      const { error: timeError } = await supabaseAdmin.from("accounting_practice_time_entries").update({ status: "BILLED", billing_reference: createdInvoiceId, billed_at: now, updated_at: now }).eq("accounting_firm_id", access.organizationId).eq("engagement_id", engagementId).in("id", entryIds).eq("status", "APPROVED");
-      if (timeError) throw timeError;
-    }
-    const { data: completedBatch, error: batchError } = await supabaseAdmin.from("accounting_practice_billing_batches").update({ status: "INVOICED", invoice_id: createdInvoiceId, invoiced_at: now, failure_reason: null, updated_at: now }).eq("id", batch.id).eq("accounting_firm_id", access.organizationId).select("*").single();
-    if (batchError) throw batchError;
-    if (cadence !== "ON_DEMAND") {
-      const nextBillingDate = addCadence(billingDate, cadence);
-      const { error: cadenceError } = await supabaseAdmin.from("accounting_practice_billing_profiles").update({ next_billing_date: nextBillingDate, updated_at: now, updated_by: staffId(access) }).eq("id", profile.id).eq("accounting_firm_id", access.organizationId);
-      if (cadenceError) throw cadenceError;
-    }
-    return NextResponse.json({ success: true, idempotent: false, billing_batch: completedBatch, invoice_id: createdInvoiceId, invoice_total: totalAmount, customer: party.display_name || party.legal_name || "Finance customer", billing_period_key: billingPeriodKey }, { status: 201 });
+    const { data: finalization, error: finalizationError } = await supabaseAdmin.rpc("finalize_accounting_practice_billing_batch", {
+      p_accounting_firm_id: access.organizationId,
+      p_batch_id: batch.id,
+      p_invoice_id: createdInvoiceId,
+      p_actor_id: staffId(access),
+    });
+    if (finalizationError) throw finalizationError;
+    const completedBatch = finalization?.billing_batch || null;
+    if (!completedBatch?.id || completedBatch.status !== "INVOICED") throw new Error("Practice billing finalization returned no invoiced batch");
+    return NextResponse.json({ success: true, idempotent: finalization?.idempotent === true, billing_batch: completedBatch, invoice_id: createdInvoiceId, invoice_total: totalAmount, customer: party.display_name || party.legal_name || "Finance customer", billing_period_key: billingPeriodKey }, { status: 201 });
   } catch (error) {
     if (batch?.id) {
       try {
-        await supabaseAdmin.from("accounting_practice_billing_batches").update({ status: "FAILED", failure_reason: String(error?.message || error).slice(0, 1000), updated_at: new Date().toISOString() }).eq("id", batch.id);
+        await supabaseAdmin.from("accounting_practice_billing_batches").update({ status: "FAILED", failure_reason: String(error?.message || error).slice(0, 1000), updated_at: new Date().toISOString() }).eq("id", batch.id).in("status", ["PREPARING", "FAILED"]);
       } catch {}
     }
     const message = error?.message || "Unable to create practice billing invoice";

@@ -16,7 +16,7 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
-async function settle(execution) {
+async function settle(execution, capability, executionLane) {
   if (execution?.pending !== true) return execution;
   const provider = text(execution?.provider);
   const providerJobId = text(execution?.provider_job_id);
@@ -37,15 +37,17 @@ async function settle(execution) {
       metadata: {
         benchmark_only: true,
         repository_head: text(process.env.VERCEL_GIT_COMMIT_SHA),
-        benchmark_contract: "AVANTIQO_LOCAL_REVIEW_TEXT_CERTIFICATION_V1",
+        benchmark_contract: capability === "ai.reasoning.execute"
+          ? "AVANTIQO_LOCAL_REASONING_CERTIFICATION_V1"
+          : "AVANTIQO_LOCAL_REVIEW_TEXT_CERTIFICATION_V1",
         compute_target: "AVANTIQO_LOCAL_NODE_V1",
         local_compute_required: true,
         modal_fallback_forbidden: true,
         benchmark_poll: poll,
       },
       provider_status_input: {
-        capability: "ai.text.generate",
-        execution_lane: "fast",
+        capability,
+        execution_lane: executionLane,
         model: LOCAL_MODEL,
         infrastructure_policy: "local_only",
         local_compute_required: true,
@@ -81,19 +83,27 @@ export async function GET(request) {
   }
 
   try {
+    const url = new URL(request.url);
+    const requestedCapability = text(url.searchParams.get("capability"));
+    const capability = requestedCapability === "ai.reasoning.execute"
+      ? "ai.reasoning.execute"
+      : "ai.text.generate";
+    const executionLane = capability === "ai.reasoning.execute" ? "deep" : "fast";
     const execution = await ServiceExecutionRuntime.execute({
       organization_id: ORGANIZATION_ID,
-      service_id: "ai.text.generate",
+      service_id: capability,
       provider_id: "avantiqo-intelligence",
       input: {
-        capability: "ai.text.generate",
-        execution_lane: "fast",
+        capability,
+        execution_lane: executionLane,
         model: LOCAL_MODEL,
         infrastructure_policy: "local_only",
         local_compute_required: true,
         max_output_tokens: 120,
         temperature: 0.1,
-        prompt: "Return only valid JSON: {\"ok\":true,\"message\":\"local review benchmark passed\"}",
+        prompt: capability === "ai.reasoning.execute"
+          ? "Analyze whether 17 + 25 equals 42 and return only valid JSON: {\"ok\":true,\"answer\":42,\"message\":\"local reasoning benchmark passed\"}"
+          : "Return only valid JSON: {\"ok\":true,\"message\":\"local review benchmark passed\"}",
         response_format: { type: "json_object" },
       },
       provider_policy: {
@@ -113,7 +123,9 @@ export async function GET(request) {
       metadata: {
         benchmark_only: true,
         repository_head: repositoryHead,
-        benchmark_contract: "AVANTIQO_LOCAL_REVIEW_TEXT_CERTIFICATION_V1",
+        benchmark_contract: capability === "ai.reasoning.execute"
+          ? "AVANTIQO_LOCAL_REASONING_CERTIFICATION_V1"
+          : "AVANTIQO_LOCAL_REVIEW_TEXT_CERTIFICATION_V1",
         compute_target: "AVANTIQO_LOCAL_NODE_V1",
         local_compute_required: true,
         modal_fallback_forbidden: true,
@@ -121,10 +133,12 @@ export async function GET(request) {
       category: "AI",
     });
 
-    const result = await settle(execution);
+    const result = await settle(execution, capability, executionLane);
     return Response.json({
       success: true,
       repositoryHead,
+      capability,
+      executionLane,
       provider: result?.provider || execution?.provider || null,
       providerJobId: result?.provider_job_id || execution?.provider_job_id || null,
       usageId: result?.usage?.id || execution?.usage?.id || null,

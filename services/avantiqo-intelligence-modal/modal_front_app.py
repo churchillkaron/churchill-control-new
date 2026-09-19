@@ -149,9 +149,9 @@ class FrontConversation:
                 recent_context = parsed_input.get("recent") if isinstance(parsed_input.get("recent"), list) else []
                 working_context = parsed_input.get("context") if isinstance(parsed_input.get("context"), dict) else {}
                 classifier_input = (
-                    f"CURRENT MESSAGE:\n{current_message}\n\n"
-                    f"RECENT CONVERSATION (reference only):\n{json.dumps(recent_context, ensure_ascii=False)[:5000]}\n\n"
-                    f"WORKING CONTEXT (reference only):\n{json.dumps(working_context, ensure_ascii=False)[:5000]}"
+                    f"REFERENCE — RECENT CONVERSATION:\n{json.dumps(recent_context, ensure_ascii=False)[:5000]}\n\n"
+                    f"REFERENCE — WORKING CONTEXT:\n{json.dumps(working_context, ensure_ascii=False)[:5000]}\n\n"
+                    f"CURRENT MESSAGE TO CLASSIFY (authoritative):\n{current_message}"
                 )
             messages = [
                 {
@@ -164,7 +164,7 @@ class FrontConversation:
                         "operate = the user wants Avantiqo to actually cause a real state change now, such as creating/updating/deleting a business record, issuing an invoice, sending a communication, posting a payment, changing product code/configuration, or performing another real action. Infer this from the requested outcome, not from trigger words. "
                         "followup = the message only makes sense as continuation of the prior goal, such as an elliptical continuation. "
                         "revise = the user changes/corrects the prior goal or output. artifact = reuse/show/resend/open an existing output without recreating it. "
-                        "d=product when the current message is about Avantiqo itself, including its Business Partner, intelligence, capabilities, UI/UX, workflows, architecture, code, Studios, or how the product should improve. d=business when the requested outcome operates or discusses the user's real business records/processes. Otherwise d=none. "
+                        "Avantiqo is the product/platform name. d=product when the current message is about Avantiqo itself, including Business Partner, intelligence, capabilities, UI/UX, Finance/People/Supply Chain screens, workflows, architecture, code, Studios, or how the product should improve. d=business when the requested outcome operates or discusses the user's actual company records/processes such as customers, invoices, payments, staff, bookings, inventory, suppliers, or schedules. Otherwise d=none. "
                         "e says what fresh evidence is required. For ordinary chat/strategy use none unless the user explicitly requests current inspection/research or a current factual answer requires it. "
                         "a=single for one concrete operation/inspection, mission only for a genuinely multi-step autonomous objective, otherwise none. "
                         "g=new for a standalone new topic, continue when it depends on the prior goal, revise when it changes the prior goal. "

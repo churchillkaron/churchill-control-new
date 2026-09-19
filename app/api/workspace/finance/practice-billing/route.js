@@ -27,6 +27,7 @@ function invoiceId(result) { return result?.invoice_id || result?.customer_invoi
 
 export async function POST(request) {
   let batch = null;
+  let invoiceLeaseToken = null;
   try {
     const body = await request.json().catch(() => ({}));
     const organizationId = clean(body.organizationId || body.organization_id);
@@ -161,15 +162,28 @@ export async function POST(request) {
     if (!batch?.id) throw new Error("Practice billing batch claim returned no batch");
     if (batch.status === "INVOICED" && batch.invoice_id) return NextResponse.json({ success: true, idempotent: true, billing_batch: batch, invoice_id: batch.invoice_id });
 
-    const { data: liveBatch, error: liveBatchError } = await supabaseAdmin.from("accounting_practice_billing_batches")
-      .select("id,status")
-      .eq("id", batch.id)
-      .eq("accounting_firm_id", access.organizationId)
-      .maybeSingle();
-    if (liveBatchError) throw liveBatchError;
-    if (!liveBatch || !["PREPARING", "FAILED"].includes(liveBatch.status)) {
-      return jsonError("Billing batch changed before invoice creation; refresh and retry", 409, { billing_batch_id: batch.id, billing_batch_status: liveBatch?.status || null });
+    const { data: lease, error: leaseError } = await supabaseAdmin.rpc("acquire_accounting_practice_billing_invoice_lease", {
+      p_accounting_firm_id: access.organizationId,
+      p_batch_id: batch.id,
+      p_actor_id: staffId(access),
+      p_lease_seconds: 300,
+    });
+    if (leaseError) throw leaseError;
+    const leaseState = clean(lease?.state).toUpperCase();
+    if (leaseState === "INVOICED") {
+      return NextResponse.json({ success: true, idempotent: true, billing_batch: lease?.billing_batch || batch, invoice_id: lease?.invoice_id || lease?.billing_batch?.invoice_id || null });
     }
+    if (leaseState === "BUSY") {
+      return jsonError("Billing invoice creation is already processing for this engagement.", 409, {
+        billing_batch_id: batch.id,
+        billing_batch_status: batch.status,
+        retry_after: lease?.retry_after || null,
+      });
+    }
+    if (leaseState !== "ACQUIRED" || !lease?.lease_token) {
+      return jsonError("Billing invoice lease could not be acquired safely", 409, { billing_batch_id: batch.id });
+    }
+    invoiceLeaseToken = lease.lease_token;
 
     const dueDate = clean(body.dueDate || body.due_date || addDays(invoiceDate, profile.payment_terms_days || 0));
     const currencyCode = clean(profile.currency_code || entity.currency || "THB").toUpperCase();
@@ -195,9 +209,14 @@ export async function POST(request) {
     if (!completedBatch?.id || completedBatch.status !== "INVOICED") throw new Error("Practice billing finalization returned no invoiced batch");
     return NextResponse.json({ success: true, idempotent: finalization?.idempotent === true, billing_batch: completedBatch, invoice_id: createdInvoiceId, invoice_total: totalAmount, customer: party.display_name || party.legal_name || "Finance customer", billing_period_key: billingPeriodKey }, { status: 201 });
   } catch (error) {
-    if (batch?.id) {
+    if (batch?.id && invoiceLeaseToken) {
       try {
-        await supabaseAdmin.from("accounting_practice_billing_batches").update({ status: "FAILED", failure_reason: String(error?.message || error).slice(0, 1000), updated_at: new Date().toISOString() }).eq("id", batch.id).in("status", ["PREPARING", "FAILED"]);
+        await supabaseAdmin.rpc("fail_accounting_practice_billing_invoice_lease", {
+          p_accounting_firm_id: clean(batch.accounting_firm_id),
+          p_batch_id: batch.id,
+          p_lease_token: invoiceLeaseToken,
+          p_failure_reason: String(error?.message || error).slice(0, 1000),
+        });
       } catch {}
     }
     const message = error?.message || "Unable to create practice billing invoice";

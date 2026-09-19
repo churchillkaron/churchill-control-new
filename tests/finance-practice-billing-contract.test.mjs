@@ -10,6 +10,7 @@ const atomicPolicyMigration = fs.readFileSync(new URL("../supabase/migrations/20
 const atomicFinalizationMigration = fs.readFileSync(new URL("../supabase/migrations/20260919104500_accounting_practice_billing_finalization_atomicity.sql", import.meta.url), "utf8");
 const recoveryMigration = fs.readFileSync(new URL("../supabase/migrations/20260919111500_accounting_practice_billing_recovery.sql", import.meta.url), "utf8");
 const batchClaimMigration = fs.readFileSync(new URL("../supabase/migrations/20260919114000_accounting_practice_billing_batch_claim.sql", import.meta.url), "utf8");
+const invoiceLeaseMigration = fs.readFileSync(new URL("../supabase/migrations/20260919114900_accounting_practice_billing_invoice_lease.sql", import.meta.url), "utf8");
 
 test("practice billing hands off only through canonical customer invoice authority", () => {
   assert.match(route, /createCustomerInvoiceCommand/);
@@ -165,12 +166,13 @@ test("recovery finalizes an existing canonical invoice or voids only safe uninvo
   assert.match(recoveryMigration, /'state', 'WAITING'/);
 });
 
-test("slow concurrent invoice creation rechecks the live billing batch immediately before AR authority", () => {
-  const liveIndex = route.indexOf("const { data: liveBatch");
+test("slow concurrent invoice creation must acquire the batch lease immediately before AR authority", () => {
+  const leaseIndex = route.indexOf('rpc("acquire_accounting_practice_billing_invoice_lease"');
   const invoiceIndex = route.indexOf("const result = await createCustomerInvoiceCommand");
-  assert.ok(liveIndex >= 0 && invoiceIndex > liveIndex);
-  assert.match(route, /!\["PREPARING", "FAILED"\]\.includes\(liveBatch\.status\)/);
-  assert.match(route, /Billing batch changed before invoice creation/);
+  assert.ok(leaseIndex >= 0 && invoiceIndex > leaseIndex);
+  assert.match(route, /leaseState === "BUSY"/);
+  assert.match(route, /leaseState !== "ACQUIRED"/);
+  assert.match(route, /invoiceLeaseToken = lease\.lease_token/);
 });
 
 test("Time and WIP visibly exposes unresolved billing recovery instead of another invoice action", () => {
@@ -216,4 +218,48 @@ test("billing batch claim independently validates engagement profile totals curr
   assert.match(batchClaimMigration, /security invoker/);
   assert.match(batchClaimMigration, /revoke all on function public\.claim_accounting_practice_billing_batch/);
   assert.match(batchClaimMigration, /to service_role/);
+});
+
+test("invoice creation is protected by a token-bound expiring batch lease", () => {
+  assert.match(route, /\.rpc\("acquire_accounting_practice_billing_invoice_lease"/);
+  assert.match(route, /invoiceLeaseToken = lease\.lease_token/);
+  assert.match(route, /leaseState === "BUSY"/);
+  assert.match(route, /Billing invoice creation is already processing/);
+  assert.match(invoiceLeaseMigration, /invoice_lease_token uuid/);
+  assert.match(invoiceLeaseMigration, /invoice_lease_expires_at timestamptz/);
+  assert.match(invoiceLeaseMigration, /v_batch\.invoice_lease_expires_at > now\(\)/);
+  assert.match(invoiceLeaseMigration, /'state', 'BUSY'/);
+  assert.match(invoiceLeaseMigration, /v_token := gen_random_uuid\(\)/);
+});
+
+test("expired invoice leases are reclaimable and bounded by a short server lease", () => {
+  assert.match(invoiceLeaseMigration, /greatest\(60, least\(coalesce\(p_lease_seconds, 300\), 900\)\)/);
+  assert.match(invoiceLeaseMigration, /invoice_lease_expires_at > now\(\) then[\s\S]*'state', 'BUSY'/);
+  assert.match(invoiceLeaseMigration, /v_token := gen_random_uuid\(\)/);
+  assert.match(invoiceLeaseMigration, /invoice_lease_token = v_token/);
+  assert.match(invoiceLeaseMigration, /invoice_lease_expires_at = now\(\) \+ make_interval/);
+});
+
+test("only the owning invoice lease token can record a failed billing attempt", () => {
+  assert.match(route, /\.rpc\("fail_accounting_practice_billing_invoice_lease"/);
+  assert.match(route, /p_lease_token: invoiceLeaseToken/);
+  assert.match(invoiceLeaseMigration, /v_batch\.invoice_lease_token is distinct from p_lease_token/);
+  assert.match(invoiceLeaseMigration, /PRACTICE_BILLING_INVOICE_LEASE_MISMATCH/);
+  assert.match(invoiceLeaseMigration, /set status = 'FAILED'/);
+  assert.match(invoiceLeaseMigration, /invoice_lease_token = null/);
+});
+
+test("terminal practice billing states clear invoice leases automatically", () => {
+  assert.match(invoiceLeaseMigration, /new\.status in \('INVOICED','VOID'\)/);
+  assert.match(invoiceLeaseMigration, /new\.invoice_lease_token := null/);
+  assert.match(invoiceLeaseMigration, /new\.invoice_lease_expires_at := null/);
+  assert.match(invoiceLeaseMigration, /before update of status on public\.accounting_practice_billing_batches/);
+});
+
+test("billing invoice lease functions stay invoker-safe and service-role isolated", () => {
+  assert.match(invoiceLeaseMigration, /security invoker/);
+  assert.match(invoiceLeaseMigration, /revoke all on function public\.acquire_accounting_practice_billing_invoice_lease/);
+  assert.match(invoiceLeaseMigration, /revoke all on function public\.fail_accounting_practice_billing_invoice_lease/);
+  assert.match(invoiceLeaseMigration, /from public, anon, authenticated/);
+  assert.match(invoiceLeaseMigration, /to service_role/);
 });

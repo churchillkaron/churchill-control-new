@@ -27,7 +27,7 @@ export default function ProductFinder({ products, groups }) {
         </div>
       </div>
       <div className="mt-6 divide-y divide-[#CFC5B8]/50 border-y border-[#CFC5B8]/55">
-        {visible.slice(0,28).map((product)=><a key={product.id} href={product.href || `/products/${product.id}`} className="grid gap-3 py-4 transition hover:bg-white/45 lg:grid-cols-[1fr_1.65fr_.5fr] lg:items-center lg:px-3">
+        {visible.slice(0,28).map((product)=><a key={product.id} href={`/products/${product.id}`} className="grid gap-3 py-4 transition hover:bg-white/45 lg:grid-cols-[1fr_1.65fr_.5fr] lg:items-center lg:px-3">
           <div><div className="text-[12px] font-semibold text-[#2E2924]">{product.name}</div><div className="mt-1 text-[8px] text-[#827A72]">{product.buyers}</div></div>
           <div className="text-[10px] leading-5 text-[#5F5952]">{product.summary}</div>
           <div className="text-[8px] font-semibold text-[#815B36] lg:text-right">Explore</div>

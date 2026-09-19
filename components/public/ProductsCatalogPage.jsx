@@ -142,21 +142,18 @@ function MarketsSystemArt() {
 
 function PortalExperienceArt({ compact = false }) {
   const panes = [
-    ["Customer", "/art/generated/products/products-industry-v2.png", "Bookings · payments · documents · messages"],
-    ["Staff", "/art/generated/products/products-people-v1.png", "Work · shifts · requests · payroll"],
-    ["Supplier", "/art/generated/products/products-stock-v1.png", "POs · delivery · invoices · payment status"],
+    ["Customer", "/art/generated/solutions/verticals/solution-hotel-v1.png", "Bookings · payments · documents · messages", "/products/customer-portal"],
+    ["Staff", "/art/generated/products/products-people-v1.png", "Work · shifts · requests · payroll", "/products/staff-portal"],
+    ["Supplier", "/art/generated/products/products-stock-v1.png", "POs · delivery · invoices · payment status", "/products/supplier-portal"],
   ];
   return (
     <div className={`relative overflow-hidden bg-[#EDE3D5] ${compact ? "h-full" : "min-h-[390px] rounded-[30px] border border-[#C8B7A0]/45 p-4 shadow-[0_24px_70px_rgba(56,39,22,.08)] sm:p-5"}`}>
       <div className={`${compact ? "absolute inset-0 grid grid-cols-3" : "relative grid min-h-[350px] grid-cols-3 gap-2 rounded-[24px] border border-white/70 bg-white/30 p-2 backdrop-blur-sm"}`}>
-        {panes.map(([title,image,detail])=><div key={title} className="group/portal relative overflow-hidden rounded-[18px] border border-white/60 bg-[#E9DFD1]">
-          <Image src={image} alt="" fill sizes={compact ? "10vw" : "18vw"} className="object-cover transition duration-700 group-hover/portal:scale-[1.03]" />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(25,18,12,.08)_52%,rgba(25,18,12,.58))]" />
-          <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
-            <div className="text-[9px] font-semibold tracking-[-.02em] text-white sm:text-[12px]">{title}</div>
-            {!compact ? <div className="mt-1 text-[6px] leading-3 text-white/70 sm:text-[7px]">{detail}</div> : null}
-          </div>
-        </div>)}
+        {panes.map(([title,image,detail,href])=>{
+          const imageClass=title==="Supplier" ? "object-cover object-[52%_72%] scale-[1.16] transition duration-700 group-hover/portal:scale-[1.19]" : "object-cover transition duration-700 group-hover/portal:scale-[1.03]";
+          const body=<><Image src={image} alt="" fill sizes={compact ? "10vw" : "18vw"} className={imageClass} /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(25,18,12,.08)_52%,rgba(25,18,12,.58))]" /><div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4"><div className="text-[9px] font-semibold tracking-[-.02em] text-white sm:text-[12px]">{title}</div>{!compact ? <div className="mt-1 text-[6px] leading-3 text-white/70 sm:text-[7px]">{detail}</div> : null}</div></>;
+          return compact ? <div key={title} className="group/portal relative overflow-hidden rounded-[18px] border border-white/60 bg-[#E9DFD1]">{body}</div> : <a key={title} href={href} className="group/portal relative overflow-hidden rounded-[18px] border border-white/60 bg-[#E9DFD1]">{body}</a>;
+        })}
       </div>
       {!compact ? <div className="absolute bottom-7 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/72 bg-[#F8F1E8]/90 px-5 py-2.5 text-center shadow-[0_14px_35px_rgba(55,39,22,.12)] backdrop-blur-xl"><div className="text-[6px] font-semibold uppercase tracking-[.18em] text-[#A36F39]">ONE BUSINESS CONTEXT</div><div className="mt-1 whitespace-nowrap text-[7px] text-[#6D6257]">Different people · exact permissions · same live records</div></div> : null}
     </div>

@@ -139,7 +139,7 @@
     },
     {
       "path": "/api/internal/reputation/google-reviews/repair-duplicates?organization_id=33336a72-acb5-474e-856b-8be0269360e2&limit=5",
-      "schedule": "0 0 1 1 *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/internal/commercial/loyalty/process-events",

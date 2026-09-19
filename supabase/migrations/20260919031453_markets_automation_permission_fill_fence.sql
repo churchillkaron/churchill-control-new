@@ -37,6 +37,7 @@ declare
   v_protective_source text;
   v_automation_generated boolean;
   v_ordinary_automation boolean;
+  v_automation_sizing_approved boolean;
   v_protective_reason text;
   v_protective_evidence_reason text;
   v_protective_evidence_position_id text;
@@ -557,6 +558,27 @@ begin  v_expected_revision := nullif(
      and upper(coalesce(v_order.side, '')) = 'SELL'
      and v_automation_policy.allow_sells is false then
     raise exception 'PAPER_AUTOMATED_SELLS_DISABLED';
+  end if;
+
+  v_automation_sizing_approved := coalesce(
+    nullif(
+      p_execution_quality #>> '{risk_revalidation,automation_sizing_revalidation,approved}',
+      ''
+    )::boolean,
+    false
+  );
+
+  if v_ordinary_automation
+     and v_automation_sizing_approved is not true then
+    raise exception 'PAPER_AUTOMATION_SIZING_REVALIDATION_REQUIRED';
+  end if;
+
+  if v_ordinary_automation
+     and coalesce(v_decision.confidence, 0) < greatest(
+       coalesce(v_automation_policy.min_confidence, 0.75),
+       coalesce(v_risk_policy.min_decision_confidence, 0.7)
+     ) then
+    raise exception 'PAPER_AUTOMATION_CONFIDENCE_BELOW_CURRENT_FLOOR';
   end if;
 
   if v_protective_source = 'DETERMINISTIC_PORTFOLIO_CIRCUIT_BREAKER'

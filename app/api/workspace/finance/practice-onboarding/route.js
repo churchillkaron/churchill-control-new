@@ -13,7 +13,7 @@ import { evaluatePracticeEngagementReadiness } from "@/lib/finance/practice/Fina
 
 const MANAGE_PERMISSIONS = ["finance.accounting.manage", "finance.configuration.manage"];
 function clean(value) { return String(value ?? "").trim(); }
-function jsonError(error, status = 400) { return NextResponse.json({ success: false, error }, { status }); }
+function jsonError(error, status = 400, extra = {}) { return NextResponse.json({ success: false, error, ...extra }, { status }); }
 async function requireView(access) { await checkFinancePermission({ organizationId: access.organizationId, userId: access.user?.id, permissionKey: "finance.view", fullAccess: access.permissions?.includes("*") === true }); }
 async function requireManage(access) {
   if (access.permissions?.includes("*") === true) return;
@@ -193,10 +193,23 @@ export async function POST(request) {
       const { data: link, error: linkError } = await supabaseAdmin.from("enterprise_document_links").select("enterprise_document_id").eq("organization_id", access.organizationId).eq("reference_type", "ACCOUNTING_ENGAGEMENT").eq("reference_id", engagement.id).eq("relation_type", "CONTRACT").order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (linkError) throw linkError;
       if (!link) return jsonError("Link the engagement document before requesting signature", 409);
+      const { data: activeSignature, error: activeSignatureError } = await supabaseAdmin
+        .from("document_signature_requests")
+        .select("id,status,signer_name,signer_email,version_number")
+        .eq("organization_id", access.organizationId)
+        .eq("enterprise_document_id", link.enterprise_document_id)
+        .eq("provider", "avantiqo_native_esign")
+        .in("status", ["PENDING", "SENT", "VIEWED"])
+        .order("requested_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (activeSignatureError) throw activeSignatureError;
+      if (activeSignature) return jsonError("An active signature request already exists for this engagement document", 409, { signature_request_id: activeSignature.id, signature_status: activeSignature.status });
       const signerName = clean(body.signerName || body.signer_name);
-      const signerEmail = clean(body.signerEmail || body.signer_email);
-      if (!signerName && !signerEmail) return jsonError("Signer name or email is required; Avantiqo will not guess the client signer", 400);
-      const signature = await createFinanceEngagementSignatureRequest({ accountingFirmId: access.organizationId, documentId: link.enterprise_document_id, entityId: engagement.entity_id || null, actor: access, signerName: signerName || null, signerEmail: signerEmail || null, expiresAt: body.expiresAt || body.expires_at || null });
+      const signerEmail = clean(body.signerEmail || body.signer_email).toLowerCase();
+      if (!signerName || !signerEmail) return jsonError("Signer name and signer email are required; Avantiqo will not guess the client signer identity", 400);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signerEmail)) return jsonError("Signer email must be a valid email address", 400);
+      const signature = await createFinanceEngagementSignatureRequest({ accountingFirmId: access.organizationId, documentId: link.enterprise_document_id, entityId: engagement.entity_id || null, actor: access, signerName, signerEmail, expiresAt: body.expiresAt || body.expires_at || null });
       return NextResponse.json({ success: true, signature }, { status: 201 });
     }
 

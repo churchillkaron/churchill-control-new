@@ -335,3 +335,29 @@ test("live diagnosis completion telemetry is restricted to sanitized status fiel
   assert.doesNotMatch(live,/raw_reasoning/);
   assert.doesNotMatch(live,/raw_web_content/);
 });
+
+test("operator GET snapshot delivery cannot bypass the verified snapshot loader",()=>{
+  const route=fs.readFileSync("app/api/operator/turn/route.js","utf8");
+  const getStart=route.indexOf("export async function GET");
+  const postStart=route.indexOf("export async function POST",getStart);
+  const getSource=route.slice(getStart,postStart);
+  assert.match(getSource,/loadIntelligenceConversationSnapshot\(\{/);
+  assert.match(getSource,/turns: snapshot\?\.turns \|\| \[\]/);
+  assert.doesNotMatch(getSource,/from\("intelligence_turns"\)/);
+  assert.doesNotMatch(getSource,/supabaseAdmin/);
+  assert.doesNotMatch(getSource,/authenticity_mac/);
+  assert.doesNotMatch(getSource,/scope_user_turn_id/);
+});
+
+test("autonomous watch read paths reuse the verified snapshot loader instead of raw conversation evidence",()=>{
+  for(const file of [
+    "app/api/operator/autonomous-watch/settings/route.js",
+    "app/api/operator/autonomous-watch/alert/route.js",
+  ]){
+    const source=fs.readFileSync(file,"utf8");
+    assert.match(source,/loadIntelligenceConversationSnapshot/);
+    assert.doesNotMatch(source,/from\("intelligence_turns"\)/);
+    assert.doesNotMatch(source,/authenticity_mac/);
+    assert.doesNotMatch(source,/scope_user_content_fingerprint/);
+  }
+});

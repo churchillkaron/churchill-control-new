@@ -12,6 +12,7 @@ const recoveryMigration = fs.readFileSync(new URL("../supabase/migrations/202609
 const batchClaimMigration = fs.readFileSync(new URL("../supabase/migrations/20260919114000_accounting_practice_billing_batch_claim.sql", import.meta.url), "utf8");
 const invoiceLeaseMigration = fs.readFileSync(new URL("../supabase/migrations/20260919114900_accounting_practice_billing_invoice_lease.sql", import.meta.url), "utf8");
 const recoveryLeaseGuardMigration = fs.readFileSync(new URL("../supabase/migrations/20260919120500_accounting_practice_billing_recovery_lease_guard.sql", import.meta.url), "utf8");
+const retryLivenessMigration = fs.readFileSync(new URL("../supabase/migrations/20260919123000_accounting_practice_billing_retry_liveness.sql", import.meta.url), "utf8");
 
 test("practice billing hands off only through canonical customer invoice authority", () => {
   assert.match(route, /createCustomerInvoiceCommand/);
@@ -294,4 +295,40 @@ test("lease-aware recovery remains invoker-safe and service-role isolated", () =
   assert.match(recoveryLeaseGuardMigration, /revoke all on function public\.recover_accounting_practice_billing_batch/);
   assert.match(recoveryLeaseGuardMigration, /from public, anon, authenticated/);
   assert.match(recoveryLeaseGuardMigration, /to service_role/);
+});
+
+test("governed recovery marks automatic voids so the same durable billing identity can retry", () => {
+  assert.match(retryLivenessMigration, /'recovery_auto_void', true/);
+  assert.match(retryLivenessMigration, /'recovery_auto_voided_at', now\(\)/);
+  assert.match(retryLivenessMigration, /'recovery_auto_void_reason', v_void_reason/);
+  assert.match(retryLivenessMigration, /if v_batch\.status = 'VOID' then/);
+  assert.match(retryLivenessMigration, /coalesce\(v_batch\.metadata->>'recovery_auto_void', 'false'\) <> 'true'/);
+  assert.match(retryLivenessMigration, /PRACTICE_BILLING_VOID_BATCH_NOT_RETRYABLE/);
+});
+
+test("exact-scope auto-voided batches reopen instead of dead-ending on the unique idempotency key", () => {
+  const scopeIndex = retryLivenessMigration.indexOf("PRACTICE_BILLING_IDEMPOTENCY_SCOPE_CONFLICT");
+  const reopenIndex = retryLivenessMigration.indexOf("set status = 'PREPARING'");
+  assert.ok(scopeIndex >= 0 && reopenIndex > scopeIndex);
+  assert.match(retryLivenessMigration, /'recovery_auto_void', false/);
+  assert.match(retryLivenessMigration, /'recovery_reopened_at', now\(\)/);
+  assert.match(retryLivenessMigration, /'recovery_reopen_count', v_reopen_count \+ 1/);
+  assert.match(retryLivenessMigration, /failure_reason = null/);
+});
+
+test("a late canonical invoice on an auto-voided batch is finalized before any retry can create another invoice", () => {
+  const invoiceLookupIndex = retryLivenessMigration.indexOf("from public.customer_invoices");
+  const finalizationIndex = retryLivenessMigration.lastIndexOf("finalize_accounting_practice_billing_batch");
+  assert.ok(invoiceLookupIndex >= 0 && finalizationIndex > invoiceLookupIndex);
+  assert.match(retryLivenessMigration, /source_document_id = v_batch\.id/);
+  assert.match(retryLivenessMigration, /if v_invoice\.id is not null then/);
+  assert.match(retryLivenessMigration, /select \* into v_batch[\s\S]*accounting_practice_billing_batches/);
+});
+
+test("retry-liveness claim and recovery replacements remain service-role-only", () => {
+  assert.match(retryLivenessMigration, /security invoker/);
+  assert.match(retryLivenessMigration, /revoke all on function public\.recover_accounting_practice_billing_batch/);
+  assert.match(retryLivenessMigration, /revoke all on function public\.claim_accounting_practice_billing_batch/);
+  assert.match(retryLivenessMigration, /from public, anon, authenticated/);
+  assert.match(retryLivenessMigration, /to service_role/);
 });

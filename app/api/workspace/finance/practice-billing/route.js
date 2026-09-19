@@ -132,7 +132,8 @@ export async function POST(request) {
     if (["FIXED_FEE","HYBRID"].includes(profile.billing_method) && fixedValue <= 0) return jsonError("Fixed fee amount must be configured before invoicing", 409);
     const subtotal = Math.round((profile.billing_method === "TIME_AND_MATERIALS" ? timeValue : profile.billing_method === "FIXED_FEE" ? fixedValue : fixedValue + timeValue) * 100) / 100;
     if (subtotal <= 0) return jsonError("Billing amount must be greater than zero", 409);
-    const taxAmount = Math.round(subtotal * Number(profile.tax_rate_percent || 0)) / 100;
+    const taxRatePercent = Number(profile.tax_rate_percent || 0);
+    const taxAmount = Math.round(subtotal * taxRatePercent) / 100;
     const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
     const entryIds = rows.map((row) => row.id).sort();
     const requestedInvoiceDate = clean(body.invoiceDate || body.invoice_date);
@@ -152,6 +153,7 @@ export async function POST(request) {
     const billingPeriodKey = clean(body.billingPeriodKey || body.billing_period_key) || periodKey(billingDate, cadence);
     const periodStart = rows[0]?.work_date || billingDate;
     const periodEnd = rows[rows.length - 1]?.work_date || billingDate;
+    const serviceDescription = `${engagement.service_package || "Professional accounting services"} · ${periodStart} to ${periodEnd}`;
     const key = `practice-wip:${sha(JSON.stringify({
       engagementId,
       billingPeriodKey,
@@ -167,7 +169,9 @@ export async function POST(request) {
       customerPartyId: profile.customer_party_id,
       revenueAccountId: profile.revenue_account_id,
       taxRuleId: profile.tax_rule_id,
+      taxRatePercent,
       billingTimezone: billingTimezone || null,
+      serviceDescription,
     })).slice(0, 40)}`;
 
     const batchMetadata = {
@@ -184,7 +188,9 @@ export async function POST(request) {
       customer_party_id: profile.customer_party_id,
       revenue_account_id: profile.revenue_account_id,
       tax_rule_id: profile.tax_rule_id,
+      tax_rate_percent: taxRatePercent,
       billing_timezone: billingTimezone || null,
+      service_description: serviceDescription,
     };
     const { data: claimedBatch, error: claimError } = await supabaseAdmin.rpc("claim_accounting_practice_billing_batch", {
       p_accounting_firm_id: access.organizationId,
@@ -231,14 +237,26 @@ export async function POST(request) {
     }
     invoiceLeaseToken = lease.lease_token;
 
-    const currencyCode = batchCurrency;
-    const description = `${engagement.service_package || "Professional accounting services"} · ${periodStart} to ${periodEnd}`;
+    const executionBatch = lease?.billing_batch || batch;
+    const executionMetadata = executionBatch?.metadata || {};
+    const executionEntityId = clean(executionMetadata.billing_entity_id);
+    const executionCustomerPartyId = clean(executionMetadata.customer_party_id);
+    const executionRevenueAccountId = clean(executionMetadata.revenue_account_id);
+    const executionTaxRuleId = clean(executionMetadata.tax_rule_id);
+    const executionInvoiceDate = clean(executionBatch?.invoice_date || executionMetadata.invoice_date);
+    const executionDueDate = clean(executionBatch?.due_date || executionMetadata.due_date);
+    const executionCurrencyCode = clean(executionBatch?.currency_code || executionMetadata.currency_code).toUpperCase();
+    const executionDescription = clean(executionMetadata.service_description);
+    if (!executionEntityId || !executionCustomerPartyId || !executionRevenueAccountId || !executionTaxRuleId || !validIsoDate(executionInvoiceDate) || !validIsoDate(executionDueDate) || !/^[A-Z]{3}$/.test(executionCurrencyCode) || !executionDescription) {
+      throw new Error("Practice billing execution snapshot is incomplete");
+    }
+
     const result = await createCustomerInvoiceCommand({
-      organization_id: access.organizationId, entity_id: profile.billing_entity_id, party_id: profile.customer_party_id,
-      invoice_date: invoiceDate, due_date: dueDate, currency_code: currencyCode,
-      lines: [{ description, quantity: 1, unit_price: subtotal, discount_amount: 0, tax_amount: taxAmount, tax_rule_id: profile.tax_rule_id || null, tax_code_id: profile.tax_rule_id || null, revenue_account_id: profile.revenue_account_id || null }],
-      tax_amount: taxAmount, notes: `Accounting practice billing from governed WIP batch ${batch.id}`, created_by: access.user?.id || null,
-      idempotency_key: key, source_document_type: "ACCOUNTING_PRACTICE_WIP", source_document_id: batch.id,
+      organization_id: access.organizationId, entity_id: executionEntityId, party_id: executionCustomerPartyId,
+      invoice_date: executionInvoiceDate, due_date: executionDueDate, currency_code: executionCurrencyCode,
+      lines: [{ description: executionDescription, quantity: 1, unit_price: Number(executionBatch.subtotal), discount_amount: 0, tax_amount: Number(executionBatch.tax_amount), tax_rule_id: executionTaxRuleId, tax_code_id: executionTaxRuleId, revenue_account_id: executionRevenueAccountId }],
+      tax_amount: Number(executionBatch.tax_amount), notes: `Accounting practice billing from governed WIP batch ${executionBatch.id}`, created_by: access.user?.id || null,
+      idempotency_key: executionBatch.idempotency_key, source_document_type: "ACCOUNTING_PRACTICE_WIP", source_document_id: executionBatch.id,
     });
     const createdInvoiceId = invoiceId(result);
     if (!createdInvoiceId) throw new Error("Customer invoice authority returned no invoice id");

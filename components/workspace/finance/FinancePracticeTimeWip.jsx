@@ -116,7 +116,10 @@ export default function FinancePracticeTimeWip({ organizationId, initialEngageme
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to save billing policy");
-      setNotice(`Billing policy saved.${body?.repriced_entries ? ` ${body.repriced_entries} unpriced WIP entr${body.repriced_entries === 1 ? "y" : "ies"} updated by your explicit choice.` : " Future time entries will snapshot the governed rate."}`);
+      const blockers = Array.isArray(body?.billing_policy_blockers) ? body.billing_policy_blockers : [];
+      setNotice(blockers.length
+        ? `Billing policy saved, but setup is not complete: ${blockers.join(", ")}.`
+        : `Billing policy complete.${body?.repriced_entries ? ` ${body.repriced_entries} unpriced WIP entr${body.repriced_entries === 1 ? "y" : "ies"} updated by your explicit choice.` : " Future time entries will snapshot the governed rate."}`);
       await load();
     } catch (error) { setNotice(error?.message || "Unable to save billing policy"); }
     finally { setSaving(false); }

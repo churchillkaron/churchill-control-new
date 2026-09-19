@@ -7,6 +7,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { loadCompletePracticeRows, loadCompletePracticeRowsByIds } from "@/lib/finance/practice/FinancePracticePopulation";
+import { practiceBillingPolicyBlockers } from "@/lib/finance/practice/FinancePracticeBillingPolicyReadiness";
 
 const MANAGE_PERMISSIONS = ["finance.accounting.manage", "finance.configuration.manage"];
 const OPEN_ITEM_STATUSES = ["NOT_STARTED", "READY", "IN_PROGRESS", "WAITING_ON_CLIENT", "BLOCKED", "READY_FOR_REVIEW", "CHANGES_REQUESTED"];
@@ -221,17 +222,9 @@ function buildSummary({ context, entries }) {
     const fixedValue = ["FIXED_FEE", "HYBRID"].includes(profile?.billing_method) ? Number(profile?.fixed_fee_amount || 0) : 0;
     const unpriced = scoped.filter((entry) => entry.billing_rate == null);
     const amount = profile?.billing_method === "FIXED_FEE" ? fixedValue : profile?.billing_method === "HYBRID" ? fixedValue + timeValue : timeValue;
-    const blockers = [];
-    if (!profile) blockers.push("Billing policy missing");
-    if (profile && !profile.billing_entity_id) blockers.push("Billing entity missing");
-    if (profile && !profile.customer_party_id) blockers.push("Finance customer missing");
-    if (profile && !profile.revenue_account_id) blockers.push("Revenue account missing");
-    if (profile && !profile.tax_rule_id) blockers.push("Tax rule missing");
-    if (profile && profile.tax_treatment_confirmed !== true) blockers.push("Tax treatment not confirmed");
-    if (["FIXED_FEE", "HYBRID"].includes(profile?.billing_method) && fixedValue <= 0) blockers.push("Fixed fee missing");
+    const blockers = practiceBillingPolicyBlockers(profile);
     if (["TIME_AND_MATERIALS", "HYBRID"].includes(profile?.billing_method) && unpriced.length) blockers.push("Unpriced approved time");
     if (profile?.billing_method === "TIME_AND_MATERIALS" && !scoped.length) blockers.push("No approved WIP");
-    if (profile && profile.billing_cadence !== "ON_DEMAND" && !profile.next_billing_date) blockers.push("Next billing date missing");
     if (profile?.billing_method === "NON_BILLABLE") blockers.push("Engagement is non-billable");
     return {
       engagement_id: engagement.id, organization_id: engagement.organization_id, client_name: orgNames.get(engagement.organization_id) || "Client organization",
@@ -369,7 +362,7 @@ export async function POST(request) {
         if (repriceError) throw repriceError;
         repriced_entries = (repriced || []).length;
       }
-      return NextResponse.json({ success: true, billing_profile: data, repriced_entries });
+      return NextResponse.json({ success: true, billing_profile: data, billing_policy_blockers: practiceBillingPolicyBlockers(data), repriced_entries });
     }
 
     const workItemId = clean(body.workItemId || body.work_item_id);

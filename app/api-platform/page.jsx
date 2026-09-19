@@ -1,5 +1,5 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
-import PublicArtStage from "@/components/public/PublicArtStage";
+import Image from "next/image";
 
 export const metadata = {
   title: "API Platform | Avantiqo",
@@ -41,8 +41,11 @@ export default function ApiPlatformPage() {
               </div>
             </div>
           </div>
-          <div className="relative min-h-[540px] overflow-hidden border-t border-black/[0.06] bg-[#11110F] lg:min-h-0 lg:border-l lg:border-t-0">
-            <PublicArtStage kind="api" />
+          <div className="relative m-5 min-h-[540px] overflow-hidden rounded-[34px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_34px_100px_rgba(68,47,25,.13)] sm:m-7 lg:ml-0 lg:min-h-0 lg:self-stretch">
+            <Image src="/art/generated/developers/developer-integration-v1.png" alt="Avantiqo developer integration work" fill priority sizes="56vw" className="object-cover" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(20,15,10,.03)_52%,rgba(20,15,10,.24))]" />
+            <div className="absolute left-5 top-5 rounded-full border border-white/68 bg-[#F8F0E6]/72 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.22em] text-[#8D6339] backdrop-blur-xl">AVANTIQO / API PLATFORM</div>
+            <div className="absolute bottom-5 left-5 right-5 rounded-[22px] border border-white/72 bg-[#F8F1E8]/88 p-5 text-[#2B251F] shadow-[0_18px_50px_rgba(0,0,0,.12)] backdrop-blur-xl"><div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#A36F39]">BUILD · CONNECT · VERIFY</div><div className="mt-2 text-[13px] leading-6 text-[#685E54]">Use governed Avantiqo capabilities from your own products and workflows.</div></div>
           </div>
         </div>
       </section>

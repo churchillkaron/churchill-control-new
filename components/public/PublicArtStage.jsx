@@ -10,7 +10,7 @@ function IntelligenceArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#0D0B09] text-white">
     <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_22%,rgba(214,166,106,.18),transparent_31%),radial-gradient(circle_at_22%_78%,rgba(214,166,106,.08),transparent_28%)]"/><GridLines/>
     <svg className="absolute inset-0 h-full w-full opacity-70" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true"><path d="M120 515 C270 430 320 450 455 355 S715 245 875 300" fill="none" stroke="rgba(214,166,106,.28)" strokeWidth="1.2"/><path d="M150 570 C320 520 430 520 590 455 S770 390 875 415" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="1"/>{[[120,515],[455,355],[590,455],[875,300],[875,415]].map(([cx,cy],i)=><circle key={i} cx={cx} cy={cy} r={i===1?7:4} fill="rgba(214,166,106,.76)"/>)}</svg>
-    <div className="absolute left-[7%] top-[11%] max-w-[330px]"><Label>BUSINESS PARTNER</Label><div className="mt-4 text-[32px] font-medium leading-[1.03] tracking-[-.04em] text-white/92">Ask the business. See what needs attention.</div><div className="mt-5 text-[9px] leading-5 text-white/42">Evidence, context and controlled action in one operating picture.</div></div>
+    <div className="absolute left-[7%] top-[11%]"><Label>BUSINESS PARTNER / LIVE CONTEXT</Label></div>
     <div className="absolute bottom-[9%] right-[6%] w-[52%] rounded-[26px] border border-[#D6A66A]/25 bg-[#18130E]/92 p-5 shadow-[0_30px_90px_rgba(0,0,0,.38)] backdrop-blur-xl"><div className="flex items-center justify-between"><Label>LIVE BUSINESS SIGNALS</Label><span className="text-[6px] tracking-[.16em] text-white/28">CONNECTED RECORDS</span></div><div className="mt-5 grid grid-cols-2 gap-2">{[["Cash","Healthy"],["Overdue invoices","12"],["Attendance","6 exceptions"],["Stock","2 risks"]].map(([a,b])=><div key={a} className="rounded-xl border border-white/[.07] bg-black/20 px-3 py-3"><div className="text-[7px] text-white/34">{a}</div><div className="mt-1 text-[11px] text-white/78">{b}</div></div>)}</div></div>
   </div>;
 }
@@ -26,7 +26,7 @@ function DeveloperArt({api=false}){
   const families=api?["FINANCE","DOCUMENTS","INTELLIGENCE","CREATIVE","OPERATIONS","PEOPLE"]:["BUSINESS DATA","CAPABILITIES","WORKFLOWS","WEBHOOKS","SDKs","EMBEDDED"];
   return <div className="absolute inset-0 overflow-hidden bg-[#0A0A09] text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_16%,rgba(214,166,106,.16),transparent_30%),linear-gradient(135deg,#0F0E0C,#070707)]"/><GridLines/>
     <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true"><path d="M105 160 C275 160 280 350 490 350 S720 155 900 155 M105 350 C280 350 320 350 490 350 S720 350 900 350 M105 540 C275 540 290 350 490 350 S715 545 900 545" fill="none" stroke="rgba(214,166,106,.32)" strokeWidth="1.15"/><circle cx="490" cy="350" r="58" fill="rgba(16,13,10,.88)" stroke="rgba(214,166,106,.55)" strokeWidth="1.4"/></svg>
-    <div className="absolute left-[7%] top-[9%]"><Label>{api?"AVANTIQO API":"BUILD FABRIC"}</Label><div className="mt-3 max-w-[320px] text-[26px] leading-[1.04] tracking-[-.035em] text-white/90">{api?"Business capability, exposed cleanly.":"Build on real business capability — not another isolated tool."}</div></div>
+    <div className="absolute left-[7%] top-[9%]"><Label>{api?"AVANTIQO API":"BUILD FABRIC"}</Label></div>
     <div className="absolute left-1/2 top-1/2 flex h-[98px] w-[98px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#D6A66A]/45 bg-[#15110D] shadow-[0_0_55px_rgba(214,166,106,.15)]"><div className="text-center"><div className="text-[8px] font-semibold text-[#E5BC84]">AVANTIQO</div><div className="mt-1 text-[6px] tracking-[.15em] text-white/28">CONTEXT</div></div></div>
     <div className="absolute bottom-[9%] left-[7%] right-[7%] grid grid-cols-3 gap-2 sm:grid-cols-6">{families.map((x,i)=><div key={x} className="rounded-[14px] border border-white/[.08] bg-black/45 px-3 py-3 backdrop-blur-sm"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-2 text-[7px] leading-3 text-white/58">{x}</div></div>)}</div>
   </div>;
@@ -34,14 +34,14 @@ function DeveloperArt({api=false}){
 
 function ComputeArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#090A0B] text-white"><Photo src="/art/commercial-compute.jpg" position="center" opacity={.94}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(4,5,6,.40),rgba(4,5,6,.10)_50%,rgba(4,5,6,.55)),linear-gradient(180deg,rgba(4,5,6,.10),rgba(4,5,6,.72))]"/><GridLines/>
-    <div className="absolute left-[7%] top-[10%] max-w-[360px]"><Label>AVANTIQO COMPUTE</Label><div className="mt-4 text-[30px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">Capacity should disappear behind the workload.</div><div className="mt-4 max-w-[300px] text-[8px] leading-5 text-white/38">Owned hardware first. Specialist capacity only when the job actually needs it.</div></div>
+    <div className="absolute left-[7%] top-[10%]"><Label>AVANTIQO COMPUTE / LIVE FABRIC</Label></div>
     <div className="absolute bottom-[9%] left-[7%] right-[7%] grid grid-cols-4 gap-2">{[["01","OWNED","Local capacity"],["02","QUEUE","Priority work"],["03","ELASTIC","Specialist hardware"],["04","IDLE","Rent spare capacity"]].map(([n,a,b])=><div key={a} className="rounded-[18px] border border-white/[.10] bg-[#111315]/78 p-4 shadow-[0_18px_50px_rgba(0,0,0,.22)] backdrop-blur-lg"><div className="text-[6px] text-[#D6A66A]">{n}</div><div className="mt-5 text-[9px] font-semibold">{a}</div><div className="mt-1 text-[7px] text-white/32">{b}</div></div>)}</div>
   </div>;
 }
 
 function PricingArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#0E0C0A] text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(214,166,106,.16),transparent_30%),linear-gradient(135deg,#15110D,#090807)]"/><GridLines/>
-    <div className="absolute left-[7%] top-[9%]"><Label>ONE ACCOUNT · CLEAR ECONOMICS</Label><div className="mt-3 max-w-[440px] text-[29px] font-medium leading-[1.02] tracking-[-.04em] text-white/90">Four ways to buy value. No infrastructure complexity for normal business software.</div></div>
+    <div className="absolute left-[7%] top-[9%]"><Label>ONE ACCOUNT / CLEAR ECONOMICS</Label></div>
     <div className="absolute inset-x-[7%] bottom-[11%] grid grid-cols-2 gap-2">{[["01","BUSINESS PRODUCTS","Recurring","Run the business"],["02","CREATIVE","Project","Produce finished work"],["03","PLATFORM","Usage","APIs · compute · capability"],["04","ENTERPRISE","Custom","Rollout · migration · service"]].map(([n,a,b,c])=><div key={a} className="rounded-[22px] border border-[#D6A66A]/22 bg-[#17130F]/88 p-5 shadow-[0_20px_60px_rgba(0,0,0,.20)]"><div className="flex items-center justify-between"><span className="text-[7px] text-[#D6A66A]">{n}</span><span className="text-[6px] uppercase tracking-[.15em] text-white/24">{b}</span></div><div className="mt-5 text-[14px] text-white/84">{a}</div><div className="mt-2 text-[7px] text-white/35">{c}</div><div className="mt-5 h-px bg-white/[.07]"><div className="h-px w-[64%] bg-[#D6A66A]/70"/></div></div>)}</div>
   </div>;
 }
@@ -76,10 +76,9 @@ function SolutionsArt(){
         <div className="absolute bottom-4 left-4"><Label>04 · SERVICES</Label><div className="mt-2 text-[8px] text-white/44">Projects · clients · people · finance</div></div>
       </div>
     </div>
-    <div className="absolute left-1/2 top-1/2 w-[54%] -translate-x-1/2 -translate-y-1/2 rounded-[28px] border border-[#D6A66A]/34 bg-[#15110D]/94 p-6 text-center shadow-[0_36px_100px_rgba(0,0,0,.44)] backdrop-blur-xl">
+    <div className="absolute left-1/2 top-1/2 w-[54%] -translate-x-1/2 -translate-y-1/2 rounded-[28px] border border-[#D6A66A]/34 bg-[#15110D]/94 p-5 text-center shadow-[0_36px_100px_rgba(0,0,0,.44)] backdrop-blur-xl">
       <Label>ONE BUSINESS CONTEXT</Label>
-      <div className="mt-4 text-[23px] leading-7 text-white/90">Different industries. The same connected company truth.</div>
-      <div className="mt-5 flex flex-wrap justify-center gap-2">{["PEOPLE","MONEY","CUSTOMERS","STOCK","WORK","INTELLIGENCE"].map(x=><Chip key={x}>{x}</Chip>)}</div>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">{["PEOPLE","MONEY","CUSTOMERS","STOCK","WORK","INTELLIGENCE"].map(x=><Chip key={x}>{x}</Chip>)}</div>
     </div>
   </div>;
 }
@@ -163,7 +162,7 @@ function CodeStudioArt(){
 function FinanceArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#0D0C0A] text-white">
     <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_16%,rgba(214,166,106,.18),transparent_30%),linear-gradient(135deg,#15120F,#0A0908)]"/><GridLines/>
-    <div className="absolute left-[7%] top-[9%] max-w-[360px]"><Label>FINANCE CONTROL</Label><div className="mt-4 text-[30px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">From source document to cash, ledger and close.</div></div>
+    <div className="absolute left-[7%] top-[9%]"><Label>FINANCE CONTROL / LIVE POSITION</Label></div>
     <div className="absolute left-[7%] right-[7%] top-[38%] grid grid-cols-4 gap-2">
       {[["RECEIVABLES","THB 428K","18 open"],["PAYABLES","THB 191K","7 due"],["BANK","MATCHED","96%"],["CLOSE","READY","4 checks"]].map(([a,b,c],i)=><div key={a} className="rounded-[18px] border border-white/[.08] bg-white/[.025] p-4"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-4 text-[7px] tracking-[.13em] text-white/42">{a}</div><div className="mt-2 text-[13px] text-white/84">{b}</div><div className="mt-1 text-[7px] text-white/28">{c}</div></div>)}
     </div>
@@ -175,7 +174,7 @@ function WorkforceArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#11100E] text-white">
     <Photo src="/art/avantiqo-luxury/hospitality-hero.webp" position="center" opacity={.20}/>
     <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,8,7,.96),rgba(9,8,7,.72)_55%,rgba(9,8,7,.90)),radial-gradient(circle_at_78%_18%,rgba(214,166,106,.17),transparent_34%)]"/><GridLines/>
-    <div className="absolute left-[7%] top-[9%] max-w-[350px]"><Label>PEOPLE & WORK</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em] text-white/94">Schedule the team. Capture the work. Pay correctly.</div></div>
+    <div className="absolute left-[7%] top-[9%]"><Label>PEOPLE & WORK / TODAY</Label></div>
     <div className="absolute right-[7%] top-[14%] w-[39%] rounded-[20px] border border-white/[.08] bg-[#17130F]/84 p-4"><div className="flex items-center justify-between"><span className="text-[6px] tracking-[.14em] text-[#D6A66A]">TODAY / ROSTER</span><span className="text-[6px] text-white/24">18 SEP</span></div><div className="mt-4 space-y-2">{[["KITCHEN","08:00–17:00","READY"],["SERVICE","15:00–00:00","12 STAFF"],["BAR","17:00–01:00","4 STAFF"],["MANAGER","14:00–23:00","ON DUTY"]].map(([a,b,c])=><div key={a} className="grid grid-cols-[.75fr_1fr_.65fr] items-center border-b border-white/[.07] pb-2 text-[6px]"><span className="text-white/52">{a}</span><span className="text-white/30">{b}</span><span className="text-right text-[#D6A66A]">{c}</span></div>)}</div></div>
     <div className="absolute bottom-[9%] left-[7%] right-[7%] grid grid-cols-4 gap-2">{[["PLAN","Roster"],["ARRIVE","Clock in"],["REVIEW","Exceptions"],["PAY","Payroll"]].map(([a,b],i)=><div key={a} className="rounded-[16px] border border-white/[.10] bg-black/48 p-4 backdrop-blur-md"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-4 text-[9px]">{a}</div><div className="mt-1 text-[7px] text-white/34">{b}</div></div>)}</div>
   </div>;
@@ -185,7 +184,7 @@ function InventoryArt(){
   const items=[["OLIVE OIL","12.4 L","68%"],["BEEF","18.2 KG","41%"],["WINE","36 BT","77%"],["HERBS","4.8 KG","54%"],["SEAFOOD","8.1 KG","31%"],["DRY GOODS","24 UN","83%"]];
   return <div className="absolute inset-0 overflow-hidden bg-[#120F0B] text-white">
     <div className="absolute inset-0 opacity-[.18]" style={{backgroundImage:"linear-gradient(90deg,rgba(214,166,106,.18) 1px,transparent 1px),linear-gradient(rgba(214,166,106,.10) 1px,transparent 1px)",backgroundSize:"120px 72px"}}/><div className="absolute inset-0 bg-[radial-gradient(circle_at_76%_18%,rgba(214,166,106,.16),transparent_32%),linear-gradient(90deg,rgba(11,8,6,.96),rgba(11,8,6,.72)_58%,rgba(11,8,6,.92))]"/><GridLines/>
-    <div className="absolute left-[7%] top-[9%] max-w-[350px]"><Label>STOCK & FOOD COST</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em] text-white/92">Know what you have. Know what every dish costs.</div></div>
+    <div className="absolute left-[7%] top-[9%]"><Label>STOCK & FOOD COST / LIVE</Label></div>
     <div className="absolute inset-x-[7%] bottom-[9%] grid grid-cols-3 gap-2">{items.map(([a,b,w],i)=><div key={a} className="rounded-[15px] border border-white/[.08] bg-black/42 p-3 backdrop-blur-md"><div className="flex items-center justify-between"><span className="text-[6px] tracking-[.12em] text-white/36">{a}</span><span className="text-[6px] text-[#D6A66A]">0{i+1}</span></div><div className="mt-2 text-[10px] text-white/78">{b}</div><div className="mt-3 h-[2px] bg-white/[.07]"><div className="h-full bg-[#D6A66A]/70" style={{width:w}}/></div></div>)}</div>
   </div>;
 }
@@ -193,14 +192,14 @@ function InventoryArt(){
 function RestaurantArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#0F0C09] text-white">
     <Photo src="/art/avantiqo-luxury/hospitality-hero.webp" position="center" opacity={.92}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,6,4,.62),rgba(8,6,4,.10)_55%,rgba(8,6,4,.52)),linear-gradient(180deg,rgba(0,0,0,.01),rgba(0,0,0,.68))]"/>
-    <div className="absolute left-[7%] top-[9%] max-w-[360px]"><Label>RESTAURANT OPERATING SYSTEM</Label><div className="mt-4 text-[30px] font-medium leading-[1.02] tracking-[-.04em] text-white/94">Service, kitchen, stock, people and finance — one operating picture.</div></div>
+    <div className="absolute left-[7%] top-[9%]"><Label>RESTAURANT / LIVE OPERATIONS</Label></div>
     <div className="absolute bottom-[9%] left-[7%] right-[7%] grid grid-cols-5 gap-2">{["SERVICE","POS","KITCHEN","STOCK","FINANCE"].map((x,i)=><div key={x} className="rounded-[15px] border border-white/[.10] bg-black/48 px-3 py-4 backdrop-blur-md"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-3 text-[7px] tracking-[.11em] text-white/64">{x}</div></div>)}</div>
   </div>;
 }
 
 function HotelArt(){
   return <div className="absolute inset-0 overflow-hidden bg-[#0F0D0B] text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_76%_16%,rgba(214,166,106,.17),transparent_32%)]"/><GridLines/>
-    <div className="absolute left-[7%] top-[9%] max-w-[350px]"><Label>HOTEL OPERATIONS</Label><div className="mt-4 text-[29px] font-medium leading-[1.02] tracking-[-.04em] text-white/94">Guest, room and property operations in one connected flow.</div></div>
+    <div className="absolute left-[7%] top-[9%]"><Label>HOTEL / LIVE OPERATIONS</Label></div>
     <div className="absolute right-[7%] top-[13%] w-[42%] rounded-[22px] border border-white/[.08] bg-[#17130F]/88 p-5 shadow-[0_24px_65px_rgba(0,0,0,.22)]"><div className="flex items-center justify-between"><span className="text-[6px] tracking-[.14em] text-[#D6A66A]">PROPERTY 01</span><span className="text-[6px] text-white/24">TODAY</span></div><div className="mt-5 grid grid-cols-2 gap-2">{[["ARRIVALS","12"],["DEPARTURES","9"],["ROOMS READY","94%"],["OCCUPANCY","87%"]].map(([a,b])=><div key={a} className="rounded-[12px] border border-white/[.07] bg-white/[.025] p-3"><div className="text-[6px] text-white/32">{a}</div><div className="mt-2 text-[12px] text-white/78">{b}</div></div>)}</div></div>
     <div className="absolute bottom-[9%] left-[7%] right-[7%] grid grid-cols-4 gap-2">{[["ARRIVE","Guest context"],["PREPARE","Room · housekeeping"],["SERVE","Requests · maintenance"],["SETTLE","Payment · revenue"]].map(([a,b],i)=><div key={a} className="rounded-[16px] border border-white/[.09] bg-black/34 p-4"><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-4 text-[8px]">{a}</div><div className="mt-1 text-[6px] text-white/30">{b}</div></div>)}</div>
   </div>;

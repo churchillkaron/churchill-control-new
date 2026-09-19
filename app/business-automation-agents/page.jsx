@@ -11,7 +11,7 @@ const config = {
   lead: 'Use agents for repeatable business work while keeping organization scope, permissions, approvals and result checks in place.',
   primary: 'Explore Agents',
   primaryHref: '/agents',
-  image: '/art/commercial-agents.jpg',
+  image: '/art/generated/products/products-intelligence-v2.png',
   panelLabel: 'CONTROLLED BUSINESS AUTOMATION',
   panel: 'Agents can research, prepare and carry out approved work without receiving broader access than the workflow allows.',
   tags: ['CONTEXT', 'PERMISSIONS', 'ACTION', 'REVIEW'],

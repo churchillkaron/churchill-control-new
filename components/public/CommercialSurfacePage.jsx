@@ -1,5 +1,6 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import PublicArtStage from "@/components/public/PublicArtStage";
+import Link from "next/link";
 
 function Arrow({ className = "" }) {
   return (
@@ -157,6 +158,53 @@ const SURFACE_ART = {
 
 function SurfaceArt({ kind }) {
   const art = SURFACE_ART[kind] || SURFACE_ART.agents;
+  if (kind === "compute") {
+    return <div className="relative min-h-[560px] overflow-hidden bg-[#EDE4D8] lg:min-h-[600px]">
+      <div className="absolute inset-0 scale-[1.015] bg-cover transition duration-700" style={{backgroundImage:`url(${art.image})`,backgroundPosition:"58% center"}} />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,252,247,.01),rgba(40,28,18,.04)_52%,rgba(40,28,18,.18))]" />
+      <div className="absolute left-6 top-6 rounded-full border border-white/72 bg-[#F7F0E7]/74 px-3.5 py-1.5 text-[7px] font-semibold uppercase tracking-[.20em] text-[#8E6338] shadow-[0_12px_30px_rgba(55,38,20,.08)] backdrop-blur-lg sm:left-8 sm:top-8">AVANTIQO / COMPUTE</div>
+      <div className="absolute bottom-6 left-6 right-6 rounded-[24px] border border-white/75 bg-[#F8F1E8]/88 p-5 text-[#2A241E] shadow-[0_24px_70px_rgba(40,28,18,.13)] backdrop-blur-xl sm:bottom-8 sm:left-8 sm:right-8 sm:p-6">
+        <div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#A36F39]">OWNED CAPACITY · ELASTIC OVERFLOW</div>
+        <p className="mt-3 max-w-2xl text-[15px] leading-6">Inference, rendering, batch and creative workloads scheduled against the right available hardware.</p>
+        <div className="mt-4 flex flex-wrap gap-2">{art.chips.map(x=><span key={x} className="rounded-full border border-[#B98A52]/24 bg-white/58 px-2.5 py-1 text-[6px] font-semibold tracking-[.16em] text-[#755D45]">{x}</span>)}</div>
+      </div>
+    </div>;
+  }
+  if (["marketplace", "agents", "insights", "integrations", "channels", "commerce"].includes(kind)) {
+    const editorial = {
+      marketplace: { label: "MARKETPLACE", line: "Specialist capabilities and connected services available without fragmenting the operating model." },
+      agents: { label: "CONTROLLED INTELLIGENCE", line: "Specialist work stays connected to business context, permissions, evidence and review." },
+      insights: { label: "DECISION INTELLIGENCE", line: "Current operating evidence becomes clearer signals, forecasts and decisions." },
+      integrations: { label: "CONNECTED SERVICES", line: "Messaging, payments, documents and external providers become part of the same business workflow." },
+      channels: { label: "EVERY BUSINESS SURFACE", line: "Web, mobile, portal, kiosk and POS stay connected to the same customers, records and work." },
+      commerce: { label: "CONNECTED COMMERCE", line: "Selling, payment, settlement and finance remain connected from customer action to the books." },
+    }[kind];
+    return <div className="relative min-h-[560px] overflow-hidden bg-[#EDE4D8] lg:min-h-[600px]">
+      <div className="absolute inset-0 scale-[1.015] bg-cover bg-center transition duration-700" style={{backgroundImage:`url(${art.image})`}} />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,252,247,.02),rgba(40,28,18,.04)_52%,rgba(40,28,18,.18))]" />
+      <div className="absolute left-6 top-6 rounded-full border border-white/72 bg-[#F7F0E7]/72 px-3.5 py-1.5 text-[7px] font-semibold uppercase tracking-[.20em] text-[#8E6338] shadow-[0_12px_30px_rgba(55,38,20,.08)] backdrop-blur-lg sm:left-8 sm:top-8">AVANTIQO / {editorial.label}</div>
+      <div className="absolute bottom-6 left-6 right-6 rounded-[24px] border border-white/75 bg-[#F8F1E8]/88 p-5 text-[#2A241E] shadow-[0_24px_70px_rgba(40,28,18,.13)] backdrop-blur-xl sm:bottom-8 sm:left-8 sm:right-8 sm:p-6">
+        <p className="max-w-2xl text-[15px] leading-6">{editorial.line}</p>
+        <div className="mt-4 flex flex-wrap gap-2">{art.chips.map(x=><span key={x} className="rounded-full border border-[#B98A52]/24 bg-white/58 px-2.5 py-1 text-[6px] font-semibold tracking-[.16em] text-[#755D45]">{x}</span>)}</div>
+      </div>
+    </div>;
+  }
+  if (["services", "partners", "enterprise"].includes(kind)) {
+    const editorial = {
+      services: { image: "/art/generated/solutions/services-go-live-v3.png", label: "IMPLEMENTATION SERVICES", line: "Discovery, migration, configuration, integrations, training and verified go-live.", chips: ["DISCOVER", "MIGRATE", "CONFIGURE", "TRAIN", "GO LIVE"] },
+      partners: { image: "/art/generated/solutions/solutions-partners-v1.png", label: "PARTNER DELIVERY", line: "Accounting firms, agencies, consultants and specialists delivering repeatable client outcomes.", chips: ["CLIENTS", "DELIVERY", "GOVERNANCE", "SCALE"] },
+      enterprise: { image: "/art/generated/solutions/solutions-enterprise-v1.png", label: "ENTERPRISE SCALE", line: "Multi-entity, multi-location governance, portfolio visibility and controlled operating scale.", chips: ["ENTITIES", "LOCATIONS", "GOVERNANCE", "PORTFOLIO"] },
+    }[kind];
+    return <div className="relative min-h-[560px] overflow-hidden bg-[#EDE4D8] lg:min-h-[600px]">
+      <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${editorial.image})`}} />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.02),rgba(42,31,20,.05)_55%,rgba(42,31,20,.22))]" />
+      <div className="absolute left-6 top-6 rounded-full border border-white/70 bg-[#F6EEE4]/76 px-3.5 py-1.5 text-[7px] font-semibold uppercase tracking-[.20em] text-[#8E6338] shadow-[0_12px_30px_rgba(55,38,20,.08)] backdrop-blur-lg sm:left-8 sm:top-8">AVANTIQO / {editorial.label}</div>
+      <div className="absolute bottom-6 left-6 right-6 rounded-[24px] border border-white/72 bg-[#F8F1E8]/88 p-5 text-[#2A241E] shadow-[0_24px_70px_rgba(40,28,18,.14)] backdrop-blur-xl sm:bottom-8 sm:left-8 sm:right-8 sm:p-6">
+        <p className="max-w-2xl text-[15px] leading-6">{editorial.line}</p>
+        <div className="mt-4 flex flex-wrap gap-2">{editorial.chips.map(x=><span key={x} className="rounded-full border border-[#B98A52]/24 bg-white/55 px-2.5 py-1 text-[6px] font-semibold tracking-[.16em] text-[#755D45]">{x}</span>)}</div>
+      </div>
+    </div>;
+  }
   const visual = {
     compute: {
       support: "/art/developer-work.jpg",
@@ -274,7 +322,16 @@ function SurfaceArt({ kind }) {
     kind === "commerce";
 
   if (["compute", "marketplace", "pricing", "solutions", "partners", "enterprise", "services", "agents", "insights", "integrations", "channels", "commerce"].includes(kind)) {
-    return <div className="relative min-h-[560px] overflow-hidden bg-[#F2ECE3] lg:min-h-[690px]"><PublicArtStage kind={kind} /></div>;
+    return <div className="relative min-h-[560px] overflow-hidden bg-[#171614] lg:min-h-[600px]">
+      <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${art.image})`,backgroundPosition:visual.position}} />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.02),rgba(8,7,6,.07)_52%,rgba(8,7,6,.54))]" />
+      <div className="absolute left-5 top-5 rounded-full border border-white/18 bg-[#11100E]/60 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.20em] text-[#F0C98F] backdrop-blur-xl">AVANTIQO / {art.label}</div>
+      <div className="absolute bottom-5 left-5 right-5 rounded-[22px] border border-white/15 bg-[#11100E]/84 p-5 text-white shadow-[0_18px_45px_rgba(0,0,0,.24)] backdrop-blur-xl">
+        <div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">{visual.accent}</div>
+        <p className="mt-3 max-w-xl text-[13px] leading-6 text-white/72">{art.line}</p>
+        <div className="mt-4 flex flex-wrap gap-2">{art.chips.map(x=><span key={x} className="rounded-full border border-white/12 px-2.5 py-1 text-[7px] tracking-[.14em] text-white/55">{x}</span>)}</div>
+      </div>
+    </div>;
   }
 
   if (["enterprise", "services", "partners"].includes(kind)) {
@@ -283,7 +340,7 @@ function SurfaceArt({ kind }) {
       : kind === "services"
         ? [["DISCOVER","Reality"],["CONFIGURE","System"],["LAUNCH","Verified"],["OPTIMIZE","Continuous"]]
         : [["PARTNER","Relationship"],["CLIENTS","Portfolio"],["DELIVERY","Services"],["VALUE","Shared"]];
-    return <div className="relative min-h-[560px] overflow-hidden bg-[#EEE7DC] lg:min-h-[690px]">
+    return <div className="relative min-h-[560px] overflow-hidden bg-[#EEE7DC] lg:min-h-[600px]">
       <div className="absolute inset-0 grid grid-cols-[1.34fr_.66fr] gap-px bg-[#D6A66A]/22">
         <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.02] bg-cover" style={{backgroundImage:`url(${art.image})`,backgroundPosition:visual.position}}/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,15,12,.02),rgba(18,15,12,.07)_52%,rgba(18,15,12,.48))]"/></div>
         <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/22"><div className="relative overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${visual.support})`}}/><div className="absolute inset-0 bg-[#171614]/14"/></div><div className="relative bg-[#F5F0E7]"><div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(214,166,106,.20),transparent_38%)]"/><div className="relative grid h-full grid-cols-2 gap-px bg-[#D6A66A]/18">{nodes.map(([a,b],i)=><div key={a} className="flex flex-col justify-between bg-[#F7F2EA]/90 p-4"><span className="text-[7px] font-semibold text-[#A37849]">0{i+1}</span><div><div className="text-[8px] font-semibold tracking-[0.15em] text-[#2E2924]">{a}</div><div className="mt-1 text-[7px] text-[#85796C]">{b}</div></div></div>)}</div></div></div>
@@ -294,7 +351,7 @@ function SurfaceArt({ kind }) {
   }
 
   return (
-    <div className="relative min-h-[560px] overflow-hidden bg-[#171512] lg:min-h-[690px]">
+    <div className="relative min-h-[560px] overflow-hidden bg-[#171512] lg:min-h-[600px]">
       <div
         className="absolute inset-0 scale-[1.01] bg-cover"
         style={{
@@ -535,7 +592,16 @@ function StoryRail({ kind }) {
         </div>
         <div className="mt-10 grid overflow-hidden rounded-[28px] border border-black/[0.07] bg-[#171716] text-white shadow-[0_26px_80px_rgba(46,34,23,.08)] lg:grid-cols-[.9fr_1.1fr]">
           <div className="relative min-h-[360px] overflow-hidden border-b border-white/[0.08] lg:min-h-[430px] lg:border-b-0 lg:border-r">
-            <PublicArtStage kind={kind} />
+            {kind === "compute" ? (
+              <>
+                <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/commercial-compute.jpg)"}} />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,7,7,.02),rgba(7,7,7,.10)_52%,rgba(7,7,7,.66))]" />
+                <div className="absolute bottom-5 left-5 right-5 rounded-[18px] border border-white/12 bg-[#11100E]/72 p-4 backdrop-blur-xl">
+                  <div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">WORKLOAD ROUTING</div>
+                  <div className="mt-2 text-[11px] leading-5 text-white/68">Owned capacity first. Specialist hardware or overflow only when the workload requires it.</div>
+                </div>
+              </>
+            ) : <PublicArtStage kind={kind} />}
           </div>
           <div className="grid sm:grid-cols-2">
             {story.steps.map(([no, title, text, href], i) => (
@@ -555,7 +621,7 @@ function StoryRail({ kind }) {
                 <div className="mt-2 text-[9px] leading-5 text-white/38">
                   {text}
                 </div>
-                {href ? <a href={href} className="mt-5 inline-flex text-[8px] font-semibold text-[#D6A66A]">Open this solution →</a> : null}
+                {href ? <Link prefetch href={href} className="mt-5 inline-flex text-[8px] font-semibold text-[#D6A66A]">Open this solution →</Link> : null}
                 <div className="absolute inset-x-5 bottom-5 h-px bg-white/[0.07]">
                   <div
                     className="h-px bg-[#D6A66A]/60"
@@ -570,6 +636,23 @@ function StoryRail({ kind }) {
     </section>
   );
 }
+
+const RELATED_ART = {
+  Developers: "/art/developer-work.jpg",
+  Marketplace: "/art/commercial-marketplace.jpg",
+  Pricing: "/art/commercial-pricing.jpg",
+  Services: "/art/commercial-services.jpg",
+  Partners: "/art/commercial-partners.jpg",
+  Enterprise: "/art/commercial-enterprise.jpg",
+  Commerce: "/art/commercial-commerce.jpg",
+  Integrations: "/art/commercial-integrations.jpg",
+  Channels: "/art/commercial-channels.jpg",
+  Solutions: "/art/commercial-solutions.jpg",
+  Agents: "/art/commercial-agents.jpg",
+  Insights: "/art/commercial-insights.jpg",
+  "Creative Studios": "/art/creative-video.jpg",
+  Compute: "/art/commercial-compute.jpg",
+};
 
 const RELATED_KIND = {
   "Developers": "developer",
@@ -691,7 +774,92 @@ const RELATED = {
   ],
 };
 
+
+function PricingExperience({ config }) {
+  const models = [
+    ["01", "Business software", "SUBSCRIPTION", "Recurring access to the operating products your business uses day to day.", ["Finance", "Workforce", "Operations", "Supply Chain"]],
+    ["02", "Creative Studios", "PROJECT", "Production is priced around the actual mission, production scope and delivery requirements.", ["Image", "Video", "Music", "Voice & Audio"]],
+    ["03", "Platform & Compute", "USAGE", "APIs, specialist capabilities and compute scale with the work actually executed.", ["APIs", "Capabilities", "GPU / Compute", "Provider usage"]],
+    ["04", "Enterprise & Services", "QUOTED", "Migration, rollout, integrations, governance and larger operating scope are defined before work begins.", ["Implementation", "Migration", "Integrations", "Enterprise"]],
+  ];
+  const principles = [
+    ["Recurring stays predictable", "Your core business software is not priced like infrastructure. Choose the products you operate and keep the recurring layer clear."],
+    ["Variable cost stays visible", "Creative production, APIs and compute only become usage cost when you actually use those workloads."],
+    ["Large work is scoped first", "Implementation, migration and enterprise work is agreed as a defined scope instead of appearing as surprise consumption."],
+  ];
+  return (
+    <main className="min-h-screen bg-[#F7F4EE] text-[#191816]">
+      <PublicSiteHeader context={config.context} audience="business" links={[{label:"Products",href:"/products"},{label:"Solutions",href:"/solutions"},{label:"Developers",href:"/developers"},{label:"Compute",href:"/compute"}]} />
+
+      <section className="border-b border-black/[0.07] bg-[#F3EEE6]">
+        <div className="mx-auto grid max-w-[1540px] lg:min-h-[650px] lg:grid-cols-[45%_55%]">
+          <div className="flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
+            <div className="max-w-[610px]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/28 bg-white/65 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[.18em] text-[#8A633C]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#A37849]" /> CLEAR SOFTWARE · OPTIONAL USAGE
+              </div>
+              <p className="mt-9 text-[9px] font-semibold uppercase tracking-[.23em] text-[#9A7045]">AVANTIQO PRICING</p>
+              <h1 className="mt-4 text-[50px] font-medium leading-[.96] tracking-[-.065em] sm:text-[64px] lg:text-[72px]">Start with the software. Pay for extra work only when you use it.</h1>
+              <p className="mt-7 max-w-[560px] text-[15px] leading-8 text-[#625D55]">Business products stay simple and recurring. Creative production, APIs and compute are explicit usage. Enterprise rollout and implementation are scoped before work starts.</p>
+              <div className="mt-9 flex flex-wrap gap-2.5">
+                <Link prefetch href="/start" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_10px_28px_rgba(20,18,15,.16)]">Start with Avantiqo <Arrow className="h-3.5 w-3.5" /></Link>
+                <Link prefetch href="/products" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A]">See business products</Link>
+              </div>
+              <div className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[.16em] text-[#9A8F82]">
+                <span>NO HIDDEN INFRASTRUCTURE BILLING</span><span>·</span><span>USAGE ONLY WHERE IT EXISTS</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center border-t border-black/[0.06] p-5 sm:p-7 lg:border-l lg:border-t-0 lg:p-8">
+            <div className="w-full overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#171614] text-white shadow-[0_30px_90px_rgba(68,47,25,.13)]">
+              <div className="border-b border-white/[0.08] px-6 py-5 sm:px-7">
+                <div className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">ONE ACCOUNT · CLEAR ECONOMICS</div>
+                <div className="mt-2 text-[12px] leading-5 text-white/46">Four commercial models. Each appears only where it makes sense.</div>
+              </div>
+              <div className="grid sm:grid-cols-2">
+                {models.map(([no,title,type,desc,chips],i)=><article key={title} className={`min-h-[240px] p-6 sm:p-7 ${i%2===0?'sm:border-r sm:border-white/[0.08]':''} ${i<2?'border-b border-white/[0.08]':''}`}>
+                  <div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#D6A66A]">{no}</span><span className="rounded-full border border-white/12 px-2.5 py-1 text-[6px] font-semibold tracking-[.15em] text-white/48">{type}</span></div>
+                  <h2 className="mt-7 text-[20px] font-semibold tracking-[-.03em] text-white/90">{title}</h2>
+                  <p className="mt-3 text-[10px] leading-5 text-white/42">{desc}</p>
+                  <div className="mt-5 flex flex-wrap gap-1.5">{chips.map(c=><span key={c} className="rounded-full border border-white/[0.09] bg-white/[0.025] px-2.5 py-1 text-[7px] text-white/48">{c}</span>)}</div>
+                </article>)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#FBFAF8]">
+        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
+          <p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">HOW PRICING BEHAVES</p>
+          <div className="mt-3 grid gap-8 lg:grid-cols-[.85fr_1.15fr] lg:items-end">
+            <h2 className="max-w-3xl text-[38px] font-medium leading-[1.03] tracking-[-.05em] sm:text-[50px]">Simple where it should be. Metered only where the work creates variable cost.</h2>
+            <p className="max-w-xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">A restaurant buying Finance should not need to understand GPU billing. A developer running compute should. Avantiqo keeps those economics separate instead of mixing everything into one confusing plan.</p>
+          </div>
+          <div className="mt-10 grid gap-3 md:grid-cols-3">{principles.map(([t,d],i)=><div key={t} className="rounded-[24px] border border-black/[0.07] bg-white p-6 shadow-[0_14px_38px_rgba(50,36,22,.04)]"><div className="text-[8px] font-bold text-[#A37849]">0{i+1}</div><h3 className="mt-7 text-[18px] font-semibold tracking-[-.03em]">{t}</h3><p className="mt-3 text-[10px] leading-5 text-[#777169]">{d}</p></div>)}</div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#EEE8DE]">
+        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
+          <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr]">
+            <div><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">CHOOSE YOUR STARTING POINT</p><h2 className="mt-3 text-[38px] font-medium leading-[1.03] tracking-[-.05em] sm:text-[48px]">Start with the job you need solved now.</h2><p className="mt-5 max-w-md text-[13px] leading-7 text-[#706A62]">You do not have to buy every Avantiqo layer. Begin with business software, a creative mission, developer access or implementation support.</p></div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[["Business Products","Run finance, people, operations, inventory and customer work.","/products"],["Creative Studios","Commission image, video, music, voice and production work.","/creative-studios"],["Developers & Compute","Use APIs, capabilities and infrastructure when your product needs them.","/developers"],["Solutions & Services","Roll out an industry setup with migration, integration and training.","/solutions"]].map(([t,d,h],i)=><Link prefetch key={t} href={h} className="group rounded-[22px] border border-[#D6A66A]/22 bg-white/74 p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/50 hover:shadow-[0_16px_40px_rgba(55,38,21,.07)]"><div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#A37849]">0{i+1}</span><Arrow className="h-3.5 w-3.5 text-[#B49A79] transition group-hover:translate-x-0.5"/></div><h3 className="mt-7 text-[16px] font-semibold">{t}</h3><p className="mt-2 text-[10px] leading-5 text-[#777169]">{d}</p></Link>)}</div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#F7F6F3]">
+        <div className="mx-auto max-w-[1120px] px-5 py-20 text-center sm:px-7 lg:px-10 lg:py-24"><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">START WITHOUT OVERBUYING</p><h2 className="mx-auto mt-4 max-w-4xl text-[40px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[54px]">Choose the Avantiqo layer that matches the job.</h2><div className="mt-8 flex flex-wrap justify-center gap-2.5"><Link prefetch href="/start" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white">Start with Avantiqo <Arrow className="h-3.5 w-3.5"/></Link><Link prefetch href="/products" className="inline-flex h-11 items-center rounded-xl border border-black/[0.09] bg-white px-5 text-[11px] font-semibold text-[#56514A]">Explore products</Link></div></div>
+      </section>
+    </main>
+  );
+}
+
 export default function CommercialSurfacePage({ config }) {
+  if (config.art === "pricing") return <PricingExperience config={config} />;
   const audience = config.audience || (config.art === "compute" ? "compute" : config.art === "marketplace" ? "platform" : "business");
   const headerLinks = audience === "compute"
     ? [
@@ -724,7 +892,7 @@ export default function CommercialSurfacePage({ config }) {
       />
       <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F4F0E8]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(214,166,106,.13),transparent_31%)]" />
-        <div className="relative mx-auto max-w-[1540px] lg:grid lg:min-h-[690px] lg:grid-cols-[44%_56%]">
+        <div className="relative mx-auto max-w-[1540px] lg:grid lg:min-h-[600px] lg:grid-cols-[44%_56%]">
           <div className="relative z-10 flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
             <div className="max-w-[620px]">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/28 bg-white/60 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-[#8A633C] shadow-[0_4px_20px_rgba(100,75,45,.05)]">
@@ -741,19 +909,21 @@ export default function CommercialSurfacePage({ config }) {
                 {config.description}
               </p>
               <div className="mt-9 flex flex-wrap gap-2.5">
-                <a
+                <Link
+                  prefetch
                   href={config.primaryHref || "/login"}
                   className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_9px_28px_rgba(20,18,15,.18)] transition hover:-translate-y-0.5"
                 >
                   {config.primary || "Enter Avantiqo"}
                   <Arrow className="h-3.5 w-3.5" />
-                </a>
-                <a
+                </Link>
+                <Link
+                  prefetch
                   href="/pricing"
                   className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A] transition hover:border-[#D6A66A]/45"
                 >
                   How it works for you
-                </a>
+                </Link>
               </div>
               <div className="mt-10 flex items-center gap-5 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[0.17em] text-[#9A8F82]">
                 <span>CONTROLLED</span>
@@ -764,8 +934,10 @@ export default function CommercialSurfacePage({ config }) {
               </div>
             </div>
           </div>
-          <div className="relative min-h-[560px] border-t border-black/[0.06] lg:min-h-0 lg:border-l lg:border-t-0">
-            <SurfaceArt kind={config.art} />
+          <div className="relative flex min-h-[590px] items-center border-t border-black/[0.06] p-5 sm:p-7 lg:min-h-0 lg:border-l lg:border-t-0 lg:p-8">
+            <div className="relative w-full overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#171614] shadow-[0_30px_90px_rgba(68,47,25,.13)]">
+              <SurfaceArt kind={config.art} />
+            </div>
           </div>
         </div>
       </section>
@@ -842,27 +1014,27 @@ export default function CommercialSurfacePage({ config }) {
                 Move naturally from one Avantiqo need to the next.
               </h2>
             </div>
-            <a
+            <Link
+              prefetch
               href="/pricing"
               className="text-[10px] font-semibold text-[#8A633C]"
             >
               See pricing →
-            </a>
+            </Link>
           </div>
           <div className="mt-8 grid gap-3 md:grid-cols-3">
             {(RELATED[config.art] || RELATED.pricing).map(
               ([label, href, text], i) => (
-                <a
+                <Link
+                  prefetch
                   key={href}
                   href={href}
                   className="group overflow-hidden rounded-[22px] border border-black/[0.075] bg-white transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35 hover:shadow-[0_18px_45px_rgba(45,32,20,.08)]"
                 >
-                  <div className="relative h-[122px] overflow-hidden bg-[#171614]">
-                    <div className="absolute inset-0 scale-[1.45] origin-center opacity-[.92] transition duration-700 group-hover:scale-[1.50]">
-                      <PublicArtStage kind={RELATED_KIND[label] || "intelligence"} />
-                    </div>
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,6,.04),rgba(10,8,6,.56))]" />
-                    <div className="absolute left-4 top-4 text-[7px] font-bold text-[#F1C98E]">0{i + 1}</div>
+                  <div className="relative h-[155px] overflow-hidden bg-[#171614]">
+                    <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{backgroundImage:`url(${RELATED_ART[label] || "/art/developer-work.jpg"})`}} />
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,6,.02),rgba(10,8,6,.12)_56%,rgba(10,8,6,.62))]" />
+                    <div className="absolute left-4 top-4 rounded-full border border-white/12 bg-black/28 px-2.5 py-1 text-[7px] font-bold text-[#F1C98E] backdrop-blur-md">0{i + 1}</div>
                   </div>
                   <div className="p-5">
                     <div className="flex items-center justify-between">
@@ -871,7 +1043,7 @@ export default function CommercialSurfacePage({ config }) {
                     </div>
                     <p className="mt-2 text-[10px] leading-5 text-[#7A756E]">{text}</p>
                   </div>
-                </a>
+                </Link>
               ),
             )}
           </div>
@@ -886,19 +1058,21 @@ export default function CommercialSurfacePage({ config }) {
             {config.cta}
           </h2>
           <div className="mt-8 flex flex-wrap justify-center gap-2.5">
-            <a
+            <Link
+              prefetch
               href={config.primaryHref || "/login"}
               className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white"
             >
               {config.primary || "Enter Avantiqo"}
               <Arrow className="h-3.5 w-3.5" />
-            </a>
-            <a
+            </Link>
+            <Link
+              prefetch
               href={secondaryCta[1]}
               className="inline-flex h-11 items-center rounded-xl border border-black/[0.09] bg-white px-5 text-[11px] font-semibold text-[#56514A]"
             >
               {secondaryCta[0]}
-            </a>
+            </Link>
           </div>
         </div>
       </section>

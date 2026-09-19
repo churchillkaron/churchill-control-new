@@ -1,10 +1,10 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
-import PublicArtStage from "@/components/public/PublicArtStage";
 
 const capabilityFamilies = [
   {
     name: "Finance",
     code: "FIN",
+    image: "/art/generated/products/products-finance-v1.png",
     description:
       "Embed accounting and financial operations without rebuilding the underlying business logic.",
     capabilities: [
@@ -19,6 +19,7 @@ const capabilityFamilies = [
   {
     name: "Documents",
     code: "DOC",
+    image: "/art/generated/products/products-documents-v1.png",
     description:
       "Turn business documents into structured, validated and actionable data.",
     capabilities: [
@@ -33,6 +34,7 @@ const capabilityFamilies = [
   {
     name: "Intelligence",
     code: "INT",
+    image: "/art/generated/products/products-intelligence-v2.png",
     description:
       "Add business-aware reasoning, organization scope and controlled execution to your own product.",
     capabilities: [
@@ -47,6 +49,7 @@ const capabilityFamilies = [
   {
     name: "Creative",
     code: "CRE",
+    image: "/art/generated/products/products-creative-v2.png",
     description:
       "Use production workflows, not just generators: brief, direction, generation, review and repair.",
     capabilities: [
@@ -61,6 +64,7 @@ const capabilityFamilies = [
   {
     name: "Operations",
     code: "OPS",
+    image: "/art/generated/products/products-stock-v1.png",
     description:
       "Bring operational capability into software for restaurants, hotels, field service and more.",
     capabilities: [
@@ -75,6 +79,7 @@ const capabilityFamilies = [
   {
     name: "People",
     code: "PPL",
+    image: "/art/generated/products/products-people-v1.png",
     description:
       "Embed workforce context, attendance, scheduling and labor intelligence.",
     capabilities: [
@@ -167,18 +172,18 @@ export default function DevelopersPage() {
         </div>
       </header>
 
-      <section className="relative overflow-hidden border-b border-white/[0.08] bg-[#151310] text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(214,166,106,.14),transparent_30%)]" />
-        <div className="relative mx-auto max-w-[1540px] lg:grid lg:min-h-[720px] lg:grid-cols-[42%_58%]">
-          <div className="relative z-10 flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
+      <section className="relative overflow-hidden border-b border-black/[0.07] bg-[#F4F0E8] text-[#171614]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(214,166,106,.16),transparent_31%)]" />
+        <div className="relative mx-auto max-w-[1460px] gap-12 px-5 py-16 sm:px-7 lg:grid lg:min-h-[700px] lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:px-10 lg:py-24">
+          <div className="relative z-10 flex items-center">
             <div className="max-w-[620px]">
               <p className="text-[9px] font-semibold uppercase tracking-[0.30em] text-[#D6A66A]">
                 AVANTIQO DEVELOPERS
               </p>
-              <h1 className="mt-5 text-[52px] font-medium leading-[.94] tracking-[-0.065em] text-[#F7F4EF] sm:text-[64px] lg:text-[72px] xl:text-[80px]">
+              <h1 className="mt-5 text-[52px] font-medium leading-[.94] tracking-[-0.065em] text-[#171614] sm:text-[64px] lg:text-[72px] xl:text-[80px]">
                 Build with Avantiqo business capabilities.
               </h1>
-              <p className="mt-7 max-w-[560px] text-[16px] leading-8 text-white/62">
+              <p className="mt-7 max-w-[560px] text-[16px] leading-8 text-[#625D55]">
                 SDKs, webhooks, developer tooling and embedded workflows for building on Avantiqo without entering the Business OS customer interface.
               </p>
               <div className="mt-9 flex flex-wrap gap-2.5">
@@ -190,12 +195,12 @@ export default function DevelopersPage() {
                 </a>
                 <a
                   href="#integration"
-                  className="inline-flex h-11 items-center rounded-full border border-white/[0.13] bg-white/[0.035] px-5 text-[10px] font-semibold text-white/72"
+                  className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A]"
                 >
                   Integration model
                 </a>
               </div>
-              <div className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-white/[0.09] pt-5 text-[7px] font-semibold uppercase tracking-[0.16em] text-white/38">
+              <div className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[0.16em] text-[#857D74]">
                 {[
                   "Capability based",
                   "Metered",
@@ -210,11 +215,35 @@ export default function DevelopersPage() {
               </div>
             </div>
           </div>
-          <div className="relative min-h-[580px] overflow-hidden border-t border-white/[0.08] lg:min-h-0 lg:border-l lg:border-t-0">
-            <PublicArtStage kind="developer" />
+          <div className="relative min-h-[560px] overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_30px_90px_rgba(68,47,25,.13)]">
+            <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/developer-work.jpg)"}} />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.02),rgba(8,7,6,.05)_54%,rgba(8,7,6,.48))]" />
+            <div className="absolute left-5 top-5 rounded-full border border-white/70 bg-[#F8F0E6]/74 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.20em] text-[#8D6339] backdrop-blur-xl">AVANTIQO / DEVELOPERS</div>
+            <div className="absolute bottom-5 left-5 right-5 rounded-[22px] border border-white/72 bg-[#F8F1E8]/88 p-5 text-[#2B251F] shadow-[0_18px_45px_rgba(0,0,0,.12)] backdrop-blur-xl">
+              <div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#A36F39]">BUILD FABRIC</div>
+              <div className="mt-3 flex flex-wrap gap-2">{["CAPABILITIES","SDKs","WEBHOOKS","EMBEDDED","VERIFY"].map(x=><span key={x} className="rounded-full border border-black/[0.07] bg-white/52 px-2.5 py-1 text-[7px] text-[#74685D]">{x}</span>)}</div>
+            </div>
           </div>
         </div>
       </section>
+      <section className="border-b border-black/[0.06] bg-[#EEE8DE]">
+        <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[.82fr_1.18fr] lg:items-center lg:px-10 lg:py-20">
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.20em] text-[#9A744B]">BUILD REAL SOFTWARE</p>
+            <h2 className="mt-3 text-[38px] font-medium leading-[1.02] tracking-[-0.05em] text-[#1B1A18] sm:text-[50px]">From code to verified business capability.</h2>
+            <p className="mt-5 max-w-xl text-[13px] leading-7 text-[#6C6963]">Avantiqo Developers is not a mockup surface. It is the route into real platform capabilities, business context, execution controls, webhooks, embedded workflows and verification.</p>
+          </div>
+          <div className="relative min-h-[430px] overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_24px_70px_rgba(56,39,22,.10)]">
+            <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/generated/developers/developer-integration-v1.png)"}} />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.01),rgba(8,7,6,.06)_56%,rgba(8,7,6,.42))]" />
+            <div className="absolute bottom-5 left-5 right-5 rounded-[20px] border border-white/72 bg-[#F8F1E8]/88 p-5 text-[#2B251F] backdrop-blur-xl">
+              <div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#A36F39]">INTEGRATE · TEST · VERIFY</div>
+              <div className="mt-2 text-[12px] text-[#655B51]">Connect Avantiqo capabilities to the systems and workflows your product already uses.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section
         id="capabilities"
         className="border-b border-black/[0.06] bg-[#F7F6F3]"
@@ -237,29 +266,22 @@ export default function DevelopersPage() {
             {capabilityFamilies.map((family, index) => (
               <article
                 key={family.name}
-                className={`group min-h-[330px] p-6 transition hover:bg-[#FCFBF9] ${index % 3 !== 2 ? "lg:border-r lg:border-black/[0.06]" : ""} ${index < 3 ? "border-b border-black/[0.06]" : ""} ${index % 2 === 0 ? "md:border-r md:border-black/[0.06] lg:border-r" : ""}`}
+                className={`group overflow-hidden bg-white transition hover:bg-[#FCFBF9] ${index % 3 !== 2 ? "lg:border-r lg:border-black/[0.06]" : ""} ${index < 3 ? "border-b border-black/[0.06]" : ""} ${index % 2 === 0 ? "md:border-r md:border-black/[0.06] lg:border-r" : ""}`}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/[0.06] bg-[#F7F2EA] text-[8px] font-bold tracking-[0.08em] text-[#8D643C]">
-                    {family.code}
-                  </div>
-                  <Arrow className="mt-1 h-3.5 w-3.5 text-[#C3BDB4] transition group-hover:translate-x-0.5 group-hover:text-[#A37849]" />
+                <div className="relative h-[150px] overflow-hidden bg-[#E9DFD1]">
+                  <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.025]" style={{backgroundImage:`url(${family.image})`}} />
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.02),rgba(8,7,6,.10)_58%,rgba(8,7,6,.58))]" />
+                  <div className="absolute bottom-4 left-4 flex h-9 w-9 items-center justify-center rounded-xl border border-white/70 bg-[#F8F0E6]/72 text-[8px] font-bold tracking-[0.08em] text-[#8D6339] backdrop-blur-xl">{family.code}</div>
+                  <Arrow className="absolute bottom-5 right-5 h-3.5 w-3.5 text-white/55 transition group-hover:translate-x-0.5 group-hover:text-[#F1C98E]" />
                 </div>
-                <h3 className="mt-6 text-[18px] font-semibold tracking-[-0.025em] text-[#2D2925]">
-                  {family.name}
-                </h3>
-                <p className="mt-2 min-h-[62px] text-[11px] leading-5 text-[#7A756E]">
-                  {family.description}
-                </p>
-                <div className="mt-5 flex flex-wrap gap-1.5">
-                  {family.capabilities.map((item) => (
-                    <span
-                      key={item}
-                      className="rounded-lg border border-black/[0.06] bg-[#FBFAF8] px-2.5 py-1.5 text-[8px] font-medium text-[#68635C]"
-                    >
-                      {item}
-                    </span>
-                  ))}
+                <div className="p-6">
+                  <h3 className="text-[18px] font-semibold tracking-[-0.025em] text-[#2D2925]">{family.name}</h3>
+                  <p className="mt-2 min-h-[54px] text-[11px] leading-5 text-[#7A756E]">{family.description}</p>
+                  <div className="mt-5 flex flex-wrap gap-1.5">
+                    {family.capabilities.map((item) => (
+                      <span key={item} className="rounded-full border border-black/[0.06] bg-[#F8F4EE] px-2.5 py-1.5 text-[8px] font-medium text-[#68635C]">{item}</span>
+                    ))}
+                  </div>
                 </div>
               </article>
             ))}
@@ -289,7 +311,12 @@ export default function DevelopersPage() {
               Developer tooling should stay focused on building and integration. Use SDKs, webhooks, test contexts and embedded flows here; use the separate API Platform when the product only needs metered capability calls.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <div className="relative mb-5 min-h-[260px] overflow-hidden rounded-[24px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_18px_48px_rgba(56,39,22,.08)]">
+              <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/generated/developers/developer-integration-v1.png)"}} />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.01),rgba(8,7,6,.36))]" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
             {integrationModes.map(([title, description], index) => (
               <article
                 key={title}
@@ -306,24 +333,32 @@ export default function DevelopersPage() {
                 </p>
               </article>
             ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="border-b border-black/[0.06] bg-[#171716] text-white">
+      <section className="border-b border-black/[0.06] bg-[#EEE6DB] text-[#1D1B18]">
         <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
           <div className="max-w-3xl">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">
               One engine, multiple surfaces
             </p>
-            <h2 className="mt-3 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[44px] lg:text-[52px]">
+            <h2 className="mt-3 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#1D1B18] sm:text-[44px] lg:text-[52px]">
               The same capability can power Avantiqo or your product.
             </h2>
-            <p className="mt-5 text-[14px] leading-7 text-white/52">
+            <p className="mt-5 text-[14px] leading-7 text-[#6D645B]">
               Compose Avantiqo capabilities into your own application while organization scope, permissions and execution records stay consistent.
             </p>
           </div>
-          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-10 overflow-hidden rounded-[28px] border border-black/[0.07] bg-[#E9DFD1]">
+            <div className="relative h-[360px] overflow-hidden">
+              <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/developer-work.jpg)"}} />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.01),rgba(8,7,6,.42))]" />
+              <div className="absolute bottom-5 left-5 rounded-full border border-white/70 bg-[#F8F0E6]/74 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.18em] text-[#8D6339] backdrop-blur-xl">RUNTIME · DEPLOYMENT · HEALTH</div>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {[
               "SDK",
               "Webhook",
@@ -333,12 +368,12 @@ export default function DevelopersPage() {
             ].map((item, index) => (
               <div
                 key={item}
-                className="rounded-[18px] border border-white/[0.08] bg-white/[0.025] p-4"
+                className="rounded-[18px] border border-black/[0.07] bg-white/52 p-4"
               >
                 <div className="text-[8px] font-bold text-[#D6A66A]">
                   0{index + 1}
                 </div>
-                <div className="mt-4 text-[11px] font-semibold text-white/72">
+                <div className="mt-4 text-[11px] font-semibold text-[#51483F]">
                   {item}
                 </div>
               </div>

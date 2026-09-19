@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 function Arrow({ className = "" }) {
   return (
@@ -12,12 +13,12 @@ const EXPLORE_GROUPS = [
   {
     label: "PRODUCTS",
     description: "Run the work that matters.",
-    items: [["All Products", "/products"], ["Workforce", "/products/workforce"], ["Finance", "/products/finance"], ["Inventory & Food Cost", "/products/inventory"], ["Invoice Intelligence", "/invoice-processing"], ["Documents", "/documents"]],
+    items: [["All Products", "/products"], ["Workforce", "/products/workforce"], ["Finance", "/products/finance"], ["Inventory & Food Cost", "/products/inventory"], ["Web & Commerce", "/products#web-commerce"], ["Markets", "/products#markets"], ["Communications & Reputation", "/products#communications-reputation"], ["Documents", "/documents"]],
   },
   {
     label: "RUN",
     description: "Operate across every channel.",
-    items: [["Channels", "/channels"], ["Solutions", "/solutions"], ["Enterprise", "/enterprise"], ["Services", "/services"]],
+    items: [["Channels", "/channels"], ["Commerce", "/commerce"], ["Solutions", "/solutions"], ["Markets", "/products#markets"], ["Enterprise", "/enterprise"], ["Services", "/services"]],
   },
   {
     label: "THINK",
@@ -82,20 +83,20 @@ export default function PublicSiteHeader({ context, links = [], action = { label
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#171614]/[0.97] text-white shadow-[0_8px_28px_rgba(0,0,0,.18)] backdrop-blur-2xl">
       <div className="mx-auto flex h-[68px] max-w-[1540px] items-center justify-between gap-4 px-5 sm:px-7 lg:px-10 xl:px-14">
-        <a href={audience === "business" ? "/" : audience === "creative" ? "/creative-studios" : audience === "developers" ? "/developers" : audience === "api" ? "/api-platform" : audience === "compute" ? "/compute" : "/start"} className="flex min-w-0 items-center gap-4" aria-label={`Avantiqo ${context}`}>
+        <Link prefetch href={audience === "business" ? "/" : audience === "creative" ? "/creative-studios" : audience === "developers" ? "/developers" : audience === "api" ? "/api-platform" : audience === "compute" ? "/compute" : "/start"} className="flex min-w-0 items-center gap-4" aria-label={`Avantiqo ${context}`}>
           <Image src="/branding/avantiqo-wordmark.png" alt="Avantiqo" width={154} height={13} className="h-[12px] w-auto object-contain" priority />
           <span className="hidden h-3 w-px bg-white/[0.12] sm:block" />
           <span className="hidden truncate text-[7px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A] sm:block">{context}</span>
-        </a>
+        </Link>
         <nav className="flex items-center gap-1" aria-label={`${context} navigation`}>
           <div className="hidden items-center gap-0.5 xl:flex">
             {GLOBAL_LINKS.map(([label, href]) => (
-              <a key={href} href={href} className="rounded-lg px-2.5 py-2 text-[8px] font-medium text-white/62 transition hover:bg-white/[0.05] hover:text-white">{label}</a>
+              <Link prefetch key={href} href={href} className="rounded-lg px-2.5 py-2 text-[8px] font-medium text-white/62 transition hover:bg-white/[0.05] hover:text-white">{label}</Link>
             ))}
           </div>
           <div className="hidden items-center gap-0.5 lg:flex xl:hidden">
             {links.slice(0, 4).map((link) => (
-              <a key={`${link.href}-${link.label}`} href={link.href} className="rounded-lg px-2.5 py-2 text-[8px] font-medium text-white/62 transition hover:bg-white/[0.05] hover:text-white">{link.label}</a>
+              <Link prefetch key={`${link.href}-${link.label}`} href={link.href} className="rounded-lg px-2.5 py-2 text-[8px] font-medium text-white/62 transition hover:bg-white/[0.05] hover:text-white">{link.label}</Link>
             ))}
           </div>
           <details className="group relative">
@@ -122,10 +123,10 @@ export default function PublicSiteHeader({ context, links = [], action = { label
                     <p className="mt-1.5 min-h-[32px] text-[8px] leading-4 text-white/34">{description}</p>
                     <div className="mt-2.5 space-y-0.5">
                       {items.map(([label, href]) => (
-                        <a key={`${group}-${href}`} href={href} className="group/link flex min-h-[30px] items-center justify-between rounded-lg px-1.5 py-1.5 text-[8.5px] font-medium text-white/58 transition hover:bg-white/[0.055] hover:text-white">
+                        <Link prefetch key={`${group}-${href}`} href={href} className="group/link flex min-h-[30px] items-center justify-between rounded-lg px-1.5 py-1.5 text-[8.5px] font-medium text-white/58 transition hover:bg-white/[0.055] hover:text-white">
                           <span className="truncate pr-2">{label}</span>
                           <Arrow className="h-3 w-3 shrink-0 text-[#D6A66A] opacity-40 transition group-hover/link:translate-x-0.5 group-hover/link:opacity-100" />
-                        </a>
+                        </Link>
                       ))}
                     </div>
                   </section>
@@ -137,19 +138,19 @@ export default function PublicSiteHeader({ context, links = [], action = { label
                   <div className="shrink-0 text-[7px] font-semibold uppercase tracking-[0.18em] text-white/30">Inside {context}</div>
                   <div className="hidden min-w-0 flex-wrap gap-x-1 gap-y-1 md:flex">
                     {menu.slice(0, 4).map(([label, href]) => (
-                      <a key={`${context}-${href}`} href={href} className="rounded-lg px-2.5 py-1.5 text-[8px] font-medium text-white/48 transition hover:bg-white/[0.05] hover:text-white">{label}</a>
+                      <Link prefetch key={`${context}-${href}`} href={href} className="rounded-lg px-2.5 py-1.5 text-[8px] font-medium text-white/48 transition hover:bg-white/[0.05] hover:text-white">{label}</Link>
                     ))}
                   </div>
                 </div>
-                <a href="/start" className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/40 px-3.5 py-2 text-[8px] font-semibold text-[#E8CAA1] transition hover:border-[#D6A66A]/70 hover:bg-[#D6A66A]/[0.07]">All Avantiqo areas <Arrow className="h-3 w-3" /></a>
+                <Link prefetch href="/start" className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/40 px-3.5 py-2 text-[8px] font-semibold text-[#E8CAA1] transition hover:border-[#D6A66A]/70 hover:bg-[#D6A66A]/[0.07]">All Avantiqo areas <Arrow className="h-3 w-3" /></Link>
               </div>
             </div>
           </details>
-          <a href="/start" className="ml-1 hidden h-9 shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/55 px-4 text-[9px] font-semibold text-[#F2D2A5] transition hover:border-[#D6A66A]/90 hover:bg-[#D6A66A]/[0.08] xl:inline-flex">Start Now <Arrow className="h-3 w-3" /></a>
+          <Link prefetch href="/start" className="ml-1 hidden h-9 shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/55 px-4 text-[9px] font-semibold text-[#F2D2A5] transition hover:border-[#D6A66A]/90 hover:bg-[#D6A66A]/[0.08] xl:inline-flex">Start Now <Arrow className="h-3 w-3" /></Link>
           {["developers","api","compute"].includes(audience) ? (
-            <a href="/login?portal=developer" className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/45 bg-[#D6A66A]/[0.08] px-4 text-[9px] font-semibold text-[#F1D5AF] transition hover:border-[#D6A66A]/80 hover:bg-[#D6A66A]/[0.14]">Developer Login<Arrow className="h-3 w-3" /></a>
+            <Link prefetch href="/login?portal=developer" className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/45 bg-[#D6A66A]/[0.08] px-4 text-[9px] font-semibold text-[#F1D5AF] transition hover:border-[#D6A66A]/80 hover:bg-[#D6A66A]/[0.14]">Developer Login<Arrow className="h-3 w-3" /></Link>
           ) : (
-            <a href={action.href} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-white/[0.12] bg-[#0F0F0E] px-4 text-[9px] font-semibold text-white/82 transition hover:border-[#D6A66A]/45 hover:bg-[#211D18]">{action.label}<Arrow className="h-3 w-3" /></a>
+            <Link prefetch href={action.href} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-white/[0.12] bg-[#0F0F0E] px-4 text-[9px] font-semibold text-white/82 transition hover:border-[#D6A66A]/45 hover:bg-[#211D18]">{action.label}<Arrow className="h-3 w-3" /></Link>
           )}
         </nav>
       </div>

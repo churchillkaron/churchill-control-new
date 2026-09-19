@@ -1,5 +1,4 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
-import PublicArtStage from "@/components/public/PublicArtStage";
 
 function Arrow(){return <span aria-hidden="true">→</span>}
 
@@ -17,15 +16,14 @@ export default function MoneyLandingPage({config}){
             <div className="mt-9 flex flex-wrap gap-2.5"><a href={config.primaryHref} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">{config.primary}<Arrow/></a><a href="/pricing" className="inline-flex h-11 items-center rounded-full border border-[#D6A66A]/35 bg-white/72 px-5 text-[10px] font-semibold text-[#6A5540]">See pricing</a></div>
           </div>
         </div>
-        <div className="relative min-h-[480px] overflow-hidden border-t border-black/[0.06] lg:min-h-0 lg:border-l lg:border-t-0">
-          {config.artKind ? <PublicArtStage kind={config.artKind}/> : <>
-            <div className="absolute inset-0 scale-[1.02] bg-cover bg-center" style={{backgroundImage:`url(${config.image})`}}/>
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.04),rgba(17,14,11,.10)_45%,rgba(17,14,11,.62))]"/>
-          </>}
-          <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-white/16 bg-[#15120f]/78 p-5 text-white shadow-[0_30px_80px_rgba(0,0,0,.28)] backdrop-blur-xl sm:left-auto sm:w-[460px]">
-            <div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#D6A66A]">{config.panelLabel}</div>
-            <div className="mt-3 text-[16px] leading-6 text-white/88">{config.panel}</div>
-            <div className="mt-5 flex flex-wrap gap-2">{config.tags.map(x=><span key={x} className="rounded-full border border-white/12 px-2.5 py-1 text-[6px] font-semibold tracking-[0.15em] text-white/48">{x}</span>)}</div>
+        <div className="relative m-5 min-h-[500px] overflow-hidden rounded-[34px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_34px_95px_rgba(68,47,25,.13)] sm:m-7 lg:ml-0 lg:min-h-0 lg:self-stretch">
+          <div className="absolute inset-0 scale-[1.02] bg-cover bg-center" style={{backgroundImage:`url(${config.image})`}}/>
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(20,15,10,.03)_52%,rgba(20,15,10,.24))]"/>
+          <div className="absolute left-5 top-5 rounded-full border border-white/68 bg-[#F8F0E6]/74 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.20em] text-[#8D6339] shadow-[0_12px_30px_rgba(55,38,20,.08)] backdrop-blur-xl">AVANTIQO / {config.context}</div>
+          <div className="absolute bottom-5 left-5 right-5 rounded-[24px] border border-white/72 bg-[#F8F1E8]/88 p-5 text-[#2B251F] shadow-[0_24px_70px_rgba(40,28,18,.14)] backdrop-blur-xl sm:p-6">
+            <div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#A36F39]">{config.panelLabel}</div>
+            <div className="mt-3 text-[16px] leading-6 text-[#4B433A]">{config.panel}</div>
+            <div className="mt-5 flex flex-wrap gap-2">{config.tags.map(x=><span key={x} className="rounded-full border border-[#B98A52]/24 bg-white/56 px-2.5 py-1 text-[6px] font-semibold tracking-[0.15em] text-[#755D45]">{x}</span>)}</div>
           </div>
         </div>
       </div>

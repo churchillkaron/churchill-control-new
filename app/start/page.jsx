@@ -1,5 +1,4 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
-import PublicArtStage from "@/components/public/PublicArtStage";
 import GuidedStart from "@/components/public/GuidedStart";
 
 export const metadata = { title: "Start with Avantiqo | Avantiqo" };
@@ -65,26 +64,13 @@ export default function StartPage() {
               </div>
             </div>
           </div>
-          <div className="relative min-h-[560px] overflow-hidden border-t border-black/[0.06] bg-[#171614] lg:min-h-0 lg:border-l lg:border-t-0">
-            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px bg-[#D6A66A]/28">
-              {[["RUN","commerce"],["CREATE","creative"],["BUILD","developer"],["SCALE","compute"]].map(([label,kind]) => (
-                <div key={label} className="relative overflow-hidden">
-                  <div className="absolute inset-0 scale-[1.03]"><PublicArtStage kind={kind} /></div>
-                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,6,5,.02),rgba(7,6,5,.15)_50%,rgba(7,6,5,.70))]" />
-                  <div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.22em] text-[#F1C98E]">{label}</div>
-                </div>
-              ))}
-            </div>
-            <div className="absolute left-7 top-7 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F1C98E]">
-              AVANTIQO / START WITH THE WORK
-            </div>
-            <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-white/[0.14] bg-[#11100E]/74 p-5 text-white shadow-[0_28px_80px_rgba(0,0,0,.28)] backdrop-blur-xl sm:p-6">
-              <div className="text-[7px] font-semibold uppercase tracking-[0.21em] text-[#D6A66A]">
-                RUN THE BUSINESS · INDUSTRY · CREATE · BUILD · COMPUTE
-              </div>
-              <div className="mt-3 max-w-2xl text-[14px] leading-6 text-white/70">
-                Start with the outcome you need now. Finance, people, documents, intelligence and other capabilities stay available as the business grows.
-              </div>
+          <div className="relative m-5 min-h-[560px] overflow-hidden rounded-[34px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_34px_100px_rgba(68,47,25,.13)] sm:m-7 lg:ml-0 lg:min-h-0 lg:self-stretch">
+            <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/commercial-start.jpg)"}} />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(20,15,10,.03)_50%,rgba(20,15,10,.26))]" />
+            <div className="absolute left-5 top-5 rounded-full border border-white/68 bg-[#F8F0E6]/72 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.22em] text-[#8D6339] backdrop-blur-xl">AVANTIQO / START WITH THE WORK</div>
+            <div className="absolute bottom-5 left-5 right-5 rounded-[22px] border border-white/72 bg-[#F8F1E8]/88 p-5 text-[#2B251F] shadow-[0_18px_50px_rgba(0,0,0,.12)] backdrop-blur-xl sm:p-6">
+              <div className="text-[7px] font-semibold uppercase tracking-[0.21em] text-[#A36F39]">RUN · INDUSTRY · CREATE · BUILD · COMPUTE</div>
+              <div className="mt-3 max-w-2xl text-[14px] leading-6 text-[#685E54]">Start with the outcome you need now. The rest of Avantiqo stays connected when the next need appears.</div>
             </div>
           </div>
         </div>
@@ -100,7 +86,7 @@ export default function StartPage() {
                 className="group overflow-hidden rounded-[26px] border border-black/[0.075] bg-white shadow-[0_14px_45px_rgba(40,30,20,.035)] transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35"
               >
                 <div className="relative h-[220px] overflow-hidden bg-[#171614]">
-                  {artKind ? <PublicArtStage kind={artKind} /> : <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{ backgroundImage: `url(${image})` }} />}
+                  <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{ backgroundImage: `url(${image})` }} />
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.03),rgba(0,0,0,.12)_48%,rgba(8,7,6,.72))]" />
                   <div className="absolute left-5 top-5 rounded-full border border-white/20 bg-black/22 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.16em] text-[#F1C98E] backdrop-blur-xl">AVANTIQO / {area}</div>
                   <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-5">
@@ -146,15 +132,15 @@ export default function StartPage() {
           </div>
         </div>
       </section>
-      <section className="bg-[#171716] text-white">
+      <section className="bg-[#EEE6DB] text-[#1D1B18]">
         <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:px-10 lg:py-20">
           <div>
             <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">ONE COMPANY CONTEXT</p>
-            <h2 className="mt-3 max-w-3xl text-[38px] font-medium leading-[1.03] tracking-[-0.05em] text-[#F7F4EF] sm:text-[50px]">Different tools. One connected picture of the business.</h2>
+            <h2 className="mt-3 max-w-3xl text-[38px] font-medium leading-[1.03] tracking-[-0.05em] text-[#1D1B18] sm:text-[50px]">Different tools. One connected picture of the business.</h2>
           </div>
           <div className="flex flex-wrap gap-2">
             {["Company","People","Customers","Money","Work","Documents","Intelligence","History","Usage"].map((x, i) => (
-              <div key={x} className="flex items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.035] px-4 py-3 text-[9px] text-white/58">
+              <div key={x} className="flex items-center gap-2 rounded-full border border-black/[0.07] bg-white/55 px-4 py-3 text-[9px] text-[#665D53]">
                 <span className="text-[7px] font-semibold text-[#D6A66A]">0{String(i + 1).padStart(2,"0")}</span>{x}
               </div>
             ))}

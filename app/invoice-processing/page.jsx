@@ -11,7 +11,7 @@ const config = {
   lead: 'Capture supplier or customer invoice data, validate the key fields, route approvals and send verified information into finance workflows.',
   primary: 'Explore Business OS',
   primaryHref: '/business',
-  image: '/art/commercial-integrations.jpg',
+  image: '/art/generated/products/products-documents-v1.png',
   panelLabel: 'DOCUMENT → FINANCE',
   panel: 'Extraction is only the start. The value is getting verified invoice data into the correct business workflow.',
   tags: ['CAPTURE', 'VALIDATE', 'APPROVE', 'POST'],

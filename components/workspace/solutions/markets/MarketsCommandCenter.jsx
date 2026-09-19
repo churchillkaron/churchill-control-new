@@ -599,10 +599,10 @@ export default function MarketsCommandCenter({ organizationId }) {
                   })}
                 </div>
 
-                <div className="grid gap-3">
-                  <div className="rounded-[20px] border border-black/[0.055] bg-white p-4">
+                <aside className="grid gap-3 lg:sticky lg:top-20 lg:self-start">
+                  <div className="rounded-[20px] border border-[#CDAA78]/20 bg-white/90 p-4 shadow-[0_10px_28px_rgba(73,55,35,0.045)]">
                     <div className="flex items-center gap-2">
-                      <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#FBF5EA] text-[#8A6239]">
+                      <div className="grid h-8 w-8 place-items-center rounded-xl border border-[#CDAA78]/20 bg-[#FBF5EA] text-[#8A6239]">
                         <Sparkles size={14} />
                       </div>
                       <div>
@@ -610,7 +610,22 @@ export default function MarketsCommandCenter({ organizationId }) {
                         <div className="text-[8px] text-[#999188]">Latest governed context</div>
                       </div>
                     </div>
-                    <div className="mt-4 space-y-2">
+                    <div className="mt-4 grid grid-cols-3 gap-1.5">
+                      {[
+                        ["Research", "#markets-research"],
+                        ["Risk", "#markets-risk"],
+                        ["Execution", "#markets-execution"],
+                      ].map(([label, href]) => (
+                        <a
+                          key={label}
+                          href={href}
+                          className="rounded-lg border border-[#CDAA78]/15 bg-[#FBF7F1] px-2 py-2 text-center text-[8px] font-medium text-[#786857] transition hover:border-[#B98B54]/30 hover:bg-[#F5EBDD] hover:text-[#8A6239]"
+                        >
+                          {label}
+                        </a>
+                      ))}
+                    </div>
+                    <div className="mt-3 space-y-2">
                       {decisions.slice(0, 3).map((decision) => (
                         <div key={decision.id} className="rounded-xl border border-black/[0.05] bg-[#FCFAF7] px-3 py-2.5">
                           <div className="flex items-center justify-between gap-2">
@@ -630,7 +645,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                     </div>
                   </div>
 
-                  <div className="rounded-[20px] border border-black/[0.055] bg-white p-4">
+                  <div className="rounded-[20px] border border-[#CDAA78]/20 bg-white/90 p-4 shadow-[0_10px_28px_rgba(73,55,35,0.045)]">
                     <div className="flex items-center gap-2 text-[#8A6239]">
                       <Database size={14} />
                       <span className="text-[10px] font-semibold">Live Market Evidence</span>
@@ -655,7 +670,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       {liveEvidenceCount}/4 evidence channels currently active.
                     </div>
                   </div>
-                </div>
+                </aside>
               </div>
             </section>
 
@@ -1134,8 +1149,15 @@ export default function MarketsCommandCenter({ organizationId }) {
                       </div>
                     ) : null}
                   </div>
-                  <div className="mt-3 border-t border-black/[0.06] pt-3">
-                    <div className="mb-2 text-[8px] uppercase tracking-[0.12em] text-[#968F86]">Owner policy controls</div>
+                  <details className="group mt-3 overflow-hidden rounded-2xl border border-[#CDAA78]/18 bg-white/80">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3 text-[9px] font-medium text-[#655B51] transition hover:bg-[#FBF7F1]">
+                      <span>
+                        <span className="block text-[8px] uppercase tracking-[0.14em] text-[#9A7449]">Owner policy controls</span>
+                        <span className="mt-1 block text-[8px] font-normal text-[#91887E]">Advanced limits, protection rules and execution thresholds</span>
+                      </span>
+                      <ChevronDown size={13} className="text-[#9A7449] transition group-open:rotate-180" />
+                    </summary>
+                    <div className="border-t border-[#CDAA78]/15 px-3.5 py-3">
                     <div className="grid grid-cols-2 gap-2">
                       {[
                         ["Position %", "max_position_pct", "0.1", "100", "0.1"],
@@ -1368,8 +1390,9 @@ export default function MarketsCommandCenter({ organizationId }) {
                     >
                       {working === "UPDATE_RISK_POLICY" ? "Saving…" : "Save risk policy"}
                     </button>
-                  </div>
-                  <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                    </div>
+                  </details>
+                  <div className="mt-3 rounded-xl border border-[#CDAA78]/15 bg-white/75 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-[8px] uppercase tracking-[0.12em] text-[#968F86]">Known corporate actions</div>
                       <div className="text-[8px] text-[#9A968E]">{corporateActions.length} recorded</div>

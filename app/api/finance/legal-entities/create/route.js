@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   decorateLegalEntity,
@@ -12,11 +13,11 @@ import {
 
 function failure(error) {
   const message = error?.message || "Legal Entity creation failed";
-  const status = /required|must|valid|configured|already exists|not found|cannot/i.test(
-    message
-  )
-    ? 400
-    : 500;
+  const status = /permission denied/i.test(message)
+    ? 403
+    : /required|must|valid|configured|already exists|not found|cannot/i.test(message)
+      ? 400
+      : 500;
 
   return NextResponse.json(
     { success: false, error: message },
@@ -39,6 +40,12 @@ export async function POST(request) {
         { status: access.status }
       );
     }
+
+    await requireFinanceWorkspacePermission({
+      capabilityId: "legal_entities",
+      operation: "write",
+      access,
+    });
 
     const candidate = await validateLegalEntityWrite({
       organizationId: access.organizationId,

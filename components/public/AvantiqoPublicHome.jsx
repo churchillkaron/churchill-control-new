@@ -437,7 +437,7 @@ export default function AvantiqoPublicHome() {
               </div>
             </div>
           </div>
-          <div className="relative min-h-[620px] overflow-hidden border-t border-black/[0.06] bg-[#171614] lg:min-h-0 lg:border-l lg:border-t-0">
+          <div className="relative min-h-[620px] overflow-hidden border-t border-black/[0.06] bg-[#E9DFD1] lg:min-h-0 lg:border-l lg:border-t-0">
             <div className="absolute inset-0 grid grid-cols-[1.5fr_.5fr] gap-px bg-[#D6A66A]/28">
               <div className="relative overflow-hidden">
                 <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url(/art/avantiqo-luxury/hospitality-hero.webp)" }} />
@@ -445,7 +445,7 @@ export default function AvantiqoPublicHome() {
               </div>
               <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/28">
                 <div className="relative overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/churchill/bar.JPG)" }} /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,14,11,.02),rgba(17,14,11,.58))]" /><div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.20em] text-[#F1C98E]">OPERATIONS · SERVICE</div></div>
-                <div className="relative overflow-hidden bg-[#11100E]"><div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_28%,rgba(214,166,106,.20),transparent_35%)]"/><div className="absolute inset-x-5 top-5 space-y-3">{[["PEOPLE","COORDINATED"],["MONEY","CONTROLLED"],["STOCK","CONNECTED"],["INTELLIGENCE","AWARE"]].map(([a,b])=><div key={a} className="flex items-center justify-between border-b border-white/[0.08] pb-2"><span className="text-[7px] tracking-[.14em] text-white/56">{a}</span><span className="text-[6px] tracking-[.12em] text-[#D6A66A]">{b}</span></div>)}</div><div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.20em] text-[#F1C98E]">ONE BUSINESS CONTEXT</div></div>
+                <div className="relative overflow-hidden bg-[#F0E5D6]"><div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_28%,rgba(214,166,106,.18),transparent_35%)]"/><div className="absolute inset-x-5 top-5 space-y-3">{[["PEOPLE","COORDINATED"],["MONEY","CONTROLLED"],["STOCK","CONNECTED"],["INTELLIGENCE","AWARE"]].map(([a,b])=><div key={a} className="flex items-center justify-between border-b border-black/[0.06] pb-2"><span className="text-[7px] tracking-[.14em] text-[#6F6255]">{a}</span><span className="text-[6px] tracking-[.12em] text-[#9A6A37]">{b}</span></div>)}</div><div className="absolute bottom-5 left-5 text-[7px] font-semibold uppercase tracking-[0.20em] text-[#8D6339]">ONE BUSINESS CONTEXT</div></div>
               </div>
             </div>
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,4,3,.03),rgba(5,4,3,.08)_42%,rgba(5,4,3,.42))]" />
@@ -463,7 +463,7 @@ export default function AvantiqoPublicHome() {
               </div>
             </div>
 
-            <div className="absolute left-7 top-[21%] hidden w-[190px] rounded-[20px] border border-white/14 bg-[#14110E]/55 p-4 text-white shadow-[0_20px_55px_rgba(0,0,0,.20)] backdrop-blur-xl md:block">
+            <div className="absolute left-7 top-[21%] hidden w-[190px] rounded-[20px] border border-white/70 bg-[#F8F1E8]/82 p-4 text-[#2B251F] shadow-[0_20px_55px_rgba(50,35,20,.10)] backdrop-blur-xl md:block">
               <div className="text-[7px] font-semibold uppercase tracking-[0.18em] text-[#E7BC82]">
                 ONE AVANTIQO
               </div>
@@ -478,7 +478,7 @@ export default function AvantiqoPublicHome() {
                     key={a}
                     className="flex items-center justify-between border-b border-white/[0.07] pb-2"
                   >
-                    <span className="text-[7px] font-semibold text-white/72">
+                    <span className="text-[7px] font-semibold text-[#5E544A]">
                       {a}
                     </span>
                     <span className="text-[6px] uppercase tracking-[0.14em] text-[#D6A66A]">
@@ -489,13 +489,10 @@ export default function AvantiqoPublicHome() {
               </div>
             </div>
 
-            <div className="absolute bottom-7 left-[7%] hidden w-[520px] origin-bottom-left scale-[.69] md:block lg:scale-[.72] xl:scale-[.76]">
-              <ProductPreview />
-            </div>
-            <div className="absolute bottom-7 right-7 w-[250px] rounded-[22px] border border-white/16 bg-[#15120f]/72 p-5 text-white shadow-[0_28px_75px_rgba(0,0,0,.26)] backdrop-blur-xl">
-              <div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#D6A66A]">LIVE BUSINESS VIEW</div>
-              <div className="mt-3 text-[15px] leading-6 text-white/86">People, money, work and records in one connected view.</div>
-              <div className="mt-4 grid grid-cols-2 gap-2 text-[7px] uppercase tracking-[0.13em] text-white/46"><span>Finance</span><span>Operations</span><span>People</span><span>Intelligence</span></div>
+            <div className="absolute bottom-7 left-7 right-7 rounded-[22px] border border-white/72 bg-[#F8F1E8]/88 p-5 text-[#2B251F] shadow-[0_28px_75px_rgba(50,35,20,.13)] backdrop-blur-xl sm:left-auto sm:w-[390px]">
+              <div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#A36F39]">LIVE BUSINESS VIEW</div>
+              <div className="mt-3 text-[15px] leading-6 text-[#4F463D]">People, money, work and records in one connected view.</div>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-[7px] uppercase tracking-[0.13em] text-[#817263]"><span>Finance</span><span>Operations</span><span>People</span><span>Intelligence</span></div>
             </div>
           </div>
         </div>
@@ -576,14 +573,14 @@ export default function AvantiqoPublicHome() {
         </div>
       </section>
 
-      <section className="border-b border-black/[0.06] bg-[#171614] text-white">
+      <section className="border-b border-black/[0.06] bg-[#EEE6DB] text-[#1D1B18]">
         <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
           <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
             <div>
               <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">ONE BUSINESS · CONNECTED WORK</p>
               <h2 className="mt-3 max-w-xl text-[38px] font-medium leading-[1.02] tracking-[-0.05em] sm:text-[52px]">The work should connect itself.</h2>
             </div>
-            <p className="max-w-2xl text-[13px] leading-7 text-white/48 lg:justify-self-end">A sale, shift, invoice or purchase should not become five separate admin jobs. Avantiqo keeps the next business step connected to the event that caused it.</p>
+            <p className="max-w-2xl text-[13px] leading-7 text-[#6D645B] lg:justify-self-end">A sale, shift, invoice or purchase should not become five separate admin jobs. Avantiqo keeps the next business step connected to the event that caused it.</p>
           </div>
           <div className="mt-12 grid gap-3 lg:grid-cols-2">
             {[
@@ -592,13 +589,13 @@ export default function AvantiqoPublicHome() {
               ["Supplier invoice arrives", ["Document", "Approval", "Payable", "Payment", "Ledger"]],
               ["Manager asks a question", ["Business data", "Reason", "Next action", "Approval", "Verified result"]],
             ].map(([title, steps]) => (
-              <article key={title} className="rounded-[24px] border border-white/[0.08] bg-white/[0.025] p-5 sm:p-6">
-                <div className="text-[10px] font-semibold text-white/82">{title}</div>
+              <article key={title} className="rounded-[24px] border border-black/[0.07] bg-white/52 p-5 sm:p-6">
+                <div className="text-[10px] font-semibold text-[#342E28]">{title}</div>
                 <div className="mt-6 grid gap-2 sm:grid-cols-5">
                   {steps.map((step, index) => (
-                    <div key={step} className="relative rounded-[13px] border border-white/[0.07] bg-black/15 px-3 py-4">
+                    <div key={step} className="relative rounded-[13px] border border-black/[0.06] bg-white/58 px-3 py-4">
                       <div className="text-[7px] font-semibold text-[#D6A66A]">0{index + 1}</div>
-                      <div className="mt-2 text-[8px] leading-4 text-white/56">{step}</div>
+                      <div className="mt-2 text-[8px] leading-4 text-[#6C6258]">{step}</div>
                       {index < steps.length - 1 ? <span className="absolute -right-2 top-1/2 hidden -translate-y-1/2 text-[10px] text-[#D6A66A]/45 sm:block">→</span> : null}
                     </div>
                   ))}
@@ -670,7 +667,7 @@ export default function AvantiqoPublicHome() {
 
       <section
         id="intelligence"
-        className="border-b border-black/[0.06] bg-[#171716] text-white"
+        className="border-b border-black/[0.06] bg-[#F1E9DE] text-[#1D1B18]"
       >
         <div className="mx-auto grid max-w-[1320px] gap-12 px-5 py-20 sm:px-7 lg:grid-cols-[.86fr_1.14fr] lg:items-center lg:px-10 lg:py-24">
           <div className="max-w-xl">
@@ -678,11 +675,11 @@ export default function AvantiqoPublicHome() {
               <Spark className="h-3.5 w-3.5" />
               Avantiqo Intelligence
             </div>
-            <h2 className="mt-4 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[44px] lg:text-[52px]">
-              Ask Avantiqo about your business.
+            <h2 className="mt-4 text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#1D1B18] sm:text-[44px] lg:text-[52px]">
+              Tell Avantiqo what you need done.
             </h2>
-            <p className="mt-6 text-[14px] leading-7 text-white/55">
-              Ask a direct business question instead of searching through screens. Avantiqo can use connected business records to explain what changed, show what needs attention and prepare the next approved action.
+            <p className="mt-6 text-[14px] leading-7 text-[#6B6258]">
+              Business Partner can investigate connected evidence, reason across the company, prepare the work, execute approved capabilities and verify the result without losing the organization context.
             </p>
             <div className="mt-7 grid gap-2 sm:grid-cols-2">
               {[
@@ -693,7 +690,7 @@ export default function AvantiqoPublicHome() {
               ].map((item) => (
                 <div
                   key={item}
-                  className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-3 text-[10px] text-white/65"
+                  className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-white/55 px-3 py-3 text-[10px] text-[#5F564D]"
                 >
                   <Check className="h-3 w-3 text-[#D6A66A]" />
                   {item}
@@ -701,7 +698,7 @@ export default function AvantiqoPublicHome() {
               ))}
             </div>
           </div>
-          <div className="rounded-[24px] border border-white/[0.08] bg-[#201F1D] p-3 shadow-[0_30px_80px_rgba(0,0,0,0.28)] sm:p-4">
+          <div className="rounded-[24px] border border-[#C8B7A0]/45 bg-[linear-gradient(135deg,#FFF9F0_0%,#F2E5D4_58%,#E6C79C_100%)] p-3 shadow-[0_30px_80px_rgba(50,35,20,.10)] sm:p-4">
             <div className="rounded-[19px] border border-white/[0.07] bg-[#F7F6F3] p-4 text-[#191919] sm:p-5">
               <div className="flex items-center justify-between gap-4 border-b border-black/[0.06] pb-4">
                 <div>

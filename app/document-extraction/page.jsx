@@ -11,7 +11,7 @@ const config = {
   lead: 'OCR, extraction, classification and validation turn documents into structured data that can move into the right business workflow.',
   primary: 'Explore Documents',
   primaryHref: '/documents',
-  image: '/art/commercial-integrations.jpg',
+  image: '/art/generated/products/products-documents-v1.png',
   panelLabel: 'DOCUMENT INTELLIGENCE',
   panel: 'Extracted data stays connected to the right organization, workflow and source file.',
   tags: ['OCR', 'EXTRACT', 'CLASSIFY', 'VALIDATE'],

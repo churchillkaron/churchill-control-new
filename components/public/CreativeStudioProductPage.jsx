@@ -1,5 +1,4 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
-import PublicArtStage from "@/components/public/PublicArtStage";
 
 const process = [
   ["01", "Brief", "Objective, audience and constraints"],
@@ -11,79 +10,38 @@ const process = [
   ["07", "Delivery", "Delivery-ready masters and variants"],
 ];
 
-function StudioUseCaseArt({ studio, index }) {
-  const video = studio.startsWith("Video");
-  const music = studio.startsWith("Music");
-
-  if (video) {
-    const modes = [
-      ["COMPOSITE", ["PLATE", "DEPTH", "MATTE", "LIGHT"]],
-      ["SIMULATION", ["SOURCE", "RIGID", "SMOKE", "DEBRIS"]],
-      ["OPTICAL", ["LENS", "GRAIN", "HALATION", "MOTION"]],
-      ["SOUND TO PICTURE", ["DX", "FOLEY", "FX", "MX"]],
-      ["COLOR / DI", ["BALANCE", "MATCH", "LOOK", "QC"]],
-      ["MASTER", ["PICTURE", "5.1", "7.1", "STEMS"]],
-    ];
-    const [label, items] = modes[index % modes.length];
-    return (
-      <div className="absolute inset-0 overflow-hidden bg-[#0D0C0A] text-white">
-        <div className="absolute inset-0 opacity-[.10]" style={{backgroundImage:"linear-gradient(rgba(255,255,255,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.12) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_26%,rgba(214,166,106,.10),transparent_34%)]"/>
-        <div className="absolute left-3 top-3 text-[6px] font-semibold tracking-[.15em] text-[#D6A66A]">{label}</div>
-        <div className="absolute inset-x-3 top-[34px] grid grid-cols-2 gap-2">
-          {items.map((item,i)=><div key={item} className="rounded-[9px] border border-white/[.07] bg-white/[.025] px-2.5 py-2">
-            <div className="text-[5px] text-[#D6A66A]">0{i+1}</div>
-            <div className="mt-1.5 text-[6px] tracking-[.10em] text-white/46">{item}</div>
-          </div>)}
-        </div>
-        <div className="absolute bottom-3 left-3 right-3 flex items-center gap-1.5">
-          {[28,52,74,44,86,61,92].map((h,i)=><span key={i} className="h-[2px] flex-1 bg-white/[.07]"><span className="block h-full bg-[#D6A66A]/50" style={{width:`${h}%`}}/></span>)}
-        </div>
-      </div>
-    );
-  }
-
-  if (music) {
-    const modes = [
-      ["RECORDING", ["TAKE 01", "TAKE 02", "COMP", "SOURCE"]],
-      ["VOCAL PRODUCTION", ["TIMING", "TUNING", "DYNAMICS", "DEPTH"]],
-      ["MIX", ["VOX", "DRUMS", "BASS", "MUSIC"]],
-      ["AUTOMATION", ["LEVEL", "PAN", "SEND", "FX"]],
-      ["PREMASTER", ["PHASE", "PEAK", "LOUDNESS", "MONO"]],
-      ["DELIVERY", ["MASTER", "INSTR.", "ACAP.", "STEMS"]],
-    ];
-    const [label, items] = modes[index % modes.length];
-    return (
-      <div className="absolute inset-0 overflow-hidden bg-[#100E0C] text-white">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(214,166,106,.05),transparent_45%)]"/>
-        <div className="absolute left-3 top-3 text-[6px] font-semibold tracking-[.15em] text-[#D6A66A]">{label}</div>
-        <div className="absolute inset-x-3 top-[33px] space-y-2">
-          {items.map((item,i)=><div key={item} className="grid grid-cols-[38px_1fr_20px] items-center gap-2">
-            <span className="text-[5px] tracking-[.08em] text-white/28">{item}</span>
-            <span className="relative h-[8px] overflow-hidden rounded-sm bg-white/[.05]"><span className="absolute inset-y-0 left-0 bg-white/28" style={{width:`${[64,82,53,74][i]}%`}}/><span className="absolute inset-y-0 left-[62%] w-px bg-[#D6A66A]/55"/></span>
-            <span className="text-right text-[5px] text-white/20">0{i+1}</span>
-          </div>)}
-        </div>
-        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between border-t border-white/[.07] pt-2 text-[5px] tracking-[.10em] text-white/24"><span>24-BIT / 48 KHZ</span><span>PHASE COHERENT</span></div>
-      </div>
-    );
-  }
-
-  const modes = [
-    ["ART DIRECTION", ["REFERENCE", "COMPOSITION", "LIGHT", "TYPE"]],
-    ["CAMPAIGN", ["HERO", "DETAIL", "SOCIAL", "OOH"]],
-    ["PRODUCT", ["SOURCE", "RETOUCH", "COLOR", "LAYOUT"]],
-    ["BRAND SYSTEM", ["GRID", "TYPE", "IMAGE", "LOCKUP"]],
-    ["REPAIR", ["MASK", "DETAIL", "MATCH", "QC"]],
-    ["DELIVERY", ["4:5", "1:1", "16:9", "PRINT"]],
+function studioUseCaseImage(studio, index) {
+  const music = [
+    "/art/generated/usecases/music-artist-records-v1.png",
+    "/art/generated/usecases/music-brand-music-v1.png",
+    "/art/generated/usecases/music-film-score-v1.png",
+    "/art/generated/usecases/music-vocal-production-v1.png",
+    "/art/generated/usecases/music-remix-v1.png",
+    "/art/generated/usecases/music-mastering-v1.png",
   ];
-  const [label, items] = modes[index % modes.length];
+  const audio = [
+    "/art/generated/usecases/audio-commercial-v1.png",
+    "/art/generated/usecases/audio-narrative-v1.png",
+    "/art/generated/usecases/audio-automotive-v1.png",
+    "/art/generated/usecases/audio-product-launch-v1.png",
+    "/art/generated/usecases/audio-immersive-v1.png",
+    "/art/generated/usecases/audio-mastering-v1.png",
+  ];
+  if (studio.startsWith("Music")) return music[index % music.length];
+  if (studio.startsWith("Audio")) return audio[index % audio.length];
+  return studioImagePath(studio);
+}
+
+function StudioUseCaseArt({ studio, index }) {
+  const positions = ["center", "58% center", "42% center", "70% center", "35% center", "62% center"];
   return (
-    <div className="absolute inset-0 overflow-hidden bg-[#EEE8DF] text-[#171614]">
-      <div className="absolute inset-0 opacity-[.24]" style={{backgroundImage:"linear-gradient(rgba(82,67,52,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(82,67,52,.12) 1px,transparent 1px)",backgroundSize:"30px 30px"}}/>
-      <div className="absolute left-3 top-3 text-[6px] font-semibold tracking-[.15em] text-[#9A744B]">{label}</div>
-      <div className="absolute inset-x-3 top-[34px] grid grid-cols-2 gap-2">{items.map((item,i)=><div key={item} className="relative h-[34px] overflow-hidden rounded-[8px] border border-black/[.07] bg-white/60 p-2"><div className="text-[5px] text-[#9A744B]">0{i+1}</div><div className="mt-1 text-[6px] tracking-[.08em] text-black/45">{item}</div></div>)}</div>
-      <div className="absolute bottom-3 left-3 right-3 flex gap-1">{[1,2,3,4,5].map((n)=><span key={n} className="h-[2px] flex-1 bg-black/[.08]"><span className="block h-full bg-[#A37849]/45" style={{width:`${32+n*11}%`}}/></span>)}</div>
+    <div className="absolute inset-0 overflow-hidden bg-[#1B1713]">
+      <div
+        className="absolute inset-0 bg-cover transition duration-700 group-hover:scale-[1.05]"
+        style={{ backgroundImage: `url(${studioUseCaseImage(studio, index)})`, backgroundPosition: positions[index % positions.length] }}
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.01),rgba(8,7,6,.04)_58%,rgba(8,7,6,.34))]" />
+      <div className="absolute bottom-3 left-3 h-px w-10 bg-[#D6A66A]/70" />
     </div>
   );
 }
@@ -107,41 +65,55 @@ function Arrow({ className = "" }) {
   );
 }
 
+
+function studioImagePath(studio) {
+  if (studio.startsWith("Video")) return "/art/generated/creative-video-v2.png";
+  if (studio.startsWith("Audio")) return "/art/generated/creative-audio-post-v2.png";
+  if (studio.startsWith("Music")) return "/art/generated/creative-music-v2.png";
+  if (studio.startsWith("Image")) return "/art/generated/creative-image-v2.png";
+  return "/art/generated/creative-hero-v2.png";
+}
+
 function StudioArtwork({ studio }) {
   const video = studio.startsWith("Video");
+  const audio = studio.startsWith("Audio");
   const music = studio.startsWith("Music");
-  const kind = video ? "video-studio" : music ? "music-studio" : "image-studio";
   const mode = video
     ? "VFX / SIMULATION / COMPOSITE / FINISH"
-    : music
-      ? "RECORD / PRODUCE / MIX / MASTER"
-      : "ART DIRECTION / LAYOUT / DELIVERY";
+    : audio
+      ? "SOUND DESIGN / POST / SPATIAL / MASTER"
+      : music
+        ? "RECORD / PRODUCE / MIX / MASTER"
+        : "ART DIRECTION / LAYOUT / DELIVERY";
   const caption = video
     ? "Picture craft, not prompt-to-video"
-    : music
-      ? "Record production, not AI song generation"
-      : "Commercial visual production, not image prompting";
+    : audio
+      ? "Cinema sound, not a background track"
+      : music
+        ? "Record production, not AI song generation"
+        : "Commercial visual production, not image prompting";
   return (
-    <div className="relative min-h-[590px] overflow-hidden rounded-[32px] border border-black/[0.08] bg-[#151310] shadow-[0_38px_110px_rgba(68,47,25,.18)]">
-      <PublicArtStage kind={kind} />
-      <div className="absolute left-5 top-5 rounded-full border border-white/15 bg-[#11100E]/78 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#E1B87F] shadow-sm backdrop-blur-xl">
+    <div className="relative min-h-[590px] overflow-hidden rounded-[34px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_34px_100px_rgba(68,47,25,.13)]">
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${studioImagePath(studio)})` }} />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(20,15,10,.03)_52%,rgba(20,15,10,.22))]" />
+      <div className="absolute left-5 top-5 rounded-full border border-white/70 bg-[#F8F0E6]/76 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#8D6339] shadow-sm backdrop-blur-xl">
         AVANTIQO {studio}
       </div>
-      <div className="absolute right-5 top-5 hidden rounded-[16px] border border-white/12 bg-[#11100E]/72 px-3 py-2 text-right backdrop-blur-xl sm:block">
-        <div className="text-[7px] uppercase tracking-[0.2em] text-[#DDB27A]">{mode}</div>
-        <div className="mt-1 text-[8px] text-white/42">Professional production environment</div>
+      <div className="absolute right-5 top-5 hidden rounded-[16px] border border-white/70 bg-[#F8F1E8]/76 px-3 py-2 text-right backdrop-blur-xl sm:block">
+        <div className="text-[7px] uppercase tracking-[0.2em] text-[#9A6A37]">{mode}</div>
+        <div className="mt-1 text-[8px] text-[#796C5E]">Professional production environment</div>
       </div>
-      <div className="absolute bottom-5 left-5 right-5 rounded-[20px] border border-white/12 bg-[#11100E]/76 p-4 text-white shadow-[0_24px_70px_rgba(0,0,0,.28)] backdrop-blur-xl sm:p-5">
+      <div className="absolute bottom-5 left-5 right-5 rounded-[22px] border border-white/72 bg-[#F8F1E8]/88 p-4 text-[#2B251F] shadow-[0_24px_70px_rgba(40,28,18,.14)] backdrop-blur-xl sm:p-5">
         <div className="flex items-end justify-between gap-5">
           <div>
-            <div className="text-[8px] font-semibold uppercase tracking-[0.2em] text-[#E0B77F]">{caption}</div>
-            <div className="mt-2 max-w-lg text-[11px] leading-5 text-white/52">
+            <div className="text-[8px] font-semibold uppercase tracking-[0.2em] text-[#A36F39]">{caption}</div>
+            <div className="mt-2 max-w-lg text-[11px] leading-5 text-[#6D6257]">
               Real production state, specialist passes, review evidence and deterministic finishing stay connected from source through master.
             </div>
           </div>
           <div className="hidden gap-1.5 sm:flex">
-            {(video ? ["PASSES","COMPOSITE","MASTER"] : music ? ["TAKES","MIX","MASTER"] : ["BRIEF","LAYOUT","MASTER"]).map((x) => (
-              <span key={x} className="rounded-full border border-white/12 bg-white/[0.025] px-2 py-1 text-[7px] tracking-[0.13em] text-white/46">{x}</span>
+            {(video ? ["PASSES","COMPOSITE","MASTER"] : audio ? ["DX","FOLEY","SPATIAL","MASTER"] : music ? ["TAKES","MIX","MASTER"] : ["BRIEF","LAYOUT","MASTER"]).map((x) => (
+              <span key={x} className="rounded-full border border-[#B98A52]/22 bg-white/55 px-2 py-1 text-[7px] tracking-[0.13em] text-[#796653]">{x}</span>
             ))}
           </div>
         </div>
@@ -151,7 +123,7 @@ function StudioArtwork({ studio }) {
 }
 
 function DisciplineGlyph({ studio, index }) {
-  const video = studio.startsWith("Video");
+  const video = studio.startsWith("Video") || studio.startsWith("Audio");
   const music = studio.startsWith("Music");
 
   if (music)
@@ -325,6 +297,7 @@ function CapabilityNetwork({ studio }) {
 
 function SharedAudioArchitecture({ studio }) {
   const video = studio.startsWith("Video");
+  const audio = studio.startsWith("Audio");
   const rooms = [
     ["01", "Music Production", "Artist and record production: performance, recording, comping, arrangement, vocal and instrument production, editing, mix and master."],
     ["02", "Sound Design", "Source recording and library search, Foley, ambience, machines, vehicles, objects, designed effects, impact sweeteners, sub and transition design."],
@@ -341,15 +314,15 @@ function SharedAudioArchitecture({ studio }) {
       <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
         <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">{video ? "CINEMA / AUDIO ARCHITECTURE" : "MUSIC / AUDIO ARCHITECTURE"}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">{video ? "CINEMA / AUDIO ARCHITECTURE" : audio ? "AUDIO POST / PRODUCTION ARCHITECTURE" : "MUSIC / AUDIO ARCHITECTURE"}</p>
             <h2 className="mt-4 max-w-xl text-[40px] font-medium leading-[1.00] tracking-[-0.052em] sm:text-[52px]">
-              {video ? "Sound is a production department, not a background track." : "Record production, not AI song generation."}
+              {(video || audio) ? "Sound is a production department, not a background track." : "Record production, not AI song generation."}
             </h2>
           </div>
           <div className="max-w-2xl lg:justify-self-end">
             <p className="text-[14px] leading-7 text-[#6E675F]">
-              {video
-                ? "Every important object can carry its own sonic identity and evolve with camera position, movement, environment and story. A vehicle is not one engine file; it can be intake, exhaust, transmission, tires, wind, mechanical resonance, subharmonic design, transient layers and environmental reflections."
+              {(video || audio)
+                ? "Every important object can carry its own sonic identity and evolve with screen position, movement, environment and story. Dialogue, Foley, ambience, effects, music and spatial objects remain separate, editable production layers through premix, multichannel mastering and delivery."
                 : "The target is a complete record-production chain: performance, source quality, timing, phase, comping, vocal and instrument production, arrangement, editing, depth, imaging, dynamics, ambience, automation, premaster listening, mastering and translation QC."}
             </p>
           </div>
@@ -388,7 +361,7 @@ function SharedAudioArchitecture({ studio }) {
           </div>
         </div>
 
-        {video ? <div className="mt-6 overflow-hidden rounded-[22px] border border-black/[0.08] bg-white/55">
+        {(video || audio) ? <div className="mt-6 overflow-hidden rounded-[22px] border border-black/[0.08] bg-white/55">
           <div className="grid lg:grid-cols-[.42fr_1.58fr]">
             <div className="border-b border-black/[.07] p-5 lg:border-b-0 lg:border-r">
               <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-[#9A744B]">SONIC OBJECT MODEL</div>
@@ -414,62 +387,159 @@ function SharedAudioArchitecture({ studio }) {
 
 function VideoProductionArchitecture() {
   const layers = [
-    ["01", "Reconstruction execution backend", "Break approved shots into geometry, depth, masks, motion, lighting and reconstruction tasks that can be executed and repaired independently."],
-    ["02", "Executable pass renderer / dispatcher", "Route exact production passes to the right render or generation engine, preserve dependencies and re-run only the failed pass instead of restarting the shot."],
-    ["03", "Physical simulation engine", "Handle particles, smoke, water, cloth, debris, atmosphere, collisions, light interaction and other simulation-heavy details as controlled production layers."],
-    ["04", "Deep compositing", "Nuke-style node thinking for mattes, depth, relighting, keying, tracking, cleanup, roto, integration, atmosphere and shot-level VFX assembly."],
-    ["05", "Cinematic sound-event engine", "Layer dialogue, Foley, ambience, impacts, movement, environments and spatial events into a designed multichannel soundtrack instead of adding one flat audio track."],
-    ["06", "Optical & lens finishing", "Finish the image with lens response, motion character, halation, grain, depth cues, bloom, distortion, chromatic behavior and final cinematic consistency."],
+    ["01", "Reconstruction execution", "Geometry, depth, masks, motion, lighting and reconstruction tasks become repairable production state."],
+    ["02", "Executable pass rendering", "Plate, matte, depth, light, reflection and specialist passes can be dispatched and re-run independently."],
+    ["03", "Physical simulation", "Particles, smoke, water, cloth, debris, collisions and atmosphere remain controlled shot layers."],
+    ["04", "Deep VFX compositing", "Tracking, roto, keying, cleanup, relighting, integration, atmosphere and shot assembly stay inspectable."],
+    ["05", "Sound to picture", "Dialogue, Foley, FX, ambience, movement and music stay attached to picture and timecode."],
+    ["06", "Optical finish / Color DI", "Lens response, motion, grain, halation, shot matching, look development and mastering complete the film."],
   ];
   return (
-    <section className="border-b border-white/[0.07] bg-[#0D0C0A] text-white">
+    <section className="border-b border-black/[0.06] bg-[#F3EEE6] text-[#1A1815]">
       <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-        <div className="grid gap-10 lg:grid-cols-[.76fr_1.24fr] lg:items-end">
+        <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">VIDEO STUDIO / PRODUCTION ARCHITECTURE</p>
-            <h2 className="mt-4 max-w-xl text-[40px] font-medium leading-[1.00] tracking-[-0.052em] text-[#F7F4EF] sm:text-[52px]">
-              A film-production house with intelligence built into the pipeline.
-            </h2>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9A6531]">VIDEO STUDIO / PRODUCTION ARCHITECTURE</p>
+            <h2 className="mt-4 max-w-xl text-[40px] font-medium leading-[1.00] tracking-[-0.052em] sm:text-[52px]">A film-production house with intelligence built into the pipeline.</h2>
           </div>
           <div className="max-w-2xl lg:justify-self-end">
-            <p className="text-[14px] leading-7 text-white/55">
-              The direction is a real post-production and VFX pipeline around intelligent production: shots become executable layers, passes, simulations, composites, sound events and finishing decisions. Generation is only one production department inside the system.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              {["SHOT RECONSTRUCTION","PASS RENDERING","PHYSICAL SIMULATION","VFX COMPOSITING","SURROUND SOUND","OPTICAL FINISH"].map((x)=><span key={x} className="rounded-full border border-[#D6A66A]/24 bg-[#D6A66A]/[.05] px-3 py-1.5 text-[7px] font-semibold tracking-[.14em] text-[#E5BC84]">{x}</span>)}
-            </div>
+            <p className="text-[14px] leading-7 text-[#6E675F]">Shots are treated as production state: camera intent, reconstruction, VFX passes, simulation, compositing, sound, review and finishing remain connected. Generation is one production department inside the system, not the product itself.</p>
+            <div className="mt-5 flex flex-wrap gap-2">{["SHOT RECONSTRUCTION","PASS RENDERING","PHYSICAL SIMULATION","VFX COMPOSITING","SURROUND SOUND","COLOR / DI"].map((x)=><span key={x} className="rounded-full border border-[#B98B58]/25 bg-white/45 px-3 py-1.5 text-[7px] font-semibold tracking-[.14em] text-[#8E663D]">{x}</span>)}</div>
           </div>
         </div>
 
-        <div className="mt-12 overflow-hidden rounded-[30px] border border-white/[0.09] bg-[#14120F] shadow-[0_34px_100px_rgba(0,0,0,.34)]">
-          <div className="grid lg:grid-cols-[.72fr_1.28fr]">
-            <div className="relative min-h-[460px] overflow-hidden border-b border-white/[0.08] p-6 lg:border-b-0 lg:border-r lg:p-8">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_58%_45%,rgba(214,166,106,.17),transparent_24%),linear-gradient(135deg,#16130F,#0A0908)]"/>
-              <div className="absolute inset-0 opacity-[.10]" style={{backgroundImage:"linear-gradient(rgba(214,166,106,.15) 1px,transparent 1px),linear-gradient(90deg,rgba(214,166,106,.15) 1px,transparent 1px)",backgroundSize:"54px 54px"}}/>
-              <svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 620 500" preserveAspectRatio="none">
-                <path d="M82 250 H235 M385 250 H538 M310 85 V178 M310 322 V415" stroke="rgba(214,166,106,.34)" strokeWidth="1.2"/>
-                <path d="M128 128 C210 128 214 214 258 236 M492 128 C410 128 406 214 362 236 M128 372 C210 372 214 286 258 264 M492 372 C410 372 406 286 362 264" fill="none" stroke="rgba(214,166,106,.22)" strokeWidth="1.1"/>
-                <circle cx="310" cy="250" r="66" fill="rgba(24,19,14,.96)" stroke="rgba(214,166,106,.55)" strokeWidth="1.4"/>
-              </svg>
-              <div className="absolute left-1/2 top-1/2 w-[150px] -translate-x-1/2 -translate-y-1/2 text-center">
-                <div className="text-[9px] font-semibold tracking-[.16em] text-[#E9C28C]">SHOT STATE</div>
-                <div className="mt-2 text-[7px] leading-4 text-white/34">Geometry · depth · masks · motion · light · sound</div>
+        <div className="mt-12 overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#FBF8F2] shadow-[0_30px_90px_rgba(62,44,26,.10)]">
+          <div className="grid lg:grid-cols-[.92fr_1.08fr]">
+            <div className="relative min-h-[520px] overflow-hidden border-b border-black/[0.07] lg:border-b-0 lg:border-r">
+              <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/generated/creative-video-v2.png)"}} />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.02),rgba(8,7,6,.08)_58%,rgba(8,7,6,.52))]"/>
+              <div className="absolute left-6 top-6 rounded-full border border-white/20 bg-black/25 px-3 py-1.5 text-[7px] font-semibold tracking-[.16em] text-[#F0C58C] backdrop-blur-xl">PHYSICAL PRODUCTION + VFX</div>
+              <div className="absolute bottom-6 left-6 right-6 max-w-[470px] rounded-[20px] border border-white/16 bg-black/32 p-5 text-white backdrop-blur-xl">
+                <div className="text-[8px] font-semibold uppercase tracking-[.18em] text-[#E5BC84]">THE IMAGE TELLS THE PIPELINE</div>
+                <p className="mt-3 text-[10px] leading-5 text-white/56">Camera, practical set, lighting, motion control, review and post-production belong to one shot system. The Studio keeps those departments connected so a weak pass can be repaired without destroying accepted work.</p>
               </div>
-              {[["RECONSTRUCT","left-[7%] top-[14%]"],["SIMULATE","right-[7%] top-[14%]"],["COMPOSITE","left-[7%] bottom-[14%]"],["FINISH","right-[7%] bottom-[14%]"]].map(([x,pos],i)=><div key={x} className={"absolute " + pos + " w-[118px] rounded-[15px] border border-white/[.08] bg-black/30 p-3 backdrop-blur-sm"}><div className="text-[6px] text-[#D6A66A]">0{i+1}</div><div className="mt-2 text-[8px] font-semibold tracking-[.11em] text-white/62">{x}</div></div>)}
-              <div className="absolute bottom-6 left-6 right-6 border-t border-white/[.08] pt-4 text-[7px] leading-4 text-white/31">Approved layers stay locked. A failed pass can be repaired without destroying the rest of the shot.</div>
             </div>
             <div className="grid sm:grid-cols-2">
-              {layers.map(([n,t,d],i)=><div key={t} className={"min-h-[230px] p-5 sm:p-6 " + (i%2===0 ? "sm:border-r sm:border-white/[.08] " : "") + (i<4 ? "border-b border-white/[.08]" : "")}>
-                <div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#D6A66A]">{n}</span><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]/70"/></div>
-                <h3 className="mt-8 text-[15px] font-semibold leading-5 text-white/82">{t}</h3>
-                <p className="mt-3 text-[9px] leading-5 text-white/35">{d}</p>
+              {layers.map(([n,t,d],i)=><div key={t} className={`min-h-[250px] p-6 ${i%2===0 ? "sm:border-r sm:border-black/[0.07]" : ""} ${i<4 ? "border-b border-black/[0.07]" : ""}`}>
+                <div className="flex items-center justify-between"><span className="text-[7px] font-bold text-[#A86B2D]">{n}</span><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]/60"/></div>
+                <h3 className="mt-8 text-[17px] font-semibold tracking-[-0.02em] text-[#28231F]">{t}</h3>
+                <p className="mt-3 text-[9px] leading-5 text-[#756E65]">{d}</p>
               </div>)}
             </div>
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
 
-        <div className="mt-6 rounded-[20px] border border-[#D6A66A]/18 bg-[#D6A66A]/[.035] p-5 text-[9px] leading-5 text-white/38">
-          <span className="font-semibold text-[#DDB47C]">Positioning:</span> this is being built toward cinema-grade production, VFX, compositing and multichannel sound workflows. Avantiqo should only use Dolby-certified language when the final delivery chain is actually licensed and certified; the Studio can still support surround and delivery-ready multichannel mastering.
+function StudioTechnicalSpecs({ studio }) {
+  const video = studio.startsWith("Video");
+  const audio = studio.startsWith("Audio");
+  const music = studio.startsWith("Music");
+  if (!video && !audio && !music) return null;
+
+  const rows = video ? [
+    ["VFX / COMPOSITING", "Mattes · depth · keying · roto · tracking · cleanup · relighting · atmosphere · shot assembly"],
+    ["RENDER PASSES", "Plate · depth · matte · geometry · light · reflection · atmosphere · repairable specialist passes"],
+    ["PHYSICAL SIMULATION", "Particles · smoke · water · cloth · debris · collisions · atmosphere · light interaction"],
+    ["SHOT CONTROL", "Story purpose · camera language · continuity · versions · timecoded review · targeted revision"],
+    ["OPTICAL FINISH", "Lens response · motion character · halation · grain · bloom · distortion · chromatic behavior"],
+    ["COLOR / DI", "Balance · shot matching · look development · continuity · QC · release master preparation"],
+    ["SOUND TO PICTURE", "Dialogue · Foley · FX · ambience · music · object movement · spatial placement · multichannel mix"],
+    ["DELIVERY", "Picture masters · channel variants · stems · QC evidence · approved version lineage"],
+  ] : audio ? [
+    ["CHANNEL LAYOUTS", "Stereo 2.0 · 5.1 · 7.1 · 7.1.4 immersive speaker layouts"],
+    ["DIALOGUE / DX", "Editorial · cleanup · timing · continuity · replacement-ready material · dialogue stems"],
+    ["FOLEY", "Footsteps · cloth · props · surfaces · machines · vehicles · physical detail"],
+    ["SFX / SOUND DESIGN", "Impacts · transitions · mechanical layers · subs · sweeteners · designed effects · source libraries"],
+    ["SPATIAL / OBJECT AUDIO", "Object position · trajectory · distance · room response · routing · automation · LFE eligibility"],
+    ["MIX ARCHITECTURE", "Multichannel buses · sends · dynamics · reverbs · phase/correlation · stem architecture"],
+    ["MASTERING / QC", "Loudness · true peak · dynamic range · mono/downmix checks · translation QC"],
+    ["DELIVERY", "DX · FX · MX · M&E stems · stereo/surround/immersive masters · final picture mux packages"],
+  ] : [
+    ["RECORDING", "24-bit / 48 kHz project standard · takes · overdubs · source health · latency compensation"],
+    ["VOCAL PRODUCTION", "Explicit role assignment · lead · double · harmony · backing · ad-lib · choir · vocal master · role-specific EQ/compression · reverb/delay sends · QC blockers"],
+    ["MIDI / INSTRUMENTS", "Piano roll · drum sequencer · sampler · groove · harmony · instrument preview · bounce"],
+    ["MIX ENGINE", "Parametric EQ · dynamics · groups · sends · automation · pan · stereo/phase monitoring"],
+    ["PREMASTER", "Phase · peak · loudness · mono compatibility · critical listening · governed repair"],
+    ["MASTERING", "Tone · dynamics · true peak · loudness · translation · release masters · stems"],
+  ];
+
+  return (
+    <section className="border-b border-black/[0.06] bg-[#FBF8F2] text-[#1A1815]">
+      <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
+        <div className="grid gap-8 lg:grid-cols-[.7fr_1.3fr] lg:items-end">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">TECHNICAL SPECIFICATION</p>
+            <h2 className="mt-4 max-w-xl text-[40px] font-medium leading-[1.00] tracking-[-0.052em] sm:text-[52px]">
+              {video ? "Film-production depth you can actually inspect." : audio ? "A real cinema-audio chain, not a single generated soundtrack." : "A real record-production chain, not a one-click song generator."}
+            </h2>
+          </div>
+          <p className="max-w-2xl text-[13px] leading-7 text-[#6E675F] lg:justify-self-end">
+            {video ? "The Studio exposes the departments behind the final picture so a weak component can be reviewed, repaired and re-rendered without throwing away approved work." : audio ? "Audio stays attached to picture, timecode, routing and source lineage. The same project can move from editorial and sound design through spatial placement, multichannel premix, QC and delivery." : "The Studio keeps recording, performance, arrangement, editing, mixing, premaster review and mastering connected in one production state."}
+          </p>
+        </div>
+        <div className="mt-10 grid gap-px overflow-hidden rounded-[26px] border border-black/[0.08] bg-black/[0.08] md:grid-cols-2">
+          {rows.map(([name,detail])=><div key={name} className="bg-[#F6F1E9] p-5 sm:p-6">
+            <div className="text-[8px] font-semibold tracking-[.16em] text-[#9A6531]">{name}</div>
+            <p className="mt-3 text-[10px] leading-5 text-[#6D665E]">{detail}</p>
+          </div>)}
+        </div>
+        {audio ? <div className="mt-5 rounded-[18px] border border-[#B98751]/20 bg-white/45 p-5 text-[9px] leading-5 text-[#6C645B]">
+          <span className="font-semibold text-[#8A633C]">Dolby Atmos / 7.1.4:</span> Avantiqo can describe and work with 7.1.4 immersive speaker layouts and Atmos-style object/bed production concepts. We should only market a deliverable as <span className="font-semibold">Dolby Atmos certified</span> when the final renderer, monitoring and licensed delivery chain are actually connected and certified.
+        </div> : null}
+      </div>
+    </section>
+  );
+}
+
+
+function ProfessionalVocalProduction({ studio }) {
+  if (!studio.startsWith("Music")) return null;
+  const roles = [
+    ["LEAD", "Primary vocal focus"],
+    ["DOUBLE", "Controlled reinforcement"],
+    ["HARMONY", "Harmonic support"],
+    ["BACKING", "Backing-vocal bed"],
+    ["AD-LIB", "Accent and response"],
+    ["CHOIR", "Grouped vocal ensemble"],
+  ];
+  return (
+    <section className="border-b border-black/[0.06] bg-[#F2ECE3] text-[#1A1815]">
+      <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
+        <div className="grid gap-9 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">PROFESSIONAL VOCAL PRODUCTION</p>
+            <h2 className="mt-4 max-w-xl text-[40px] font-medium leading-[1.00] tracking-[-0.052em] sm:text-[52px]">A real vocal hierarchy, built deliberately by the engineer.</h2>
+          </div>
+          <p className="max-w-2xl text-[13px] leading-7 text-[#6E675F] lg:justify-self-end">Avantiqo does not guess vocal roles or silently restructure a session. Vocal tracks are classified explicitly first. The engineer then runs <span className="font-semibold text-[#4A443D]">Build vocal production</span> to create or update the hierarchy deterministically. Any unclassified vocal becomes a QC blocker instead of being routed by assumption.</p>
+        </div>
+
+        <div className="mt-10 overflow-hidden rounded-[28px] border border-black/[0.08] bg-[#11100E] text-white shadow-[0_28px_80px_rgba(45,31,18,.15)]">
+          <div className="border-b border-white/[0.08] px-6 py-5 sm:px-7">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div><div className="text-[8px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">EXPLICIT ROLE VALIDATION</div><div className="mt-2 text-[10px] text-white/38">No role guessing · no source rewriting · no automatic destructive routing</div></div>
+              <div className="rounded-full border border-[#D6A66A]/25 px-3 py-1.5 text-[7px] tracking-[.14em] text-[#E3BA82]">ENGINEER ACTION</div>
+            </div>
+          </div>
+          <div className="grid gap-px bg-white/[0.07] sm:grid-cols-3 lg:grid-cols-6">
+            {roles.map(([role,copy],i)=><div key={role} className="bg-[#14120F] p-5"><div className="text-[7px] font-bold text-[#D6A66A]">0{i+1}</div><div className="mt-5 text-[10px] font-semibold tracking-[.12em] text-white/74">{role}</div><div className="mt-2 text-[8px] leading-4 text-white/28">{copy}</div></div>)}
+          </div>
+          <div className="grid lg:grid-cols-[1.2fr_.8fr]">
+            <div className="border-b border-white/[0.08] p-6 lg:border-b-0 lg:border-r sm:p-7">
+              <div className="text-[8px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">VOCAL BUS ARCHITECTURE</div>
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                {["Role sub-buses","Vocal master","Role-specific EQ","Role-specific compression","Reverb sends","Delay sends","Automation preserved","Source lineage preserved"].map((x)=><div key={x} className="rounded-[14px] border border-white/[0.07] bg-white/[0.025] px-4 py-3 text-[8px] text-white/46">{x}</div>)}
+              </div>
+            </div>
+            <div className="p-6 sm:p-7">
+              <div className="text-[8px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">QC GATE</div>
+              <h3 className="mt-4 text-[24px] font-medium leading-[1.05] tracking-[-.04em] text-white/86">Unclassified vocals block the build.</h3>
+              <p className="mt-4 text-[9px] leading-5 text-white/34">The action returns a QC manifest describing missing role assignments and routing blockers. Nothing is guessed from track names, and accepted source audio is not rewritten just to create the hierarchy.</p>
+              <div className="mt-6 border-t border-white/[0.07] pt-4 text-[7px] tracking-[.11em] text-white/24">VALIDATE → BUILD SUB-BUSES → VOCAL MASTER → FX SENDS → QC MANIFEST</div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -478,18 +548,22 @@ function VideoProductionArchitecture() {
 
 function StudioWorkspace({ studio }) {
   const video = studio.startsWith("Video");
+  const audio = studio.startsWith("Audio");
   const music = studio.startsWith("Music");
   const labels = video
     ? ["Story", "Shot Build", "Passes", "Composite", "Sound", "Master"]
-    : music
-      ? ["Compose", "Arrange", "Vocals", "SFX", "Mix", "Master"]
-      : ["Research", "Direction", "Create", "Review", "Repair", "Deliver"];
-  const artKind = video ? "video-studio" : music ? "music-studio" : "image-studio";
+    : audio
+      ? ["Spot", "Dialogue", "Foley", "Design", "Spatial", "Master"]
+      : music
+        ? ["Compose", "Arrange", "Vocals", "SFX", "Mix", "Master"]
+        : ["Research", "Direction", "Create", "Review", "Repair", "Deliver"];
   const status = video
     ? "SHOT 024 / REVIEW"
-    : music
-      ? "MASTER BUS / REVIEW"
-      : "CAMPAIGN 01 / REVIEW";
+    : audio
+      ? "MIX STAGE / REVIEW"
+      : music
+        ? "MASTER BUS / REVIEW"
+        : "CAMPAIGN 01 / REVIEW";
   return (
     <section className="border-b border-black/[0.06] bg-[#F1ECE4] text-[#1C1A17]">
       <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
@@ -502,10 +576,7 @@ function StudioWorkspace({ studio }) {
               A real production workspace, connected end to end.
             </h2>
             <p className="mt-5 max-w-lg text-[13px] leading-7 text-[#706A62]">
-              Direction, shot state, reconstruction passes, simulation, compositing,
-              sound events, review and approved output stay connected. Video Studio
-              behaves like a production pipeline with repairable departments, not a
-              one-click generator.
+              {video ? "Direction, shot state, reconstruction passes, simulation, compositing, sound events, review and approved output stay connected. Video Studio behaves like a production pipeline with repairable departments, not a one-click generator." : audio ? "Spotting, dialogue, Foley, sound design, music, spatial placement, automation, premix, review and masters stay connected to picture and timecode. Audio Post behaves like a real post-production department, not an audio effect added at the end." : music ? "Performance, source quality, comping, arrangement, editing, routing, automation, mix, premaster review and mastering stay connected in one record-production environment." : "Research, art direction, source imagery, composition, review, targeted repair, typography, layout, variants and final delivery stay connected in one commercial image-production workflow."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
@@ -520,12 +591,12 @@ function StudioWorkspace({ studio }) {
           </div>
         </div>
         <div className="relative mt-10 min-h-[560px] overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#CFC4B4] shadow-[0_34px_100px_rgba(71,50,28,.16)]">
-          <div className="absolute inset-0 scale-[1.02]"><PublicArtStage kind={artKind} /></div>
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.05)_58%,rgba(8,7,6,.34))]" />
+          <div className="absolute inset-0 scale-[1.02] bg-cover bg-center" style={{ backgroundImage: `url(${studioImagePath(studio)})` }} />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.08)_48%,rgba(8,7,6,.46))]" />
           <div className="absolute left-5 top-5 rounded-full border border-white/22 bg-black/28 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-[#F0C98F] backdrop-blur-xl">
             {status}
           </div>
-          <div className="absolute right-5 top-5 hidden rounded-[16px] border border-white/20 bg-white/12 px-3 py-2 text-right text-white backdrop-blur-xl sm:block">
+          <div className="absolute right-5 top-5 hidden rounded-[16px] border border-white/20 bg-[#11100E]/74 px-3 py-2 text-right text-white shadow-[0_12px_30px_rgba(0,0,0,.20)] backdrop-blur-xl sm:block">
             <div className="text-[7px] uppercase tracking-[0.17em] text-[#F0C98F]">
               Live production context
             </div>
@@ -534,7 +605,7 @@ function StudioWorkspace({ studio }) {
             </div>
           </div>
           <div className="absolute bottom-5 left-5 right-5 grid gap-3 lg:grid-cols-[1.05fr_.95fr]">
-            <div className="rounded-[22px] border border-white/20 bg-black/34 p-4 text-white backdrop-blur-xl sm:p-5">
+            <div className="rounded-[22px] border border-white/20 bg-[#11100E]/88 p-4 text-white shadow-[0_16px_40px_rgba(0,0,0,.22)] backdrop-blur-xl sm:p-5">
               <div className="text-[7px] uppercase tracking-[0.18em] text-[#E9C28C]">
                 Production path
               </div>
@@ -552,7 +623,7 @@ function StudioWorkspace({ studio }) {
                 ))}
               </div>
             </div>
-            <div className="rounded-[22px] border border-white/20 bg-white/82 p-4 text-[#24201B] shadow-sm backdrop-blur-xl sm:p-5">
+            <div className="rounded-[22px] border border-white/20 bg-[#F7F1E8]/96 p-4 text-[#24201B] shadow-[0_16px_40px_rgba(0,0,0,.16)] backdrop-blur-xl sm:p-5">
               <div className="flex items-center justify-between">
                 <span className="text-[7px] uppercase tracking-[0.18em] text-[#8A633C]">
                   Quality review
@@ -660,7 +731,7 @@ export default function CreativeStudioProductPage({
             A complete production system
           </p>
           <h2 className="mt-3 max-w-4xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] sm:text-[46px]">
-            {studio.startsWith("Video") ? "Not a generator. A complete film-production system." : studio.startsWith("Music") ? "Not an AI song generator. A complete record-production system." : "Not a generator. A professional creative workflow."}
+            {studio.startsWith("Video") ? "Not a generator. A complete film-production system." : studio.startsWith("Audio") ? "Not an audio effect. A complete sound-to-picture production system." : studio.startsWith("Music") ? "Not an AI song generator. A complete record-production system." : "Not a generator. A professional creative workflow."}
           </h2>
           <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {capabilities.map(([name, text], i) => (
@@ -686,7 +757,11 @@ export default function CreativeStudioProductPage({
 
       {studio.startsWith("Video") ? <VideoProductionArchitecture /> : null}
 
-      {(studio.startsWith("Video") || studio.startsWith("Music")) ? <SharedAudioArchitecture studio={studio} /> : null}
+      {(studio.startsWith("Video") || studio.startsWith("Music") || studio.startsWith("Audio")) ? <SharedAudioArchitecture studio={studio} /> : null}
+
+      <StudioTechnicalSpecs studio={studio} />
+
+      <ProfessionalVocalProduction studio={studio} />
 
       <StudioWorkspace studio={studio} />
 
@@ -710,30 +785,30 @@ export default function CreativeStudioProductPage({
         </div>
       </section>
 
-      <section className="border-b border-white/[0.06] bg-[#171716] text-white">
+      <section className="border-b border-black/[0.06] bg-[#F4F0E8] text-[#1A1815]">
         <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9A6531]">
             Real business use
           </p>
-          <h2 className="mt-3 max-w-3xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#F7F4EF] sm:text-[46px]">
+          <h2 className="mt-3 max-w-3xl text-[36px] font-medium leading-[1.04] tracking-[-0.045em] text-[#1C1916] sm:text-[46px]">
             Creative output built to do a job.
           </h2>
           <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {useCases.map(([name, text], index) => (
               <div
                 key={name}
-                className="group rounded-[20px] border border-white/[0.08] bg-white/[0.025] p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/25 hover:bg-white/[0.04]"
+                className="group rounded-[20px] border border-black/[0.07] bg-[#FBF8F2] p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35 hover:shadow-[0_16px_40px_rgba(61,45,27,.07)]"
               >
-                <div className="relative h-36 overflow-hidden rounded-[16px] border border-white/[0.08] bg-[#15120e]">
+                <div className="relative h-44 overflow-hidden rounded-[16px] border border-black/[0.07] bg-[#15120e]">
                   <StudioUseCaseArt studio={studio} index={index} />
-                  <div className="absolute left-3 top-3 rounded-full border border-white/[.12] bg-[#11100E]/70 px-2.5 py-1 text-[7px] font-semibold uppercase tracking-[0.15em] text-[#E9C28C] backdrop-blur-xl">
+                  <div className="absolute left-3 top-3 rounded-full border border-white/70 bg-[#F8F0E6]/72 px-2.5 py-1 text-[7px] font-semibold uppercase tracking-[0.15em] text-[#8D6339] backdrop-blur-xl">
                     0{index + 1}
                   </div>
                 </div>
-                <h3 className="mt-5 text-[14px] font-semibold text-white/82">
+                <h3 className="mt-5 text-[14px] font-semibold text-[#2E2924]">
                   {name}
                 </h3>
-                <p className="mt-2 text-[10px] leading-5 text-white/38">
+                <p className="mt-2 text-[10px] leading-5 text-[#746D65]">
                   {text}
                 </p>
               </div>
@@ -820,26 +895,26 @@ export default function CreativeStudioProductPage({
 
       <section className="bg-[#F7F6F3]">
         <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <div className="relative overflow-hidden rounded-[34px] border border-black/[0.08] bg-[#12110f] px-6 py-16 text-center text-white shadow-[0_28px_90px_rgba(46,34,23,.11)] sm:px-10 lg:py-20">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_115%,rgba(214,166,106,.27),transparent_38%)]" />
+          <div className="relative overflow-hidden rounded-[34px] border border-[#C8B7A0]/45 bg-[linear-gradient(135deg,#FFF9F0_0%,#F1E4D2_58%,#E5C69B_100%)] px-6 py-16 text-center text-[#1D1B18] shadow-[0_28px_90px_rgba(46,34,23,.08)] sm:px-10 lg:py-20">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_115%,rgba(214,166,106,.18),transparent_38%)]" />
             <div className="relative">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9A744B]">
                 A more creative tomorrow
               </p>
-              <h2 className="mx-auto mt-4 max-w-4xl text-[38px] font-medium leading-[1.02] tracking-[-0.05em] text-[#F7F4EF] sm:text-[50px]">
+              <h2 className="mx-auto mt-4 max-w-4xl text-[38px] font-medium leading-[1.02] tracking-[-0.05em] text-[#1D1B18] sm:text-[50px]">
                 {cta}
               </h2>
               <div className="mx-auto mt-5 h-px max-w-sm bg-gradient-to-r from-transparent via-[#D6A66A]/38 to-transparent" />
               <div className="mt-8 flex flex-wrap justify-center gap-2.5">
                 <a
                   href="/login"
-                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#F7F4EF] px-5 text-[11px] font-semibold text-[#171716]"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171614] px-5 text-[11px] font-semibold text-white"
                 >
                   Enter Avantiqo <Arrow className="h-3.5 w-3.5" />
                 </a>
                 <a
                   href="/creative-studios"
-                  className="inline-flex h-11 items-center rounded-xl border border-white/[0.12] bg-white/[0.03] px-5 text-[11px] font-semibold text-white/70"
+                  className="inline-flex h-11 items-center rounded-xl border border-black/[0.10] bg-white/58 px-5 text-[11px] font-semibold text-[#5B5249]"
                 >
                   All Creative Studios
                 </a>

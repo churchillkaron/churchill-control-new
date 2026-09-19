@@ -137,17 +137,28 @@ export async function POST(request) {
     const periodEnd = rows[rows.length - 1]?.work_date || billingDate;
     const key = `practice-wip:${sha(JSON.stringify({ engagementId, billingPeriodKey, entryIds, billing_method: profile.billing_method, fixedValue, subtotal, taxAmount })).slice(0, 40)}`;
 
-    const { data: existing, error: existingError } = await supabaseAdmin.from("accounting_practice_billing_batches").select("*").eq("accounting_firm_id", access.organizationId).eq("idempotency_key", key).maybeSingle();
-    if (existingError) throw existingError;
-    batch = existing;
-    if (!batch) {
-      const { data, error } = await supabaseAdmin.from("accounting_practice_billing_batches").insert({
-        accounting_firm_id: access.organizationId, organization_id: engagement.organization_id, engagement_id: engagement.id, billing_period_key: billingPeriodKey, billing_profile_id: profile.id,
-        time_entry_ids: entryIds, service_period_start: periodStart, service_period_end: periodEnd, subtotal, tax_amount: taxAmount, total_amount: totalAmount,
-        currency_code: profile.currency_code || entity.currency || "THB", status: "PREPARING", idempotency_key: key, prepared_by: staffId(access), metadata: { billing_method: profile.billing_method, time_value: timeValue, fixed_fee_value: fixedValue, billing_cadence: cadence, billing_date: billingDate },
-      }).select("*").single();
-      if (error) throw error; batch = data;
-    }
+    const batchMetadata = { billing_method: profile.billing_method, time_value: timeValue, fixed_fee_value: fixedValue, billing_cadence: cadence, billing_date: billingDate };
+    const batchCurrency = clean(profile.currency_code || entity.currency || "THB").toUpperCase();
+    const { data: claimedBatch, error: claimError } = await supabaseAdmin.rpc("claim_accounting_practice_billing_batch", {
+      p_accounting_firm_id: access.organizationId,
+      p_organization_id: engagement.organization_id,
+      p_engagement_id: engagement.id,
+      p_billing_period_key: billingPeriodKey,
+      p_billing_profile_id: profile.id,
+      p_time_entry_ids: entryIds,
+      p_service_period_start: periodStart,
+      p_service_period_end: periodEnd,
+      p_subtotal: subtotal,
+      p_tax_amount: taxAmount,
+      p_total_amount: totalAmount,
+      p_currency_code: batchCurrency,
+      p_idempotency_key: key,
+      p_prepared_by: staffId(access),
+      p_metadata: batchMetadata,
+    });
+    if (claimError) throw claimError;
+    batch = claimedBatch;
+    if (!batch?.id) throw new Error("Practice billing batch claim returned no batch");
     if (batch.status === "INVOICED" && batch.invoice_id) return NextResponse.json({ success: true, idempotent: true, billing_batch: batch, invoice_id: batch.invoice_id });
 
     const { data: liveBatch, error: liveBatchError } = await supabaseAdmin.from("accounting_practice_billing_batches")

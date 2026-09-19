@@ -9,6 +9,7 @@ const ui = fs.readFileSync(new URL("../components/workspace/finance/FinancePract
 const atomicPolicyMigration = fs.readFileSync(new URL("../supabase/migrations/20260919102500_accounting_practice_billing_policy_atomicity.sql", import.meta.url), "utf8");
 const atomicFinalizationMigration = fs.readFileSync(new URL("../supabase/migrations/20260919104500_accounting_practice_billing_finalization_atomicity.sql", import.meta.url), "utf8");
 const recoveryMigration = fs.readFileSync(new URL("../supabase/migrations/20260919111500_accounting_practice_billing_recovery.sql", import.meta.url), "utf8");
+const batchClaimMigration = fs.readFileSync(new URL("../supabase/migrations/20260919114000_accounting_practice_billing_batch_claim.sql", import.meta.url), "utf8");
 
 test("practice billing hands off only through canonical customer invoice authority", () => {
   assert.match(route, /createCustomerInvoiceCommand/);
@@ -186,4 +187,33 @@ test("billing recovery remains invoker-safe and service-role isolated", () => {
   assert.match(recoveryMigration, /revoke all on function public\.recover_accounting_practice_billing_batch/);
   assert.match(recoveryMigration, /from public, anon, authenticated/);
   assert.match(recoveryMigration, /grant execute on function public\.recover_accounting_practice_billing_batch[\s\S]*to service_role/);
+});
+
+test("billing batch creation is one atomic claim instead of select then insert", () => {
+  assert.match(route, /\.rpc\("claim_accounting_practice_billing_batch"/);
+  assert.doesNotMatch(route, /from\("accounting_practice_billing_batches"\)\.insert/);
+  assert.match(batchClaimMigration, /on conflict \(accounting_firm_id, idempotency_key\) do nothing/);
+  assert.match(batchClaimMigration, /returning \* into v_batch/);
+  assert.match(batchClaimMigration, /select \* into v_batch[\s\S]*for update/);
+});
+
+test("an existing billing idempotency key must still represent the exact same billing scope", () => {
+  assert.match(batchClaimMigration, /v_batch\.organization_id is distinct from p_organization_id/);
+  assert.match(batchClaimMigration, /v_batch\.engagement_id is distinct from p_engagement_id/);
+  assert.match(batchClaimMigration, /v_batch\.billing_profile_id is distinct from p_billing_profile_id/);
+  assert.match(batchClaimMigration, /v_batch\.time_entry_ids is distinct from v_entry_ids/);
+  assert.match(batchClaimMigration, /v_batch\.subtotal/);
+  assert.match(batchClaimMigration, /v_batch\.tax_amount/);
+  assert.match(batchClaimMigration, /v_batch\.total_amount/);
+  assert.match(batchClaimMigration, /PRACTICE_BILLING_IDEMPOTENCY_SCOPE_CONFLICT/);
+});
+
+test("billing batch claim independently validates engagement profile totals currency and authority", () => {
+  assert.match(batchClaimMigration, /PRACTICE_BILLING_ENGAGEMENT_UNAVAILABLE/);
+  assert.match(batchClaimMigration, /PRACTICE_BILLING_PROFILE_UNAVAILABLE/);
+  assert.match(batchClaimMigration, /PRACTICE_BILLING_TOTAL_MISMATCH/);
+  assert.match(batchClaimMigration, /PRACTICE_BILLING_CURRENCY_INVALID/);
+  assert.match(batchClaimMigration, /security invoker/);
+  assert.match(batchClaimMigration, /revoke all on function public\.claim_accounting_practice_billing_batch/);
+  assert.match(batchClaimMigration, /to service_role/);
 });

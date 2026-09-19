@@ -8,8 +8,8 @@ const samplePlan = () => ({
   creative_system: 'Use #0A2463 with Helvetica and proof $2.3M.',
   deliverables: [{
     id: 'poster',
-    output_spec: { typography: { tagline_font: 'Helvetica Regular, 24pt' }, color_palette: ['#0A2463', '#FFFFFF'] },
-    production_steps: [{ requirements: { font: 'Helvetica', color: '#0A2463', metric_value: '$2.3M' } }],
+    output_spec: { typography: { tagline_font: 'Helvetica Regular, 24pt' }, color_palette: ['#0A2463', '#FFFFFF'], composition: 'Logo at bottom 10%. 80% negative space.' },
+    production_steps: [{ output_spec: { position: 'bottom 10%' }, requirements: { font: 'Helvetica', color: '#0A2463', metric_value: '$2.3M', exact_placement: 'bottom 10%' } }],
   }],
 });
 
@@ -18,7 +18,8 @@ test('removes unsupported exact brand and metric claims before Tribunal', () => 
   const body = JSON.stringify(grounded);
   assert.doesNotMatch(body, /#0A2463|#FFFFFF|Helvetica|\$2\.3M/i);
   assert.equal(grounded.deliverables[0].production_steps[0].requirements.metric_value, undefined);
-  assert.match(body, /evidence-bound brand color|verified brand font/);
+  assert.match(body, /evidence-bound brand color|verified production font|design-defined safe area/);
+  assert.match(grounded.deliverables[0].output_spec.composition, /80% negative space/);
 });
 test('preserves mission-explicit exact values', () => {
   const mission = { objective: 'Use #0A2463, Helvetica and the verified $2.3M metric exactly.' };

@@ -845,20 +845,24 @@ export async function POST(request) {
       agreementState: nextAgreementState,
       projectState: nextProjectState,
     });
-    const longTermLearnPromise = learnProjectStateMemories({
-      organizationId: businessContext.organizationId,
-      partyId,
-      entityId: businessContext.entityId,
-      conversationId: memory.conversation.id,
-      previousProjectState: effectiveProjectState,
-      nextProjectState,
-    })
-      .then((learned) => {
-        longTermLearned = Number(learned?.learned || 0);
-      })
-      .catch((memoryError) => {
-        console.error("OPERATOR_LONG_TERM_MEMORY_LEARN_FAILED", memoryError);
-      });
+    const longTermLearnPromise = diagnosisResultPresent
+      ? Promise.resolve({ learned: 0, skipped: "BUSINESS_DIAGNOSIS_NOT_MEMORY_PROMOTABLE" })
+      : learnProjectStateMemories({
+          organizationId: businessContext.organizationId,
+          partyId,
+          entityId: businessContext.entityId,
+          conversationId: memory.conversation.id,
+          previousProjectState: effectiveProjectState,
+          nextProjectState,
+        })
+          .then((learned) => {
+            longTermLearned = Number(learned?.learned || 0);
+            return learned;
+          })
+          .catch((memoryError) => {
+            console.error("OPERATOR_LONG_TERM_MEMORY_LEARN_FAILED", memoryError);
+            return { learned: 0, failed: true };
+          });
 
     const [persisted] = await Promise.all([
       assistantPersistPromise,

@@ -21,11 +21,21 @@ test("recovered projects re-read memory against recovered project state", () => 
 
 test("assistant persistence and durable project learning share the response critical path", () => {
   assert.match(route, /const assistantPersistPromise = persistAssistantTurnAndConversationState/);
-  assert.match(route, /const longTermLearnPromise = learnProjectStateMemories/);
+  assert.match(route, /const longTermLearnPromise = diagnosisResultPresent/);
+  assert.match(route, /BUSINESS_DIAGNOSIS_NOT_MEMORY_PROMOTABLE/);
+  assert.match(route, /: learnProjectStateMemories\(\{/);
   assert.match(route, /const \[persisted\] = await Promise\.all\(\[\s*assistantPersistPromise,\s*longTermLearnPromise/);
 });
 
 
 test("continuity recovery is scoped to the current conversation for pending selection", () => {
   assert.match(route, /currentConversationId:\s*memory\.conversation\.id/);
+});
+
+
+test("diagnosis memory skip preserves assistant persistence parallelism without writing memory",()=>{
+  const route=fs.readFileSync(new URL("../app/api/operator/turn/route.js",import.meta.url),"utf8");
+  assert.match(route,/const longTermLearnPromise = diagnosisResultPresent/);
+  assert.match(route,/BUSINESS_DIAGNOSIS_NOT_MEMORY_PROMOTABLE/);
+  assert.match(route,/Promise\.all\(\[\s*assistantPersistPromise,\s*longTermLearnPromise,/s);
 });

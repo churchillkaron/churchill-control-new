@@ -142,7 +142,7 @@ test("invalid diagnosis proof persists only paired safe failure turn before retu
   assert.match(route,/throw persistenceError/);
   const guardIndex=route.indexOf("if (diagnosisResultPresent && !object(diagnosisPersistenceEvidence).business_diagnosis)");
   const normalPersistIndex=route.indexOf("const assistantPersistStartedAt = Date.now()",guardIndex);
-  const longTermLearnIndex=route.indexOf("const longTermLearnPromise = learnProjectStateMemories",guardIndex);
+  const longTermLearnIndex=route.indexOf("const longTermLearnPromise = diagnosisResultPresent",guardIndex);
   assert.ok(guardIndex>=0&&normalPersistIndex>guardIndex&&longTermLearnIndex>normalPersistIndex);
 });
 
@@ -378,4 +378,15 @@ test("raw internal history consumers exclude diagnosis-derived turns before reus
   assert.match(adaptive,/\.select\("execution,evidence,created_at,conversation_id"\)/);
   assert.match(adaptive,/\.filter\(\(row\) => !diagnosisDerivedTurn\(row\)\)/);
   assert.match(organizational,/if \(diagnosisDerivedTurn\(row\)\) return null/);
+});
+
+
+test("business diagnosis turns cannot promote project-state deltas into long-term memory",()=>{
+  assert.match(route,/const longTermLearnPromise = diagnosisResultPresent/);
+  assert.match(route,/BUSINESS_DIAGNOSIS_NOT_MEMORY_PROMOTABLE/);
+  const start=route.indexOf("const longTermLearnPromise = diagnosisResultPresent");
+  const end=route.indexOf("const [persisted] = await Promise.all",start);
+  const block=route.slice(start,end);
+  assert.match(block,/Promise\.resolve\(\{ learned: 0, skipped: "BUSINESS_DIAGNOSIS_NOT_MEMORY_PROMOTABLE" \}\)/);
+  assert.match(block,/: learnProjectStateMemories\(\{/);
 });

@@ -30,9 +30,10 @@ function localExecutionResource(job = {}) {
   const workload = text(job.workload).toLowerCase();
   const model = text(job.result?.runtime_model || job.model).toLowerCase();
   if (workload === "music_elastic" || workload === "media_ffmpeg" || model.includes("ffmpeg") || model.includes("signalsmith")) return "LOCAL_CPU";
-  if (["music_separator", "music_vocal_correction", "voice_stt", "voice_tts", "image_upscale", "intelligence_text"].includes(workload) || model.includes("demucs") || model.includes("torchcrepe") || model.includes("whisper") || model.includes("chatterbox") || model.includes("swin2sr") || model.includes("qwen")) return "LOCAL_GPU";
+  if (workload === "intelligence_text" || model.includes("qwen")) return "LOCAL_LEGACY";
   return job.node_id ? "LOCAL_OTHER" : "UNASSIGNED";
 }
+
 
 function productArea({ workload, capability, usageId, provider } = {}) {
   const source = [workload, capability, usageId, provider].map((value) => text(value).toLowerCase()).join(" ");
@@ -197,7 +198,6 @@ export async function GET(request) {
       infrastructure_provider: text(job.result?.infrastructure_provider) || (job.node_id ? "AVANTIQO_LOCAL_NODE_V1" : null),
       execution_path: job.node_id ? `LOCAL_QUEUE → ${job.node_id}` : "UNASSIGNED",
       execution_resource: localExecutionResource(job),
-      product_area: productArea({ workload: job.workload, capability: job.capability, usageId: job.usage_id }),
       result: undefined,
     }));
     const learningEvaluations = (learningResult.data || []).map((row) => ({
@@ -285,14 +285,6 @@ export async function GET(request) {
         bounded_studio_reasoning: "LOCAL_GPU_QWEN4B_FIRST",
         deep_creative_reasoning: "MODAL_HEAVY_ONLY_WHEN_REQUIRED",
         media_dsp: "LOCAL_CPU_FIRST",
-        music_gpu: "LOCAL_GPU_DEMUCS_TORCHCREPE_FIRST",
-        music_generation: "LOCAL_CPU_ACE_STEP_FLOAT32_FIRST_MODAL_FALLBACK",
-        document_ocr: "LOCAL_GPU_QWEN25VL_3B_FIRST_MODAL_FALLBACK",
-        normal_code: "LOCAL_GPU_QWEN4B_FIRST_MODAL_FALLBACK",
-        hard_code_invent: "MODAL_H100",
-        image_upscale: "LOCAL_GPU_SWIN2SR_FIRST",
-        voice_stt: "LOCAL_GPU_WHISPER_LARGE_V3_TURBO_FIRST",
-        voice_tts: "LOCAL_GPU_FIRST_MODAL_FALLBACK",
         local_transport: "SUPABASE_PULL_QUEUE_V1",
       },
       metrics: {

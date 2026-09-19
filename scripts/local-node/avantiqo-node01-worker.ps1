@@ -244,24 +244,14 @@ function RunTextJob($Job) {
   $text = [string]$raw.message.content
   $executionResource = 'LOCAL_CPU'
   $gpuVramBytes = 0
-  for ($detectAttempt = 0; $detectAttempt -lt 5; $detectAttempt++) {
-    try {
-      $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 5
-      $activeModel = @($loaded.models | Where-Object { ([string]$_.name -eq [string]$raw.model -or [string]$_.model -eq [string]$raw.model -or [string]$_.name -eq $Model) -and [int64]$_.size_vram -gt 0 } | Select-Object -First 1)
-      if ($activeModel) {
-        $executionResource = 'LOCAL_GPU'
-        $gpuVramBytes = [int64]$activeModel[0].size_vram
-        break
-      }
-    } catch {}
-    Start-Sleep -Milliseconds 250
-  }
-  if ($Lane -eq 'gpu' -and $gpuVramBytes -le 0) {
-    try {
-      $line = (& nvidia-smi --query-compute-apps=used_memory,process_name --format=csv,noheader,nounits 2>$null | Select-String 'llama-server' | Select-Object -First 1)
-      if ($line) { $gpuVramBytes = [int64](([string]$line -split ',')[0].Trim()) * 1MB; $executionResource = 'LOCAL_GPU' }
-    } catch {}
-  }
+  try {
+    $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 5
+    $activeModel = @($loaded.models | Where-Object { [string]$_.name -eq [string]$raw.model } | Select-Object -First 1)
+    if ($activeModel -and [int64]$activeModel[0].size_vram -gt 0) {
+      $executionResource = 'LOCAL_GPU'
+      $gpuVramBytes = [int64]$activeModel[0].size_vram
+    }
+  } catch {}
   $result = @{
     status='completed'; provider='avantiqo-intelligence'; infrastructure_provider='AVANTIQO_LOCAL_NODE_V1';
     runtime_model=[string]$raw.model; execution_resource=$executionResource; gpu_vram_bytes=$gpuVramBytes;

@@ -70,6 +70,9 @@
     "app/api/internal/intelligence/model-improvement/readiness/process/route.js": {
       "maxDuration": 300
     },
+    "app/api/internal/intelligence/local-review-benchmark/route.js": {
+      "maxDuration": 300
+    },
     "app/api/internal/secretary/due-work/process/route.js": {
       "maxDuration": 300
     },
@@ -237,6 +240,10 @@
     {
       "path": "/api/internal/intelligence/model-improvement/readiness/process",
       "schedule": "27 * * * *"
+    },
+    {
+      "path": "/api/internal/intelligence/local-review-benchmark",
+      "schedule": "0 0 1 1 *"
     },
     {
       "path": "/api/internal/code/worker-session/process",

@@ -361,3 +361,21 @@ test("autonomous watch read paths reuse the verified snapshot loader instead of 
     assert.doesNotMatch(source,/scope_user_content_fingerprint/);
   }
 });
+
+test("raw internal history consumers exclude diagnosis-derived turns before reuse",()=>{
+  const continuity=fs.readFileSync("lib/operator/runtime/IntelligenceCrossConversationContinuityRuntime.js","utf8");
+  const adaptive=fs.readFileSync("lib/operator/runtime/IntelligenceAdaptiveLearningRuntime.js","utf8");
+  const organizational=fs.readFileSync("lib/operator/runtime/OperatorOrganizationalContextRuntime.js","utf8");
+  for(const source of [continuity,adaptive,organizational]){
+    assert.match(source,/function diagnosisDerivedTurn/);
+    assert.match(source,/business_diagnosis/);
+    assert.match(source,/business_diagnosis_readiness_failure/);
+    assert.match(source,/business_diagnosis_integrity_failure/);
+    assert.match(source,/diagnosis_failure_pair/);
+  }
+  assert.match(continuity,/\.select\("conversation_id,decision,evidence,created_at"\)/);
+  assert.match(continuity,/!diagnosisDerivedTurn\(row\) && isContinuitySelectionDecision/);
+  assert.match(adaptive,/\.select\("execution,evidence,created_at,conversation_id"\)/);
+  assert.match(adaptive,/\.filter\(\(row\) => !diagnosisDerivedTurn\(row\)\)/);
+  assert.match(organizational,/if \(diagnosisDerivedTurn\(row\)\) return null/);
+});

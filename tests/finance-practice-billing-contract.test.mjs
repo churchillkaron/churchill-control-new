@@ -13,6 +13,7 @@ const batchClaimMigration = fs.readFileSync(new URL("../supabase/migrations/2026
 const invoiceLeaseMigration = fs.readFileSync(new URL("../supabase/migrations/20260919114900_accounting_practice_billing_invoice_lease.sql", import.meta.url), "utf8");
 const recoveryLeaseGuardMigration = fs.readFileSync(new URL("../supabase/migrations/20260919120500_accounting_practice_billing_recovery_lease_guard.sql", import.meta.url), "utf8");
 const retryLivenessMigration = fs.readFileSync(new URL("../supabase/migrations/20260919123000_accounting_practice_billing_retry_liveness.sql", import.meta.url), "utf8");
+const commercialSnapshotMigration = fs.readFileSync(new URL("../supabase/migrations/20260919131500_accounting_practice_billing_commercial_snapshot.sql", import.meta.url), "utf8");
 
 test("practice billing hands off only through canonical customer invoice authority", () => {
   assert.match(route, /createCustomerInvoiceCommand/);
@@ -69,7 +70,8 @@ test("fixed recurring practice fees are period-idempotent and advance only insid
   assert.match(migration, /next_billing_date date/);
   assert.match(route, /periodKey\(billingDate, cadence\)/);
   assert.match(route, /Next billing date must be configured for recurring practice billing/);
-  assert.match(route, /billing_cadence: cadence, billing_date: billingDate/);
+  assert.match(route, /billing_cadence: cadence/);
+  assert.match(route, /billing_date: billingDate/);
   assert.match(atomicFinalizationMigration, /PRACTICE_BILLING_CADENCE_CHANGED_DURING_INVOICE/);
   assert.match(atomicFinalizationMigration, /PRACTICE_BILLING_DATE_CHANGED_DURING_INVOICE/);
   assert.match(atomicFinalizationMigration, /set next_billing_date = v_next_billing_date/);
@@ -331,4 +333,57 @@ test("retry-liveness claim and recovery replacements remain service-role-only", 
   assert.match(retryLivenessMigration, /revoke all on function public\.claim_accounting_practice_billing_batch/);
   assert.match(retryLivenessMigration, /from public, anon, authenticated/);
   assert.match(retryLivenessMigration, /to service_role/);
+});
+
+test("practice invoice defaults use the billing legal entity calendar rather than UTC", () => {
+  assert.match(route, /localDateString, validTimezone/);
+  assert.match(route, /select\("id,currency,timezone"\)/);
+  assert.match(route, /const billingTimezone = validTimezone\(entity\.timezone\)/);
+  assert.match(route, /Billing entity timezone must be configured before invoicing/);
+  assert.match(route, /requestedInvoiceDate \|\| localDateString\(new Date\(\), billingTimezone\)/);
+  assert.doesNotMatch(route, /body\.invoiceDate[\s\S]{0,120}new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
+});
+
+test("invoice and due dates are validated before durable batch claim", () => {
+  const invoiceValidationIndex = route.indexOf("Invoice date must use a valid YYYY-MM-DD date");
+  const dueValidationIndex = route.indexOf("Due date must use a valid YYYY-MM-DD date");
+  const claimIndex = route.indexOf('rpc("claim_accounting_practice_billing_batch"');
+  assert.ok(invoiceValidationIndex >= 0 && dueValidationIndex > invoiceValidationIndex && claimIndex > dueValidationIndex);
+  assert.match(route, /Due date cannot be before invoice date/);
+  assert.match(route, /function validIsoDate/);
+});
+
+test("practice billing idempotency binds commercial dates currency references and timezone", () => {
+  assert.match(route, /invoiceDate,/);
+  assert.match(route, /dueDate,/);
+  assert.match(route, /currencyCode: batchCurrency/);
+  assert.match(route, /billingEntityId: profile\.billing_entity_id/);
+  assert.match(route, /customerPartyId: profile\.customer_party_id/);
+  assert.match(route, /revenueAccountId: profile\.revenue_account_id/);
+  assert.match(route, /taxRuleId: profile\.tax_rule_id/);
+  assert.match(route, /billingTimezone: billingTimezone/);
+  assert.match(route, /invoice_date: invoiceDate/);
+  assert.match(route, /due_date: dueDate/);
+  assert.match(route, /billing_timezone: billingTimezone/);
+});
+
+test("billing batch persists typed commercial date and timezone evidence", () => {
+  assert.match(commercialSnapshotMigration, /add column if not exists invoice_date date/);
+  assert.match(commercialSnapshotMigration, /add column if not exists due_date date/);
+  assert.match(commercialSnapshotMigration, /add column if not exists billing_timezone text/);
+  assert.match(commercialSnapshotMigration, /accounting_practice_billing_batches_due_date_check/);
+  assert.match(commercialSnapshotMigration, /due_date >= invoice_date/);
+  assert.match(commercialSnapshotMigration, /PRACTICE_BILLING_INVOICE_DATE_INVALID/);
+  assert.match(commercialSnapshotMigration, /PRACTICE_BILLING_DUE_DATE_INVALID/);
+  assert.match(commercialSnapshotMigration, /PRACTICE_BILLING_TIMEZONE_REQUIRED/);
+});
+
+test("billing batch idempotency independently compares typed commercial snapshots", () => {
+  assert.match(commercialSnapshotMigration, /v_batch\.invoice_date is distinct from v_invoice_date/);
+  assert.match(commercialSnapshotMigration, /v_batch\.due_date is distinct from v_due_date/);
+  assert.match(commercialSnapshotMigration, /v_batch\.billing_timezone is distinct from v_billing_timezone/);
+  assert.match(commercialSnapshotMigration, /PRACTICE_BILLING_IDEMPOTENCY_SCOPE_CONFLICT/);
+  assert.match(commercialSnapshotMigration, /security invoker/);
+  assert.match(commercialSnapshotMigration, /revoke all on function public\.claim_accounting_practice_billing_batch/);
+  assert.match(commercialSnapshotMigration, /to service_role/);
 });

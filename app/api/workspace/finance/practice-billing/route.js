@@ -8,10 +8,16 @@ import { createCustomerInvoiceCommand } from "@/lib/finance/accounts-receivable/
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { localDateString, validTimezone } from "@/lib/shared/time/organizationTime";
 import { loadCompletePracticeRows } from "@/lib/finance/practice/FinancePracticePopulation";
 import { loadPracticeBillingReferenceBlockers } from "@/lib/finance/practice/FinancePracticeBillingReferenceReadiness";
 
 function clean(value) { return String(value ?? "").trim(); }
+function validIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
 function jsonError(error, status = 400, extra = {}) { return NextResponse.json({ success: false, error, ...extra }, { status }); }
 function staffId(access) { return access?.access?.staffAccountId || access?.staff?.id || null; }
 function addDays(date, days) { const value = new Date(`${date}T00:00:00.000Z`); value.setUTCDate(value.getUTCDate() + Number(days || 0)); return value.toISOString().slice(0, 10); }
@@ -96,7 +102,7 @@ export async function POST(request) {
     if (referenceBlockers.length) return jsonError(`Billing policy references are no longer valid: ${referenceBlockers.join(", ")}`, 409);
 
     const [{ data: entity, error: entityError }, { data: party, error: partyError }, { data: engagement, error: engagementError }] = await Promise.all([
-      supabaseAdmin.from("legal_entities").select("id,currency").eq("id", profile.billing_entity_id).eq("organization_id", access.organizationId).eq("is_active", true).maybeSingle(),
+      supabaseAdmin.from("legal_entities").select("id,currency,timezone").eq("id", profile.billing_entity_id).eq("organization_id", access.organizationId).eq("is_active", true).maybeSingle(),
       supabaseAdmin.from("parties").select("id,display_name,legal_name").eq("id", profile.customer_party_id).eq("organization_id", access.organizationId).maybeSingle(),
       supabaseAdmin.from("accounting_engagements").select("id,organization_id,service_package").eq("id", engagementId).eq("accounting_firm_id", access.organizationId).maybeSingle(),
     ]);
@@ -129,17 +135,57 @@ export async function POST(request) {
     const taxAmount = Math.round(subtotal * Number(profile.tax_rate_percent || 0)) / 100;
     const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
     const entryIds = rows.map((row) => row.id).sort();
-    const invoiceDate = clean(body.invoiceDate || body.invoice_date || new Date().toISOString().slice(0, 10));
+    const requestedInvoiceDate = clean(body.invoiceDate || body.invoice_date);
+    const billingTimezone = validTimezone(entity.timezone);
+    if (!billingTimezone) return jsonError("Billing entity timezone must be configured before invoicing", 409);
+    const invoiceDate = requestedInvoiceDate || localDateString(new Date(), billingTimezone);
+    if (!validIsoDate(invoiceDate)) return jsonError("Invoice date must use a valid YYYY-MM-DD date", 400);
+    const dueDate = clean(body.dueDate || body.due_date || addDays(invoiceDate, profile.payment_terms_days || 0));
+    if (!validIsoDate(dueDate)) return jsonError("Due date must use a valid YYYY-MM-DD date", 400);
+    if (dueDate < invoiceDate) return jsonError("Due date cannot be before invoice date", 400);
+    const batchCurrency = clean(profile.currency_code || entity.currency || "THB").toUpperCase();
+    if (!/^[A-Z]{3}$/.test(batchCurrency)) return jsonError("Billing currency must use a three-letter currency code", 409);
+
     const cadence = clean(profile.billing_cadence || "ON_DEMAND").toUpperCase();
     if (cadence !== "ON_DEMAND" && !profile.next_billing_date) return jsonError("Next billing date must be configured for recurring practice billing", 409);
     const billingDate = cadence === "ON_DEMAND" ? invoiceDate : profile.next_billing_date;
     const billingPeriodKey = clean(body.billingPeriodKey || body.billing_period_key) || periodKey(billingDate, cadence);
     const periodStart = rows[0]?.work_date || billingDate;
     const periodEnd = rows[rows.length - 1]?.work_date || billingDate;
-    const key = `practice-wip:${sha(JSON.stringify({ engagementId, billingPeriodKey, entryIds, billing_method: profile.billing_method, fixedValue, subtotal, taxAmount })).slice(0, 40)}`;
+    const key = `practice-wip:${sha(JSON.stringify({
+      engagementId,
+      billingPeriodKey,
+      entryIds,
+      billing_method: profile.billing_method,
+      fixedValue,
+      subtotal,
+      taxAmount,
+      invoiceDate,
+      dueDate,
+      currencyCode: batchCurrency,
+      billingEntityId: profile.billing_entity_id,
+      customerPartyId: profile.customer_party_id,
+      revenueAccountId: profile.revenue_account_id,
+      taxRuleId: profile.tax_rule_id,
+      billingTimezone: billingTimezone || null,
+    })).slice(0, 40)}`;
 
-    const batchMetadata = { billing_method: profile.billing_method, time_value: timeValue, fixed_fee_value: fixedValue, billing_cadence: cadence, billing_date: billingDate };
-    const batchCurrency = clean(profile.currency_code || entity.currency || "THB").toUpperCase();
+    const batchMetadata = {
+      billing_method: profile.billing_method,
+      time_value: timeValue,
+      fixed_fee_value: fixedValue,
+      billing_cadence: cadence,
+      billing_date: billingDate,
+      invoice_date: invoiceDate,
+      due_date: dueDate,
+      payment_terms_days: Number(profile.payment_terms_days || 0),
+      currency_code: batchCurrency,
+      billing_entity_id: profile.billing_entity_id,
+      customer_party_id: profile.customer_party_id,
+      revenue_account_id: profile.revenue_account_id,
+      tax_rule_id: profile.tax_rule_id,
+      billing_timezone: billingTimezone || null,
+    };
     const { data: claimedBatch, error: claimError } = await supabaseAdmin.rpc("claim_accounting_practice_billing_batch", {
       p_accounting_firm_id: access.organizationId,
       p_organization_id: engagement.organization_id,
@@ -185,8 +231,7 @@ export async function POST(request) {
     }
     invoiceLeaseToken = lease.lease_token;
 
-    const dueDate = clean(body.dueDate || body.due_date || addDays(invoiceDate, profile.payment_terms_days || 0));
-    const currencyCode = clean(profile.currency_code || entity.currency || "THB").toUpperCase();
+    const currencyCode = batchCurrency;
     const description = `${engagement.service_package || "Professional accounting services"} · ${periodStart} to ${periodEnd}`;
     const result = await createCustomerInvoiceCommand({
       organization_id: access.organizationId, entity_id: profile.billing_entity_id, party_id: profile.customer_party_id,

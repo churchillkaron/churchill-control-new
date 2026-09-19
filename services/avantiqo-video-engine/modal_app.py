@@ -196,6 +196,65 @@ def seed_ltx_cache() -> dict[str, Any]:
     }
 
 
+worker_image = (
+    modal.Image.from_registry(
+        WORKER_IMAGE,
+        add_python=None,
+        setup_dockerfile_commands=[
+            "RUN command -v python >/dev/null 2>&1 || ln -s \"$(command -v python3)\" /usr/local/bin/python",
+            "RUN command -v pip >/dev/null 2>&1 || ln -s \"$(command -v pip3)\" /usr/local/bin/pip",
+            "RUN python --version && pip --version",
+        ],
+    )
+    .entrypoint([])
+    .env({
+        "AVANTIQO_VIDEO_HF_CACHE_ROOT": HF_CACHE_ROOT,
+        "AVANTIQO_VIDEO_T2V_MODEL": T2V_MODEL,
+        "AVANTIQO_VIDEO_I2V_MODEL": I2V_MODEL,
+        "AVANTIQO_VIDEO_REQUIRE_CACHED_MODEL": "1",
+        "AVANTIQO_VIDEO_NETWORK_VOLUME_QUOTA_GB": "400",
+        "AVANTIQO_VIDEO_DEVICE": "cuda",
+        "AVANTIQO_VIDEO_CERTIFIED_CAPABILITIES": "ai.video.generate,ai.video.image_to_video",
+        "HF_HUB_OFFLINE": "1",
+        "TRANSFORMERS_OFFLINE": "1",
+    })
+)
+
+
+@app.function(
+    image=worker_image,
+    gpu="A100-80GB",
+    volumes={"/models": model_volume},
+    timeout=30 * 60,
+    min_containers=0,
+    max_containers=6,
+    buffer_containers=0,
+    scaledown_window=30,
+)
+def generate(data: dict[str, Any]) -> dict[str, Any]:
+    """Existing certified Wan 2.2 Modal route."""
+    os.chdir("/app")
+    import handler_v4 as video_engine
+
+    video_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    video_engine.v3.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    video_engine.v3.legacy.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    started = time.perf_counter()
+    output = video_engine.handler({
+        "id": f"modal-{uuid.uuid4()}",
+        "input": data,
+    })
+    if not isinstance(output, dict):
+        raise RuntimeError("AVANTIQO_VIDEO_MODAL_OUTPUT_OBJECT_REQUIRED")
+    result = dict(output)
+    result["infrastructure_provider"] = "MODAL"
+    result["modal_gpu"] = "A100-80GB"
+    result["modal_elapsed_seconds"] = round(time.perf_counter() - started, 3)
+    result["runpod_inference_performed"] = False
+    result["raw_reasoning_persisted"] = False
+    return result
+
+
 ltx_worker_image = (
     modal.Image.from_registry(
         LTX_RUNTIME_IMAGE,
@@ -245,9 +304,9 @@ def _ltx_negative_prompt() -> str:
     volumes={"/models": model_volume},
     timeout=LTX_HARD_TIMEOUT_SECONDS,
     min_containers=0,
-    max_containers=1,
+    max_containers=6,
     buffer_containers=0,
-    scaledown_window=5,
+    scaledown_window=30,
     retries=0,
 )
 def generate_native_master(

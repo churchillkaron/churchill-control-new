@@ -324,6 +324,137 @@ def generate_investor_t2v_master(
     }
 
 
+
+@app.function(
+    image=investor_ltx_worker_image,
+    gpu=LTX_GPU,
+    volumes={"/models": model_volume},
+    timeout=HARD_TIMEOUT_SECONDS,
+    min_containers=0,
+    max_containers=5,
+    buffer_containers=0,
+    scaledown_window=5,
+    retries=0,
+)
+def generate_investor_i2v_master(
+    output_relative: str,
+    source_relative: str,
+    instruction: str,
+    duration_seconds: int = 6,
+    seed: int = 260905,
+) -> dict[str, Any]:
+    started = time.perf_counter()
+    model_volume.reload()
+    root = _snapshot()
+    duration = int(duration_seconds)
+    if duration <= 0 or duration > 12:
+        raise RuntimeError(f"{CONTRACT}_I2V_DURATION_INVALID")
+    if not _text(source_relative):
+        raise RuntimeError(f"{CONTRACT}_I2V_SOURCE_REFERENCE_REQUIRED")
+    output = Path("/models") / output_relative.lstrip("/")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    reference = Path("/models") / source_relative.lstrip("/")
+    if not reference.is_file() or reference.stat().st_size < 20_000:
+        model_volume.reload()
+    if not reference.is_file() or reference.stat().st_size < 20_000:
+        raise RuntimeError(f"{CONTRACT}_I2V_REFERENCE_INVALID")
+    text_encoder = root / LTX_REQUIRED[1]
+    text_encoder_real = text_encoder.resolve(strict=True)
+    command = [
+        "python", "-c", DISTILLED_GEMMA_SUFFIX_COMPAT_ENTRYPOINT,
+        "--transformer-path", str(root / DISTILLED_TRANSFORMER),
+        "--text-encoder-path", str(text_encoder),
+        "--video-vae-path", str(root / LTX_REQUIRED[2]),
+        "--audio-vae-path", str(root / LTX_REQUIRED[3]),
+        "--spatial-upsampler-path", str(root / DISTILLED_UPSAMPLER),
+        "--num-frames", str(_frames(duration)),
+        "--width", str(WIDTH), "--height", str(HEIGHT),
+        "--frame-rate", str(FPS), "--seed", str(int(seed)),
+        "--output-path", str(output), "--prompt", _prompt(instruction),
+        "--image", str(reference), "0", "1.0", "0",
+    ]
+    env = os.environ.copy()
+    env[LTX_GEMMA_REALPATH_ENV] = str(text_encoder_real)
+    env["PYTHONPATH"] = ":".join([str(LTX_PIPELINE_ROOT / "packages/ltx-core/src"), str(LTX_PIPELINE_ROOT / "packages/ltx-pipelines/src"), env.get("PYTHONPATH", "")])
+    env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    env["CUDA_MODULE_LOADING"] = "LAZY"
+    try:
+        completed = subprocess.run(command, cwd=str(LTX_PIPELINE_ROOT), env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=SUBPROCESS_TIMEOUT_SECONDS, check=False)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"{CONTRACT}_I2V_TIMEOUT:{_sanitize(getattr(exc, 'stdout', '') or getattr(exc, 'output', ''))}") from exc
+    if completed.returncode != 0:
+        raise RuntimeError(f"{CONTRACT}_I2V_COMMAND_FAILED:{completed.returncode}:{_sanitize(completed.stdout)}")
+    min_output_bytes = max(100_000, duration * 100_000)
+    if not output.is_file() or output.stat().st_size <= min_output_bytes:
+        raise RuntimeError(f"{CONTRACT}_I2V_OUTPUT_INVALID:{output.stat().st_size if output.exists() else 0}:{min_output_bytes}")
+    model_volume.commit()
+    elapsed = round(time.perf_counter() - started, 3)
+    return {
+        "success": True, "contract": CONTRACT, "quality_contract": QUALITY_CONTRACT,
+        "engine_contract": NATIVE_ENGINE_CONTRACT, "provider": "avantiqo-video", "model": "avantiqo-ltx-2.5",
+        "pipeline": "DISTILLED_TWO_STAGE_I2V_BF16", "modal_gpu": LTX_GPU, "width": WIDTH, "height": HEIGHT, "fps": FPS,
+        "stage_1_steps": STAGE1_STEPS, "stage_2_steps": STAGE2_STEPS, "duration_seconds_requested": duration, "seed": int(seed),
+        "output_relative": output_relative, "output_size_bytes": output.stat().st_size, "modal_function_seconds": elapsed,
+        "estimated_supplier_gpu_cost_usd": round(elapsed * LTX_GPU_USD_PER_SECOND, 8), "source_visual_asset_count": 1,
+        "source_image_used": True, "source_video_used": False, "pure_text_to_video": False, "newly_generated_asset": True,
+        "external_provider_contacted": False, "automatic_paid_retry": False, "pipeline_stdout_tail": _sanitize(completed.stdout),
+    }
+
+
+@app.function(
+    image=transport_image,
+    volumes={"/models": model_volume},
+    timeout=HARD_TIMEOUT_SECONDS + 5 * 60,
+    min_containers=0,
+    max_containers=5,
+    scaledown_window=5,
+    retries=0,
+)
+def generate_investor_i2v_job(data: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(data, dict) or _text(data.get("capability")) != "ai.video.image_to_video":
+        raise ValueError(f"{CONTRACT}_I2V_CAPABILITY_REQUIRED")
+    source_urls = data.get("source_urls") or []
+    if not isinstance(source_urls, list) or len(source_urls) != 1 or not _text(source_urls[0]).startswith("https://"):
+        raise ValueError(f"{CONTRACT}_I2V_SINGLE_SOURCE_REQUIRED")
+    organization_id = _text(data.get("organization_id")); usage_id = _text(data.get("usage_id")); instruction = _text(data.get("instruction"))
+    signed_url = _text((data.get("storage_upload") or {}).get("signed_url")); storage_reference = _text((data.get("storage_upload") or {}).get("storage_reference"))
+    spec = data.get("structured_specification") or {}; generation_spec = spec.get("generation") or {}; output_spec = spec.get("output_spec") or {}
+    duration = int(round(float(generation_spec.get("duration_seconds") or output_spec.get("duration_seconds") or 6)))
+    seed = int(generation_spec.get("seed") or 260905)
+    if not organization_id or not usage_id or not instruction or not signed_url.startswith("https://") or not storage_reference.startswith("storage://creative-assets/"):
+        raise ValueError(f"{CONTRACT}_I2V_GOVERNED_CONTEXT_REQUIRED")
+    token = uuid.uuid4().hex
+    relative = Path("runtime-investor-i2v") / _token(organization_id, "org") / _token(usage_id, "usage") / token / "master.mp4"
+    source_relative = Path("runtime-investor-i2v-source") / _token(organization_id, "org") / _token(usage_id, "usage") / token / "reference.img"
+    output = Path("/models") / relative
+    source_path = Path("/models") / source_relative
+    source_path.parent.mkdir(parents=True, exist_ok=True)
+    import urllib.request
+    try:
+        with urllib.request.urlopen(source_urls[0], timeout=60) as response, source_path.open("wb") as handle:
+            handle.write(response.read())
+    except Exception as exc:
+        raise RuntimeError(f"{CONTRACT}_I2V_SOURCE_MATERIALIZATION_FAILED:{type(exc).__name__}:{exc}") from exc
+    if not source_path.is_file() or source_path.stat().st_size < 20_000:
+        raise RuntimeError(f"{CONTRACT}_I2V_SOURCE_MATERIALIZATION_INVALID")
+    model_volume.commit()
+    generation = generate_investor_i2v_master.remote(str(relative), str(source_relative), instruction, duration, seed)
+    if not isinstance(generation, dict) or generation.get("success") is not True:
+        raise RuntimeError(f"{CONTRACT}_I2V_RESULT_INVALID")
+    min_output_bytes = max(100_000, duration * 100_000)
+    if not output.exists() or output.stat().st_size < min_output_bytes:
+        model_volume.reload()
+    if not output.exists() or output.stat().st_size < min_output_bytes:
+        raise RuntimeError(f"{CONTRACT}_I2V_OUTPUT_MISSING")
+    _upload(output, signed_url)
+    try:
+        source_path.unlink(missing_ok=True)
+        source_path.parent.rmdir()
+        model_volume.commit()
+    except Exception:
+        pass
+    return {"success": True, "contract": CONTRACT, "engine": "avantiqo-owned", "model": "avantiqo-ltx-2.5", "modal_gpu": generation.get("modal_gpu") or LTX_GPU, "width": WIDTH, "height": HEIGHT, "fps": FPS, "duration_seconds": duration, "seed": seed, "storage_reference": storage_reference, "generation": generation, "gpu_generation_calls": 1, "source_visual_asset_count": 1, "source_materialized_before_gpu_queue": True, "pure_text_to_video": False, "newly_generated_asset": True, "external_provider_used": False, "automatic_paid_retry": False, "raw_reasoning_persisted": False}
+
 def _upload(path: Path, signed_url: str) -> None:
     import requests
     with path.open("rb") as handle:

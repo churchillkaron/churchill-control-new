@@ -38,7 +38,7 @@ test("production queue derives mastered native Video classification from the gov
   );
 });
 
-test("dispatchAll claims the mastered native Video lane when one is already running", () => {
+test("dispatchAll counts already-running mastered native Video lanes", () => {
   assert.match(
     queueRuntime,
     /const initialQueue = await this\.build\(input\)/,
@@ -49,18 +49,18 @@ test("dispatchAll claims the mastered native Video lane when one is already runn
   );
   assert.match(
     queueRuntime,
-    /let masteredVideoLaneClaimed = masteredVideoRunningAtStart\.length > 0/,
+    /let masteredVideoRunningCount = masteredVideoRunningAtStart\.length/,
   );
 });
 
-test("dispatchAll allows at most one new mastered native Video dispatch per request", () => {
+test("dispatchAll enforces bounded mastered native Video concurrency", () => {
   const dispatchAllStart = queueRuntime.indexOf("async dispatchAll");
   const dispatchNextStart = queueRuntime.indexOf("async dispatchNext", dispatchAllStart);
   const dispatchAllBody = queueRuntime.slice(dispatchAllStart, dispatchNextStart);
 
   assert.match(
     dispatchAllBody,
-    /skipMasteredVideo:\s*masteredVideoLaneClaimed/,
+    /skipMasteredVideo:\s*masteredVideoRunningCount >= masteredVideoLaneLimit/,
   );
   assert.match(
     dispatchAllBody,
@@ -68,7 +68,7 @@ test("dispatchAll allows at most one new mastered native Video dispatch per requ
   );
   assert.match(
     dispatchAllBody,
-    /masteredVideoLaneClaimed = true/,
+    /masteredVideoRunningCount \+= 1/,
   );
   assert.match(
     dispatchAllBody,
@@ -98,14 +98,18 @@ test("dispatchNext skips mastered Video without blocking unrelated ready work", 
   );
 });
 
-test("queue exposes serialization evidence for production audits", () => {
+test("queue exposes bounded concurrency evidence for production audits", () => {
   assert.match(
     queueRuntime,
     /dispatch_policy:\s*\{/,
   );
   assert.match(
     queueRuntime,
-    /mastered_native_video_serialized:\s*true/,
+    /mastered_native_video_serialized:\s*false/,
+  );
+  assert.match(
+    queueRuntime,
+    /mastered_native_video_concurrency_limit/,
   );
   assert.match(
     queueRuntime,
@@ -113,6 +117,6 @@ test("queue exposes serialization evidence for production audits", () => {
   );
   assert.match(
     queueRuntime,
-    /mastered_native_video_dispatched_task_id/,
+    /mastered_native_video_dispatched_task_ids/,
   );
 });

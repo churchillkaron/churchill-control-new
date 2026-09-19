@@ -237,7 +237,20 @@ export async function POST(request) {
     }
     invoiceLeaseToken = lease.lease_token;
 
-    const executionBatch = lease?.billing_batch || batch;
+    const { data: executionPreflight, error: executionPreflightError } = await supabaseAdmin.rpc("preflight_accounting_practice_billing_execution", {
+      p_accounting_firm_id: access.organizationId,
+      p_batch_id: batch.id,
+      p_lease_token: invoiceLeaseToken,
+    });
+    if (executionPreflightError) throw executionPreflightError;
+    if (clean(executionPreflight?.state).toUpperCase() === "INVOICED") {
+      return NextResponse.json({ success: true, idempotent: true, billing_batch: executionPreflight?.billing_batch || batch, invoice_id: executionPreflight?.invoice_id || executionPreflight?.billing_batch?.invoice_id || null });
+    }
+    if (clean(executionPreflight?.state).toUpperCase() !== "READY" || !executionPreflight?.billing_batch?.id) {
+      throw new Error("Practice billing execution preflight did not return a ready batch");
+    }
+
+    const executionBatch = executionPreflight.billing_batch;
     const executionMetadata = executionBatch?.metadata || {};
     const executionEntityId = clean(executionMetadata.billing_entity_id);
     const executionCustomerPartyId = clean(executionMetadata.customer_party_id);

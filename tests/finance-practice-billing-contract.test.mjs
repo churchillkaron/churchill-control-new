@@ -14,6 +14,7 @@ const invoiceLeaseMigration = fs.readFileSync(new URL("../supabase/migrations/20
 const recoveryLeaseGuardMigration = fs.readFileSync(new URL("../supabase/migrations/20260919120500_accounting_practice_billing_recovery_lease_guard.sql", import.meta.url), "utf8");
 const retryLivenessMigration = fs.readFileSync(new URL("../supabase/migrations/20260919123000_accounting_practice_billing_retry_liveness.sql", import.meta.url), "utf8");
 const commercialSnapshotMigration = fs.readFileSync(new URL("../supabase/migrations/20260919131500_accounting_practice_billing_commercial_snapshot.sql", import.meta.url), "utf8");
+const executionPreflightMigration = fs.readFileSync(new URL("../supabase/migrations/20260919134500_accounting_practice_billing_execution_preflight.sql", import.meta.url), "utf8");
 
 test("practice billing hands off only through canonical customer invoice authority", () => {
   assert.match(route, /createCustomerInvoiceCommand/);
@@ -38,7 +39,9 @@ test("practice billing requires exact firm billing identity and accounting polic
 test("practice tax rate is snapshotted from governed Finance tax rule", () => {
   assert.match(practiceTime, /from\("tax_rules"\)/);
   assert.match(atomicPolicyMigration, /v_tax_rate_percent := greatest\(0, least\(100, coalesce\(v_tax\.tax_rate, 0\) \* 100\)\)/);
-  assert.match(route, /subtotal \* Number\(profile\.tax_rate_percent \|\| 0\)\) \/ 100/);
+  assert.match(route, /const taxRatePercent = Number\(profile\.tax_rate_percent \|\| 0\)/);
+  assert.match(route, /const taxAmount = Math\.round\(subtotal \* taxRatePercent\) \/ 100/);
+  assert.match(route, /tax_rate_percent: taxRatePercent/);
   assert.match(ui, /Select Finance tax rule/);
   assert.doesNotMatch(ui, /Tax rate %/);
 });
@@ -386,4 +389,54 @@ test("billing batch idempotency independently compares typed commercial snapshot
   assert.match(commercialSnapshotMigration, /security invoker/);
   assert.match(commercialSnapshotMigration, /revoke all on function public\.claim_accounting_practice_billing_batch/);
   assert.match(commercialSnapshotMigration, /to service_role/);
+});
+
+test("AR execution is blocked behind token-bound database preflight", () => {
+  const preflightIndex = route.indexOf('rpc("preflight_accounting_practice_billing_execution"');
+  const invoiceIndex = route.indexOf("const result = await createCustomerInvoiceCommand");
+  assert.ok(preflightIndex >= 0 && invoiceIndex > preflightIndex);
+  assert.match(route, /p_lease_token: invoiceLeaseToken/);
+  assert.match(route, /executionPreflight\.billing_batch/);
+  assert.match(executionPreflightMigration, /v_batch\.invoice_lease_token is distinct from p_lease_token/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_INVOICE_LEASE_EXPIRED/);
+});
+
+test("execution preflight re-proves active billing policy and governed references", () => {
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_PROFILE_UNAVAILABLE/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_ENTITY_INVALID/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_CUSTOMER_INVALID/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_REVENUE_ACCOUNT_INVALID/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_TAX_RULE_INVALID/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_TAX_RATE_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_TAX_TREATMENT_UNCONFIRMED/);
+});
+
+test("execution preflight re-proves exact WIP identity pricing currency and amount before AR", () => {
+  assert.match(executionPreflightMigration, /e\.id = any\(v_batch\.time_entry_ids\)/);
+  assert.match(executionPreflightMigration, /e\.status = 'APPROVED'/);
+  assert.match(executionPreflightMigration, /e\.billable = true/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_WIP_SCOPE_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_WIP_PRICING_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_WIP_VALUE_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_SUBTOTAL_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_TOTAL_CHANGED/);
+});
+
+test("execution preflight rejects policy drift before customer invoice side effects", () => {
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_METHOD_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_CURRENCY_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_CADENCE_CHANGED_DURING_INVOICE/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_ENTITY_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_CUSTOMER_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_REVENUE_ACCOUNT_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_TAX_RULE_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_PAYMENT_TERMS_CHANGED/);
+  assert.match(executionPreflightMigration, /PRACTICE_BILLING_TIMEZONE_CHANGED/);
+});
+
+test("execution preflight stays invoker-safe and service-role isolated", () => {
+  assert.match(executionPreflightMigration, /security invoker/);
+  assert.match(executionPreflightMigration, /revoke all on function public\.preflight_accounting_practice_billing_execution/);
+  assert.match(executionPreflightMigration, /from public, anon, authenticated/);
+  assert.match(executionPreflightMigration, /to service_role/);
 });

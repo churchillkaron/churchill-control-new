@@ -513,32 +513,35 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     busyRef.current = true;
 
     try {
-      const response = await fetchWithTimeout(
-        "/api/operator/turn/live",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({
-            organizationId,
-            entityId,
-            periodId,
-            conversationKey: "primary",
-            pathname,
-            message,
-            source,
-            locale:
-              typeof navigator !== "undefined"
-                ? navigator.language || null
-                : null,
-            agreementState: agreementStateRef.current,
-            conversation: priorConversation,
-            ...(locationContext ? { clientContext: { deviceLocation: locationContext } } : {}),
-          }),
-        },
-        OPERATOR_TURN_TIMEOUT_MS,
-        "Avantiqo took too long to complete that request. Please try again.",
-      );
+      const requestTurn = (locationContext = null) =>
+        fetchWithTimeout(
+          "/api/operator/turn/live",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({
+              organizationId,
+              entityId,
+              periodId,
+              conversationKey: "primary",
+              pathname,
+              message,
+              source,
+              locale:
+                typeof navigator !== "undefined"
+                  ? navigator.language || null
+                  : null,
+              agreementState: agreementStateRef.current,
+              conversation: priorConversation,
+              ...(locationContext
+                ? { clientContext: { deviceLocation: locationContext } }
+                : {}),
+            }),
+          },
+          OPERATOR_TURN_TIMEOUT_MS,
+          "Avantiqo took too long to complete that request. Please try again.",
+        );
 
       let response = await requestTurn(deviceLocation);
       let result = await response.json().catch(() => ({}));

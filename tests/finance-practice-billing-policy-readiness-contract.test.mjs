@@ -8,6 +8,7 @@ const { practiceBillingPolicyBlockers, practiceBillingPolicyReady } = await impo
 const onboarding = fs.readFileSync(new URL("../lib/finance/practice/FinancePracticeOnboardingReadiness.js", import.meta.url), "utf8");
 const timeRoute = fs.readFileSync(new URL("../app/api/workspace/finance/practice-time/route.js", import.meta.url), "utf8");
 const timeUi = fs.readFileSync(new URL("../components/workspace/finance/FinancePracticeTimeWip.jsx", import.meta.url), "utf8");
+const planner = fs.readFileSync(new URL("../lib/finance/practice/recurringCyclePlanner.js", import.meta.url), "utf8");
 
 const complete = {
   billing_method: "TIME_AND_MATERIALS",
@@ -59,4 +60,18 @@ test("onboarding and Time WIP consume one shared billing policy authority", () =
   assert.match(timeRoute, /billing_policy_blockers: practiceBillingPolicyBlockers\(data\)/);
   assert.match(timeUi, /Billing policy saved, but setup is not complete/);
   assert.match(timeUi, /Billing policy complete/);
+});
+
+test("recurring planner loads the full billing policy consumed by onboarding readiness", () => {
+  for (const field of [
+    "default_hourly_rate",
+    "fixed_fee_amount",
+    "billing_entity_id",
+    "customer_party_id",
+    "revenue_account_id",
+    "tax_rule_id",
+    "tax_treatment_confirmed",
+    "billing_cadence",
+    "next_billing_date",
+  ]) assert.match(planner, new RegExp(field));
 });

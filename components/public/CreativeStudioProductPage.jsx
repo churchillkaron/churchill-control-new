@@ -533,22 +533,18 @@ function ProfessionalVocalProduction({ studio }) {
 
 function StudioWorkspace({ studio }) {
   const video = studio.startsWith("Video");
-  const audio = studio.startsWith("Audio");
   const music = studio.startsWith("Music");
   const labels = video
     ? ["Story", "Shot Build", "Passes", "Composite", "Sound", "Master"]
-    : audio
-      ? ["Spot", "Dialogue", "Foley", "Design", "Spatial", "Master"]
-      : music
-        ? ["Compose", "Arrange", "Vocals", "SFX", "Mix", "Master"]
-        : ["Research", "Direction", "Create", "Review", "Repair", "Deliver"];
+    : music
+      ? ["Compose", "Arrange", "Vocals", "SFX", "Mix", "Master"]
+      : ["Research", "Direction", "Create", "Review", "Repair", "Deliver"];
+  const artKind = video ? "video-studio" : music ? "music-studio" : "image-studio";
   const status = video
     ? "SHOT 024 / REVIEW"
-    : audio
-      ? "MIX STAGE / REVIEW"
-      : music
-        ? "MASTER BUS / REVIEW"
-        : "CAMPAIGN 01 / REVIEW";
+    : music
+      ? "MASTER BUS / REVIEW"
+      : "CAMPAIGN 01 / REVIEW";
   return (
     <section className="border-b border-black/[0.06] bg-[#F1ECE4] text-[#1C1A17]">
       <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
@@ -561,7 +557,10 @@ function StudioWorkspace({ studio }) {
               A real production workspace, connected end to end.
             </h2>
             <p className="mt-5 max-w-lg text-[13px] leading-7 text-[#706A62]">
-              {video ? "Direction, shot state, reconstruction passes, simulation, compositing, sound events, review and approved output stay connected. Video Studio behaves like a production pipeline with repairable departments, not a one-click generator." : audio ? "Spotting, dialogue, Foley, sound design, music, spatial placement, automation, premix, review and masters stay connected to picture and timecode. Audio Post behaves like a real post-production department, not an audio effect added at the end." : music ? "Performance, source quality, comping, arrangement, editing, routing, automation, mix, premaster review and mastering stay connected in one record-production environment." : "Research, art direction, source imagery, composition, review, targeted repair, typography, layout, variants and final delivery stay connected in one commercial image-production workflow."}
+              Direction, shot state, reconstruction passes, simulation, compositing,
+              sound events, review and approved output stay connected. Video Studio
+              behaves like a production pipeline with repairable departments, not a
+              one-click generator.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
@@ -576,12 +575,12 @@ function StudioWorkspace({ studio }) {
           </div>
         </div>
         <div className="relative mt-10 min-h-[560px] overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#CFC4B4] shadow-[0_34px_100px_rgba(71,50,28,.16)]">
-          <div className="absolute inset-0 scale-[1.02] bg-cover bg-center" style={{ backgroundImage: `url(${studioImagePath(studio)})` }} />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.08)_48%,rgba(8,7,6,.46))]" />
+          <div className="absolute inset-0 scale-[1.02]"><PublicArtStage kind={artKind} /></div>
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.05)_58%,rgba(8,7,6,.34))]" />
           <div className="absolute left-5 top-5 rounded-full border border-white/22 bg-black/28 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-[#F0C98F] backdrop-blur-xl">
             {status}
           </div>
-          <div className="absolute right-5 top-5 hidden rounded-[16px] border border-white/20 bg-[#11100E]/74 px-3 py-2 text-right text-white shadow-[0_12px_30px_rgba(0,0,0,.20)] backdrop-blur-xl sm:block">
+          <div className="absolute right-5 top-5 hidden rounded-[16px] border border-white/20 bg-white/12 px-3 py-2 text-right text-white backdrop-blur-xl sm:block">
             <div className="text-[7px] uppercase tracking-[0.17em] text-[#F0C98F]">
               Live production context
             </div>
@@ -590,7 +589,7 @@ function StudioWorkspace({ studio }) {
             </div>
           </div>
           <div className="absolute bottom-5 left-5 right-5 grid gap-3 lg:grid-cols-[1.05fr_.95fr]">
-            <div className="rounded-[22px] border border-white/20 bg-[#11100E]/88 p-4 text-white shadow-[0_16px_40px_rgba(0,0,0,.22)] backdrop-blur-xl sm:p-5">
+            <div className="rounded-[22px] border border-white/20 bg-black/34 p-4 text-white backdrop-blur-xl sm:p-5">
               <div className="text-[7px] uppercase tracking-[0.18em] text-[#E9C28C]">
                 Production path
               </div>
@@ -608,7 +607,7 @@ function StudioWorkspace({ studio }) {
                 ))}
               </div>
             </div>
-            <div className="rounded-[22px] border border-white/20 bg-[#F7F1E8]/96 p-4 text-[#24201B] shadow-[0_16px_40px_rgba(0,0,0,.16)] backdrop-blur-xl sm:p-5">
+            <div className="rounded-[22px] border border-white/20 bg-white/82 p-4 text-[#24201B] shadow-sm backdrop-blur-xl sm:p-5">
               <div className="flex items-center justify-between">
                 <span className="text-[7px] uppercase tracking-[0.18em] text-[#8A633C]">
                   Quality review

@@ -271,7 +271,7 @@ export async function GET(request) {
       { product: "Music generation", capability: "ai.music.generate", model: "ACE-Step/Ace-Step1.5 · local CPU float32 · 8 steps", status: "CERTIFIED_LOCAL", resource: "CPU" },
       { product: "Documents / OCR", capability: "document.ocr", model: "qwen2.5vl:3b Q4_K_M", status: "CERTIFIED_LOCAL", resource: "GPU" },
       { product: "Developer / Code", capability: "ai.code.generate", model: "qwen3:4b-instruct", status: "CERTIFIED_LOCAL", resource: "GPU" },
-      { product: "Image / Video generation", capability: "generation", model: "specialist production models", status: "MODAL_KEEP_SPECIALIST_GPU", resource: "GPU" },
+      { product: "Image / Video generation", capability: "generation", model: "specialist production models", status: "OWNER_APPROVAL_REQUIRED", resource: "GPU" },
     ];
 
     return NextResponse.json({
@@ -280,10 +280,12 @@ export async function GET(request) {
       organization_id: access.organizationId,
       routing: {
         normal_intelligence: "LOCAL_FIRST",
-        deep_intelligence: "MODAL",
-        heavy_generation: "MODAL",
+        deep_intelligence: "LOCAL_GPU_FIRST",
+        heavy_generation: "EXPLICIT_OWNER_APPROVAL_REQUIRED",
         bounded_studio_reasoning: "LOCAL_GPU_QWEN4B_FIRST",
-        deep_creative_reasoning: "MODAL_HEAVY_ONLY_WHEN_REQUIRED",
+        deep_creative_reasoning: "LOCAL_GPU_FIRST_CONTEXT_BOUNDED",
+        modal_automatic_fallback: "FORBIDDEN",
+        modal_approval_contract: "AVANTIQO_MODAL_COMPUTE_OWNER_APPROVAL_V1",
         media_dsp: "LOCAL_CPU_FIRST",
         local_transport: "SUPABASE_PULL_QUEUE_V1",
       },

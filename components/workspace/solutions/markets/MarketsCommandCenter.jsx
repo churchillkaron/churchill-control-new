@@ -358,7 +358,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   return (
     <main className="min-h-screen bg-[#F7F6F3] p-4 text-[#191919] md:p-6 lg:p-8">
       <div className="mx-auto max-w-[1760px] space-y-5">
-        <section className="overflow-hidden rounded-[28px] border border-[#CDAA78]/25 bg-[#FFFDF9] shadow-[0_26px_80px_rgba(73,55,35,0.10)]">
+        <section id="markets-overview" className="scroll-mt-24 overflow-hidden rounded-[28px] border border-[#CDAA78]/25 bg-[#FFFDF9] shadow-[0_26px_80px_rgba(73,55,35,0.10)]">
           <div className="flex min-h-16 items-center gap-3 border-b border-black/[0.055] px-5 py-3 md:px-6">
             <div className="hidden min-w-[150px] items-center gap-2 lg:flex">
               <div className="h-8 w-8 rounded-full border border-[#B98B54]/30 bg-[radial-gradient(circle_at_30%_30%,#fff_0%,#f8efe2_65%,#ead7bc_100%)] shadow-inner" />
@@ -650,8 +650,28 @@ export default function MarketsCommandCenter({ organizationId }) {
               </div>
             </section>
 
-            <section className="rounded-[22px] border border-black/[0.075] bg-white">
-              <div className="flex flex-col gap-3 border-b border-black/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <nav className="sticky top-2 z-20 flex gap-1 overflow-x-auto rounded-2xl border border-[#CDAA78]/20 bg-[#FFFDF9]/95 p-1.5 shadow-[0_10px_28px_rgba(73,55,35,0.07)] backdrop-blur">
+              {[
+                ["Overview", "#markets-overview"],
+                ["Portfolio", "#markets-portfolio"],
+                ["Research", "#markets-research"],
+                ["Risk", "#markets-risk"],
+                ["Automation", "#markets-automation"],
+                ["Performance", "#markets-performance"],
+                ["Execution", "#markets-execution"],
+              ].map(([label, href]) => (
+                <a
+                  key={label}
+                  href={href}
+                  className="shrink-0 rounded-xl px-3 py-2 text-[9px] font-medium text-[#6E665D] transition hover:bg-[#F7F0E6] hover:text-[#8A6239]"
+                >
+                  {label}
+                </a>
+              ))}
+            </nav>
+
+            <section id="markets-portfolio" className="scroll-mt-24 rounded-[22px] border border-[#CDAA78]/20 bg-[#FFFDF9] shadow-[0_14px_42px_rgba(73,55,35,0.055)]">
+              <div className="flex flex-col gap-3 border-b border-[#CDAA78]/15 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="text-[9px] font-medium uppercase tracking-[0.16em] text-[#A37849]">Paper portfolio</div>
                   <h2 className="mt-1 text-[18px] font-semibold">Simulation account & positions</h2>
@@ -671,7 +691,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                 </button>
               </div>
 
-              <div className="grid gap-2 border-b border-black/[0.06] p-4 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="grid gap-2 border-b border-[#CDAA78]/15 p-4 sm:grid-cols-2 xl:grid-cols-5">
                 {[
                   ["Equity", paperAccount ? money(paperAccount.equity, baseCurrency) : "—"],
                   ["Cash", paperAccount ? money(paperAccount.cash_balance, baseCurrency) : "—"],
@@ -688,7 +708,7 @@ export default function MarketsCommandCenter({ organizationId }) {
 
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-[10px]">
-                  <thead className="text-[#8A867F]">
+                  <thead className="bg-[#FBF7F1] text-[#766E65]">
                     <tr>
                       <th className="px-4 py-3 font-medium">Symbol</th>
                       <th className="px-4 py-3 font-medium">Qty</th>
@@ -707,7 +727,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   <tbody className="divide-y divide-black/[0.06]">
                     {paperPositions.filter((row) => Number(row.quantity || 0) > 0).length ? (
                       paperPositions.filter((row) => Number(row.quantity || 0) > 0).map((position) => (
-                        <tr key={position.id}>
+                        <tr key={position.id} className="transition hover:bg-[#FBF7F1]/70">
                           <td className="px-4 py-3 font-semibold">{position.symbol}</td>
                           <td className="px-4 py-3">{position.quantity}</td>
                           <td className="px-4 py-3">{position.average_entry_price ? money(position.average_entry_price, baseCurrency) : "—"}</td>
@@ -732,14 +752,14 @@ export default function MarketsCommandCenter({ organizationId }) {
                   </tbody>
                 </table>
               </div>
-              <div className="border-t border-black/[0.06] px-4 py-2.5 text-[9px] text-[#8A867F]">
+              <div className="border-t border-[#CDAA78]/15 px-4 py-2.5 text-[9px] text-[#8A867F]">
                 {paperFills.length} simulated fill{paperFills.length === 1 ? "" : "s"} recorded · no live broker execution
               </div>
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-              <div className="rounded-[22px] border border-black/[0.075] bg-white">
-                <div className="flex flex-col gap-3 border-b border-black/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <section id="markets-research" className="scroll-mt-24 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+              <div className="rounded-[22px] border border-[#CDAA78]/20 bg-[#FFFDF9] shadow-[0_14px_42px_rgba(73,55,35,0.055)]">
+                <div className="flex flex-col gap-3 border-b border-[#CDAA78]/15 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="text-[9px] uppercase tracking-[0.16em] text-[#A37849]">Universe</div>
                     <h2 className="mt-1 text-[18px] font-semibold">Watchlist & latest decisions</h2>
@@ -758,7 +778,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                     const backtest = latestBacktestBySymbol.get(item.symbol);
                     const refreshing = working === `REFRESH_INTELLIGENCE:${item.symbol}`;
                     return (
-                      <div key={item.id} className="grid gap-3 p-4 sm:grid-cols-[minmax(120px,1fr)_auto_auto_auto_minmax(250px,auto)] sm:items-center">
+                      <div key={item.id} className="grid gap-3 p-4 transition hover:bg-[#FBF7F1]/70 sm:grid-cols-[minmax(120px,1fr)_auto_auto_auto_minmax(250px,auto)] sm:items-center">
                         <div>
                           <div className="text-[14px] font-semibold">{item.symbol}</div>
                           <div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-[#938C83]">{item.asset_type} · {item.thesis_horizon}</div>
@@ -868,7 +888,7 @@ export default function MarketsCommandCenter({ organizationId }) {
               </div>
 
               <div className="space-y-4">
-                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                <div id="markets-risk" className="scroll-mt-24 rounded-[22px] border border-[#CDAA78]/20 bg-[#FFFDF9] p-4 shadow-[0_14px_42px_rgba(73,55,35,0.055)]">
                   <div className="flex items-center gap-2 text-[#A37849]"><ShieldCheck size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Risk authority</span></div>
                   <h2 className="mt-2 text-[18px] font-semibold">Independent execution limits</h2>
                   <div className="mt-4 grid grid-cols-2 gap-2">
@@ -1418,7 +1438,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   </div>
                 </div>
 
-                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                <div id="markets-automation" className="scroll-mt-24 rounded-[22px] border border-[#CDAA78]/20 bg-[#FFFDF9] p-4 shadow-[0_14px_42px_rgba(73,55,35,0.055)]">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-[#A37849]"><Activity size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Paper autopilot</span></div>
                     <div className={`rounded-full px-2.5 py-1 text-[8px] font-medium ${
@@ -1689,7 +1709,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   </div>
                 </div>
 
-                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                <div className="rounded-[22px] border border-[#CDAA78]/20 bg-[#FFFDF9] p-4 shadow-[0_14px_42px_rgba(73,55,35,0.055)]">
                   <div className="flex items-center gap-2 text-[#A37849]"><BrainCircuit size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Agent layer</span></div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     {[
@@ -1728,7 +1748,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   </div>
                 </div>
 
-                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                <div id="markets-performance" className="scroll-mt-24 rounded-[22px] border border-[#CDAA78]/20 bg-[#FFFDF9] p-4 shadow-[0_14px_42px_rgba(73,55,35,0.055)]">
                   <div className="flex items-center gap-2 text-[#A37849]"><Activity size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Portfolio performance</span></div>
                   <h2 className="mt-2 text-[18px] font-semibold">Paper equity curve</h2>
                   <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1755,7 +1775,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   </div>
                 </div>
 
-                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                <div className="rounded-[22px] border border-[#CDAA78]/20 bg-[#FFFDF9] p-4 shadow-[0_14px_42px_rgba(73,55,35,0.055)]">
                   <div className="flex items-center gap-2 text-[#A37849]"><Activity size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Execution quality</span></div>
                   <h2 className="mt-2 text-[18px] font-semibold">Paper execution friction</h2>
                   <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1779,7 +1799,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   </div>
                 </div>
 
-                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                <div className="rounded-[22px] border border-[#CDAA78]/20 bg-[#FFFDF9] p-4 shadow-[0_14px_42px_rgba(73,55,35,0.055)]">
                   <div className="flex items-center gap-2 text-[#A37849]"><TrendingUp size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Prediction calibration</span></div>
                   <h2 className="mt-2 text-[18px] font-semibold">Measured outcomes</h2>
                   <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1828,7 +1848,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   </div>
                 </div>
 
-                <div className="rounded-[22px] border border-black/[0.075] bg-white p-4">
+                <div className="rounded-[22px] border border-[#CDAA78]/20 bg-[#FFFDF9] p-4 shadow-[0_14px_42px_rgba(73,55,35,0.055)]">
                   <div className="flex items-center gap-2 text-[#A37849]"><TrendingUp size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Walk-forward validation</span></div>
                   <h2 className="mt-2 text-[18px] font-semibold">Out-of-sample evidence</h2>
                   <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1853,8 +1873,8 @@ export default function MarketsCommandCenter({ organizationId }) {
               </div>
             </section>
 
-            <section className="rounded-[22px] border border-black/[0.075] bg-white">
-              <div className="flex items-center justify-between border-b border-black/[0.06] p-4">
+            <section id="markets-execution" className="scroll-mt-24 rounded-[22px] border border-[#CDAA78]/20 bg-[#FFFDF9] shadow-[0_14px_42px_rgba(73,55,35,0.055)]">
+              <div className="flex items-center justify-between border-b border-[#CDAA78]/15 p-4">
                 <div>
                   <div className="flex items-center gap-2 text-[#A37849]"><Activity size={14} /><span className="text-[9px] uppercase tracking-[0.16em]">Execution ledger</span></div>
                   <h2 className="mt-1 text-[18px] font-semibold">Paper orders</h2>
@@ -1863,7 +1883,7 @@ export default function MarketsCommandCenter({ organizationId }) {
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-[10px]">
-                  <thead className="text-[#8A867F]">
+                  <thead className="bg-[#FBF7F1] text-[#766E65]">
                     <tr>
                       <th className="px-4 py-3 font-medium">Time</th>
                       <th className="px-4 py-3 font-medium">Symbol</th>
@@ -1879,7 +1899,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   </thead>
                   <tbody className="divide-y divide-black/[0.06]">
                     {orders.length ? orders.map((order) => (
-                      <tr key={order.id}>
+                      <tr key={order.id} className="transition hover:bg-[#FBF7F1]/70">
                         <td className="px-4 py-3 text-[#8A867F]">{new Date(order.submitted_at).toLocaleString()}</td>
                         <td className="px-4 py-3 font-semibold">{order.symbol}</td>
                         <td className="px-4 py-3">{order.side}</td>

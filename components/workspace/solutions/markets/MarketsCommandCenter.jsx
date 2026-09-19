@@ -395,6 +395,13 @@ export default function MarketsCommandCenter({ organizationId }) {
   const focusedFilingCount = focusedSymbol
     ? filings.filter((row) => row.symbol === focusedSymbol).length
     : 0;
+  const focusedNewsRefreshedAt = focusedWatchItem?.metadata?.news_refreshed_at || null;
+  const focusedNewsAgeMinutes = focusedNewsRefreshedAt
+    ? Math.max(0, (Date.now() - new Date(focusedNewsRefreshedAt).getTime()) / (60 * 1000))
+    : null;
+  const focusedNewsMonitorFresh = Number.isFinite(focusedNewsAgeMinutes)
+    ? focusedNewsAgeMinutes <= 10
+    : false;
 
   const directionalOutcomes = outcomes.filter((row) => typeof row.directional_hit === "boolean");
   const directionalHits = directionalOutcomes.filter((row) => row.directional_hit).length;
@@ -915,6 +922,20 @@ export default function MarketsCommandCenter({ organizationId }) {
                           <div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-[#938C83]">
                             {focusedWatchItem.asset_type} · {focusedWatchItem.thesis_horizon}
                             {focusedWatchItem.exchange ? " · " + focusedWatchItem.exchange : ""}
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[8px] text-[#817970]">
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className={focusedNewsMonitorFresh ? "h-1.5 w-1.5 rounded-full bg-emerald-500" : "h-1.5 w-1.5 rounded-full bg-amber-500"} />
+                              News monitor
+                            </span>
+                            <span>
+                              {focusedNewsRefreshedAt
+                                ? "Last checked " + new Date(focusedNewsRefreshedAt).toLocaleString()
+                                : "Waiting for first automated news check"}
+                            </span>
+                            <span className={focusedNewsMonitorFresh ? "font-medium text-emerald-700" : "font-medium text-amber-700"}>
+                              {focusedNewsMonitorFresh ? "Fresh" : "Refresh due"}
+                            </span>
                           </div>
                         </div>
 

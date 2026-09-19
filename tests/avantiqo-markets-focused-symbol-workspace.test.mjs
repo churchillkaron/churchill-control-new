@@ -46,3 +46,11 @@ test("focused symbol exposes the research trail behind the decision", () => {
   assert.match(source, /Open source/);
   assert.match(source, /Open filing/);
 });
+
+test("focused symbol shows news monitoring freshness", () => {
+  assert.match(source, /const focusedNewsRefreshedAt = focusedWatchItem\?\.metadata\?\.news_refreshed_at/);
+  assert.match(source, /const focusedNewsMonitorFresh = Number\.isFinite\(focusedNewsAgeMinutes\)/);
+  assert.match(source, /News monitor/);
+  assert.match(source, /Last checked/);
+  assert.match(source, /Refresh due/);
+});

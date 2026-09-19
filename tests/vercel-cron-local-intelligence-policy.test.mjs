@@ -13,7 +13,8 @@ test("all configured Vercel cron routes enter local-first scheduled compute poli
   const vercel = JSON.parse(source("vercel.json"));
   assert.ok(vercel.crons.length > 0);
   for (const cron of vercel.crons) {
-    const routePath = `app${cron.path}/route.js`;
+    const pathname = new URL(cron.path, "https://avantiqo.local").pathname;
+    const routePath = `app${pathname}/route.js`;
     assert.equal(fs.existsSync(routePath), true, `missing cron route ${cron.path}`);
     assert.match(source(routePath), /runCronRouteLocalFirst/, `cron route not guarded ${cron.path}`);
   }

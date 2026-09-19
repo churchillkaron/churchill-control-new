@@ -1,56 +1,210 @@
-import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import Image from "next/image";
+import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import BusinessPartnerShowcase from "@/components/public/BusinessPartnerShowcase";
 
-const WORLDS = [
-  ["RUN", "Business Products", "/products", "Run finance, people, customers, operations, stock and documents from one connected business context.", "/art/avantiqo-luxury/hospitality-hero.webp", "commerce"],
-  ["INDUSTRY", "Solutions", "/solutions", "Start with a restaurant, hotel, retail or service setup shaped around the work your team already knows.", "/art/commercial-solutions.jpg", "solutions"],
-  ["CREATE", "Creative Studios", "/creative-studios", "Create image, music and film from brief to finished master. Video Studio is a full film/VFX production pipeline — not a prompt-to-video generator.", "/art/creative-image.jpg", "creative"],
-  ["BUILD", "Developers", "/developers", "Build software, integrations and embedded products with Avantiqo capabilities and APIs.", "/art/developer-work.jpg", "code"],
-  ["SCALE", "Compute", "/compute", "Run inference, rendering and batch workloads with owned and elastic capacity.", "/art/commercial-compute.jpg", "compute"],
+const PRIMARY_AREAS = [
+  {
+    eyebrow: "01 · RUN THE BUSINESS",
+    title: "Operate the business from one connected system.",
+    copy: "Customers, sales, reservations, work, people, finance, stock and documents stay connected instead of living in separate software.",
+    href: "/products",
+    image: "/art/generated/products/products-run-business-v1.png",
+  },
+  {
+    eyebrow: "02 · INTELLIGENCE",
+    title: "Ask, decide and get approved work done.",
+    copy: "Business Partner and specialist agents read live business evidence, reason across context, execute approved capabilities and verify the outcome.",
+    href: "/intelligence-platform",
+    image: "/art/generated/products/products-intelligence-v2.png",
+  },
+  {
+    eyebrow: "03 · COMMUNICATIONS & REPUTATION",
+    title: "Every customer conversation in one place.",
+    copy: "WhatsApp, LINE, Messenger, Instagram, email, social channels and reviews can share the same customer history, routing and approval flow.",
+    href: "/products#communications-reputation",
+    image: "/art/generated/products/communications-reputation-approved.png",
+  },
+  {
+    eyebrow: "04 · CREATE & GROW",
+    title: "Create, publish and grow from the same platform.",
+    copy: "Campaigns, image, video, music, voice, websites and commerce connect back to the same business context and customer journey.",
+    href: "/creative-studios",
+    image: "/art/generated/products/products-creative-v2.png",
+  },
 ];
 
-function Arrow(){return <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+const CONNECTED_AREAS = [
+  {
+    label: "Portals & external experience",
+    title: "Customers, staff and suppliers get the right view of the same live business.",
+    copy: "Bookings, payments, work, documents, messages, delivery status and history can move through role-aware portals without exposing the internal back office.",
+    href: "/products#portals-external",
+    image: "/art/generated/products/products-industry-v2.png",
+  },
+  {
+    label: "Web & commerce",
+    title: "Build the customer-facing business, not just the back office.",
+    copy: "Websites, webshops, connected products, orders and inventory work with the same business data underneath.",
+    href: "/products#web-commerce",
+    image: "/art/commercial-commerce.jpg",
+  },
+  {
+    label: "Markets",
+    title: "Research, test and operate market decisions with evidence and control.",
+    copy: "Live market evidence, specialist agents, portfolio risk and governed paper execution are connected to one decision record.",
+    href: "/products#markets",
+    image: "/art/generated/products/markets-approved.png",
+  },
+];
 
-export default function AvantiqoUniverseHome(){
-  return <main className="min-h-screen bg-[#F7F6F3] text-[#171614]">
-    <PublicSiteHeader context="Avantiqo" audience="platform" />
-    <section className="relative overflow-hidden border-b border-black/[0.07] bg-[#F4F0E8]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(214,166,106,.16),transparent_32%)]" />
-      <div className="relative mx-auto grid max-w-[1540px] lg:min-h-[760px] lg:grid-cols-[44%_56%]">
-        <div className="flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
-          <div className="max-w-[680px]">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.30em] text-[#9A744B]">AVANTIQO / INTELLIGENT OPERATING PLATFORM</p>
-            <h1 className="mt-5 text-[56px] font-medium leading-[.92] tracking-[-0.065em] sm:text-[72px] lg:text-[84px]">Run the business. Create the next thing.</h1>
-            <p className="mt-7 max-w-[620px] text-[16px] leading-8 text-[#625F59]">Start with the business problem, creative job or technical workload you have now. Avantiqo keeps the company context connected as you add more products and services later.</p>
-            <div className="mt-9 flex flex-wrap gap-2.5"><a href="/start" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start Now <Arrow/></a><a href="#worlds" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A]">Explore Avantiqo</a></div>
+const INDUSTRIES = [
+  ["Restaurant", "/solutions/restaurant", "/art/generated/solutions/verticals/solution-restaurant-v1.png"],
+  ["Hotel", "/solutions/hotel", "/art/generated/solutions/verticals/solution-hotel-v1.png"],
+  ["Field service", "/solutions/field-service", "/art/generated/solutions/verticals/solution-field-service-v1.png"],
+  ["Pest control", "/solutions/pest-control", "/art/generated/solutions/verticals/solution-pest-control-v1.png"],
+  ["Retail", "/solutions/retail", "/art/generated/solutions/verticals/solution-retail-v1.png"],
+  ["Accounting", "/solutions/accounting", "/art/generated/solutions/verticals/solution-accounting-v1.png"],
+];
+
+function Arrow() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none">
+      <path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ImageCard({ item, tall = false }) {
+  return (
+    <a href={item.href} className="group overflow-hidden rounded-[28px] border border-black/[0.07] bg-[#F8F4EE] shadow-[0_18px_48px_rgba(45,34,22,.055)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(45,34,22,.11)]">
+      <div className={`relative overflow-hidden bg-[#E9DFD1] ${tall ? "h-[320px]" : "h-[235px]"}`}>
+        <Image src={item.image} alt="" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover transition duration-700 group-hover:scale-[1.025]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,13,9,.01),rgba(18,13,9,.05)_55%,rgba(18,13,9,.48))]" />
+        <div className="absolute bottom-5 left-5 rounded-full border border-white/25 bg-[#17120D]/50 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.18em] text-[#F1C98E] backdrop-blur-xl">
+          {item.eyebrow || item.label}
+        </div>
+      </div>
+      <div className="p-6 sm:p-7">
+        <h3 className="max-w-xl text-[28px] font-medium leading-[1.02] tracking-[-0.048em] text-[#29251F]">{item.title}</h3>
+        <p className="mt-4 max-w-2xl text-[11px] leading-6 text-[#746E66]">{item.copy}</p>
+        <div className="mt-6 inline-flex items-center gap-2 text-[9px] font-semibold text-[#865F39]">Explore <Arrow /></div>
+      </div>
+    </a>
+  );
+}
+
+export default function AvantiqoUniverseHome() {
+  return (
+    <main className="min-h-screen bg-[#F7F6F3] text-[#171614]">
+      <PublicSiteHeader context="Avantiqo" audience="platform" />
+
+      <section className="relative overflow-hidden border-b border-black/[0.07] bg-[#F3EEE5]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_13%_0%,rgba(214,166,106,.18),transparent_34%)]" />
+        <div className="relative mx-auto grid max-w-[1540px] gap-8 px-5 py-12 sm:px-7 lg:min-h-[760px] lg:grid-cols-[.84fr_1.16fr] lg:items-center lg:px-10 lg:py-16">
+          <div className="max-w-[650px] xl:pl-4">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-[#9A744B]">AVANTIQO / INTELLIGENT OPERATING PLATFORM</p>
+            <h1 className="mt-5 text-[56px] font-medium leading-[.92] tracking-[-0.067em] sm:text-[72px] xl:text-[88px]">Run the business.<br />Create the next thing.</h1>
+            <p className="mt-7 max-w-[610px] text-[16px] leading-8 text-[#625D55]">One connected platform for operating the business, serving customers, creating content, building digital experiences and using intelligence to move real work forward.</p>
+            <p className="mt-4 max-w-[560px] text-[12px] leading-6 text-[#857C72]">Start with one problem. Keep the same business context as you add products, portals, communication channels, creative production, developers or compute later.</p>
+            <div className="mt-9 flex flex-wrap gap-2.5">
+              <a href="/start" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_9px_28px_rgba(20,18,15,.16)]">Start Now <Arrow /></a>
+              <a href="#what-avantiqo-does" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A]">See what Avantiqo does</a>
+            </div>
+            <div className="mt-10 grid max-w-[610px] grid-cols-2 gap-y-4 border-t border-black/[0.08] pt-5 sm:grid-cols-4">
+              {["Business OS","Intelligence","Creative","Customer experience"].map((item,index)=><div key={item} className={index ? "border-l border-black/[0.07] pl-4" : "pr-4"}><div className="text-[7px] font-semibold uppercase tracking-[.15em] text-[#9A744B]">0{index+1}</div><div className="mt-2 text-[9px] leading-4 text-[#716A62]">{item}</div></div>)}
+            </div>
+          </div>
+
+          <div className="relative min-h-[560px] overflow-hidden rounded-[36px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_34px_100px_rgba(68,47,25,.13)] lg:min-h-[650px]">
+            <Image src="/art/generated/products/products-hero-v1.png" alt="Avantiqo connected business operations" fill priority sizes="58vw" className="object-cover object-center" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,13,9,.01),rgba(18,13,9,.03)_55%,rgba(18,13,9,.34))]" />
+            <div className="absolute left-6 top-6 rounded-full border border-white/70 bg-[#F8F0E6]/76 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.20em] text-[#8D6339] backdrop-blur-xl">ONE BUSINESS · ONE CONTEXT</div>
+            <div className="absolute inset-x-6 bottom-6 rounded-[22px] border border-white/72 bg-[#F8F1E8]/90 p-5 text-[#2B251F] shadow-[0_18px_45px_rgba(0,0,0,.12)] backdrop-blur-xl sm:p-6">
+              <div className="text-[7px] font-semibold uppercase tracking-[.20em] text-[#A36F39]">CONNECTED FROM THE FIRST CUSTOMER TOUCHPOINT</div>
+              <div className="mt-2 max-w-2xl text-[15px] leading-6 text-[#5D5348]">Messages, bookings, payments, people, stock, finance, documents and intelligence can move through the same operating context.</div>
+            </div>
           </div>
         </div>
-        <div className="relative m-5 min-h-[560px] overflow-hidden rounded-[36px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_34px_100px_rgba(68,47,25,.13)] sm:m-7 lg:ml-0 lg:min-h-0 lg:self-stretch">
-          <Image src="/art/commercial-start.jpg" alt="Avantiqo across real business and creative work" fill priority sizes="56vw" className="object-cover" />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(20,15,10,.02)_52%,rgba(20,15,10,.23))]"/>
-          <div className="absolute left-7 top-7 rounded-full border border-white/70 bg-[#F7F0E7]/78 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.18em] text-[#8A633C] shadow-[0_10px_30px_rgba(40,28,18,.10)] backdrop-blur-xl">ONE AVANTIQO · DIFFERENT WORLDS</div>
-          <div className="absolute inset-x-7 bottom-7 rounded-[22px] border border-white/72 bg-[#F6F0E7]/90 p-5 text-[#171614] shadow-[0_30px_80px_rgba(35,25,15,.16)] backdrop-blur-xl"><div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#A37849]">ONE CONNECTED ACCOUNT</div><div className="mt-3 flex flex-wrap gap-2 text-[8px] text-[#6C6359]">{["Company","People","Customers","Money","Work","Documents","Intelligence","History","Usage"].map(x=><span key={x} className="rounded-full border border-[#D6A66A]/26 bg-white/60 px-2.5 py-1.5">{x}</span>)}</div></div>
+      </section>
+
+      <section id="what-avantiqo-does" className="border-b border-black/[0.06] bg-[#FBFAF8]">
+        <div className="mx-auto max-w-[1540px] px-5 py-16 sm:px-7 lg:px-10 lg:py-24">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">WHAT AVANTIQO DOES</p>
+              <h2 className="mt-3 max-w-2xl text-[42px] font-medium leading-[.98] tracking-[-0.055em] sm:text-[58px]">Start with the outcome your business needs.</h2>
+            </div>
+            <p className="max-w-2xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">The landing page should make the value obvious before the customer learns the product names. These are the four jobs Avantiqo can help with immediately.</p>
+          </div>
+          <div className="mt-10 grid gap-4 lg:grid-cols-2">
+            {PRIMARY_AREAS.map((item)=><ImageCard key={item.eyebrow} item={item} tall />)}
+          </div>
         </div>
-      </div>
-    </section>
-    <section id="worlds" className="bg-[#FBFAF8]"><div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-24"><div className="mb-10 max-w-3xl"><p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">THE AVANTIQO WORLD</p><h2 className="mt-3 text-[38px] font-medium leading-[1.02] tracking-[-0.05em] sm:text-[52px]">Enter through the work you need to do.</h2></div><div className="grid gap-3 md:grid-cols-2">{WORLDS.map(([verb,name,href,copy,image,artKind])=><a key={name} href={href} className="group grid min-h-[270px] overflow-hidden rounded-[26px] border border-black/[0.075] bg-white shadow-[0_16px_45px_rgba(30,24,18,.035)] sm:grid-cols-[42%_58%]"><div className="relative min-h-[180px] overflow-hidden bg-[#E9DFD1]"><div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{backgroundImage:`url(${image})`}}/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(15,10,6,.30))]"/><div className="absolute left-5 top-5 text-[7px] font-semibold uppercase tracking-[0.18em] text-[#F1C98E]">{verb}</div></div><div className="flex flex-col justify-between p-6 sm:p-7"><div><div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#A37849]">AVANTIQO / {name}</div><h3 className="mt-4 text-[28px] font-medium tracking-[-0.045em]">{name}</h3><p className="mt-3 text-[11px] leading-6 text-[#746F68]">{copy}</p></div><div className="mt-6 inline-flex items-center gap-2 text-[10px] font-semibold text-[#8A633C]">Explore <Arrow/></div></div></a>)}</div></div></section>
+      </section>
 
-    <section className="border-y border-black/[0.06] bg-[#EEE6DB] text-[#1D1B18]"><div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
-      <div className="grid gap-8 lg:grid-cols-[.7fr_1.3fr] lg:items-end"><div><p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">ONE BUSINESS · CONNECTED WORK</p><h2 className="mt-3 text-[38px] font-medium leading-[1.02] tracking-[-0.05em] sm:text-[52px]">The handoffs are where Avantiqo becomes different.</h2></div><p className="max-w-2xl text-[12px] leading-6 text-[#6E655C] lg:justify-self-end">A sale can change stock, finance and customer history. A clock-in can affect scheduling, payroll and finance. The same business context stays attached instead of being re-entered across separate software.</p></div>
-      <div className="mt-10 grid gap-2 md:grid-cols-7">{["Customers","Sales","Operations","People","Stock","Finance","Intelligence"].map((item,index)=><div key={item} className="relative rounded-[16px] border border-black/[0.07] bg-white/52 px-4 py-5"><div className="text-[7px] font-semibold text-[#D6A66A]">0{index+1}</div><div className="mt-3 text-[9px] text-[#5F554B]">{item}</div>{index<6?<span className="absolute -right-2 top-1/2 hidden -translate-y-1/2 text-[#D6A66A]/50 md:block">→</span>:null}</div>)}</div>
-      <div className="mt-10 grid gap-8 rounded-[28px] border border-black/[0.07] bg-white/52 p-6 lg:grid-cols-[.8fr_1.2fr] lg:p-8">
-        <div><div className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#D6A66A]">BUSINESS PARTNER</div><h3 className="mt-3 text-[30px] font-medium tracking-[-.045em]">Tell Avantiqo what you need done.</h3><p className="mt-4 text-[11px] leading-6 text-[#6E655C]">Business Partner can investigate, reason across the connected company context, prepare work, execute approved capabilities and verify what happened.</p><a href="/intelligence-platform" className="mt-6 inline-flex text-[9px] font-semibold text-[#8A633C]">Explore Business Partner →</a></div>
-        <BusinessPartnerShowcase compact />
-      </div>
-    </div></section>
+      <section className="border-b border-black/[0.06] bg-[#EEE6DB]">
+        <div className="mx-auto max-w-[1540px] px-5 py-16 sm:px-7 lg:px-10 lg:py-22">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">CONNECTED EXPERIENCE</p>
+              <h2 className="mt-3 max-w-2xl text-[42px] font-medium leading-[.98] tracking-[-0.055em] sm:text-[58px]">The work keeps moving after the first interaction.</h2>
+            </div>
+            <p className="max-w-2xl text-[13px] leading-7 text-[#6F675F] lg:justify-self-end">A message can become a booking. A booking can open a customer portal. Payment can reconcile into finance. Staff and suppliers can see only the part of the same live record they need.</p>
+          </div>
+          <div className="mt-10 grid gap-4 lg:grid-cols-3">
+            {CONNECTED_AREAS.map((item)=><ImageCard key={item.label} item={item} />)}
+          </div>
+        </div>
+      </section>
 
-    <section className="border-y border-black/[0.06] bg-[#F4F0E8]"><div className="mx-auto max-w-[1320px] px-5 py-18 sm:px-7 lg:px-10 lg:py-24"><div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end"><div><p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">CHOOSE HOW YOU WANT TO USE AVANTIQO</p><h2 className="mt-3 text-[38px] font-medium leading-[1.02] tracking-[-0.05em] sm:text-[52px]">Different needs. One connected account.</h2></div><p className="max-w-2xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">Use Avantiqo for everyday business operations, creative production, development, compute or enterprise rollout. Start with the area you need and add more when it helps your team.</p></div><div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[["01","Software","Run day-to-day operations","/pricing","/art/avantiqo-luxury/hospitality-hero.webp"],["02","Creative","Create campaigns and production work","/creative-studios","/art/creative-video.jpg"],["03","Platform","Build, integrate and run workloads","/developers","/art/developer-work.jpg"],["04","Enterprise","Roll out across larger organizations","/enterprise","/art/commercial-enterprise.jpg"]].map(([no,t,d,h,image])=><a key={t} href={h} className="group overflow-hidden rounded-[24px] border border-black/[0.075] bg-white/72 shadow-[0_12px_36px_rgba(40,30,20,.035)] transition hover:-translate-y-0.5 hover:border-[#D6A66A]/40 hover:shadow-[0_22px_55px_rgba(40,30,20,.08)]"><div className="relative h-[138px] overflow-hidden bg-[#E9DFD1]"><div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.04]" style={{backgroundImage:`url(${image})`}}/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(12,8,5,.38))]"/><div className="absolute left-4 top-4 text-[8px] font-bold text-[#F1C98E]">{no}</div></div><div className="p-5"><div className="text-[16px] font-semibold text-[#2E2A25]">{t}</div><p className="mt-2 text-[10px] leading-5 text-[#7A756E]">{d}</p><div className="mt-5 text-[9px] font-semibold text-[#8A633C]">Explore →</div></div></a>)}</div></div></section>
-    <section className="border-b border-black/[0.06] bg-[#FBFAF8]"><div className="mx-auto max-w-[1320px] px-5 py-18 sm:px-7 lg:px-10 lg:py-24"><div className="grid gap-3 lg:grid-cols-3">{[
-      ["SOLUTIONS","Made for the industry being run.","Restaurant, hotel, retail, construction, agency and accounting solutions with the workflows those teams actually need.","/solutions","solutions"],
-      ["MARKETPLACE","Find specialist capabilities in one place.","Discover agents, solutions, connectors, services and compute that can work with your Avantiqo organization.","/ecosystem","marketplace"],
-      ["RESOURCES","Learn how to use Avantiqo for real work.","Guides, industry playbooks, research, templates, benchmarks, case studies and product updates.","/resources","insights"],
-    ].map(([label,title,copy,href,kind])=>{const image=kind==="solutions"?"/art/commercial-solutions.jpg":kind==="marketplace"?"/art/commercial-marketplace.jpg":"/art/commercial-insights.jpg";return <a key={label} href={href} className="group overflow-hidden rounded-[26px] border border-black/[0.075] bg-white shadow-[0_14px_40px_rgba(40,30,20,.04)] transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35"><div className="relative h-[190px] overflow-hidden bg-[#E9DFD1]"><div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.04]" style={{backgroundImage:`url(${image})`}}/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(12,8,5,.42))]"/><div className="absolute left-5 top-5 text-[8px] font-semibold uppercase tracking-[0.18em] text-[#F1C98E]">{label}</div></div><div className="p-6"><h3 className="text-[28px] font-medium tracking-[-0.045em]">{title}</h3><p className="mt-3 text-[11px] leading-6 text-[#746F68]">{copy}</p><div className="mt-5 text-[9px] font-semibold text-[#8A633C]">Explore →</div></div></a>})}</div></div></section>
-    <section className="bg-[#F3EFE7]"><div className="mx-auto max-w-[1120px] px-5 py-20 text-center sm:px-7 lg:px-10 lg:py-28"><p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">START WITH THE JOB, NOT THE PRODUCT LIST</p><h2 className="mx-auto mt-4 max-w-4xl text-[42px] font-medium leading-[1.00] tracking-[-0.055em] sm:text-[58px]">What do you want Avantiqo to do?</h2><p className="mx-auto mt-5 max-w-2xl text-[13px] leading-7 text-[#706A62]">Run the business. Create something. Build with the platform. Use compute. Or bring Avantiqo into a larger organization.</p><div className="mt-8 flex flex-wrap justify-center gap-2.5"><a href="/start" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Choose your path →</a><a href="/pricing" className="inline-flex h-11 items-center rounded-full border border-[#D6A66A]/40 bg-white/72 px-5 text-[10px] font-semibold text-[#6A5540]">See pricing</a></div></div></section>
-  </main>;
+      <section className="border-b border-black/[0.06] bg-[#F8F5F0]">
+        <div className="mx-auto grid max-w-[1540px] gap-8 px-5 py-16 sm:px-7 lg:grid-cols-[.72fr_1.28fr] lg:px-10 lg:py-22">
+          <div className="max-w-lg self-center">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">BUSINESS PARTNER</p>
+            <h2 className="mt-3 text-[42px] font-medium leading-[.98] tracking-[-0.055em] sm:text-[58px]">Tell Avantiqo what you need done.</h2>
+            <p className="mt-5 text-[13px] leading-7 text-[#706A62]">Business Partner is the conversational operator for the platform. It can investigate, reason across connected evidence, prepare work, execute approved capabilities and verify the result.</p>
+            <a href="/intelligence-platform" className="mt-7 inline-flex h-11 items-center gap-2 rounded-full border border-black/[0.10] bg-white/72 px-5 text-[10px] font-semibold text-[#56514A]">Explore Intelligence <Arrow /></a>
+          </div>
+          <BusinessPartnerShowcase compact />
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#FBFAF8]">
+        <div className="mx-auto max-w-[1540px] px-5 py-16 sm:px-7 lg:px-10 lg:py-24">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">BUILT FOR REAL INDUSTRIES</p>
+              <h2 className="mt-3 max-w-2xl text-[42px] font-medium leading-[.98] tracking-[-0.055em] sm:text-[58px]">Start from the way your business already works.</h2>
+            </div>
+            <p className="max-w-2xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">Industry solutions bring together the relevant operations, finance, people, stock, customer and intelligence capabilities without forcing every company into the same workflow.</p>
+          </div>
+          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {INDUSTRIES.map(([name,href,image])=><a key={name} href={href} className="group relative min-h-[270px] overflow-hidden rounded-[26px] border border-black/[0.07] bg-[#E9DFD1] shadow-[0_16px_45px_rgba(35,26,18,.05)]"><Image src={image} alt="" fill sizes="33vw" className="object-cover transition duration-700 group-hover:scale-[1.025]"/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(12,8,5,.01),rgba(12,8,5,.09)_52%,rgba(12,8,5,.62))]"/><div className="absolute inset-x-5 bottom-5 flex items-center justify-between gap-3"><div><div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#F0C98F]">AVANTIQO / SOLUTION</div><div className="mt-2 text-[24px] font-medium tracking-[-.045em] text-white">{name}</div></div><span className="text-white"><Arrow/></span></div></a>)}
+          </div>
+          <div className="mt-7 text-center"><a href="/solutions" className="inline-flex h-11 items-center gap-2 rounded-full border border-[#D6A66A]/38 bg-white/72 px-5 text-[10px] font-semibold text-[#6A5540]">Explore all solutions <Arrow /></a></div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#F2ECE3]">
+        <div className="mx-auto max-w-[1540px] px-5 py-16 sm:px-7 lg:px-10 lg:py-22">
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              ["CREATIVE STUDIOS","Create world-class image, video, music, voice and audio production.","/creative-studios","/art/generated/creative-hero-v3.png"],
+              ["DEVELOPERS","Build integrations, applications and embedded experiences on Avantiqo capabilities.","/developers","/art/generated/developers/developer-hero-v1.png"],
+              ["COMPUTE","Run inference, rendering and specialist workloads with owned capacity first.","/compute","/art/commercial-compute.jpg"],
+            ].map(([title,copy,href,image])=><a key={title} href={href} className="group overflow-hidden rounded-[26px] border border-black/[0.07] bg-white/72 shadow-[0_14px_40px_rgba(40,30,20,.04)]"><div className="relative h-[210px] overflow-hidden"><Image src={image} alt="" fill sizes="33vw" className="object-cover transition duration-700 group-hover:scale-[1.025]"/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,6,4,.01),rgba(8,6,4,.42))]"/><div className="absolute left-5 top-5 text-[7px] font-semibold uppercase tracking-[.18em] text-[#F1C98E]">{title}</div></div><div className="p-6"><p className="text-[14px] leading-6 text-[#5F5951]">{copy}</p><div className="mt-5 text-[9px] font-semibold text-[#865F39]">Explore →</div></div></a>)}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#F3EFE7]">
+        <div className="mx-auto max-w-[1120px] px-5 py-20 text-center sm:px-7 lg:px-10 lg:py-28">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">START WITH THE PROBLEM YOU WANT SOLVED</p>
+          <h2 className="mx-auto mt-4 max-w-4xl text-[42px] font-medium leading-[1.00] tracking-[-0.055em] sm:text-[60px]">One business. One context. More ways to get work done.</h2>
+          <p className="mx-auto mt-5 max-w-2xl text-[13px] leading-7 text-[#706A62]">Choose the first outcome you need today. Avantiqo can expand with the business without making you rebuild the context every time.</p>
+          <div className="mt-8 flex flex-wrap justify-center gap-2.5"><a href="/start" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start with Avantiqo →</a><a href="/products" className="inline-flex h-11 items-center rounded-full border border-[#D6A66A]/40 bg-white/72 px-5 text-[10px] font-semibold text-[#6A5540]">Explore products</a></div>
+        </div>
+      </section>
+    </main>
+  );
 }

@@ -20,6 +20,11 @@ test("Studio research recovery stays Node01-first and preserves failed approval 
   assert.match(director, /function localResearchSynthesisEnabled\(\)/);
   assert.match(director, /function compactLocalResearchPrompt/);
   assert.match(director, /function bindLocalResearchEvidence/);
+  assert.match(director, /sourceIdByUrl/);
+  assert.match(director, /aliases\.set\(modelId, governedId\)/);
+  assert.match(director, /authoritative-official-website/);
+  assert.match(director, /rawMatchedIdentity === true/);
+  assert.match(director, /Model citation could not be bound to governed evidence/);
   assert.match(director, /provider_id: localRepair \? "avantiqo-intelligence" : approval\.provider/);
   assert.match(director, /provider_id: localSynthesis \? "avantiqo-intelligence" : approval\.provider/);
   assert.match(director, /execution_scope: "BENCHMARK_REVIEW_PREVIEW"/);

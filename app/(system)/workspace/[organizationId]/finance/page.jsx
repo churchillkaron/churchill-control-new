@@ -23,11 +23,11 @@ export default function FinancePage() {
 
   return (
     <FinanceLandingRuntimeProvider organizationId={organizationId}>
-      <FinanceAccountantOverview organizationId={organizationId} />
       <FinancePracticePortfolioFocus organizationId={organizationId} />
       <FinanceContinuousCloseRail organizationId={organizationId} />
       <FinanceAccountHealthPanel organizationId={organizationId} />
       <FinanceCorrectionWorkspace organizationId={organizationId} />
+      <FinanceAccountantOverview organizationId={organizationId} />
     </FinanceLandingRuntimeProvider>
   );
 }

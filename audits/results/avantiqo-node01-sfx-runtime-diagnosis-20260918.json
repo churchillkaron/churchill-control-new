@@ -1,0 +1,30 @@
+{
+  "contract": "AVANTIQO_NODE01_SFX_RUNTIME_DIAGNOSIS_V1",
+  "date": "2026-09-18",
+  "node_id": "avantiqo-node-01",
+  "status": "ROUTING_CORRECTED",
+  "supplier_cost_thb": 0,
+  "findings": {
+    "cpu_service_health": "HEALTHY",
+    "cpu_endpoint": "/sfx",
+    "cpu_runtime": "OPENMOSS_GGML_CPU_V1",
+    "cpu_probe_seconds": 1,
+    "cpu_probe_steps": 20,
+    "cpu_probe_result": "CLIENT_TIMEOUT_AFTER_60_SECONDS",
+    "cpu_process_active": true,
+    "cpu_observed_percent_processor_time": 399,
+    "cpu_observed_working_set_bytes": 2856189952,
+    "gpu_model_bytes": 4069678880,
+    "gpu_extras_bytes": 1673068384,
+    "gpu_offload_layers_tested": 12,
+    "gpu_context_tested": 2048,
+    "gpu_offload_result": "SERVER_EXITED_DURING_INITIALIZATION_ON_RTX2060_6GB"
+  },
+  "decision": {
+    "interactive_sfx_runtime": "MODAL_DIRECT_A10G_ASYNC_V1",
+    "local_sfx_runtime": "OPENMOSS_GGML_CPU_V1",
+    "local_sfx_allowed_execution_classes": ["background", "batch", "local_batch"],
+    "local_sfx_interactive_allowed": false,
+    "production_deployment_performed": false
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "contract": "AVANTIQO_NODE01_STT_UPSCALE_CERTIFICATION_V1",
+  "certified_at": "2026-09-18T01:11:00+07:00",
+  "node_id": "avantiqo-node-01",
+  "infrastructure_provider": "AVANTIQO_LOCAL_NODE_V1",
+  "supplier_cost_thb": 0,
+  "status": "PASS",
+  "production_queue": true,
+  "first_attempt_success": true,
+  "jobs": {
+    "voice_stt": {
+      "job_id": "205c8fa2-b517-46b1-b8b1-a58bb547ea89",
+      "capability": "ai.speech.to.text",
+      "model": "openai/whisper-large-v3-turbo",
+      "execution_resource": "LOCAL_GPU",
+      "elapsed_ms": 77990,
+      "generation_seconds": 16.567,
+      "gpu_peak_allocated_bytes": 1823724544,
+      "attempts": 1,
+      "runtime_path_certified": true,
+      "accuracy_certified": false,
+      "fixture_note": "Synthetic tone fixture used to certify execution path, not transcription accuracy."
+    },
+    "image_upscale": {
+      "job_id": "e0c0a331-590e-4405-ad77-580d7e8d5b75",
+      "capability": "ai.image.upscale",
+      "model": "caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr",
+      "execution_resource": "LOCAL_GPU",
+      "elapsed_ms": 24114,
+      "inference_seconds": 1.183,
+      "model_load_seconds": 2.443,
+      "gpu_peak_allocated_bytes": 63602688,
+      "source_dimensions": "8x8",
+      "output_dimensions": "32x32",
+      "scale": 4,
+      "attempts": 1,
+      "super_resolution": true
+    }
+  },
+  "notes": [
+    "Both jobs were claimed and settled through the durable production queue on Node 01.",
+    "No paid compute provider was required for either job.",
+    "High-end image generation remains outside this certification and stays on the specialist external GPU lane."
+  ]
+}

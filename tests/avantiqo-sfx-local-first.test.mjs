@@ -5,8 +5,15 @@ const provider = await readFile(new URL("../lib/platform/service-runtime/provide
 const local = await readFile(new URL("../lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoSfxLocalQueueProvider.js", import.meta.url), "utf8");
 const worker = await readFile(new URL("../scripts/local-node/avantiqo-node01-worker.ps1", import.meta.url), "utf8");
 const runner = await readFile(new URL("../scripts/local-node/avantiqo-node01-sfx-runner.py", import.meta.url), "utf8");
-test("SFX is local CPU first with Modal fallback", () => {
-  assert.match(provider, /AvantiqoSfxLocalQueueProvider\.available/);
+const route = await readFile(new URL("../app/api/creative/music/sfx/route.js", import.meta.url), "utf8");
+test("SFX uses local CPU only for explicit batch work and Modal for interactive work", () => {
+  assert.match(provider, /useLocalSfx/);
+  assert.match(provider, /background/);
+  assert.match(provider, /local_batch/);
+  assert.match(provider, /useLocalSfx\(input\).*AvantiqoSfxLocalQueueProvider\.available/s);
+  assert.match(route, /execution_class/);
+  assert.match(route, /interactive/);
+  assert.match(route, /local_batch/);
   assert.match(provider, /AVANTIQO_SFX_LOCAL_FALLBACK_MODAL/);
   assert.match(local, /lane: "cpu"/);
   assert.match(local, /workload: "sfx_generate"/);

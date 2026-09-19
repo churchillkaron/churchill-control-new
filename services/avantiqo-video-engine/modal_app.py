@@ -273,9 +273,9 @@ worker_image = (
     volumes={"/models": model_volume},
     timeout=30 * 60,
     min_containers=0,
-    max_containers=1,
+    max_containers=6,
     buffer_containers=0,
-    scaledown_window=5,
+    scaledown_window=30,
 )
 def generate(data: dict[str, Any]) -> dict[str, Any]:
     """Existing certified Wan 2.2 Modal route."""
@@ -350,9 +350,9 @@ def _ltx_negative_prompt() -> str:
     volumes={"/models": model_volume},
     timeout=LTX_HARD_TIMEOUT_SECONDS,
     min_containers=0,
-    max_containers=1,
+    max_containers=6,
     buffer_containers=0,
-    scaledown_window=5,
+    scaledown_window=30,
     retries=0,
 )
 def generate_native_master(

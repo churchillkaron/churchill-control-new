@@ -100,9 +100,9 @@ def _validated_conditions(reference_conditions: list[dict[str, Any]], frame_coun
     volumes={"/models": model_volume},
     timeout=LTX_HARD_TIMEOUT_SECONDS,
     min_containers=0,
-    max_containers=1,
+    max_containers=6,
     buffer_containers=0,
-    scaledown_window=5,
+    scaledown_window=30,
     retries=0,
 )
 def generate_native_controlled_master(

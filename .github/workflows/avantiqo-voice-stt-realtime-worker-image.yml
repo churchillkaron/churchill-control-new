@@ -1,12 +1,7 @@
 name: Avantiqo Voice Realtime STT Worker Image
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/avantiqo-voice-stt-realtime-worker-image-request.json
-
+  workflow_dispatch:
 permissions:
   contents: write
   packages: write

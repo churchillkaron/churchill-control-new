@@ -1,11 +1,7 @@
 name: Avantiqo Intelligence E2E Repair
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-intelligence-e2e-repair-20260831.yml
-
+  workflow_dispatch:
 permissions:
   contents: write
 

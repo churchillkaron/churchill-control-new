@@ -1,11 +1,7 @@
 name: Avantiqo Intelligence Live Repair V2
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-intelligence-live-repair-v2.yml
-
+  workflow_dispatch:
 permissions:
   contents: write
 

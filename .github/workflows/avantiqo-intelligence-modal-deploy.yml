@@ -3,10 +3,7 @@
 name: Avantiqo Intelligence Modal Governed Deploy
 
 on:
-  issues:
-    types: [opened]
   workflow_dispatch:
-
 permissions:
   contents: read
 

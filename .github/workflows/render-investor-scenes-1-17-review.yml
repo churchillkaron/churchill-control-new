@@ -2,11 +2,7 @@ name: Render Investor Scenes 1-17 Review
 # Review render trigger 2026-08-23
 
 on:
-  push:
-    paths:
-      - ".github/workflows/render-investor-scenes-1-17-review.yml"
   workflow_dispatch:
-
 permissions:
   contents: read
   id-token: write

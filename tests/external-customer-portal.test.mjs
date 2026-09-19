@@ -7,6 +7,7 @@ const runtime = fs.readFileSync(new URL("../lib/customer-portal/CustomerPortalRu
 const settlement = fs.readFileSync(new URL("../lib/customer-portal/CustomerPortalPaymentSettlementRuntime.js", import.meta.url), "utf8");
 const access = fs.readFileSync(new URL("../app/customer-portal/access/route.js", import.meta.url), "utf8");
 const checkout = fs.readFileSync(new URL("../app/api/customer-portal/checkout/route.js", import.meta.url), "utf8");
+const invoicePdf = fs.readFileSync(new URL("../app/api/customer-portal/invoices/[invoiceId]/pdf/route.js", import.meta.url), "utf8");
 const messages = fs.readFileSync(new URL("../app/api/customer-portal/messages/route.js", import.meta.url), "utf8");
 const webhook = fs.readFileSync(new URL("../app/api/billing/webhook/route.js", import.meta.url), "utf8");
 const secretary = fs.readFileSync(new URL("../lib/operator/secretary/SecretaryMessageConversationRuntime.js", import.meta.url), "utf8");
@@ -69,4 +70,24 @@ test("confirmed message booking receives secure portal access", () => {
   assert.match(bridge, /portal_access/);
   assert.match(secretary, /customer_portal_url/);
   assert.match(secretary, /card payment is available in the portal/);
+});
+
+test("hotel bookings reuse canonical Hotel gateway settlement", () => {
+  assert.match(runtime, /hotel_guests/);
+  assert.match(runtime, /hotel_bookings/);
+  assert.match(runtime, /source_type: "HOTEL_BOOKING"/);
+  assert.match(checkout, /hotel_payment_transactions/);
+  assert.match(checkout, /processor_mode: "AVANTIQO_GATEWAY"/);
+  assert.match(checkout, /domain: "hotel"/);
+  assert.match(checkout, /guestResult\.data\?\.party_id !== session\.party_id/);
+  assert.match(webhook, /portalPaymentRequestId/);
+  assert.match(webhook, /hotel_finalize_gateway_payment_with_finance/);
+});
+
+test("customer invoice and receipt PDFs reverify exact portal ownership", () => {
+  assert.match(invoicePdf, /resolveCustomerPortalSession/);
+  assert.match(invoicePdf, /eq\("organization_id", session\.organization_id\)/);
+  assert.match(invoicePdf, /eq\("party_id", session\.party_id\)/);
+  assert.match(invoicePdf, /renderCustomerInvoicePdf/);
+  assert.match(invoicePdf, /"Cache-Control": "private, no-store"/);
 });

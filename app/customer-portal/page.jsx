@@ -38,10 +38,15 @@ export default function ExternalCustomerPortalPage() {
   useEffect(() => { load(); }, []);
 
   const data = state.data || {};
-  const upcoming = useMemo(
-    () => (data.booking_history || []).filter((row) => new Date(row.occurrence_at || 0).getTime() >= Date.now() && row.status !== "cancelled"),
-    [data.booking_history],
-  );
+  const upcoming = useMemo(() => {
+    const service = (data.booking_history || [])
+      .filter((row) => new Date(row.occurrence_at || 0).getTime() >= Date.now() && row.status !== "cancelled")
+      .map((row) => ({ ...row, portal_kind: "service", portal_date: row.occurrence_at }));
+    const hotel = (data.hotel_bookings || [])
+      .filter((row) => new Date(`${row.check_out_date || row.check_in_date}T23:59:59`).getTime() >= Date.now() && String(row.status || "").toUpperCase() !== "CANCELLED")
+      .map((row) => ({ ...row, portal_kind: "hotel", portal_date: row.check_in_date }));
+    return [...service, ...hotel].sort((a, b) => new Date(a.portal_date || 0) - new Date(b.portal_date || 0));
+  }, [data.booking_history, data.hotel_bookings]);
 
   async function pay(id) {
     setPaying(id);
@@ -117,8 +122,8 @@ export default function ExternalCustomerPortalPage() {
           <Panel icon={<CalendarDays size={16}/>} title="Upcoming bookings">
             {upcoming.length ? upcoming.slice(0, 6).map((row) => (
               <div key={row.id} className="border-b border-white/[0.07] py-3 last:border-0">
-                <div className="text-sm">{dateTime(row.occurrence_at)}</div>
-                <div className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/35">{row.status}</div>
+                <div className="text-sm">{row.portal_kind === "hotel" ? `Hotel · ${row.booking_reference || "Booking"}` : dateTime(row.occurrence_at)}</div>
+                <div className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/35">{row.portal_kind === "hotel" ? `${row.check_in_date} → ${row.check_out_date} · ${row.status}` : row.status}</div>
               </div>
             )) : <Empty>No upcoming bookings.</Empty>}
           </Panel>
@@ -174,6 +179,10 @@ export default function ExternalCustomerPortalPage() {
                 <div className="text-right">
                   <div className="text-sm">{money(invoice.total_amount, invoice.currency_code)}</div>
                   <div className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/35">{invoice.status}</div>
+                  <div className="mt-2 flex justify-end gap-2">
+                    <a href={`/api/customer-portal/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer" className="text-[10px] text-[#D6A66A] hover:underline">Invoice</a>
+                    {String(invoice.status || "").toUpperCase() === "PAID" ? <a href={`/api/customer-portal/invoices/${invoice.id}/pdf?mode=receipt`} target="_blank" rel="noreferrer" className="text-[10px] text-[#D6A66A] hover:underline">Receipt</a> : null}
+                  </div>
                 </div>
               </div>
             )) : <Empty>No invoices yet.</Empty>}

@@ -38,6 +38,18 @@ async function finalizeHotelPayment(event, session) {
   });
   if (error) throw error;
 
+  if (session?.metadata?.portalPaymentRequestId) {
+    const portalUpdate = await supabaseAdmin.from("customer_portal_payment_requests").update({
+      status: "PAID",
+      provider_session_id: session.id,
+      provider_payment_id: session.payment_intent ? String(session.payment_intent) : null,
+      provider_event_id: event.id,
+      settled_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("organization_id", scope.organization_id).eq("id", session.metadata.portalPaymentRequestId);
+    if (portalUpdate.error) throw portalUpdate.error;
+  }
+
   await invalidateHotelSettlement(scope.organization_id, "PAYMENT_SETTLED");
   return data;
 }

@@ -20,15 +20,20 @@ test("portfolio risk ensures a lockable daily-bar revision row", () => {
 test("portfolio risk reads daily-bar revision before and after data", () => {
   assert.match(runtime, /const dailyBarRevisionBefore = await readDailyBarRevision/);
   assert.match(runtime, /from\("market_bars"\)/);
-  assert.match(runtime, /const dailyBarRevisionAfter = await readDailyBarRevision/);
+  assert.match(
+    runtime,
+    /\[dailyBarRevisionAfter, benchmarkRevisionAfter, classificationRevisionAfter\] = await Promise\.all/,
+  );
+  assert.match(runtime, /readDailyBarRevision\(\{ organizationId, portfolioId \}\)/);
   assert.match(runtime, /CHANGED_DURING_EVALUATION/);
 });
 
 test("BUY fails closed if daily bars change during risk evaluation", () => {
   assert.match(
     runtime,
-    /if \(!dailyBarStable && side === "BUY"\)[\s\S]*?approved: false/,
+    /if \(\(!dailyBarStable \|\| !benchmarkStable \|\| !classificationStable\) && side === "BUY"\)[\s\S]*?approved: false/,
   );
+  assert.match(runtime, /!dailyBarStable \? \["Daily historical bar dataset changed during portfolio-risk evaluation\."\]/);
 });
 
 test("stable portfolio risk seals exact daily-bar revision", () => {

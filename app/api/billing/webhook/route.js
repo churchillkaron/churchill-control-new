@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/billing/stripe";
 import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { finalizeCustomerPortalCardPayment, failCustomerPortalCardPayment } from "@/lib/customer-portal/CustomerPortalPaymentSettlementRuntime";
 
 async function invalidateHotelSettlement(organizationId, action) {
   await broadcastHotelReadinessChanged({
@@ -113,6 +114,8 @@ export async function POST(req) {
       const session = event.data.object;
       if (session?.metadata?.domain === "hotel") {
         await finalizeHotelPayment(event, session);
+      } else if (session?.metadata?.domain === "customer_portal") {
+        await finalizeCustomerPortalCardPayment({ event, session });
       } else if (event.type === "checkout.session.completed") {
         const { organizationId, plan } = session.metadata || {};
         if (organizationId && plan) {
@@ -132,6 +135,12 @@ export async function POST(req) {
           event.type === "checkout.session.expired" ? "Stripe Checkout session expired" : "Stripe asynchronous payment failed",
           event.id,
         );
+      } else if (session?.metadata?.domain === "customer_portal") {
+        await failCustomerPortalCardPayment({
+          event,
+          session,
+          reason: event.type === "checkout.session.expired" ? "Stripe Checkout session expired" : "Stripe asynchronous payment failed",
+        });
       }
     }
 

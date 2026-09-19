@@ -59,7 +59,7 @@ test("message secretary collects exact customer identity before pest-control boo
   assert.match(messages, /customer_phone/);
   assert.match(messages, /customer_address/);
   assert.match(messages, /use CLARIFY and ask only for the missing fact/);
-  assert.match(messages, /Never invent a protocol, service, site, identity, phone, address, or agreement/);
+  assert.match(messages, /Never invent a protocol, service, site, identity, phone, address, price, currency, or agreement/);
   assert.match(bridge, /persistMessageCustomerFacts/);
   assert.match(bridge, /display_name:/);
   assert.match(bridge, /phone:/);
@@ -96,6 +96,6 @@ test("business booking classification is restricted to supplied active protocols
   assert.match(bridge, /industryKey: "pest_control"/);
   assert.match(bridge, /status: "active"/);
   assert.match(bridge, /resolveTemplate/);
-  assert.match(messages, /Never invent a protocol, service, site, identity, phone, address, or agreement/);
+  assert.match(messages, /Never invent a protocol, service, site, identity, phone, address, price, currency, or agreement/);
   assert.match(calls, /Never invent any of these/);
 });

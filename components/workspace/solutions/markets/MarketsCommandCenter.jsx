@@ -336,6 +336,14 @@ export default function MarketsCommandCenter({ organizationId }) {
     ? null
     : Number(portfolioPerformance.total_return) * 100;
   const openRiskEvents = riskEvents.filter((row) => row.status === "OPEN").length;
+  const visibleRiskEvents = [...riskEvents]
+    .sort((left, right) => {
+      if (left.status === right.status) {
+        return new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime();
+      }
+      return left.status === "OPEN" ? -1 : 1;
+    })
+    .slice(0, 4);
   const liveEvidenceCount = [
     feedStatus?.connection_state === "CONNECTED",
     evidence.length > 0,
@@ -450,9 +458,9 @@ export default function MarketsCommandCenter({ organizationId }) {
                 Paper Trading Mode
                 <ChevronDown size={12} className="opacity-65" />
               </div>
-              <button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-black/[0.06] bg-white/80 text-[#665F57]" aria-label="Market alerts">
+              <a href="#markets-risk" className="grid h-10 w-10 place-items-center rounded-xl border border-black/[0.06] bg-white/80 text-[#665F57] transition hover:border-[#B98B54]/30 hover:text-[#8A6239]" aria-label="Market alerts">
                 <Bell size={14} />
-              </button>
+              </a>
               <button type="button" onClick={load} disabled={loading} className="grid h-10 w-10 place-items-center rounded-xl border border-black/[0.06] bg-white/80 text-[#665F57] disabled:opacity-40" aria-label="Refresh Markets">
                 <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
               </button>
@@ -522,9 +530,15 @@ export default function MarketsCommandCenter({ organizationId }) {
                   const snapshot = latestSnapshotBySymbol.get(item.symbol);
                   const decision = latestBySymbol.get(item.symbol);
                   return (
-                    <div
+                    <a
                       key={item.id}
-                      className={index > 0 ? "border-t border-black/[0.05] px-4 py-3.5 sm:border-l sm:border-t-0" : "px-4 py-3.5"}
+                      href="#markets-research"
+                      onClick={() => setSelectedSymbol(item.symbol)}
+                      className={
+                        index > 0
+                          ? "border-t border-black/[0.05] px-4 py-3.5 transition hover:bg-[#FBF7F1] sm:border-l sm:border-t-0"
+                          : "px-4 py-3.5 transition hover:bg-[#FBF7F1]"
+                      }
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
@@ -547,7 +561,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                         <span>{item.asset_type || "EQUITY"}</span>
                         <span>{decision ? (Number(decision.confidence || 0) * 100).toFixed(0) + "% confidence" : "Awaiting decision"}</span>
                       </div>
-                    </div>
+                    </a>
                   );
                 })}
                 {!watchlist.length ? (
@@ -696,7 +710,12 @@ export default function MarketsCommandCenter({ organizationId }) {
                     </div>
                     <div className="mt-3 space-y-2">
                       {decisions.slice(0, 3).map((decision) => (
-                        <div key={decision.id} className="rounded-xl border border-black/[0.05] bg-[#FCFAF7] px-3 py-2.5">
+                        <a
+                          key={decision.id}
+                          href="#markets-research"
+                          onClick={() => setSelectedSymbol(decision.symbol)}
+                          className="block rounded-xl border border-black/[0.05] bg-[#FCFAF7] px-3 py-2.5 transition hover:border-[#B98B54]/25 hover:bg-[#FBF7F1]"
+                        >
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-[9px] font-semibold text-[#413B35]">{decision.symbol}</span>
                             <span className="text-[8px] font-semibold text-[#9A7449]">{decision.action}</span>
@@ -704,7 +723,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                           <div className="mt-1 truncate text-[8px] text-[#8B837B]">
                             {(Number(decision.confidence || 0) * 100).toFixed(0)}% confidence · {decision.risk_status}
                           </div>
-                        </div>
+                        </a>
                       ))}
                       {!decisions.length ? (
                         <div className="rounded-xl border border-dashed border-black/[0.08] px-3 py-5 text-center text-[9px] text-[#938B82]">
@@ -1262,6 +1281,75 @@ export default function MarketsCommandCenter({ organizationId }) {
                 <div id="markets-risk" className="scroll-mt-24 rounded-[22px] border border-[#CDAA78]/20 bg-[#FFFDF9] p-4 shadow-[0_14px_42px_rgba(73,55,35,0.055)]">
                   <div className="flex items-center gap-2 text-[#A37849]"><ShieldCheck size={15} /><span className="text-[9px] uppercase tracking-[0.16em]">Risk authority</span></div>
                   <h2 className="mt-2 text-[18px] font-semibold">Independent execution limits</h2>
+
+                  <div className="mt-3 rounded-2xl border border-[#CDAA78]/18 bg-white/80 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#8C6A45]">Active risk events</div>
+                        <div className="mt-1 text-[8px] text-[#91887E]">
+                          {openRiskEvents ? openRiskEvents + " open event" + (openRiskEvents === 1 ? "" : "s") : "No open risk events"}
+                        </div>
+                      </div>
+                      <div className={
+                        openRiskEvents
+                          ? "rounded-full bg-red-50 px-2.5 py-1 text-[8px] font-semibold text-red-700"
+                          : "rounded-full bg-emerald-50 px-2.5 py-1 text-[8px] font-semibold text-emerald-700"
+                      }>
+                        {openRiskEvents ? "ATTENTION" : "CLEAR"}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                      {visibleRiskEvents.length ? visibleRiskEvents.map((event) => (
+                        <div
+                          key={event.id}
+                          className={
+                            event.status === "OPEN"
+                              ? "rounded-xl border border-red-200/70 bg-red-50/70 px-3 py-2.5"
+                              : "rounded-xl border border-[#CDAA78]/12 bg-[#FCFAF7] px-3 py-2.5"
+                          }
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className={
+                                event.severity === "CRITICAL"
+                                  ? "rounded-full bg-red-100 px-2 py-0.5 text-[7px] font-semibold text-red-700"
+                                  : "rounded-full bg-amber-100 px-2 py-0.5 text-[7px] font-semibold text-amber-700"
+                              }>
+                                {event.severity}
+                              </span>
+                              <span className="text-[9px] font-semibold text-[#433D36]">
+                                {String(event.event_type || "RISK_EVENT").replaceAll("_", " ")}
+                              </span>
+                            </div>
+                            <span className="text-[7px] text-[#91887E]">
+                              {event.created_at ? new Date(event.created_at).toLocaleString() : "—"}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 text-[8px] leading-4 text-[#817970]">
+                            {Array.isArray(event.reason_codes) && event.reason_codes.length
+                              ? event.reason_codes.map((code) => String(code).replaceAll("_", " ")).join(" · ")
+                              : "Risk policy event"}
+                          </div>
+                          <div className="mt-1 flex items-center justify-between gap-2">
+                            <span className={event.status === "OPEN" ? "text-[8px] font-medium text-red-700" : "text-[8px] font-medium text-emerald-700"}>
+                              {event.status}
+                            </span>
+                            {event.status === "OPEN" && event.event_type === "PORTFOLIO_CIRCUIT_BREAKER" ? (
+                              <a href="#markets-automation" className="text-[8px] font-medium text-[#9A7449] hover:text-[#6F4D2B]">
+                                Review breaker controls
+                              </a>
+                            ) : null}
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="rounded-xl border border-dashed border-black/[0.08] px-3 py-4 text-[8px] text-[#999188]">
+                          Risk events will appear here when a durable policy breach is recorded.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     {[
                       ["Max position", `${Number(policy.max_position_pct || 10)}%`],

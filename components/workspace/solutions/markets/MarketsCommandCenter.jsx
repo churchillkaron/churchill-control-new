@@ -356,7 +356,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#F7F6F3] p-4 text-[#191919] md:p-6 lg:p-8">
+    <main className="min-h-screen bg-[#F8F5EF] p-4 text-[#191919] md:p-6 lg:p-8">
       <div className="mx-auto max-w-[1760px] space-y-5">
         <section id="markets-overview" className="scroll-mt-24 overflow-hidden rounded-[28px] border border-[#CDAA78]/25 bg-[#FFFDF9] shadow-[0_26px_80px_rgba(73,55,35,0.10)]">
           <div className="flex min-h-16 items-center gap-3 border-b border-black/[0.055] px-5 py-3 md:px-6">
@@ -568,8 +568,16 @@ export default function MarketsCommandCenter({ organizationId }) {
                     ["02", "Decide", "Turn evidence into explicit, confidence-scored investment decisions.", Lightbulb, decisions.length + " governed decisions"],
                     ["03", "Risk", "Apply portfolio limits, market freshness, liquidity and execution controls.", ShieldCheck, openRiskEvents ? openRiskEvents + " open risk event" + (openRiskEvents === 1 ? "" : "s") : "Within current controls"],
                     ["04", "Learn", "Measure outcomes, strategy health and walk-forward performance.", BookOpen, outcomes.length + " measured outcomes"],
-                  ].map(([step, label, description, Icon, detail]) => (
-                    <div key={step} className="group rounded-[18px] border border-black/[0.055] bg-white px-4 py-3.5 transition hover:border-[#B98B54]/25 hover:shadow-[0_8px_24px_rgba(83,59,32,0.05)]">
+                  ].map(([step, label, description, Icon, detail]) => {
+                    const href = step === "01"
+                      ? "#markets-research"
+                      : step === "02"
+                        ? "#markets-research"
+                        : step === "03"
+                          ? "#markets-risk"
+                          : "#markets-performance";
+                    return (
+                    <a key={step} href={href} className="group rounded-[18px] border border-black/[0.055] bg-white px-4 py-3.5 transition hover:-translate-y-0.5 hover:border-[#B98B54]/25 hover:shadow-[0_10px_26px_rgba(83,59,32,0.065)]">
                       <div className="grid grid-cols-[38px_1fr_auto] items-center gap-3">
                         <div className="grid h-9 w-9 place-items-center rounded-xl border border-[#CDAA78]/25 bg-[#FBF5EA] text-[#8A6239]">
                           <Icon size={15} />
@@ -586,8 +594,9 @@ export default function MarketsCommandCenter({ organizationId }) {
                           <ArrowRight size={13} />
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    </a>
+                    );
+                  })}
                 </div>
 
                 <div className="grid gap-3">
@@ -680,7 +689,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   type="button"
                   onClick={() => act("PROCESS_PAPER_ORDERS")}
                   disabled={!canExecutePaper || Boolean(working) || !orders.some((row) => row.status === "QUEUED")}
-                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3 text-[10px] font-medium text-white disabled:opacity-35"
+                  className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#2B2723] px-3.5 text-[10px] font-medium text-white shadow-[0_6px_16px_rgba(43,39,35,0.14)] transition hover:bg-[#1F1C19] disabled:opacity-35"
                 >
                   <Activity size={12} />
                   {!canExecutePaper
@@ -738,7 +747,13 @@ export default function MarketsCommandCenter({ organizationId }) {
                           <td className="px-4 py-3">{position.high_water_price ? money(position.high_water_price, baseCurrency) : "—"}</td>
                           <td className="px-4 py-3">{trailingLevel(position, policy) ? money(trailingLevel(position, policy), baseCurrency) : "—"}</td>
                           <td className="px-4 py-3">{positionAgeDays(position.opened_at) == null ? "—" : `${positionAgeDays(position.opened_at).toFixed(1)}d`}</td>
-                          <td className="px-4 py-3">{money(position.unrealized_pnl, baseCurrency)}</td>
+                          <td className={
+                            Number(position.unrealized_pnl || 0) > 0
+                              ? "px-4 py-3 font-medium text-emerald-700"
+                              : Number(position.unrealized_pnl || 0) < 0
+                                ? "px-4 py-3 font-medium text-red-700"
+                                : "px-4 py-3"
+                          }>{money(position.unrealized_pnl, baseCurrency)}</td>
                           <td className="px-4 py-3">{money(position.realized_pnl, baseCurrency)}</td>
                         </tr>
                       ))
@@ -766,7 +781,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   </div>
                   <form onSubmit={addWatchlist} className="flex gap-2">
                     <input value={symbol} onChange={(event) => setSymbol(event.target.value)} placeholder="Ticker e.g. AAPL" className="h-9 w-40 rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-3 text-[11px] uppercase text-[#2E2B27] outline-none placeholder:normal-case placeholder:text-[#AAA69E]" />
-                    <button type="submit" disabled={working === "ADD_WATCHLIST"} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#1F1E1B] px-3 text-[10px] font-medium text-white disabled:opacity-40">
+                    <button type="submit" disabled={working === "ADD_WATCHLIST"} className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#2B2723] px-3.5 text-[10px] font-medium text-white shadow-[0_6px_16px_rgba(43,39,35,0.12)] transition hover:bg-[#1F1C19] disabled:opacity-40">
                       <Plus size={12} /> Add
                     </button>
                   </form>
@@ -796,7 +811,15 @@ export default function MarketsCommandCenter({ organizationId }) {
                         </div>
                         <div className="text-left sm:text-right">
                           <div className="text-[9px] uppercase tracking-[0.12em] text-[#938C83]">Decision</div>
-                          <div className="mt-1 text-[11px] font-medium">{decision?.action || "NO DECISION"}</div>
+                          <div className={
+                            decision?.action === "BUY"
+                              ? "mt-1 inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[8px] font-semibold text-emerald-700"
+                              : decision?.action === "SELL"
+                                ? "mt-1 inline-flex rounded-full bg-red-50 px-2 py-1 text-[8px] font-semibold text-red-700"
+                                : "mt-1 inline-flex rounded-full bg-[#F2EEE8] px-2 py-1 text-[8px] font-semibold text-[#766E65]"
+                          }>
+                            {decision?.action || "NO DECISION"}
+                          </div>
                         </div>
                         <div className="text-left sm:text-right">
                           <div className="text-[9px] uppercase tracking-[0.12em] text-[#938C83]">Confidence</div>
@@ -869,7 +892,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                                   type="button"
                                   disabled={Boolean(working)}
                                   onClick={() => queuePaperDecision(decision)}
-                                  className="inline-flex h-8 items-center rounded-lg bg-[#1F1E1B] px-2.5 text-[9px] font-medium text-white disabled:opacity-40"
+                                  className="inline-flex h-8 items-center rounded-lg bg-[#2B2723] px-2.5 text-[9px] font-medium text-white shadow-[0_4px_12px_rgba(43,39,35,0.10)] transition hover:bg-[#1F1C19] disabled:opacity-40"
                                 >
                                   Queue {decision.action}
                                 </button>
@@ -1916,9 +1939,19 @@ export default function MarketsCommandCenter({ organizationId }) {
                           {order.expires_at ? new Date(order.expires_at).toLocaleString() : "—"}
                         </td>
                         <td className="px-4 py-3">
-                          <div>{order.status}</div>
+                          <div className={
+                            order.status === "FILLED"
+                              ? "inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[8px] font-semibold text-emerald-700"
+                              : order.status === "CANCELLED" || order.status === "EXPIRED"
+                                ? "inline-flex rounded-full bg-red-50 px-2 py-1 text-[8px] font-semibold text-red-700"
+                                : order.status === "PARTIALLY_FILLED"
+                                  ? "inline-flex rounded-full bg-amber-50 px-2 py-1 text-[8px] font-semibold text-amber-700"
+                                  : "inline-flex rounded-full bg-[#F2EEE8] px-2 py-1 text-[8px] font-semibold text-[#766E65]"
+                          }>
+                            {order.status}
+                          </div>
                           {order.lifecycle_reason ? (
-                            <div className="mt-0.5 max-w-[220px] text-[8px] text-[#9A968E]">{order.lifecycle_reason}</div>
+                            <div className="mt-1 max-w-[220px] text-[8px] leading-3 text-[#9A968E]">{order.lifecycle_reason}</div>
                           ) : null}
                         </td>
                       </tr>

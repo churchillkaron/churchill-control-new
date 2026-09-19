@@ -10,7 +10,9 @@ test("all paid concept council stages recover settled reasoning before new infer
   assert.match(source, /selectionOperation = "CREATIVE_EXECUTIVE_CONCEPT_SELECTION_V1"/);
   assert.match(source, /revisionOperation = "CREATIVE_SELECTED_CONCEPT_PLAN_REVISION_V1"/);
   assert.match(source, /settledSelection \|\| await reason/);
-  assert.match(source, /recoverSettledCouncilOperation\(context, revisionOperation\) \|\| await reason/);
+  assert.match(source, /let revision = await recoverSettledCouncilOperation\(context, revisionOperation\)/);
+  assert.match(source, /if \(!revision\) \{\s*revision = await runRevision\(\)/);
+  assert.match(source, /if \(!recoveredRevision \|\| !structuralMismatch\) throw error/);
 });
 
 test("settled council operation is bound to operation project mission and success", () => {

@@ -309,3 +309,29 @@ test("recent model context uses deterministic newest-first ordering before the 2
   assert.ok(recent.indexOf('.order("created_at", { ascending: false })') < recent.indexOf('.order("id", { ascending: false })'));
   assert.ok(recent.indexOf('.order("id", { ascending: false })') < recent.indexOf('.limit(24)'));
 });
+
+
+test("live operator route derives telemetry only from the already-redacted normal turn response",()=>{
+  const live=fs.readFileSync("app/api/operator/turn/live/route.js","utf8");
+  assert.match(live,/import \{ POST as runOperatorTurnPost \} from "\.\.\/route"/);
+  assert.match(live,/const response = await runOperatorTurnPost\(request\)/);
+  assert.match(live,/const result = await response\.clone\(\)\.json\(\)/);
+  assert.match(live,/completionEvent\(result, response\)/);
+  assert.doesNotMatch(live,/runSyntheticIntelligenceTurn/);
+  assert.doesNotMatch(live,/BusinessIntelligenceAgentRuntime/);
+  assert.doesNotMatch(live,/scope_user_turn_id/);
+  assert.doesNotMatch(live,/scope_user_content_fingerprint/);
+  assert.doesNotMatch(live,/authenticity_mac/);
+  assert.doesNotMatch(live,/authenticity_key_id/);
+});
+
+test("live diagnosis completion telemetry is restricted to sanitized status fields",()=>{
+  const live=fs.readFileSync("app/api/operator/turn/live/route.js","utf8");
+  assert.match(live,/readiness_status: diagnosisNotReady \? text\(details\.readiness_status\) : null/);
+  assert.match(live,/integrity_stage: proofIntegrityFailure \? text\(details\.stage\) : null/);
+  assert.match(live,/authority_effect: proofIntegrityFailure \|\| diagnosisNotReady \? text\(details\.authority_effect\) \|\| "NONE" : null/);
+  assert.doesNotMatch(live,/details\.blockers/);
+  assert.doesNotMatch(live,/internal_details/);
+  assert.doesNotMatch(live,/raw_reasoning/);
+  assert.doesNotMatch(live,/raw_web_content/);
+});

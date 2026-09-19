@@ -83,7 +83,7 @@ import { snapLayerBounds, reorderNormalizedLayers } from "../lib/creative/stills
 
 test("quality preflight catches unsafe exact design before release", () => {
   const result = assessImageStudioComposition({ artboard: { width: 1080, height: 1350 }, layers: [{ id: "headline", artboard_id: "a", layer_type: "TEXT", visible: true, bounds: { x: 2, y: 2, width: 500, height: 40 }, style: { font_size: 8 }, content: { text: "Headline" } }], comments: [{ status: "OPEN" }] });
-  assert.equal(result.contract, "CREATIVE_IMAGE_STUDIO_QUALITY_PREFLIGHT_V1");
+  assert.equal(result.contract, "CREATIVE_IMAGE_STUDIO_QUALITY_PREFLIGHT_V2");
   assert.ok(result.warnings.some((item) => item.startsWith("TEXT_TOO_SMALL")));
   assert.ok(result.warnings.some((item) => item.startsWith("TEXT_OUTSIDE_SAFE_ZONE")));
   assert.equal(result.counts.unresolved_comments, 1);
@@ -392,4 +392,40 @@ test("Image Studio format duplication uses role-aware smart adaptation instead o
   assert.match(store, /adaptLayerToArtboard/);
   assert.match(store, /duplicateArtboardLocal/);
   assert.match(bar, /Smart adapt as/);
+});
+
+
+test("Image Studio world-class preflight catches collisions, weak hierarchy and low contrast", () => {
+  const result = assessImageStudioComposition({
+    artboard: { width: 1080, height: 1350, background: { color: "#ffffff" } },
+    layers: [
+      { id: "headline", layer_type: "TEXT", visible: true, bounds: { x: 100, y: 100, width: 600, height: 120 }, style: { font_asset_id: "platform-font:inter", font_size: 40, color: "#dddddd" }, content: { text: "Headline" } },
+      { id: "subhead", layer_type: "TEXT", visible: true, bounds: { x: 120, y: 120, width: 560, height: 110 }, style: { font_asset_id: "platform-font:inter", font_size: 36, color: "#eeeeee" }, content: { text: "Subhead" } },
+    ],
+  });
+  assert.equal(result.contract, "CREATIVE_IMAGE_STUDIO_QUALITY_PREFLIGHT_V2");
+  assert.equal(result.release_threshold, 90);
+  assert.ok(result.warnings.some((item) => item.startsWith("TEXT_COLLISION")));
+  assert.ok(result.warnings.some((item) => item.startsWith("TYPOGRAPHIC_HIERARCHY_WEAK")));
+  assert.ok(result.warnings.some((item) => item.startsWith("TEXT_CONTRAST_LOW")));
+  assert.equal(result.release_ready, false);
+});
+
+test("Image Studio world-class preflight blocks critical review debt and bad print resolution", () => {
+  const result = assessImageStudioComposition({
+    artboard: { width: 2480, height: 3508, export_preset: { id: "a4_print" } },
+    layers: [
+      { id: "hero", layer_type: "IMAGE", visible: true, source_asset_id: "asset-1", bounds: { x: 0, y: 0, width: 2480, height: 3508 }, metadata: { source_dimensions: { width: 700, height: 900 }, target_dpi: 300 } },
+    ],
+    comments: [{ status: "OPEN", severity: "BLOCKER" }],
+  });
+  assert.ok(result.blockers.some((item) => item.startsWith("PRINT_IMAGE_RESOLUTION_CRITICAL")));
+  assert.ok(result.blockers.includes("CRITICAL_REVIEW_COMMENTS_OPEN"));
+  assert.equal(result.checks.review_closed, false);
+  assert.equal(result.release_ready, false);
+});
+
+test("Image Studio export records the actual preflight contract that blocked release", () => {
+  const source = fs.readFileSync(new URL("../app/api/workspace/creative/image-studio/export/route.js", import.meta.url), "utf8");
+  assert.match(source, /blocked_by: preflight\.contract/);
 });

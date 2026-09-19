@@ -170,7 +170,7 @@ export async function POST(request) {
         settings: { requested_format: body.format || "PNG" },
         evidence: {
           quality_preflight: preflight,
-          blocked_by: "CREATIVE_IMAGE_STUDIO_QUALITY_PREFLIGHT_V1",
+          blocked_by: preflight.contract,
         },
       });
       return NextResponse.json({

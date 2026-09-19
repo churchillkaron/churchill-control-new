@@ -56,8 +56,14 @@ export async function POST(request) {
     const currentRevision = Math.max(0, Math.round(finite(project.metadata?.[MULTITRACK_METADATA_KEY]?.revision, 0)));
     const assets = await CreativeAssetsRuntime.list({ organization_id: organizationId, creative_project_id: projectId, limit: 1000 });
     const releases = [];
+    const referenceCandidates = [];
     for (const asset of assets) {
       const kind = text(asset.metadata?.music_asset_kind).toUpperCase();
+      const mediaKind = text(asset.metadata?.media_kind || asset.metadata?.kind || asset.asset_type).toUpperCase();
+      const source = text(asset.file_url || asset.url);
+      if (source && (mediaKind.includes("MUSIC") || mediaKind.includes("AUDIO") || RELEASE_KINDS.has(kind))) {
+        referenceCandidates.push({ id: asset.id, name: text(asset.name || asset.title || asset.file_name || kind || "Audio reference"), kind: kind || null, current_revision: Math.max(0, Math.round(finite(asset.metadata?.project_revision, 0))) === currentRevision, created_at: asset.created_at || null });
+      }
       if (!RELEASE_KINDS.has(kind)) continue;
       const revision = Math.max(0, Math.round(finite(asset.metadata?.project_revision, 0)));
       const primaryUrl = await secureReference(organizationId, asset.file_url || asset.url);
@@ -104,6 +110,9 @@ export async function POST(request) {
         validation_observed_channels: finite(validation?.observed?.channels, null),
         validation_observed_codec: text(validation?.observed?.codec_name) || null,
         validation_current_revision: asset.metadata?.validation_project_revision_current === true,
+        mastering_room_sealed: asset.metadata?.mastering_room_sealed === true,
+        mastering_room_seal_hash: text(asset.metadata?.mastering_room_seal_hash) || null,
+        mastering_room_sealed_at: asset.metadata?.mastering_room_sealed_at || null,
         stem_stage: text(asset.metadata?.stem_stage) || null,
         target_id: text(asset.metadata?.target_id) || null,
         primary_url: primaryUrl,
@@ -117,6 +126,7 @@ export async function POST(request) {
       contract: "AVANTIQO_MUSIC_MASTER_LIBRARY_V2",
       current_revision: currentRevision,
       releases,
+      reference_candidates: referenceCandidates.sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||""))).slice(0,500),
       provider_job_submitted: false,
       endpoint_mutation_performed: false,
     }, { status: 200, headers: { "Cache-Control": "no-store" } });

@@ -54,15 +54,15 @@ test("Music Stems panel uses private upload and explicit rights confirmation", (
   assert.match(panel, /Drums/);
   assert.match(panel, /Bass/);
   assert.match(panel, /Other/);
-  assert.match(panel, /disabled=!executionReady|disabled=\{!executionReady\}/);
+  assert.match(panel, /disabled=\{!executionReady \|\| busy \|\| session\?\.pending\}/);
 });
 
 test("Music Stems route stays certification-gated before provider execution", () => {
   assert.match(route, /buildMusicTransformationPlan\("stems"/);
   assert.match(route, /music-stems/);
   assert.match(route, /createSignedUploadUrl/);
-  assert.match(route, /ready_for_execution: stemPlan\.executable === true/);
-  assert.match(route, /stemPlan\.executable !== true \|\| stemPlan\.certification !== "CERTIFIED"/);
+  assert.match(route, /ready_for_execution: productionCertified \|\| localAcceptance/);
+  assert.match(route, /if \(!productionCertified && !localAcceptance\)/);
   assert.match(route, /executeService/);
   assert.match(route, /settlePendingService/);
   assert.doesNotMatch(route, /pricing_activation/);

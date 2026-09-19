@@ -283,6 +283,87 @@ def _apply_pitch_correction(source, destination, events):
     }
 
 
+def _spectral_timbre_proxy(source_path, corrected_path):
+    source, sr_a = sf.read(str(source_path), always_2d=True, dtype="float32")
+    corrected, sr_b = sf.read(str(corrected_path), always_2d=True, dtype="float32")
+    if sr_a != sr_b:
+        raise ValueError("AVANTIQO_MUSIC_VOCAL_CORRECTION_TIMBRE_PROXY_SAMPLE_RATE_MISMATCH")
+    source = np.mean(source, axis=1)
+    corrected = np.mean(corrected, axis=1)
+    samples = min(source.shape[0], corrected.shape[0])
+    source, corrected = source[:samples], corrected[:samples]
+    frame = 2048
+    hop = 1024
+    if samples < frame:
+        return {
+            "contract": "AVANTIQO_MUSIC_VOCAL_TIMBRE_PROXY_V1",
+            "measured": False,
+            "reason": "SOURCE_TOO_SHORT_FOR_STABLE_SPECTRAL_PROXY",
+            "formant_preservation_claimed": False,
+        }
+    window = np.hanning(frame).astype(np.float32)
+    freqs = np.fft.rfftfreq(frame, 1.0 / float(sr_a))
+    bands = [(80, 160), (160, 320), (320, 640), (640, 1250), (1250, 2500), (2500, 5000), (5000, 8000)]
+    band_deltas = [[] for _ in bands]
+    centroid_deltas = []
+    used = 0
+    eps = 1e-12
+    for start in range(0, samples - frame + 1, hop):
+        a = source[start:start + frame] * window
+        b = corrected[start:start + frame] * window
+        rms_a = float(np.sqrt(np.mean(a * a) + eps))
+        rms_b = float(np.sqrt(np.mean(b * b) + eps))
+        if max(rms_a, rms_b) < 1e-4:
+            continue
+        pa = np.abs(np.fft.rfft(a)) ** 2
+        pb = np.abs(np.fft.rfft(b)) ** 2
+        pa_sum = float(np.sum(pa) + eps)
+        pb_sum = float(np.sum(pb) + eps)
+        centroid_a = float(np.sum(freqs * pa) / pa_sum)
+        centroid_b = float(np.sum(freqs * pb) / pb_sum)
+        if centroid_a > 1.0:
+            centroid_deltas.append(abs(centroid_b - centroid_a) / centroid_a)
+        for index, (low, high) in enumerate(bands):
+            mask = (freqs >= low) & (freqs < high)
+            energy_a = float(np.sum(pa[mask]) + eps)
+            energy_b = float(np.sum(pb[mask]) + eps)
+            band_deltas[index].append(10.0 * np.log10(energy_b / energy_a))
+        used += 1
+    absolute = [abs(value) for values in band_deltas for value in values]
+    centroid_pct = [value * 100.0 for value in centroid_deltas]
+    per_band = []
+    for (low, high), values in zip(bands, band_deltas):
+        per_band.append({
+            "low_hz": low,
+            "high_hz": high,
+            "median_delta_db": round(float(np.median(values)), 3) if values else None,
+            "median_absolute_delta_db": round(float(np.median(np.abs(values))), 3) if values else None,
+        })
+    median_abs = float(np.median(absolute)) if absolute else None
+    p95_abs = float(np.percentile(absolute, 95)) if absolute else None
+    median_centroid = float(np.median(centroid_pct)) if centroid_pct else None
+    review_flag = bool(
+        (median_abs is not None and median_abs > 2.5) or
+        (p95_abs is not None and p95_abs > 6.0) or
+        (median_centroid is not None and median_centroid > 15.0)
+    )
+    return {
+        "contract": "AVANTIQO_MUSIC_VOCAL_TIMBRE_PROXY_V1",
+        "measured": used > 0,
+        "analysis_frame_size": frame,
+        "analysis_hop_size": hop,
+        "analysis_window_count": used,
+        "median_absolute_band_delta_db": round(median_abs, 3) if median_abs is not None else None,
+        "p95_absolute_band_delta_db": round(p95_abs, 3) if p95_abs is not None else None,
+        "median_spectral_centroid_delta_percent": round(median_centroid, 3) if median_centroid is not None else None,
+        "per_band": per_band,
+        "conservative_review_flag": review_flag,
+        "review_thresholds_are_qc_proxies_not_formant_proof": True,
+        "human_listening_review_required": True,
+        "formant_preservation_claimed": False,
+    }
+
+
 def _normalize_source(downloaded, normalized, source_window, full_duration):
     offset = source_window["offset_seconds"]
     if offset >= full_duration:
@@ -406,6 +487,7 @@ def _handler(job):
         pitch_readiness = _pitch_readiness(voiced_frame_ratio, len(events), int(pitch_render.get("applied_event_count", 0)))
         phrase_timing_ready = timing.get("phrase_timing_correction_complete") is True
         correction_pipeline_complete = pitch_readiness["complete"] is True and phrase_timing_ready
+        timbre_proxy = _spectral_timbre_proxy(normalized, corrected)
 
         report = {
             "contract": REPORT_CONTRACT,
@@ -462,6 +544,7 @@ def _handler(job):
                 "render": pitch_render,
             },
             "timing": timing,
+            "timbre_preservation_proxy": timbre_proxy,
             "safety": {
                 "isolated_vocal_only": True,
                 "mixed_program_pitch_correction_forbidden": True,

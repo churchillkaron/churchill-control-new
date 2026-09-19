@@ -1,0 +1,10 @@
+import test from "node:test";import assert from "node:assert/strict";import fs from "node:fs";
+import {normalizeMusicSurroundFinishTarget} from "../lib/creative/music/runtime/CreativeMusicSurroundFinishingContractRuntime.js";
+test("surround finishing requires explicit governed loudness and true-peak targets",()=>{assert.throws(()=>normalizeMusicSurroundFinishTarget({}),/TARGET_LUFS_REQUIRED/);assert.throws(()=>normalizeMusicSurroundFinishTarget({target_lufs:-18,true_peak_dbtp:0}),/CEILING_UNSAFE/);const t=normalizeMusicSurroundFinishTarget({target_lufs:-18,true_peak_dbtp:-2,loudness_range_lu:14});assert.equal(t.target_lufs,-18);assert.equal(t.true_peak_dbtp,-2);assert.equal(t.tolerance_lu,.5);});
+test("surround finisher uses two-pass loudnorm, preserves layout, and dithers only final 24-bit conversion",()=>{const source=fs.readFileSync("lib/creative/music/runtime/CreativeMusicSurroundFinishingRuntime.js","utf8");assert.match(source,/measured_I=/);assert.match(source,/pcm_f32le/);assert.match(source,/dither_method=triangular/);assert.match(source,/CREATIVE_MUSIC_SURROUND_FINISH_LAYOUT_NOT_PRESERVED/);assert.match(source,/postMeasurement/);assert.match(source,/dolby_branded:false/);assert.match(source,/original_premaster_preserved:true/);});
+
+
+test("surround finish API requires validated current premaster and creates immutable non-Dolby master",()=>{
+ const route=fs.readFileSync("app/api/creative/music/surround-finish/route.js","utf8"),panel=fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicReleaseRenderPanel.jsx","utf8");
+ assert.match(route,/SURROUND_PREMASTER/);assert.match(route,/surround_validation_passed!==true/);assert.match(route,/CREATIVE_MUSIC_SURROUND_FINISH_PREMASTER_STALE/);assert.match(route,/finishMusicSurroundPremaster/);assert.match(route,/validateMusicSurroundPremaster/);assert.match(route,/music_asset_kind:"SURROUND_MASTER"/);assert.match(route,/source_premaster_asset_id:premasterId/);assert.match(route,/release_candidate:true/);assert.match(route,/dolby_branded:false/);assert.match(panel,/surroundFinishRequest/);assert.match(panel,/SURROUND MASTER · QC PASS/);
+});

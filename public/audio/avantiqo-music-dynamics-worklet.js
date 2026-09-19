@@ -133,3 +133,59 @@ class AvantiqoDeEsserProcessor extends AudioWorkletProcessor {
 
 registerProcessor("avantiqo-music-gate", AvantiqoGateProcessor);
 registerProcessor("avantiqo-music-deesser", AvantiqoDeEsserProcessor);
+
+class AvantiqoDialogueSidechainProcessor extends AudioWorkletProcessor {
+  constructor(options) {
+    super();
+    const config = options?.processorOptions || {};
+    this.thresholdDb = Math.max(-60, Math.min(0, Number(config.threshold_dbfs ?? -30)));
+    this.threshold = dbToGain(this.thresholdDb);
+    this.ratio = Math.max(1, Math.min(20, Number(config.ratio ?? 3)));
+    this.kneeDb = Math.max(0, Math.min(24, Number(config.knee_db ?? 6)));
+    this.maxReductionDb = Math.max(0, Math.min(18, Number(config.max_reduction_db ?? 6)));
+    this.attack = coefficient(config.attack_ms ?? 12);
+    this.release = coefficient(config.release_ms ?? 220);
+    this.gain = 1;
+    this.meterFrames = 0;
+  }
+  reductionDb(level) {
+    if (!(level > this.threshold)) return 0;
+    const levelDb = 20 * Math.log10(Math.max(level, 1e-12));
+    const over = levelDb - this.thresholdDb;
+    let reduction = 0;
+    if (this.kneeDb <= 0) reduction = over * (1 - 1 / this.ratio);
+    else {
+      const half = this.kneeDb / 2;
+      if (over <= -half) reduction = 0;
+      else if (over >= half) reduction = over * (1 - 1 / this.ratio);
+      else {
+        const x = over + half;
+        reduction = (1 - 1 / this.ratio) * x * x / (2 * this.kneeDb);
+      }
+    }
+    return Math.max(0, Math.min(this.maxReductionDb, reduction));
+  }
+  process(inputs, outputs) {
+    const target = inputs?.[0];
+    const key = inputs?.[1];
+    const output = outputs?.[0];
+    if (!target?.length || !output?.length) return true;
+    const frames = target[0]?.length || 0;
+    for (let frame = 0; frame < frames; frame += 1) {
+      let detector = 0;
+      for (let channel = 0; channel < (key?.length || 0); channel += 1) detector = Math.max(detector, Math.abs(key[channel]?.[frame] || 0));
+      const targetGain = dbToGain(-this.reductionDb(detector));
+      const coeff = targetGain < this.gain ? this.attack : this.release;
+      this.gain = targetGain + coeff * (this.gain - targetGain);
+      for (let channel = 0; channel < output.length; channel += 1) output[channel][frame] = (target[channel]?.[frame] || target[0]?.[frame] || 0) * this.gain;
+    }
+    this.meterFrames += frames;
+    if (this.meterFrames >= sampleRate / 20) {
+      this.meterFrames = 0;
+      this.port.postMessage({ type: "meter", processor: "dialogue-sidechain", reduction_db: gainToReductionDb(this.gain) });
+    }
+    return true;
+  }
+}
+
+registerProcessor("avantiqo-dialogue-sidechain", AvantiqoDialogueSidechainProcessor);

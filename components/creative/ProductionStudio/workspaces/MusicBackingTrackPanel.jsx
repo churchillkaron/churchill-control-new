@@ -100,7 +100,9 @@ export default function MusicBackingTrackPanel({
   const [error, setError] = useState("");
 
   const readyForPlan = Boolean(storageReference && duration && rightsConfirmed);
-  const productionReady = plan?.ready_for_execution === true;
+  const executionReady = plan?.ready_for_execution === true;
+  const productionCertified = plan?.production_certified === true;
+  const localAcceptanceReady = plan?.live_acceptance_ready === true;
   const outputAssets = Array.isArray(session?.assets) ? session.assets : [];
 
   const sourceSummary = useMemo(() => {
@@ -211,7 +213,7 @@ export default function MusicBackingTrackPanel({
   }
 
   async function createBackingTrack() {
-    if (!productionReady || !readyForPlan) return;
+    if (!executionReady || !readyForPlan) return;
     setBusy(true);
     setError("");
     try {
@@ -282,8 +284,8 @@ export default function MusicBackingTrackPanel({
             Preserve the original arrangement, separate vocals/drums/bass/other, remove vocals and export a professional backing track plus stems.
           </p>
         </div>
-        <span className={`rounded-full border px-3 py-1.5 text-[9px] uppercase tracking-[0.14em] ${productionReady ? "border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-100/70" : "border-amber-300/20 bg-amber-300/[0.06] text-amber-100/65"}`}>
-          {productionReady ? "Production ready" : "Separator certification pending"}
+        <span className={`rounded-full border px-3 py-1.5 text-[9px] uppercase tracking-[0.14em] ${productionCertified ? "border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-100/70" : localAcceptanceReady ? "border-[#d6a66a]/25 bg-[#d6a66a]/[0.07] text-[#efd29f]" : "border-amber-300/20 bg-amber-300/[0.06] text-amber-100/65"}`}>
+          {productionCertified ? "Production ready" : localAcceptanceReady ? "Local test ready" : "Separator certification pending"}
         </span>
       </div>
 
@@ -322,7 +324,7 @@ export default function MusicBackingTrackPanel({
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Title</span><input value={form.title} onChange={(event) => update("title", event.target.value)} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-3 py-2.5 text-xs text-white/70 outline-none" /></label>
-        <label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Vocal removal</span><select value={form.vocal_removal_mode} onChange={(event) => update("vocal_removal_mode", event.target.value)} className="mt-1.5 w-full rounded-lg border border-white/8 bg-[#090909] px-3 py-2.5 text-xs text-white/70 outline-none"><option value="ALL_VOCALS">Remove all vocals</option><option value="LEAD_ONLY_KEEP_BACKING">Remove lead · keep backing vocals</option></select><span className="mt-1 block text-[9px] leading-4 text-white/24">Lead-only removal is available only after dedicated vocal-role separation passes certification.</span></label>
+        <label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Vocal removal</span><select value={form.vocal_removal_mode} onChange={(event) => update("vocal_removal_mode", event.target.value)} className="mt-1.5 w-full rounded-lg border border-white/8 bg-[#090909] px-3 py-2.5 text-xs text-white/70 outline-none"><option value="ALL_VOCALS">Remove all vocals</option><option value="LEAD_ONLY_KEEP_BACKING">Remove lead · keep backing vocals</option></select><span className="mt-1 block text-[9px] leading-4 text-white/24">Lead-only removal has an owned research runtime, but production stays disabled until vocal-role quality, timing and model-license certification all pass.</span></label>
         <label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Key shift</span><select value={form.key_shift_semitones} onChange={(event) => update("key_shift_semitones", Number(event.target.value))} className="mt-1.5 w-full rounded-lg border border-white/8 bg-[#090909] px-3 py-2.5 text-xs text-white/70 outline-none">{Array.from({ length: 25 }, (_, index) => index - 12).map((value) => <option key={value} value={value}>{value === 0 ? "Original key" : `${value > 0 ? "+" : ""}${value} semitone${Math.abs(value) === 1 ? "" : "s"}`}</option>)}</select></label>
         <label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Tempo</span><div className="mt-1.5 flex items-center gap-3 rounded-lg border border-white/8 bg-black/30 px-3 py-2"><Gauge className="h-3.5 w-3.5 text-white/30" /><input type="range" min="0.5" max="1.5" step="0.01" value={form.tempo_ratio} onChange={(event) => update("tempo_ratio", Number(event.target.value))} className="min-w-0 flex-1" /><span className="w-10 text-right text-[10px] text-white/55">{Math.round(form.tempo_ratio * 100)}%</span></div></label>
         <label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Count-in</span><select value={form.count_in_bars} onChange={(event) => update("count_in_bars", Number(event.target.value))} className="mt-1.5 w-full rounded-lg border border-white/8 bg-[#090909] px-3 py-2.5 text-xs text-white/70 outline-none"><option value="0">No count-in</option>{[1, 2, 4, 8].map((bars) => <option key={bars} value={bars}>{bars} bar{bars === 1 ? "" : "s"}</option>)}</select></label>
@@ -342,15 +344,17 @@ export default function MusicBackingTrackPanel({
         <button type="button" disabled={!readyForPlan || busy} onClick={reviewPlan} className="rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs text-white/65 disabled:cursor-not-allowed disabled:opacity-35">
           {busy && !session?.pending ? "Checking…" : "Review backing track"}
         </button>
-        <button type="button" disabled={!productionReady || busy || session?.pending} onClick={createBackingTrack} className="inline-flex items-center gap-2 rounded-lg bg-[#d6a66a] px-4 py-2.5 text-xs font-semibold text-black disabled:cursor-not-allowed disabled:opacity-35">
+        <button type="button" disabled={!executionReady || busy || session?.pending} onClick={createBackingTrack} className="inline-flex items-center gap-2 rounded-lg bg-[#d6a66a] px-4 py-2.5 text-xs font-semibold text-black disabled:cursor-not-allowed disabled:opacity-35">
           {session?.pending ? <AudioLines className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
           {session?.pending ? "Separating…" : "Create backing track"}
         </button>
       </div>
 
       {plan ? <div className="mt-4 rounded-lg border border-white/8 bg-black/25 p-3 text-[10px] leading-5 text-white/34">
-        {productionReady
-          ? "Plan verified. Backing-track separation is certified and ready to run."
+        {productionCertified
+          ? "Plan verified. Backing-track separation is production certified and ready to run."
+          : localAcceptanceReady
+            ? "Plan verified. Node 01 local acceptance is ready on owned compute. Commercial production certification remains separate and is not being claimed."
           : form.vocal_removal_mode === "LEAD_ONLY_KEEP_BACKING"
             ? "Plan verified. Lead-vocal-only removal is intentionally blocked until the dedicated vocal-role separator is independently benchmarked and human-listening certified. Ordinary 4-stem separation will not be substituted because that would remove backing harmonies too."
             : "Plan verified. The Studio workflow is ready, but paid execution remains disabled until the owned separator image, GPU benchmark, economics and human listening review are certified."}

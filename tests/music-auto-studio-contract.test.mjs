@@ -36,21 +36,18 @@ test("Music Studio exposes Auto Studio from the outcome-first home surface", asy
     "full_auto_studio_ready",
     "ENGINE_COMPLETION_REQUIRED",
     "CERTIFICATION_REQUIRED",
-    "AVANTIQO_AUDIO_MODAL_A10G_V1",
     "direct_workers_max_write_allowed: false",
   ]);
   hasAll(panel, [
     "Full Auto Studio",
     "MAKE IT PROFESSIONAL",
-    'action: "execute_local"',
-    "Restored master complete",
-    "Automatic restoration",
-    "Original preserved · V0",
-    "Restored source · V1",
-    "Remaining elite stages",
+    'action: "start_professional_release"',
+    "MAKE IT PROFESSIONAL",
+    "duration_seconds: durationSeconds",
+    "onProfessionalReleaseStarted",
   ]);
   hasAll(workspace, [
-    '{ id: "auto", label: "Auto Studio"',
+    '{ id: "auto", label: "Make it Professional"',
     'useState("home")',
   ]);
 });
@@ -75,7 +72,7 @@ test("local Auto Studio restoration and finishing stay provider-free and canonic
     "music_source_version: 1",
     "vocal_correction_task_id",
     "CERTIFIED_VOCAL_CORRECTION_PENDING",
-    "AVANTIQO_AUDIO_MODAL_A10G_V1",
+    "AVANTIQO_OWNED_AUDIO_GOVERNED_V2",
     "dispatchAudioTask(finishTask)",
     "local_restoration_complete",
     "local_execution: true",
@@ -94,7 +91,7 @@ test("local Auto Studio restoration and finishing stay provider-free and canonic
     "safety_limiter",
     "CERTIFIED_PITCH_LANE_REQUIRED",
     "CERTIFIED_TIMING_LANE_REQUIRED",
-    "AVANTIQO_AUDIO_MODAL_A10G_V1",
+    "AVANTIQO_OWNED_AUDIO_GOVERNED_V2",
     "provider_job_submitted: false",
     "endpoint_mutation_performed: false",
     "direct_workers_max_write: false",
@@ -104,7 +101,7 @@ test("local Auto Studio restoration and finishing stay provider-free and canonic
     "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2",
     "TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2",
     "ai.audio.vocal-correct",
-    "AVANTIQO_AUDIO_MODAL_A10G_V1",
+    "AVANTIQO_OWNED_AUDIO_GOVERNED_V2",
     "ProductionTaskRuntime.create",
     "source_music_version: 1",
     "target_music_version: 2",
@@ -178,4 +175,16 @@ test("Auto Studio accepts audio and performance-video sources without editing pi
     'contentType.startsWith("video/")',
     "max_source_duration_seconds: 900",
   ]);
+});
+
+test("Auto Studio can register an uploaded source into the unified Professional Release pipeline", async () => {
+  const [route, panel] = await Promise.all([source(files.route), source(files.panel)]);
+  assert.match(route, /start_professional_release/);
+  assert.match(route, /AVANTIQO_MUSIC_PROFESSIONAL_SOURCE_REGISTRATION_V1/);
+  assert.match(route, /professional_release_requested: true/);
+  assert.match(route, /source_rights_attested: true/);
+  assert.match(route, /next_stage: "STEM_SEPARATION"/);
+  assert.match(panel, /action: "start_professional_release"/);
+  assert.match(panel, /duration_seconds: durationSeconds/);
+  assert.match(panel, /onProfessionalReleaseStarted/);
 });

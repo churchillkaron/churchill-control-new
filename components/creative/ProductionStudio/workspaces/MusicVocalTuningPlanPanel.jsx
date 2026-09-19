@@ -62,6 +62,8 @@ export default function MusicVocalTuningPlanPanel({
     ? clip.vocal_tuning_render_request
     : null;
   const renderPending = renderRequest?.status === "PENDING";
+  const reviewSegments = (plan?.segments || []).filter((segment) => Math.abs(finite(segment.proposed_correction_cents, 0)) > 0.01);
+  const reviewedSegments = reviewSegments.filter((segment) => segment.approved === true).length;
   const allReviewed = plan?.all_segments_reviewed === true && timingReviewed;
 
   async function request(action, extra = {}) {
@@ -107,6 +109,10 @@ export default function MusicVocalTuningPlanPanel({
       approved: true,
       ...(targetMidi === null ? {} : { target_midi: targetMidi }),
     });
+  }
+
+  async function approveAllProposed() {
+    await request("approve_all_proposed", { approved: true });
   }
 
   async function render(action) {
@@ -165,15 +171,17 @@ export default function MusicVocalTuningPlanPanel({
       </div>
 
       {plan ? <div className="mt-3 space-y-2">
-        <div className="flex items-center justify-between text-[7px] text-white/18"><span>{plan.musical_key?.label || "Project key"} · {plan.correction_segment_count || 0} proposed corrections</span><span>{plan.reviewed_segment_count || 0}/{plan.segments?.length || 0} reviewed</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[7px] text-white/18"><span>{plan.musical_key?.label || "Project key"} · {reviewSegments.length} corrections need review</span><div className="flex items-center gap-2"><span>{reviewedSegments}/{reviewSegments.length} correction decisions</span>{reviewedSegments < reviewSegments.length ? <button type="button" disabled={disabled || busy || renderPending} onClick={approveAllProposed} className="rounded-md border border-[#d6a66a]/20 bg-[#d6a66a]/[0.05] px-2 py-1 text-[#efd29f]/60 disabled:opacity-20">Approve all proposed</button> : null}</div></div>
+        {reviewedSegments < reviewSegments.length ? <div className="rounded-lg border border-white/6 bg-white/[0.012] px-2 py-1.5 text-[7px] leading-3 text-white/20">Bulk approval accepts only the currently displayed proposed note targets. It does not render audio and does not replace the final human listening approval.</div> : null}
         <div className="max-h-52 space-y-1 overflow-y-auto pr-1">
-          {(plan.segments || []).slice(0, 60).map((segment) => (
+          {reviewSegments.map((segment) => (
             <div key={segment.id} className="grid grid-cols-[1fr_70px_52px] items-center gap-2 rounded-lg border border-white/6 px-2 py-1.5 text-[7px]">
               <div className="min-w-0"><div className="truncate text-white/38">{segment.source_note} → {segment.target_note} · {segment.proposed_correction_cents >= 0 ? "+" : ""}{finite(segment.proposed_correction_cents, 0).toFixed(1)}¢</div><div className="text-white/13">{finite(segment.start_seconds, 0).toFixed(2)}–{finite(segment.end_seconds, 0).toFixed(2)}s · {Math.round(finite(segment.confidence, 0) * 100)}%</div></div>
               <input type="number" min="12" max="120" step="1" disabled={disabled || busy || renderPending} defaultValue={segment.target_midi} onBlur={(event) => { const target = Math.round(finite(event.target.value, segment.target_midi)); if (target !== segment.target_midi) void approve(segment, target); }} className="rounded-md border border-white/7 bg-black/25 px-1.5 py-1 text-[7px] text-white/35 disabled:opacity-20" title="Target MIDI note" />
               <button type="button" disabled={disabled || busy || renderPending || segment.approved} onClick={() => approve(segment)} className={`inline-flex items-center justify-center gap-1 rounded-md border px-1.5 py-1 ${segment.approved ? "border-emerald-300/10 text-emerald-100/45" : "border-white/7 text-white/30"} disabled:opacity-40`}><Check className="h-2.5 w-2.5" /> {segment.approved ? "OK" : "Approve"}</button>
             </div>
           ))}
+          {!reviewSegments.length ? <div className="rounded-lg border border-dashed border-white/7 p-3 text-center text-[7px] text-white/18">No pitch correction changes are proposed for this vocal.</div> : null}
         </div>
 
         {timingIncluded && !timingReviewed ? <div className="rounded-lg border border-amber-300/10 bg-amber-300/[0.015] p-2 text-[7px] leading-3 text-amber-100/38">A timing plan exists for this vocal. Finish reviewing every suggested phrase move before the combined vocal render can run.</div> : null}

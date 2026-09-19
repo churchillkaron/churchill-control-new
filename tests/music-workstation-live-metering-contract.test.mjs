@@ -13,7 +13,7 @@ test("preview publishes actual post-fader track and master levels", () => {
   assert.match(preview, /peak_dbfs/);
   assert.match(preview, /rms_dbfs/);
   assert.match(preview, /headroom_db/);
-  assert.match(preview, /AVANTIQO_MUSIC_LIVE_ENGINEERING_METER_V1/);
+  assert.match(preview, /AVANTIQO_MUSIC_LIVE_ENGINEERING_METER_V6/);
   assert.match(preview, /live_engineering_metering:\s*true/);
 });
 

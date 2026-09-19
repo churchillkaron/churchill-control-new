@@ -14,14 +14,17 @@ test("raw Music capture preserves professional recording invariants", () => {
   assert.match(capture, /echoCancellation:\s*false/);
   assert.match(capture, /noiseSuppression:\s*false/);
   assert.match(capture, /autoGainControl:\s*false/);
-  assert.match(capture, /bit_depth:\s*24/);
+  assert.match(capture, /wav_container_bit_depth:\s*24/);
+  assert.match(capture, /capture_sample_size_bits/);
+  assert.match(capture, /native_capture_precision_verified/);
+  assert.match(capture, /browser_processing_verification/);
   assert.match(capture, /gapless_pass_splitting:\s*true/);
   assert.match(capture, /immutable_original_take:\s*true/);
   assert.match(capture, /splitPass/);
 });
 
 test("raw Music capture exposes governed software monitoring without changing the recorded PCM", () => {
-  assert.match(capture, /AVANTIQO_MUSIC_RAW_PCM_CAPTURE_V3/);
+  assert.match(capture, /AVANTIQO_MUSIC_RAW_PCM_CAPTURE_V5/);
   assert.match(capture, /software_monitoring_supported:\s*true/);
   assert.match(capture, /software_monitoring_default:\s*"off"/);
   assert.match(capture, /function setMonitor/);
@@ -54,7 +57,7 @@ test("Workstation overdub persists the track before microphone capture", () => {
 test("overdub loop passes remain independent immutable uploads", () => {
   assert.match(overdub, /capture\.splitPass/);
   assert.match(overdub, /loopPasses/);
-  assert.match(overdub, /await savePass\(pass, passIndex, region\.start\)/);
+  assert.match(overdub, /await savePass\(pass, passIndex, region\.start, backing\)/);
   assert.match(overdub, /action:\s*"register_recorded_take"/);
   assert.match(overdub, /source_rights_confirmed:\s*true/);
 });
@@ -63,6 +66,9 @@ test("recording offset is explicit rather than guessing microphone latency", () 
   assert.match(overdub, /Recording offset \(ms\)/);
   assert.match(overdub, /latencyCompensationSeconds/);
   assert.match(overdub, /timeline_start_seconds:\s*compensatedStart/);
+  assert.match(overdub, /timeline_source_offset_seconds:\s*compensationSourceOffsetSeconds/);
+  assert.match(overdub, /requestedCompensatedStart = startSeconds - latencyCompensationSeconds/);
+  assert.match(overdub, /compensationSourceOffsetSeconds = Math.max\(0, -requestedCompensatedStart\)/);
   assert.match(overdub, /0 ms means no assumed microphone latency correction/);
 });
 
@@ -71,4 +77,12 @@ test("normal Workstation transport and engineering edits are frozen during captu
   assert.match(workstation, /if \(!session \|\| transportRef\.current \|\| recording\) return/);
   assert.match(workstation, /disabled=\{recording\}/);
   assert.match(workstation, /MusicWorkstationOverdubPanel/);
+});
+
+
+test("loop pass splitting preserves cumulative worklet continuity while resetting pass-local QC", () => {
+  assert.match(capture, /let passFrameBase = 0/);
+  assert.match(capture, /const passExpectedFrames = Math.max\(0, expectedFrameStart - passFrameBase\)/);
+  assert.match(capture, /passFrameBase = expectedFrameStart/);
+  assert.doesNotMatch(capture, /expectedSequence = 0;[\s\S]{0,120}expectedFrameStart = 0;[\s\S]{0,120}chunkGapCount = 0;[\s\S]{0,120}frameDiscontinuityCount = 0;[\s\S]{0,120}function splitPass/);
 });

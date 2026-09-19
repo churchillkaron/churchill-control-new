@@ -78,6 +78,13 @@ const review = {
     time_stretch_used: certification.technical?.time_stretch_used === true,
     syllable_warp_applied: certification.technical?.syllable_warp_applied === true,
     tonality_compensation_explicitly_configured: certification.technical?.tonality_compensation_explicitly_configured === true,
+    timbre_proxy_contract: certification.technical?.timbre_proxy_contract || null,
+    timbre_proxy_measured: certification.technical?.timbre_proxy_measured === true,
+    median_absolute_band_delta_db: certification.technical?.median_absolute_band_delta_db ?? null,
+    p95_absolute_band_delta_db: certification.technical?.p95_absolute_band_delta_db ?? null,
+    median_spectral_centroid_delta_percent: certification.technical?.median_spectral_centroid_delta_percent ?? null,
+    timbre_proxy_conservative_review_flag: certification.technical?.timbre_proxy_conservative_review_flag === true,
+    timbre_proxy_is_not_formant_proof: certification.technical?.timbre_proxy_is_not_formant_proof === true,
     formant_preservation_claimed: false,
   },
   criteria: [

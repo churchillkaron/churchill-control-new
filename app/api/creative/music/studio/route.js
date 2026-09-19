@@ -13,6 +13,15 @@ import {
   CreativeMusicFinishingRuntime,
 } from "@/lib/creative/music/runtime/CreativeMusicFinishingRuntime";
 import {
+  executeWorldClassMusicStudio,
+} from "@/lib/creative/music/runtime/CreativeMusicWorldClassExecutionRuntime";
+import {
+  processMusicVocalEngineeringLocal,
+} from "@/lib/creative/music/runtime/CreativeMusicVocalEngineeringRuntime";
+import {
+  buildAudioPostDialogueRestorationPlan,
+} from "@/lib/creative/music/runtime/CreativeAudioPostDialogueRestorationRuntime";
+import {
   buildMusicGenerationPlan,
   buildMusicTransformationPlan,
   MUSIC_SOURCE_AUDIO_RIGHTS_ATTESTATION_CONTRACT,
@@ -22,6 +31,7 @@ import {
   settlePendingService,
 } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 import { UsageRuntime } from "@/lib/platform/service-runtime/usage/UsageRuntime";
+import { resolveProvider } from "@/lib/platform/service-runtime/providers/ProviderResolver.js";
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
@@ -252,7 +262,84 @@ async function prepareSourceUpload(body) {
   };
 }
 
-function backingPlan(body) {
+function backingLocalAcceptancePolicy() {
+  return {
+    execution_scope: "BENCHMARK_REVIEW_PREVIEW",
+    benchmark_only: true,
+    owned_only_required: true,
+    external_fallback_allowed: false,
+    studio_preproduction_review: true,
+    allowed_providers: ["avantiqo-audio"],
+  };
+}
+
+async function resolveBackingLocalAcceptance(body, plan) {
+  if (process.env.NODE_ENV === "production" || plan.executable === true || plan.separation?.vocal_role_request) return null;
+  try {
+    return await resolveProvider({
+      organization_id: text(body.organization_id),
+      capability: "ai.audio.stems",
+      preferredProvider: "avantiqo-audio",
+      currency: text(body.currency || "THB"),
+      policy: backingLocalAcceptancePolicy(),
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function cleanAudio(body) {
+  const organizationId = text(body.organization_id);
+  const projectId = text(body.creative_project_id);
+  const sourceAudio = text(body.source_audio || body.source_media || body.audio);
+  if (!projectId) throw new Error("creative_project_id required");
+  if (!sourceAudio) throw new Error("CREATIVE_MUSIC_CLEANUP_SOURCE_REQUIRED");
+  if (body.source_rights_confirmed !== true) throw new Error("CREATIVE_MUSIC_SOURCE_RIGHTS_REQUIRED");
+
+  const sourceRole = text(body.source_role || "song");
+  const restored = await processMusicVocalEngineeringLocal({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+    source_audio: sourceAudio,
+    source_role: sourceRole,
+    file_name: text(body.file_name || "audio-source"),
+    mime_type: text(body.mime_type) || null,
+  });
+  const dialogueRestorationPlan = sourceRole === "dialogue"
+    ? buildAudioPostDialogueRestorationPlan({ source_asset_id: sourceAudio, diagnostics: restored.analysis || {}, room_tone_asset_id: body.room_tone_asset_id })
+    : null;
+  const reference = text(restored.restored?.storage_reference);
+  const asset = await CreativeAssetsRuntime.create({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+    creative_mission_id: text(body.creative_mission_id) || null,
+    asset_type: "MUSIC_RESTORED_AUDIO",
+    file_url: reference,
+    file_name: "restored-source.wav",
+    title: `${text(body.title || "Cleaned audio")} - Restored WAV`,
+    description: "Owned local audio cleanup result. The original source remains preserved.",
+    ai_generated: false,
+    provider: "avantiqo-audio",
+    engine: "local-ffmpeg-audio-restoration",
+    metadata: {
+      media_kind: "MUSIC",
+      music_studio_asset: true,
+      audio_cleanup: true,
+      source_audio: sourceAudio,
+      source_preserved: true,
+      source_rights_attested: true,
+      source_rights_attestation_contract: MUSIC_SOURCE_AUDIO_RIGHTS_ATTESTATION_CONTRACT,
+      engineering: restored.engineering || {},
+      analysis: restored.analysis || {},
+      readiness: restored.readiness || {},
+      dialogue_restoration_plan: dialogueRestorationPlan,
+    },
+  });
+  const playbackUrl = await resolveCreativeProviderAssetUrl({ organization_id: organizationId, value: reference });
+  return { success: true, pending: false, failed: false, asset: { ...publicAsset(asset), playback_url: playbackUrl }, restoration: restored, dialogue_restoration_plan: dialogueRestorationPlan };
+}
+
+async function backingPlan(body) {
   const plan = buildMusicTransformationPlan("backing_track", {
     ...body,
     rights_attestation: {
@@ -260,11 +347,16 @@ function backingPlan(body) {
       confirmed: body.source_rights_confirmed === true || body.rights_attestation?.confirmed === true,
     },
   });
+  const localAcceptance = await resolveBackingLocalAcceptance(body, plan);
+  const liveAcceptanceReady = Boolean(localAcceptance);
   return {
     success: true,
     plan,
-    ready_for_execution: plan.executable === true,
+    ready_for_execution: plan.executable === true || liveAcceptanceReady,
     production_certified: plan.executable === true,
+    live_acceptance_ready: liveAcceptanceReady,
+    live_acceptance_only: liveAcceptanceReady && plan.executable !== true,
+    execution_mode: plan.executable === true ? "PRODUCTION_CERTIFIED" : (liveAcceptanceReady ? "LOCAL_ACCEPTANCE" : "BLOCKED"),
     rights_confirmation_required: true,
     content_restriction_policy: plan.content_restriction_policy,
   };
@@ -273,6 +365,15 @@ function backingPlan(body) {
 async function compose(body) {
   const organizationId = text(body.organization_id);
   if (!organizationId) throw new Error("organization_id required");
+  const professional = text(body.production_standard).toUpperCase() === "PROFESSIONAL_RELEASE" || body.commercial_release === true;
+  if (professional) {
+    const objective = text(body.objective) || `Create a professional ${body.instrumental === false ? "song" : "music production"} titled ${text(body.title || "Untitled")}. Style: ${text(body.style)}. Mood: ${text(body.mood)}. Energy: ${text(body.energy)}. Instrumentation: ${text(body.instrumentation)}. Structure: ${text(body.structure)}.`;
+    return executeWorldClassMusicStudio({
+      ...body, organization_id: organizationId, objective,
+      capabilities: body.instrumental === false ? ["create_song"] : ["compose_music"],
+      production_standard: "PROFESSIONAL_RELEASE", commercial_release: true,
+    });
+  }
   const plan = buildMusicGenerationPlan(body);
   const session = plan.session;
 
@@ -338,13 +439,15 @@ async function compose(body) {
 
 async function executeBackingTrack(body) {
   const organizationId = text(body.organization_id);
-  const plan = backingPlan(body).plan;
-  if (plan.executable !== true) {
+  const planned = await backingPlan(body);
+  const plan = planned.plan;
+  if (planned.ready_for_execution !== true) {
     const error = new Error(`CREATIVE_MUSIC_BACKING_TRACK_NOT_CERTIFIED:${plan.certification}`);
     error.code = "CREATIVE_MUSIC_BACKING_TRACK_NOT_CERTIFIED";
     error.status = 503;
     throw error;
   }
+  const localAcceptance = planned.live_acceptance_only === true;
   const duration = finite(plan.session.source_duration_seconds, null);
   if (duration === null || duration <= 0) {
     throw new Error("CREATIVE_MUSIC_SOURCE_DURATION_REQUIRED");
@@ -371,10 +474,14 @@ async function executeBackingTrack(body) {
         rights_attestation: plan.rights_attestation,
       },
       output_spec: plan.output_spec,
-      provider_parameters: processing,
+      provider_parameters: {
+        ...processing,
+        ...(localAcceptance ? { local_only: true } : {}),
+      },
       metadata: {
         rights_attestation: plan.rights_attestation,
         backing_track: true,
+        local_acceptance_only: localAcceptance,
       },
     },
     metadata: {
@@ -401,10 +508,10 @@ async function executeBackingTrack(body) {
       provider_selection_exposed: false,
       user_prompt_surface: false,
     },
-    provider_policy: {
-      preferred_providers: ["avantiqo-audio"],
-      allowed_providers: ["avantiqo-audio"],
-    },
+    provider_id: "avantiqo-audio",
+    provider_policy: localAcceptance
+      ? backingLocalAcceptancePolicy()
+      : { preferred_providers: ["avantiqo-audio"], allowed_providers: ["avantiqo-audio"] },
     category: plan.category,
   });
   const usage = result?.usage || (result?.usage?.id ? await UsageRuntime.get(result.usage.id) : null);
@@ -660,8 +767,10 @@ export async function POST(request) {
       ? await compose(body)
       : action === "prepare_source_upload"
         ? await prepareSourceUpload(body)
-        : action === "backing_track_plan"
-          ? backingPlan(body)
+        : action === "audio_cleanup"
+          ? await cleanAudio(body)
+          : action === "backing_track_plan"
+            ? await backingPlan(body)
           : action === "backing_track"
             ? await executeBackingTrack(body)
             : action === "status"

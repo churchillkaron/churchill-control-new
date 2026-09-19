@@ -12,6 +12,8 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 import { executeService, settlePendingService } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 import { UsageRuntime } from "@/lib/platform/service-runtime/usage/UsageRuntime";
+import { resolveProvider } from "@/lib/platform/service-runtime/providers/ProviderResolver.js";
+import { resolveCreativeProviderAssetUrl } from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 
 const EXECUTION_PERMISSIONS = Object.freeze([
   "creative.execute",
@@ -29,6 +31,49 @@ function text(value) {
 function finite(value, fallback = null) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+
+function localAcceptancePolicy() {
+  return {
+    execution_scope: "BENCHMARK_REVIEW_PREVIEW",
+    benchmark_only: true,
+    owned_only_required: true,
+    external_fallback_allowed: false,
+    studio_preproduction_review: true,
+    preferred_providers: ["avantiqo-audio"],
+    allowed_providers: ["avantiqo-audio"],
+  };
+}
+
+function localAcceptanceAllowed() {
+  return process.env.NODE_ENV !== "production" && ["1", "true", "yes", "on"].includes(text(process.env.AVANTIQO_MUSIC_LOCAL_NODE_LIVE_ACCEPTANCE_ENABLED).toLowerCase());
+}
+
+async function localStemAcceptanceReady(organizationId) {
+  if (!localAcceptanceAllowed()) return false;
+  try {
+    const selected = await resolveProvider({ organization_id: organizationId, capability: "ai.audio.stems", preferredProvider: "avantiqo-audio", currency: "THB", policy: localAcceptancePolicy() });
+    return selected?.provider?.id === "avantiqo-audio" && selected?.model === "demucs-htdemucs-ft" && selected?.pricing_record?.benchmark_review_preview_authorized === true;
+  } catch { return false; }
+}
+
+function separatorOutput(result = {}) {
+  const first = result?.output && typeof result.output === "object" ? result.output : {};
+  return first.output && typeof first.output === "object" ? first.output : first;
+}
+
+async function exposeStemFiles(organizationId, result) {
+  const output = separatorOutput(result);
+  const refs = output.storage_references || output.storageReferences || {};
+  const keys = ["vocals", "drums", "bass", "other"];
+  const files = [];
+  for (const key of keys) {
+    const reference = refs[key] || output.assets?.[key]?.storage_reference || null;
+    if (!reference) continue;
+    files.push({ key, storage_reference: reference, url: await resolveCreativeProviderAssetUrl({ organization_id: organizationId, value: reference }) });
+  }
+  return files;
 }
 
 async function requireAccess(request, organizationId) {
@@ -87,8 +132,10 @@ async function prepareSourceUpload(body) {
 
 async function executeStems(body) {
   const organizationId = text(body.organization_id);
-  const stemPlan = plan(body).plan;
-  if (stemPlan.executable !== true || stemPlan.certification !== "CERTIFIED") {
+  const stemPlan = (await plan(body)).plan;
+  const productionCertified = stemPlan.executable === true && stemPlan.certification === "CERTIFIED";
+  const localAcceptance = !productionCertified && await localStemAcceptanceReady(organizationId);
+  if (!productionCertified && !localAcceptance) {
     const error = new Error(`CREATIVE_MUSIC_STEMS_NOT_CERTIFIED:${stemPlan.certification || "NOT_READY"}`);
     error.status = 503;
     throw error;
@@ -105,9 +152,9 @@ async function executeStems(body) {
       output_spec: stemPlan.output_spec, provider_parameters: { ...(stemPlan.provider_parameters || {}), export_stems: true },
     },
     metadata: { module: "CREATIVE", operation: "AVANTIQO_MUSIC_STEMS_EXECUTE", creative_project_id: text(body.creative_project_id) || null, creative_mission_id: text(body.creative_mission_id) || null, source_rights_attested: true, provider_selection_exposed: false },
-    provider_policy: { preferred_providers: ["avantiqo-audio"], allowed_providers: ["avantiqo-audio"] }, category: "AI",
+    provider_policy: localAcceptance ? localAcceptancePolicy() : { preferred_providers: ["avantiqo-audio"], allowed_providers: ["avantiqo-audio"] }, category: "AI",
   });
-  return { success: result?.failed !== true, pending: result?.pending === true, failed: result?.failed === true, usage_id: result?.usage?.id || null, provider_status: result?.provider_status || null, output: result?.output || null, production_certified: true };
+  return { success: result?.failed !== true, pending: result?.pending === true, failed: result?.failed === true, usage_id: result?.usage?.id || null, provider_status: result?.provider_status || null, output: result?.output || null, files: result?.pending ? [] : await exposeStemFiles(organizationId, result), production_certified: productionCertified, local_acceptance: localAcceptance };
 }
 
 async function settleStems(body) {
@@ -121,10 +168,10 @@ async function settleStems(body) {
   const providerJobId = text(usage.provider_request_id || usage.metadata?.provider_request_id);
   if (!providerJobId) throw new Error("CREATIVE_MUSIC_STEMS_PROVIDER_JOB_REQUIRED");
   const result = await settlePendingService({ organization_id: organizationId, provider: text(usage.provider), provider_job_id: providerJobId, usage_id: usageId, pricing: {}, quantity: finite(usage.quantity, null), unit: text(usage.unit) || null, credential_id: null, started_at: text(usage.execution_started_at || usage.created_at) || null, metadata: { module: "CREATIVE", operation: "AVANTIQO_MUSIC_STEMS_SETTLE" } });
-  return { success: result?.failed !== true, pending: result?.pending === true, failed: result?.failed === true, usage_id: usageId, provider_status: result?.provider_status || null, output: result?.output || null, settlement: result?.settlement || null };
+  return { success: result?.failed !== true, pending: result?.pending === true, failed: result?.failed === true, usage_id: usageId, provider_status: result?.provider_status || null, output: result?.output || null, files: result?.pending ? [] : await exposeStemFiles(organizationId, result), settlement: result?.settlement || null };
 }
 
-function plan(body) {
+async function plan(body) {
   const stemPlan = buildMusicTransformationPlan("stems", {
     ...body,
     rights_attestation: {
@@ -132,11 +179,14 @@ function plan(body) {
       confirmed: body.source_rights_confirmed === true || body.rights_attestation?.confirmed === true,
     },
   });
+  const productionCertified = stemPlan.executable === true;
+  const localAcceptance = !productionCertified && !stemPlan.separation?.vocal_role_request && await localStemAcceptanceReady(text(body.organization_id));
   return {
     success: true,
     plan: stemPlan,
-    ready_for_execution: stemPlan.executable === true,
-    production_certified: stemPlan.executable === true,
+    ready_for_execution: productionCertified || localAcceptance,
+    production_certified: productionCertified,
+    local_acceptance: localAcceptance,
     rights_confirmation_required: true,
   };
 }
@@ -153,7 +203,7 @@ export async function POST(request) {
     const result = action === "prepare_source_upload"
       ? await prepareSourceUpload(body)
       : action === "plan"
-        ? plan(body)
+        ? await plan(body)
         : action === "execute"
           ? await executeStems(body)
           : action === "status"

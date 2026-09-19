@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CircleStop, Headphones, Mic2, Radio, ShieldCheck } from "lucide-react";
 
 import { startMusicRawPcmCapture } from "@/lib/creative/music/client/MusicRawPcmCapture";
+import { runMusicRecordingPreflight } from "@/lib/creative/music/client/MusicRecordingPreflightRuntime";
+import { evaluateMusicLatencyCalibrationReuse, loadPersistedMusicLatencyCalibration, persistMusicLatencyCalibration, runMusicLatencyCalibration } from "@/lib/creative/music/client/MusicLatencyCalibrationRuntime";
 import { startMusicMultitrackPreview } from "@/lib/creative/music/client/MusicMultitrackPreviewEngine";
 import MusicTakeLaneCompPanel from "./MusicTakeLaneCompPanel";
 
@@ -29,15 +31,22 @@ async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function playCountIn({ bpm, bars, signature }) {
+async function playCountIn({ bpm, bars, signature, outputDeviceId = null, sampleRate = null }) {
   if (!bars) return;
   const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
   if (!AudioContextClass) {
     await sleep(bars * beatsPerBar(signature) * (60_000 / bpm));
     return;
   }
-  const context = new AudioContextClass({ latencyHint: "interactive" });
+  const context = new AudioContextClass({ latencyHint: "interactive", ...(Number.isFinite(Number(sampleRate)) && Number(sampleRate) > 0 ? { sampleRate: Number(sampleRate) } : {}) });
   await context.resume();
+  if (outputDeviceId) {
+    if (typeof context.setSinkId !== "function") { await context.close().catch(() => {}); throw new Error("CREATIVE_MUSIC_COUNT_IN_OUTPUT_SELECTION_UNSUPPORTED"); }
+    await context.setSinkId(outputDeviceId);
+    const sink = context.sinkId;
+    const sinkId = typeof sink === "string" ? sink : sink?.deviceId;
+    if (sinkId !== outputDeviceId) { await context.close().catch(() => {}); throw new Error("CREATIVE_MUSIC_COUNT_IN_OUTPUT_SELECTION_UNVERIFIED"); }
+  }
   const beats = bars * beatsPerBar(signature);
   const secondsPerBeat = 60 / bpm;
   const start = context.currentTime + 0.03;
@@ -72,13 +81,24 @@ export default function MusicWorkstationOverdubPanel({
   onRecordingChange,
 }) {
   const [devices, setDevices] = useState([]);
+  const [outputDevices, setOutputDevices] = useState([]);
   const [deviceId, setDeviceId] = useState("");
+  const [inputGroupId, setInputGroupId] = useState("");
+  const [outputDeviceId, setOutputDeviceId] = useState("");
   const [countInBars, setCountInBars] = useState(1);
   const [punchEnabled, setPunchEnabled] = useState(false);
   const [punchStart, setPunchStart] = useState(0);
   const [punchEnd, setPunchEnd] = useState(8);
   const [loopPasses, setLoopPasses] = useState(3);
   const [latencyCompMs, setLatencyCompMs] = useState(0);
+  const [latencyCompSource, setLatencyCompSource] = useState("MANUAL");
+  const [latencyCompCalibrationMeasuredAt, setLatencyCompCalibrationMeasuredAt] = useState(null);
+  const [clockAlignmentMs, setClockAlignmentMs] = useState(null);
+  const [latencyCalibration, setLatencyCalibration] = useState(null);
+  const [calibrationReuse, setCalibrationReuse] = useState(null);
+  const [calibrationBusy, setCalibrationBusy] = useState(false);
+  const [calibrationPath, setCalibrationPath] = useState("HARDWARE_LOOPBACK");
+  const [hardwareLoopbackConfirmed, setHardwareLoopbackConfirmed] = useState(false);
   const [monitorEnabled, setMonitorEnabled] = useState(false);
   const [monitorGainDb, setMonitorGainDb] = useState(-18);
   const [recording, setRecording] = useState(false);
@@ -86,18 +106,57 @@ export default function MusicWorkstationOverdubPanel({
   const [meter, setMeter] = useState({ peak_dbfs: -Infinity, rms_dbfs: -Infinity, clipping: false });
   const [error, setError] = useState("");
   const [savedPasses, setSavedPasses] = useState(0);
+  const [recordingPreflight, setRecordingPreflight] = useState(null);
+  const [preflightBusy, setPreflightBusy] = useState(false);
+  const [preflightPhase, setPreflightPhase] = useState("IDLE");
   const captureRef = useRef(null);
   const backingRef = useRef(null);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
-    navigator.mediaDevices?.enumerateDevices?.().then((items) => {
-      const inputs = items.filter((item) => item.kind === "audioinput");
-      setDevices(inputs);
-      if (!deviceId && inputs[0]?.deviceId) setDeviceId(inputs[0].deviceId);
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true;
+    const refresh = async () => {
+      try {
+        const items = await navigator.mediaDevices?.enumerateDevices?.();
+        if (!active || !items) return;
+        const inputs = items.filter((item) => item.kind === "audioinput");
+        const outputs = items.filter((item) => item.kind === "audiooutput");
+        setDevices(inputs);
+        setOutputDevices(outputs);
+        setDeviceId((current) => {
+          const next = current && inputs.some((item) => item.deviceId === current) ? current : (inputs[0]?.deviceId || "");
+          const selected = inputs.find((item) => item.deviceId === next);
+          setInputGroupId(selected?.groupId || "");
+          return next;
+        });
+        setOutputDeviceId((current) => current && outputs.some((item) => item.deviceId === current) ? current : "");
+      } catch {}
+    };
+    refresh();
+    navigator.mediaDevices?.addEventListener?.("devicechange", refresh);
+    return () => { active = false; navigator.mediaDevices?.removeEventListener?.("devicechange", refresh); };
   }, []);
+
+  useEffect(() => {
+    const persisted = loadPersistedMusicLatencyCalibration();
+    if (!persisted) { setLatencyCalibration(null); setCalibrationReuse(null); return; }
+    const current = { input_device_id: deviceId || null, input_group_id: inputGroupId || null, sample_rate: finite(session?.sample_rate, null), path_type: calibrationPath, output_sink_id: outputDeviceId || null };
+    const reuse = evaluateMusicLatencyCalibrationReuse(persisted, current);
+    setLatencyCalibration(persisted);
+    setCalibrationReuse(reuse);
+  }, [deviceId, inputGroupId, outputDeviceId, calibrationPath, session?.sample_rate]);
+
+  useEffect(() => { setHardwareLoopbackConfirmed(false); }, [deviceId, outputDeviceId, calibrationPath]);
+  useEffect(() => { setRecordingPreflight(null); setPreflightPhase("IDLE"); }, [deviceId]);
+
+  useEffect(() => {
+    if (latencyCompSource !== "CALIBRATED") return;
+    const sameCalibration = Boolean(latencyCompCalibrationMeasuredAt && latencyCalibration?.measured_at === latencyCompCalibrationMeasuredAt);
+    if (calibrationReuse?.reuse_allowed === true && sameCalibration) return;
+    setLatencyCompMs(0);
+    setLatencyCompSource("MANUAL");
+    setLatencyCompCalibrationMeasuredAt(null);
+  }, [calibrationReuse?.reuse_allowed, latencyCalibration?.measured_at, latencyCompCalibrationMeasuredAt, latencyCompSource]);
 
   useEffect(() => {
     setPunchStart(Math.max(0, finite(playhead, 0)));
@@ -188,7 +247,7 @@ export default function MusicWorkstationOverdubPanel({
     }
   }
 
-  async function savePass(take, passIndex, startSeconds) {
+  async function savePass(take, passIndex, startSeconds, backing = null) {
     const base = `${selectedTrack?.name || "track"}-take-${String(Date.now()).slice(-6)}-${passIndex + 1}`
       .replace(/[^A-Za-z0-9._-]+/g, "-")
       .replace(/^-+|-+$/g, "")
@@ -208,7 +267,32 @@ export default function MusicWorkstationOverdubPanel({
     });
     if (!upload.ok) throw new Error(`CREATIVE_MUSIC_OVERDUB_UPLOAD_${upload.status}`);
     const latencyCompensationSeconds = Math.max(-0.5, Math.min(0.5, finite(latencyCompMs, 0) / 1000));
-    const compensatedStart = Math.max(0, startSeconds - latencyCompensationSeconds);
+    const requestedCompensatedStart = startSeconds - latencyCompensationSeconds;
+    const compensatedStart = Math.max(0, requestedCompensatedStart);
+    const compensationSourceOffsetSeconds = Math.max(0, -requestedCompensatedStart);
+    const captureStartMs = Number(take.capture_timing?.capture_start_performance_ms);
+    const playbackStartMs = Number(backing?.playback_start_performance_ms);
+    const browserClockAlignmentMs = Number.isFinite(captureStartMs) && Number.isFinite(playbackStartMs) ? Number((captureStartMs - playbackStartMs).toFixed(3)) : null;
+    if (Number.isFinite(browserClockAlignmentMs)) setClockAlignmentMs(browserClockAlignmentMs);
+    const overdubTiming = {
+      contract: "AVANTIQO_MUSIC_OVERDUB_TIMING_V1",
+      capture_timing: take.capture_timing || null,
+      playback_preview_contract: backing?.contract || null,
+      playback_start_performance_ms: Number.isFinite(playbackStartMs) ? playbackStartMs : null,
+      capture_start_performance_ms: Number.isFinite(captureStartMs) ? captureStartMs : null,
+      browser_audio_clock_alignment_ms: browserClockAlignmentMs,
+      evidence_scope: "BROWSER_AUDIO_CLOCK_ALIGNMENT_ONLY",
+      microphone_roundtrip_latency_measured: latencyCalibration?.microphone_roundtrip_latency_measured === true,
+      calibrated_roundtrip_latency_ms: Number.isFinite(Number(latencyCalibration?.roundtrip_latency_ms)) ? Number(latencyCalibration.roundtrip_latency_ms) : null,
+      latency_calibration: latencyCalibration || null,
+      automatic_latency_compensation_allowed: false,
+      manual_latency_compensation_seconds: latencyCompensationSeconds,
+      latency_compensation_source: latencyCompSource,
+      latency_compensation_calibration_measured_at: latencyCompSource === "CALIBRATED" ? latencyCompCalibrationMeasuredAt : null,
+      requested_compensated_start_seconds: requestedCompensatedStart,
+      applied_timeline_start_seconds: compensatedStart,
+      compensation_source_offset_seconds: compensationSourceOffsetSeconds,
+    };
     return request({
       action: "register_recorded_take",
       organization_id: organizationId,
@@ -223,12 +307,46 @@ export default function MusicWorkstationOverdubPanel({
       peak_dbfs: take.peak_dbfs,
       rms_dbfs: take.rms_dbfs,
       clipping_detected: take.clipping === true,
-      recording_qc_status: take.clipping === true ? "CLIPPING" : "CAPTURED",
-      browser_processing_disabled: true,
+      recording_qc_status: take.recording_qc_status || (take.clipping === true ? "RETAKE_REQUIRED" : "CAPTURED"),
+      capture_qc: take.capture_qc || null,
+      headroom_db: take.headroom_db ?? null,
+      crest_factor_db: take.crest_factor_db ?? null,
+      dc_offset: take.dc_offset ?? null,
+      background_floor_estimate_dbfs: take.background_floor_estimate_dbfs ?? null,
+      channel_imbalance_db: take.channel_imbalance_db ?? null,
+      stereo_correlation: take.capture_qc?.stereo_correlation ?? null,
+      mono_fold_down_loss_db: take.capture_qc?.mono_fold_down_loss_db ?? null,
+      stereo_phase_risk: take.capture_qc?.stereo_phase_risk === true,
+      mono_collapse_risk: take.capture_qc?.mono_collapse_risk === true,
+      chunk_gap_count: take.chunk_gap_count ?? 0,
+      frame_discontinuity_count: take.frame_discontinuity_count ?? 0,
+      capture_continuity_verified: take.capture_continuity_verified === true,
+      browser_processing_disabled: take.browser_processing_disabled === true,
+      browser_processing_verification: take.browser_processing_verification || "UNVERIFIED",
+      requested_browser_processing_disabled: take.requested_browser_processing_disabled === true,
+      wav_container_bit_depth: take.wav_container_bit_depth || 24,
+      capture_sample_size_bits: take.capture_sample_size_bits ?? null,
+      native_capture_precision_verified: take.native_capture_precision_verified === true,
+      effective_capture_precision_known: take.effective_capture_precision_known === true,
+      device_sample_rate: take.device_sample_rate ?? null,
+      device_channel_count: take.device_channel_count ?? null,
+      recorder_channel_count_requested: take.recorder_channel_count_requested ?? null,
+      recorded_channel_count: take.channels ?? null,
+      channel_topology_source: take.channel_topology_source || "UNVERIFIED",
+      channel_topology_verified: take.channel_topology_verified === true,
+      audio_context_sample_rate: take.audio_context_sample_rate ?? take.sample_rate ?? null,
+      sample_rate_conversion_detected: take.sample_rate_conversion_detected === true,
+      native_sample_rate_path_verified: take.native_sample_rate_path_verified === true,
+      sample_rate_path_verification: take.sample_rate_path_verification || "UNVERIFIED",
       source_rights_confirmed: true,
       multitrack_track_id: selectedTrack.id,
       timeline_start_seconds: compensatedStart,
+      timeline_source_offset_seconds: compensationSourceOffsetSeconds,
       capture_base_latency_seconds: take.capture_base_latency_seconds || 0,
+      capture_timing: take.capture_timing || null,
+      capture_clock_drift_ms: take.capture_clock_drift_ms ?? null,
+      overdub_timing: overdubTiming,
+      browser_audio_clock_alignment_ms: browserClockAlignmentMs,
       latency_compensation_seconds: latencyCompensationSeconds,
       overdub_mode: region.mode,
       overdub_pass_index: passIndex,
@@ -237,9 +355,54 @@ export default function MusicWorkstationOverdubPanel({
 
   async function startBacking(startSeconds, stopAtSeconds) {
     backingRef.current?.stop?.();
-    const backing = await startMusicMultitrackPreview({ session, assetUrls, startSeconds, stopAtSeconds });
+    const backing = await startMusicMultitrackPreview({ session, assetUrls, startSeconds, stopAtSeconds, outputDeviceId: outputDeviceId || null });
     backingRef.current = backing;
     return backing;
+  }
+
+  async function runRecordingPreflight() {
+    if (recording || preflightBusy) return;
+    setPreflightBusy(true);
+    setError("");
+    try {
+      const result = await runMusicRecordingPreflight({
+        deviceId: deviceId || null,
+        onLevel: ({ peak_dbfs, rms_dbfs, clipping }) => setMeter({ peak_dbfs, rms_dbfs, clipping: clipping === true }),
+        onPhase: setPreflightPhase,
+      });
+      setRecordingPreflight(result);
+    } catch (cause) {
+      setRecordingPreflight(null);
+      setPreflightPhase("FAILED");
+      setError(cause?.message || "Recording preflight failed");
+    } finally {
+      setPreflightBusy(false);
+    }
+  }
+
+  async function calibrateLatency() {
+    if (recording || calibrationBusy) return;
+    setCalibrationBusy(true);
+    setError("");
+    try {
+      const result = await runMusicLatencyCalibration({ deviceId: deviceId || null, outputDeviceId: outputDeviceId || null, sampleRate: finite(session?.sample_rate, null), pathType: calibrationPath, hardwareLoopbackConfirmed });
+      persistMusicLatencyCalibration(result);
+      setLatencyCalibration(result);
+      setCalibrationReuse(evaluateMusicLatencyCalibrationReuse(result, { input_device_id: deviceId || null, input_group_id: inputGroupId || null, sample_rate: result.sample_rate, path_type: calibrationPath, output_sink_id: outputDeviceId || null }));
+    } catch (cause) {
+      setLatencyCalibration(null);
+      setError(cause?.message || "Latency calibration failed");
+    } finally {
+      setCalibrationBusy(false);
+    }
+  }
+
+  function applyMeasuredLatency() {
+    const measured = Number(latencyCalibration?.roundtrip_latency_ms);
+    if (!Number.isFinite(measured) || latencyCalibration?.automatic_apply_allowed !== true || calibrationReuse?.reuse_allowed !== true) return;
+    setLatencyCompMs(Math.max(-500, Math.min(500, measured)));
+    setLatencyCompSource("CALIBRATED");
+    setLatencyCompCalibrationMeasuredAt(latencyCalibration?.measured_at || null);
   }
 
   async function begin() {
@@ -263,7 +426,7 @@ export default function MusicWorkstationOverdubPanel({
       });
       captureRef.current = capture;
       setPhase("COUNT-IN");
-      await playCountIn({ bpm, bars: countInBars, signature });
+      await playCountIn({ bpm, bars: countInBars, signature, outputDeviceId: outputDeviceId || null, sampleRate: finite(session?.sample_rate, null) });
       if (cancelledRef.current) return;
       await capture.splitPass({ allowEmpty: true });
 
@@ -272,27 +435,27 @@ export default function MusicWorkstationOverdubPanel({
         for (let passIndex = 0; passIndex < loopPasses; passIndex += 1) {
           if (cancelledRef.current) break;
           setPhase(`RECORDING PASS ${passIndex + 1}/${loopPasses}`);
-          await startBacking(region.start, region.end);
+          const backing = await startBacking(region.start, region.end);
           await sleep(passDuration * 1000);
           backingRef.current?.stop?.();
           backingRef.current = null;
           const pass = passIndex === loopPasses - 1 ? await capture.stop() : await capture.splitPass();
           if (pass) {
             setPhase(`SAVING PASS ${passIndex + 1}`);
-            await savePass(pass, passIndex, region.start);
+            await savePass(pass, passIndex, region.start, backing);
             setSavedPasses(passIndex + 1);
           }
         }
       } else {
         setPhase(region.mode === "PUNCH_IN_OUT" ? "PUNCH RECORDING" : "OVERDUB RECORDING");
-        await startBacking(region.start, region.end);
+        const backing = await startBacking(region.start, region.end);
         if (region.end !== null) {
           await sleep((region.end - region.start) * 1000);
           backingRef.current?.stop?.();
           backingRef.current = null;
           const take = await capture.stop();
           setPhase("SAVING TAKE");
-          await savePass(take, 0, region.start);
+          await savePass(take, 0, region.start, backing);
           setSavedPasses(1);
         } else {
           return;
@@ -319,13 +482,14 @@ export default function MusicWorkstationOverdubPanel({
     if (!recording || !captureRef.current) return;
     cancelledRef.current = true;
     try {
+      const backing = backingRef.current;
       backingRef.current?.stop?.();
       backingRef.current = null;
       setPhase("FINALIZING TAKE");
       const take = await captureRef.current.stop();
       captureRef.current = null;
       setPhase("SAVING TAKE");
-      await savePass(take, 0, region.start);
+      await savePass(take, 0, region.start, backing);
       setSavedPasses(1);
       await onReload?.();
       setPhase("SAVED");
@@ -351,9 +515,16 @@ export default function MusicWorkstationOverdubPanel({
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="col-span-2 block text-[9px] uppercase tracking-[0.14em] text-white/25">Input
-            <select value={deviceId} onChange={(event) => setDeviceId(event.target.value)} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-xs text-white/60">
+            <select value={deviceId} onChange={(event) => { const next=event.target.value; setDeviceId(next); setInputGroupId(devices.find((item)=>item.deviceId===next)?.groupId || ""); }} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-xs text-white/60">
               {!devices.length ? <option value="">Default audio input</option> : devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `Audio input ${index + 1}`}</option>)}
             </select>
+          </label>
+          <label className="col-span-2 block text-[9px] uppercase tracking-[0.14em] text-white/25">Output
+            <select value={outputDeviceId} onChange={(event) => setOutputDeviceId(event.target.value)} disabled={recording || calibrationBusy} className="mt-1.5 w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-xs text-white/60">
+              <option value="">System default · calibration not reusable</option>
+              {outputDevices.map((device,index)=><option key={device.deviceId||index} value={device.deviceId}>{device.label || `Audio output ${index+1}`}</option>)}
+            </select>
+            <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/18">An explicit output is required for reusable hardware-loopback calibration. Backing playback uses the same selected output.</span>
           </label>
           <label className="block text-[9px] uppercase tracking-[0.14em] text-white/25">Count-in bars
             <input type="number" min="0" max="8" value={countInBars} onChange={(event) => setCountInBars(Math.max(0, Math.min(8, Math.round(finite(event.target.value, 1)))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
@@ -362,9 +533,17 @@ export default function MusicWorkstationOverdubPanel({
             <input type="number" min="1" max="20" value={loopPasses} onChange={(event) => setLoopPasses(Math.max(1, Math.min(20, Math.round(finite(event.target.value, 3)))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
           </label> : <label className="flex items-center gap-2 self-end rounded-lg border border-white/8 px-2 py-2 text-[10px] text-white/45"><input type="checkbox" checked={punchEnabled} onChange={(event) => setPunchEnabled(event.target.checked)} disabled={recording} className="accent-red-300" /> Punch in/out</label>}
           <label className="col-span-2 block text-[9px] uppercase tracking-[0.14em] text-white/25">Recording offset (ms)
-            <input type="number" min="-500" max="500" step="1" value={latencyCompMs} onChange={(event) => setLatencyCompMs(Math.max(-500, Math.min(500, finite(event.target.value, 0))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
-            <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/18">Measured/manual compensation; 0 ms means no assumed microphone latency correction.</span>
+            <input type="number" min="-500" max="500" step="1" value={latencyCompMs} onChange={(event) => { setLatencyCompMs(Math.max(-500, Math.min(500, finite(event.target.value, 0)))); setLatencyCompSource("MANUAL"); setLatencyCompCalibrationMeasuredAt(null); }} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
+            <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/18">{latencyCompSource === "CALIBRATED" ? "Calibrated compensation" : "Manual compensation"}; 0 ms means no assumed microphone latency correction.</span>
+            <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/22">Browser clock alignment {Number.isFinite(clockAlignmentMs) ? `${clockAlignmentMs.toFixed(1)} ms` : "not measured yet"} · evidence only, never auto-applied as microphone latency.</span>
           </label>
+          <div className="col-span-2 rounded-xl border border-[#d6a66a]/12 bg-[#d6a66a]/[0.025] p-3">
+            <div className="flex items-center justify-between gap-3"><div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[#efd29f]/55">Roundtrip calibration</div><select value={calibrationPath} onChange={(event) => setCalibrationPath(event.target.value)} disabled={recording || calibrationBusy} className="rounded-md border border-white/8 bg-black/30 px-2 py-1 text-[9px] text-white/45"><option value="HARDWARE_LOOPBACK">Hardware loopback</option><option value="ACOUSTIC_PATH">Speaker → microphone</option></select></div>
+            <div className="mt-2 text-[8px] leading-4 text-white/22">For exact interface latency, route an output directly back to the selected input. Speaker → microphone includes speaker, air and microphone delay and is kept as acoustic-path evidence.</div>
+            {calibrationPath === "HARDWARE_LOOPBACK" ? <label className="mt-2 flex items-start gap-2 text-[8px] leading-4 text-white/35"><input type="checkbox" checked={hardwareLoopbackConfirmed} onChange={(event)=>setHardwareLoopbackConfirmed(event.target.checked)} disabled={recording||calibrationBusy} className="mt-0.5" /><span>I physically connected the selected output directly to the selected input for this calibration.</span></label> : null}
+            <div className="mt-3 flex flex-wrap items-center gap-2"><button type="button" onClick={calibrateLatency} disabled={recording || calibrationBusy || (calibrationPath === "HARDWARE_LOOPBACK" && (!outputDeviceId || !hardwareLoopbackConfirmed))} className="rounded-lg border border-[#d6a66a]/20 bg-[#d6a66a]/8 px-3 py-2 text-[9px] font-medium text-[#efd29f]/75 disabled:opacity-35">{calibrationBusy ? "Measuring…" : "Run latency calibration"}</button>{latencyCalibration?.automatic_apply_allowed === true && calibrationReuse?.reuse_allowed === true ? <button type="button" onClick={applyMeasuredLatency} disabled={recording} className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.04] px-3 py-2 text-[9px] text-emerald-100/65">Use {latencyCalibration.roundtrip_latency_ms.toFixed(1)} ms offset</button> : null}</div>
+            {latencyCalibration ? <div className="mt-2 text-[8px] leading-4 text-white/30">{latencyCalibration.status} · {latencyCalibration.path_type} · {Number.isFinite(latencyCalibration.roundtrip_latency_ms) ? `${latencyCalibration.roundtrip_latency_ms.toFixed(2)} ms` : "no reliable return detected"} · confidence {Number.isFinite(latencyCalibration.confidence) ? latencyCalibration.confidence.toFixed(2) : "—"} · repeatability {latencyCalibration.repeatability_passed ? "PASS" : "NOT VERIFIED"}{latencyCalibration.path_type === "ACOUSTIC_PATH" ? " · acoustic result is never eligible as exact interface compensation" : ""}{calibrationReuse?.reuse_allowed === false ? ` · stored calibration not reusable: ${(calibrationReuse.reasons || []).join(", ") || "scope mismatch"}` : ""}</div> : null}
+          </div>
           <div className="col-span-2 rounded-xl border border-white/8 bg-black/20 p-3">
             <div className="flex items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-[10px] text-white/48"><input type="checkbox" checked={monitorEnabled} onChange={(event) => setMonitorEnabled(event.target.checked)} className="accent-[#d6a66a]" /> Software input monitor</label>
@@ -377,6 +556,8 @@ export default function MusicWorkstationOverdubPanel({
 
         {!loopEnabled && punchEnabled ? <div className="mt-3 grid grid-cols-2 gap-3"><input type="number" step="0.1" value={punchStart} onChange={(event) => setPunchStart(Math.max(0, finite(event.target.value, 0)))} disabled={recording} className="rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" /><input type="number" step="0.1" value={punchEnd} onChange={(event) => setPunchEnd(Math.max(punchStart + 0.1, finite(event.target.value, punchStart + 1)))} disabled={recording} className="rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" /></div> : null}
 
+        <div className="mt-4 rounded-xl border border-white/7 bg-black/20 p-3"><div className="flex items-center justify-between gap-3"><div><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Recording preflight</div><div className={`mt-1 text-[10px] ${recordingPreflight?.status === "READY" ? "text-emerald-100/60" : recordingPreflight?.status === "NOT_READY" ? "text-red-100/65" : "text-amber-100/55"}`}>{recordingPreflight ? recordingPreflight.status : "Not run"}</div></div><button type="button" onClick={runRecordingPreflight} disabled={recording || preflightBusy} className="rounded-lg border border-[#d6a66a]/18 bg-[#d6a66a]/[0.05] px-3 py-2 text-[9px] text-[#efd29f]/70 disabled:opacity-30">{preflightBusy ? preflightPhase === "ROOM_TONE" ? "Room tone…" : preflightPhase === "PERFORMANCE_LEVEL" ? "Perform…" : "Checking…" : "Run 4s preflight"}</button></div>{recordingPreflight ? <div className="mt-2 text-[8px] leading-4 text-white/26">Peak {Number.isFinite(recordingPreflight.measurements?.peak_dbfs) ? `${recordingPreflight.measurements.peak_dbfs.toFixed(1)} dBFS` : "—"} · floor {Number.isFinite(recordingPreflight.measurements?.background_floor_estimate_dbfs) ? `${recordingPreflight.measurements.background_floor_estimate_dbfs.toFixed(1)} dBFS` : "—"} · phase {Number.isFinite(recordingPreflight.measurements?.stereo_correlation) ? recordingPreflight.measurements.stereo_correlation.toFixed(2) : "—"}{recordingPreflight.blockers?.length || recordingPreflight.reviews?.length ? ` · ${[...(recordingPreflight.blockers || []), ...(recordingPreflight.reviews || [])].join(" · ")}` : ""}</div> : <div className="mt-2 text-[8px] text-white/18">Room tone first, then perform at real level. Diagnostic PCM is discarded; no project asset or provider job is created.</div>}</div>
+
         <div className="mt-4 rounded-xl border border-white/7 bg-black/25 p-3">
           <div className="flex items-center justify-between text-[9px] text-white/30"><span>PEAK {formatDb(meter.peak_dbfs)}</span><span>RMS {formatDb(meter.rms_dbfs)}</span></div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full bg-current text-red-200/65 transition-all" style={{ width: `${Math.max(0, Math.min(100, ((finite(meter.peak_dbfs, -60) + 60) / 60) * 100))}%` }} /></div>
@@ -385,7 +566,7 @@ export default function MusicWorkstationOverdubPanel({
 
         {error ? <div className="mt-3 text-[10px] text-red-100/70">{error}</div> : null}
         <div className="mt-4 flex gap-2">
-          {!recording ? <button type="button" disabled={!armed || !selectedTrack} onClick={begin} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/25 bg-red-400/[0.09] px-3 py-2.5 text-xs font-medium text-red-100 disabled:opacity-25"><Radio className="h-4 w-4" /> Record / Overdub</button> : <button type="button" onClick={stopOpenEnded} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/30 bg-red-400/[0.12] px-3 py-2.5 text-xs font-medium text-red-100"><CircleStop className="h-4 w-4" /> Stop & save</button>}
+          {!recording ? <button type="button" disabled={!armed || !selectedTrack || preflightBusy} onClick={begin} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/25 bg-red-400/[0.09] px-3 py-2.5 text-xs font-medium text-red-100 disabled:opacity-25"><Radio className="h-4 w-4" /> Record / Overdub</button> : <button type="button" onClick={stopOpenEnded} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/30 bg-red-400/[0.12] px-3 py-2.5 text-xs font-medium text-red-100"><CircleStop className="h-4 w-4" /> Stop & save</button>}
         </div>
         <div className="mt-3 flex items-start gap-2 text-[9px] leading-4 text-white/25"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-100/40" />Project revision is persisted before capture. Each pass is a new immutable WAV/take; browser AGC, echo cancellation and noise suppression stay disabled.</div>
         <div className="mt-2 flex items-center gap-2 text-[9px] text-white/20"><Headphones className="h-3.5 w-3.5" />Backing project playback follows the recording range. Software input monitoring is explicit and off by default; original recordings are never overwritten.</div>

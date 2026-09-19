@@ -51,5 +51,6 @@ test("provider metadata and Stems UI expose the honest research boundary", () =>
   assert.match(panel, /Standard stems/);
   assert.match(panel, /Vocal roles/);
   assert.match(panel, /no ordinary Demucs fallback/);
-  assert.match(panel, /Research \/ benchmark required/);
+  assert.match(panel, /owned research runtime ready/);
+  assert.match(panel, /certification \+ model-license review required/);
 });

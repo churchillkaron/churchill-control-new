@@ -131,12 +131,20 @@ async function registerRender(body) {
   if (JSON.stringify(submittedAssetIds) !== JSON.stringify(expectedAssetIds)) {
     throw new Error("CREATIVE_MUSIC_COMP_RENDER_ASSET_LINEAGE_MISMATCH");
   }
+  const expectedRenderBasis = musicCompRenderBasis(track.comp);
+  const submittedRenderBasis = body.render_basis && typeof body.render_basis === "object" ? body.render_basis : null;
+  if (!submittedRenderBasis || JSON.stringify(submittedRenderBasis) !== JSON.stringify(expectedRenderBasis)) {
+    throw new Error("CREATIVE_MUSIC_COMP_RENDER_BASIS_MISMATCH");
+  }
 
   const fileName = safeWavName(body.file_name);
   const durationSeconds = finite(body.duration_seconds, null);
   const sampleRate = finite(body.sample_rate, null);
   const channels = finite(body.channels, null);
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) throw new Error("CREATIVE_MUSIC_COMP_RENDER_DURATION_REQUIRED");
+  if (Math.abs(durationSeconds - expectedRenderBasis.duration_seconds) > Math.max(0.001, 2 / Math.max(8000, finite(sampleRate, 48000)))) {
+    throw new Error("CREATIVE_MUSIC_COMP_RENDER_DURATION_MISMATCH");
+  }
 
   const asset = await CreativeAssetsRuntime.create({
     organization_id: organizationId,
@@ -164,6 +172,7 @@ async function registerRender(body) {
       channel_strip_applied: false,
       source_take_ids: expectedTakeIds,
       source_asset_ids: expectedAssetIds,
+      render_basis: expectedRenderBasis,
       source_takes_preserved: true,
       destructive_edit: false,
       derived_asset: true,
@@ -202,6 +211,7 @@ async function registerRender(body) {
     dry_comp_render: true,
     channel_strip_applied: false,
     source_takes_preserved: true,
+    render_basis_verified: true,
     provider_job_submitted: false,
     endpoint_mutation_performed: false,
   };

@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 import { resolveCreativeProviderAssetUrl } from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 import { CreativeMusicAutoStudioRuntime } from "@/lib/creative/music/runtime/CreativeMusicAutoStudioRuntime";
+import { verifyRecordedTakeUpload } from "@/lib/creative/music/runtime/CreativeMusicRecordedTakeVerificationRuntime";
 import { executeMusicAutoStudioLocal } from "@/lib/creative/music/runtime/CreativeMusicAutoStudioExecutionRuntime";
 import {
   createMusicClip,
@@ -40,6 +41,18 @@ function text(value) {
 function finite(value, fallback = null) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+const RETAKE_CAPTURE_WARNINGS = new Set(["CLIPPING", "NON_FINITE_PCM", "CAPTURE_SILENT", "CAPTURE_DISCONTINUITY"]);
+function recordedTakePromotionDecision(body = {}) {
+  const qc = body.capture_qc && typeof body.capture_qc === "object" ? body.capture_qc : {};
+  const warnings = Array.isArray(qc.warnings) ? qc.warnings.map(text).filter(Boolean) : [];
+  const reasons = [];
+  if (text(body.recording_qc_status).toUpperCase() === "RETAKE_REQUIRED") reasons.push("RETAKE_REQUIRED");
+  if (body.clipping_detected === true || warnings.includes("CLIPPING")) reasons.push("CLIPPING");
+  for (const code of warnings) if (RETAKE_CAPTURE_WARNINGS.has(code) && !reasons.includes(code)) reasons.push(code);
+  if (body.capture_continuity_verified === false && (finite(body.chunk_gap_count,0) > 0 || finite(body.frame_discontinuity_count,0) > 0)) reasons.push("CAPTURE_DISCONTINUITY");
+  return { promotion_allowed: reasons.length === 0, quarantine_reasons: [...new Set(reasons)] };
 }
 
 async function requireAccess(request, organizationId) {
@@ -132,6 +145,11 @@ async function appendRecordedTakeToMultitrack({
     time_signature: project.metadata?.music_time_signature || "4/4",
     sample_rate: finite(body.sample_rate, 48000),
   });
+  const currentRevision = Math.max(0, Math.round(finite(current.revision, 0)));
+  if (body.expected_revision !== undefined && body.expected_revision !== null) {
+    const expectedRevision = Math.max(0, Math.round(finite(body.expected_revision, -1)));
+    if (expectedRevision !== currentRevision) { const error = new Error(`CREATIVE_MUSIC_MULTITRACK_REVISION_CONFLICT:expected=${expectedRevision}:current=${currentRevision}`); error.status = 409; throw error; }
+  }
   const next = structuredClone(current);
   const requestedTrackId = text(body.multitrack_track_id);
   let track = requestedTrackId
@@ -150,26 +168,31 @@ async function appendRecordedTakeToMultitrack({
     0,
     finite(body.timeline_start_seconds, finite(next.timeline?.playhead_seconds, 0)),
   );
+  const sourceOffsetSeconds = Math.max(0, finite(body.timeline_source_offset_seconds, 0));
+  const playableDurationSeconds = Math.max(0.001, durationSeconds - sourceOffsetSeconds);
+  if (sourceOffsetSeconds >= durationSeconds) throw new Error("CREATIVE_MUSIC_RECORDED_TAKE_COMPENSATION_EXCEEDS_DURATION");
   const take = createMusicTake({
     source_asset_id: asset.id,
     recorded_at: asset.created_at || new Date().toISOString(),
     start_seconds: startSeconds,
-    duration_seconds: durationSeconds,
+    duration_seconds: playableDurationSeconds,
+    source_offset_seconds: sourceOffsetSeconds,
+    source_duration_seconds: durationSeconds,
     selected_for_comp: track.takes.length === 0,
   });
   const clip = createMusicClip({
     source_asset_id: asset.id,
     source_version: 0,
     start_seconds: startSeconds,
-    duration_seconds: durationSeconds,
-    source_offset_seconds: 0,
+    duration_seconds: playableDurationSeconds,
+    source_offset_seconds: sourceOffsetSeconds,
     gain_db: 0,
     fade_in_seconds: 0,
     fade_out_seconds: 0,
   });
   track.takes.push(take);
   track.clips.push(clip);
-  next.revision = Math.max(0, Math.round(finite(current.revision, 0))) + 1;
+  next.revision = currentRevision + 1;
   next.timeline = {
     ...(next.timeline || {}),
     playhead_seconds: startSeconds + durationSeconds,
@@ -192,10 +215,35 @@ async function appendRecordedTakeToMultitrack({
     take_id: take.id,
     clip_id: clip.id,
     start_seconds: startSeconds,
-    duration_seconds: durationSeconds,
+    source_offset_seconds: sourceOffsetSeconds,
+    duration_seconds: playableDurationSeconds,
+    original_take_duration_seconds: durationSeconds,
     immutable_source_asset_id: asset.id,
     destructive_edit: false,
   };
+}
+
+async function promoteQuarantinedRecordedTake(body) {
+  const organizationId = text(body.organization_id), projectId = text(body.creative_project_id), assetId = text(body.asset_id);
+  if (!projectId) throw new Error("creative_project_id required");
+  if (!assetId) throw new Error("asset_id required");
+  if (body.acknowledge_quarantine_reasons !== true) throw new Error("CREATIVE_MUSIC_QUARANTINED_TAKE_ACKNOWLEDGEMENT_REQUIRED");
+  const asset = await CreativeAssetsRuntime.get(assetId);
+  if (!asset || text(asset.organization_id) !== organizationId || text(asset.creative_project_id) !== projectId) { const error = new Error("CREATIVE_MUSIC_QUARANTINED_TAKE_NOT_FOUND"); error.status = 404; throw error; }
+  const metadata = asset.metadata || {};
+  if (text(metadata.music_asset_kind) !== "RECORDED_TAKE" || metadata.immutable_original_take !== true) throw new Error("CREATIVE_MUSIC_QUARANTINED_TAKE_ASSET_INVALID");
+  if (metadata.server_media_verified !== true) throw new Error("CREATIVE_MUSIC_QUARANTINED_TAKE_SERVER_VERIFICATION_REQUIRED");
+  if (metadata.quarantined_from_active_multitrack !== true || metadata.multitrack_promotion_allowed === true) throw new Error("CREATIVE_MUSIC_QUARANTINED_TAKE_NOT_QUARANTINED");
+  const project = await CreativeProjectRepository.getById(projectId);
+  if (!project || text(project.organization_id) !== organizationId) { const error = new Error("CREATIVE_MUSIC_RECORDING_PROJECT_NOT_FOUND"); error.status = 404; throw error; }
+  const current = project.metadata?.[MULTITRACK_METADATA_KEY] || createMusicMultitrackProject({ id:`music-multitrack-${project.id}`, title:project.name||project.title||"Music Project", bpm:project.metadata?.music_bpm||96, time_signature:project.metadata?.music_time_signature||"4/4", sample_rate:finite(metadata.sample_rate,48000) });
+  const alreadyLinked = (current.tracks||[]).some(track => [...(track.takes||[]),...(track.clips||[])].some(item => text(item.source_asset_id) === assetId));
+  if (alreadyLinked) throw new Error("CREATIVE_MUSIC_QUARANTINED_TAKE_ALREADY_PROMOTED");
+  const quarantineReasons = Array.isArray(metadata.multitrack_quarantine_reasons) ? metadata.multitrack_quarantine_reasons.map(text).filter(Boolean) : [];
+  const multitrack = await appendRecordedTakeToMultitrack({ organizationId, projectId, asset, title:text(asset.title||asset.name||asset.file_name), trackRole:text(metadata.recording_track_role||"other"), durationSeconds:finite(metadata.duration_seconds,null), body:{ ...body, sample_rate:metadata.sample_rate, expected_revision:body.expected_revision } });
+  const promotedAt = new Date().toISOString();
+  await CreativeAssetsRuntime.update(asset.id, { metadata:{ ...metadata, multitrack_promotion_allowed:true, quarantined_from_active_multitrack:false, quarantine_override_applied:true, quarantine_override_acknowledged:true, quarantine_override_reasons:quarantineReasons, quarantine_override_note:text(body.override_note)||null, quarantine_promoted_at:promotedAt, quarantine_promoted_revision:multitrack.revision } });
+  return { success:true, contract:"AVANTIQO_MUSIC_QUARANTINED_TAKE_PROMOTION_V1", asset_id:asset.id, added_to_multitrack:true, quarantine_override_applied:true, quarantine_reasons_acknowledged:quarantineReasons, promoted_revision:multitrack.revision, multitrack, mutation_performed:true };
 }
 
 async function registerRecordedTake(body) {
@@ -216,6 +264,13 @@ async function registerRecordedTake(body) {
   const trackRole = text(body.track_role || "other").toLowerCase();
   const allowedRoles = new Set(["vocal", "guitar", "bass", "keys", "drums", "instrument", "room", "other"]);
   if (!allowedRoles.has(trackRole)) throw new Error("CREATIVE_MUSIC_RECORDING_TRACK_ROLE_INVALID");
+  const serverVerification = await verifyRecordedTakeUpload({
+    organization_id: organizationId,
+    storage_reference: storageReference,
+    file_name: fileName,
+    declared: { duration_seconds: durationSeconds, sample_rate: sampleRate, channels },
+  });
+  const promotion = recordedTakePromotionDecision(body);
 
   const asset = await CreativeAssetsRuntime.create({
     organization_id: organizationId,
@@ -237,31 +292,72 @@ async function registerRecordedTake(body) {
       immutable_original_take: true,
       destructive_processing_during_capture: false,
       browser_processing_disabled: body.browser_processing_disabled === true,
+      browser_processing_verification: text(body.browser_processing_verification) || "UNVERIFIED",
+      requested_browser_processing_disabled: body.requested_browser_processing_disabled === true,
       recording_track_role: trackRole,
-      duration_seconds: durationSeconds,
-      sample_rate: sampleRate,
-      channels,
-      bit_depth: 24,
+      duration_seconds: serverVerification.duration_seconds,
+      sample_rate: serverVerification.sample_rate,
+      channels: serverVerification.channels,
+      bit_depth: serverVerification.bit_depth,
+      server_media_verification: serverVerification,
+      server_media_verified: serverVerification.verified === true,
+      server_media_checksum_sha256: serverVerification.checksum_sha256 || null,
+      wav_container_bit_depth: Math.round(finite(body.wav_container_bit_depth,24)),
+      capture_sample_size_bits: finite(body.capture_sample_size_bits,null),
+      native_capture_precision_verified: body.native_capture_precision_verified === true,
+      effective_capture_precision_known: body.effective_capture_precision_known === true,
+      device_sample_rate: finite(body.device_sample_rate,null),
+      device_channel_count: finite(body.device_channel_count,null),
+      recorder_channel_count_requested: finite(body.recorder_channel_count_requested,null),
+      recorded_channel_count: finite(body.recorded_channel_count,channels),
+      channel_topology_source: text(body.channel_topology_source) || "UNVERIFIED",
+      channel_topology_verified: body.channel_topology_verified === true,
+      audio_context_sample_rate: finite(body.audio_context_sample_rate,null),
+      sample_rate_conversion_detected: body.sample_rate_conversion_detected === true,
+      native_sample_rate_path_verified: body.native_sample_rate_path_verified === true,
+      sample_rate_path_verification: text(body.sample_rate_path_verification) || "UNVERIFIED",
       peak_dbfs: peakDbfs,
       rms_dbfs: rmsDbfs,
       clipping_detected: body.clipping_detected === true,
       recording_qc_status: text(body.recording_qc_status) || null,
+      capture_qc: body.capture_qc && typeof body.capture_qc === "object" ? body.capture_qc : null,
+      headroom_db: finite(body.headroom_db,null),
+      crest_factor_db: finite(body.crest_factor_db,null),
+      dc_offset: finite(body.dc_offset,null),
+      background_floor_estimate_dbfs: finite(body.background_floor_estimate_dbfs,null),
+      channel_imbalance_db: finite(body.channel_imbalance_db,null),
+      stereo_correlation: finite(body.stereo_correlation,null),
+      mono_fold_down_loss_db: finite(body.mono_fold_down_loss_db,null),
+      stereo_phase_risk: body.stereo_phase_risk === true,
+      mono_collapse_risk: body.mono_collapse_risk === true,
+      chunk_gap_count: Math.max(0,Math.round(finite(body.chunk_gap_count,0))),
+      frame_discontinuity_count: Math.max(0,Math.round(finite(body.frame_discontinuity_count,0))),
+      capture_continuity_verified: body.capture_continuity_verified === true,
+      capture_timing: body.capture_timing && typeof body.capture_timing === "object" ? body.capture_timing : null,
+      capture_clock_drift_ms: finite(body.capture_clock_drift_ms,null),
+      overdub_timing: body.overdub_timing && typeof body.overdub_timing === "object" ? body.overdub_timing : null,
+      browser_audio_clock_alignment_ms: finite(body.browser_audio_clock_alignment_ms,null),
       source_rights_confirmed: body.source_rights_confirmed === true,
       source_is_user_recording: true,
       source_version: 0,
+      multitrack_promotion_allowed: promotion.promotion_allowed,
+      multitrack_quarantine_reasons: promotion.quarantine_reasons,
+      quarantined_from_active_multitrack: promotion.promotion_allowed !== true,
     },
-    tags: ["music", "recording", "original-take", trackRole],
+    tags: ["music", "recording", "original-take", trackRole, ...(promotion.promotion_allowed ? [] : ["quarantined-retake"])],
   });
 
-  const multitrack = await appendRecordedTakeToMultitrack({
+  const multitrack = promotion.promotion_allowed ? await appendRecordedTakeToMultitrack({
     organizationId,
     projectId,
     asset,
     title: text(body.title || fileName),
     trackRole,
-    durationSeconds,
+    durationSeconds: serverVerification.duration_seconds,
     body,
-  });
+  }) : null;
+  const revisionProject = multitrack ? null : await CreativeProjectRepository.getById(projectId);
+  const currentMultitrackRevision = multitrack?.revision ?? Math.max(0,Math.round(finite(revisionProject?.metadata?.[MULTITRACK_METADATA_KEY]?.revision,0)));
 
   return {
     success: true,
@@ -275,7 +371,10 @@ async function registerRecordedTake(body) {
     },
     multitrack,
     original_take_preserved: true,
-    added_to_multitrack: true,
+    added_to_multitrack: Boolean(multitrack),
+    quarantined_from_active_multitrack: promotion.promotion_allowed !== true,
+    quarantine_reasons: promotion.quarantine_reasons,
+    current_multitrack_revision: currentMultitrackRevision,
     provider_job_submitted: false,
     endpoint_mutation_performed: false,
   };
@@ -335,6 +434,70 @@ async function executeLocal(body) {
   return exposePrivateOutput(text(body.organization_id), result);
 }
 
+async function startProfessionalRelease(body) {
+  const organizationId = text(body.organization_id);
+  const projectId = text(body.creative_project_id);
+  const missionId = text(body.creative_mission_id) || null;
+  const storageReference = text(body.source_media || body.source_audio || body.audio);
+  const durationSeconds = finite(body.duration_seconds, null);
+  if (!projectId) throw new Error("creative_project_id required");
+  if (body.source_rights_confirmed !== true) throw new Error("CREATIVE_MUSIC_PROFESSIONAL_SOURCE_RIGHTS_REQUIRED");
+  if (!storageReference.startsWith(`storage://${MUSIC_BUCKET}/${organizationId}/`)) throw new Error("CREATIVE_MUSIC_PROFESSIONAL_SOURCE_REFERENCE_INVALID");
+  if (!(durationSeconds > 0) || durationSeconds > 900) throw new Error("CREATIVE_MUSIC_PROFESSIONAL_SOURCE_DURATION_INVALID");
+  const project = await CreativeProjectRepository.getById(projectId);
+  if (!project || text(project.organization_id) !== organizationId) {
+    const error = new Error("CREATIVE_MUSIC_PROFESSIONAL_PROJECT_NOT_FOUND");
+    error.status = 404;
+    throw error;
+  }
+  const existing = await CreativeAssetsRuntime.list({ organization_id: organizationId, creative_project_id: projectId, limit: 1000 });
+  let asset = existing.find((entry) => text(entry.file_url) === storageReference && entry.metadata?.professional_release_requested === true) || null;
+  if (!asset) {
+    const fileName = safeFileName(body.file_name || "professional-source.wav");
+    asset = await CreativeAssetsRuntime.create({
+      organization_id: organizationId,
+      creative_project_id: projectId,
+      creative_mission_id: missionId,
+      asset_type: "AUDIO",
+      file_url: storageReference,
+      file_name: fileName,
+      name: text(body.title || fileName),
+      title: text(body.title || fileName),
+      description: "Preserved source for Avantiqo Professional Release.",
+      ai_generated: false,
+      provider: "avantiqo-music-upload",
+      engine: "AVANTIQO_MUSIC_PROFESSIONAL_SOURCE_V1",
+      metadata: {
+        media_kind: "MUSIC",
+        music_asset_kind: "PROFESSIONAL_SOURCE",
+        creative_project_id: projectId,
+        duration_seconds: durationSeconds,
+        source_rights_confirmed: true,
+        source_rights_attested: true,
+        source_rights_attestation_contract: "AVANTIQO_SOURCE_AUDIO_RIGHTS_ATTESTATION_V1",
+        immutable_source: true,
+        destructive_edit: false,
+        professional_release_requested: true,
+        professional_release_standard: "PROFESSIONAL_RELEASE",
+        instrumental: body.instrumental === true,
+        publication_authorized: false,
+      },
+      tags: ["music", "professional-release", "source"],
+    });
+  }
+  return {
+    success: true,
+    contract: "AVANTIQO_MUSIC_PROFESSIONAL_SOURCE_REGISTRATION_V1",
+    professional_release_started: true,
+    source_asset_id: asset.id,
+    source_title: asset.title || asset.name || asset.file_name || "Professional source",
+    duration_seconds: durationSeconds,
+    next_stage: "STEM_SEPARATION",
+    publication_authorized: false,
+    idempotent_existing_source: existing.some((entry) => entry.id === asset.id),
+  };
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -348,11 +511,15 @@ export async function POST(request) {
       ? await prepareSourceUpload(body)
       : action === "register_recorded_take"
         ? await registerRecordedTake(body)
+        : action === "promote_quarantined_take"
+          ? await promoteQuarantinedRecordedTake(body)
         : action === "plan"
           ? buildPlan(body)
           : action === "execute_local"
             ? await executeLocal(body)
-            : null;
+            : action === "start_professional_release"
+              ? await startProfessionalRelease(body)
+              : null;
     if (!result) {
       return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_AUTO_STUDIO_ACTION_INVALID" }, { status: 400 });
     }

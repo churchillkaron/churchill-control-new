@@ -11,6 +11,7 @@ import MusicAutomationPanel from "./MusicAutomationPanel";
 import MusicEngineeringInsertsPanel from "./MusicEngineeringInsertsPanel";
 import MusicGroupBusPanel from "./MusicGroupBusPanel";
 import MusicLiveEngineeringMeters from "./MusicLiveEngineeringMeters";
+import MusicParametricEqPanel from "./MusicParametricEqPanel";
 import MusicSourceCleanupPanel from "./MusicSourceCleanupPanel";
 
 function finite(value, fallback = 0) {
@@ -40,8 +41,10 @@ export default function MusicMixerSendsPanel({ session, track, playhead = 0, dis
   const currentTrack = normalized.tracks.find((entry) => entry.id === track.id) || track;
   const reverbBus = normalized.buses.find((bus) => bus.id === "bus-reverb");
   const delayBus = normalized.buses.find((bus) => bus.id === "bus-delay");
+  const parallelBus = normalized.buses.find((bus) => bus.id === "bus-vocal-parallel");
   const reverbSend = currentTrack.sends?.find((send) => send.bus_id === "bus-reverb") || null;
   const delaySend = currentTrack.sends?.find((send) => send.bus_id === "bus-delay") || null;
+  const parallelSend = currentTrack.sends?.find((send) => send.bus_id === "bus-vocal-parallel") || null;
   const compressor = currentTrack.channel_strip?.compressor || {};
   const bpm = Math.max(30, Math.min(300, finite(session.bpm, 96)));
 
@@ -76,6 +79,12 @@ export default function MusicMixerSendsPanel({ session, track, playhead = 0, dis
     commit((next) => {
       const bus = next.buses.find((entry) => entry.id === busId);
       if (bus) mutator(bus);
+    });
+  }
+
+  function updateAuxSpatial(busId, values = {}) {
+    updateBus(busId, (bus) => {
+      bus.spatial = { ...(bus.spatial || { contract: "AVANTIQO_MUSIC_SPATIAL_TRACK_V1", mode: "BED", azimuth_degrees: 0, elevation_degrees: 0, width_percent: 100, divergence_percent: 50, center_send_db: -120, lfe_send_db: -120, surround_send_db: -120, automation_lane_ids: [], destructive_processing_allowed: false }), ...values };
     });
   }
 
@@ -130,6 +139,12 @@ export default function MusicMixerSendsPanel({ session, track, playhead = 0, dis
         onChange={replaceTrack}
       />
 
+      <MusicParametricEqPanel
+        track={currentTrack}
+        disabled={disabled}
+        onChange={replaceTrack}
+      />
+
       <MusicEngineeringInsertsPanel
         track={currentTrack}
         disabled={disabled}
@@ -171,6 +186,7 @@ export default function MusicMixerSendsPanel({ session, track, playhead = 0, dis
             <Field label="Damping"><input type="number" min="1000" max="20000" step="100" disabled={disabled} value={finite(reverbBus?.parameters?.damping_hz, 8500)} onChange={(event) => updateBus("bus-reverb", (bus) => { bus.parameters.damping_hz = Math.max(1000, Math.min(20000, finite(event.target.value, 8500))); })} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/50 disabled:opacity-25" /></Field>
             <Field label="Return"><input type="range" min="-60" max="6" step="0.5" disabled={disabled} value={finite(reverbBus?.parameters?.wet_db, -3)} onChange={(event) => updateBus("bus-reverb", (bus) => { bus.parameters.wet_db = Number(event.target.value); })} className="w-full accent-[#d6a66a] disabled:opacity-25" /></Field>
           </div>
+          {session.spatial_audio?.surround_enabled === true ? <div className="mt-3 grid grid-cols-3 gap-2 border-t border-white/6 pt-3"><Field label="Return spatial"><select disabled={disabled} value={reverbBus?.spatial?.mode || "BED"} onChange={e=>updateAuxSpatial("bus-reverb",{mode:e.target.value})} className="w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-[9px] text-white/50"><option value="BED">Front bed</option><option value="POINT">Point</option><option value="WIDE">Wide</option></select></Field><Field label="Azimuth"><input disabled={disabled} type="number" min="-180" max="180" value={finite(reverbBus?.spatial?.azimuth_degrees,0)} onChange={e=>updateAuxSpatial("bus-reverb",{azimuth_degrees:Number(e.target.value)})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/50"/></Field><Field label="Surround send"><input disabled={disabled || reverbBus?.spatial?.mode !== "BED"} type="number" min="-120" max="12" value={finite(reverbBus?.spatial?.surround_send_db,-120)} onChange={e=>updateAuxSpatial("bus-reverb",{surround_send_db:Number(e.target.value)})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/50 disabled:opacity-25"/></Field></div> : null}
         </div>
 
         <div className="mt-3 rounded-xl border border-white/7 bg-black/15 p-3">
@@ -187,7 +203,10 @@ export default function MusicMixerSendsPanel({ session, track, playhead = 0, dis
             <Field label="High cut"><input type="number" min="1000" max="20000" step="100" disabled={disabled} value={finite(delayBus?.parameters?.high_cut_hz, 7000)} onChange={(event) => updateBus("bus-delay", (bus) => { bus.parameters.high_cut_hz = Math.max(1000, Math.min(20000, finite(event.target.value, 7000))); })} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/50 disabled:opacity-25" /></Field>
             <Field label="Low cut"><input type="number" min="20" max="1000" step="10" disabled={disabled} value={finite(delayBus?.parameters?.low_cut_hz, 180)} onChange={(event) => updateBus("bus-delay", (bus) => { bus.parameters.low_cut_hz = Math.max(20, Math.min(1000, finite(event.target.value, 180))); })} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/50 disabled:opacity-25" /></Field>
           </div>
+          {session.spatial_audio?.surround_enabled === true ? <div className="mt-3 grid grid-cols-3 gap-2 border-t border-white/6 pt-3"><Field label="Return spatial"><select disabled={disabled} value={delayBus?.spatial?.mode || "BED"} onChange={e=>updateAuxSpatial("bus-delay",{mode:e.target.value})} className="w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-[9px] text-white/50"><option value="BED">Front bed</option><option value="POINT">Point</option><option value="WIDE">Wide</option></select></Field><Field label="Azimuth"><input disabled={disabled} type="number" min="-180" max="180" value={finite(delayBus?.spatial?.azimuth_degrees,0)} onChange={e=>updateAuxSpatial("bus-delay",{azimuth_degrees:Number(e.target.value)})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/50"/></Field><Field label="Surround send"><input disabled={disabled || delayBus?.spatial?.mode !== "BED"} type="number" min="-120" max="12" value={finite(delayBus?.spatial?.surround_send_db,-120)} onChange={e=>updateAuxSpatial("bus-delay",{surround_send_db:Number(e.target.value)})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/50 disabled:opacity-25"/></Field></div> : null}
         </div>
+
+        {currentTrack.type === "vocal" && parallelBus ? <div className="mt-3 rounded-xl border border-[#d6a66a]/12 bg-[#d6a66a]/[0.025] p-3"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 text-[10px] font-medium text-[#efd29f]/60"><Gauge className="h-3.5 w-3.5" /> Vocal Parallel Compression</div><label className="flex items-center gap-2 text-[8px] text-white/30"><input type="checkbox" disabled={disabled} checked={parallelSend?.enabled === true} onChange={(event) => updateSend("bus-vocal-parallel", { enabled: event.target.checked })} className="accent-[#d6a66a]" /> Send</label></div><div className="mt-3 grid grid-cols-2 gap-3"><Field label="Send level"><input type="range" min="-60" max="6" step="0.5" disabled={disabled} value={finite(parallelSend?.level_db,-18)} onChange={(event)=>updateSend("bus-vocal-parallel",{level_db:Number(event.target.value),enabled:true})} className="w-full accent-[#d6a66a] disabled:opacity-25"/><div className="text-right text-[8px] text-white/25">{finite(parallelSend?.level_db,-18).toFixed(1)} dB</div></Field><Field label="Threshold dB"><input type="number" min="-60" max="0" step="0.5" disabled={disabled} value={finite(parallelBus.parameters?.threshold_db,-30)} onChange={e=>updateBus("bus-vocal-parallel",bus=>{bus.parameters.threshold_db=clamp(e.target.value,-60,0,-30);})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/50"/></Field><Field label="Ratio"><input type="number" min="1" max="20" step="0.1" disabled={disabled} value={finite(parallelBus.parameters?.ratio,8)} onChange={e=>updateBus("bus-vocal-parallel",bus=>{bus.parameters.ratio=clamp(e.target.value,1,20,8);})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/50"/></Field><Field label="Attack ms"><input type="number" min="0.1" max="200" step="0.1" disabled={disabled} value={finite(parallelBus.parameters?.attack_ms,3)} onChange={e=>updateBus("bus-vocal-parallel",bus=>{bus.parameters.attack_ms=clamp(e.target.value,.1,200,3);})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/50"/></Field><Field label="Release ms"><input type="number" min="10" max="2000" step="1" disabled={disabled} value={finite(parallelBus.parameters?.release_ms,120)} onChange={e=>updateBus("bus-vocal-parallel",bus=>{bus.parameters.release_ms=clamp(e.target.value,10,2000,120);})} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[9px] text-white/50"/></Field><Field label="Return dB"><input type="range" min="-60" max="6" step="0.5" disabled={disabled} value={finite(parallelBus.parameters?.wet_db,-10)} onChange={e=>updateBus("bus-vocal-parallel",bus=>{bus.parameters.wet_db=clamp(e.target.value,-60,6,-10);})} className="w-full accent-[#d6a66a]"/><div className="text-right text-[8px] text-white/25">{finite(parallelBus.parameters?.wet_db,-10).toFixed(1)} dB</div></Field></div><div className="mt-2 text-[7px] leading-3 text-white/18">Shared crushed vocal return blended underneath the dry/role-bus signal. The dry vocal remains untouched and role-specific starting levels remain editable.</div></div>:null}
 
         <div className="mt-3 text-[8px] leading-4 text-white/18">Shared aux returns preserve mix cohesion and CPU. Group buses, automation, source cleanup, inserts, compressor and sends remain editable project data; nothing is printed into the original take or dry comp asset.</div>
       </div>

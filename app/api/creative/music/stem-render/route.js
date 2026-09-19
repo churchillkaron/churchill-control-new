@@ -7,6 +7,10 @@ import { NextResponse } from "next/server";
 import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 import * as CreativeProjectRepository from "@/lib/creative/projects/repositories/CreativeProjectRepository";
 import { buildMusicReleaseRenderPlan } from "@/lib/creative/music/runtime/CreativeMusicReleaseRenderPlanRuntime";
+import { musicTrackEvidenceInputFingerprint } from "@/lib/creative/music/runtime/CreativeMusicEvidenceLineageRuntime";
+import { professionalAudioStemDefinition, tracksForProfessionalAudioStem } from "@/lib/creative/music/runtime/CreativeProfessionalAudioEngineRuntime";
+import { filterTrackForAudioPostLanguage, isLanguageScopedPostStem, languageVersionAssetMetadata, normalizeAudioPostLanguage } from "@/lib/creative/music/runtime/CreativeAudioPostVersionRuntime";
+import { verifyMusicBwfDelivery } from "@/lib/creative/music/runtime/CreativeMusicBwfVerificationRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
@@ -14,7 +18,7 @@ const EXECUTION_PERMISSIONS = Object.freeze(["creative.execute", "creative.produ
 const MUSIC_BUCKET = "creative-assets";
 const MULTITRACK_METADATA_KEY = "music_multitrack_project";
 const MAX_STEM_BYTES = 2_147_483_648;
-const KINDS = new Set(["TRACK_STEM", "GROUP_STEM", "INSTRUMENTAL", "ACAPELLA"]);
+const KINDS = new Set(["TRACK_STEM", "TRACK_EVIDENCE", "GROUP_STEM", "INSTRUMENTAL", "ACAPELLA", "POST_STEM"]);
 
 function text(value) { return String(value ?? "").trim(); }
 function finite(value, fallback = null) { const number = Number(value); return Number.isFinite(number) ? number : fallback; }
@@ -77,11 +81,11 @@ function outputPathToGroup(groupId, groupsById, targetId) {
   return false;
 }
 
-function expectedStem(plan, kindInput, targetIdInput) {
+function expectedStem(plan, kindInput, targetIdInput, languageInput = null) {
   const kind = text(kindInput).toUpperCase();
   const targetId = text(targetIdInput);
   if (!KINDS.has(kind)) throw new Error(`CREATIVE_MUSIC_STEM_KIND_INVALID:${kind}`);
-  if (kind === "TRACK_STEM") {
+  if (kind === "TRACK_STEM" || kind === "TRACK_EVIDENCE") {
     const track = plan.tracks.find((entry) => entry.id === targetId && entry.mute !== true);
     if (!track) throw new Error(`CREATIVE_MUSIC_STEM_TRACK_INVALID:${targetId}`);
     return {
@@ -89,9 +93,23 @@ function expectedStem(plan, kindInput, targetIdInput) {
       target_id: targetId,
       label: track.name || "Track",
       source_asset_ids: sortedUnique(track.clips.map((clip) => clip.source_asset_id)),
-      stage: "post-track-processing-pre-group",
+      stage: kind === "TRACK_EVIDENCE" ? "post-source-cleanup-pre-track-processing" : "post-track-processing-pre-group",
+      track_processing_applied: kind !== "TRACK_EVIDENCE",
+      evidence_input_fingerprint: kind === "TRACK_EVIDENCE" ? musicTrackEvidenceInputFingerprint(track) : null,
       master_processing_applied: false,
       aux_returns_applied: false,
+    };
+  }
+  if (kind === "POST_STEM") {
+    const definition = professionalAudioStemDefinition(targetId);
+    const language = isLanguageScopedPostStem(definition.id) ? normalizeAudioPostLanguage(languageInput) : null;
+    const tracks = tracksForProfessionalAudioStem(plan.tracks, definition.id).map((track) => language ? filterTrackForAudioPostLanguage(track, language) : track).filter((track) => (track.clips || []).length > 0);
+    if (!tracks.length) throw new Error(`CREATIVE_PRO_AUDIO_STEM_EMPTY:${definition.id}${language ? `:${language}` : ""}`);
+    return {
+      kind, target_id: definition.id, label: definition.label, delivery_code: definition.delivery_code, audio_roles: definition.roles, delivery_language: language, language_scoped: Boolean(language), shared_across_language_versions: !language,
+      source_asset_ids: sortedUnique(tracks.flatMap((track) => track.clips.map((clip) => clip.source_asset_id))),
+      stage: "post-master-processing-pre-release-limiter", master_processing_applied: true, aux_returns_applied: true,
+      channels: plan.channels, channel_layout: plan.channel_layout, speaker_order: plan.speaker_order, professional_audio_engine: true,
     };
   }
   if (kind === "GROUP_STEM") {
@@ -132,7 +150,7 @@ async function prepareUpload(body) {
   const revision = assertRevision(session, body.expected_revision);
   const plan = buildMusicReleaseRenderPlan(session, body.options || body);
   if (!plan.readiness.release_render_ready) throw new Error(`CREATIVE_MUSIC_STEM_RENDER_BLOCKED:${plan.readiness.blockers.map((item) => item.code).join(",") || "NOT_READY"}`);
-  const stem = expectedStem(plan, body.render_kind, body.target_id);
+  const stem = expectedStem(plan, body.render_kind, body.target_id, body.delivery_language);
   const sizeBytes = finite(body.size_bytes, null);
   if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_STEM_BYTES) throw new Error(`CREATIVE_MUSIC_STEM_SIZE_INVALID:max=${MAX_STEM_BYTES}`);
   const fileName = safeWavName(body.file_name);
@@ -167,7 +185,7 @@ async function registerStem(body) {
   if (!plan.readiness.release_render_ready) throw new Error("CREATIVE_MUSIC_STEM_CURRENT_PROJECT_NOT_READY");
   const planFingerprint = fingerprint(plan);
   if (text(body.render_plan_fingerprint) !== planFingerprint) throw new Error("CREATIVE_MUSIC_STEM_PLAN_FINGERPRINT_MISMATCH");
-  const stem = expectedStem(plan, body.render_kind, body.target_id);
+  const stem = expectedStem(plan, body.render_kind, body.target_id, body.delivery_language);
   const submittedSourceIds = sortedUnique(body.source_asset_ids || []);
   if (JSON.stringify(submittedSourceIds) !== JSON.stringify(stem.source_asset_ids)) throw new Error("CREATIVE_MUSIC_STEM_SOURCE_LINEAGE_MISMATCH");
   const storageReference = text(body.storage_reference);
@@ -175,11 +193,14 @@ async function registerStem(body) {
   const sampleRate = finite(body.sample_rate, null);
   const channels = finite(body.channels, null);
   const duration = finite(body.render_duration_seconds, null);
-  if (Math.round(sampleRate) !== Math.round(plan.sample_rate) || Math.round(channels) !== 2 || !Number.isFinite(duration) || duration <= 0) throw new Error("CREATIVE_MUSIC_STEM_FORMAT_INVALID");
+  const expectedChannels = stem.kind === "POST_STEM" ? Math.round(stem.channels || plan.channels || 2) : 2;
+  if (Math.round(sampleRate) !== Math.round(plan.sample_rate) || Math.round(channels) !== expectedChannels || !Number.isFinite(duration) || duration <= 0) throw new Error("CREATIVE_MUSIC_STEM_FORMAT_INVALID");
   const levels = body.levels || {};
   if (!Number.isFinite(finite(levels.peak_dbfs, null)) || !Number.isFinite(finite(levels.rms_dbfs, null))) throw new Error("CREATIVE_MUSIC_STEM_LEVEL_EVIDENCE_REQUIRED");
   const fileName = safeWavName(body.file_name);
-  const assetKind = stem.kind === "TRACK_STEM" ? "TRACK_STEM_RENDER" : stem.kind === "GROUP_STEM" ? "GROUP_STEM_RENDER" : stem.kind;
+  const bwfVerification = session.picture_lock?.picture_lock_digest ? await verifyMusicBwfDelivery({ organization_id: organizationId, file_url: storageReference, file_name: fileName, expected: { start_timecode: session.picture_lock.start_timecode, frame_rate: session.picture_lock.frame_rate, sample_rate: plan.sample_rate, bit_depth: 24, channels: expectedChannels, require_extensible: expectedChannels > 2 } }) : null;
+  if (bwfVerification && !bwfVerification.passed) throw new Error(`CREATIVE_MUSIC_STEM_BWF_INVALID:${bwfVerification.failures.join(",")}`);
+  const assetKind = stem.kind === "TRACK_EVIDENCE" ? "TRACK_EVIDENCE_RENDER" : stem.kind === "TRACK_STEM" ? "TRACK_STEM_RENDER" : stem.kind === "GROUP_STEM" ? "GROUP_STEM_RENDER" : stem.kind === "POST_STEM" ? "PROFESSIONAL_AUDIO_STEM" : stem.kind;
   const asset = await CreativeAssetsRuntime.create({
     organization_id: organizationId,
     creative_project_id: projectId,
@@ -201,13 +222,27 @@ async function registerStem(body) {
       render_kind: stem.kind,
       target_id: stem.target_id,
       stem_stage: stem.stage,
+      track_processing_applied: stem.track_processing_applied === true,
+      evidence_input_fingerprint: stem.evidence_input_fingerprint || null,
       project_revision: revision,
       render_plan_fingerprint: planFingerprint,
+      delivery_profile_id: plan.delivery_profile?.id || "music_release",
       source_asset_ids: stem.source_asset_ids,
       source_assets_preserved: true,
       sample_rate: sampleRate,
       channels,
+      channel_layout: stem.channel_layout || (channels === 2 ? "stereo" : plan.channel_layout),
+      speaker_order: stem.speaker_order || null,
+      professional_audio_delivery_code: stem.delivery_code || null,
+      professional_audio_roles: stem.audio_roles || null,
+      professional_audio_engine: stem.professional_audio_engine === true,
+      ...languageVersionAssetMetadata(stem.target_id, stem.delivery_language),
       bit_depth: 24,
+      bwf_verification: bwfVerification,
+      bwf_verified: bwfVerification?.passed === true,
+      bext_present: bwfVerification?.bext_present === true,
+      time_reference_samples: bwfVerification?.bext?.time_reference_samples ?? null,
+      start_timecode: session.picture_lock?.start_timecode || null,
       render_duration_seconds: duration,
       peak_dbfs: levels.peak_dbfs,
       rms_dbfs: levels.rms_dbfs,

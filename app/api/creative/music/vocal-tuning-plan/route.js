@@ -123,6 +123,15 @@ export async function POST(request) {
         }),
         updated_at: new Date().toISOString(),
       };
+    } else if (action === "approve_all_proposed") {
+      const plan = clip.vocal_tuning_plan;
+      if (!plan || plan.source_asset_id !== clip.source_asset_id) throw new Error("CREATIVE_MUSIC_VOCAL_TUNING_PLAN_CURRENT_PLAN_REQUIRED");
+      let reviewed = plan;
+      for (const segment of plan.segments || []) {
+        if (Math.abs(finite(segment.proposed_correction_cents, 0)) <= 0.01 || segment.approved === true) continue;
+        reviewed = approveMusicVocalTuningSegment(reviewed, text(segment.id), { approved: true });
+      }
+      nextClip.vocal_tuning_plan = { ...reviewed, bulk_reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     } else {
       return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_VOCAL_TUNING_PLAN_ACTION_INVALID" }, { status: 400 });
     }

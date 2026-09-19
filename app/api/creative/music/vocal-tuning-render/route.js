@@ -249,8 +249,8 @@ async function sourceRightsConfirmed(asset, organizationId, projectId, seen = ne
   if (!asset?.id || seen.has(asset.id) || seen.size >= 8) return false;
   seen.add(asset.id);
   const metadata = object(asset.metadata);
-  if (metadata.source_rights_confirmed === true || metadata.source_is_user_recording === true) return true;
-  const parentId = text(metadata.source_asset_id || metadata.correction_source_asset_id || metadata.original_source_asset_id);
+  if (metadata.source_rights_confirmed === true || metadata.source_rights_attested === true || metadata.source_is_user_recording === true) return true;
+  const parentId = text(metadata.source_asset_id || metadata.correction_source_asset_id || metadata.original_source_asset_id || metadata.professional_vocal_parent_asset_id || metadata.professional_local_stem_source_asset_id);
   if (!parentId) return false;
   try {
     const parent = await sourceAssetInScope(organizationId, projectId, parentId);
@@ -370,6 +370,13 @@ async function persistCompletedAsset({ organizationId, projectId, project, sourc
       approved_event_count: finite(report.pitch?.event_count, null), approved_phrase_move_count: finite(report.approved_timing_plan?.approved_move_count, 0),
       tonality_compensation_applied: report.pitch?.render?.tonality_compensation_applied === true,
       tonality_limit_hz: finite(report.pitch?.render?.tonality_limit_hz ?? report.pitch?.tonality_limit_hz, null),
+      timbre_proxy_contract: text(report.timbre_preservation_proxy?.contract) || null,
+      timbre_proxy_measured: report.timbre_preservation_proxy?.measured === true,
+      timbre_proxy_median_absolute_band_delta_db: finite(report.timbre_preservation_proxy?.median_absolute_band_delta_db, null),
+      timbre_proxy_p95_absolute_band_delta_db: finite(report.timbre_preservation_proxy?.p95_absolute_band_delta_db, null),
+      timbre_proxy_median_spectral_centroid_delta_percent: finite(report.timbre_preservation_proxy?.median_spectral_centroid_delta_percent, null),
+      timbre_proxy_conservative_review_flag: report.timbre_preservation_proxy?.conservative_review_flag === true,
+      timbre_proxy_is_not_formant_proof: report.timbre_preservation_proxy?.review_thresholds_are_qc_proxies_not_formant_proof === true,
       formant_preservation_claimed: false, timing_correction_applied: report.timing?.applied === true,
       timing_review_required: true, human_listening_review_required: true, production_certified: report.readiness?.production_certified === true,
       sample_rate: finite(report.pitch?.render?.sample_rate, 48000), channels: finite(report.pitch?.render?.channels, 1), bit_depth: 24,

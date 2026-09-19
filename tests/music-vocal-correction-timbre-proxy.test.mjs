@@ -1,0 +1,7 @@
+import test from "node:test";import assert from "node:assert/strict";import fs from "node:fs";
+const engine=fs.readFileSync("services/avantiqo-music-vocal-correction-engine/handler_v2.py","utf8");
+const cert=fs.readFileSync("scripts/run-avantiqo-music-vocal-correction-certification-local.mjs","utf8");
+const review=fs.readFileSync("scripts/prepare-avantiqo-music-vocal-correction-human-review.mjs","utf8");
+test("correction engine emits objective spectral timbre proxy without claiming formant preservation",()=>{assert.match(engine,/AVANTIQO_MUSIC_VOCAL_TIMBRE_PROXY_V1/);assert.match(engine,/median_absolute_band_delta_db/);assert.match(engine,/p95_absolute_band_delta_db/);assert.match(engine,/median_spectral_centroid_delta_percent/);assert.match(engine,/review_thresholds_are_qc_proxies_not_formant_proof/);assert.match(engine,/"formant_preservation_claimed": False/);});
+test("certification requires measured timbre proxy and carries it into human review",()=>{assert.match(cert,/TIMBRE_PROXY_EVIDENCE_REQUIRED/);assert.match(cert,/timbre_proxy_measured/);assert.match(cert,/timbre_proxy_is_not_formant_proof/);assert.match(review,/timbre_proxy_conservative_review_flag/);assert.match(review,/median_absolute_band_delta_db/);});
+test("objective timbre proxy remains advisory and human listening remains mandatory",()=>{assert.match(engine,/human_listening_review_required/);assert.match(engine,/conservative_review_flag/);assert.match(review,/formant_preservation_claimed: false/);});

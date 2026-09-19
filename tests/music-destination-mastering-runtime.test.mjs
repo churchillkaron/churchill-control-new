@@ -53,6 +53,18 @@ test("destination QC compares measured loudness and true peak to the selected va
   assert.equal(fail.publication_authorized, false);
 });
 
+
+test("archival mastering requests 24-bit 96 kHz without claiming native hi-res by default", () => {
+  const profile = resolveMusicMasteringDestination("hi-res");
+  assert.equal(profile.id, "archival");
+  assert.equal(profile.sample_rate, 96000);
+  assert.equal(profile.bit_depth, 24);
+  const plan = buildMusicDestinationMasteringPlan({ mastering_destinations: ["archival"] });
+  assert.equal(plan.variants[0].internal_processing_format, "float32");
+  assert.equal(plan.variants[0].delivery_dither_required, true);
+  assert.equal(plan.variants[0].native_high_resolution_required_for_native_claim, true);
+});
+
 const finishing = fs.readFileSync("lib/creative/music/runtime/CreativeMusicFinishingRuntime.js", "utf8");
 const execution = fs.readFileSync("lib/creative/music/runtime/CreativeMusicWorldClassExecutionRuntime.js", "utf8");
 const planner = fs.readFileSync("lib/creative/music/capabilities/planWorldClassMusicStudio.js", "utf8");
@@ -69,7 +81,7 @@ test("world-class execution and Business Partner expose destination mastering st
   assert.match(execution, /CreativeMusicFinishingRuntime\.ensureMasters/);
   assert.match(execution, /master_assets:/);
   assert.match(execution, /destination_mastering:/);
-  assert.match(execution, /const releaseReady = finalTribunal\?\.release_ready === true && finalFinishing\?\.destination_qc_passed === true && finalFinishing\?\.perceptual_translation_passed === true && finalFinishing\?\.master_set_lineage_current === true/);
+  assert.match(execution, /const baseReleaseReady = finalTribunal\?\.release_ready === true && finalFinishing\?\.destination_qc_passed === true && finalFinishing\?\.perceptual_translation_passed === true && finalFinishing\?\.master_set_lineage_current === true/);
   assert.match(planner, /music_mastering_plan/);
   assert.match(planner, /mastering_destinations/);
 });

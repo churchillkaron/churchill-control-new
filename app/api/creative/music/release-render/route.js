@@ -9,6 +9,7 @@ import { dispatchAudioTask } from "@/lib/creative/audio/runtime/AudioQueueRuntim
 import { unwrapAudioOutput } from "@/lib/creative/audio/runtime/AudioFinishingContractRuntime";
 import * as CreativeProjectRepository from "@/lib/creative/projects/repositories/CreativeProjectRepository";
 import { buildMusicReleaseRenderPlan } from "@/lib/creative/music/runtime/CreativeMusicReleaseRenderPlanRuntime";
+import { audioPostSessionHasLanguageRoles, buildAudioPostLanguageSession, normalizeAudioPostLanguage } from "@/lib/creative/music/runtime/CreativeAudioPostVersionRuntime";
 import { ProductionTaskRuntime } from "@/lib/operations/tasks/runtime/ProductionTaskRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
@@ -56,6 +57,12 @@ function currentSession(project) {
   return session;
 }
 
+
+
+function pictureBwf(session, sampleRate) { const lock=session?.picture_lock; if(!lock?.picture_lock_digest) return null; const parts=String(lock.start_timecode||"00:00:00:00").split(":").map(v=>Math.max(0,Math.floor(Number(v)||0))); const [h=0,m=0,s=0,f=0]=parts, fps=Math.max(1,Number(lock.frame_rate)||24); return { enabled:true, start_timecode:lock.start_timecode||"00:00:00:00", frame_rate:fps, time_reference_samples:Math.round((h*3600+m*60+s+f/fps)*sampleRate), description:`${session.title||"Avantiqo"} final master`, originator:"Avantiqo Professional Audio Engine", originator_reference:lock.picture_lock_digest }; }
+
+function versionedSession(session, languageInput) { if (!audioPostSessionHasLanguageRoles(session)) return { session, delivery_language: null }; const language = normalizeAudioPostLanguage(languageInput); return { session: buildAudioPostLanguageSession(session, language), delivery_language: language }; }
+
 function assertRevision(session, expectedRevision, prefix = "CREATIVE_MUSIC_RELEASE") {
   const current = Math.max(0, Math.round(finite(session.revision, 0)));
   const expected = Math.max(0, Math.round(finite(expectedRevision, -1)));
@@ -72,7 +79,8 @@ async function planRelease(body) {
   const projectId = text(body.creative_project_id);
   const project = await projectInScope(organizationId, projectId);
   const session = currentSession(project);
-  const plan = buildMusicReleaseRenderPlan(session, body.options || body);
+  const version = versionedSession(session, body.delivery_language);
+  const plan = buildMusicReleaseRenderPlan(version.session, body.options || body);
   return {
     success: true,
     contract: "AVANTIQO_MUSIC_RELEASE_PLAN_RESPONSE_V2",
@@ -89,7 +97,8 @@ async function prepareUpload(body) {
   const project = await projectInScope(organizationId, projectId);
   const session = currentSession(project);
   const revision = assertRevision(session, body.expected_revision);
-  const plan = buildMusicReleaseRenderPlan(session, body.options || body);
+  const version = versionedSession(session, body.delivery_language);
+  const plan = buildMusicReleaseRenderPlan(version.session, body.options || body);
   if (!plan.readiness.release_render_ready) throw new Error(`CREATIVE_MUSIC_RELEASE_RENDER_BLOCKED:${plan.readiness.blockers.map((item) => item.code).join(",") || "NOT_READY"}`);
   const fingerprint = planFingerprint(plan);
   const sizeBytes = finite(body.size_bytes, null);
@@ -120,7 +129,8 @@ async function registerMix(body) {
   const project = await projectInScope(organizationId, projectId);
   const session = currentSession(project);
   const revision = assertRevision(session, body.expected_revision);
-  const plan = buildMusicReleaseRenderPlan(session, body.options || body);
+  const version = versionedSession(session, body.delivery_language);
+  const plan = buildMusicReleaseRenderPlan(version.session, body.options || body);
   if (!plan.readiness.release_render_ready) throw new Error(`CREATIVE_MUSIC_RELEASE_RENDER_BLOCKED:${plan.readiness.blockers.map((item) => item.code).join(",") || "NOT_READY"}`);
   const fingerprint = planFingerprint(plan);
   if (text(body.render_plan_fingerprint) !== fingerprint) throw new Error("CREATIVE_MUSIC_RELEASE_PLAN_FINGERPRINT_MISMATCH");
@@ -136,12 +146,14 @@ async function registerMix(body) {
   const channels = finite(body.channels, null);
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) throw new Error("CREATIVE_MUSIC_RELEASE_DURATION_REQUIRED");
   if (Math.abs(durationSeconds - plan.duration_seconds) > 0.25) throw new Error("CREATIVE_MUSIC_RELEASE_DURATION_MISMATCH");
-  if (Math.round(sampleRate) !== Math.round(plan.sample_rate) || Math.round(channels) !== 2) throw new Error("CREATIVE_MUSIC_RELEASE_FORMAT_MISMATCH");
+  if (Math.round(sampleRate) !== Math.round(plan.sample_rate) || Math.round(channels) !== Math.round(plan.channels)) throw new Error("CREATIVE_MUSIC_RELEASE_FORMAT_MISMATCH");
   const levels = body.levels || {};
   const peakDbfs = finite(levels.peak_dbfs, null);
   const rmsDbfs = finite(levels.rms_dbfs, null);
   if (!Number.isFinite(peakDbfs) || !Number.isFinite(rmsDbfs)) throw new Error("CREATIVE_MUSIC_RELEASE_LEVEL_EVIDENCE_REQUIRED");
   const fileName = safeWavName(body.file_name);
+  const bwfVerification = version.session.picture_lock?.picture_lock_digest ? await verifyMusicBwfDelivery({ organization_id: organizationId, file_url: storageReference, file_name: fileName, expected: { start_timecode: version.session.picture_lock.start_timecode, frame_rate: version.session.picture_lock.frame_rate, sample_rate: plan.sample_rate, bit_depth: 24, channels: plan.channels, require_extensible: plan.channels > 2 } }) : null;
+  if (bwfVerification && !bwfVerification.passed) throw new Error(`CREATIVE_MUSIC_RELEASE_BWF_INVALID:${bwfVerification.failures.join(",")}`);
 
   const asset = await CreativeAssetsRuntime.create({
     organization_id: organizationId,
@@ -160,16 +172,27 @@ async function registerMix(body) {
     metadata: {
       media_kind: "MUSIC",
       mime_type: "audio/wav",
-      music_asset_kind: "MIX_RENDER",
+      music_asset_kind: plan.spatial_audio?.surround_enabled === true ? "SURROUND_PREMASTER" : "MIX_RENDER",
       release_render_contract: plan.contract,
+      delivery_profile_id: plan.delivery_profile?.id || "music_release",
+      delivery_profile_contract: plan.delivery_profile?.contract || null,
       offline_render_contract: text(body.offline_render_contract || "AVANTIQO_MUSIC_OFFLINE_MIX_RENDER_V1"),
       render_plan_fingerprint: fingerprint,
       project_revision: revision,
+      delivery_language: version.delivery_language || null,
+      language_versioned: Boolean(version.delivery_language),
       program_duration_seconds: durationSeconds,
       render_duration_seconds: renderDurationSeconds,
       sample_rate: sampleRate,
       channels,
+      channel_layout: plan.channel_layout,
+      speaker_order: plan.speaker_order,
       bit_depth: 24,
+      bwf_verification: bwfVerification,
+      bwf_verified: bwfVerification?.passed === true,
+      bext_present: bwfVerification?.bext_present === true,
+      time_reference_samples: bwfVerification?.bext?.time_reference_samples ?? null,
+      start_timecode: version.session.picture_lock?.start_timecode || null,
       peak_dbfs: peakDbfs,
       rms_dbfs: rmsDbfs,
       clipping: levels.clipping === true,
@@ -184,7 +207,7 @@ async function registerMix(body) {
       destructive_edit: false,
       rendered_at: new Date().toISOString(),
     },
-    tags: ["music", "mix", "premaster", "derived", "24-bit"],
+    tags: ["music", "mix", "premaster", ...(plan.spatial_audio?.surround_enabled === true ? ["surround", plan.channel_layout] : []), "derived", "24-bit"],
   });
 
   return {
@@ -212,12 +235,16 @@ async function finishRelease(body) {
   if (!asset || String(asset.organization_id) !== String(organizationId) || String(asset.creative_project_id) !== String(projectId)) throw new Error("CREATIVE_MUSIC_RELEASE_MIX_ASSET_NOT_FOUND");
   if (text(asset.metadata?.music_asset_kind) !== "MIX_RENDER") throw new Error("CREATIVE_MUSIC_RELEASE_MIX_ASSET_INVALID");
   const revision = assertRevision(session, asset.metadata?.project_revision, "CREATIVE_MUSIC_RELEASE_MIX_STALE");
-  const plan = buildMusicReleaseRenderPlan(session, body.options || { mastering: asset.metadata?.mastering || {} });
+  const assetLanguage = asset.metadata?.delivery_language || body.delivery_language || null;
+  const version = versionedSession(session, assetLanguage);
+  if (asset.metadata?.delivery_language && body.delivery_language && normalizeAudioPostLanguage(body.delivery_language) !== asset.metadata.delivery_language) throw new Error("CREATIVE_MUSIC_RELEASE_LANGUAGE_MISMATCH");
+  const plan = buildMusicReleaseRenderPlan(version.session, body.options || { mastering: asset.metadata?.mastering || {} });
   const fingerprint = planFingerprint(plan);
   if (text(asset.metadata?.render_plan_fingerprint) !== fingerprint) throw new Error("CREATIVE_MUSIC_RELEASE_MIX_PLAN_STALE");
   const currentSourceIds = sortedUnique(plan.source_asset_ids);
   if (JSON.stringify(currentSourceIds) !== JSON.stringify(sortedUnique(asset.metadata?.source_asset_ids || []))) throw new Error("CREATIVE_MUSIC_RELEASE_MIX_LINEAGE_STALE");
   if (!plan.readiness.release_render_ready) throw new Error("CREATIVE_MUSIC_RELEASE_CURRENT_PROJECT_NOT_READY");
+  if (plan.spatial_audio?.surround_enabled === true) throw new Error("CREATIVE_MUSIC_SURROUND_REQUIRES_MULTICHANNEL_FINISHER");
 
   const tasks = await ProductionTaskRuntime.list({ organization_id: organizationId, creative_project_id: projectId });
   let sourceTask = tasks.find((task) => text(task.metadata?.music_mix_asset_id) === mixAssetId && text(task.metadata?.music_pipeline_role) === "PREMASTER_SOURCE") || null;
@@ -246,6 +273,7 @@ async function finishRelease(body) {
         music_mix_asset_id: mixAssetId,
         render_plan_fingerprint: fingerprint,
         project_revision: revision,
+        delivery_language: asset.metadata?.delivery_language || null,
       },
     });
   }
@@ -294,7 +322,7 @@ async function finishRelease(body) {
           sample_rate: plan.sample_rate,
           channels: 2,
           deliveries: [
-            { id: "release-wav", format: "wav", file_name: "master.wav", codec: "pcm_s24le" },
+            { id: "release-wav", format: "wav", file_name: "master.wav", codec: "pcm_s24le", bit_depth: 24, dither_required: true, metadata: { bwf: pictureBwf(version.session, plan.sample_rate) } },
             ...(plan.exports.release_mp3.enabled ? [{ id: "release-mp3", format: "mp3", file_name: "master.mp3", bitrate: "320k" }] : []),
           ],
           waveform: { width: 1600, height: 400 },
@@ -315,6 +343,7 @@ async function finishRelease(body) {
         source_task_id: sourceTask.id,
         render_plan_fingerprint: fingerprint,
         project_revision: revision,
+        delivery_language: asset.metadata?.delivery_language || null,
         mastering_profile: mastering.profile,
         storage_policy: { bucket: MUSIC_BUCKET },
       },
@@ -325,6 +354,9 @@ async function finishRelease(body) {
   const output = unwrapAudioOutput(finishTask.output);
   const masterReference = text(output.master_url || output.audio_url || output.file_url || output.url);
   if (!masterReference) throw new Error("CREATIVE_MUSIC_RELEASE_MASTER_REFERENCE_REQUIRED");
+
+  const finalBwfVerification = version.session.picture_lock?.picture_lock_digest ? await verifyMusicBwfDelivery({ organization_id: organizationId, file_url: masterReference, file_name: "master.wav", expected: { start_timecode: version.session.picture_lock.start_timecode, frame_rate: version.session.picture_lock.frame_rate, sample_rate: plan.sample_rate, bit_depth: 24, channels: 2, require_extensible: false } }) : null;
+  if (finalBwfVerification && !finalBwfVerification.passed) throw new Error(`CREATIVE_MUSIC_RELEASE_MASTER_BWF_INVALID:${finalBwfVerification.failures.join(",")}`);
 
   const existingAssets = await CreativeAssetsRuntime.list({ organization_id: organizationId, creative_project_id: projectId, limit: 1000 });
   let masterAsset = existingAssets.find((entry) => text(entry.metadata?.music_finish_task_id) === text(finishTask.id)) || null;
@@ -349,14 +381,25 @@ async function finishRelease(body) {
         music_asset_kind: "MASTER",
         source_mix_asset_id: mixAssetId,
         project_revision: revision,
+        delivery_language: asset.metadata?.delivery_language || null,
+        language_versioned: Boolean(asset.metadata?.delivery_language),
         render_plan_fingerprint: fingerprint,
+        delivery_profile_id: plan.delivery_profile?.id || asset.metadata?.delivery_profile_id || "music_release",
         music_finish_task_id: finishTask.id,
         mastering_profile: mastering.profile,
+        bwf_verification: finalBwfVerification,
+        bwf_verified: finalBwfVerification?.passed === true,
+        bext_present: finalBwfVerification?.bext_present === true,
+        time_reference_samples: finalBwfVerification?.bext?.time_reference_samples ?? null,
+        start_timecode: version.session.picture_lock?.start_timecode || null,
         integrated_lufs: finite(report.master?.integrated_lufs, null),
         true_peak_dbtp: finite(report.master?.true_peak_dbtp, null),
         release_candidate: output.release_candidate === true,
         waveform_url: output.waveform_url || report.waveform?.url || null,
         deliveries: (output.files || []).filter((file) => text(file.mime_type).startsWith("audio/")).map((file) => ({ name: file.name || null, url: file.url || null, mime_type: file.mime_type || null })),
+        dither: Array.isArray(report.deliveries) ? report.deliveries.filter((item) => item.dither_applied === true).map((item) => ({ name: item.name || null, applied: true, method: item.dither_method || null })) : [],
+        internal_master_format: report.internal_master_format || null,
+        final_integer_pcm_conversion_only: report.final_integer_pcm_conversion_only === true,
         release_limiter_applied: true,
         true_peak_certified: true,
         source_assets_preserved: true,

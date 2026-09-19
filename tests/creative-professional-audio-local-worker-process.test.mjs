@@ -1,0 +1,10 @@
+import test from "node:test";import assert from "node:assert/strict";import fs from "node:fs";
+const source=fs.readFileSync("scripts/avantiqo-audio-long-form-worker.mjs","utf8");
+test("owned long-form worker uses raw CDP Chrome and canonical browser render surface",()=>{assert.match(source,/remote-debugging-port/);assert.match(source,/Runtime\.evaluate/);assert.match(source,/__AVANTIQO_LONG_FORM_RENDER_CHUNK__/);assert.match(source,/internal\/audio-long-form-worker/);assert.doesNotMatch(source,/playwright|puppeteer/i);});
+test("worker trims DSP context sample-exactly and assembles float RF64 before mastering",()=>{assert.match(source,/atrim=start_sample=/);assert.match(source,/end_sample=/);assert.match(source,/pcm_f32le/);assert.match(source,/"-rf64","auto"/);assert.match(source,/ASSEMBLING_RF64_PREMASTER/);});
+test("worker authenticates submit status and chunk callbacks and verifies immutable job hash",()=>{assert.match(source,/req\.headers\.authorization/);assert.match(source,/JOB_HASH_INVALID/);assert.match(source,/chunk-upload/);assert.match(source,/job_hash/);});
+
+
+test("worker uses CORS-safe browser callbacks streaming checksums and signed resumable TUS upload",()=>{assert.match(source,/Access-Control-Allow-Origin/);assert.match(source,/req\.method==="OPTIONS"/);assert.match(source,/sha256File/);assert.match(source,/createReadStream/);assert.match(source,/Tus-Resumable/);assert.match(source,/Upload-Offset/);assert.match(source,/x-signature/);assert.match(source,/worker_prepare_upload/);assert.match(source,/worker_finalize/);assert.doesNotMatch(source,/readFile\(output\)/);});
+
+test("worker job identity and progress survive process restart and completed audio is cleaned after registration",()=>{const source=fs.readFileSync("scripts/avantiqo-audio-long-form-worker.mjs","utf8");assert.match(source,/jobIdForHash/);assert.match(source,/persistWorkerJob/);assert.match(source,/hydrateWorkerJobs/);assert.match(source,/RECOVERED_AFTER_WORKER_RESTART/);assert.match(source,/if\(job\.trimmed\.has\(chunk\.index\)\)/);assert.match(source,/cleanupJobAudio/);assert.match(source,/AVANTIQO_AUDIO_LONG_FORM_WORK_DIR/);});

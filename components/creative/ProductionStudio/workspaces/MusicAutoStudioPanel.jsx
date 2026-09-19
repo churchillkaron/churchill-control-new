@@ -25,10 +25,11 @@ function processorLabel(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export default function MusicAutoStudioPanel({ organizationId, projectId = null, missionId = null }) {
+export default function MusicAutoStudioPanel({ organizationId, projectId = null, missionId = null, onProfessionalReleaseStarted = null }) {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [storageReference, setStorageReference] = useState("");
+  const [durationSeconds, setDurationSeconds] = useState(null);
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const [plan, setPlan] = useState(null);
   const [result, setResult] = useState(null);
@@ -53,10 +54,11 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
     setResult(null);
   }
 
-  function chooseFile(selected) {
+  async function chooseFile(selected) {
     setError("");
     resetOutput();
     setStorageReference("");
+    setDurationSeconds(null);
     if (!selected) {
       setFile(null);
       return;
@@ -66,6 +68,24 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
       return;
     }
     setFile(selected);
+    const objectUrl = URL.createObjectURL(selected);
+    try {
+      const media = document.createElement(selected.type?.startsWith("video/") ? "video" : "audio");
+      const duration = await new Promise((resolve, reject) => {
+        const cleanup = () => { media.removeAttribute("src"); media.load(); };
+        media.preload = "metadata";
+        media.onloadedmetadata = () => { const value = Number(media.duration); cleanup(); resolve(value); };
+        media.onerror = () => { cleanup(); reject(new Error("Could not read media duration")); };
+        media.src = objectUrl;
+      });
+      if (!Number.isFinite(duration) || duration <= 0 || duration > 900) throw new Error("Source duration must be between 1 second and 15 minutes.");
+      setDurationSeconds(duration);
+    } catch (cause) {
+      setFile(null);
+      setError(cause?.message || "Could not read source duration");
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
   }
 
   async function uploadSource() {
@@ -106,7 +126,7 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
     setResult(null);
     try {
       const responseBody = await request({
-        action: "execute_local",
+        action: "start_professional_release",
         organization_id: organizationId,
         creative_project_id: projectId,
         creative_mission_id: missionId,
@@ -114,9 +134,10 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
         file_name: file.name,
         mime_type: file.type || null,
         source_rights_confirmed: true,
+        duration_seconds: durationSeconds,
       });
-      setPlan(responseBody.plan);
       setResult(responseBody);
+      onProfessionalReleaseStarted?.(responseBody);
     } catch (cause) {
       setError(cause?.message || "Auto Studio could not finish the recording");
     } finally {
@@ -160,7 +181,7 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
                 type="file"
                 accept={ACCEPT}
                 className="hidden"
-                onChange={(event) => chooseFile(event.target.files?.[0] || null)}
+                onChange={(event) => void chooseFile(event.target.files?.[0] || null)}
               />
               <button type="button" onClick={() => inputRef.current?.click()} className="flex w-full items-center gap-4 text-left">
                 <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4">
@@ -168,7 +189,7 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium text-white/76">{file?.name || "Upload recording"}</div>
-                  <div className="mt-1 text-[10px] text-white/30">{mediaLabel(file)} · private · max 1 GB</div>
+                  <div className="mt-1 text-[10px] text-white/30">{mediaLabel(file)} · private · max 1 GB{durationSeconds ? ` · ${Math.round(durationSeconds)} sec` : ""}</div>
                 </div>
               </button>
 
@@ -207,12 +228,12 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
 
             <button
               type="button"
-              disabled={!storageReference || !rightsConfirmed || busy}
+              disabled={!storageReference || !rightsConfirmed || !(durationSeconds > 0) || busy}
               onClick={makeProfessional}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6a66a]/30 bg-[#d6a66a]/14 px-5 py-3.5 text-sm font-medium text-[#f2d8aa] shadow-[0_0_40px_rgba(214,166,106,0.06)] disabled:opacity-30"
             >
               {busy ? <AudioLines className="h-4 w-4 animate-pulse" /> : <Sparkles className="h-4 w-4" />}
-              {busy ? "RESTORING & MASTERING..." : "MAKE IT PROFESSIONAL"}
+              {busy ? "STARTING PROFESSIONAL RELEASE..." : "MAKE IT PROFESSIONAL"}
             </button>
 
             {vocalEngineering ? (
@@ -274,7 +295,8 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
               {(stages.length ? stages : [
                 { id: "analyze", label: "Analyze", description: "Recording quality, stream, loudness and risk", status: "READY" },
                 { id: "repair", label: "Repair", description: "Adaptive mic/program restoration", status: "READY" },
-                { id: "vocal", label: "Vocal engineering", description: "Mic polish, de-ess, EQ and dynamics; pitch/timing when a certified lane is required", status: "PARTIAL" },
+                { id: "vocal", label: "Vocal production", description: "Restoration, declared-role lead/double/harmony routing, EQ, dynamics, sends and measured vocal rides", status: "READY" },
+                { id: "vocal-correction", label: "Pitch & timing correction", description: "Musician-reviewed owned correction lane; remains gated until the configured engine is production-certified", status: "CERTIFICATION GATED" },
                 { id: "mix", label: "Mix", description: "Balance, hierarchy and gain structure", status: "READY" },
                 { id: "master", label: "Master", description: "Release loudness, true peak and final polish", status: "READY" },
                 { id: "delivery", label: "Delivery", description: "24-bit WAV, MP3 and evidence", status: "READY" },

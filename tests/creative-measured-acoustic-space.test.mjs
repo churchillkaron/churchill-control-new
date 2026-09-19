@@ -1,0 +1,9 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createMeasuredAcousticSpace, buildMeasuredAcousticSpaceLibrary, buildAcousticSpaceTransitionPlan } from "../lib/creative/music/runtime/CreativeMeasuredAcousticSpaceRuntime.js";
+
+test("measured acoustic spaces require fingerprinted IR evidence",()=>{assert.throws(()=>createMeasuredAcousticSpace({id:"room",type:"ROOM",ir_asset_id:"ir1",measured:true}),/IR_EVIDENCE_REQUIRED/);const s=createMeasuredAcousticSpace({id:"room",type:"ROOM",ir_asset_id:"ir1",ir_sha256:"a".repeat(64),ir_duration_seconds:1.8});assert.equal(s.ir.measured,true);assert.equal(s.ir.sha256,"a".repeat(64));});
+
+test("library distinguishes measured spaces and preserves sources",()=>{const lib=buildMeasuredAcousticSpaceLibrary({id:"lib",spaces:[{id:"room",type:"ROOM",ir_asset_id:"a",ir_sha256:"1".repeat(64)},{id:"car",type:"VEHICLE_CABIN",ir_asset_id:"b",ir_sha256:"2".repeat(64)}]});assert.equal(lib.space_count,2);assert.equal(lib.measured_space_count,2);assert.equal(lib.automatic_asset_substitution,false);assert.equal(lib.source_assets_preserved,true);});
+
+test("picture-time transition crossfades between exact measured IR identities",()=>{const lib=buildMeasuredAcousticSpaceLibrary({id:"lib",spaces:[{id:"garage",type:"GARAGE",ir_asset_id:"a",ir_sha256:"1".repeat(64)},{id:"outside",type:"EXTERIOR",ir_asset_id:"b",ir_sha256:"2".repeat(64)}]}),plan=buildAcousticSpaceTransitionPlan({library:lib,events:[{id:"door",start_seconds:3,duration_seconds:.75,from_space_id:"garage",to_space_id:"outside",portal_id:"garage-door",picture_event_id:"cut-7"}]});assert.equal(plan.event_count,1);assert.equal(plan.events[0].from_ir.asset_id,"a");assert.equal(plan.events[0].to_ir.asset_id,"b");assert.equal(plan.events[0].portal_id,"garage-door");assert.equal(plan.measured_ir_crossfade_required,true);assert.equal(plan.automatic_ir_replacement,false);});

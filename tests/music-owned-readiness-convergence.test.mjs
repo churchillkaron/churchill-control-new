@@ -40,3 +40,23 @@ test("readiness rejects stale database certification when current Elastic runtim
 test("SFX readiness distinguishes benchmark proof from commercial activation", () => {
   assert.match(readiness, /sfx\.benchmark_certified === true \? "COMMERCIAL_ACTIVATION_REQUIRED" : "BENCHMARK_REQUIRED"/);
 });
+
+
+test("Music readiness recognizes the governed local Node 01 generation lane without bypassing certification", () => {
+  assert.match(readiness, /AvantiqoMusicLocalNodeProvider/);
+  assert.match(readiness, /await AvantiqoMusicLocalNodeProvider\.available\("ai\.music\.generate"\)/);
+  assert.match(readiness, /const primaryAudioRuntimeAvailable = modalRuntimeReady \|\| localNodeRuntimeReady/);
+  assert.match(readiness, /ready: music\.ready === true && runtimeHealth\.primary_audio_runtime_available === true/);
+  assert.match(readiness, /preferred_execution_surface: localNodeRuntimeReady \? "AVANTIQO_LOCAL_NODE_V1"/);
+});
+
+
+test("local Music acceptance is exposed separately from production certification", () => {
+  assert.match(readiness, /local_node_live_acceptance/);
+  assert.match(readiness, /benchmark_review_preview_allowed/);
+  assert.match(readiness, /process\.env\.NODE_ENV !== "production"/);
+  assert.match(readiness, /live_acceptance_ready:/);
+  assert.match(readiness, /live_acceptance_only:/);
+  assert.match(readiness, /LOCAL_ACCEPTANCE_READY/);
+  assert.match(readiness, /ready: music\.ready === true && runtimeHealth\.primary_audio_runtime_available === true/);
+});

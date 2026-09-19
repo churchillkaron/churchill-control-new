@@ -35,6 +35,8 @@ export default function MusicVocalTimingPlanPanel({
   const analysis = currentSource(storedAnalysis, clip) ? storedAnalysis : null;
   const storedPlan = clip.vocal_timing_plan || null;
   const plan = currentSource(storedPlan, clip) ? storedPlan : null;
+  const reviewPhrases = (plan?.phrases || []).filter((phrase) => phrase.eligible === true);
+  const reviewedPhrases = reviewPhrases.filter((phrase) => phrase.approved === true).length;
 
   async function request(action, extra = {}) {
     if (!organizationId || !projectId || busy) return;
@@ -80,6 +82,10 @@ export default function MusicVocalTimingPlanPanel({
     });
   }
 
+  async function reviewAllSafe() {
+    await request("review_all_safe", { approved: true });
+  }
+
   return (
     <div className="mt-3 rounded-xl border border-white/7 bg-black/15 p-3">
       <div className="flex items-start justify-between gap-3">
@@ -100,15 +106,17 @@ export default function MusicVocalTimingPlanPanel({
       {analysis ? <div className="mt-3 rounded-lg border border-white/6 bg-black/15 p-2 text-[7px] text-white/20"><span>{analysis.phrase_count || 0} phrases measured · {analysis.suggested_move_count || 0} safe move suggestions · {finite(analysis.bpm, 0).toFixed(1)} BPM</span><button type="button" disabled={disabled || busy} onClick={() => request("build")} className="ml-2 rounded-md border border-white/7 px-1.5 py-1 text-white/34 disabled:opacity-20">{plan ? "Rebuild review plan" : "Build review plan"}</button></div> : null}
 
       {plan ? <div className="mt-3 space-y-2">
-        <div className="flex items-center justify-between text-[7px] text-white/18"><span>{plan.suggested_move_count || 0} suggested phrase moves</span><span>{plan.reviewed_phrase_count || 0}/{plan.phrases?.length || 0} reviewed</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[7px] text-white/18"><span>{reviewPhrases.length} phrase moves need review</span><div className="flex items-center gap-2"><span>{reviewedPhrases}/{reviewPhrases.length} move decisions</span>{reviewedPhrases < reviewPhrases.length ? <button type="button" disabled={disabled || busy} onClick={reviewAllSafe} className="rounded-md border border-[#d6a66a]/20 bg-[#d6a66a]/[0.05] px-2 py-1 text-[#efd29f]/60 disabled:opacity-20">Approve all safe moves</button> : null}</div></div>
+        {reviewedPhrases < reviewPhrases.length ? <div className="rounded-lg border border-white/6 bg-white/[0.012] px-2 py-1.5 text-[7px] leading-3 text-white/20">Bulk approval accepts only the current safe phrase-shift proposals. It does not stretch phrases, render audio, or replace final listening review.</div> : null}
         <div className="max-h-52 space-y-1 overflow-y-auto pr-1">
-          {(plan.phrases || []).slice(0, 80).map((phrase) => (
+          {reviewPhrases.map((phrase) => (
             <div key={phrase.id} className="grid grid-cols-[1fr_74px_54px] items-center gap-2 rounded-lg border border-white/6 px-2 py-1.5 text-[7px]">
               <div className="min-w-0"><div className="truncate text-white/38">Phrase {phrase.phrase_index + 1} · {finite(phrase.source_start_seconds, 0).toFixed(2)}s → {finite(phrase.target_start_seconds, phrase.source_start_seconds).toFixed(2)}s</div><div className="text-white/13">Raw {finite(phrase.raw_shift_ms, 0) >= 0 ? "+" : ""}{finite(phrase.raw_shift_ms, 0).toFixed(1)} ms · {phrase.safety_reason || "—"}</div></div>
               <input type="number" min={-maxShiftMs} max={maxShiftMs} step="1" disabled={disabled || busy || !phrase.eligible} defaultValue={finite(phrase.proposed_shift_ms, 0)} onBlur={(event) => { const shift = finite(event.target.value, phrase.proposed_shift_ms); if (Math.abs(shift - finite(phrase.proposed_shift_ms, 0)) > 0.01) void review(phrase, shift); }} className="rounded-md border border-white/7 bg-black/25 px-1.5 py-1 text-[7px] text-white/35 disabled:opacity-20" title="Phrase shift in milliseconds" />
               <button type="button" disabled={disabled || busy || phrase.approved || !phrase.eligible} onClick={() => review(phrase)} className={`inline-flex items-center justify-center gap-1 rounded-md border px-1.5 py-1 ${phrase.approved ? "border-emerald-300/10 text-emerald-100/45" : "border-white/7 text-white/30"} disabled:opacity-40`}><Check className="h-2.5 w-2.5" /> {phrase.approved ? "OK" : "Approve"}</button>
             </div>
           ))}
+          {!reviewPhrases.length ? <div className="rounded-lg border border-dashed border-white/7 p-3 text-center text-[7px] text-white/18">No phrase timing moves are proposed for this vocal.</div> : null}
         </div>
         <div className={`flex items-start gap-2 rounded-lg border p-2 text-[7px] leading-3 ${plan.all_phrases_reviewed ? "border-emerald-300/10 bg-emerald-300/[0.015] text-emerald-100/40" : "border-amber-300/10 bg-amber-300/[0.015] text-amber-100/38"}`}><LockKeyhole className="mt-0.5 h-3 w-3 shrink-0" /><div><div>{plan.all_phrases_reviewed ? "Reviewed timing is ready for governed vocal render." : "Review every suggested phrase move before rendering."}</div><div className="mt-1 opacity-70">When you use Render reviewed vocal in the tuning section, this exact timing-plan fingerprint is included automatically. The worker uses whole-phrase translation only, no time stretch, and rejects unsafe collisions.</div></div></div>
         <div className="flex items-start gap-2 text-[7px] leading-3 text-white/14"><MoveHorizontal className="mt-0.5 h-3 w-3 shrink-0" />Moving a phrase changes only its placement inside a safe local pocket. Internal consonant, note, vibrato and syllable timing remain unchanged.</div>

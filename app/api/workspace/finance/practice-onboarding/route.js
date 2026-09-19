@@ -10,6 +10,7 @@ import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { loadCompletePracticeRows, loadCompletePracticeRowsByIds } from "@/lib/finance/practice/FinancePracticePopulation";
 import { evaluatePracticeEngagementReadiness } from "@/lib/finance/practice/FinancePracticeOnboardingReadiness";
+import { loadPracticeBillingReferenceBlockers } from "@/lib/finance/practice/FinancePracticeBillingReferenceReadiness";
 
 const MANAGE_PERMISSIONS = ["finance.accounting.manage", "finance.configuration.manage"];
 function clean(value) { return String(value ?? "").trim(); }
@@ -122,6 +123,7 @@ export async function GET(request) {
     const signaturesByDocument = new Map();
     for (const signature of signatures) { const rows = signaturesByDocument.get(signature.enterprise_document_id) || []; rows.push(signature); signaturesByDocument.set(signature.enterprise_document_id, rows); }
     const billingMap = new Map(billingProfiles.map((row) => [row.engagement_id, row]));
+    const billingReferenceBlockers = await loadPracticeBillingReferenceBlockers({ accountingFirmId: access.organizationId, profiles: billingProfiles });
 
     const rows = engagements.map((engagement) => {
       const link = linkMap.get(engagement.id) || null;
@@ -135,7 +137,7 @@ export async function GET(request) {
         engagement_document: document,
         signatures: signatureRows,
         billing_profile: billingProfile,
-        readiness: evaluatePracticeEngagementReadiness({ engagement, link, document, signatures: signatureRows, billingProfile }),
+        readiness: evaluatePracticeEngagementReadiness({ engagement, link, document, signatures: signatureRows, billingProfile, billingReferenceBlockers: billingProfile ? billingReferenceBlockers.get(billingProfile.id) || [] : [] }),
       };
     });
     const approvedDocuments = documents.filter((document) => document.approved_at || ["approved", "active"].includes(clean(document.document_status).toLowerCase()));

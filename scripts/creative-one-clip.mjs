@@ -76,6 +76,14 @@ function approvalMetadata(existingMetadata = {}, organization = {}, selectedAsse
   const now = Date.now();
   const approvedAt = new Date(now - 60_000).toISOString();
   const expiresAt = new Date(now + 6 * 60 * 60 * 1000).toISOString();
+  const existingResearchApproval = existingMetadata.paid_research_approval || {};
+  const preserveResearchRecovery =
+    text(existingResearchApproval.command_identity) === COMMAND_IDENTITY &&
+    existingResearchApproval.retry_required === true &&
+    existingResearchApproval.approved === true &&
+    ["VALIDATION_FAILED", "EXECUTION_FAILED", "REPAIR_FAILED"].includes(
+      text(existingResearchApproval.status).toUpperCase(),
+    );
 
   return {
     ...existingMetadata,
@@ -98,20 +106,22 @@ function approvalMetadata(existingMetadata = {}, organization = {}, selectedAsse
       require_company_resolution: true,
       require_audience_evidence: true,
     },
-    paid_research_approval: {
-      contract: "CREATIVE_RESEARCH_BUDGET_APPROVAL_V2",
-      id: `research-${commandDigest}`,
-      approved: true,
-      status: "APPROVED",
-      provider: RESEARCH_PROVIDER,
-      pricing_id: RESEARCH_PRICING_ID,
-      model: RESEARCH_MODEL,
-      currency: "THB",
-      maximum_customer_price: RESEARCH_CEILING,
-      command_identity: COMMAND_IDENTITY,
-      approved_at: approvedAt,
-      expires_at: expiresAt,
-    },
+    paid_research_approval: preserveResearchRecovery
+      ? { ...existingResearchApproval }
+      : {
+          contract: "CREATIVE_RESEARCH_BUDGET_APPROVAL_V2",
+          id: `research-${commandDigest}`,
+          approved: true,
+          status: "APPROVED",
+          provider: RESEARCH_PROVIDER,
+          pricing_id: RESEARCH_PRICING_ID,
+          model: RESEARCH_MODEL,
+          currency: "THB",
+          maximum_customer_price: RESEARCH_CEILING,
+          command_identity: COMMAND_IDENTITY,
+          approved_at: approvedAt,
+          expires_at: expiresAt,
+        },
     paid_direction_approval: {
       contract: "CREATIVE_DIRECTION_BUDGET_APPROVAL_V2",
       id: `direction-${commandDigest}`,

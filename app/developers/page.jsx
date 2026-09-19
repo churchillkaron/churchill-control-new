@@ -1,3 +1,4 @@
+import Image from "next/image";
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 
 const capabilityFamilies = [

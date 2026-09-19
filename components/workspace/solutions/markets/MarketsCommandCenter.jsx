@@ -256,6 +256,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   const orders = Array.isArray(data?.paperOrders) ? data.paperOrders : [];
   const evidence = Array.isArray(data?.evidence) ? data.evidence : [];
   const theses = Array.isArray(data?.theses) ? data.theses : [];
+  const liveSnapshots = Array.isArray(data?.liveSnapshots) ? data.liveSnapshots : [];
   const snapshots = Array.isArray(data?.snapshots) ? data.snapshots : [];
   const filings = Array.isArray(data?.filings) ? data.filings : [];
   const outcomes = Array.isArray(data?.outcomes) ? data.outcomes : [];
@@ -402,6 +403,24 @@ export default function MarketsCommandCenter({ organizationId }) {
   const focusedNewsMonitorFresh = Number.isFinite(focusedNewsAgeMinutes)
     ? focusedNewsAgeMinutes <= 10
     : false;
+  const focusedQuoteAt = focusedSnapshot?.latest_quote_at || focusedSnapshot?.captured_at || null;
+  const focusedQuoteAgeSeconds = focusedQuoteAt
+    ? Math.max(0, (Date.now() - new Date(focusedQuoteAt).getTime()) / 1000)
+    : null;
+  const focusedQuoteFresh = Number.isFinite(focusedQuoteAgeSeconds)
+    ? focusedQuoteAgeSeconds <= Number(policy.max_market_data_age_seconds || 120)
+    : false;
+  const focusedBid = Number(focusedSnapshot?.bid_price || 0);
+  const focusedAsk = Number(focusedSnapshot?.ask_price || 0);
+  const focusedMid = focusedBid > 0 && focusedAsk > 0
+    ? (focusedBid + focusedAsk) / 2
+    : null;
+  const focusedSpreadBps = focusedMid && focusedAsk >= focusedBid
+    ? ((focusedAsk - focusedBid) / focusedMid) * 10000
+    : null;
+  const focusedLatestNews = focusedEvidence.find(
+    (row) => String(row.evidence_type || "").toUpperCase() === "NEWS",
+  ) || null;
 
   const directionalOutcomes = outcomes.filter((row) => typeof row.directional_hit === "boolean");
   const directionalHits = directionalOutcomes.filter((row) => row.directional_hit).length;
@@ -940,17 +959,28 @@ export default function MarketsCommandCenter({ organizationId }) {
                         </div>
 
                         <div className="text-left xl:text-right">
-                          <div className="text-[8px] uppercase tracking-[0.12em] text-[#938C83]">Latest executable market</div>
+                          <div className="text-[8px] uppercase tracking-[0.12em] text-[#938C83]">Latest market trade</div>
                           <div className="mt-1 text-[24px] font-semibold tracking-[-0.04em] text-[#292520]">
                             {focusedSnapshot?.latest_trade_price ? money(focusedSnapshot.latest_trade_price, baseCurrency) : "—"}
                           </div>
-                          <div className="mt-1 text-[8px] text-[#999188]">
-                            {focusedSnapshot?.captured_at ? new Date(focusedSnapshot.captured_at).toLocaleString() : "Refresh intelligence to load the latest snapshot"}
+                          <div className="mt-1 text-[8px] text-[#817970]">
+                            Bid {focusedBid > 0 ? money(focusedBid, baseCurrency) : "—"}
+                            {" · "}
+                            Ask {focusedAsk > 0 ? money(focusedAsk, baseCurrency) : "—"}
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[8px] xl:justify-end">
+                            <span className={focusedQuoteFresh ? "h-1.5 w-1.5 rounded-full bg-emerald-500" : "h-1.5 w-1.5 rounded-full bg-amber-500"} />
+                            <span className={focusedQuoteFresh ? "font-medium text-emerald-700" : "font-medium text-amber-700"}>
+                              {focusedQuoteFresh ? "Quote fresh" : "Quote stale"}
+                            </span>
+                            <span className="text-[#999188]">
+                              {Number.isFinite(focusedQuoteAgeSeconds) ? Math.round(focusedQuoteAgeSeconds) + "s old" : "No quote timestamp"}
+                            </span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="mt-4 grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                         {[
                           ["Confidence", focusedDecision ? (Number(focusedDecision.confidence || 0) * 100).toFixed(1) + "%" : "—"],
                           ["Evidence", focusedEvidenceCount],
@@ -958,6 +988,14 @@ export default function MarketsCommandCenter({ organizationId }) {
                           ["Walk-forward", focusedBacktest?.status === "COMPLETED" ? (Number(focusedBacktest.total_return || 0) * 100).toFixed(1) + "%" : focusedBacktest?.status || "Not run"],
                           ["Position", focusedPosition ? Number(focusedPosition.quantity || 0).toFixed(4) : "None"],
                           ["Decision state", focusedDecision?.risk_status || "—"],
+                          ["Spread", focusedSpreadBps == null ? "—" : focusedSpreadBps.toFixed(2) + " bps"],
+                          ["News signal", focusedLatestNews?.sentiment == null
+                            ? "Unscored"
+                            : Number(focusedLatestNews.sentiment) > 0.2
+                              ? "Positive"
+                              : Number(focusedLatestNews.sentiment) < -0.2
+                                ? "Negative"
+                                : "Neutral"],
                         ].map(([label, value]) => (
                           <div key={label} className="rounded-xl border border-[#CDAA78]/15 bg-[#FBF7F1] px-3 py-2.5">
                             <div className="text-[7px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>

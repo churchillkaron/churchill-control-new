@@ -93,6 +93,7 @@ async function loadState({ organizationId, entityId }) {
       riskPolicy: null,
       evidence: [],
       theses: [],
+      liveSnapshots: [],
       snapshots: [],
       filings: [],
       outcomes: [],
@@ -165,6 +166,7 @@ async function loadState({ organizationId, entityId }) {
     riskPolicy: policyResult.data || null,
     evidence: evidenceResult.data || [],
     theses: thesesResult.data || [],
+    liveSnapshots: liveSnapshotsResult.data || [],
     snapshots: [
       ...(liveSnapshotsResult.data || []),
       ...(snapshotsResult.data || []),
@@ -371,16 +373,21 @@ async function submitPaperOrder({ organizationId, state, body }) {
   const quantity = Number(body.quantity);
   if (!(quantity > 0)) throw new Error("Quantity must be greater than zero");
 
-  const snapshot = state.snapshots.find((row) => clean(row.symbol).toUpperCase() === clean(decision.symbol).toUpperCase());
-  if (!snapshot) throw new Error("Refresh market intelligence before submitting a paper order");
+  const snapshot = (state.liveSnapshots || []).find(
+    (row) => clean(row.symbol).toUpperCase() === clean(decision.symbol).toUpperCase(),
+  );
+  if (!snapshot) {
+    throw new Error("A live market quote is required before submitting a PAPER order");
+  }
 
-  const priceCandidates = side === "BUY"
-    ? [snapshot.ask_price, snapshot.latest_trade_price, snapshot.minute_close, snapshot.day_close]
-    : [snapshot.bid_price, snapshot.latest_trade_price, snapshot.minute_close, snapshot.day_close];
-  const requestedPrice = priceCandidates
-    .map((value) => Number(value))
-    .find((value) => Number.isFinite(value) && value > 0);
-  if (!(requestedPrice > 0)) throw new Error("Authoritative market price is unavailable");
+  const requestedPrice = Number(side === "BUY" ? snapshot.ask_price : snapshot.bid_price);
+  if (!(requestedPrice > 0)) {
+    throw new Error(
+      side === "BUY"
+        ? "Current live ask is unavailable for PAPER BUY"
+        : "Current live bid is unavailable for PAPER SELL",
+    );
+  }
 
   let account = state.paperAccount;
   if (!account) {

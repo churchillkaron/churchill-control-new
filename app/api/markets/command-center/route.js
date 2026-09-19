@@ -1021,9 +1021,23 @@ export async function POST(request) {
         if (riskAuthorityError) throw riskAuthorityError;
       }
 
+      let killSwitchCancellation = null;
+      if (automationPolicy.kill_switch === true) {
+        const { data, error: cancellationError } = await supabaseAdmin.rpc(
+          "market_cancel_open_paper_authority_on_kill_switch",
+          {
+            p_organization_id: organizationId,
+            p_portfolio_id: state.portfolio.id,
+          },
+        );
+        if (cancellationError) throw cancellationError;
+        killSwitchCancellation = data || null;
+      }
+
       return NextResponse.json({
         success: true,
         automationPolicy,
+        kill_switch_cancellation: killSwitchCancellation,
         execution: { mode: "PAPER", live_enabled: false },
       });
     }

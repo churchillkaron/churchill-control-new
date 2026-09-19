@@ -1,5 +1,6 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import PublicArtStage from "@/components/public/PublicArtStage";
+import BusinessPartnerShowcase from "@/components/public/BusinessPartnerShowcase";
 
 function Arrow({ className = "" }) {
   return <svg aria-hidden="true" viewBox="0 0 20 20" className={className} fill="none"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -23,8 +24,12 @@ export default function AvantiqoWorldPage({ config }) {
             </div>
           </div>
           <div className="relative min-h-[560px] overflow-hidden rounded-[34px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_34px_100px_rgba(68,47,25,.13)]">
-            {image ? <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${image})` }} /> : <div className="absolute inset-0"><PublicArtStage kind={artKind} /></div>}
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(20,15,10,.03)_52%,rgba(20,15,10,.24))]" />
+            {context === "Intelligence" ? (
+              <div className="absolute inset-4 bottom-[112px] overflow-hidden rounded-[24px]">
+                <BusinessPartnerShowcase compact />
+              </div>
+            ) : image ? <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${image})` }} /> : <div className="absolute inset-0"><PublicArtStage kind={artKind} /></div>}
+            {context === "Intelligence" ? null : <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(20,15,10,.03)_52%,rgba(20,15,10,.24))]" />}
             <div className="absolute left-5 top-5 rounded-full border border-white/68 bg-[#F8F0E6]/72 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.22em] text-[#8D6339] shadow-[0_10px_24px_rgba(50,35,20,.08)] backdrop-blur-xl">AVANTIQO / {context}</div>
             <div className="absolute bottom-5 left-5 right-5 rounded-[22px] border border-white/72 bg-[#F8F1E8]/88 p-5 text-[#2B251F] shadow-[0_18px_50px_rgba(0,0,0,.12)] backdrop-blur-xl sm:p-6">
               <div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#A36F39]">OPERATING FLOW</div>

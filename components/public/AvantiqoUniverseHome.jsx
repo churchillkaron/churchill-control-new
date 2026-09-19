@@ -8,14 +8,14 @@ const PRIMARY_AREAS = [
     title: "Operate the business from one connected system.",
     copy: "Customers, sales, reservations, work, people, finance, stock and documents stay connected instead of living in separate software.",
     href: "/products",
-    image: "/art/generated/products/products-run-business-v1.png",
+    image: "/art/generated/products/products-hero-v1.png",
   },
   {
     eyebrow: "02 · INTELLIGENCE",
     title: "Ask, decide and get approved work done.",
     copy: "Business Partner and specialist agents read live business evidence, reason across context, execute approved capabilities and verify the outcome.",
     href: "/intelligence-platform",
-    image: "/art/generated/products/products-intelligence-v2.png",
+    art: "business-partner",
   },
   {
     eyebrow: "03 · COMMUNICATIONS & REPUTATION",
@@ -78,9 +78,19 @@ function ImageCard({ item, tall = false }) {
   return (
     <a href={item.href} className="group overflow-hidden rounded-[28px] border border-black/[0.07] bg-[#F8F4EE] shadow-[0_18px_48px_rgba(45,34,22,.055)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(45,34,22,.11)]">
       <div className={`relative overflow-hidden bg-[#E9DFD1] ${tall ? "h-[320px]" : "h-[235px]"}`}>
-        <Image src={item.image} alt="" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover transition duration-700 group-hover:scale-[1.025]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,13,9,.01),rgba(18,13,9,.05)_55%,rgba(18,13,9,.48))]" />
-        <div className="absolute bottom-5 left-5 rounded-full border border-white/25 bg-[#17120D]/50 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.18em] text-[#F1C98E] backdrop-blur-xl">
+        {item.art === "business-partner" ? (
+          <div className="absolute inset-3 overflow-hidden rounded-[22px]">
+            <div className="origin-top-left scale-[.78] sm:scale-[.86] lg:scale-[.72] xl:scale-[.82]">
+              <BusinessPartnerShowcase compact />
+            </div>
+          </div>
+        ) : (
+          <>
+            <Image src={item.image} alt="" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover transition duration-700 group-hover:scale-[1.025]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,13,9,.01),rgba(18,13,9,.05)_55%,rgba(18,13,9,.48))]" />
+          </>
+        )}
+        <div className={`absolute bottom-5 left-5 rounded-full border px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.18em] backdrop-blur-xl ${item.art === "business-partner" ? "border-black/[0.08] bg-[#F5E8D6]/85 text-[#8D6339]" : "border-white/25 bg-[#17120D]/50 text-[#F1C98E]"}`}>
           {item.eyebrow || item.label}
         </div>
       </div>
@@ -190,8 +200,8 @@ export default function AvantiqoUniverseHome() {
           <div className="grid gap-4 md:grid-cols-3">
             {[
               ["CREATIVE STUDIOS","Create world-class image, video, music, voice and audio production.","/creative-studios","/art/generated/creative-hero-v3.png"],
-              ["DEVELOPERS","Build integrations, applications and embedded experiences on Avantiqo capabilities.","/developers","/art/generated/developers/developer-hero-v1.png"],
-              ["COMPUTE","Run inference, rendering and specialist workloads with owned capacity first.","/compute","/art/commercial-compute.jpg"],
+              ["DEVELOPERS","Build integrations, applications and embedded experiences on Avantiqo capabilities.","/developers","/art/generated/developers/developer-integration-v1.png"],
+              ["COMPUTE","Run inference, rendering and specialist workloads with owned capacity first.","/compute","/art/generated/developers/developer-runtime-v1.png"],
             ].map(([title,copy,href,image])=><a key={title} href={href} className="group overflow-hidden rounded-[26px] border border-black/[0.07] bg-white/72 shadow-[0_14px_40px_rgba(40,30,20,.04)]"><div className="relative h-[210px] overflow-hidden"><Image src={image} alt="" fill sizes="33vw" className="object-cover transition duration-700 group-hover:scale-[1.025]"/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,6,4,.01),rgba(8,6,4,.42))]"/><div className="absolute left-5 top-5 text-[7px] font-semibold uppercase tracking-[.18em] text-[#F1C98E]">{title}</div></div><div className="p-6"><p className="text-[14px] leading-6 text-[#5F5951]">{copy}</p><div className="mt-5 text-[9px] font-semibold text-[#865F39]">Explore →</div></div></a>)}
           </div>
         </div>

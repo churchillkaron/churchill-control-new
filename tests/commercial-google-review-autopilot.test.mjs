@@ -12,6 +12,8 @@ test("all-rating auto-publish can coexist with critical recovery", () => {
   assert.match(runtime, /critical_max_rating \?\? 2/);
   assert.match(runtime, /if \(critical\) await createRecoveryCase/);
   assert.doesNotMatch(runtime, /!critical && rating >=/);
+  assert.match(runtime, /allowed_providers: \["avantiqo-intelligence"\]/);
+  assert.doesNotMatch(runtime, /provider_id: "openai"/);
 });
 
 test("review sync only processes explicitly mapped Google locations", () => {

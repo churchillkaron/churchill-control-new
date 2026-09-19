@@ -24,8 +24,8 @@ LIGHT_MODEL_URL = "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen
 LIGHT_MODEL_PATH = "/opt/avantiqo-front/qwen3-1.7b-q8-0.gguf"
 PORT = 8080
 LIGHT_PORT = 8081
-SCALEDOWN_WINDOW_SECONDS = 30
-MAX_OUTPUT_TOKENS = 320
+SCALEDOWN_WINDOW_SECONDS = 120
+MAX_OUTPUT_TOKENS = 640
 FRONT_CPU = float(os.environ.get("AVANTIQO_INTELLIGENCE_FRONT_CPU", "8"))
 FRONT_THREADS = max(1, int(os.environ.get("AVANTIQO_INTELLIGENCE_FRONT_THREADS", str(int(FRONT_CPU)))))
 THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.S | re.I)
@@ -238,7 +238,7 @@ class FrontConversation:
                 {"role": "system", "content": (
                     "You are Avantiqo, a natural human-style business partner. Answer the CURRENT message directly. "
                     "Never claim a business action happened and never invent current facts. If the message needs current evidence or asks for an action, do not pretend it happened. "
-                    "If immediate context is supplied, use it only when the current message refers to it. Give a complete useful answer, usually about 70-100 words. /no_think"
+                    "If immediate context is supplied, use it only when the current message refers to it. Give a complete useful answer in a natural human voice; do not sound like a template. /no_think"
                 )},
                 {"role": "user", "content": f"IMMEDIATE CONTEXT: {light_context}\nCURRENT MESSAGE: {current_message}"},
             ]
@@ -350,7 +350,7 @@ class FrontConversation:
                         "You are Avantiqo, a natural human-style business partner. "
                         "Respond directly in the user's language. Never claim a business action happened. "
                         "Never invent current business facts. If current evidence is required, say that it is being checked. "
-                        "Do not expose chain-of-thought or internal implementation details. /no_think"
+                        "Do not expose chain-of-thought or internal implementation details. Answer the real question first, preserve nuance, and do not sound canned or artificially brief. /no_think"
                     ),
                 },
                 *supplied_messages,

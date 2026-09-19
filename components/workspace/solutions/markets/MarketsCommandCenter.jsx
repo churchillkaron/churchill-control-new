@@ -52,6 +52,7 @@ export default function MarketsCommandCenter({ organizationId }) {
   const [working, setWorking] = useState("");
   const [error, setError] = useState("");
   const [symbol, setSymbol] = useState("");
+  const [selectedSymbol, setSelectedSymbol] = useState("");
   const [paperQuantityBySymbol, setPaperQuantityBySymbol] = useState({});
   const [automationDraft, setAutomationDraft] = useState(null);
   const [riskDraft, setRiskDraft] = useState(null);
@@ -192,7 +193,10 @@ export default function MarketsCommandCenter({ organizationId }) {
     const next = symbol.trim().toUpperCase();
     if (!next) return;
     const result = await act("ADD_WATCHLIST", { symbol: next, asset_type: "EQUITY" });
-    if (result) setSymbol("");
+    if (result) {
+      setSymbol("");
+      setSelectedSymbol(next);
+    }
   }
 
   async function queuePaperDecision(decision) {
@@ -210,6 +214,39 @@ export default function MarketsCommandCenter({ organizationId }) {
     });
     if (result) {
       setPaperQuantityBySymbol((current) => ({ ...current, [ticker]: "" }));
+    }
+  }
+
+  async function refreshSymbolIntelligence(item) {
+    const ticker = String(item?.symbol || "").toUpperCase();
+    if (!ticker) return null;
+    setSelectedSymbol(ticker);
+    setWorking("REFRESH_INTELLIGENCE:" + ticker);
+    setError("");
+    try {
+      const response = await fetch("/api/markets/command-center", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          organizationId,
+          entityId,
+          action: "REFRESH_INTELLIGENCE",
+          symbol: ticker,
+          exchange: item?.exchange || null,
+        }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json?.success) {
+        throw new Error(json?.error || "Unable to refresh intelligence");
+      }
+      await load();
+      return json;
+    } catch (refreshError) {
+      setError(refreshError?.message || "Unable to refresh intelligence");
+      return null;
+    } finally {
+      setWorking("");
     }
   }
 
@@ -318,6 +355,29 @@ export default function MarketsCommandCenter({ organizationId }) {
   for (const row of backtestRuns) {
     if (!latestBacktestBySymbol.has(row.symbol)) latestBacktestBySymbol.set(row.symbol, row);
   }
+
+  const focusedSymbol = (
+    selectedSymbol &&
+    watchlist.some((row) => row.symbol === selectedSymbol)
+  )
+    ? selectedSymbol
+    : watchlist[0]?.symbol || "";
+  const focusedWatchItem = watchlist.find((row) => row.symbol === focusedSymbol) || null;
+  const focusedDecision = focusedSymbol ? latestBySymbol.get(focusedSymbol) || null : null;
+  const focusedSnapshot = focusedSymbol ? latestSnapshotBySymbol.get(focusedSymbol) || null : null;
+  const focusedBacktest = focusedSymbol ? latestBacktestBySymbol.get(focusedSymbol) || null : null;
+  const focusedPosition = focusedSymbol
+    ? openPositions.find((row) => row.symbol === focusedSymbol) || null
+    : null;
+  const focusedOpenOrder = focusedSymbol
+    ? orders.find((row) => row.symbol === focusedSymbol && ["QUEUED", "PARTIALLY_FILLED"].includes(row.status)) || null
+    : null;
+  const focusedEvidenceCount = focusedSymbol
+    ? evidence.filter((row) => row.symbol === focusedSymbol).length
+    : 0;
+  const focusedFilingCount = focusedSymbol
+    ? filings.filter((row) => row.symbol === focusedSymbol).length
+    : 0;
 
   const directionalOutcomes = outcomes.filter((row) => typeof row.directional_hit === "boolean");
   const directionalHits = directionalOutcomes.filter((row) => row.directional_hit).length;
@@ -801,6 +861,161 @@ export default function MarketsCommandCenter({ organizationId }) {
                     </button>
                   </form>
                 </div>
+
+                {focusedWatchItem ? (
+                  <div className="border-b border-[#CDAA78]/15 p-4">
+                    <div className="rounded-[20px] border border-[#CDAA78]/20 bg-white p-4 shadow-[0_10px_28px_rgba(73,55,35,0.045)]">
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="text-[22px] font-semibold tracking-[-0.04em] text-[#221F1B]">{focusedSymbol}</div>
+                            <div className={
+                              focusedDecision?.action === "BUY"
+                                ? "rounded-full bg-emerald-50 px-2.5 py-1 text-[8px] font-semibold text-emerald-700"
+                                : focusedDecision?.action === "SELL"
+                                  ? "rounded-full bg-red-50 px-2.5 py-1 text-[8px] font-semibold text-red-700"
+                                  : "rounded-full bg-[#F2EEE8] px-2.5 py-1 text-[8px] font-semibold text-[#766E65]"
+                            }>
+                              {focusedDecision?.action || "AWAITING DECISION"}
+                            </div>
+                            {focusedOpenOrder ? (
+                              <div className="rounded-full bg-amber-50 px-2.5 py-1 text-[8px] font-semibold text-amber-700">
+                                {focusedOpenOrder.status}
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-[#938C83]">
+                            {focusedWatchItem.asset_type} · {focusedWatchItem.thesis_horizon}
+                            {focusedWatchItem.exchange ? " · " + focusedWatchItem.exchange : ""}
+                          </div>
+                        </div>
+
+                        <div className="text-left xl:text-right">
+                          <div className="text-[8px] uppercase tracking-[0.12em] text-[#938C83]">Latest executable market</div>
+                          <div className="mt-1 text-[24px] font-semibold tracking-[-0.04em] text-[#292520]">
+                            {focusedSnapshot?.latest_trade_price ? money(focusedSnapshot.latest_trade_price, baseCurrency) : "—"}
+                          </div>
+                          <div className="mt-1 text-[8px] text-[#999188]">
+                            {focusedSnapshot?.captured_at ? new Date(focusedSnapshot.captured_at).toLocaleString() : "Refresh intelligence to load the latest snapshot"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                        {[
+                          ["Confidence", focusedDecision ? (Number(focusedDecision.confidence || 0) * 100).toFixed(1) + "%" : "—"],
+                          ["Evidence", focusedEvidenceCount],
+                          ["Filings", focusedFilingCount],
+                          ["Walk-forward", focusedBacktest?.status === "COMPLETED" ? (Number(focusedBacktest.total_return || 0) * 100).toFixed(1) + "%" : focusedBacktest?.status || "Not run"],
+                          ["Position", focusedPosition ? Number(focusedPosition.quantity || 0).toFixed(4) : "None"],
+                          ["Decision state", focusedDecision?.risk_status || "—"],
+                        ].map(([label, value]) => (
+                          <div key={label} className="rounded-xl border border-[#CDAA78]/15 bg-[#FBF7F1] px-3 py-2.5">
+                            <div className="text-[7px] uppercase tracking-[0.12em] text-[#968F86]">{label}</div>
+                            <div className="mt-1 truncate text-[10px] font-semibold text-[#443E37]">{value}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={Boolean(working)}
+                          onClick={() => refreshSymbolIntelligence(focusedWatchItem)}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[#CDAA78]/20 bg-white px-3 text-[9px] font-medium text-[#655B51] transition hover:border-[#B98B54]/35 hover:bg-[#FBF7F1] disabled:opacity-40"
+                        >
+                          <RefreshCw size={10} className={working === "REFRESH_INTELLIGENCE:" + focusedSymbol ? "animate-spin" : ""} />
+                          Refresh research
+                        </button>
+                        <button
+                          type="button"
+                          disabled={Boolean(working)}
+                          onClick={() => act("RUN_WALK_FORWARD", {
+                            symbol: focusedSymbol,
+                            training_bars: 80,
+                            test_bars: 20,
+                            transaction_cost_bps: 10,
+                            initial_equity: 100000,
+                          })}
+                          className="inline-flex h-8 items-center rounded-xl border border-[#D6A66A]/35 bg-[#FBF7F1] px-3 text-[9px] font-medium text-[#8A6239] transition hover:border-[#B98B54]/45 disabled:opacity-40"
+                        >
+                          {working === "RUN_WALK_FORWARD" ? "Validating…" : "Run walk-forward"}
+                        </button>
+
+                        {["BUY", "SELL"].includes(focusedDecision?.action) && canExecutePaper ? (
+                          focusedOpenOrder ? (
+                            <>
+                              <button
+                                type="button"
+                                disabled={Boolean(working)}
+                                onClick={() => act("PROCESS_PAPER_ORDERS")}
+                                className="inline-flex h-8 items-center rounded-xl bg-[#2B2723] px-3 text-[9px] font-medium text-white shadow-[0_5px_14px_rgba(43,39,35,0.12)] transition hover:bg-[#1F1C19] disabled:opacity-40"
+                              >
+                                {working === "PROCESS_PAPER_ORDERS" ? "Processing…" : "Process active order"}
+                              </button>
+                              <a
+                                href="#markets-execution"
+                                className="inline-flex h-8 items-center rounded-xl border border-[#CDAA78]/20 bg-white px-3 text-[9px] font-medium text-[#655B51] transition hover:border-[#B98B54]/35 hover:bg-[#FBF7F1]"
+                              >
+                                View execution
+                              </a>
+                            </>
+                          ) : (
+                            <>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={paperQuantityBySymbol[focusedSymbol] ?? ""}
+                                onChange={(event) => setPaperQuantityBySymbol((current) => ({
+                                  ...current,
+                                  [focusedSymbol]: event.target.value,
+                                }))}
+                                placeholder="Paper qty"
+                                className="h-8 w-24 rounded-xl border border-[#CDAA78]/20 bg-white px-2.5 text-[9px] text-[#2E2B27] outline-none focus:border-[#B98B54]/45"
+                              />
+                              <button
+                                type="button"
+                                disabled={Boolean(working)}
+                                onClick={() => queuePaperDecision(focusedDecision)}
+                                className="inline-flex h-8 items-center rounded-xl bg-[#2B2723] px-3 text-[9px] font-medium text-white shadow-[0_5px_14px_rgba(43,39,35,0.12)] transition hover:bg-[#1F1C19] disabled:opacity-40"
+                              >
+                                {"Queue " + focusedDecision.action}
+                              </button>
+                            </>
+                          )
+                        ) : ["BUY", "SELL"].includes(focusedDecision?.action) ? (
+                          <div className="inline-flex h-8 items-center rounded-xl border border-black/[0.07] bg-[#F7F6F3] px-3 text-[9px] text-[#817D76]">
+                            Owner authority required for PAPER execution
+                          </div>
+                        ) : null}
+
+                        {focusedDecision?.risk_status === "APPROVED_PAPER" && canExecutePaper ? (
+                          <button
+                            type="button"
+                            disabled={Boolean(working)}
+                            onClick={() => {
+                              const confirmed = window.confirm(
+                                focusedOpenOrder
+                                  ? "Cancel this governed decision and its active PAPER order?"
+                                  : "Cancel this governed PAPER decision?",
+                              );
+                              if (!confirmed) return;
+                              act("CANCEL_PAPER_DECISION", {
+                                decision_id: focusedDecision.id,
+                                reason: "Cancelled by owner from Markets workspace",
+                              });
+                            }}
+                            className="inline-flex h-8 items-center rounded-xl border border-red-200 bg-red-50 px-3 text-[9px] font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-40"
+                          >
+                            {focusedOpenOrder ? "Cancel decision & order" : "Cancel decision"}
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="divide-y divide-black/[0.06]">
                   {watchlist.length ? watchlist.map((item) => {
                     const decision = latestBySymbol.get(item.symbol);
@@ -808,9 +1023,22 @@ export default function MarketsCommandCenter({ organizationId }) {
                     const backtest = latestBacktestBySymbol.get(item.symbol);
                     const refreshing = working === `REFRESH_INTELLIGENCE:${item.symbol}`;
                     return (
-                      <div key={item.id} className="grid gap-3 p-4 transition hover:bg-[#FBF7F1]/70 sm:grid-cols-[minmax(120px,1fr)_auto_auto_auto_minmax(250px,auto)] sm:items-center">
+                      <div
+                        key={item.id}
+                        className={
+                          focusedSymbol === item.symbol
+                            ? "grid gap-3 bg-[#FBF7F1]/85 p-4 transition sm:grid-cols-[minmax(120px,1fr)_auto_auto_auto_minmax(250px,auto)] sm:items-center"
+                            : "grid gap-3 p-4 transition hover:bg-[#FBF7F1]/70 sm:grid-cols-[minmax(120px,1fr)_auto_auto_auto_minmax(250px,auto)] sm:items-center"
+                        }
+                      >
                         <div>
-                          <div className="text-[14px] font-semibold">{item.symbol}</div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSymbol(item.symbol)}
+                            className="text-left text-[14px] font-semibold text-[#2B2723] transition hover:text-[#8A6239]"
+                          >
+                            {item.symbol}
+                          </button>
                           <div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-[#938C83]">{item.asset_type} · {item.thesis_horizon}</div>
                           <div className="mt-1 text-[8px] text-[#9A968E]">
                             {backtest?.status === "COMPLETED"
@@ -844,31 +1072,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                           <button
                             type="button"
                             disabled={Boolean(working)}
-                            onClick={async () => {
-                              setWorking(`REFRESH_INTELLIGENCE:${item.symbol}`);
-                              setError("");
-                              try {
-                                const response = await fetch("/api/markets/command-center", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  credentials: "include",
-                                  body: JSON.stringify({
-                                    organizationId,
-                                    entityId,
-                                    action: "REFRESH_INTELLIGENCE",
-                                    symbol: item.symbol,
-                                    exchange: item.exchange || null,
-                                  }),
-                                });
-                                const json = await response.json().catch(() => ({}));
-                                if (!response.ok || !json?.success) throw new Error(json?.error || "Unable to refresh intelligence");
-                                await load();
-                              } catch (refreshError) {
-                                setError(refreshError?.message || "Unable to refresh intelligence");
-                              } finally {
-                                setWorking("");
-                              }
-                            }}
+                            onClick={() => refreshSymbolIntelligence(item)}
                             className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-[#FCFBF9] px-2.5 text-[9px] font-medium text-[#5E5851] transition hover:border-[#D6A66A]/45 hover:text-[#8A6239] disabled:opacity-40"
                           >
                             <RefreshCw size={10} className={refreshing ? "animate-spin" : ""} />

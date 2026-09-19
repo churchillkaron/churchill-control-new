@@ -130,7 +130,7 @@
     },
     {
       "path": "/api/internal/reputation/google-reviews/process",
-      "schedule": "* * * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/internal/commercial/loyalty/process-events",

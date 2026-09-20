@@ -19,7 +19,12 @@ function object(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
-async function applyStaffPhoneVerificationDeliveryStatus({ externalMessageId, status }) {
+async function applyStaffPhoneVerificationDeliveryStatus({
+  externalMessageId,
+  status,
+  errorCode = null,
+  errorMessage = null,
+}) {
   const providerMessageId = text(externalMessageId);
   const normalizedStatus = text(status).toUpperCase();
   if (!providerMessageId || !["SENT", "DELIVERED", "READ", "FAILED"].includes(normalizedStatus)) {
@@ -28,6 +33,8 @@ async function applyStaffPhoneVerificationDeliveryStatus({ externalMessageId, st
 
   const patch = {
     delivery_status: normalizedStatus,
+    delivery_error_code: normalizedStatus === "FAILED" ? text(errorCode) || null : null,
+    delivery_error_message: normalizedStatus === "FAILED" ? text(errorMessage) || null : null,
     updated_at: new Date().toISOString(),
   };
   if (normalizedStatus === "FAILED") patch.status = "DELIVERY_FAILED";
@@ -226,6 +233,8 @@ export async function POST(request) {
           applyStaffPhoneVerificationDeliveryStatus({
             externalMessageId: status.id,
             status: mappedStatus,
+            errorCode: error?.code || null,
+            errorMessage: error?.message || error?.title || null,
           }),
         ]);
         processedStatuses += 1;

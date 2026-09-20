@@ -9,6 +9,7 @@ import {
   ingestInboundCommunication,
   resolveCommunicationConnectionByAsset,
 } from "@/lib/commercial/communications/CommunicationWebhookRuntime";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -16,6 +17,31 @@ function text(value) {
 
 function object(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+async function applyStaffPhoneVerificationDeliveryStatus({ externalMessageId, status }) {
+  const providerMessageId = text(externalMessageId);
+  const normalizedStatus = text(status).toUpperCase();
+  if (!providerMessageId || !["SENT", "DELIVERED", "READ", "FAILED"].includes(normalizedStatus)) {
+    return { matched: false };
+  }
+
+  const patch = {
+    delivery_status: normalizedStatus,
+    updated_at: new Date().toISOString(),
+  };
+  if (normalizedStatus === "FAILED") patch.status = "DELIVERY_FAILED";
+
+  const { data, error } = await supabaseAdmin
+    .from("staff_phone_verification_challenges")
+    .update(patch)
+    .eq("external_message_id", providerMessageId)
+    .eq("status", "PENDING")
+    .select("id,status,delivery_status")
+    .limit(1);
+
+  if (error) throw error;
+  return { matched: Boolean(data?.length), challenge: data?.[0] || null };
 }
 
 function validSignature(rawBody, signatureHeader) {
@@ -181,21 +207,27 @@ export async function POST(request) {
         if (!mappedStatus || !status?.id) continue;
         const error = status?.errors?.[0] || null;
 
-        await applyCommunicationDeliveryStatus({
-          connection,
-          externalMessageId: status.id,
-          status: mappedStatus,
-          providerTimestamp: status?.timestamp || null,
-          errorCode: error?.code || null,
-          errorMessage: error?.message || error?.title || null,
-          metadata: {
-            webhook_provider: "meta_whatsapp",
-            conversation: status?.conversation || null,
-            pricing: status?.pricing || null,
-            recipient_id: status?.recipient_id || null,
-            provider_errors: status?.errors || null,
-          },
-        });
+        await Promise.all([
+          applyCommunicationDeliveryStatus({
+            connection,
+            externalMessageId: status.id,
+            status: mappedStatus,
+            providerTimestamp: status?.timestamp || null,
+            errorCode: error?.code || null,
+            errorMessage: error?.message || error?.title || null,
+            metadata: {
+              webhook_provider: "meta_whatsapp",
+              conversation: status?.conversation || null,
+              pricing: status?.pricing || null,
+              recipient_id: status?.recipient_id || null,
+              provider_errors: status?.errors || null,
+            },
+          }),
+          applyStaffPhoneVerificationDeliveryStatus({
+            externalMessageId: status.id,
+            status: mappedStatus,
+          }),
+        ]);
         processedStatuses += 1;
       }
     }

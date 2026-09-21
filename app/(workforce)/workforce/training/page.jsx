@@ -1,7 +1,5 @@
-export default function TrainingPage() {
-  return (
-    <div className="text-white p-6">
-      Training
-    </div>
-  );
+import { redirect } from "next/navigation";
+
+export default function LegacyWorkforceRedirect() {
+  redirect("/staff");
 }

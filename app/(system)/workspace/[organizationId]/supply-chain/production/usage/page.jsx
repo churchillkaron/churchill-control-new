@@ -125,7 +125,7 @@ export default function ProductionUsagePage() {
     <div className="min-h-screen bg-black text-white overflow-hidden">
 
       {/* ===== HEADER ===== */}
-      <div className="h-28 border-b border-white/5 flex items-center justify-between px-12">
+      <div className="flex flex-col gap-4 border-b border-white/5 px-4 py-6 sm:px-6 lg:h-28 lg:flex-row lg:items-center lg:justify-between lg:px-12 lg:py-0">
 
         <div>
 
@@ -133,23 +133,36 @@ export default function ProductionUsagePage() {
             INVENTORY
           </div>
 
-          <div className="text-6xl font-semibold tracking-tight">
+          <div className="text-3xl font-semibold tracking-tight sm:text-4xl lg:text-6xl">
             Ingredient Usage
           </div>
 
         </div>
 
-        <div className="px-6 h-14 rounded-3xl border border-orange-500/20 bg-orange-500/5 text-orange-400 text-xs uppercase tracking-[0.3em] flex items-center">
+        <div className="flex h-10 w-fit items-center rounded-2xl border border-orange-500/20 bg-orange-500/5 px-4 text-[10px] uppercase tracking-[0.22em] text-orange-400 lg:h-14 lg:rounded-3xl lg:px-6 lg:text-xs lg:tracking-[0.3em]">
           LIVE MOVEMENTS
         </div>
 
       </div>
 
       {/* ===== TABLE ===== */}
-      <div className="p-10">
+      <div className="p-4 sm:p-6 lg:p-10">
 
-        <div className="rounded-[40px] border border-white/10 overflow-hidden">
+        <div className="space-y-3 md:hidden">
+          {usage.map((row) => (
+            <div key={row.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-sm font-semibold">{row.ingredients?.name || "Unknown"}</div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                <div><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">Used</div><div className="mt-1 text-orange-400">{row.quantity}</div></div>
+                <div><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">Previous</div><div className="mt-1">{row.previous_stock}</div></div>
+                <div><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">New stock</div><div className="mt-1 text-cyan-400">{row.new_stock}</div></div>
+                <div className="min-w-0"><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">Reference</div><div className="mt-1 truncate text-zinc-400">{row.reference_id || "—"}</div></div>
+              </div>
+            </div>
+          ))}
+        </div>
 
+        <div className="hidden overflow-hidden rounded-[40px] border border-white/10 md:block">
           <table className="w-full">
 
             <thead className="bg-white/5">
@@ -217,7 +230,6 @@ export default function ProductionUsagePage() {
             </tbody>
 
           </table>
-
         </div>
 
       </div>

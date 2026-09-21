@@ -1,143 +1,31 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-import {
-  createServerSupabase,
-} from "@/lib/shared/supabase/server";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-export async function POST(req) {
-
+/**
+ * Retired legacy endpoint.
+ * Directly setting orders.status = 'paid' bypassed canonical payment settlement,
+ * Finance posting, tender evidence and POS payment authorization.
+ */
+export async function POST(request) {
   try {
-
-    const body =
-      await req.json();
-
-    const { id } = body;
-
-    if (!id) {
-
-      return NextResponse.json(
-        {
-          error:
-            "Missing order id",
-        },
-        {
-          status: 400,
-        }
-      );
-
-    }
-
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
-      });
-
+    const body = await request.json().catch(() => ({}));
+    const organizationId = String(body.organizationId || body.organization_id || "").trim();
+    const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) {
-
-      return NextResponse.json(
-        {
-          error:
-            access.error,
-        },
-        {
-          status:
-            access.status,
-        }
-      );
-
-    }
-
-    const organization_id =
-      access.organization_id;
-
-    const supabase =
-      createServerSupabase();
-
-    const {
-      data: order,
-      error,
-    } = await supabase
-
-      .from("orders")
-
-      .update({
-
-        status:
-          "paid",
-
-      })
-
-      .eq(
-        "id",
-        id
-      )
-
-      .eq(
-        "organization_id",
-        organization_id
-      )
-
-      .select()
-
-      .single();
-
-    if (
-      error ||
-      !order
-    ) {
-
-      console.error(
-        "ORDER UPDATE ERROR:",
-        error
-      );
-
-      return NextResponse.json(
-        {
-          error:
-            "Order not found or update failed",
-        },
-        {
-          status: 404,
-        }
-      );
-
+      return NextResponse.json({ success: false, error: access.error }, { status: access.status || 403 });
     }
 
     return NextResponse.json({
-
-      success: true,
-
-      order,
-
-    });
-
-  } catch (err) {
-
-    console.error(
-      "ORDER UPDATE ERROR:",
-      err
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          err.message ||
-          "Server error",
-      },
-      {
-        status: 500,
-      }
-    );
-
+      success: false,
+      error: "Legacy direct order-paid mutation is retired. Use the canonical POS payment settlement workflow.",
+      code: "LEGACY_ORDER_PAYMENT_MUTATION_RETIRED",
+    }, { status: 410 });
+  } catch (error) {
+    return NextResponse.json({
+      success: false,
+      error: error?.message || "Unable to process legacy order update request",
+    }, { status: 500 });
   }
-
 }

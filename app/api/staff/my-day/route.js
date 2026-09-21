@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { staffApiErrorResponse } from "@/lib/people/portal/StaffApiError";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { loadStaffWorkday } from "@/lib/people/workforce/shiftRuntime";
 import {
@@ -8,14 +9,8 @@ import {
   listAssignedWorkForStaff,
 } from "@/lib/operations/workforce/StaffAssignedWorkRuntime";
 
-function errorResponse(error) {
-  return NextResponse.json(
-    {
-      success: false,
-      error: error?.message || "Unable to update My Day",
-    },
-    { status: error?.status || 500 }
-  );
+function errorResponse(error, fallback = "Unable to update My Day") {
+  return staffApiErrorResponse(error, fallback);
 }
 
 export async function GET(request) {
@@ -48,18 +43,7 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
-      identity: {
-        organizationId: context.organizationId,
-        staffId: context.staff.id,
-        partyId: context.staff.party_id || null,
-        name: context.staff.name || null,
-      },
-      staff: context.staff,
       shiftActive: Boolean(workday.openShift),
-      activeShift: workday.openShift || null,
-      schedule: workday.schedule || null,
-      timezone: workday.timezone,
-      businessDate: workday.businessDate,
       ...myDay,
     });
   } catch (error) {
@@ -99,7 +83,7 @@ export async function POST(request) {
       );
     }
 
-    const result = await executeAssignedWorkForStaff({
+    await executeAssignedWorkForStaff({
       organizationId: context.organizationId,
       staffId: context.staff.id,
       actorId: context.user.id,
@@ -109,10 +93,7 @@ export async function POST(request) {
       completion: body.completion || null,
     });
 
-    return NextResponse.json({
-      success: true,
-      ...result,
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("STAFF_MY_DAY_POST_ERROR", error);
     return errorResponse(error);

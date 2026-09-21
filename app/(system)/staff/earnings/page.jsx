@@ -98,7 +98,7 @@ export default function StaffEarningsPage() {
     load();
   }, []);
 
-  const payroll = profile?.payroll || [];
+  const payroll = useMemo(() => profile?.payroll || [], [profile?.payroll]);
   const fallbackCurrency =
     profile?.compensation?.currency_code ||
     profile?.compensation?.currency ||
@@ -224,15 +224,15 @@ export default function StaffEarningsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#030303] p-5 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-5 text-[#1B1A18] lg:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
+        <section className="overflow-hidden rounded-[34px] border border-black/[0.075] bg-white backdrop-blur-3xl">
           <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
           <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <Link
                 href="/staff"
-                className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/40 hover:text-white"
+                className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#8A847C] hover:text-[#1B1A18]"
               >
                 <ArrowLeft className="h-4 w-4" /> Staff portal
               </Link>
@@ -240,7 +240,7 @@ export default function StaffEarningsPage() {
                 <ShieldCheck className="h-4 w-4" /> Personal Payroll
               </div>
               <h1 className="mt-3 text-4xl font-black">My Earnings</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/45">
+              <p className="mt-2 max-w-3xl text-sm text-[#817B73]">
                 Review the exact payroll records used by management, Finance and your final payslip. Acknowledge payroll before approval, or raise a payment dispute after payment until the payroll month is finalized.
               </p>
             </div>
@@ -249,7 +249,7 @@ export default function StaffEarningsPage() {
               type="button"
               onClick={load}
               disabled={loading}
-              className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
+              className="flex h-12 items-center gap-2 rounded-2xl border border-black/[0.08] bg-white px-4 text-xs font-black uppercase tracking-[0.16em] text-[#4F4A43] disabled:opacity-40"
             >
               <RefreshCw className="h-4 w-4" /> Refresh
             </button>
@@ -271,15 +271,15 @@ export default function StaffEarningsPage() {
         </section>
 
         {error ? (
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-[#984C43]">{error}</div>
         ) : null}
 
         {message ? (
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">{message}</div>
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-[#5E6D58]">{message}</div>
         ) : null}
 
         {loading ? (
-          <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6 text-sm text-white/45">Loading payroll history...</section>
+          <section className="rounded-[30px] border border-black/[0.075] bg-white p-6 text-sm text-[#817B73]">Loading payroll history...</section>
         ) : payroll.length ? (
           <section className="space-y-4">
             {payroll.map((record) => {
@@ -293,7 +293,7 @@ export default function StaffEarningsPage() {
               const paymentComplete = PAYMENT_COMPLETE_STATUSES.has(record.status);
 
               return (
-                <article key={record.id} className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+                <article key={record.id} className="rounded-[30px] border border-black/[0.075] bg-white p-5 lg:p-6">
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -301,11 +301,11 @@ export default function StaffEarningsPage() {
                         <StatusBadge value={record.status} />
                         <StatusBadge value={record.payout_status || "PENDING"} muted />
                       </div>
-                      <div className="mt-2 text-xs text-white/30">
+                      <div className="mt-2 text-xs text-[#A09A92]">
                         {record.legal_entity?.name || "Payroll entity"}
                       </div>
                       <div className="mt-3 text-3xl font-black text-[#D6A66A]">{money(record.final_salary, currency)}</div>
-                      <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-white/25">Net pay</div>
+                      <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[#AAA49C]">Net pay</div>
                     </div>
 
                     <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 lg:max-w-2xl lg:grid-cols-4">
@@ -346,13 +346,13 @@ export default function StaffEarningsPage() {
                   ) : null}
 
                   {record.employee_dispute ? (
-                    <div className={`mt-5 rounded-2xl border p-4 ${disputed ? "border-amber-500/20 bg-amber-500/[0.08]" : "border-white/10 bg-white/[0.03]"}`}>
+                    <div className={`mt-5 rounded-2xl border p-4 ${disputed ? "border-amber-500/20 bg-amber-500/[0.08]" : "border-black/[0.08] bg-white/[0.03]"}`}>
                       <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-amber-200">
                         <AlertTriangle className="h-4 w-4" /> {disputed ? "Dispute open" : "Dispute resolved"}
                       </div>
-                      <p className="mt-2 text-sm text-white/55">{record.employee_dispute}</p>
+                      <p className="mt-2 text-sm text-[#716B64]">{record.employee_dispute}</p>
                       {record.dispute_resolution_notes ? (
-                        <p className="mt-2 text-sm text-white/40">Resolution: {record.dispute_resolution_notes}</p>
+                        <p className="mt-2 text-sm text-[#8A847C]">Resolution: {record.dispute_resolution_notes}</p>
                       ) : null}
                     </div>
                   ) : null}
@@ -372,7 +372,7 @@ export default function StaffEarningsPage() {
                               ? "Describe the payment issue clearly for payroll and accounting."
                               : "Describe the payroll issue clearly for management."
                           }
-                          className="w-full rounded-xl border border-white/10 bg-black/25 p-4 text-sm outline-none placeholder:text-white/20"
+                          className="w-full rounded-xl border border-black/[0.09] bg-white p-4 text-sm outline-none placeholder:text-[#B4AEA6]"
                         />
                       </label>
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -380,7 +380,7 @@ export default function StaffEarningsPage() {
                           type="button"
                           onClick={() => dispute(record)}
                           disabled={workingId === record.id}
-                          className="h-10 rounded-xl bg-amber-300 px-4 text-[10px] font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
+                          className="h-10 rounded-xl bg-amber-300 px-4 text-[10px] font-black uppercase tracking-[0.14em] text-[#171614] disabled:opacity-40"
                         >
                           Submit dispute
                         </button>
@@ -390,7 +390,7 @@ export default function StaffEarningsPage() {
                             setDisputeId("");
                             setDisputeReason("");
                           }}
-                          className="h-10 rounded-xl border border-white/10 px-4 text-[10px] font-black uppercase tracking-[0.14em] text-white/60"
+                          className="h-10 rounded-xl border border-black/[0.08] px-4 text-[10px] font-black uppercase tracking-[0.14em] text-[#67615A]"
                         >
                           Cancel
                         </button>
@@ -398,13 +398,13 @@ export default function StaffEarningsPage() {
                     </div>
                   ) : null}
 
-                  <div className="mt-5 flex flex-wrap gap-2 border-t border-white/[0.07] pt-5">
+                  <div className="mt-5 flex flex-wrap gap-2 border-t border-black/[0.065] pt-5">
                     {canReview && !acknowledged && !disputed ? (
                       <button
                         type="button"
                         onClick={() => acknowledge(record)}
                         disabled={workingId === record.id || (record.review_required === true && record.review_status === "PENDING")}
-                        className="h-11 rounded-xl bg-[#D6A66A] px-5 text-[10px] font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
+                        className="h-11 rounded-xl bg-[#D6A66A] px-5 text-[10px] font-black uppercase tracking-[0.14em] text-[#171614] disabled:opacity-40"
                       >
                         {record.review_required === true && record.review_status === "PENDING"
                           ? "Awaiting manager review"
@@ -430,7 +430,7 @@ export default function StaffEarningsPage() {
                         type="button"
                         onClick={() => openPayslip(record)}
                         disabled={workingId === record.id}
-                        className="flex h-11 items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.07] px-5 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-200 disabled:opacity-40"
+                        className="flex h-11 items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.07] px-5 text-[10px] font-black uppercase tracking-[0.14em] text-[#5E6D58] disabled:opacity-40"
                       >
                         <FileText className="h-4 w-4" /> Payslip
                       </button>
@@ -441,10 +441,10 @@ export default function StaffEarningsPage() {
             })}
           </section>
         ) : (
-          <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-8 text-center">
-            <Banknote className="mx-auto h-8 w-8 text-white/25" />
+          <section className="rounded-[30px] border border-black/[0.075] bg-white p-8 text-center">
+            <Banknote className="mx-auto h-8 w-8 text-[#AAA49C]" />
             <h2 className="mt-4 text-xl font-black">No payroll records yet</h2>
-            <p className="mt-2 text-sm text-white/35">Your payroll history will appear here after payroll is generated.</p>
+            <p className="mt-2 text-sm text-[#948E86]">Your payroll history will appear here after payroll is generated.</p>
           </section>
         )}
       </div>
@@ -454,8 +454,8 @@ export default function StaffEarningsPage() {
 
 function Metric({ label, value, compact = false }) {
   return (
-    <div className={`rounded-2xl border border-white/[0.07] bg-black/20 ${compact ? "p-3" : "p-5"}`}>
-      <div className="text-[9px] uppercase tracking-[0.16em] text-white/30">{label}</div>
+    <div className={`rounded-2xl border border-black/[0.06] bg-[#FCFBF9] ${compact ? "p-3" : "p-5"}`}>
+      <div className="text-[9px] uppercase tracking-[0.16em] text-[#A09A92]">{label}</div>
       <div className={`mt-2 font-black ${compact ? "text-sm" : "text-xl"}`}>{value}</div>
     </div>
   );
@@ -463,16 +463,16 @@ function Metric({ label, value, compact = false }) {
 
 function Info({ label, value }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-      <div className="text-[9px] uppercase tracking-[0.14em] text-white/25">{label}</div>
-      <div className="mt-1 text-sm font-bold text-white/65">{value}</div>
+    <div className="rounded-xl border border-black/[0.06] bg-white/[0.02] p-3">
+      <div className="text-[9px] uppercase tracking-[0.14em] text-[#AAA49C]">{label}</div>
+      <div className="mt-1 text-sm font-bold text-[#5E5952]">{value}</div>
     </div>
   );
 }
 
 function StatusBadge({ value, muted = false }) {
   return (
-    <span className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${muted ? "border-white/10 bg-white/[0.04] text-white/45" : "border-[#D6A66A]/20 bg-[#D6A66A]/10 text-[#E8BE83]"}`}>
+    <span className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${muted ? "border-black/[0.075] bg-white text-[#817B73]" : "border-[#D6A66A]/20 bg-[#D6A66A]/10 text-[#76583A]"}`}>
       {value || "-"}
     </span>
   );

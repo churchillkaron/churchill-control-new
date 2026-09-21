@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { staffApiErrorResponse } from "@/lib/people/portal/StaffApiError";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import {
   cancelShiftSwapRequest,
@@ -12,6 +13,7 @@ import {
   respondToShiftSwapRequest,
 } from "@/lib/people/workforce/workforceRequestRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { projectStaffWorkforceMutation, projectStaffWorkforceRequestLists } from "@/lib/people/portal/StaffWorkforceRequestProjection";
 
 function contextError(context) {
   return NextResponse.json(
@@ -37,7 +39,7 @@ export async function GET(request) {
       }),
       supabaseAdmin
         .from("staff_accounts")
-        .select("id,name,email,role,position,department")
+        .select("id,name,role,position,department")
         .eq("active_organization_id", context.organizationId)
         .eq("active", true)
         .neq("id", context.staff.id)
@@ -48,20 +50,11 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
-      organizationId: context.organizationId,
-      staffId: context.staff.id,
       coworkers: coworkersResult.data || [],
-      ...requests,
+      ...projectStaffWorkforceRequestLists(requests),
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to load workforce requests",
-        code: error?.code || null,
-      },
-      { status: error?.status || 500 }
-    );
+    return staffApiErrorResponse(error, "Unable to load workforce requests");
   }
 }
 
@@ -121,17 +114,9 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      organizationId: context.organizationId,
-      result,
+      result: projectStaffWorkforceMutation(action, result),
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to update workforce request",
-        code: error?.code || null,
-      },
-      { status: error?.status || 500 }
-    );
+    return staffApiErrorResponse(error, "Unable to update workforce request");
   }
 }

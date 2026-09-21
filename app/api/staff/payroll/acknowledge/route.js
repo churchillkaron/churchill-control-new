@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { staffApiErrorResponse } from "@/lib/people/portal/StaffApiError";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { acknowledgePayrollRecord } from "@/lib/people/payroll";
@@ -22,7 +23,7 @@ export async function POST(request) {
     const body = await request.json();
     const { staff, organizationId } = context;
 
-    const result = await acknowledgePayrollRecord({
+    await acknowledgePayrollRecord({
       payrollRecordId: body?.payrollRecordId,
       organizationId,
       staffId: staff.id,
@@ -30,13 +31,10 @@ export async function POST(request) {
       staffName: staff.name || staff.email || "STAFF",
     });
 
-    return NextResponse.json({ success: true, result });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("PAYROLL_ACKNOWLEDGE_ERROR", error);
 
-    return NextResponse.json(
-      { success: false, error: error?.message || "Unable to acknowledge payroll" },
-      { status: 400 }
-    );
+    return staffApiErrorResponse(error, "Unable to acknowledge payroll");
   }
 }

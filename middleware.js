@@ -6,15 +6,10 @@ import {
   getPublicSupabaseUrl,
 } from "@/lib/shared/supabase/publicConfig";
 
-const WORKFORCE_CANONICAL_HOST = "avantiqo.ai";
 const INVESTOR_V7_LAUNCH_PATH = "/api/internal/creative-investor-spatial-master-v7-launch";
 const INVESTOR_V7_LAUNCH_TOKEN = "avq-investor-spatial-master-v7-launch-20260821";
 const INVESTOR_V7_RENDER_TOKEN = "avq-investor-spatial-master-v7-20260821";
 
-function isWorkforcePath(pathname) {
-  return pathname === "/workforce" || pathname.startsWith("/workforce/") ||
-    pathname === "/staff" || pathname.startsWith("/staff/");
-}
 
 function isProtectedWorkspacePath(pathname) {
   return pathname === "/workspace" || pathname.startsWith("/workspace/");
@@ -136,24 +131,6 @@ export async function middleware(request, event) {  if (request.nextUrl.pathname
   }
 
   const sessionResponse = await refreshSupabaseSession(request);
-  const hostname = String(request.nextUrl.hostname || "").toLowerCase();
-
-  if (
-    process.env.VERCEL_ENV === "production" &&
-    isWorkforcePath(request.nextUrl.pathname) &&
-    hostname &&
-    hostname !== WORKFORCE_CANONICAL_HOST
-  ) {
-    const canonicalUrl = request.nextUrl.clone();
-    canonicalUrl.protocol = "https:";
-    canonicalUrl.hostname = WORKFORCE_CANONICAL_HOST;
-    canonicalUrl.port = "";
-
-    const redirect = NextResponse.redirect(canonicalUrl, 307);
-    sessionResponse.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
-    return redirect;
-  }
-
   return sessionResponse;
 }
 

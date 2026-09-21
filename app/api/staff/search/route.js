@@ -1,7 +1,23 @@
 import { NextResponse } from "next/server";
+import { staffApiErrorResponse } from "@/lib/people/portal/StaffApiError";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+const STAFF_DIRECTORY_ROLES = new Set([
+  "SUPER_ADMIN",
+  "OWNER",
+  "ORGANIZATION_OWNER",
+  "ORG_OWNER",
+  "PLATFORM_OWNER",
+  "ADMIN",
+  "MANAGER",
+  "HR_ADMIN",
+]);
+
+function canSearchStaffDirectory(context) {
+  return STAFF_DIRECTORY_ROLES.has(String(context?.role || context?.staff?.role || "").trim().toUpperCase());
+}
 
 export async function GET(request) {
   try {
@@ -22,12 +38,19 @@ export async function GET(request) {
       );
     }
 
+    if (!canSearchStaffDirectory(context)) {
+      return NextResponse.json(
+        { success: false, error: "Staff directory search requires management authority", code: "STAFF_DIRECTORY_SEARCH_FORBIDDEN" },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const query = String(searchParams.get("query") || "").trim();
 
     let staffQuery = supabaseAdmin
       .from("staff_accounts")
-      .select("id,name,role,profile_picture,email,party_id")
+      .select("id,name,role,position,department,profile_picture,party_id")
       .eq("active_organization_id", context.organizationId)
       .eq("active", true)
       .neq("id", context.staff.id)
@@ -37,9 +60,7 @@ export async function GET(request) {
       const safeQuery = query.replace(/[%_,()]/g, " ").trim();
 
       if (safeQuery) {
-        staffQuery = staffQuery.or(
-          `name.ilike.%${safeQuery}%,email.ilike.%${safeQuery}%`
-        );
+        staffQuery = staffQuery.ilike("name", `%${safeQuery}%`);
       }
     }
 
@@ -51,16 +72,9 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
-      organizationId: context.organizationId,
       staff: data || [],
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to search staff",
-      },
-      { status: 500 }
-    );
+    return staffApiErrorResponse(error, "Unable to search staff");
   }
 }

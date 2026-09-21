@@ -84,7 +84,7 @@ export async function POST(request) {
     const staffPortalOrigin = await resolveOrganizationStaffPortalOrigin(
       context.organizationId,
     );
-    const enrollmentRedirect = `${staffPortalOrigin}/workforce/profile`;
+    const enrollmentRedirect = `${staffPortalOrigin}/staff/profile`;
     const result = await provisionPasskeyEnrollmentAccess({
       organizationId: context.organizationId,
       staffId,

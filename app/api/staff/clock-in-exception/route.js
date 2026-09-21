@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { staffApiErrorResponse } from "@/lib/people/portal/StaffApiError";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import {
@@ -9,6 +10,7 @@ import {
   requestClockInException,
 } from "@/lib/people/workforce/clockInExceptionApproval";
 import { loadOrganizationPolicy } from "@/lib/platform/security/organizationAccessPolicy";
+import { projectStaffClockInExceptionRequest, projectStaffClockInExceptionState } from "@/lib/people/portal/StaffClockInExceptionProjection";
 
 function contextError(context) {
   return NextResponse.json(
@@ -53,17 +55,10 @@ export async function GET(request) {
       success: true,
       organizationId: context.organizationId,
       requiredTargets: requiredExceptionTargets(policy),
-      state,
+      state: projectStaffClockInExceptionState(state),
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to load clock-in exception state",
-        code: error?.code || null,
-      },
-      { status: error?.status || 500 }
-    );
+    return staffApiErrorResponse(error, "Unable to load clock-in exception state");
   }
 }
 
@@ -110,16 +105,9 @@ export async function POST(request) {
       success: true,
       organizationId: context.organizationId,
       requiredTargets,
-      ...result,
+      ...projectStaffClockInExceptionRequest(result),
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to request clock-in exception",
-        code: error?.code || null,
-      },
-      { status: error?.status || 500 }
-    );
+    return staffApiErrorResponse(error, "Unable to request clock-in exception");
   }
 }

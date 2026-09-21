@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export const metadata = {
   title: "Data Deletion | Avantiqo",
   description:
@@ -31,14 +33,14 @@ export default function DataDeletionPage() {
     <main className="min-h-screen bg-[#050507] text-white">
       <header className="border-b border-white/[0.07] bg-[#050507]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
-          <a href="/" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <img src="/branding/avantiqo-logo.png" alt="Avantiqo" className="h-9 w-auto" />
             <span className="text-sm font-semibold tracking-[0.14em] text-[#E8CB8A]">Avantiqo</span>
-          </a>
+          </Link>
           <div className="flex items-center gap-4 text-xs text-white/50">
-            <a href="/policy" className="hover:text-white">Privacy</a>
-            <a href="/terms" className="hover:text-white">Terms</a>
-            <a href="/login" className="rounded-xl bg-[#D6A66A] px-4 py-2.5 font-semibold text-black">Login</a>
+            <Link href="/policy" className="hover:text-white">Privacy</Link>
+            <Link href="/terms" className="hover:text-white">Terms</Link>
+            <Link href="/login" className="rounded-xl bg-[#D6A66A] px-4 py-2.5 font-semibold text-black">Login</Link>
           </div>
         </div>
       </header>
@@ -90,9 +92,9 @@ export default function DataDeletionPage() {
             <div className="mt-1 text-xs text-white/30">Operated by BEA Co., Ltd. · Company Registration No. 0835553004601</div>
           </div>
           <div className="flex gap-5">
-            <a href="/" className="hover:text-white">Home</a>
-            <a href="/policy" className="hover:text-white">Privacy Policy</a>
-            <a href="/terms" className="hover:text-white">Terms of Service</a>
+            <Link href="/" className="hover:text-white">Home</Link>
+            <Link href="/policy" className="hover:text-white">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-white">Terms of Service</Link>
           </div>
         </div>
       </footer>

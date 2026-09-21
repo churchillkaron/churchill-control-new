@@ -14,7 +14,7 @@ import {
   Users,
 } from "lucide-react";
 
-const PASSKEY_REDIRECT_URL = "https://avantiqo.ai/workforce/profile";
+const PASSKEY_IDENTITY_ORIGIN = "https://auth.avantiqo.ai";
 
 function dateTime(value) {
   if (!value) return "Not yet verified";
@@ -222,7 +222,7 @@ export default function PasskeyReadinessPage() {
                     Clock-in staff enrollment
                   </div>
                   <p className="mt-2 max-w-3xl text-xs leading-5 text-white/40">
-                    New identities receive a Supabase invitation. Existing identities receive a passwordless sign-in link. No temporary or manager-created staff password is used. Access returns staff to https://avantiqo.ai/workforce/profile for passkey registration.
+                    New identities receive a Supabase invitation. Existing identities receive a passwordless sign-in link. No temporary or manager-created staff password is used. Access returns staff to the organization's own Staff Portal. Passkey creation and verification are brokered through https://auth.avantiqo.ai.
                   </p>
                 </div>
                 <div className="text-[10px] font-black uppercase tracking-[0.12em] text-white/30">
@@ -299,7 +299,7 @@ export default function PasskeyReadinessPage() {
                 />
                 <StatusRow
                   label="Canonical Workforce origin"
-                  value={readiness.canonicalOrigin || "https://avantiqo.ai"}
+                  value={readiness.canonicalOrigin || PASSKEY_IDENTITY_ORIGIN}
                   good
                 />
                 <StatusRow
@@ -322,8 +322,8 @@ export default function PasskeyReadinessPage() {
                   <SetupValue label="Enable Passkey authentication" value="On" />
                   <SetupValue label="Relying Party Display Name" value="Avantiqo" />
                   <SetupValue label="Relying Party ID" value={readiness.requiredRpId || "avantiqo.ai"} />
-                  <SetupValue label="Relying Party Origin" value={readiness.canonicalOrigin || "https://avantiqo.ai"} />
-                  <SetupValue label="Allowed redirect URL" value={PASSKEY_REDIRECT_URL} />
+                  <SetupValue label="Relying Party Origin" value={readiness.canonicalOrigin || PASSKEY_IDENTITY_ORIGIN} />
+                  <SetupValue label="Identity broker" value={PASSKEY_IDENTITY_ORIGIN} />
                 </div>
                 <p className="mt-3 text-xs leading-5 text-violet-100/55">
                   Keep the RP ID stable after staff begin enrolling. The production redirect should be explicitly allowed for the passwordless enrollment flow.

@@ -13,7 +13,10 @@ import {
   TestTube2,
 } from "lucide-react";
 import { supabaseClient } from "@/lib/shared/supabase/client";
-import verifyClockInPasskey from "@/lib/people/workforce/verifyClockInPasskey";
+import {
+  beginCentralPasskeyEnrollment,
+  beginCentralPasskeySignIn,
+} from "@/lib/people/workforce/StaffPasskeyBrokerClient";
 
 function dateTime(value) {
   if (!value) return "Never";
@@ -93,21 +96,14 @@ export default function ProfilePage() {
     setMessage("");
 
     try {
-      const { data, error: registrationError } =
-        await supabaseClient.auth.registerPasskey();
-
-      if (registrationError) throw registrationError;
-
-      setMessage(
-        `Passkey registered${data?.friendly_name ? ` · ${data.friendly_name}` : ""}. Run Test passkey verification before rollout.`
-      );
-      await loadSecurity();
+      await beginCentralPasskeyEnrollment({
+        returnPath: "/workforce/profile",
+      });
     } catch (registrationError) {
       setError(
         registrationError?.message ||
-          "Unable to register passkey on this device"
+          "Unable to start secure passkey enrollment"
       );
-    } finally {
       setWorking(false);
     }
   }
@@ -118,17 +114,14 @@ export default function ProfilePage() {
     setMessage("");
 
     try {
-      await verifyClockInPasskey();
-      setMessage(
-        "Passkey verification succeeded. This identity has completed a real WebAuthn verification on the current Workforce origin."
-      );
-      await loadSecurity();
+      await beginCentralPasskeySignIn({
+        returnPath: "/workforce/profile",
+      });
     } catch (verificationError) {
       setError(
         verificationError?.message ||
           "Passkey verification failed on this device"
       );
-    } finally {
       setVerifying(false);
     }
   }

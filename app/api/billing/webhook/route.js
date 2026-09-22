@@ -15,7 +15,6 @@ import { PaymentConfirmationRuntime } from "@/lib/platform/payment-runtime/confi
 import { PaymentTransactionRepository } from "@/lib/platform/payment-runtime/repositories/PaymentTransactionRepository";
 import { StripeProvider } from "@/lib/platform/service-runtime/providers/stripe/StripeProvider";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { finalizeCustomerPortalCardPayment, failCustomerPortalCardPayment } from "@/lib/customer-portal/CustomerPortalPaymentSettlementRuntime";
 
 function providerId(value) {
   return typeof value === "string" ? value : value?.id || null;

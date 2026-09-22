@@ -45,7 +45,8 @@ function HeroIcon({ type }) {
 }
 
 export default function AvantiqoUniverseHome(){
-  return <main className="min-h-screen bg-[#F7F6F3] text-[#171614]">
+  return (
+    <main className="min-h-screen bg-[#F7F6F3] text-[#171614]">
     <PublicSiteHeader context="Avantiqo" audience="platform" tone="light" />
     <section className="relative isolate overflow-hidden border-b border-[#D6A66A]/22 bg-[#F4EDE2] text-[#171614]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,.94),transparent_30%),radial-gradient(circle_at_73%_34%,rgba(255,244,226,.88),transparent_26%),linear-gradient(180deg,#F5EFE7_0%,#EFE5D7_52%,#E8DDCE_100%)]"/>
@@ -89,6 +90,7 @@ export default function AvantiqoUniverseHome(){
           <div className="text-[7px] uppercase tracking-[.24em] text-[#27231E]/42">Ideas · People · Products · A stronger tomorrow</div>
           <a href="/start" className="inline-flex items-center gap-3 text-[8px] font-medium uppercase tracking-[.23em] text-[#40372E]/62 transition hover:text-[#9A6628]"><span className="h-px w-8 bg-[#B47C3A]"/>A more capable tomorrow</a>
         </div>
+      </div>
       </section>
 
     <section className="border-y border-black/[0.06] bg-[#EEE6DB] text-[#1D1B18]"><div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">

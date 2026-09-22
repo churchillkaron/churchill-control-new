@@ -248,6 +248,10 @@ export default function PlatformOwnerHome() {
     () => (Array.isArray(control?.recentActivity) ? control.recentActivity : []),
     [control],
   );
+  const customerActivity = useMemo(
+    () => (Array.isArray(control?.customerActivity) ? control.customerActivity : []),
+    [control],
+  );
   const modules = useMemo(
     () => (Array.isArray(control?.modules) ? control.modules : []),
     [control],
@@ -284,12 +288,12 @@ export default function PlatformOwnerHome() {
 
   const organizationSignalCounts = useMemo(() => {
     const counts = new Map();
-    for (const signal of openSignals) {
+    for (const signal of customerActivity.filter(isOpenSignal)) {
       if (!signal?.organization_id) continue;
       counts.set(signal.organization_id, (counts.get(signal.organization_id) || 0) + 1);
     }
     return counts;
-  }, [openSignals]);
+  }, [customerActivity]);
 
   const profitByOrganization = useMemo(
     () => new Map(

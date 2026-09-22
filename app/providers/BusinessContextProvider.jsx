@@ -22,6 +22,7 @@ const EMPTY_STATE = {
   organizations: [],
   organization_id: null,
   is_platform_operator_workspace: false,
+  operator_legal_entity: null,
   entity: null,
   entities: [],
   entity_id: null,
@@ -185,6 +186,7 @@ export function BusinessContextProvider({ children }) {
             organizations: [],
             organization_id: null,
             is_platform_operator_workspace: false,
+            operator_legal_entity: null,
             entity: null,
             entity_id: null,
             period: null,
@@ -223,6 +225,7 @@ export function BusinessContextProvider({ children }) {
           organization_id: organizationId,
           is_platform_operator_workspace:
             data.is_platform_operator_workspace === true,
+          operator_legal_entity: data.operator_legal_entity || null,
           entity: data.entity || null,
           entities: Array.isArray(data.entities)
             ? data.entities

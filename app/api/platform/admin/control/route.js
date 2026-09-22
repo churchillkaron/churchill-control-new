@@ -72,27 +72,29 @@ export async function GET(request) {
     }
   }
 
-  const recentActivity = [
-    ...(alertsResult.data || []).map((row) => ({
-      ...row,
-      event_type: row.alert_type || "system_alert",
-      title: row.title || row.alert_type || "System alert",
-      description: row.message || "Persisted system alert",
-    })),
-    ...(incidentsResult.data || []).map((row) => ({
-      ...row,
-      event_type: row.incident_type || "security_incident",
-      title: row.incident_type || "Security incident",
-      description: row.incident_summary || "Persisted security incident",
-      status: row.incident_status || "OPEN",
-    })),
-  ]
-    .sort(
-      (left, right) =>
-        new Date(right.created_at || 0).getTime() -
-        new Date(left.created_at || 0).getTime(),
-    )
-    .slice(0, 100);
+  const normalizedAlerts = (alertsResult.data || []).map((row) => ({
+    ...row,
+    event_type: row.alert_type || "system_alert",
+    title: row.title || row.alert_type || "System alert",
+    description: row.message || "Persisted system alert",
+  }));
+  const normalizedIncidents = (incidentsResult.data || []).map((row) => ({
+    ...row,
+    event_type: row.incident_type || "security_incident",
+    title: row.incident_type || "Security incident",
+    description: row.incident_summary || "Persisted security incident",
+    status: row.incident_status || "OPEN",
+  }));
+  const knownOrganizationIds = new Set((organizationsResult.data || []).map((row) => row.id).filter(Boolean));
+  const allActivity = [...normalizedAlerts, ...normalizedIncidents]
+    .filter((row) => row.organization_id && knownOrganizationIds.has(row.organization_id))
+    .sort((left, right) => new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime());
+  const recentActivity = access.isPlatformOperatorWorkspace
+    ? allActivity.filter((row) => row.organization_id === access.organizationId).slice(0, 100)
+    : allActivity.slice(0, 100);
+  const customerActivity = access.isPlatformOperatorWorkspace
+    ? allActivity.filter((row) => row.organization_id !== access.organizationId).slice(0, 250)
+    : [];
 
   return Response.json({
     success: true,
@@ -101,6 +103,7 @@ export async function GET(request) {
       : null,
     organizations: organizationsResult.data || [],
     recentActivity,
+    customerActivity,
     modules: modulesResult.data || [],
     services: servicesResult.data || [],
     activitySource: "SYSTEM_ALERTS_PLUS_ENTERPRISE_SECURITY_INCIDENTS",

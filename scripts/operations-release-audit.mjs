@@ -16,7 +16,7 @@ const FILES = Object.freeze({
   commandSchemas: "lib/operations/forms/OperationsCommandSchemaRegistry.js",
   workspaceRegistry: "lib/operations/registry/OperationsWorkspaceRegistry.js",
   workspaceResolver: "lib/operations/registry/OperationsWorkspaceResolver.js",
-  workspaceHub: "components/workspace/operations/OperationsWorkspaceHub.jsx",
+  workspaceHub: "components/workspace/operations/OperationsBusinessCommandCenter.jsx",
   runtimeWorkCenter: "components/workspace/operations/OperationsRuntimeWorkCenter.jsx",
   operationsPage: "app/(system)/workspace/[organizationId]/operations/page.jsx",
   operationsCapabilityPage: "app/(system)/workspace/[organizationId]/operations/[...operationsRoute]/page.jsx",
@@ -196,12 +196,11 @@ requireIncludes(source.workspaceResolver, [
 
 requireIncludes(source.workspaceHub, [
   "getOperationsWorkspaceGroups",
-  "Operations Command Center",
-  "PRIMARY_ACTIONS",
-  "COMMAND_SECTIONS",
-  "All Operations Tools",
+  "resolveOrganizationOperationalSolutions",
+  "Manage Operations",
+  "Management",
   "resolveWorkspaceRoute",
-], "Operations workspace hub");
+], "Operations business command center");
 
 requireExcludes(source.workspaceHub, [
   "Waiter",
@@ -232,7 +231,7 @@ requireIncludes(source.runtimeWorkCenter, [
 ], "Operations runtime work centre");
 
 requireIncludes(source.operationsPage, [
-  "OperationsWorkspaceHub",
+  "OperationsBusinessCommandCenter",
 ], "Operations landing page");
 
 requireIncludes(source.operationsCapabilityPage, [

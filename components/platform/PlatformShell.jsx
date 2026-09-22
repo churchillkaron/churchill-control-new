@@ -50,6 +50,8 @@ export default function PlatformShell({ children }) {
   const businessPartnerHome = /^\/workspace\/[^/]+\/?$/.test(pathname || "");
   const operationsWorkspace = /^\/workspace\/[^/]+\/operations(?:\/|$)/.test(pathname || "");
   const financeWorkspace = /^\/workspace\/[^/]+\/finance(?:\/|$)/.test(pathname || "");
+  const onboardingFlow = pathname === "/onboarding" || String(pathname || "").startsWith("/onboarding/");
+  const developerWorkspace = /^\/workspace\/[^/]+\/developers(?:\/|$)/.test(pathname || "");
 
   restoreLegacyWakeTemplateTrust();
 
@@ -81,6 +83,16 @@ export default function PlatformShell({ children }) {
       );
     };
   }, []);
+
+  if (developerWorkspace) {
+    return (
+      <div className="min-h-screen bg-[#F7F6F3] text-[#191919]">
+        <main className="min-h-screen px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
+          {children}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F7F6F3] text-[#191919]">
@@ -134,8 +146,8 @@ export default function PlatformShell({ children }) {
         </main>
       </div>
 
-      <SecretaryMeetingPresenceBridge />
-      {!secretaryMeetingCaptureActive && !businessPartnerHome ? (
+      {!onboardingFlow ? <SecretaryMeetingPresenceBridge /> : null}
+      {!onboardingFlow && !secretaryMeetingCaptureActive && !businessPartnerHome ? (
         <LocalHeyAvantiqoWakeBridge />
       ) : null}
 

@@ -6,6 +6,15 @@ import { createCodeAIAutonomousCapability } from "@/lib/platform/capabilities/cr
 import { withCodeAIInteractivePreviewContext } from "@/lib/code/runtime/CodeAIInteractivePreviewContextRuntime";
 import { loadCodeAIMissionResumeSnapshot } from "@/lib/code/runtime/CodeAIMissionHistoryRuntime";
 import {
+  resolveCodeAIDeveloperVerificationRequest,
+  runCodeAIDeveloperVerification,
+} from "@/lib/code/runtime/CodeAIDeveloperVerificationRuntime";
+import {
+  resolveCodeAIDeveloperImplementationRequest,
+  runCodeAIDeveloperImplementation,
+} from "@/lib/code/runtime/CodeAIDeveloperImplementationRuntime";
+import { publishCodeAILiveProgress } from "@/lib/code/runtime/CodeAILiveProgressRuntime";
+import {
   AVANTIQO_CODE_CERTIFICATION_CONTRACT,
   AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
 } from "@/lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProviderRegistration";
@@ -163,7 +172,11 @@ export async function POST(request) {
     const requestedObjective = text(body.objective, 4000);
     const requestedRepositoryUrl = text(body.repository_url || body.repositoryUrl || DEFAULT_REPOSITORY, 1000);
     const requestedRef = text(body.ref || "main", 160) || "main";
+    const requestedWorkspaceTarget = text(body.workspace_target || body.workspaceTarget || "SANDBOX", 80).toUpperCase();
+    const requestedDeviceId = text(body.device_id || body.deviceId, 160) || null;
+    const requestedDeviceSessionId = text(body.device_session_id || body.deviceSessionId, 160) || null;
     const requestedExecutionKey = text(body.execution_key || body.executionKey, 160);
+    const requestedMissionId = text(body.mission_id || body.missionId, 240);
     const resumeMissionId = text(body.resume_mission_id || body.resumeMissionId, 240);
     const suppliedResumeState = Object.keys(object(body.resume_state || body.resumeState)).length
       ? object(body.resume_state || body.resumeState)
@@ -181,6 +194,15 @@ export async function POST(request) {
     const maxEmployeePasses = boundedInteger(body.max_employee_passes, 8, 1, 16);
 
     if (!organizationId) return errorResponse(new Error("organization_id required"), 400);
+    if (requestedMissionId && !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,239}$/.test(requestedMissionId)) {
+      return errorResponse(new Error("CODE_STUDIO_MISSION_ID_INVALID"), 400);
+    }
+    if (!["SANDBOX", "LOCAL_COMPUTER", "DEVICE"].includes(requestedWorkspaceTarget)) {
+      return errorResponse(new Error("CODE_STUDIO_WORKSPACE_TARGET_INVALID"), 400);
+    }
+    if (requestedWorkspaceTarget === "DEVICE" && !requestedDeviceId) {
+      return errorResponse(new Error("CODE_STUDIO_DEVICE_ID_REQUIRED"), 400);
+    }
     if (!requestedObjective && !resumeMissionId) {
       return errorResponse(new Error("objective or resume_mission_id required"), 400);
     }
@@ -246,6 +268,138 @@ export async function POST(request) {
     if (!objective) return errorResponse(new Error("objective required"), 400);
     if (!repositoryUrl) return errorResponse(new Error("repository_url required"), 400);
 
+    const resumeStateMissionId = text(resumeState?.mission_id, 240);
+    if (requestedMissionId && resumeStateMissionId && requestedMissionId !== resumeStateMissionId) {
+      return errorResponse(new Error("CODE_STUDIO_MISSION_ID_RESUME_MISMATCH"), 409);
+    }
+    const missionId = resumeStateMissionId || resumeMissionId || requestedMissionId || `code-mission-${randomUUID()}`;
+
+    const developerVerification = resolveCodeAIDeveloperVerificationRequest(objective);
+    if (
+      developerVerification.eligible === true &&
+      requestedWorkspaceTarget === "DEVICE" &&
+      requestedDeviceId &&
+      requestedDeviceSessionId &&
+      !resumeMissionId &&
+      !suppliedResumeState
+    ) {
+      const result = await runCodeAIDeveloperVerification({
+        context,
+        objective,
+        repository_url: repositoryUrl,
+        ref,
+        organization_id: organizationId,
+        device_id: requestedDeviceId,
+        device_session_id: requestedDeviceSessionId,
+        mission_id: missionId,
+        timeout_ms: 180000,
+      });
+      return Response.json({
+        success: result.success === true,
+        contract: PREVIEW_CONTRACT,
+        certification_contract: AVANTIQO_CODE_CERTIFICATION_CONTRACT,
+        certified_runtime_contract: AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
+        status: result.status,
+        reason: result.reason || null,
+        execution_key: key,
+        mission_id: result.state?.mission_id || null,
+        resume_required: false,
+        resume_state: result.state || null,
+        state: result.state || null,
+        developer_verification: result,
+        workspace_target: requestedWorkspaceTarget,
+        device_id: requestedDeviceId,
+        device_session_id: requestedDeviceSessionId,
+        shared_device_session_preserved: true,
+        preview_service_temporarily_enabled: false,
+        production_routing_activated: false,
+        pricing_activated: false,
+        commit_performed: false,
+        production_deploy_performed: false,
+        external_fallback_allowed: false,
+        raw_reasoning_returned: false,
+      });
+    }
+
+    const developerImplementation = resolveCodeAIDeveloperImplementationRequest(objective);
+    if (
+      developerImplementation.eligible === true &&
+      requestedWorkspaceTarget === "DEVICE" &&
+      requestedDeviceId &&
+      requestedDeviceSessionId
+    ) {
+      const result = await runCodeAIDeveloperImplementation({
+        context,
+        objective,
+        repository_url: repositoryUrl,
+        ref,
+        organization_id: organizationId,
+        device_id: requestedDeviceId,
+        device_session_id: requestedDeviceSessionId,
+        mission_id: missionId,
+        reasoning_call_budget: Math.min(Math.max(reasoningCallBudget, 12), 12),
+        timeout_ms: 360000,
+        resume_state: suppliedResumeState || resumeState || null,
+      });
+      return Response.json({
+        success: result?.success === true,
+        contract: PREVIEW_CONTRACT,
+        certification_contract: AVANTIQO_CODE_CERTIFICATION_CONTRACT,
+        certified_runtime_contract: AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
+        status: text(result?.status || result?.state?.status, 120) || "unknown",
+        reason: text(result?.reason, 1000) || null,
+        execution_key: key,
+        mission_id: text(result?.state?.mission_id, 240) || null,
+        resume_required: ["planner_pending", "repair_required", "verification_required"].includes(
+          text(result?.status || result?.state?.status, 120),
+        ),
+        resume_state: result?.state || null,
+        state: result?.state || null,
+        developer_implementation: result?.developer_implementation || null,
+        workspace_target: requestedWorkspaceTarget,
+        device_id: requestedDeviceId,
+        device_session_id: requestedDeviceSessionId,
+        shared_device_session_preserved: true,
+        preview_service_temporarily_enabled: false,
+        production_routing_activated: false,
+        pricing_activated: false,
+        commit_performed: false,
+        production_deploy_performed: false,
+        external_fallback_allowed: false,
+        raw_reasoning_returned: false,
+      });
+    }
+
+    await publishCodeAILiveProgress({
+      context,
+      state: {
+        mission_id: missionId,
+        objective,
+        repository_url: repositoryUrl,
+        ref,
+        status: "running",
+        device_id: requestedDeviceId,
+        device_session_id: requestedDeviceSessionId,
+        objective_context: {
+          organization_id: organizationId,
+          workspace_target: requestedWorkspaceTarget,
+          device_id: requestedDeviceId,
+          device_session_id: requestedDeviceSessionId,
+          mission_id: missionId,
+        },
+        completed_operation_ids: [],
+        files_changed: [],
+      },
+      event: {
+        phase: "MISSION_ACCEPTED",
+        status: "running",
+        mission_id: missionId,
+        description: "Code accepted the mission and is preparing repository evidence and planning.",
+        device_id: requestedDeviceId,
+        device_session_id: requestedDeviceSessionId,
+      },
+    });
+
     const capability = createCodeAIAutonomousCapability();
     capability.authorize({ context });
     gate = await enablePreviewService(organizationId);
@@ -261,11 +415,17 @@ export async function POST(request) {
         owner_intent: objective,
         repository_url: repositoryUrl,
         ref,
+        workspace_target: requestedWorkspaceTarget,
+        device_id: requestedDeviceId,
+        device_session_id: requestedDeviceSessionId,
         execution_key: key,
         resume_state: resumeState,
         intelligence_mission_preparation: suppliedIntelligencePreparation,
         intelligence_mission_context: suppliedIntelligenceContext,
-        objective_context: suppliedObjectiveContext,
+        objective_context: {
+          ...object(suppliedObjectiveContext),
+          mission_id: missionId,
+        },
         reasoning_call_budget: reasoningCallBudget,
         max_employee_passes: maxEmployeePasses,
         timeout_ms: 840000,
@@ -285,6 +445,9 @@ export async function POST(request) {
       resumed_mission_id: resumedFromHistory ? resumeMissionId : null,
       resume_required: text(result?.status, 120) === "planner_pending",
       resume_state: result?.state || null,
+      state: result?.state || null,
+      engineering_operating_system: result?.engineering_operating_system || result?.state?.engineering_operating_system || null,
+      engineering_precision_os: result?.engineering_precision_os || result?.state?.engineering_precision_os || null,
       customer_artifact: result?.customer_artifact || null,
       employee_completion: result?.employee_completion || null,
       engineering_plan: result?.engineering_plan || result?.state?.engineering_plan || null,
@@ -294,6 +457,9 @@ export async function POST(request) {
       engineering_skill_lifecycle: result?.engineering_skill_lifecycle || null,
       fast_start: result?.fast_start || null,
       execution_transport: result?.execution_transport || null,
+      workspace_target: requestedWorkspaceTarget,
+      device_id: requestedDeviceId,
+      device_session_id: requestedDeviceSessionId,
       intelligence_context_supplied: Boolean(suppliedIntelligencePreparation || suppliedIntelligenceContext),
       objective_context_supplied: Boolean(suppliedObjectiveContext),
       preview_service_temporarily_enabled: true,

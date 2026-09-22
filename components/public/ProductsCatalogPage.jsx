@@ -1,11 +1,9 @@
 import Image from "next/image";
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
-import ProductFinder from "@/components/public/ProductControlIndex";
 import { productCatalog } from "@/components/public/productCatalog";
-import { CUSTOMER_GROUPS, CUSTOMER_FEATURES, isCustomerProduct } from "@/components/public/customerProductGroups";
+import { CUSTOMER_GROUPS, isCustomerProduct } from "@/components/public/customerProductGroups";
 
 const customerProducts = productCatalog.filter(isCustomerProduct);
-const byId = Object.fromEntries(customerProducts.map((product) => [product.id, product]));
 
 const GROUP_ART = {
   "run-business": "/art/generated/products/products-run-business-v1.png",
@@ -17,21 +15,6 @@ const GROUP_ART = {
   creative: "/art/generated/products/products-creative-v2.png",
   industry: "/art/generated/products/products-industry-v2.png",
 };
-
-function ProductLink({ product }) {
-  if (!product) return null;
-  return (
-    <a href={`/products/${product.id}`} className="group block border-t border-[#CFC5B8]/70 py-4 transition hover:border-[#9E774B]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-[15px] font-semibold tracking-[-.025em] text-[#29251F]">{product.name}</div>
-          <div className="mt-1 max-w-xl text-[9px] leading-5 text-[#766F67]">{product.summary}</div>
-        </div>
-        <span className="shrink-0 pt-1 text-[8px] font-semibold text-[#8A633C]">Explore</span>
-      </div>
-    </a>
-  );
-}
 
 function StoryImage({ src, label, className = "" }) {
   return (
@@ -142,21 +125,18 @@ function MarketsSystemArt() {
 
 function PortalExperienceArt({ compact = false }) {
   const panes = [
-    ["Customer", "/art/generated/products/products-industry-v2.png", "Bookings · payments · documents · messages"],
-    ["Staff", "/art/generated/products/products-people-v1.png", "Work · shifts · requests · payroll"],
-    ["Supplier", "/art/generated/products/products-stock-v1.png", "POs · delivery · invoices · payment status"],
+    ["Customer", "/art/generated/solutions/verticals/solution-hotel-v1.png", "Bookings · payments · documents · messages", "/products/customer-portal"],
+    ["Staff", "/art/generated/products/products-people-v1.png", "Work · shifts · requests · payroll", "/staff-portal"],
+    ["Supplier", "/art/generated/products/products-stock-v1.png", "Invitation · customer-scoped identity · governed access", "/supplier-portal"],
   ];
   return (
     <div className={`relative overflow-hidden bg-[#EDE3D5] ${compact ? "h-full" : "min-h-[390px] rounded-[30px] border border-[#C8B7A0]/45 p-4 shadow-[0_24px_70px_rgba(56,39,22,.08)] sm:p-5"}`}>
       <div className={`${compact ? "absolute inset-0 grid grid-cols-3" : "relative grid min-h-[350px] grid-cols-3 gap-2 rounded-[24px] border border-white/70 bg-white/30 p-2 backdrop-blur-sm"}`}>
-        {panes.map(([title,image,detail])=><div key={title} className="group/portal relative overflow-hidden rounded-[18px] border border-white/60 bg-[#E9DFD1]">
-          <Image src={image} alt="" fill sizes={compact ? "10vw" : "18vw"} className="object-cover transition duration-700 group-hover/portal:scale-[1.03]" />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(25,18,12,.08)_52%,rgba(25,18,12,.58))]" />
-          <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
-            <div className="text-[9px] font-semibold tracking-[-.02em] text-white sm:text-[12px]">{title}</div>
-            {!compact ? <div className="mt-1 text-[6px] leading-3 text-white/70 sm:text-[7px]">{detail}</div> : null}
-          </div>
-        </div>)}
+        {panes.map(([title,image,detail,href])=>{
+          const imageClass=title==="Supplier" ? "object-cover object-[52%_72%] scale-[1.16] transition duration-700 group-hover/portal:scale-[1.19]" : "object-cover transition duration-700 group-hover/portal:scale-[1.03]";
+          const body=<><Image src={image} alt="" fill sizes={compact ? "10vw" : "18vw"} className={imageClass} /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(25,18,12,.08)_52%,rgba(25,18,12,.58))]" /><div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4"><div className="text-[9px] font-semibold tracking-[-.02em] text-white sm:text-[12px]">{title}</div>{!compact ? <div className="mt-1 text-[6px] leading-3 text-white/70 sm:text-[7px]">{detail}</div> : null}</div></>;
+          return compact ? <div key={title} className="group/portal relative overflow-hidden rounded-[18px] border border-white/60 bg-[#E9DFD1]">{body}</div> : <a key={title} href={href} className="group/portal relative overflow-hidden rounded-[18px] border border-white/60 bg-[#E9DFD1]">{body}</a>;
+        })}
       </div>
       {!compact ? <div className="absolute bottom-7 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/72 bg-[#F8F1E8]/90 px-5 py-2.5 text-center shadow-[0_14px_35px_rgba(55,39,22,.12)] backdrop-blur-xl"><div className="text-[6px] font-semibold uppercase tracking-[.18em] text-[#A36F39]">ONE BUSINESS CONTEXT</div><div className="mt-1 whitespace-nowrap text-[7px] text-[#6D6257]">Different people · exact permissions · same live records</div></div> : null}
     </div>
@@ -196,7 +176,7 @@ function HeroArt() {
 export default function ProductsCatalogPage() {
   return (
     <main className="min-h-screen bg-[#F7F6F3] text-[#171614]">
-      <PublicSiteHeader context="Products" audience="business" />
+      <PublicSiteHeader context="Products" audience="business" tone="light" />
 
       <section className="border-b border-[#CFC5B8]/55 bg-[#F3EEE5]">
         <div className="mx-auto grid max-w-[1540px] gap-10 px-5 py-14 sm:px-7 lg:min-h-[650px] lg:grid-cols-[.86fr_1.14fr] lg:items-center lg:px-10 lg:py-20">
@@ -206,7 +186,7 @@ export default function ProductsCatalogPage() {
             <p className="mt-7 max-w-[590px] text-[16px] leading-8 text-[#625D55]">Choose one business problem, solve it properly, and expand only when the next connected capability creates value.</p>
             <div className="mt-9 flex flex-wrap gap-2.5">
               <a href="#choose" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_9px_28px_rgba(20,18,15,.16)]">Choose by business need</a>
-              <a href="#all-products" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#5C554D]">See all products</a>
+              <a href="/products/all" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#5C554D]">Search all products</a>
             </div>
             <div className="mt-10 grid max-w-[560px] grid-cols-3 border-t border-black/[0.08] pt-5">
               {["Start focused","Stay connected","Expand when useful"].map((item,index)=><div key={item} className={index ? "border-l border-black/[0.07] pl-4" : "pr-4"}><div className="text-[7px] font-semibold uppercase tracking-[.15em] text-[#9A744B]">0{index+1}</div><div className="mt-2 text-[9px] leading-4 text-[#716A62]">{item}</div></div>)}
@@ -228,7 +208,7 @@ export default function ProductsCatalogPage() {
 
           <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {CUSTOMER_GROUPS.map((group,index)=>(
-              <a key={group.id} href={`#${group.id}`} className="group overflow-hidden rounded-[26px] border border-black/[0.07] bg-[#F8F4EE] shadow-[0_14px_38px_rgba(42,32,22,.05)] transition hover:-translate-y-1 hover:shadow-[0_22px_55px_rgba(42,32,22,.10)]">
+              <a key={group.id} href={`/products/all?group=${encodeURIComponent(group.id)}`} className="group overflow-hidden rounded-[26px] border border-black/[0.07] bg-[#F8F4EE] shadow-[0_14px_38px_rgba(42,32,22,.05)] transition hover:-translate-y-1 hover:shadow-[0_22px_55px_rgba(42,32,22,.10)]">
                 <div className="relative h-[215px] overflow-hidden">
                   <GroupChooserArt group={group} />
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.01),rgba(8,7,6,.07)_60%,rgba(8,7,6,.48))]" />
@@ -237,7 +217,7 @@ export default function ProductsCatalogPage() {
                 <div className="p-5">
                   <h3 className="text-[21px] font-medium leading-[1.05] tracking-[-.04em] text-[#29251F]">{group.headline}</h3>
                   <p className="mt-3 text-[10px] leading-5 text-[#756E66]">{group.description}</p>
-                  <div className="mt-5 text-[8px] font-semibold text-[#815B36]">Explore this area →</div>
+                  <div className="mt-5 text-[8px] font-semibold text-[#815B36]">Explore products →</div>
                 </div>
               </a>
             ))}
@@ -297,27 +277,12 @@ export default function ProductsCatalogPage() {
         </div>
       </section>
 
-      {CUSTOMER_GROUPS.map((group,index)=>{
-        const featured=(CUSTOMER_FEATURES[group.id]||[]).map((id)=>byId[id]).filter(Boolean);
-        const reverse=index%2===1;
-        return (
-          <section key={group.id} id={group.id} className={`scroll-mt-24 border-b border-[#CFC5B8]/45 ${index%2===0 ? "bg-[#F7F3EC]" : "bg-[#FBFAF8]"}`}>
-            <div className="mx-auto max-w-[1540px] px-5 py-14 sm:px-7 lg:px-10 lg:py-16">
-              <div className="grid gap-10 lg:grid-cols-[.86fr_1.14fr] lg:items-center">
-                {group.id === "intelligence" ? <div className={reverse ? "lg:order-2" : ""}><IntelligenceOrchestrationArt /></div> : group.id === "communications-reputation" ? <div className={reverse ? "lg:order-2" : ""}><CommunicationsSystemArt /></div> : group.id === "portals-external" ? <div className={reverse ? "lg:order-2" : ""}><PortalExperienceArt /></div> : group.id === "web-commerce" ? <div className={reverse ? "lg:order-2" : ""}><WebCommerceSystemArt /></div> : group.id === "markets" ? <div className={reverse ? "lg:order-2" : ""}><MarketsSystemArt /></div> : <StoryImage src={GROUP_ART[group.id]} label={`AVANTIQO / ${group.label}`} className={`min-h-[390px] ${reverse ? "lg:order-2" : ""}`} />}
-                <div className={reverse ? "lg:order-1" : ""}>
-                  <p className="text-[8px] font-semibold uppercase tracking-[.18em] text-[#9A744B]">0{String(index+1).padStart(2,"0")} · {group.label}</p>
-                  <h2 className="mt-3 max-w-2xl text-[34px] font-medium leading-[1.02] tracking-[-.045em] text-[#26221E] sm:text-[42px]">{group.headline}</h2>
-                  <p className="mt-4 max-w-2xl text-[13px] leading-7 text-[#6E675F]">{group.description}</p>
-                  <div className="mt-7 grid gap-x-8 md:grid-cols-2 xl:grid-cols-3">{featured.map((product)=><ProductLink key={product.id} product={product}/>)}</div>
-                </div>
-              </div>
-            </div>
-          </section>
-        );
-      })}
-
-      <ProductFinder products={customerProducts} groups={CUSTOMER_GROUPS} />
+      <section className="border-b border-[#CFC5B8]/45 bg-[#F7F3EC]">
+        <div className="mx-auto grid max-w-[1320px] gap-8 px-5 py-14 sm:px-7 lg:grid-cols-[1fr_auto] lg:items-center lg:px-10 lg:py-16">
+          <div><p className="text-[8px] font-semibold uppercase tracking-[.18em] text-[#9A744B]">NEED THE COMPLETE CATALOG?</p><h2 className="mt-3 text-[34px] font-medium tracking-[-.045em]">Search every product without making this page feel like a database.</h2><p className="mt-3 max-w-3xl text-[11px] leading-6 text-[#6F685F]">The full catalog now lives in a dedicated searchable view. Filter by business need, team, industry or product name when you need exact product detail.</p></div>
+          <a href="/products/all" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Search all products →</a>
+        </div>
+      </section>
 
       <section className="border-b border-[#CFC5B8]/45 bg-[#F3EEE5]">
         <div className="mx-auto grid max-w-[1320px] gap-8 px-5 py-16 sm:px-7 lg:grid-cols-[1fr_auto] lg:items-center lg:px-10">

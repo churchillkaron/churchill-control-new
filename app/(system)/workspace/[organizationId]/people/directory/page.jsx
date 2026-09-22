@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import PeopleIdentityReviewPanel from "@/components/workspace/people/PeopleIdentityReviewPanel";
+
 import {
+  AlertTriangle,
   BadgeCheck,
   Banknote,
   CircleAlert,
@@ -98,13 +101,14 @@ export default function PeopleDirectoryPage({ params }) {
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
   const [editingId, setEditingId] = useState("");
+  const [identityReviewEmployee, setIdentityReviewEmployee] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [form, setForm] = useState(emptyEmployeeForm());
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -126,11 +130,11 @@ export default function PeopleDirectoryPage({ params }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     if (organizationId) load();
-  }, [organizationId]);
+  }, [organizationId, load]);
 
   const filteredEmployees = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -358,13 +362,35 @@ export default function PeopleDirectoryPage({ params }) {
           </div>
         ) : null}
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-8">
           <Metric label="Total employees" value={summary?.totalStaff ?? "-"} icon={UsersRound} />
           <Metric label="Active" value={summary?.activeStaff ?? "-"} icon={UserRoundCheck} />
           <Metric label="Inactive" value={summary?.inactiveStaff ?? "-"} icon={UserRoundX} />
           <Metric label="Setup required" value={summary?.setupRequired ?? "-"} icon={CircleAlert} />
           <Metric label="Portal active" value={summary?.activePortal ?? "-"} icon={BadgeCheck} />
           <Metric label="Pay not configured" value={summary?.compensationUnconfigured ?? "-"} icon={Banknote} />
+          <Metric label="Identity attention" value={summary?.identityAttention ?? "-"} icon={ShieldCheck} />
+          <Metric label="Identity critical" value={summary?.identityCritical ?? "-"} icon={AlertTriangle} />
+        </section>
+
+        <section className="grid gap-3 lg:grid-cols-[1.15fr_.85fr]">
+          <div className="rounded-[26px] border border-[#D6A66A]/18 bg-[#D6A66A]/[0.055] p-5">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#D6A66A]">
+              <ShieldCheck className="h-4 w-4" /> Identity security
+            </div>
+            <div className="mt-3 text-xl font-black">One governed employee record, not scattered files.</div>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/42">
+              Verified portal identity, passport or national ID, optional work permit, legal-employer binding, document validity and review evidence stay connected to the employee master.
+            </p>
+          </div>
+          <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.035] p-5">
+            <div className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">What the metrics mean</div>
+            <div className="mt-3 space-y-2 text-xs leading-5 text-white/45">
+              <div><span className="font-black text-amber-100">Identity attention</span> · missing/pending identity evidence or approaching document expiry.</div>
+              <div><span className="font-black text-red-200">Identity critical</span> · expired or near-expiry document requiring immediate review.</div>
+              <div><span className="font-black text-[#E8C18C]">Identity documents</span> · opens the secure visual review for Owner/HR.</div>
+            </div>
+          </div>
         </section>
 
         {showCreate ? (
@@ -466,6 +492,19 @@ export default function PeopleDirectoryPage({ params }) {
                           <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
                             Access: {employee.accessRole || "STAFF"}
                           </span>
+                          {employee.identitySecurity?.has_attention ? (
+                            <span className={`rounded-full border px-3 py-1 ${
+                              Number(employee.identitySecurity?.critical_count || 0) > 0
+                                ? "border-red-400/20 bg-red-400/[0.08] text-red-200"
+                                : "border-amber-300/20 bg-amber-300/[0.07] text-amber-100"
+                            }`}>
+                              Identity attention · {employee.identitySecurity.attention_count}
+                            </span>
+                          ) : employee.identitySecurity?.identity_verified ? (
+                            <span className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1 text-emerald-200">
+                              Identity verified
+                            </span>
+                          ) : null}
                         </div>
                       </div>
 
@@ -496,6 +535,22 @@ export default function PeopleDirectoryPage({ params }) {
                       </div>
 
                       <div className="flex flex-col gap-2 sm:flex-row xl:flex-col">
+                        <button
+                          type="button"
+                          onClick={() => setIdentityReviewEmployee(employee)}
+                          className={`flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-[10px] font-black uppercase tracking-[0.12em] ${
+                            Number(employee.identitySecurity?.critical_count || 0) > 0
+                              ? "border-red-400/20 bg-red-400/[0.08] text-red-100"
+                              : employee.identitySecurity?.has_attention
+                                ? "border-amber-300/20 bg-amber-300/[0.07] text-amber-100"
+                                : "border-[#D6A66A]/20 bg-[#D6A66A]/[0.07] text-[#E8C18C]"
+                          }`}
+                        >
+                          <ShieldCheck className="h-4 w-4" />
+                          {employee.identitySecurity?.has_attention
+                            ? `Identity · ${employee.identitySecurity.attention_count} attention`
+                            : "Identity documents"}
+                        </button>
                         <button
                           type="button"
                           onClick={() => (isEditing ? cancelForm() : beginEdit(employee))}
@@ -547,7 +602,7 @@ export default function PeopleDirectoryPage({ params }) {
                           <div>
                             <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Employee profile</div>
                             <div className="mt-1 text-sm text-white/45">
-                              Position and department describe the employee's job. Access roles and domain permissions are managed separately.
+                              Position and department describe the employee&apos;s job. Access roles and domain permissions are managed separately.
                             </div>
                           </div>
                         </div>
@@ -592,6 +647,13 @@ export default function PeopleDirectoryPage({ params }) {
           )}
         </section>
       </div>
+
+      {identityReviewEmployee ? (
+        <PeopleIdentityReviewPanel
+          employee={identityReviewEmployee}
+          onClose={() => setIdentityReviewEmployee(null)}
+        />
+      ) : null}
 
       <style jsx>{`
         :global(.input-control) {

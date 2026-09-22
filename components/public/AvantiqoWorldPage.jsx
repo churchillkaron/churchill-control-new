@@ -7,27 +7,30 @@ function Arrow({ className = "" }) {
 
 export default function AvantiqoWorldPage({ config }) {
   const { context, eyebrow, title, intro, audience = "platform", tone = "light", image, artKind, sequence = [], capabilities = [], cta = "Start Now", ctaHref = "/start", secondary, secondaryHref } = config;
-  const dark = false;
   return (
     <main className="min-h-screen bg-[#F7F4EE] text-[#171614]">
-      <PublicSiteHeader context={context} audience={audience} />
-      <section className="border-b border-black/[0.07] bg-[#F3EEE5]">
-        <div className="mx-auto grid max-w-[1460px] gap-12 px-5 py-16 sm:px-7 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:px-10 lg:py-24">
-          <div className="max-w-[690px]">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-[#D6A66A]">{eyebrow}</p>
-            <h1 className="mt-5 text-[52px] font-medium leading-[.95] tracking-[-0.06em] text-[#171614] sm:text-[68px] lg:text-[78px]">{title}</h1>
+      <PublicSiteHeader context={context} audience={audience} tone={tone === "dark" ? "dark" : "light"} />
+      <section className="relative overflow-hidden border-b border-[#CFC5B8]/45 bg-[linear-gradient(180deg,#F8F2E9_0%,#EEE2D3_100%)]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_8%,rgba(255,255,255,.92),transparent_30%),radial-gradient(circle_at_76%_34%,rgba(214,166,106,.11),transparent_28%)]"/>
+        <div className="pointer-events-none absolute -right-[18vw] -top-[37vw] hidden h-[74vw] w-[74vw] rounded-full border border-[#C99A62]/16 bg-[radial-gradient(circle_at_30%_70%,rgba(255,252,247,.97),rgba(224,208,188,.72)_28%,rgba(164,134,99,.18)_58%,transparent_72%)] lg:block"/>
+        <div className="relative mx-auto grid max-w-[1460px] gap-12 px-5 py-14 sm:px-7 lg:min-h-[660px] lg:grid-cols-[.86fr_1.14fr] lg:items-center lg:px-10 lg:py-20">
+          <div className="relative z-10 max-w-[700px]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#B98A52]/26 bg-white/52 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.18em] text-[#8A633C]"><span className="h-1.5 w-1.5 rounded-full bg-[#B98548]"/>CONNECTED AVANTIQO WORLD</div>
+            <p className="mt-8 text-[9px] font-semibold uppercase tracking-[0.28em] text-[#9A744B]">{eyebrow}</p>
+            <h1 className="mt-5 text-[52px] font-medium leading-[.95] tracking-[-0.06em] text-[#171614] sm:text-[68px] lg:text-[76px]">{title}</h1>
             <p className="mt-7 max-w-xl text-[15px] leading-8 text-[#68635c]">{intro}</p>
             <div className="mt-9 flex flex-wrap gap-2.5">
-              <a href={ctaHref} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">{cta}<Arrow className="h-3.5 w-3.5" /></a>
-              {secondary ? <a href={secondaryHref} className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A]">{secondary}</a> : null}
+              <a href={ctaHref} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#211C17] px-5 text-[10px] font-semibold text-white shadow-[0_10px_28px_rgba(20,18,15,.14)]">{cta}<Arrow className="h-3.5 w-3.5" /></a>
+              {secondary ? <a href={secondaryHref} className="inline-flex h-11 items-center rounded-full border border-[#B98A52]/30 bg-white/58 px-5 text-[10px] font-semibold text-[#6A5540]">{secondary}</a> : null}
             </div>
+            <div className="mt-9 flex flex-wrap gap-x-4 gap-y-2 border-t border-black/[.07] pt-5 text-[7px] font-semibold uppercase tracking-[.14em] text-[#8E8276]">{sequence.slice(0,5).map((item,i)=><span key={item} className="inline-flex items-center gap-4">{i>0?<span className="h-1 w-1 rounded-full bg-[#B98548]"/>:null}{item}</span>)}</div>
           </div>
-          <div className="relative min-h-[560px] overflow-hidden rounded-[34px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_34px_100px_rgba(68,47,25,.13)]">
+          <div className="relative min-h-[560px] overflow-hidden rounded-[30px] border border-black/[0.07] bg-[#E9DFD1] shadow-[0_34px_100px_rgba(68,47,25,.12)]">
             {image ? <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${image})` }} /> : <div className="absolute inset-0"><PublicArtStage kind={artKind} /></div>}
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.01),rgba(20,15,10,.03)_52%,rgba(20,15,10,.24))]" />
             <div className="absolute left-5 top-5 rounded-full border border-white/68 bg-[#F8F0E6]/72 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.22em] text-[#8D6339] shadow-[0_10px_24px_rgba(50,35,20,.08)] backdrop-blur-xl">AVANTIQO / {context}</div>
-            <div className="absolute bottom-5 left-5 right-5 rounded-[22px] border border-white/72 bg-[#F8F1E8]/88 p-5 text-[#2B251F] shadow-[0_18px_50px_rgba(0,0,0,.12)] backdrop-blur-xl sm:p-6">
-              <div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#A36F39]">OPERATING FLOW</div>
+            <div className="absolute bottom-5 left-5 right-5 rounded-[22px] border border-white/74 bg-[#F8F1E8]/91 p-5 text-[#2B251F] shadow-[0_18px_50px_rgba(0,0,0,.10)] backdrop-blur-xl sm:p-6">
+              <div className="flex items-center justify-between gap-4"><div className="text-[7px] font-semibold uppercase tracking-[0.20em] text-[#A36F39]">OPERATING FLOW</div><div className="text-[6px] uppercase tracking-[.16em] text-[#9A8B7B]">ONE CONTEXT</div></div>
               <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2 text-[10px] text-[#685E54]">{sequence.map((item, i) => <span key={item} className="inline-flex items-center gap-3"><span>{item}</span>{i < sequence.length - 1 ? <span className="text-[#B07A42]">→</span> : null}</span>)}</div>
             </div>
           </div>

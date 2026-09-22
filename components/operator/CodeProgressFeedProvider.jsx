@@ -31,6 +31,15 @@ const ACTIVE_PORTFOLIO_STATES = new Set([
   "waiting_verified_persistence",
   "waiting_governed_persistence",
 ]);
+const TERMINAL_EVENT_STATES = new Set([
+  "blocked",
+  "cancelled",
+  "canceled",
+  "completed",
+  "failed",
+  "repair_required",
+  "stopped",
+]);
 
 const CodeProgressFeedContext = createContext(null);
 
@@ -53,6 +62,7 @@ export function codeProgressIsActive(progress) {
 
   const state = text(progress?.state_status).toLowerCase();
   const event = text(progress?.latest_event?.status).toLowerCase();
+  if (TERMINAL_EVENT_STATES.has(event)) return false;
   const portfolio = text(
     progress?.product_engineering_portfolio?.status,
   ).toLowerCase();
@@ -68,6 +78,7 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
   const [updatedAt, setUpdatedAt] = useState(null);
   const [found, setFound] = useState(false);
   const [error, setError] = useState(null);
+  const [deviceSessionScope, setDeviceSessionScope] = useState(null);
   const mounted = useRef(false);
   const refreshSignal = useRef(0);
 
@@ -124,7 +135,7 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
       let active = false;
       try {
         const response = await fetch(
-          `/api/operator/code/progress?organizationId=${encodeURIComponent(organizationId)}`,
+          `/api/operator/code/progress?organizationId=${encodeURIComponent(organizationId)}${deviceSessionScope ? `&deviceSessionId=${encodeURIComponent(deviceSessionScope)}` : ""}`,
           {
             method: "GET",
             credentials: "same-origin",
@@ -181,7 +192,7 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
       if (timer) window.clearTimeout(timer);
       window.removeEventListener("avantiqo:code-progress-refresh", refreshNow);
     };
-  }, [organizationId]);
+  }, [organizationId, deviceSessionScope]);
 
   const value = useMemo(
     () => ({
@@ -191,6 +202,8 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
       updatedAt,
       error,
       active: codeProgressIsActive(progress),
+      deviceSessionScope,
+      setDeviceSessionScope,
       patchProgress,
       updatePortfolio,
       requestRefresh,
@@ -203,6 +216,7 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
       found,
       updatedAt,
       error,
+      deviceSessionScope,
       patchProgress,
       updatePortfolio,
       requestRefresh,

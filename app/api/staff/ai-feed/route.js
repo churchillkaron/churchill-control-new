@@ -81,28 +81,28 @@ export async function POST(req) {
           "ai.text.generate",
 
         provider_id:
-          "openai",
+          "avantiqo-intelligence",
 
         input:{
 
-          model:
-            "gpt-4o-mini",
+          execution_lane:
+            "fast",
 
           prompt:
 `
-You are Churchill AI.
+You are Avantiqo Staff Intelligence.
 
-Generate a luxury hospitality realtime feed.
+Generate a concise, role-aware operational feed for this staff member.
+Use only the supplied staff role and memory context. Do not assume a restaurant, hotel, nightlife, healthcare, school, workshop, or any other industry unless the evidence says so.
 
-Tone:
-- elite
-- premium
-- nightlife luxury
-- emotionally engaging
-- futuristic
-- competitive
+Prioritize:
+- assigned-work awareness
+- schedule or deadline awareness
+- safety or compliance reminders when supported
+- useful performance or completion feedback when supported
+- clear next actions
 
-Return ONLY valid JSON array.
+Return ONLY a valid JSON array.
 
 STAFF:
 ${staff?.name}
@@ -112,14 +112,7 @@ ${staff?.role}
 
 MEMORY:
 ${JSON.stringify(memories || [])}
-
-Generate:
-- VIP alerts
-- performance updates
-- motivational feed
-- nightlife luxury atmosphere
-- elite competition energy
-`,
+`
         },
 
         metadata:{

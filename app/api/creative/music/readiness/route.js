@@ -66,9 +66,6 @@ function musicRuntimeHealth() {
 
   const checks = {
     engine_enabled: configuration.enabled === true,
-    modal_configured: configuration.modal_configured === true,
-    modal_token_id_configured: configuration.modal_token_id_configured === true,
-    modal_token_secret_configured: configuration.modal_token_secret_configured === true,
     foundation_model_configured: configuration.foundation_model_configured === true,
     model_variant_configured: configuration.model_variant_configured === true,
     lm_enabled: configuration.lm_enabled === true,

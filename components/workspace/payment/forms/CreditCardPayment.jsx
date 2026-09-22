@@ -1,69 +1,15 @@
 "use client";
 
-export default function CreditCardPayment({
-  value = {},
-  onChange,
-}) {
-
+export default function CreditCardPayment() {
   return (
-
-    <div className="space-y-4">
-
-      <input
-        placeholder="Card Number"
-        value={value.card_number || ""}
-        onChange={e =>
-          onChange({
-            ...value,
-            card_number:e.target.value,
-          })
-        }
-        className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3"
-      />
-
-      <div className="grid grid-cols-2 gap-4">
-
-        <input
-          placeholder="MM / YY"
-          value={value.expiry || ""}
-          onChange={e =>
-            onChange({
-              ...value,
-              expiry:e.target.value,
-            })
-          }
-          className="rounded-xl border border-white/10 bg-black/20 px-4 py-3"
-        />
-
-        <input
-          placeholder="CVC"
-          value={value.cvc || ""}
-          onChange={e =>
-            onChange({
-              ...value,
-              cvc:e.target.value,
-            })
-          }
-          className="rounded-xl border border-white/10 bg-black/20 px-4 py-3"
-        />
-
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FCFBF9] p-4">
+      <div className="text-[11px] font-medium text-[#3F3A34]">
+        Secure card checkout
       </div>
-
-
-      <input
-        placeholder="Card Holder"
-        value={value.card_holder || ""}
-        onChange={e =>
-          onChange({
-            ...value,
-            card_holder:e.target.value,
-          })
-        }
-        className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3"
-      />
-
+      <div className="mt-1 text-[10px] leading-4 text-[#7C756D]">
+        Card number, expiry and CVC are never entered into or stored by Avantiqo.
+        Continue to open the connected licensed payment provider&apos;s secure checkout.
+      </div>
     </div>
-
   );
-
 }

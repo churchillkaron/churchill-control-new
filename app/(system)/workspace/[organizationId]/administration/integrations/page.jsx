@@ -204,7 +204,7 @@ export default function IntegrationsPage() {
               Connect the external business accounts this organization uses. Avantiqo handles the technical infrastructure behind them.
             </p>
           </div>
-          {platformOperator ? (
+          <div className="flex flex-wrap items-center gap-2"><a href={`/workspace/${encodeURIComponent(organizationId)}/developers`} className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-medium text-white/70">← Developer Portal</a>{platformOperator ? (
             <a
               href={`/workspace/${encodeURIComponent(organizationId)}/administration/integrations/platform-setup`}
               className="inline-flex items-center gap-2 rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-4 py-2.5 text-xs font-medium text-[#E5C18D]"
@@ -212,7 +212,7 @@ export default function IntegrationsPage() {
               <ShieldCheck className="h-4 w-4" />
               Avantiqo Provider Setup
             </a>
-          ) : null}
+          ) : null}</div>
         </div>
 
         {(error || notice) && (

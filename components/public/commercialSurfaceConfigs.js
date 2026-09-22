@@ -1,12 +1,12 @@
 export const commercialSurfaceConfigs = {
   compute: {
-    context:"Compute", art:"compute", status:"Flexible compute capacity", eyebrow:"Avantiqo Compute", title:"Run demanding workloads without managing the infrastructure yourself.",
-    description:"Run inference, rendering, batch processing and creative production on available GPU capacity. Owned hardware can be used first, with external capacity added when a workload needs more scale or specialist hardware.",
-    valueEyebrow:"One asset. Multiple jobs.", valueTitle:"Use the right compute for the workload, without overbuilding infrastructure.",
-    value:[["Own workloads first","Run your Avantiqo intelligence and production workloads on available owned capacity first."],["Creative & API jobs","Run image, video, music and developer jobs against the capacity they need."],["Idle-capacity rental","Use eligible spare capacity for approved additional workloads when it is available."],["Cloud overflow","External compute remains available when local capacity or specialist hardware is required."]],
-    moneyTitle:"Keep compute flexible as demand changes.", moneyDescription:"Workloads can be scheduled by priority, hardware need and available capacity so critical work is not blocked by lower-priority jobs.",
-    money:[["Use owned capacity first","Run suitable workloads locally before paying for external capacity."],["Metered usage","See how much compute each workload uses and where it ran."],["Elastic capacity","Add or release capacity as demand changes instead of sizing everything for peak load."],["Specialist hardware when needed","Use external hardware when a workload needs a GPU type or scale your local environment does not provide."]],
-    cta:"Make every useful GPU hour count.", primary:"Explore Avantiqo", primaryHref:"/login"
+    context:"Compute", art:"compute", status:"GPU capacity on demand", eyebrow:"Avantiqo Compute", title:"GPU compute when you need it.",
+    description:"Rent high-performance GPU capacity for AI, inference, training, rendering, video generation and production workloads. Start with the capacity you need, scale when demand rises, and pay for the compute you use.",
+    valueEyebrow:"Built for demanding workloads", valueTitle:"Use serious GPU capacity without buying hardware for peak demand.",
+    value:[["AI & inference","Run model-backed applications, inference services and business intelligence workloads."],["Training & fine-tuning","Use GPU capacity for model training, fine-tuning and experimentation when the workload needs it."],["Rendering & generation","Run image, video, 3D and creative production workloads on accelerated hardware."],["Batch & developer jobs","Submit queued processing, API workloads and custom compute without managing the underlying machines."]],
+    moneyTitle:"Use the capacity you need. Keep usage and cost visible.", moneyDescription:"Choose the workload, use the required GPU capacity, scale for larger jobs and track the compute consumed from one Avantiqo account.",
+    money:[["Choose capacity","Match the workload to an available compute profile instead of buying hardware first."],["Pay for usage","Variable compute cost follows the work actually executed."],["Scale on demand","Add capacity for larger jobs and release it when the workload is finished."],["API-ready","Use Compute from developer workflows, Avantiqo Studio and connected applications."]],
+    cta:"Compute when you need it. Without owning what sits idle when you don’t.", primary:"Explore GPU capacity", primaryHref:"/start"
   },
   marketplace: {
     context:"Marketplace", art:"marketplace", status:"Extensions & specialist tools", eyebrow:"Avantiqo Marketplace", title:"Build once. Make it available where customers need it.",

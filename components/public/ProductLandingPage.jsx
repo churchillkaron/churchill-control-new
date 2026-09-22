@@ -23,7 +23,7 @@ function ProductArt({ config }) {
 
 export default function ProductLandingPage({ config }) {
   return <main className="min-h-screen bg-[#F7F6F3] text-[#171614]">
-    <PublicSiteHeader context={config.context} audience="business" />
+    <PublicSiteHeader context={config.context} audience="business" tone="light" />
     <section className="relative overflow-hidden border-b border-[#BDAF9E]/30 bg-[#F4F0E8]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_0%,rgba(214,166,106,.16),transparent_30%)]" />
       <div className="relative mx-auto grid max-w-[1540px] lg:min-h-[720px] lg:grid-cols-[43%_57%]">
@@ -33,7 +33,7 @@ export default function ProductLandingPage({ config }) {
           <h1 className="mt-4 text-[52px] font-medium leading-[.95] tracking-[-.065em] sm:text-[66px] lg:text-[72px]">{config.title}</h1>
           <p className="mt-7 max-w-[560px] text-[16px] leading-8 text-[#625D55]">{config.description}</p>
           <p className="mt-4 text-[10px] font-semibold uppercase tracking-[.15em] text-[#9A744B]">{config.audience}</p>
-          <div className="mt-9 flex flex-wrap gap-2.5"><a href="/start" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start with {config.context} <Arrow/></a><a href="#product" className="inline-flex h-11 items-center rounded-full border border-[#BDAF9E]/40 bg-[#FBFAF8] px-5 text-[10px] font-semibold text-[#56514A]">See what is included</a></div>
+          <div className="mt-9 flex flex-wrap gap-2.5"><a href="/start" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start with {config.context} <Arrow/></a><a href="#product" className="inline-flex h-11 items-center rounded-full border border-[#BDAF9E]/40 bg-[#FBFAF8] px-5 text-[10px] font-semibold text-[#56514A]">See what is included</a>{config.related ? <a href={config.related.href} className="inline-flex h-11 items-center rounded-full border border-[#D6A66A]/35 bg-[#F4E7D5] px-5 text-[10px] font-semibold text-[#76502E]">{config.related.label}</a> : null}</div>
         </div></div>
         <div className="relative m-5 min-h-[560px] overflow-hidden rounded-[34px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_34px_95px_rgba(68,47,25,.13)] sm:m-7 lg:ml-0 lg:min-h-0 lg:self-stretch"><ProductArt config={config}/></div>
       </div>

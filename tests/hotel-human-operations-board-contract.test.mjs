@@ -15,8 +15,9 @@ test("Front Desk derives due work from each property's server-owned operating da
   assert.match(bookingList, /operational_day:/);
   assert.match(bookingList, /businessDate: operationalDay\.businessDate/);
   assert.match(frontDesk, /function businessDate\(booking\)/);
-  assert.match(frontDesk, /dateValue\(booking\.check_in_date\) <= businessDate\(booking\)/);
-  assert.match(frontDesk, /dateValue\(booking\.check_out_date\) <= businessDate\(booking\)/);
+  assert.match(frontDesk, /const day = businessDate\(booking\)/);
+  assert.match(frontDesk, /dateValue\(booking\.check_in_date\) <= day/);
+  assert.match(frontDesk, /dateValue\(booking\.check_out_date\) <= day/);
   assert.doesNotMatch(frontDesk, /const today = new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
 });
 
@@ -60,5 +61,7 @@ test("Day Close is an exception work board with exact resolution routes", () => 
   assert.match(nightAuditRoute, /resolution: \{ route: "stay-control"/);
   assert.match(nightAuditPage, /Human work queue/);
   assert.match(nightAuditPage, /Close clean business day/);
-  assert.match(nightAuditPage, /stale green screen cannot close a property/i);
+  assert.match(nightAuditPage, /Avantiqo recomputes the day from source truth/);
+  assert.match(nightAuditPage, /disabled=\{saving \|\| closed \|\| !preflight\?\.ready \|\| !propertyId\}/);
+  assert.match(nightAuditPage, /Close follows the work/);
 });

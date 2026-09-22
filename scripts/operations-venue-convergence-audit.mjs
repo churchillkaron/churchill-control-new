@@ -28,7 +28,7 @@ function requireText(relativePath, expected) {
 }
 
 const venuePage =
-  "app/(system)/workspace/[organizationId]/operations/venue/page.jsx";
+  "lib/operations/presentation/OperationsIndustryProfiles.js";
 const legacyPage =
   "app/(system)/workspace/[organizationId]/entertainment/page.jsx";
 const solutionRegistry =

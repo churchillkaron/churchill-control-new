@@ -28,7 +28,7 @@ function requireText(relativePath, expected) {
 }
 
 const operationsPage =
-  "app/(system)/workspace/[organizationId]/operations/healthcare/page.jsx";
+  "lib/operations/presentation/OperationsIndustryProfiles.js";
 const healthcareRoot =
   "app/(system)/workspace/[organizationId]/healthcare/page.jsx";
 const solutionRegistry =
@@ -75,7 +75,7 @@ for (const child of [
   requireText(healthcareRoot, `href: "${child}"`);
 }
 
-const operationsContent = read(operationsPage);
+const operationsContent = read("app/(system)/workspace/[organizationId]/operations/healthcare/page.jsx");
 
 for (const prohibited of [
   "useAppointments(",

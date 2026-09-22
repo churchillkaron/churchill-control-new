@@ -49,6 +49,9 @@
     "app/api/internal/finance/recurring-journals/process/route.js": {
       "maxDuration": 300
     },
+    "app/api/internal/finance/payment-settlement/process/route.js": {
+      "maxDuration": 300
+    },
     "app/api/internal/service-management/plans/process/route.js": {
       "maxDuration": 300
     },
@@ -92,6 +95,12 @@
       "maxDuration": 300
     },
     "app/api/internal/operator/repair-continuations/process/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/internal/developer/webhooks/retries/process/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/internal/developer/webhooks/operations/process/route.js": {
       "maxDuration": 300
     }
   },
@@ -177,6 +186,10 @@
       "schedule": "0 * * * *"
     },
     {
+      "path": "/api/internal/finance/payment-settlement/process",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/internal/service-management/plans/process",
       "schedule": "*/15 * * * *"
     },
@@ -234,6 +247,14 @@
     },
     {
       "path": "/api/internal/code/worker-session/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/developer/webhooks/retries/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/developer/webhooks/operations/process",
       "schedule": "* * * * *"
     }
   ]

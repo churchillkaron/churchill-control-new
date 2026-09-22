@@ -115,10 +115,49 @@ export async function POST(request) {
     const staff = staffRows || [];
 
     if (!staff.length) {
+      const { data: supplierRows, error: supplierError } = await supabaseAdmin
+        .from("supplier_portal_access")
+        .select("id,auth_user_id,email,status")
+        .ilike("email", email)
+        .eq("status", "ACTIVE")
+        .limit(20);
+      if (supplierError) throw supplierError;
+      if ((supplierRows || []).length) {
+        const authIds = [...new Set((supplierRows || []).map((row) => row.auth_user_id).filter(Boolean))];
+        if (authIds.length !== 1) {
+          return NextResponse.json({ success:false, error:"This supplier email has conflicting authentication identities. Contact the customer administrator." }, { status:409 });
+        }
+        return NextResponse.json({
+          success: true,
+          eligible: true,
+          supplierPortal: true,
+          message: "Supplier password recovery is ready.",
+        });
+      }
+
+      const { data: developerRows, error: developerError } = await supabaseAdmin
+        .from("developer_portal_access")
+        .select("id,auth_user_id,email,status")
+        .ilike("email", email)
+        .eq("status", "ACTIVE")
+        .limit(20);
+      if (developerError) throw developerError;
+      if (!(developerRows || []).length) {
+        return NextResponse.json({
+          success: true,
+          eligible: false,
+          message: "If this email has active Avantiqo access, a password link will be sent.",
+        });
+      }
+      const authIds = [...new Set((developerRows || []).map((row) => row.auth_user_id).filter(Boolean))];
+      if (authIds.length !== 1) {
+        return NextResponse.json({ success:false, error:"This developer email has conflicting authentication identities. Contact the organization administrator." }, { status:409 });
+      }
       return NextResponse.json({
         success: true,
-        eligible: false,
-        message: "If this email has active staff access, a password link will be sent.",
+        eligible: true,
+        developerPortal: true,
+        message: "Developer password recovery is ready.",
       });
     }
 

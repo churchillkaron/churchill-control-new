@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   Building2,
   Check,
+  CreditCard,
   LoaderCircle,
   UserRound,
 } from "lucide-react";
@@ -34,12 +35,6 @@ const STEPS = [
   },
 ];
 
-const INDUSTRIES = [
-  { value: "restaurant", label: "Restaurant" },
-  { value: "retail", label: "Retail" },
-  { value: "hotel", label: "Hotel" },
-  { value: "agency", label: "Agency" },
-];
 
 const ACCOUNTING_STANDARDS = [
   { value: "IFRS", label: "IFRS" },
@@ -87,6 +82,9 @@ function ReviewRow({ label, value }) {
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
+  const [industries, setIndustries] = useState([]);
+  const [industriesLoading, setIndustriesLoading] = useState(true);
+  const [signupIntent, setSignupIntent] = useState("business");
   const [form, setForm] = useState({
     name: "",
     industry: "",
@@ -96,15 +94,47 @@ export default function OnboardingPage() {
     ownerName: "",
     ownerEmail: "",
     ownerPhone: "",
+    acceptCustomerPayments: false,
+    enableBankTransfer: false,
+    bankName: "",
+    bankAccountName: "",
+    bankAccountNumber: "",
+    enableCards: false,
+    enablePromptPay: false,
+    promptPayId: "",
   });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    let active = true;
+    const requestedIntent = new URLSearchParams(window.location.search).get("intent") === "accounting_firm"
+      ? "accounting_firm"
+      : "business";
+    setSignupIntent(requestedIntent);
+    fetch("/api/onboarding/industries", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || !data?.success) throw new Error(data?.error || "Unable to load business types");
+        const options = Array.isArray(data.options) ? data.options : [];
+        if (!active) return;
+        setIndustries(options);
+        if (requestedIntent === "accounting_firm") {
+          const firm = options.find((item) => item.value === "accounting_firm");
+          if (!firm) throw new Error("Accounting Firm onboarding is not currently available");
+          setForm((previous) => ({ ...previous, industry: "accounting_firm" }));
+        }
+      })
+      .catch((loadError) => { if (active) setError(loadError?.message || "Unable to load business types"); })
+      .finally(() => { if (active) setIndustriesLoading(false); });
+    return () => { active = false; };
+  }, []);
+
   const progress = `${Math.round((step / STEPS.length) * 100)}%`;
   const industryLabel = useMemo(
-    () => INDUSTRIES.find((item) => item.value === form.industry)?.label || form.industry,
-    [form.industry],
+    () => industries.find((item) => item.value === form.industry)?.label || form.industry,
+    [industries, form.industry],
   );
   const accountingStandardLabel = useMemo(
     () =>
@@ -121,6 +151,14 @@ export default function OnboardingPage() {
       clean(form.accountingStandard),
   );
   const ownerReady = Boolean(clean(form.ownerName) && clean(form.ownerEmail));
+  const paymentsReady = Boolean(
+    !form.acceptCustomerPayments ||
+      (((!form.enableBankTransfer && !form.enablePromptPay) ||
+        (clean(form.bankName) &&
+          clean(form.bankAccountName) &&
+          clean(form.bankAccountNumber))) &&
+        (!form.enablePromptPay || clean(form.promptPayId))),
+  );
 
   function update(key, value) {
     setError("");
@@ -153,7 +191,7 @@ export default function OnboardingPage() {
   }
 
   async function submit() {
-    if (!businessReady || !ownerReady || loading) return;
+    if (!businessReady || !ownerReady || !paymentsReady || loading) return;
 
     setLoading(true);
     setError("");
@@ -165,7 +203,26 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          signupIntent,
           currency: clean(form.currency).toUpperCase(),
+          paymentSetup: {
+            enabled: Boolean(form.acceptCustomerPayments),
+            enableBankTransfer:
+              Boolean(form.acceptCustomerPayments) &&
+              Boolean(form.enableBankTransfer),
+            bank: {
+              bankName: clean(form.bankName),
+              accountName: clean(form.bankAccountName),
+              accountNumber: clean(form.bankAccountNumber),
+            },
+            enableCards:
+              Boolean(form.acceptCustomerPayments) &&
+              Boolean(form.enableCards),
+            enablePromptPay:
+              Boolean(form.acceptCustomerPayments) &&
+              Boolean(form.enablePromptPay),
+            promptPayId: clean(form.promptPayId),
+          },
         }),
       });
 
@@ -277,7 +334,7 @@ export default function OnboardingPage() {
                 <form
                   onSubmit={(event) => {
                     event.preventDefault();
-                    if (businessReady) setStep(2);
+                    if (businessReady && paymentsReady) setStep(2);
                   }}
                 >
                   <div className="max-w-2xl">
@@ -290,6 +347,11 @@ export default function OnboardingPage() {
                     <p className="mt-1.5 text-[11px] leading-5 text-[#817B73]">
                       These values become the organization and default legal-entity context used across Avantiqo.
                     </p>
+                    {signupIntent === "accounting_firm" ? (
+                      <div className="mt-4 rounded-xl border border-[#B98A52]/18 bg-[#F7EFE4] px-3.5 py-3 text-[9px] leading-5 text-[#765B3F]">
+                        This signup is locked to the governed Accounting Firm organization type. Client organizations are connected separately after the firm workspace exists.
+                      </div>
+                    ) : null}
 
                     <div className="mt-7 grid gap-5">
                       <Field label="Organization name">
@@ -309,10 +371,13 @@ export default function OnboardingPage() {
                             required
                             value={form.industry}
                             onChange={(event) => update("industry", event.target.value)}
-                            className={fieldClass}
+                            disabled={signupIntent === "accounting_firm"}
+                            className={`${fieldClass} disabled:bg-[#F3F0EB] disabled:text-[#6F675E]`}
                           >
-                            <option value="">Select industry</option>
-                            {INDUSTRIES.map((item) => (
+                            <option value="">{industriesLoading ? "Loading business types…" : "Select business type"}</option>
+                            {industries
+                              .filter((item) => signupIntent === "accounting_firm" ? item.value === "accounting_firm" : item.value !== "accounting_firm")
+                              .map((item) => (
                               <option key={item.value} value={item.value}>
                                 {item.label}
                               </option>
@@ -358,13 +423,126 @@ export default function OnboardingPage() {
                           </select>
                         </Field>
                       </div>
+
+                      <div className="rounded-2xl border border-black/[0.07] bg-[#FCFBF8] p-4">
+                        <button
+                          type="button"
+                          onClick={() => update("acceptCustomerPayments", !form.acceptCustomerPayments)}
+                          className="flex w-full items-start gap-3 text-left"
+                        >
+                          <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${form.acceptCustomerPayments ? "border-[#A37849]/20 bg-[#F4EFE8] text-[#8A633C]" : "border-black/[0.07] bg-white text-[#918B83]"}`}>
+                            <CreditCard size={13} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[12px] font-semibold text-[#342F2A]">
+                              Will this organization accept payments from customers?
+                            </span>
+                            <span className="mt-1 block text-[10px] leading-4 text-[#817B73]">
+                              Optional. Turn this on only if this organization needs to receive bank, card or QR payments from its own customers.
+                            </span>
+                          </span>
+                          <span className={`mt-1 rounded-full px-2 py-1 text-[8px] font-semibold ${form.acceptCustomerPayments ? "bg-[#EFE6DA] text-[#7B5732]" : "bg-[#F1EFEB] text-[#8D867D]"}`}>
+                            {form.acceptCustomerPayments ? "YES" : "NO"}
+                          </span>
+                        </button>
+
+                        {form.acceptCustomerPayments ? (
+                          <div className="mt-4 border-t border-black/[0.06] pt-4">
+                            <div className="grid gap-3">
+                              <label className="rounded-xl border border-black/[0.06] bg-white p-3">
+                                <span className="flex items-start gap-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={form.enableBankTransfer}
+                                    onChange={(event) => update("enableBankTransfer", event.target.checked)}
+                                    className="mt-0.5"
+                                  />
+                                  <span>
+                                    <span className="block text-[11px] font-semibold text-[#342F2A]">Bank transfer</span>
+                                    <span className="mt-0.5 block text-[9px] leading-4 text-[#817B73]">Pay directly to this organization&apos;s bank account.</span>
+                                  </span>
+                                </span>
+                                {form.enableBankTransfer ? (
+                                  <span className="mt-3 grid gap-3 md:grid-cols-2">
+                                    <Field label="Bank">
+                                      <input value={form.bankName} onChange={(event) => update("bankName", event.target.value)} placeholder="Bank name" className={fieldClass} />
+                                    </Field>
+                                    <Field label="Account name">
+                                      <input value={form.bankAccountName} onChange={(event) => update("bankAccountName", event.target.value)} placeholder="Account holder" className={fieldClass} />
+                                    </Field>
+                                    <span className="md:col-span-2">
+                                      <Field label="Account number">
+                                        <input value={form.bankAccountNumber} onChange={(event) => update("bankAccountNumber", event.target.value)} placeholder="Account number" inputMode="numeric" autoComplete="off" className={fieldClass} />
+                                      </Field>
+                                    </span>
+                                  </span>
+                                ) : null}
+                              </label>
+
+                              <label className="rounded-xl border border-black/[0.06] bg-white p-3">
+                                <span className="flex items-start gap-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={form.enableCards}
+                                    onChange={(event) => update("enableCards", event.target.checked)}
+                                    className="mt-0.5"
+                                  />
+                                  <span>
+                                    <span className="block text-[11px] font-semibold text-[#342F2A]">Card payments</span>
+                                    <span className="mt-0.5 block text-[9px] leading-4 text-[#817B73]">Connect this organization&apos;s own Stripe merchant account after creation. Avantiqo keeps platform billing separate.</span>
+                                  </span>
+                                </span>
+                              </label>
+
+                              {isThailand(form.country) ? (
+                                <label className="rounded-xl border border-black/[0.06] bg-white p-3">
+                                  <span className="flex items-start gap-3">
+                                    <input
+                                      type="checkbox"
+                                      checked={form.enablePromptPay}
+                                      onChange={(event) => update("enablePromptPay", event.target.checked)}
+                                      className="mt-0.5"
+                                    />
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block text-[11px] font-semibold text-[#342F2A]">PromptPay / QR</span>
+                                      <span className="mt-0.5 block text-[9px] leading-4 text-[#817B73]">Use this organization&apos;s registered PromptPay identifier.</span>
+                                      {form.enablePromptPay ? (
+                                        <span className="mt-3 grid gap-3">
+                                          <Field label="PromptPay identifier">
+                                            <input value={form.promptPayId} onChange={(event) => update("promptPayId", event.target.value)} placeholder="Registered phone, tax ID or proxy" className={fieldClass} />
+                                          </Field>
+                                          {!form.enableBankTransfer ? (
+                                            <span className="grid gap-3 md:grid-cols-2">
+                                              <Field label="Settlement bank">
+                                                <input value={form.bankName} onChange={(event) => update("bankName", event.target.value)} placeholder="Bank name" className={fieldClass} />
+                                              </Field>
+                                              <Field label="Account name">
+                                                <input value={form.bankAccountName} onChange={(event) => update("bankAccountName", event.target.value)} placeholder="Account holder" className={fieldClass} />
+                                              </Field>
+                                              <span className="md:col-span-2">
+                                                <Field label="Account number">
+                                                  <input value={form.bankAccountNumber} onChange={(event) => update("bankAccountNumber", event.target.value)} placeholder="Account number" inputMode="numeric" autoComplete="off" className={fieldClass} />
+                                                </Field>
+                                              </span>
+                                            </span>
+                                          ) : null}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </span>
+                                </label>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
 
                   <div className="mt-8 flex items-center justify-end border-t border-black/[0.06] pt-5">
                     <button
                       type="submit"
-                      disabled={!businessReady}
+                      disabled={!businessReady || !paymentsReady || industriesLoading}
                       className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#25231F] px-4 text-[10px] font-semibold text-white transition hover:bg-[#34312C] disabled:cursor-not-allowed disabled:opacity-35"
                     >
                       Continue <ArrowRight size={12} />
@@ -474,6 +652,26 @@ export default function OnboardingPage() {
                         <ReviewRow label="Owner" value={form.ownerName} />
                         <ReviewRow label="Email" value={form.ownerEmail} />
                         <ReviewRow label="Phone" value={form.ownerPhone || "Not provided"} />
+                        {form.acceptCustomerPayments ? (
+                          <>
+                            <ReviewRow
+                              label="Customer payments"
+                              value="Enabled for this organization"
+                            />
+                            <ReviewRow
+                              label="Bank transfer"
+                              value={form.enableBankTransfer ? `${form.bankName} · ${form.bankAccountName}` : "Not enabled"}
+                            />
+                            <ReviewRow
+                              label="Card payments"
+                              value={form.enableCards ? "Connect organization Stripe after creation" : "Not enabled"}
+                            />
+                            <ReviewRow
+                              label="PromptPay"
+                              value={form.enablePromptPay ? form.promptPayId : "Not enabled"}
+                            />
+                          </>
+                        ) : null}
                       </div>
                     </div>
 
@@ -502,7 +700,7 @@ export default function OnboardingPage() {
                     <button
                       type="button"
                       onClick={submit}
-                      disabled={loading || !businessReady || !ownerReady}
+                      disabled={loading || !businessReady || !ownerReady || !paymentsReady}
                       className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#25231F] px-4 text-[10px] font-semibold text-white transition hover:bg-[#34312C] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {loading ? (

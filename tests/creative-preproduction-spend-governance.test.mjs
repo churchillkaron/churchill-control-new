@@ -43,3 +43,45 @@ test("approval script cannot authorize media generation or publication", () => {
   assert.match(script, /publication_authorized: false/);
   assert.match(script, /APPROVE PREPRODUCTION/);
 });
+
+
+test("owned local zero-price preproduction reasoning stays inside the sealed specialist contract", () => {
+  assert.match(approval, /benchmarkLocalApproval/);
+  assert.match(approval, /benchmark_review_preview_authorized/);
+  assert.match(approval, /execution_scope: BENCHMARK_SCOPE/);
+  assert.match(approval, /benchmark_only: true/);
+  assert.match(approval, /owned_only_required: true/);
+  assert.match(approval, /studio_preproduction_review: true/);
+  assert.match(approval, /external_fallback_allowed: false/);
+});
+
+
+test("preproduction specialist local approval strictly allowlists its approved model", () => {
+  assert.match(approval, /allowed_models: \[approval\.model\]\.filter\(Boolean\)/);
+});
+
+
+test("Creative Floor repair can repair and persist the benchmark lab from approved reference assets", () => {
+  assert.match(repair, /reference_assets:/);
+  assert.match(repair, /CREATIVE_BENCHMARK_LAB_V1/);
+  assert.match(repair, /Use exact asset_id values as evidence_ref/);
+  assert.match(repair, /repaired\.benchmark_lab = benchmarkLab/);
+  assert.match(repair, /repairedPlan\.benchmark_lab \|\| benchmark_lab/);
+});
+
+
+test("Creative Floor repair unwraps provider JSON text and gives the repair enough deep-output headroom", () => {
+  assert.match(repair, /candidate\.text \|\| candidate\.answer \|\| candidate\.content/);
+  assert.match(repair, /JSON\.parse\(nestedText\)/);
+  assert.match(repair, /max_output_tokens: 6000/);
+  assert.match(repair, /execution_lane: "deep"/);
+});
+
+
+test("Creative Floor repair normalizes settled Qwen benchmark output into the evaluator contract", () => {
+  assert.match(repair, /function normalizedBenchmarkLab/);
+  assert.match(repair, /contract: "CREATIVE_BENCHMARK_LAB_V1"/);
+  assert.match(repair, /referenceAssets\.slice\(0, 3\)/);
+  assert.match(repair, /evidence_ref: text\(entry\.asset_id \|\| entry\.evidence_ref\)/);
+  assert.match(repair, /function normalizedSignatureImages/);
+});

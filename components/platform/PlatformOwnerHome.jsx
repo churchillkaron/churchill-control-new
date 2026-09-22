@@ -497,27 +497,13 @@ export default function PlatformOwnerHome() {
           </div>
         ) : null}
 
-        <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {topMetrics.map((metric) => {
-            const Icon = metric.icon;
-            return (
-              <div
-                key={metric.label}
-                className="group rounded-2xl border border-black/[0.075] bg-white p-4.5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#8C877F]">
-                    {metric.label}
-                  </div>
-                  <Icon size={14} className="text-[#A78158]" />
-                </div>
-                <div className="mt-3 text-[26px] font-medium tracking-[-0.045em] text-[#191815]">
-                  {metric.value}
-                </div>
-                <div className="mt-1.5 text-[10px] leading-4 text-[#99948B]">{metric.hint}</div>
-              </div>
-            );
-          })}
+        <section className="mt-6 grid grid-cols-2 divide-x divide-y divide-black/[0.06] rounded-2xl border border-black/[0.075] bg-white px-1 shadow-[0_1px_2px_rgba(0,0,0,0.025)] lg:grid-cols-4 lg:divide-y-0">
+          {topMetrics.map((metric) => (
+            <div key={metric.label} className="px-4 py-3.5">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#969188]">{metric.label}</div>
+              <div className="mt-1.5 text-[21px] font-medium tracking-[-0.04em] text-[#191815]">{metric.value}</div>
+            </div>
+          ))}
         </section>
 
         <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.32fr)_minmax(430px,0.68fr)] xl:items-start">
@@ -529,12 +515,7 @@ export default function PlatformOwnerHome() {
                     <ShieldAlert size={13} />
                     Needs action now
                   </div>
-                  <h2 className="mt-1.5 text-[20px] font-medium tracking-[-0.03em] text-[#1B1A18]">
-                    Exceptions before dashboards
-                  </h2>
-                  <p className="mt-1 text-[10px] text-[#9A958D]">
-                    Unresolved system alerts and security incidents, ranked by severity and recency.
-                  </p>
+                  <div className="mt-1 text-[10px] text-[#9A958D]">Unresolved platform exceptions, highest priority first.</div>
                 </div>
                 <div className="rounded-full bg-[#F5F2ED] px-2.5 py-1 text-[9px] font-medium text-[#7D7469]">
                   {openSignals.length} open
@@ -601,9 +582,7 @@ export default function PlatformOwnerHome() {
                       <Building2 size={13} />
                       Customer organizations
                     </div>
-                    <h2 className="mt-1.5 text-[18px] font-medium tracking-[-0.03em] text-[#1B1A18]">
-                      Who needs you first
-                    </h2>
+                    <div className="mt-1 text-[10px] text-[#9A958D]">Highest-priority customer organizations.</div>
                   </div>
                   <span className="text-[9px] text-[#9D988F]">Ranked by live exceptions</span>
                 </div>
@@ -650,9 +629,7 @@ export default function PlatformOwnerHome() {
                       <CircleDollarSign size={13} />
                       Platform economics
                     </div>
-                    <h2 className="mt-1.5 text-[18px] font-medium tracking-[-0.03em] text-[#1B1A18]">
-                      Value, cost, margin
-                    </h2>
+                    <div className="mt-1 text-[10px] text-[#9A958D]">Recorded platform value and cost.</div>
                   </div>
                   <Gauge size={16} className="text-[#A88157]" />
                 </div>
@@ -679,6 +656,9 @@ export default function PlatformOwnerHome() {
               </section>
             </div>
 
+            <details className="rounded-[22px] border border-black/[0.065] bg-white/70">
+              <summary className="cursor-pointer select-none px-5 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#817B72]">Platform diagnostics</summary>
+              <div className="space-y-5 border-t border-black/[0.055] p-4">
             <section className="overflow-hidden rounded-[22px] border border-black/[0.075] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
               <div className="flex flex-wrap items-start justify-between gap-4 border-b border-black/[0.06] px-5 py-4.5">
                 <div>
@@ -823,6 +803,8 @@ export default function PlatformOwnerHome() {
                 ) : null}
               </div>
             </section>
+              </div>
+            </details>
           </main>
 
           <aside className="min-w-0 xl:sticky xl:top-[78px]">

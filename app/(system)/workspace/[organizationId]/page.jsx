@@ -6,7 +6,6 @@ import {
   ArrowRight,
   Bell,
   CheckCircle2,
-  Clock3,
   Search,
   Sparkles,
 } from "lucide-react";
@@ -154,27 +153,16 @@ export default function OrganizationWorkspacePage() {
 
         <div className="mt-7 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(420px,0.75fr)] xl:items-start">
           <div className="min-w-0 space-y-6">
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <section className="grid grid-cols-2 divide-x divide-y divide-black/[0.06] rounded-2xl border border-black/[0.075] bg-white px-1 shadow-[0_1px_2px_rgba(0,0,0,0.025)] lg:grid-cols-4 lg:divide-y-0">
               {metricCards.map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-2xl border border-black/[0.075] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.025)]"
-                >
-                  <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-[#8A867F]">
-                    {item.label}
-                  </div>
-                  <div className="mt-3 text-[25px] font-medium tracking-[-0.035em] text-[#1A1917]">
-                    {item.value}
-                  </div>
-                  <div className="mt-1.5 text-[11px] text-[#9A968E]">
-                    {item.hint}
-                  </div>
+                <div key={item.label} className="px-4 py-3.5">
+                  <div className="text-[9px] font-medium uppercase tracking-[0.14em] text-[#969188]">{item.label}</div>
+                  <div className="mt-1.5 text-[21px] font-medium tracking-[-0.035em] text-[#1A1917]">{item.value}</div>
                 </div>
               ))}
             </section>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-              <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
+            <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A867F]">
@@ -194,7 +182,7 @@ export default function OrganizationWorkspacePage() {
                       No active cross-domain exceptions.
                     </div>
                   ) : (
-                    homeQueue.slice(0, 10).map((item) => (
+                    homeQueue.slice(0, 6).map((item) => (
                       <Link key={item.id} href={item.href || "#"} className="group flex gap-3 py-3.5">
                         <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${priorityDot(item.priority)}`} />
                         <div className="min-w-0 flex-1">
@@ -212,37 +200,7 @@ export default function OrganizationWorkspacePage() {
                     ))
                   )}
                 </div>
-              </section>
-
-              <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A867F]">
-                      Recent activity
-                    </div>
-                    <div className="mt-1 text-[12px] text-[#AAA69E]">
-                      Latest business movement
-                    </div>
-                  </div>
-                  <Clock3 size={16} className="text-[#8D8982]" />
-                </div>
-
-                <div className="mt-4 divide-y divide-black/[0.06]">
-                  {activity.length === 0 ? (
-                    <div className="py-4 text-[12px] text-[#8A867F]">
-                      No recent activity to show.
-                    </div>
-                  ) : (
-                    activity.slice(0, 7).map((item, index) => (
-                      <div key={item?.id || index} className="grid grid-cols-[70px_1fr] gap-3 py-3.5 text-[11px]">
-                        <div className="text-[#AAA69E]">{item?.time || "—"}</div>
-                        <div className="leading-5 text-[#4F4C47]">{item?.text || item?.message || "Activity"}</div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </section>
-            </div>
+            </section>
 
             <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
               <div className="flex flex-wrap items-end justify-between gap-4">
@@ -280,6 +238,19 @@ export default function OrganizationWorkspacePage() {
                 ))}
               </div>
             </section>
+            <details className="rounded-2xl border border-black/[0.065] bg-white/70 px-5 py-3 text-[#5E5952]">
+              <summary className="cursor-pointer select-none text-[10px] font-medium uppercase tracking-[0.14em] text-[#8A867F]">Recent activity</summary>
+              <div className="mt-3 divide-y divide-black/[0.06]">
+                {activity.length === 0 ? (
+                  <div className="py-3 text-[11px] text-[#99948C]">No recent activity to show.</div>
+                ) : activity.slice(0, 6).map((item, index) => (
+                  <div key={item?.id || index} className="grid grid-cols-[64px_1fr] gap-3 py-3 text-[10px]">
+                    <div className="text-[#AAA69E]">{item?.time || "—"}</div>
+                    <div className="leading-4 text-[#5A554E]">{item?.text || item?.message || "Activity"}</div>
+                  </div>
+                ))}
+              </div>
+            </details>
           </div>
 
           <aside className="min-w-0 xl:sticky xl:top-[78px]">

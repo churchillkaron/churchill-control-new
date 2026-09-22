@@ -79,7 +79,6 @@ export default function OrganizationWorkspacePage() {
   const metrics = runtime?.metrics || {};
   const activity = Array.isArray(runtime?.activity) ? runtime.activity : [];
   const homeQueue = Array.isArray(runtime?.home_queue) ? runtime.home_queue : [];
-  const homeDomains = Array.isArray(runtime?.home_domains) ? runtime.home_domains : [];
   const productEntitlements = Array.isArray(businessContext.product_entitlements) ? businessContext.product_entitlements : [];
   const modules = Array.isArray(businessContext.modules) ? businessContext.modules : [];
   const exactProductOwnership = hasExactProductOwnership(productEntitlements);
@@ -90,7 +89,6 @@ export default function OrganizationWorkspacePage() {
         .filter((target) => target.kind === "domain" && visibleDomainIds.has(target.domain_id))
         .slice(0, 12)
     : [];
-  const visibleHomeDomains = homeDomains.filter((domain) => visibleDomainIds.has(domain.id));
 
   const metricCards = [
     {
@@ -273,35 +271,6 @@ export default function OrganizationWorkspacePage() {
                 </div>
               </section>
             </div>
-
-            {visibleHomeDomains.length ? (
-              <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                  <div>
-                    <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A867F]">
-                      Business pulse
-                    </div>
-                    <h2 className="mt-1.5 text-[20px] font-medium tracking-[-0.025em] text-[#1B1A18]">
-                      Where attention is concentrated
-                    </h2>
-                  </div>
-                  <div className="text-[10px] text-[#8A867F]">Live domain-owned evidence</div>
-                </div>
-
-                <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                  {visibleHomeDomains.map((domain) => (
-                    <Link key={domain.id} href={domain.href} className="group rounded-xl border border-black/[0.065] bg-[#FCFBF9] p-3.5 transition hover:border-[#D6A66A]/40 hover:bg-white">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="text-[12px] font-medium text-[#403C36]">{domain.label}</div>
-                        <div className={`min-w-7 rounded-full px-2 py-1 text-center text-[9px] font-semibold ${Number(domain.count || 0) > 0 ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>{domain.count || 0}</div>
-                      </div>
-                      <div className="mt-2 text-[9px] leading-4 text-[#8A847C]">{domain.detail}</div>
-                      <div className="mt-2 flex items-center gap-1 text-[9px] text-[#A37849] opacity-0 transition group-hover:opacity-100">Open <ArrowRight size={10} /></div>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            ) : null}
 
             <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
               <div className="flex flex-wrap items-end justify-between gap-4">

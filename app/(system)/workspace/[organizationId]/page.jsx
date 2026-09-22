@@ -14,7 +14,6 @@ import {
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAlertBridge";
 import { getOwnedWorkspaceDomainIds, hasExactProductOwnership } from "@/lib/platform/entitlements/productWorkspaceVisibility";
-import BusinessPartnerCodeMissionPanel from "@/components/operator/BusinessPartnerCodeMissionPanel";
 import HomeAvantiqoIntelligenceDock from "@/components/operator/HomeAvantiqoIntelligenceDock";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 import { listOperatorNavigationTargets } from "@/lib/operator/runtime/OperatorNavigationCatalog";
@@ -344,25 +343,16 @@ export default function OrganizationWorkspacePage() {
 
           <aside className="min-w-0 xl:sticky xl:top-[78px]">
             <div className="overflow-hidden rounded-[22px] border border-black/[0.08] bg-white shadow-[0_14px_50px_rgba(31,27,20,0.07)]">
-              <div className="flex items-start justify-between gap-4 border-b border-black/[0.07] px-5 py-4">
-                <div>
-                  <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#9A744B]">
-                    <Sparkles size={13} />
-                    Business Partner
-                  </div>
-                  <div className="mt-1.5 text-[18px] font-medium tracking-[-0.025em] text-[#1B1A18]">
-                    One operator. Every capability.
-                  </div>
-                  <div className="mt-1 text-[11px] leading-5 text-[#8B8881]">
-                    Ask, steer and verify work here. Code missions stay synchronized with Code Studio.
-                  </div>
+              <div className="border-b border-black/[0.07] px-5 py-4">
+                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#9A744B]">
+                  <Sparkles size={13} />
+                  Business Partner
                 </div>
-                <span className="shrink-0 rounded-full border border-[#6F7E68]/20 bg-[#6F7E68]/[0.08] px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.12em] text-[#5E6D58]">
-                  Local-first
-                </span>
+                <div className="mt-1.5 text-[11px] leading-5 text-[#8B8881]">
+                  Ask about this business, make a decision, or tell Avantiqo what to do.
+                </div>
               </div>
 
-              <BusinessPartnerCodeMissionPanel organizationId={organizationId} />
               <HomeAvantiqoIntelligenceDock organizationId={organizationId} />
             </div>
 

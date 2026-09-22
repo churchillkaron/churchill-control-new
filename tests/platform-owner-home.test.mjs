@@ -27,12 +27,14 @@ test("Avantiqo Platform organization has a dedicated owner cockpit", () => {
   assert.match(platformHome, /Customer organizations/);
   assert.match(platformHome, /Platform economics/);
   assert.match(platformHome, /Module coverage/);
-  assert.match(platformHome, /BusinessPartnerCodeMissionPanel/);
+  assert.doesNotMatch(platformHome, /BusinessPartnerCodeMissionPanel/);
   assert.match(platformHome, /HomeAvantiqoIntelligenceDock/);
 });
 
 test("customer organization Home remains on the business workspace", () => {
   assert.doesNotMatch(customerHome, /PlatformOwnerHome/);
   assert.match(customerHome, /My Business/);
-  assert.match(customerHome, /Everything Avantiqo can operate/);
+  assert.match(customerHome, /Business areas/);
+  assert.doesNotMatch(customerHome, /BusinessPartnerCodeMissionPanel/);
+  assert.match(customerHome, /HomeAvantiqoIntelligenceDock/);
 });

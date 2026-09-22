@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 
 import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAlertBridge";
-import BusinessPartnerCodeMissionPanel from "@/components/operator/BusinessPartnerCodeMissionPanel";
 import HomeAvantiqoIntelligenceDock from "@/components/operator/HomeAvantiqoIntelligenceDock";
 
 const PLATFORM_ORGANIZATION_ID = "9a148429-b6a0-4bc6-ac83-a35c64fb7045";
@@ -828,25 +827,16 @@ export default function PlatformOwnerHome() {
 
           <aside className="min-w-0 xl:sticky xl:top-[78px]">
             <div className="overflow-hidden rounded-[24px] border border-black/[0.085] bg-white shadow-[0_18px_55px_rgba(31,27,20,0.08)]">
-              <div className="flex items-start justify-between gap-4 border-b border-black/[0.07] px-5 py-4.5">
-                <div>
-                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.17em] text-[#9A744B]">
-                    <Sparkles size={13} />
-                    Business Partner
-                  </div>
-                  <div className="mt-1.5 text-[19px] font-medium tracking-[-0.03em] text-[#1B1A18]">
-                    Operate, diagnose, ship.
-                  </div>
-                  <div className="mt-1 text-[10px] leading-5 text-[#8B867E]">
-                    Ask about customers, incidents, economics, service health or code. Evidence stays connected to the same governed operator.
-                  </div>
+              <div className="border-b border-black/[0.07] px-5 py-4">
+                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.17em] text-[#9A744B]">
+                  <Sparkles size={13} />
+                  Business Partner
                 </div>
-                <span className="shrink-0 rounded-full border border-[#6F7E68]/20 bg-[#6F7E68]/[0.08] px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.11em] text-[#5E6D58]">
-                  Owner scope
-                </span>
+                <div className="mt-1.5 text-[10px] leading-5 text-[#8B867E]">
+                  Ask about Avantiqo, customers, incidents, economics, or what needs attention.
+                </div>
               </div>
 
-              <BusinessPartnerCodeMissionPanel organizationId={PLATFORM_ORGANIZATION_ID} />
               <HomeAvantiqoIntelligenceDock organizationId={PLATFORM_ORGANIZATION_ID} />
             </div>
           </aside>

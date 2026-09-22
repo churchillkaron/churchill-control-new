@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 
 const ITEMS = [
@@ -24,6 +24,8 @@ function active(pathname, href) {
 
 export default function SupplierPortalShell({ children }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const currentHref = ITEMS.find(([, href]) => active(pathname, href))?.[1] || "/supplier-portal";
   return <main className="min-h-screen bg-[#F7F3EC] text-[#171614]">
     <PublicSiteHeader
       context="Supplier Portal"
@@ -32,7 +34,20 @@ export default function SupplierPortalShell({ children }) {
       action={{ label: "Supplier Account", href: "/supplier-portal/settings" }}
     />
     <div className="border-b border-black/[.07] bg-white/45">
-      <nav className="mx-auto flex max-w-[1320px] gap-1 overflow-x-auto px-5 py-2 sm:px-7 lg:px-10">
+      <div className="mx-auto max-w-[1320px] px-5 py-2 sm:hidden">
+        <label className="block">
+          <span className="sr-only">Supplier portal section</span>
+          <select
+            aria-label="Supplier portal section"
+            value={currentHref}
+            onChange={(event) => router.push(event.target.value)}
+            className="h-11 w-full rounded-xl border border-black/[.08] bg-white px-3 text-[10px] font-semibold text-[#3F3933] outline-none"
+          >
+            {ITEMS.map(([label, href]) => <option key={href} value={href}>{label}</option>)}
+          </select>
+        </label>
+      </div>
+      <nav className="mx-auto hidden max-w-[1320px] gap-1 px-7 py-2 sm:flex lg:px-10">
         {ITEMS.map(([label, href]) => <Link
           key={href}
           href={href}

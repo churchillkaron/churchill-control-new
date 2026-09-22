@@ -429,7 +429,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={handleForgotPassword}
                 disabled={loading}
-                className="text-[12px] text-[#D6A66A]/80 transition hover:text-[#F2DEC0] disabled:opacity-50"
+                className="inline-flex min-h-11 items-center px-1 text-[12px] text-[#D6A66A]/80 transition hover:text-[#F2DEC0] disabled:opacity-50"
               >
                 Forgot password?
               </button>

@@ -54,7 +54,12 @@ test("Deep critique/review is repaired on Fast rather than opening a second Deep
 
 test("bounded business thesis synthesis uses Fast text generation and no 900-token Deep choke", async () => {
   const text = await source(THESIS);
-  const operation = text.slice(text.indexOf("const execution = await ServiceExecutionRuntime.execute"));
+  const executionStart = [
+    text.indexOf("let execution = await ServiceExecutionRuntime.execute"),
+    text.indexOf("const execution = await ServiceExecutionRuntime.execute"),
+  ].filter((index) => index >= 0).sort((a, b) => a - b)[0] ?? -1;
+  assert.ok(executionStart >= 0);
+  const operation = text.slice(executionStart);
   assert.match(operation, /service_id: "ai\.text\.generate"/);
   assert.match(operation, /execution_lane: "fast"/);
   assert.match(operation, /max_output_tokens: 1800/);

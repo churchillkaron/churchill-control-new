@@ -8,9 +8,9 @@ const redirects = new Map([
   ["../app/(workforce)/workforce/my-day/page.jsx", "/staff/my-day"],
   ["../app/(workforce)/workforce/documents/page.jsx", "/staff/documents"],
   ["../app/(workforce)/workforce/payroll/page.jsx", "/staff/earnings"],
-  ["../app/(workforce)/workforce/schedule/page.jsx", "/staff"],
+  ["../app/(workforce)/workforce/schedule/page.jsx", "/staff/schedule"],
   ["../app/(workforce)/workforce/tasks/page.jsx", "/staff/my-day"],
-  ["../app/(workforce)/workforce/training/page.jsx", "/staff"],
+  ["../app/(workforce)/workforce/training/page.jsx", "/staff/training"],
   ["../app/(workforce)/workforce/upload/page.jsx", "/staff/documents/upload"],
 ]);
 

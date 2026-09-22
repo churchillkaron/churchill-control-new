@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
-import { getStripe } from "@/lib/billing/stripe";
+import { StripeProvider } from "@/lib/billing/stripe";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   CUSTOMER_PORTAL_COOKIE,
@@ -18,7 +18,7 @@ function minorUnits(amount, currency) {
   return Math.round(Number(amount) * (ZERO_DECIMAL.has(currency) ? 1 : 100));
 }
 
-async function createHotelCheckout({ session, paymentRequest, stripe, appOrigin }) {
+async function createHotelCheckout({ session, paymentRequest, appOrigin }) {
   const bookingResult = await supabaseAdmin.from("hotel_bookings")
     .select("*")
     .eq("organization_id", session.organization_id)
@@ -101,7 +101,10 @@ async function createHotelCheckout({ session, paymentRequest, stripe, appOrigin 
   }
 
   if (transaction.provider_session_id) {
-    const prior = await stripe.checkout.sessions.retrieve(transaction.provider_session_id);
+    const prior = await StripeProvider.retrieveCheckoutSession({
+      organizationId: session.organization_id,
+      sessionId: transaction.provider_session_id,
+    });
     return { checkout: prior, bankAccountId: property.settlement_bank_account_id };
   }
 
@@ -112,7 +115,9 @@ async function createHotelCheckout({ session, paymentRequest, stripe, appOrigin 
     organizationId: session.organization_id,
     bookingId: booking.id,
   };
-  const checkout = await stripe.checkout.sessions.create({
+  const checkout = await StripeProvider.createPaymentCheckout({
+    organizationId: session.organization_id,
+    session: {
     payment_method_types: ["card"],
     mode: "payment",
     line_items: [{
@@ -128,7 +133,9 @@ async function createHotelCheckout({ session, paymentRequest, stripe, appOrigin 
     payment_intent_data: { metadata },
     success_url: `${appOrigin}/customer-portal?payment=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appOrigin}/customer-portal?payment=cancelled`,
-  }, { idempotencyKey: `customer-portal-hotel-checkout:${transaction.id}` });
+    },
+    idempotencyKey: `customer-portal-hotel-checkout:${transaction.id}`,
+  });
 
   const saved = await supabaseAdmin.from("hotel_payment_transactions").update({
     provider_session_id: checkout.id,
@@ -153,11 +160,10 @@ export async function POST(request) {
     if (!paymentRequest) return NextResponse.json({ success: false, error: "Payment request not found" }, { status: 404 });
     if (paymentRequest.status === "PAID") return NextResponse.json({ success: true, paid: true });
 
-    const stripe = getStripe();
     const appOrigin = String(process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/$/, "");
 
     if (paymentRequest.source_type === "HOTEL_BOOKING") {
-      const hotel = await createHotelCheckout({ session, paymentRequest, stripe, appOrigin });
+      const hotel = await createHotelCheckout({ session, paymentRequest, appOrigin });
       await supabaseAdmin.from("customer_portal_payment_requests").update({
         bank_account_id: hotel.bankAccountId,
         updated_at: new Date().toISOString(),
@@ -184,7 +190,9 @@ export async function POST(request) {
     });
     if (matching.length !== 1) throw new Error("A single default settlement bank account is required for this currency");
 
-    const checkout = await stripe.checkout.sessions.create({
+    const checkout = await StripeProvider.createPaymentCheckout({
+      organizationId: session.organization_id,
+      session: {
       payment_method_types: ["card"],
       mode: "payment",
       line_items: [{
@@ -203,6 +211,7 @@ export async function POST(request) {
       },
       success_url: `${appOrigin}/customer-portal?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appOrigin}/customer-portal?payment=cancelled`,
+      },
     });
 
     const bankUpdate = await supabaseAdmin.from("customer_portal_payment_requests").update({

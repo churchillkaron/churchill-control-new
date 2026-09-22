@@ -59,22 +59,6 @@ export default function OrganizationWorkspacePage() {
     businessContext.staff?.name ||
     businessContext.staff?.display_name ||
     "";
-  const organizationName =
-    organization?.name ||
-    runtime?.activeOrganization?.name ||
-    businessContext.organization?.name ||
-    "Your organization";
-  const entityName =
-    businessContext.entity?.display_name ||
-    businessContext.entity?.legal_name ||
-    businessContext.entity?.name ||
-    "All entities";
-  const periodName =
-    businessContext.period?.name ||
-    businessContext.period?.period_name ||
-    businessContext.period?.label ||
-    "Current period";
-
   const briefing = runtime?.briefing || null;
   const metrics = runtime?.metrics || {};
   const activity = Array.isArray(runtime?.activity) ? runtime.activity : [];
@@ -154,7 +138,7 @@ export default function OrganizationWorkspacePage() {
       <AutonomousWatchAlertBridge organizationId={organizationId} />
 
       <div className="mx-auto max-w-[1780px] px-5 py-7 md:px-8 lg:px-10 lg:py-9">
-        <header className="flex flex-col gap-5 border-b border-black/[0.07] pb-7 xl:flex-row xl:items-end xl:justify-between">
+        <header className="border-b border-black/[0.07] pb-7">
           <div className="min-w-0">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#9A744B]">
               My Business
@@ -165,18 +149,6 @@ export default function OrganizationWorkspacePage() {
             <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[#6C6963]">
               {briefing?.summary || "Live priorities, business movement and your Avantiqo operator in one place."}
             </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#6C6963]">
-            <span className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-              {organizationName}
-            </span>
-            <span className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-              {entityName}
-            </span>
-            <span className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-              {periodName}
-            </span>
           </div>
         </header>
 

@@ -70,7 +70,7 @@ export async function GET(request) {
       organizationPolicy,
       passkeyStatus,
       clockInExceptionState,
-      identityVerification,
+      organizationResult,
     ] = await Promise.all([
       loadStaffWorkday({
         organizationId,
@@ -83,8 +83,15 @@ export async function GET(request) {
         organizationId,
         staffId: staff.id,
       }),
-      loadStaffIdentityVerification({ organizationId, staffId: staff.id }),
+      supabaseAdmin
+        .from("organizations")
+        .select("*")
+        .eq("id", organizationId)
+        .maybeSingle(),
     ]);
+
+    if (latestPayroll.error) throw latestPayroll.error;
+    if (organizationResult.error) throw organizationResult.error;
 
     const runtime = buildPeopleRuntime({
       staff,
@@ -124,6 +131,11 @@ export async function GET(request) {
         role: staff.role || context.role || null,
         department: staff.department || null,
       },
+      availableOrganizationIds:
+        context.availableOrganizationIds || [],
+      staff,
+      organization: organizationResult.data || null,
+      membership: context.membership || null,
       role: context.role || null,
       timezone: workday.timezone,
       businessDate: workday.businessDate,

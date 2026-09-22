@@ -19,6 +19,7 @@ export default function ApiPlatformPage() {
       <PublicSiteHeader
         context="API Platform"
         audience="api"
+        tone="light"
         links={[
           { label: "Overview", href: "#overview" },
           { label: "Capabilities", href: "#capabilities" },

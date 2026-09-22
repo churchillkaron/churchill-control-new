@@ -22,17 +22,18 @@ test("Operator route has Node 300 second runtime budget", () => {
   assert.match(route, /export const maxDuration = 300/);
 });
 
-test("Learning director is Modal-only", () => {
-  assert.match(learning, /READY_FOR_MODAL_SYNTHESIS/);
-  assert.match(learning, /AVANTIQO_INTELLIGENCE_MODAL_H100_V1/);
-  assert.match(learning, /synthesis_modal_only/);
+test("Learning director is local-owned Intelligence only", () => {
+  assert.match(learning, /READY_FOR_LOCAL_SYNTHESIS/);
+  assert.match(learning, /AVANTIQO_INTELLIGENCE_LOCAL_NODE_V1/);
+  assert.match(learning, /synthesis_local_only/);
+  assert.doesNotMatch(learning, /READY_FOR_MODAL_SYNTHESIS|AVANTIQO_INTELLIGENCE_MODAL_H100_V1|synthesis_modal_only/);
   assert.doesNotMatch(learning, /RUNPOD_SAFE_LEASE|READY_FOR_SAFE_LEASE_SYNTHESIS/);
 });
 
 test("Learning synthesis cannot bypass Service Runtime", () => {
   assert.match(child, /executeService\s*\(/);
   assert.match(child, /settlePendingService\s*\(/);
-  assert.match(child, /modal-intelligence-direct:/);
+  assert.match(child, /local-intelligence:/);
   assert.match(child, /duplicate_provider_job_submitted: false/);
   assert.match(child, /raw_reasoning_persisted: false/);
   assert.doesNotMatch(child, /api\.runpod\.ai|rest\.runpod\.io|AVANTIQO_RUNPOD_SAFE_LEASE/);
@@ -42,16 +43,17 @@ test("legacy direct RunPod Learning child is absent", () => {
   assert.equal(fs.existsSync(new URL("../scripts/run-avantiqo-learning-mechanism-synthesis-child-local.mjs", import.meta.url)), false);
 });
 
-test("canonical owned Intelligence is local-first for bounded lanes with Modal retained for heavy Studio and fallback", () => {
+test("canonical owned Intelligence is local-only and cannot silently fall back to Modal", () => {
   assert.match(providerV2, /executeIntelligenceLocalQueue/);
-  assert.match(providerV2, /executeIntelligenceModalDirect/);
-  assert.match(providerV2, /getIntelligenceLocalQueueStatus/);
-  assert.match(providerV2, /getIntelligenceModalDirectStatus/);
+  assert.match(providerV2, /executeIntelligenceLocal/);
+  assert.match(providerV2, /AVANTIQO_INTELLIGENCE_LOCAL_NODE_REQUIRED/);
+  assert.match(providerV2, /AVANTIQO_INTELLIGENCE_MODAL_JOB_PREFIX = null/);
+  assert.doesNotMatch(providerV2, /executeIntelligenceModalDirect|getIntelligenceModalDirectStatus|cancelIntelligenceModalDirect/);
   assert.doesNotMatch(providerV2, /RunPod|runpod|OwnedIntelligence.*Pod/);
   assert.doesNotMatch(providerExecutor, /RunPod|runpod|OwnedIntelligence.*Pod/);
-  assert.match(providerRegistration, /local_compute_primary:\s*localComputeConfigured/);
-  assert.match(providerRegistration, /infrastructure_fallback:\s*"MODAL_H100_ASYNC_V1"/);
-  assert.match(providerRegistration, /modal_only:\s*false/);
+  assert.match(providerRegistration, /local_compute_primary:\s*true/);
+  assert.match(providerRegistration, /infrastructure_fallback:\s*null/);
+  assert.match(providerRegistration, /modal_fallback_allowed:\s*false/);
   assert.match(studioReasoning, /AvantiqoStructuredIntelligenceSupervisorRuntime/);
   assert.match(studioReasoning, /service_id:\s*"ai\.reasoning\.execute"/);
 });

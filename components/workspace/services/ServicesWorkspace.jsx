@@ -92,6 +92,8 @@ export default function ServicesWorkspace({ organizationId, mode = "overview" })
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [stripeBilling, setStripeBilling] = useState(null);
+  const [billingAction, setBillingAction] = useState(false);
 
   async function load() {
     if (!organizationId) return;
@@ -117,6 +119,75 @@ export default function ServicesWorkspace({ organizationId, mode = "overview" })
   useEffect(() => {
     load();
   }, [organizationId, entityId, periodId]);
+
+  useEffect(() => {
+    if (!organizationId || mode !== "billing") return;
+    let active = true;
+    fetch(`/api/billing/status?organizationId=${encodeURIComponent(organizationId)}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || json?.success === false) {
+          throw new Error(json?.error || "Stripe billing status could not be loaded");
+        }
+        if (active) setStripeBilling(json);
+      })
+      .catch((statusError) => {
+        if (active) setError(statusError?.message || "Stripe billing status could not be loaded");
+      });
+    return () => {
+      active = false;
+    };
+  }, [organizationId, mode]);
+
+  async function openBillingPortal() {
+    if (!organizationId || billingAction) return;
+    setBillingAction(true);
+    setError("");
+    try {
+      const response = await fetch("/api/billing/portal", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json?.url) {
+        throw new Error(json?.error || "Billing portal could not be opened");
+      }
+      window.location.assign(json.url);
+    } catch (portalError) {
+      setError(portalError?.message || "Billing portal could not be opened");
+      setBillingAction(false);
+    }
+  }
+
+  async function startBillingCheckout(billingCycle) {
+    if (!organizationId || billingAction) return;
+    setBillingAction(true);
+    setError("");
+    try {
+      const response = await fetch("/api/billing/checkout", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          billingCycle,
+        }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json?.url) {
+        throw new Error(json?.error || "Subscription checkout could not be opened");
+      }
+      window.location.assign(json.url);
+    } catch (checkoutError) {
+      setError(checkoutError?.message || "Subscription checkout could not be opened");
+      setBillingAction(false);
+    }
+  }
 
   const metrics = data?.metrics || {};
   const queue = Array.isArray(data?.queue) ? data.queue : [];
@@ -192,7 +263,101 @@ export default function ServicesWorkspace({ organizationId, mode = "overview" })
 
         {data && mode === "usage" ? <section className="overflow-hidden rounded-[22px] border border-black/[0.075] bg-white"><div className="flex flex-col gap-3 border-b border-black/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-[18px] font-semibold">Service usage</h2><p className="mt-1 text-[10px] text-[#817D76]">Latest governed usage evidence from the last 30 days.</p></div><label className="relative"><Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#99938B]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search provider, capability, status" className="h-9 w-full rounded-lg border border-black/[0.09] bg-[#FCFBF9] pl-8 pr-3 text-[10px] outline-none sm:w-64" /></label></div><div className="p-4"><CurrencyRows rows={usageRows} fields={[["supplier_cost", "Supplier cost"], ["customer_price", "Customer price"]]} /></div><div className="overflow-x-auto border-t border-black/[0.06]"><table className="w-full min-w-[1000px] text-left text-[10px]"><thead className="bg-[#FAF9F7] text-[9px] uppercase tracking-[0.12em] text-[#817D76]"><tr><th className="px-4 py-3">When</th><th className="px-4 py-3">Provider</th><th className="px-4 py-3">Capability</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Cost</th><th className="px-4 py-3">Charge</th><th className="px-4 py-3">Billing</th></tr></thead><tbody className="divide-y divide-black/[0.055]">{filteredUsage.map((row) => <tr key={row.id}><td className="px-4 py-3">{time(row.created_at)}</td><td className="px-4 py-3 font-medium">{row.provider || "—"}</td><td className="px-4 py-3">{row.capability || row.operation || "—"}</td><td className="px-4 py-3">{row.execution_status || row.status || "—"}</td><td className="px-4 py-3 tabular-nums">{money(row.supplier_cost, row.currency)}</td><td className="px-4 py-3 tabular-nums">{money(row.customer_price, row.currency)}</td><td className="px-4 py-3">{row.billing_completed ? "Complete" : "Pending"}</td></tr>)}</tbody></table></div></section> : null}
 
-        {data && mode === "billing" ? <section className="rounded-[22px] border border-black/[0.075] bg-white p-5"><div className="flex items-center gap-2"><CreditCard size={16} className="text-[#A37849]" /><h2 className="text-[18px] font-semibold">Billing & reconciliation</h2></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><Metric label="Billing queue" value={metrics.billing?.queue_open || 0} detail="Usage awaiting billing completion" icon={BadgeDollarSign} warning={(metrics.billing?.queue_open || 0) > 0} /><Metric label="Reconciliation" value={metrics.billing?.reconciliation_open || 0} detail="Revenue evidence requiring review" icon={CircleDollarSign} warning={(metrics.billing?.reconciliation_open || 0) > 0} /><Metric label="Finance posting" value={metrics.usage?.unposted || 0} detail="Billed usage not yet finance-posted" icon={Database} warning={(metrics.usage?.unposted || 0) > 0} /></div><div className="mt-5 divide-y divide-black/[0.055]">{billingQueue.map((item) => <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_120px]"><div><div className="text-[11px] font-medium">{item.title}</div><div className="mt-1 text-[9px] text-[#817D76]">{item.detail}</div></div><div className="text-right text-[9px] text-[#817D76]">{item.status}</div></div>)}{!billingQueue.length ? <div className="py-10 text-center text-[11px] text-[#817D76]">No open billing or reconciliation exceptions.</div> : null}</div></section> : null}
+        {data && mode === "billing" ? (
+          <div className="space-y-4">
+            <section className="rounded-[22px] border border-black/[0.075] bg-white p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2"><CreditCard size={16} className="text-[#A37849]" /><h2 className="text-[18px] font-semibold">Avantiqo subscription</h2></div>
+                  <p className="mt-1 text-[10px] text-[#817D76]">Canonical Avantiqo module pricing with Stripe acting only as the subscription payment rail.</p>
+                </div>
+                {stripeBilling?.canManage && stripeBilling?.billing?.subscriptionConfigured ? (
+                  <button type="button" onClick={openBillingPortal} disabled={billingAction} className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[10px] font-medium text-white disabled:opacity-40">
+                    {billingAction ? <LoaderCircle size={12} className="animate-spin" /> : <CreditCard size={12} />}
+                    Manage billing
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <Metric
+                  label="Payment rail"
+                  value={stripeBilling?.catalog?.environment === "sandbox" ? "Stripe sandbox" : "Stripe"}
+                  detail={stripeBilling?.billing?.configured ? "Billing customer linked" : "Customer is created when Checkout starts"}
+                  icon={CreditCard}
+                />
+                <Metric
+                  label="Subscription"
+                  value={stripeBilling?.billing?.status || "—"}
+                  detail={stripeBilling?.billing?.subscriptionConfigured
+                    ? String(stripeBilling.billing.moduleIds?.length || 0) + " modules · " + (stripeBilling.billing.billingCycle || "cycle pending")
+                    : "No active module subscription yet"}
+                  icon={BadgeDollarSign}
+                />
+                <Metric label="Automatic tax" value={stripeBilling?.billing?.automaticTaxEnabled ? "Enabled" : "Checkout ready"} detail="Billing address and tax IDs are collected at secure Checkout" icon={CircleDollarSign} />
+                <Metric label="Latest invoice" value={stripeBilling?.billing?.latestInvoiceStatus || "—"} detail={stripeBilling?.billing?.currentPeriodEnd ? "Current period ends " + time(stripeBilling.billing.currentPeriodEnd) : "No subscription invoice cycle yet"} icon={Database} />
+              </div>
+
+              {!stripeBilling?.billing?.subscriptionConfigured && stripeBilling?.catalog ? (
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  {[
+                    ["monthly", "Monthly", stripeBilling.catalog.monthly],
+                    ["yearly", "Yearly", stripeBilling.catalog.yearly],
+                  ].map(([cycleId, label, catalog]) => {
+                    const missing = catalog?.missingMappings?.length || 0;
+                    return (
+                      <div key={cycleId} className="rounded-2xl border border-black/[0.07] bg-[#FCFBF9] p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <div className="text-[9px] font-medium uppercase tracking-[0.14em] text-[#8A847C]">{label}</div>
+                            <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em]">{money(catalog?.total || 0, catalog?.currency)}</div>
+                            <div className="mt-1 text-[10px] text-[#817D76]">{catalog?.modules?.length || 0} priced active modules</div>
+                          </div>
+                          {stripeBilling?.canManage ? (
+                            <button
+                              type="button"
+                              onClick={() => startBillingCheckout(cycleId)}
+                              disabled={billingAction || missing > 0 || !catalog?.modules?.length}
+                              className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[10px] font-medium text-white disabled:opacity-35"
+                            >
+                              {billingAction ? <LoaderCircle size={12} className="animate-spin" /> : <ArrowRight size={12} />}
+                              Start {label.toLowerCase()}
+                            </button>
+                          ) : null}
+                        </div>
+                        {catalog?.unpricedModules?.length ? (
+                          <div className="mt-3 rounded-lg border border-amber-700/10 bg-amber-50 px-3 py-2 text-[9px] text-amber-900">
+                            Not billed because no canonical price exists: {catalog.unpricedModules.join(", ")}
+                          </div>
+                        ) : null}
+                        {missing ? (
+                          <div className="mt-3 rounded-lg border border-red-700/10 bg-red-50 px-3 py-2 text-[9px] text-red-800">
+                            Provider catalog missing for {missing} module{missing === 1 ? "" : "s"}.
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {stripeBilling?.catalogError ? (
+                <div className="mt-4 rounded-xl border border-red-700/10 bg-red-50 px-4 py-3 text-[10px] text-red-800">{stripeBilling.catalogError}</div>
+              ) : null}
+              {stripeBilling && !stripeBilling.canManage ? <div className="mt-4 rounded-xl border border-black/[0.06] bg-[#FAF9F7] px-4 py-3 text-[10px] text-[#706B64]">Billing changes are restricted to the organization owner.</div> : null}
+            </section>
+
+            <section className="rounded-[22px] border border-black/[0.075] bg-white p-5">
+              <div className="flex items-center gap-2"><CircleDollarSign size={16} className="text-[#A37849]" /><h2 className="text-[18px] font-semibold">Usage billing & reconciliation</h2></div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <Metric label="Billing queue" value={metrics.billing?.queue_open || 0} detail="Usage awaiting billing completion" icon={BadgeDollarSign} warning={(metrics.billing?.queue_open || 0) > 0} />
+                <Metric label="Reconciliation" value={metrics.billing?.reconciliation_open || 0} detail="Revenue evidence requiring review" icon={CircleDollarSign} warning={(metrics.billing?.reconciliation_open || 0) > 0} />
+                <Metric label="Finance posting" value={metrics.usage?.unposted || 0} detail="Billed usage not yet finance-posted" icon={Database} warning={(metrics.usage?.unposted || 0) > 0} />
+              </div>
+              <div className="mt-5 divide-y divide-black/[0.055]">{billingQueue.map((item) => <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_120px]"><div><div className="text-[11px] font-medium">{item.title}</div><div className="mt-1 text-[9px] text-[#817D76]">{item.detail}</div></div><div className="text-right text-[9px] text-[#817D76]">{item.status}</div></div>)}{!billingQueue.length ? <div className="py-10 text-center text-[11px] text-[#817D76]">No open billing or reconciliation exceptions.</div> : null}</div>
+            </section>
+          </div>
+        ) : null}
 
         {data && mode === "integrations" ? <section className="overflow-hidden rounded-[22px] border border-black/[0.075] bg-white"><div className="border-b border-black/[0.06] p-4"><div className="flex items-center gap-2"><Cable size={16} className="text-[#A37849]" /><h2 className="text-[18px] font-semibold">Integrations</h2></div><p className="mt-1 text-[10px] text-[#817D76]">Connection, health and sync state from organization integration records.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[820px] text-left text-[10px]"><thead className="bg-[#FAF9F7] text-[9px] uppercase tracking-[0.12em] text-[#817D76]"><tr><th className="px-4 py-3">Integration</th><th className="px-4 py-3">Provider</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Health</th><th className="px-4 py-3">Last sync / update</th></tr></thead><tbody className="divide-y divide-black/[0.055]">{integrations.map((row) => <tr key={`${row.id}-${row.provider || "provider"}`}><td className="px-4 py-3 font-medium">{row.display_name || row.integration_name || row.provider || "Integration"}</td><td className="px-4 py-3">{row.provider || "—"}</td><td className="px-4 py-3">{row.status || row.connection_status || "—"}</td><td className="px-4 py-3">{row.health_status || "—"}</td><td className="px-4 py-3">{time(row.last_sync_at || row.updated_at)}</td></tr>)}</tbody></table></div></section> : null}
       </div>

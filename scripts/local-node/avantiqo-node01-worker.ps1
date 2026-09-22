@@ -1,13 +1,14 @@
 param(
-  [ValidateSet('supervisor','gpu','cpu')]
+  [ValidateSet('supervisor','gpu','cpu','live','training')]
   [string]$Lane = 'supervisor'
 )
 
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Net.Http
 if ($Lane -eq 'supervisor') {
   $children = @{}
   while ($true) {
-    foreach ($childLane in @('gpu','cpu')) {
+    foreach ($childLane in @('gpu','cpu','live','training')) {
       $job = $children[$childLane]
       if (-not $job -or $job.State -ne 'Running') {
         if ($job) { Receive-Job $job -ErrorAction SilentlyContinue | Out-Null; Remove-Job $job -Force -ErrorAction SilentlyContinue }
@@ -26,7 +27,7 @@ $NodeId = 'avantiqo-node-01'
 $TokenPath = 'C:\ProgramData\Avantiqo\node-token.txt'
 $OllamaUrl = 'http://127.0.0.1:11434'
 $Model = 'qwen3:4b-instruct'
-$ContextTokens = 8192
+$ContextTokens = 20000
 $GpuIdleLearningAfterSeconds = 900
 $QwenWarmAfterGpuJob = $true
 $NightLearningStartHour = 1
@@ -34,14 +35,20 @@ $NightLearningEndHour = 6
 $script:LastGpuWorkAt = Get-Date
 $script:LastIdleLearningAt = [datetime]::MinValue
 $script:LearningCursor = 0
-$AllCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','document.ocr','document.classify','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech','ai.sfx.generate')
-$GpuCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','document.ocr','document.classify','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
+$AllCapabilities = @('ai.text.generate','ai.code.live-conversation','ai.code.generate','ai.code.invent','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','ai.image.analyze','document.ocr','document.classify','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.generate','ai.video.generate','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech','ai.sfx.generate','ai.model.train')
+$GpuCapabilities = @('ai.text.generate','ai.code.generate','ai.code.invent','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','ai.image.analyze','document.ocr','document.classify','ai.speech.to.text','ai.image.generate','ai.video.generate','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
 $CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process','ai.music.generate','ai.sfx.generate')
-$Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } else { $AllCapabilities })
+$TrainingCapabilities = @('ai.model.train')
+$LiveCapabilities = @('ai.code.live-conversation')
+$Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } elseif ($Lane -eq 'live') { $LiveCapabilities } elseif ($Lane -eq 'training') { $TrainingCapabilities } else { $AllCapabilities })
 if ($Lane -eq 'cpu') {
   try { (Get-Process -Id $PID).PriorityClass = 'BelowNormal' } catch {}
+} elseif ($Lane -eq 'live') {
+  try { (Get-Process -Id $PID).PriorityClass = 'AboveNormal' } catch {}
 } elseif ($Lane -eq 'gpu') {
   try { (Get-Process -Id $PID).PriorityClass = 'Normal' } catch {}
+} elseif ($Lane -eq 'training') {
+  try { (Get-Process -Id $PID).PriorityClass = 'BelowNormal' } catch {}
 }
 
 function Headers {
@@ -54,7 +61,34 @@ function Headers {
 
 function Rpc([string]$Name, [hashtable]$Body) {
   $json = $Body | ConvertTo-Json -Depth 20 -Compress
-  return Invoke-RestMethod -Uri "$BaseUrl/rest/v1/rpc/$Name" -Method Post -Headers (Headers) -Body $json -TimeoutSec 30
+  $client = New-Object System.Net.Http.HttpClient
+  $content = $null
+  try {
+    $client.Timeout = [TimeSpan]::FromSeconds(30)
+    $client.DefaultRequestHeaders.TryAddWithoutValidation('apikey',$ApiKey) | Out-Null
+    $client.DefaultRequestHeaders.TryAddWithoutValidation('Authorization',"Bearer $ApiKey") | Out-Null
+    $content = New-Object System.Net.Http.StringContent($json,[System.Text.Encoding]::UTF8,'application/json')
+    $response = $client.PostAsync("$BaseUrl/rest/v1/rpc/$Name",$content).GetAwaiter().GetResult()
+    $responseText = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+    if (-not $response.IsSuccessStatusCode) {
+      $diag = @{
+        at = (Get-Date).ToString('o')
+        rpc = $Name
+        request_chars = $json.Length
+        response = $responseText
+        status_code = [int]$response.StatusCode
+        status_description = [string]$response.ReasonPhrase
+      } | ConvertTo-Json -Depth 8 -Compress
+      [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-rpc-error.json',$diag,(New-Object System.Text.UTF8Encoding($false)))
+      [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-rpc-request.json',$json,(New-Object System.Text.UTF8Encoding($false)))
+      throw ("AVANTIQO_RPC_FAILED:" + $Name + ":" + $responseText)
+    }
+    if ([string]::IsNullOrWhiteSpace($responseText)) { return $null }
+    return ($responseText | ConvertFrom-Json)
+  } finally {
+    if ($content) { $content.Dispose() }
+    $client.Dispose()
+  }
 }
 
 function NodeToken {
@@ -100,14 +134,17 @@ function ResourceProfile($Job) {
   if ($workload -eq 'code_text') { return @{ class='interactive_gpu'; gpu_vram_mb=3900; cpu_weight='light'; exclusive_gpu=$false; product='Developer / Code'; mode='LOCAL_QWEN4B_FIRST' } }
   if ($workload -eq 'document_vision') { return @{ class='gpu_specialist'; gpu_vram_mb=4200; cpu_weight='medium'; exclusive_gpu=$true; product='Documents / OCR'; mode='QWEN25VL_3B_LOCAL_FIRST' } }
   if ($workload -eq 'voice_stt') { return @{ class='interactive_gpu'; gpu_vram_mb=5900; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / STT' } }
+  if ($workload -eq 'image_generate') { return @{ class='gpu_specialist'; gpu_vram_mb=5900; cpu_weight='heavy'; exclusive_gpu=$true; product='Image Studio'; mode='Z_IMAGE_TURBO_Q3K_CPU_OFFLOAD' } }
+  if ($workload -eq 'video_ltx25') { return @{ class='gpu_specialist'; gpu_vram_mb=5900; cpu_weight='heavy'; exclusive_gpu=$true; product='Video / Cinema'; mode='LTX25_Q3KS_LOWVRAM_CPU_OFFLOAD' } }
   if ($workload -eq 'image_upscale') { return @{ class='gpu_specialist'; gpu_vram_mb=1200; cpu_weight='light'; exclusive_gpu=$true; product='Image Studio' } }
   if ($workload -eq 'music_separator') { return @{ class='gpu_specialist'; gpu_vram_mb=3800; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
   if ($workload -eq 'music_vocal_correction') { return @{ class='gpu_specialist'; gpu_vram_mb=3400; cpu_weight='medium'; exclusive_gpu=$true; product='Music / Audio' } }
-  if ($workload -eq 'voice_tts') { return @{ class='background_gpu'; gpu_vram_mb=6100; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / TTS'; mode='LOCAL_GPU_FIRST_MODAL_FALLBACK' } }
+  if ($workload -eq 'voice_tts') { return @{ class='background_gpu'; gpu_vram_mb=6100; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / TTS'; mode='LOCAL_GPU_ONLY' } }
   if ($workload -eq 'media_ffmpeg') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Video / Media' } }
   if ($workload -eq 'music_elastic') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Music / Audio' } }
   if ($workload -eq 'music_generation') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Music / Generation'; mode='ACE_STEP_CPU_FLOAT32' } }
   if ($workload -eq 'sfx_generate') { return @{ class='heavy_cpu'; gpu_vram_mb=0; cpu_weight='heavy'; exclusive_gpu=$false; product='Music / SFX'; mode='OPENMOSS_GGML_CPU_V1' } }
+  if ($workload -eq 'model_training') { return @{ class='overnight_training'; gpu_vram_mb=5900; cpu_weight='heavy'; exclusive_gpu=$true; product='Intelligence / Training'; mode='LOCAL_QLORA_4BIT' } }
   return @{ class='local_other'; gpu_vram_mb=0; cpu_weight='light'; exclusive_gpu=$false; product='Platform / Other' }
 }
 
@@ -193,8 +230,20 @@ Return exactly these keys: status, research_questions, evidence_needed, risk_fla
 }
 
 function ClaimJobs {
+  $trainingLock='C:\ProgramData\Avantiqo\model-training-gpu.lock'
+  if (($Lane -eq 'gpu' -or $Lane -eq 'live') -and (Test-Path $trainingLock)) { return @() }
+  if ($Lane -eq 'training') {
+    $h=(Get-Date).Hour; if ($h -lt $NightLearningStartHour -or $h -ge $NightLearningEndHour) { return @() }
+    try { $line=(& nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader,nounits 2>$null | Select-Object -First 1); if($line){$v=@($line -split ',\s*'); if([int]$v[1] -gt 15){return @()}} } catch { return @() }
+  }
   return @(Rpc 'claim_avantiqo_local_compute_jobs' @{
     p_node_id=$NodeId; p_node_token=(NodeToken); p_capabilities=$Capabilities; p_limit=1; p_lease_seconds=300
+  })
+}
+
+function ExtendJobLease($Job, $Progress) {
+  [void](Rpc 'extend_avantiqo_local_compute_job_lease' @{
+    p_node_id=$NodeId; p_node_token=(NodeToken); p_job_id=$Job.id; p_lease_seconds=900; p_progress=$Progress
   })
 }
 
@@ -229,29 +278,70 @@ function RunTextJob($Job) {
   }
   $numPredict = [Math]::Max(1, [Math]::Min($tokenCap, $numPredict))
 
+  $liveConversation = ([string]$Job.capability -eq 'ai.code.live-conversation')
+  $forceCpu = $false
   $body = @{
     model = $(if ($Job.model) { [string]$Job.model } else { $Model })
     messages = $messages
     stream = $false
     think = $false
     keep_alive = '30m'
-    options = @{ temperature = $temperature; num_predict = $numPredict; num_ctx = $ContextTokens }
+    options = @{ temperature = $temperature; num_predict = $numPredict; num_ctx = $(if ($liveConversation) { 2048 } else { $ContextTokens }) }
   }
   if ($payload.response_format -and [string]$payload.response_format.type -eq 'json_object') { $body.format = 'json' }
   $started = Get-Date
-  $raw = Invoke-RestMethod -Uri "$OllamaUrl/api/chat" -Method Post -ContentType 'application/json' -Body ($body | ConvertTo-Json -Depth 20 -Compress) -TimeoutSec 120
+  $requestJson = $body | ConvertTo-Json -Depth 20 -Compress
+  $ollamaClient = New-Object System.Net.Http.HttpClient
+  $ollamaContent = $null
+  try {
+    $ollamaClient.Timeout = [TimeSpan]::FromSeconds(120)
+    $ollamaContent = New-Object System.Net.Http.StringContent($requestJson,[System.Text.Encoding]::UTF8,'application/json')
+    $ollamaResponse = $ollamaClient.PostAsync("$OllamaUrl/api/chat",$ollamaContent).GetAwaiter().GetResult()
+    $ollamaResponseText = $ollamaResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+    if (-not $ollamaResponse.IsSuccessStatusCode) {
+      $diag = @{
+        at = (Get-Date).ToString('o')
+        status_code = [int]$ollamaResponse.StatusCode
+        request_chars = $requestJson.Length
+        message_count = @($messages).Count
+        message_chars = (@($messages) | ForEach-Object { ([string]$_.content).Length } | Measure-Object -Sum).Sum
+        model = [string]$body.model
+        num_ctx = [int]$body.options.num_ctx
+        num_predict = [int]$body.options.num_predict
+        response = $ollamaResponseText
+      } | ConvertTo-Json -Depth 8 -Compress
+      [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-ollama-error.json',$diag,(New-Object System.Text.UTF8Encoding($false)))
+      throw ("OLLAMA_HTTP_" + [int]$ollamaResponse.StatusCode + ":" + $ollamaResponseText)
+    }
+    $raw = $ollamaResponseText | ConvertFrom-Json
+  } finally {
+    if ($ollamaContent) { $ollamaContent.Dispose() }
+    $ollamaClient.Dispose()
+  }
   $elapsed = [int](((Get-Date) - $started).TotalMilliseconds)
   $text = [string]$raw.message.content
   $executionResource = 'LOCAL_CPU'
   $gpuVramBytes = 0
-  try {
-    $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 5
-    $activeModel = @($loaded.models | Where-Object { [string]$_.name -eq [string]$raw.model } | Select-Object -First 1)
-    if ($activeModel -and [int64]$activeModel[0].size_vram -gt 0) {
-      $executionResource = 'LOCAL_GPU'
-      $gpuVramBytes = [int64]$activeModel[0].size_vram
-    }
-  } catch {}
+  if (-not $forceCpu) {
+  for ($detectAttempt = 0; $detectAttempt -lt 5; $detectAttempt++) {
+    try {
+      $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 5
+      $activeModel = @($loaded.models | Where-Object { ([string]$_.name -eq [string]$raw.model -or [string]$_.model -eq [string]$raw.model -or [string]$_.name -eq $Model) -and [int64]$_.size_vram -gt 0 } | Select-Object -First 1)
+      if ($activeModel) {
+        $executionResource = 'LOCAL_GPU'
+        $gpuVramBytes = [int64]$activeModel[0].size_vram
+        break
+      }
+    } catch {}
+    Start-Sleep -Milliseconds 250
+  }
+  if ($Lane -eq 'gpu' -and $gpuVramBytes -le 0) {
+    try {
+      $line = (& nvidia-smi --query-compute-apps=used_memory,process_name --format=csv,noheader,nounits 2>$null | Select-String 'llama-server' | Select-Object -First 1)
+      if ($line) { $gpuVramBytes = [int64](([string]$line -split ',')[0].Trim()) * 1MB; $executionResource = 'LOCAL_GPU' }
+    } catch {}
+  }
+  }
   $result = @{
     status='completed'; provider='avantiqo-intelligence'; infrastructure_provider='AVANTIQO_LOCAL_NODE_V1';
     runtime_model=[string]$raw.model; execution_resource=$executionResource; gpu_vram_bytes=$gpuVramBytes;
@@ -268,26 +358,34 @@ function RunTextJob($Job) {
 
 
 function UnloadOllamaModel {
+  # GPU handoff must be bounded. A media job must never spend minutes waiting for Qwen.
+  $deadline = (Get-Date).AddSeconds(18)
   $body = @{ model=$Model; keep_alive=0 } | ConvertTo-Json -Compress
-  for ($attempt = 0; $attempt -lt 6; $attempt++) {
-    try { [void](Invoke-RestMethod -Uri "$OllamaUrl/api/generate" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 15) } catch {}
+  try {
+    $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 3
+    $resident = @($loaded.models | Where-Object { [string]$_.name -eq $Model })
+    if (-not $resident -or $resident.Count -eq 0) { return }
+  } catch { return }
+  for ($attempt = 0; $attempt -lt 2 -and (Get-Date) -lt $deadline; $attempt++) {
+    try { [void](Invoke-RestMethod -Uri "$OllamaUrl/api/generate" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 5) } catch {}
+    Start-Sleep -Milliseconds 400
     try {
-      $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 5
-      $resident = @($loaded.models | Where-Object { [string]$_.name -eq $Model })
-      if (-not $resident -or $resident.Count -eq 0) { return }
-    } catch {}
-    Start-Sleep -Milliseconds 750
-  }
-  try { Get-Process -Name 'llama-server' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
-  for ($attempt = 0; $attempt -lt 8; $attempt++) {
-    try {
-      $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 5
+      $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 3
       $resident = @($loaded.models | Where-Object { [string]$_.name -eq $Model })
       if (-not $resident -or $resident.Count -eq 0) { return }
     } catch { return }
-    Start-Sleep -Milliseconds 500
   }
-  throw 'AVANTIQO_LOCAL_GPU_OLLAMA_UNLOAD_FAILED'
+  # If Ollama ignored keep_alive=0, terminate only its inference runner and preserve the Ollama service.
+  try { Get-Process -Name 'llama-server' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
+  while ((Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 350
+    try {
+      $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 2
+      $resident = @($loaded.models | Where-Object { [string]$_.name -eq $Model })
+      if (-not $resident -or $resident.Count -eq 0) { return }
+    } catch { return }
+  }
+  throw 'AVANTIQO_LOCAL_GPU_OLLAMA_UNLOAD_TIMEOUT_18S'
 }
 
 function RunVoiceSttJob($Job) {
@@ -329,6 +427,283 @@ function RunVoiceSttJob($Job) {
     }
   } finally {
     Remove-Item -Force -ErrorAction SilentlyContinue $tmp,$err
+  }
+}
+
+function StopImageServerForExclusiveGpu {
+  try { Stop-ScheduledTask -TaskName 'AvantiqoImageServer' -ErrorAction SilentlyContinue } catch {}
+  try {
+    $owner = Get-NetTCPConnection -LocalPort 1235 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty OwningProcess
+    if ($owner) { Stop-Process -Id $owner -Force -ErrorAction SilentlyContinue }
+  } catch {}
+  for ($attempt = 0; $attempt -lt 20; $attempt++) {
+    if (-not (Get-NetTCPConnection -LocalPort 1235 -State Listen -ErrorAction SilentlyContinue)) { return }
+    Start-Sleep -Milliseconds 250
+  }
+  throw 'AVANTIQO_LOCAL_IMAGE_SERVER_STOP_TIMEOUT'
+}
+
+function EnsureImageServer($Job) {
+  $server = 'http://127.0.0.1:1235'
+  try {
+    $caps = Invoke-RestMethod -Uri "$server/sdcpp/v1/capabilities" -Method Get -TimeoutSec 3
+    if ($caps -and [string]$caps.current_mode -eq 'img_gen') { return }
+  } catch {}
+  try { Start-ScheduledTask -TaskName 'AvantiqoImageServer' -ErrorAction Stop } catch {}
+  for ($attempt = 0; $attempt -lt 120; $attempt++) {
+    Start-Sleep -Milliseconds 500
+    if ($Job -and (($attempt % 2) -eq 0)) {
+      try {
+        ExtendJobLease $Job @{ phase='IMAGE_SERVER_START'; elapsed_seconds=[int]($attempt / 2) }
+      } catch {
+        if ($_.Exception.Message -match 'AVANTIQO_LOCAL_JOB_NOT_OWNED_OR_RUNNING') {
+          StopImageServerForExclusiveGpu
+          throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_CANCELLED'
+        }
+        throw
+      }
+    }
+    try {
+      $caps = Invoke-RestMethod -Uri "$server/sdcpp/v1/capabilities" -Method Get -TimeoutSec 3
+      if ($caps -and [string]$caps.current_mode -eq 'img_gen') { return }
+    } catch {}
+  }
+  throw 'AVANTIQO_LOCAL_IMAGE_SERVER_START_TIMEOUT_60S'
+}
+
+function RunImageGenerateJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_PAYLOAD_REQUIRED' }
+  $server = 'http://127.0.0.1:1235'
+  $tmpOut = Join-Path $env:TEMP ("avantiqo-image-generate-warm-" + [string]$Job.id + ".png")
+  try {
+    UnloadOllamaModel
+    EnsureImageServer $Job
+    try {
+      $caps = Invoke-RestMethod -Uri "$server/sdcpp/v1/capabilities" -Method Get -TimeoutSec 10
+      if (-not $caps -or [string]$caps.current_mode -ne 'img_gen') { throw 'AVANTIQO_LOCAL_IMAGE_WARM_SERVER_MODE_INVALID' }
+    } catch {
+      throw ('AVANTIQO_LOCAL_IMAGE_WARM_SERVER_UNAVAILABLE:' + $_.Exception.Message)
+    }
+
+    $width = 768; try { if ($null -ne $payload.width) { $width = [int]$payload.width } } catch {}
+    $height = 768; try { if ($null -ne $payload.height) { $height = [int]$payload.height } } catch {}
+    $steps = 8; try { if ($null -ne $payload.steps) { $steps = [int]$payload.steps } } catch {}
+    $cfg = 1.0; try { if ($null -ne $payload.cfg_scale) { $cfg = [double]$payload.cfg_scale } } catch {}
+    $seed = -1; try { if ($null -ne $payload.seed) { $seed = [int]$payload.seed } } catch {}
+    $width = [Math]::Max(64,[Math]::Min(4096,$width))
+    $height = [Math]::Max(64,[Math]::Min(4096,$height))
+    $steps = [Math]::Max(1,[Math]::Min(50,$steps))
+    $cfg = [Math]::Max(0.1,[Math]::Min(4.0,$cfg))
+
+    $body = @{
+      prompt = [string]$payload.prompt
+      negative_prompt = [string]$payload.negative_prompt
+      clip_skip = -1
+      width = $width
+      height = $height
+      strength = 0.75
+      seed = $seed
+      sample_params = @{
+        scheduler='default'; sample_method='default'; sample_steps=$steps; eta=''; shifted_timestep=0; flow_shift=''
+        guidance=@{ txt_cfg=$cfg; img_cfg=''; distilled_guidance=3.5; slg_layers='7,8,9'; layer_start=0.01; layer_end=0.2; scale=0 }
+      }
+      lora = @()
+      vae_tiling_params = @{ enabled=$true; tile_size_x=0; tile_size_y=0; target_overlap=0.5; rel_size_x=0; rel_size_y=0 }
+      cache_mode='disabled'; cache_option=''; scm_mask=''; scm_policy_dynamic=$true
+      output_format='png'; output_compression=100
+      batch_count=1; auto_resize_ref_image=$true; increase_ref_index=$false; control_strength=0.9
+      init_image=$null; ref_images=@(); mask_image=$null; control_image=$null
+    }
+
+    $started = Get-Date
+    $queued = Invoke-RestMethod -Uri "$server/sdcpp/v1/img_gen" -Method Post -ContentType 'application/json' -Body ($body | ConvertTo-Json -Depth 20 -Compress) -TimeoutSec 30
+    $warmJobId = [string]$queued.id
+    if (-not $warmJobId) { throw 'AVANTIQO_LOCAL_IMAGE_WARM_JOB_ID_REQUIRED' }
+
+    $state = $null
+    for ($poll = 0; $poll -lt 14400; $poll++) {
+      Start-Sleep -Milliseconds 250
+      if (($poll % 4) -eq 0) {
+        try {
+          ExtendJobLease $Job @{ phase='IMAGE_GENERATION'; warm_server_job_id=$warmJobId; elapsed_seconds=[int](((Get-Date)-$started).TotalSeconds) }
+        } catch {
+          if ($_.Exception.Message -match 'AVANTIQO_LOCAL_JOB_NOT_OWNED_OR_RUNNING') {
+            try { [void](Invoke-RestMethod -Uri "$server/sdcpp/v1/jobs/$warmJobId/cancel" -Method Post -TimeoutSec 5) } catch {
+              if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 409) {
+                StopImageServerForExclusiveGpu
+              }
+            }
+            throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_CANCELLED'
+          }
+          throw
+        }
+      }
+      $state = Invoke-RestMethod -Uri "$server/sdcpp/v1/jobs/$warmJobId" -Method Get -TimeoutSec 15
+      $stateStatus = [string]$state.status
+      if ($stateStatus -eq 'completed') { break }
+      if ($stateStatus -eq 'failed' -or $stateStatus -eq 'cancelled') {
+        $detail = ''
+        try { $detail = [string]$state.error.message } catch {}
+        throw ('AVANTIQO_LOCAL_IMAGE_WARM_JOB_FAILED:' + $detail)
+      }
+    }
+    if (-not $state -or [string]$state.status -ne 'completed') { throw 'AVANTIQO_LOCAL_IMAGE_WARM_JOB_TIMEOUT' }
+
+    $imageB64 = ''
+    try { $imageB64 = [string]$state.result.images[0].b64_json } catch {}
+    if (-not $imageB64) { throw 'AVANTIQO_LOCAL_IMAGE_WARM_OUTPUT_REQUIRED' }
+    [IO.File]::WriteAllBytes($tmpOut,[Convert]::FromBase64String($imageB64))
+    if (-not (Test-Path $tmpOut) -or (Get-Item $tmpOut).Length -le 0) { throw 'AVANTIQO_LOCAL_IMAGE_WARM_FILE_REQUIRED' }
+
+    $uploadUrl = [string]$payload.storage_upload.signed_url
+    $storageReference = [string]$payload.storage_upload.storage_reference
+    if (-not $uploadUrl) { throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_UPLOAD_URL_REQUIRED' }
+    [void](Invoke-WebRequest -UseBasicParsing -Uri $uploadUrl -Method Put -ContentType 'image/png' -InFile $tmpOut -TimeoutSec 240)
+
+    $elapsedSeconds = ((Get-Date) - $started).TotalSeconds
+    $sizeBytes = [int64](Get-Item $tmpOut).Length
+    $result = @{
+      status='completed'; provider='avantiqo-image'; model='avantiqo-image-v1'; capability='ai.image.generate';
+      foundation_model='Tongyi-MAI/Z-Image-Turbo'; runtime_model='z-image-turbo-q3-k'; quantization='Q3_K';
+      storage_reference=$storageReference; width=$width; height=$height; steps=$steps; cfg_scale=$cfg; seed=$seed;
+      size_bytes=$sizeBytes; execution_resource='LOCAL_GPU_CPU_OFFLOAD_WARM'; infrastructure_provider='AVANTIQO_LOCAL_NODE_V1';
+      runtime_contract='AVANTIQO_NODE01_Z_IMAGE_TURBO_GGUF_WARM_V2'; inference_seconds=[Math]::Round($elapsedSeconds,3);
+      warm_server=$true; warm_server_job_id=$warmJobId; raw_reasoning_persisted=$false; node_id=$NodeId
+    }
+    CompleteJob $Job $result @{
+      elapsed_ms=[int]($elapsedSeconds*1000); gpu_workload=$true; image_generate=$true; cpu_offload=$true; warm_server=$true;
+      runtime_contract='AVANTIQO_NODE01_Z_IMAGE_TURBO_GGUF_WARM_V2'
+    }
+  } finally {
+    Remove-Item -Force -ErrorAction SilentlyContinue $tmpOut
+  }
+}
+
+function EnsureVideoLtx25Server {
+  $server = 'http://127.0.0.1:8189'
+  try { $stats = Invoke-RestMethod -Uri "$server/system_stats" -Method Get -TimeoutSec 3; if ($stats) { return } } catch {}
+  $python = 'C:\Avantiqo\ComfyUI\venv\Scripts\python.exe'
+  $main = 'C:\Avantiqo\ComfyUI\main.py'
+  if (-not (Test-Path $python) -or -not (Test-Path $main)) { throw 'AVANTIQO_LOCAL_VIDEO_COMFY_RUNTIME_REQUIRED' }
+  $stdout = 'C:\ProgramData\Avantiqo\comfy-ltx-worker.out.log'
+  $stderr = 'C:\ProgramData\Avantiqo\comfy-ltx-worker.err.log'
+  $process = Start-Process -FilePath $python `
+    -ArgumentList @($main,'--listen','127.0.0.1','--port','8189','--lowvram','--disable-dynamic-vram','--preview-method','none') `
+    -WorkingDirectory 'C:\Avantiqo\ComfyUI' -WindowStyle Hidden `
+    -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+  for ($attempt = 0; $attempt -lt 180; $attempt++) {
+    Start-Sleep -Milliseconds 500
+    try { $stats = Invoke-RestMethod -Uri "$server/system_stats" -Method Get -TimeoutSec 3; if ($stats) { return } } catch {}
+    if ($process.HasExited) {
+      $errText = ReadTextFileOrEmpty $stderr
+      throw ('AVANTIQO_LOCAL_VIDEO_COMFY_START_FAILED:' + $errText)
+    }
+  }
+  throw 'AVANTIQO_LOCAL_VIDEO_COMFY_START_TIMEOUT_90S'
+}
+
+function RunVideoLtx25Job($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_VIDEO_PAYLOAD_REQUIRED' }
+  $server = 'http://127.0.0.1:8189'
+  $promptText = [string]$payload.prompt
+  if (-not $promptText) { throw 'AVANTIQO_LOCAL_VIDEO_PROMPT_REQUIRED' }
+  $negative = [string]$payload.negative_prompt
+  if (-not $negative) { $negative = 'cartoon, game render, distorted geometry, warped objects, jitter, flicker, blur, low detail, text, watermark' }
+  $duration = 2; try { $duration = [int]$payload.duration_seconds } catch {}; $duration = [Math]::Max(1,[Math]::Min(8,$duration))
+  $fps = 24; try { $fps = [int]$payload.fps } catch {}; $fps = [Math]::Max(8,[Math]::Min(24,$fps))
+  $framesDesired = [Math]::Max(9,[int][Math]::Round($duration * $fps))
+  $frames = 1 + (8 * [int][Math]::Round(($framesDesired - 1) / 8.0))
+  $frames = [Math]::Max(9,[Math]::Min(193,$frames))
+  $width = 608; $height = 352
+  switch ([string]$payload.aspect_ratio) {
+    '9:16' { $width=352; $height=608 }
+    '1:1'  { $width=448; $height=448 }
+    '4:5'  { $width=384; $height=480 }
+    '5:4'  { $width=480; $height=384 }
+    '4:3'  { $width=512; $height=384 }
+    '3:4'  { $width=384; $height=512 }
+    default { $width=608; $height=352 }
+  }
+  $seed = 42
+  try { if ([int64]$payload.seed -ge 0) { $seed = [int64]$payload.seed } } catch {}
+  $safeJob = ([string]$Job.id -replace '[^A-Za-z0-9_-]','')
+  $prefix = 'video/avantiqo_local_' + $safeJob
+  $outputRoot = 'C:\Avantiqo\ComfyUI\output'
+  $videoVae = 'ltx-2.5-video-vae-conv-bf16-full.safetensors'
+  $clipName = 'gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot-full.safetensors'
+  $started = Get-Date
+  $peakVramMb = 0
+  try {
+    UnloadOllamaModel
+    StopImageServerForExclusiveGpu
+    EnsureVideoLtx25Server
+    $graph = @{
+      '1'=@{class_type='UnetLoaderGGUF';inputs=@{unet_name='LTX-2.5-Distilled-Q3_K_S.gguf'}}
+      '2'=@{class_type='CLIPLoader';inputs=@{clip_name=$clipName;type='ltxv';device='default'}}
+      '3'=@{class_type='CLIPTextEncode';inputs=@{text=$promptText;clip=@('2',0)}}
+      '4'=@{class_type='CLIPTextEncode';inputs=@{text=$negative;clip=@('2',0)}}
+      '5'=@{class_type='LTXVConditioning';inputs=@{positive=@('3',0);negative=@('4',0);frame_rate=[double]$fps}}
+      '6'=@{class_type='VAELoader';inputs=@{vae_name=$videoVae}}
+      '7'=@{class_type='VAELoader';inputs=@{vae_name='ltx-2.5-audio-vae-bf16.safetensors'}}
+      '8'=@{class_type='EmptyLTXVLatentVideo';inputs=@{width=$width;height=$height;length=$frames;batch_size=1}}
+      '9'=@{class_type='LTXVEmptyLatentAudio';inputs=@{frames_number=$frames;frame_rate=[double]$fps;batch_size=1;audio_vae=@('7',0)}}
+      '10'=@{class_type='LTXVConcatAVLatent';inputs=@{video_latent=@('8',0);audio_latent=@('9',0)}}
+      '11'=@{class_type='RandomNoise';inputs=@{noise_seed=$seed}}
+      '12'=@{class_type='KSamplerSelect';inputs=@{sampler_name='euler_ancestral'}}
+      '13'=@{class_type='ManualSigmas';inputs=@{sigmas='1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0'}}
+      '14'=@{class_type='LTXVDualCFGGuider';inputs=@{model=@('1',0);positive=@('5',0);negative=@('5',1);video_cfg=1.0;audio_cfg=1.0}}
+      '15'=@{class_type='SamplerCustomAdvanced';inputs=@{noise=@('11',0);guider=@('14',0);sampler=@('12',0);sigmas=@('13',0);latent_image=@('10',0)}}
+      '16'=@{class_type='LTXVSeparateAVLatent';inputs=@{av_latent=@('15',0)}}
+      '17'=@{class_type='VAEDecodeTiled';inputs=@{samples=@('16',0);vae=@('6',0);tile_size=256;overlap=32;temporal_size=16;temporal_overlap=4}}
+      '18'=@{class_type='CreateVideo';inputs=@{images=@('17',0);fps=[double]$fps;bit_depth=8}}
+      '19'=@{class_type='SaveVideo';inputs=@{video=@('18',0);filename_prefix=$prefix;format='mp4';codec='auto'}}
+    }
+    $submitBody = @{ prompt=$graph; client_id=('avantiqo-worker-' + $safeJob) } | ConvertTo-Json -Depth 40 -Compress
+    $submit = Invoke-RestMethod -Uri "$server/prompt" -Method Post -ContentType 'application/json' -Body $submitBody -TimeoutSec 30
+    $promptId = [string]$submit.prompt_id
+    if (-not $promptId) { throw 'AVANTIQO_LOCAL_VIDEO_COMFY_PROMPT_ID_REQUIRED' }
+    $record = $null
+    for ($poll=0; $poll -lt 4320; $poll++) {
+      Start-Sleep -Seconds 2
+      if (($poll % 20) -eq 0) {
+        ExtendJobLease $Job @{ phase='LTX25_RENDER'; prompt_id=$promptId; elapsed_seconds=[int](((Get-Date)-$started).TotalSeconds); width=$width; height=$height; frames=$frames; fps=$fps; local_only=$true }
+        Heartbeat
+      }
+      try { $line = (& nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>$null | Select-Object -First 1); if ($line) { $peakVramMb=[Math]::Max($peakVramMb,[int]([string]$line).Trim()) } } catch {}
+      $history = Invoke-RestMethod -Uri "$server/history/$promptId" -Method Get -TimeoutSec 15
+      $entry = $history.PSObject.Properties | Where-Object { $_.Name -eq $promptId } | Select-Object -First 1
+      if ($entry) { $record = $entry.Value; break }
+    }
+    if (-not $record) { throw 'AVANTIQO_LOCAL_VIDEO_RENDER_TIMEOUT' }
+    $status = [string]$record.status.status_str
+    if ($status -and $status -ne 'success') {
+      $detail = ($record.status | ConvertTo-Json -Depth 20 -Compress)
+      throw ('AVANTIQO_LOCAL_VIDEO_COMFY_FAILED:' + $detail)
+    }
+    $outputDir = Join-Path $outputRoot 'video'
+    $stem = 'avantiqo_local_' + $safeJob
+    $outFile = Get-ChildItem -Path $outputDir -Filter ($stem + '*.mp4') -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if (-not $outFile -or $outFile.Length -le 0) { throw 'AVANTIQO_LOCAL_VIDEO_OUTPUT_REQUIRED' }
+    $uploadUrl = [string]$payload.storage_upload.signed_url
+    $storageReference = [string]$payload.storage_upload.storage_reference
+    if (-not $uploadUrl) { throw 'AVANTIQO_LOCAL_VIDEO_UPLOAD_URL_REQUIRED' }
+    [void](Invoke-WebRequest -UseBasicParsing -Uri $uploadUrl -Method Put -ContentType 'video/mp4' -InFile $outFile.FullName -TimeoutSec 900)
+    $elapsedMs = [int](((Get-Date)-$started).TotalMilliseconds)
+    $sha256 = (Get-FileHash -Algorithm SHA256 -Path $outFile.FullName).Hash.ToLowerInvariant()
+    $result = @{
+      status='completed'; provider='avantiqo-video'; model='avantiqo-ltx-2.5'; capability='ai.video.generate';
+      foundation_model='Lightricks/LTX-2.5'; runtime_model='ltx-2.5-distilled-q3-k-s'; transformer_quantization='Q3_K_S';
+      runtime_contract='AVANTIQO_NODE01_LTX25_GGUF_LOCAL_V1'; execution_profile='LOW_VRAM_6GB_CPU_OFFLOAD';
+      infrastructure_provider='AVANTIQO_LOCAL_NODE_V1'; execution_resource='LOCAL_GPU_CPU_OFFLOAD'; local_node=$true; node_id=$NodeId;
+      storage_reference=$storageReference; width=$width; height=$height; frames=$frames; fps=$fps; duration_seconds=[Math]::Round($frames/[double]$fps,3);
+      size_bytes=[int64]$outFile.Length; sha256=$sha256; comfy_prompt_id=$promptId; peak_vram_mb=$peakVramMb;
+      shot_id=[string]$payload.shot_id; raw_reasoning_persisted=$false
+    }
+    CompleteJob $Job $result @{ elapsed_ms=$elapsedMs; gpu_workload=$true; video_generate=$true; cpu_offload=$true; peak_vram_mb=$peakVramMb; local_only=$true; supplier_cost_thb=0 }
+  } finally {
+    try { [void](Invoke-RestMethod -Uri "$server/free" -Method Post -ContentType 'application/json' -Body '{"unload_models":true,"free_memory":true}' -TimeoutSec 15) } catch {}
   }
 }
 
@@ -579,6 +954,7 @@ function RunDocumentVisionJob($Job) {
   $err = Join-Path $env:TEMP ("avantiqo-document-vision-" + [string]$Job.id + ".err")
   try {
     UnloadOllamaModel
+    StopImageServerForExclusiveGpu
     [System.IO.File]::WriteAllText($tmp, ($payload | ConvertTo-Json -Depth 60 -Compress), (New-Object System.Text.UTF8Encoding($false)))
     $started = Get-Date; $previous = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     $output = & $python $runner --input $tmp 2> $err; $exitCode = $LASTEXITCODE; $ErrorActionPreference = $previous
@@ -618,6 +994,42 @@ function RunMediaJob($Job) {
   } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp }
 }
 
+function RunModelTrainingJob($Job) {
+  $payload=$Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_TRAINING_PAYLOAD_REQUIRED' }
+  $python='C:\Avantiqo\intelligence-training\.venv\Scripts\python.exe'
+  $runner='C:\Avantiqo\intelligence-training\local_train.py'
+  if (-not (Test-Path $python)) { throw 'AVANTIQO_LOCAL_TRAINING_PYTHON_REQUIRED' }
+  if (-not (Test-Path $runner)) { throw 'AVANTIQO_LOCAL_TRAINING_RUNNER_REQUIRED' }
+  $tmp=Join-Path $env:TEMP ("avantiqo-model-training-" + [string]$Job.id + ".json")
+  $trainingLock='C:\ProgramData\Avantiqo\model-training-gpu.lock'
+  try {
+    [IO.File]::WriteAllText($trainingLock,([string]$Job.id))
+    UnloadOllamaModel
+    StopImageServerForExclusiveGpu
+    [System.IO.File]::WriteAllText($tmp,($payload|ConvertTo-Json -Depth 80 -Compress),(New-Object System.Text.UTF8Encoding($false)))
+    $started=Get-Date
+    $psi=New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName=$python; $psi.Arguments=('"'+$runner+'" --input "'+$tmp+'"')
+    $psi.UseShellExecute=$false; $psi.RedirectStandardOutput=$true; $psi.RedirectStandardError=$true; $psi.CreateNoWindow=$true
+    $process=New-Object System.Diagnostics.Process; $process.StartInfo=$psi; [void]$process.Start()
+    $stdoutTask=$process.StandardOutput.ReadToEndAsync(); $stderrTask=$process.StandardError.ReadToEndAsync()
+    while (-not $process.WaitForExit(240000)) {
+      $elapsed=[int](((Get-Date)-$started).TotalSeconds)
+      ExtendJobLease $Job @{ phase='TRAINING'; elapsed_seconds=$elapsed; checkpointing=$true; local_only=$true }
+      Heartbeat
+    }
+    $rawOutput=[string]$stdoutTask.Result; $stderr=[string]$stderrTask.Result
+    if ([int]$process.ExitCode -ne 0) { $tail=$(if($stderr.Length -gt 2200){$stderr.Substring($stderr.Length-2200)}else{$stderr}); throw ('AVANTIQO_LOCAL_TRAINING_PROCESS_FAILED:'+$tail) }
+    $json=$rawOutput.Trim(); if(-not $json){throw 'AVANTIQO_LOCAL_TRAINING_OUTPUT_REQUIRED'}
+    $result=$json|ConvertFrom-Json
+    if($result.success -ne $true){throw ('AVANTIQO_LOCAL_TRAINING_RESULT_FAILED:'+([string]$result.error))}
+    $elapsedMs=[int](((Get-Date)-$started).TotalMilliseconds)
+    $result|Add-Member -NotePropertyName node_id -NotePropertyValue $NodeId -Force
+    CompleteJob $Job $result @{elapsed_ms=$elapsedMs;model_training=$true;cpu_workload=$true;local_only=$true;supplier_cost_thb=0}
+  } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmp,$trainingLock }
+}
+
 $lastHeartbeat = [DateTime]::MinValue
 while ($true) {
   try {
@@ -627,20 +1039,26 @@ while ($true) {
       $profile = ResourceProfile $job
       if ($Lane -eq 'gpu') { $script:LastGpuWorkAt = Get-Date }
       try {
-        if ([string]$job.capability -in @('ai.text.generate','ai.reasoning.execute')) { RunTextJob $job }
+        if (@('ai.text.generate','ai.code.live-conversation') -contains [string]$job.capability) { RunTextJob $job }
         elseif (([string]$job.capability -like 'ai.code.*') -or (@('ai.web.build','ai.web.repair','ai.app.build','ai.integration.build') -contains [string]$job.capability)) { RunTextJob $job }
-        elseif ([string]$job.capability -eq 'document.ocr' -or [string]$job.capability -eq 'document.classify') { RunDocumentVisionJob $job }
+        elseif ([string]$job.capability -eq 'ai.image.analyze' -or [string]$job.capability -eq 'document.ocr' -or [string]$job.capability -eq 'document.classify') { RunDocumentVisionJob $job }
         elseif ([string]$job.capability -eq 'ai.music.generate') { RunMusicGenerationJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.elastic-warp') { RunElasticJob $job }
         elseif ([string]$job.capability -eq 'media.ffmpeg.process') { RunMediaJob $job }
         elseif ([string]$job.capability -eq 'ai.speech.to.text') { RunVoiceSttJob $job }
+        elseif ([string]$job.capability -eq 'ai.image.generate') { RunImageGenerateJob $job }
+        elseif ([string]$job.capability -eq 'ai.video.generate') { RunVideoLtx25Job $job }
         elseif ([string]$job.capability -eq 'ai.image.upscale') { RunImageUpscaleJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.stems') { RunMusicSeparatorJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.vocal-correct') { RunMusicVocalCorrectionJob $job }
         elseif ([string]$job.capability -eq 'ai.text.to.speech') { RunVoiceTtsJob $job }
         elseif ([string]$job.capability -eq 'ai.sfx.generate') { RunSfxJob $job }
+        elseif ([string]$job.capability -eq 'ai.model.train') { RunModelTrainingJob $job }
         else { FailJob $job 'AVANTIQO_LOCAL_CAPABILITY_UNSUPPORTED' $false }
       } catch {
+        if ($_.Exception.Message -match 'AVANTIQO_LOCAL_IMAGE_GENERATE_CANCELLED') {
+          continue
+        }
         FailJob $job (('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Substring(0,[Math]::Min(480,('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Length))) $true
       }
     }

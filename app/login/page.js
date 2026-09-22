@@ -60,19 +60,18 @@ function callbackPath() {
   if (typeof window === "undefined") return "/login/callback?portal=business";
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next");
-  const portal = params.get("portal") === "developer" ? "developer" : "business";
+  const requestedPortal = params.get("portal");
+  const portal = requestedPortal === "developer" ? "developer" : requestedPortal === "supplier" ? "supplier" : requestedPortal === "staff" ? "staff" : "business";
   const callback = new URLSearchParams({ portal });
-  if (next && next.startsWith("/workspace") && !next.startsWith("//")) {
-    callback.set("next", next);
-  }
+  const safeNext = next && !next.startsWith("//") && (next.startsWith("/workspace") || next.startsWith("/supplier-invite/") || next.startsWith("/developer-invite/") || next.startsWith("/accounting-client-invite/"));
+  if (safeNext) callback.set("next", next);
   return `/login/callback?${callback.toString()}`;
 }
 
 function portalIntent() {
   if (typeof window === "undefined") return "business";
-  return new URLSearchParams(window.location.search).get("portal") === "developer"
-    ? "developer"
-    : "business";
+  const portal = new URLSearchParams(window.location.search).get("portal");
+  return portal === "developer" ? "developer" : portal === "supplier" ? "supplier" : portal === "staff" ? "staff" : "business";
 }
 
 export default function LoginPage() {
@@ -195,6 +194,7 @@ export default function LoginPage() {
       }
 
       const recoveryUrl = new URL("/login", window.location.origin);
+      if (["supplier","staff","developer"].includes(portalIntent())) recoveryUrl.searchParams.set("portal", portalIntent());
       const hostBrand = resolvePlatformLoginContext(window.location.hostname);
 
       if (
@@ -312,7 +312,11 @@ export default function LoginPage() {
     ? "Create password"
     : portal === "developer"
       ? "Developer Login"
-      : brand?.welcomeTitle || "Business Login";
+      : portal === "supplier"
+        ? "Supplier Login"
+        : portal === "staff"
+          ? "Staff Login"
+          : brand?.welcomeTitle || "Business Login";
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#030303] px-5 py-10 text-white">
@@ -339,7 +343,11 @@ export default function LoginPage() {
               ? "Secure your account"
               : portal === "developer"
                 ? "APIs, capabilities, webhooks and usage"
-                : "Secure access to your organisation"}
+                : portal === "supplier"
+                  ? "Secure supplier access to customer relationships"
+                  : portal === "staff"
+                    ? "Secure access to your employer Staff Portal"
+                    : "Secure access to your organisation"}
           </p>
         </div>
 
@@ -486,11 +494,21 @@ export default function LoginPage() {
         </div>
 
         {!recoveryMode ? (
-          <div className="mt-6 flex items-center justify-center gap-3 text-[10px]">
-            <a href="/login?portal=business" className={portal === "business" ? "font-semibold text-[#F2D2A5]" : "text-white/38 transition hover:text-white/70"}>Business Login</a>
-            <span className="text-white/15">/</span>
-            <a href="/login?portal=developer" className={portal === "developer" ? "font-semibold text-[#F2D2A5]" : "text-white/38 transition hover:text-white/70"}>Developer Login</a>
-          </div>
+          <>
+            {portal === "supplier" ? (
+              <div className="mt-6 rounded-[14px] border border-[#D6A66A]/20 bg-[#D6A66A]/[0.05] px-4 py-3 text-center">
+                <div className="text-[10px] text-white/55">New supplier?</div>
+                <a href="/signup?intent=supplier" className="mt-1 inline-flex text-[11px] font-semibold text-[#F2D2A5]">Create a free supplier shop →</a>
+              </div>
+            ) : null}
+            <div className="mt-6 flex items-center justify-center gap-3 text-[10px]">
+              <a href="/login?portal=business" className={portal === "business" ? "font-semibold text-[#F2D2A5]" : "text-white/38 transition hover:text-white/70"}>Business Login</a>
+              <span className="text-white/15">/</span>
+              <a href="/login?portal=developer" className={portal === "developer" ? "font-semibold text-[#F2D2A5]" : "text-white/38 transition hover:text-white/70"}>Developer Login</a>
+              <span className="text-white/15">/</span>
+              <a href="/login?portal=supplier" className={portal === "supplier" ? "font-semibold text-[#F2D2A5]" : "text-white/38 transition hover:text-white/70"}>Supplier Login</a>
+            </div>
+          </>
         ) : null}
 
         <div className="mt-7 flex items-center justify-center gap-2 text-[9px] uppercase tracking-[0.16em] text-white/25">

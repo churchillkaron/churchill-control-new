@@ -22,12 +22,91 @@ export async function POST(request) {
       .limit(10);
     if (memories.error) throw memories.error;
 
-    const memoryEvidence = (memories.data || []).map((memory) => ({
-      type: String(memory.memory_type || "").slice(0, 80) || null,
-      value: String(memory.memory_value || "").slice(0, 600) || null,
-      score: Number(memory.score || 0),
-      createdAt: memory.created_at || null,
-    }));
+    const execution =
+      await ServiceExecutionRuntime.execute({
+
+        organization_id:
+          access.organizationId,
+
+        service_id:
+          "ai.text.generate",
+
+        provider_id:
+          "avantiqo-intelligence",
+
+        input:{
+
+          execution_lane:
+            "fast",
+
+          prompt:
+`
+You are Avantiqo Staff Intelligence.
+
+Generate a concise, role-aware operational feed for this staff member.
+Use only the supplied staff role and memory context. Do not assume a restaurant, hotel, nightlife, healthcare, school, workshop, or any other industry unless the evidence says so.
+
+Prioritize:
+- assigned-work awareness
+- schedule or deadline awareness
+- safety or compliance reminders when supported
+- useful performance or completion feedback when supported
+- clear next actions
+
+Return ONLY a valid JSON array.
+
+STAFF:
+${staff?.name}
+
+ROLE:
+${staff?.role}
+
+MEMORY:
+${JSON.stringify(memories || [])}
+`
+        },
+
+        metadata:{
+
+          module:
+            "STAFF",
+
+          operation:
+            "AI_FEED",
+
+          staffId:
+            body.staffId,
+
+        },
+
+        category:
+          "AI",
+
+      });
+
+
+    const raw =
+      execution?.output?.text ||
+      "[]";
+
+    let items = [];
+
+    try {
+
+      items =
+        JSON.parse(raw);
+
+    } catch {
+
+      items = [];
+
+    }
+
+    return Response.json({
+
+      success: true,
+
+      items,
 
     const execution = await ServiceExecutionRuntime.execute({
       organization_id: context.organizationId,

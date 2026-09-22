@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function LegacyWorkforceRedirect() {
+export default function LegacyWorkforceMyDayPage() {
   redirect("/staff/my-day");
 }

@@ -27,7 +27,7 @@ function StoryCard({item,index}) {
 
 export default function Page() {
   return <main className="min-h-screen bg-[#F7F6F3] text-[#171614]">
-    <PublicSiteHeader context="Solutions" audience="business" />
+    <PublicSiteHeader context="Solutions" audience="business" tone="light" />
 
     <section className="border-b border-[#CFC5B8]/55 bg-[#F3EEE5]">
       <div className="mx-auto grid max-w-[1540px] gap-10 px-5 py-14 sm:px-7 lg:min-h-[660px] lg:grid-cols-[.86fr_1.14fr] lg:items-center lg:px-10 lg:py-20">

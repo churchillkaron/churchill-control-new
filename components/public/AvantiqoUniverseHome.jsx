@@ -33,139 +33,72 @@ const PRIMARY_AREAS = [
   },
 ];
 
-const CONNECTED_AREAS = [
-  {
-    label: "Portals & external experience",
-    title: "Customers, staff and suppliers get the right view of the same live business.",
-    copy: "Bookings, payments, work, documents, messages, delivery status and history can move through role-aware portals without exposing the internal back office.",
-    href: "/products#portals-external",
-    image: "/art/generated/products/products-industry-v2.png",
-  },
-  {
-    label: "Web & commerce",
-    title: "Build the customer-facing business, not just the back office.",
-    copy: "Websites, webshops, connected products, orders and inventory work with the same business data underneath.",
-    href: "/products#web-commerce",
-    image: "/art/commercial-commerce.jpg",
-  },
-  {
-    label: "Markets",
-    title: "Research, test and operate market decisions with evidence and control.",
-    copy: "Live market evidence, specialist agents, portfolio risk and governed paper execution are connected to one decision record.",
-    href: "/products#markets",
-    image: "/art/generated/products/markets-approved.png",
-  },
-];
-
-const INDUSTRIES = [
-  ["Restaurant", "/solutions/restaurant", "/art/generated/solutions/verticals/solution-restaurant-v1.png"],
-  ["Hotel", "/solutions/hotel", "/art/generated/solutions/verticals/solution-hotel-v1.png"],
-  ["Field service", "/solutions/field-service", "/art/generated/solutions/verticals/solution-field-service-v1.png"],
-  ["Pest control", "/solutions/pest-control", "/art/generated/solutions/verticals/solution-pest-control-v1.png"],
-  ["Retail", "/solutions/retail", "/art/generated/solutions/verticals/solution-retail-v1.png"],
-  ["Accounting", "/solutions/accounting", "/art/generated/solutions/verticals/solution-accounting-v1.png"],
-];
-
-function Arrow() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none">
-      <path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+function Arrow(){return <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+function HeroIcon({ type }) {
+  const common = { fill:"none", stroke:"currentColor", strokeWidth:"1.35", strokeLinecap:"round", strokeLinejoin:"round" };
+  if (type === "products") return <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true"><path {...common} d="M6 25V17M12 25V12M18 25V8M24 25V4"/></svg>;
+  if (type === "people") return <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true"><circle {...common} cx="16" cy="10" r="4"/><circle {...common} cx="7.5" cy="13" r="2.5"/><circle {...common} cx="24.5" cy="13" r="2.5"/><path {...common} d="M9 25v-2.3c0-3.9 3.1-7 7-7s7 3.1 7 7V25M2.5 25v-1.6c0-2.9 2.2-5.3 5-5.6M29.5 25v-1.6c0-2.9-2.2-5.3-5-5.6"/></svg>;
+  if (type === "intelligence") return <svg viewBox="0 0 32 32" className="h-9 w-9" aria-hidden="true"><circle {...common} cx="16" cy="16" r="6"/><circle {...common} cx="16" cy="4" r="2"/><circle {...common} cx="27" cy="10" r="2"/><circle {...common} cx="27" cy="22" r="2"/><circle {...common} cx="16" cy="28" r="2"/><circle {...common} cx="5" cy="22" r="2"/><circle {...common} cx="5" cy="10" r="2"/><path {...common} d="M16 6v4M21 13l4-2M21 19l4 2M16 22v4M11 19l-4 2M11 13l-4-2"/></svg>;
+  if (type === "creative") return <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true"><path {...common} d="m7 24 3-8L21.8 4.2a2.8 2.8 0 0 1 4 4L14 20l-7 4Z"/><path {...common} d="m10 16 6 6M21 8l3 3M18 26h8"/></svg>;
+  if (type === "developers") return <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true"><path {...common} d="m11 8-7 8 7 8M21 8l7 8-7 8M18 5l-4 22"/></svg>;
+  return <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true"><path {...common} d="M9.5 24h14a5.5 5.5 0 0 0 .9-10.9A8.5 8.5 0 0 0 8.1 11 6.5 6.5 0 0 0 9.5 24Z"/></svg>;
 }
 
-function ImageCard({ item, tall = false }) {
-  return (
-    <a href={item.href} className="group overflow-hidden rounded-[28px] border border-black/[0.07] bg-[#F8F4EE] shadow-[0_18px_48px_rgba(45,34,22,.055)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(45,34,22,.11)]">
-      <div className={`relative overflow-hidden bg-[#E9DFD1] ${tall ? "h-[320px]" : "h-[235px]"}`}>
-        {item.art === "business-partner" ? (
-          <div className="absolute inset-3 overflow-hidden rounded-[22px]">
-            <div className="origin-top-left scale-[.78] sm:scale-[.86] lg:scale-[.72] xl:scale-[.82]">
-              <BusinessPartnerShowcase compact />
-            </div>
+export default function AvantiqoUniverseHome(){
+  return <main className="min-h-screen bg-[#F7F6F3] text-[#171614]">
+    <PublicSiteHeader context="Avantiqo" audience="platform" tone="light" />
+    <section className="relative isolate overflow-hidden border-b border-[#D6A66A]/22 bg-[#F4EDE2] text-[#171614]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,.94),transparent_30%),radial-gradient(circle_at_73%_34%,rgba(255,244,226,.88),transparent_26%),linear-gradient(180deg,#F5EFE7_0%,#EFE5D7_52%,#E8DDCE_100%)]"/>
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[48%] opacity-80 [background-image:radial-gradient(circle_at_50%_100%,rgba(255,255,255,.98),transparent_48%),linear-gradient(180deg,rgba(255,255,255,.68),transparent)]"/>
+      <div className="pointer-events-none absolute -right-[13vw] -top-[31vw] hidden h-[72vw] w-[72vw] rounded-full border border-[#C9A26F]/22 bg-[radial-gradient(circle_at_30%_70%,rgba(255,252,246,.98),rgba(229,216,197,.88)_25%,rgba(178,157,131,.48)_49%,rgba(113,99,83,.24)_64%,rgba(255,255,255,.08)_73%)] shadow-[-32px_38px_100px_rgba(192,146,86,.18),inset_24px_-38px_92px_rgba(125,103,79,.14)] lg:block"/>
+      <div className="pointer-events-none absolute right-[2vw] top-[3vw] hidden h-[55vw] w-[55vw] rounded-full border border-[#D6A66A]/16 opacity-80 lg:block"/>
+      <div className="pointer-events-none absolute right-[4vw] top-[10vw] hidden h-[28vw] w-[70vw] rotate-[-11deg] rounded-[50%] border border-[#C99859]/48 shadow-[0_0_22px_rgba(214,166,106,.16)] lg:block"/>
+      <div className="pointer-events-none absolute right-[-6vw] top-[16vw] hidden h-[20vw] w-[63vw] rotate-[7deg] rounded-[50%] border border-[#C99859]/28 lg:block"/>
+      <div className="pointer-events-none absolute bottom-[22%] left-[-10%] h-[17%] w-[120%] rounded-[50%] bg-white/45 blur-2xl"/>
+      <div className="pointer-events-none absolute bottom-[10%] left-[-8%] h-px w-[116%] rotate-[2deg] bg-[linear-gradient(90deg,transparent,rgba(190,140,79,.78)_36%,rgba(214,166,106,.28)_72%,transparent)] shadow-[0_0_18px_rgba(214,166,106,.32)]"/>
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-[30%] bg-[radial-gradient(ellipse_at_66%_100%,rgba(255,255,255,.78),transparent_56%)]"/>
+
+      <div className="relative mx-auto max-w-[1680px] px-5 pb-10 pt-16 sm:px-7 lg:min-h-[760px] lg:px-10 lg:pb-12 lg:pt-20 xl:px-16">
+        <div className="relative z-20 max-w-[790px] lg:pt-8">
+          <div className="text-[44px] font-light uppercase tracking-[.31em] text-[#A77438] sm:text-[56px] lg:text-[66px]">AVANTIQO</div>
+          <div className="mt-3 text-[9px] font-medium uppercase tracking-[.48em] text-[#282522]/82 sm:text-[11px]">Intelligent Operating Platform</div>
+          <h1 className="mt-10 max-w-[900px] text-[42px] font-light leading-[.98] tracking-[-0.045em] text-[#151515] sm:text-[58px] lg:text-[64px]">Run the business. <span className="text-[#A66F2F]">Create the next thing.</span></h1>
+          <p className="mt-4 text-[20px] font-light tracking-[-0.02em] text-[#7E766D] sm:text-[24px]">One business. One context.</p>
+          <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-3 text-[8px] font-medium uppercase tracking-[.28em] text-[#2B2825]/74 sm:gap-x-7 sm:text-[9px]">
+            {['RUN','THINK','CREATE','BUILD','SCALE'].map((item,index)=><span key={item} className="flex items-center gap-5 sm:gap-7">{index>0?<span className="h-1 w-1 rounded-full bg-[#B47C3A]"/>:null}{item}</span>)}
           </div>
-        ) : (
-          <>
-            <Image src={item.image} alt="" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover transition duration-700 group-hover:scale-[1.025]" />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,13,9,.01),rgba(18,13,9,.05)_55%,rgba(18,13,9,.48))]" />
-          </>
-        )}
-        <div className={`absolute bottom-5 left-5 rounded-full border px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.18em] backdrop-blur-xl ${item.art === "business-partner" ? "border-black/[0.08] bg-[#F5E8D6]/85 text-[#8D6339]" : "border-white/25 bg-[#17120D]/50 text-[#F1C98E]"}`}>
-          {item.eyebrow || item.label}
         </div>
+
+        <div className="relative z-20 mt-16 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:absolute lg:bottom-[15%] lg:right-[4%] lg:mt-0 lg:flex lg:items-end lg:gap-3 xl:right-[5%]">
+          {[
+            ['Products','/products','products','lg:h-[170px] lg:w-[106px]'],
+            ['Customer Experience','/products','people','lg:h-[200px] lg:w-[128px]'],
+            ['Intelligence','/intelligence-platform','intelligence','lg:h-[258px] lg:w-[160px]'],
+            ['Creative Production','/creative-studios','creative','lg:h-[220px] lg:w-[142px]'],
+            ['Developers','/developers','developers','lg:h-[188px] lg:w-[130px]'],
+            ['Compute','/compute','compute','lg:h-[166px] lg:w-[112px]'],
+          ].map(([label,href,icon,size],index)=><a key={label} href={href} className={`group relative flex min-h-[138px] flex-col items-center justify-center overflow-hidden rounded-[20px] border bg-[linear-gradient(155deg,rgba(255,255,255,.72),rgba(255,252,247,.34))] px-3 text-center shadow-[0_18px_44px_rgba(125,95,58,.08)] backdrop-blur-[10px] transition duration-500 hover:-translate-y-2 hover:border-[#C99859]/62 hover:bg-white/80 ${index===2?'border-[#C99859]/74 shadow-[0_22px_64px_rgba(180,124,58,.16),inset_0_0_34px_rgba(255,255,255,.32)]':'border-white/90'} ${size}`}>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_100%,rgba(214,166,106,.13),transparent_58%)] opacity-0 transition group-hover:opacity-100"/>
+            <div className="relative text-[#9A6628]"><HeroIcon type={icon}/></div>
+            <div className="relative mt-5 text-[7px] font-semibold uppercase leading-4 tracking-[.18em] text-[#29251F]/76 lg:text-[8px]">{label}</div>
+            <div className="absolute bottom-0 left-[18%] right-[18%] h-px bg-[linear-gradient(90deg,transparent,rgba(185,127,60,.82),transparent)] opacity-0 transition group-hover:opacity-100"/>
+          </a>)}
+        </div>
+
+        <div className="relative z-20 mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-[#8E6B43]/12 pt-5 lg:absolute lg:bottom-6 lg:left-10 lg:right-10 lg:mt-0 xl:left-16 xl:right-16">
+          <div className="text-[7px] uppercase tracking-[.24em] text-[#27231E]/42">Ideas · People · Products · A stronger tomorrow</div>
+          <a href="/start" className="inline-flex items-center gap-3 text-[8px] font-medium uppercase tracking-[.23em] text-[#40372E]/62 transition hover:text-[#9A6628]"><span className="h-px w-8 bg-[#B47C3A]"/>A more capable tomorrow</a>
+        </div>
+      </section>
+
+    <section className="border-y border-black/[0.06] bg-[#EEE6DB] text-[#1D1B18]"><div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+      <div className="grid gap-8 lg:grid-cols-[.7fr_1.3fr] lg:items-end"><div><p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#B97B36]">ONE BUSINESS · CONNECTED WORK</p><h2 className="mt-3 text-[38px] font-medium leading-[1.02] tracking-[-0.05em] sm:text-[52px]">The handoffs are where Avantiqo becomes different.</h2></div><p className="max-w-2xl text-[12px] leading-6 text-[#6E655C] lg:justify-self-end">A sale can change stock, finance and customer history. A clock-in can affect scheduling, payroll and finance. The same business context stays attached instead of being re-entered across separate software.</p></div>
+      <div className="mt-10 grid gap-2 md:grid-cols-7">{["Customers","Sales","Operations","People","Stock","Finance","Intelligence"].map((item,index)=><div key={item} className="relative rounded-[16px] border border-black/[0.07] bg-white/52 px-4 py-5"><div className="text-[7px] font-semibold text-[#B97B36]">0{index+1}</div><div className="mt-3 text-[9px] text-[#5F554B]">{item}</div>{index<6?<span className="absolute -right-2 top-1/2 hidden -translate-y-1/2 text-[#B97B36]/50 md:block">→</span>:null}</div>)}</div>
+      <div className="mt-10 grid gap-8 rounded-[28px] border border-black/[0.07] bg-white/52 p-6 lg:grid-cols-[.8fr_1.2fr] lg:p-8">
+        <div><div className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#B97B36]">BUSINESS PARTNER</div><h3 className="mt-3 text-[30px] font-medium tracking-[-.045em]">Tell Avantiqo what you need done.</h3><p className="mt-4 text-[11px] leading-6 text-[#6E655C]">Business Partner can investigate, reason across the connected company context, prepare work, execute approved capabilities and verify what happened.</p><a href="/intelligence-platform" className="mt-6 inline-flex text-[9px] font-semibold text-[#8A633C]">Explore Business Partner →</a></div>
+        <BusinessPartnerShowcase compact />
       </div>
-      <div className="p-6 sm:p-7">
-        <h3 className="max-w-xl text-[28px] font-medium leading-[1.02] tracking-[-0.048em] text-[#29251F]">{item.title}</h3>
-        <p className="mt-4 max-w-2xl text-[11px] leading-6 text-[#746E66]">{item.copy}</p>
-        <div className="mt-6 inline-flex items-center gap-2 text-[9px] font-semibold text-[#865F39]">Explore <Arrow /></div>
-      </div>
-    </a>
-  );
-}
-
-export default function AvantiqoUniverseHome() {
-  return (
-    <main className="min-h-screen bg-[#F7F6F3] text-[#171614]">
-      <PublicSiteHeader context="Avantiqo" audience="platform" />
-
-      <section className="relative overflow-hidden border-b border-black/[0.07] bg-[#F3EEE5]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_13%_0%,rgba(214,166,106,.18),transparent_34%)]" />
-        <div className="relative mx-auto grid max-w-[1540px] gap-8 px-5 py-12 sm:px-7 lg:min-h-[760px] lg:grid-cols-[.84fr_1.16fr] lg:items-center lg:px-10 lg:py-16">
-          <div className="max-w-[650px] xl:pl-4">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-[#9A744B]">AVANTIQO / INTELLIGENT OPERATING PLATFORM</p>
-            <h1 className="mt-5 text-[56px] font-medium leading-[.92] tracking-[-0.067em] sm:text-[72px] xl:text-[88px]">Run the business.<br />Create the next thing.</h1>
-            <p className="mt-7 max-w-[610px] text-[16px] leading-8 text-[#625D55]">One connected platform for operating the business, serving customers, creating content, building digital experiences and using intelligence to move real work forward.</p>
-            <p className="mt-4 max-w-[560px] text-[12px] leading-6 text-[#857C72]">Start with one problem. Keep the same business context as you add products, portals, communication channels, creative production, developers or compute later.</p>
-            <div className="mt-9 flex flex-wrap gap-2.5">
-              <a href="/start" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_9px_28px_rgba(20,18,15,.16)]">Start Now <Arrow /></a>
-              <a href="#what-avantiqo-does" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A]">See what Avantiqo does</a>
-            </div>
-            <div className="mt-10 grid max-w-[610px] grid-cols-2 gap-y-4 border-t border-black/[0.08] pt-5 sm:grid-cols-4">
-              {["Business OS","Intelligence","Creative","Customer experience"].map((item,index)=><div key={item} className={index ? "border-l border-black/[0.07] pl-4" : "pr-4"}><div className="text-[7px] font-semibold uppercase tracking-[.15em] text-[#9A744B]">0{index+1}</div><div className="mt-2 text-[9px] leading-4 text-[#716A62]">{item}</div></div>)}
-            </div>
-          </div>
-
-          <div className="relative min-h-[560px] overflow-hidden rounded-[36px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_34px_100px_rgba(68,47,25,.13)] lg:min-h-[650px]">
-            <Image src="/art/generated/products/products-hero-v1.png" alt="Avantiqo connected business operations" fill priority sizes="58vw" className="object-cover object-center" />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,13,9,.01),rgba(18,13,9,.03)_55%,rgba(18,13,9,.34))]" />
-            <div className="absolute left-6 top-6 rounded-full border border-white/70 bg-[#F8F0E6]/76 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.20em] text-[#8D6339] backdrop-blur-xl">ONE BUSINESS · ONE CONTEXT</div>
-            <div className="absolute inset-x-6 bottom-6 rounded-[22px] border border-white/72 bg-[#F8F1E8]/90 p-5 text-[#2B251F] shadow-[0_18px_45px_rgba(0,0,0,.12)] backdrop-blur-xl sm:p-6">
-              <div className="text-[7px] font-semibold uppercase tracking-[.20em] text-[#A36F39]">CONNECTED FROM THE FIRST CUSTOMER TOUCHPOINT</div>
-              <div className="mt-2 max-w-2xl text-[15px] leading-6 text-[#5D5348]">Messages, bookings, payments, people, stock, finance, documents and intelligence can move through the same operating context.</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="what-avantiqo-does" className="border-b border-black/[0.06] bg-[#FBFAF8]">
-        <div className="mx-auto max-w-[1540px] px-5 py-16 sm:px-7 lg:px-10 lg:py-24">
-          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
-            <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">WHAT AVANTIQO DOES</p>
-              <h2 className="mt-3 max-w-2xl text-[42px] font-medium leading-[.98] tracking-[-0.055em] sm:text-[58px]">Start with the outcome your business needs.</h2>
-            </div>
-            <p className="max-w-2xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">The landing page should make the value obvious before the customer learns the product names. These are the four jobs Avantiqo can help with immediately.</p>
-          </div>
-          <div className="mt-10 grid gap-4 lg:grid-cols-2">
-            {PRIMARY_AREAS.map((item)=><ImageCard key={item.eyebrow} item={item} tall />)}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-black/[0.06] bg-[#EEE6DB]">
-        <div className="mx-auto max-w-[1540px] px-5 py-16 sm:px-7 lg:px-10 lg:py-22">
-          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
-            <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">CONNECTED EXPERIENCE</p>
-              <h2 className="mt-3 max-w-2xl text-[42px] font-medium leading-[.98] tracking-[-0.055em] sm:text-[58px]">The work keeps moving after the first interaction.</h2>
-            </div>
-            <p className="max-w-2xl text-[13px] leading-7 text-[#6F675F] lg:justify-self-end">A message can become a booking. A booking can open a customer portal. Payment can reconcile into finance. Staff and suppliers can see only the part of the same live record they need.</p>
-          </div>
-          <div className="mt-10 grid gap-4 lg:grid-cols-3">
-            {CONNECTED_AREAS.map((item)=><ImageCard key={item.label} item={item} />)}
-          </div>
-        </div>
-      </section>
+    </div></section>
 
       <section className="border-b border-black/[0.06] bg-[#F8F5F0]">
         <div className="mx-auto grid max-w-[1540px] gap-8 px-5 py-16 sm:px-7 lg:grid-cols-[.72fr_1.28fr] lg:px-10 lg:py-22">

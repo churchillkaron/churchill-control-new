@@ -310,17 +310,6 @@ function SurfaceArt({ kind }) {
     position: "center",
     supportPosition: "center",
   };
-  const editorial =
-    kind === "solutions" ||
-    kind === "services" ||
-    kind === "partners" ||
-    kind === "enterprise";
-  const technical =
-    kind === "compute" ||
-    kind === "agents" ||
-    kind === "integrations" ||
-    kind === "commerce";
-
   if (["compute", "marketplace", "pricing", "solutions", "partners", "enterprise", "services", "agents", "insights", "integrations", "channels", "commerce"].includes(kind)) {
     return <div className="relative min-h-[560px] overflow-hidden bg-[#171614] lg:min-h-[600px]">
       <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${art.image})`,backgroundPosition:visual.position}} />
@@ -334,105 +323,7 @@ function SurfaceArt({ kind }) {
     </div>;
   }
 
-  if (["enterprise", "services", "partners"].includes(kind)) {
-    const nodes = kind === "enterprise"
-      ? [["GROUP","Portfolio"],["ENTITY","Legal scope"],["LOCATION","Operating scope"],["TEAM","Permissions"]]
-      : kind === "services"
-        ? [["DISCOVER","Reality"],["CONFIGURE","System"],["LAUNCH","Verified"],["OPTIMIZE","Continuous"]]
-        : [["PARTNER","Relationship"],["CLIENTS","Portfolio"],["DELIVERY","Services"],["VALUE","Shared"]];
-    return <div className="relative min-h-[560px] overflow-hidden bg-[#EEE7DC] lg:min-h-[600px]">
-      <div className="absolute inset-0 grid grid-cols-[1.34fr_.66fr] gap-px bg-[#D6A66A]/22">
-        <div className="relative overflow-hidden"><div className="absolute inset-0 scale-[1.02] bg-cover" style={{backgroundImage:`url(${art.image})`,backgroundPosition:visual.position}}/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,15,12,.02),rgba(18,15,12,.07)_52%,rgba(18,15,12,.48))]"/></div>
-        <div className="grid grid-rows-2 gap-px bg-[#D6A66A]/22"><div className="relative overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${visual.support})`}}/><div className="absolute inset-0 bg-[#171614]/14"/></div><div className="relative bg-[#F5F0E7]"><div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(214,166,106,.20),transparent_38%)]"/><div className="relative grid h-full grid-cols-2 gap-px bg-[#D6A66A]/18">{nodes.map(([a,b],i)=><div key={a} className="flex flex-col justify-between bg-[#F7F2EA]/90 p-4"><span className="text-[7px] font-semibold text-[#A37849]">0{i+1}</span><div><div className="text-[8px] font-semibold tracking-[0.15em] text-[#2E2924]">{a}</div><div className="mt-1 text-[7px] text-[#85796C]">{b}</div></div></div>)}</div></div></div>
-      </div>
-      <div className="absolute left-7 top-7 flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F2CEA0]"><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]"/>AVANTIQO / {art.label}</div>
-      <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-[#D6A66A]/30 bg-[#F8F3EB]/92 p-5 text-[#1B1916] shadow-[0_28px_80px_rgba(45,30,18,.18)] backdrop-blur-xl sm:left-auto sm:w-[470px] sm:p-6"><div className="flex items-center justify-between"><div className="text-[7px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">{visual.metric}</div><div className="text-[6px] uppercase tracking-[0.18em] text-[#9A8F82]">{visual.accent}</div></div><p className="mt-4 text-[15px] leading-6 text-[#403A34]">{art.line}</p><div className="mt-5 flex flex-wrap gap-1.5">{art.chips.map(x=><span key={x} className="rounded-full border border-[#D6A66A]/26 bg-white/62 px-2.5 py-1 text-[6px] font-semibold tracking-[0.17em] text-[#6F6254]">{x}</span>)}</div></div>
-    </div>;
-  }
-
-  return (
-    <div className="relative min-h-[560px] overflow-hidden bg-[#171512] lg:min-h-[600px]">
-      <div
-        className="absolute inset-0 scale-[1.01] bg-cover"
-        style={{
-          backgroundImage: `url(${art.image})`,
-          backgroundPosition: visual.position,
-        }}
-      />
-      <div
-        className={`absolute inset-0 ${editorial ? "bg-[linear-gradient(90deg,rgba(18,15,12,.02),rgba(18,15,12,.02)_42%,rgba(12,10,8,.22)),linear-gradient(180deg,rgba(255,255,255,.02),rgba(10,8,6,.08)_54%,rgba(10,8,6,.70))]" : technical ? "bg-[linear-gradient(90deg,rgba(4,4,4,.20),rgba(4,4,4,.02)_44%,rgba(4,4,4,.26)),linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.08)_48%,rgba(5,5,5,.78))]" : "bg-[linear-gradient(90deg,rgba(18,15,12,.08),rgba(18,15,12,.01)_48%,rgba(18,15,12,.18)),linear-gradient(180deg,rgba(255,255,255,.03),rgba(8,7,6,.08)_52%,rgba(8,7,6,.72))]"}`}
-      />
-      <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[#D6A66A]/55 to-transparent" />
-
-      <div className="absolute left-6 top-6 flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F2CEA0] sm:left-8 sm:top-8">
-        <span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A] shadow-[0_0_16px_rgba(214,166,106,.70)]" />{" "}
-        AVANTIQO / {art.label}
-      </div>
-      <div className="absolute right-6 top-6 hidden text-right sm:block sm:right-8 sm:top-8">
-        <div className="text-[7px] font-semibold uppercase tracking-[0.24em] text-[#F2C990]">
-          {visual.accent}
-        </div>
-        <div className="mt-1 text-[7px] uppercase tracking-[0.18em] text-white/45">
-          People · business · intelligence
-        </div>
-      </div>
-
-      <div className="absolute bottom-7 left-7 hidden w-[205px] overflow-hidden rounded-[22px] border border-white/14 bg-black/18 shadow-[0_24px_65px_rgba(0,0,0,.20)] backdrop-blur-xl xl:block">
-        <div
-          className="h-[138px] bg-cover bg-center"
-          style={{
-            backgroundImage: `url(${visual.support})`,
-            backgroundPosition: visual.supportPosition,
-          }}
-        />
-        <div className="border-t border-white/10 bg-[#15120f]/78 px-4 py-3 text-white">
-          <div className="text-[6px] font-semibold uppercase tracking-[0.19em] text-[#E3B77D]">
-            CONNECTED LAYER
-          </div>
-          <div className="mt-1 text-[8px] text-white/55">
-            Same Avantiqo context
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute bottom-7 right-7 w-[calc(100%-3.5rem)] max-w-[460px] sm:bottom-8 sm:right-8 sm:w-[440px]">
-        <div className="rounded-[24px] border border-white/15 bg-[linear-gradient(135deg,rgba(15,13,11,.82),rgba(26,22,18,.50))] p-5 text-white shadow-[0_32px_90px_rgba(0,0,0,.24)] backdrop-blur-xl sm:p-6">
-          <div className="flex items-center justify-between gap-5">
-            <div className="text-[7px] font-semibold uppercase tracking-[0.22em] text-[#E7BE86]">
-              {visual.metric}
-            </div>
-            <div className="text-[6px] uppercase tracking-[0.18em] text-white/30">
-              {visual.accent}
-            </div>
-          </div>
-          <p className="mt-4 text-[14px] leading-6 text-white/78">{art.line}</p>
-          <div className="mt-5 flex flex-wrap gap-1.5">
-            {art.chips.map((x) => (
-              <span
-                key={x}
-                className="rounded-full border border-white/14 bg-white/[0.035] px-2.5 py-1 text-[6px] font-semibold tracking-[0.17em] text-white/58"
-              >
-                {x}
-              </span>
-            ))}
-          </div>
-          <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/[0.08] pt-4">
-            {art.panel.map(([a, b], i) => (
-              <div key={a}>
-                <div className="flex items-center gap-1.5">
-                  <span className="h-1 w-1 rounded-full bg-[#D6A66A]" />
-                  <span className="text-[6px] font-semibold uppercase tracking-[0.14em] text-white/58">
-                    {a}
-                  </span>
-                </div>
-                <div className="mt-1.5 text-[7px] text-[#D8B27F]">{b}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 }
 
 const PAGE_STORY = {
@@ -776,274 +667,150 @@ const RELATED = {
 
 
 function ComputeExperience({ config }) {
-  const steps = [
-    ["01", "Choose capacity", "Match the workload to an available GPU or compute profile."],
-    ["02", "Run the workload", "Submit AI, training, rendering, video, batch or custom developer work."],
-    ["03", "Scale when required", "Add capacity for larger jobs instead of buying hardware for peak demand."],
-    ["04", "Track usage and cost", "See the compute consumed and keep variable infrastructure spend visible."],
-  ];
   const workloads = [
-    ["AI & inference", "Run model-backed applications, inference services and business intelligence workloads."],
-    ["Model training", "Use accelerated capacity for training, fine-tuning and experimentation."],
-    ["Image generation", "Run image generation, enhancement and production pipelines."],
-    ["Video generation", "Use GPU capacity for video generation, processing, enhancement and transcode."],
-    ["3D & rendering", "Render accelerated 3D, compositing and production workloads without owning the peak hardware."],
-    ["Batch & developer jobs", "Submit API, queued processing and custom application compute as the work requires it."],
-  ];
-  const controls = [
-    ["Choose the hardware", "Match the workload to the capacity profile it actually needs."],
-    ["See availability", "Use capacity that is available instead of provisioning and maintaining machines yourself."],
-    ["Track GPU hours", "Keep usage visible by workload and execution rather than hiding it inside a broad software plan."],
-    ["Control spend", "Variable compute cost appears when compute is used, not as a permanent infrastructure commitment."],
-    ["API access", "Submit compute from developer workflows and connected applications."],
-    ["Scale up or down", "Increase capacity for demanding jobs and release it when the work is finished."],
-  ];
-  const connected = [
-    ["Developers", "/developers", "Build applications and submit compute workloads through Avantiqo developer surfaces.", "API · workloads · integration"],
-    ["Creative Studios", "/creative-studios", "Use GPU capacity behind image, video and other accelerated production workflows.", "image · video · production"],
-    ["Pricing", "/pricing", "Understand how compute usage sits separately from recurring business software.", "usage · visibility · control"],
+    ["AI & inference", "Model-backed applications, inference services and business intelligence."],
+    ["Training", "Fine-tuning, experimentation and larger accelerated model workloads."],
+    ["Image & video", "Generation, enhancement, transcode and production pipelines."],
+    ["3D & rendering", "Accelerated 3D, compositing and production work without peak hardware ownership."],
+    ["Batch processing", "Queued data and application jobs that benefit from accelerated compute."],
+    ["Developer workloads", "API and custom application compute that scales with the work."],
   ];
   return (
     <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
-      <PublicSiteHeader
-        context={config.context}
-        audience="compute"
-        links={[
-          { label: "Compute", href: "/compute" },
-          { label: "API Platform", href: "/api-platform" },
-          { label: "Developers", href: "/developers" },
-          { label: "Pricing", href: "/pricing" },
-        ]}
-      />
+      <PublicSiteHeader context={config.context} audience="compute" links={[{ label: "Compute", href: "/compute" },{ label: "API Platform", href: "/api-platform" },{ label: "Developers", href: "/developers" },{ label: "Pricing", href: "/pricing" }]} />
 
       <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F4F0E8]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(214,166,106,.14),transparent_31%)]" />
         <div className="relative mx-auto grid max-w-[1540px] lg:min-h-[650px] lg:grid-cols-[43%_57%]">
           <div className="flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
             <div className="max-w-[610px]">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/28 bg-white/68 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[.18em] text-[#8A633C]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#A37849]" />
-                GPU CAPACITY ON DEMAND
-              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/28 bg-white/68 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[.18em] text-[#8A633C]"><span className="h-1.5 w-1.5 rounded-full bg-[#A37849]" /> GPU CAPACITY ON DEMAND</div>
               <p className="mt-9 text-[9px] font-semibold uppercase tracking-[.23em] text-[#9A7045]">AVANTIQO COMPUTE</p>
               <h1 className="mt-4 text-[52px] font-medium leading-[.94] tracking-[-.065em] sm:text-[66px] lg:text-[74px]">GPU compute when you need it.</h1>
-              <p className="mt-7 max-w-[560px] text-[15px] leading-8 text-[#625D55]">
-                Rent high-performance GPU capacity for AI, inference, training, rendering, video generation and production workloads. Start with the capacity you need, scale when demand rises, and pay for the compute you use.
-              </p>
-              <div className="mt-9 flex flex-wrap gap-2.5">
-                <Link prefetch href="/start" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_10px_28px_rgba(20,18,15,.16)]">
-                  Explore GPU capacity <Arrow className="h-3.5 w-3.5" />
-                </Link>
-                <Link prefetch href="/pricing" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/75 px-5 text-[10px] font-semibold text-[#56514A]">
-                  View pricing
-                </Link>
-              </div>
-              <div className="mt-10 flex flex-wrap gap-x-4 gap-y-2 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[.16em] text-[#9A8F82]">
-                <span>GPU ON DEMAND</span><span>·</span><span>METERED USAGE</span><span>·</span><span>API READY</span><span>·</span><span>ELASTIC CAPACITY</span>
-              </div>
+              <p className="mt-7 max-w-[560px] text-[15px] leading-8 text-[#625D55]">Rent high-performance GPU capacity for AI, inference, training, rendering, video generation and production workloads. Start with what you need, scale when demand rises, and pay for the compute you use.</p>
+              <div className="mt-9 flex flex-wrap gap-2.5"><Link prefetch href="/start" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_10px_28px_rgba(20,18,15,.16)]">Explore GPU capacity <Arrow className="h-3.5 w-3.5" /></Link><Link prefetch href="/pricing" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/75 px-5 text-[10px] font-semibold text-[#56514A]">View pricing</Link></div>
+              <div className="mt-10 flex flex-wrap gap-x-4 gap-y-2 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[.16em] text-[#9A8F82]"><span>GPU ON DEMAND</span><span>·</span><span>METERED USAGE</span><span>·</span><span>API READY</span><span>·</span><span>ELASTIC CAPACITY</span></div>
             </div>
           </div>
-
           <div className="flex items-center border-t border-black/[0.06] p-5 sm:p-7 lg:border-l lg:border-t-0 lg:p-8">
             <div className="relative min-h-[555px] w-full overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#11110F] shadow-[0_30px_90px_rgba(68,47,25,.16)]">
-              <div className="absolute inset-0 scale-[1.02] bg-cover" style={{backgroundImage:"url(/art/commercial-compute.jpg)",backgroundPosition:"58% center"}} />
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,7,7,.06),rgba(7,7,7,.14)_44%,rgba(7,7,7,.74))]" />
-              <div className="absolute left-7 top-7 rounded-full border border-white/16 bg-black/38 px-3.5 py-1.5 text-[7px] font-semibold uppercase tracking-[.20em] text-[#F0C98F] backdrop-blur-lg">
-                AVANTIQO / COMPUTE
-              </div>
-              <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-white/14 bg-[#11100E]/88 p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,.25)] backdrop-blur-xl sm:p-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">CAPACITY READY FOR WORK</div>
-                    <p className="mt-3 max-w-xl text-[14px] leading-6 text-white/74">Use accelerated compute for the workload. Scale it when the job demands more.</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-right">
-                    <div className="text-[6px] uppercase tracking-[.18em] text-white/35">commercial model</div>
-                    <div className="mt-1 text-[13px] font-semibold text-white/82">Usage based</div>
-                  </div>
-                </div>
-                <div className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-6">
-                  {["AI","TRAIN","IMAGE","VIDEO","RENDER","BATCH"].map(x=><span key={x} className="rounded-xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center text-[6px] font-semibold tracking-[.14em] text-white/56">{x}</span>)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-black/[0.06] bg-[#F3EFE7]">
-        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <div className="grid gap-8 lg:grid-cols-[.82fr_1.18fr] lg:items-end">
-            <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">HOW IT WORKS</p>
-              <h2 className="mt-3 max-w-2xl text-[38px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[50px]">Powerful GPU capacity without buying the hardware.</h2>
-            </div>
-            <p className="max-w-xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">Choose the capacity the workload needs, run the job, scale for larger demand and keep usage visible from the same Avantiqo account.</p>
-          </div>
-          <div className="mt-10 grid overflow-hidden rounded-[28px] border border-black/[0.07] bg-[#171716] text-white shadow-[0_26px_80px_rgba(46,34,23,.09)] lg:grid-cols-[.84fr_1.16fr]">
-            <div className="relative min-h-[430px] overflow-hidden border-b border-white/[0.08] bg-[#11110F] p-7 lg:border-b-0 lg:border-r">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(214,166,106,.18),transparent_34%)]" />
-              <div className="relative flex h-full flex-col justify-between">
-                <div>
-                  <div className="text-[7px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">GPU CAPACITY</div>
-                  <div className="mt-3 text-[25px] font-medium leading-tight tracking-[-.04em] text-white/90">Capacity for the job.<br/>Not a server you have to own.</div>
-                </div>
-                <div className="grid gap-2">
-                  {[
-                    ["01","ON DEMAND","Use capacity when work exists"],
-                    ["02","METERED","Pay for compute consumed"],
-                    ["03","ELASTIC","Increase capacity for peaks"],
-                    ["04","CONNECTED","API and Studio workloads"],
-                  ].map(([n,t,d])=><div key={n} className="flex items-center gap-4 rounded-[16px] border border-white/[0.08] bg-white/[0.025] px-4 py-3"><span className="text-[7px] font-bold text-[#D6A66A]">{n}</span><div className="min-w-[90px] text-[8px] font-semibold tracking-[.14em] text-white/72">{t}</div><div className="text-[8px] text-white/34">{d}</div></div>)}
-                </div>
-              </div>
-            </div>
-            <div className="grid sm:grid-cols-2">
-              {steps.map(([no,title,text],i)=><article key={title} className={`relative min-h-[215px] p-6 ${i%2===0?'sm:border-r sm:border-white/[0.08]':''} ${i<2?'border-b border-white/[0.08]':''}`}>
-                <div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#D6A66A]">{no}</span><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]/80" /></div>
-                <h3 className="mt-11 text-[16px] font-semibold text-white/86">{title}</h3>
-                <p className="mt-2 text-[9px] leading-5 text-white/40">{text}</p>
-                <div className="absolute inset-x-6 bottom-5 h-px bg-white/[0.07]"><div className="h-px bg-[#D6A66A]/65" style={{width:`${40+i*14}%`}} /></div>
-              </article>)}
+              <div className="absolute inset-0 scale-[1.02] bg-cover" style={{backgroundImage:"url(/art/generated/compute/gpu-hero-v1.webp)",backgroundPosition:"center center"}} />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,7,7,.03),rgba(7,7,7,.06)_50%,rgba(7,7,7,.58))]" />
+              <div className="absolute left-7 top-7 rounded-full border border-white/16 bg-black/34 px-3.5 py-1.5 text-[7px] font-semibold uppercase tracking-[.20em] text-[#F0C98F] backdrop-blur-lg">AVANTIQO / COMPUTE</div>
+              <div className="absolute bottom-7 left-7 right-7 flex flex-wrap items-end justify-between gap-4 rounded-[22px] border border-white/14 bg-[#11100E]/82 p-5 text-white backdrop-blur-xl sm:p-6"><div><div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">USAGE-BASED COMPUTE</div><p className="mt-2 max-w-lg text-[13px] leading-6 text-white/70">Use accelerated capacity for the job. Release it when the work is finished.</p></div><div className="text-right"><div className="text-[6px] uppercase tracking-[.18em] text-white/30">WORKLOADS</div><div className="mt-2 text-[9px] tracking-[.11em] text-white/55">AI · VIDEO · RENDER · BATCH</div></div></div>
             </div>
           </div>
         </div>
       </section>
 
       <section className="border-b border-black/[0.06] bg-[#FBFAF8]">
-        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">BUILT FOR DEMANDING WORKLOADS</p>
-          <h2 className="mt-3 max-w-4xl text-[38px] font-medium leading-[1.03] tracking-[-.05em] sm:text-[50px]">Use GPU capacity for the work that actually needs acceleration.</h2>
-          <div className="mt-10 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {workloads.map(([t,d],i)=><article key={t} className="rounded-[24px] border border-black/[0.07] bg-white p-6 shadow-[0_14px_38px_rgba(50,36,22,.04)]"><div className="text-[8px] font-bold text-[#A37849]">0{i+1}</div><h3 className="mt-7 text-[17px] font-semibold tracking-[-.03em]">{t}</h3><p className="mt-3 text-[10px] leading-5 text-[#777169]">{d}</p></article>)}
+        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-28">
+          <div className="grid gap-12 lg:grid-cols-[.86fr_1.14fr] lg:items-start">
+            <div className="max-w-xl"><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">HOW IT WORKS</p><h2 className="mt-3 text-[40px] font-medium leading-[1.01] tracking-[-.055em] sm:text-[54px]">Powerful GPU capacity without buying the hardware.</h2><p className="mt-6 text-[13px] leading-7 text-[#706A62]">Avantiqo Compute gives you access to accelerated capacity when the work requires it. You do not have to buy for peak demand or keep expensive hardware idle between jobs.</p></div>
+            <div className="border-t border-black/[0.08]">
+              {[["01","Choose capacity","Match the workload to the compute profile it needs."],["02","Run the workload","Submit AI, training, rendering, video, batch or custom developer work."],["03","Scale when required","Increase capacity for larger jobs without changing the rest of your workflow."],["04","Track usage and cost","See what compute was consumed and keep variable infrastructure spend visible."]].map(([n,t,d])=><div key={n} className="grid grid-cols-[48px_1fr] gap-4 border-b border-black/[0.08] py-6 sm:grid-cols-[60px_220px_1fr]"><div className="text-[8px] font-bold text-[#A37849]">{n}</div><div className="text-[15px] font-semibold tracking-[-.02em] text-[#2E2A26]">{t}</div><div className="text-[10px] leading-5 text-[#7A756E] sm:col-auto col-start-2">{d}</div></div>)}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#F1EADF]">
+        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-28">
+          <div className="grid gap-10 lg:grid-cols-[.78fr_1.22fr] lg:items-end"><div><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">BUILT FOR DEMANDING WORKLOADS</p><h2 className="mt-3 max-w-xl text-[40px] font-medium leading-[1.01] tracking-[-.055em] sm:text-[54px]">Use GPU capacity where acceleration actually matters.</h2></div><p className="max-w-xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">One compute product, used across different kinds of accelerated work. The workload changes; the commercial model stays clear.</p></div>
+          <div className="mt-12 grid overflow-hidden rounded-[26px] border border-black/[0.07] bg-white/62 md:grid-cols-2 lg:grid-cols-3">
+            {workloads.map(([t,d],i)=><div key={t} className={`min-h-[170px] p-6 ${i<3?'border-b border-black/[0.06]':''} ${i%3!==2?'lg:border-r lg:border-black/[0.06]':''}`}><div className="text-[8px] font-bold text-[#A37849]">0{i+1}</div><h3 className="mt-7 text-[16px] font-semibold tracking-[-.03em] text-[#302D29]">{t}</h3><p className="mt-3 max-w-sm text-[10px] leading-5 text-[#777169]">{d}</p></div>)}
           </div>
         </div>
       </section>
 
       <section className="border-b border-white/[0.06] bg-[#171716] text-white">
-        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr]">
-            <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">CONTROL</p>
-              <h2 className="mt-3 text-[38px] font-medium leading-[1.03] tracking-[-.05em] text-[#F7F4EF] sm:text-[50px]">Serious compute. Clear control.</h2>
-              <p className="mt-5 max-w-lg text-[13px] leading-7 text-white/42">Compute stays a visible usage product: choose what you need, run it, see the consumption and scale without turning infrastructure into another permanent system to manage.</p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {controls.map(([t,d],i)=><div key={t} className="rounded-[20px] border border-white/[0.08] bg-white/[0.025] p-5"><div className="text-[8px] font-bold text-[#D6A66A]">0{i+1}</div><div className="mt-6 text-[14px] font-semibold text-white/80">{t}</div><div className="mt-2 text-[9px] leading-5 text-white/36">{d}</div></div>)}
-            </div>
+        <div className="mx-auto grid max-w-[1320px] gap-14 px-5 py-20 sm:px-7 lg:grid-cols-[.72fr_1.28fr] lg:px-10 lg:py-28">
+          <div><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">CLEAR CONTROL</p><h2 className="mt-3 text-[40px] font-medium leading-[1.01] tracking-[-.055em] text-[#F7F4EF] sm:text-[54px]">Serious compute. Simple economics.</h2><p className="mt-6 max-w-lg text-[13px] leading-7 text-white/42">Choose what you need, use it, see the consumption and release it. Compute remains a visible usage product rather than another permanent infrastructure commitment.</p></div>
+          <div className="grid gap-x-10 gap-y-0 sm:grid-cols-2">
+            {[["Choose the hardware","Use a profile that matches the workload."],["See availability","Use capacity that is ready instead of provisioning machines."],["Track GPU hours","Keep usage visible by workload and execution."],["Control spend","Variable cost appears when compute is actually used."],["API access","Submit compute from developer workflows and connected applications."],["Scale up or down","Increase capacity for demanding jobs and release it when finished."]].map(([t,d],i)=><div key={t} className="border-t border-white/[0.10] py-6"><div className="flex items-start gap-4"><span className="mt-1 text-[7px] font-bold text-[#D6A66A]">0{i+1}</span><div><div className="text-[14px] font-semibold text-white/82">{t}</div><div className="mt-2 text-[9px] leading-5 text-white/35">{d}</div></div></div></div>)}
           </div>
         </div>
       </section>
 
       <section className="border-b border-black/[0.06] bg-[#FBFAF8]">
-        <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
-          <p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">CONNECTED ACROSS AVANTIQO</p>
-          <h2 className="mt-3 max-w-5xl text-[34px] font-medium leading-[1.03] tracking-[-.05em] sm:text-[44px]">Use Compute directly, from developer workflows, or behind Avantiqo production tools.</h2>
-          <div className="mt-9 grid gap-3 md:grid-cols-3">
-            {connected.map(([label,href,text,meta],i)=><Link prefetch key={href} href={href} className="group rounded-[24px] border border-black/[0.07] bg-white p-6 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/38 hover:shadow-[0_18px_45px_rgba(45,32,20,.07)]">
-              <div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#A37849]">0{i+1}</span><Arrow className="h-3.5 w-3.5 text-[#B9AA95] transition group-hover:translate-x-0.5 group-hover:text-[#9A744B]" /></div>
-              <div className="mt-10 text-[18px] font-semibold tracking-[-.03em] text-[#302D29]">{label}</div>
-              <p className="mt-3 text-[10px] leading-5 text-[#777169]">{text}</p>
-              <div className="mt-6 border-t border-black/[0.06] pt-4 text-[7px] font-semibold uppercase tracking-[.15em] text-[#A59684]">{meta}</div>
-            </Link>)}
+        <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-20 sm:px-7 lg:grid-cols-[.9fr_1.1fr] lg:items-end lg:px-10 lg:py-24">
+          <div><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">CONNECTED ACROSS AVANTIQO</p><h2 className="mt-3 max-w-2xl text-[38px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[48px]">Use Compute directly, or behind the tools already doing the work.</h2></div>
+          <div className="grid gap-0 border-t border-black/[0.08]">
+            {[["Developers","/developers","Build applications and submit compute workloads."],["Creative Studios","/creative-studios","Use GPU capacity behind image, video and accelerated production."],["Pricing","/pricing","See how compute usage stays separate from recurring software."]].map(([t,h,d])=><Link prefetch key={t} href={h} className="group grid grid-cols-[1fr_auto] items-center gap-5 border-b border-black/[0.08] py-5"><div><div className="text-[15px] font-semibold tracking-[-.02em] text-[#302D29]">{t}</div><div className="mt-1 text-[10px] leading-5 text-[#777169]">{d}</div></div><Arrow className="h-4 w-4 text-[#B9AA95] transition group-hover:translate-x-1 group-hover:text-[#9A744B]" /></Link>)}
           </div>
         </div>
       </section>
 
-      <section className="bg-[#F7F6F3]">
-        <div className="mx-auto max-w-[1120px] px-5 py-20 text-center sm:px-7 lg:px-10 lg:py-24">
-          <p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">AVANTIQO COMPUTE</p>
-          <h2 className="mx-auto mt-4 max-w-4xl text-[40px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[54px]">Compute when you need it. Without owning what sits idle when you don’t.</h2>
-          <p className="mx-auto mt-5 max-w-2xl text-[13px] leading-7 text-[#706A62]">Use the GPU capacity the workload requires, scale for demanding jobs, and keep usage-based infrastructure separate from your recurring business software.</p>
-          <div className="mt-8 flex flex-wrap justify-center gap-2.5">
-            <Link prefetch href="/start" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white">Explore GPU capacity <Arrow className="h-3.5 w-3.5" /></Link>
-            <Link prefetch href="/pricing" className="inline-flex h-11 items-center rounded-xl border border-black/[0.09] bg-white px-5 text-[11px] font-semibold text-[#56514A]">View pricing</Link>
-          </div>
-        </div>
-      </section>
+      <section className="bg-[#F7F6F3]"><div className="mx-auto max-w-[1120px] px-5 py-20 text-center sm:px-7 lg:px-10 lg:py-24"><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">AVANTIQO COMPUTE</p><h2 className="mx-auto mt-4 max-w-4xl text-[40px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[54px]">Compute when you need it. Without owning what sits idle when you don’t.</h2><p className="mx-auto mt-5 max-w-2xl text-[13px] leading-7 text-[#706A62]">Use the GPU capacity the workload requires, scale for demanding jobs, and keep usage-based infrastructure separate from recurring business software.</p><div className="mt-8 flex flex-wrap justify-center gap-2.5"><Link prefetch href="/start" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white">Explore GPU capacity <Arrow className="h-3.5 w-3.5" /></Link><Link prefetch href="/pricing" className="inline-flex h-11 items-center rounded-xl border border-black/[0.09] bg-white px-5 text-[11px] font-semibold text-[#56514A]">View pricing</Link></div></div></section>
     </main>
   );
 }
 
 function PricingExperience({ config }) {
   const models = [
-    ["01", "Business software", "SUBSCRIPTION", "Recurring access to the operating products your business uses day to day.", ["Finance", "Workforce", "Operations", "Supply Chain"]],
-    ["02", "Creative Studios", "PROJECT", "Production is priced around the actual mission, production scope and delivery requirements.", ["Image", "Video", "Music", "Voice & Audio"]],
-    ["03", "Platform & Compute", "USAGE", "APIs, specialist capabilities and compute scale with the work actually executed.", ["APIs", "Capabilities", "GPU / Compute", "Provider usage"]],
-    ["04", "Enterprise & Services", "QUOTED", "Migration, rollout, integrations, governance and larger operating scope are defined before work begins.", ["Implementation", "Migration", "Integrations", "Enterprise"]],
-  ];
-  const principles = [
-    ["Recurring stays predictable", "Your core business software is not priced like infrastructure. Choose the products you operate and keep the recurring layer clear."],
-    ["Variable cost stays visible", "Creative production, APIs and compute only become usage cost when you actually use those workloads."],
-    ["Large work is scoped first", "Implementation, migration and enterprise work is agreed as a defined scope instead of appearing as surprise consumption."],
+    ["01", "Business software", "Subscription", "Recurring access to the operating products your business uses every day."],
+    ["02", "Creative Studios", "Project", "Production is priced around the mission, scope and delivery requirements."],
+    ["03", "Platform & Compute", "Usage", "APIs, specialist capabilities and GPU compute scale with work actually executed."],
+    ["04", "Enterprise & Services", "Scoped", "Migration, rollout, integrations and larger operating scope are agreed before work begins."],
   ];
   return (
     <main className="min-h-screen bg-[#F7F4EE] text-[#191816]">
-      <PublicSiteHeader context={config.context} audience="business" links={[{label:"Products",href:"/products"},{label:"Solutions",href:"/solutions"},{label:"Developers",href:"/developers"},{label:"Compute",href:"/compute"}]} />
+      <PublicSiteHeader context={config.context} audience="business" tone="light" links={[{label:"Products",href:"/products"},{label:"Solutions",href:"/solutions"},{label:"Developers",href:"/developers"},{label:"Compute",href:"/compute"}]} />
 
-      <section className="border-b border-black/[0.07] bg-[#F3EEE6]">
-        <div className="mx-auto grid max-w-[1540px] lg:min-h-[650px] lg:grid-cols-[45%_55%]">
+      <section className="relative overflow-hidden border-b border-black/[0.07] bg-[#F3EEE6]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(214,166,106,.13),transparent_32%)]" />
+        <div className="relative mx-auto grid max-w-[1540px] lg:min-h-[650px] lg:grid-cols-[43%_57%]">
           <div className="flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
             <div className="max-w-[610px]">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/28 bg-white/65 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[.18em] text-[#8A633C]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#A37849]" /> CLEAR SOFTWARE · OPTIONAL USAGE
-              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/28 bg-white/65 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[.18em] text-[#8A633C]"><span className="h-1.5 w-1.5 rounded-full bg-[#A37849]" /> CLEAR SOFTWARE · OPTIONAL USAGE</div>
               <p className="mt-9 text-[9px] font-semibold uppercase tracking-[.23em] text-[#9A7045]">AVANTIQO PRICING</p>
-              <h1 className="mt-4 text-[50px] font-medium leading-[.96] tracking-[-.065em] sm:text-[64px] lg:text-[72px]">Start with the software. Pay for extra work only when you use it.</h1>
-              <p className="mt-7 max-w-[560px] text-[15px] leading-8 text-[#625D55]">Business products stay simple and recurring. Creative production, APIs and compute are explicit usage. Enterprise rollout and implementation are scoped before work starts.</p>
-              <div className="mt-9 flex flex-wrap gap-2.5">
-                <Link prefetch href="/start" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_10px_28px_rgba(20,18,15,.16)]">Start with Avantiqo <Arrow className="h-3.5 w-3.5" /></Link>
-                <Link prefetch href="/products" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A]">See business products</Link>
-              </div>
-              <div className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[.16em] text-[#9A8F82]">
-                <span>NO HIDDEN INFRASTRUCTURE BILLING</span><span>·</span><span>USAGE ONLY WHERE IT EXISTS</span>
-              </div>
+              <h1 className="mt-4 text-[50px] font-medium leading-[.96] tracking-[-.065em] sm:text-[64px] lg:text-[72px]">Clear pricing for the way the work is actually bought.</h1>
+              <p className="mt-7 max-w-[560px] text-[15px] leading-8 text-[#625D55]">Business software stays recurring. Creative production is scoped by project. APIs and compute are usage based. Enterprise rollout is agreed before it starts.</p>
+              <div className="mt-9 flex flex-wrap gap-2.5"><Link prefetch href="/start" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_10px_28px_rgba(20,18,15,.16)]">Start with Avantiqo <Arrow className="h-3.5 w-3.5" /></Link><Link prefetch href="/products" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#56514A]">Explore products</Link></div>
+              <div className="mt-10 flex flex-wrap gap-x-4 gap-y-2 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[.16em] text-[#9A8F82]"><span>SUBSCRIPTION</span><span>·</span><span>USAGE</span><span>·</span><span>PROJECT</span><span>·</span><span>SCOPED SERVICES</span></div>
             </div>
           </div>
-
           <div className="flex items-center border-t border-black/[0.06] p-5 sm:p-7 lg:border-l lg:border-t-0 lg:p-8">
-            <div className="w-full overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#171614] text-white shadow-[0_30px_90px_rgba(68,47,25,.13)]">
-              <div className="border-b border-white/[0.08] px-6 py-5 sm:px-7">
-                <div className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">ONE ACCOUNT · CLEAR ECONOMICS</div>
-                <div className="mt-2 text-[12px] leading-5 text-white/46">Four commercial models. Each appears only where it makes sense.</div>
-              </div>
-              <div className="grid sm:grid-cols-2">
-                {models.map(([no,title,type,desc,chips],i)=><article key={title} className={`min-h-[240px] p-6 sm:p-7 ${i%2===0?'sm:border-r sm:border-white/[0.08]':''} ${i<2?'border-b border-white/[0.08]':''}`}>
-                  <div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#D6A66A]">{no}</span><span className="rounded-full border border-white/12 px-2.5 py-1 text-[6px] font-semibold tracking-[.15em] text-white/48">{type}</span></div>
-                  <h2 className="mt-7 text-[20px] font-semibold tracking-[-.03em] text-white/90">{title}</h2>
-                  <p className="mt-3 text-[10px] leading-5 text-white/42">{desc}</p>
-                  <div className="mt-5 flex flex-wrap gap-1.5">{chips.map(c=><span key={c} className="rounded-full border border-white/[0.09] bg-white/[0.025] px-2.5 py-1 text-[7px] text-white/48">{c}</span>)}</div>
-                </article>)}
-              </div>
+            <div className="relative min-h-[555px] w-full overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#171614] shadow-[0_30px_90px_rgba(68,47,25,.16)]">
+              <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/generated/pricing/pricing-hero-v1.webp)"}} />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(12,9,7,.02),rgba(12,9,7,.08)_48%,rgba(12,9,7,.52))]" />
+              <div className="absolute left-7 top-7 rounded-full border border-white/18 bg-black/28 px-3.5 py-1.5 text-[7px] font-semibold uppercase tracking-[.20em] text-[#F0C98F] backdrop-blur-lg">AVANTIQO / PRICING</div>
+              <div className="absolute bottom-7 left-7 right-7 rounded-[22px] border border-white/14 bg-[#11100E]/80 p-5 text-white backdrop-blur-xl sm:p-6"><div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">ONE PLATFORM · CLEAR ECONOMICS</div><p className="mt-2 max-w-xl text-[13px] leading-6 text-white/70">Each commercial model appears only where it makes sense for the work.</p></div>
             </div>
           </div>
         </div>
       </section>
 
       <section className="border-b border-black/[0.06] bg-[#FBFAF8]">
-        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">HOW PRICING BEHAVES</p>
-          <div className="mt-3 grid gap-8 lg:grid-cols-[.85fr_1.15fr] lg:items-end">
-            <h2 className="max-w-3xl text-[38px] font-medium leading-[1.03] tracking-[-.05em] sm:text-[50px]">Simple where it should be. Metered only where the work creates variable cost.</h2>
-            <p className="max-w-xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">A restaurant buying Finance should not need to understand GPU billing. A developer running compute should. Avantiqo keeps those economics separate instead of mixing everything into one confusing plan.</p>
+        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-28">
+          <div className="grid gap-12 lg:grid-cols-[.76fr_1.24fr] lg:items-start">
+            <div><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">FOUR WAYS TO BUY</p><h2 className="mt-3 max-w-xl text-[40px] font-medium leading-[1.01] tracking-[-.055em] sm:text-[54px]">One platform. Different economics where the work is different.</h2><p className="mt-6 max-w-lg text-[13px] leading-7 text-[#706A62]">Avantiqo does not force software, production, infrastructure and implementation into one artificial plan. Each keeps the commercial model that fits it.</p></div>
+            <div className="border-t border-black/[0.08]">
+              {models.map(([n,title,type,desc])=><div key={n} className="grid grid-cols-[44px_1fr_auto] gap-4 border-b border-black/[0.08] py-6 sm:grid-cols-[52px_210px_110px_1fr]"><div className="text-[8px] font-bold text-[#A37849]">{n}</div><div className="text-[15px] font-semibold tracking-[-.02em] text-[#2E2A26]">{title}</div><div className="text-right text-[8px] font-semibold uppercase tracking-[.15em] text-[#A37849] sm:text-left">{type}</div><div className="col-start-2 text-[10px] leading-5 text-[#777169] sm:col-auto">{desc}</div></div>)}
+            </div>
           </div>
-          <div className="mt-10 grid gap-3 md:grid-cols-3">{principles.map(([t,d],i)=><div key={t} className="rounded-[24px] border border-black/[0.07] bg-white p-6 shadow-[0_14px_38px_rgba(50,36,22,.04)]"><div className="text-[8px] font-bold text-[#A37849]">0{i+1}</div><h3 className="mt-7 text-[18px] font-semibold tracking-[-.03em]">{t}</h3><p className="mt-3 text-[10px] leading-5 text-[#777169]">{d}</p></div>)}</div>
         </div>
       </section>
 
       <section className="border-b border-black/[0.06] bg-[#EEE8DE]">
-        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr]">
-            <div><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">CHOOSE YOUR STARTING POINT</p><h2 className="mt-3 text-[38px] font-medium leading-[1.03] tracking-[-.05em] sm:text-[48px]">Start with the job you need solved now.</h2><p className="mt-5 max-w-md text-[13px] leading-7 text-[#706A62]">You do not have to buy every Avantiqo layer. Begin with business software, a creative mission, developer access or implementation support.</p></div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[["Business Products","Run finance, people, operations, inventory and customer work.","/products"],["Creative Studios","Commission image, video, music, voice and production work.","/creative-studios"],["Developers & Compute","Use APIs, capabilities and infrastructure when your product needs them.","/developers"],["Solutions & Services","Roll out an industry setup with migration, integration and training.","/solutions"]].map(([t,d,h],i)=><Link prefetch key={t} href={h} className="group rounded-[22px] border border-[#D6A66A]/22 bg-white/74 p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/50 hover:shadow-[0_16px_40px_rgba(55,38,21,.07)]"><div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#A37849]">0{i+1}</span><Arrow className="h-3.5 w-3.5 text-[#B49A79] transition group-hover:translate-x-0.5"/></div><h3 className="mt-7 text-[16px] font-semibold">{t}</h3><p className="mt-2 text-[10px] leading-5 text-[#777169]">{d}</p></Link>)}</div>
+        <div className="mx-auto grid max-w-[1320px] gap-12 px-5 py-20 sm:px-7 lg:grid-cols-[.82fr_1.18fr] lg:px-10 lg:py-28">
+          <div><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">HOW PRICING BEHAVES</p><h2 className="mt-3 text-[40px] font-medium leading-[1.01] tracking-[-.055em] sm:text-[54px]">Simple where it should be. Metered only where cost actually moves.</h2></div>
+          <div className="border-t border-black/[0.08]">
+            {[["Recurring stays predictable","Core business software remains a clear recurring product, not an infrastructure bill."],["Variable cost stays visible","Compute, APIs and specialist production become usage cost only when they are actually used."],["Large work is scoped first","Implementation, migration and enterprise work is agreed before delivery instead of appearing as surprise consumption."]].map(([t,d],i)=><div key={t} className="grid grid-cols-[44px_1fr] gap-4 border-b border-black/[0.08] py-6"><span className="text-[8px] font-bold text-[#A37849]">0{i+1}</span><div><h3 className="text-[16px] font-semibold tracking-[-.025em] text-[#302D29]">{t}</h3><p className="mt-2 max-w-xl text-[10px] leading-5 text-[#777169]">{d}</p></div></div>)}
           </div>
         </div>
       </section>
 
-      <section className="bg-[#F7F6F3]">
-        <div className="mx-auto max-w-[1120px] px-5 py-20 text-center sm:px-7 lg:px-10 lg:py-24"><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">START WITHOUT OVERBUYING</p><h2 className="mx-auto mt-4 max-w-4xl text-[40px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[54px]">Choose the Avantiqo layer that matches the job.</h2><div className="mt-8 flex flex-wrap justify-center gap-2.5"><Link prefetch href="/start" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white">Start with Avantiqo <Arrow className="h-3.5 w-3.5"/></Link><Link prefetch href="/products" className="inline-flex h-11 items-center rounded-xl border border-black/[0.09] bg-white px-5 text-[11px] font-semibold text-[#56514A]">Explore products</Link></div></div>
+      <section className="border-b border-white/[0.06] bg-[#171716] text-white">
+        <div className="mx-auto grid max-w-[1320px] gap-14 px-5 py-20 sm:px-7 lg:grid-cols-[.72fr_1.28fr] lg:px-10 lg:py-28">
+          <div><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">CHOOSE YOUR STARTING POINT</p><h2 className="mt-3 text-[40px] font-medium leading-[1.01] tracking-[-.055em] text-[#F7F4EF] sm:text-[54px]">Start with the job you need solved now.</h2><p className="mt-6 max-w-lg text-[13px] leading-7 text-white/42">You do not have to buy every Avantiqo layer. Begin with the part of the platform that solves the current problem.</p></div>
+          <div className="border-t border-white/[0.10]">
+            {[["Business Products","/products","Finance, people, operations, inventory and customer work."],["Creative Studios","/creative-studios","Image, video, music, voice and professional production."],["Developers & Compute","/developers","APIs, capabilities and infrastructure for software workloads."],["Solutions & Services","/solutions","Industry rollout, migration, integration and implementation."]].map(([t,h,d],i)=><Link prefetch key={t} href={h} className="group grid grid-cols-[44px_1fr_auto] items-center gap-4 border-b border-white/[0.10] py-6"><span className="text-[8px] font-bold text-[#D6A66A]">0{i+1}</span><div><div className="text-[15px] font-semibold text-white/84">{t}</div><div className="mt-2 text-[9px] leading-5 text-white/34">{d}</div></div><Arrow className="h-4 w-4 text-white/30 transition group-hover:translate-x-1 group-hover:text-[#D6A66A]" /></Link>)}
+          </div>
+        </div>
       </section>
+
+      <section className="bg-[#F7F6F3]"><div className="mx-auto max-w-[1120px] px-5 py-20 text-center sm:px-7 lg:px-10 lg:py-24"><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">START WITHOUT OVERBUYING</p><h2 className="mx-auto mt-4 max-w-4xl text-[40px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[54px]">Choose the Avantiqo layer that matches the job.</h2><p className="mx-auto mt-5 max-w-2xl text-[13px] leading-7 text-[#706A62]">Start with recurring software, a production mission, usage-based compute, or a scoped rollout. Expand only when the business needs more.</p><div className="mt-8 flex flex-wrap justify-center gap-2.5"><Link prefetch href="/start" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white">Start with Avantiqo <Arrow className="h-3.5 w-3.5"/></Link><Link prefetch href="/products" className="inline-flex h-11 items-center rounded-xl border border-black/[0.09] bg-white px-5 text-[11px] font-semibold text-[#56514A]">Explore products</Link></div></div></section>
     </main>
   );
 }

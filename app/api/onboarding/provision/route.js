@@ -10,6 +10,25 @@ function clean(value) {
   return String(value ?? "").trim();
 }
 
+function onboardingPlatformOrigin(request) {
+  const url = request.nextUrl || new URL(request.url);
+  const hostname = String(url.hostname || "").toLowerCase();
+  const requestOrigin = String(url.origin || "").replace(/\/$/, "");
+
+  if (
+    hostname === "avantiqo.ai" ||
+    hostname === "www.avantiqo.ai" ||
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".vercel.app")
+  ) {
+    return requestOrigin;
+  }
+
+  return "https://avantiqo.ai";
+}
+
 function isThailand(country) {
   const normalized = clean(country).toLowerCase();
   return normalized === "thailand" || normalized === "th" || normalized === "tha";
@@ -35,6 +54,27 @@ export async function POST(request) {
     const name = clean(body.name);
     const ownerEmail = clean(body.ownerEmail).toLowerCase();
     const industry = clean(body.industry).toLowerCase();
+    const requestedSignupIntent = body?.signupIntent === "accounting_firm" ? "accounting_firm" : "business";
+    const selfSignup = user.user_metadata?.avantiqo_self_signup === true;
+    const metadataSignupIntent = user.user_metadata?.avantiqo_signup_intent === "accounting_firm" ? "accounting_firm" : "business";
+    if (selfSignup && requestedSignupIntent !== metadataSignupIntent) {
+      return NextResponse.json(
+        { success:false, error:"Onboarding intent does not match the authenticated signup identity" },
+        { status:403 },
+      );
+    }
+    if (selfSignup && metadataSignupIntent === "accounting_firm" && industry !== "accounting_firm") {
+      return NextResponse.json(
+        { success:false, error:"Accounting firm signup must use the governed Accounting Firm business type" },
+        { status:403 },
+      );
+    }
+    if (selfSignup && metadataSignupIntent === "business" && industry === "accounting_firm") {
+      return NextResponse.json(
+        { success:false, error:"Accounting Firm onboarding requires the accounting-firm signup path" },
+        { status:403 },
+      );
+    }
     const country = clean(body.country);
     const ownerName = clean(body.ownerName);
     const ownerPhone = clean(body.ownerPhone);
@@ -97,6 +137,12 @@ export async function POST(request) {
       currency,
     };
 
+    payload.paymentSetup =
+      body?.paymentSetup && typeof body.paymentSetup === "object"
+        ? body.paymentSetup
+        : {};
+    payload.appOrigin = onboardingPlatformOrigin(request);
+
     const result = await provisionOrganization(payload);
 
     if (!result?.success) {
@@ -106,7 +152,9 @@ export async function POST(request) {
     const response = NextResponse.json({
       ...result,
       redirect: {
-        redirectTo: `/workspace/${result.organization.id}`,
+        redirectTo:
+          result?.payments?.cardPayments?.onboardingUrl ||
+          `/workspace/${result.organization.id}`,
       },
     });
 

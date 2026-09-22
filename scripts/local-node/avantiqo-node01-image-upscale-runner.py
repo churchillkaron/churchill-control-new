@@ -9,6 +9,7 @@ MODEL = "caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr"
 MAX_SOURCE_PIXELS = 4_194_304
 MAX_OUTPUT_PIXELS = 33_554_432
 os.environ.setdefault("HF_HOME", r"C:\Avantiqo\hf-cache")
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 def text(v): return str(v or "").strip()
 
@@ -35,9 +36,10 @@ def main():
         source=Image.open(src).convert("RGB"); sw,sh=source.size; source_pixels=sw*sh
         if source_pixels > MAX_SOURCE_PIXELS: raise ValueError(f"AVANTIQO_IMAGE_UPSCALE_SOURCE_TOO_LARGE:{sw}x{sh}")
         if source_pixels * 16 > MAX_OUTPUT_PIXELS: raise ValueError("AVANTIQO_IMAGE_UPSCALE_OUTPUT_PIXEL_BUDGET_EXCEEDED")
-        started=time.perf_counter(); upscaler=pipeline("image-to-image", model=MODEL, device=0); load_seconds=time.perf_counter()-started
-        tile_size = max(64, min(256, int(os.getenv("AVANTIQO_IMAGE_UPSCALE_TILE_SIZE", "192"))))
-        overlap = max(8, min(32, int(os.getenv("AVANTIQO_IMAGE_UPSCALE_TILE_OVERLAP", "16"))))
+        torch.cuda.empty_cache()
+        started=time.perf_counter(); upscaler=pipeline("image-to-image", model=MODEL, device=0, torch_dtype=torch.float16); load_seconds=time.perf_counter()-started
+        tile_size = max(64, min(192, int(os.getenv("AVANTIQO_IMAGE_UPSCALE_TILE_SIZE", "96"))))
+        overlap = max(4, min(24, int(os.getenv("AVANTIQO_IMAGE_UPSCALE_TILE_OVERLAP", "8"))))
         scale = 4
         canvas = Image.new("RGB", (sw * scale, sh * scale))
         torch.cuda.reset_peak_memory_stats(); started=time.perf_counter(); tile_count=0

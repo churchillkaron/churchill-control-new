@@ -12,7 +12,7 @@ export default async function Page({ params }) {
   const c = industrySolutions[slug];
   if (!c) notFound();
   return <main className="min-h-screen bg-[#F7F4EE] text-[#181614]">
-    <PublicSiteHeader context={c.name} audience="business" />
+    <PublicSiteHeader context={c.name} audience="business" tone="light" />
     <section className="border-b border-[#D7CEC2]/55 bg-[#F3EEE5]">
       <div className="mx-auto grid max-w-[1540px] gap-10 px-5 py-14 sm:px-7 lg:min-h-[700px] lg:grid-cols-[.88fr_1.12fr] lg:items-center lg:px-10 lg:py-20">
         <div className="max-w-[650px]"><div className="text-[9px] font-semibold uppercase tracking-[.22em] text-[#A36F39]">{c.eyebrow}</div><h1 className="mt-5 text-[52px] font-medium leading-[.94] tracking-[-.065em] sm:text-[66px] xl:text-[78px]">{c.hero}</h1><p className="mt-7 max-w-[610px] text-[15px] leading-8 text-[#696158]">{c.intro}</p><div className="mt-9 flex flex-wrap gap-2.5"><Link href="/start" className="inline-flex h-11 items-center rounded-full bg-[#181614] px-5 text-[10px] font-semibold text-white">Start with {c.name}</Link><Link href="/solutions" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/68 px-5 text-[10px] font-semibold text-[#5F574F]">All solutions</Link></div></div>

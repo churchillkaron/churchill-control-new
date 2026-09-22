@@ -95,6 +95,10 @@ export function BusinessContextProvider({ children }) {
     () => workspaceOrganizationId(pathname),
     [pathname],
   );
+  const developerWorkspace = useMemo(
+    () => /^\/workspace\/[^/]+\/developers(?:\/|$)/.test(String(pathname || "")),
+    [pathname],
+  );
   const [state, setState] = useState(EMPTY_STATE);
 
   useEffect(() => {
@@ -123,6 +127,22 @@ export function BusinessContextProvider({ children }) {
           loading: true,
           error: null,
         }));
+
+        // Developer Portal routes have their own organization-scoped authority.
+        // Do not force an external developer through the staff/business bootstrap.
+        if (developerWorkspace && routeOrganizationId) {
+          setState({
+            ...EMPTY_STATE,
+            ready: true,
+            loading: false,
+            user,
+            organization: { id: routeOrganizationId },
+            organizations: [{ id: routeOrganizationId }],
+            organization_id: routeOrganizationId,
+            error: null,
+          });
+          return;
+        }
 
         // The organization encoded in /workspace/:organizationId is the
         // authoritative navigation context. Re-select it server-side before
@@ -259,7 +279,7 @@ export function BusinessContextProvider({ children }) {
     return () => {
       mounted = false;
     };
-  }, [routeOrganizationId]);
+  }, [developerWorkspace, routeOrganizationId]);
 
   const value = useMemo(() => state, [state]);
 

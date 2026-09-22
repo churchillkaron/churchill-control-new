@@ -138,6 +138,8 @@ export default function StaffPortalPage() {
   const upcomingSchedules = useMemo(() => profile?.upcomingSchedules || [], [profile?.upcomingSchedules]);
   const recentAttendance = profile?.recentAttendance || [];
   const requirements = runtime?.clockInRequirements || {};
+  const activationBypass = String(staff?.role || runtime?.role || "").toUpperCase() === "SUPER_ADMIN";
+  const identitySatisfied = activationBypass || requirements.identityVerified === true;
   const approvedTargets = new Set(
     requirements?.exception?.activeApprovedTargets || []
   );
@@ -188,7 +190,7 @@ export default function StaffPortalPage() {
       const passkeyApproved = currentApprovedTargets.has("passkey");
       const gpsApproved = currentApprovedTargets.has("gps");
 
-      if (action === "clock_in" && currentRequirements.identityVerified !== true) {
+      if (action === "clock_in" && !activationBypass && currentRequirements.identityVerified !== true) {
         throw new Error(
           currentRequirements.identityStatus === "PENDING"
             ? "Your passport or ID is waiting for verification before you can clock in"
@@ -323,7 +325,7 @@ export default function StaffPortalPage() {
                           : "Register a passkey in Staff Profile before clock-in."}
                       </p>
                     ) : null}
-                    {!runtime?.shiftActive && requirements.identityVerified !== true ? (
+                    {!runtime?.shiftActive && !identitySatisfied ? (
                       <Link href="/staff/profile" className="mt-3 flex items-center gap-2 rounded-2xl border border-amber-400/20 bg-amber-400/[0.07] px-3 py-2.5 text-xs font-semibold text-[#76583A]">
                         <ShieldCheck className="h-4 w-4" />
                         {requirements.identityStatus === "PENDING" ? "Passport / ID verification pending" : requirements.identityStatus === "REJECTED" ? "Passport / ID rejected · upload a valid document" : requirements.identityStatus === "EXPIRED" ? "Passport / ID expired · upload a current document" : "Passport / ID verification required"}
@@ -349,7 +351,7 @@ export default function StaffPortalPage() {
                 <button
                   type="button"
                   onClick={() => changeShift(runtime?.shiftActive ? "clock_out" : "clock_in")}
-                  disabled={working || (!runtime?.shiftActive && requirements.identityVerified !== true)}
+                  disabled={working || (!runtime?.shiftActive && !identitySatisfied)}
                   className={`mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 text-sm font-black uppercase tracking-[0.14em] shadow-[0_10px_26px_rgba(214,166,106,0.18)] disabled:opacity-40 ${runtime?.shiftActive ? "border border-red-400/25 bg-red-400/10 text-[#984C43]" : "bg-[#D6A66A] text-[#171614]"}`}
                 >
                   {runtime?.shiftActive ? <LogOut className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}

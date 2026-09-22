@@ -31,7 +31,12 @@ test("compute telemetry exposes scheduler and candidate decisions",()=>{
 });
 
 test("enqueue priorities preserve interactive-first scheduling",()=>{
-  assert.match(intelligence,/executionLane === "front" \? 100 : 50/); assert.match(voice,/priority: 80/); assert.match(image,/priority: 70/); assert.match(stems,/priority:65/); assert.match(elastic,/priority: 40/);
+  assert.match(intelligence,/priority: executionLane === "front"/);
+  assert.match(intelligence,/\? 100/);
+  assert.match(intelligence,/text\(input\.metadata\?\.module\)\.startsWith\("CODE_AI"\)/);
+  assert.match(intelligence,/\? 90/);
+  assert.match(intelligence,/: 50/);
+  assert.match(voice,/priority: 80/); assert.match(image,/priority: 70/); assert.match(stems,/priority:65/); assert.match(elastic,/priority: 40/);
 });
 
 

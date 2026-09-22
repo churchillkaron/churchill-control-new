@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 
-export default function ProductFinder({ products, groups }) {
-  const [group, setGroup] = useState("all");
+export default function ProductFinder({ products, groups, initialGroup = "all" }) {
+  const validInitialGroup = initialGroup === "all" || groups.some((item) => item.id === initialGroup) ? initialGroup : "all";
+  const [group, setGroup] = useState(validInitialGroup);
   const [query, setQuery] = useState("");
   const selectedGroup = useMemo(() => groups.find((item) => item.id === group), [groups, group]);
   const visible = useMemo(() => products.filter((product) => {

@@ -7,6 +7,7 @@ export const productConfigs = {
     description: "Plan shifts, capture attendance, manage employee requests and prepare payroll from one connected workforce system.",
     promise: "Keep scheduling, attendance and payroll preparation connected so managers spend less time reconciling separate tools.",
     audience: "Restaurants · hotels · retail · services · multi-location teams",
+    related: { label: "Explore the Staff Portal", href: "/staff-portal" },
     features: [
       ["Schedule", "Shifts, calendars, availability and manager planning."],
       ["Clock in & out", "Attendance capture, exceptions and controlled identity checks."],

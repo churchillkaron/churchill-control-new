@@ -3,13 +3,6 @@ import GuidedStart from "@/components/public/GuidedStart";
 
 export const metadata = { title: "Start with Avantiqo | Avantiqo" };
 
-const PATHS = [
-  ["Run my business", "Business Products", "Finance, people, sales, operations, stock, documents and intelligence for day-to-day work.", "Operate", "/products", "Explore business products", "/art/avantiqo-luxury/hospitality-hero.webp", "commerce"],
-  ["Use a solution for my industry", "Industry Solutions", "Start with a restaurant, hotel, retail, service or professional setup that already matches the way the business works.", "Industry", "/solutions", "Explore industry solutions", "/art/commercial-solutions.jpg", "solutions"],
-  ["Create something", "Creative Studios", "Image, video, music, voice and campaign production with direction, review and finishing.", "Create", "/creative-studios", "Enter Creative Studios", "/art/creative-video.jpg", "creative"],
-  ["Build with Avantiqo", "Developers", "APIs, capabilities, integrations and software tools for products, internal systems and embedded experiences.", "Build", "/developers", "Enter Developers", "/art/developer-work.jpg", "developer"],
-  ["Run workloads", "Compute", "Use owned and elastic compute for inference, rendering, batch jobs and production workloads.", "Scale", "/compute", "Explore Compute", "/art/commercial-compute.jpg", "compute"],
-];
 
 function Arrow() {
   return (
@@ -33,7 +26,7 @@ function Arrow() {
 export default function StartPage() {
   return (
     <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
-      <PublicSiteHeader context="Start" audience="platform" />
+      <PublicSiteHeader context="Start" audience="platform" tone="light" />
       <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F4F0E8]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(214,166,106,.14),transparent_30%)]" />
         <div className="relative mx-auto grid max-w-[1540px] lg:min-h-[690px] lg:grid-cols-[43%_57%]">
@@ -50,10 +43,10 @@ export default function StartPage() {
               </p>
               <div className="mt-9 flex flex-wrap gap-2.5">
                 <a
-                  href="#paths"
+                  href="#access-path"
                   className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white"
                 >
-                  Find my starting point <Arrow />
+                  Choose how I enter Avantiqo <Arrow />
                 </a>
                 <a
                   href="/pricing"
@@ -75,76 +68,102 @@ export default function StartPage() {
           </div>
         </div>
       </section>
-      <GuidedStart />
-      <section id="paths" className="bg-[#FBFAF8]">
-        <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
-          <div className="grid gap-3 md:grid-cols-2">
-            {PATHS.map(([title, area, description, status, href, cta, image, artKind], i) => (
-              <a
-                key={area}
-                href={href}
-                className="group overflow-hidden rounded-[26px] border border-black/[0.075] bg-white shadow-[0_14px_45px_rgba(40,30,20,.035)] transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35"
-              >
-                <div className="relative h-[220px] overflow-hidden bg-[#171614]">
-                  <div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]" style={{ backgroundImage: `url(${image})` }} />
-                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.03),rgba(0,0,0,.12)_48%,rgba(8,7,6,.72))]" />
-                  <div className="absolute left-5 top-5 rounded-full border border-white/20 bg-black/22 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[0.16em] text-[#F1C98E] backdrop-blur-xl">AVANTIQO / {area}</div>
-                  <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-5">
-                    <div className="text-[10px] font-medium text-white/74">{status}</div>
-                    <div className="text-[7px] uppercase tracking-[0.16em] text-white/34">Focused workspace</div>
-                  </div>
-                </div>
-                <div className="p-6 sm:p-7">
-                <div className="flex items-start justify-between gap-5">
-                  <div>
-                    <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-[#A37849]">
-                      0{i + 1} · {area}
-                    </div>
-                    <h2 className="mt-5 text-[28px] font-medium tracking-[-0.045em] text-[#1D1B18]">
-                      {title}
-                    </h2>
-                  </div>
-                  <span className="rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] px-2.5 py-1.5 text-[7px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">
-                    {status}
-                  </span>
-                </div>
-                <p className="mt-4 max-w-xl text-[11px] leading-6 text-[#746F68]">
-                  {description}
-                </p>
-                <div className="mt-7 inline-flex items-center gap-2 text-[10px] font-semibold text-[#8A633C]">
-                  {cta}
-                  <Arrow />
-                </div>
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      </section>
-      <section className="border-y border-black/[0.06] bg-[#F4F0E8]">
+
+      <section id="access-path" className="border-b border-black/[0.06] bg-[#FBFAF8]">
         <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
           <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
-            <div><p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">ONE ACCOUNT · ADD WHAT HELPS</p><h2 className="mt-3 text-[36px] font-medium leading-[1.03] tracking-[-0.05em] text-[#1D1B18] sm:text-[48px]">Start focused. Expand without starting over.</h2></div>
-            <p className="max-w-2xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">Your business context stays connected while you add the products, channels, intelligence, creative tools or infrastructure that create the next piece of value.</p>
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[.22em] text-[#9A744B]">HOW ARE YOU ENTERING AVANTIQO?</p>
+              <h2 className="mt-3 text-[38px] font-medium leading-[1.02] tracking-[-.05em] text-[#1D1B18] sm:text-[50px]">Create a business, or join one with the right authority.</h2>
+            </div>
+            <p className="max-w-2xl text-[12px] leading-6 text-[#706A62] lg:justify-self-end">Organization creation is only for people who should own or administer a new Avantiqo organization. Everyone else should enter through governed access to an existing organization.</p>
           </div>
-          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {[["Business Products","Recurring software","/products"],["Creative Studios","Mission / package","/creative-studios"],["Developers & API","Usage","/developers"],["Compute","Usage / reserved","/compute"],["Enterprise","Rollout / services","/enterprise"]].map(([title,model,href],i)=>(<a key={title} href={href} className="group rounded-[22px] border border-black/[0.075] bg-white/72 p-5 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/40"><div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#A37849]">0{i+1}</span><span className="text-[8px] text-[#9A8F82]">→</span></div><div className="mt-8 text-[15px] font-semibold text-[#302D29]">{title}</div><div className="mt-2 text-[9px] uppercase tracking-[0.15em] text-[#9A744B]">{model}</div></a>))}
+
+          <div className="mt-10 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {[
+              {
+                eyebrow:"CREATE ORGANIZATION",
+                title:"Business owner / company admin",
+                copy:"Create a new business organization, legal entity, Finance baseline and governed workspace.",
+                href:"/signup?intent=business",
+                cta:"Create business account",
+                state:"SELF-SERVICE",
+              },
+              {
+                eyebrow:"CREATE FIRM",
+                title:"Accounting firm",
+                copy:"Create the accounting firm as its own Avantiqo organization. Client access is granted separately; a client is never silently owned by the firm.",
+                href:"/signup?intent=accounting_firm",
+                cta:"Create accounting-firm account",
+                state:"SELF-SERVICE",
+              },
+              {
+                eyebrow:"BUILD / INTEGRATE",
+                title:"Developer / integrator",
+                copy:"Use the Developer surface to understand contracts and tooling. Live Developer Portal access remains scoped to an organization you own or have been granted access to.",
+                href:"/developers",
+                cta:"Open developer path",
+                state:"ORG-SCOPED",
+              },
+              {
+                eyebrow:"JOIN EMPLOYER",
+                title:"Employee / staff member",
+                copy:"Staff join an existing employer organization through staff access. They do not create a new Avantiqo business organization.",
+                href:"/login?portal=staff",
+                cta:"Staff Login",
+                state:"INVITATION / EMPLOYER",
+              },
+              {
+                eyebrow:"JOIN CUSTOMER",
+                title:"Supplier / vendor",
+                copy:"Supplier access belongs to the customer organization that invited the supplier. Supplier self-service organization creation is intentionally not used for this role.",
+                href:"/supplier-portal",
+                cta:"Open supplier portal",
+                state:"INVITATION ONLY",
+              },
+              {
+                eyebrow:"RETURN",
+                title:"Returning business owner / admin",
+                copy:"Already manage a business organization in Avantiqo? Use Business Login. Staff, suppliers and external developers should use their dedicated entry paths above so Avantiqo preserves the correct authority model.",
+                href:"/login?portal=business",
+                cta:"Business Login",
+                state:"BUSINESS ACCESS",
+              },
+            ].map((item)=><a key={item.title} href={item.href} className="group rounded-[24px] border border-black/[0.07] bg-white p-5 shadow-[0_12px_36px_rgba(48,35,22,.035)] transition hover:-translate-y-1 hover:border-[#B98A52]/45 hover:shadow-[0_20px_55px_rgba(55,39,22,.08)]">
+              <div className="flex items-center justify-between gap-3"><span className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#9A744B]">{item.eyebrow}</span><span className="rounded-full border border-[#B98A52]/20 bg-[#FAF6EF] px-2.5 py-1 text-[6px] font-semibold uppercase tracking-[.12em] text-[#8A633C]">{item.state}</span></div>
+              <h3 className="mt-7 text-[18px] font-semibold tracking-[-.03em] text-[#302D29]">{item.title}</h3>
+              <p className="mt-3 min-h-[72px] text-[9px] leading-5 text-[#777169]">{item.copy}</p>
+              <div className="mt-5 text-[8px] font-semibold text-[#815B36]">{item.cta} →</div>
+            </a>)}
+          </div>
+
+          <div id="supplier-status" className="mt-8 scroll-mt-24 rounded-[22px] border border-[#B98A52]/20 bg-[#F3E7D7]/58 px-5 py-5 sm:px-6">
+            <div className="text-[8px] font-semibold uppercase tracking-[.16em] text-[#9A744B]">SUPPLIER ACCESS</div>
+            <div className="mt-2 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+              <p className="max-w-4xl text-[10px] leading-5 text-[#6D6257]">Supplier Portal is invitation-based. A customer organization invites an existing canonical supplier contact; acceptance creates supplier-only customer access and does not create internal workspace membership or a new supplier organization.</p>
+              <a href="/supplier-portal" className="text-[9px] font-semibold text-[#815B36]">Open Supplier Portal →</a>
+            </div>
           </div>
         </div>
       </section>
-      <section className="bg-[#EEE6DB] text-[#1D1B18]">
-        <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:px-10 lg:py-20">
-          <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">ONE COMPANY CONTEXT</p>
-            <h2 className="mt-3 max-w-3xl text-[38px] font-medium leading-[1.03] tracking-[-0.05em] text-[#1D1B18] sm:text-[50px]">Different tools. One connected picture of the business.</h2>
+
+      <GuidedStart />
+      <section className="border-b border-black/[0.06] bg-[#FBFAF8]">
+        <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <div><p className="text-[9px] font-semibold uppercase tracking-[.22em] text-[#9A744B]">PREFER TO BROWSE?</p><h2 className="mt-3 text-[36px] font-medium leading-[1.03] tracking-[-.05em] text-[#1D1B18] sm:text-[48px]">Enter Avantiqo through the kind of work you need.</h2></div>
+            <p className="max-w-2xl text-[12px] leading-6 text-[#706A62] lg:justify-self-end">The guided recommendation above is the fastest route. These are the five main public entry points when you already know the kind of work you want.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {["Company","People","Customers","Money","Work","Documents","Intelligence","History","Usage"].map((x, i) => (
-              <div key={x} className="flex items-center gap-2 rounded-full border border-black/[0.07] bg-white/55 px-4 py-3 text-[9px] text-[#665D53]">
-                <span className="text-[7px] font-semibold text-[#D6A66A]">0{String(i + 1).padStart(2,"0")}</span>{x}
-              </div>
-            ))}
+          <div className="mt-10 grid overflow-hidden rounded-[24px] border border-black/[0.07] bg-white sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              ["RUN","Business Products","Finance · people · operations · stock","/products"],
+              ["INDUSTRY","Solutions","Restaurant · hotel · retail · services","/solutions"],
+              ["CREATE","Creative Studios","Image · film · music · voice","/creative-studios"],
+              ["BUILD","Developers","APIs · integrations · software","/developers"],
+              ["SCALE","Compute","Inference · rendering · batch","/compute"],
+            ].map(([verb,title,detail,href],index)=><a key={verb} href={href} className={`group p-5 transition hover:bg-[#F9F4EC] ${index<4?'lg:border-r lg:border-black/[0.06]':''} ${index<4?'border-b border-black/[0.06] lg:border-b-0':''}`}><div className="flex items-center justify-between"><span className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#A37849]">{verb}</span><span className="text-[9px] text-[#B7AA9B] transition group-hover:translate-x-0.5 group-hover:text-[#8A633C]">→</span></div><div className="mt-8 text-[14px] font-semibold text-[#302D29]">{title}</div><div className="mt-2 text-[8px] leading-4 text-[#7B746C]">{detail}</div></a>)}
           </div>
+          <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-[22px] border border-[#B98A52]/20 bg-[#F3E7D7]/58 px-5 py-4 sm:px-6"><div><div className="text-[8px] font-semibold uppercase tracking-[.16em] text-[#9A744B]">ONE ACCOUNT · ADD WHAT HELPS</div><div className="mt-1 text-[10px] text-[#6D6257]">Start focused. Your organization context stays connected when the next need appears.</div></div><a href="/pricing" className="text-[9px] font-semibold text-[#815B36]">See how pricing works →</a></div>
         </div>
       </section>
     </main>

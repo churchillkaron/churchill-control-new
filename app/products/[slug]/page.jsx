@@ -98,7 +98,7 @@ export default function CatalogProductPage({ params }) {
   const product = productCatalog.find((item) => item.id === params.slug);
   if (!product) notFound();
   return <main className="min-h-screen bg-[#F7F6F3] text-[#171614]">
-    <PublicSiteHeader context={product.name} audience="business" />
+    <PublicSiteHeader context={product.name} audience="business" tone="light" />
     {product.family === "portals-external" ? <PortalHero product={product} /> : <>
     <section className="relative overflow-hidden border-b border-[#CFC5B8]/45 bg-[#F3EEE5]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(214,166,106,.22),transparent_30%)]" />

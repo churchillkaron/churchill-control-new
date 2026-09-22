@@ -28,7 +28,9 @@ function requireText(relativePath, expected) {
 }
 
 const fieldServicePage =
-  "app/(system)/workspace/[organizationId]/operations/field-service/page.jsx";
+  "lib/operations/presentation/OperationsIndustryProfiles.js";
+const pestControlProfile =
+  "lib/operations/presentation/PestControlOperationsProfile.js";
 const legacyPage =
   "app/(system)/workspace/[organizationId]/pest_control/page.jsx";
 const solutionRegistry =
@@ -66,7 +68,7 @@ const employeeEligibilityService =
 const staffMyDayApi = "app/api/staff/my-day/route.js";
 const staffEvidenceApi = "app/api/staff/my-day/evidence/route.js";
 const serviceProtocolForm = "components/workforce/ServiceProtocolForm.jsx";
-const staffMyDayPage = "app/(workforce)/workforce/my-day/page.jsx";
+const staffMyDayPage = "app/(system)/staff/my-day/page.jsx";
 const customerServiceHistoryProjection =
   "lib/commercial/customers/CustomerServiceHistoryProjection.js";
 const customerDetailService =
@@ -86,17 +88,18 @@ for (const route of [
 }
 
 for (const boundary of [
-  "contracts",
   "treatments",
-  "chemicals",
   "customers",
   "billing",
-  "recurring-service rules",
 ]) {
-  requireText(fieldServicePage, boundary);
+  requireText(pestControlProfile, boundary);
 }
+requireText(fieldServicePage, "Recurring service definitions remain configurable");
+requireText(fieldServicePage, "Supply Chain owns materials");
+requireText(fieldServicePage, "Finance owns billing and accounting");
 
-requireText(legacyPage, "redirect(");
+requireText(legacyPage, "PestControlOperationsProfile");
+requireText(legacyPage, "router.replace(");
 requireText(legacyPage, "/operations/field-service");
 requireText(
   solutionRegistry,
@@ -142,8 +145,8 @@ requireText(servicePlanScheduler, "generateNextServiceVisit");
 requireText(servicePlanScheduler, "organization_id: plan.organization_id");
 requireText(servicePlanScheduler, "system_automation: true");
 requireText(serviceCompletionReconciliation, "reconcileGeneratedServiceOccurrences");
-requireText(serviceCompletionReconciliation, 'capabilityId: "work-orders"');
-requireText(serviceCompletionReconciliation, 'status !== "completed"');
+requireText(serviceCompletionReconciliation, '.eq("capability_id", "work-orders")');
+requireText(serviceCompletionReconciliation, "COMPLETED_WORK_ORDER_STATUSES.has(status)");
 requireText(serviceCompletionReconciliation, 'status: "completed"');
 requireText(serviceCompletionReconciliation, "completion_evidence_id");
 requireText(serviceCompletionReconciliation, "protocol_submission");
@@ -158,14 +161,16 @@ requireText(serviceCompletionReconciliation, "service-follow-up:");
 requireText(serviceCompletionReconciliation, "follow_up_work_request_id");
 requireText(serviceCompletionReconciliation, "follow_up_requests");
 requireText(servicePlanRuntime, "advancePlanAfterGeneratedOccurrence");
-requireText(servicePlanRuntime, "recovered_plan_cursor: true");
+requireText(servicePlanRuntime, "getOrCreateServiceOccurrence");
+requireText(servicePlanRuntime, "buildServiceGenerationKey");
+requireText(servicePlanRuntime, "occurrence.work_order_id");
 requireText(servicePlanRuntime, 'capabilityId: "work-orders"');
-requireText(servicePlanRuntime, 'command: "create"');
+requireText(servicePlanRuntime, "serverOperationsApi.create");
 requireText(servicePlanRuntime, "assignPreferredServiceTechnician");
 requireText(servicePlanRuntime, "applyPreferredAssignment");
 requireText(servicePlanRuntime, "preferred_staff_id");
 requireText(servicePlanRuntime, "assignment:");
-requireText(servicePlanRuntime, "assigned: Boolean(assignment.assigned)");
+requireText(servicePlanRuntime, "preferred_assignment: preferredAssignment");
 requireText(servicePlanRuntime, 'reason: "no-preferred-technician"');
 requireText(servicePlanDocument, "preferred_staff_id");
 requireText(servicePlanDocument, "preferred_staff_name");
@@ -190,11 +195,11 @@ requireText(preferredAssignmentRuntime, "service-preferred-assignment:");
 requireText(preferredAssignmentRuntime, "service_assignment");
 requireText(preferredAssignmentRuntime, "if (!eligibility.eligible)");
 requireText(servicePlanPage, 'fetch("/api/people/directory"');
-requireText(servicePlanPage, "Preferred Technician (optional)");
+requireText(servicePlanPage, "Preferred technician");
 requireText(servicePlanPage, "preferred_staff_id");
 requireText(servicePlanPage, "preferred_staff_name");
-requireText(servicePlanPage, "Dispatch queue");
-requireText(servicePlanPage, "remains available to Dispatch");
+requireText(servicePlanPage, "Dispatch decides");
+requireText(servicePlanPage, "enters Dispatch eligibility");
 
 requireText(executionTemplateRepository, "export async function getServiceExecutionTemplate");
 requireText(executionTemplateRepository, '.eq("organization_id", organization_id)');
@@ -230,11 +235,12 @@ requireText(serviceProtocolForm, "protocol.field_schema");
 requireText(serviceProtocolForm, "requirements.before_photos");
 requireText(serviceProtocolForm, "requirements.after_photos");
 requireText(serviceProtocolForm, "requirements.location_confirmation");
-requireText(staffMyDayPage, 'import ServiceProtocolForm from "@/components/workforce/ServiceProtocolForm"');
-requireText(staffMyDayPage, "protocolSubmissions");
+requireText(staffMyDayPage, "completionByJob");
 requireText(staffMyDayPage, "job.executionProtocol");
-requireText(staffMyDayPage, "<ServiceProtocolForm");
-requireText(staffMyDayPage, 'action === "complete"');
+requireText(staffMyDayPage, "<ProtocolField");
+requireText(staffMyDayPage, "<EvidenceUpload");
+requireText(staffMyDayPage, 'completion: action === "complete"');
+requireText(staffMyDayPage, 'fetch("/api/staff/my-day/evidence"');
 
 requireText(customerServiceHistoryProjection, "export async function getCustomerServiceHistory");
 requireText(customerServiceHistoryProjection, '.eq("customer_party_id", partyId)');

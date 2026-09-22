@@ -50,9 +50,17 @@ function normalizeRole(value) {
 
 function requestedPortal() {
   if (typeof window === "undefined") return "business";
-  return new URLSearchParams(window.location.search).get("portal") === "developer"
-    ? "developer"
-    : "business";
+  const portal = new URLSearchParams(window.location.search).get("portal");
+  return portal === "developer" ? "developer" : portal === "supplier" ? "supplier" : portal === "staff" ? "staff" : "business";
+}
+
+
+function requestedSafeNonWorkspaceDestination() {
+  if (typeof window === "undefined") return null;
+  const next = new URLSearchParams(window.location.search).get("next");
+  if (!next || next.startsWith("//")) return null;
+  if (next.startsWith("/supplier-invite/") || next.startsWith("/developer-invite/") || next.startsWith("/accounting-client-invite/")) return next;
+  return null;
 }
 
 function requestedWorkspaceDestination(organizationId) {
@@ -73,6 +81,9 @@ function postLoginDestination(data, organizationId) {
 
   if (requestedPortal() === "developer") {
     return `/workspace/${organizationId}/developers`;
+  }
+  if (requestedPortal() === "staff") {
+    return "/staff";
   }
 
   return requestedWorkspaceDestination(organizationId) || `/workspace/${organizationId}`;
@@ -121,6 +132,35 @@ export default function LoginCallback() {
           return;
         }
 
+        const nonWorkspaceDestination = requestedSafeNonWorkspaceDestination();
+        if (nonWorkspaceDestination) {
+          clearBrowserBrandIntent();
+          router.push(nonWorkspaceDestination);
+          return;
+        }
+
+        if (requestedPortal() === "supplier") {
+          clearBrowserBrandIntent();
+          router.push("/supplier-portal");
+          return;
+        }
+
+        if (requestedPortal() === "developer") {
+          const externalResponse = await fetch("/api/developers/access/organizations", { cache: "no-store" }).catch(() => null);
+          const externalData = externalResponse?.ok ? await externalResponse.json().catch(() => null) : null;
+          const externalOrganizations = Array.isArray(externalData?.organizations) ? externalData.organizations : [];
+          if (externalOrganizations.length === 1) {
+            clearBrowserBrandIntent();
+            router.push(`/workspace/${externalOrganizations[0].organization_id}/developers`);
+            return;
+          }
+          if (externalOrganizations.length > 1) {
+            clearBrowserBrandIntent();
+            router.push("/developer-access");
+            return;
+          }
+        }
+
         const requestedOrganizationId = browserOrganizationId();
         const bootstrapUrl = requestedOrganizationId
           ? `/api/session/bootstrap?organizationId=${encodeURIComponent(requestedOrganizationId)}`
@@ -140,10 +180,14 @@ export default function LoginCallback() {
             (Array.isArray(data?.availableOrganizationIds) &&
               data.availableOrganizationIds.length > 1)
           ) {
-            router.push(requestedPortal() === "developer" ? "/workspace?portal=developer" : "/workspace");
+            router.push(requestedPortal() === "developer" ? "/workspace?portal=developer" : requestedPortal() === "staff" ? "/staff" : "/workspace");
             return;
           }
 
+          if (requestedPortal() === "staff") {
+            router.push("/staff-portal?access=required");
+            return;
+          }
           router.push("/onboarding");
           return;
         }
@@ -164,7 +208,7 @@ export default function LoginCallback() {
 
           if (!selectionResponse.ok) {
             clearBrowserBrandIntent();
-            router.push(requestedPortal() === "developer" ? "/workspace?portal=developer" : "/workspace");
+            router.push(requestedPortal() === "developer" ? "/workspace?portal=developer" : requestedPortal() === "staff" ? "/staff" : "/workspace");
             return;
           }
 
@@ -174,7 +218,7 @@ export default function LoginCallback() {
         }
 
         clearBrowserBrandIntent();
-        router.push(requestedPortal() === "developer" ? "/workspace?portal=developer" : "/workspace");
+        router.push(requestedPortal() === "developer" ? "/workspace?portal=developer" : requestedPortal() === "staff" ? "/staff" : "/workspace");
       } catch (err) {
         console.error(err);
         clearBrowserBrandIntent();

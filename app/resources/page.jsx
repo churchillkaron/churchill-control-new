@@ -15,7 +15,7 @@ const GROUPS = [
 export default function ResourcesPage(){
   const images=["/art/developer-work.jpg","/art/commercial-solutions.jpg","/art/commercial-insights.jpg","/art/commercial-commerce.jpg","/art/generated/products/products-documents-v1.png","/art/commercial-agents.jpg"];
   return <main className="min-h-screen bg-[#F7F6F3] text-[#171614]">
-    <PublicSiteHeader context="Resources" audience="platform"/>
+    <PublicSiteHeader context="Resources" audience="platform" tone="light"/>
     <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F4F0E8]">
       <div className="mx-auto grid max-w-[1540px] lg:min-h-[650px] lg:grid-cols-[44%_56%]">
         <div className="flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">

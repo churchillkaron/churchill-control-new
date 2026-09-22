@@ -113,7 +113,7 @@ export async function POST(request) {
     }
 
     const active = activeProgress(progress);
-    if (action === "STEER" && !active) {
+    if (["STEER", "STOP"].includes(action) && !active) {
       return response({ success: false, error: "CODE_AI_OWNER_INTERVENTION_MISSION_NOT_ACTIVE" }, 409);
     }
     if (action === "APPROVE_PATCH") {
@@ -126,7 +126,7 @@ export async function POST(request) {
     }
 
     const consumeAtSafeBoundary =
-      action === "STEER" || (action === "REQUEST_CHANGES" && active);
+      ["STEER", "STOP"].includes(action) || (action === "REQUEST_CHANGES" && active);
     const submitted = await submitCodeAIOwnerControl({
       context,
       missionId,

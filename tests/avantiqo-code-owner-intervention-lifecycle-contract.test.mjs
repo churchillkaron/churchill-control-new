@@ -49,4 +49,43 @@ test("Code owner steering uses a truthful leased lifecycle and only applies afte
   );
 });
 
+test("Owner STOP is a bounded execution-reduction action that settles without fresh reasoning", () => {
+  const owner = read("lib/code/runtime/CodeAIOwnerInterventionRuntime.js");
+  const workPackage = read("lib/code/runtime/CodeAIWorkPackageRuntime.js");
+  const route = read("app/api/operator/code/intervention/route.js");
+  const liveWorkPackage = read("lib/code/runtime/CodeAIWorkPackageRuntimeLive.js");
+  const missionRuntime = read("lib/code/runtime/CodeAIMissionRuntime.js");
+  const convergence = read("lib/code/runtime/CodeAIWorkPackageDeterministicConvergenceRuntime.js");
+
+  assert.match(owner, /INTERVENTION_ACTIONS = new Set\(\["STEER", "REQUEST_CHANGES", "STOP"\]\)/);
+  assert.match(owner, /applyClaimedCodeAIOwnerStop/);
+  assert.match(owner, /stop_requires_fresh_reasoning: false/);
+  assert.match(owner, /authorization_effect: "REDUCE_EXECUTION_ONLY"/);
+  assert.match(workPackage, /stateWithAppliedOwnerStop/);
+  assert.match(workPackage, /CODE_AI_OWNER_STOP_REQUESTED/);
+  assert.match(workPackage, /publishCodeAILiveProgress/);
+  assert.match(workPackage, /phase: "OWNER_STOPPED"/);
+  assert.match(workPackage, /status: "stopped"/);
+  assert.match(workPackage, /mission_already_stopped: true/);
+  assert.match(workPackage, /source_mutation_performed: false/);
+  assert.match(workPackage, /commit_performed: false/);
+  assert.match(workPackage, /production_deploy_performed: false/);
+  assert.match(route, /\["STEER", "STOP"\]\.includes\(action\)/);
+  assert.match(owner, /consumePendingCodeAIOwnerStopAtSafeBoundary/);
+  assert.match(owner, /applied_at_safe_boundary: true/);
+  assert.match(liveWorkPackage, /consumeOwnerStopBoundary/);
+  assert.match(liveWorkPackage, /const initialOwnerStop = await consumeOwnerStopBoundary/);
+  assert.match(liveWorkPackage, /const postPlanningOwnerStop = await consumeOwnerStopBoundary/);
+  assert.match(liveWorkPackage, /const operationOwnerStop = await consumeOwnerStopBoundary/);
+  assert.match(liveWorkPackage, /owner_stop_applied_at_internal_safe_boundary/);
+  assert.match(liveWorkPackage, /phase: "OWNER_STOPPED"/);
+  assert.match(missionRuntime, /control_context = null/);
+  assert.match(missionRuntime, /consumeMissionOwnerStopAtBoundary/);
+  assert.match(missionRuntime, /owner_stop_applied_before_repository_operation/);
+  assert.match(missionRuntime, /phase: "OWNER_STOPPED"/);
+  assert.match(liveWorkPackage, /control_context: context/);
+  assert.match(convergence, /control_context: context/);
+  assert.match(convergence, /OWNER_STOPPED_AT_SAFE_BOUNDARY/);
+});
+
 console.log("AVANTIQO_CODE_OWNER_INTERVENTION_LIFECYCLE_CONTRACT=PASS");

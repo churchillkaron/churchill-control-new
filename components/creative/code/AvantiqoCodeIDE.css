@@ -1,0 +1,92 @@
+@import "@xterm/xterm/css/xterm.css";
+
+.xterm { height: 100%; }
+.xterm-viewport { scrollbar-color: rgba(214,166,106,.24) transparent; }
+
+.avantiqo-code-ide {
+  --code-bg: #f4efe7;
+  --code-panel: #eee7dd;
+  --code-panel-strong: #f8f4ed;
+  --code-card: #fbf8f2;
+  --code-text: #241f1a;
+  --code-muted: #746a60;
+  --code-faint: #9a9085;
+  --code-line: rgba(45, 35, 26, 0.09);
+  --code-gold: #b7793b;
+}
+
+.avantiqo-code-ide > header {
+  background: rgba(248,244,237,.96) !important;
+  border-color: var(--code-line) !important;
+  color: var(--code-text) !important;
+  box-shadow: 0 8px 28px rgba(69,50,31,.06);
+}
+
+.avantiqo-code-ide aside {
+  background: var(--code-panel) !important;
+  border-color: var(--code-line) !important;
+}
+
+.avantiqo-code-ide main,
+.avantiqo-code-ide section {
+  background: var(--code-panel-strong) !important;
+  border-color: var(--code-line) !important;
+}
+
+.avantiqo-code-ide [class*="bg-black"],
+.avantiqo-code-ide [class*="bg-[#08"],
+.avantiqo-code-ide [class*="bg-[#09"],
+.avantiqo-code-ide [class*="bg-[#0b"],
+.avantiqo-code-ide [class*="bg-[#0c"],
+.avantiqo-code-ide [class*="bg-[#0d"] {
+  background-color: rgba(251,248,242,.76) !important;
+}
+
+.avantiqo-code-ide [class*="border-white"] {
+  border-color: var(--code-line) !important;
+}
+
+.avantiqo-code-ide [class*="text-white"] {
+  color: var(--code-muted) !important;
+}
+
+.avantiqo-code-ide [class*="hover:text-white"]:hover {
+  color: var(--code-text) !important;
+}
+
+.avantiqo-code-ide input,
+.avantiqo-code-ide textarea,
+.avantiqo-code-ide select {
+  background: rgba(255,255,255,.68) !important;
+  border-color: rgba(57,45,34,.11) !important;
+  color: #51483f !important;
+}
+
+.avantiqo-code-ide pre {
+  background: #fbf8f2 !important;
+  color: #5e554c !important;
+}
+
+.avantiqo-code-ide .xterm,
+.avantiqo-code-ide .xterm-viewport,
+.avantiqo-code-ide .xterm-screen {
+  background: #f5f0e8 !important;
+}
+
+.avantiqo-code-ide [class*="bg-[#D6A66A]"] {
+  color: #714b28 !important;
+}
+
+.avantiqo-code-ide [class*="text-[#e7c497]"] {
+  color: #7a522d !important;
+}
+
+.avantiqo-code-ide [class*="bg-[#D6A66A]/10"] {
+  background-color: rgba(214,166,106,.18) !important;
+}
+
+.avantiqo-code-ide .monaco-editor,
+.avantiqo-code-ide .monaco-editor-background,
+.avantiqo-code-ide .monaco-editor .margin {
+  background-color: #fbf8f2 !important;
+}

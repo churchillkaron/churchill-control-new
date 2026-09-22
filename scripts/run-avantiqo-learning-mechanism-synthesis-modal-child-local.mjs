@@ -6,15 +6,15 @@ import { pathToFileURL } from "node:url";
 
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
-const CONTRACT = "AVANTIQO_LEARNING_MECHANISM_SYNTHESIS_MODAL_V2";
+const CONTRACT = "AVANTIQO_LEARNING_MECHANISM_SYNTHESIS_LOCAL_V3";
 const LEARNING_CONTRACT = "AVANTIQO_MECHANISM_FIRST_LEARNING_V1";
-const RUNTIME_CONTRACT = "AVANTIQO_INTELLIGENCE_MODAL_H100_V1";
+const RUNTIME_CONTRACT = "AVANTIQO_INTELLIGENCE_LOCAL_NODE_V1";
 const PROVIDER = "avantiqo-intelligence";
 const SERVICE_ID = "ai.reasoning.execute";
 const CAPABILITY = "ai.reasoning.execute";
 const REQUIRED_LANE = "deep";
-const EXPECTED_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507";
-const DIRECT_JOB_PREFIX = "modal-intelligence-direct:";
+const EXPECTED_MODEL = "qwen3:4b-instruct";
+const DIRECT_JOB_PREFIX = "local-intelligence:";
 const PROGRAM_SCOPE = "platform_learning_discovery_programs";
 const KNOWLEDGE_SCOPE = "platform_knowledge";
 const SYNTHESIS_SCOPE = "platform_learning_discovery_syntheses";
@@ -186,8 +186,8 @@ function validateProgram(row, expectedStatus) {
   if (metadata.evidence_ready_for_synthesis !== true) {
     throw new Error(`${CONTRACT}_PROGRAM_EVIDENCE_NOT_READY`);
   }
-  if (metadata.synthesis_modal_only !== true) {
-    throw new Error(`${CONTRACT}_PROGRAM_MODAL_ONLY_REQUIRED`);
+  if (metadata.synthesis_local_only !== true) {
+    throw new Error(`${CONTRACT}_PROGRAM_LOCAL_ONLY_REQUIRED`);
   }
   if (text(metadata.synthesis_runtime_contract, 180) !== RUNTIME_CONTRACT) {
     throw new Error(`${CONTRACT}_PROGRAM_RUNTIME_CONTRACT_INVALID`);
@@ -219,14 +219,14 @@ async function loadReadyProgram(db) {
   const { learningId, rows } = await queryPrograms(db);
   const matches = rows.filter((row) => {
     const metadata = object(row.metadata);
-    return metadata.status === "READY_FOR_MODAL_SYNTHESIS" &&
+    return metadata.status === "READY_FOR_LOCAL_SYNTHESIS" &&
       metadata.evidence_ready_for_synthesis === true &&
       metadata.synthesis_requested !== true;
   });
   if (matches.length !== 1) {
     throw new Error(`${CONTRACT}_EXACTLY_ONE_READY_PROGRAM_REQUIRED:${matches.length}`);
   }
-  validateProgram(matches[0], "READY_FOR_MODAL_SYNTHESIS");
+  validateProgram(matches[0], "READY_FOR_LOCAL_SYNTHESIS");
   return { learningId, program: matches[0] };
 }
 
@@ -234,14 +234,14 @@ async function loadResumeProgram(db) {
   const { learningId, rows } = await queryPrograms(db);
   const matches = rows.filter((row) => {
     const metadata = object(row.metadata);
-    return metadata.status === "MODAL_SYNTHESIS_SETTLING" &&
+    return metadata.status === "LOCAL_SYNTHESIS_SETTLING" &&
       text(metadata.synthesis_provider_job_id, 600).startsWith(DIRECT_JOB_PREFIX) &&
       Boolean(text(metadata.synthesis_usage_id, 240));
   });
   if (matches.length !== 1) {
     throw new Error(`${CONTRACT}_EXACTLY_ONE_RESUMABLE_PROGRAM_REQUIRED:${matches.length}`);
   }
-  validateProgram(matches[0], "MODAL_SYNTHESIS_SETTLING");
+  validateProgram(matches[0], "LOCAL_SYNTHESIS_SETTLING");
   return { learningId, program: matches[0] };
 }
 
@@ -367,7 +367,7 @@ async function settleSameJob({
         metadata: {
           learning_synthesis_contract: CONTRACT,
           learning_contract: LEARNING_CONTRACT,
-          direct_modal_required: true,
+          local_node_required: true,
           max_provider_jobs: 1,
           duplicate_provider_job_submitted: false,
           external_fallback_allowed: false,
@@ -380,7 +380,7 @@ async function settleSameJob({
     } catch (error) {
       await markProgram(db, learningId, program.id, metadata.synthesis_attempt_id, {
         ...metadata,
-        status: "MODAL_SYNTHESIS_SETTLING",
+        status: "LOCAL_SYNTHESIS_SETTLING",
         synthesis_resume_required: true,
         synthesis_last_poll_error: text(error?.message || error, 700),
         synthesis_last_poll_at: new Date().toISOString(),
@@ -397,7 +397,7 @@ async function settleSameJob({
     if (settled?.failed === true || settled?.success !== true) {
       await markProgram(db, learningId, program.id, metadata.synthesis_attempt_id, {
         ...metadata,
-        status: "MODAL_SYNTHESIS_REVIEW_REQUIRED",
+        status: "LOCAL_SYNTHESIS_REVIEW_REQUIRED",
         synthesis_resume_required: false,
         synthesis_error_code: text(settled?.error, 700) || "PROVIDER_JOB_FAILED",
         synthesis_failed_at: new Date().toISOString(),
@@ -411,7 +411,7 @@ async function settleSameJob({
 
   await markProgram(db, learningId, program.id, metadata.synthesis_attempt_id, {
     ...metadata,
-    status: "MODAL_SYNTHESIS_SETTLING",
+    status: "LOCAL_SYNTHESIS_SETTLING",
     synthesis_resume_required: true,
     synthesis_poll_timeout: true,
     automatic_retry_allowed: false,
@@ -419,25 +419,19 @@ async function settleSameJob({
   throw new Error(`${CONTRACT}_POLL_TIMEOUT_RESUME_SAME_JOB_REQUIRED`);
 }
 
-function validateOwnedModalSettlement(settled) {
+function validateOwnedLocalSettlement(settled) {
   if (text(settled?.provider, 160) !== PROVIDER) {
     throw new Error(`${CONTRACT}_OWNED_PROVIDER_REQUIRED`);
   }
   const infrastructure = text(findValue(settled?.output, ["infrastructure_provider"]), 200);
-  const modalGpu = text(findValue(settled?.output, ["modal_gpu"]), 80);
   const executionLane = text(findValue(settled?.output, ["execution_lane"]), 80).toLowerCase();
   const model = text(findValue(settled?.output, ["model"]), 300);
-  const modalGatewayUsed = findValue(settled?.output, ["modal_gateway_used"]);
-  const modalVolumeCreated = findValue(settled?.output, ["modal_volume_created"]);
   const runpodInference = findValue(settled?.output, ["runpod_inference_performed"]);
   const rawReasoningPersisted = findValue(settled?.output, ["raw_reasoning_persisted"]);
-  if (infrastructure !== "MODAL_H100_ASYNC_V1") throw new Error(`${CONTRACT}_MODAL_INFRASTRUCTURE_REQUIRED`);
-  if (modalGpu !== "H100") throw new Error(`${CONTRACT}_H100_REQUIRED`);
+  if (infrastructure !== "AVANTIQO_LOCAL_NODE_V1") throw new Error(`${CONTRACT}_LOCAL_INFRASTRUCTURE_REQUIRED`);
   if (executionLane !== REQUIRED_LANE) throw new Error(`${CONTRACT}_DEEP_LANE_REQUIRED`);
   if (model !== EXPECTED_MODEL) throw new Error(`${CONTRACT}_DEEP_MODEL_REQUIRED`);
-  if (modalGatewayUsed !== false) throw new Error(`${CONTRACT}_GATEWAY_USAGE_FORBIDDEN`);
-  if (modalVolumeCreated !== false) throw new Error(`${CONTRACT}_PERSISTENT_MODAL_VOLUME_FORBIDDEN`);
-  if (runpodInference !== false) throw new Error(`${CONTRACT}_NON_MODAL_INFERENCE_FORBIDDEN`);
+  if (runpodInference === true) throw new Error(`${CONTRACT}_NON_LOCAL_INFERENCE_FORBIDDEN`);
   if (rawReasoningPersisted !== false) throw new Error(`${CONTRACT}_RAW_REASONING_PERSISTENCE_FORBIDDEN`);
   const outputText = text(findValue(settled?.output, ["text"]), 60000);
   if (!outputText) throw new Error(`${CONTRACT}_OUTPUT_REQUIRED`);
@@ -445,7 +439,7 @@ function validateOwnedModalSettlement(settled) {
 }
 
 async function persistSynthesis({ db, learningId, program, programMetadata, evidence, settled }) {
-  const { outputText, model } = validateOwnedModalSettlement(settled);
+  const { outputText, model } = validateOwnedLocalSettlement(settled);
   const requirements = object(programMetadata.requirements);
   const modeValue = text(programMetadata.research_mode, 40);
   const synthesis = parseCompletion(outputText);
@@ -466,7 +460,7 @@ async function persistSynthesis({ db, learningId, program, programMetadata, evid
     content: text(synthesis.synthesis_summary, 4000) || "Mechanism-first discovery synthesis completed.",
     importance: Number(program.importance || 0.8),
     confidence: 0.8,
-    source: "modal_service_runtime_owned_intelligence_mechanism_synthesis",
+    source: "local_service_runtime_owned_intelligence_mechanism_synthesis",
     active: true,
     valid_until: null,
     superseded_by: null,
@@ -482,7 +476,7 @@ async function persistSynthesis({ db, learningId, program, programMetadata, evid
       evidence_claim_count: evidence.length,
       provider: PROVIDER,
       model,
-      infrastructure_provider: "MODAL_H100_ASYNC_V1",
+      infrastructure_provider: "AVANTIQO_LOCAL_NODE_V1",
       execution_lane: REQUIRED_LANE,
       provider_job_reused_for_settlement: true,
       duplicate_provider_job_submitted: false,
@@ -544,21 +538,18 @@ async function main() {
   );
 
   const runtime = getAvantiqoIntelligenceRuntimeConfiguration();
-  if (runtime?.runtime_ready !== true) throw new Error(`${CONTRACT}_MODAL_RUNTIME_NOT_READY`);
-  if (runtime?.modal_only !== true || runtime?.infrastructure_provider !== "MODAL_H100_ASYNC_V1") {
-    throw new Error(`${CONTRACT}_MODAL_ONLY_RUNTIME_REQUIRED`);
+  if (runtime?.runtime_ready !== true) throw new Error(`${CONTRACT}_LOCAL_RUNTIME_NOT_READY`);
+  if (runtime?.local_only !== true || runtime?.modal_fallback_allowed !== false || runtime?.local_compute_configured !== true) {
+    throw new Error(`${CONTRACT}_LOCAL_ONLY_RUNTIME_REQUIRED`);
   }
   if (runtime?.safe_lease_required_for_inference !== false) {
     throw new Error(`${CONTRACT}_LEGACY_SAFE_LEASE_FORBIDDEN`);
   }
-  if (text(process.env.AVANTIQO_INTELLIGENCE_MODAL_BASE_URL) || text(process.env.AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN)) {
-    throw new Error(`${CONTRACT}_LEGACY_MODAL_GATEWAY_FORBIDDEN`);
-  }
 
   if (runMode === "PREFLIGHT") {
     const { learningId, rows } = await queryPrograms(db);
-    const ready = rows.filter((row) => object(row.metadata).status === "READY_FOR_MODAL_SYNTHESIS").length;
-    const resumable = rows.filter((row) => object(row.metadata).status === "MODAL_SYNTHESIS_SETTLING").length;
+    const ready = rows.filter((row) => object(row.metadata).status === "READY_FOR_LOCAL_SYNTHESIS").length;
+    const resumable = rows.filter((row) => object(row.metadata).status === "LOCAL_SYNTHESIS_SETTLING").length;
     console.log(JSON.stringify({
       success: true,
       contract: CONTRACT,
@@ -568,7 +559,7 @@ async function main() {
       resumable_program_count: resumable,
       provider: PROVIDER,
       execution_lane: REQUIRED_LANE,
-      infrastructure_provider: "MODAL_H100_ASYNC_V1",
+      infrastructure_provider: "AVANTIQO_LOCAL_NODE_V1",
       service_runtime_required: true,
       wallet_settlement_required: true,
       max_provider_jobs_per_execute: 1,
@@ -593,10 +584,10 @@ async function main() {
 
   if (runMode === "RESUME") {
     ({ learningId, program } = await loadResumeProgram(db));
-    programMetadata = validateProgram(program, "MODAL_SYNTHESIS_SETTLING");
+    programMetadata = validateProgram(program, "LOCAL_SYNTHESIS_SETTLING");
   } else {
     ({ learningId, program } = await loadReadyProgram(db));
-    programMetadata = validateProgram(program, "READY_FOR_MODAL_SYNTHESIS");
+    programMetadata = validateProgram(program, "READY_FOR_LOCAL_SYNTHESIS");
   }
 
   const evidence = await loadEvidence(db, learningId, program);
@@ -606,13 +597,13 @@ async function main() {
     const attemptStartedAt = new Date().toISOString();
     const preparedMetadata = {
       ...programMetadata,
-      status: "MODAL_SYNTHESIS_SUBMITTING",
+      status: "LOCAL_SYNTHESIS_SUBMITTING",
       synthesis_requested: true,
       synthesis_attempt_id: attemptId,
       synthesis_started_at: attemptStartedAt,
       synthesis_runtime_contract: RUNTIME_CONTRACT,
       synthesis_execution_lane: REQUIRED_LANE,
-      synthesis_modal_only: true,
+      synthesis_local_only: true,
       synthesis_provider: PROVIDER,
       synthesis_resume_required: false,
       max_provider_jobs: 1,
@@ -643,10 +634,10 @@ async function main() {
         metadata: {
           learning_synthesis_contract: CONTRACT,
           learning_contract: LEARNING_CONTRACT,
-          provider_spend_approved: true,
+          provider_spend_approved: false,
           max_provider_jobs: 1,
           duplicate_provider_job_submitted: false,
-          direct_modal_required: true,
+          local_node_required: true,
           external_fallback_allowed: false,
           raw_reasoning_persistence_forbidden: true,
           production_activation_allowed: false,
@@ -658,7 +649,7 @@ async function main() {
     } catch (error) {
       await markProgram(db, learningId, program.id, attemptId, {
         ...preparedMetadata,
-        status: "MODAL_SYNTHESIS_REVIEW_REQUIRED",
+        status: "LOCAL_SYNTHESIS_REVIEW_REQUIRED",
         synthesis_ambiguous_after_provider_call: true,
         synthesis_error_code: text(error?.message || error, 700),
         synthesis_failed_at: new Date().toISOString(),
@@ -673,12 +664,12 @@ async function main() {
     const providerJobId = text(execution?.provider_job_id, 600);
     const usageId = text(execution?.usage?.id, 240);
     if (!providerJobId.startsWith(DIRECT_JOB_PREFIX) || !usageId) {
-      throw new Error(`${CONTRACT}_DIRECT_MODAL_PENDING_BINDING_INVALID`);
+      throw new Error(`${CONTRACT}_LOCAL_PENDING_BINDING_INVALID`);
     }
 
     const settlingMetadata = {
       ...preparedMetadata,
-      status: "MODAL_SYNTHESIS_SETTLING",
+      status: "LOCAL_SYNTHESIS_SETTLING",
       synthesis_provider_job_id: providerJobId,
       synthesis_usage_id: usageId,
       synthesis_pricing: object(execution?.pricing),
@@ -727,7 +718,7 @@ async function main() {
     solution_direction_count: list(persisted.synthesis.solution_directions).length,
     synthesis_fingerprint: persisted.synthesisFingerprint,
     provider: PROVIDER,
-    infrastructure_provider: "MODAL_H100_ASYNC_V1",
+    infrastructure_provider: "AVANTIQO_LOCAL_NODE_V1",
     execution_lane: REQUIRED_LANE,
     service_runtime_used: true,
     wallet_settlement_required: true,

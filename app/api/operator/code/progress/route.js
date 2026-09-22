@@ -99,6 +99,10 @@ export async function GET(request) {
       url.searchParams.get("organizationId") ||
       url.searchParams.get("organization_id"),
     );
+    const deviceSessionId = text(
+      url.searchParams.get("deviceSessionId") ||
+      url.searchParams.get("device_session_id"),
+    ) || null;
     if (!organizationId) {
       return Response.json(
         { success: false, error: "organization_id required" },
@@ -123,7 +127,7 @@ export async function GET(request) {
       actor: { id: access.user?.id || access.userId },
     };
     const [loaded, portfolioLoaded] = await Promise.all([
-      loadCodeAILiveProgress({ context }),
+      loadCodeAILiveProgress({ context, device_session_id: deviceSessionId }),
       loadLatestProductEngineeringPortfolio({ context }).catch((error) => ({
         found: false,
         error,

@@ -194,7 +194,7 @@ export async function POST(request) {
     }
 
     const redirectTo = new URL(
-      "/login#type=recovery",
+      "/login?portal=staff#type=recovery",
       resolveRedirectOrigin(request)
     ).toString();
 

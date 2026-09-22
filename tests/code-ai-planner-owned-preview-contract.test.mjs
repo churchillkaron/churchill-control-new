@@ -48,10 +48,14 @@ try {
   assert.equal(local.provider_policy?.benchmark_only, true);
   assert.equal(local.provider_policy?.owned_only_required, true);
   assert.equal(local.provider_policy?.external_fallback_allowed, false);
+  assert.equal(local.provider_policy?.studio_preproduction_review, true);
+  assert.equal(local.provider_policy?.local_owned_zero_price_preview, true);
   assert.deepEqual(local.provider_policy?.benchmark_pricing_estimate, {
     input_tokens: 32768,
     output_tokens: 4096,
   });
+  assert.equal(local.metadata?.studio_preproduction_review, true);
+  assert.equal(local.metadata?.local_owned_zero_price_preview, true);
   assert.equal(local.metadata?.production_certified, false);
   assert.equal(local.metadata?.local_development_owned_code_preview, true);
   assert.equal(local.metadata?.pricing_estimate_max_input_tokens, 32768);

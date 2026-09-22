@@ -18,7 +18,7 @@ const EMPTY_METRICS = {
   operationsQueue: 0,
   readyOrders: 0,
   activeStaff: 0,
-  lowStockAlerts: 0,
+  lowStockAlerts: null,
   pendingPayables: 0,
   workCenters: 0,
 };
@@ -35,6 +35,35 @@ function formatAmount(value, currencyCode) {
   } catch {
     return amount.toFixed(2);
   }
+}
+
+
+function statusOf(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function metricsFromRestaurantRuntime(result) {
+  const orders = Array.isArray(result?.orders) ? result.orders : [];
+  const settledOrders = orders.filter((order) =>
+    ["PAID", "CLOSED", "COMPLETED"].includes(statusOf(order.payment_status || order.status))
+  );
+  const revenue = settledOrders.reduce((sum, order) => sum + Number(order.total || order.total_amount || 0), 0);
+  const paidOrders = settledOrders.length;
+
+  return {
+    ...EMPTY_METRICS,
+    revenue,
+    totalOrders: orders.length,
+    openOrders: Number(result?.metrics?.activeOrders || 0),
+    paidOrders,
+    averageOrder: paidOrders ? revenue / paidOrders : 0,
+    occupiedTables: Number(result?.metrics?.occupiedTables || 0),
+    totalTables: Number(result?.metrics?.tables || 0),
+    operationsQueue: Number(result?.metrics?.activeTickets || 0),
+    readyOrders: Number(result?.metrics?.readyTickets || 0),
+    activeStaff: Number(result?.metrics?.activeShifts || 0),
+    lowStockAlerts: null,
+  };
 }
 
 function Metric({ label, value, detail }) {
@@ -75,11 +104,8 @@ export default function RestaurantWorkspacePage() {
       setError(null);
 
       try {
-        const query = new URLSearchParams({
-          organizationId,
-          organizationType: organization?.organization_type || organization?.type || "restaurant",
-        });
-        const response = await fetch(`/api/workspace/command-center?${query.toString()}`, {
+        const query = new URLSearchParams({ organizationId });
+        const response = await fetch(`/api/restaurant/operations?${query.toString()}`, {
           cache: "no-store",
           credentials: "include",
         });
@@ -88,7 +114,7 @@ export default function RestaurantWorkspacePage() {
           throw new Error(result.error || "Unable to load restaurant operations.");
         }
         if (cancelled) return;
-        setMetrics({ ...EMPTY_METRICS, ...(result.metrics || {}) });
+        setMetrics(metricsFromRestaurantRuntime(result));
         setSourceHealth(result.sourceHealth || {});
       } catch (loadError) {
         if (!cancelled) setError(loadError?.message || "Unable to load restaurant operations.");
@@ -129,8 +155,8 @@ export default function RestaurantWorkspacePage() {
     {
       id: "stock",
       title: "Stock & recipes",
-      value: metrics.lowStockAlerts,
-      detail: "Inventory alerts affecting service readiness",
+      value: metrics.lowStockAlerts == null ? "—" : metrics.lowStockAlerts,
+      detail: metrics.lowStockAlerts == null ? "Open inventory and recipe readiness" : "Inventory alerts affecting service readiness",
       href: `/workspace/${organizationId}/supply-chain/production/recipes`,
       action: "Open production stock",
     },

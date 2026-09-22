@@ -103,7 +103,11 @@ test("progress convergence does not add commit deploy or knowledge authority", (
   assert.match(lifecycleReceipt, /contains_raw_patch:\s*false/);
   assert.match(lifecycleReceipt, /automatic_knowledge_promotion:\s*false/);
   assert.match(lifecycleReceipt, /authorization_effect:\s*"NONE"/);
-  assert.match(codeStudio, /Governed preview · no commit · no deploy/);
+  assert.match(codeStudio, /Governed engineering · commit and deploy gated/);
+  assert.match(codeStudio, /governedDeliveryReady/);
+  assert.match(codeStudio, /\/api\/operator\/code\/review/);
+  assert.match(codeStudio, /\/api\/operator\/code\/commit/);
+  assert.match(codeStudio, /\/api\/operator\/code\/release/);
 });
 
 const businessPartnerLiveRoute = await readFile(

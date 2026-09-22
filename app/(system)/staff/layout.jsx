@@ -6,12 +6,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import StaffActivationSetup from "@/components/staff/StaffActivationSetup";
 import {
   Activity,
+  Award,
   Banknote,
   BedDouble,
   Bell,
   BriefcaseBusiness,
   CalendarCheck2,
   CalendarClock,
+  CalendarDays,
   Camera,
   ChartNoAxesCombined,
   ChefHat,
@@ -39,12 +41,14 @@ import {
 
 const ICONS = {
   Activity,
+  Award,
   Banknote,
   BedDouble,
   Bell,
   BriefcaseBusiness,
   CalendarCheck2,
   CalendarClock,
+  CalendarDays,
   Camera,
   ChartNoAxesCombined,
   ChefHat,
@@ -118,7 +122,7 @@ export default function StaffLayout({ children }) {
       if (!response.ok || !payload?.success) throw new Error(payload?.error || "Unable to load staff setup status");
       const activation = payload.activation || null;
       setActivationState({ loading: false, activation, organizationId: payload.organizationId || null, organizations: payload.organizations || [], error: "" });
-      if (activation?.complete) await loadNavigation();
+      if (activation?.complete) void loadNavigation();
       return activation;
     } catch (error) {
       setActivationState({ loading: false, activation: null, organizationId: null, organizations: [], error: error?.message || "Unable to load staff setup status" });

@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
-import { getStripe } from "@/lib/billing/stripe";
 import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
+import { StripeProvider } from "@/lib/platform/service-runtime/providers/stripe/StripeProvider";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -196,8 +196,10 @@ export async function POST(request) {
         }
         if (existing.status === "FAILED") return fail("This payment attempt already failed. Start a new payment request.", 409);
         if (existing.provider_session_id) {
-          const stripe = getStripe();
-          const session = await stripe.checkout.sessions.retrieve(existing.provider_session_id);
+          const session = await StripeProvider.retrieveCheckoutSession({
+            organizationId: auth.organizationId,
+            sessionId: existing.provider_session_id,
+          });
           return NextResponse.json({ success: true, transaction: existing, checkoutUrl: session.url, reused: true, financePostingStatus: existing.finance_payment_id ? "POSTED" : "PENDING_PROVIDER_CONFIRMATION" });
         }
       }
@@ -233,7 +235,6 @@ export async function POST(request) {
         transaction = data;
       }
 
-      const stripe = getStripe();
       const origin = clean(process.env.NEXT_PUBLIC_APP_URL) || request.nextUrl.origin;
       const paymentUrl = `${origin}/workspace/${auth.organizationId}/operations/hotel-payments?bookingId=${encodeURIComponent(booking.id)}`;
       const metadata = {
@@ -245,23 +246,27 @@ export async function POST(request) {
 
       let session;
       try {
-        session = await stripe.checkout.sessions.create({
-          mode: "payment",
-          payment_method_types: ["card"],
-          line_items: [{
-            quantity: 1,
-            price_data: {
-              currency: currency.toLowerCase(),
-              unit_amount: toMinorUnits(currency, amount),
-              product_data: { name: description },
-            },
-          }],
-          customer_email: guest.email || undefined,
-          metadata,
-          payment_intent_data: { metadata },
-          success_url: `${paymentUrl}&paymentReturn=success&session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${paymentUrl}&paymentReturn=cancelled`,
-        }, { idempotencyKey: `hotel-checkout:${transaction.id}` });
+        session = await StripeProvider.createPaymentCheckout({
+          organizationId: auth.organizationId,
+          idempotencyKey: `hotel-checkout:${transaction.id}`,
+          session: {
+            mode: "payment",
+            payment_method_types: ["card"],
+            line_items: [{
+              quantity: 1,
+              price_data: {
+                currency: currency.toLowerCase(),
+                unit_amount: toMinorUnits(currency, amount),
+                product_data: { name: description },
+              },
+            }],
+            customer_email: guest.email || undefined,
+            metadata,
+            payment_intent_data: { metadata },
+            success_url: `${paymentUrl}&paymentReturn=success&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${paymentUrl}&paymentReturn=cancelled`,
+          },
+        });
       } catch (providerError) {
         await supabaseAdmin.from("hotel_payment_transactions").update({ status: "FAILED", failure_reason: providerError?.message || "Checkout provider failure", updated_at: new Date().toISOString() }).eq("organization_id", auth.organizationId).eq("id", transaction.id).eq("status", "PENDING");
         await broadcastPaymentReadiness(auth.organizationId, "PAYMENT_FAILED");
@@ -341,14 +346,17 @@ export async function POST(request) {
       }).select().single();
       if (refundTxError) throw refundTxError;
 
-      const stripe = getStripe();
       let stripeRefund;
       try {
-        stripeRefund = await stripe.refunds.create({
-          payment_intent: parent.provider_payment_id,
-          amount: toMinorUnits(parent.currency_code, amount),
-          metadata: { domain: "hotel", hotelTransactionId: refundTx.id, organizationId: auth.organizationId, bookingId },
-        }, { idempotencyKey: `hotel-refund:${refundTx.id}` });
+        stripeRefund = await StripeProvider.createRefund({
+          organizationId: auth.organizationId,
+          idempotencyKey: `hotel-refund:${refundTx.id}`,
+          refund: {
+            payment_intent: parent.provider_payment_id,
+            amount: toMinorUnits(parent.currency_code, amount),
+            metadata: { domain: "hotel", hotelTransactionId: refundTx.id, organizationId: auth.organizationId, bookingId },
+          },
+        });
       } catch (providerError) {
         await supabaseAdmin.from("hotel_payment_transactions").update({ status: "FAILED", failure_reason: providerError?.message || "Refund provider failure", updated_at: new Date().toISOString() }).eq("id", refundTx.id).eq("organization_id", auth.organizationId);
         await broadcastPaymentReadiness(auth.organizationId, "REFUND_FAILED");

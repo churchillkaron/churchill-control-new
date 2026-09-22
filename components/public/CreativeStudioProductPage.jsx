@@ -55,8 +55,8 @@ function studioImagePath(studio) {
   if (studio.startsWith("Video")) return "/art/generated/creative-video-v2.png";
   if (studio.startsWith("Audio")) return "/art/generated/creative-audio-post-v2.png";
   if (studio.startsWith("Music")) return "/art/generated/creative-music-v2.png";
-  if (studio.startsWith("Image")) return "/art/generated/creative-image-v2.png";
-  return "/art/generated/creative-hero-v2.png";
+  if (studio.startsWith("Image")) return "/art/generated/image-studio/workflow/03-create.webp";
+  return "/art/generated/image-studio/workflow/01-direct.webp";
 }
 
 function StudioArtwork({ studio }) {
@@ -649,7 +649,474 @@ function StudioWorkspace({ studio }) {
   );
 }
 
-export default function CreativeStudioProductPage({ studio, title, subtitle, description, capabilities, useCases, cta }) {
+
+function ImageStudioPublicExperience() {
+  const chain = [
+    ["01","Direct","Business goal, audience, brand and creative concept.","/art/generated/image-studio/workflow/01-direct.webp"],
+    ["02","Reference","Identity, product, style, composition and location.","/art/generated/image-studio/workflow/02-reference.webp"],
+    ["03","Create","Photography, generated or sourced imagery and assets.","/art/generated/image-studio/workflow/03-create.webp"],
+    ["04","Compose","Layers, typography, logos, copy and exact layout.","/art/generated/image-studio/workflow/04-compose.webp"],
+    ["05","Refine","Retouch, composite, relight, inpaint and outpaint.","/art/generated/image-studio/workflow/05-refine.webp"],
+    ["06","Review","Realism, brand, identity, product, copy and technical quality.","/art/generated/image-studio/workflow/06-review.webp"],
+    ["07","Adapt","Campaign formats and responsive compositions.","/art/generated/image-studio/workflow/07-adapt.webp"],
+    ["08","Release","Deterministic master, preflight, evidence and derivatives.","/art/generated/image-studio/workflow/08-release.webp"],
+  ];
+  const tools = [
+    ["Design & layout",["Layers, alignment and guides","Exact positioning (X/Y/W/H)","Grouping and reusable components","Masks, clipping and focal crop"]],
+    ["Typography",["Organization and Avantiqo fonts","Exact text, size and spacing","Text overflow detection","Embedded fonts in export"]],
+    ["Image finishing",["Color, light and tone","Retouch and compositing","Inpaint / outpaint / repair","Non-destructive editing"]],
+    ["Reference intelligence",["Identity, product and brand roles","Composition, style and location roles","Lock as evidence or inspiration","No style drift into identity"]],
+    ["Multi-format export",["Instagram, Facebook and LinkedIn","Stories, Reels and presentations","Print A4 and custom artboards","Responsive adaptation with safe zones"]],
+    ["Quality & release",["Structural preflight and validation","Logo, copy and typography checks","Version control and unresolved comments","SHA-256 release package and lineage"]],
+  ];
+  const technicalSpecs = [
+    ["WORKSPACE MODEL","Brief · artboards · assets · references · moodboard · layers · comments · versions · output"],
+    ["DESIGN GEOMETRY","Exact X/Y/W/H placement · rotation · source crop · focal crop · clipping · masks · reusable grouped design"],
+    ["TYPOGRAPHY ENGINE","Exact font assets · size · weight · line height · letter spacing · alignment · overflow detection · embedded fonts"],
+    ["REFERENCE CONTROL","Independent identity · product · brand · composition · style · location reference roles with source-truth boundaries"],
+    ["RETOUCH & REPAIR","Non-destructive effects · local inpaint · outpaint / canvas extension · relight · material/color repair · reference-bound correction"],
+    ["FORMAT ADAPTATION","Custom artboards · social/feed/story/presentation/print variants · safe-zone checks · crop and layout adaptation"],
+    ["QUALITY GATES","Overall 95+ · hero 96 · identity 96 · product 96 · brand 98 · exact copy 100 · typography 100 · logo 100"],
+    ["DETERMINISTIC RELEASE","PNG · JPEG quality 95 · PDF · exact embedded fonts · structural preflight · version lineage · governed release evidence"],
+  ];
+  return (
+    <main className="min-h-screen bg-[#F7F4EE] text-[#191816]">
+      <PublicSiteHeader context="Image Studio" audience="creative" links={[{label:"Creative Studios",href:"/creative-studios",visibility:"hidden md:inline-flex"}]} />
+
+      <section className="border-b border-black/[0.06] bg-[#F7F4EE]">
+        <div className="mx-auto grid max-w-[1540px] lg:min-h-[630px] lg:grid-cols-[39%_61%]">
+          <div className="flex items-center px-5 py-14 sm:px-7 lg:px-10 lg:py-16 xl:px-14">
+            <div className="max-w-[580px]">
+              <p className="text-[9px] font-semibold uppercase tracking-[.22em] text-[#9A7045]">AVANTIQO IMAGE STUDIO</p>
+              <h1 className="mt-4 text-[50px] font-medium leading-[.95] tracking-[-.062em] sm:text-[62px] lg:text-[68px]">From creative direction to release-ready master.</h1>
+              <p className="mt-5 text-[14px] font-medium text-[#5D5851]">Professional visual production, not prompt-to-image.</p>
+              <p className="mt-5 max-w-[545px] text-[12px] leading-6 text-[#6F6961]">Give Avantiqo the business objective, brand evidence, source assets and references. Image Studio directs the work, creates or edits the imagery, builds exact typography and layouts, preserves identity and product truth, reviews the result against quality gates, and produces governed campaign masters and channel variants.</p>
+              <div className="mt-7 flex flex-wrap gap-2.5"><a href="/login" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171614] px-5 text-[10px] font-semibold text-white">Start a project <Arrow className="h-3.5 w-3.5" /></a><a href="#production-chain" className="inline-flex h-11 items-center rounded-xl border border-black/[0.09] bg-white px-5 text-[10px] font-semibold text-[#56514A]">See production flow</a></div>
+              <div className="mt-9 grid grid-cols-3 border-t border-black/[0.08] pt-5">
+                {[["100%","Exact copy & logos"],["100%","Typography & governed data"],["95+","Release quality gate"]].map(([v,l],i)=><div key={l} className={`${i?"border-l border-black/[0.08] pl-5":""}`}><div className="text-[20px] font-medium tracking-[-.04em] text-[#B17A42]">{v}</div><div className="mt-1 max-w-[95px] text-[6px] font-semibold uppercase leading-3 tracking-[.14em] text-[#8F887E]">{l}</div></div>)}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center p-5 sm:p-7 lg:pl-0 lg:pr-8">
+            <div className="relative min-h-[500px] w-full overflow-hidden rounded-[18px] border border-black/[0.08] bg-[#171614] shadow-[0_28px_70px_rgba(55,36,20,.12)] lg:min-h-[545px]">
+              <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/generated/image-studio/image-studio-hero-approved.png)"}} />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,6,.01),rgba(10,8,6,.05)_56%,rgba(10,8,6,.43))]" />
+              <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-5 rounded-[16px] border border-white/12 bg-black/42 p-4 text-white backdrop-blur-xl"><div><div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">REAL PRODUCTION ENVIRONMENT</div><div className="mt-2 text-[9px] text-white/55">Photography · composition · typography · review · release</div></div><div className="text-right text-[6px] uppercase tracking-[.14em] text-white/40">Your brand<br/>in professional hands</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="production-chain" className="border-b border-black/[0.06] bg-[#FAF8F4]">
+        <div className="mx-auto max-w-[1450px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr] lg:items-end"><div><p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">THE PRODUCTION CHAIN</p><h2 className="mt-2 text-[31px] font-medium leading-[1.03] tracking-[-.045em] sm:text-[38px]">A complete workflow. Built for real business.</h2></div><p className="max-w-xl text-[10px] leading-5 text-[#777169] lg:justify-self-end">From strategy and references to final delivery. Every step is controlled, reviewed and built for commercial use.</p></div>
+          <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+            {chain.map(([n,t,d,img])=><article key={n} className="min-w-0"><div className="relative aspect-[1/1] overflow-hidden rounded-[10px] border border-black/[0.08] bg-[#EDE7DE]"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${img})`}} /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.03),rgba(0,0,0,.18))]" /><span className="absolute left-2 top-2 rounded-full bg-[#F9F6F0]/90 px-2 py-1 text-[7px] font-bold text-[#9A744B]">{n}</span></div><h3 className="mt-3 text-[11px] font-semibold text-[#2F2C29]">{t}</h3><p className="mt-2 text-[8px] leading-4 text-[#817A72]">{d}</p></article>)}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#F7F4EE]">
+        <div className="mx-auto grid max-w-[1450px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[.55fr_1.45fr] lg:px-10 lg:py-20">
+          <div className="max-w-[360px]"><p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">PROFESSIONAL TOOLS.<br/>BUILT FOR CONTROL.</p><h2 className="mt-4 text-[42px] font-medium leading-[.96] tracking-[-.055em]">Real design.<br/>Real precision.</h2><p className="mt-5 text-[10px] leading-5 text-[#706A62]">Image Studio gives you the same control as a professional design and post-production environment, without the overhead. Exact typography, governed assets and non-destructive editing — built for commercial use.</p><a href="#image-studio-tools" className="mt-6 inline-flex h-10 items-center gap-2 rounded-xl bg-[#171614] px-5 text-[10px] font-semibold text-white">Explore the tools <Arrow className="h-3.5 w-3.5" /></a></div>
+          <div id="image-studio-tools" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {tools.map(([title,items],i)=><article key={title} className="rounded-[18px] border border-black/[0.07] bg-white/70 p-5 shadow-[0_12px_34px_rgba(62,43,24,.035)]"><div className="flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#F0E7D9] text-[10px] font-bold text-[#A37849]">0{i+1}</span><h3 className="text-[11px] font-semibold text-[#302D29]">{title}</h3></div><div className="mt-4 space-y-2">{items.map(x=><div key={x} className="flex gap-2 text-[8px] leading-4 text-[#777169]"><span className="mt-[6px] h-1 w-1 shrink-0 rotate-45 bg-[#B58B5E]" />{x}</div>)}</div></article>)}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#FBF8F2] text-[#1A1815]">
+        <div className="mx-auto max-w-[1450px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <div>
+              <p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">TECHNICAL SPECIFICATION</p>
+              <h2 className="mt-3 max-w-[560px] text-[40px] font-medium leading-[.98] tracking-[-.052em] sm:text-[50px]">The production system behind the image.</h2>
+            </div>
+            <p className="max-w-2xl text-[11px] leading-6 text-[#6E675F] lg:justify-self-end">Image Studio is built around explicit artboards, layers, governed references, exact typography, non-destructive repair, deterministic export and independent release gates. Weak details can be repaired without throwing away approved work.</p>
+          </div>
+          <div className="mt-9 grid gap-px overflow-hidden rounded-[24px] border border-black/[0.08] bg-black/[0.08] md:grid-cols-2">
+            {technicalSpecs.map(([name,detail])=><div key={name} className="bg-[#F6F1E9] p-5 sm:p-6"><div className="text-[8px] font-semibold tracking-[.16em] text-[#9A6531]">{name}</div><p className="mt-3 text-[10px] leading-5 text-[#6D665E]">{detail}</p></div>)}
+          </div>
+          <div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 border-t border-black/[0.07] pt-5 text-[7px] font-semibold uppercase tracking-[.13em] text-[#8D8174]">
+            <span>Prompt-free planning</span><span>Independent review</span><span>Bounded repair before regeneration</span><span>Source truth over aesthetic convenience</span><span>Exact copy & data fail closed</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#151514] text-white">
+        <div className="mx-auto grid max-w-[1450px] gap-12 px-5 py-16 sm:px-7 lg:grid-cols-[.52fr_1.48fr] lg:px-10 lg:py-20">
+          <div className="max-w-[390px]"><p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">COMMERCIAL OUTPUT</p><h2 className="mt-4 text-[39px] font-medium leading-[.98] tracking-[-.05em]">Campaign-ready.<br/>Everywhere you need it.</h2><p className="mt-5 text-[10px] leading-5 text-white/50">Produce one approved master and create governed variants for every channel. Keep brand, product, typography and message consistent — from social to presentation and print.</p><a href="#formats" className="mt-6 inline-flex h-10 items-center gap-2 rounded-xl bg-white px-5 text-[10px] font-semibold text-[#191816]">See output examples <Arrow className="h-3.5 w-3.5" /></a></div>
+          <div id="formats" className="relative min-h-[420px] overflow-hidden rounded-[20px] border border-white/[0.12] bg-[#0D0D0C] shadow-[0_28px_80px_rgba(0,0,0,.24)]">
+            <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/generated/image-studio/workflow/campaign-showcase.webp)"}} />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.10)_64%,rgba(0,0,0,.55))]" />
+            <div className="absolute left-5 top-5 rounded-full border border-white/15 bg-black/28 px-3 py-1.5 text-[6px] font-semibold uppercase tracking-[.16em] text-[#E8BF88] backdrop-blur-lg">ONE MASTER · GOVERNED VARIANTS</div>
+            <div className="absolute bottom-5 left-5 right-5 flex flex-wrap items-end justify-between gap-4 rounded-[14px] border border-white/12 bg-black/38 p-4 backdrop-blur-xl">
+              <div><div className="text-[7px] font-semibold uppercase tracking-[.17em] text-[#D6A66A]">APPROVED CAMPAIGN SYSTEM</div><div className="mt-1 text-[17px] font-medium tracking-[-.03em] text-white/90">Master · Social 4:5 · Story 9:16 · Square 1:1 · Presentation 16:9</div></div>
+              <div className="text-[6px] uppercase tracking-[.13em] text-white/38">Same brand · same product · same message</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="border-t border-black/[0.06] bg-[#F7F4EE] py-5 text-center text-[7px] font-semibold uppercase tracking-[.24em] text-[#9A9187]">Your vision. Real production. Governed release.</div>
+    </main>
+  );
+}
+
+function VideoStudioPublicExperience() {
+  const chain = [
+    ["01","Direct","Treatment, story, emotion, pacing and shot purpose.","/art/video-studio/real/direct-storyboard.jpg"],
+    ["02","Previsualize","Storyboard, scene plan, camera grammar and continuity.","/art/video-studio/real/previsualize-storyboard.jpg"],
+    ["03","Build","Image Studio keyframes, products, characters, environments and source plates.","/art/video-studio/real/build-production.jpg"],
+    ["04","Shoot / Generate","Live footage, image-to-video, generated motion and CG renders.","/art/video-studio/real/shoot-camera.jpg"],
+    ["05","Reconstruct","Tracking, depth, geometry, roto, masks and camera solve.","/art/video-studio/real/reconstruct-motion-tracking.jpg"],
+    ["06","Composite","VFX, simulation, CG integration, atmosphere and relight.","/art/video-studio/real/composite-post.jpg"],
+    ["07","Edit / Color","Timeline, shot selection, transitions, pacing, picture lock and Color / DI.","/art/video-studio/real/edit-color.jpg"],
+    ["08","Master Audio","Music, dialogue, voice, Foley, SFX and spatial final mix.","/art/video-studio/real/audio-mix.jpg"],
+    ["09","Release","Master delivery, derivatives, QC, evidence and publication state.","/art/video-studio/real/release-review.jpg"],
+  ];
+  const departments = [
+    ["Image Studio","Builds the visual truth before motion begins.","Concept frames · keyframes · products · characters · environments · source plates","/creative-studios/image","/art/video-studio/real/build-production.jpg"],
+    ["Video Studio","Turns approved visual state into moving cinema.","Direction · cinematography · generation · CG · VFX · edit · Color / DI","/creative-studios/video","/art/video-studio/real/shoot-camera.jpg"],
+    ["Music Studio","Creates the emotional score as part of the film.","Original score · performance · arrangement · stems · mix · mastering · picture sync","/creative-studios/music","/art/creative-music.jpg"],
+    ["Audio Post","Builds the world you feel and the mix you hear.","Dialogue · ADR · VO · Foley · SFX · acoustics · Stereo · 5.1 · 7.1 · 7.1.4","/creative-studios/audio","/art/video-studio/real/audio-mix.jpg"],
+  ];
+  const specs = [
+    ["DIRECTION & PRODUCTION STATE","Treatment · storyboard · scenes · shots · camera intent · continuity · approved state"],
+    ["PICTURE SOURCES","Image Studio frames · live footage · image-to-video · generated footage · CG renders · reference assets"],
+    ["3D / VFX","Blender/Cycles · OpenUSD · materials · simulation · tracking · roto · AOVs · compositing · targeted pass repair"],
+    ["EDITORIAL","Shot versions · dailies · candidate review · select / reject / repair · timeline · transitions · picture lock"],
+    ["COLOR & OPTICAL","ACES / OCIO-aware color · HDR targets · lens response · grain · halation · bloom · distortion · motion character"],
+    ["MUSIC & VOICE","Picture-aware score · stems · narration · dialogue · ADR · performance continuity · singing voice in Music Studio"],
+    ["AUDIO POST","DX · ADR · VO · Foley · FX · BG · MX buses · HRTF preview · Stereo · 5.1 · 7.1 · native 7.1.4"],
+    ["MASTERING & QC","1080p · 2K · 4K · media probe · duration · fps · A/V sync · loudness · true peak · phase · downmix · final mux · lineage"],
+  ];
+  return (
+    <main className="min-h-screen bg-[#F7F3EC] text-[#1A1815]">
+      <PublicSiteHeader context="Video Studio" audience="creative" links={[{label:"Creative Studios",href:"/creative-studios",visibility:"hidden md:inline-flex"}]} />
+
+      <section className="border-b border-white/[0.08] bg-[#0D0D0C]">
+        <div className="mx-auto grid max-w-[1480px] gap-8 px-5 py-12 sm:px-7 lg:grid-cols-[.7fr_1.3fr] lg:items-stretch lg:px-10 lg:py-16">
+          <div className="flex flex-col justify-center py-6 lg:py-10">
+            <p className="text-[9px] font-semibold uppercase tracking-[.22em] text-[#D6A66A]">AVANTIQO VIDEO STUDIO</p>
+            <h1 className="mt-5 max-w-[610px] text-[54px] font-medium leading-[.94] tracking-[-.06em] text-[#F3E4CF] sm:text-[72px] lg:text-[82px]">From vision to final master.</h1>
+            <p className="mt-5 text-[15px] font-medium text-white/[0.88]">An intelligent film-production house.</p>
+            <p className="mt-5 max-w-[560px] text-[12px] leading-6 text-white/[0.58]">Direction. Picture. VFX. Music. Voice. Sound. Mastering. Video Studio directs the film while specialist Avantiqo Studios produce the visual, musical and sonic departments — all returning to one governed project, timeline and release master.</p>
+            <div className="mt-7 flex flex-wrap gap-2.5"><a href="#film-chain" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#D6A66A] px-5 text-[10px] font-semibold text-[#18130E]">Start with the production system <Arrow className="h-3.5 w-3.5" /></a><a href="#departments" className="inline-flex h-11 items-center rounded-xl border border-white/[0.15] bg-white/[0.03] px-5 text-[10px] font-semibold text-white/[0.80]">See connected studios</a></div>
+            <div className="mt-10 grid grid-cols-2 gap-5 border-t border-white/[0.09] pt-6 sm:grid-cols-4"><div><div className="text-[20px] text-[#E6B97D]">4K</div><div className="mt-1 text-[6px] uppercase tracking-[.17em] text-white/[0.35]">Master output</div></div><div><div className="text-[20px] text-[#E6B97D]">FULL STACK</div><div className="mt-1 text-[6px] uppercase tracking-[.17em] text-white/[0.35]">Film production</div></div><div><div className="text-[20px] text-[#E6B97D]">5.1 / 7.1 / 7.1.4</div><div className="mt-1 text-[6px] uppercase tracking-[.17em] text-white/[0.35]">Spatial audio</div></div><div><div className="text-[20px] text-[#E6B97D]">ONE PROJECT</div><div className="mt-1 text-[6px] uppercase tracking-[.17em] text-white/[0.35]">Governed state</div></div></div>
+          </div>
+          <div className="relative min-h-[520px] overflow-hidden rounded-[26px] border border-white/[0.10] bg-[#171614] shadow-[0_30px_90px_rgba(0,0,0,.35)]"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/video-studio/real/hero-film-set.jpg)"}}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(13,13,12,.18),rgba(13,13,12,.04)_45%,rgba(13,13,12,.28)),linear-gradient(180deg,transparent_55%,rgba(0,0,0,.68))]"/><div className="absolute left-5 top-5 rounded-full border border-[#D6A66A]/40 bg-black/[0.35] px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.18em] text-[#E5B775] backdrop-blur-lg">FILM PRODUCTION · NOT PROMPT-TO-VIDEO</div><div className="absolute bottom-5 left-5 right-5 rounded-[16px] border border-white/[0.12] bg-black/[0.45] p-4 backdrop-blur-xl"><div className="text-[7px] font-semibold uppercase tracking-[.17em] text-[#D6A66A]">ONE PRODUCTION STATE</div><p className="mt-2 text-[12px] leading-5 text-white/[0.74]">Direction → picture → VFX → edit → music → dialogue → Foley / FX → spatial mix → master → release.</p></div></div>
+        </div>
+      </section>
+
+      <section id="film-chain" className="border-b border-black/[0.07] bg-[#F7F3EC] text-[#1A1815]">
+        <div className="mx-auto max-w-[1480px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-6 lg:grid-cols-[.8fr_1.2fr] lg:items-end"><div><p className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#D6A66A]">THE FILM PRODUCTION CHAIN</p><h2 className="mt-3 text-[40px] font-medium leading-[.98] tracking-[-.05em] text-[#1D1A17] sm:text-[54px]">From concept to release.</h2></div><p className="max-w-2xl text-[11px] leading-6 text-[#6F685F] lg:justify-self-end">A governed production pipeline. Each stage is powered by the right Avantiqo Studio and returns to the same film project, timeline and release master.</p></div>
+          <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {chain.map(([n,t,d,img]) => (
+              <article key={t} className="overflow-hidden rounded-[18px] border border-black/[0.08] bg-[#FBF8F2] shadow-[0_14px_40px_rgba(46,34,23,.05)]">
+                <div className="relative aspect-[4/3] overflow-hidden bg-[#12110F]">
+                  <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${img})`}} />
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_55%,rgba(0,0,0,.28))]" />
+                  <span className="absolute left-3 top-3 rounded-full border border-white/[0.22] bg-black/[0.42] px-2 py-1 text-[6px] font-semibold text-white/[0.82] backdrop-blur-sm">{n}</span>
+                </div>
+                <div className="p-4">
+                  <h3 className="text-[14px] font-semibold text-[#2B2722]">{t}</h3>
+                  <p className="mt-2 text-[8px] leading-4 text-[#746D65]">{d}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="departments" className="border-b border-black/[0.07] bg-[#FBF8F2] text-[#1A1815]">
+        <div className="mx-auto max-w-[1480px] px-5 py-14 sm:px-7 lg:px-10 lg:py-16">
+          <div className="grid gap-6 lg:grid-cols-[.85fr_1.15fr] lg:items-end"><div><p className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#D6A66A]">ONE FILM · FOUR PRODUCTION DEPARTMENTS</p><h2 className="mt-3 text-[40px] font-medium leading-[.98] tracking-[-.05em] text-[#1D1A17] sm:text-[54px]">Specialist studios. One film.</h2></div><p className="max-w-2xl text-[11px] leading-6 text-[#6F685F] lg:justify-self-end">Video Studio is the conductor. Image, music and audio remain specialist production environments instead of being flattened into one generator.</p></div>
+          <div className="mt-8 grid gap-3 lg:grid-cols-4">{departments.map(([name,desc,meta,href,img],i)=><a key={name} href={href} className={`group overflow-hidden rounded-[22px] border bg-white transition hover:-translate-y-0.5 hover:shadow-[0_18px_50px_rgba(46,34,23,.07)] ${i===1?'border-[#D6A66A]/55':'border-black/[0.08]'}`}><div className="relative aspect-[4/3] overflow-hidden bg-[#151513]"><div className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-[1.02]" style={{backgroundImage:`url(${img})`}}/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.02)_34%,rgba(0,0,0,.80))]"/><div className="absolute bottom-4 left-4 right-4"><div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#E5B775]">{name}</div><div className="mt-2 text-[18px] leading-5 text-white">{desc}</div></div></div><div className="p-4"><p className="text-[8px] leading-4 text-[#746D65]">{meta}</p><div className="mt-4 inline-flex items-center gap-2 text-[8px] font-semibold text-[#9A6531]">Explore <Arrow className="h-3 w-3"/></div></div></a>)}</div>
+        </div>
+      </section>
+
+      <section className="border-b border-white/[0.08] bg-[#121210]">
+        <div className="mx-auto max-w-[1480px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20"><div className="grid overflow-hidden rounded-[28px] border border-white/[0.10] bg-[#171614] lg:grid-cols-[.8fr_1.2fr]"><div className="p-7 sm:p-10"><p className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#D6A66A]">PICTURE LOCK</p><h2 className="mt-4 text-[42px] font-medium leading-[.96] tracking-[-.055em] text-[#F3E4CF]">Everything meets at picture lock.</h2><p className="mt-5 max-w-[520px] text-[11px] leading-6 text-white/[0.48]">Picture, music, spoken voice and sound return to the same timeline. Audio Post builds dialogue, Foley, SFX, ambience and world acoustics, then creates stereo, 5.1, 7.1 or native 7.1.4 final mixes before the sealed soundtrack is muxed back to picture.</p><div className="mt-7 space-y-3 text-[9px] text-white/[0.64]">{["Picture lock · Video Studio","Score · Music Studio","Voice / dialogue / ADR · Audio Post","Foley / SFX / world acoustics · Audio Post","Final mix · Stereo / 5.1 / 7.1 / 7.1.4","Master · 4K picture + sealed soundtrack + derivatives"].map((x,i)=><div key={x} className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#D6A66A]/30 text-[7px] text-[#D6A66A]">{i+1}</span><span>{x}</span></div>)}</div></div><div className="relative min-h-[520px]"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/video-studio/real/audio-mix.jpg)"}}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(23,22,20,.86),rgba(23,22,20,.1)_42%,rgba(23,22,20,.24))]"/><div className="absolute bottom-6 right-6 max-w-[310px] rounded-[16px] border border-white/[0.12] bg-black/[0.45] p-4 backdrop-blur-xl"><div className="text-[8px] font-semibold uppercase tracking-[.17em] text-[#D6A66A]">SEALED SOUNDTRACK</div><div className="mt-2 text-[12px] leading-5 text-white/[0.72]">DX · ADR · VO · Foley · FX · BG · MX · spatial automation · multichannel master</div></div></div></div></div>
+      </section>
+
+      <section className="border-b border-black/[0.07] bg-[#F7F3EC] text-[#1A1815]">
+        <div className="mx-auto max-w-[1480px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20"><div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end"><div><p className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#9A6531]">TECHNICAL SPECIFICATION</p><h2 className="mt-3 max-w-[600px] text-[42px] font-medium leading-[.98] tracking-[-.055em] text-[#1D1A17] sm:text-[52px]">The production system behind the film.</h2></div><p className="max-w-2xl text-[11px] leading-6 text-[#6F685F] lg:justify-self-end">The system preserves approved work, isolates repairable departments and keeps picture, sound, evidence and release state attached to exact versions instead of regenerating the whole film when one detail fails.</p></div><div className="mt-9 grid gap-px overflow-hidden rounded-[24px] border border-black/[0.08] bg-black/[0.07] md:grid-cols-2">{specs.map(([name,detail])=><div key={name} className="bg-[#FBF8F2] p-5 sm:p-6"><div className="text-[8px] font-semibold tracking-[.16em] text-[#9A6531]">{name}</div><p className="mt-3 text-[9px] leading-5 text-[#746D65]">{detail}</p></div>)}</div><div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 border-t border-black/[0.07] pt-5 text-[7px] font-semibold uppercase tracking-[.13em] text-[#8C8175]"><span>Generation is one department</span><span>Targeted repair before regeneration</span><span>Independent review</span><span>Deterministic final mux</span><span>Deep EXR architecture · certification pending</span></div></div>
+      </section>
+
+      <section className="border-b border-white/[0.08] bg-[#11110F] text-white">
+        <div className="mx-auto max-w-[1480px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid overflow-hidden rounded-[28px] border border-white/[0.10] bg-[#171614] lg:grid-cols-[1.15fr_.85fr]">
+            <div className="relative min-h-[500px]"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/video-studio/real/edit-color.jpg)"}}/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.70))]"/><div className="absolute bottom-6 left-6 right-6"><div className="text-[8px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">FINAL MASTER · GLOBAL DELIVERY</div><h2 className="mt-3 max-w-2xl text-[42px] font-medium leading-[.96] tracking-[-.05em] text-[#F3E4CF]">Ready for every screen. Built for what’s next.</h2><p className="mt-4 max-w-xl text-[10px] leading-5 text-white/[0.62]">One approved film becomes governed cinema, broadcast, streaming, social and presentation derivatives without losing the master state.</p></div></div>
+            <div className="flex flex-col justify-center p-7 sm:p-10"><div className="space-y-4">{["4K master · up to 4096×2160","Multiple aspect ratios","HDR / SDR delivery","Stereo / 5.1 / 7.1 / 7.1.4 soundtrack options","Temporal + technical QC","Release lineage and derivatives"].map((x,i)=><div key={x} className="flex items-center gap-3 border-b border-white/[0.08] pb-4 text-[10px] text-white/[0.68]"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#D6A66A]/45 text-[7px] text-[#D6A66A]">{i+1}</span><span>{x}</span></div>)}</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-white/[0.08] bg-[#11110F] text-white"><div className="mx-auto max-w-[1480px] px-5 py-14 sm:px-7 lg:px-10 lg:py-16"><div className="grid gap-4 border-y border-white/[0.09] py-8 sm:grid-cols-3"><div><div className="text-[28px] text-[#E5B775]">Cinematic quality</div><p className="mt-2 text-[9px] text-white/[0.40]">Built for real production. 1080p, 2K and 4K masters with temporal and technical QC.</p></div><div><div className="text-[28px] text-[#E5B775]">Immersive sound</div><p className="mt-2 text-[9px] text-white/[0.40]">Stereo, 5.1, 7.1 and native 7.1.4 with HRTF preview and picture-aware acoustics.</p></div><div><div className="text-[28px] text-[#E5B775]">End-to-end governance</div><p className="mt-2 text-[9px] text-white/[0.40]">From treatment and shot state to master certification, derivatives and release evidence.</p></div></div></div></section>
+      <section className="bg-[#F7F3EC] text-[#1A1815]"><div className="mx-auto max-w-[1480px] px-5 py-20 text-center sm:px-7 lg:px-10 lg:py-24"><p className="text-[8px] font-semibold uppercase tracking-[.2em] text-[#9A6531]">AVANTIQO VIDEO STUDIO</p><h2 className="mx-auto mt-4 max-w-4xl text-[46px] font-medium leading-[.98] tracking-[-.055em] text-[#1D1A17] sm:text-[60px]">Avantiqo does not ask one model to make a movie. It runs a production.</h2><p className="mx-auto mt-5 max-w-2xl text-[11px] leading-6 text-[#6F685F]">One film project connects direction, Image Studio, Video Studio, Music Studio, spoken voice and Audio Post through picture lock, mastering, QC and release.</p><a href="/login" className="mt-8 inline-flex h-11 items-center gap-2 rounded-xl bg-[#171614] px-5 text-[10px] font-semibold text-white">Start a film project <Arrow className="h-3.5 w-3.5"/></a></div></section>
+    </main>
+  );
+}
+
+
+function MusicStudioPublicExperience() {
+  const chain = [
+    ["01","Source / brief","Start from an idea, existing song, performance, mix, MIDI or picture."],
+    ["02","Composition","Original music, songs, melody, harmony, hooks and structure."],
+    ["03","Pre-production","Arrangement, instrumentation, groove, MIDI, sampler and sound design."],
+    ["04","Record","Vocals and instruments captured as immutable takes with overdubs and take lanes."],
+    ["05","Edit & transform","Comping, source cleanup, key/tempo work, time/pitch, non-destructive edits and repair."],
+    ["06","Vocals","Lead, doubles, harmony, backing, ad-lib and choir routed deliberately."],
+    ["07","Mix","Groups, sends, EQ, dynamics, automation, stereo image, depth and translation."],
+    ["08","Master & release","Destination masters, stems, QC, lineage and release packages."],
+  ];
+  const useCases = [
+    ["Artist records","From performance and takes to a finished release master.","/art/generated/usecases/music-artist-records-v1.png"],
+    ["Brand music","Ownable sonic identity, themes and campaign music.","/art/generated/usecases/music-brand-music-v1.png"],
+    ["Film & campaign score","Music composed to picture, cue points and timecode.","/art/generated/usecases/music-film-score-v1.png"],
+    ["Vocal production","Recording, comping, role routing, tuning/timing plans and vocal finishing.","/art/generated/usecases/music-vocal-production-v1.png"],
+    ["Remix & alternate versions","Controlled re-production, stems, edits, tempo/key changes and variants.","/art/generated/usecases/music-remix-v1.png"],
+    ["Mastering & delivery","Streaming, video, club, live backing and archival master profiles.","/art/generated/usecases/music-mastering-v1.png"],
+  ];
+  const specs = [
+    ["MULTITRACK","Up to 128 tracks · 2048 clips · recording · overdub · take lanes · comping · punch in/out · loop record · clip gain · fades · reverse · warp"],
+    ["MIDI & INSTRUMENTS","Piano roll · drum sequencer · groove · harmony · sampler · owned instrument design · MIDI import/export · bounce"],
+    ["BACKING & ELASTIC AUDIO","Backing-track workflow · vocal removal · ±12 semitone key shift · tempo ratio · count-in · time-stretch · pitch/key shift · arrangement preservation · stem export"],
+    ["VOCAL ENGINEERING","Lead · double · harmony · backing · ad-lib · choir · role sub-buses · vocal master · EQ/compression · reverb/delay sends · source-preserving repair"],
+    ["MIX ENGINE","Group buses · reverb/delay auxes · sends · routing · parametric EQ · dynamics · automation · pan · phase/correlation · non-destructive processing"],
+    ["LISTENING & REPAIR","Independent listening panel · intended-vs-rendered review · protected ranges · surgical repair · version lineage · originals preserved"],
+    ["MASTERING & QC","Streaming · web video · film/video · club · live backing · archival profiles · LUFS · true peak · loudness range · mono/downmix · translation QC"],
+    ["RELEASE","Pre-master · master · track stems · group stems · instrumental · acapella · waveform · checksum · technical revalidation · delivery variants"],
+    ["READINESS GATES","Stem separation, vocal-role separation, remix, AI edit, extend and some voice paths remain certification / benchmark / research gated until their exact runtime passes readiness."],
+  ];
+  return (
+    <main className="min-h-screen bg-[#F7F4EE] text-[#191816]">
+      <PublicSiteHeader context="Music Studio" audience="creative" links={[{label:"Creative Studios",href:"/creative-studios",visibility:"hidden md:inline-flex"}]} />
+
+      <section className="border-b border-black/[0.06] bg-[#F7F4EE]">
+        <div className="mx-auto grid max-w-[1540px] lg:min-h-[650px] lg:grid-cols-[42%_58%]">
+          <div className="flex items-center px-5 py-14 sm:px-7 lg:px-10 lg:py-16 xl:px-14">
+            <div className="max-w-[590px]">
+              <p className="text-[9px] font-semibold uppercase tracking-[.22em] text-[#9A7045]">AVANTIQO MUSIC STUDIO</p>
+              <h1 className="mt-4 text-[52px] font-medium leading-[.94] tracking-[-.062em] sm:text-[64px] lg:text-[70px]">From first idea to finished record.</h1>
+              <p className="mt-5 text-[14px] font-medium text-[#5D5851]">A complete record-production environment.</p>
+              <p className="mt-5 max-w-[550px] text-[12px] leading-6 text-[#6F6961]">Create new music or start from an existing song, performance or mix. Compose, arrange, record, comp, edit, build vocals, create backing tracks, change key or tempo, separate stems, mix, master and deliver inside one governed music project. The Studio preserves original sources, versions, approvals and listening evidence instead of flattening the work into one generated file.</p>
+              <div className="mt-7 flex flex-wrap gap-2.5"><a href="/login" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171614] px-5 text-[10px] font-semibold text-white">Start a music project <Arrow className="h-3.5 w-3.5" /></a><a href="#music-chain" className="inline-flex h-11 items-center rounded-xl border border-black/[0.09] bg-white px-5 text-[10px] font-semibold text-[#56514A]">See production flow</a></div>
+              <div className="mt-9 grid grid-cols-3 border-t border-black/[0.08] pt-5">{[["25","Specialist roles"],["12","Production phases"],["24/48","Project audio standard"]].map(([v,l],i)=><div key={l} className={`${i?"border-l border-black/[0.08] pl-5":""}`}><div className="text-[20px] font-medium tracking-[-.04em] text-[#B17A42]">{v}</div><div className="mt-1 max-w-[105px] text-[6px] font-semibold uppercase leading-3 tracking-[.14em] text-[#8F887E]">{l}</div></div>)}</div>
+            </div>
+          </div>
+          <div className="flex items-center p-5 sm:p-7 lg:pl-0 lg:pr-8">
+            <div className="relative min-h-[520px] w-full overflow-hidden rounded-[20px] border border-black/[0.08] bg-[#171614] shadow-[0_28px_70px_rgba(55,36,20,.12)] lg:min-h-[560px]">
+              <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/generated/creative-music-v2.png)"}} />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.01),rgba(8,7,6,.08)_52%,rgba(8,7,6,.58))]" />
+              <div className="absolute bottom-5 left-5 right-5 rounded-[16px] border border-white/[0.14] bg-black/[0.48] p-4 text-white backdrop-blur-xl"><div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">ONE MUSIC PROJECT · FULL PRODUCTION STATE</div><div className="mt-2 text-[10px] text-white/[0.62]">Takes · arrangement · MIDI · vocals · mix · master · stems · release lineage</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="music-chain" className="border-b border-black/[0.06] bg-[#FAF8F4]">
+        <div className="mx-auto max-w-[1450px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr] lg:items-end"><div><p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">THE RECORD-PRODUCTION CHAIN</p><h2 className="mt-2 text-[34px] font-medium leading-[1.02] tracking-[-.048em] sm:text-[42px]">One record. Every department connected.</h2></div><p className="max-w-xl text-[10px] leading-5 text-[#777169] lg:justify-self-end">Music Studio can start from an idea, a performance, MIDI, existing source audio or picture — then preserve the project state through production, review, repair and delivery.</p></div>
+          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{chain.map(([n,t,d],i)=><article key={t} className="overflow-hidden rounded-[20px] border border-black/[0.07] bg-white"><div className="relative aspect-[16/9] overflow-hidden bg-[#171614]"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${studioUseCaseImage("Music Studio",i%6)})`}}/><div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,rgba(0,0,0,.42))]"/><span className="absolute left-3 top-3 rounded-full border border-white/[0.18] bg-black/[0.38] px-2 py-1 text-[7px] text-white/[0.82]">{n}</span></div><div className="p-4"><h3 className="text-[13px] font-semibold text-[#2C2925]">{t}</h3><p className="mt-2 text-[8px] leading-4 text-[#787169]">{d}</p></div></article>)}</div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#151412] text-white">
+        <div className="mx-auto max-w-[1450px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-7 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <div>
+              <p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">WORK WITH MUSIC YOU ALREADY HAVE</p>
+              <h2 className="mt-3 max-w-[560px] text-[40px] font-medium leading-[.98] tracking-[-.052em] text-[#F3E4CF] sm:text-[50px]">Not only creation. Transform the record you already have.</h2>
+            </div>
+            <p className="max-w-2xl text-[10px] leading-5 text-white/[0.48] lg:justify-self-end">Upload an existing song or mix and use the same governed production environment to prepare performance versions, change musical key or tempo, separate material, create edits and build new deliverables without losing the original source.</p>
+          </div>
+          <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["Backing tracks","Remove vocals, preserve the arrangement, add count-in and export a performance-ready backing track plus stems."],
+              ["Key & tempo","Transpose up to ±12 semitones, change tempo, time-stretch and conform material for the performer or production."],
+              ["Stems & isolation","Separate vocals, drums, bass and other material for rehearsal, remixing, editing and production workflows."],
+              ["Remix, edit & extend","Rework an existing source, replace selected sections or continue a piece through governed, readiness-gated specialist paths."],
+            ].map(([title,copy],i)=><article key={title} className="rounded-[20px] border border-white/[0.09] bg-white/[0.025] p-5"><div className="text-[7px] font-semibold tracking-[.16em] text-[#D6A66A]">0{i+1}</div><h3 className="mt-5 text-[15px] font-semibold text-[#F1E7D8]">{title}</h3><p className="mt-2 text-[9px] leading-5 text-white/[0.42]">{copy}</p></article>)}
+          </div>
+          <div className="mt-4 rounded-[18px] border border-[#D6A66A]/20 bg-[#D6A66A]/[0.045] px-5 py-4 text-[9px] leading-5 text-[#E6CFAB]/72">Existing-audio workflows preserve the uploaded source and require rights confirmation. Some separator, remix, edit and extension paths remain certification or benchmark gated until their exact execution runtime passes readiness.</div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#FAF8F4]">
+        <div className="mx-auto max-w-[1450px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <div>
+              <p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">INSIDE MUSIC STUDIO</p>
+              <h2 className="mt-3 max-w-[600px] text-[40px] font-medium leading-[.98] tracking-[-.052em] sm:text-[50px]">A full workstation, not one generation button.</h2>
+            </div>
+            <p className="max-w-2xl text-[10px] leading-5 text-[#6E675F] lg:justify-self-end">The Studio exposes dedicated production rooms for creation, recording, arranging, MIDI, vocals, transformation, mixing, mastering, repair and delivery. The customer does not have to start from a blank song.</p>
+          </div>
+          <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["Create a Song","Composition, form, melody, harmony, rhythm, production direction and original music development."],
+              ["Make a Backing Track","Existing song → vocal removal, key/tempo control, count-in, stems and performance-ready exports."],
+              ["Record Audio","Take registration, overdubs, punch in/out, loop recording, take lanes and comping."],
+              ["Arrangement","Intro / verse / chorus / bridge / breakdown / solo / outro structure with non-destructive material repeats."],
+              ["MIDI Studio","Piano roll, drums, groove, harmony, sampler, owned instruments, control automation, import/export and bounce."],
+              ["Producer","Production decisions, source readiness, arrangement, musical development and specialist handoff."],
+              ["Vocals","Lead, double, harmony, backing, ad-lib and choir roles, pitch/timing analysis, tuning plans and vocal buses."],
+              ["Time & Pitch","Elastic audio, key change, tempo change, musical analysis, timing correction and pitch-aware transformation."],
+              ["Separate Stems","Vocals, drums, bass and other material for rehearsal, remixing, editing and downstream production."],
+              ["Remix / Cover","Rework an existing source into a new musical direction with source preservation and governed planning."],
+              ["Edit / Repaint","Replace only the section that needs changing instead of regenerating the whole piece."],
+              ["Extend","Continue a source track beyond its ending with temporal continuity controls and explicit readiness gates."],
+              ["Mix","Group buses, aux sends, inserts, parametric EQ, dynamics, automation, pan, phase/correlation and master-bus control."],
+              ["Master","Destination mastering for streaming, web video, film/video, club, live backing and archival delivery."],
+              ["Quality Control","Independent listening, technical validation, intended-vs-rendered review and translation checks."],
+              ["Repair & Delivery","Automatic technical repair, surgical repair, version restore, release render, stems, checksums and master lineage."],
+            ].map(([title,copy],i)=><article key={title} className="rounded-[19px] border border-black/[0.07] bg-white p-5"><div className="text-[7px] font-semibold tracking-[.16em] text-[#B27A43]">{String(i+1).padStart(2,"0")}</div><h3 className="mt-5 text-[14px] font-semibold text-[#2D2925]">{title}</h3><p className="mt-2 text-[8px] leading-4 text-[#777067]">{copy}</p></article>)}
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+            <div className="rounded-[18px] border border-black/[0.07] bg-[#F3EEE6] p-5"><div className="text-[8px] font-semibold tracking-[.16em] text-[#9A6531]">SOURCE PRESERVATION</div><p className="mt-2 text-[9px] leading-5 text-[#6E675F]">Original audio remains immutable while edits, processing, repairs and versions are tracked separately.</p></div>
+            <div className="rounded-[18px] border border-black/[0.07] bg-[#F3EEE6] p-5"><div className="text-[8px] font-semibold tracking-[.16em] text-[#9A6531]">VERSION LINEAGE</div><p className="mt-2 text-[9px] leading-5 text-[#6E675F]">Approved states, changes, renders, listening evidence and release masters remain connected to exact versions.</p></div>
+            <div className="rounded-[18px] border border-[#D6A66A]/28 bg-[#FBF2E5] p-5"><div className="text-[8px] font-semibold tracking-[.16em] text-[#9A6531]">READINESS-AWARE EXECUTION</div><p className="mt-2 text-[9px] leading-5 text-[#6E675F]">Capabilities that still require separator certification, benchmark evidence or human listening approval stay visibly gated instead of being silently substituted.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#F7F4EE]">
+        <div className="mx-auto max-w-[1450px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">WHAT IT CAN PRODUCE</p><h2 className="mt-2 max-w-3xl text-[36px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[44px]">Music built for artists, brands, film and live performance.</h2>
+          <div className="mt-8 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{useCases.map(([name,copy,img],i)=><article key={name} className="overflow-hidden rounded-[22px] border border-black/[0.07] bg-white"><div className="relative aspect-[16/9] overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${img})`}}/><div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_48%,rgba(0,0,0,.44))]"/><span className="absolute left-3 top-3 rounded-full border border-white/[0.20] bg-black/[0.35] px-2 py-1 text-[7px] text-white/[0.78]">0{i+1}</span></div><div className="p-5"><h3 className="text-[15px] font-semibold text-[#2C2925]">{name}</h3><p className="mt-2 text-[9px] leading-5 text-[#746D65]">{copy}</p></div></article>)}</div>
+        </div>
+      </section>
+
+      <section className="bg-[#141311] text-white">
+        <div className="mx-auto grid max-w-[1450px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[.72fr_1.28fr] lg:px-10 lg:py-20">
+          <div className="max-w-[420px]"><p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">THE ENGINEERING ROOM</p><h2 className="mt-4 text-[43px] font-medium leading-[.96] tracking-[-.055em] text-[#F3E4CF]">Record. Shape. Mix. Master.</h2><p className="mt-5 text-[10px] leading-5 text-white/[0.50]">The browser preview is not the release master. The Studio keeps source, routing, automation, buses, versions and release rendering explicit so approved work can be repaired without destroying the session.</p></div>
+          <div className="grid gap-px overflow-hidden rounded-[24px] border border-white/[0.10] bg-white/[0.08] sm:grid-cols-2">{[["Recording","Immutable takes · overdubs · punch · loop record · latency compensation"],["Arrangement & MIDI","Structure · groove · harmony · piano roll · drums · sampler · instruments"],["Vocal production","Role hierarchy · comping · source cleanup · timing/pitch plans · vocal buses"],["Mix architecture","Groups · aux sends · EQ · dynamics · automation · stereo/phase monitoring"],["Premaster review","Independent listening · intended-vs-rendered · translation · targeted repair"],["Master & release","Destination profiles · LUFS · true peak · stems · delivery variants · lineage"]].map(([t,c])=><div key={t} className="bg-[#171614] p-5 sm:p-6"><div className="text-[8px] font-semibold uppercase tracking-[.16em] text-[#D6A66A]">{t}</div><p className="mt-3 text-[9px] leading-5 text-white/[0.46]">{c}</p></div>)}</div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#FBF8F2]">
+        <div className="mx-auto max-w-[1450px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end"><div><p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">TECHNICAL SPECIFICATION</p><h2 className="mt-3 max-w-[560px] text-[40px] font-medium leading-[.98] tracking-[-.052em] sm:text-[50px]">The production system behind the record.</h2></div><p className="max-w-2xl text-[11px] leading-6 text-[#6E675F] lg:justify-self-end">Music Studio is built around non-destructive project state, source preservation, exact routing, independent listening, governed repair and release-specific mastering rather than one generic output.</p></div>
+          <div className="mt-9 grid gap-px overflow-hidden rounded-[24px] border border-black/[0.08] bg-black/[0.08] md:grid-cols-2">{specs.map(([name,detail])=><div key={name} className="bg-[#F6F1E9] p-5 sm:p-6"><div className="text-[8px] font-semibold tracking-[.16em] text-[#9A6531]">{name}</div><p className="mt-3 text-[10px] leading-5 text-[#6D665E]">{detail}</p></div>)}</div>
+        </div>
+      </section>
+
+      <section className="bg-[#F7F4EE]">
+        <div className="mx-auto max-w-[1450px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="relative overflow-hidden rounded-[28px] border border-black/[0.08] bg-[#171614] px-6 py-14 text-center text-white sm:px-10 lg:py-16"><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(214,166,106,.18),transparent_38%)]"/><div className="relative"><p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">AVANTIQO MUSIC STUDIO</p><h2 className="mx-auto mt-4 max-w-4xl text-[38px] font-medium leading-[1.01] tracking-[-.05em] text-[#F3E4CF] sm:text-[50px]">Produce the record, not just the song.</h2><p className="mx-auto mt-4 max-w-xl text-[10px] leading-5 text-white/[0.46]">One project for creation, existing-song transformation, backing tracks, recording, MIDI, vocals, arrangement, mix, master, stems, repair and delivery.</p><a href="/login" className="mt-7 inline-flex h-11 items-center gap-2 rounded-xl bg-[#E4B36F] px-5 text-[10px] font-semibold text-[#17130E]">Start a music project <Arrow className="h-3.5 w-3.5" /></a></div></div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+
+function AudioStudioPublicExperience() {
+  const chain = [
+    ["01","Spot","Lock picture, timecode, cues, dialogue, music and sonic intent."],
+    ["02","Dialogue / ADR","Edit production dialogue, prepare replacement material and match ADR continuity."],
+    ["03","Foley","Build footsteps, cloth, props, surfaces, machines, vehicles and tactile detail."],
+    ["04","Sound design","Create impacts, transitions, mechanical layers, subs, sweeteners and designed effects."],
+    ["05","World acoustics","Model perspective, occlusion, room behavior, reflection and picture-aware acoustic change."],
+    ["06","Spatial mix","Position and automate sound through stereo, HRTF preview and multichannel speaker layouts."],
+    ["07","Premix / re-record","Route DX, ADR, VO, Foley, FX, backgrounds and music through controlled buses and stems."],
+    ["08","Master & deliver","Validate loudness, true peak, phase, downmix, stems, multichannel masters and final picture mux."],
+  ];
+  const useCases = [
+    ["Dialogue & ADR","Production dialogue cleanup, timing, continuity, ADR recording/matching and source-preserving repair.","/art/audio-post/real/usecase-dialogue-adr.jpg"],
+    ["Foley & tactile sound","Footsteps, cloth, props, surfaces, impacts and physical detail built as editable production layers.","/art/audio-post/real/usecase-foley-tactile.jpg"],
+    ["Cinematic sound design","Machines, vehicles, transitions, impacts, low-end design, ambience and editorial effects.","/art/audio-post/real/usecase-sound-design.jpg"],
+    ["Premix & final mix","Dialogue-priority routing, buses, sends, automation, reverbs, dynamics and picture-locked balancing.","/art/audio-post/real/usecase-premix-final.jpg"],
+    ["Immersive production","HRTF binaural preview plus stereo, 5.1, 7.1 and 7.1.4 production with picture-aware movement and room behavior.","/art/audio-post/real/usecase-immersive.jpg"],
+    ["Mastering & versioning","DX / FX / MX / M&E stems, loudness and true-peak validation, downmix QC, versions and picture-ready delivery.","/art/audio-post/real/usecase-mastering.jpg"],
+  ];
+  const specs = [
+    ["PICTURE & TIMECODE","Spotting · picture lock · cue timing · sample-accurate placement · source lineage · version state"],
+    ["DIALOGUE / ADR","DX editorial · cleanup · timing · continuity · ADR matching · replacement-ready material · dialogue stems"],
+    ["FOLEY","Footsteps · cloth · props · surfaces · machines · vehicles · tactile detail · picture sync"],
+    ["SFX / SOUND DESIGN","Impacts · transitions · mechanical layers · subs · sweeteners · designed effects · ambience · source libraries"],
+    ["WORLD ACOUSTICS","Material-aware occlusion · attenuation · high-frequency loss · changing room/reflection behavior · acoustic continuity"],
+    ["SPATIAL / OBJECT AUDIO","Screen position · trajectory · distance · automation · room response · HRTF preview · LFE eligibility"],
+    ["MIX ARCHITECTURE","DX · ADR · VO · Foley · FX · BG · MX buses · sends · dynamics · reverbs · phase/correlation · stem architecture"],
+    ["MASTERING & QC","Stereo · 5.1 · 7.1 · 7.1.4 · loudness · true peak · dynamic range · mono/downmix · translation QC · final mux"],
+  ];
+  return (
+    <main className="min-h-screen bg-[#F7F4EE] text-[#191816]">
+      <PublicSiteHeader context="Audio Post" audience="creative" links={[{label:"Creative Studios",href:"/creative-studios",visibility:"hidden md:inline-flex"}]} />
+
+      <section className="border-b border-black/[0.06] bg-[#F7F4EE]">
+        <div className="mx-auto grid max-w-[1540px] lg:min-h-[650px] lg:grid-cols-[42%_58%]">
+          <div className="flex items-center px-5 py-14 sm:px-7 lg:px-10 lg:py-16 xl:px-14">
+            <div className="max-w-[600px]">
+              <p className="text-[9px] font-semibold uppercase tracking-[.22em] text-[#9A7045]">AVANTIQO AUDIO POST</p>
+              <h1 className="mt-4 text-[52px] font-medium leading-[.94] tracking-[-.062em] sm:text-[64px] lg:text-[70px]">Build the world you hear.</h1>
+              <p className="mt-5 text-[14px] font-medium text-[#5D5851]">A complete sound-to-picture production environment.</p>
+              <p className="mt-5 max-w-[560px] text-[12px] leading-6 text-[#6F6961]">Audio stays locked to picture and timecode from spotting through final master. Dialogue, ADR, Foley, ambience, designed SFX, music, object movement, world acoustics, routing, automation, premix, spatial monitoring, multichannel mastering, stems and QC remain connected in one governed project.</p>
+              <div className="mt-7 flex flex-wrap gap-2.5"><a href="/login" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171614] px-5 text-[10px] font-semibold text-white">Start an audio project <Arrow className="h-3.5 w-3.5" /></a><a href="#audio-chain" className="inline-flex h-11 items-center rounded-xl border border-black/[0.09] bg-white px-5 text-[10px] font-semibold text-[#56514A]">See production flow</a></div>
+              <div className="mt-9 grid grid-cols-3 border-t border-black/[0.08] pt-5">{[["DX→MX","Full post chain"],["HRTF","Binaural preview"],["5.1 / 7.1 / 7.1.4","Multichannel"]].map(([v,l],i)=><div key={l} className={`${i?"border-l border-black/[0.08] pl-5":""}`}><div className="text-[18px] font-medium tracking-[-.04em] text-[#B17A42]">{v}</div><div className="mt-1 max-w-[120px] text-[6px] font-semibold uppercase leading-3 tracking-[.14em] text-[#8F887E]">{l}</div></div>)}</div>
+            </div>
+          </div>
+          <div className="flex items-center p-5 sm:p-7 lg:pl-0 lg:pr-8">
+            <div className="relative min-h-[520px] w-full overflow-hidden rounded-[22px] border border-black/[0.08] bg-[#171614] shadow-[0_28px_70px_rgba(55,36,20,.12)] lg:min-h-[560px]">
+              <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/audio-post/real/hero-control-room.jpg)"}} />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,7,6,.01),rgba(8,7,6,.05)_48%,rgba(8,7,6,.62))]" />
+              <div className="absolute bottom-5 left-5 right-5 rounded-[16px] border border-white/[0.14] bg-black/[0.48] p-4 text-white backdrop-blur-xl"><div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">PICTURE-LOCKED SOUND · SOURCE TO MASTER</div><div className="mt-2 text-[10px] text-white/[0.62]">DX · ADR · Foley · FX · ambience · music · spatial mix · stems · master</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="audio-chain" className="border-b border-black/[0.06] bg-[#FAF8F4]">
+        <div className="mx-auto max-w-[1450px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr] lg:items-end"><div><p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">THE SOUND-TO-PICTURE CHAIN</p><h2 className="mt-2 text-[34px] font-medium leading-[1.02] tracking-[-.048em] sm:text-[42px]">From picture lock to final mix.</h2></div><p className="max-w-xl text-[10px] leading-5 text-[#777169] lg:justify-self-end">Each department stays editable and versioned, so dialogue, Foley, acoustics, spatial movement or mastering can be repaired without flattening the entire soundtrack.</p></div>
+          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{chain.map(([n,t,d],i)=><article key={t} className="overflow-hidden rounded-[20px] border border-black/[0.07] bg-white"><div className="relative aspect-[16/9] overflow-hidden bg-[#171614]"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${["/art/audio-post/real/spot-sound-session.jpg","/art/audio-post/real/dialogue-adr-session.jpg","/art/audio-post/real/foley-footsteps-real.jpg","/art/audio-post/real/sound-design-edit.jpg","/art/audio-post/real/world-acoustics-room.jpg","/art/audio-post/real/spatial-mix-monitoring.jpg","/art/audio-post/real/premix-rerecord-team.jpg","/art/audio-post/real/mastering-delivery-qc.jpg"][i]})`,filter:"saturate(.82) contrast(1.03) brightness(.92)"}}/><div className="absolute inset-0 bg-[#5A3A22]/[0.08] mix-blend-multiply"/><div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_48%,rgba(0,0,0,.38))]"/><span className="absolute left-3 top-3 rounded-full border border-white/[0.18] bg-black/[0.38] px-2 py-1 text-[7px] text-white/[0.82]">{n}</span></div><div className="p-4"><h3 className="text-[13px] font-semibold text-[#2C2925]">{t}</h3><p className="mt-2 text-[8px] leading-4 text-[#787169]">{d}</p></div></article>)}</div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#F7F4EE]">
+        <div className="mx-auto max-w-[1450px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">INSIDE AUDIO POST</p><h2 className="mt-2 max-w-3xl text-[36px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[44px]">A real post-production department, not an effect added at the end.</h2>
+          <div className="mt-8 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{useCases.map(([name,copy,img],i)=><article key={name} className="overflow-hidden rounded-[22px] border border-black/[0.07] bg-white"><div className="relative aspect-[16/9] overflow-hidden"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:`url(${img})`,filter:"saturate(.82) contrast(1.03) brightness(.92)"}}/><div className="absolute inset-0 bg-[#5A3A22]/[0.08] mix-blend-multiply"/><div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_48%,rgba(0,0,0,.42))]"/><span className="absolute left-3 top-3 rounded-full border border-white/[0.20] bg-black/[0.35] px-2 py-1 text-[7px] text-white/[0.78]">0{i+1}</span></div><div className="p-5"><h3 className="text-[15px] font-semibold text-[#2C2925]">{name}</h3><p className="mt-2 text-[9px] leading-5 text-[#746D65]">{copy}</p></div></article>)}</div>
+        </div>
+      </section>
+
+      <section className="bg-[#141311] text-white">
+        <div className="mx-auto grid max-w-[1450px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[.72fr_1.28fr] lg:px-10 lg:py-20">
+          <div className="max-w-[440px]"><p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">PICTURE-AWARE ACOUSTICS</p><h2 className="mt-4 text-[43px] font-medium leading-[.96] tracking-[-.055em] text-[#F3E4CF]">Sound changes when the world changes.</h2><p className="mt-5 text-[10px] leading-5 text-white/[0.50]">Walls, glass, wood, vehicle bodies, brick, concrete, metal and curtains can affect attenuation, high-frequency loss and occlusion. Room and reflection behavior can evolve with picture instead of staying as one static reverb.</p></div>
+          <div className="relative min-h-[470px] overflow-hidden rounded-[24px] border border-white/[0.10]"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/audio-post/real/mix-console.jpg)"}}/><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(20,19,17,.78),rgba(20,19,17,.18)_48%,rgba(20,19,17,.35))]"/><div className="absolute bottom-6 left-6 right-6 grid gap-px overflow-hidden rounded-[16px] border border-white/[0.10] bg-white/[0.08] sm:grid-cols-4">{[["OCCLUSION","Material + movement"],["PERSPECTIVE","Distance + screen relation"],["ROOM","Reflection + tone"],["AUTOMATION","Picture-locked change"]].map(([a,b])=><div key={a} className="bg-black/[0.48] p-4 backdrop-blur-md"><div className="text-[7px] font-semibold tracking-[.15em] text-[#D6A66A]">{a}</div><div className="mt-2 text-[8px] text-white/[0.45]">{b}</div></div>)}</div></div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/[0.06] bg-[#FBF8F2]">
+        <div className="mx-auto max-w-[1450px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:items-end"><div><p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">TECHNICAL SPECIFICATION</p><h2 className="mt-3 max-w-[560px] text-[40px] font-medium leading-[.98] tracking-[-.052em] sm:text-[50px]">The production system behind the soundtrack.</h2></div><p className="max-w-2xl text-[11px] leading-6 text-[#6E675F] lg:justify-self-end">Original sources remain preserved while processing, matched ADR, repairs, automation, mixes, stems and masters remain versioned and reviewable.</p></div>
+          <div className="mt-9 grid gap-px overflow-hidden rounded-[24px] border border-black/[0.08] bg-black/[0.08] md:grid-cols-2">{specs.map(([name,detail])=><div key={name} className="bg-[#F6F1E9] p-5 sm:p-6"><div className="text-[8px] font-semibold tracking-[.16em] text-[#9A6531]">{name}</div><p className="mt-3 text-[10px] leading-5 text-[#6D665E]">{detail}</p></div>)}</div>
+          <div className="mt-5 rounded-[18px] border border-[#B98751]/20 bg-white/50 p-5 text-[9px] leading-5 text-[#6C645B]"><span className="font-semibold text-[#8A633C]">Dolby Atmos:</span> 7.1.4 and object/bed production concepts can be used in the Studio. A deliverable should only be marketed as Dolby Atmos certified when the licensed Dolby renderer, monitoring and delivery chain are actually connected and certified.</div>
+        </div>
+      </section>
+
+      <section className="bg-[#F7F4EE]">
+        <div className="mx-auto max-w-[1450px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20"><div className="relative overflow-hidden rounded-[28px] border border-black/[0.08] bg-[#171614] px-6 py-14 text-center text-white sm:px-10 lg:py-16"><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(214,166,106,.18),transparent_38%)]"/><div className="relative"><p className="text-[8px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">AVANTIQO AUDIO POST</p><h2 className="mx-auto mt-4 max-w-4xl text-[38px] font-medium leading-[1.01] tracking-[-.05em] text-[#F3E4CF] sm:text-[50px]">Build the world, not just the audio track.</h2><p className="mx-auto mt-4 max-w-xl text-[10px] leading-5 text-white/[0.46]">One project from spotting and source audio through dialogue, Foley, world acoustics, spatial mix, multichannel master and delivery.</p><a href="/login" className="mt-7 inline-flex h-11 items-center gap-2 rounded-xl bg-[#E4B36F] px-5 text-[10px] font-semibold text-[#17130E]">Start an audio project <Arrow className="h-3.5 w-3.5" /></a></div></div></div>
+      </section>
+    </main>
+  );
+}
+
+export default function CreativeStudioProductPage({
+  studio,
+  title,
+  subtitle,
+  description,
+  capabilities,
+  useCases,
+  cta,
+}) {
+  if (studio.startsWith("Image")) return <ImageStudioPublicExperience />;
+  if (studio.startsWith("Video")) return <VideoStudioPublicExperience />;
+  if (studio.startsWith("Music")) return <MusicStudioPublicExperience />;
+  if (studio.startsWith("Audio")) return <AudioStudioPublicExperience />;
   return (
     <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
       <header className="sticky top-0 z-50 border-b border-black/[0.07] bg-[#F7F6F3]/95 backdrop-blur-xl">

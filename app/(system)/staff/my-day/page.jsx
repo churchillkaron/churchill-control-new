@@ -79,7 +79,7 @@ export default function StaffMyDayPage() {
     const key = `${job.id}:${action}`;
     setState((current) => ({ ...current, working: key, error: "", message: "" }));
     try {
-      const location = await currentLocation();
+      const location = job.requiresLocationConfirmation ? await currentLocation() : null;
       const response = await fetch("/api/staff/my-day", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -148,7 +148,7 @@ export default function StaffMyDayPage() {
             <div>
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#D6A66A]"><Navigation className="h-4 w-4" /> Personal execution queue</div>
               <h1 className="mt-3 text-3xl font-black">My Day</h1>
-              <p className="mt-2 max-w-3xl text-sm text-[#8A847C]">Only work assigned to you for the active organization and business day appears here. Start and completion actions are GPS-bound and completion protocols are enforced server-side.</p>
+              <p className="mt-2 max-w-3xl text-sm text-[#8A847C]">Only work assigned to you for the active organization and business day appears here. Location proof is required only when the assignment or protocol needs it; completion protocols are enforced server-side.</p>
             </div>
             <button onClick={load} disabled={state.loading} className="flex h-11 items-center gap-2 rounded-xl border border-black/[0.08] px-4 text-xs font-black uppercase tracking-[0.14em] text-[#67615A] disabled:opacity-40"><RefreshCw className="h-4 w-4" /> Refresh</button>
           </div>
@@ -186,13 +186,13 @@ export default function StaffMyDayPage() {
                         <span className="rounded-full border border-black/[0.08] px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-[#948E86]">{job.status}</span>
                         <span className="rounded-full border border-black/[0.08] px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-[#948E86]">{job.priority || "normal"}</span>
                       </div>
-                      <h2 className="mt-3 text-xl font-black tracking-[-0.02em] sm:text-2xl">{job.serviceName}</h2>
-                      <div className="mt-1 text-sm text-[#79736B]">{job.customerName}</div>
+                      <h2 className="mt-3 text-xl font-black tracking-[-0.02em] sm:text-2xl">{job.serviceName || job.actionNoun || "Assigned work"}</h2>
+                      <div className="mt-1 text-sm text-[#79736B]"><span className="text-[10px] uppercase tracking-[0.12em] text-[#AAA49C]">{job.subjectLabel || "Work"}</span> · {job.subjectName || job.customerName || job.name || "Assigned work"}</div>
                       {job.description ? <p className="mt-3 max-w-3xl text-sm leading-6 text-[#8A847C]">{job.description}</p> : null}
                     </div>
                     <div className="grid w-full gap-2 text-xs sm:grid-cols-2 lg:w-auto lg:min-w-64 lg:grid-cols-1">
                       <Info icon={Clock3} label="Scheduled" value={job.scheduledStart ? dateTime(job.scheduledStart) : "Not scheduled"} />
-                      <Info icon={MapPin} label="Location" value={job.destination || job.locationName || "No destination recorded"} />
+                      <Info icon={MapPin} label={job.requiresLocationConfirmation ? "Verified location" : "Location"} value={job.destination || job.locationName || (job.requiresLocationConfirmation ? "Location required" : "No location required")} />
                     </div>
                   </div>
 

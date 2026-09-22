@@ -31,6 +31,13 @@ const PRIMARY_AREAS = [
     href: "/creative-studios",
     image: "/art/generated/products/products-creative-v2.png",
   },
+]
+
+const INDUSTRIES = [
+  ["Restaurant", "/solutions/restaurant", "/art/generated/solutions/verticals/solution-restaurant-v1.png"],
+  ["Hotel", "/solutions/hotel", "/art/generated/solutions/verticals/solution-hotel-v1.png"],
+  ["Retail", "/solutions/retail", "/art/generated/solutions/verticals/solution-retail-v1.png"],
+  ["Construction", "/solutions/construction", "/art/generated/solutions/verticals/solution-construction-v1.png"],
 ];
 
 function Arrow(){return <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}

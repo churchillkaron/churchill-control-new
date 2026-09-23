@@ -24,7 +24,7 @@ async function handleCronGet(request) {
     );
   }
 
-  const reconciled = await reconcileStaleSecretarySipCalls({ limit: 100 });
+  const reconciled = await reconcileStaleSecretarySipCalls({ limit: 25 });
   const readiness = secretarySipGatewayReadiness();
   if (!readiness.ready) {
     return Response.json(
@@ -43,7 +43,7 @@ async function handleCronGet(request) {
   }
 
   const url = new URL(request.url);
-  const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 4, 12));
+  const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 2, 6));
   const results = [];
 
   for (let index = 0; index < limit; index += 1) {

@@ -22,7 +22,7 @@ async function handleCronGet(request) {
   }
 
   try {
-    const result = await syncDueEmailConnections({ limit: 3 });
+    const result = await syncDueEmailConnections({ limit: 1 });
     return Response.json(result, {
       status: result.success ? 200 : 207,
     });

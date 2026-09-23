@@ -18,7 +18,7 @@ async function handleCronGet(request) {
   }
 
   try {
-    const result = await processShopifyEvents({ limit: 10 });
+    const result = await processShopifyEvents({ limit: 5 });
     return NextResponse.json(result, {
       status: result.failed > 0 ? 207 : 200,
     });

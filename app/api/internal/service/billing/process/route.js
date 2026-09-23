@@ -24,7 +24,7 @@ async function handleCronGet(request) {
     const url = new URL(request.url);
     const limit = Math.max(
       1,
-      Math.min(Number(url.searchParams.get("limit")) || 25, 100),
+      Math.min(Number(url.searchParams.get("limit")) || 10, 25),
     );
     const result = await ServiceBillingQueueRuntime.process({ limit });
     return Response.json(result, {

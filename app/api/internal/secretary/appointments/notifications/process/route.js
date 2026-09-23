@@ -25,7 +25,7 @@ async function handleCronGet(request) {
 
   try {
     const url = new URL(request.url);
-    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 8, 20));
+    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 4, 10));
     const workerId = `secretary-appointment-notification:${crypto.randomUUID()}`;
     const materialized = await materializeSecretaryAppointmentReminders({ now: new Date() });
     const results = [];

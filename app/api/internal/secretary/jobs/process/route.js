@@ -23,9 +23,9 @@ async function handleCronGet(request) {
 
   try {
     const url = new URL(request.url);
-    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 3, 8));
+    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 2, 4));
     const workerId = `secretary-job:${crypto.randomUUID()}`;
-    const paperworkPreparation = await prepareSecretaryPaperworkExecution({ limit: 200 });
+    const paperworkPreparation = await prepareSecretaryPaperworkExecution({ limit: 25 });
     const results = [];
 
     for (let index = 0; index < limit; index += 1) {

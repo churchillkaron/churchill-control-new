@@ -18,7 +18,7 @@ async function handleCronGet(request) {
 
   try {
     const url = new URL(request.url);
-    const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 10, 1), 50);
+    const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 3, 1), 10);
     const result = await runDueAutonomousPaperCycles({ limit });
     return Response.json(result, { status: result.failed > 0 ? 207 : 200 });
   } catch (error) {

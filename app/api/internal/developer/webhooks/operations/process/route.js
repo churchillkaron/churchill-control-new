@@ -21,7 +21,7 @@ export async function GET(request) {
   }
 
   const url = new URL(request.url);
-  const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 10, 50));
+  const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 5, 20));
 
   try {
     const result = await processDeveloperOperationsWebhookProjections({ limit });

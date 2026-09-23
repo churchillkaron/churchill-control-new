@@ -30,7 +30,7 @@ async function handleCronGet(request) {
   }
 
   const url = new URL(request.url);
-  const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 4, 12));
+  const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 2, 6));
   const waitHours = Math.max(1, Math.min(Number(url.searchParams.get("wait_hours")) || 24, 24 * 14));
   const workerId = `secretary-message:${crypto.randomUUID()}`;
   const results = [];
@@ -38,7 +38,7 @@ async function handleCronGet(request) {
   let waitingExternal = null;
 
   try {
-    triageRepair = await repairSecretaryMissingInboundTriage({ limit: Math.max(10, limit * 4) });
+    triageRepair = await repairSecretaryMissingInboundTriage({ limit: Math.max(4, limit * 2) });
   } catch (error) {
     triageRepair = {
       status: "failed",
@@ -52,7 +52,7 @@ async function handleCronGet(request) {
   try {
     waitingExternal = await reconcileSecretaryWaitingExternal({
       waitHours,
-      limit: Math.max(10, limit * 4),
+      limit: Math.max(4, limit * 2),
     });
   } catch (error) {
     waitingExternal = {

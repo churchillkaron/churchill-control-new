@@ -22,7 +22,7 @@ function hasSupabaseSessionCookie(request) {
 }
 
 async function refreshSupabaseSession(request) {
-  if (!hasSupabaseSessionCookie(request)) {
+  if (request.nextUrl.pathname.startsWith("/api/") || !hasSupabaseSessionCookie(request)) {
     return NextResponse.next({ request });
   }
   let response = NextResponse.next({ request });
@@ -48,7 +48,12 @@ async function refreshSupabaseSession(request) {
     },
   );
 
-  await supabase.auth.getClaims();
+  await Promise.race([
+    supabase.auth.getClaims().catch((error) => {
+      console.warn("MIDDLEWARE_SESSION_REFRESH_FAILED", error?.message || String(error));
+    }),
+    new Promise((resolve) => setTimeout(resolve, 2500)),
+  ]);
   return response;
 }
 function launchInvestorV7(request, event) {

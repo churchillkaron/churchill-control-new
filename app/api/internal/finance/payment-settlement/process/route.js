@@ -23,7 +23,7 @@ export async function GET(request) {
     const url = new URL(request.url);
     const limit = Math.max(
       1,
-      Math.min(Number(url.searchParams.get("limit")) || 200, 1000),
+      Math.min(Number(url.searchParams.get("limit")) || 25, 100),
     );
 
     const result = await ReconciledPaymentSettlementRuntime.reconcile({

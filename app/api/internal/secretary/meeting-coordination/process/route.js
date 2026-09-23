@@ -25,7 +25,7 @@ async function handleCronGet(request) {
 
   try {
     const url = new URL(request.url);
-    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 3, 8));
+    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 2, 4));
     const workerId = `secretary-meeting-coordination:${crypto.randomUUID()}`;
     const recurringNotificationRepair = await repairSecretaryRecurringMeetingNotifications({ limit });
     const changeNotificationRepair = await repairSecretaryBookedMeetingChangeNotifications({ limit });

@@ -45,12 +45,12 @@ async function handleCronGet(request) {
 
   try {
     const url = new URL(request.url);
-    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 6, 16));
+    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 3, 8));
     const workerId = `secretary-follow-up:${crypto.randomUUID()}`;
 
     const [materialized, reconciled] = await Promise.all([
       materializeSecretaryFollowUpExecutions({ now: new Date() }),
-      reconcileQueuedSecretaryFollowUpExecutions({ limit: 100 }),
+      reconcileQueuedSecretaryFollowUpExecutions({ limit: 25 }),
     ]);
 
     const escalations = [];

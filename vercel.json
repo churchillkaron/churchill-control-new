@@ -136,7 +136,7 @@
     },
     {
       "path": "/api/internal/service/billing/process",
-      "schedule": "* * * * *"
+      "schedule": "*/2 * * * *"
     },
     {
       "path": "/api/internal/service/revenue/reconcile",
@@ -144,7 +144,7 @@
     },
     {
       "path": "/api/internal/reputation/google-reviews/process",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 0,8,16 * * *"
     },
     {
       "path": "/api/internal/reputation/google-reviews/repair-duplicates?organization_id=33336a72-acb5-474e-856b-8be0269360e2&limit=5",
@@ -152,7 +152,7 @@
     },
     {
       "path": "/api/internal/commercial/loyalty/process-events",
-      "schedule": "* * * * *"
+      "schedule": "1-59/2 * * * *"
     },
     {
       "path": "/api/internal/commercial/communications/meta-history-sync",
@@ -160,11 +160,11 @@
     },
     {
       "path": "/api/internal/commercial/communications/email-inbox-sync",
-      "schedule": "* * * * *"
+      "schedule": "2-59/5 * * * *"
     },
     {
       "path": "/api/internal/commerce/shopify/project-events",
-      "schedule": "* * * * *"
+      "schedule": "1-59/2 * * * *"
     },
     {
       "path": "/api/internal/commerce/shopify/reconcile",
@@ -172,11 +172,11 @@
     },
     {
       "path": "/api/internal/inventory/shopify/process",
-      "schedule": "* * * * *"
+      "schedule": "*/2 * * * *"
     },
     {
       "path": "/api/internal/finance/shopify/process",
-      "schedule": "* * * * *"
+      "schedule": "1-59/2 * * * *"
     },
     {
       "path": "/api/internal/finance/forecast-exception-escalations/process",
@@ -184,7 +184,7 @@
     },
     {
       "path": "/api/internal/finance/scheduled-reports/process",
-      "schedule": "* * * * *"
+      "schedule": "3-59/5 * * * *"
     },
     {
       "path": "/api/internal/finance/recurring-journals/process",
@@ -192,7 +192,7 @@
     },
     {
       "path": "/api/internal/finance/payment-settlement/process",
-      "schedule": "* * * * *"
+      "schedule": "*/2 * * * *"
     },
     {
       "path": "/api/internal/service-management/plans/process",
@@ -204,47 +204,47 @@
     },
     {
       "path": "/api/internal/markets/autopilot/process",
-      "schedule": "* * * * *"
+      "schedule": "4-59/5 * * * *"
     },
     {
       "path": "/api/internal/operator/repair-continuations/process",
-      "schedule": "* * * * *"
+      "schedule": "1-59/2 * * * *"
     },
     {
       "path": "/api/internal/operator/external-waits/process",
-      "schedule": "* * * * *"
+      "schedule": "*/2 * * * *"
     },
     {
       "path": "/api/internal/secretary/due-work/process",
-      "schedule": "* * * * *"
+      "schedule": "1-59/5 * * * *"
     },
     {
       "path": "/api/internal/secretary/messages/process",
-      "schedule": "* * * * *"
+      "schedule": "1-59/2 * * * *"
     },
     {
       "path": "/api/internal/secretary/appointments/notifications/process",
-      "schedule": "* * * * *"
+      "schedule": "2-59/5 * * * *"
     },
     {
       "path": "/api/internal/secretary/commitments/process",
-      "schedule": "* * * * *"
+      "schedule": "3-59/5 * * * *"
     },
     {
       "path": "/api/internal/secretary/follow-ups/process",
-      "schedule": "* * * * *"
+      "schedule": "4-59/5 * * * *"
     },
     {
       "path": "/api/internal/secretary/calls/outbound/process",
-      "schedule": "* * * * *"
+      "schedule": "*/2 * * * *"
     },
     {
       "path": "/api/internal/secretary/jobs/process",
-      "schedule": "* * * * *"
+      "schedule": "1-59/2 * * * *"
     },
     {
       "path": "/api/internal/secretary/meeting-coordination/process",
-      "schedule": "* * * * *"
+      "schedule": "0-59/5 * * * *"
     },
     {
       "path": "/api/internal/intelligence/continuous-learning/process",
@@ -260,15 +260,15 @@
     },
     {
       "path": "/api/internal/code/worker-session/process",
-      "schedule": "* * * * *"
+      "schedule": "2-59/5 * * * *"
     },
     {
       "path": "/api/internal/developer/webhooks/retries/process",
-      "schedule": "* * * * *"
+      "schedule": "3-59/5 * * * *"
     },
     {
       "path": "/api/internal/developer/webhooks/operations/process",
-      "schedule": "* * * * *"
+      "schedule": "*/2 * * * *"
     }
   ]
 }

@@ -32,8 +32,7 @@ export async function POST(request) {
     const execution = await ServiceExecutionRuntime.execute({
       organization_id: context.organizationId,
       service_id: "ai.text.generate",
-      provider_id:
-        "avantiqo-intelligence",
+      provider_id: "avantiqo-intelligence",
       input: {
         execution_lane:
           "fast",

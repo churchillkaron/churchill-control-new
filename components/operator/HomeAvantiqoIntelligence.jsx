@@ -15,6 +15,8 @@ import {
 // Owned Intelligence is zero-idle and can cold-start. Keep the browser alive
 // for the governed backend lifecycle instead of abandoning a live Safe Lease at 30s.
 const OPERATOR_TURN_TIMEOUT_MS = 12 * 60 * 1000;
+const CODE_PREWARM_POLL_MS = 5000;
+const CODE_PREWARM_MAX_POLLS = 90;
 const INTELLIGENCE_PREWARM_TIMEOUT_MS = 30 * 1000;
 
 function text(value) {
@@ -152,12 +154,19 @@ function busyRequestStatus(liveExecution, elapsedSeconds, startedAt) {
   return "Working through the request…";
 }
 
+function thesisInterruptionSpeech(thesis) {
+  const reason = text(thesis?.interruption?.reason);
+  const summary = text(thesis?.summary);
+  const nextMove = text(thesis?.recommended_next_move);
+  const parts = [
+    "I need your attention.",
+    reason || summary,
+    nextMove ? `My recommended next move is ${nextMove}` : "",
+  ].filter(Boolean);
+  return parts.join(" ");
+}
 
-export default function HomeAvantiqoIntelligence({
-  organizationId: organizationIdProp,
-  prepareAttachmentSetForTurn = null,
-  completeAttachmentTurn = null,
-}) {
+export default function HomeAvantiqoIntelligence({ organizationId: organizationIdProp }) {
   const router = useRouter();
   const pathname = usePathname();
   const businessContext = useBusinessContext();
@@ -166,7 +175,6 @@ export default function HomeAvantiqoIntelligence({
   const agreementStateRef = useRef({});
   const busyRef = useRef(false);
   const pendingTurnQueueRef = useRef([]);
-  const sendMessageRef = useRef(null);
 
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -274,22 +282,37 @@ export default function HomeAvantiqoIntelligence({
     if (!organizationId) return undefined;
 
     const controller = new AbortController();
-    fetch("/api/operator/code/prewarm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      signal: controller.signal,
-      body: JSON.stringify({ organizationId }),
-    }).catch((readinessError) => {
-      if (readinessError?.name !== "AbortError") {
-        console.debug(
-          "AVANTIQO_CODE_READINESS_ADVISORY_FAILURE",
-          readinessError?.message || readinessError,
-        );
-      }
-    });
+    let timer = null;
+    let polls = 0;
 
-    return () => controller.abort();
+    async function advanceCodePrewarm() {
+      if (controller.signal.aborted || polls >= CODE_PREWARM_MAX_POLLS) return;
+      polls += 1;
+      try {
+        const response = await fetch("/api/operator/code/prewarm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          signal: controller.signal,
+          body: JSON.stringify({ organizationId }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (controller.signal.aborted) return;
+        if (response.ok && (result?.ready === true || result?.status === "disabled")) {
+          return;
+        }
+      } catch (prewarmError) {
+        if (prewarmError?.name === "AbortError") return;
+        console.debug("AVANTIQO_CODE_PREWARM_BACKGROUND_RETRY", prewarmError?.message || prewarmError);
+      }
+      timer = window.setTimeout(advanceCodePrewarm, CODE_PREWARM_POLL_MS);
+    }
+
+    advanceCodePrewarm();
+    return () => {
+      controller.abort();
+      if (timer) window.clearTimeout(timer);
+    };
   }, [organizationId]);
 
   useEffect(() => {
@@ -385,7 +408,6 @@ export default function HomeAvantiqoIntelligence({
             organizationId,
             entityId,
             periodId,
-            passiveSnapshot: true,
           }),
         });
         const result = await response.json().catch(() => ({}));
@@ -398,6 +420,38 @@ export default function HomeAvantiqoIntelligence({
         setAttention(nextAttention);
         if (result?.project_state) setProjectState(result.project_state);
 
+        const interruption = thesis?.interruption || {};
+        const dedupeKey = text(interruption?.dedupe_key);
+        if (interruption?.should_interrupt === true && dedupeKey) {
+          const storageKey = `avantiqo:thesis-interruption:${organizationId}:${dedupeKey}`;
+          let alreadyDelivered = false;
+          try {
+            alreadyDelivered = window.sessionStorage.getItem(storageKey) === "1";
+          } catch {
+            alreadyDelivered = false;
+          }
+
+          if (!alreadyDelivered) {
+            try {
+              window.sessionStorage.setItem(storageKey, "1");
+            } catch {
+              // Browser storage is only dedupe assistance, never authority.
+            }
+            const speech = thesisInterruptionSpeech(thesis);
+            if (speech) {
+              window.dispatchEvent(
+                new CustomEvent("avantiqo:speak", {
+                  detail: {
+                    message: speech,
+                    source: "synthetic-intelligence-interruption",
+                    priority: "urgent",
+                    dedupe_key: dedupeKey,
+                  },
+                }),
+              );
+            }
+          }
+        }
       } catch (attentionError) {
         if (attentionError?.name === "AbortError") return;
         console.error("AVANTIQO_ATTENTION_LOAD_FAILED", attentionError);
@@ -440,15 +494,12 @@ export default function HomeAvantiqoIntelligence({
         ].slice(-3);
       }
       setInput("");
-      const stopExecutionId = text(liveExecution?.stop_execution_id);
-      if (stopExecutionId) {
-        fetch("/api/operator/live-execution", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ organizationId, executionId: stopExecutionId }),
-        }).catch(() => null);
-      }
+      fetch("/api/operator/live-execution", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ organizationId }),
+      }).catch(() => null);
       return;
     }
 
@@ -501,7 +552,6 @@ export default function HomeAvantiqoIntelligence({
           "Avantiqo took too long to complete that request. Please try again.",
         );
 
-    try {
       let response = await requestTurn(deviceLocation);
       let result = await response.json().catch(() => ({}));
       if (
@@ -517,15 +567,13 @@ export default function HomeAvantiqoIntelligence({
       if (!response.ok || result?.success === false) {
         throw operatorRequestError(result);
       }
+
       const decision = result?.decision || {};
       const responseText = text(decision?.response_text);
       if (!responseText) {
         throw new Error(
           "Avantiqo returned no reliable response. No action was assumed complete.",
         );
-      }
-      if (turnAttachmentSetId && typeof completeAttachmentTurn === "function") {
-        completeAttachmentTurn(turnAttachmentSetId);
       }
       if (result?.state_unchanged !== true) {
         agreementStateRef.current =
@@ -576,14 +624,10 @@ export default function HomeAvantiqoIntelligence({
   }
 
   useEffect(() => {
-    sendMessageRef.current = sendMessage;
-  });
-
-  useEffect(() => {
     function receiveVoiceCommand(event) {
       const message = text(event?.detail?.message);
       if (!message) return;
-      sendMessageRef.current?.(message, event?.detail?.source || "voice");
+      sendMessage(message, event?.detail?.source || "voice");
     }
 
     window.addEventListener("avantiqo:home-command", receiveVoiceCommand);
@@ -598,7 +642,7 @@ export default function HomeAvantiqoIntelligence({
     const nextQueuedTurn = pendingTurnQueueRef.current.shift();
     if (!nextQueuedTurn?.message) return;
 
-    sendMessageRef.current?.(nextQueuedTurn.message, nextQueuedTurn.source || "text");
+    sendMessage(nextQueuedTurn.message, nextQueuedTurn.source || "text");
   }, [busy, restoring, organizationId, entityId, periodId, pathname]);
 
   const attentionItems = Array.isArray(attention?.items) ? attention.items : [];
@@ -621,19 +665,19 @@ export default function HomeAvantiqoIntelligence({
       onCopy={(event) => event.stopPropagation()}
       onCut={(event) => event.stopPropagation()}
       onPaste={(event) => event.stopPropagation()}
-      className="flex min-h-[620px] flex-col rounded-2xl border border-black/[0.075] bg-white p-5 text-[#191919] shadow-[0_1px_2px_rgba(0,0,0,0.025)]"
+      className="flex min-h-[620px] flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-6"
     >
       <div>
-        <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A867F]">
+        <div className="flex items-center gap-2 text-sm uppercase tracking-[0.2em] text-white/40">
           <Sparkles size={14} className="text-[#D6A66A]" />
           Synthetic Intelligence
         </div>
 
-        <h2 className="mt-3 text-[25px] font-medium tracking-[-0.035em] text-[#1A1917]">
+        <h2 className="mt-4 text-3xl font-light tracking-[-0.04em]">
           Your business partner
         </h2>
 
-        <p className="mt-2 max-w-xl text-[12px] leading-5 text-[#77726B]">
+        <p className="mt-3 max-w-xl text-sm leading-6 text-white/50">
           Avantiqo maintains a live evidence-backed view of the business, remembers the goal,
           challenges assumptions, recommends the strongest next move and executes governed actions
           when you authorize them.
@@ -644,9 +688,9 @@ export default function HomeAvantiqoIntelligence({
         {attentionLoading ? (
           <div
             data-avantiqo-attention-loading="true"
-            className="rounded-2xl border border-black/[0.07] bg-[#FAF9F6] px-4 py-3"
+            className="rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-3"
           >
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#8A867F]">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/40">
               <Loader2 size={12} className="animate-spin text-[#D6A66A]" />
               Updating the business thesis
             </div>
@@ -658,37 +702,37 @@ export default function HomeAvantiqoIntelligence({
             data-avantiqo-business-thesis="true"
             className={
               thesisUrgent
-                ? "rounded-2xl border border-[#B36B52]/20 bg-[#FFF8F5] px-4 py-4"
-                : "rounded-2xl border border-[#D6A66A]/30 bg-[#FBF7F1] px-4 py-4"
+                ? "rounded-2xl border border-red-400/30 bg-red-500/[0.07] px-4 py-4"
+                : "rounded-2xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.05] px-4 py-4"
             }
           >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className={
                   thesisUrgent
-                    ? "flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#9A533D]"
-                    : "flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#9A744B]"
+                    ? "flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-red-200/80"
+                    : "flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#D6A66A]/80"
                 }>
                   {thesisUrgent ? <AlertTriangle size={12} /> : <Sparkles size={12} />}
                   Business thesis
                 </div>
                 {text(businessThesis?.summary) ? (
-                  <div className="mt-2 text-sm leading-6 text-[#4E4A44]">
+                  <div className="mt-2 text-sm font-light leading-6 text-white/75">
                     {businessThesis.summary}
                   </div>
                 ) : null}
               </div>
-              <div className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-[#8A867F]">
+              <div className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-white/45">
                 {thesisAttentionLabel(businessThesis?.attention_level)}
               </div>
             </div>
 
             {thesisChange?.material && text(thesisChange?.summary) ? (
-              <div className="mt-3 rounded-xl border border-black/[0.07] bg-white px-3.5 py-3">
-                <div className="text-[9px] uppercase tracking-[0.16em] text-[#9A968E]">
+              <div className="mt-3 rounded-xl border border-white/[0.07] bg-black/20 px-3.5 py-3">
+                <div className="text-[9px] uppercase tracking-[0.16em] text-white/35">
                   What changed
                 </div>
-                <div className="mt-1.5 text-xs leading-5 text-[#6C6963]">
+                <div className="mt-1.5 text-xs leading-5 text-white/55">
                   {thesisChange.summary}
                 </div>
               </div>
@@ -699,12 +743,12 @@ export default function HomeAvantiqoIntelligence({
                 {thesisOutlook.map((item, index) => (
                   <div
                     key={`${item.horizon}-${index}`}
-                    className="rounded-xl border border-black/[0.06] bg-white px-3.5 py-2.5"
+                    className="rounded-xl border border-white/[0.06] bg-black/15 px-3.5 py-2.5"
                   >
-                    <div className="text-[9px] uppercase tracking-[0.14em] text-[#AAA69E]">
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-white/30">
                       Outlook · {text(item.horizon).replaceAll("_", " ")}
                     </div>
-                    <div className="mt-1 text-xs leading-5 text-[#6C6963]">
+                    <div className="mt-1 text-xs leading-5 text-white/50">
                       {item.prediction}
                     </div>
                   </div>
@@ -721,7 +765,7 @@ export default function HomeAvantiqoIntelligence({
                     `Discuss your recommended next move with me: ${businessThesis.recommended_next_move}`,
                   )
                 }
-                className="mt-3 text-left text-xs leading-5 text-[#8D6338] transition hover:text-[#6F4D2D] disabled:opacity-40"
+                className="mt-3 text-left text-xs leading-5 text-[#D6A66A]/85 transition hover:text-[#E7C48E] disabled:opacity-40"
               >
                 Recommended next move: {businessThesis.recommended_next_move}
               </button>
@@ -732,21 +776,21 @@ export default function HomeAvantiqoIntelligence({
         {!attentionLoading && attentionItems.length ? (
           <div
             data-avantiqo-attention-brief="true"
-            className="rounded-2xl border border-black/[0.075] bg-[#FAF9F6] px-4 py-4"
+            className="rounded-2xl border border-white/[0.08] bg-black/20 px-4 py-4"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#8A867F]">
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/45">
                   <Sparkles size={12} className="text-[#D6A66A]" />
                   Evidence signals
                 </div>
                 {text(attention?.summary) ? (
-                  <div className="mt-2 text-xs leading-5 text-[#77726B]">
+                  <div className="mt-2 text-xs leading-5 text-white/45">
                     {attention.summary}
                   </div>
                 ) : null}
               </div>
-              <div className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-[#8A867F]">
+              <div className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-white/40">
                 Evidence-backed
               </div>
             </div>
@@ -755,12 +799,12 @@ export default function HomeAvantiqoIntelligence({
               {attentionItems.map((item) => (
                 <div
                   key={`${item.rank}-${item.title}`}
-                  className="rounded-xl border border-black/[0.07] bg-white px-3.5 py-3"
+                  className="rounded-xl border border-white/[0.07] bg-black/20 px-3.5 py-3"
                 >
-                  <div className="text-sm leading-5 text-[#3F3B36]">
+                  <div className="text-sm font-light leading-5 text-white/85">
                     {item.title}
                   </div>
-                  <div className="mt-1.5 text-xs leading-5 text-[#77726B]">
+                  <div className="mt-1.5 text-xs leading-5 text-white/45">
                     {item.why_now}
                   </div>
                   {text(item?.recommended_next_step) ? (
@@ -772,7 +816,7 @@ export default function HomeAvantiqoIntelligence({
                           `Help me with this attention item: ${item.title}. ${item.recommended_next_step}`,
                         )
                       }
-                      className="mt-2 text-left text-xs text-[#8D6338] transition hover:text-[#6F4D2D] disabled:opacity-40"
+                      className="mt-2 text-left text-xs text-[#D6A66A]/80 transition hover:text-[#E7C48E] disabled:opacity-40"
                     >
                       {item.recommended_next_step}
                     </button>
@@ -781,27 +825,27 @@ export default function HomeAvantiqoIntelligence({
               ))}
             </div>
 
-            <div className="mt-3 text-[10px] leading-4 text-[#9A968E]">
+            <div className="mt-3 text-[10px] leading-4 text-white/30">
               Recommendations are not approvals or authorization. Avantiqo still uses normal confirmation and approval governance before any business action.
             </div>
           </div>
         ) : null}
 
         {text(projectState?.objective) ? (
-          <div className="rounded-2xl border border-[#D6A66A]/30 bg-[#FBF7F1] px-4 py-3">
+          <div className="rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-4 py-3">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-[#9A744B]">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-[#D6A66A]/75">
                 Current goal
               </div>
-              <div className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-[#8A867F]">
+              <div className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-white/45">
                 {projectStatusLabel(projectState?.status)}
               </div>
             </div>
-            <div className="mt-2 text-sm leading-6 text-[#4E4A44]">
+            <div className="mt-2 text-sm font-light leading-6 text-white/80">
               {projectState.objective}
             </div>
             {text(projectState?.progress_summary || projectState?.next_step) ? (
-              <div className="mt-2 text-xs leading-5 text-[#77726B]">
+              <div className="mt-2 text-xs leading-5 text-white/45">
                 {projectState.progress_summary || `Next: ${projectState.next_step}`}
               </div>
             ) : null}
@@ -809,7 +853,7 @@ export default function HomeAvantiqoIntelligence({
         ) : null}
 
         {restoring ? (
-          <div className="mr-16 flex items-center gap-3 rounded-2xl border border-black/[0.07] bg-[#FAF9F6] px-4 py-3 text-xs text-[#77726B]">
+          <div className="mr-16 flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-3 text-xs text-white/45">
             <Loader2 size={14} className="animate-spin text-[#D6A66A]" />
             Restoring our conversation…
           </div>
@@ -825,9 +869,9 @@ export default function HomeAvantiqoIntelligence({
             }
           >
             {message.role === "assistant" ? (
-              <OperatorConversationText content={message.content} tone="light" />
+              <OperatorConversationText content={message.content} />
             ) : (
-              <div className="whitespace-pre-wrap text-sm leading-6 text-[#3F3B36]">
+              <div className="whitespace-pre-wrap text-sm font-light leading-6 text-white/80">
                 {message.content}
               </div>
             )}
@@ -841,16 +885,16 @@ export default function HomeAvantiqoIntelligence({
                 data-avantiqo-execution-state={message.governance.tone}
                 className={
                   message.governance.tone === "blocked"
-                    ? "mt-3 rounded-xl border border-[#B36B52]/20 bg-[#FFF8F5] px-3 py-2.5"
+                    ? "mt-3 rounded-xl border border-red-400/25 bg-red-500/[0.06] px-3 py-2.5"
                     : message.governance.tone === "verified"
-                      ? "mt-3 rounded-xl border border-[#D6A66A]/30 bg-[#FBF7F1] px-3 py-2.5"
-                      : "mt-3 rounded-xl border border-black/[0.07] bg-[#FAF9F6] px-3 py-2.5"
+                      ? "mt-3 rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/[0.07] px-3 py-2.5"
+                      : "mt-3 rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2.5"
                 }
               >
-                <div className="text-[9px] uppercase tracking-[0.16em] text-[#8A867F]">
+                <div className="text-[9px] uppercase tracking-[0.16em] text-white/45">
                   {message.governance.label}
                 </div>
-                <div className="mt-1 text-[11px] leading-4 text-[#6C6963]">
+                <div className="mt-1 text-[11px] leading-4 text-white/50">
                   {message.governance.detail}
                 </div>
               </div>
@@ -864,7 +908,7 @@ export default function HomeAvantiqoIntelligence({
                     type="button"
                     disabled={busy}
                     onClick={() => sendMessage(option.label)}
-                    className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-xs text-[#665F57] transition hover:border-[#D6A66A]/45 hover:text-[#8D6338] disabled:opacity-40"
+                    className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs text-white/65 transition hover:border-[#D6A66A]/35 hover:text-white disabled:opacity-40"
                   >
                     {option.label}
                   </button>
@@ -878,42 +922,23 @@ export default function HomeAvantiqoIntelligence({
           <div
             data-avantiqo-live-status="true"
             aria-live="polite"
-            className="mr-8 overflow-hidden rounded-2xl border border-[#D6A66A]/30 bg-[#FBF7F1]"
+            className="mr-8 flex items-center gap-2 px-1 py-1 text-xs font-light text-white/35"
           >
-            <div className="flex items-center justify-between gap-4 px-4 py-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#9A744B]">
-                  <Loader2 size={12} className="animate-spin" />
-                  Avantiqo is working
-                </div>
-                <div className="mt-1.5 truncate text-sm text-[#4E4A44]">
-                  {busyRequestStatus(liveExecution, busyElapsedSeconds, activeRequestStartedAt)}
-                </div>
-              </div>
-              <div
-                aria-label="elapsed time"
-                className="shrink-0 rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[10px] tabular-nums text-[#8A867F]"
-              >
-                {busyElapsedSeconds}s
-              </div>
-            </div>
-            <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A]/35 to-transparent" />
-            <div className="flex items-center justify-between gap-3 px-4 py-2 text-[10px] leading-4 text-[#9A968E]">
-              <span>You can type a correction or new instruction while this runs.</span>
-              <span className="shrink-0 uppercase tracking-[0.12em]">Governed execution</span>
-            </div>
+            <Loader2 size={12} className="animate-spin text-white/25" />
+            <span>{busyRequestStatus(liveExecution, busyElapsedSeconds, activeRequestStartedAt)}</span>
+            <span aria-label="elapsed time">· {busyElapsedSeconds}s</span>
           </div>
         ) : null}
       </div>
 
-      <div className="mt-5 border-t border-black/[0.07] pt-4">
+      <div className="mt-5 border-t border-white/[0.07] pt-4">
         {error ? (
-          <div className="mb-3 rounded-xl border border-[#B36B52]/20 bg-[#FFF8F5] px-3 py-2 text-xs text-[#8B4937]">
+          <div className="mb-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-2 text-xs text-red-200/75">
             {error}
           </div>
         ) : null}
 
-        <div className="flex items-end gap-2 rounded-2xl border border-black/[0.09] bg-white p-2 shadow-[0_1px_2px_rgba(0,0,0,0.025)] focus-within:border-[#D6A66A]/55">
+        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-black/25 p-2 focus-within:border-[#D6A66A]/35">
           <textarea
             data-avantiqo-home-input="true"
             value={input}
@@ -927,14 +952,14 @@ export default function HomeAvantiqoIntelligence({
               }
             }}
             placeholder={restoring ? "Restoring conversation…" : busy ? "Correct or redirect Avantiqo while it works…" : "Ask Avantiqo anything…"}
-            className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm leading-5 text-[#2F2C28] outline-none placeholder:text-[#AAA69E] disabled:opacity-50"
+            className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm leading-5 text-white outline-none placeholder:text-white/25 disabled:opacity-50"
           />
 
           <button
             type="button"
             onClick={() => sendMessage(input)}
             disabled={restoring || !text(input)}
-            className="flex h-11 items-center gap-2 rounded-xl bg-[#2A2723] px-4 text-sm font-medium text-white transition hover:bg-[#403B35] disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-11 items-center gap-2 rounded-xl bg-[#D6A66A] px-4 text-sm font-medium text-black transition hover:bg-[#E7C48E] disabled:cursor-not-allowed disabled:opacity-30"
           >
             <Send size={15} />
             {busy ? "Update" : "Send"}

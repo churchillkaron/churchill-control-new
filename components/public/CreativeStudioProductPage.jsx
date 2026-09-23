@@ -644,11 +644,10 @@ function StudioWorkspace({ studio }) {
               </p>
             </div>
           </div>
-          <div className="p-4"><div className="flex items-center justify-between"><span className="text-[7px] uppercase tracking-[0.18em] text-white/22">Review</span><span className="rounded-full border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-2 py-1 text-[7px] text-[#D6A66A]">QUALITY GATE</span></div><div className="mt-5 space-y-3">{[["Direction",96],["Continuity",93],["Craft",95],["Delivery",98]].map(([x,v])=><div key={x}><div className="flex justify-between text-[8px]"><span className="text-white/38">{x}</span><span className="text-white/54">{v}</span></div><div className="mt-1.5 h-1 rounded-full bg-white/[0.06]"><div className="h-full rounded-full bg-[#D6A66A]/55" style={{width:`${v}%`}}/></div></div>)}</div><div className="mt-6 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3"><div className="text-[8px] font-semibold text-white/60">Targeted repair</div><div className="mt-2 text-[8px] leading-4 text-white/28">Only the failed detail returns to production. Approved work remains locked.</div></div></div>
         </div>
       </div>
-    </div>
-  </section>;
+    </section>
+  );
 }
 
 export default function CreativeStudioProductPage({ studio, title, subtitle, description, capabilities, useCases, cta }) {

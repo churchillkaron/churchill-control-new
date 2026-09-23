@@ -13,7 +13,7 @@ export async function GET(request) {
     const context = await resolveAuthenticatedStaffContext({ request, allowIncompleteActivation: true });
     if (!context.success) return NextResponse.json({ success: false, error: context.error, code: context.code }, { status: context.status || 403 });
     const [activation, organizationsResult] = await Promise.all([
-      loadStaffActivationStatus({ organizationId: context.organizationId, staff: context.staff, user: context.user }),
+      loadStaffActivationStatus({ organizationId: context.organizationId, staff: context.staff, user: context.user, role: context.role }),
       context.availableOrganizationIds?.length
         ? supabaseAdmin.from("organizations")
             .select("id,name")

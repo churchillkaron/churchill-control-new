@@ -8,7 +8,7 @@ export async function GET(request) {
   try {
     const exchanged = await exchangeCustomerPortalAccessToken(token);
     const response = NextResponse.redirect(new URL("/customer-portal", request.url));
-    response.cookies.set(CUSTOMER_PORTAL_COOKIE, exchanged.raw_session_token, {
+    response.cookies.set(CUSTOMER_PORTAL_COOKIE, exchanged.rawSessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

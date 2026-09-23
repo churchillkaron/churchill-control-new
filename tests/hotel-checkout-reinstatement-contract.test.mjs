@@ -4,16 +4,18 @@ import test from "node:test";
 
 const migration = fs.readFileSync("supabase/migrations/20260906010000_hotel_checkout_reinstatement.sql", "utf8");
 const transition = fs.readFileSync("lib/hotel/server/transitionHotelBooking.js", "utf8");
+const atomicCheckout = fs.readFileSync("supabase/migrations/20260906154800_hotel_atomic_checkout_transition.sql", "utf8");
 const route = fs.readFileSync("app/api/hotel/bookings/reinstate/route.js", "utf8");
 const recovery = fs.readFileSync("components/workspace/hotel/HotelCheckoutRecovery.jsx", "utf8");
 const frontDesk = fs.readFileSync("components/workspace/hotel/HotelFrontDeskWorkBoard.jsx", "utf8");
 const frontDeskPage = fs.readFileSync("app/(system)/workspace/[organizationId]/operations/front-desk/page.jsx", "utf8");
 
 test("checkout records durable property business-day evidence and fails closed without configured property time", () => {
-  assert.match(transition, /actual_check_out_business_date: checkoutOperationalDate\.businessDate/);
-  assert.match(transition, /!checkoutOperationalDate\.configured/);
-  assert.match(transition, /checkoutOperationalDate\.compatibilityFallback/);
-  assert.match(transition, /Configure the property's operational day before checking out a guest/);
+  assert.match(transition, /!operationalDate\.configured \|\| operationalDate\.compatibilityFallback/);
+  assert.match(transition, /p_business_date: operationalDate\.businessDate/);
+  assert.match(transition, /Configure the property's operational day before/);
+  assert.match(atomicCheckout, /actual_check_out_at = v_changed_at/);
+  assert.match(atomicCheckout, /actual_check_out_business_date = p_business_date/);
 });
 
 test("reinstatement is same-business-day, open-day and transaction governed", () => {

@@ -69,7 +69,9 @@ test("Night Audit API cannot bypass guarded Day Close authority", () => {
   assert.doesNotMatch(nightAudit, /from\("hotel_night_audits"\)\.upsert/);
   assert.match(nightAudit, /isGuardedCloseConflict/);
   assert.match(nightAudit, /refreshedCloseBlockers/);
-  assert.ok(nightAudit.indexOf('rpc("hotel_close_business_day_guarded"') < nightAudit.indexOf('source: "night-audit"'));
+  const closeRpc = nightAudit.indexOf('rpc("hotel_close_business_day_guarded"');
+  const closeBroadcast = nightAudit.indexOf('action: "CLOSE"', closeRpc);
+  assert.ok(closeRpc >= 0 && closeBroadcast > closeRpc);
 });
 
 test("atomic checkout automatically participates through the booking barrier and preserves governed checkout evidence", () => {

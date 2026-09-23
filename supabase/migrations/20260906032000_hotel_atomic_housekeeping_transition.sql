@@ -381,7 +381,7 @@ begin
         and mr.room_id = v_task.room_id
         and upper(coalesce(mr.status, '')) not in ('RESOLVED', 'CLOSED', 'COMPLETED', 'CANCELLED')
     ) then
-      raise exception 'Room still has unresolved maintenance and cannot pass inspection';
+      raise exception 'Room still has unresolved or unclassified maintenance and cannot be released to Front Desk';
     end if;
 
     if exists (
@@ -392,7 +392,7 @@ begin
         and other_task.id <> v_task.id
         and upper(coalesce(other_task.task_status, '')) in ('PENDING', 'IN_PROGRESS', 'AWAITING_INSPECTION')
     ) then
-      raise exception 'Room still has another active Housekeeping task and cannot pass inspection';
+      raise exception 'Room still has another active Housekeeping task and cannot be released to Front Desk';
     end if;
 
     if exists (
@@ -402,7 +402,7 @@ begin
         and booking.room_id = v_task.room_id
         and upper(coalesce(booking.status, '')) = 'CHECKED_IN'
     ) then
-      raise exception 'Room is still assigned to an in-house stay and cannot pass inspection';
+      raise exception 'Room is still assigned to an in-house stay and cannot be released to Front Desk';
     end if;
 
     update public.hotel_rooms

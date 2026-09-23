@@ -20,6 +20,7 @@ create index if not exists hotel_booking_reinstatements_booking_idx
 
 alter table public.hotel_booking_reinstatements enable row level security;
 
+drop policy if exists "hotel_booking_reinstatements_org_read" on public.hotel_booking_reinstatements;
 create policy "hotel_booking_reinstatements_org_read"
   on public.hotel_booking_reinstatements
   for select

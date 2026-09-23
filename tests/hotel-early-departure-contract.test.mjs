@@ -6,6 +6,7 @@ const migration = fs.readFileSync("supabase/migrations/20260906003000_hotel_earl
 const route = fs.readFileSync("app/api/hotel/bookings/early-departure/route.js", "utf8");
 const readiness = fs.readFileSync("lib/hotel/server/getHotelDepartureReadiness.js", "utf8");
 const transition = fs.readFileSync("lib/hotel/server/transitionHotelBooking.js", "utf8");
+const atomicCheckout = fs.readFileSync("supabase/migrations/20260906154800_hotel_atomic_checkout_transition.sql", "utf8");
 const operationalDate = fs.readFileSync("lib/hotel/server/getHotelOperationalDate.js", "utf8");
 const control = fs.readFileSync("components/workspace/hotel/HotelEarlyDepartureControl.jsx", "utf8");
 const stayControl = fs.readFileSync("app/(system)/workspace/[organizationId]/operations/stay-control/page.jsx", "utf8");
@@ -57,11 +58,12 @@ test("future-dated normal checkout fails closed until early departure review is 
 test("checkout uses the same property operational date and records actual departure", () => {
   assert.match(transition, /getHotelOperationalDate/);
   assert.match(transition, /propertyId: booking\.property_id/);
-  assert.match(transition, /businessDate: operationalDate\.businessDate/);
-  assert.match(transition, /actual_check_out_at: changedAt/);
+  assert.match(transition, /p_business_date: operationalDate\.businessDate/);
   assert.doesNotMatch(transition, /check_out_date: changedAt/);
-  assert.match(transition, /status: transition\.toStatus/);
-  assert.match(transition, /task_type: "CLEANING"/);
+  assert.match(atomicCheckout, /actual_check_out_at = v_changed_at/);
+  assert.match(atomicCheckout, /actual_check_out_business_date = p_business_date/);
+  assert.match(atomicCheckout, /set status = 'CHECKED_OUT'/);
+  assert.match(atomicCheckout, /task_type,[\s\S]*'CLEANING'/);
 });
 
 test("operator workflow lives beside the real stay and folio controls", () => {

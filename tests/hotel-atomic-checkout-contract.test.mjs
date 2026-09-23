@@ -25,8 +25,8 @@ test("Hotel checkout finalization is one guarded database transaction", () => {
 test("atomic checkout revalidates settlement and early-departure invariants under lock", () => {
   assert.match(migration, /early_departure_review_status/);
   assert.match(migration, /guest folio is still open/);
-  assert.match(migration, /status, ''\) = 'PENDING'/);
-  assert.match(migration, /processor_mode, ''\) = 'AVANTIQO_GATEWAY'/);
+  assert.match(migration, /t\.status, ''\)\) = 'PENDING'/);
+  assert.match(migration, /t\.processor_mode, ''\)\) = 'AVANTIQO_GATEWAY'/);
   assert.match(migration, /finance_payment_id is null/);
 });
 

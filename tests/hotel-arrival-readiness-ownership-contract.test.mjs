@@ -85,10 +85,10 @@ test("Maintenance workspace operates canonical room blockers separately from pla
   assert.match(maintenance, /Room defects blocking release/);
   assert.match(maintenance, /\/api\/hotel\/maintenance\/requests/);
   assert.match(maintenance, /Planned maintenance/);
-  assert.match(maintenance, /Resolve defect/);
+  assert.match(maintenance, /Record repair & resolve/);
   assert.match(maintenanceRequestsRoute, /hotel_maintenance_requests/);
-  assert.match(maintenanceRequestsRoute, /status: "RESOLVED"/);
-  assert.match(maintenanceRequestsRoute, /resolved_at: now/);
+  assert.match(maintenanceRequestsRoute, /hotel_transition_maintenance_request/);
+  assert.match(maintenanceRequestsRoute, /p_resolution_notes/);
   assert.match(maintenanceRequestsRoute, /requireOrganizationAccess/);
 });
 

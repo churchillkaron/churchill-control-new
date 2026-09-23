@@ -24,7 +24,8 @@ test("restaurant stationary order entry consumes server capability truth", async
   const runtime = await source(runtimePath);
 
   assert.match(runtime, /order_entry:\s*can\("ORDER_ENTRY"\)/);
-  assert.match(registry, /canOrder = props\.posRuntime\?\.capabilities\?\.actions\?\.order_entry === true/);
+  assert.match(registry, /const actions = props\.posRuntime\?\.capabilities\?\.actions \|\| \{\}/);
+  assert.match(registry, /canOrder = actions\.order_entry === true/);
   assert.match(registry, /\{canOrder \? \([\s\S]*<RestaurantStationaryOrderSurface/);
   assert.match(registry, /data-stationary-order-authority-boundary="true"/);
   assert.match(registry, /Service authority required/);

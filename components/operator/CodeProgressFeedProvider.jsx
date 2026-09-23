@@ -10,8 +10,9 @@ import {
   useState,
 } from "react";
 
-const ACTIVE_POLL_MS = 1000;
-const IDLE_POLL_MS = 6000;
+const ACTIVE_POLL_MS = 3000;
+const IDLE_POLL_MS = 15000;
+const ACTIVE_DETAIL_REFRESH_EVERY = 5;
 const ACTIVE_STALE_MS = 30 * 60 * 1000;
 const ACTIVE_STATES = new Set([
   "active",
@@ -128,14 +129,22 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
     const controller = new AbortController();
     let timer = null;
     let inFlight = false;
+    let pollSequence = 0;
+    let lastActive = false;
+    let consecutiveFailures = 0;
 
     async function poll() {
       if (controller.signal.aborted || inFlight) return;
       inFlight = true;
-      let active = false;
+      let active = lastActive;
+      const includeDetails =
+        pollSequence === 0 ||
+        !lastActive ||
+        pollSequence % ACTIVE_DETAIL_REFRESH_EVERY === 0;
+      pollSequence += 1;
       try {
         const response = await fetch(
-          `/api/operator/code/progress?organizationId=${encodeURIComponent(organizationId)}${deviceSessionScope ? `&deviceSessionId=${encodeURIComponent(deviceSessionScope)}` : ""}`,
+          `/api/operator/code/progress?organizationId=${encodeURIComponent(organizationId)}${deviceSessionScope ? `&deviceSessionId=${encodeURIComponent(deviceSessionScope)}` : ""}&details=${includeDetails ? "1" : "0"}`,
           {
             method: "GET",
             credentials: "same-origin",
@@ -148,11 +157,30 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
           if (response.ok && body?.success === true) {
             const nextProgress = body?.live_progress || null;
             active = codeProgressIsActive(nextProgress);
-            setProgress(nextProgress);
+            lastActive = active;
+            setProgress((current) => nextProgress
+              ? {
+                  ...nextProgress,
+                  ...(body?.details_included === true
+                    ? {}
+                    : {
+                        engineering_intelligence:
+                          nextProgress?.engineering_intelligence ??
+                          current?.engineering_intelligence ??
+                          null,
+                        product_engineering_portfolio:
+                          nextProgress?.product_engineering_portfolio ??
+                          current?.product_engineering_portfolio ??
+                          null,
+                      }),
+                }
+              : nextProgress);
             setUpdatedAt(body?.updated_at || null);
             setFound(body?.found === true);
             setError(null);
+            consecutiveFailures = 0;
           } else {
+            consecutiveFailures += 1;
             setError(text(body?.error) || `CODE_PROGRESS_HTTP_${response.status}`);
           }
         }
@@ -162,6 +190,7 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
           !controller.signal.aborted &&
           mounted.current
         ) {
+          consecutiveFailures += 1;
           setError(text(pollError?.message || pollError) || "CODE_PROGRESS_FAILED");
           console.debug(
             "AVANTIQO_CODE_PROGRESS_SHARED_FEED_FAILED",
@@ -173,10 +202,11 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
       }
 
       if (!controller.signal.aborted && mounted.current) {
-        timer = window.setTimeout(
-          poll,
-          active ? ACTIVE_POLL_MS : IDLE_POLL_MS,
-        );
+        const baseDelay = active ? ACTIVE_POLL_MS : IDLE_POLL_MS;
+        const failureDelay = consecutiveFailures
+          ? Math.min(30000, baseDelay * (2 ** Math.min(consecutiveFailures, 4)))
+          : baseDelay;
+        timer = window.setTimeout(poll, failureDelay);
       }
     }
 

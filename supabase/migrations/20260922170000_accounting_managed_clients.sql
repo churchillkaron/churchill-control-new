@@ -76,6 +76,81 @@ grant select, insert, update, delete on table public.accounting_managed_clients 
 comment on table public.accounting_managed_clients is
   'Accounting-firm managed client organizations that may exist without a client Avantiqo login.';
 
+create or replace function public.activate_accounting_managed_client_setup(
+  p_managed_client_id uuid,
+  p_relationship_id uuid,
+  p_organization_id uuid,
+  p_firm_organization_id uuid
+)
+returns table (
+  managed_client_id uuid,
+  relationship_id uuid,
+  organization_id uuid,
+  relationship_status text,
+  organization_status text
+)
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_managed_id uuid;
+  v_relationship_id uuid;
+  v_organization_id uuid;
+begin
+  select amc.id, oc.id, o.id
+  into v_managed_id, v_relationship_id, v_organization_id
+  from public.accounting_managed_clients amc
+  join public.organization_clients oc
+    on oc.id = amc.organization_client_relationship_id
+   and oc.firm_organization_id = amc.firm_organization_id
+   and oc.client_organization_id = amc.client_organization_id
+  join public.organizations o
+    on o.id = amc.client_organization_id
+  where amc.id = p_managed_client_id
+    and amc.organization_client_relationship_id = p_relationship_id
+    and amc.client_organization_id = p_organization_id
+    and amc.firm_organization_id = p_firm_organization_id
+    and amc.management_status = 'UNCLAIMED'
+    and oc.relationship_status = 'inactive'
+    and o.organization_status = 'PROVISIONING'
+  for update of amc, oc, o;
+
+  if v_managed_id is null then
+    raise exception 'MANAGED_CLIENT_SETUP_ACTIVATION_INVALID';
+  end if;
+
+  update public.organizations
+  set status = 'active',
+      organization_status = 'ACTIVE'
+  where id = v_organization_id
+    and organization_status = 'PROVISIONING';
+
+  if not found then
+    raise exception 'MANAGED_CLIENT_ORGANIZATION_ACTIVATION_CONFLICT';
+  end if;
+
+  update public.organization_clients
+  set relationship_status = 'active'
+  where id = v_relationship_id
+    and firm_organization_id = p_firm_organization_id
+    and client_organization_id = v_organization_id
+    and relationship_status = 'inactive';
+
+  if not found then
+    raise exception 'MANAGED_CLIENT_RELATIONSHIP_ACTIVATION_CONFLICT';
+  end if;
+
+  return query
+  select v_managed_id, v_relationship_id, v_organization_id, 'active'::text, 'ACTIVE'::text;
+end;
+$$;
+
+revoke all on function public.activate_accounting_managed_client_setup(uuid,uuid,uuid,uuid)
+  from public, anon, authenticated;
+grant execute on function public.activate_accounting_managed_client_setup(uuid,uuid,uuid,uuid)
+  to service_role;
+
 create or replace function public.finalize_accounting_managed_client_claim(
   p_claim_id uuid,
   p_auth_user_id uuid,

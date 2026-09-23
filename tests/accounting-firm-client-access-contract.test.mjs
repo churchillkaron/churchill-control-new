@@ -326,3 +326,27 @@ test("managed-client finalizer independently permits only active owners or neutr
   assert.match(managedMigration, /party_id is null/);
   assert.match(managedMigration, /active_organization_id is null/);
 });
+
+test("managed-client setup keeps the accounting relationship inactive until atomic activation", () => {
+  assert.match(managedRuntime, /relationship_status: "inactive"/);
+  assert.match(managedRuntime, /activate_accounting_managed_client_setup/);
+  assert.match(managedMigration, /for update of amc, oc, o/);
+  assert.match(managedMigration, /organization_status = 'ACTIVE'/);
+  assert.match(managedMigration, /relationship_status = 'active'/);
+  const activationBlock = managedMigration.slice(
+    managedMigration.indexOf("create or replace function public.activate_accounting_managed_client_setup"),
+    managedMigration.indexOf("create or replace function public.finalize_accounting_managed_client_claim")
+  );
+  assert.match(activationBlock, /security invoker/);
+  assert.match(activationBlock, /from public, anon, authenticated/);
+  assert.match(activationBlock, /to service_role/);
+});
+
+test("failed managed-client setup removes active visibility before retiring its shell", () => {
+  const catchIndex = managedRuntime.indexOf("} catch (error) {");
+  const cleanup = managedRuntime.slice(catchIndex, managedRuntime.indexOf("} finally", catchIndex));
+  assert.match(cleanup, /relationship_status: "inactive"/);
+  assert.ok(cleanup.indexOf('relationship_status: "inactive"') < cleanup.indexOf('.delete()'));
+  assert.match(cleanup, /organization_status: "SETUP_FAILED"/);
+  assert.match(cleanup, /\.neq\("organization_status", "ACTIVE"\)/);
+});

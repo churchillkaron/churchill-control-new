@@ -818,21 +818,30 @@ export default function AvantiqoCodeIDE({
 
   useEffect(() => {
     if (!session) return undefined;
-    const timer = window.setInterval(async () => {
+    let cancelled = false;
+    let timer = null;
+    let consecutiveFailures = 0;
+
+    async function pollIdeState() {
+      if (cancelled) return;
       try {
         const state = await ideRequest("state");
+        if (cancelled) return;
         setDeviceHealth(state);
         const nextRevision = Number(state.revision || 0);
         setLeaseOwner(state.edit_owner || null);
         if (nextRevision !== revision) {
           if (activePath && !dirty[activePath]) {
             const fresh = await ideRequest("read", { file_path: activePath });
+            if (cancelled) return;
             setBuffers((current) => ({ ...current, [activePath]: { ...fresh, content: fresh.content ?? "", revision: nextRevision } }));
           }
           setRevision(nextRevision);
           const tree = await ideRequest("tree");
+          if (cancelled) return;
           setFiles(tree.files || []);
           const diff = await ideRequest("diff");
+          if (cancelled) return;
           setDiffText(diff.patch || "");
           if (followCode && !Object.values(dirty).some(Boolean)) {
             const changedPath = (Array.isArray(diff.status) ? diff.status : [])
@@ -841,6 +850,7 @@ export default function AvantiqoCodeIDE({
               .find((entry) => entry && (tree.files || []).includes(entry));
             if (changedPath) {
               const freshChanged = await ideRequest("read", { file_path: changedPath });
+              if (cancelled) return;
               setBuffers((current) => ({ ...current, [changedPath]: { ...freshChanged, content: freshChanged.content ?? "", revision: nextRevision } }));
               setTabs((current) => current.includes(changedPath) ? current : [...current, changedPath]);
               setActivePath(changedPath);
@@ -848,9 +858,28 @@ export default function AvantiqoCodeIDE({
             }
           }
         }
-      } catch {}
-    }, (missionRunning || sessionAgentActive) ? 1500 : studioView === "code" ? 3500 : 10000);
-    return () => window.clearInterval(timer);
+        consecutiveFailures = 0;
+      } catch {
+        consecutiveFailures += 1;
+      }
+      if (!cancelled) {
+        const baseDelayMs = (missionRunning || sessionAgentActive)
+          ? 4000
+          : studioView === "code"
+            ? 8000
+            : 20000;
+        const delayMs = consecutiveFailures
+          ? Math.min(30000, baseDelayMs * (2 ** Math.min(consecutiveFailures, 3)))
+          : baseDelayMs;
+        timer = window.setTimeout(pollIdeState, delayMs);
+      }
+    }
+
+    pollIdeState();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
   }, [session, ideRequest, revision, activePath, dirty, missionRunning, sessionAgentActive, followCode, studioView]);
 
   useEffect(() => {

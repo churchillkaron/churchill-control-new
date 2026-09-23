@@ -42,3 +42,16 @@ test("review autopilot runs every fifteen minutes", () => {
   );
   assert.equal(job?.schedule, "*/15 * * * *");
 });
+
+test("transient review infrastructure failures preserve retry budget for the next cron", () => {
+  const runtime = source("lib/commercial/reputation/ReputationAutomationRuntime.js");
+  assert.match(runtime, /function isTransientReviewInfrastructureError/);
+  assert.match(runtime, /"pgrst203"/);
+  assert.match(runtime, /"model_policy_rejected"/);
+  assert.match(runtime, /"no priced executable provider"/);
+  assert.match(runtime, /response_status: "NEEDS_REVIEW"/);
+  assert.match(runtime, /response_attempts: attempts/);
+  assert.match(runtime, /return deferInfrastructureRetry\(claimed, generationError\)/);
+  assert.match(runtime, /return deferInfrastructureRetry\(claimed, error\)/);
+  assert.match(runtime, /deferInfrastructureRetry\(review, processingError\)/);
+});

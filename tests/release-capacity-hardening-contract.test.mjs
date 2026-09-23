@@ -13,6 +13,8 @@ async function source(path) {
 
 test("release cron load is staggered and Google Reviews runs three times daily", () => {
   assert.equal(cron.get("/api/internal/reputation/google-reviews/process"), "0 0,8,16 * * *");
+  assert.equal(cron.get("/api/internal/reputation/google-reviews/repair-duplicates?organization_id=33336a72-acb5-474e-856b-8be0269360e2&limit=5"), "30 0 * * *");
+  assert.equal(cron.get("/api/creative/execution/process"), "1-59/5 * * * *");
   assert.equal(cron.get("/api/internal/finance/payment-settlement/process"), "*/2 * * * *");
   assert.equal(cron.get("/api/internal/secretary/jobs/process"), "1-59/2 * * * *");
   assert.equal(cron.get("/api/internal/commercial/communications/email-inbox-sync"), "2-59/5 * * * *");

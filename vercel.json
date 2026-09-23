@@ -116,7 +116,7 @@
   "crons": [
     {
       "path": "/api/creative/execution/process",
-      "schedule": "* * * * *"
+      "schedule": "1-59/5 * * * *"
     },
     {
       "path": "/api/marketing/retry-generation-jobs",
@@ -148,7 +148,7 @@
     },
     {
       "path": "/api/internal/reputation/google-reviews/repair-duplicates?organization_id=33336a72-acb5-474e-856b-8be0269360e2&limit=5",
-      "schedule": "*/5 * * * *"
+      "schedule": "30 0 * * *"
     },
     {
       "path": "/api/internal/commercial/loyalty/process-events",

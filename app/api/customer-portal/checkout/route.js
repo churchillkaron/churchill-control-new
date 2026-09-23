@@ -205,6 +205,7 @@ export async function POST(request) {
 
     const checkout = await StripeProvider.createPaymentCheckout({
       organizationId: session.organization_id,
+      idempotencyKey: `customer-portal-checkout:${paymentRequest.id}`,
       session: {
       payment_method_types: ["card"],
       mode: "payment",

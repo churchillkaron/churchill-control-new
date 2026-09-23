@@ -193,11 +193,6 @@ export default function LoginPage() {
         return;
       }
 
-      if (!result.eligible) {
-        setError(result.error || "Password recovery is not available for this account on this portal.");
-        return;
-      }
-
       const recoveryUrl = new URL("/login", window.location.origin);
       if (["supplier","staff","developer"].includes(portalIntent())) recoveryUrl.searchParams.set("portal", portalIntent());
       const hostBrand = resolvePlatformLoginContext(window.location.hostname);

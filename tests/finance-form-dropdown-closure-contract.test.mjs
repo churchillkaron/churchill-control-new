@@ -75,7 +75,9 @@ test("creatable Finance lookups have a real Create path and reference-only looku
 });
 
 test("transaction identities and legal-entity scope are canonical", () => {
-  assert.match(vendorLookup, /value: party\?\.id \|\| row\.party_id \|\| row\.id/);
+  assert.match(vendorLookup, /value: party\?\.id \|\| row\.supplier_party_id \|\| row\.party_id \|\| row\.id/);
+  assert.match(vendorLookup, /supplier_profile_id: row\.id/);
+  assert.match(vendorLookup, /supplier_party_id: party\?\.id \|\| row\.supplier_party_id \|\| row\.party_id \|\| null/);
   assert.match(vendorLookup, /row\.is_blocked !== true/);
   assert.match(customerLookup, /from\("customer_profiles"\)/);
   assert.match(customerLookup, /value: party\.id/);

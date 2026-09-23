@@ -470,7 +470,14 @@ export async function POST(request, internal = {}) {
   if (trustedLiveExecutionId) {
     trustedHeaders.set("x-avantiqo-live-execution-id", trustedLiveExecutionId);
   }
-  request = new Request(request, { headers: trustedHeaders });
+  const requestBody = ["GET", "HEAD"].includes(String(request.method || "POST").toUpperCase())
+    ? undefined
+    : await request.arrayBuffer();
+  request = new Request(request.url, {
+    method: request.method || "POST",
+    headers: trustedHeaders,
+    ...(requestBody ? { body: requestBody } : {}),
+  });
 
   try {
     const body = await request.json();

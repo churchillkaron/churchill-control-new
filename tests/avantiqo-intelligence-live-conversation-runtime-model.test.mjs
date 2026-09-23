@@ -14,12 +14,18 @@ const businessPolicy = fs.readFileSync(
   "lib/platform/service-runtime/providers/avantiqo-intelligence/BusinessPartnerIntelligencePolicyRuntime.js",
   "utf8",
 );
+const modelRegistry = fs.readFileSync(
+  "lib/platform/service-runtime/providers/avantiqo-intelligence/IntelligenceModelRegistry.js",
+  "utf8",
+);
 
 test("Code live/deep model selection belongs to the Code policy, not shared queue transport", () => {
   assert.match(codePolicy, /code_live_conversation/);
   assert.match(codePolicy, /code_deep_conversation/);
-  assert.match(codePolicy, /const LIVE_MODEL = "qwen3:1\.7b"/);
-  assert.match(codePolicy, /const DEEP_MODEL = "qwen3:4b-instruct"/);
+  assert.match(codePolicy, /INTELLIGENCE_MODEL_REGISTRY\.live\.runtime_model/);
+  assert.match(codePolicy, /INTELLIGENCE_MODEL_REGISTRY\.deep\.runtime_model/);
+  assert.match(modelRegistry, /runtime_model: "qwen3:1\.7b"/);
+  assert.match(modelRegistry, /runtime_model: "qwen3:4b-instruct"/);
   assert.doesNotMatch(queue, /code_live_conversation|code_deep_conversation|CODE_AI/);
 });
 
@@ -37,4 +43,10 @@ test("shared queue delegates model and product selection through the product pol
   assert.match(queue, /model: productPolicy\.runtime_model/);
   assert.match(queue, /intelligence_product: productPolicy\.product/);
   assert.match(queue, /intelligence_contract: productPolicy\.contract/);
+});
+
+test("shared queue status rendering uses the shared model registry and no removed constants", () => {
+  assert.match(queue, /displayIntelligenceRuntimeModel\(row\.model\)/);
+  assert.match(queue, /DEFAULT_INTELLIGENCE_RUNTIME_MODEL/);
+  assert.doesNotMatch(queue, /LIVE_CONVERSATION_RUNTIME_MODEL|\bRUNTIME_MODEL\b/);
 });

@@ -76,13 +76,12 @@ test("shared intelligence card explains strategy from evidence instead of chain-
   assert.match(intelligenceCard, /SUPPRESSED/);
 });
 
-test("Business Partner and Code Studio render the same governed engineering intelligence card", () => {
-  assert.match(businessPartnerSurface, /CodeEngineeringIntelligenceLiveCard/);
-  assert.match(businessPartnerSurface, /theme="light"/);
-  assert.match(businessPartnerSurface, /compact/);
+test("Code Studio renders governed engineering intelligence while Home stays conversation-first", () => {
+  assert.match(businessPartnerSurface, /return null/);
+  assert.doesNotMatch(businessPartnerSurface, /CodeEngineeringIntelligenceLiveCard/);
   assert.match(studioSurface, /CodeEngineeringIntelligenceLiveCard/);
   assert.match(studioSurface, /theme="dark"/);
-  assert.match(liveCard, /\/api\/operator\/code\/progress/);
+  assert.match(liveCard, /useCodeProgressFeed/);
   assert.match(liveCard, /CodeEngineeringIntelligenceCard/);
   assert.match(liveCard, /data-avantiqo-code-intelligence-live-feed="true"/);
 });

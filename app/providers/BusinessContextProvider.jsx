@@ -124,6 +124,57 @@ function timeoutPromise(promise, timeoutMs, code) {
   });
 }
 
+const bootstrapInflight = new Map();
+
+function bootstrapRequestKey(url, accessToken) {
+  return `${url}|${accessToken || "cookie-session"}`;
+}
+
+async function fetchBusinessBootstrap(bootstrapUrl, accessToken) {
+  const key = bootstrapRequestKey(bootstrapUrl, accessToken);
+  const existing = bootstrapInflight.get(key);
+  if (existing) return existing;
+
+  const request = (async () => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort("WORKSPACE_BOOTSTRAP_FETCH_TIMEOUT"), 8000);
+    try {
+      const response = await fetch(bootstrapUrl, {
+        method: "GET",
+        headers: accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : {},
+        cache: "no-store",
+        credentials: "same-origin",
+        signal: controller.signal,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const error = new Error(payload?.error || payload?.reason || "Business context bootstrap failed");
+        error.status = response.status;
+        error.code = payload?.reason || payload?.code || null;
+        throw error;
+      }
+      return payload;
+    } catch (error) {
+      if (error?.name === "AbortError" || controller.signal.aborted) {
+        const timeoutError = new Error("WORKSPACE_BOOTSTRAP_FETCH_TIMEOUT");
+        timeoutError.cause = error;
+        throw timeoutError;
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  })();
+
+  bootstrapInflight.set(key, request);
+  request.finally(() => {
+    if (bootstrapInflight.get(key) === request) bootstrapInflight.delete(key);
+  }).catch(() => null);
+  return request;
+}
+
 function retryableBootstrapError(error) {
   const message = text(error?.message || error).toLowerCase();
   const status = Number(error?.status || error?.cause?.status || 0);
@@ -282,22 +333,7 @@ export function BusinessContextProvider({ children }) {
             ? `/api/session/bootstrap?organizationId=${encodeURIComponent(routeOrganizationId)}`
             : "/api/session/bootstrap";
           const accessToken = browserSupabaseAccessToken();
-          const response = await fetch(bootstrapUrl, {
-            method: "GET",
-            headers: accessToken
-              ? { Authorization: `Bearer ${accessToken}` }
-              : {},
-            cache: "no-store",
-            credentials: "same-origin",
-          });
-          const payload = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            const error = new Error(payload?.error || payload?.reason || "Business context bootstrap failed");
-            error.status = response.status;
-            error.code = payload?.reason || payload?.code || null;
-            throw error;
-          }
-          return payload;
+          return fetchBusinessBootstrap(bootstrapUrl, accessToken);
         }, {
           onRetry: (attempt) => setState((previous) => ({
             ...previous,

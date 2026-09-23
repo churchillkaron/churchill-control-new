@@ -12,7 +12,8 @@ import {
 
 const ACTIVE_POLL_MS = 3000;
 const IDLE_POLL_MS = 15000;
-const ACTIVE_DETAIL_REFRESH_EVERY = 5;
+const HIDDEN_POLL_MS = 60000;
+const ACTIVE_DETAIL_REFRESH_EVERY = 20;
 const ACTIVE_STALE_MS = 30 * 60 * 1000;
 const ACTIVE_STATES = new Set([
   "active",
@@ -202,9 +203,12 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
       }
 
       if (!controller.signal.aborted && mounted.current) {
-        const baseDelay = active ? ACTIVE_POLL_MS : IDLE_POLL_MS;
+        const visible = document.visibilityState === "visible";
+        const baseDelay = visible
+          ? (active ? ACTIVE_POLL_MS : IDLE_POLL_MS)
+          : HIDDEN_POLL_MS;
         const failureDelay = consecutiveFailures
-          ? Math.min(30000, baseDelay * (2 ** Math.min(consecutiveFailures, 4)))
+          ? Math.min(60000, baseDelay * (2 ** Math.min(consecutiveFailures, 4)))
           : baseDelay;
         timer = window.setTimeout(poll, failureDelay);
       }
@@ -215,12 +219,18 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
       timer = window.setTimeout(poll, 0);
     }
 
+    function visibilityChanged() {
+      if (document.visibilityState === "visible") refreshNow();
+    }
+
     window.addEventListener("avantiqo:code-progress-refresh", refreshNow);
+    document.addEventListener("visibilitychange", visibilityChanged);
     poll();
     return () => {
       controller.abort();
       if (timer) window.clearTimeout(timer);
       window.removeEventListener("avantiqo:code-progress-refresh", refreshNow);
+      document.removeEventListener("visibilitychange", visibilityChanged);
     };
   }, [organizationId, deviceSessionScope]);
 

@@ -63,8 +63,8 @@ test("live conversation distinguishes explanation from a real build command", ()
 test("project identity firewall is injected into planner and live conversation", () => {
   assert.match(planner, /deriveCodeAIProjectIdentity/);
   assert.match(planner, /formatCodeAIProjectIdentityForPlanner\(projectIdentity\)/);
-  assert.match(conversation, /Avantiqo Code is the engineering tool, not the identity of the user's software product/);
-  assert.match(conversation, /Never import Avantiqo product domains, terminology, UI style, workflows/);
+  assert.match(conversation, /Avantiqo Code is the engineering tool, not the user's product/);
+  assert.match(conversation, /Never import Avantiqo product domains, UI style, workflows, organization\/entity concepts, stack choices, or provider choices/);
 });
 
 test("project identity persists with mission state and mission history", () => {

@@ -45,8 +45,8 @@ test("Code Studio exposes connected-computer state and keeps delivery governed",
   assert.match(studio, /Connected computer/);
   assert.match(studio, /\/api\/operator\/code\/devices/);
   assert.match(studio, /device\.online \? "online" : "offline"/);
-  assert.match(studio, /workspace_target: workspaceTarget/);
-  assert.match(studio, /device_id: workspaceTarget === "DEVICE" \? deviceId : null/);
+  assert.match(studio, /<AvantiqoCodeIDE/);
+  assert.match(studio, /organizationId=\{organizationId\}/);
   assert.match(studio, /\/api\/operator\/code\/commit/);
   assert.match(studio, /\/api\/operator\/code\/release/);
   assert.match(devicesRoute, /requiredPermission: REQUIRED_PERMISSION/);

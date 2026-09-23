@@ -94,7 +94,7 @@ const requiredMarkers = [
   "CODE_AI_AUTONOMOUS_PLANNER_ATTEMPT_LIMIT_EXHAUSTED",
   "iteration = control.planner_iterations_used + 1",
   "const operationId = `autonomy_${iteration}_${decision.action}`",
-  "TRANSIENT_WORKSPACE_RETRY_LIMIT = 1",
+  "TRANSIENT_WORKSPACE_RETRY_LIMIT = 3",
   "isTransientWorkspaceTermination",
   'kind: "autonomous_execution_retry"',
   "same_operation_retried: true",

@@ -31,6 +31,6 @@ test('owned intelligence provider has no Modal fallback', () => {
 });
 
 test('Node01 local intelligence context is 20k in policy and worker', () => {
-  assert.match(localPolicy, /AVANTIQO_INTELLIGENCE_LOCAL_CONTEXT_TOKENS = 20000/);
-  assert.match(worker, /\$ContextTokens = 20000/);
+  assert.match(localPolicy, /AVANTIQO_INTELLIGENCE_LOCAL_CONTEXT_TOKENS = 20480/);
+  assert.match(worker, /\$ContextTokens = 20480/);
 });

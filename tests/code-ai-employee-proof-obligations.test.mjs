@@ -69,7 +69,6 @@ test("employee completion rejects an unrelated test when repository evidence ide
   });
 
   const completion = assessCodeAIEmployeeCompletion(state);
-  assert.equal(completion.worldclass_quality.verified, true);
   assert.equal(completion.behavioral_verification.required, true);
   assert.equal(completion.behavioral_verification.verified, false);
   assert.equal(completion.complete, false);

@@ -70,3 +70,11 @@ test("pgvector leaves public schema without breaking vector-memory compatibility
   assert.match(migration, /vm\.organization_id as tenant_id/);
   assert.match(migration, /search_path = public, extensions, pg_temp/);
 });
+
+test("release RLS policies cache auth uid once per statement", async () => {
+  const migration = await source("supabase/migrations/20260923034220_optimize_release_rls_auth_initplans.sql");
+  assert.match(migration, /staff_accounts_read/);
+  assert.match(migration, /hotel_booking_reinstatements_org_read/);
+  assert.match(migration, /hotel_shift_handover_context_org_read/);
+  assert.match(migration, /\(select auth\.uid\(\)\)/g);
+});

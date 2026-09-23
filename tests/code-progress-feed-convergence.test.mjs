@@ -30,6 +30,10 @@ const lifecycleReceipt = await readFile(
   "lib/code/runtime/CodeAIEngineeringSkillVisibleReceiptRuntime.js",
   "utf8",
 );
+const missionRuntime = await readFile(
+  "lib/code/runtime/CodeAIMissionRuntime.js",
+  "utf8",
+);
 
 function count(source, token) {
   return source.split(token).length - 1;
@@ -103,7 +107,11 @@ test("progress convergence does not add commit deploy or knowledge authority", (
   assert.match(lifecycleReceipt, /contains_raw_patch:\s*false/);
   assert.match(lifecycleReceipt, /automatic_knowledge_promotion:\s*false/);
   assert.match(lifecycleReceipt, /authorization_effect:\s*"NONE"/);
-  assert.match(codeStudio, /Governed preview · no commit · no deploy/);
+  assert.match(codeStudio, /Governed engineering · commit and deploy gated/);
+  assert.match(codeStudio, /governedDeliveryReady/);
+  assert.match(codeStudio, /\/api\/operator\/code\/review/);
+  assert.match(codeStudio, /\/api\/operator\/code\/commit/);
+  assert.match(codeStudio, /\/api\/operator\/code\/release/);
 });
 
 const businessPartnerLiveRoute = await readFile(
@@ -127,4 +135,15 @@ test("Code live operations identify the actual file search or command being insp
   assert.match(liveWorkPackage, /Searching repository code for/);
   assert.match(liveWorkPackage, /Running \$\{\[command, \.\.\.args\]\.join\(" "\)\}/);
   assert.match(liveWorkPackage, /description: operationProgressDescription\(operation, input\)/);
+});
+
+test("mission runtime publishes concrete repository activity from the first live-state inspection", () => {
+  assert.match(missionRuntime, /function repositoryOperationProgress/);
+  assert.match(missionRuntime, /REPOSITORY_OPERATION_RUNNING/);
+  assert.match(missionRuntime, /REPOSITORY_OPERATION_COMPLETED/);
+  assert.match(missionRuntime, /I’m checking the current repository head, project guidance, and verification setup/);
+  assert.match(missionRuntime, /I’m opening/);
+  assert.match(missionRuntime, /I’m searching the repository/);
+  assert.match(missionRuntime, /I’m running/);
+  assert.match(missionRuntime, /publishCodeAILiveProgress\(\{[\s\S]*repositoryOperationProgress\(operation, "running"\)/);
 });

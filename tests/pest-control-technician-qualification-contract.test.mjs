@@ -13,7 +13,7 @@ async function source(path) {
 
 test("service-plan generated work snapshots treatment protocol qualification requirements", async () => {
   const runtime = await source(servicePlanRuntimePath);
-  assert.match(runtime, /execution_protocol:\s*executionProtocol/);
+  assert.match(runtime, /execution_protocol:\s*protocol/);
   assert.match(runtime, /required_qualification_codes/);
 });
 

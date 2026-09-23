@@ -30,7 +30,7 @@ test("local queue runtime is pull-based and includes measured Deep on Node01", (
   assert.match(runtime, /localOutputTokenCap\(executionLane\)/);
   assert.match(runtime, /think: executionLane === "deep"/);
 });
-test("Administration exposes Modal-like owned compute observability", () => {
+test("Administration exposes owned local compute observability", () => {
   const route = source("app/api/workspace/administration/compute/route.js");
   const page = source("app/(system)/workspace/[organizationId]/administration/compute/page.jsx");
   const command = source("components/workspace/administration/AdministrationCommandCenter.jsx");
@@ -38,7 +38,6 @@ test("Administration exposes Modal-like owned compute observability", () => {
   assert.match(route, /avantiqo_local_compute_nodes/);
   assert.match(route, /avantiqo_local_compute_jobs/);
   assert.match(route, /LOCAL_FIRST/);
-  assert.match(route, /MODAL/);
   assert.match(page, /Avantiqo Compute Control/);
   assert.match(page, /VRAM/);
   assert.match(page, /Local models/);
@@ -47,8 +46,6 @@ test("Administration exposes Modal-like owned compute observability", () => {
   assert.match(page, /Failure reason/);
   assert.match(page, /Date & time/);
   assert.match(page, /Asia\/Bangkok/);
-  assert.match(page, /Modal runtime model/);
-  assert.match(page, /Modal \${job.modal_gpu}/);
   assert.match(page, /productionJobs/);
   assert.match(route, /classifyLocalJob/);
   assert.match(route, /operational_success_rate/);
@@ -104,7 +101,7 @@ test("worker uses the measured 20480-token Qwen context", () => {
 
 test("reasoning service capability normalizes to the executable local text capability", () => {
   const runtime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js");
-  assert.match(runtime, /capability: "ai\.text\.generate"/);
+  assert.match(runtime, /capability: isCodeConversationTask\(input, executionLane\) \? "ai\.code\.live-conversation" : "ai\.text\.generate"/);
   assert.match(runtime, /service_capability: text\(input\.capability\) \|\| null/);
   assert.match(runtime, /capability: text\(input\.capability\)/);
 });

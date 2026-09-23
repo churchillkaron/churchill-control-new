@@ -55,8 +55,8 @@ function studioImagePath(studio) {
   if (studio.startsWith("Video")) return "/art/generated/creative-video-v2.png";
   if (studio.startsWith("Audio")) return "/art/generated/creative-audio-post-v2.png";
   if (studio.startsWith("Music")) return "/art/generated/creative-music-v2.png";
-  if (studio.startsWith("Image")) return "/art/generated/creative-image-v2.png";
-  return "/art/generated/creative-hero-v2.png";
+  if (studio.startsWith("Image")) return "/art/generated/image-studio/workflow/03-create.webp";
+  return "/art/generated/image-studio/workflow/01-direct.webp";
 }
 
 function StudioArtwork({ studio }) {

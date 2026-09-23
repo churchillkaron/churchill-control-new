@@ -26,8 +26,8 @@ const businessPartnerSurface = await readFile(
   "components/operator/BusinessPartnerCodeMissionPanel.jsx",
   "utf8",
 );
-const studioPage = await readFile(
-  "app/(system)/workspace/[organizationId]/creative/code/page.jsx",
+const studioSurface = await readFile(
+  "components/creative/code/CreativeCodeStudio.jsx",
   "utf8",
 );
 
@@ -80,8 +80,8 @@ test("Business Partner and Code Studio render the same governed engineering inte
   assert.match(businessPartnerSurface, /CodeEngineeringIntelligenceLiveCard/);
   assert.match(businessPartnerSurface, /theme="light"/);
   assert.match(businessPartnerSurface, /compact/);
-  assert.match(studioPage, /CodeEngineeringIntelligenceLiveCard/);
-  assert.match(studioPage, /theme="dark"/);
+  assert.match(studioSurface, /CodeEngineeringIntelligenceLiveCard/);
+  assert.match(studioSurface, /theme="dark"/);
   assert.match(liveCard, /\/api\/operator\/code\/progress/);
   assert.match(liveCard, /CodeEngineeringIntelligenceCard/);
   assert.match(liveCard, /data-avantiqo-code-intelligence-live-feed="true"/);

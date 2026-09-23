@@ -225,7 +225,7 @@ export async function GET(request) {
         routing_reason: classifyModalRouting(row).reason,
         modal_gpu: text(row.metadata?.provider_result?.modal_gpu || row.metadata?.provider_result?.output?.modal_gpu) || null,
         infrastructure_provider: text(row.metadata?.provider_result?.infrastructure_provider || row.metadata?.provider_result?.output?.infrastructure_provider || row.metadata?.reservation_pricing?.pricing_metadata?.infrastructure_provider) || "MODAL",
-        execution_resource: "MODAL_GPU",
+        execution_resource: "LOCAL_GPU",
         execution_path: `MODAL → ${requestPath}`,
       };
     });
@@ -271,7 +271,8 @@ export async function GET(request) {
       { product: "Music generation", capability: "ai.music.generate", model: "ACE-Step/Ace-Step1.5 · local CPU float32 · 8 steps", status: "CERTIFIED_LOCAL", resource: "CPU" },
       { product: "Documents / OCR", capability: "document.ocr", model: "qwen2.5vl:3b Q4_K_M", status: "CERTIFIED_LOCAL", resource: "GPU" },
       { product: "Developer / Code", capability: "ai.code.generate", model: "qwen3:4b-instruct", status: "CERTIFIED_LOCAL", resource: "GPU" },
-      { product: "Image / Video generation", capability: "generation", model: "specialist production models", status: "MODAL_KEEP_SPECIALIST_GPU", resource: "GPU" },
+      { product: "Video generation", capability: "video generation", model: "local video model", status: "LOCAL_WORKER_PENDING", resource: "GPU" },
+      { product: "Image generation", capability: "image generation", model: "owned local image model", status: "LOCAL_ONLY", resource: "GPU" },
     ];
 
     return NextResponse.json({
@@ -283,7 +284,7 @@ export async function GET(request) {
         deep_intelligence: "MODAL",
         heavy_generation: "MODAL",
         bounded_studio_reasoning: "LOCAL_GPU_QWEN4B_FIRST",
-        deep_creative_reasoning: "MODAL_HEAVY_ONLY_WHEN_REQUIRED",
+        deep_creative_reasoning: "LOCAL_ONLY",
         media_dsp: "LOCAL_CPU_FIRST",
         local_transport: "SUPABASE_PULL_QUEUE_V1",
       },

@@ -144,8 +144,19 @@ async function loadOrganizations(organizationIds) {
     .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 }
 
+async function timedBootstrapStep(label, operation) {
+  const startedAt = Date.now();
+  try {
+    return await operation();
+  } finally {
+    console.info("[SESSION_BOOTSTRAP_TIMING]", label, Date.now() - startedAt);
+  }
+}
+
 async function loadBootstrapPayload({ request, user }) {
-  const context = await resolveAuthenticatedStaffContext({ request, user });
+  const context = await timedBootstrapStep("staff_context", () =>
+    resolveAuthenticatedStaffContext({ request, user }),
+  );
 
   if (!context.success) {
     return {
@@ -162,10 +173,12 @@ async function loadBootstrapPayload({ request, user }) {
   }
 
   const organizationId = context.organizationId;
-  const accessPolicy = await evaluateOrganizationAppAccess({
-    organizationId,
-    role: context.role || context.staff?.role,
-  });
+  const accessPolicy = await timedBootstrapStep("access_policy", () =>
+    evaluateOrganizationAppAccess({
+      organizationId,
+      role: context.role || context.staff?.role,
+    }),
+  );
 
   if (!accessPolicy.allowed) {
     return {
@@ -185,11 +198,11 @@ async function loadBootstrapPayload({ request, user }) {
   const supabase = createServerSupabase();
 
   const [organizations, entities, modules, productEntitlements, operatorOrganizationId] = await Promise.all([
-    loadOrganizations(context.availableOrganizationIds || [organizationId]),
-    loadEntities({ organizationId }),
-    getAvailableModules({ organizationId, supabase }),
-    getOrganizationProductEntitlements({ organizationId, supabase }),
-    resolvePlatformOperatorOrganizationId().catch(() => null),
+    timedBootstrapStep("organizations", () => loadOrganizations(context.availableOrganizationIds || [organizationId])),
+    timedBootstrapStep("entities", () => loadEntities({ organizationId })),
+    timedBootstrapStep("modules", () => getAvailableModules({ organizationId, supabase })),
+    timedBootstrapStep("product_entitlements", () => getOrganizationProductEntitlements({ organizationId, supabase })),
+    timedBootstrapStep("platform_operator", () => resolvePlatformOperatorOrganizationId().catch(() => null)),
   ]);
 
   const organization =
@@ -214,16 +227,19 @@ async function loadBootstrapPayload({ request, user }) {
     requestedEntityId: cookieStore.get(ACTIVE_ENTITY_COOKIE)?.value || null,
   });
 
-  const period = await loadActivePeriod({
-    supabase,
-    organizationId,
-    entityId: entity?.id || null,
-    requestedPeriodId: cookieStore.get(ACTIVE_PERIOD_COOKIE)?.value || null,
-  });
+  const period = await timedBootstrapStep("active_period", () =>
+    loadActivePeriod({
+      supabase,
+      organizationId,
+      entityId: entity?.id || null,
+      requestedPeriodId: cookieStore.get(ACTIVE_PERIOD_COOKIE)?.value || null,
+    }),
+  );
 
   return {
     payload: {
       success: true,
+      user: context.user || null,
       staff: context.staff,
       organization,
       organizations,
@@ -251,7 +267,11 @@ async function loadBootstrapPayload({ request, user }) {
 }
 
 async function handleBootstrap(request) {
-  const { user, error } = await loadAuthenticatedUser(request);
+  console.info("[SESSION_BOOTSTRAP_AUTH_SOURCE]", {
+    authorization: Boolean(request?.headers?.get?.("authorization")),
+    cookie_names: cookies().getAll().map((cookie) => cookie.name),
+  });
+  const { user, error } = await timedBootstrapStep("authenticated_user", () => loadAuthenticatedUser(request));
 
   if (error || !user) {
     return Response.json(

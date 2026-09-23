@@ -28,7 +28,7 @@ function requireText(relativePath, expected) {
 }
 
 const retailControl =
-  "app/(system)/workspace/[organizationId]/operations/retail/page.jsx";
+  "lib/operations/presentation/OperationsIndustryProfiles.js";
 const legacyRetail =
   "app/(system)/workspace/[organizationId]/retail/page.jsx";
 const solutionRegistry =
@@ -37,7 +37,7 @@ const solutionRegistry =
 requireText(retailControl, "/operations/pos");
 requireText(retailControl, "/supply-chain/inventory");
 requireText(retailControl, "/commercial/customers");
-requireText(retailControl, "Operations owns selling");
+requireText(retailControl, "Operations owns transaction execution and fulfillment");
 requireText(retailControl, "Supply Chain owns stock");
 
 requireText(legacyRetail, "redirect(");

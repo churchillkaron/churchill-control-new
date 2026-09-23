@@ -7,11 +7,17 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
-function organizationIdFromUrl(request) {
-  const url = new URL(request.url);
-  return text(
-    url.searchParams.get("organization_id") || url.searchParams.get("organizationId"),
-  );
+export async function GET(){
+  const user=await requireUser();
+  if(!user) return NextResponse.json({success:false,error:"Authentication required"},{status:401});
+  return NextResponse.json({
+    success:true,
+    retired:true,
+    policy:"LOCAL_ONLY",
+    infrastructure_provider:"AVANTIQO_LOCAL_NODE_V1",
+    modal_credentials_supported:false,
+    message:"Cloud Intelligence credentials are retired. Avantiqo Intelligence executes only on owned local compute.",
+  });
 }
 
 async function platformAccess(organizationId) {

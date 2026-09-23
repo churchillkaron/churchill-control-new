@@ -138,6 +138,8 @@ export default function StaffPortalPage() {
   const upcomingSchedules = useMemo(() => profile?.upcomingSchedules || [], [profile?.upcomingSchedules]);
   const recentAttendance = profile?.recentAttendance || [];
   const requirements = runtime?.clockInRequirements || {};
+  const activationBypass = String(staff?.role || runtime?.role || "").toUpperCase() === "SUPER_ADMIN";
+  const identitySatisfied = activationBypass || requirements.identityVerified === true;
   const approvedTargets = new Set(
     requirements?.exception?.activeApprovedTargets || []
   );

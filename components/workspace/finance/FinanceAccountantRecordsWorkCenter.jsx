@@ -187,6 +187,7 @@ export default function FinanceAccountantRecordsWorkCenter({
   const create = capability?.create?.enabled === true ? capability.create : null;
   const createEngine = useCreateEngine();
   const searchRef = useRef(null);
+  const supplierSubmissionPrefillRef = useRef("");
 
   const [loading, setLoading] = useState(Boolean(api));
   const [error, setError] = useState("");
@@ -292,6 +293,75 @@ export default function FinanceAccountantRecordsWorkCenter({
   }, [api, contextReady, organizationId, entityId, periodId, capability?.id, config.rowsKey, refreshKey]);
 
   useEffect(() => {
+    if (
+      capability?.id !== "vendor_bills" ||
+      !organizationId ||
+      !contextReady ||
+      !create ||
+      typeof window === "undefined"
+    ) return;
+
+    const submissionId = text(new URLSearchParams(window.location.search).get("supplierSubmissionId"));
+    if (!submissionId || supplierSubmissionPrefillRef.current === submissionId) return;
+
+    supplierSubmissionPrefillRef.current = submissionId;
+    let active = true;
+
+    async function loadSupplierSubmissionPrefill() {
+      try {
+        const url = new URL("/api/finance/supplier-invoice-submissions", window.location.origin);
+        url.searchParams.set("organizationId", organizationId);
+        url.searchParams.set("submissionId", submissionId);
+        const response = await fetch(url.toString(), { cache: "no-store", credentials: "include" });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to load supplier invoice submission");
+        if (!active) return;
+
+        const submission = body?.submission;
+        if (!submission) throw new Error("Supplier invoice submission was not found");
+        if (String(submission.status || "").toUpperCase() !== "ACCEPTED") {
+          throw new Error("Supplier invoice submission must be accepted before Vendor Bill creation");
+        }
+        if (submission.entity_id && entityId && String(submission.entity_id) !== String(entityId)) {
+          throw new Error("Switch to the legal entity linked to this supplier invoice before creating the Vendor Bill");
+        }
+
+        setSubmissionKey(`supplier-submission:${submission.id}`);
+        setForm({
+          vendor: submission.supplier_party_id || "",
+          invoice_date: submission.invoice_date || "",
+          due_date: submission.due_date || "",
+          invoice_number: submission.invoice_number || "",
+          currency_code: submission.currency_code || currencyCode || "THB",
+          purchase_order_id: submission.purchase_order_id || null,
+          document_id: submission.organization_document_id || null,
+          source: "supplier_portal_submission",
+          supplier_submission_id: submission.id,
+          lines: [{
+            description: submission.supplier_note || `Supplier invoice ${submission.invoice_number || ""}`,
+            quantity: 1,
+            unit_price: Number(submission.total_amount || 0),
+          }],
+        });
+        createEngine.show();
+      } catch (prefillError) {
+        if (active) setError(prefillError?.message || "Unable to prepare supplier Vendor Bill");
+      }
+    }
+
+    loadSupplierSubmissionPrefill();
+    return () => { active = false; };
+  }, [
+    capability?.id,
+    contextReady,
+    create,
+    organizationId,
+    entityId,
+    currencyCode,
+    createEngine,
+  ]);
+
+  useEffect(() => {
     if (!organizationId || !capability?.id) return;
     let active = true;
     async function loadViews() {
@@ -344,6 +414,68 @@ export default function FinanceAccountantRecordsWorkCenter({
   useEffect(() => {
     setPageIndex(0);
   }, [query, statusFilter, sortIndex, sortDirection, capability?.id, entityId, periodId]);
+
+  useEffect(() => {
+    setPortalPaymentSetup(null);
+    setPortalPaymentBankAccountId("");
+  }, [selected?.id]);
+
+  async function prepareCustomerPortalPayment() {
+    if (!customerInvoiceWorkspace || !selected?.id || !organizationId) return;
+    setPortalPaymentBusy(true);
+    setError("");
+    try {
+      const url = new URL("/api/finance/customer-portal-payment-requests", window.location.origin);
+      url.searchParams.set("organizationId", organizationId);
+      url.searchParams.set("invoiceId", selected.id);
+      const response = await fetch(url.toString(), { cache: "no-store", credentials: "include" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.success === false) {
+        throw new Error(body?.error || "Unable to prepare Customer Portal payment");
+      }
+      setPortalPaymentSetup(body);
+      setPortalPaymentBankAccountId(
+        body?.payment_request?.bank_account_id ||
+        body?.bank_accounts?.find((account) => account.is_default)?.id ||
+        (body?.bank_accounts?.length === 1 ? body.bank_accounts[0].id : "")
+      );
+    } catch (paymentError) {
+      setError(paymentError?.message || "Unable to prepare Customer Portal payment");
+    } finally {
+      setPortalPaymentBusy(false);
+    }
+  }
+
+  async function issueCustomerPortalPayment() {
+    if (!portalPaymentSetup?.invoice?.id || !portalPaymentBankAccountId || !organizationId) return;
+    setPortalPaymentBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/finance/customer-portal-payment-requests", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          invoiceId: portalPaymentSetup.invoice.id,
+          bankAccountId: portalPaymentBankAccountId,
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.success === false) {
+        throw new Error(body?.error || "Unable to issue Customer Portal payment request");
+      }
+      setPortalPaymentSetup((current) => ({
+        ...(current || {}),
+        payment_request: body.payment_request,
+        issued: true,
+      }));
+    } catch (paymentError) {
+      setError(paymentError?.message || "Unable to issue Customer Portal payment request");
+    } finally {
+      setPortalPaymentBusy(false);
+    }
+  }
 
   useEffect(() => {
     function handleKeydown(event) {
@@ -420,6 +552,41 @@ export default function FinanceAccountantRecordsWorkCenter({
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || result?.success === false) throw new Error(result?.error || `Create failed (${response.status})`);
+
+    if (form.supplier_submission_id) {
+      const canonicalVendorInvoiceId =
+        result?.vendor_invoice_id ||
+        result?.data?.invoice?.id ||
+        result?.data?.vendor_invoice?.id ||
+        result?.data?.invoice_id ||
+        result?.data?.id ||
+        null;
+      if (!canonicalVendorInvoiceId) {
+        throw new Error("Canonical Vendor Bill was created but its invoice ID was not returned");
+      }
+
+      const conversionResponse = await fetch("/api/finance/supplier-invoice-submissions", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          submissionId: form.supplier_submission_id,
+          action: "CONVERT",
+          canonicalVendorInvoiceId,
+        }),
+      });
+      const conversion = await conversionResponse.json().catch(() => ({}));
+      if (!conversionResponse.ok || conversion?.success === false) {
+        throw new Error(conversion?.error || "Vendor Bill exists but supplier submission conversion could not be finalized");
+      }
+
+      const url = new URL(window.location.href);
+      url.searchParams.delete("supplierSubmissionId");
+      window.history.replaceState({}, "", url.toString());
+      supplierSubmissionPrefillRef.current = "";
+    }
+
     createEngine.hide();
     setForm({});
     setSubmissionKey(null);
@@ -562,6 +729,16 @@ export default function FinanceAccountantRecordsWorkCenter({
               <button type="button" onClick={refresh} disabled={loading} className="inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.09] bg-white px-3 text-[11px] font-medium text-[#56514A] transition hover:border-[#D6A66A]/45 disabled:opacity-45">
                 <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
               </button>
+              {customerInvoiceWorkspace && selected ? (
+                <button
+                  type="button"
+                  onClick={prepareCustomerPortalPayment}
+                  disabled={portalPaymentBusy || Number(selected?.outstanding_balance ?? selected?.outstanding_amount ?? 0) <= 0}
+                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#D6A66A]/35 bg-[#FFF9F1] px-3 text-[11px] font-semibold text-[#76502E] transition hover:border-[#D6A66A]/60 disabled:opacity-40"
+                >
+                  {portalPaymentBusy ? "Preparing…" : "Customer Portal Payment"}
+                </button>
+              ) : null}
               {topMenu.length ? (
                 <div className="relative">
                   <button type="button" onClick={() => setMenuId(menuId === "__top__" ? null : "__top__")} className="inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.09] bg-white px-3 text-[11px] font-medium text-[#56514A]">Actions <MoreHorizontal size={14} /></button>
@@ -706,6 +883,78 @@ export default function FinanceAccountantRecordsWorkCenter({
           </>
         )}
       </div>
+
+      {portalPaymentSetup ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/35 p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-black/[0.1] bg-white p-5 shadow-[0_24px_80px_rgba(31,27,20,0.25)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#9A7045]">Customer Portal payment</div>
+                <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.025em] text-[#26231F]">
+                  {portalPaymentSetup?.invoice?.invoice_number || "Customer invoice"}
+                </h2>
+                <div className="mt-1 text-[11px] text-[#777169]">
+                  Outstanding {money(portalPaymentSetup?.outstanding_amount || 0, portalPaymentSetup?.invoice?.currency_code || currencyCode)}
+                </div>
+              </div>
+              <button type="button" onClick={() => setPortalPaymentSetup(null)} className="rounded-lg border border-black/[0.08] px-3 py-2 text-[10px] font-medium text-[#625D56]">Close</button>
+            </div>
+
+            <div className={portalPaymentSetup?.card_readiness?.ready ? "mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[10px] leading-5 text-emerald-800" : "mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] leading-5 text-amber-900"}>
+              {portalPaymentSetup?.card_readiness?.ready
+                ? "Card merchant connection is ready for this invoice legal entity and currency."
+                : portalPaymentSetup?.card_readiness?.reason || "Card payments are not ready for this invoice."}
+            </div>
+
+            <label className="mt-4 grid gap-1.5 text-[10px] font-semibold text-[#625D56]">
+              Settlement bank account
+              <select
+                value={portalPaymentBankAccountId}
+                onChange={(event) => setPortalPaymentBankAccountId(event.target.value)}
+                className="h-10 rounded-lg border border-black/[0.1] bg-white px-3 text-[11px] font-normal text-[#3D3934] outline-none"
+              >
+                <option value="">Choose bank account…</option>
+                {(portalPaymentSetup?.bank_accounts || []).map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.bank_name || "Bank"} · {account.account_name || account.account_number || account.id}
+                    {account.is_default ? " · default" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {portalPaymentSetup?.payment_request ? (
+              <div className="mt-3 rounded-xl border border-black/[0.07] bg-[#F8F7F4] p-3 text-[10px] text-[#6F6961]">
+                Existing portal request · {portalPaymentSetup.payment_request.status} · {money(portalPaymentSetup.payment_request.amount, portalPaymentSetup.payment_request.currency_code)}
+              </div>
+            ) : null}
+
+            {portalPaymentSetup?.issued ? (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[10px] leading-5 text-emerald-800">
+                Payment request is now visible in the customer&apos;s secure portal. If the customer has no active portal session, generate a new one-time Customer Portal link from Commercial → Customers.
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-[9px] leading-4 text-[#918A81]">The selected bank account is the Finance settlement destination. Customer card details never enter Avantiqo.</div>
+              <button
+                type="button"
+                onClick={issueCustomerPortalPayment}
+                disabled={
+                  portalPaymentBusy ||
+                  !portalPaymentSetup?.card_readiness?.ready ||
+                  !portalPaymentBankAccountId ||
+                  Number(portalPaymentSetup?.outstanding_amount || 0) <= 0 ||
+                  String(portalPaymentSetup?.payment_request?.status || "").toUpperCase() === "PAID"
+                }
+                className="rounded-xl bg-[#1F1E1B] px-4 py-2.5 text-[10px] font-semibold text-white disabled:opacity-40"
+              >
+                {portalPaymentBusy ? "Issuing…" : portalPaymentSetup?.payment_request ? "Reissue payment request" : "Issue payment request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {activeEngine ? (
         activeEngine.engine === "preview" ? (

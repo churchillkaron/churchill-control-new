@@ -80,6 +80,9 @@ export async function GET(request) {
           id:
             row.party_id,
 
+          supplier_profile_id:
+            row.id,
+
           vendor_code:
             row.vendor_code,
 

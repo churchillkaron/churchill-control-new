@@ -50,7 +50,7 @@ export default function GuidedStart() {
   const [current, setCurrent] = useState("replace");
   const result = useMemo(() => recommendation(businessType, need), [businessType, need]);
 
-  return <section className="border-b border-black/[0.06] bg-[#171614] text-white">
+  return <section id="guided-start" className="scroll-mt-20 border-b border-black/[0.06] bg-[#171614] text-white">
     <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[1.05fr_.95fr] lg:px-10 lg:py-20">
       <div>
         <p className="text-[8px] font-semibold uppercase tracking-[.22em] text-[#D6A66A]">FIND YOUR STARTING POINT</p>

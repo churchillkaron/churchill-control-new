@@ -12,3 +12,15 @@ test('resumed temporal masters receive universal dossier governance without new 
   assert.match(source, /selected_concept_id: selectedId \|\| null/);
   assert.match(source, /if \(temporal\.reused_approved_master === true\) \{\s*const reusedPlan = ensureUniversalTemporalDossier/);
 });
+
+
+test('resumed approved temporal masters are upgraded to the current world-class story schema', () => {
+  assert.match(source, /const enrichedStory = \{/);
+  assert.match(source, /audience_tension:/);
+  assert.match(source, /escalation:/);
+  assert.match(source, /observable_proof:/);
+  assert.match(source, /turn:/);
+  assert.match(source, /resolution:/);
+  assert.match(source, /anti_cliche_strategy:/);
+  assert.match(source, /story: enrichedStory/);
+});

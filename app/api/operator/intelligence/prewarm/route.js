@@ -2,6 +2,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import {
+  getAvantiqoIntelligenceEndpointHealthForLane,
   getAvantiqoIntelligenceRuntimeConfiguration,
 } from "@/lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider";
 import {

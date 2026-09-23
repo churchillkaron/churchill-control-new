@@ -14,6 +14,15 @@ const stems=fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-aud
 const elastic=fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicElasticLocalQueueProvider.js","utf8");
 
 const learningRpc=fs.readFileSync("supabase/migrations/20260917091641_node01_learning_eval_candidate_rpc.sql","utf8");
+test("Node 01 retries transient Supabase control-plane faults without retrying model work",()=> {
+  assert.match(worker,/function IsTransientRpcFailure/);
+  assert.match(worker,/408,425,429,500,502,503,504,520,521,522,523,524,525/);
+  assert.match(worker,/pgrst002\|statement timeout\|connection terminated\|connection timed out\|ssl handshake/);
+  assert.match(worker,/\$maximumAttempts = 4/);
+  assert.match(worker,/Start-Sleep -Milliseconds/);
+  assert.doesNotMatch(worker,/RunTextJob[\s\S]{0,500}for \(\$attempt/);
+});
+
 test("Node 01 has resource-aware scheduling and governed idle learning",()=>{
   assert.match(worker,/ResourceProfile/); assert.match(worker,/interactive_gpu/); assert.match(worker,/heavy_cpu/);
   assert.match(worker,/GpuIdleLearningAfterSeconds = 900/); assert.match(worker,/NightLearningStartHour = 1/); assert.match(worker,/NightLearningEndHour = 6/);
@@ -31,7 +40,12 @@ test("compute telemetry exposes scheduler and candidate decisions",()=>{
 });
 
 test("enqueue priorities preserve interactive-first scheduling",()=>{
-  assert.match(intelligence,/executionLane === "front" \? 100 : 50/); assert.match(voice,/priority: 80/); assert.match(image,/priority: 70/); assert.match(stems,/priority:65/); assert.match(elastic,/priority: 40/);
+  assert.match(intelligence,/priority: executionLane === "front"/);
+  assert.match(intelligence,/\? 100/);
+  assert.match(intelligence,/text\(input\.metadata\?\.module\)\.startsWith\("CODE_AI"\)/);
+  assert.match(intelligence,/\? 90/);
+  assert.match(intelligence,/: 50/);
+  assert.match(voice,/priority: 80/); assert.match(image,/priority: 70/); assert.match(stems,/priority:65/); assert.match(elastic,/priority: 40/);
 });
 
 

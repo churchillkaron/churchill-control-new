@@ -90,7 +90,7 @@ function codeProjection(code) {
   return {
     contract: AVANTIQO_LIVE_EXECUTION_CONTRACT,
     execution_id: progress.mission_id || null,
-    active: !["completed", "failed", "blocked", "cancelled"].includes(text(progress.state_status).toLowerCase()),
+    active: !["completed", "failed", "blocked", "cancelled", "stopped"].includes(text(progress.state_status).toLowerCase()),
     status: progress.state_status || "running",
     stop_requested: false,
     updated_at: progress.updated_at || latestEvent.at || code.updated_at || null,

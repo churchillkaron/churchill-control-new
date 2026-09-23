@@ -83,6 +83,9 @@ export default function WalletTopUpEngine({
   const [paymentData,setPaymentData] =
     useState({});
 
+  const [paymentAction,setPaymentAction] =
+    useState(null);
+
 
   const [notes,setNotes] =
     useState("");
@@ -302,8 +305,8 @@ export default function WalletTopUpEngine({
   ]);
 
 
-  function handleSubmit(){
-
+  async function handleSubmit(){
+    try {
     const normalizedAmount =
       Number(amount);
 
@@ -332,16 +335,65 @@ export default function WalletTopUpEngine({
       amount: normalizedAmount,
       currency: normalizedCurrency,
       payment_method: paymentMethod,
-      payment_data: paymentData,
       notes,
     };
 
     if(onSave){
-      onSave(payload);
+      await onSave(payload);
       return;
     }
 
-    onComplete?.(payload);
+    const organizationId =
+      cleanValue(context.organizationId);
+
+    if(!organizationId){
+      alert("Organization context is required.");
+      return;
+    }
+
+    const response = await fetch("/api/platform/payment/create", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        organization_id: organizationId,
+        entity_id: cleanValue(context.entityId) || null,
+        party_id: cleanValue(context.partyId) || null,
+        country: cleanValue(context.country) || null,
+        amount: normalizedAmount,
+        currency: normalizedCurrency,
+        payment_method: paymentMethod,
+        metadata: {
+          source: "wallet_topup",
+          notes: cleanValue(notes) || null,
+          description: "Avantiqo wallet top up",
+        },
+      }),
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if(!response.ok || result.success !== true){
+      throw new Error(result.error || "Payment creation failed");
+    }
+
+    if(result.action?.type === "redirect" && result.action?.url){
+      window.location.assign(result.action.url);
+      return;
+    }
+
+    setPaymentAction(result.action || null);
+
+    onComplete?.({
+      ...payload,
+      payment: result.payment,
+      action: result.action,
+    });
+    } catch (error) {
+      console.error("WALLET_TOPUP_PAYMENT_ERROR", error);
+      alert(error?.message || "Payment could not be started.");
+    }
   }
 
 
@@ -400,6 +452,7 @@ export default function WalletTopUpEngine({
               onChange={event => {
                 setPaymentMethod(event.target.value);
                 setPaymentData({});
+                setPaymentAction(null);
               }}
             >
               {paymentMethods.length === 0 ? (
@@ -435,6 +488,38 @@ export default function WalletTopUpEngine({
               value={paymentData}
               onChange={setPaymentData}
             />
+          ) : null}
+
+          {paymentAction?.type === "bank_transfer" ? (
+            <div className="rounded-2xl border border-black/[0.08] bg-[#FCFBF9] p-4 text-[#28231E]">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9A744B]">
+                Awaiting bank settlement
+              </div>
+              <div className="mt-3 grid gap-2 text-[11px]">
+                <div><span className="text-[#827A71]">Bank</span><div className="font-medium">{paymentAction.instructions?.bank_name}</div></div>
+                <div><span className="text-[#827A71]">Account name</span><div className="font-medium">{paymentAction.instructions?.account_name}</div></div>
+                <div><span className="text-[#827A71]">Account number</span><div className="font-medium tabular-nums">{paymentAction.instructions?.account_number}</div></div>
+                <div><span className="text-[#827A71]">Amount</span><div className="font-medium tabular-nums">{paymentAction.amount} {paymentAction.currency}</div></div>
+                <div><span className="text-[#827A71]">Reference</span><div className="font-medium break-all">{paymentAction.reference}</div></div>
+              </div>
+              <div className="mt-3 text-[10px] leading-4 text-[#827A71]">
+                Avantiqo will mark this payment complete only after Finance verifies the incoming bank transaction.
+              </div>
+            </div>
+          ) : null}
+
+          {paymentAction?.type === "qr_payment" ? (
+            <div className="rounded-2xl border border-black/[0.08] bg-[#FCFBF9] p-4 text-[#28231E]">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9A744B]">
+                PromptPay payment created
+              </div>
+              <div className="mt-2 text-[11px]">
+                {paymentAction.amount} {paymentAction.currency} · reference {paymentAction.reference}
+              </div>
+              <div className="mt-2 text-[10px] leading-4 text-[#827A71]">
+                Settlement remains pending until bank evidence verifies the incoming QR payment.
+              </div>
+            </div>
           ) : null}
 
           <label>

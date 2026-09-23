@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 
 import FinanceAccountantOverview from "@/components/workspace/finance/FinanceAccountantOverview";
+import FinanceAccountingClientPortfolio from "@/components/workspace/finance/FinanceAccountingClientPortfolio";
 import FinanceAccountHealthPanel from "@/components/workspace/finance/FinanceAccountHealthPanel";
 import FinanceContinuousCloseRail from "@/components/workspace/finance/FinanceContinuousCloseRail";
 import FinanceCorrectionWorkspace from "@/components/workspace/finance/FinanceCorrectionWorkspace";
@@ -24,6 +25,7 @@ export default function FinanceAccountingFirmPage() {
 
   return (
     <FinanceLandingRuntimeProvider organizationId={organizationId}>
+      <FinanceAccountingClientPortfolio organizationId={organizationId} />
       <FinancePracticePortfolioFocus organizationId={organizationId} />
       <FinanceReviewFreshnessExceptionsRail organizationId={organizationId} />
       <FinanceContinuousCloseRail organizationId={organizationId} />

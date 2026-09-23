@@ -54,14 +54,29 @@ export async function generateMetadata() {
   const { context } = await requestHostContext(requestHeaders);
   const brandName = context?.name || "Avantiqo";
 
+  const title = context?.id === "avantiqo"
+    ? "Avantiqo | Intelligent Operating Platform"
+    : `${brandName} | Business Operating System`;
+  const description = context?.workspaceDescription ||
+    "Run the business, create finished work, build software and scale workloads from one connected Avantiqo operating context.";
+
   return {
-    title:
-      context?.id === "avantiqo"
-        ? "Avantiqo | Business Operating System"
-        : `${brandName} | Business Operating System`,
-    description:
-      context?.workspaceDescription ||
-      "Avantiqo is a multi-tenant Business Operating System for organizations, workflows, approvals, AI automation and connected business services.",
+    metadataBase: new URL(context?.id === "avantiqo" ? "https://avantiqo.ai" : `https://${requestHostname(requestHeaders)}`),
+    title,
+    description,
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      siteName: brandName,
+      images: [{ url: "/art/commercial-start.jpg", width: 1200, height: 630, alt: `${brandName} operating platform` }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/art/commercial-start.jpg"],
+    },
   };
 }
 

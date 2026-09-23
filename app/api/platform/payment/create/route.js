@@ -92,7 +92,13 @@ export async function POST(request) {
       }
     }
 
-    const payment = await PaymentExecutionRuntime.createPayment({
+    const configuredOrigin =
+      String(process.env.NEXT_PUBLIC_APP_URL || "").trim().replace(/\/$/, "") ||
+      request.nextUrl.origin;
+    const returnUrl =
+      `${configuredOrigin}/workspace/${encodeURIComponent(access.organizationId)}/services/wallet`;
+
+    const result = await PaymentExecutionRuntime.createPayment({
       organizationId: access.organizationId,
       entityId,
       partyId,
@@ -101,12 +107,14 @@ export async function POST(request) {
       amount: body.amount,
       currency: body.currency,
       metadata: body.metadata || {},
+      returnUrl,
     });
 
     return NextResponse.json({
       success: true,
       organizationId: access.organizationId,
-      payment,
+      payment: result.payment,
+      action: result.action,
     });
   } catch (error) {
     console.error("PLATFORM_PAYMENT_CREATE_ERROR", error);

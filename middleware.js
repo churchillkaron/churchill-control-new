@@ -115,15 +115,6 @@ export async function middleware(request, event) {  if (request.nextUrl.pathname
     return launchInvestorV7(request, event);
   }
 
-  if (
-    process.env.NODE_ENV === "development" &&
-    request.nextUrl.hostname === "127.0.0.1"
-  ) {
-    const localUrl = request.nextUrl.clone();
-    localUrl.hostname = "localhost";
-    return NextResponse.redirect(localUrl, 307);
-  }
-
   if (isProtectedWorkspacePath(request.nextUrl.pathname) && !hasSupabaseSessionCookie(request)) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
@@ -135,8 +126,13 @@ export async function middleware(request, event) {  if (request.nextUrl.pathname
     return NextResponse.redirect(loginUrl, 307);
   }
 
-  const sessionResponse = await refreshSupabaseSession(request);
   const hostname = String(request.nextUrl.hostname || "").toLowerCase();
+  const localWorkspaceRequest =
+    isProtectedWorkspacePath(request.nextUrl.pathname) &&
+    (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1");
+  const sessionResponse = localWorkspaceRequest
+    ? NextResponse.next({ request })
+    : await refreshSupabaseSession(request);
 
   if (
     process.env.VERCEL_ENV === "production" &&

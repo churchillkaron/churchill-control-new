@@ -16,10 +16,10 @@ test("Code Studio page opens the real controller instead of the placeholder shel
   assert.match(files.page, /CreativeCodeStudio/);
   assert.doesNotMatch(files.page, /CreativeRuntimeEntryShell/);
   assert.match(files.ui, /\/api\/operator\/code\/mission/);
-  assert.match(files.ui, /\/api\/operator\/code\/progress/);
+  assert.match(files.ui, /useCodeProgressFeed/);
   assert.match(files.ui, /code-studio:\$\{crypto\.randomUUID\(\)\}/);
   assert.match(files.ui, /resume_state: resumeState/);
-  assert.match(files.ui, /Preview sandbox · no commit · no deploy/);
+  assert.match(files.ui, /Avantiqo governed sandbox/);
 });
 
 test("Code Studio controller enforces permission and preview-only service lifecycle", () => {

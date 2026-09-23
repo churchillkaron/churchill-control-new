@@ -76,6 +76,34 @@ test("capsule persists decision products without raw reasoning, source or author
   ]);
 });
 
+test("missing planned repository reads deterministically recover tracked paths before replanning", () => {
+  markers(codeMission, [
+    "function missingRepositoryReadPath",
+    "function missingReadPathQueries",
+    "async function recoverMissingRepositoryRead",
+    'workspace.search({ mode: "path", query })',
+    'kind: "missing_repository_read_path_discovery"',
+    'kind: "missing_repository_read_path_recovered"',
+    "full_replan_required: false",
+    'state.status = "replan_required"',
+    'kind: "missing_repository_read_path"',
+    '"CODE_AI_MISSING_READ_PATH_REPLAN_REQUIRED"',
+  ]);
+  const readCaseIndex = codeMission.indexOf('case "read":');
+  const recoveryCallIndex = codeMission.indexOf(
+    "recoverMissingRepositoryRead(workspace, operation, state, controlContext, error)",
+    readCaseIndex,
+  );
+  const missingReadIndex = codeMission.indexOf(
+    "const missingReadPath = missingRepositoryReadPath(operation, error)",
+  );
+  const replanIndex = codeMission.indexOf('state.status = "replan_required"', missingReadIndex);
+  assert.ok(readCaseIndex >= 0 && recoveryCallIndex > readCaseIndex,
+    "a missing read must attempt deterministic tracked-path recovery in the same operation");
+  assert.ok(missingReadIndex >= 0 && replanIndex > missingReadIndex,
+    "ambiguous or absent candidates may replan only after deterministic discovery has failed");
+});
+
 test("existing low-level Code concurrency guard remains the repository-move trigger", () => {
   markers(codeMission, [
     "CODE_AI_BASE_COMMIT_MOVED_REPLAN_REQUIRED",

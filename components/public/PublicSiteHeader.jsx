@@ -13,7 +13,7 @@ const EXPLORE_GROUPS = [
   {
     label: "PRODUCTS",
     description: "Run the work that matters.",
-    items: [["All Products", "/products"], ["Workforce", "/products/workforce"], ["Finance", "/products/finance"], ["Inventory & Food Cost", "/products/inventory"], ["Web & Commerce", "/products#web-commerce"], ["Markets", "/products#markets"], ["Communications & Reputation", "/products#communications-reputation"], ["Documents", "/documents"]],
+    items: [["All Products", "/products"], ["Workforce", "/products/workforce"], ["Staff Portal", "/staff-portal"], ["Finance", "/products/finance"], ["Inventory & Food Cost", "/products/inventory"], ["Web & Commerce", "/products#web-commerce"], ["Markets", "/products#markets"], ["Documents", "/documents"]],
   },
   {
     label: "RUN",
@@ -78,29 +78,34 @@ const AREA_MENUS = {
   ],
 };
 
-export default function PublicSiteHeader({ context, links = [], action = { label: "Business Login", href: "/login?portal=business" }, audience = "business" }) {
+export default function PublicSiteHeader({ context, links = [], action = { label: "Business Login", href: "/login?portal=business" }, audience = "business", tone = "dark" }) {
   const menu = AREA_MENUS[audience] || AREA_MENUS.business;
+  const light = tone === "light";
+  const headerClass = light
+    ? "sticky top-0 z-50 border-b border-[#A8865E]/18 bg-[#F7F1E8]/[0.94] text-[#231F1A] shadow-[0_8px_28px_rgba(92,67,39,.07)] backdrop-blur-2xl"
+    : "sticky top-0 z-50 border-b border-white/[0.08] bg-[#171614]/[0.97] text-white shadow-[0_8px_28px_rgba(0,0,0,.18)] backdrop-blur-2xl";
+  const navText = light ? "text-[#4E453C]/70 hover:bg-[#8D6C45]/[0.06] hover:text-[#241F1A]" : "text-white/62 hover:bg-white/[0.05] hover:text-white";
   return (
-    <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#171614]/[0.97] text-white shadow-[0_8px_28px_rgba(0,0,0,.18)] backdrop-blur-2xl">
+    <header className={headerClass}>
       <div className="mx-auto flex h-[68px] max-w-[1540px] items-center justify-between gap-4 px-5 sm:px-7 lg:px-10 xl:px-14">
         <Link prefetch href={audience === "business" ? "/" : audience === "creative" ? "/creative-studios" : audience === "developers" ? "/developers" : audience === "api" ? "/api-platform" : audience === "compute" ? "/compute" : "/start"} className="flex min-w-0 items-center gap-4" aria-label={`Avantiqo ${context}`}>
           <Image src="/branding/avantiqo-wordmark.png" alt="Avantiqo" width={154} height={13} className="h-[12px] w-auto object-contain" priority />
-          <span className="hidden h-3 w-px bg-white/[0.12] sm:block" />
-          <span className="hidden truncate text-[7px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A] sm:block">{context}</span>
+          <span className={`hidden h-3 w-px sm:block ${light ? "bg-[#7F6242]/18" : "bg-white/[0.12]"}`} />
+          <span className={`hidden truncate text-[7px] font-semibold uppercase tracking-[0.22em] sm:block ${light ? "text-[#9A6A35]" : "text-[#D6A66A]"}`}>{context}</span>
         </Link>
         <nav className="flex items-center gap-1" aria-label={`${context} navigation`}>
           <div className="hidden items-center gap-0.5 xl:flex">
             {GLOBAL_LINKS.map(([label, href]) => (
-              <Link prefetch key={href} href={href} className="rounded-lg px-2.5 py-2 text-[8px] font-medium text-white/62 transition hover:bg-white/[0.05] hover:text-white">{label}</Link>
+              <Link prefetch key={href} href={href} className={`rounded-lg px-2.5 py-2 text-[8px] font-medium transition ${navText}`}>{label}</Link>
             ))}
           </div>
           <div className="hidden items-center gap-0.5 lg:flex xl:hidden">
             {links.slice(0, 4).map((link) => (
-              <Link prefetch key={`${link.href}-${link.label}`} href={link.href} className="rounded-lg px-2.5 py-2 text-[8px] font-medium text-white/62 transition hover:bg-white/[0.05] hover:text-white">{link.label}</Link>
+              <Link prefetch key={`${link.href}-${link.label}`} href={link.href} className={`rounded-lg px-2.5 py-2 text-[8px] font-medium transition ${navText}`}>{link.label}</Link>
             ))}
           </div>
           <details className="group relative">
-            <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-full border border-[#D6A66A]/35 bg-white/[0.03] px-4 text-[9px] font-semibold text-[#E6D2B4] transition hover:border-[#D6A66A]/70 hover:bg-white/[0.06] hover:text-white">
+            <summary className={`flex h-9 cursor-pointer list-none items-center gap-2 rounded-full border px-4 text-[9px] font-semibold transition ${light ? "border-[#B98A52]/32 bg-white/40 text-[#76502E] hover:border-[#B98A52]/58 hover:bg-white/68" : "border-[#D6A66A]/35 bg-white/[0.03] text-[#E6D2B4] hover:border-[#D6A66A]/70 hover:bg-white/[0.06] hover:text-white"}`}>
               Explore <span className="text-[11px] text-[#D6A66A] transition group-open:rotate-45">+</span>
             </summary>
             <div className="fixed left-1/2 top-[76px] max-h-[calc(100vh-92px)] w-[min(1180px,calc(100vw-2rem))] -translate-x-1/2 overflow-y-auto rounded-[24px] border border-white/[0.09] bg-[#191714]/[0.995] shadow-[0_32px_100px_rgba(0,0,0,.36)] backdrop-blur-2xl">
@@ -146,11 +151,11 @@ export default function PublicSiteHeader({ context, links = [], action = { label
               </div>
             </div>
           </details>
-          <Link prefetch href="/start" className="ml-1 hidden h-9 shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/55 px-4 text-[9px] font-semibold text-[#F2D2A5] transition hover:border-[#D6A66A]/90 hover:bg-[#D6A66A]/[0.08] xl:inline-flex">Start Now <Arrow className="h-3 w-3" /></Link>
+          <Link prefetch href="/start" className={`ml-1 inline-flex h-9 shrink-0 items-center gap-2 rounded-full border px-3 sm:px-4 text-[9px] font-semibold transition ${light ? "border-[#B98A52]/42 bg-white/28 text-[#76502E] hover:border-[#B98A52]/72 hover:bg-white/58" : "border-[#D6A66A]/55 text-[#F2D2A5] hover:border-[#D6A66A]/90 hover:bg-[#D6A66A]/[0.08]"}`}><span className="sm:hidden">Start</span><span className="hidden sm:inline">Start Avantiqo</span><Arrow className="h-3 w-3" /></Link>
           {["developers","api","compute"].includes(audience) ? (
-            <Link prefetch href="/login?portal=developer" className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-[#D6A66A]/45 bg-[#D6A66A]/[0.08] px-4 text-[9px] font-semibold text-[#F1D5AF] transition hover:border-[#D6A66A]/80 hover:bg-[#D6A66A]/[0.14]">Developer Login<Arrow className="h-3 w-3" /></Link>
+            <Link prefetch href="/login?portal=developer" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D6A66A]/45 bg-[#D6A66A]/[0.08] px-2.5 sm:px-4 text-[9px] font-semibold text-[#F1D5AF] transition hover:border-[#D6A66A]/80 hover:bg-[#D6A66A]/[0.14]"><span className="sm:hidden">Dev</span><span className="hidden sm:inline">Developer Login</span><Arrow className="h-3 w-3" /></Link>
           ) : (
-            <Link prefetch href={action.href} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-white/[0.12] bg-[#0F0F0E] px-4 text-[9px] font-semibold text-white/82 transition hover:border-[#D6A66A]/45 hover:bg-[#211D18]">{action.label}<Arrow className="h-3 w-3" /></Link>
+            <Link prefetch href={action.href} className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-full border px-4 text-[9px] font-semibold transition ${light ? "border-[#3A3027]/10 bg-[#211C17] text-white hover:border-[#B98A52]/45 hover:bg-[#30271E]" : "border-white/[0.12] bg-[#0F0F0E] text-white/82 hover:border-[#D6A66A]/45 hover:bg-[#211D18]"}`}><span className="sm:hidden">Login</span><span className="hidden sm:inline">{action.label}</span><Arrow className="h-3 w-3" /></Link>
           )}
         </nav>
       </div>

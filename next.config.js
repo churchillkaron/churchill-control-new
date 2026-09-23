@@ -36,6 +36,13 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+
+  webpack(config, { dev }) {
+    if (dev && process.env.AVANTIQO_DEV_DISK_CACHE !== "1") {
+      config.cache = { type: "memory" };
+    }
+    return config;
+  },
 };
 
 module.exports = nextConfig;

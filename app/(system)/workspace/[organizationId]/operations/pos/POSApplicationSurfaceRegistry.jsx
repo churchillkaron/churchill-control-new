@@ -30,7 +30,7 @@ function RestaurantSaleSurface(props) {
   const waiterMode = requestedView === "waiter" || requestedView === "service";
   const actions = props.posRuntime?.capabilities?.actions || {};
   const canOrder = actions.order_entry === true;
-  const canSettle = actions.payment === true;
+  const canSettle = props.posRuntime?.capabilities?.actions?.payment === true;
   const canCorrectPayment = actions.payment_correction === true;
   const [checkoutVersion, setCheckoutVersion] = useState(0);
   const [activeTableReference, setActiveTableReference] = useState(requestedTable);

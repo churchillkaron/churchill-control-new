@@ -189,6 +189,9 @@ test("Tribunal-approved temporal masters continue without rebuilding Direction",
     /durableTemporalMaster \|\| tribunalApprovedMaster \|\| await CreativeUniversalTemporalDirectionRuntime\.create/,
   );
   assert.match(orchestrator, /approved_master: null/);
+  assert.match(orchestrator, /sealedTribunalApprovedWorldClassDirection/);
+  assert.match(orchestrator, /sealedWorldClassGate\.passed === true/);
+  assert.match(orchestrator, /if \(!sealedTribunalApprovedWorldClassDirection\) \{\s*resolvedMaster = CreativeWorldClassConceptIntelligenceRuntime\.enforce/);
 });
 
 test("Creative recovery checkpoints clear only after downstream pipeline handoff", () => {

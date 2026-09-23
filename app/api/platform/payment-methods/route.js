@@ -62,6 +62,7 @@ export async function GET(request) {
       success: true,
       organizationId: access.organizationId,
       methods,
+      paymentMethods: methods,
     });
   } catch (error) {
     console.error("PLATFORM_PAYMENT_METHODS_GET_ERROR", error);

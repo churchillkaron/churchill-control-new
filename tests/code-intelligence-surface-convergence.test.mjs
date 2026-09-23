@@ -188,7 +188,7 @@ test("Code mission history is searchable and ranks objective, product-area and f
 
 test("Business Partner and Code Studio expose the same persistent resumable Code mission history", () => {
   assert.match(businessPartnerCodeSurface, /CodeMissionHistoryPanel/);
-  assert.match(studioPage, /CodeMissionHistoryPanel/);
+  assert.match(studioSurface, /CodeMissionHistoryPanel/);
   assert.match(missionHistorySurface, /\/api\/operator\/code\/history/);
   assert.match(missionHistorySurface, /data-avantiqo-code-mission-history="true"/);
   assert.match(missionHistorySurface, /data-avantiqo-resume-code-mission="true"/);
@@ -209,6 +209,20 @@ test("historical continuation restores the server-owned attested state and origi
   assert.match(historyRuntime, /integrity_verified:\s*true/);
   assert.match(historyRuntime, /commit_authority:\s*false/);
   assert.match(historyRuntime, /production_deploy_authority:\s*false/);
+});
+
+test("missing historical mission after restart falls back to current live objective and repository instead of 404", () => {
+  assert.match(missionHistorySurface, /resume_mission_id: session\.mission_id/);
+  assert.match(missionHistorySurface, /objective: session\.objective/);
+  assert.match(missionHistorySurface, /repository_url: session\.repository_url/);
+  assert.match(studioRoute, /let effectiveResumeMissionId = resumeMissionId/);
+  assert.match(studioRoute, /if \(!snapshot\.found\)/);
+  assert.match(studioRoute, /if \(!requestedObjective \|\| !requestedRepositoryUrl\)/);
+  assert.match(studioRoute, /effectiveResumeMissionId = ""/);
+  assert.match(studioRoute, /objective = requestedObjective/);
+  assert.match(studioRoute, /repositoryUrl = requestedRepositoryUrl/);
+  assert.match(studioRoute, /resumeState = null/);
+  assert.match(studioRoute, /const missionId = resumeStateMissionId \|\| effectiveResumeMissionId \|\| requestedMissionId/);
 });
 
 test("new Code missions reuse only attested fully verified same-repository engineering memory", () => {

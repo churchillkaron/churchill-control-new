@@ -32,9 +32,6 @@ export async function GET(request) {
       .from("hotel_concierge_requests")
       .select(`
         *,
-        hotel_guests (
-          full_name
-        ),
         hotel_properties (
           name
         )
@@ -42,14 +39,30 @@ export async function GET(request) {
       .eq("organization_id", access.organizationId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      throw error;
+    if (error) throw error;
+
+    const rows = requests || [];
+    const guestIds = [...new Set(rows.map((row) => row.guest_id).filter(Boolean))];
+    let guestById = new Map();
+
+    if (guestIds.length) {
+      const { data: guests, error: guestsError } = await supabaseAdmin
+        .from("hotel_guests")
+        .select("id,full_name")
+        .eq("organization_id", access.organizationId)
+        .in("id", guestIds);
+
+      if (guestsError) throw guestsError;
+      guestById = new Map((guests || []).map((guest) => [guest.id, guest]));
     }
 
     return NextResponse.json({
       success: true,
       organizationId: access.organizationId,
-      requests: requests || [],
+      requests: rows.map((row) => ({
+        ...row,
+        hotel_guests: row.guest_id ? guestById.get(row.guest_id) || null : null,
+      })),
     });
   } catch (error) {
     console.error("HOTEL_CONCIERGE_LIST_ERROR", error);

@@ -479,78 +479,22 @@ export default function AvantiqoPublicHome() {
           </div>
         </div>
       </section>
-      <section
-        id="platform"
-        className="border-b border-black/[0.06] bg-white/55"
-      >
-        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:gap-16">
-            <SectionTitle
-              eyebrow="The Avantiqo system"
-              title="Business software should feel like one system."
-            >
-              <p>
-                Avantiqo keeps each business area responsible for its own rules
-                while giving the company one consistent workspace, business
-                context and operating language. Finance stays Finance.
-                Operations stays Operations. The user does not have to rebuild
-                the company context every time they move between them.
-              </p>
+      <section id="platform" className="border-b border-black/[0.06] bg-[#FBFAF8]">
+        <div className="mx-auto max-w-[1320px] px-5 py-18 sm:px-7 lg:px-10 lg:py-24">
+          <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
+            <SectionTitle eyebrow="The Avantiqo system" title="One operating system. Clear responsibility in every business area.">
+              <p>Finance stays Finance. Operations stays Operations. People, supply chain, projects, documents and commercial work keep their own rules while sharing the same organization context, permissions and operating language.</p>
             </SectionTitle>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {principles.map(([title, description], index) => (
-                <article
-                  key={title}
-                  className="rounded-[20px] border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]"
-                >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F7F2EA] text-[9px] font-bold text-[#9A744B]">
-                    0{index + 1}
-                  </div>
-                  <h3 className="mt-5 text-[15px] font-semibold tracking-[-0.02em] text-[#2A2723]">
-                    {title}
-                  </h3>
-                  <p className="mt-2 text-[11px] leading-5 text-[#77736C]">
-                    {description}
-                  </p>
-                </article>
-              ))}
+            <div className="grid gap-2 sm:grid-cols-2 lg:justify-self-end">
+              {principles.map(([title,description],index)=><div key={title} className="rounded-[17px] border border-black/[0.065] bg-[#F6F0E7] px-4 py-3.5"><div className="flex items-start gap-3"><span className="mt-0.5 text-[7px] font-bold text-[#A37849]">0{index+1}</span><div><div className="text-[10px] font-semibold text-[#37312B]">{title}</div><div className="mt-1 text-[8px] leading-4 text-[#7A7269]">{description}</div></div></div></div>)}
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="border-b border-black/[0.06] bg-[#F7F6F3]">
-        <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24">
-          <SectionTitle
-            eyebrow="Business areas"
-            title="Every important area, connected around the same business."
-          >
-            <p>
-              Avantiqo connects work that is normally fragmented across separate
-              applications, spreadsheets and inboxes while keeping permissions,
-              records and responsibility explicit.
-            </p>
-          </SectionTitle>
-          <div className="mt-10 grid overflow-hidden rounded-[22px] border border-black/[0.075] bg-white sm:grid-cols-2 lg:grid-cols-3">
-            {businessAreas.map(([title, description], index) => (
-              <article
-                key={title}
-                className={`group min-h-[170px] p-5 transition hover:bg-[#FCFBF9] ${index % 3 !== 2 ? "lg:border-r lg:border-black/[0.06]" : ""} ${index < 6 ? "border-b border-black/[0.06]" : ""}`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/[0.06] bg-[#FBFAF8] text-[9px] font-bold text-[#8D643C]">
-                    {title.slice(0, 2).toUpperCase()}
-                  </div>
-                  <Arrow className="mt-1 h-3.5 w-3.5 text-[#C3BDB4] transition group-hover:translate-x-0.5 group-hover:text-[#A37849]" />
-                </div>
-                <h3 className="mt-5 text-[14px] font-semibold text-[#34302B]">
-                  {title}
-                </h3>
-                <p className="mt-2 max-w-sm text-[10px] leading-5 text-[#827D75]">
-                  {description}
-                </p>
-              </article>
-            ))}
+          <div className="mt-10 grid overflow-hidden rounded-[24px] border border-black/[0.07] bg-white sm:grid-cols-2 lg:grid-cols-3">
+            {businessAreas.map(([title,description],index)=><article key={title} className={`group min-h-[145px] p-5 transition hover:bg-[#FCFAF6] ${index%3!==2?'lg:border-r lg:border-black/[0.06]':''} ${index<6?'border-b border-black/[0.06]':''}`}>
+              <div className="flex items-start justify-between gap-4"><div className="text-[8px] font-bold text-[#A37849]">0{index+1}</div><Arrow className="h-3.5 w-3.5 text-[#C3BDB4] transition group-hover:translate-x-0.5 group-hover:text-[#A37849]"/></div>
+              <h3 className="mt-5 text-[14px] font-semibold text-[#34302B]">{title}</h3>
+              <p className="mt-2 max-w-sm text-[9px] leading-5 text-[#827D75]">{description}</p>
+            </article>)}
           </div>
         </div>
       </section>

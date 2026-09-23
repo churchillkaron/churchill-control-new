@@ -81,3 +81,11 @@ test("release RLS policies cache auth uid once per statement", async () => {
   assert.match(migration, /hotel_shift_handover_context_org_read/);
   assert.match(migration, /\(select auth\.uid\(\)\)/g);
 });
+
+test("normal ERP services bypass Node1 and AI health failures fail closed to local readiness only", async () => {
+  const runtime = await source("lib/platform/service-runtime/execution/ServiceExecutionRuntime.js");
+  assert.match(runtime, /if \(!\["ai\.reasoning\.execute", "ai\.text\.generate"\]\.includes\(String\(executionCapability \|\| ""\)\.trim\(\)\)\) return policy/);
+  assert.match(runtime, /const health = await getIntelligenceLocalQueueHealth/);
+  assert.match(runtime, /catch \{\s*localReady = false;\s*\}/);
+  assert.match(runtime, /external_fallback_allowed: false/);
+});

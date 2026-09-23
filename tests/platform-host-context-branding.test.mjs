@@ -3,14 +3,16 @@ import test from "node:test";
 
 import { resolvePlatformHostContext } from "../lib/platform/context/resolvePlatformHostContext.js";
 
-test("platform app host keeps Avantiqo branding", () => {
-  const context = resolvePlatformHostContext("app.churchillkaron.com");
+test("Avantiqo platform host keeps Avantiqo branding", () => {
+  const context = resolvePlatformHostContext("avantiqo.ai");
   assert.equal(context.id, "avantiqo");
   assert.equal(context.name, "Avantiqo");
 });
 
-test("Churchill public host keeps Churchill branding", () => {
-  const context = resolvePlatformHostContext("churchillkaron.com");
-  assert.equal(context.id, "churchill");
-  assert.equal(context.name, "Churchill");
+test("Churchill customer hosts keep Churchill branding", () => {
+  for (const hostname of ["churchillkaron.com", "app.churchillkaron.com"]) {
+    const context = resolvePlatformHostContext(hostname);
+    assert.equal(context.id, "churchill");
+    assert.equal(context.name, "Churchill");
+  }
 });

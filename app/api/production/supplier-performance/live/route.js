@@ -4,6 +4,8 @@ import { supabaseAdmin } from '@/lib/shared/supabase/admin'
 
 import { buildSupplierPerformance } from '@/lib/inventory/production/purchasing/capabilities/buildSupplierPerformance'
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
 
   try {

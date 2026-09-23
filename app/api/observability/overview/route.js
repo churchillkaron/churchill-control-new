@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import createSystemOverview from "@/lib/observability/createSystemOverview";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
 
   try {

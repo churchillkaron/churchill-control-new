@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import checkDatabaseHealth from "@/lib/health/checkDatabaseHealth";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const health = await checkDatabaseHealth();

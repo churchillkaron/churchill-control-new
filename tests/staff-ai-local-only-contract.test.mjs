@@ -5,9 +5,9 @@ import fs from "node:fs";
 const route = fs.readFileSync("app/api/staff/ai-feed/route.js", "utf8");
 
 test("staff intelligence uses Avantiqo local-only provider", () => {
-  assert.match(route, /provider_id:\s*\n\s*"avantiqo-intelligence"/);
-  assert.match(route, /execution_lane:\s*\n\s*"fast"/);
-  assert.doesNotMatch(route, /provider_id:\s*\n\s*"openai"/);
+  assert.match(route, /provider_id:\s*"avantiqo-intelligence"/);
+  assert.match(route, /execution_lane:\s*"fast"/);
+  assert.doesNotMatch(route, /provider_id:\s*"openai"/);
   assert.doesNotMatch(route, /gpt-4o/i);
 });
 

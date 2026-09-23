@@ -126,8 +126,7 @@ function thesisAttentionLabel(value) {
   return "Current thesis";
 }
 
-function busyRequestStatus(message, entityId, liveExecution, elapsedSeconds, startedAt) {
-  const request = text(message).replace(/\s+/g, " ").slice(0, 180);
+function busyRequestStatus(liveExecution, elapsedSeconds, startedAt) {
   const elapsed = Math.max(0, Number(elapsedSeconds || 0));
   const updatedAt = Date.parse(text(liveExecution?.updated_at));
   const freshLiveExecution =
@@ -135,14 +134,24 @@ function busyRequestStatus(message, entityId, liveExecution, elapsedSeconds, sta
     Number.isFinite(updatedAt) &&
     Number.isFinite(Number(startedAt)) &&
     updatedAt >= Number(startedAt) - 2000;
-  const event = freshLiveExecution ? liveExecution?.latest_event || null : null;
-  const description = text(event?.description);
-  if (description) {
-    return description;
+
+  if (freshLiveExecution) {
+    const event = liveExecution?.latest_event || null;
+    const description = text(event?.description);
+    if (description) {
+      return description;
+    }
+
+    const phase = text(event?.phase || liveExecution?.phase || liveExecution?.status)
+      .replaceAll("_", " ")
+      .toLowerCase();
+    if (phase) return phase.charAt(0).toUpperCase() + phase.slice(1) + "…";
   }
 
-  if (!latest) return "Understanding your request…";
-  return text(latest?.description) || text(latest?.phase).replaceAll("_", " ") || "Working…";
+  if (elapsed < 3) return "Understanding your request…";
+  if (elapsed < 10) return "Checking the business context…";
+  if (elapsed < 30) return "Reasoning through the evidence…";
+  return "Working through the request…";
 }
 
 function thesisInterruptionSpeech(thesis) {
@@ -916,7 +925,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
             className="mr-8 flex items-center gap-2 px-1 py-1 text-xs font-light text-white/35"
           >
             <Loader2 size={12} className="animate-spin text-white/25" />
-            <span>{conversationalProgressStatus(liveExecution, activeRequestStartedAt)}</span>
+            <span>{busyRequestStatus(liveExecution, busyElapsedSeconds, activeRequestStartedAt)}</span>
             <span aria-label="elapsed time">· {busyElapsedSeconds}s</span>
           </div>
         ) : null}

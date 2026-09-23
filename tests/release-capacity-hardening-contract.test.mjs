@@ -40,3 +40,23 @@ test("Node1 routing defines local-required state before fast/deep decisions", as
   assert.match(localQueue, /const localRequired = policy === "local_only"/);
   assert.match(localQueue, /localRequired \|\| enabled\(process\.env\.AVANTIQO_LOCAL_FAST_INTELLIGENCE_ENABLED/);
 });
+
+test("release database hardening closes public RLS gaps without breaking authenticated org access", async () => {
+  const rls = await source("supabase/migrations/20260923031839_release_rls_public_table_lockdown.sql");
+  for (const table of ["dishes","recipe_items","orders","ai_usage_logs","ai_intake_submissions","table_sessions","inventory_ledger","prepared_inventory","production_yield_logs","ai_operations_memory","ai_procurement_memory","pos_realtime_events","restaurant_tables","supplier_prices","restaurant_zones","recipe_prepared_items","waste_ledger"]) {
+    assert.match(rls, new RegExp("'" + table + "'"));
+  }
+  assert.match(rls, /enable row level security/);
+  assert.match(rls, /same_organization\(organization_id\)/);
+  assert.match(rls, /business_entities/);
+  assert.match(rls, /revoke all on table public\.business_entities from public, anon, authenticated/);
+});
+
+test("release database hardening fixes mutable search paths and anonymous session helpers", async () => {
+  const paths = await source("supabase/migrations/20260923032000_harden_function_search_paths_and_session_helpers.sql");
+  const grants = await source("supabase/migrations/20260923032114_restrict_session_helper_execute.sql");
+  assert.match(paths, /set search_path = public, pg_temp/g);
+  assert.match(grants, /can_read_organization_payroll/);
+  assert.match(grants, /current_staff_account_id/);
+  assert.match(grants, /from public, anon/);
+});

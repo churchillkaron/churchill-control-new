@@ -23,6 +23,9 @@ test("release cron load is staggered and Google Reviews runs three times daily",
 test("middleware never waits on Supabase auth for API traffic", () => {
   assert.match(middleware, /pathname\.startsWith\("\/api\/"\)/);
   assert.match(middleware, /setTimeout\(resolve, 2500\)/);
+  assert.match(middleware, /AbortController/);
+  assert.match(middleware, /setTimeout\(\(\) => controller\.abort\(\), 2000\)/);
+  assert.match(middleware, /fetch: fetchWithDeadline/);
 });
 
 test("heavy recurring workers use bounded release batches", async () => {

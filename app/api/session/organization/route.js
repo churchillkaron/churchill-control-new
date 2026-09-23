@@ -4,58 +4,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
+import resolveStaffPartyForOrganization from "@/lib/people/runtime/resolveStaffPartyForOrganization";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const ACTIVE_ORGANIZATION_COOKIE = "avantiqo_active_organization_id";
 const LEGACY_ACTIVE_ORGANIZATION_COOKIE = "active_organization_id";
-
-async function resolveStaffPartyForOrganization({ staff, organizationId }) {
-  if (!staff?.id || !organizationId) return null;
-
-  if (staff.party_id) {
-    const current = await supabaseAdmin
-      .from("parties")
-      .select("id,organization_id")
-      .eq("id", staff.party_id)
-      .maybeSingle();
-    if (current.error) throw current.error;
-    if (String(current.data?.organization_id || "") === String(organizationId)) {
-      return current.data.id;
-    }
-  }
-
-  const assignments = await supabaseAdmin
-    .from("employee_employment_assignments")
-    .select("party_id,effective_from,effective_to,status")
-    .eq("organization_id", organizationId)
-    .eq("staff_account_id", staff.id)
-    .neq("status", "CANCELLED")
-    .order("effective_from", { ascending: false })
-    .limit(2);
-  if (assignments.error) throw assignments.error;
-
-  const assignmentPartyIds = [...new Set(
-    (assignments.data || []).map((row) => String(row.party_id || "").trim()).filter(Boolean)
-  )];
-  if (assignmentPartyIds.length > 1) {
-    throw new Error("Multiple employment Party identities exist for this Staff account");
-  }
-  if (assignmentPartyIds.length === 1) return assignmentPartyIds[0];
-
-  const email = String(staff.email || "").trim();
-  if (!email) return null;
-  const parties = await supabaseAdmin
-    .from("parties")
-    .select("id")
-    .eq("organization_id", organizationId)
-    .ilike("email", email)
-    .limit(2);
-  if (parties.error) throw parties.error;
-  if ((parties.data || []).length > 1) {
-    throw new Error("Multiple Party identities match this Staff email in the selected organization");
-  }
-  return parties.data?.[0]?.id || null;
-}
 
 export async function POST(request) {
   try {

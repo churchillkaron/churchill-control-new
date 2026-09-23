@@ -2,12 +2,6 @@ name: Avantiqo Voice TTS Worker Image Refresh
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/avantiqo-voice-tts-worker-image-refresh-request.json
-
 permissions:
   contents: write
   packages: write

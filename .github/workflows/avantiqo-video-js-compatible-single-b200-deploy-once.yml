@@ -1,11 +1,7 @@
 name: Avantiqo Video JS-Compatible Single-B200 Deploy Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-js-compatible-single-b200-deploy-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

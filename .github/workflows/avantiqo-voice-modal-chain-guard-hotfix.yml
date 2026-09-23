@@ -1,11 +1,7 @@
 name: Avantiqo Voice Modal Chain Guard Hotfix
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-voice-modal-chain-guard-hotfix.yml
-
+  workflow_dispatch:
 permissions:
   contents: write
 

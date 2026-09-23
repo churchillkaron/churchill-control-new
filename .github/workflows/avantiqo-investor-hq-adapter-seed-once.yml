@@ -1,11 +1,7 @@
 name: Avantiqo Investor HQ Adapter Seed Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-hq-adapter-seed-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

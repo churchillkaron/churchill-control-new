@@ -32,9 +32,14 @@ export async function POST(request) {
     const execution = await ServiceExecutionRuntime.execute({
       organization_id: context.organizationId,
       service_id: "ai.text.generate",
-      provider_id: "avantiqo-intelligence",
+      provider_id:
+        "avantiqo-intelligence",
       input: {
-        prompt: `Generate a concise staff feed for the authenticated employee only.\n\nStaff: ${context.staff.name || "Staff"}\nRole: ${context.staff.role || context.role || "Staff"}\nRelevant memory evidence: ${JSON.stringify(memoryEvidence)}\n\nReturn a strict JSON array with at most 6 objects. Each object may contain only title, message and priority. Do not invent VIP, customer, payroll, schedule, safety or performance facts that are not present in the supplied evidence.`,
+        execution_lane:
+          "fast",
+        prompt: `You are Avantiqo Staff Intelligence.
+
+Generate a concise staff feed for the authenticated employee only. Do not assume a restaurant, hotel, nightlife, healthcare, school, workshop, or any other industry unless the supplied evidence supports it.\n\nStaff: ${context.staff.name || "Staff"}\nRole: ${context.staff.role || context.role || "Staff"}\nRelevant memory evidence: ${JSON.stringify(memoryEvidence)}\n\nReturn a strict JSON array with at most 6 objects. Each object may contain only title, message and priority. Do not invent VIP, customer, payroll, schedule, safety or performance facts that are not present in the supplied evidence.`,
         max_output_tokens: 600,
       },
       metadata: {

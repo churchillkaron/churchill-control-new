@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 const source = await readFile(new URL("../lib/creative/director/runtime/CreativeWorkflowResolutionRuntime.js", import.meta.url), "utf8");
 test("workflow resolve resumes durable council before new paid direction", () => {
-  assert.match(source, /const councilCheckpoint = storedCouncilCheckpoint\(context\.project, context\)/);
+  assert.match(source, /const councilCheckpoint = forceDirectionRestart\s*\? null\s*: storedCouncilCheckpoint\(context\.project, context\)/);
   assert.match(source, /CreativeWorkflowResolutionRuntime\.resumeApprovedCouncil/);
   assert.match(source, /recoverSettledPostCouncilRepairs\(context\.project\)/);
 });

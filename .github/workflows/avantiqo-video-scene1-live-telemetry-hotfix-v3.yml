@@ -1,12 +1,7 @@
 name: Avantiqo Video Scene 1 Live Telemetry Hotfix V3
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-scene1-live-telemetry-hotfix-v3.yml
   workflow_dispatch:
-
 permissions:
   contents: write
 

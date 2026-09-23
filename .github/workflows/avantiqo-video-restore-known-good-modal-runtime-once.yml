@@ -1,11 +1,7 @@
 name: Avantiqo Video Restore Known Good Modal Runtime Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-restore-known-good-modal-runtime-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: write
 

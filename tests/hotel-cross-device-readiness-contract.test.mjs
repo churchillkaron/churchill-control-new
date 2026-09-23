@@ -24,6 +24,7 @@ const bookingReinstate = fs.readFileSync("app/api/hotel/bookings/reinstate/route
 const stayControl = fs.readFileSync("app/api/hotel/stays/route.js", "utf8");
 const frontDesk = fs.readFileSync("components/workspace/hotel/HotelFrontDeskWorkBoard.jsx", "utf8");
 const billingWebhook = fs.readFileSync("app/api/billing/webhook/route.js", "utf8");
+const stripeProvider = fs.readFileSync("lib/platform/service-runtime/providers/stripe/StripeProvider.js", "utf8");
 const shiftHandover = fs.readFileSync("app/api/hotel/shift-handover/route.js", "utf8");
 const nightAudit = fs.readFileSync("app/api/hotel/night-audit/route.js", "utf8");
 
@@ -124,7 +125,8 @@ test("reservation lifecycle changes wake arrivals and inventory after governed w
 });
 
 test("verified gateway settlement wakes Hotel departure readiness without exposing payment data", () => {
-  assert.match(billingWebhook, /stripe\.webhooks\.constructEvent/);
+  assert.match(billingWebhook, /StripeProvider\.verifyWebhook/);
+  assert.match(stripeProvider, /webhooks\.constructEvent/);
   assert.match(billingWebhook, /broadcastHotelReadinessChanged/);
   assert.match(billingWebhook, /source: "hotel-payment-webhook"/);
   assert.match(billingWebhook, /action,\n  \}\);/);

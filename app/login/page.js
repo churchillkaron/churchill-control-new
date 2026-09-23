@@ -193,6 +193,11 @@ export default function LoginPage() {
         return;
       }
 
+      if (!result.eligible) {
+        setError(result.error || "Password recovery is not available for this account on this portal.");
+        return;
+      }
+
       const recoveryUrl = new URL("/login", window.location.origin);
       if (["supplier","staff","developer"].includes(portalIntent())) recoveryUrl.searchParams.set("portal", portalIntent());
       const hostBrand = resolvePlatformLoginContext(window.location.hostname);
@@ -274,7 +279,7 @@ export default function LoginPage() {
         credentials: "same-origin",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ returnPath: "/staff" }),
+        body: JSON.stringify({ returnPath: "/workforce" }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload?.success || !payload?.authorizationUrl) {
@@ -424,7 +429,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={handleForgotPassword}
                 disabled={loading}
-                className="text-[12px] text-[#D6A66A]/80 transition hover:text-[#F2DEC0] disabled:opacity-50"
+                className="inline-flex min-h-11 items-center px-1 text-[12px] text-[#D6A66A]/80 transition hover:text-[#F2DEC0] disabled:opacity-50"
               >
                 Forgot password?
               </button>

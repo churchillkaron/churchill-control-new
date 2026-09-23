@@ -9,7 +9,7 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const result = await createStaffPasskeyBrokerAuthorization({
       request,
-      returnPath: body?.returnPath || "/staff",
+      returnPath: body?.returnPath || "/workforce",
     });
     const response = NextResponse.json({ success: true, ...result }, { status: 201 });
     response.headers.set("Cache-Control", "private, no-store");

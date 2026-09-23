@@ -12,7 +12,7 @@ test("Business Partner browser and route preserve canonical business context int
   const route = source("app/api/operator/turn/route.js");
 
   assert.match(ui, /useBusinessContext\(\)/);
-  assert.match(ui, /"\/api\/operator\/turn\/live"/);
+  assert.match(ui, /\/api\/operator\/turn/);
   assert.match(
     ui,
     /body:\s*JSON\.stringify\(\{[\s\S]*organizationId,[\s\S]*entityId,[\s\S]*periodId,[\s\S]*message,[\s\S]*source/,

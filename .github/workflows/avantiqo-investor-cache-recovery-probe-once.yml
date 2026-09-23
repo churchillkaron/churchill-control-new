@@ -2,11 +2,7 @@
 name: Avantiqo Investor Cache Recovery Probe Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-cache-recovery-probe-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

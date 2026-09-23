@@ -18,7 +18,6 @@ export async function POST(request) {
     const context = await resolveAuthenticatedStaffContext({
       request,
       organizationId: hostContext.organizationId,
-      allowIncompleteActivation: true,
     });
     if (!context.success) {
       return NextResponse.json({ success:false, error:context.error, code:context.code || null }, { status:context.status || 403 });
@@ -30,7 +29,7 @@ export async function POST(request) {
       organizationId: context.organizationId,
       staff: context.staff,
       user: context.user,
-      returnPath: body?.returnPath || "/staff",
+      returnPath: body?.returnPath || "/workforce/profile",
     });
     const response = NextResponse.json({ success:true, ...result }, { status:201 });
     response.headers.set("Cache-Control","private, no-store");

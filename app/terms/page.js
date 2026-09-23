@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export const metadata = {
   title: "Terms of Service | Avantiqo",
@@ -31,7 +32,7 @@ function LegalHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-black/[0.07] bg-[#F7F6F3]/95 backdrop-blur-xl">
       <div className="mx-auto flex h-[64px] max-w-[1320px] items-center justify-between gap-5 px-5 sm:px-7 lg:px-10">
-        <a href="/" className="flex items-center gap-3" aria-label="Avantiqo home">
+        <Link href="/" className="flex items-center gap-3" aria-label="Avantiqo home">
           <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-[#171716] p-1.5 shadow-[0_2px_6px_rgba(20,18,15,.12)]">
             <Image src="/branding/avantiqo-logo.png" alt="" width={28} height={28} className="h-full w-full object-contain" />
           </div>
@@ -39,12 +40,12 @@ function LegalHeader() {
             <div className="text-[12px] font-semibold tracking-[-0.01em] text-[#2A2723]">Avantiqo</div>
             <div className="mt-0.5 text-[7px] font-semibold uppercase tracking-[0.16em] text-[#9A744B]">Business Operating System</div>
           </div>
-        </a>
+        </Link>
 
         <nav className="flex items-center gap-1.5">
-          <a href="/policy" className="rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723]">Privacy</a>
-          <a href="/" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] sm:inline-flex">Home</a>
-          <a href="/login" className="ml-1 inline-flex h-9 items-center gap-2 rounded-xl bg-[#171716] px-4 text-[10px] font-semibold text-white shadow-[0_3px_10px_rgba(20,18,15,0.15)] transition hover:bg-[#2A2926]">Login <Arrow /></a>
+          <Link href="/policy" className="rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723]">Privacy</Link>
+          <Link href="/" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] sm:inline-flex">Home</Link>
+          <Link href="/login" className="ml-1 inline-flex h-9 items-center gap-2 rounded-xl bg-[#171716] px-4 text-[10px] font-semibold text-white shadow-[0_3px_10px_rgba(20,18,15,0.15)] transition hover:bg-[#2A2926]">Login <Arrow /></Link>
         </nav>
       </div>
     </header>
@@ -60,9 +61,9 @@ function LegalFooter() {
           <div className="mt-2 text-[9px] leading-5 text-[#9B958D]">Operated by BEA Co., Ltd. · Company Registration No. 0835553004601</div>
         </div>
         <div className="flex flex-wrap gap-5">
-          <a href="/" className="transition hover:text-[#8A633C]">Home</a>
-          <a href="/policy" className="transition hover:text-[#8A633C]">Privacy Policy</a>
-          <a href="/login" className="transition hover:text-[#8A633C]">Login</a>
+          <Link href="/" className="transition hover:text-[#8A633C]">Home</Link>
+          <Link href="/policy" className="transition hover:text-[#8A633C]">Privacy Policy</Link>
+          <Link href="/login" className="transition hover:text-[#8A633C]">Login</Link>
         </div>
       </div>
     </footer>
@@ -128,7 +129,7 @@ export default function TermsPage() {
             <h2 className="mt-2 text-[24px] font-medium tracking-[-0.035em] text-[#25221F]">Understand how Avantiqo handles business and connected-service data.</h2>
             <p className="mt-3 max-w-3xl text-[11px] leading-6 text-[#77716A]">The Privacy Policy explains platform data handling, connected services, retention, security and Google API user data requirements.</p>
           </div>
-          <a href="/policy" className="inline-flex h-10 shrink-0 items-center gap-2 self-start rounded-xl border border-black/[0.09] bg-white px-4 text-[10px] font-semibold text-[#5A554E] transition hover:border-[#D6A66A]/45 hover:text-[#8A633C] lg:self-auto">Privacy Policy <Arrow /></a>
+          <Link href="/policy" className="inline-flex h-10 shrink-0 items-center gap-2 self-start rounded-xl border border-black/[0.09] bg-white px-4 text-[10px] font-semibold text-[#5A554E] transition hover:border-[#D6A66A]/45 hover:text-[#8A633C] lg:self-auto">Privacy Policy <Arrow /></Link>
         </div>
       </section>
 

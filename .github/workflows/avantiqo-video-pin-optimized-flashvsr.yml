@@ -1,12 +1,7 @@
 name: Avantiqo Video Pin Optimized FlashVSR
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/avantiqo-video-pin-optimized-flashvsr-request.json
-
+  workflow_dispatch:
 permissions:
   contents: write
 

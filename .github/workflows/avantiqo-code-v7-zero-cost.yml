@@ -1,16 +1,7 @@
 name: Avantiqo Code V7 Zero Cost Admission
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'services/avantiqo-code-engine/repo_agent_v7.py'
-      - 'services/avantiqo-code-engine/verify_repo_agent_v7.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py'
-      - '.github/workflows/avantiqo-code-v7-zero-cost.yml'
   workflow_dispatch:
-
 permissions:
   contents: read
 

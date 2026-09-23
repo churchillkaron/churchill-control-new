@@ -17,5 +17,5 @@ test('both immediate and pending settlement receive the persisted cost-guard cei
   const matches = source.match(/maximumChargeAmount: [^\n]*service_cost_guard_maximum_customer_price[^\n]*/g) || [];
   assert.equal(matches.length, 2);
   assert.match(source, /currency: pricing\.currency/);
-  assert.match(source, /currency: reservationPricing\.currency \|\| usage\.currency \|\| null/);
+  assert.match(source, /currency: reservationPricing\.currency \|\| usage\.currency \|\| settledPricing\.currency \|\| null/);
 });

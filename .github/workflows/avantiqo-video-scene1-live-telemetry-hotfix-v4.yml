@@ -1,11 +1,7 @@
 name: Prepare Safe Sequential Native-4K Investor Render V2 Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-scene1-live-telemetry-hotfix-v4.yml
-
+  workflow_dispatch:
 permissions:
   contents: write
 

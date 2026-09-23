@@ -2,26 +2,6 @@ name: Avantiqo Code Repo Agent Zero Cost
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - 'services/avantiqo-code-engine/repo_agent_v4.py'
-      - 'services/avantiqo-code-engine/verify_repo_agent_v4.py'
-      - 'services/avantiqo-code-engine/repo_agent_v5.py'
-      - 'services/avantiqo-code-engine/verify_repo_agent_v5.py'
-      - 'services/avantiqo-code-engine/repo_agent_v6.py'
-      - 'services/avantiqo-code-engine/verify_repo_agent_v6.py'
-      - 'services/avantiqo-code-engine/worldclass_cert_v3_contract.py'
-      - 'services/avantiqo-code-engine/verify_worldclass_cert_v3.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v4_cert.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py'
-      - '.github/workflows/avantiqo-code-repo-agent-v4-zero-cost.yml'
-      - '.github/workflows/avantiqo-code-qwen38-private12-v2.yml'
-
 permissions:
   contents: read
 

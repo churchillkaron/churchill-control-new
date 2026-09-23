@@ -1,16 +1,7 @@
 name: Avantiqo Code V8 Structured Zero Cost Admission
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'services/avantiqo-code-engine/repo_agent_v8.py'
-      - 'services/avantiqo-code-engine/verify_repo_agent_v8.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v7_cert.py'
-      - '.github/workflows/avantiqo-code-v8-structured-zero-cost.yml'
   workflow_dispatch:
-
 permissions:
   contents: read
 

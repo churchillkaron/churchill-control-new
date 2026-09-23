@@ -1,11 +1,7 @@
 name: Avantiqo Video Distilled Runtime Deploy Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-live-gpu-diagnostic-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

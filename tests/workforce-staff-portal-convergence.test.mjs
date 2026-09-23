@@ -8,9 +8,9 @@ const redirects = new Map([
   ["../app/(workforce)/workforce/my-day/page.jsx", "/staff/my-day"],
   ["../app/(workforce)/workforce/documents/page.jsx", "/staff/documents"],
   ["../app/(workforce)/workforce/payroll/page.jsx", "/staff/earnings"],
-  ["../app/(workforce)/workforce/schedule/page.jsx", "/staff"],
+  ["../app/(workforce)/workforce/schedule/page.jsx", "/staff/schedule"],
   ["../app/(workforce)/workforce/tasks/page.jsx", "/staff/my-day"],
-  ["../app/(workforce)/workforce/training/page.jsx", "/staff"],
+  ["../app/(workforce)/workforce/training/page.jsx", "/staff/training"],
   ["../app/(workforce)/workforce/upload/page.jsx", "/staff/documents/upload"],
 ]);
 
@@ -38,6 +38,7 @@ test("functional workforce upload is preserved under Staff Documents", () => {
 test("passkey enrollment access returns directly to canonical Staff Profile", () => {
   assert.match(passkeyEnrollment, /\/staff\/profile/);
   assert.doesNotMatch(passkeyEnrollment, /\/workforce\/profile/);
-  assert.match(passkeyReadiness, /https:\/\/avantiqo\.ai\/staff\/profile/);
+  assert.match(passkeyReadiness, /https:\/\/auth\.avantiqo\.ai/);
+  assert.match(passkeyReadiness, /organization[’']s own Staff Portal/);
   assert.doesNotMatch(passkeyReadiness, /https:\/\/avantiqo\.ai\/workforce\/profile/);
 });

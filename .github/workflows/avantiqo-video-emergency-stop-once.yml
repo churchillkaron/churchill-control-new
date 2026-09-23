@@ -1,11 +1,7 @@
 name: Avantiqo Video Emergency Stop Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-emergency-stop-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

@@ -1,11 +1,7 @@
 name: Avantiqo Code Modal Auto Endpoint Canary
 
 on:
-  push:
-    paths:
-      - ".github/workflows/avantiqo-code-modal-auto-endpoint-canary.yml"
   workflow_dispatch:
-
 permissions:
   contents: read
 

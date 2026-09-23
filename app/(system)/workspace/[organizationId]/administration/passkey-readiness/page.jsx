@@ -151,7 +151,7 @@ export default function PasskeyReadinessPage() {
           </div>
           <h1 className="mt-3 text-4xl font-black">Passkey rollout readiness</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
-            Prepare clock-in staff for passwordless identity verification before mandatory passkeys are enabled. Staff receive secure Supabase Auth access, sign in on the canonical Workforce origin, register a passkey, then run a real verification test.
+            Prepare clock-in staff for passwordless identity verification before mandatory passkeys are enabled. Staff enter through their organization’s own Staff Portal; passkey creation and verification are brokered securely through https://auth.avantiqo.ai, then the staff member returns to the organization portal.
           </p>
         </section>
 

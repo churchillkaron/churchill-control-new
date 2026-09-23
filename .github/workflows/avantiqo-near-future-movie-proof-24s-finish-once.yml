@@ -1,11 +1,7 @@
 name: Avantiqo Near-Future Movie Proof 24s Finish Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-near-future-movie-proof-24s-finish-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

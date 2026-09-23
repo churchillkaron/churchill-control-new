@@ -1,12 +1,7 @@
 name: Avantiqo Audio Worker Image
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/avantiqo-audio-worker-image-request.json
-
+  workflow_dispatch:
 permissions:
   contents: write
   packages: write

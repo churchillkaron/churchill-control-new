@@ -51,8 +51,16 @@ async function handleCronGet(request) {
     }
 
     let retried = 0;
+    let deferredApprovalRequired = 0;
 
     for (const job of jobs || []) {
+
+      const engine = String(job?.engine || "").trim().toLowerCase();
+      const localSafeAutomaticRetry = engine === "enhance";
+      if (!localSafeAutomaticRetry) {
+        deferredApprovalRequired += 1;
+        continue;
+      }
 
       try {
 
@@ -98,6 +106,8 @@ async function handleCronGet(request) {
       success: true,
 
       retried,
+      deferred_approval_required: deferredApprovalRequired,
+      automatic_paid_generation_retry_forbidden: true,
 
     });
 

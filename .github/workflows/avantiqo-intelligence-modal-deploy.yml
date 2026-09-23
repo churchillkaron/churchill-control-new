@@ -2,17 +2,6 @@ name: Avantiqo Intelligence - Governed Fast/Deep Modal Deploy
 
 on:
   workflow_dispatch:
-    inputs:
-      approve_deploy:
-        description: "Explicitly approve deploying the Fast/Deep overflow worker"
-        required: true
-        type: boolean
-        default: false
-      source_commit:
-        description: "Expected source commit SHA (optional but recommended)"
-        required: false
-        type: string
-
 permissions:
   contents: read
 

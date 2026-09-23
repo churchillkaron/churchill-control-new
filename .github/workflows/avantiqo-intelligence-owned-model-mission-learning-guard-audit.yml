@@ -1,25 +1,7 @@
 name: Avantiqo Intelligence Owned Model Mission Learning - Local Guard
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "lib/intelligence/runtime/AvantiqoOwnedModelMissionLearningCertificationRuntime.mjs"
-      - "lib/intelligence/runtime/AvantiqoModelTrainingExecutionRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoModelBenchmarkExecutionRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoModelCandidateCanaryRuntime.js"
-      - ".github/workflows/avantiqo-intelligence-owned-model-mission-learning.yml"
-      - ".github/workflows/avantiqo-intelligence-owned-model-mission-learning-guard-audit.yml"
-  pull_request:
-    paths:
-      - "lib/intelligence/runtime/AvantiqoOwnedModelMissionLearningCertificationRuntime.mjs"
-      - "lib/intelligence/runtime/AvantiqoModelTrainingExecutionRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoModelBenchmarkExecutionRuntime.js"
-      - "lib/intelligence/runtime/AvantiqoModelCandidateCanaryRuntime.js"
-      - ".github/workflows/avantiqo-intelligence-owned-model-mission-learning.yml"
-      - ".github/workflows/avantiqo-intelligence-owned-model-mission-learning-guard-audit.yml"
   workflow_dispatch:
-
 permissions:
   contents: read
 

@@ -4,11 +4,7 @@ name: Avantiqo Investor HQ Visual Proof 24s Once
 # the canonical Modal volume before this one-shot paid render can begin.
 # one-shot trigger: 2026-09-05-hq-dfr-v5
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-hq-proof-24s-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

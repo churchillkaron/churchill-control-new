@@ -1,11 +1,7 @@
 name: Avantiqo Video Modal Scene 2 Native Paid Once V2
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-modal-scene2-native-paid-once-v2.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

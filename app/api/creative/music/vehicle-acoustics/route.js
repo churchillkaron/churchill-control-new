@@ -1,5 +1,5 @@
 import {NextResponse} from "next/server";
-import {requireOrganizationAccess} from "@/lib/auth/runtime/OrganizationAccessRuntime";
+import {requireOrganizationAccess} from "@/lib/platform/security/requireOrganizationAccess";
 import {CreativeAssetsRuntime} from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 import {resolveCreativeProviderAssetUrl} from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 import {executeCinematicSpectralRepair} from "@/lib/creative/music/runtime/CreativeCinematicSpectralRepairExecutionRuntime";

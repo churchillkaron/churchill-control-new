@@ -1,17 +1,7 @@
 name: Avantiqo Code Pod Image
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - services/avantiqo-code-engine/Dockerfile.pod
-      - services/avantiqo-code-engine/pod_server.py
-      - services/avantiqo-code-engine/handler.py
-      - services/avantiqo-code-engine/requirements.txt
-      - .github/workflows/avantiqo-code-pod-image.yml
   workflow_dispatch:
-
 permissions:
   contents: read
   packages: write

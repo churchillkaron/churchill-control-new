@@ -214,6 +214,25 @@ function OrganizationSelector({ organization, organizations, pathname }) {
   );
 }
 
+
+function PlatformOperatorLegalEntity({ operatorLegalEntity }) {
+  if (!operatorLegalEntity) return null;
+  const label = operatorLegalEntity.display_name || operatorLegalEntity.legal_name || "BEA Co., Ltd.";
+  const meta = [operatorLegalEntity.registration_number, operatorLegalEntity.country].filter(Boolean).join(" · ");
+  return (
+    <div
+      className="hidden h-9 max-w-[210px] items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-3 text-[#5E5A54] md:flex"
+      title={meta ? `Legal operator · ${meta}` : "Legal operator"}
+    >
+      <Building2 size={13} className="shrink-0 text-[#A37849]" />
+      <span className="min-w-0">
+        <span className="block truncate text-[11px] font-medium">{label}</span>
+        <span className="block truncate text-[7px] font-semibold uppercase tracking-[0.12em] text-[#AAA69E]">Legal operator</span>
+      </span>
+    </div>
+  );
+}
+
 function EntitySelector({ entity, entities }) {
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -493,6 +512,7 @@ export default function WorkspaceTopBar() {
   const staff = businessContext?.staff || null;
   const role = upper(businessContext?.role || staff?.role);
   const isPlatformOperatorWorkspace = businessContext?.is_platform_operator_workspace === true;
+  const operatorLegalEntity = businessContext?.operator_legal_entity || null;
   const canAccessPlatformInfrastructure = isPlatformOperatorWorkspace && PLATFORM_ADMIN_ROLES.has(role);
   const organizationId = businessContext?.organization_id || organization?.id || params?.organizationId || null;
   const userName = staff?.name || staff?.display_name || staff?.email || "User";
@@ -587,12 +607,18 @@ export default function WorkspaceTopBar() {
             organizations={organizations}
             pathname={pathname}
           />
-          <EntitySelector entity={entity} entities={entities} />
-          <PeriodSelector
-            organizationId={organizationId}
-            entity={entity}
-            period={period}
-          />
+          {isPlatformOperatorWorkspace ? (
+            <PlatformOperatorLegalEntity operatorLegalEntity={operatorLegalEntity} />
+          ) : (
+            <>
+              <EntitySelector entity={entity} entities={entities} />
+              <PeriodSelector
+                organizationId={organizationId}
+                entity={entity}
+                period={period}
+              />
+            </>
+          )}
         </div>
 
         <div className="flex min-w-0 items-center justify-end gap-1.5">

@@ -1,18 +1,7 @@
 name: Avantiqo Intelligence - Local-Only Credential Guard
 
 on:
-  push:
-    paths:
-      - "lib/platform/service-runtime/providers/avantiqo-intelligence/**"
-      - "app/api/platform/admin/intelligence-credentials/route.js"
-      - ".github/workflows/avantiqo-intelligence-vault-bootstrap.yml"
-  pull_request:
-    paths:
-      - "lib/platform/service-runtime/providers/avantiqo-intelligence/**"
-      - "app/api/platform/admin/intelligence-credentials/route.js"
-      - ".github/workflows/avantiqo-intelligence-vault-bootstrap.yml"
   workflow_dispatch:
-
 permissions:
   contents: read
 

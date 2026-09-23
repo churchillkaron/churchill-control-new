@@ -9,6 +9,7 @@ const setup = readFileSync("components/staff/StaffActivationSetup.jsx", "utf8");
 const profile = readFileSync("app/(system)/staff/profile/page.jsx", "utf8");
 const authPage = readFileSync("app/auth/staff/passkey/page.jsx", "utf8");
 const enrollPage = readFileSync("app/auth/staff/passkey/enroll/page.jsx", "utf8");
+const contextRoute = readFileSync("app/api/auth/staff/passkey/context/route.js", "utf8");
 
 test("customer domains start passkey login through the central Avantiqo identity origin", () => {
   assert.match(runtime, /STAFF_PASSKEY_AUTH_ORIGIN = "https:\/\/auth\.avantiqo\.ai"/);
@@ -43,4 +44,14 @@ test("session handoff uses POST rather than URL tokens", () => {
   assert.match(authPage, /form\.method = "POST"/);
   assert.doesNotMatch(client, /authorizationUrl.*access_token/);
   assert.doesNotMatch(authPage, /searchParams\.set\(["']access_token/);
+});
+
+
+test("broker-only context and enrollment session enforce the central identity hostname", () => {
+  assert.match(runtime, /requireStaffPasskeyAuthOrigin/);
+  assert.match(runtime, /brokerHostname = new URL\(STAFF_PASSKEY_AUTH_ORIGIN\)\.hostname/);
+  assert.match(runtime, /hostname !== brokerHostname/);
+  assert.match(runtime, /Staff passkey broker must run on the Avantiqo identity origin/);
+  assert.match(contextRoute, /requireStaffPasskeyAuthOrigin\(request\)/);
+  assert.match(runtime, /requireStaffPasskeyAuthOrigin\(request\);[\s\S]*STAFF_PASSKEY_ENROLLMENT_PURPOSE/);
 });

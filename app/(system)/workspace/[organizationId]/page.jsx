@@ -6,7 +6,6 @@ import {
   ArrowRight,
   Bell,
   CheckCircle2,
-  Clock3,
   Search,
   Sparkles,
 } from "lucide-react";
@@ -14,7 +13,6 @@ import {
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAlertBridge";
 import { getOwnedWorkspaceDomainIds, hasExactProductOwnership } from "@/lib/platform/entitlements/productWorkspaceVisibility";
-import BusinessPartnerCodeMissionPanel from "@/components/operator/BusinessPartnerCodeMissionPanel";
 import HomeAvantiqoIntelligenceDock from "@/components/operator/HomeAvantiqoIntelligenceDock";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 import { listOperatorNavigationTargets } from "@/lib/operator/runtime/OperatorNavigationCatalog";
@@ -60,27 +58,10 @@ export default function OrganizationWorkspacePage() {
     businessContext.staff?.name ||
     businessContext.staff?.display_name ||
     "";
-  const organizationName =
-    organization?.name ||
-    runtime?.activeOrganization?.name ||
-    businessContext.organization?.name ||
-    "Your organization";
-  const entityName =
-    businessContext.entity?.display_name ||
-    businessContext.entity?.legal_name ||
-    businessContext.entity?.name ||
-    "All entities";
-  const periodName =
-    businessContext.period?.name ||
-    businessContext.period?.period_name ||
-    businessContext.period?.label ||
-    "Current period";
-
   const briefing = runtime?.briefing || null;
   const metrics = runtime?.metrics || {};
   const activity = Array.isArray(runtime?.activity) ? runtime.activity : [];
   const homeQueue = Array.isArray(runtime?.home_queue) ? runtime.home_queue : [];
-  const homeDomains = Array.isArray(runtime?.home_domains) ? runtime.home_domains : [];
   const productEntitlements = Array.isArray(businessContext.product_entitlements) ? businessContext.product_entitlements : [];
   const modules = Array.isArray(businessContext.modules) ? businessContext.modules : [];
   const exactProductOwnership = hasExactProductOwnership(productEntitlements);
@@ -91,7 +72,6 @@ export default function OrganizationWorkspacePage() {
         .filter((target) => target.kind === "domain" && visibleDomainIds.has(target.domain_id))
         .slice(0, 12)
     : [];
-  const visibleHomeDomains = homeDomains.filter((domain) => visibleDomainIds.has(domain.id));
 
   const metricCards = [
     {
@@ -157,7 +137,7 @@ export default function OrganizationWorkspacePage() {
       <AutonomousWatchAlertBridge organizationId={organizationId} />
 
       <div className="mx-auto max-w-[1780px] px-5 py-7 md:px-8 lg:px-10 lg:py-9">
-        <header className="flex flex-col gap-5 border-b border-black/[0.07] pb-7 xl:flex-row xl:items-end xl:justify-between">
+        <header className="border-b border-black/[0.07] pb-7">
           <div className="min-w-0">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#9A744B]">
               My Business
@@ -169,43 +149,20 @@ export default function OrganizationWorkspacePage() {
               {briefing?.summary || "Live priorities, business movement and your Avantiqo operator in one place."}
             </p>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#6C6963]">
-            <span className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-              {organizationName}
-            </span>
-            <span className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-              {entityName}
-            </span>
-            <span className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-              {periodName}
-            </span>
-          </div>
         </header>
 
         <div className="mt-7 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(420px,0.75fr)] xl:items-start">
           <div className="min-w-0 space-y-6">
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <section className="grid grid-cols-2 divide-x divide-y divide-black/[0.06] rounded-2xl border border-black/[0.075] bg-white px-1 shadow-[0_1px_2px_rgba(0,0,0,0.025)] lg:grid-cols-4 lg:divide-y-0">
               {metricCards.map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-2xl border border-black/[0.075] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.025)]"
-                >
-                  <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-[#8A867F]">
-                    {item.label}
-                  </div>
-                  <div className="mt-3 text-[25px] font-medium tracking-[-0.035em] text-[#1A1917]">
-                    {item.value}
-                  </div>
-                  <div className="mt-1.5 text-[11px] text-[#9A968E]">
-                    {item.hint}
-                  </div>
+                <div key={item.label} className="px-4 py-3.5">
+                  <div className="text-[9px] font-medium uppercase tracking-[0.14em] text-[#969188]">{item.label}</div>
+                  <div className="mt-1.5 text-[21px] font-medium tracking-[-0.035em] text-[#1A1917]">{item.value}</div>
                 </div>
               ))}
             </section>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-              <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
+            <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A867F]">
@@ -225,7 +182,7 @@ export default function OrganizationWorkspacePage() {
                       No active cross-domain exceptions.
                     </div>
                   ) : (
-                    homeQueue.slice(0, 10).map((item) => (
+                    homeQueue.slice(0, 6).map((item) => (
                       <Link key={item.id} href={item.href || "#"} className="group flex gap-3 py-3.5">
                         <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${priorityDot(item.priority)}`} />
                         <div className="min-w-0 flex-1">
@@ -243,66 +200,7 @@ export default function OrganizationWorkspacePage() {
                     ))
                   )}
                 </div>
-              </section>
-
-              <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A867F]">
-                      Recent activity
-                    </div>
-                    <div className="mt-1 text-[12px] text-[#AAA69E]">
-                      Latest business movement
-                    </div>
-                  </div>
-                  <Clock3 size={16} className="text-[#8D8982]" />
-                </div>
-
-                <div className="mt-4 divide-y divide-black/[0.06]">
-                  {activity.length === 0 ? (
-                    <div className="py-4 text-[12px] text-[#8A867F]">
-                      No recent activity to show.
-                    </div>
-                  ) : (
-                    activity.slice(0, 7).map((item, index) => (
-                      <div key={item?.id || index} className="grid grid-cols-[70px_1fr] gap-3 py-3.5 text-[11px]">
-                        <div className="text-[#AAA69E]">{item?.time || "—"}</div>
-                        <div className="leading-5 text-[#4F4C47]">{item?.text || item?.message || "Activity"}</div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </section>
-            </div>
-
-            {visibleHomeDomains.length ? (
-              <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                  <div>
-                    <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A867F]">
-                      Business pulse
-                    </div>
-                    <h2 className="mt-1.5 text-[20px] font-medium tracking-[-0.025em] text-[#1B1A18]">
-                      Where attention is concentrated
-                    </h2>
-                  </div>
-                  <div className="text-[10px] text-[#8A867F]">Live domain-owned evidence</div>
-                </div>
-
-                <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                  {visibleHomeDomains.map((domain) => (
-                    <Link key={domain.id} href={domain.href} className="group rounded-xl border border-black/[0.065] bg-[#FCFBF9] p-3.5 transition hover:border-[#D6A66A]/40 hover:bg-white">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="text-[12px] font-medium text-[#403C36]">{domain.label}</div>
-                        <div className={`min-w-7 rounded-full px-2 py-1 text-center text-[9px] font-semibold ${Number(domain.count || 0) > 0 ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>{domain.count || 0}</div>
-                      </div>
-                      <div className="mt-2 text-[9px] leading-4 text-[#8A847C]">{domain.detail}</div>
-                      <div className="mt-2 flex items-center gap-1 text-[9px] text-[#A37849] opacity-0 transition group-hover:opacity-100">Open <ArrowRight size={10} /></div>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            ) : null}
+            </section>
 
             <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
               <div className="flex flex-wrap items-end justify-between gap-4">
@@ -340,29 +238,33 @@ export default function OrganizationWorkspacePage() {
                 ))}
               </div>
             </section>
+            <details className="rounded-2xl border border-black/[0.065] bg-white/70 px-5 py-3 text-[#5E5952]">
+              <summary className="cursor-pointer select-none text-[10px] font-medium uppercase tracking-[0.14em] text-[#8A867F]">Recent activity</summary>
+              <div className="mt-3 divide-y divide-black/[0.06]">
+                {activity.length === 0 ? (
+                  <div className="py-3 text-[11px] text-[#99948C]">No recent activity to show.</div>
+                ) : activity.slice(0, 6).map((item, index) => (
+                  <div key={item?.id || index} className="grid grid-cols-[64px_1fr] gap-3 py-3 text-[10px]">
+                    <div className="text-[#AAA69E]">{item?.time || "—"}</div>
+                    <div className="leading-4 text-[#5A554E]">{item?.text || item?.message || "Activity"}</div>
+                  </div>
+                ))}
+              </div>
+            </details>
           </div>
 
           <aside className="min-w-0 xl:sticky xl:top-[78px]">
             <div className="overflow-hidden rounded-[22px] border border-black/[0.08] bg-white shadow-[0_14px_50px_rgba(31,27,20,0.07)]">
-              <div className="flex items-start justify-between gap-4 border-b border-black/[0.07] px-5 py-4">
-                <div>
-                  <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#9A744B]">
-                    <Sparkles size={13} />
-                    Business Partner
-                  </div>
-                  <div className="mt-1.5 text-[18px] font-medium tracking-[-0.025em] text-[#1B1A18]">
-                    One operator. Every capability.
-                  </div>
-                  <div className="mt-1 text-[11px] leading-5 text-[#8B8881]">
-                    Ask, steer and verify work here. Code missions stay synchronized with Code Studio.
-                  </div>
+              <div className="border-b border-black/[0.07] px-5 py-4">
+                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#9A744B]">
+                  <Sparkles size={13} />
+                  Business Partner
                 </div>
-                <span className="shrink-0 rounded-full border border-[#6F7E68]/20 bg-[#6F7E68]/[0.08] px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.12em] text-[#5E6D58]">
-                  Local-first
-                </span>
+                <div className="mt-1.5 text-[11px] leading-5 text-[#8B8881]">
+                  Ask about this business, make a decision, or tell Avantiqo what to do.
+                </div>
               </div>
 
-              <BusinessPartnerCodeMissionPanel organizationId={organizationId} />
               <HomeAvantiqoIntelligenceDock organizationId={organizationId} />
             </div>
 

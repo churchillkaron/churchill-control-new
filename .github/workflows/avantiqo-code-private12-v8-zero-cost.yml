@@ -1,14 +1,7 @@
 name: Avantiqo Code Private12 V9 Zero Cost Admission
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/triggers/avantiqo-code-private12-v8-zero-cost.trigger'
-      - '.github/triggers/avantiqo-code-private12-v9-zero-cost.trigger'
-      - '.github/workflows/avantiqo-code-private12-v8-zero-cost.yml'
-
+  workflow_dispatch:
 permissions:
   contents: read
 

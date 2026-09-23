@@ -1,16 +1,7 @@
 name: Avantiqo Code Private12 V6 Zero Cost Admission
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v6_cert.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py'
-      - 'services/avantiqo-code-engine/repo_agent_v7.py'
-      - '.github/workflows/avantiqo-code-private12-v6-zero-cost.yml'
   workflow_dispatch:
-
 permissions:
   contents: read
 

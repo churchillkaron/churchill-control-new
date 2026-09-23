@@ -15,7 +15,6 @@ import { PaymentConfirmationRuntime } from "@/lib/platform/payment-runtime/confi
 import { PaymentTransactionRepository } from "@/lib/platform/payment-runtime/repositories/PaymentTransactionRepository";
 import { StripeProvider } from "@/lib/platform/service-runtime/providers/stripe/StripeProvider";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { finalizeCustomerPortalCardPayment, failCustomerPortalCardPayment } from "@/lib/customer-portal/CustomerPortalPaymentSettlementRuntime";
 
 function providerId(value) {
   return typeof value === "string" ? value : value?.id || null;
@@ -99,14 +98,20 @@ async function finalizeHotelPayment(event, session) {
   if (error) throw error;
 
   if (session?.metadata?.portalPaymentRequestId) {
-    const portalUpdate = await supabaseAdmin.from("customer_portal_payment_requests").update({
-      status: "PAID",
-      provider_session_id: session.id,
-      provider_payment_id: session.payment_intent ? String(session.payment_intent) : null,
-      provider_event_id: event.id,
-      settled_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq("organization_id", scope.organization_id).eq("id", session.metadata.portalPaymentRequestId);
+    const portalUpdate = await supabaseAdmin
+      .from("customer_portal_payment_requests")
+      .update({
+        status: "PAID",
+        provider_session_id: session.id,
+        provider_payment_id: session.payment_intent
+          ? String(session.payment_intent)
+          : null,
+        provider_event_id: event.id,
+        settled_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("organization_id", scope.organization_id)
+      .eq("id", session.metadata.portalPaymentRequestId);
     if (portalUpdate.error) throw portalUpdate.error;
   }
 
@@ -423,56 +428,7 @@ export async function POST(request) {
 
   let event;
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET,
-    );
-  } catch (err) {
-    return NextResponse.json(
-      { error: "Webhook Error" },
-      { status: 400 },
-    );
-  }
-
-  try {
-    if (["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(event.type)) {
-      const session = event.data.object;
-      if (session?.metadata?.domain === "hotel") {
-        await finalizeHotelPayment(event, session);
-      } else if (session?.metadata?.domain === "customer_portal") {
-        await finalizeCustomerPortalCardPayment({ event, session });
-      } else if (event.type === "checkout.session.completed") {
-        const { organizationId, plan } = session.metadata || {};
-        if (organizationId && plan) {
-          await supabaseAdmin
-            .from("organizations")
-            .update({ plan, subscription_status: "active" })
-            .eq("id", organizationId);
-        }
-      }
-    }
-
-    if (["checkout.session.async_payment_failed", "checkout.session.expired"].includes(event.type)) {
-      const session = event.data.object;
-      if (session?.metadata?.domain === "hotel") {
-        await failHotelTransaction(
-          session.metadata.hotelTransactionId,
-          event.type === "checkout.session.expired" ? "Stripe Checkout session expired" : "Stripe asynchronous payment failed",
-          event.id,
-        );
-      } else if (session?.metadata?.domain === "customer_portal") {
-        await failCustomerPortalCardPayment({
-          event,
-          session,
-          reason: event.type === "checkout.session.expired" ? "Stripe Checkout session expired" : "Stripe asynchronous payment failed",
-        });
-      }
-    }
-
-    if (event.type === "refund.updated") {
-      await reconcileHotelRefund(event, event.data.object);
-    }
+    event = StripeProvider.verifyWebhook({ rawBody, signature });
   } catch (error) {
     console.error("BILLING_WEBHOOK_SIGNATURE_ERROR", error);
     return NextResponse.json({ error: "Webhook Error" }, { status: 400 });

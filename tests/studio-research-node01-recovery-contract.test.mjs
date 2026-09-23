@@ -26,15 +26,14 @@ test("Studio research recovery stays Node01-first and preserves failed approval 
   assert.match(director, /rawMatchedIdentity === true/);
   assert.match(director, /Model citation could not be bound to governed evidence/);
   assert.match(director, /provider_id: localRepair \? "avantiqo-intelligence" : approval\.provider/);
+  assert.match(director, /provider_id: localSynthesis \? "avantiqo-intelligence" : approval\.provider/);
   assert.match(director, /execution_scope: "BENCHMARK_REVIEW_PREVIEW"/);
   assert.match(director, /owned_only_required: true/);
   assert.match(director, /external_fallback_allowed: false/);
   assert.match(director, /max_output_tokens: localRepair \? 2200 : 3000/);
   assert.match(director, /estimatedSynthesisOutputTokens = localSynthesis \? 3000 : 12000/);
-  const localReasoningRoutes = director.match(
-    /provider_id: (?:localRepair \? "avantiqo-intelligence" : approval\.provider|localSynthesis \? "avantiqo-intelligence" : approval\.provider|localResearchSynthesisEnabled\(\) \? "avantiqo-intelligence" : approval\.provider)/g,
-  ) || [];
-  assert.equal(localReasoningRoutes.length, 4);
+  assert.equal((director.match(/const localBenchmark = localResearchSynthesisEnabled\(\);/g) || []).length, 2);
+  assert.equal((director.match(/provider_id: localBenchmark \? "avantiqo-intelligence" : approval\.provider/g) || []).length, 2);
   assert.equal((director.match(/external_fallback_allowed: false/g) || []).length >= 4, true);
   assert.equal((director.match(/provider_id: approval\.provider/g) || []).length, 0);
   assert.match(director, /approval_reusable_after_failure_with_remaining_budget: approvalHasRemainingBudget/);

@@ -14,6 +14,22 @@ import { createServerSupabase } from "@/lib/shared/supabase/server";
 const ACTIVE_ENTITY_COOKIE = "avantiqo_active_entity_id";
 const ACTIVE_PERIOD_COOKIE = "avantiqo_active_period_id";
 
+const PLATFORM_OPERATOR_REGISTRATION_NUMBER = "0835553004601";
+
+async function loadPlatformOperatorLegalEntity() {
+  const { data, error } = await supabaseAdmin
+    .from("legal_entities")
+    .select("id,organization_id,legal_name,display_name,code,registration_number,country,currency,is_active,is_default_accounting_entity")
+    .eq("registration_number", PLATFORM_OPERATOR_REGISTRATION_NUMBER)
+    .eq("is_active", true)
+    .order("is_default_accounting_entity", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
+}
+
 async function loadEntities({ organizationId }) {
   if (!organizationId) return [];
 
@@ -205,6 +221,13 @@ async function loadBootstrapPayload({ request, user }) {
     timedBootstrapStep("platform_operator", () => resolvePlatformOperatorOrganizationId().catch(() => null)),
   ]);
 
+  const isPlatformOperatorWorkspace = Boolean(
+    operatorOrganizationId && organizationId === operatorOrganizationId,
+  );
+  const operatorLegalEntity = isPlatformOperatorWorkspace
+    ? await loadPlatformOperatorLegalEntity()
+    : null;
+
   const organization =
     organizations.find((row) => row.id === organizationId) || null;
 
@@ -245,9 +268,8 @@ async function loadBootstrapPayload({ request, user }) {
       organizations,
       organization_id: organizationId,
       active_organization_id: organizationId,
-      is_platform_operator_workspace: Boolean(
-        operatorOrganizationId && organizationId === operatorOrganizationId,
-      ),
+      is_platform_operator_workspace: isPlatformOperatorWorkspace,
+      operator_legal_entity: operatorLegalEntity,
       entity,
       entities,
       entity_id: entity?.id || null,

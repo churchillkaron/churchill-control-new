@@ -1,12 +1,7 @@
 name: Avantiqo Video Emergency Stop
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/avantiqo-video-emergency-stop-request.json
-
+  workflow_dispatch:
 permissions:
   contents: read
   actions: write

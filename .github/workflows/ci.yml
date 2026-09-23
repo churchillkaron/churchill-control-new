@@ -65,6 +65,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Guard against automatic paid workflows
+        run: node scripts/audit-no-automatic-paid-workflows.mjs
+
       - name: Audit Finance capability closure
         run: node scripts/finance-closeout-audit.mjs
 

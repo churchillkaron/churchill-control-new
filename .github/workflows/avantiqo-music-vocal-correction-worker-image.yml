@@ -1,13 +1,7 @@
 name: Avantiqo Music Vocal Correction Worker Image
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/avantiqo-music-vocal-correction-worker-image-request.json
   workflow_dispatch:
-
 permissions:
   contents: write
   packages: write

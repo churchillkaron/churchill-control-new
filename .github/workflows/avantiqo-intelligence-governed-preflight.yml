@@ -1,18 +1,7 @@
 name: Avantiqo Intelligence - Local-Only Governed Preflight
 
 on:
-  push:
-    paths:
-      - "lib/platform/service-runtime/providers/avantiqo-intelligence/**"
-      - "lib/intelligence/runtime/**"
-      - ".github/workflows/avantiqo-intelligence-governed-preflight.yml"
-  pull_request:
-    paths:
-      - "lib/platform/service-runtime/providers/avantiqo-intelligence/**"
-      - "lib/intelligence/runtime/**"
-      - ".github/workflows/avantiqo-intelligence-governed-preflight.yml"
   workflow_dispatch:
-
 permissions:
   contents: read
 

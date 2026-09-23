@@ -104,33 +104,13 @@ function approvalMetadata(existingMetadata = {}, organization = {}, selectedAsse
   const approvedAt = new Date(now - 60_000).toISOString();
   const expiresAt = new Date(now + 6 * 60 * 60 * 1000).toISOString();
   const existingResearchApproval = existingMetadata.paid_research_approval || {};
-  const researchStatus = text(existingResearchApproval.status).toUpperCase();
   const preserveResearchRecovery =
     text(existingResearchApproval.command_identity) === COMMAND_IDENTITY &&
+    existingResearchApproval.retry_required === true &&
     existingResearchApproval.approved === true &&
-    (
-      (
-        existingResearchApproval.retry_required === true &&
-        ["VALIDATION_FAILED", "EXECUTION_FAILED", "REPAIR_FAILED"].includes(researchStatus)
-      ) ||
-      (
-        existingResearchApproval.retry_required !== true &&
-        ["COMPLETED", "COMPLETED_FROM_EXISTING_USAGE"].includes(researchStatus) &&
-        (
-          text(existingResearchApproval.research_report_id) ||
-          text(existingResearchApproval.structured_usage_id)
-        )
-      )
+    ["VALIDATION_FAILED", "EXECUTION_FAILED", "REPAIR_FAILED"].includes(
+      text(existingResearchApproval.status).toUpperCase(),
     );
-
-  const existingDirectionApproval = existingMetadata.paid_direction_approval || {};
-  const preserveDirectionApproval =
-    text(existingDirectionApproval.command_identity) === COMMAND_IDENTITY &&
-    existingDirectionApproval.approved === true &&
-    ["APPROVED", "IN_PROGRESS"].includes(
-      text(existingDirectionApproval.status).toUpperCase(),
-    ) &&
-    Number(existingDirectionApproval.maximum_customer_price) === Number(DIRECTION_CEILING);
 
   return {
     ...existingMetadata,
@@ -169,26 +149,24 @@ function approvalMetadata(existingMetadata = {}, organization = {}, selectedAsse
           approved_at: approvedAt,
           expires_at: expiresAt,
         },
-    paid_direction_approval: preserveDirectionApproval
-      ? { ...existingDirectionApproval }
-      : {
-          contract: "CREATIVE_DIRECTION_BUDGET_APPROVAL_V2",
-          id: `direction-${commandDigest}`,
-          approved: true,
-          status: "APPROVED",
-          provider: RESEARCH_PROVIDER,
-          pricing_id: RESEARCH_PRICING_ID,
-          model: RESEARCH_MODEL,
-          currency: "THB",
-          maximum_customer_price: DIRECTION_CEILING,
-          maximum_per_call_customer_price: 6,
-          maximum_calls: 40,
-          spent_customer_price: 0,
-          allowed_operations: ["*"],
-          command_identity: COMMAND_IDENTITY,
-          approved_at: approvedAt,
-          expires_at: expiresAt,
-        },
+    paid_direction_approval: {
+      contract: "CREATIVE_DIRECTION_BUDGET_APPROVAL_V2",
+      id: `direction-${commandDigest}`,
+      approved: true,
+      status: "APPROVED",
+      provider: RESEARCH_PROVIDER,
+      pricing_id: RESEARCH_PRICING_ID,
+      model: RESEARCH_MODEL,
+      currency: "THB",
+      maximum_customer_price: DIRECTION_CEILING,
+      maximum_per_call_customer_price: 6,
+      maximum_calls: 40,
+      spent_customer_price: 0,
+      allowed_operations: ["*"],
+      command_identity: COMMAND_IDENTITY,
+      approved_at: approvedAt,
+      expires_at: expiresAt,
+    },
     creative_quality_policy: {
       version: "AVANTIQO_ONE_CLIP_V1",
       minimum_scene_score: 90,

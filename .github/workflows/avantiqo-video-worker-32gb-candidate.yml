@@ -1,12 +1,7 @@
 name: Avantiqo Video 32GB Candidate Image
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/avantiqo-video-worker-32gb-candidate-request.json
-
+  workflow_dispatch:
 permissions:
   contents: write
   packages: write

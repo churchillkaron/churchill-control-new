@@ -1,5 +1,6 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import PublicArtStage from "@/components/public/PublicArtStage";
+import BusinessPartnerShowcase from "@/components/public/BusinessPartnerShowcase";
 
 function Arrow({ className = "" }) {
   return <svg aria-hidden="true" viewBox="0 0 20 20" className={className} fill="none"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;

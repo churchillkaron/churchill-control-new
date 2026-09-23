@@ -1,11 +1,7 @@
 name: Avantiqo Video Permanent Spend Fix Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-permanent-spend-fix-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: write
 

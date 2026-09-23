@@ -2,7 +2,6 @@ name: DISABLED - Avantiqo Intelligence E2E Repair 20260831
 
 on:
   workflow_dispatch:
-
 permissions:
   contents: read
 

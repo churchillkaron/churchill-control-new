@@ -1,11 +1,7 @@
 name: Avantiqo Video Known-Good Zero-GPU Preflight Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-known-good-zero-gpu-preflight-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

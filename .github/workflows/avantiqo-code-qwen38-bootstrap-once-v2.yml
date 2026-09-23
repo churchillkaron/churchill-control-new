@@ -1,10 +1,7 @@
 name: Avantiqo Code Qwen3.8 Bootstrap V2
 
 on:
-  push:
-    paths:
-      - .github/avantiqo-code-qwen38-bootstrap-once-v2.txt
-
+  workflow_dispatch:
 permissions:
   contents: read
 

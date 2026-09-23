@@ -163,7 +163,13 @@ function ProductPreview() {
         <div className="flex h-[58px] items-center gap-3 border-b border-black/[0.07] bg-white px-3 sm:px-4">
           <div className="flex items-center gap-2.5 border-r border-black/[0.06] pr-3 sm:pr-4">
             <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-[#171716] p-1.5">
-              <Image src="/branding/avantiqo-logo.png" alt="" width={32} height={32} className="h-full w-full object-contain" />
+              <Image
+                src="/branding/avantiqo-logo.png"
+                alt=""
+                width={32}
+                height={32}
+                className="h-full w-full object-contain"
+              />
             </div>
             <div className="hidden sm:block">
               <div className="text-[10px] font-semibold text-[#38342F]">
@@ -341,38 +347,50 @@ function ProductPreview() {
 export default function AvantiqoPublicHome() {
   return (
     <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
-      <header className="sticky top-0 z-50 border-b border-black/[0.07] bg-[#F7F6F3]/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-[64px] max-w-[1460px] items-center justify-between gap-6 px-5 sm:px-7 lg:px-10">
-          <a href="/" className="flex items-center gap-3" aria-label="Avantiqo home">
-            <span className="rounded-xl bg-[#171716] px-3 py-2 shadow-[0_4px_16px_rgba(0,0,0,.08)]">
-              <Image src="/branding/avantiqo-wordmark.png" alt="Avantiqo" width={126} height={10} className="h-[10px] w-auto object-contain" priority />
-            </span>
-            <div className="hidden text-[7px] font-semibold uppercase tracking-[0.18em] text-[#9A744B] sm:block">Business OS</div>
-          </a>
+      <PublicSiteHeader
+        context="Business OS"
+        links={[
+          {
+            label: "Platform",
+            href: "#platform",
+            visibility: "hidden md:inline-flex",
+          },
+          {
+            label: "Intelligence",
+            href: "#intelligence",
+            visibility: "hidden lg:inline-flex",
+          },
+          {
+            label: "Integrations",
+            href: "#connected-service-data",
+            visibility: "hidden lg:inline-flex",
+          },
+          {
+            label: "Solutions",
+            href: "/solutions",
+            visibility: "hidden lg:inline-flex",
+          },
+          {
+            label: "Commerce",
+            href: "/commerce",
+            visibility: "hidden xl:inline-flex",
+          },
+          {
+            label: "Channels",
+            href: "/channels",
+            visibility: "hidden xl:inline-flex",
+          },
+        ]}
+      />
 
-          <nav className="flex items-center gap-1 sm:gap-1.5">
-            <a href="#platform" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] md:inline-flex">Platform</a>
-            <a href="#intelligence" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] lg:inline-flex">Intelligence</a>
-            <a href="#connected-service-data" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] lg:inline-flex">Integrations</a>
-            <a href="/creative-studios" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] xl:inline-flex">Creative Studios</a>
-            <a href="/developers" className="hidden rounded-lg px-3 py-2 text-[10px] font-medium text-[#6C6963] transition hover:bg-white hover:text-[#292723] xl:inline-flex">Developers</a>
-            <a href="/login" className="ml-1 inline-flex h-9 items-center gap-2 rounded-xl bg-[#171716] px-4 text-[10px] font-semibold text-white shadow-[0_3px_10px_rgba(20,18,15,0.15)] transition hover:bg-[#2A2926]">Login <Arrow className="h-3 w-3" /></a>
-          </nav>
-        </div>
-      </header>
-
-      <section className="relative overflow-hidden border-b border-black/[0.06]">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[600px] bg-[radial-gradient(circle_at_76%_4%,rgba(214,166,106,.14),transparent_35%),radial-gradient(circle_at_12%_20%,rgba(163,120,73,.05),transparent_30%)]" />
-        <div className="relative mx-auto max-w-[1460px] px-5 pb-16 pt-16 sm:px-7 sm:pt-20 lg:px-10 lg:pb-20 lg:pt-24">
-          <div className="grid gap-12 lg:grid-cols-[minmax(0,.82fr)_minmax(560px,1.18fr)] lg:items-center xl:gap-16">
-            <div className="max-w-[650px]">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-[#8A633C]"><span className="h-1.5 w-1.5 rounded-full bg-[#A37849]" />One operating system for the company</div>
-              <h1 className="mt-7 text-[48px] font-medium leading-[0.98] tracking-[-0.06em] text-[#181817] sm:text-[60px] lg:text-[64px] xl:text-[72px]">Run the company. Not the software.</h1>
-              <p className="mt-7 max-w-xl text-[17px] leading-8 text-[#625F59] sm:text-[18px]">Avantiqo is a Business Operating System that brings finance, operations, supply chain, commercial work, people, projects, documents, analytics, connected services and intelligence into one governed business workspace.</p>
-              <p className="mt-4 max-w-xl text-[13px] leading-6 text-[#8A867F]">Organizations use Avantiqo to bring business records, workflows, approvals, permissions and connected external services into the same operating context so owners, managers and staff can see what matters and move work forward.</p>
-              <div className="mt-8 flex flex-wrap items-center gap-2.5">
-                <a href="/login" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white shadow-[0_6px_18px_rgba(20,18,15,0.16)] transition hover:-translate-y-0.5 hover:bg-[#292825]">Login to Avantiqo <Arrow className="h-3.5 w-3.5" /></a>
-                <a href="#how-it-works" className="inline-flex h-11 items-center gap-2 rounded-xl border border-black/[0.09] bg-white px-5 text-[11px] font-semibold text-[#56514A] transition hover:border-[#D6A66A]/45 hover:text-[#8A633C]">How the system works</a>
+      <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F4F0E8]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(214,166,106,.15),transparent_31%)]" />
+        <div className="relative mx-auto max-w-[1540px] lg:grid lg:min-h-[720px] lg:grid-cols-[42%_58%]">
+          <div className="relative z-20 flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
+            <div className="max-w-[620px]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/28 bg-white/62 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-[#8A633C] shadow-[0_4px_20px_rgba(100,75,45,.05)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#A37849]" />
+                One operating system for the company
               </div>
               <p className="mt-9 text-[9px] font-semibold uppercase tracking-[0.24em] text-[#A07142]">
                 AVANTIQO BUSINESS OS
@@ -760,8 +778,48 @@ export default function AvantiqoPublicHome() {
 
       <footer className="border-t border-black/[0.07] bg-[#FBFAF8]">
         <div className="mx-auto flex max-w-[1320px] flex-col gap-5 px-5 py-8 text-[10px] text-[#817B73] sm:flex-row sm:items-end sm:justify-between sm:px-7 lg:px-10">
-          <div><div><span className="font-semibold text-[#3E3933]">Avantiqo</span><span className="ml-2">Business Operating System</span></div><div className="mt-2 text-[9px] leading-5 text-[#9B958D]">Avantiqo is operated by BEA Co., Ltd., Thailand. Company Registration No. 0835553004601.</div></div>
-          <div className="flex flex-wrap gap-5"><a href="/creative-studios" className="transition hover:text-[#8A633C]">Creative Studios</a><a href="/developers" className="transition hover:text-[#8A633C]">Developers</a><a href="/policy" className="transition hover:text-[#8A633C]">Privacy Policy</a><a href="/terms" className="transition hover:text-[#8A633C]">Terms of Service</a><a href="#connected-service-data" className="transition hover:text-[#8A633C]">Connected services</a><a href="/login" className="transition hover:text-[#8A633C]">Login</a></div>
+          <div>
+            <div>
+              <span className="font-semibold text-[#3E3933]">Avantiqo</span>
+              <span className="ml-2">Business Operating System</span>
+            </div>
+            <div className="mt-2 text-[9px] leading-5 text-[#9B958D]">
+              Avantiqo is operated by BEA Co., Ltd., Thailand. Company
+              Registration No. 0835553004601.
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-5">
+            <a href="/enterprise" className="transition hover:text-[#8A633C]">
+              Enterprise
+            </a>
+            <a href="/commerce" className="transition hover:text-[#8A633C]">
+              Commerce
+            </a>
+            <a href="/channels" className="transition hover:text-[#8A633C]">
+              Channels
+            </a>
+            <a href="/solutions" className="transition hover:text-[#8A633C]">
+              Solutions
+            </a>
+            <a href="/pricing" className="transition hover:text-[#8A633C]">
+              Pricing
+            </a>
+            <a href="/policy" className="transition hover:text-[#8A633C]">
+              Privacy Policy
+            </a>
+            <a href="/terms" className="transition hover:text-[#8A633C]">
+              Terms of Service
+            </a>
+            <a
+              href="#connected-service-data"
+              className="transition hover:text-[#8A633C]"
+            >
+              Connected services
+            </a>
+            <a href="/login" className="transition hover:text-[#8A633C]">
+              Login
+            </a>
+          </div>
         </div>
       </footer>
     </main>

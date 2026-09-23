@@ -1,11 +1,7 @@
 name: Avantiqo Investor Fast Motion 24s Once
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-investor-fast-motion-24s-once.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

@@ -1,11 +1,7 @@
 name: Avantiqo Voice Modal Chained One Shot
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-voice-modal-chained-one-shot.yml
-
+  workflow_dispatch:
 permissions:
   contents: read
 

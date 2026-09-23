@@ -191,7 +191,7 @@ export default function ProductionLogsPage() {
     <div className="min-h-screen bg-black text-white overflow-hidden">
 
       {/* ===== HEADER ===== */}
-      <div className="h-28 border-b border-white/5 px-12 flex items-center justify-between">
+      <div className="flex flex-col gap-4 border-b border-white/5 px-4 py-6 sm:px-6 lg:h-28 lg:flex-row lg:items-center lg:justify-between lg:px-12 lg:py-0">
 
         <div>
 
@@ -199,52 +199,52 @@ export default function ProductionLogsPage() {
             PRODUCTION
           </div>
 
-          <div className="text-6xl font-semibold tracking-tight">
+          <div className="text-3xl font-semibold tracking-tight sm:text-4xl lg:text-6xl">
             Production Analytics
           </div>
 
         </div>
 
-        <div className="px-6 h-14 rounded-3xl border border-cyan-500/20 bg-cyan-500/5 text-cyan-400 text-xs uppercase tracking-[0.3em] flex items-center">
+        <div className="flex h-10 w-fit items-center rounded-2xl border border-cyan-500/20 bg-cyan-500/5 px-4 text-[10px] uppercase tracking-[0.22em] text-cyan-400 lg:h-14 lg:rounded-3xl lg:px-6 lg:text-xs lg:tracking-[0.3em]">
           LIVE COSTING
         </div>
 
       </div>
 
       {/* ===== TOTALS ===== */}
-      <div className="p-10 grid grid-cols-3 gap-7">
+      <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3 sm:p-6 lg:gap-7 lg:p-10">
 
-        <div className="rounded-[40px] border border-emerald-500/20 bg-emerald-500/5 p-10">
+        <div className="rounded-[28px] border border-emerald-500/20 bg-emerald-500/5 p-5 lg:rounded-[40px] lg:p-10">
 
           <div className="text-xs uppercase tracking-[0.3em] text-emerald-400 mb-6">
             Sales
           </div>
 
-          <div className="text-7xl font-light">
+          <div className="text-4xl font-light sm:text-3xl lg:text-7xl">
             ฿{totals.sales}
           </div>
 
         </div>
 
-        <div className="rounded-[40px] border border-red-500/20 bg-red-500/5 p-10">
+        <div className="rounded-[28px] border border-red-500/20 bg-red-500/5 p-5 lg:rounded-[40px] lg:p-10">
 
           <div className="text-xs uppercase tracking-[0.3em] text-red-400 mb-6">
             Production Cost
           </div>
 
-          <div className="text-7xl font-light">
+          <div className="text-4xl font-light sm:text-3xl lg:text-7xl">
             ฿{totals.cost}
           </div>
 
         </div>
 
-        <div className="rounded-[40px] border border-cyan-500/20 bg-cyan-500/5 p-10">
+        <div className="rounded-[28px] border border-cyan-500/20 bg-cyan-500/5 p-5 lg:rounded-[40px] lg:p-10">
 
           <div className="text-xs uppercase tracking-[0.3em] text-cyan-400 mb-6">
             Profit
           </div>
 
-          <div className="text-7xl font-light">
+          <div className="text-4xl font-light sm:text-3xl lg:text-7xl">
             ฿{totals.profit}
           </div>
 
@@ -253,10 +253,23 @@ export default function ProductionLogsPage() {
       </div>
 
       {/* ===== LOGS ===== */}
-      <div className="px-10 pb-10">
+      <div className="px-4 pb-6 sm:px-6 lg:px-10 lg:pb-10">
 
-        <div className="rounded-[40px] border border-white/10 overflow-hidden">
+        <div className="space-y-3 md:hidden">
+          {logs.map((log) => (
+            <div key={log.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="min-w-0 truncate text-sm font-semibold">{log.dish_id}</div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                <div><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">Qty</div><div className="mt-1">{log.quantity}</div></div>
+                <div><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">Sales</div><div className="mt-1 text-emerald-400">฿{log.sales_price}</div></div>
+                <div><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">Cost</div><div className="mt-1 text-red-400">฿{log.production_cost}</div></div>
+                <div><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">Profit</div><div className="mt-1 text-cyan-400">฿{log.profit}</div></div>
+              </div>
+            </div>
+          ))}
+        </div>
 
+        <div className="hidden overflow-hidden rounded-[40px] border border-white/10 md:block">
           <table className="w-full">
 
             <thead className="bg-white/5">
@@ -324,7 +337,6 @@ export default function ProductionLogsPage() {
             </tbody>
 
           </table>
-
         </div>
 
       </div>

@@ -14,8 +14,8 @@ test("Node01 Deep policy separates physical context from measured one-shot trust
 });
 
 test("provider owns the single canonical local Deep hierarchy", () => {
-  assert.match(provider, /shouldUseHierarchicalLocalIntelligence\(effectiveInput\)/);
-  assert.match(provider, /executeHierarchicalLocalIntelligence\(effectiveInput\)/);
+  assert.match(provider, /shouldUseHierarchicalLocalIntelligence\(input\)/);
+  assert.match(provider, /executeHierarchicalLocalIntelligence\(input\)/);
   assert.match(hierarchical, /AVANTIQO_HIERARCHICAL_LOCAL_REASONING_V1/);
   assert.match(hierarchical, /MAX_CHUNKS = 12/);
   assert.match(hierarchical, /AVANTIQO_INTELLIGENCE_LOCAL_DEEP_SINGLE_PASS_TRUSTED_PROMPT_TOKENS/);

@@ -91,7 +91,7 @@ test("repair supervisor transient timeout remains recoverable without code mutat
 });
 
 test("a clearly new semantic goal supersedes stale recovery but never a live pending action", () => {
-  assert.match(synthetic, /!pendingCapabilityKey[\s\S]*goal_relation[\s\S]*=== "new"/);
+  assert.match(synthetic, /!preCalibrationPendingCapabilityKey[\s\S]*goal_relation[\s\S]*=== "new"/);
   assert.match(synthetic, /delete nextAgreementState\.business_partner_recovery/);
   assert.match(synthetic, /delete nextAgreementState\.implementation_repair_resume/);
   assert.match(synthetic, /objective: text\(object\(semanticUnderstanding\)\.user_goal/);

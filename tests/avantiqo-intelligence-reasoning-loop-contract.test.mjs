@@ -23,24 +23,21 @@ test("owned Intelligence review pricing is development-only and production stays
   assert.match(runtime, /production_certified:\s*false/);
 });
 
-test("owned Intelligence is local-primary and Modal is explicit overflow only", () => {
+test("owned Intelligence is local-only", () => {
   assert.match(provider, /runtime_ready: enabled && localConfigured/);
-  assert.match(provider, /governed_modal_overflow_supported: true/);
-  assert.match(provider, /governed_modal_overflow_available: overflowConfigured/);
-  assert.match(provider, /automatic_modal_fallback_allowed: false/);
+  assert.match(provider, /governed_modal_overflow_supported: false/);
+  assert.match(provider, /governed_modal_overflow_available: false/);
+  assert.match(providerV2, /executeHierarchicalLocalIntelligence/);
   assert.match(providerV2, /executeIntelligenceLocalQueue/);
-  assert.match(providerV2, /executeIntelligenceLocal\(effectiveInput\)/);
-  assert.match(providerV2, /intelligenceModalOverflowApprovalRequested\(effectiveInput\)/);
-  assert.match(providerV2, /executeIntelligenceModalDirect/);
-  assert.doesNotMatch(providerV2, /RunPod|runpod/);
+  assert.match(providerV2, /executeIntelligenceLocal\(input\)/);
+  assert.doesNotMatch(providerV2, /Modal|modal|RunPod|runpod/);
 });
 
-test("provider registration readiness remains local while overflow is separately governed", () => {
-  assert.match(providerRegistration, /runtimeAvailable = Boolean\(\(engineEnabled \|\| localReviewRuntimeAllowed\) && localComputeConfigured\)/);
+test("provider registration readiness is local-only", () => {
+  assert.match(providerRegistration, /runtimeAvailable = Boolean\(engineEnabled && localComputeConfigured\)/);
   assert.match(providerRegistration, /external_provider_fallback_allowed:\s*false/);
-  assert.match(providerRegistration, /governed_external_overflow_allowed: modalOverflowConfigured/);
-  assert.match(providerRegistration, /modal_overflow_owner_approval_required:\s*true/);
-  assert.match(providerRegistration, /automatic_modal_fallback_allowed:\s*false/);
+  assert.match(providerRegistration, /local_only: true/);
+  assert.match(providerRegistration, /modal_fallback_allowed: false/);
   assert.match(providerRegistration, /supplier_type:\s*"OWNED_INFERENCE"/);
   assert.doesNotMatch(providerRegistration, /RunPod|runpod/);
 });

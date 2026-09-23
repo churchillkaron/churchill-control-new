@@ -21,7 +21,7 @@ test("Operator route has Node runtime budget", () => {
 });
 
 test("mechanism and invention learning synthesis remain local-only", () => {
-  assert.match(learning, /synthesis_runtime_contract: "AVANTIQO_LOCAL_NODE_V1"/);
+  assert.match(learning, /synthesis_runtime_contract: "AVANTIQO_INTELLIGENCE_LOCAL_NODE_V1"/);
   assert.match(learning, /synthesis_local_only: mode !== "evidence"/);
   assert.match(learning, /synthesis_external_compute_allowed: false/);
   assert.match(learning, /LOCAL_SYNTHESIS_READY/);
@@ -34,15 +34,13 @@ test("legacy synthesis child is terminal and cannot submit provider work", () =>
   assert.doesNotMatch(legacyChild, /executeService|settlePendingService|ModalClient|api\.runpod\.ai/);
 });
 
-test("canonical Intelligence is local-primary with approved Modal overflow only", () => {
+test("canonical Intelligence is local-only", () => {
+  assert.match(providerV2, /executeHierarchicalLocalIntelligence/);
   assert.match(providerV2, /executeIntelligenceLocalQueue/);
-  assert.match(providerV2, /executeIntelligenceLocal\(effectiveInput\)/);
-  assert.match(providerV2, /intelligenceModalOverflowApprovalRequested\(effectiveInput\)/);
-  assert.match(providerV2, /executeIntelligenceModalDirect/);
-  assert.match(providerRegistration, /local_compute_primary:\s*localComputeConfigured/);
+  assert.match(providerV2, /executeIntelligenceLocal\(input\)/);
+  assert.match(providerV2, /AVANTIQO_INTELLIGENCE_LOCAL_NODE_REQUIRED/);
+  assert.match(providerRegistration, /local_compute_primary:\s*true/);
+  assert.match(providerRegistration, /local_only: true/);
   assert.match(providerRegistration, /external_provider_fallback_allowed:\s*false/);
-  assert.match(providerRegistration, /governed_modal_overflow_supported:\s*true/);
-  assert.match(providerRegistration, /governed_modal_overflow_available: modalOverflowConfigured/);
-  assert.match(providerRegistration, /automatic_modal_fallback_allowed:\s*false/);
-  assert.doesNotMatch(providerV2, /RunPod|runpod/);
+  assert.doesNotMatch(providerV2, /Modal|modal|RunPod|runpod/);
 });

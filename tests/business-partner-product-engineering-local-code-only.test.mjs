@@ -40,10 +40,9 @@ test("live Code AI planner request forces owned local provider and forbids exter
   assert.match(live, /infrastructure_policy: "local_only"/);
 });
 
-test("Code provider fails closed before Modal branches when local-only is required", () => {
-  assert.match(provider, /function localComputeRequired\(input = \{\}\)/);
-  const guard = provider.indexOf('throw new Error("AVANTIQO_CODE_LOCAL_RUNTIME_REQUIRED")');
-  const modal = provider.indexOf("const direct = directModalConfig()", guard);
-  assert.ok(guard >= 0);
-  assert.ok(modal > guard);
+test("Code provider is local-queue only and fails closed when Node1 is unavailable", () => {
+  assert.match(provider, /AvantiqoCodeLocalQueueProvider/);
+  assert.match(provider, /AVANTIQO_CODE_LOCAL_NODE_UNAVAILABLE/);
+  assert.match(provider, /AVANTIQO_CODE_LOCAL_CAPABILITY_NOT_SUPPORTED/);
+  assert.doesNotMatch(provider, /Modal|modal|RunPod|runpod/);
 });

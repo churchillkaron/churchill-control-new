@@ -85,8 +85,7 @@ test("event continuation cannot be swallowed by fast chat", () => {
   assert.match(core, /Retry exact original read after durable external backoff/);
 });
 
-test("external wait worker is scheduled every minute in source config", () => {
-  const parsed = JSON.parse(vercel);
-  const cron = parsed.crons.find((entry) => entry.path === "/api/internal/operator/external-waits/process");
-  assert.equal(cron?.schedule, "* * * * *");
+test("external wait worker uses bounded two-minute source cadence", () => {
+  assert.match(vercel, /"\/api\/internal\/operator\/external-waits\/process"/);
+  assert.match(vercel, /"schedule": "\*\/2 \* \* \* \*"/);
 });

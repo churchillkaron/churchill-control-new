@@ -9,7 +9,7 @@ const dock = fs.readFileSync("components/operator/HomeAvantiqoIntelligenceDock.j
 
 test("live execution exposes the exact shared stop identity separately from displayed code progress", () => {
   assert.match(api, /stop_execution_id:/);
-  assert.match(api, /sharedProgress\?\.execution_id \|\| latest\?\.execution_id/);
+  assert.match(api, /stop_execution_id: sharedProgress\?\.execution_id \|\| null/);
 });
 
 test("stop requests fail closed without the exact live execution id", () => {

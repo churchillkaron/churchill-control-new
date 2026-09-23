@@ -43,9 +43,9 @@ test("commit identity is verified before wake",()=>{
   assert.match(release,/observed\.toLowerCase\(\) !== expectedCommit\.toLowerCase\(\)/);
 });
 
-test("repair continuation has authenticated minute worker",()=>{
+test("repair continuation has authenticated bounded worker",()=>{
   assert.match(route,/CRON_SECRET/);
-  assert.ok(vercel.crons.some(row=>row.path==="/api/internal/operator/repair-continuations/process"&&row.schedule==="* * * * *"));
+  assert.ok(vercel.crons.some(row=>row.path==="/api/internal/operator/repair-continuations/process"&&row.schedule==="1-59/2 * * * *"));
   assert.equal(vercel.functions["app/api/internal/operator/repair-continuations/process/route.js"].maxDuration,300);
 });
 

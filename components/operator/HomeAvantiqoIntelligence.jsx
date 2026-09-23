@@ -153,19 +153,12 @@ function busyRequestStatus(liveExecution, elapsedSeconds, startedAt) {
   return "Working through the request…";
 }
 
-function thesisInterruptionSpeech(thesis) {
-  const reason = text(thesis?.interruption?.reason);
-  const summary = text(thesis?.summary);
-  const nextMove = text(thesis?.recommended_next_move);
-  const parts = [
-    "I need your attention.",
-    reason || summary,
-    nextMove ? `My recommended next move is ${nextMove}` : "",
-  ].filter(Boolean);
-  return parts.join(" ");
-}
 
-export default function HomeAvantiqoIntelligence({ organizationId: organizationIdProp }) {
+export default function HomeAvantiqoIntelligence({
+  organizationId: organizationIdProp,
+  prepareAttachmentSetForTurn,
+  completeAttachmentTurn,
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const businessContext = useBusinessContext();
@@ -173,6 +166,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   const messagesRef = useRef([]);
   const agreementStateRef = useRef({});
   const busyRef = useRef(false);
+  const sendMessageRef = useRef(null);
   const pendingTurnQueueRef = useRef([]);
 
   const [input, setInput] = useState("");
@@ -385,42 +379,8 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         }
 
         const nextAttention = result?.attention || null;
-        const thesis = nextAttention?.business_thesis || null;
         setAttention(nextAttention);
         if (result?.project_state) setProjectState(result.project_state);
-
-        const interruption = thesis?.interruption || {};
-        const dedupeKey = text(interruption?.dedupe_key);
-        if (interruption?.should_interrupt === true && dedupeKey) {
-          const storageKey = `avantiqo:thesis-interruption:${organizationId}:${dedupeKey}`;
-          let alreadyDelivered = false;
-          try {
-            alreadyDelivered = window.sessionStorage.getItem(storageKey) === "1";
-          } catch {
-            alreadyDelivered = false;
-          }
-
-          if (!alreadyDelivered) {
-            try {
-              window.sessionStorage.setItem(storageKey, "1");
-            } catch {
-              // Browser storage is only dedupe assistance, never authority.
-            }
-            const speech = thesisInterruptionSpeech(thesis);
-            if (speech) {
-              window.dispatchEvent(
-                new CustomEvent("avantiqo:speak", {
-                  detail: {
-                    message: speech,
-                    source: "synthetic-intelligence-interruption",
-                    priority: "urgent",
-                    dedupe_key: dedupeKey,
-                  },
-                }),
-              );
-            }
-          }
-        }
       } catch (attentionError) {
         if (attentionError?.name === "AbortError") return;
         console.error("AVANTIQO_ATTENTION_LOAD_FAILED", attentionError);
@@ -463,12 +423,15 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         ].slice(-3);
       }
       setInput("");
-      fetch("/api/operator/live-execution", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ organizationId }),
-      }).catch(() => null);
+      const stopExecutionId = text(liveExecution?.stop_execution_id);
+      if (stopExecutionId) {
+        fetch("/api/operator/live-execution", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ organizationId, executionId: stopExecutionId }),
+        }).catch(() => null);
+      }
       return;
     }
 
@@ -480,6 +443,10 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     if (operatorReferenceNeedsDeviceLocation({ fieldKey: previousAssistant?.clarification?.field_key, value: message })) {
       deviceLocation = await browserLocation();
     }
+
+    const turnAttachmentSetId = typeof prepareAttachmentSetForTurn === "function"
+      ? text(await prepareAttachmentSetForTurn())
+      : "";
 
     setMessages((current) => [...current, createMessage("user", message)]);
     setInput("");
@@ -496,7 +463,12 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           "/api/operator/turn/live",
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(turnAttachmentSetId
+                ? { "x-avantiqo-attachment-set": turnAttachmentSetId }
+                : {}),
+            },
             credentials: "same-origin",
             body: JSON.stringify({
               organizationId,
@@ -543,6 +515,9 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         throw new Error(
           "Avantiqo returned no reliable response. No action was assumed complete.",
         );
+      }
+      if (turnAttachmentSetId && typeof completeAttachmentTurn === "function") {
+        completeAttachmentTurn(turnAttachmentSetId);
       }
       if (result?.state_unchanged !== true) {
         agreementStateRef.current =
@@ -592,11 +567,13 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     }
   }
 
+  sendMessageRef.current = sendMessage;
+
   useEffect(() => {
     function receiveVoiceCommand(event) {
       const message = text(event?.detail?.message);
       if (!message) return;
-      sendMessage(message, event?.detail?.source || "voice");
+      sendMessageRef.current?.(message, event?.detail?.source || "voice");
     }
 
     window.addEventListener("avantiqo:home-command", receiveVoiceCommand);
@@ -611,7 +588,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     const nextQueuedTurn = pendingTurnQueueRef.current.shift();
     if (!nextQueuedTurn?.message) return;
 
-    sendMessage(nextQueuedTurn.message, nextQueuedTurn.source || "text");
+    sendMessageRef.current?.(nextQueuedTurn.message, nextQueuedTurn.source || "text");
   }, [busy, restoring, organizationId, entityId, periodId, pathname]);
 
   const attentionItems = Array.isArray(attention?.items) ? attention.items : [];

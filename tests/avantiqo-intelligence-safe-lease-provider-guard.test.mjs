@@ -10,20 +10,19 @@ const executionLedger = fs.readFileSync("lib/platform/service-runtime/governance
 const executor = fs.readFileSync("lib/platform/service-runtime/providers/ProviderExecutor.js", "utf8");
 const queue = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js", "utf8");
 
-test("active Intelligence provider is owned-local primary with no Safe Lease fallback", () => {
+test("active Intelligence provider is owned-local only with no Safe Lease fallback", () => {
+  assert.match(provider, /executeHierarchicalLocalIntelligence/);
   assert.match(provider, /executeIntelligenceLocalQueue/);
-  assert.match(provider, /executeIntelligenceLocal\(effectiveInput\)/);
-  assert.match(provider, /intelligenceModalOverflowApprovalRequested\(effectiveInput\)/);
+  assert.match(provider, /executeIntelligenceLocal\(input\)/);
+  assert.match(provider, /AVANTIQO_INTELLIGENCE_LOCAL_NODE_REQUIRED/);
   assert.match(canonical, /runtime_ready: enabled && localConfigured/);
-  assert.match(canonical, /automatic_modal_fallback_allowed: false/);
-  assert.doesNotMatch(provider, /OwnedIntelligenceRequestLeaseRuntime|RunPod|runpod/);
+  assert.doesNotMatch(provider, /OwnedIntelligenceRequestLeaseRuntime|RunPod|runpod|Modal|modal/);
 });
 
-test("Modal overflow uses database approval not external lease authority", () => {
-  assert.match(registration, /modal_overflow_owner_approval_required:\s*true/);
-  assert.match(registration, /modal_overflow_local_insufficiency_proof_required:\s*true/);
-  assert.match(overflow, /AVANTIQO_INTELLIGENCE_MODAL_OVERFLOW_APPROVAL_REQUIRED/);
-  assert.match(executionLedger, /claim_intelligence_modal_overflow_execution/);
+test("active registration exposes no external lease or overflow authority", () => {
+  assert.match(registration, /local_only: true/);
+  assert.match(registration, /modal_fallback_allowed: false/);
+  assert.match(registration, /external_provider_fallback_allowed: false/);
   assert.doesNotMatch(registration, /endpoint_id|RUNPOD_SAFE_LEASE/);
 });
 

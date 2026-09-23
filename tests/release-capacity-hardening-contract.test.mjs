@@ -60,3 +60,11 @@ test("release database hardening fixes mutable search paths and anonymous sessio
   assert.match(grants, /current_staff_account_id/);
   assert.match(grants, /from public, anon/);
 });
+
+test("pgvector leaves public schema without breaking vector-memory compatibility", async () => {
+  const migration = await source("supabase/migrations/20260923032911_move_vector_extension_out_of_public.sql");
+  assert.match(migration, /alter extension vector set schema extensions/);
+  assert.match(migration, /match_vector_memory/);
+  assert.match(migration, /vm\.organization_id as tenant_id/);
+  assert.match(migration, /search_path = public, extensions, pg_temp/);
+});

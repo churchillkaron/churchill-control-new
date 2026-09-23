@@ -2,7 +2,13 @@ import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
 const PROVIDER = "stripe";
-const ENVIRONMENT = "sandbox";
+const requestedEnvironment = String(
+  process.env.STRIPE_CATALOG_ENVIRONMENT || "sandbox",
+).trim().toLowerCase();
+if (!["sandbox", "live"].includes(requestedEnvironment)) {
+  throw new Error("STRIPE_CATALOG_ENVIRONMENT_INVALID");
+}
+const ENVIRONMENT = requestedEnvironment;
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -36,8 +42,15 @@ function label(moduleId) {
 }
 
 const stripeKey = clean(process.env.STRIPE_SECRET_KEY);
-if (!stripeKey.startsWith("sk_test_")) {
-  throw new Error("STRIPE_SANDBOX_KEY_REQUIRED");
+const validStripeKey = ENVIRONMENT === "live"
+  ? stripeKey.startsWith("sk_live_") || stripeKey.startsWith("rk_live_")
+  : stripeKey.startsWith("sk_test_") || stripeKey.startsWith("rk_test_");
+if (!validStripeKey) {
+  throw new Error(
+    ENVIRONMENT === "live"
+      ? "STRIPE_LIVE_KEY_REQUIRED"
+      : "STRIPE_SANDBOX_KEY_REQUIRED",
+  );
 }
 
 const supabaseUrl = clean(process.env.NEXT_PUBLIC_SUPABASE_URL);

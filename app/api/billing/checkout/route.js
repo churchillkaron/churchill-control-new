@@ -31,9 +31,22 @@ function billingOwner(access) {
 }
 
 function appOrigin(request) {
-  const configured = text(process.env.NEXT_PUBLIC_APP_URL);
-  if (configured) return configured.replace(/\/$/, "");
-  return new URL(request.url).origin;
+  const url = new URL(request.url);
+  const hostname = String(url.hostname || "").toLowerCase();
+  const origin = String(url.origin || "").replace(/\/$/, "");
+
+  if (
+    hostname === "avantiqo.ai" ||
+    hostname === "www.avantiqo.ai" ||
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".vercel.app")
+  ) {
+    return origin;
+  }
+
+  return "https://avantiqo.ai";
 }
 
 function billingCycle(value) {

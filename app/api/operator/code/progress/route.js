@@ -103,6 +103,7 @@ export async function GET(request) {
       url.searchParams.get("deviceSessionId") ||
       url.searchParams.get("device_session_id"),
     ) || null;
+    const includeDetails = text(url.searchParams.get("details") || "1") !== "0";
     if (!organizationId) {
       return Response.json(
         { success: false, error: "organization_id required" },
@@ -126,19 +127,21 @@ export async function GET(request) {
       organizationId,
       actor: { id: access.user?.id || access.userId },
     };
-    const [loaded, portfolioLoaded] = await Promise.all([
-      loadCodeAILiveProgress({ context, device_session_id: deviceSessionId }),
-      loadLatestProductEngineeringPortfolio({ context }).catch((error) => ({
-        found: false,
-        error,
-        portfolio: null,
-      })),
-    ]);
-    const progress = loaded.live_progress || null;
-    const productEngineeringPortfolio = await visiblePortfolio({
+    const loaded = await loadCodeAILiveProgress({
       context,
-      loaded: portfolioLoaded,
+      device_session_id: deviceSessionId,
     });
+    const progress = loaded.live_progress || null;
+    const portfolioLoaded = includeDetails
+      ? await loadLatestProductEngineeringPortfolio({ context }).catch((error) => ({
+          found: false,
+          error,
+          portfolio: null,
+        }))
+      : { found: false, portfolio: null, skipped: true };
+    const productEngineeringPortfolio = includeDetails
+      ? await visiblePortfolio({ context, loaded: portfolioLoaded })
+      : null;
 
     let engineeringIntelligence = {
       contract: CODE_AI_ENGINEERING_SKILL_VISIBLE_RECEIPT_CONTRACT,
@@ -158,7 +161,7 @@ export async function GET(request) {
       authorization_effect: "NONE",
     };
 
-    if (progress?.mission_id) {
+    if (includeDetails && progress?.mission_id) {
       try {
         engineeringIntelligence = await loadCodeAIEngineeringSkillVisibleReceipt({
           context,
@@ -197,6 +200,8 @@ export async function GET(request) {
     return Response.json({
       success: true,
       contract: CODE_AI_LIVE_PROGRESS_CONTRACT,
+      details_included: includeDetails,
+      local_progress_authoritative: loaded?.local_authoritative === true,
       found: loaded.found === true || Boolean(productEngineeringPortfolio),
       updated_at: loaded.updated_at || portfolioLoaded?.updated_at || null,
       live_progress: visibleProgress,

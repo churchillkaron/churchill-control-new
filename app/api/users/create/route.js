@@ -299,47 +299,100 @@ export async function PATCH(request) {
       );
     }
 
-    const { data: target, error: targetError } = await supabaseAdmin
-      .from("staff_accounts")
-      .select("id,role,active_organization_id")
-      .eq("id", staffId)
-      .eq("active_organization_id", context.organizationId)
-      .maybeSingle();
+    const [{ data: target, error: targetError }, { data: membership, error: membershipLookupError }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("staff_accounts")
+          .select("id,name,email,role,position,department,active,auth_user_id,party_id,active_organization_id")
+          .eq("id", staffId)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("organization_users")
+          .select("id,role,status")
+          .eq("organization_id", context.organizationId)
+          .eq("staff_account_id", staffId)
+          .maybeSingle(),
+      ]);
 
     if (targetError) throw targetError;
-    if (!target) {
+    if (membershipLookupError) throw membershipLookupError;
+    const legacyScoped =
+      target && String(target.active_organization_id || "") === String(context.organizationId);
+    if (!target || (!membership && !legacyScoped)) {
       return NextResponse.json(
         { success: false, error: "Staff account not found" },
         { status: 404 }
       );
     }
 
-    if (OWNER_LEVEL_ROLES.has(normalizeRole(target.role)) && !OWNER_LEVEL_ROLES.has(context.actingRole)) {
+    const targetRole = normalizeRole(membership?.role || target.role);
+    if (OWNER_LEVEL_ROLES.has(targetRole) && !OWNER_LEVEL_ROLES.has(context.actingRole)) {
       return NextResponse.json(
         { success: false, error: "Only an owner can manage owner-level access" },
         { status: 403 }
       );
     }
 
-    const { data: staff, error: updateError } = await supabaseAdmin
-      .from("staff_accounts")
-      .update({ active: body.active })
-      .eq("id", staffId)
-      .eq("active_organization_id", context.organizationId)
-      .select("id,name,email,role,position,department,active,auth_user_id,party_id,active_organization_id")
-      .single();
+    if (membership) {
+      const { error: membershipError } = await supabaseAdmin
+        .from("organization_users")
+        .update({ status: body.active ? "active" : "inactive" })
+        .eq("id", membership.id)
+        .eq("organization_id", context.organizationId)
+        .eq("staff_account_id", staffId);
+      if (membershipError) throw membershipError;
+    }
 
-    if (updateError) throw updateError;
-
-    const { error: membershipError } = await supabaseAdmin
+    const activeMemberships = await supabaseAdmin
       .from("organization_users")
-      .update({ status: body.active ? "active" : "inactive" })
-      .eq("organization_id", context.organizationId)
-      .eq("staff_account_id", staffId);
+      .select("organization_id")
+      .eq("staff_account_id", staffId)
+      .eq("status", "active")
+      .limit(1000);
+    if (activeMemberships.error) throw activeMemberships.error;
 
-    if (membershipError) throw membershipError;
+    const hasActiveMembership = (activeMemberships.data || []).length > 0;
+    const nextGlobalActive = membership
+      ? hasActiveMembership
+      : body.active;
 
-    return NextResponse.json({ success: true, staff });
+    const staffUpdate = {};
+    if (target.active !== nextGlobalActive) staffUpdate.active = nextGlobalActive;
+    if (!nextGlobalActive) {
+      staffUpdate.active_organization_id = null;
+      staffUpdate.party_id = null;
+    } else if (
+      body.active === false &&
+      String(target.active_organization_id || "") === String(context.organizationId)
+    ) {
+      const fallbackOrganizationId = activeMemberships.data?.[0]?.organization_id || null;
+      if (fallbackOrganizationId) {
+        staffUpdate.active_organization_id = fallbackOrganizationId;
+        staffUpdate.party_id = null;
+      }
+    }
+
+    let staff = target;
+    if (Object.keys(staffUpdate).length) {
+      const updated = await supabaseAdmin
+        .from("staff_accounts")
+        .update(staffUpdate)
+        .eq("id", staffId)
+        .select("id,name,email,role,position,department,active,auth_user_id,party_id,active_organization_id")
+        .single();
+      if (updated.error) throw updated.error;
+      staff = updated.data;
+    }
+
+    return NextResponse.json({
+      success: true,
+      staff: {
+        ...staff,
+        role: membership?.role || staff.role,
+        organization_role: membership?.role || staff.role || null,
+        membership_status: body.active ? "active" : "inactive",
+      },
+    });
   } catch (error) {
     console.error("UPDATE_STAFF_ACCESS_ERROR", error);
 

@@ -23,6 +23,7 @@ create index if not exists hotel_shift_handover_context_property_idx
 
 alter table public.hotel_shift_handover_context enable row level security;
 
+drop policy if exists "hotel_shift_handover_context_org_read" on public.hotel_shift_handover_context;
 create policy "hotel_shift_handover_context_org_read"
   on public.hotel_shift_handover_context
   for select

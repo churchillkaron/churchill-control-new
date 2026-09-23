@@ -1,5 +1,6 @@
 import { createServerSupabase } from "@/lib/shared/supabase/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { getActiveOrganization } from "@/lib/workspace/getActiveOrganization";
 import {
   transitionHotelConciergeRequest,
@@ -20,6 +21,7 @@ export async function POST(req) {
         { status: access.status || 403 },
       );
     }
+    assertHotelOperationalAccess({ access, area: "CONCIERGE" });
     const organization = await getActiveOrganization(
       access.organizationId
     );

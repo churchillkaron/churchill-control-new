@@ -38,20 +38,18 @@ test("terminal fast timeout returns recoverable conversation instead of a generi
   assert.match(route, /mutation_assumed_complete: false/);
 });
 
-test("Business Partner renders live execution as ephemeral gray status only", () => {
+test("Business Partner renders live execution as premium governed status without leaking telemetry", () => {
   const ui = source("components/operator/HomeAvantiqoIntelligence.jsx");
   const route = source("app/api/operator/turn/route.js");
   parse(ui, { sourceType: "module", plugins: ["jsx"] });
-  assert.match(ui, /conversationalProgressStatus/);
   assert.match(ui, /data-avantiqo-live-status="true"/);
-  assert.match(ui, /text-white\/35/);
-  assert.match(ui, /latest\?\.description/);
+  assert.match(ui, /Avantiqo is working/);
+  assert.match(ui, /Governed execution/);
+  assert.match(ui, /busyRequestStatus\(/);
+  assert.match(ui, /border-\[#D6A66A\]\/20/);
+  assert.match(ui, /event\?\.description/);
   assert.doesNotMatch(ui, /latest\?\.capability_key/);
   assert.doesNotMatch(ui, /latest\?\.command/);
-  assert.doesNotMatch(ui, /Still working on the same request\. Waiting for a verified result/);
-  assert.match(ui, /result\?\.details\?\.conversation_response/);
-  assert.doesNotMatch(ui, /data-avantiqo-conversation-progress="true"/);
-  assert.doesNotMatch(ui, /busyRequestStatus\(/);
   assert.match(route, /persistAssistantTurnAndConversationState/);
   assert.doesNotMatch(route, /persistAssistantTurnAndConversationState\([\s\S]{0,500}live_execution/);
 });
@@ -59,9 +57,9 @@ test("Business Partner renders live execution as ephemeral gray status only", ()
 
 test("Business Partner live status renders elapsed time exactly once", () => {
   const ui = source("components/operator/HomeAvantiqoIntelligence.jsx");
-  assert.doesNotMatch(ui, /return `\$\{detail\}.*\$\{busyElapsedSeconds\}s`/s);
   assert.equal((ui.match(/aria-label="elapsed time"/g) || []).length, 1);
-  assert.match(ui, /<span aria-label="elapsed time">· \{busyElapsedSeconds\}s<\/span>/);
+  assert.match(ui, /\{busyElapsedSeconds\}s/);
+  assert.doesNotMatch(ui, /return `\$\{[^}]+\}.*\$\{busyElapsedSeconds\}s`/s);
 });
 
 test("obvious UI code inspections start with Code Studio live status", () => {

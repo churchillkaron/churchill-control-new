@@ -25,9 +25,12 @@ test("cross-view QC rejects approximate likeness and invented rear geometry", ()
   assert.match(multiview, /invented rear\/detail geometry/);
 });
 
-test("multi-view handoff is fail-closed on QC seal", () => {
+test("multi-view handoff is fail-closed on QC seal and stale parent lineage", () => {
   assert.match(handoff, /image_multiview_qc_sealed===true/);
-  assert.match(handoff, /complete:required.every\(Boolean\)/);
+  assert.match(handoff, /complete:Boolean\(parent\)&&required.every\(Boolean\)/);
+  assert.match(handoff, /parent_version_fingerprint/);
+  assert.match(handoff, /stale_view_count/);
+  assert.match(handoff, /stableParentVersion/);
 });
 
 test("production queue executes multiview lifecycle", () => {

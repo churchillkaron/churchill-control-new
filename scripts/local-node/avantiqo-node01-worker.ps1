@@ -26,7 +26,7 @@ $NodeId = 'avantiqo-node-01'
 $TokenPath = 'C:\ProgramData\Avantiqo\node-token.txt'
 $OllamaUrl = 'http://127.0.0.1:11434'
 $Model = 'qwen3:4b-instruct'
-$ContextTokens = 6144
+$ContextTokens = 20480
 $GpuIdleLearningAfterSeconds = 900
 $QwenWarmAfterGpuJob = $true
 $NightLearningStartHour = 1
@@ -34,8 +34,8 @@ $NightLearningEndHour = 6
 $script:LastGpuWorkAt = Get-Date
 $script:LastIdleLearningAt = [datetime]::MinValue
 $script:LearningCursor = 0
-$AllCapabilities = @('ai.text.generate','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','document.ocr','document.classify','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech','ai.sfx.generate')
-$GpuCapabilities = @('ai.text.generate','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','document.ocr','document.classify','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
+$AllCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','ai.image.analyze','document.ocr','document.classify','creative.materials.estimate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech','ai.sfx.generate')
+$GpuCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','ai.image.analyze','document.ocr','document.classify','creative.materials.estimate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
 $CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process','ai.music.generate','ai.sfx.generate')
 $Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } else { $AllCapabilities })
 if ($Lane -eq 'cpu') {
@@ -84,7 +84,7 @@ function Heartbeat {
   $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
   $drive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
   $meta = @{
-    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v4-scheduler'; worker_lane=$Lane; local_context_tokens=$ContextTokens; scheduler=@{ resource_aware=$true; gpu_exclusive=$true; qwen_warm_policy='IDLE_WARM'; idle_learning_window='01:00-06:00'; idle_learning_after_seconds=$GpuIdleLearningAfterSeconds; learning_promotion_authorized=$false; cpu_policy=$(if($Lane -eq 'cpu'){'ONE_HEAVY_JOB_BELOW_NORMAL'}else{'N/A'}) };
+    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v4-scheduler'; worker_lane=$Lane; worker_lanes=@('gpu','cpu'); heartbeat_source_lane=$Lane; local_context_tokens=$ContextTokens; scheduler=@{ resource_aware=$true; gpu_exclusive=$true; qwen_warm_policy='IDLE_WARM'; idle_learning_window='01:00-06:00'; idle_learning_after_seconds=$GpuIdleLearningAfterSeconds; learning_promotion_authorized=$false; cpu_policy=$(if($Lane -eq 'cpu'){'ONE_HEAVY_JOB_BELOW_NORMAL'}else{'N/A'}) };
     gpu=$gpu; cpu=@{ name=$cpu.Name; cores=[int]$cpu.NumberOfCores; logical_processors=[int]$cpu.NumberOfLogicalProcessors };
     memory=@{ total_mb=[int]($os.TotalVisibleMemorySize/1024); free_mb=[int]($os.FreePhysicalMemory/1024) };
     disk=@{ c_total_gb=[math]::Round($drive.Size/1GB,1); c_free_gb=[math]::Round($drive.FreeSpace/1GB,1) };
@@ -222,7 +222,7 @@ function RunTextJob($Job) {
   }
   $temperature = [Math]::Max(0.0, [Math]::Min(1.5, $temperature))
 
-  $tokenCap = $(if ([string]$Job.lane -eq 'front') { 640 } else { 4096 })
+  $tokenCap = $(if ([string]$Job.lane -eq 'front') { 640 } elseif ([string]$Job.lane -eq 'deep') { 8192 } else { 4096 })
   $numPredict = 1024
   if ($null -ne $payload.max_output_tokens) {
     try { $numPredict = [int]$payload.max_output_tokens } catch {}
@@ -233,7 +233,7 @@ function RunTextJob($Job) {
     model = $(if ($Job.model) { [string]$Job.model } else { $Model })
     messages = $messages
     stream = $false
-    think = $false
+    think = ([string]$Job.lane -eq 'deep')
     keep_alive = '30m'
     options = @{ temperature = $temperature; num_predict = $numPredict; num_ctx = $ContextTokens }
   }
@@ -627,9 +627,9 @@ while ($true) {
       $profile = ResourceProfile $job
       if ($Lane -eq 'gpu') { $script:LastGpuWorkAt = Get-Date }
       try {
-        if ([string]$job.capability -eq 'ai.text.generate') { RunTextJob $job }
+        if ([string]$job.capability -in @('ai.text.generate','ai.reasoning.execute')) { RunTextJob $job }
         elseif (([string]$job.capability -like 'ai.code.*') -or (@('ai.web.build','ai.web.repair','ai.app.build','ai.integration.build') -contains [string]$job.capability)) { RunTextJob $job }
-        elseif ([string]$job.capability -eq 'document.ocr' -or [string]$job.capability -eq 'document.classify') { RunDocumentVisionJob $job }
+        elseif (@('ai.image.analyze','document.ocr','document.classify','creative.materials.estimate') -contains [string]$job.capability) { RunDocumentVisionJob $job }
         elseif ([string]$job.capability -eq 'ai.music.generate') { RunMusicGenerationJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.elastic-warp') { RunElasticJob $job }
         elseif ([string]$job.capability -eq 'media.ffmpeg.process') { RunMediaJob $job }

@@ -13,7 +13,7 @@ test("Operator text entrypoint stays on the certified Intelligence runtime", () 
     /runSyntheticIntelligenceTurn[\s\S]*SyntheticIntelligenceTurnRuntime/,
   );
   assert.match(route, /runSyntheticIntelligenceTurn\(\{/);
-  assert.match(route, /agreementState:\s*agreementState/);
+  assert.match(route, /(?:agreementState,|agreementState:\s*agreementState)/);
   assert.match(route, /projectState:\s*effectiveProjectState/);
   assert.match(route, /longTermMemory/);
   assert.match(route, /callerRequest:\s*request/);

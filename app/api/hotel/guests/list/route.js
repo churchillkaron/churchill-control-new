@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { canAccessHotelOperationalArea } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +24,16 @@ export async function GET(request) {
         { status: access.status },
       );
     }
+    if (
+      !canAccessHotelOperationalArea(access, "FRONT_DESK") &&
+      !canAccessHotelOperationalArea(access, "CONCIERGE")
+    ) {
+      return NextResponse.json({ success: false, error: "Hotel guest lookup access denied" }, { status: 403 });
+    }
 
     const { data, error } = await supabaseAdmin
       .from("hotel_guests")
-      .select("*")
+      .select("id,organization_id,full_name,preferred_language,vip_status,preferences,last_stay_at")
       .eq("organization_id", access.organizationId)
       .order("full_name", { ascending: true });
 

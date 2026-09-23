@@ -58,3 +58,24 @@ test("Business Partner execution state retains all governed user-facing outcomes
   assert.match(presentation, /label:\s*"Completed check"/);
   assert.match(home, /data-avantiqo-execution-state=\{message\.governance\.tone\}/);
 });
+
+test("Business Partner live telemetry distinguishes governed reads from mutation-capable turns", () => {
+  const liveRoute = source("app/api/operator/turn/live/route.js");
+  assert.match(liveRoute, /const capabilityMode = text\(capability\.mode \|\| result\?\.decision\?\.execution\?\.mode\)\.toLowerCase\(\)/);
+  assert.match(liveRoute, /const readOnlyCapability = !key \|\| capabilityMode === "read"/);
+  assert.match(liveRoute, /const mutationPossible = Boolean\(key && capabilityMode && capabilityMode !== "read"\)/);
+  assert.match(liveRoute, /read_only: readOnlyCapability/);
+  assert.match(liveRoute, /mutation_possible: mutationPossible/);
+});
+
+test("Business Partner live status reuses governed execution truth instead of HTTP success", () => {
+  const liveRoute = source("app/api/operator/turn/live/route.js");
+
+  assert.match(liveRoute, /operatorExecutionStatePresentation\(result\)/);
+  assert.match(liveRoute, /presentation\?\.tone === "pending"/);
+  assert.match(liveRoute, /presentation\?\.tone === "blocked"/);
+  assert.match(liveRoute, /presentation\?\.tone === "verified"/);
+  assert.match(liveRoute, /successStatus = pending/);
+  assert.match(liveRoute, /BUSINESS_EFFECT_VERIFIED/);
+  assert.match(liveRoute, /without overstating an unverified business effect/);
+});

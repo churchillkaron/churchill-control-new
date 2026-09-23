@@ -1,5 +1,6 @@
 import { createServerSupabase } from "@/lib/shared/supabase/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertAnyHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 
 export async function GET(req) {
   try {
@@ -19,6 +20,7 @@ export async function GET(req) {
         { status: access.status }
       );
     }
+    assertAnyHotelOperationalAccess(access);
 
     const { data, error } = await supabase
       .from("hotel_properties")

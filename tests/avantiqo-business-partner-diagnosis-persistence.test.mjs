@@ -65,15 +65,16 @@ test("operator route surfaces diagnosis proof integrity failure instead of gener
 test("conversation memory excludes unverified diagnosis assistant turns before model context",()=>{
   const runtime=fs.readFileSync("lib/operator/runtime/IntelligenceConversationRuntime.js","utf8");
   assert.match(runtime,/loadVerifiedRecentConversationTurns/);
-  assert.match(runtime,/\.select\("id,role,content,evidence,created_at"\)/);
+  assert.match(runtime,/\.select\("id,role,content,decision,evidence,created_at"\)/);
+  assert.match(runtime,/const reusableRows = reusableConversationRows\(turns\.data \|\| \[\]\)/);
   assert.match(runtime,/sanitizeBusinessDiagnosisConversation/);
-  assert.match(runtime,/return sanitizeBusinessDiagnosisConversation\(turns\.data \|\| \[\], \{/);
+  assert.match(runtime,/return sanitizeBusinessDiagnosisConversation\(reusableRows, \{/);
   assert.match(runtime,/OPERATOR_VERIFIED_RECENT_CONVERSATION_LOAD_FAILED/);
   assert.match(runtime,/return \[\]/);
 });
 
 test("operator never falls back to client conversation after server memory filtering",()=>{
-  assert.match(route,/const conversation = persistedConversation;/);
+  assert.match(route,/const conversation = skipHistoricalContext[\s\S]*immediate_context_sufficient === true[\s\S]*\? immediateConversation[\s\S]*: \[\][\s\S]*: persistedConversation/);
   assert.doesNotMatch(route,/persistedConversation\.length\s*\?\s*persistedConversation\s*:\s*clientConversation/);
 });
 
@@ -259,7 +260,8 @@ test("recent conversation loader fetches missing paired user turns only as verif
   assert.match(runtime,/maxSupportRows = 24/);
   assert.match(runtime,/missingIds\.slice\(0, Math\.max\(1, Number\(maxSupportRows\) \|\| 24\)\)/);
   assert.match(runtime,/maxSupportRows: 24/);
-  assert.match(runtime,/sanitizeBusinessDiagnosisConversation\(turns\.data \|\| \[\],[\s\S]*supportRows\)/);
+  assert.match(runtime,/const reusableRows = reusableConversationRows\(turns\.data \|\| \[\]\)/);
+  assert.match(runtime,/sanitizeBusinessDiagnosisConversation\(reusableRows,[\s\S]*supportRows\)/);
 });
 
 
@@ -314,7 +316,8 @@ test("recent model context uses deterministic newest-first ordering before the 2
 test("live operator route derives telemetry only from the already-redacted normal turn response",()=>{
   const live=fs.readFileSync("app/api/operator/turn/live/route.js","utf8");
   assert.match(live,/import \{ POST as runOperatorTurnPost \} from "\.\.\/route"/);
-  assert.match(live,/const response = await runOperatorTurnPost\(request\)/);
+  assert.match(live,/const response = await runOperatorTurnPost\(request, \{/);
+  assert.match(live,/liveExecutionId,/);
   assert.match(live,/const result = await response\.clone\(\)\.json\(\)/);
   assert.match(live,/completionEvent\(result, response\)/);
   assert.doesNotMatch(live,/runSyntheticIntelligenceTurn/);
@@ -375,7 +378,10 @@ test("raw internal history consumers exclude diagnosis-derived turns before reus
   }
   assert.match(continuity,/\.select\("conversation_id,decision,evidence,created_at"\)/);
   assert.match(continuity,/!diagnosisDerivedTurn\(row\) && isContinuitySelectionDecision/);
-  assert.match(adaptive,/\.select\("execution,evidence,created_at,conversation_id"\)/);
+  assert.match(adaptive,/status:execution->>status/);
+  assert.match(adaptive,/capability_nested_key:execution->capability->>key/);
+  assert.match(adaptive,/business_effect_verified:execution->business_effect_verified/);
+  assert.match(adaptive,/\.limit\(120\)/);
   assert.match(adaptive,/\.filter\(\(row\) => !diagnosisDerivedTurn\(row\)\)/);
   assert.match(organizational,/if \(diagnosisDerivedTurn\(row\)\) return null/);
 });

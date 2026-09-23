@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { staffApiErrorResponse } from "@/lib/people/portal/StaffApiError";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import {
   clockInStaff,
@@ -15,6 +16,8 @@ import {
   releaseClockInExceptionClaims,
 } from "@/lib/people/workforce/clockInExceptionApproval";
 import { loadOrganizationPolicy } from "@/lib/platform/security/organizationAccessPolicy";
+import { requireVerifiedStaffIdentity } from "@/lib/people/workforce/StaffIdentityVerificationRuntime";
+import { projectStaffSchedule, projectStaffShift, projectStaffShiftResult } from "@/lib/people/portal/StaffBrowserWorkdayProjection";
 
 function contextError(context) {
   return NextResponse.json(
@@ -61,23 +64,24 @@ export async function GET(request) {
       availableOrganizationIds:
         context.availableOrganizationIds || [],
       partyId: context.staff.party_id || null,
-      staff: context.staff,
+      staff: {
+        id: context.staff.id,
+        party_id: context.staff.party_id || null,
+        name: context.staff.name || null,
+        role: context.staff.role || context.role || null,
+        position: context.staff.position || null,
+        department: context.staff.department || null,
+        profile_picture: context.staff.profile_picture || null,
+      },
       timezone: workday.timezone,
       businessDate: workday.businessDate,
-      schedule: workday.schedule,
-      openShift: workday.openShift,
+      schedule: projectStaffSchedule(workday.schedule),
+      openShift: projectStaffShift(workday.openShift),
     });
   } catch (error) {
     console.error("STAFF_GET_ERROR", error);
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to load staff",
-        code: error?.code || null,
-      },
-      { status: error?.status || 500 }
-    );
+    return staffApiErrorResponse(error, "Unable to load staff");
   }
 }
 
@@ -106,6 +110,16 @@ export async function POST(request) {
     let passkeyExceptionApproved = false;
 
     if (action === "clock_in") {
+      const superAdminBypass =
+        String(context.staff?.role || context.role || "").trim().toUpperCase() === "SUPER_ADMIN";
+
+      if (!superAdminBypass) {
+        await requireVerifiedStaffIdentity({
+          organizationId: context.organizationId,
+          staffId: context.staff.id,
+        });
+      }
+
       const [policy, approvedGrants] = await Promise.all([
         loadOrganizationPolicy({
           organizationId: context.organizationId,
@@ -183,7 +197,7 @@ export async function POST(request) {
             grantCount: claimedExceptions.length,
           }
         : null,
-      ...result,
+      ...projectStaffShiftResult(result),
     });
   } catch (error) {
     if (claimedExceptions.length && context?.organizationId && context?.staff?.id) {
@@ -200,13 +214,6 @@ export async function POST(request) {
 
     console.error("STAFF_POST_ERROR", error);
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to update shift",
-        code: error?.code || null,
-      },
-      { status: error?.status || 500 }
-    );
+    return staffApiErrorResponse(error, "Unable to update shift");
   }
 }

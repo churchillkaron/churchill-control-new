@@ -31,7 +31,7 @@ test("handoff supports exact identity-key filtering",()=>{
 });
 
 test("previs package and video execution select exact character authority",()=>{
-  assert.match(previs,/identity_key:identityKey\|\|null/);
-  assert.match(pack,/identity_key:identityKey\|\|null/);
-  assert.match(gate,/identity_key: identityKey \|\| null/);
+  assert.match(previs,/identity_key:governedIdentityKey/);
+  assert.match(pack,/identity_key:governedIdentityKey/);
+  assert.match(gate,/identity_key: governedIdentityKey/);
 });

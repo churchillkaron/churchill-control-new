@@ -43,7 +43,7 @@ test('Commercial runtime exposes create-only customer Operator capability', () =
   assert.match(runtime,/customers:[\s\S]*create:/);
   assert.match(capability,/upsertCustomerParty/);
   assert.match(capability,/action: "create"/);
-  assert.doesNotMatch(capability,/party_id:/);
+  assert.doesNotMatch(capability,/properties:\s*\{[\s\S]{0,1400}\bparty_id\s*:/);
 });
 
 test('customer matcher uses only exact customer identifiers and relationship proof', () => {

@@ -6,11 +6,18 @@ const foundation=fs.readFileSync("lib/creative/image/runtime/CreativeImageFounda
 const reconcile=fs.readFileSync("lib/creative/image/runtime/CreativeImageAssetReconciliationRuntime.js","utf8");
 const pack=fs.readFileSync("lib/creative/image/runtime/CreativeImageProductionPackageRuntime.js","utf8");
 
-test("foundation authority is fingerprinted by selected asset IDs QC seals and checksums",()=>{
+test("foundation authority is fingerprinted by stable selected-asset visual lineage",()=>{
   assert.match(foundation,/foundation_authority_digest/);
   assert.match(foundation,/checksum:node\.technical\?\.checksum/);
-  assert.match(foundation,/image_asset_pack_qc_seal_hash/);
+  assert.match(foundation,/stableVisualSeal/);
+  assert.match(foundation,/image_asset_exploration_selection_seal_hash/);
+  assert.match(foundation,/perceptual_qc_sealed/);
   assert.match(foundation,/authority_evidence/);
+  const fingerprintBlock=foundation.slice(
+    foundation.indexOf("function stableVisualSeal"),
+    foundation.indexOf("function assetClass"),
+  );
+  assert.doesNotMatch(fingerprintBlock,/image_asset_pack_qc_seal_hash/);
 });
 
 test("approved shot assets persist their foundation fingerprint",()=>{

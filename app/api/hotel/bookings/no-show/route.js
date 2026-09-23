@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { getHotelOperationalDate } from "@/lib/hotel/server/getHotelOperationalDate";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export async function POST(request) {
 
     const access = await requireOrganizationAccess({ organizationId: existing.organization_id, request });
     if (!access.success) return errorResponse(access.error, access.status);
+    assertHotelOperationalAccess({ access, area: "FRONT_DESK" });
     if (!existing.property_id) return errorResponse("Booking has no governed Hotel property", 409);
     if (String(existing.status || "").toUpperCase() !== "RESERVED") {
       return errorResponse("Only a reserved arrival can be recorded as a no-show", 409);

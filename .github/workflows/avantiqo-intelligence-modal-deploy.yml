@@ -1,137 +1,96 @@
-# Deploys Intelligence source changes only after an explicit operator trigger.
-# Source commits never launch a Modal build or model inference automatically.
-name: Avantiqo Intelligence Modal Governed Deploy
+name: Avantiqo Intelligence - Governed Fast/Deep Modal Deploy
 
 on:
-  issues:
-    types: [opened]
   workflow_dispatch:
+    inputs:
+      approve_deploy:
+        description: "Explicitly approve deploying the Fast/Deep overflow worker"
+        required: true
+        type: boolean
+        default: false
+      source_commit:
+        description: "Expected source commit SHA (optional but recommended)"
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: avantiqo-intelligence-modal-governed-deploy
-  cancel-in-progress: true
+  group: avantiqo-intelligence-modal-fast-deep-deploy
+  cancel-in-progress: false
 
 jobs:
-  deploy-intelligence-runtime:
-    if: ${{ github.event_name != 'issues' || github.event.issue.title == 'AVANTIQO_INTELLIGENCE_MODAL_DEPLOY_20260902' }}
+  deploy:
+    if: ${{ inputs.approve_deploy == true }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 20
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
-
     steps:
-      - name: Checkout exact deployment source
+      - name: Checkout exact requested source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'issues' && 'main' || github.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Zero-inference source gates
+      - name: Verify source binding
         shell: bash
         run: |
           set -euo pipefail
-          python -m py_compile services/avantiqo-intelligence-modal/modal_app.py
-          python -m py_compile services/avantiqo-intelligence-modal/deploy_app.py
-          grep -Fq 'FAST_SCALEDOWN_WINDOW_SECONDS = 10 * 60' services/avantiqo-intelligence-modal/modal_app.py
-          grep -Fq '"enforce_eager": False' services/avantiqo-intelligence-modal/modal_app.py
-          grep -Fq '"safetensors_load_strategy": "prefetch"' services/avantiqo-intelligence-modal/modal_app.py
-          grep -Fq 'RUNTIME_PROBE_FUNCTION_NAME = f"runtime_probe_' services/avantiqo-intelligence-modal/deploy_app.py
-          grep -Fq 'name=RUNTIME_PROBE_FUNCTION_NAME' services/avantiqo-intelligence-modal/deploy_app.py
-          echo 'AVANTIQO_INTELLIGENCE_MODAL_SOURCE_GATE=PASS'
-          echo 'GPU_INFERENCE_PERFORMED=false'
+          actual="$(git rev-parse HEAD)"
+          expected="${{ inputs.source_commit }}"
+          if [ -n "$expected" ] && [ "$actual" != "$expected" ]; then
+            echo "SOURCE_COMMIT_MISMATCH expected=$expected actual=$actual" >&2
+            exit 1
+          fi
+          echo "source_commit=$actual"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Install pinned Modal CLI
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          python -m pip install --disable-pip-version-check 'modal==0.66.54'
           modal --version
 
-      - name: Require Modal deployment credentials
+      - name: Prove Fast/Deep-only overflow contract
         shell: bash
         run: |
           set -euo pipefail
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
-          echo 'AVANTIQO_INTELLIGENCE_MODAL_DEPLOY_CREDENTIALS=PASS'
+          python -m py_compile services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'APP_NAME = os.environ.get("AVANTIQO_INTELLIGENCE_MODAL_APP_NAME", "avantiqo-intelligence-owned")' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'GPU = "H100"' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'def fast(data:' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'def deep(data:' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'FAST_STARTUP_TIMEOUT_SECONDS = 60' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'DEEP_STARTUP_TIMEOUT_SECONDS = 120' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'FAST_HARD_TIMEOUT_SECONDS = 60' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'DEEP_HARD_TIMEOUT_SECONDS = 10 * 60' services/avantiqo-intelligence-modal/modal_app.py
+          test "$(grep -Fc 'min_containers=0' services/avantiqo-intelligence-modal/modal_app.py)" -ge 2
+          test "$(grep -Fc 'max_containers=1' services/avantiqo-intelligence-modal/modal_app.py)" -ge 2
+          test "$(grep -Fc '@modal.concurrent(max_inputs=1)' services/avantiqo-intelligence-modal/modal_app.py)" -ge 2
+          ! grep -Eq 'FrontConversation|modal_front_app' services/avantiqo-intelligence-modal/modal_app.py
 
-      - name: Compute immutable deployment provenance
+      - name: Deploy governed overflow worker
+        working-directory: services/avantiqo-intelligence-modal
         shell: bash
         run: |
           set -euo pipefail
-          deploy_sha="$(git rev-parse HEAD)"
-          fingerprint="$(sha256sum services/avantiqo-intelligence-modal/modal_app.py | awk '{print $1}')"
-          test -n "${deploy_sha}"
-          test -n "${fingerprint}"
-          echo "AVANTIQO_INTELLIGENCE_DEPLOY_GIT_SHA=${deploy_sha}" >> "$GITHUB_ENV"
-          echo "AVANTIQO_INTELLIGENCE_DEPLOY_SOURCE_FINGERPRINT=${fingerprint}" >> "$GITHUB_ENV"
-          echo "AVANTIQO_INTELLIGENCE_RUNTIME_PROBE_NAME=runtime_probe_${fingerprint:0:16}" >> "$GITHUB_ENV"
-          echo "AVANTIQO_INTELLIGENCE_MODAL_PROVENANCE_READY=PASS"
+          modal deploy --strategy recreate modal_app.py
 
-      - name: Recreate exact Intelligence Modal deployment
+      - name: State deployment boundary
         shell: bash
         run: |
-          set -euo pipefail
-          cd services/avantiqo-intelligence-modal
-          modal deploy --strategy recreate deploy_app.py
-          echo 'AVANTIQO_INTELLIGENCE_MODAL_DEPLOY=PASS'
-          echo 'GPU_INFERENCE_PERFORMED=false'
-
-      - name: Verify immutable deployment identity and GPU workers idle
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import os
-          import modal
-
-          app_name = "avantiqo-intelligence-owned"
-          fingerprint = os.environ["AVANTIQO_INTELLIGENCE_DEPLOY_SOURCE_FINGERPRINT"]
-          probe_name = os.environ["AVANTIQO_INTELLIGENCE_RUNTIME_PROBE_NAME"]
-          expected_probe_name = f"runtime_probe_{fingerprint[:16]}"
-          if probe_name != expected_probe_name:
-              raise RuntimeError("AVANTIQO_INTELLIGENCE_MODAL_PROBE_NAME_LOCAL_MISMATCH")
-
-          reports = []
-          for function_name in (probe_name, "fast", "deep"):
-              fn = modal.Function.from_name(app_name, function_name)
-              stats = fn.get_current_stats()
-              backlog = int(getattr(stats, "backlog", 0) or 0)
-              runners = int(getattr(stats, "num_total_runners", 0) or 0)
-              if backlog != 0 or runners != 0:
-                  raise RuntimeError(
-                      f"AVANTIQO_INTELLIGENCE_MODAL_POST_DEPLOY_NOT_IDLE:{function_name}:"
-                      f"backlog={backlog}:runners={runners}"
-                  )
-              reports.append((function_name, backlog, runners))
-
-          print(
-              "AVANTIQO_INTELLIGENCE_MODAL_LIVE_PROVENANCE=PASS "
-              f"probe={probe_name} fingerprint={fingerprint}"
-          )
-          print(f"AVANTIQO_INTELLIGENCE_MODAL_GPU_WORKERS_IDLE=PASS workers={reports}")
-          print("REMOTE_PROBE_EXECUTION_PERFORMED=false")
-          print("GPU_INFERENCE_PERFORMED=false")
-          PY
-
-      - name: Preserve release and spend boundary
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo 'REMOTE_PROBE_EXECUTION_PERFORMED=false'
-          echo 'GPU_INFERENCE_PERFORMED=false'
-          echo 'PAID_INTELLIGENCE_INFERENCE_SUBMITTED=false'
-          echo 'EXTERNAL_AI_FALLBACK_USED=false'
-          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
-          echo 'PRODUCTION_ROUTING_ACTIVATED=false'
-          echo 'PRICING_ACTIVATED=false'
+          echo 'AVANTIQO_INTELLIGENCE_MODAL_FAST_DEEP_DEPLOYED=true'
+          echo 'AVANTIQO_INTELLIGENCE_MODAL_FRONT_DEPLOYED=false'
+          echo 'INFERENCE_JOB_SUBMITTED=false'
+          echo 'AUTOMATIC_FALLBACK_ENABLED=false'
+          echo 'LOCAL_FIRST_POLICY_CHANGED=false'

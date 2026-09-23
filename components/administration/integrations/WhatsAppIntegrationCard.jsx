@@ -269,6 +269,16 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
   async function startEmbeddedSignup(mode) {
     if (!snapshot?.publicConfig?.ready) return;
 
+    if (window.location.protocol !== "https:") {
+      const secureUrl = snapshot?.publicConfig?.secureSetupUrl;
+      if (!secureUrl) {
+        setError("Meta WhatsApp setup requires a secure HTTPS Avantiqo URL.");
+        return;
+      }
+      window.location.assign(secureUrl);
+      return;
+    }
+
     const coexistence = mode === "coexistence";
 
     setError("");

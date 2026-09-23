@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Mail } from "lucide-react";
+import { KeyRound, Lock, Mail } from "lucide-react";
 
 import {
   PLATFORM_LOGIN_BRAND_SESSION_KEY,
@@ -194,13 +194,6 @@ export default function LoginPage() {
         return;
       }
 
-      if (!result.eligible) {
-        setMessage(
-          "If this email has active staff access, a password link will be sent."
-        );
-        return;
-      }
-
       const recoveryUrl = new URL("/login", window.location.origin);
       const hostBrand = resolvePlatformLoginContext(window.location.hostname);
 
@@ -259,6 +252,37 @@ export default function LoginPage() {
       router.replace(callbackPath());
     } catch {
       setError("Unable to save the new password.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePasskeyLogin() {
+    try {
+      setLoading(true);
+      setError("");
+      setMessage("");
+
+      if (!brand?.organizationId) {
+        throw new Error(
+          "Passkey sign-in must start from your organization's Staff Portal.",
+        );
+      }
+
+      const response = await fetch("/api/auth/staff/passkey/start", {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ returnPath: "/staff" }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.success || !payload?.authorizationUrl) {
+        throw new Error(payload?.error || "Unable to start secure staff passkey sign-in.");
+      }
+      window.location.assign(payload.authorizationUrl);
+    } catch (error) {
+      setError(error?.message || "Passkey sign-in failed.");
     } finally {
       setLoading(false);
     }
@@ -433,6 +457,18 @@ export default function LoginPage() {
                 </span>
                 <div className="h-px flex-1 bg-white/[0.07]" />
               </div>
+
+              {portal === "business" ? (
+                <button
+                  type="button"
+                  onClick={handlePasskeyLogin}
+                  disabled={loading}
+                  className="flex h-12 w-full items-center justify-center gap-3 rounded-[12px] border border-[#D6A66A]/30 bg-[#D6A66A]/[0.06] text-sm font-semibold text-[#F2D2A5] transition hover:border-[#D6A66A]/55 hover:bg-[#D6A66A]/[0.1] disabled:opacity-50"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Continue with Face ID / passkey
+                </button>
+              ) : null}
 
               <button
                 type="button"

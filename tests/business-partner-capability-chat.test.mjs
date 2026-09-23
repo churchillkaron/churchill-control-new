@@ -13,7 +13,8 @@ test("self and capability questions stay on immediate front conversation", () =>
   assert.match(runtimeSource, /work through Code Studio/);
 });
 
-test("live status renders elapsed time exactly once", () => {
-  assert.match(uiSource, /conversationalProgressStatus\(liveExecution, activeRequestStartedAt\)/);
-  assert.doesNotMatch(uiSource, /<span className="text-white\/20">· \{busyElapsedSeconds\}s<\/span>/);
+test("live status renders governed progress with one elapsed timer", () => {
+  assert.match(uiSource, /busyRequestStatus\(liveExecution, busyElapsedSeconds, activeRequestStartedAt\)/);
+  assert.equal((uiSource.match(/aria-label="elapsed time"/g) || []).length, 1);
+  assert.doesNotMatch(uiSource, /conversationalProgressStatus/);
 });

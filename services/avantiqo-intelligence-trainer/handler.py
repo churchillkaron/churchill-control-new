@@ -508,4 +508,4 @@ def handler(event):
 
 if __name__ == "__main__":
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-    pass  # Modal invokes the handler directly.
+    pass  # Local trainer runtime invokes the handler directly.

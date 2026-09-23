@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ export async function POST(request) {
 
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return fail(access.error, access.status);
+    assertHotelOperationalAccess({ access, area: "FRONT_DESK" });
     if (!access.access?.staffAccountId) return fail("Active staff identity is required to verify a guest", 403);
 
     const { data, error } = await supabaseAdmin.rpc("hotel_verify_guest_identity_guarded", {

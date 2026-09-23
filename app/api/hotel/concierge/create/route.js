@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   HotelConciergeRequestError,
@@ -33,6 +34,7 @@ export async function POST(request) {
     });
 
     if (!access.success) return errorResponse(access.error, access.status);
+    assertHotelOperationalAccess({ access, area: "CONCIERGE" });
 
     const conciergeRequest = await createHotelConciergeRequest({
       supabase: supabaseAdmin,

@@ -9,7 +9,7 @@ test("strong read matches bypass 30B routing and present evidence through front 
   assert.match(bridge, /direct_read_recommended/);
   assert.match(bridge, /primary_capability_key/);
   assert.match(fast, /directReadRecommended/);
-  assert.match(fast, /readTool\.execute\(\{ capability_key: directReadKey, payload: \{\} \}\)/);
+  assert.match(fast, /readTool\.execute\(\{ capability_key: directReadKey, payload: directReadPayload \}\)/);
   assert.match(fast, /FRONT_VERIFIED_EVIDENCE_PRESENTATION/);
   assert.match(fast, /deterministic_direct_read: true/);
 });

@@ -78,6 +78,7 @@ import { resolveOperatorInstantGreeting } from "@/lib/operator/runtime/OperatorI
 import { preflightHumanBusinessPartnerTurn } from "@/lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js";
 import { resolvePreSemanticReadIntent } from "@/lib/operator/runtime/OperatorPreSemanticReadRuntime.js";
 import { collectOperatorPresentationArtifacts } from "@/lib/operator/runtime/OperatorPresentationArtifactRuntime";
+import { loadAvantiqoLiveExecution } from "@/lib/platform/runtime/AvantiqoLiveExecutionRuntime";
 
 function readValue(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -268,38 +269,68 @@ function governedDiagnosisFailurePersistence(error = {}) {
   return null;
 }
 
+async function operatorLiveExecutionStillCurrent({ organizationId, actor, executionId } = {}) {
+  const expectedExecutionId = text(executionId);
+  if (!expectedExecutionId) return true;
+  try {
+    const current = await loadAvantiqoLiveExecution({
+      context: { organizationId, actor },
+    });
+    return current?.found === true &&
+      text(current?.live_execution?.execution_id) === expectedExecutionId;
+  } catch (error) {
+    console.error("OPERATOR_LIVE_EXECUTION_CURRENTNESS_CHECK_FAILED", {
+      organizationId,
+      executionId: expectedExecutionId,
+      error: error?.message || String(error),
+    });
+    return false;
+  }
+}
+
 async function persistGovernedDiagnosisFailureTurn({
-  error, organizationId, conversationId, partyId, source, agreementState, projectState, pairedUserTurnId = null,
+  error, organizationId, conversationId, partyId, source, agreementState, projectState,
+  pairedUserTurnId = null, stateMutationAllowed = true,
 } = {}) {
   const failure = governedDiagnosisFailurePersistence(error);
   if (!failure) return false;
-  await persistAssistantTurnAndConversationState({
-    organizationId,
-    conversationId,
-    partyId,
-    source,
-    content: failure.content,
-    decision: {
-      response_text: failure.content,
-      intent: failure.intent,
-      confidence: 1,
-      agreement_state: object(agreementState),
-      project_state: object(projectState),
-      clarification: { required: false, question: null, options: [] },
-      navigation: { target_id: null },
-      execution: { capability_key: null, payload: {}, reason: null },
-      plan: [],
-      authority_effect: "NONE",
-    },
-    evidence: {
-      ...failure.evidence,
-      ...(text(pairedUserTurnId) ? { diagnosis_failure_pair: { user_turn_id: text(pairedUserTurnId), authority_effect: "NONE" } } : {}),
-    },
-    execution: {},
-    navigation: {},
-    agreementState: object(agreementState),
-    projectState: object(projectState),
-  });
+  const decision = {
+    response_text: failure.content,
+    intent: failure.intent,
+    confidence: 1,
+    agreement_state: object(agreementState),
+    project_state: object(projectState),
+    clarification: { required: false, question: null, options: [] },
+    navigation: { target_id: null },
+    execution: { capability_key: null, payload: {}, reason: null },
+    plan: [],
+    authority_effect: "NONE",
+    ...(stateMutationAllowed ? {} : { superseded_live_execution: true }),
+  };
+  const evidence = {
+    ...failure.evidence,
+    ...(text(pairedUserTurnId) ? { diagnosis_failure_pair: { user_turn_id: text(pairedUserTurnId), authority_effect: "NONE" } } : {}),
+    ...(stateMutationAllowed ? {} : {
+      live_execution_concurrency: {
+        contract: "AVANTIQO_BUSINESS_PARTNER_SUPERSEDED_TURN_V1",
+        superseded: true,
+        conversation_state_mutation_performed: false,
+        authorization_effect: "NONE",
+      },
+    }),
+  };
+  if (!stateMutationAllowed) {
+    await persistIntelligenceTurn({
+      organizationId, conversationId, partyId, role: "assistant", source,
+      content: failure.content, decision, evidence, execution: {}, navigation: {},
+    });
+  } else {
+    await persistAssistantTurnAndConversationState({
+      organizationId, conversationId, partyId, source,
+      content: failure.content, decision, evidence, execution: {}, navigation: {},
+      agreementState: object(agreementState), projectState: object(projectState),
+    });
+  }
   return true;
 }
 
@@ -431,8 +462,15 @@ export async function GET(request) {
   }
 }
 
-export async function POST(request) {
+export async function POST(request, internal = {}) {
   const turnStartedAt = Date.now();
+  const trustedLiveExecutionId = text(internal?.liveExecutionId);
+  const trustedHeaders = new Headers(request.headers);
+  trustedHeaders.delete("x-avantiqo-live-execution-id");
+  if (trustedLiveExecutionId) {
+    trustedHeaders.set("x-avantiqo-live-execution-id", trustedLiveExecutionId);
+  }
+  request = new Request(request, { headers: trustedHeaders });
 
   try {
     const body = await request.json();
@@ -803,7 +841,11 @@ export async function POST(request) {
     const longTermMemoryMs = Date.now() - longTermMemoryStartedAt;
 
     const persistedConversation = boundedConversation(memory.recentConversation);
-    const conversation = persistedConversation;
+    const conversation = skipHistoricalContext
+      ? preflightSemanticUnderstanding?.immediate_context_sufficient === true
+        ? immediateConversation
+        : []
+      : persistedConversation;
     // Authorization-critical Operator state is server-authoritative. Client
     // agreement_state may be stale or forged and is never merged into execution
     // state. Cross-conversation continuity intentionally recovers project state
@@ -914,6 +956,11 @@ export async function POST(request) {
     } catch (operatorError) {
       persistedUserTurn = await userPersistPromise.catch(() => null);
       if (text(persistedUserTurn?.id)) {
+        const failureStateMutationAllowed = await operatorLiveExecutionStillCurrent({
+          organizationId: businessContext.organizationId,
+          actor,
+          executionId: trustedLiveExecutionId,
+        });
         await persistGovernedDiagnosisFailureTurn({
           error: operatorError,
           organizationId: businessContext.organizationId,
@@ -923,6 +970,7 @@ export async function POST(request) {
           agreementState,
           projectState: effectiveProjectState,
           pairedUserTurnId: persistedUserTurn.id,
+          stateMutationAllowed: failureStateMutationAllowed,
         });
       }
       throw operatorError;
@@ -999,10 +1047,19 @@ export async function POST(request) {
       agreement_state: object(nextAgreementState),
       project_state: object(nextProjectState),
     }), "utf8");
-    const persistedDecision = { ...normalizedDecision };
+    const persistedDecision = {
+      ...normalizedDecision,
+      paired_user_turn_id: text(persistedUserTurn?.id) || null,
+    };
     delete persistedDecision.response_text;
     delete persistedDecision.agreement_state;
     delete persistedDecision.project_state;
+
+    const supersededByNewerExecution = !(await operatorLiveExecutionStillCurrent({
+      organizationId: businessContext.organizationId,
+      actor,
+      executionId: trustedLiveExecutionId,
+    }));
 
     const diagnosisPersistenceEvidence = persistedBusinessDiagnosisEvidence(result, {
       organizationId: businessContext.organizationId,
@@ -1026,6 +1083,7 @@ export async function POST(request) {
         agreementState: nextAgreementState,
         projectState: nextProjectState,
         pairedUserTurnId: persistedUserTurn?.id || null,
+        stateMutationAllowed: !supersededByNewerExecution,
       });
       throw persistenceError;
     }
@@ -1035,25 +1093,70 @@ export async function POST(request) {
     let longTermLearned = 0;
     let projectStateMemoryReused = 0;
     let projectStateMemoryRepaired = 0;
-    const assistantPersistPromise = persistAssistantTurnAndConversationState({
-      organizationId: businessContext.organizationId,
-      conversationId: memory.conversation.id,
-      partyId,
-      source,
-      content: responseText,
-      decision: persistedDecision,
-      evidence: {
-        ...object(result?.provider_evidence),
-        ...diagnosisPersistenceEvidence,
-      },
-      execution: object(result?.execution),
-      navigation: object(result?.navigation),
-      agreementState: nextAgreementState,
-      projectState: nextProjectState,
-    });
+    const assistantEvidence = {
+      ...object(result?.provider_evidence),
+      ...diagnosisPersistenceEvidence,
+      ...(supersededByNewerExecution
+        ? {
+            live_execution_concurrency: {
+              contract: "AVANTIQO_BUSINESS_PARTNER_SUPERSEDED_TURN_V1",
+              execution_id: trustedLiveExecutionId,
+              superseded: true,
+              conversation_state_mutation_performed: false,
+              long_term_learning_performed: false,
+              authorization_effect: "NONE",
+            },
+          }
+        : {}),
+    };
+    const assistantPersistPromise = supersededByNewerExecution
+      ? persistIntelligenceTurn({
+          organizationId: businessContext.organizationId,
+          conversationId: memory.conversation.id,
+          partyId,
+          role: "assistant",
+          source,
+          content: responseText,
+          decision: {
+            ...persistedDecision,
+            superseded_live_execution: true,
+            paired_user_turn_id: persistedUserTurn?.id || null,
+          },
+          evidence: assistantEvidence,
+          execution: object(result?.execution),
+          navigation: object(result?.navigation),
+        }).then(async (turn) => {
+          const latestSnapshot = await loadIntelligenceConversationSnapshot({
+            organizationId: businessContext.organizationId,
+            partyId,
+            conversationKey: "primary",
+          }).catch(() => null);
+          return {
+            conversation: latestSnapshot?.conversation
+              ? object(latestSnapshot.conversation)
+              : object(memory.conversation),
+            turn: object(turn),
+            superseded: true,
+          };
+        })
+      : persistAssistantTurnAndConversationState({
+          organizationId: businessContext.organizationId,
+          conversationId: memory.conversation.id,
+          partyId,
+          source,
+          content: responseText,
+          decision: persistedDecision,
+          evidence: assistantEvidence,
+          execution: object(result?.execution),
+          navigation: object(result?.navigation),
+          agreementState: nextAgreementState,
+          projectState: nextProjectState,
+        });
     const longTermLearnPromise = diagnosisResultPresent
       ? Promise.resolve({ learned: 0, skipped: "BUSINESS_DIAGNOSIS_NOT_MEMORY_PROMOTABLE" })
-      : learnProjectStateMemories({
+      : supersededByNewerExecution
+        ? Promise.resolve({ learned: 0, skipped: "SUPERSEDED_LIVE_EXECUTION" })
+        : learnProjectStateMemories({
           organizationId: businessContext.organizationId,
           partyId,
           entityId: businessContext.entityId,
@@ -1063,6 +1166,8 @@ export async function POST(request) {
         })
           .then((learned) => {
             longTermLearned = Number(learned?.learned || 0);
+            projectStateMemoryReused = Number(learned?.reused || 0);
+            projectStateMemoryRepaired = Number(learned?.repaired || 0);
             return learned;
           })
           .catch((memoryError) => {
@@ -1074,6 +1179,16 @@ export async function POST(request) {
       assistantPersistPromise,
       longTermLearnPromise,
     ]);
+    if (longTermLearned > 0) {
+      await consolidateOperatorMemory({
+        organizationId: businessContext.organizationId,
+        partyId,
+        entityId: businessContext.entityId,
+      }).catch((memoryError) => {
+        console.error("OPERATOR_LONG_TERM_MEMORY_CONSOLIDATION_FAILED", memoryError);
+      });
+    }
+
     const assistantPersistMs = Date.now() - assistantPersistStartedAt;
     const longTermLearnMs = Date.now() - longTermLearnStartedAt;
     const persistedState = object(persisted.conversation);
@@ -1136,6 +1251,20 @@ export async function POST(request) {
 
     const clientNormalizedResult = {
       ...normalizedResult,
+      ...(supersededByNewerExecution
+        ? {
+            decision: {
+              ...object(normalizedResult.decision),
+              agreement_state: object(persistedState.agreement_state),
+              project_state: object(persistedState.project_state),
+            },
+            provider_evidence: {
+              ...object(normalizedResult.provider_evidence),
+              superseded_live_execution: true,
+              conversation_state_mutation_performed: false,
+            },
+          }
+        : {}),
       ...(normalizedResult?.business_diagnosis
         ? { business_diagnosis: redactBusinessDiagnosisProofForClient(normalizedResult.business_diagnosis) }
         : {}),

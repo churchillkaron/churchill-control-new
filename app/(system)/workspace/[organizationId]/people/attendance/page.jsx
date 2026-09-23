@@ -407,6 +407,12 @@ export default function AttendanceManagementPage() {
               </Link>
             ) : null}
             <Link
+              href={`/workspace/${organizationId}/people/identity-verification`}
+              className="flex h-11 items-center gap-2 rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] px-4 text-xs font-black uppercase tracking-[0.12em] text-[#D6A66A]"
+            >
+              <ShieldCheck size={16} /> Identity verification
+            </Link>
+            <Link
               href={`/workspace/${organizationId}/people/attendance/clock-in-exceptions`}
               className="flex h-11 items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.08] px-4 text-xs font-black uppercase tracking-[0.12em] text-amber-200"
             >

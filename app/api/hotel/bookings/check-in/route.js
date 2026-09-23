@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   HotelBookingTransitionError,
@@ -36,6 +37,7 @@ export async function POST(request) {
     });
 
     if (!access.success) return errorResponse(access.error, access.status);
+    assertHotelOperationalAccess({ access, area: "FRONT_DESK" });
 
     const booking = await transitionHotelBooking({
       supabase: supabaseAdmin,

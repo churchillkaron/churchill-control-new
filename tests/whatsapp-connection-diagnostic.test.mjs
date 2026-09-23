@@ -25,7 +25,7 @@ test("WhatsApp diagnostic remains read-only and never sends messages", async () 
   assert.match(diagnostic, /method:\s*"GET"/);
   assert.doesNotMatch(diagnostic, /\/messages\b/);
   assert.doesNotMatch(diagnostic, /method:\s*"POST"/);
-  assert.match(diagnostic, /CredentialRuntime\.resolve\(credentialId\)/);
+  assert.match(diagnostic, /resolveProviderCredential\(\{/);
   assert.match(diagnostic, /token_accepted:\s*true/);
 });
 

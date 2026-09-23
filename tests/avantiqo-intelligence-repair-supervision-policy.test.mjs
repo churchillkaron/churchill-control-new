@@ -80,7 +80,8 @@ test("repair supervisor never exposes its own raw exception in the successful AP
   assert.match(runtime, /raw_error_returned_to_user:\s*false/);
   assert.match(runtime, /raw_error_exposed:\s*false/);
   assert.match(runtime, /retry_policy:\s*"safe_reinspect_then_retry"/);
-  assert.match(runtime, /internal_error:\s*text\(error\?\.message \|\| error/);
+  assert.match(runtime, /const internalError = text\(error\?\.message \|\| error/);
+  assert.match(runtime, /internal_error: internalError/);
   assert.doesNotMatch(runtime, /return \{[\s\S]{0,500}error:\s*text\(error\?\.message \|\| error/);
 });
 

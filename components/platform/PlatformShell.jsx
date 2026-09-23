@@ -48,6 +48,7 @@ export default function PlatformShell({ children }) {
   const businessContext = useBusinessContext() || {};
   const [secretaryMeetingCaptureActive, setSecretaryMeetingCaptureActive] = useState(false);
   const businessPartnerHome = /^\/workspace\/[^/]+\/?$/.test(pathname || "");
+  const staffPortal = /^\/staff(?:\/|$)/.test(pathname || "");
   const operationsWorkspace = /^\/workspace\/[^/]+\/operations(?:\/|$)/.test(pathname || "");
   const financeWorkspace = /^\/workspace\/[^/]+\/finance(?:\/|$)/.test(pathname || "");
 
@@ -81,6 +82,14 @@ export default function PlatformShell({ children }) {
       );
     };
   }, []);
+
+  if (staffPortal) {
+    return (
+      <div className="min-h-screen bg-[#F7F6F3] text-[#191919]">
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F7F6F3] text-[#191919]">

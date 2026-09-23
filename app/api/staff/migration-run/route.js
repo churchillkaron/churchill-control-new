@@ -1,37 +1,20 @@
 import { NextResponse } from "next/server";
 
-import {
-  migrateStaffAccountsToParty,
-} from "/lib/people/employees/migration/migrateStaffAccountsToParty";
-
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function GET() {
+  return NextResponse.json({
+    success: false,
+    error: "Staff migration execution is retired from the public application surface.",
+    code: "STAFF_MIGRATION_HTTP_RETIRED",
+  }, { status: 410 });
+}
 
-  try {
-
-    const result =
-      await migrateStaffAccountsToParty();
-
-
-    return NextResponse.json({
-      success:true,
-      count:result.length,
-      result,
-    });
-
-
-  } catch(error) {
-
-    return NextResponse.json(
-      {
-        success:false,
-        error:error.message,
-      },
-      {
-        status:500,
-      }
-    );
-
-  }
-
+export async function POST() {
+  return NextResponse.json({
+    success: false,
+    error: "Staff migration execution is retired from the public application surface.",
+    code: "STAFF_MIGRATION_HTTP_RETIRED",
+  }, { status: 410 });
 }

@@ -2,110 +2,83 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-const source = fs.readFileSync(
-  new URL(
-    "../scripts/run-avantiqo-intelligence-cognition-runtime-certification-local.mjs",
-    import.meta.url,
-  ),
-  "utf8",
-);
+const provider = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js", "utf8");
+const overflow = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalOverflowPolicy.js", "utf8");
+const approvalRoute = fs.readFileSync("app/api/platform/admin/intelligence-modal-overflow/route.js", "utf8");
+const executionLedger = fs.readFileSync("lib/platform/service-runtime/governance/IntelligenceModalOverflowExecutionRuntime.js", "utf8");
+const proposalRuntime = fs.readFileSync("lib/platform/service-runtime/governance/IntelligenceModalOverflowProposalRuntime.js", "utf8");
+const migration = fs.readFileSync("supabase/migrations/20260919193000_intelligence_modal_overflow_execution_claim.sql", "utf8");
+const modal = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js", "utf8");
+const reasoning = fs.readFileSync("lib/intelligence/runtime/AvantiqoIntelligenceReasoningRuntime.js", "utf8");
 
-test("controlled cognition certification exposes its canonical contract", () => {
-  assert.match(
-    source,
-    /AVANTIQO_INTELLIGENCE_COGNITION_RUNTIME_CERTIFICATION_V1/,
-  );
-  assert.match(source, /const MAX_PROVIDER_REQUESTS = 5/);
-  assert.match(source, /provider_request_hard_ceiling:\s*MAX_PROVIDER_REQUESTS/);
+test("controlled cognition uses local-first owned Intelligence", () => {
+  const queue = provider.indexOf("executeIntelligenceLocalQueue(effectiveInput)");
+  const direct = provider.indexOf("executeIntelligenceLocal(effectiveInput)");
+  const modalCall = provider.indexOf("executeIntelligenceModalDirect({");
+  assert.ok(queue >= 0 && direct >= 0 && modalCall > queue && modalCall > direct);
+  assert.match(provider, /AVANTIQO_INTELLIGENCE_LOCAL_RUNTIME_REQUIRED/);
 });
 
-test("preflight remains zero-inference and execution requires explicit spend approval", () => {
-  assert.match(source, /mode === "PREFLIGHT"/);
-  assert.match(source, /provider_requests_submitted:\s*0/);
-  assert.match(
-    source,
-    /AVANTIQO_INTELLIGENCE_COGNITION_CERT_SPEND_APPROVED=YES_REQUIRED/,
-  );
-  assert.match(source, /NODE_ENV/);
-  assert.match(source, /development/);
+test("paid overflow requires immutable proposal owner approval and bounded spend", () => {
+  assert.match(approvalRoute, /requirePlatformAdminAccess/);
+  assert.match(approvalRoute, /proposal_id/);
+  assert.match(approvalRoute, /approveIntelligenceModalOverflowProposal/);
+  assert.doesNotMatch(approvalRoute, /body\?\.lane/);
+  assert.doesNotMatch(approvalRoute, /body\?\.maximum_supplier_cost_thb/);
+  assert.match(migration, /maximum_calls,[\s\S]*1,/);
+  assert.match(migration, /v_proposal\.proposed_supplier_cost_thb/);
+  assert.match(migration, /one_paid_job_only/);
+  assert.match(approvalRoute, /automatic_modal_fallback_allowed: false/);
 });
 
-test("certification uses an explicitly designated organization and read-only wallet preflight", () => {
-  assert.match(source, /AVANTIQO_INTELLIGENCE_COGNITION_CERT_ORGANIZATION_ID/);
-  assert.match(source, /AVANTIQO_INTELLIGENCE_BENCHMARK_ORGANIZATION_ID/);
-  assert.match(source, /AVANTIQO_MUSIC_BENCHMARK_ORGANIZATION_ID/);
-  assert.match(source, /AVANTIQO_COGNITION_CERT_BENCHMARK_ORGANIZATION_REQUIRED/);
-  assert.match(source, /WalletRepository\.getByOrganization\(organizationId\)/);
-  assert.doesNotMatch(source, /WalletRuntime\.getOrCreate/);
-  assert.doesNotMatch(source, /WalletRuntime\.topup/);
+test("overflow is organization capability infrastructure and metadata bound", () => {
+  assert.match(executionLedger, /claim_intelligence_modal_overflow_execution/);
+  assert.match(executionLedger, /p_organization_id/);
+  assert.match(executionLedger, /p_infrastructure_provider/);
+  assert.match(executionLedger, /p_reason_code/);
 });
 
-test("certification is bound to the owned Deep provider safe lease", () => {
-  assert.match(source, /const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2"/);
-  assert.match(source, /const SAFE_LEASE_LANE = "intelligence-deep"/);
-  assert.match(source, /RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID/);
-  assert.match(source, /AVANTIQO_COGNITION_CERT_SAFE_LEASE_ENDPOINT_MISMATCH/);
-  assert.match(source, /execution_lane:\s*"deep"/);
-  assert.match(source, /AVANTIQO_COGNITION_CERT_ENDPOINT_NOT_QUIESCENT/);
+test("overflow requires proven local insufficiency", () => {
+  assert.match(overflow, /local_first_required: true/);
+  assert.match(overflow, /local_insufficient: true/);
+  assert.match(overflow, /local_capacity_checked/);
+  assert.match(overflow, /local_attempted/);
+  assert.match(overflow, /LOCAL_CONTEXT_CAPACITY_EXCEEDED/);
+  assert.match(overflow, /LOCAL_LARGE_MODEL_CAPABILITY_REQUIRED/);
 });
 
-test("provider routing is owned-only benchmark preview with no fallback", () => {
-  assert.match(source, /allowed_providers:\s*\[OWNED_PROVIDER\]/);
-  assert.match(source, /execution_scope:\s*"BENCHMARK_REVIEW_PREVIEW"/);
-  assert.match(source, /benchmark_only:\s*true/);
-  assert.match(source, /owned_only_required:\s*true/);
-  assert.match(source, /external_fallback_allowed:\s*false/);
-  assert.match(source, /selectedProvider\?\.provider !== OWNED_PROVIDER/);
+test("Fast and Deep are the only Modal Intelligence lanes", () => {
+  assert.match(modal, /const LANES = new Set\(\["fast", "deep"\]\)/);
+  assert.match(modal, /AVANTIQO_INTELLIGENCE_MODAL_FRONT_FORBIDDEN_LOCAL_ONLY/);
+  assert.doesNotMatch(provider, /RunPod|runpod/);
 });
 
-test("certification tool is non-mutating and exact research-capability bound", () => {
-  assert.match(source, /name:\s*"operator_live_read"/);
-  assert.match(source, /const RESEARCH_CAPABILITY = "platform\.research\.search"/);
-  assert.match(source, /enum:\s*\[RESEARCH_CAPABILITY\]/);
-  assert.match(source, /mutates:\s*false/);
-  assert.match(source, /approval_required:\s*false/);
-  assert.match(source, /allow_mutating_tools:\s*false/);
+test("approval execution claim is created immediately before provider job submission", () => {
+  const claim = modal.indexOf("claimIntelligenceModalOverflowExecution({");
+  const spawn = modal.indexOf("worker.spawn([payload])");
+  const bind = modal.indexOf("markIntelligenceModalOverflowSubmitted({");
+  assert.ok(claim >= 0 && spawn > claim && bind > spawn);
+  assert.match(modal, /markIntelligenceModalOverflowSubmissionUncertain/);
+  assert.match(modal, /modal_overflow_execution_claim_id/);
 });
 
-test("real reasoning transcript certifies sufficient evidence and diminishing returns", () => {
-  assert.match(source, /runIntelligenceReasoningLoop/);
-  assert.match(source, /applyAvantiqoEpistemicCompletionGate/);
-  assert.match(source, /source-backed-sufficient-evidence/);
-  assert.match(source, /stopReason:\s*"sufficient_evidence"/);
-  assert.match(source, /CERT_SUFFICIENT_EVIDENCE_DONE/);
-  assert.match(source, /observed-zero-marginal-research-utility/);
-  assert.match(source, /stopReason:\s*"diminishing_returns"/);
-  assert.match(source, /CERT_DIMINISHING_RETURNS_DONE/);
-  assert.match(source, /OBSERVED_ZERO_MARGINAL_RESEARCH_UTILITY/);
+test("reasoning remains owned-provider pinned and authority neutral", () => {
+  assert.match(reasoning, /provider_id:\s*OWNED_PROVIDER/);
+  assert.match(reasoning, /allowed_providers:\s*\[OWNED_PROVIDER\]/);
+  assert.match(reasoning, /external_fallback_allowed:\s*false/);
+  assert.match(reasoning, /raw_reasoning_persisted/);
 });
 
-test("certification preserves raw evidence and reasoning privacy", () => {
-  assert.match(source, /raw_research_persisted:\s*false/);
-  assert.match(source, /raw_reasoning_persisted:\s*false/);
-  assert.match(source, /raw_research_identity_leaked_in_transcript/);
-  assert.match(source, /secrets_printed:\s*false/);
+test("overflow proposal and approval are revocable and expire", () => {
+  assert.match(approvalRoute, /proposal_id or approval_id required/);
+  assert.match(approvalRoute, /status: "REVOKED"/);
+  assert.match(proposalRuntime, /Math\.max\(5, Math\.min\(Number\(expiryMinutes\) \|\| 30, 120\)\)/);
+  assert.match(proposalRuntime, /expires_at:/);
+  assert.match(migration, /INTELLIGENCE_MODAL_OVERFLOW_PROPOSAL_EXPIRED/);
 });
 
-test("certification has no production mutation or activation effect", () => {
-  assert.match(source, /production_deploy_performed:\s*false/);
-  assert.match(source, /provider_selection_changed:\s*false/);
-  assert.match(source, /pricing_activation_performed:\s*false/);
-  assert.match(source, /business_domain_mutation_performed:\s*false/);
-  assert.match(source, /deterministic_certification_tool_mutation_performed:\s*false/);
-  assert.match(source, /external_research_performed:\s*false/);
-  assert.doesNotMatch(source, /vercel\s+(?:--prod|deploy)/);
-});
-
-test("main validation tolerates unrelated concurrent commits but fails closed on critical paths", () => {
-  assert.match(source, /CERTIFICATION_CRITICAL_PATHS/);
-  assert.match(source, /AvantiqoIntelligenceReasoningRuntime\.js/);
-  assert.match(source, /AvantiqoEpistemicCompletionGateRuntime\.mjs/);
-  assert.match(source, /ServiceExecutionRuntime\.js/);
-  assert.match(source, /run-avantiqo-runpod-safe-lease-v2-local\.mjs/);
-  assert.match(source, /merge-base/);
-  assert.match(source, /AVANTIQO_COGNITION_CERT_LOCAL_MAIN_DIVERGED/);
-  assert.match(source, /AVANTIQO_COGNITION_CERT_RELEVANT_MAIN_ADVANCED/);
-  assert.match(source, /main_irrelevant_remote_advance_tolerated/);
-  assert.match(source, /main_critical_paths_clean/);
-  assert.doesNotMatch(source, /AVANTIQO_COGNITION_CERT_LOCAL_MAIN_NOT_CURRENT/);
+test("no legacy Safe Lease or RunPod dependency remains", () => {
+  for (const source of [provider, overflow, executionLedger, modal]) {
+    assert.doesNotMatch(source, /RUNPOD_SAFE_LEASE|api\.runpod\.ai|RunPodClient/);
+  }
 });

@@ -775,6 +775,73 @@ const RELATED = {
 };
 
 
+function ComputeExperience({ config }) {
+  const routing = [
+    ["01", "Submit the workload", "Studio, API, batch, rendering, inference or internal production work."],
+    ["02", "Evaluate requirements", "Priority, memory, runtime, hardware profile and workload policy are checked first."],
+    ["03", "Use owned capacity first", "Suitable workloads are routed to available Avantiqo-controlled hardware before external compute."],
+    ["04", "Expand only when required", "Approved specialist or overflow capacity is used only when the workload actually needs it."],
+  ];
+  const workloads = [
+    ["AI inference", "Business intelligence, assistants and model-backed application workloads."],
+    ["Rendering", "GPU rendering, compositing and production workloads that need sustained acceleration."],
+    ["Video processing", "Generation, enhancement, transcode and post-production pipelines."],
+    ["Batch jobs", "Queued data, document, analytics and back-office processing at controlled priority."],
+    ["Developer workloads", "API jobs, testing, specialist services and application compute."],
+    ["Creative production", "Image, music, voice and media workloads connected to Avantiqo Studio."],
+  ];
+  const controls = [
+    ["Policy-based placement", "Route work by priority, hardware requirement and approved execution policy."],
+    ["Owned capacity prioritized", "Keep suitable jobs on controlled hardware first so external spend stays intentional."],
+    ["Approved overflow only", "External capacity is a governed exception, not the default execution path."],
+    ["Usage visibility", "See where workloads ran, how much capacity they consumed and why they were routed there."],
+  ];
+  const related = [
+    ["Developers", "/developers", "Build and submit workloads programmatically.", "/art/generated/developers/developer-hero-v1.png"],
+    ["Marketplace", "/ecosystem", "Use approved specialist capacity and platform capabilities.", "/art/generated/developers/developer-capabilities-v1.png"],
+    ["Pricing", "/pricing", "Understand usage, allocation and variable compute cost.", "/art/generated/developers/developer-integration-v1.png"],
+  ];
+  return (
+    <main className="min-h-screen bg-[#F7F6F3] text-[#191919]">
+      <PublicSiteHeader context={config.context} audience="compute" links={[{label:"Compute",href:"/compute"},{label:"API Platform",href:"/api-platform"},{label:"Developers",href:"/developers"},{label:"Pricing",href:"/pricing"}]} />
+
+      <section className="relative overflow-hidden border-b border-black/[0.06] bg-[#F4F0E8]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(214,166,106,.14),transparent_30%)]" />
+        <div className="relative mx-auto grid max-w-[1540px] lg:min-h-[660px] lg:grid-cols-[42%_58%]">
+          <div className="flex items-center px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
+            <div className="max-w-[610px]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/28 bg-white/68 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[.18em] text-[#8A633C]"><span className="h-1.5 w-1.5 rounded-full bg-[#A37849]" /> OWNED FIRST · ELASTIC WHEN REQUIRED</div>
+              <p className="mt-9 text-[9px] font-semibold uppercase tracking-[.23em] text-[#9A7045]">AVANTIQO COMPUTE</p>
+              <h1 className="mt-4 text-[50px] font-medium leading-[.94] tracking-[-.065em] sm:text-[64px] lg:text-[72px]">Compute that prioritizes the workload, not the infrastructure.</h1>
+              <p className="mt-7 max-w-[560px] text-[15px] leading-8 text-[#625D55]">Run inference, rendering, video, batch, Studio and developer workloads through one controlled compute layer. Avantiqo uses owned capacity first and expands only when the job requires more scale or specialist hardware.</p>
+              <div className="mt-9 flex flex-wrap gap-2.5"><Link prefetch href="/start" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_10px_28px_rgba(20,18,15,.16)]">Explore Compute <Arrow className="h-3.5 w-3.5" /></Link><a href="#routing" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/75 px-5 text-[10px] font-semibold text-[#56514A]">How routing works</a></div>
+              <div className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.08] pt-5 text-[7px] font-semibold uppercase tracking-[.16em] text-[#9A8F82]"><span>OWNED CAPACITY</span><span>·</span><span>CONTROLLED OVERFLOW</span><span>·</span><span>ONE COMPUTE LAYER</span></div>
+            </div>
+          </div>
+          <div className="flex items-center border-t border-black/[0.06] p-5 sm:p-7 lg:border-l lg:border-t-0 lg:p-8">
+            <div className="relative min-h-[560px] w-full overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#171614] shadow-[0_30px_90px_rgba(68,47,25,.16)]">
+              <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/generated/developers/developer-runtime-v1.png)"}} />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,7,7,.03),rgba(7,7,7,.08)_46%,rgba(7,7,7,.62))]" />
+              <div className="absolute left-7 top-7 rounded-full border border-white/16 bg-black/30 px-3.5 py-1.5 text-[7px] font-semibold uppercase tracking-[.20em] text-[#F0C98F] backdrop-blur-lg">AVANTIQO / COMPUTE FABRIC</div>
+              <div className="absolute bottom-7 left-7 right-7 rounded-[24px] border border-white/14 bg-[#11100E]/84 p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,.25)] backdrop-blur-xl sm:p-6"><div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">OWNED CAPACITY · CONTROLLED OVERFLOW</div><p className="mt-3 max-w-2xl text-[14px] leading-6 text-white/72">Priority, hardware need and policy decide where each workload runs.</p><div className="mt-4 flex flex-wrap gap-2">{["INFERENCE","RENDER","VIDEO","BATCH","API"].map(x=><span key={x} className="rounded-full border border-white/12 px-2.5 py-1 text-[6px] font-semibold tracking-[.16em] text-white/58">{x}</span>)}</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="routing" className="border-b border-black/[0.06] bg-[#F3EFE7]"><div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24"><div className="grid gap-8 lg:grid-cols-[.82fr_1.18fr] lg:items-end"><div><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">HOW AVANTIQO COMPUTE ROUTES WORK</p><h2 className="mt-3 max-w-2xl text-[38px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[50px]">Workload first. Infrastructure second.</h2></div><p className="max-w-xl text-[13px] leading-7 text-[#706A62] lg:justify-self-end">Submit the work. Avantiqo evaluates what it needs, keeps suitable execution on controlled capacity first, and opens approved overflow only when necessary.</p></div><div className="mt-10 grid overflow-hidden rounded-[28px] border border-black/[0.07] bg-[#171716] text-white shadow-[0_26px_80px_rgba(46,34,23,.09)] lg:grid-cols-[.94fr_1.06fr]"><div className="relative min-h-[410px] overflow-hidden border-b border-white/[0.08] lg:border-b-0 lg:border-r"><div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage:"url(/art/generated/developers/developer-capabilities-v1.png)"}} /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,7,7,.04),rgba(7,7,7,.10)_45%,rgba(7,7,7,.72))]" /><div className="absolute bottom-5 left-5 right-5 rounded-[18px] border border-white/12 bg-[#11100E]/78 p-4 backdrop-blur-xl"><div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">ROUTING AUTHORITY</div><div className="mt-2 text-[11px] leading-5 text-white/68">Owned capacity is the default path. Specialist hardware and external overflow are explicit routing decisions.</div></div></div><div className="grid sm:grid-cols-2">{routing.map(([no,title,text],i)=><article key={title} className={`relative min-h-[205px] p-6 ${i%2===0?'sm:border-r sm:border-white/[0.08]':''} ${i<2?'border-b border-white/[0.08]':''}`}><div className="flex items-center justify-between"><span className="text-[8px] font-bold text-[#D6A66A]">{no}</span><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]/80" /></div><h3 className="mt-11 text-[16px] font-semibold text-white/86">{title}</h3><p className="mt-2 text-[9px] leading-5 text-white/40">{text}</p><div className="absolute inset-x-6 bottom-5 h-px bg-white/[0.07]"><div className="h-px bg-[#D6A66A]/65" style={{width:`${38+i*14}%`}} /></div></article>)}</div></div></div></section>
+
+      <section className="border-b border-black/[0.06] bg-[#FBFAF8]"><div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-10 lg:py-24"><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">WORKLOADS</p><h2 className="mt-3 max-w-4xl text-[38px] font-medium leading-[1.03] tracking-[-.05em] sm:text-[50px]">One compute layer for the work Avantiqo already runs.</h2><div className="mt-10 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{workloads.map(([t,d],i)=><article key={t} className="rounded-[24px] border border-black/[0.07] bg-white p-6 shadow-[0_14px_38px_rgba(50,36,22,.04)]"><div className="text-[8px] font-bold text-[#A37849]">0{i+1}</div><h3 className="mt-7 text-[17px] font-semibold tracking-[-.03em]">{t}</h3><p className="mt-3 text-[10px] leading-5 text-[#777169]">{d}</p></article>)}</div></div></section>
+
+      <section className="border-b border-white/[0.06] bg-[#171716] text-white"><div className="mx-auto grid max-w-[1320px] gap-12 px-5 py-20 sm:px-7 lg:grid-cols-[.72fr_1.28fr] lg:px-10 lg:py-24"><div><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#D6A66A]">CONTROL PLANE</p><h2 className="mt-3 text-[38px] font-medium leading-[1.03] tracking-[-.05em] text-[#F7F4EF] sm:text-[50px]">Governed capacity. Controlled routing.</h2><p className="mt-5 max-w-lg text-[13px] leading-7 text-white/42">Compute is not treated as a disconnected GPU rental product. Placement, overflow, usage and provider choice stay inside Avantiqo governance.</p></div><div className="grid gap-3 sm:grid-cols-2">{controls.map(([t,d],i)=><div key={t} className="rounded-[20px] border border-white/[0.08] bg-white/[0.025] p-5"><div className="text-[8px] font-bold text-[#D6A66A]">0{i+1}</div><div className="mt-6 text-[14px] font-semibold text-white/80">{t}</div><div className="mt-2 text-[9px] leading-5 text-white/36">{d}</div></div>)}</div></div></section>
+
+      <section className="border-b border-black/[0.06] bg-[#FBFAF8]"><div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:px-10 lg:py-20"><div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">CONNECTED ACROSS AVANTIQO</p><h2 className="mt-2 text-[30px] font-medium tracking-[-.045em] sm:text-[38px]">Compute becomes part of the platform, not another disconnected tool.</h2></div><Link prefetch href="/pricing" className="text-[10px] font-semibold text-[#8A633C]">See pricing →</Link></div><div className="mt-8 grid gap-3 md:grid-cols-3">{related.map(([label,href,text,image],i)=><Link prefetch key={href} href={href} className="group overflow-hidden rounded-[22px] border border-black/[0.075] bg-white transition hover:-translate-y-0.5 hover:border-[#D6A66A]/35 hover:shadow-[0_18px_45px_rgba(45,32,20,.08)]"><div className="relative h-[180px] overflow-hidden bg-[#171614]"><div className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.025]" style={{backgroundImage:`url(${image})`}} /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,6,.02),rgba(10,8,6,.10)_52%,rgba(10,8,6,.68))]" /><div className="absolute left-4 top-4 rounded-full border border-white/12 bg-black/30 px-2.5 py-1 text-[7px] font-bold text-[#F1C98E] backdrop-blur-md">0{i+1}</div></div><div className="p-5"><div className="flex items-center justify-between"><div className="text-[14px] font-semibold text-[#302D29]">{label}</div><Arrow className="h-3.5 w-3.5 text-[#B9AA95] transition group-hover:translate-x-0.5 group-hover:text-[#9A744B]" /></div><p className="mt-2 text-[10px] leading-5 text-[#7A756E]">{text}</p></div></Link>)}</div></div></section>
+
+      <section className="bg-[#F7F6F3]"><div className="mx-auto max-w-[1120px] px-5 py-20 text-center sm:px-7 lg:px-10 lg:py-24"><p className="text-[9px] font-semibold uppercase tracking-[.20em] text-[#9A744B]">AVANTIQO COMPUTE</p><h2 className="mx-auto mt-4 max-w-4xl text-[40px] font-medium leading-[1.02] tracking-[-.05em] sm:text-[54px]">Make every useful GPU hour count.</h2><p className="mx-auto mt-5 max-w-2xl text-[13px] leading-7 text-[#706A62]">Keep important work on the right capacity, keep overflow intentional, and scale without turning infrastructure into another system your team has to manage.</p><div className="mt-8 flex flex-wrap justify-center gap-2.5"><Link prefetch href="/start" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#171716] px-5 text-[11px] font-semibold text-white">Explore Avantiqo <Arrow className="h-3.5 w-3.5" /></Link><Link prefetch href="/developers" className="inline-flex h-11 items-center rounded-xl border border-black/[0.09] bg-white px-5 text-[11px] font-semibold text-[#56514A]">Developer platform</Link></div></div></section>
+    </main>
+  );
+}
+
 function PricingExperience({ config }) {
   const models = [
     ["01", "Business software", "SUBSCRIPTION", "Recurring access to the operating products your business uses day to day.", ["Finance", "Workforce", "Operations", "Supply Chain"]],
@@ -859,6 +926,7 @@ function PricingExperience({ config }) {
 }
 
 export default function CommercialSurfacePage({ config }) {
+  if (config.art === "compute") return <ComputeExperience config={config} />;
   if (config.art === "pricing") return <PricingExperience config={config} />;
   const audience = config.audience || (config.art === "compute" ? "compute" : config.art === "marketplace" ? "platform" : "business");
   const headerLinks = audience === "compute"

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { staffApiErrorResponse } from "@/lib/people/portal/StaffApiError";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { disputePayrollRecord } from "@/lib/people/payroll";
@@ -22,7 +23,7 @@ export async function POST(request) {
     const body = await request.json();
     const { staff, organizationId } = context;
 
-    const result = await disputePayrollRecord({
+    await disputePayrollRecord({
       payrollRecordId: body?.payrollRecordId,
       organizationId,
       staffId: staff.id,
@@ -31,13 +32,10 @@ export async function POST(request) {
       disputeReason: body?.disputeReason,
     });
 
-    return NextResponse.json({ success: true, result });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("PAYROLL_DISPUTE_ERROR", error);
 
-    return NextResponse.json(
-      { success: false, error: error?.message || "Unable to dispute payroll" },
-      { status: 400 }
-    );
+    return staffApiErrorResponse(error, "Unable to dispute payroll");
   }
 }

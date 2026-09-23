@@ -6,7 +6,7 @@ test("live Business Partner intercepts authenticated greeting before heavy turn 
   const source = await readFile("app/api/operator/turn/live/route.js", "utf8");
   const accessIndex = source.indexOf("requireOrganizationAccess({ organizationId, request })");
   const greetingIndex = source.indexOf("resolveOperatorInstantGreeting({");
-  const delegateIndex = source.indexOf("runOperatorTurnPost(request)");
+  const delegateIndex = source.indexOf("runOperatorTurnPost(request, {");
   assert.ok(accessIndex >= 0);
   assert.ok(greetingIndex > accessIndex);
   assert.ok(delegateIndex > greetingIndex);

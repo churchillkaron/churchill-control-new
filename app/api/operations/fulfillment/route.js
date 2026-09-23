@@ -2,9 +2,21 @@ export const dynamic = "force-dynamic";
 
 import resolvePOSRequestApplication from "@/lib/operations/commerce/server/resolvePOSRequestApplication";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { resolveStaffPortalEffectivePermissions } from "@/lib/people/portal/StaffPortalPermissionRuntime";
+import { assertRestaurantFulfillmentAccess } from "@/lib/operations/commerce/security/RestaurantFulfillmentAccessPolicy";
 
 function errorResponse(error, status = 500) {
   return Response.json({ success: false, error }, { status });
+}
+
+async function effectiveFulfillmentAccess(access, organizationId) {
+  const resolved = await resolveStaffPortalEffectivePermissions({
+    organizationId,
+    userId: access?.userId || access?.user?.id || access?.access?.userId || null,
+    role: access?.role || access?.staff?.role || access?.access?.role || null,
+    basePermissions: access?.permissions || access?.access?.permissions || [],
+  });
+  return { ...access, permissions: resolved.permissions };
 }
 
 function requestEntityId(request, body = null) {
@@ -56,6 +68,14 @@ export async function GET(request) {
       return errorResponse(resolved.error, resolved.status);
     }
 
+    const fulfillmentAccess = await effectiveFulfillmentAccess(
+      resolved.access,
+      resolved.organizationId,
+    );
+    const allowedSourceTypes = assertRestaurantFulfillmentAccess({
+      access: fulfillmentAccess,
+    });
+
     const fulfillment = resolved.application.adapter?.fulfillment;
     if (typeof fulfillment?.listQueue !== "function") {
       return errorResponse(
@@ -65,12 +85,13 @@ export async function GET(request) {
     }
 
     const result = await fulfillment.listQueue({
-      access: resolved.access,
+      access: fulfillmentAccess,
       application: resolved.application,
       organization: resolved.organization,
       organizationId: resolved.organizationId,
       entityId: requestEntityId(request),
       scope: searchParams.get("scope") || "active",
+      allowedSourceTypes,
     });
 
     return Response.json({ success: true, ...result });
@@ -99,6 +120,16 @@ export async function POST(request) {
       return errorResponse(resolved.error, resolved.status);
     }
 
+    const fulfillmentAccess = await effectiveFulfillmentAccess(
+      resolved.access,
+      resolved.organizationId,
+    );
+    const sourceType = String(
+      body.sourceType || body.source_type || body.ticketType || body.ticket_type || body.source?.type || "",
+    ).trim().toLowerCase();
+    if (!sourceType) return errorResponse("Fulfillment sourceType required", 400);
+    assertRestaurantFulfillmentAccess({ access: fulfillmentAccess, sourceType });
+
     const fulfillment = resolved.application.adapter?.fulfillment;
     if (typeof fulfillment?.transitionWorkItem !== "function") {
       return errorResponse(
@@ -109,7 +140,7 @@ export async function POST(request) {
 
     const result = await fulfillment.transitionWorkItem({
       body,
-      access: resolved.access,
+      access: fulfillmentAccess,
       application: resolved.application,
       organization: resolved.organization,
       organizationId: resolved.organizationId,

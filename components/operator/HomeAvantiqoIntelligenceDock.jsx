@@ -183,40 +183,24 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
     }
   }
 
-  useEffect(() => {
-    const originalFetch = window.fetch.bind(window);
-
-    async function transparentBusinessPartnerFetch(input, init = {}) {
-      const url = typeof input === "string" ? input : input?.url;
-      const method = text(init?.method || (typeof input === "object" ? input?.method : "GET")).toUpperCase() || "GET";
-      if (url === "/api/operator/turn" && method === "POST") {
-        const attachmentSetId = text(
-          developerAttachmentSetRef.current?.attachment_set_id,
-        );
-        if (attachmentSetId && developerAttachmentAnalysisPromiseRef.current) {
-          await developerAttachmentAnalysisPromiseRef.current.catch(() => null);
-        }
-        const headers = new Headers(init?.headers || {});
-        if (attachmentSetId) {
-          headers.set("x-avantiqo-attachment-set", attachmentSetId);
-        }
-        const response = await originalFetch("/api/operator/turn/live", {
-          ...init,
-          headers,
-        });
-        if (attachmentSetId && response.ok) clearDeveloperAttachments();
-        return response;
-      }
-      return originalFetch(input, init);
+  async function prepareAttachmentSetForTurn() {
+    const attachmentSetId = text(
+      developerAttachmentSetRef.current?.attachment_set_id,
+    );
+    if (attachmentSetId && developerAttachmentAnalysisPromiseRef.current) {
+      await developerAttachmentAnalysisPromiseRef.current.catch(() => null);
     }
+    return attachmentSetId || null;
+  }
 
-    window.fetch = transparentBusinessPartnerFetch;
-    return () => {
-      if (window.fetch === transparentBusinessPartnerFetch) {
-        window.fetch = originalFetch;
-      }
-    };
-  }, []);
+  function completeAttachmentTurn(attachmentSetId) {
+    if (
+      text(attachmentSetId) &&
+      text(developerAttachmentSetRef.current?.attachment_set_id) === text(attachmentSetId)
+    ) {
+      clearDeveloperAttachments();
+    }
+  }
 
   useEffect(() => {
     let lastSpokenMessage = "";
@@ -241,8 +225,12 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       const homeVoiceReply =
         source === "operator" &&
         Date.now() <= voiceReplyIntentUntil;
+      const governedAutonomousInterrupt =
+        source === "synthetic-intelligence-autonomous-watch" &&
+        text(detail.priority).toLowerCase() === "urgent" &&
+        Boolean(text(detail.dedupe_key));
 
-      if (!explicitlyVoiceInitiated && !homeVoiceReply) {
+      if (!explicitlyVoiceInitiated && !homeVoiceReply && !governedAutonomousInterrupt) {
         event.stopImmediatePropagation();
         return;
       }
@@ -352,14 +340,15 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
   }, [organizationId]);
 
   async function requestStop() {
-    if (!organizationId || stopPending) return;
+    const stopExecutionId = text(liveExecution?.stop_execution_id);
+    if (!organizationId || !stopExecutionId || stopPending) return;
     setStopPending(true);
     try {
       const response = await fetch("/api/operator/live-execution", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ organizationId }),
+        body: JSON.stringify({ organizationId, executionId: stopExecutionId }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.success === false) {
@@ -488,7 +477,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         type="button"
         onClick={() => fileInputRef.current?.click()}
         disabled={!organizationId || developerAttachmentPending || liveActive}
-        className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.025] px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em] text-white/45 transition hover:border-[#D6A66A]/25 hover:text-[#D6A66A]/75 disabled:opacity-35"
+        className="flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em] text-[#746E67] transition hover:border-[#D6A66A]/45 hover:text-[#8D6338] disabled:opacity-35"
       >
         {developerAttachmentPending ? (
           <Loader2 size={11} className="animate-spin" />
@@ -512,7 +501,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         <button
           type="button"
           onClick={clearDeveloperAttachments}
-          className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] text-white/30 transition hover:text-white/65"
+          className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] text-[#9A968E] transition hover:text-[#5E5A54]"
           title="Remove selected files"
         >
           <X size={11} />
@@ -521,11 +510,11 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       ) : null}
 
       {developerAttachmentError ? (
-        <span className="text-[10px] text-red-200/60">{developerAttachmentError}</span>
+        <span className="text-[10px] text-[#8B4937]">{developerAttachmentError}</span>
       ) : null}
 
       {developerAttachmentSet ? (
-        <span className="flex items-center gap-1 text-[9px] text-white/25">
+        <span className="flex items-center gap-1 text-[9px] text-[#AAA69E]">
           {developerAttachmentAnalyzing ? <Loader2 size={9} className="animate-spin" /> : null}
           {developerAttachmentAnalyzing
             ? "Understanding files…"
@@ -547,22 +536,22 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       {liveActive && liveEvent ? (
         <div
           data-avantiqo-live-execution-panel="true"
-          className="mb-3 rounded-2xl border border-[#D6A66A]/25 bg-black/35 px-4 py-3"
+          className="mb-3 rounded-2xl border border-[#D6A66A]/30 bg-[#FBF7F1] px-4 py-3"
         >
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[#D6A66A]/80">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[#9A744B]">
                 <Loader2 size={12} className="animate-spin" />
                 <span>Avantiqo</span>
-                <span className="text-white/25">·</span>
+                <span className="text-[#B3ADA5]">·</span>
                 <span>{humanPhase(liveEvent.phase)}</span>
               </div>
-              <div className="mt-2 text-sm font-light leading-5 text-white/80">
+              <div className="mt-2 text-sm leading-5 text-[#4E4A44]">
                 I’m working through your request and I’ll keep the conversation updated as meaningful progress is ready.
               </div>
 
               {liveExecution?.stop_requested === true || stopPending ? (
-                <div className="mt-2 text-[10px] leading-4 text-amber-200/65">
+                <div className="mt-2 text-[10px] leading-4 text-[#8A6A3D]">
                   Stop requested. Avantiqo will stop at the next safe execution boundary; an already-running provider call may need to return first.
                 </div>
               ) : null}
@@ -571,8 +560,8 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
             <button
               type="button"
               onClick={requestStop}
-              disabled={stopPending || liveExecution?.stop_requested === true}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-red-300/20 bg-red-500/[0.08] px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em] text-red-100/70 transition hover:bg-red-500/[0.14] disabled:opacity-40"
+              disabled={stopPending || liveExecution?.stop_requested === true || !text(liveExecution?.stop_execution_id)}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#B36B52]/20 bg-[#FFF8F5] px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em] text-[#8B4937] transition hover:bg-[#FFF1EC] disabled:opacity-40"
             >
               <Square size={10} />
               {stopPending || liveExecution?.stop_requested === true ? "Stopping" : "Stop"}
@@ -581,7 +570,11 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         </div>
       ) : null}
 
-      <HomeAvantiqoIntelligence organizationId={organizationId} />
+      <HomeAvantiqoIntelligence
+        organizationId={organizationId}
+        prepareAttachmentSetForTurn={prepareAttachmentSetForTurn}
+        completeAttachmentTurn={completeAttachmentTurn}
+      />
 
       {composerToolsTarget
         ? createPortal(developerAttachmentTools, composerToolsTarget)

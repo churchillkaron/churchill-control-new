@@ -150,9 +150,10 @@ test("Extended Finance document creates expose exact verification identities", a
   assert.match(registry, /id: "budgeting"[\s\S]*?contextScope:"entity"[\s\S]*?identity:"budget_id"/);
 });
 
-test("Finance permissions are not exposed as an ambiguous generic Operator create", async () => {
+test("Finance permissions keep the human UI create but are not exposed as an ambiguous generic Operator create", async () => {
   const registry = await readFile(new URL("../lib/platform/registry/erpRegistry.base.js", import.meta.url), "utf8");
-  assert.match(registry, /id: "finance_permissions"[\s\S]*?create:\{[\s\S]*?enabled:false/);
+  assert.match(registry, /id: "finance_permissions"[\s\S]*?create:\{[\s\S]*?enabled:true[\s\S]*?operatorEnabled:false/);
+  assert.match(createCoverage, /item\?\.create\?\.operatorEnabled === false/);
 });
 
 

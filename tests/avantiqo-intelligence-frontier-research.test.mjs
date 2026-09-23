@@ -6,6 +6,10 @@ const bridgeSource = fs.readFileSync(
   new URL("../lib/operator/runtime/OperatorIntelligenceToolBridgeRuntime.js", import.meta.url),
   "utf8",
 );
+const routingPolicySource = fs.readFileSync(
+  new URL("../lib/operator/runtime/OperatorResearchRoutingPolicy.js", import.meta.url),
+  "utf8",
+);
 const capabilitySource = fs.readFileSync(
   new URL("../lib/platform/capabilities/createOperatorWebResearchCapability.js", import.meta.url),
   "utf8",
@@ -20,10 +24,11 @@ const learningSource = fs.readFileSync(
 );
 
 test("General Intelligence promotes research when no known implementation exists", () => {
-  assert.match(bridgeSource, /FRONTIER_RESEARCH_PATTERN/);
-  assert.match(bridgeSource, /no existing implementation/);
-  assert.match(bridgeSource, /known approach failed/);
-  assert.match(bridgeSource, /frontier_research_is_not_blocked_by_missing_implementation:\s*true/);
+  assert.match(bridgeSource, /externalResearchRequested/);
+  assert.match(routingPolicySource, /FRONTIER_RESEARCH_PATTERN/);
+  assert.match(routingPolicySource, /no existing implementation/);
+  assert.match(routingPolicySource, /known approach failed/);
+  assert.match(routingPolicySource, /FRONTIER_RESEARCH_PATTERN\.test\(message\)/);
 });
 
 test("frontier research is mechanism-first rather than implementation-copy-first", () => {

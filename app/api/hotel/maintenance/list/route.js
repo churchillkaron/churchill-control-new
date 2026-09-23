@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export async function GET(request) {
     if (!access.success) {
       return errorResponse(access.error, access.status);
     }
+    assertHotelOperationalAccess({ access, area: "MAINTENANCE" });
 
     const { data: tasks, error: tasksError } = await supabaseAdmin
       .from("hotel_maintenance_tasks")

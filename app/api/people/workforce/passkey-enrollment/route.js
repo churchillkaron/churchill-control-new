@@ -5,6 +5,10 @@ import { NextResponse } from "next/server";
 
 import provisionPasskeyEnrollmentAccess from "@/lib/people/workforce/provisionPasskeyEnrollmentAccess";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
+import {
+  resolveOrganizationStaffPortalOrigin,
+  STAFF_PASSKEY_AUTH_ORIGIN,
+} from "@/lib/people/workforce/StaffPasskeyBrokerRuntime";
 
 const MANAGE_ROLES = new Set([
   "OWNER",
@@ -16,8 +20,6 @@ const MANAGE_ROLES = new Set([
   "MANAGER",
 ]);
 
-const WORKFORCE_CANONICAL_ORIGIN = "https://avantiqo.ai";
-const WORKFORCE_ENROLLMENT_REDIRECT = `${WORKFORCE_CANONICAL_ORIGIN}/workforce/profile`;
 
 function roleOf(value) {
   return String(value || "").trim().toUpperCase();
@@ -79,17 +81,22 @@ export async function POST(request) {
       );
     }
 
+    const staffPortalOrigin = await resolveOrganizationStaffPortalOrigin(
+      context.organizationId,
+    );
+    const enrollmentRedirect = `${staffPortalOrigin}/staff`;
     const result = await provisionPasskeyEnrollmentAccess({
       organizationId: context.organizationId,
       staffId,
-      redirectTo: WORKFORCE_ENROLLMENT_REDIRECT,
+      redirectTo: enrollmentRedirect,
     });
 
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
-      canonicalOrigin: WORKFORCE_CANONICAL_ORIGIN,
-      redirectTo: WORKFORCE_ENROLLMENT_REDIRECT,
+      canonicalOrigin: STAFF_PASSKEY_AUTH_ORIGIN,
+      staffPortalOrigin,
+      redirectTo: enrollmentRedirect,
       ...result,
     });
   } catch (error) {

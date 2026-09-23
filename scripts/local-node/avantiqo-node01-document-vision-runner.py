@@ -4,13 +4,13 @@ MODEL="qwen2.5vl:3b"; OLLAMA="http://127.0.0.1:11434/api/chat"
 def txt(v): return str(v or '').strip()
 def urls(payload):
     out=[]
-    for key in ('assets','asset_urls','images'):
+    for key in ('source_assets','assets','asset_urls','images'):
         v=payload.get(key)
         if isinstance(v,list):
             for x in v:
                 if isinstance(x,str): out.append(x)
                 elif isinstance(x,dict): out.append(txt(x.get('url') or x.get('signed_url') or x.get('asset_url') or x.get('source_url')))
-    for key in ('image_url','asset_url','source_url','url'):
+    for key in ('image','image_url','asset_url','source_url','url'):
         if txt(payload.get(key)): out.append(txt(payload.get(key)))
     return [x for x in out if x]
 def image_b64(value):
@@ -30,7 +30,8 @@ def main():
     if not prompt:
         prompt={'document.ocr':'Extract all visible document text faithfully. Return strict JSON with text, fields and confidence. Preserve numbers and dates exactly.',
                 'document.classify':'Classify this document from visible evidence. Return strict JSON with document_type, confidence, candidate_domains and key_fields. Do not guess.',
-                'ai.image.analyze':'Analyze the supplied image from visible evidence only. Return strict JSON with observations, extracted_text, fields and confidence.'}.get(cap,'Analyze the image and return strict JSON.')
+                'ai.image.analyze':'Analyze the supplied image from visible evidence only. Return strict JSON with observations, extracted_text, fields and confidence.',
+                'creative.materials.estimate':'Estimate visible material classes and surface properties from evidence only. Return strict JSON with materials, regions, roughness, reflectivity, translucency, wetness, confidence and uncertainty. Do not invent hidden material properties.'}.get(cap,'Analyze the image and return strict JSON.')
     images=[image_b64(x) for x in src[:4]]
     body={'model':MODEL,'stream':False,'format':'json','keep_alive':'5m','messages':[{'role':'system','content':'You are Avantiqo local document vision. Use visible evidence only. Never invent unreadable values. Return JSON only.'},{'role':'user','content':prompt,'images':images}], 'options':{'temperature':0,'num_predict':2048,'num_ctx':8192}}
     req=urllib.request.Request(OLLAMA,data=json.dumps(body).encode(),headers={'Content-Type':'application/json'},method='POST')

@@ -27,7 +27,8 @@ test("legacy durable TTL repair is bounded and scope safe", () => {
 
 test("operator turn exposes durable repair separately from learning", () => {
   assert.match(turnRoute, /projectStateMemoryRepaired = Number\(learned\?\.repaired \|\| 0\)/);
-  assert.match(turnRoute, /longTermLearned > 0 \|\| projectStateMemoryRepaired > 0/);
+  assert.match(turnRoute, /projectStateMemoryRepaired = Number\(learned\?\.repaired \|\| 0\)/);
+  assert.match(turnRoute, /if \(longTermLearned > 0\)/);
   assert.match(turnRoute, /project_state_memory_repaired: projectStateMemoryRepaired/);
 });
 

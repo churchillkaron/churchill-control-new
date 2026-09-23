@@ -4,6 +4,7 @@ import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHote
 import { MarketingAttributionCaptureRuntime } from "@/lib/marketing/intelligence/MarketingAttributionCaptureRuntime";
 import { MarketingBusinessOutcomeProjectionRuntime } from "@/lib/marketing/intelligence/MarketingBusinessOutcomeProjectionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { provisionCustomerPortalAccess } from "@/lib/customer-portal/CustomerPortalRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -99,13 +100,46 @@ export async function POST(request) {
       }));
     }
 
+    let portalProvisioning = null;
+    const resolvedGuestId = booking.guest_id || guestId;
+    if (resolvedGuestId) {
+      const guestResult = await supabaseAdmin.from("hotel_guests")
+        .select("id,party_id")
+        .eq("organization_id", access.organizationId)
+        .eq("id", resolvedGuestId)
+        .maybeSingle();
+      if (guestResult.error) {
+        portalProvisioning = {
+          provisioned: false,
+          access: null,
+          error: guestResult.error.message || "Hotel guest Party could not be resolved for portal access",
+        };
+      } else if (guestResult.data?.party_id) {
+        portalProvisioning = await provisionCustomerPortalAccess({
+          organizationId: access.organizationId,
+          partyId: guestResult.data.party_id,
+          sourceType: "HOTEL_BOOKING",
+          sourceId: booking.id,
+          deliverIfConversationAvailable: true,
+        });
+      }
+    }
+
     await broadcastHotelReadinessChanged({
       organizationId: access.organizationId,
       source: "reservation-lifecycle",
       action: "CREATE",
     });
 
-    return NextResponse.json({ success: true, booking, marketing_outcome: marketingOutcome });
+    return NextResponse.json({
+      success: true,
+      booking,
+      marketing_outcome: marketingOutcome,
+      portal_access: portalProvisioning?.access ? { access_link_id: portalProvisioning.access.access_link_id || null, expires_at: portalProvisioning.access.expires_at || null } : null,
+      portal_provisioning: portalProvisioning
+        ? { provisioned: portalProvisioning.provisioned, delivery: portalProvisioning.delivery || null, error: portalProvisioning.error }
+        : null,
+    });
   } catch (error) {
     console.error("HOTEL_BOOKING_CREATE_ERROR", error);
     if (isInventoryConflict(error)) return errorResponse(inventoryMessage(error), 409);

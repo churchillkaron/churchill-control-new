@@ -83,11 +83,11 @@ test("owned repair Intelligence receives the deterministic routing guard", () =>
 
 test("repair supervisor transient timeout remains recoverable without code mutation authority", () => {
   assert.match(repair, /PENDING_SETTLEMENT_TIMEOUT/);
-  assert.match(repair, /recovery_classification: supervisorTransient \? "TRANSIENT_RUNTIME"/);
+  assert.match(repair, /const fallbackClassification = supervisorTransient[\s\S]*\? "TRANSIENT_RUNTIME"[\s\S]*: recoveryClassification\.classification/);
   assert.match(repair, /REPAIR_SUPERVISOR_TRANSIENT_TIMEOUT/);
   assert.match(repair, /retry_policy: "safe_reinspect_then_retry"/);
   assert.match(repair, /needs_human: false/);
-  assert.match(repair, /code_engineering_candidate: false/);
+  assert.match(repair, /code_engineering_candidate: supervisorTransient[\s\S]*\? false[\s\S]*: recoveryClassification\.code_engineering_candidate === true/);
 });
 
 test("a clearly new semantic goal supersedes stale recovery but never a live pending action", () => {

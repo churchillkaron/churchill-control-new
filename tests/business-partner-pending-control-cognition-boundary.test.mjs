@@ -12,7 +12,7 @@ test("pending human control bypasses a new synthetic cognitive brief", () => {
 
 test("pending human control does not require a new Operator cognitive plan", () => {
   assert.match(operator, /pendingControlDecision/);
-  assert.match(operator, /const required = pendingControlDecision[\s\S]*\? false[\s\S]*: semanticDeepRequired \|\| needsOwnedCognitiveBrief/);
+  assert.match(operator, /const required = pendingControlDecision[\s\S]*\? false[\s\S]*: semanticDeepRequired \|\| deterministicDeepRequired/);
 });
 
 test("pending control still enters the existing governed Operator runtime", () => {

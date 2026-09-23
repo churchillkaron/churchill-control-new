@@ -36,6 +36,10 @@ DEEP_MAX_INPUT_CHARACTERS = 500000
 MAX_OUTPUT_TOKENS = 16384
 FAST_SCALEDOWN_WINDOW_SECONDS = 5
 DEEP_SCALEDOWN_WINDOW_SECONDS = max(5, int(os.environ.get("AVANTIQO_INTELLIGENCE_DEEP_SCALEDOWN_SECONDS", "5") or "5"))
+FAST_STARTUP_TIMEOUT_SECONDS = 60
+DEEP_STARTUP_TIMEOUT_SECONDS = 120
+FAST_HARD_TIMEOUT_SECONDS = 60
+DEEP_HARD_TIMEOUT_SECONDS = 10 * 60
 FAST_RUNTIME_CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_WARM_FUNCTION_V1"
 PRIVATE_KEYS = {
     "reasoning", "reasoning_content", "chain_of_thought", "chainofthought",
@@ -603,7 +607,10 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
 @app.function(
     image=fast_image,
     gpu=GPU,
-    timeout=30 * 60,
+    cpu=4,
+    memory=65536,
+    timeout=FAST_HARD_TIMEOUT_SECONDS,
+    startup_timeout=FAST_STARTUP_TIMEOUT_SECONDS,
     min_containers=0,
     max_containers=1,
     buffer_containers=0,
@@ -622,7 +629,10 @@ def fast(data: dict[str, Any]) -> dict[str, Any]:
 @app.function(
     image=deep_image,
     gpu=GPU,
-    timeout=30 * 60,
+    cpu=4,
+    memory=65536,
+    timeout=DEEP_HARD_TIMEOUT_SECONDS,
+    startup_timeout=DEEP_STARTUP_TIMEOUT_SECONDS,
     min_containers=0,
     max_containers=1,
     buffer_containers=0,

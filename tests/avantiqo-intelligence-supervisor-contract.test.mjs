@@ -22,6 +22,10 @@ const productAssessmentCompactor = fs.readFileSync(
   new URL("../lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentPromptCompactor.js", import.meta.url),
   "utf8",
 );
+const replayGuard = fs.readFileSync(
+  new URL("../lib/intelligence/runtime/AvantiqoToolCallReplayGuardRuntime.mjs", import.meta.url),
+  "utf8",
+);
 const reasoningLoop = fs.readFileSync(
   new URL("../lib/intelligence/runtime/AvantiqoIntelligenceReasoningRuntime.js", import.meta.url),
   "utf8",
@@ -144,7 +148,8 @@ test("reasoning loop is locked to owned Avantiqo Intelligence with explicit fast
   assert.match(reasoningLoop, /EXECUTION_LANES = new Set\(\["fast", "deep"\]\)/);
   assert.match(reasoningLoop, /allowed_providers:\s*\[OWNED_PROVIDER\]/);
   assert.match(reasoningLoop, /execution_lane: executionLane/);
-  assert.match(reasoningLoop, /AVANTIQO_INTELLIGENCE_TOOL_CALL_REPLAY_DETECTED/);
+  assert.match(reasoningLoop, /assertNoDuplicateToolCallIdsWithinTurn/);
+  assert.match(replayGuard, /AVANTIQO_INTELLIGENCE_TOOL_CALL_REPLAY_DETECTED/);
   assert.match(reasoningLoop, /AVANTIQO_INTELLIGENCE_TOOL_CALL_LIMIT_EXCEEDED/);
 });
 

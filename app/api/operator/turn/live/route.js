@@ -10,6 +10,9 @@ import {
 import {
   classifyPendingOperatorReply,
 } from "@/lib/operator/runtime/OperatorHumanDecisionClassifier.js";
+import {
+  operatorExecutionStatePresentation,
+} from "@/lib/operator/presentation/OperatorExecutionStatePresentation.js";
 
 export const runtime = "nodejs";
 // Owned Intelligence is zero-idle. A cold Fast request may first prove that
@@ -38,27 +41,52 @@ function completionEvent(result, response) {
   const capability = object(execution.capability);
   const details = object(result?.details);
   const key = text(capability.key || result?.decision?.execution?.capability_key);
+  const capabilityMode = text(capability.mode || result?.decision?.execution?.mode).toLowerCase();
+  const readOnlyCapability = !key || capabilityMode === "read";
+  const mutationPossible = Boolean(key && capabilityMode && capabilityMode !== "read");
   const succeeded = response.ok && result?.success !== false;
   const proofIntegrityFailure = text(details.code) === "BUSINESS_DIAGNOSIS_PROOF_INTEGRITY_FAILURE";
   const diagnosisNotReady = text(details.code) === "BUSINESS_DIAGNOSIS_NOT_READY";
+  const presentation = succeeded ? operatorExecutionStatePresentation(result) : null;
+  const pending = presentation?.tone === "pending";
+  const blocked = presentation?.tone === "blocked";
+  const verified = presentation?.tone === "verified";
+  const checked = presentation?.tone === "checked";
+  const successPhase = pending
+    ? text(presentation?.label).toUpperCase().replace(/[^A-Z0-9]+/g, "_") || "TURN_WAITING"
+    : blocked
+      ? "TURN_BLOCKED"
+      : verified
+        ? "BUSINESS_EFFECT_VERIFIED"
+        : checked
+          ? "TURN_CHECKED"
+          : "TURN_COMPLETE";
+  const successStatus = pending
+    ? "waiting"
+    : blocked
+      ? "blocked"
+      : "completed";
+  const successDescription =
+    text(presentation?.detail) ||
+    (key
+      ? `Finished the governed ${key} turn without overstating an unverified business effect.`
+      : "Finished reasoning and preparing the response.");
   return {
     lane: key === "platform.code_ai_autonomous.execute" || key === "platform.product_engineering_cycle.execute"
       ? "code"
       : "intelligence",
-    phase: succeeded ? "TURN_COMPLETE" : proofIntegrityFailure ? "DIAGNOSIS_PROOF_INTEGRITY_FAILED" : diagnosisNotReady ? "DIAGNOSIS_NOT_READY" : "TURN_FAILED",
-    status: succeeded ? "completed" : "failed",
+    phase: succeeded ? successPhase : proofIntegrityFailure ? "DIAGNOSIS_PROOF_INTEGRITY_FAILED" : diagnosisNotReady ? "DIAGNOSIS_NOT_READY" : "TURN_FAILED",
+    status: succeeded ? successStatus : "failed",
     description: succeeded
-      ? key
-        ? `Finished the governed ${key} turn.`
-        : "Finished reasoning and preparing the response."
+      ? successDescription
       : proofIntegrityFailure
         ? "Stopped the diagnosis because its proof could not be verified."
         : diagnosisNotReady
           ? "Stopped before diagnosis because required proof authenticity is not ready."
           : "The Business Partner turn stopped before successful completion.",
     capability_key: key || null,
-    read_only: !key,
-    mutation_possible: Boolean(key && capability.mode && capability.mode !== "read"),
+    read_only: readOnlyCapability,
+    mutation_possible: mutationPossible,
     mutation_running: false,
     paid_execution_running: false,
     verification_running: false,
@@ -75,6 +103,7 @@ function completionEvent(result, response) {
 
 export async function POST(request) {
   let context = null;
+  let liveExecutionId = null;
   try {
     const body = await request.clone().json();
     const organizationId = text(body.organizationId || body.organization_id);
@@ -118,10 +147,18 @@ export async function POST(request) {
           actor: { id: access.user?.id || access.userId || null },
         };
         const codeInspection = codeInspectionRequest(body.message);
+        const liveExecution = await beginAvantiqoLiveExecution({
+          context,
+          lane: codeInspection ? "code" : "intelligence",
+          description: codeInspection
+            ? "I’m checking the requested UI and code surface now."
+            : "I’m understanding your request and checking the current business context.",
+        }).catch(() => null);
+        liveExecutionId = text(liveExecution?.live_execution?.execution_id) || null;
         if (codeInspection) {
-          await beginAvantiqoLiveExecution({ context, lane: "code", description: "I’m checking the requested UI and code surface now." }).catch(() => null);
           await publishAvantiqoLiveExecution({
             context,
+            executionId: liveExecutionId,
             event: {
               lane: "code", phase: "CODE_INSPECTION_ROUTING", status: "running",
               description: "I’m checking the relevant pages, components and verification path before making any change.",
@@ -136,11 +173,14 @@ export async function POST(request) {
   }
 
   try {
-    const response = await runOperatorTurnPost(request);
+    const response = await runOperatorTurnPost(request, {
+      liveExecutionId,
+    });
     if (context) {
       const result = await response.clone().json().catch(() => ({}));
       await publishAvantiqoLiveExecution({
         context,
+        executionId: liveExecutionId,
         event: completionEvent(result, response),
       }).catch(() => null);
     }
@@ -149,6 +189,7 @@ export async function POST(request) {
     if (context) {
       await publishAvantiqoLiveExecution({
         context,
+        executionId: liveExecutionId,
         event: {
           lane: "intelligence",
           phase: text(error?.message).includes("STOP_REQUESTED")

@@ -1,4 +1,4 @@
-name: Avantiqo Intelligence Modal Direct Readiness V2
+name: DISABLED - Avantiqo Intelligence Modal Readiness V1
 
 on:
   workflow_dispatch:
@@ -7,32 +7,11 @@ permissions:
   contents: read
 
 jobs:
-  readiness:
+  disabled:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
     steps:
-      - name: Check direct Modal credential presence without exposing values
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        shell: bash
+      - name: External Intelligence compute is disabled
         run: |
-          set -euo pipefail
-          check() {
-            if [ -n "${!1:-}" ]; then
-              echo "$1=PRESENT"
-            else
-              echo "$1=MISSING"
-              return 1
-            fi
-          }
-          check MODAL_TOKEN_ID
-          check MODAL_TOKEN_SECRET
-          check SUPABASE_SERVICE_ROLE_KEY
-          echo 'MODAL_TRANSPORT=modal-js-sdk-function-call-v1'
-          echo 'MODAL_APP=avantiqo-intelligence-owned'
-          echo 'MODAL_GATEWAY_REQUIRED=false'
-          echo 'GPU_INFERENCE_PERFORMED=false'
-          echo 'RUNPOD_MUTATION_PERFORMED=false'
-          echo 'PRODUCTION_DEPLOY_PERFORMED=false'
+          echo "Avantiqo Intelligence is LOCAL_ONLY."
+          echo "This legacy external-compute workflow cannot deploy, certify, diagnose, prewarm, or submit provider work."
+          echo "Use the owned local Intelligence runtime and Node01 readiness contracts instead."

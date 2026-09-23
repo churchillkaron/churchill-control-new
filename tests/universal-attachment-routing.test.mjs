@@ -93,6 +93,45 @@ test('ambiguous non-specialized domains require clarification', () => {
   assert.match(routed.clarification_question, /Projects or Operations/);
 });
 
+test('housekeeping evidence routes to the canonical Housekeeping operations surface', () => {
+  const routed = routeAnalyzedAttachment(analyzed({
+    object_type:'housekeeping evidence',
+    document_type:'room cleaning photo',
+    candidate_domains:['Operations'],
+    confidence:0.96,
+  }), { registry });
+  assert.equal(routed.status, 'DESTINATION_RESOLVED');
+  assert.equal(routed.destination.item_id, 'housekeeping');
+  assert.equal(routed.destination.route, '/operations/housekeeping');
+  assert.equal(routed.authorization_effect, 'NONE');
+});
+
+test('maintenance evidence routes to the canonical Maintenance operations surface', () => {
+  const routed = routeAnalyzedAttachment(analyzed({
+    object_type:'maintenance report',
+    document_type:'service report',
+    candidate_domains:['Operations'],
+    confidence:0.97,
+  }), { registry });
+  assert.equal(routed.status, 'DESTINATION_RESOLVED');
+  assert.equal(routed.destination.item_id, 'maintenance');
+  assert.equal(routed.destination.route, '/operations/maintenance');
+  assert.equal(routed.authorization_effect, 'NONE');
+});
+
+test('front desk evidence routes to the canonical Front Desk operations surface', () => {
+  const routed = routeAnalyzedAttachment(analyzed({
+    object_type:'guest registration',
+    document_type:'arrival form',
+    candidate_domains:['Operations'],
+    confidence:0.95,
+  }), { registry });
+  assert.equal(routed.status, 'DESTINATION_RESOLVED');
+  assert.equal(routed.destination.item_id, 'front-desk');
+  assert.equal(routed.destination.route, '/operations/front-desk');
+  assert.equal(routed.authorization_effect, 'NONE');
+});
+
 test('vision-requested clarification is preserved', () => {
   const routed = routeAnalyzedAttachment(analyzed({
     object_type:'document', candidate_domains:['People'],

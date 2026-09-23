@@ -10,6 +10,10 @@ const bridge = fs.readFileSync(
   new URL("../lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js", import.meta.url),
   "utf8",
 );
+const bridgeCore = fs.readFileSync(
+  new URL("../lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeCoreRuntime.js", import.meta.url),
+  "utf8",
+);
 const route = fs.readFileSync(
   new URL("../app/api/internal/intelligence/continuous-learning/process/route.js", import.meta.url),
   "utf8",
@@ -46,19 +50,21 @@ test("research reconciliation never retires previously released knowledge", () =
 });
 
 test("evidence candidates enter adversarial mechanism review instead of becoming facts", () => {
-  assert.match(bridge, /AVANTIQO_LEARNING_EVIDENCE_CANDIDATE_BRIDGE_V1/);
-  assert.match(bridge, /EVIDENCE_CANDIDATE_NOT_RELEASED/);
-  assert.match(bridge, /research_mode:\s*"mechanism"/);
-  assert.match(bridge, /contradiction_search_required:\s*true/);
-  assert.match(bridge, /boundary_condition_search_required:\s*true/);
-  assert.match(bridge, /falsifiable_competing_hypotheses_required:\s*true/);
-  assert.match(bridge, /discriminating_experiments_required:\s*true/);
-  assert.match(bridge, /direct_platform_knowledge_promotion_allowed:\s*false/);
-  assert.match(bridge, /synthesis_safe_lease_contract:\s*"AVANTIQO_RUNPOD_SAFE_LEASE_V2"/);
-  assert.match(bridge, /synthesis_execution_lane:\s*"intelligence-deep"/);
-  assert.match(bridge, /synthesis_spend_approval_required:\s*true/);
-  assert.match(bridge, /provider_free:\s*true/);
-  assert.match(bridge, /runpod_job_submitted:\s*false/);
+  assert.match(bridgeCore, /AVANTIQO_LEARNING_EVIDENCE_CANDIDATE_BRIDGE_V1/);
+  assert.match(bridgeCore, /EVIDENCE_CANDIDATE_NOT_RELEASED/);
+  assert.match(bridgeCore, /research_mode:\s*"mechanism"/);
+  assert.match(bridgeCore, /contradiction_search_required:\s*true/);
+  assert.match(bridgeCore, /boundary_condition_search_required:\s*true/);
+  assert.match(bridgeCore, /falsifiable_competing_hypotheses_required:\s*true/);
+  assert.match(bridgeCore, /discriminating_experiments_required:\s*true/);
+  assert.match(bridgeCore, /direct_platform_knowledge_promotion_allowed:\s*false/);
+  assert.match(bridgeCore, /synthesis_local_first_required:\s*true/);
+  assert.match(bridgeCore, /synthesis_modal_overflow_allowed_with_approval:\s*true/);
+  assert.match(bridgeCore, /synthesis_modal_overflow_contract:\s*"AVANTIQO_INTELLIGENCE_MODAL_OVERFLOW_POLICY_V1"/);
+  assert.match(bridgeCore, /synthesis_execution_lane:\s*"deep"/);
+  assert.match(bridgeCore, /synthesis_spend_approval_required:\s*true/);
+  assert.match(bridgeCore, /provider_free:\s*true/);
+  assert.match(bridgeCore, /modal_overflow_job_submitted:\s*false/);
 });
 
 test("closed-loop learning bridges evidence before mechanism program reconciliation", () => {
@@ -69,7 +75,7 @@ test("closed-loop learning bridges evidence before mechanism program reconciliat
   assert.ok(bridgeIndex >= 0);
   assert.ok(mechanismIndex > bridgeIndex);
   assert.ok(researchIndex > mechanismIndex);
-  assert.match(route, /Evidence candidates never become facts here/);
+  assert.match(bridge, /buildCoreMechanismAgendaRow/);
 });
 
 test("provider-free continuous learning launcher cannot use retired GPU slot controls", () => {

@@ -1,4 +1,4 @@
-name: LEGACY - Avantiqo Intelligence Modal Snapshot Repair V12
+name: DISABLED - Avantiqo Intelligence Modal Local Snapshot Repair V12
 
 on:
   workflow_dispatch:
@@ -7,18 +7,11 @@ permissions:
   contents: read
 
 jobs:
-  retired:
+  disabled:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
     steps:
-      - name: Legacy workflow retired
-        shell: bash
+      - name: External Intelligence compute is disabled
         run: |
-          set -euo pipefail
-          echo 'AVANTIQO_INTELLIGENCE_MODAL_V12_RETIRED=TRUE'
-          echo 'Reason: Intelligence now uses the Audio-proven direct Modal JS SDK transport.'
-          echo 'Use: .github/workflows/avantiqo-intelligence-modal-direct-certification.yml'
-          echo 'GPU_INFERENCE_PERFORMED=false'
-          echo 'RUNPOD_MUTATION_PERFORMED=false'
-          echo 'PRODUCTION_DEPLOY_PERFORMED=false'
-          exit 1
+          echo "Avantiqo Intelligence is LOCAL_ONLY."
+          echo "This legacy external-compute workflow cannot deploy, certify, diagnose, prewarm, or submit provider work."
+          echo "Use the owned local Intelligence runtime and Node01 readiness contracts instead."

@@ -4,6 +4,7 @@ import { evaluateHotelArrivalReadiness } from "@/lib/hotel/server/getHotelArriva
 import { evaluateHotelDepartureReadiness } from "@/lib/hotel/server/getHotelDepartureReadiness";
 import { deriveHotelOperationalDate } from "@/lib/hotel/server/getHotelOperationalDate";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ export async function GET(request) {
     if (!access.success) {
       return NextResponse.json({ success: false, error: access.error }, { status: access.status });
     }
+    assertHotelOperationalAccess({ access, area: "FRONT_DESK" });
 
     const { data, error } = await supabaseAdmin
       .from("hotel_bookings")

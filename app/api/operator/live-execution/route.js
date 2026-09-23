@@ -124,11 +124,19 @@ export async function GET(request) {
         ? codeProgress
         : sharedProgress;
 
+    const liveExecution = latest
+      ? {
+          ...latest,
+          stop_execution_id:
+            sharedProgress?.execution_id || latest?.execution_id || null,
+        }
+      : null;
+
     return Response.json({
       success: true,
       contract: AVANTIQO_LIVE_EXECUTION_CONTRACT,
-      found: Boolean(latest),
-      live_execution: latest || null,
+      found: Boolean(liveExecution),
+      live_execution: liveExecution,
       contains_raw_reasoning: false,
       contains_source_content: false,
       contains_secrets: false,
@@ -151,10 +159,19 @@ export async function DELETE(request) {
       body = {};
     }
     const organizationId = text(body.organizationId || body.organization_id);
+    const executionId = text(body.executionId || body.execution_id);
+    if (!executionId) {
+      return Response.json({
+        success: false,
+        contract: AVANTIQO_LIVE_EXECUTION_CONTRACT,
+        error: "execution_id required",
+      }, { status: 400 });
+    }
     const resolved = await authorizedContext(request, organizationId);
     if (resolved.error) return resolved.error;
     const result = await requestAvantiqoLiveExecutionStop({
       context: resolved.context,
+      executionId,
     });
     return Response.json({
       success: true,

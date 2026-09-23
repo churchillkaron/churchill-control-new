@@ -392,32 +392,6 @@ export default function OrganizationWorkspacePage() {
         }
 
         [data-avantiqo-home-page="light"]
-          [data-avantiqo-home-intelligence="true"]
-          [class*="text-white"],
-        [data-avantiqo-home-page="light"]
-          [data-avantiqo-live-execution-panel="true"]
-          [class*="text-white"] {
-          color: rgba(35, 33, 30, 0.68) !important;
-        }
-
-        [data-avantiqo-home-page="light"]
-          [data-avantiqo-home-intelligence="true"]
-          [class*="border-white"],
-        [data-avantiqo-home-page="light"]
-          [data-avantiqo-live-execution-panel="true"]
-          [class*="border-white"] {
-          border-color: rgba(24, 23, 21, 0.09) !important;
-        }
-
-        [data-avantiqo-home-page="light"]
-          [data-avantiqo-home-intelligence="true"]
-          [class*="bg-black"],
-        [data-avantiqo-home-page="light"]
-          [data-avantiqo-live-execution-panel="true"][class*="bg-black"] {
-          background-color: rgba(30, 28, 25, 0.035) !important;
-        }
-
-        [data-avantiqo-home-page="light"]
           [data-avantiqo-live-execution-panel="true"] {
           margin: 12px 12px 0 !important;
           border-color: rgba(154, 116, 75, 0.22) !important;

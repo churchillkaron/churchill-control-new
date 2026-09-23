@@ -150,7 +150,7 @@ function KindIcon({ kind }) {
 function SpreadsheetPreview({ rows = [] }) {
   if (!Array.isArray(rows) || !rows.length) {
     return (
-      <div className="border-b border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[11px] leading-5 text-white/60">
+      <div className="border-b border-black/[0.06] bg-[#FAF9F6] px-4 py-3 text-[11px] leading-5 text-[#6C6963]">
         Spreadsheet preview data is not embedded in this result yet. Open or download the file below.
       </div>
     );
@@ -161,22 +161,22 @@ function SpreadsheetPreview({ rows = [] }) {
     : [];
 
   return (
-    <div className="max-h-[360px] overflow-auto border-b border-white/[0.06] bg-black/15">
-      <table className="min-w-full border-collapse text-left text-[11px] text-white/65">
+    <div className="max-h-[360px] overflow-auto border-b border-black/[0.06] bg-white">
+      <table className="min-w-full border-collapse text-left text-[11px] text-[#5E5A54]">
         {objectRows && columns.length ? (
           <>
-            <thead className="sticky top-0 bg-[#151411] text-[#E5C28D]">
-              <tr>{columns.map((column) => <th key={column} className="border-b border-white/10 px-2 py-2 font-medium">{column}</th>)}</tr>
+            <thead className="sticky top-0 bg-[#F5F2EC] text-[#76583A]">
+              <tr>{columns.map((column) => <th key={column} className="border-b border-black/[0.08] px-2 py-2 font-medium">{column}</th>)}</tr>
             </thead>
             <tbody>{rows.map((row, index) => (
-              <tr key={index} className="border-b border-white/[0.05]">
+              <tr key={index} className="border-b border-black/[0.05]">
                 {columns.map((column) => <td key={column} className="max-w-[240px] truncate px-2 py-2">{text(row?.[column])}</td>)}
               </tr>
             ))}</tbody>
           </>
         ) : (
           <tbody>{rows.map((row, index) => (
-            <tr key={index} className="border-b border-white/[0.05]">
+            <tr key={index} className="border-b border-black/[0.05]">
               {(Array.isArray(row) ? row : [row]).slice(0, 12).map((cell, cellIndex) => <td key={cellIndex} className="max-w-[240px] truncate px-2 py-2">{text(cell)}</td>)}
             </tr>
           ))}</tbody>
@@ -188,17 +188,17 @@ function SpreadsheetPreview({ rows = [] }) {
 
 function ArtifactPreview({ artifact }) {
   if (artifact.kind === "image") {
-    return <Image src={artifact.url} alt={artifact.label} width={1400} height={900} unoptimized className="h-auto max-h-[520px] w-full bg-black/20 object-contain" />;
+    return <Image src={artifact.url} alt={artifact.label} width={1400} height={900} unoptimized className="h-auto max-h-[520px] w-full bg-[#F4F2EE] object-contain" />;
   }
   if (artifact.kind === "video") {
-    return <video src={artifact.url} controls preload="metadata" playsInline className="max-h-[560px] w-full bg-black" />;
+    return <video src={artifact.url} controls preload="metadata" playsInline className="max-h-[560px] w-full bg-[#111111]" />;
   }
   if (artifact.kind === "audio") {
     return <audio src={artifact.url} controls preload="metadata" className="w-full" />;
   }
   if (artifact.kind === "document") {
     if (artifact.preview_text) {
-      return <div className="max-h-[420px] overflow-auto whitespace-pre-wrap border-b border-white/[0.06] bg-white/[0.03] p-4 text-[11px] leading-5 text-white/70">{artifact.preview_text}</div>;
+      return <div className="max-h-[420px] overflow-auto whitespace-pre-wrap border-b border-black/[0.06] bg-[#FAF9F6] p-4 text-[11px] leading-5 text-[#5E5A54]">{artifact.preview_text}</div>;
     }
     return <iframe src={artifact.url} title={artifact.label} loading="lazy" className="h-[420px] w-full bg-white" />;
   }
@@ -288,35 +288,35 @@ function DiagnosisProof({ evidence = {} }) {
   const proofTrusted = auditVerified && (auditStatus === "VERIFIED" || auditStatus === "VERIFIED_LEGACY");
   const summaryLabel = proofTrusted ? stateLabel : persistedProofStatus;
   return (
-    <details data-avantiqo-business-diagnosis-proof="true" className="mt-3 overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] text-white/70">
-        <span className="flex items-center gap-2 font-medium text-[#E5C28D]"><BadgeCheck size={13} />{proofHeading}</span>
-        <span className="text-[9px] text-white/35">{summaryLabel}</span>
+    <details data-avantiqo-business-diagnosis-proof="true" className="mt-3 overflow-hidden rounded-xl border border-[#D6A66A]/30 bg-[#FBF7F1]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[11px] text-[#4E4A44]">
+        <span className="flex items-center gap-2 font-medium text-[#8D6338]"><BadgeCheck size={13} />{proofHeading}</span>
+        <span className="text-[11px] text-[#8A867F]">{summaryLabel}</span>
       </summary>
       {!proofTrusted ? (
-        <div className="grid gap-2 border-t border-white/[0.06] px-3 py-3 text-[9px] text-white/50 sm:grid-cols-2">
-          <div><span className="text-white/30">Proof status</span><div className="mt-0.5 text-white/65">{persistedProofStatus}</div></div>
-          <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
-          <div className="sm:col-span-2 text-[8px] text-white/35">This proof is not verified. Diagnosis details are hidden and should not be relied on until verification succeeds.</div>
-          <div className="sm:col-span-2 text-[8px] text-white/30">Analysis only · no action was executed · raw reasoning is not stored.</div>
+        <div className="grid gap-2 border-t border-black/[0.06] px-3 py-3 text-[11px] text-[#6C6963] sm:grid-cols-2">
+          <div><span className="text-[#9A968E]">Proof status</span><div className="mt-0.5 text-[#4E4A44]">{persistedProofStatus}</div></div>
+          <div className="sm:col-span-2"><span className="text-[#9A968E]">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[11px] text-[#77726B]">{fingerprint}</div></div>
+          <div className="sm:col-span-2 text-[11px] text-[#8A867F]">This proof is not verified. Diagnosis details are hidden and should not be relied on until verification succeeds.</div>
+          <div className="sm:col-span-2 text-[11px] text-[#9A968E]">Analysis only · no action was executed · raw reasoning is not stored.</div>
         </div>
       ) : (
-      <div className="grid gap-2 border-t border-white/[0.06] px-3 py-3 text-[9px] text-white/50 sm:grid-cols-2">
-        <div><span className="text-white/30">Evidence state</span><div className="mt-0.5 text-white/65">{stateLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{state}</div></div>
-        <div><span className="text-white/30">Request type</span><div className="mt-0.5 text-white/65">{classLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{diagnosisClass || "—"}</div></div>
-        <div><span className="text-white/30">Answer boundary</span><div className="mt-0.5 text-white/65">{boundaryLabel}</div><div className="mt-0.5 font-mono text-[8px] text-white/30">{boundary}</div></div>
-        <div><span className="text-white/30">Compared periods</span><div className="mt-0.5 text-white/65">{baselinePeriodLabel} → {currentPeriodLabel}</div></div>
-        <div><span className="text-white/30">Business timezone</span><div className="mt-0.5 text-white/65">{businessTimezone || "UTC"}</div></div>
-        <div><span className="text-white/30">Unexplained residual</span><div className="mt-0.5 text-white/65">{diagnosis.residual_material === true ? "Some of the change remains unexplained" : "No material unexplained change flagged"}</div></div>
-        <div><span className="text-white/30">External evidence</span><div className="mt-0.5 text-white/65">{validatedExternalCount ? `${validatedExternalCount} validated` : "No validated external evidence"}{unresolvedExternalCount ? ` · ${unresolvedExternalCount} unresolved` : ""}</div></div>
-        <div className="sm:col-span-2"><span className="text-white/30">Period IDs</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/40">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>
-        <div><span className="text-white/30">Persisted proof</span><div className="mt-0.5 text-white/65">{persistedProofStatus}</div></div>
-        <div><span className="text-white/30">Proof format</span><div className="mt-0.5 text-white/65">{receiptContract || "Legacy receipt"} · {auditProjectionContract || "Legacy projection"}</div></div>
-        <div><span className="text-white/30">Receipt integrity</span><div className="mt-0.5 text-white/65">{receiptIntegrityStatus === "VERIFIED" ? "Verified" : receiptIntegrityStatus === "VERIFIED_LEGACY" ? "Verified legacy receipt" : receiptIntegrityStatus || "Not verified"}</div></div>
-        <div><span className="text-white/30">Proof authenticity</span><div className="mt-0.5 text-white/65">{authenticityStatus === "AUTHENTICATED" ? "Authenticated" : authenticityStatus === "AUTHENTICITY_NOT_AVAILABLE" ? "Unsigned · server keyring unavailable" : authenticityStatus || "Unsigned"}</div></div>
-        <div><span className="text-white/30">Answer integrity</span><div className="mt-0.5 text-white/65">{answerIntegrityStatus === "VERIFIED" ? "Verified" : auditStatus === "VERIFIED_LEGACY" && answerIntegrityStatus === "VERIFIED" ? "Verified" : auditStatus === "VERIFIED_LEGACY" ? "Legacy proof · answer text was not signed" : "Not verified"}</div></div>
-        <div className="sm:col-span-2"><span className="text-white/30">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[8px] text-white/45">{fingerprint}</div></div>
-        <div className="sm:col-span-2 text-[8px] text-white/30">Analysis only · no action was executed · raw reasoning is not stored.</div>
+      <div className="grid gap-2 border-t border-black/[0.06] px-3 py-3 text-[11px] text-[#6C6963] sm:grid-cols-2">
+        <div><span className="text-[#9A968E]">Evidence state</span><div className="mt-0.5 text-[#4E4A44]">{stateLabel}</div><div className="mt-0.5 font-mono text-[11px] text-[#9A968E]">{state}</div></div>
+        <div><span className="text-[#9A968E]">Request type</span><div className="mt-0.5 text-[#4E4A44]">{classLabel}</div><div className="mt-0.5 font-mono text-[11px] text-[#9A968E]">{diagnosisClass || "—"}</div></div>
+        <div><span className="text-[#9A968E]">Answer boundary</span><div className="mt-0.5 text-[#4E4A44]">{boundaryLabel}</div><div className="mt-0.5 font-mono text-[11px] text-[#9A968E]">{boundary}</div></div>
+        <div><span className="text-[#9A968E]">Compared periods</span><div className="mt-0.5 text-[#4E4A44]">{baselinePeriodLabel} → {currentPeriodLabel}</div></div>
+        <div><span className="text-[#9A968E]">Business timezone</span><div className="mt-0.5 text-[#4E4A44]">{businessTimezone || "UTC"}</div></div>
+        <div><span className="text-[#9A968E]">Unexplained residual</span><div className="mt-0.5 text-[#4E4A44]">{diagnosis.residual_material === true ? "Some of the change remains unexplained" : "No material unexplained change flagged"}</div></div>
+        <div><span className="text-[#9A968E]">External evidence</span><div className="mt-0.5 text-[#4E4A44]">{validatedExternalCount ? `${validatedExternalCount} validated` : "No validated external evidence"}{unresolvedExternalCount ? ` · ${unresolvedExternalCount} unresolved` : ""}</div></div>
+        <div className="sm:col-span-2"><span className="text-[#9A968E]">Period IDs</span><div className="mt-0.5 break-all font-mono text-[11px] text-[#77726B]">{text(periods.baseline_period_id) || "—"} → {text(periods.current_period_id) || "—"}</div></div>
+        <div><span className="text-[#9A968E]">Persisted proof</span><div className="mt-0.5 text-[#4E4A44]">{persistedProofStatus}</div></div>
+        <div><span className="text-[#9A968E]">Proof format</span><div className="mt-0.5 text-[#4E4A44]">{receiptContract || "Legacy receipt"} · {auditProjectionContract || "Legacy projection"}</div></div>
+        <div><span className="text-[#9A968E]">Receipt integrity</span><div className="mt-0.5 text-[#4E4A44]">{receiptIntegrityStatus === "VERIFIED" ? "Verified" : receiptIntegrityStatus === "VERIFIED_LEGACY" ? "Verified legacy receipt" : receiptIntegrityStatus || "Not verified"}</div></div>
+        <div><span className="text-[#9A968E]">Proof authenticity</span><div className="mt-0.5 text-[#4E4A44]">{authenticityStatus === "AUTHENTICATED" ? "Authenticated" : authenticityStatus === "AUTHENTICITY_NOT_AVAILABLE" ? "Unsigned · server keyring unavailable" : authenticityStatus || "Unsigned"}</div></div>
+        <div><span className="text-[#9A968E]">Answer integrity</span><div className="mt-0.5 text-[#4E4A44]">{answerIntegrityStatus === "VERIFIED" ? "Verified" : auditStatus === "VERIFIED_LEGACY" && answerIntegrityStatus === "VERIFIED" ? "Verified" : auditStatus === "VERIFIED_LEGACY" ? "Legacy proof · answer text was not signed" : "Not verified"}</div></div>
+        <div className="sm:col-span-2"><span className="text-[#9A968E]">Proof receipt</span><div className="mt-0.5 break-all font-mono text-[11px] text-[#77726B]">{fingerprint}</div></div>
+        <div className="sm:col-span-2 text-[11px] text-[#9A968E]">Analysis only · no action was executed · raw reasoning is not stored.</div>
       </div>
       )}
     </details>
@@ -339,23 +339,23 @@ export default function OperatorExecutionArtifacts({ execution = {}, evidence = 
       {diagnosisProof}
       <div data-avantiqo-execution-artifacts="true" data-avantiqo-universal-preview="true" className="mt-3 space-y-2">
       {[...folders.entries()].map(([folder, folderItems]) => (
-        <details key={folder} open className="overflow-hidden rounded-xl border border-[#D6A66A]/20 bg-black/20">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[11px] font-medium text-[#E5C28D]">
+        <details key={folder} open className="overflow-hidden rounded-xl border border-[#D6A66A]/30 bg-[#FBF7F1]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[11px] font-medium text-[#8D6338]">
             <span className="flex items-center gap-2"><Folder size={13} />{folder}</span>
-            <span className="text-[11px] text-white/35">{folderItems.length}</span>
+            <span className="text-[11px] text-[#8A867F]">{folderItems.length}</span>
           </summary>
-          <div className="space-y-2 border-t border-white/[0.06] p-2">
+          <div className="space-y-2 border-t border-black/[0.06] p-2">
             {folderItems.map((artifact, index) => (
-              <div key={`${artifact.url}-${index}`} className="overflow-hidden rounded-lg border border-white/[0.07] bg-black/25">
+              <div key={`${artifact.url}-${index}`} className="overflow-hidden rounded-lg border border-black/[0.07] bg-white">
                 <ArtifactPreview artifact={artifact} />
                 <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-                  <span className="flex min-w-0 items-center gap-2 text-[11px] text-white/65">
+                  <span className="flex min-w-0 items-center gap-2 text-[11px] text-[#4E4A44]">
                     <KindIcon kind={artifact.kind} />
                     <span className="truncate">{artifact.label}</span>
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
-                    <a href={artifact.url} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Open ${artifact.label}`}><ArrowUpRight size={11} /></a>
-                    <a href={artifact.download_url || artifact.url} download onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} className="rounded-md border border-white/10 p-1.5 text-white/45 hover:text-[#D6A66A]" aria-label={`Download ${artifact.label}`}><Download size={11} /></a>
+                    <a href={artifact.url} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} className="rounded-md border border-black/[0.08] p-1.5 text-[#77726B] hover:border-[#D6A66A]/45 hover:text-[#8D6338]" aria-label={`Open ${artifact.label}`}><ArrowUpRight size={11} /></a>
+                    <a href={artifact.download_url || artifact.url} download onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} className="rounded-md border border-black/[0.08] p-1.5 text-[#77726B] hover:border-[#D6A66A]/45 hover:text-[#8D6338]" aria-label={`Download ${artifact.label}`}><Download size={11} /></a>
                   </span>
                 </div>
               </div>

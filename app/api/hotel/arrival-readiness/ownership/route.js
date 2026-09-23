@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getHotelArrivalReadinessOwnership } from "@/lib/hotel/server/getHotelArrivalReadinessOwnership";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export async function GET(request) {
 
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return fail(access.error, access.status);
+    assertHotelOperationalAccess({ access, area: "FRONT_DESK" });
 
     const ownership = await getHotelArrivalReadinessOwnership({
       organizationId: access.organizationId,

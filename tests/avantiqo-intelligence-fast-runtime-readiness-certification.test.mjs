@@ -1,75 +1,28 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import fs from "node:fs";
 import test from "node:test";
+const wrapper = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js", "utf8");
+const registration = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderRegistration.js", "utf8");
+const queue = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js", "utf8");
 
-const FAST_CHILD = new URL(
-  "../scripts/run-avantiqo-intelligence-code-mission-production-fast-assessment-local.mjs",
-  import.meta.url,
-);
-const MODELS_PROBE = new URL(
-  "../scripts/run-avantiqo-intelligence-safe-lease-models-probe-local.mjs",
-  import.meta.url,
-);
-const GPU_PRIORITY_REPAIR = new URL(
-  "../scripts/repair-avantiqo-intelligence-fast-gpu-priority-order-local.mjs",
-  import.meta.url,
-);
-
-test("Fast service certification proves runtime readiness inside the existing Safe Lease before assessment", async () => {
-  const source = await readFile(FAST_CHILD, "utf8");
-  const leaseValidation = source.indexOf('phase = "SAFE_LEASE_VALIDATION"');
-  const readinessPhase = source.indexOf('phase = "FAST_RUNTIME_READINESS_PROBE"');
-  const readinessCall = source.indexOf("runFastRuntimeProbe();");
-  const serviceAssessment = source.indexOf('phase = "PINNED_LOCAL_REPOSITORY_ASSESSMENT"');
-
-  assert.ok(leaseValidation >= 0, "Safe Lease validation phase must exist");
-  assert.ok(readinessPhase > leaseValidation, "runtime readiness must happen after Safe Lease validation");
-  assert.ok(readinessCall > readinessPhase, "Fast readiness probe must execute in its readiness phase");
-  assert.ok(serviceAssessment > readinessCall, "Service Runtime assessment must not start before readiness passes");
-  assert.match(source, /AVANTIQO_INTELLIGENCE_MODELS_PROBE_LANE:\s*"fast"/);
-  assert.match(source, /fast_runtime_readiness_probe_passed:\s*true/);
-  assert.match(source, /generation_free_runtime_probe:\s*true/);
+test("Fast readiness is still derived from owned local compute", () => {
+  assert.match(wrapper, /runtime_ready: enabled && localConfigured/);
+  assert.match(registration, /runtimeAvailable = Boolean\(\(engineEnabled \|\| localReviewRuntimeAllowed\) && localComputeConfigured\)/);
+  assert.match(registration, /local_compute_primary:\s*localComputeConfigured/);
 });
 
-test("shared Intelligence models probe uses a scheduler-backed zero-token Fast worker proof", async () => {
-  const source = await readFile(MODELS_PROBE, "utf8");
-
-  assert.match(source, /AVANTIQO_INTELLIGENCE_SAFE_LEASE_MODELS_PROBE_V2/);
-  assert.match(source, /fast:\s*Object\.freeze\(\{/);
-  assert.match(source, /leaseLane:\s*"intelligence-fast"/);
-  assert.match(source, /expectedModel:\s*"Qwen\/Qwen3-30B-A3B-Instruct-2507"/);
-  assert.match(source, /endpointEnv:\s*"RUNPOD_AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_ID"/);
-  assert.match(source, /openai_route:\s*"\/v1\/models"/);
-  assert.match(source, /`\$\{base\}\/run`/);
-  assert.match(source, /`\$\{base\}\/status\/\$\{encodeURIComponent\(jobId\)\}`/);
-  assert.match(source, /workerVisible\(health/);
-  assert.match(source, /scheduler_probe_job_submitted:\s*true/);
-  assert.match(source, /scheduler_probe_job_completed:\s*true/);
-  assert.match(source, /scheduler_probe_worker_observed:\s*workerObserved/);
-  assert.match(source, /scheduler_worker_execution_proven:\s*true/);
-  assert.match(source, /COMPLETED_EXACT_MODEL_RESPONSE/);
-  assert.match(source, /inference_performed:\s*false/);
-  assert.match(source, /generation_submitted:\s*false/);
-  assert.match(source, /completion_request_performed:\s*false/);
-  assert.match(source, /token_generation_performed:\s*false/);
-  assert.match(source, /direct_endpoint_scaling_performed:\s*false/);
-  assert.match(source, /workers_max_mutation_performed:\s*false/);
+test("shared Intelligence readiness probes local queue without paid inference", () => {
+  assert.match(queue, /getIntelligenceLocalQueueHealth/);
+  assert.match(queue, /avantiqo_local_compute_nodes/);
+  assert.match(queue, /last_seen_at/);
+  assert.match(queue, /heartbeatAgeSeconds <= 90/);
 });
 
-test("Fast GPU priority repair reuses the canonical capacity plan and changes order only", async () => {
-  const source = await readFile(GPU_PRIORITY_REPAIR, "utf8");
-
-  assert.match(source, /repair-avantiqo-intelligence-fast-volume-local-capacity-local\.mjs/);
-  assert.match(source, /AVANTIQO_INTELLIGENCE_FAST_VOLUME_LOCAL_CAPACITY_REPAIR_V1/);
-  assert.match(source, /sameOrder\(currentPool, targetPool\)/);
-  assert.match(source, /POOL_MEMBERSHIP_REPAIR_MUST_RUN_FIRST/);
-  assert.match(source, /body:\s*\{ gpuTypeIds: targetPool \}/);
-  assert.match(source, /TARGET_PRIORITY_ORDER_NOT_PERSISTED/);
-  assert.match(source, /body:\s*\{ gpuTypeIds: currentPool \}/);
-  assert.match(source, /inference_performed:\s*false/);
-  assert.match(source, /token_generation_performed:\s*false/);
-  assert.match(source, /provider_job_submitted:\s*false/);
-  assert.match(source, /database_mutation_performed:\s*false/);
-  assert.match(source, /wallet_mutation_performed:\s*false/);
-  assert.match(source, /production_deploy_performed:\s*false/);
+test("Modal is overflow capacity, not readiness repair", () => {
+  assert.match(wrapper, /governed_modal_overflow_supported: true/);
+  assert.match(wrapper, /governed_modal_overflow_available: overflowConfigured/);
+  assert.match(wrapper, /automatic_modal_fallback_allowed: false/);
+  assert.match(registration, /modal_overflow_owner_approval_required: true/);
+  assert.match(registration, /modal_overflow_local_insufficiency_proof_required: true/);
+  assert.doesNotMatch(wrapper, /RunPod|runpod|priority repair/);
 });

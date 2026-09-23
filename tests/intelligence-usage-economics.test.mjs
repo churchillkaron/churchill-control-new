@@ -7,7 +7,8 @@ test("organization intelligence economics reads canonical service usage ledger",
   assert.match(source, /organization_id/);
   assert.match(source, /supplier_cost/);
   assert.match(source, /customer_price/);
-  assert.match(source, /intelligence_context_budget/);
+  assert.match(source, /\.select\("module,supplier_cost,customer_price,metadata,created_at"\)/);
+  assert.match(source, /summarizeIntelligenceUsage\(result\.data\)/);
   assert.doesNotMatch(source, /organization_wallets/);
   assert.doesNotMatch(source, /wallet_transactions/);
 });

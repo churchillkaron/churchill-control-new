@@ -35,14 +35,16 @@ test('normal Business Partner cognition is CPU-first with explicit escalation on
   assert.match(front, /OPERATOR_FRONT_COGNITION_CPU_READ_ONLY_BOUNDARY_REQUIRED/);
 });
 
-test('front semantic grammar stays fixed-width while clarification is deterministic', () => {
-  const worker = fs.readFileSync('services/avantiqo-intelligence-modal/modal_front_app.py', 'utf8');
+test('front semantic meaning stays compact while clarification is deterministic', () => {
   const semantic = fs.readFileSync('lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js', 'utf8');
   const presemantic = fs.readFileSync('lib/operator/runtime/OperatorPreSemanticReadRuntime.js', 'utf8');
-  assert.match(worker, /Return exactly six fields and nothing else/);
-  assert.match(worker, /root ::= "i=" intent ";d=" domain ";e=" evidence ";a=" action ";g=" relation ";m=" mode/);
-  assert.match(worker, /mode ::= \"light\" \| \"strategic\" \| \"creative\" \| \"analytical\"/);
-  assert.doesNotMatch(worker, /location ::=|question_char ::=|base ";q="/);
+  assert.match(semantic, /const compactIntent = text\(source\.i, 40\)\.toLowerCase\(\)/);
+  assert.match(semantic, /const compactDomain = text\(source\.d, 40\)\.toLowerCase\(\)/);
+  assert.match(semantic, /const compactEvidence = text\(source\.e, 40\)\.toLowerCase\(\)/);
+  assert.match(semantic, /const compactAction = text\(source\.a, 40\)\.toLowerCase\(\)/);
+  assert.match(semantic, /const compactRelation = text\(source\.g, 40\)\.toLowerCase\(\)/);
+  assert.match(semantic, /const compactMode = text\(source\.m, 40\)\.toLowerCase\(\)/);
   assert.match(semantic, /Focused clarification is handled outside this classifier/);
   assert.match(presemantic, /CLARIFICATION_REQUIRED|clarification_required/);
+  assert.doesNotMatch(semantic, /services\/avantiqo-intelligence-modal|ModalClient|RUNPOD_API_KEY/);
 });

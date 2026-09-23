@@ -16,7 +16,7 @@ test("self-contained preflight skips historical recovery and is reused downstrea
   const synthetic = await readFile("lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js", "utf8");
   assert.match(route, /const skipHistoricalContext = Boolean\(preflightSemanticUnderstanding\)/);
   assert.match(route, /reason: "SELF_CONTAINED_PREFLIGHT"/);
-  assert.match(route, /const conversation = skipHistoricalContext\s*\? \[\]/);
+  assert.match(route, /const conversation = skipHistoricalContext[\s\S]*immediate_context_sufficient === true[\s\S]*\? immediateConversation[\s\S]*: \[\][\s\S]*: persistedConversation/);
   assert.match(route, /semanticUnderstanding: preflightSemanticUnderstanding/);
   assert.match(synthetic, /Object\.keys\(object\(effectiveOptions\.semanticUnderstanding\)\)\.length/);
   assert.match(synthetic, /&& !semanticUnderstanding\) \{/);

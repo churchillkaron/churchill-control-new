@@ -4,14 +4,15 @@ import test from "node:test";
 
 const reasoning = fs.readFileSync("lib/intelligence/runtime/AvantiqoIntelligenceReasoningRuntime.js", "utf8");
 const service = fs.readFileSync("lib/platform/service-runtime/execution/ServiceExecutionRuntime.js", "utf8");
-const provider = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js", "utf8");
+const provider = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js", "utf8");
+const localQueue = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js", "utf8");
 const executor = fs.readFileSync("lib/platform/service-runtime/providers/ProviderExecutorCore.js", "utf8");
 
 test("owned Intelligence settlement has real lane-specific wall-clock deadlines", () => {
-  assert.match(reasoning, /FAST_PENDING_SETTLEMENT_DEADLINE_MS\s*=\s*210_000/);
+  assert.match(reasoning, /FAST_PENDING_SETTLEMENT_DEADLINE_MS\s*=\s*35_000/);
   assert.match(reasoning, /DEEP_PENDING_SETTLEMENT_DEADLINE_MS\s*=\s*480_000/);
   assert.match(reasoning, /let deadlineAt = startedAt \+ deadlineMs/);
-  assert.match(reasoning, /FAST_PENDING_QUEUE_GRACE_MS\s*=\s*180_000/);
+  assert.match(reasoning, /FAST_PENDING_QUEUE_GRACE_MS\s*=\s*10_000/);
   assert.match(reasoning, /DEEP_PENDING_QUEUE_GRACE_MS\s*=\s*180_000/);
   assert.match(reasoning, /providerStatus === "queued"/);
   assert.match(reasoning, /deadlineAt \+= queueGraceMs/);
@@ -27,12 +28,14 @@ test("timed out reasoning cancels only its exact provider job", () => {
   assert.match(executor, /const cancelFunction = runtime\.cancel \|\| runtime\.cancelJob \|\| runtime\.cancelExecution/);
 });
 
-test("Modal Intelligence cancellation terminates only Fast call containers", () => {
-  assert.match(provider, /const terminateContainers = lane === "fast"/);
-  assert.match(provider, /call\.cancel\(\{ terminateContainers \}\)/);
-  assert.match(provider, /exact_job_only: true/);
-  assert.match(provider, /terminate_containers: terminateContainers/);
-  assert.match(provider, /execution_lane: lane/);
+test("Intelligence cancellation is exact-job bound for local and approved Modal overflow", () => {
+  assert.match(provider, /isIntelligenceLocalQueueJob\(jobId\)/);
+  assert.match(provider, /cancelIntelligenceLocalQueue\(\{ \.\.\.input, job_id: jobId \}\)/);
+  assert.match(provider, /isIntelligenceModalDirectJob\(jobId\)/);
+  assert.match(provider, /cancelIntelligenceModalDirect\(\{ \.\.\.input, job_id: jobId \}\)/);
+  assert.match(localQueue, /\.eq\("id", id\)/);
+  assert.match(localQueue, /exact_job_only: true/);
+  assert.doesNotMatch(provider, /RunPod|runpod/);
 });
 
 test("reasoning timeout propagates the exact execution lane into cancellation", () => {

@@ -5,10 +5,11 @@ import {
   getAvantiqoIntelligenceRuntimeConfiguration,
 } from "@/lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider";
 import {
-  prewarmIntelligenceModalFront,
-} from "@/lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime";
+  getIntelligenceLocalQueueHealth,
+} from "@/lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js";
 
-const CONTRACT = "AVANTIQO_INTELLIGENCE_OPERATOR_PREWARM_V2";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_OPERATOR_PREWARM_V3";
+const LOCAL_PREWARM_CONTRACT = "AVANTIQO_INTELLIGENCE_LOCAL_READINESS_V1";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -28,22 +29,29 @@ export async function POST(request) {
     }
 
     const runtime = getAvantiqoIntelligenceRuntimeConfiguration();
-    const warmed = await prewarmIntelligenceModalFront();
+    const startedAt = Date.now();
+    const health = await getIntelligenceLocalQueueHealth({
+      local_compute_required: true,
+      infrastructure_policy: "local_only",
+    });
+    const latencyMs = Math.max(0, Date.now() - startedAt);
+
     return Response.json({
       success: true,
       contract: CONTRACT,
-      status: "ready",
-      ready: warmed.ready === true,
-      already_warm: false,
-      warmup_latency_ms: Number(warmed.latency_ms || 0),
-      infrastructure_provider: warmed.infrastructure_provider || "MODAL_CPU_SNAPSHOT_V1",
-      model: warmed.model || runtime.front_model || null,
-      front_runtime_contract: warmed.runtime_contract || null,
-      modal_only: runtime.modal_only === true,
-      scale_to_zero: true,
-      min_containers: Number(warmed.min_containers || runtime?.execution_lanes?.front?.min_containers || 0),
-      scaledown_window_seconds: 30,
-      prewarm_required: false,
+      local_readiness_contract: LOCAL_PREWARM_CONTRACT,
+      status: health.ready === true ? "ready" : "local_unavailable",
+      ready: health.ready === true,
+      already_warm: health.ready === true,
+      warmup_latency_ms: latencyMs,
+      infrastructure_provider: health.infrastructure_provider || "AVANTIQO_LOCAL_NODE_V1",
+      transport: health.transport || null,
+      online_nodes: Number(health.online_nodes || 0),
+      model: runtime.front_model || null,
+      local_only_preflight: true,
+      external_compute_available: false,
+      external_compute_started: false,
+      inference_requests_performed: 0,
       customer_inference_performed: false,
       wallet_mutation_performed: false,
       source_mutation_performed: false,
@@ -53,9 +61,14 @@ export async function POST(request) {
     return Response.json({
       success: false,
       contract: CONTRACT,
+      local_readiness_contract: LOCAL_PREWARM_CONTRACT,
       status: "failed",
       ready: false,
-      error: text(error?.message || error).slice(0, 700) || "INTELLIGENCE_PREWARM_STATUS_FAILED",
+      error: text(error?.message || error).slice(0, 700) || "INTELLIGENCE_LOCAL_READINESS_FAILED",
+      local_only_preflight: true,
+      external_compute_available: false,
+      external_compute_started: false,
+      inference_requests_performed: 0,
       customer_inference_performed: false,
       wallet_mutation_performed: false,
       source_mutation_performed: false,

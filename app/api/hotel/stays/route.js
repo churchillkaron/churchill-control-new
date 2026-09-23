@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,8 @@ const fail = (error, status = 400) => NextResponse.json({ success: false, error 
 async function authorize(request, organizationId) {
   const access = await requireOrganizationAccess({ organizationId, request });
   if (!access.success) return { error: fail(access.error, access.status) };
-  return { organizationId: access.organizationId };
+  assertHotelOperationalAccess({ access, area: "FRONT_DESK" });
+  return { organizationId: access.organizationId, access };
 }
 
 async function getBooking(organizationId, bookingId) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getHotelRoomAssignmentOptions } from "@/lib/hotel/server/getHotelRoomAssignmentOptions";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export async function GET(request) {
 
     const access = await requireOrganizationAccess({ organizationId: booking.organization_id, request });
     if (!access.success) return fail(access.error, access.status);
+    assertHotelOperationalAccess({ access, area: "FRONT_DESK" });
 
     const result = await getHotelRoomAssignmentOptions({ organizationId: access.organizationId, bookingId });
     return NextResponse.json({ success: true, ...result });

@@ -18,7 +18,16 @@ test("Business Partner accepts text or voice corrections while an earlier turn i
 
 test("queued correction automatically becomes the next conversational turn", () => {
   assert.match(ui, /const nextQueuedTurn = pendingTurnQueueRef\.current\.shift\(\)/);
-  assert.match(ui, /sendMessage\(nextQueuedTurn\.message, nextQueuedTurn\.source \|\| "text"\)/);
+  assert.match(ui, /sendMessageRef\.current\?\.\(nextQueuedTurn\.message, nextQueuedTurn\.source \|\| "text"\)/);
   assert.match(ui, /data-avantiqo-home-input="true"[\s\S]{0,220}disabled=\{restoring\}/);
   assert.match(ui, /\{busy \? "Update" : "Send"\}/);
+});
+
+test("Business Partner progress rendering is total and the live turn request has one request path", () => {
+  assert.match(ui, /function busyRequestStatus\(liveExecution, elapsedSeconds, startedAt\)/);
+  assert.match(ui, /busyRequestStatus\(liveExecution, busyElapsedSeconds, activeRequestStartedAt\)/);
+  assert.doesNotMatch(ui, /conversationalProgressStatus/);
+  assert.doesNotMatch(ui, /if \(!latest\)/);
+  assert.match(ui, /const requestTurn = \(locationContext = null\) =>/);
+  assert.match(ui, /let response = await requestTurn\(deviceLocation\)/);
 });

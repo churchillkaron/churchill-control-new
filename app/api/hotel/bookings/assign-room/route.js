@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { getHotelRoomAssignmentOptions } from "@/lib/hotel/server/getHotelRoomAssignmentOptions";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ export async function POST(request) {
 
     const access = await requireOrganizationAccess({ organizationId: booking.organization_id, request });
     if (!access.success) return fail(access.error, access.status);
+    assertHotelOperationalAccess({ access, area: "FRONT_DESK" });
 
     const prepared = await getHotelRoomAssignmentOptions({ organizationId: access.organizationId, bookingId });
     const option = prepared.options.find((room) => room.id === roomId);

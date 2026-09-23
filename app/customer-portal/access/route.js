@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-
 import { CUSTOMER_PORTAL_COOKIE, exchangeCustomerPortalAccessToken } from "@/lib/customer-portal/CustomerPortalRuntime";
 
 export async function GET(request) {

@@ -1,22 +1,15 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+const modal = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js", "utf8");
+const worker = fs.readFileSync("services/avantiqo-intelligence-modal/modal_app.py", "utf8");
 
-const source = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-
-test('all owned Intelligence Modal lanes are scale-to-zero with no minimum worker', () => {
-  const gpu = source('services/avantiqo-intelligence-modal/modal_app.py');
-  const front = source('services/avantiqo-intelligence-modal/modal_front_app.py');
-  const provider = source('lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js');
-  const registration = source('lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderRegistration.js');
-  const direct = source('lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js');
-
-  assert.doesNotMatch(gpu, /min_containers\s*=\s*[1-9]/);
-  assert.doesNotMatch(front, /min_containers\s*=\s*[1-9]/);
-  assert.match(front, /min_containers=0/);
-  assert.match(provider, /front_scale_to_zero:\s*true/);
-  assert.match(provider, /front_min_containers:\s*0/);
-  assert.match(registration, /front_min_containers:\s*0/);
-  assert.match(direct, /front_scale_to_zero:\s*true/);
-  assert.match(direct, /front_min_containers:\s*0/);
+test("governed Modal overflow is scale-to-zero and never Front cognition", () => {
+  assert.match(modal, /claimIntelligenceModalOverflowExecution/);
+  assert.match(modal, /automatic_fallback_allowed: false/);
+  assert.match(modal, /const LANES = new Set\(\["fast", "deep"\]\)/);
+  assert.match(modal, /AVANTIQO_INTELLIGENCE_MODAL_FRONT_FORBIDDEN_LOCAL_ONLY/);
+  assert.equal((worker.match(/min_containers=0/g) || []).length >= 2, true);
+  assert.equal((worker.match(/max_containers=1/g) || []).length >= 2, true);
+  assert.doesNotMatch(modal, /RunPod|runpod/);
 });

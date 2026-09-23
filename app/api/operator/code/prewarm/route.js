@@ -2,30 +2,13 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import {
-  ensureCodeAIWorkerSession,
-  CODE_AI_WORKER_SESSION_CONTRACT,
-} from "@/lib/code/runtime/CodeAIWorkerSessionRuntime";
-import {
-  codeAIZeroIdleServerlessEnabled,
-} from "@/lib/code/runtime/CodeAIZeroIdlePolicyRuntime";
+  AvantiqoCodeLocalQueueProvider,
+} from "@/lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeLocalQueueProvider.js";
 
-const OPERATOR_PREWARM_CONTRACT = "AVANTIQO_CODE_OPERATOR_PREWARM_V2";
-const LEGACY_OPERATOR_PREWARM_CONTRACT = "AVANTIQO_CODE_OPERATOR_PREWARM_V1";
-const DEFAULT_IDLE_MS = 30 * 60 * 1000;
-const MAX_IDLE_MS = 30 * 60 * 1000;
+const OPERATOR_PREWARM_CONTRACT = "AVANTIQO_CODE_OPERATOR_LOCAL_READINESS_V4";
 
 function text(value) {
   return String(value ?? "").trim();
-}
-
-function boundedIdleMs(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_IDLE_MS;
-  return Math.max(60_000, Math.min(MAX_IDLE_MS, Math.trunc(parsed)));
-}
-
-function enabled(value) {
-  return ["1", "true", "yes", "on"].includes(text(value).toLowerCase());
 }
 
 export async function POST(request) {
@@ -47,74 +30,29 @@ export async function POST(request) {
       );
     }
 
-    if (codeAIZeroIdleServerlessEnabled()) {
-      return Response.json({
-        success: true,
-        contract: OPERATOR_PREWARM_CONTRACT,
-        previous_contract: LEGACY_OPERATOR_PREWARM_CONTRACT,
-        status: "zero_idle_ready",
-        ready: true,
-        warming: false,
-        reason: null,
-        execution_transport_mode: "SERVERLESS_ZERO_IDLE",
-        deterministic_repository_work_available: true,
-        gpu_worker_started: false,
-        serverless_worker_requested: false,
-        worker_session_created: false,
-        scale_to_zero_required: true,
-        reasoning_calls_used: 0,
-        customer_inference_performed: false,
-        wallet_mutation_performed: false,
-        source_mutation_performed: false,
-        github_write_performed: false,
-        production_deploy_performed: false,
-        raw_reasoning_persisted: false,
-      });
-    }
-
-    if (!enabled(process.env.AVANTIQO_CODE_WORKER_SESSION_ENABLED)) {
-      return Response.json({
-        success: true,
-        contract: OPERATOR_PREWARM_CONTRACT,
-        previous_contract: LEGACY_OPERATOR_PREWARM_CONTRACT,
-        status: "disabled",
-        ready: false,
-        warming: false,
-        reason: "CODE_AI_WORKER_SESSION_INFRASTRUCTURE_NOT_ENABLED",
-        reasoning_calls_used: 0,
-        customer_inference_performed: false,
-        wallet_mutation_performed: false,
-        source_mutation_performed: false,
-        production_deploy_performed: false,
-        raw_reasoning_persisted: false,
-      });
-    }
-
-    const worker = await ensureCodeAIWorkerSession({
-      idle_ms: boundedIdleMs(body.warm_session_idle_ms),
-    });
-
+    const localReady = await AvantiqoCodeLocalQueueProvider.available().catch(() => false);
     return Response.json({
       success: true,
       contract: OPERATOR_PREWARM_CONTRACT,
-      previous_contract: LEGACY_OPERATOR_PREWARM_CONTRACT,
-      worker_session_contract: worker?.contract || CODE_AI_WORKER_SESSION_CONTRACT,
-      status: worker?.ready === true ? "ready" : "warming",
-      ready: worker?.ready === true,
-      warming: worker?.warming === true,
-      reason: worker?.reason || null,
-      execution_transport_mode: "DURABLE_WARM_SESSION",
-      engine_loaded: worker?.engine_loaded === true,
-      cached_model_found: worker?.cached_model_found === true,
-      expires_at: worker?.expires_at || null,
-      idle_ms: worker?.idle_ms || null,
+      status: localReady ? "local_ready" : "local_unavailable",
+      ready: localReady,
+      warming: false,
+      reason: localReady
+        ? "AVANTIQO_LOCAL_CODE_NODE_READY"
+        : "AVANTIQO_LOCAL_CODE_NODE_UNAVAILABLE",
+      execution_transport_mode: "AVANTIQO_LOCAL_NODE_V1",
+      local_only: true,
+      local_node_ready: localReady,
+      external_compute_available: false,
+      external_compute_checked: false,
+      external_worker_started: false,
+      worker_session_created: false,
       reasoning_calls_used: 0,
       customer_inference_performed: false,
       wallet_mutation_performed: false,
       source_mutation_performed: false,
       github_write_performed: false,
       production_deploy_performed: false,
-      contains_worker_token: false,
       raw_reasoning_persisted: false,
     });
   } catch (error) {
@@ -122,13 +60,19 @@ export async function POST(request) {
       {
         success: false,
         contract: OPERATOR_PREWARM_CONTRACT,
-        previous_contract: LEGACY_OPERATOR_PREWARM_CONTRACT,
         status: "failed",
-        error: text(error?.message || error).slice(0, 700) || "CODE_PREWARM_FAILED",
+        ready: false,
+        warming: false,
+        error: text(error?.message || error).slice(0, 700) || "CODE_LOCAL_READINESS_FAILED",
+        local_only: true,
+        external_compute_available: false,
+        external_compute_checked: false,
+        external_worker_started: false,
         reasoning_calls_used: 0,
         customer_inference_performed: false,
         wallet_mutation_performed: false,
         source_mutation_performed: false,
+        github_write_performed: false,
         production_deploy_performed: false,
         raw_reasoning_persisted: false,
       },

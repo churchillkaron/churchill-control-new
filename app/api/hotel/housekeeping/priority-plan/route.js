@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getHotelHousekeepingPriorityPlan } from "@/lib/hotel/server/getHotelHousekeepingPriorityPlan";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export async function GET(request) {
 
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return errorResponse(access.error, access.status);
+    assertHotelOperationalAccess({ access, area: "HOUSEKEEPING" });
 
     const plan = await getHotelHousekeepingPriorityPlan({
       organizationId: access.organizationId,

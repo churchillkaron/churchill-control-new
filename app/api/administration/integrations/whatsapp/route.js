@@ -52,6 +52,15 @@ function whatsappWebhookUrl(origin) {
   return `${origin}/api/commercial/communications/webhooks/whatsapp`;
 }
 
+function secureSetupUrl(organizationId) {
+  const configured =
+    text(process.env.NEXT_PUBLIC_APP_URL) ||
+    text(process.env.NEXT_PUBLIC_BASE_URL) ||
+    text(process.env.APP_URL);
+  if (!configured || !configured.startsWith("https://")) return null;
+  return `${configured.replace(/\/$/, "")}/workspace/${encodeURIComponent(organizationId)}/administration/integrations/whatsapp-connect`;
+}
+
 function canManageIntegrations(access) {
   return [access?.role, access?.access?.role, access?.membership?.role, access?.staff?.role]
     .map(upper)
@@ -134,7 +143,7 @@ async function snapshot(organizationId, origin = null) {
     ChannelConnectionRuntime.get({ organization_id: organizationId, provider: PROVIDER }),
     supabaseAdmin
       .from("organization_channel_assets")
-      .select("id,name,asset_type,entity_id,metadata")
+      .select("id,connection_id,name,asset_type,entity_id,metadata")
       .eq("organization_id", organizationId)
       .eq("channel_provider", PROVIDER)
       .order("created_at", { ascending: true }),
@@ -146,10 +155,11 @@ async function snapshot(organizationId, origin = null) {
   const webhookUrl = origin ? whatsappWebhookUrl(origin) : null;
   const webhookUrlReady = !webhookUrl || webhookUrl.startsWith("https://");
 
+  const activeConnection = upper(connection?.status) === "ACTIVE" ? connection : null;
   return {
-    connection: safeConnection(connection),
+    connection: safeConnection(activeConnection),
     phoneNumbers: (assetsResult.data || [])
-      .filter((row) => row.asset_type === "whatsapp_phone_number")
+      .filter((row) => activeConnection && row.connection_id === activeConnection.id && row.asset_type === "whatsapp_phone_number")
       .map(safePhone),
     publicConfig: {
       ready: Boolean(
@@ -164,6 +174,7 @@ async function snapshot(organizationId, origin = null) {
       graphVersion: graphVersion(),
       webhookReady: verifyTokenReady && webhookUrlReady,
       webhookUrl,
+      secureSetupUrl: secureSetupUrl(organizationId),
     },
   };
 }

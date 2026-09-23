@@ -56,7 +56,8 @@ test("shared operator artifact surface renders persisted diagnosis proof",()=>{
   assert.match(source,/No validated external evidence/);
   assert.match(source,/validatedExternalCount/);
   assert.match(source,/unresolvedExternalCount/);
-  assert.match(source,/font-mono text-\[8px\]/);
+  assert.match(source,/font-mono text-\[11px\]/);
+  assert.doesNotMatch(source,/text-\[(?:8|9|10)px\]/);
   assert.match(source,/baseline_start_date/);
   assert.match(source,/current_end_date/);
   assert.match(source,/raw reasoning is not stored/i);

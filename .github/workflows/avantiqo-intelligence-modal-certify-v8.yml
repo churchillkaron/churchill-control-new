@@ -1,4 +1,4 @@
-name: LEGACY - Avantiqo Intelligence Modal Certify V8
+name: DISABLED - Avantiqo Intelligence Modal Certify V8
 
 on:
   workflow_dispatch:
@@ -7,16 +7,11 @@ permissions:
   contents: read
 
 jobs:
-  retired:
+  disabled:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
     steps:
-      - name: Legacy gateway certification retired
-        shell: bash
+      - name: External Intelligence compute is disabled
         run: |
-          echo 'AVANTIQO_INTELLIGENCE_MODAL_V8_RETIRED=TRUE'
-          echo 'Use avantiqo-intelligence-modal-direct-certification.yml'
-          echo 'GPU_INFERENCE_PERFORMED=false'
-          echo 'RUNPOD_MUTATION_PERFORMED=false'
-          echo 'PRODUCTION_DEPLOY_PERFORMED=false'
-          exit 1
+          echo "Avantiqo Intelligence is LOCAL_ONLY."
+          echo "This legacy external-compute workflow cannot deploy, certify, diagnose, prewarm, or submit provider work."
+          echo "Use the owned local Intelligence runtime and Node01 readiness contracts instead."

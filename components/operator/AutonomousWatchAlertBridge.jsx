@@ -153,24 +153,24 @@ export default function AutonomousWatchAlertBridge({ organizationId }) {
   return (
     <div
       data-avantiqo-autonomous-watch-alert="true"
-      className="mx-6 mt-6 rounded-3xl border border-[#D6A66A]/30 bg-[#D6A66A]/[0.07] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,0.35)]"
+      className="mx-6 mt-6 rounded-[22px] border border-[#D6A66A]/30 bg-[#FBF7F1] p-5 text-[#191919] shadow-[0_10px_32px_rgba(50,39,27,0.055)]"
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-[#D6A66A]/85">
+          <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.18em] text-[#9A744B]">
             {urgent ? <AlertTriangle size={13} /> : <Sparkles size={13} />}
             Synthetic Intelligence · {urgent ? "Needs your attention" : "Business update"}
           </div>
-          <div className="mt-2 text-lg font-light text-white/90">
+          <div className="mt-2 text-lg font-medium text-[#2F2C28]">
             {alert.title || "Business thesis changed"}
           </div>
           {text(alert.message) ? (
-            <div className="mt-2 max-w-4xl text-sm leading-6 text-white/55">
+            <div className="mt-2 max-w-4xl text-sm leading-6 text-[#6C6963]">
               {alert.message}
             </div>
           ) : null}
           {text(alert.recommended_next_move) ? (
-            <div className="mt-3 text-sm leading-6 text-[#D6A66A]/85">
+            <div className="mt-3 text-sm leading-6 text-[#8D6338]">
               Recommended next move: {alert.recommended_next_move}
             </div>
           ) : null}
@@ -180,7 +180,7 @@ export default function AutonomousWatchAlertBridge({ organizationId }) {
           <button
             type="button"
             onClick={discuss}
-            className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-3.5 py-2 text-xs text-[#E7C48E] transition hover:bg-[#D6A66A]/15"
+            className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/40 bg-white px-3.5 py-2 text-xs text-[#76583A] transition hover:bg-[#F7F0E7]"
           >
             <MessageCircle size={13} />
             Discuss
@@ -189,7 +189,7 @@ export default function AutonomousWatchAlertBridge({ organizationId }) {
             type="button"
             onClick={acknowledge}
             disabled={acknowledging}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3.5 py-2 text-xs text-white/55 transition hover:text-white disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white px-3.5 py-2 text-xs text-[#6C6963] transition hover:border-black/[0.13] hover:text-[#3F3B36] disabled:opacity-40"
           >
             <Eye size={13} />
             {acknowledging ? "Saving…" : "Seen"}
@@ -197,7 +197,7 @@ export default function AutonomousWatchAlertBridge({ organizationId }) {
         </div>
       </div>
 
-      <div className="mt-3 text-[10px] leading-4 text-white/30">
+      <div className="mt-3 text-[10px] leading-4 text-[#9A968E]">
         This is an evidence-backed recommendation, not authorization. Avantiqo will not execute the recommended business action until the normal permission, confirmation and approval rules are satisfied.
       </div>
     </div>

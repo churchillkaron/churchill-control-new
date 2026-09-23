@@ -1,20 +1,22 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import fs from "node:fs";
 import test from "node:test";
 
-const worker = await readFile(new URL(
-  "../services/avantiqo-intelligence-modal/modal_app.py",
-  import.meta.url,
-), "utf8");
+const queue = fs.readFileSync(
+  "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js",
+  "utf8",
+);
 
-test("Fast and Deep serialize GPU inputs per container", () => {
-  const decorators = worker.match(/@modal\.concurrent\(max_inputs=1\)/g) || [];
-  assert.equal(decorators.length, 2);
-  assert.match(worker, /@modal\.concurrent\(max_inputs=1\)\ndef fast/);
-  assert.match(worker, /@modal\.concurrent\(max_inputs=1\)\ndef deep/);
+test("Intelligence jobs are serialized through durable local queue ownership", () => {
+  assert.match(queue, /avantiqo_local_compute_jobs/);
+  assert.match(queue, /node_id/);
+  assert.match(queue, /leased_until/);
+  assert.match(queue, /status === "RUNNING" \? "processing" : "queued"/);
 });
 
-test("each Intelligence lane remains limited to one GPU container", () => {
-  assert.match(worker, /def fast[\s\S]*?max_containers=1|max_containers=1[\s\S]*?def fast/);
-  assert.match(worker, /def deep[\s\S]*?max_containers=1|max_containers=1[\s\S]*?def deep/);
+test("each queued Intelligence job remains exact and bounded", () => {
+  assert.match(queue, /max_attempts: 2/);
+  assert.match(queue, /\.eq\("id", id\)/);
+  assert.match(queue, /exact_job_only: true/);
+  assert.doesNotMatch(queue, /Modal|modal|RunPod|runpod|gpu_count/);
 });

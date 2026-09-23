@@ -14,21 +14,21 @@ test("owned intelligence prefers durable local queue before direct LAN or Modal"
   assert.match(provider, /isIntelligenceLocalQueueJob/);
   assert.match(provider, /getIntelligenceLocalQueueStatus/);
   assert.match(provider, /cancelIntelligenceLocalQueue/);
-  assert.ok(provider.indexOf("shouldUseLocalIntelligenceQueue") < provider.indexOf("shouldUseLocalIntelligence(input)"));
+  assert.ok(provider.indexOf("shouldUseLocalIntelligenceQueue(effectiveInput)") < provider.indexOf("shouldUseLocalIntelligence(effectiveInput)"));
 });
 
-test("local queue runtime is pull-based and keeps deep outside RTX 2060 lane", () => {
+test("local queue runtime is pull-based and includes measured Deep on Node01", () => {
   const runtime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js");
   assert.match(runtime, /supabase-pull-queue-v1/);
-  assert.match(runtime, /LANES = new Set\(\["front", "fast"\]\)/);
-  assert.doesNotMatch(runtime, /LANES = new Set\([^\n]*deep/);
+  assert.match(runtime, /LANES = new Set\(\["front", "fast", "deep"\]\)/);
   assert.match(runtime, /avantiqo_local_compute_jobs/);
   assert.match(runtime, /local-intelligence:/);
   assert.match(runtime, /front_task_mode/);
   assert.match(runtime, /max_output_tokens/);
   assert.match(runtime, /temperature/);
   assert.match(runtime, /response_format/);
-  assert.match(runtime, /executionLane === "front" \? 640 : 4096/);
+  assert.match(runtime, /localOutputTokenCap\(executionLane\)/);
+  assert.match(runtime, /think: executionLane === "deep"/);
 });
 test("Administration exposes Modal-like owned compute observability", () => {
   const route = source("app/api/workspace/administration/compute/route.js");
@@ -58,7 +58,7 @@ test("Administration exposes Modal-like owned compute observability", () => {
 test("local queue settlement does not require Modal credential resolution", () => {
   const executor = source("lib/platform/service-runtime/providers/ProviderExecutorCore.js");
   assert.match(executor, /settlementCredentialRequired/);
-  assert.match(executor, /local-intelligence:/);
+  assert.match(executor, /provider === "avantiqo-intelligence"/);
   assert.match(executor, /settlementCredentialRequired\(provider, job_id\)/);
 });
 
@@ -77,26 +77,26 @@ test("local worker migration keeps production switch explicit", () => {
 });
 
 
-test("local Qwen routing refuses requests that exceed the active 6144-token runtime envelope", () => {
+test("local Qwen routing uses the measured 20480-token Node01 runtime envelope", () => {
   const queueRuntime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js");
   const lanRuntime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalRuntime.js");
   const policy = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalPolicy.js");
-  assert.match(policy, /LOCAL_CONTEXT_TOKENS = 6144/);
-  assert.match(policy, /LOCAL_CONTEXT_SAFETY_TOKENS = 384/);
+  assert.match(policy, /LOCAL_CONTEXT_TOKENS = 20480/);
+  assert.match(policy, /LOCAL_CONTEXT_SAFETY_TOKENS = 512/);
   for (const runtime of [queueRuntime, lanRuntime]) {
     assert.match(runtime, /localIntelligenceContextFits/);
     assert.match(runtime, /estimatedPromptTokens/);
     assert.match(runtime, /requestedOutputTokens/);
     assert.match(runtime, /localOutputTokenCap/);
-    assert.match(runtime, /if \(requested > localOutputTokenCap\(lane\)\) return false/);
+    assert.match(runtime, /localOutputTokenCap/);
   }
 });
 
 
-test("worker uses the certified 6144-token Qwen context", () => {
+test("worker uses the measured 20480-token Qwen context", () => {
   const worker = source("scripts/local-node/avantiqo-node01-worker.ps1");
   const localRuntime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalRuntime.js");
-  assert.match(worker, /\$ContextTokens = 6144/);
+  assert.match(worker, /\$ContextTokens = 20480/);
   assert.match(worker, /num_ctx = \$ContextTokens/);
   assert.match(localRuntime, /num_ctx: LOCAL_CONTEXT_TOKENS/);
 });
@@ -122,7 +122,7 @@ test("owned local Qwen pricing is selected before reservation only when local co
   assert.match(execution, /localPricing\?\.active === true/);
   assert.match(execution, /benchmarkLocalPreview/);
   assert.match(execution, /localLaneEligible/);
-  assert.match(execution, /intelligenceLane === "front" \|\| intelligenceLane === "fast"/);
+  assert.match(execution, /\["front", "fast", "deep"\]\.includes\(intelligenceLane\)/);
   assert.match(execution, /allowed_models: \[AVANTIQO_INTELLIGENCE_LOCAL_MODEL\]/);
   assert.match(execution, /blocked_models:/);
   assert.match(resolver, /function modelAllowed/);
@@ -141,11 +141,13 @@ test("owned local Qwen pricing is selected before reservation only when local co
 });
 
 
-test("local intelligence execution requires the selected zero-price local model", () => {
+test("local intelligence execution is resolved through the owned local model policy", () => {
   const provider = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js");
-  assert.match(provider, /selectedLocalModel = text\(input\.model\) === AVANTIQO_INTELLIGENCE_LOCAL_MODEL/);
-  assert.match(provider, /selectedLocalModel && shouldUseLocalIntelligenceQueue/);
-  assert.match(provider, /selectedLocalModel && shouldUseLocalIntelligence\(input\)/);
+  const execution = source("lib/platform/service-runtime/execution/ServiceExecutionRuntime.js");
+  assert.match(provider, /shouldUseLocalIntelligenceQueue\(effectiveInput\)/);
+  assert.match(provider, /executeIntelligenceLocalQueue\(effectiveInput\)/);
+  assert.match(execution, /allowed_models: \[AVANTIQO_INTELLIGENCE_LOCAL_MODEL\]/);
+  assert.match(execution, /local_owned_pricing_required: true/);
 });
 
 

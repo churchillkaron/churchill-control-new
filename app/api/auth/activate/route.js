@@ -4,8 +4,6 @@ import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 
 import {
-  CHURCHILL_ORGANIZATION_ID,
-  COLE_LEY_ORGANIZATION_ID,
   requestPlatformHostname,
   resolvePlatformHostContext,
 } from "@/lib/platform/context/resolvePlatformHostContext";
@@ -34,10 +32,11 @@ function uniqueOrganizationIds(staffRows) {
   ];
 }
 
-function recoveryBrandId(organizationId) {
-  if (organizationId === COLE_LEY_ORGANIZATION_ID) return "coleley";
-  if (organizationId === CHURCHILL_ORGANIZATION_ID) return "churchill";
-  return null;
+function genericRecoveryResponse() {
+  return NextResponse.json({
+    success: true,
+    message: "If this email has active staff access, a password link will be sent.",
+  });
 }
 
 function resolveRecoveryOrganizationId(request, staffRows) {
@@ -115,26 +114,29 @@ export async function POST(request) {
     const staff = staffRows || [];
 
     if (!staff.length) {
-      return NextResponse.json({
-        success: true,
-        eligible: false,
-        message: "If this email has active staff access, a password link will be sent.",
-      });
+      return genericRecoveryResponse();
     }
 
-    const organizationId = resolveRecoveryOrganizationId(request, staff);
+    let organizationId = null;
+    try {
+      organizationId = resolveRecoveryOrganizationId(request, staff);
+    } catch {
+      return genericRecoveryResponse();
+    }
+
+    const scopedStaff = staff.filter(
+      (row) => normalizeId(row.active_organization_id) === organizationId
+    );
+    if (!scopedStaff.length) {
+      return genericRecoveryResponse();
+    }
+
     const linkedAuthIds = [
-      ...new Set(staff.map((row) => row.auth_user_id).filter(Boolean)),
+      ...new Set(scopedStaff.map((row) => row.auth_user_id).filter(Boolean)),
     ];
 
     if (linkedAuthIds.length > 1) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "This email has conflicting staff identities. Contact an administrator.",
-        },
-        { status: 409 }
-      );
+      return genericRecoveryResponse();
     }
 
     let authUserId = linkedAuthIds[0] || null;
@@ -163,7 +165,7 @@ export async function POST(request) {
       throw new Error("Authentication user was not resolved");
     }
 
-    const unlinkedStaffIds = staff
+    const unlinkedStaffIds = scopedStaff
       .filter((row) => !row.auth_user_id)
       .map((row) => row.id);
 
@@ -182,13 +184,7 @@ export async function POST(request) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      eligible: true,
-      organizationId,
-      brandId: recoveryBrandId(organizationId),
-      message: "Password recovery is ready.",
-    });
+    return genericRecoveryResponse();
   } catch (error) {
     console.error("STAFF_AUTH_ACTIVATION_ERROR", error);
 

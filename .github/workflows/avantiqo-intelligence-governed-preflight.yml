@@ -1,94 +1,35 @@
-name: Avantiqo Intelligence - Governed Preflight
+name: Avantiqo Intelligence - Local-Only Governed Preflight
 
 on:
   push:
-    branches:
-      - main
     paths:
-      - .github/workflows/avantiqo-intelligence-governed-preflight.yml
+      - "lib/platform/service-runtime/providers/avantiqo-intelligence/**"
+      - "lib/intelligence/runtime/**"
+      - ".github/workflows/avantiqo-intelligence-governed-preflight.yml"
+  pull_request:
+    paths:
+      - "lib/platform/service-runtime/providers/avantiqo-intelligence/**"
+      - "lib/intelligence/runtime/**"
+      - ".github/workflows/avantiqo-intelligence-governed-preflight.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: avantiqo-intelligence-governed-preflight
-  cancel-in-progress: false
-
 jobs:
-  preflight:
-    if: ${{ github.event.head_commit.message == 'Run governed Intelligence preflight' }}
+  local-only-preflight:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      NODE_ENV: development
-      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
-      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
-      AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
-      AVANTIQO_INTELLIGENCE_MODAL_BASE_URL: ""
-      AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN: ""
-
     steps:
-      - name: Checkout exact preflight commit
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: Install repository dependencies
-        shell: bash
+          node-version: 24
+      - name: Assert local-only Intelligence provider graph
         run: |
-          set -euo pipefail
-          npm ci --ignore-scripts
-          touch .env.local
-          test -n "${MODAL_TOKEN_ID:-}"
-          test -n "${MODAL_TOKEN_SECRET:-}"
-          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
-
-      - name: Re-prove governed Vault credential
-        shell: bash
-        run: |
-          set -euo pipefail
-          node scripts/bootstrap-avantiqo-intelligence-vault-credential.mjs
-
-      - name: Run owned Intelligence zero-inference preflight
-        shell: bash
-        env:
-          AVANTIQO_INTELLIGENCE_MODAL_REAL_INFERENCE_APPROVED: "NO"
-        run: |
-          set -uo pipefail
-          mkdir -p preflight-evidence
-          set +e
-          bash scripts/run-avantiqo-intelligence-modal-direct-certification-local.sh 2>&1 | tee preflight-evidence/preflight.log
-          status=${PIPESTATUS[0]}
-          echo "$status" > preflight-evidence/exit-code.txt
-          exit "$status"
-
-      - name: Upload preflight evidence
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: avantiqo-intelligence-governed-preflight-${{ github.run_id }}
-          path: |
-            preflight-evidence/
-            local-audit-output/avantiqo-intelligence-modal-direct-service-certification/
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Assert preflight boundary
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          echo 'GPU_INFERENCE_PERFORMED=false'
-          echo 'EXTERNAL_AI_USED=false'
-          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
-          echo 'SECRET_MATERIAL_PRINTED=false'
-
-# rerun after explicit Modal-only execution policy declaration
+          grep -Fq 'AVANTIQO_INTELLIGENCE_LOCAL_RUNTIME_REQUIRED' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js
+          grep -Fq 'external_compute_allowed = false' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js
+          grep -Fq 'AVANTIQO_INTELLIGENCE_LOCAL_RUNTIME_REQUIRED' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js
+          grep -Fq 'AVANTIQO_INTELLIGENCE_LOCAL_RUNTIME_REQUIRED' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js
+          grep -Fq 'external_provider_fallback_allowed: false' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderRegistration.js
+      - name: Run Intelligence local-only contracts
+        run: node --test tests/avantiqo-intelligence-*.test.mjs tests/avantiqo-model-*.test.mjs tests/intelligence-*.test.mjs

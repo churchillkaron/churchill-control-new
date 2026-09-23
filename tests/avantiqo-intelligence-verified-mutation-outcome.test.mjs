@@ -112,7 +112,7 @@ test("Operator outward truth blocks completed mutations whose verification faile
   assert.match(operatorTurn, /AVANTIQO_OPERATOR_VERIFIED_MUTATION_OUTCOME_V3/);
   assert.match(
     operatorTurn,
-    /const verifiedResult = withVerifiedMutationOutcome\([\s\S]*evidencedResult,[\s\S]*effectiveOptions\.projectState/,
+    /const verifiedResult = await withVerifiedMutationOutcome\([\s\S]*evidencedResult,[\s\S]*effectiveOptions\.projectState,[\s\S]*effectiveOptions\.agreementState/,
   );
   assert.match(operatorTurn, /status:\s*"blocked"/);
   assert.match(operatorTurn, /action_call_completed:\s*true/);

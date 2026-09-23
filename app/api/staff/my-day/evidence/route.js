@@ -3,11 +3,15 @@ export const dynamic = "force-dynamic";
 
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
+import { staffApiErrorResponse } from "@/lib/people/portal/StaffApiError";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { assertStaffUploadSignature } from "@/lib/people/security/StaffUploadSecurity";
 
+const BUCKET = "service-evidence";
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 
 function safeFileName(value) {
   return String(value || "evidence")
@@ -16,6 +20,10 @@ function safeFileName(value) {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 140) || "evidence";
+}
+
+function storageReference(path) {
+  return `storage://${BUCKET}/${path}`;
 }
 
 export async function POST(request) {
@@ -38,33 +46,27 @@ export async function POST(request) {
     const file = formData.get("file");
 
     if (!workOrderId) {
-      return NextResponse.json(
-        { success: false, error: "workOrderId required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ success: false, error: "workOrderId required" }, { status: 400 });
     }
     if (!file || typeof file.arrayBuffer !== "function") {
-      return NextResponse.json(
-        { success: false, error: "Evidence file required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ success: false, error: "Evidence file required" }, { status: 400 });
+    }
+
+    const mimeType = String(file.type || "").trim().toLowerCase();
+    if (!ALLOWED_TYPES.has(mimeType)) {
+      return NextResponse.json({ success: false, error: "Evidence must be JPEG, PNG, WebP or PDF" }, { status: 415 });
     }
     if (Number(file.size || 0) <= 0) {
-      return NextResponse.json(
-        { success: false, error: "Evidence file is empty" },
-        { status: 400 },
-      );
+      return NextResponse.json({ success: false, error: "Evidence file is empty" }, { status: 400 });
     }
     if (Number(file.size || 0) > MAX_FILE_BYTES) {
-      return NextResponse.json(
-        { success: false, error: "Evidence file exceeds 15 MB" },
-        { status: 413 },
-      );
+      return NextResponse.json({ success: false, error: "Evidence file exceeds 15 MB" }, { status: 413 });
     }
+    await assertStaffUploadSignature(file, { allowedMimeTypes: ALLOWED_TYPES });
 
     const assignment = await supabaseAdmin
       .from("operations_records")
-      .select("id")
+      .select("id,entity_id")
       .eq("organization_id", context.organizationId)
       .eq("capability_id", "work-orders")
       .eq("id", workOrderId)
@@ -73,16 +75,13 @@ export async function POST(request) {
 
     if (assignment.error) throw assignment.error;
     if (!assignment.data) {
-      return NextResponse.json(
-        { success: false, error: "This work order is not assigned to you." },
-        { status: 404 },
-      );
+      return NextResponse.json({ success: false, error: "This work order is not assigned to you." }, { status: 404 });
     }
 
     const fileName = safeFileName(file.name);
     const storagePath = [
-      "service-execution-evidence",
       context.organizationId,
+      "staff-work-orders",
       workOrderId,
       context.staff.id,
       `${Date.now()}-${crypto.randomUUID()}-${fileName}`,
@@ -90,39 +89,39 @@ export async function POST(request) {
     const buffer = Buffer.from(await file.arrayBuffer());
 
     const upload = await supabaseAdmin.storage
-      .from("uploads")
+      .from(BUCKET)
       .upload(storagePath, buffer, {
-        contentType: file.type || "application/octet-stream",
+        contentType: mimeType,
         cacheControl: "3600",
         upsert: false,
+        metadata: {
+          organization_id: context.organizationId,
+          entity_id: assignment.data.entity_id || null,
+          work_order_id: workOrderId,
+          staff_id: context.staff.id,
+          evidence_type: evidenceType,
+          field_key: fieldKey,
+          original_name: file.name || fileName,
+        },
       });
 
     if (upload.error) throw upload.error;
 
-    const { data: publicData } = supabaseAdmin.storage
-      .from("uploads")
-      .getPublicUrl(storagePath);
-    const externalUrl = publicData?.publicUrl || null;
-    if (!externalUrl) throw new Error("Evidence URL unavailable");
-
     return NextResponse.json({
       success: true,
       evidence: {
-        storage_path: storagePath,
-        external_url: externalUrl,
+        reference: storageReference(storagePath),
         file_name: file.name || fileName,
-        mime_type: file.type || "application/octet-stream",
+        mime_type: mimeType,
         size_bytes: Number(file.size || buffer.length),
         evidence_type: evidenceType,
         field_key: fieldKey,
         uploaded_at: new Date().toISOString(),
+        private: true,
       },
     });
   } catch (error) {
     console.error("STAFF_MY_DAY_EVIDENCE_UPLOAD_ERROR", error);
-    return NextResponse.json(
-      { success: false, error: error?.message || "Evidence upload failed" },
-      { status: error?.status || 500 },
-    );
+    return staffApiErrorResponse(error, "Evidence upload failed");
   }
 }

@@ -2,17 +2,21 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-const source = fs.readFileSync("services/avantiqo-intelligence-modal/modal_app.py", "utf8");
+const local = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalRuntime.js", "utf8");
+const queue = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js", "utf8");
+const reasoning = fs.readFileSync("lib/intelligence/runtime/AvantiqoIntelligenceReasoningRuntime.js", "utf8");
 
-test("owned Deep Intelligence preserves reasoning then enforces JSON only when needed", () => {
-  assert.match(source, /StructuredOutputsParams\(json_object=True\)/);
-  assert.match(source, /if json_object_required and _json_object\(final_text\) is None:/);
-  assert.match(source, /AVANTIQO_DEEP_REASON_THEN_STRUCTURED_JSON_V1/);
-  assert.match(source, /structured_json_finalization_performed/);
+test("owned Intelligence enforces JSON output through the local runtime only when requested", () => {
+  assert.match(local, /response_format \|\| input\.responseFormat/);
+  assert.match(local, /type === "json_object" \? \{ format: "json" \} : \{\}/);
+  assert.match(queue, /response_format: \(input\.response_format \|\| input\.responseFormat\)\?\.type === "json_object" \? \{ type: "json_object" \} : null/);
+  assert.doesNotMatch(local, /Modal|modal|RunPod|runpod/);
 });
 
-test("structured finalization usage is included in governed token accounting", () => {
-  assert.match(source, /len\(request_output\.prompt_token_ids or \[\]\) \+ structured_input_tokens/);
-  assert.match(source, /len\(generated\.token_ids or \[\]\) \+ structured_output_tokens/);
-  assert.match(source, /unsupported facts, new creative claims or new evidence/);
+test("local structured-output usage remains included in governed token accounting", () => {
+  assert.match(local, /input_tokens: Number\(raw\?\.prompt_eval_count \|\| 0\)/);
+  assert.match(local, /output_tokens: Number\(raw\?\.eval_count \|\| 0\)/);
+  assert.match(reasoning, /totalInputTokens \+= Number\(output\?\.usage\?\.input_tokens \|\| execution\?\.usage\?\.input_tokens \|\| 0\)/);
+  assert.match(reasoning, /totalOutputTokens \+= Number\(output\?\.usage\?\.output_tokens \|\| execution\?\.usage\?\.output_tokens \|\| 0\)/);
+  assert.match(reasoning, /usage: \{[\s\S]*input_tokens: totalInputTokens,[\s\S]*output_tokens: totalOutputTokens/);
 });

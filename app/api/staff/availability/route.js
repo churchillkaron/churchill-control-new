@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { staffApiErrorResponse } from "@/lib/people/portal/StaffApiError";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import {
   cancelAvailabilityException,
@@ -9,6 +10,7 @@ import {
   loadStaffAvailability,
   replaceStaffAvailabilityPattern,
 } from "@/lib/people/workforce/workforceAvailabilityRuntime";
+import { projectStaffAvailability } from "@/lib/people/portal/StaffAvailabilityProjection";
 
 function contextError(context) {
   return NextResponse.json(
@@ -34,19 +36,10 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
-      organizationId: context.organizationId,
-      staffId: context.staff.id,
-      ...availability,
+      ...projectStaffAvailability(availability),
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to load availability",
-        code: error?.code || null,
-      },
-      { status: error?.status || 500 }
-    );
+    return staffApiErrorResponse(error, "Unable to load availability");
   }
 }
 
@@ -57,17 +50,16 @@ export async function POST(request) {
 
     const body = await request.json();
     const action = String(body?.action || "").trim().toLowerCase();
-    let result;
 
     if (action === "replace_pattern") {
-      result = await replaceStaffAvailabilityPattern({
+      await replaceStaffAvailabilityPattern({
         organizationId: context.organizationId,
         staff: context.staff,
         effectiveFrom: body?.effectiveFrom,
         rules: body?.rules,
       });
     } else if (action === "create_exception") {
-      result = await createAvailabilityException({
+      await createAvailabilityException({
         organizationId: context.organizationId,
         staff: context.staff,
         exceptionDate: body?.exceptionDate,
@@ -83,20 +75,9 @@ export async function POST(request) {
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      organizationId: context.organizationId,
-      result,
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to update availability",
-        code: error?.code || null,
-      },
-      { status: error?.status || 500 }
-    );
+    return staffApiErrorResponse(error, "Unable to update availability");
   }
 }
 
@@ -114,25 +95,14 @@ export async function PATCH(request) {
       );
     }
 
-    const result = await cancelAvailabilityException({
+    await cancelAvailabilityException({
       organizationId: context.organizationId,
       staffId: context.staff.id,
       exceptionId: body?.exceptionId,
     });
 
-    return NextResponse.json({
-      success: true,
-      organizationId: context.organizationId,
-      result,
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to cancel availability exception",
-        code: error?.code || null,
-      },
-      { status: error?.status || 500 }
-    );
+    return staffApiErrorResponse(error, "Unable to cancel availability exception");
   }
 }

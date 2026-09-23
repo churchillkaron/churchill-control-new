@@ -1,28 +1,15 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import fs from "node:fs";
+import test from "node:test";
+const provider = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js", "utf8");
+const registration = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderRegistration.js", "utf8");
+const overflow = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalOverflowPolicy.js", "utf8");
 
-const capacity = await readFile(
-  "scripts/repair-avantiqo-intelligence-fast-volume-local-capacity-local.mjs",
-  "utf8",
-);
-
-const priority = await readFile(
-  "scripts/repair-avantiqo-intelligence-fast-gpu-priority-order-local.mjs",
-  "utf8",
-);
-
-test("Fast Intelligence obeys RunPod Serverless three-GPU limit", () => {
-  assert.match(capacity, /const MAX_GPU_FALLBACKS = 3;/);
-  assert.doesNotMatch(capacity, /const MAX_GPU_FALLBACKS = 4;/);
-
-  assert.match(
-    priority,
-    /TARGET_POOL_EXCEEDS_RUNPOD_SERVERLESS_LIMIT/,
-  );
-
-  assert.match(
-    priority,
-    /targetPool\.length > 3/,
-  );
+test("Fast/Deep external GPU capacity is governed overflow only", () => {
+  assert.match(registration, /governed_overflow_infrastructure: "MODAL_H100_ASYNC_V1"/);
+  assert.match(registration, /automatic_modal_fallback_allowed:\s*false/);
+  assert.match(registration, /external_provider_fallback_allowed:\s*false/);
+  assert.match(provider, /intelligenceModalOverflowApprovalRequested\(effectiveInput\)/);
+  assert.match(overflow, /explicit_approval_required: true/);
+  assert.doesNotMatch(provider, /RunPod|runpod|endpoint_id/);
 });

@@ -8,7 +8,7 @@ const route = fs.readFileSync(
 );
 
 test("assistant turn storage avoids duplicating visible response and conversation state", () => {
-  assert.match(route, /const persistedDecision = \{ \.\.\.normalizedDecision \}/);
+  assert.match(route, /const persistedDecision = \{[\s\S]*\.\.\.normalizedDecision,[\s\S]*paired_user_turn_id:/);
   assert.match(route, /delete persistedDecision\.response_text/);
   assert.match(route, /delete persistedDecision\.agreement_state/);
   assert.match(route, /delete persistedDecision\.project_state/);

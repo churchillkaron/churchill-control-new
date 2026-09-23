@@ -8,6 +8,7 @@ import {
   execute as executeUbteCapability,
 } from "@/lib/ubte/runtime/ExecutionEngine";
 import {
+  loadIntelligenceConversationSnapshot,
   loadOrCreateIntelligenceConversation,
   updateIntelligenceConversationState,
 } from "@/lib/operator/runtime/IntelligenceConversationRuntime";
@@ -17,6 +18,9 @@ import {
 import {
   synthesizeOperatorBusinessThesis,
 } from "@/lib/operator/runtime/OperatorBusinessThesisRuntime";
+import {
+  loadOrganizationIntelligenceState,
+} from "@/lib/operator/runtime/OperatorOrganizationIntelligenceStateRuntime";
 import {
   listSecretaryAlerts,
   secretaryAlertsAsAttentionItems,
@@ -96,6 +100,9 @@ export async function POST(request) {
       "periodId",
       "period_id",
     );
+    const passiveSnapshot =
+      body.passiveSnapshot === true ||
+      body.passive_snapshot === true;
 
     const resolved = await resolvePartyAccess(request, organizationId);
     if (resolved.error) return resolved.error;
@@ -127,6 +134,75 @@ export async function POST(request) {
         null,
       role: access.role || null,
     };
+
+    if (passiveSnapshot) {
+      const [snapshot, organizationIntelligence] = await Promise.all([
+        loadIntelligenceConversationSnapshot({
+          organizationId: businessContext.organizationId,
+          partyId,
+          conversationKey: "primary",
+        }),
+        loadOrganizationIntelligenceState({
+          organizationId: businessContext.organizationId,
+        }).catch(() => null),
+      ]);
+      const passiveProjectState = object(snapshot?.conversation?.project_state);
+      let secretaryAlerts = [];
+      try {
+        const alertResult = await listSecretaryAlerts({
+          context: {
+            organizationId: businessContext.organizationId,
+            entityId: businessContext.entityId,
+            actor,
+            metadata: { partyId },
+          },
+          payload: { status: "PENDING", limit: 20 },
+        });
+        secretaryAlerts = Array.isArray(alertResult?.alerts) ? alertResult.alerts : [];
+      } catch (secretaryAlertError) {
+        console.error(
+          "OPERATOR_SECRETARY_ALERT_LOAD_FAILED",
+          secretaryAlertError?.message || secretaryAlertError,
+        );
+      }
+      const secretaryItems = secretaryAlertsAsAttentionItems(secretaryAlerts);
+      const existingThesis =
+        object(organizationIntelligence?.state).business_thesis ||
+        passiveProjectState?.business_thesis ||
+        null;
+      return Response.json({
+        success: true,
+        passive_snapshot: true,
+        attention: {
+          status: secretaryItems.length ? "attention" : "snapshot",
+          summary: secretaryItems.length
+            ? `${secretaryItems.length} Secretary item${secretaryItems.length === 1 ? "" : "s"} need attention.`
+            : null,
+          items: secretaryItems.slice(0, 30),
+          business_thesis: existingThesis,
+          secretary_alerts: {
+            pending_count: secretaryAlerts.length,
+            source: "avantiqo-native",
+            cloud_materialized: true,
+            external_authority_used: false,
+          },
+          passive_snapshot: true,
+          attention_scan_performed: false,
+          thesis_synthesis_performed: false,
+          ai_calls_performed: 0,
+          state_mutation_performed: false,
+        },
+        project_state: passiveProjectState,
+        context: {
+          organization_id: businessContext.organizationId,
+          entity_id: businessContext.entityId,
+          period_id: businessContext.periodId,
+          party_id: partyId,
+          locale: businessContext.locale || null,
+          timezone: businessContext.timezone || null,
+        },
+      });
+    }
 
     const memory = await loadOrCreateIntelligenceConversation({
       organizationId: businessContext.organizationId,

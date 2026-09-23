@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import resolvePOSRequestApplication from "@/lib/operations/commerce/server/resolvePOSRequestApplication";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertPOSActionAllowed } from "@/lib/operations/commerce/security/POSActionPolicy";
 
 function errorResponse(error, status = 500) {
   return Response.json({ success: false, error }, { status });
@@ -24,6 +25,9 @@ export async function GET(request) {
         { status: access.status || 403 },
       );
     }
+
+    assertPOSActionAllowed({ access, action: "PAYMENT" });
+
     const resolved = await resolvePOSRequestApplication({
       request,
       organizationId: access.organizationId,

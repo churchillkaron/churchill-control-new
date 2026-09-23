@@ -205,7 +205,7 @@ async function main() {
     action_candidate_tool_available: true,
     planning_tools_mutating: false,
     candidate_receipt: candidateReceipt,
-    gpu_inference_performed: false,
+    external_compute_performed: false,
     external_ai_fallback_used: false,
     mutation_executed: false,
     code_execution_authorized: false,
@@ -216,8 +216,8 @@ async function main() {
 
   if (runMode === "PREFLIGHT") return;
   assert(
-    yes(process.env.AVANTIQO_OPERATOR_MODAL_E2E_REAL_INFERENCE_APPROVED),
-    "AVANTIQO_OPERATOR_MODAL_E2E_REAL_INFERENCE_APPROVED=YES_REQUIRED",
+    yes(process.env.AVANTIQO_OPERATOR_LOCAL_E2E_REAL_INFERENCE_APPROVED),
+    "AVANTIQO_OPERATOR_LOCAL_E2E_REAL_INFERENCE_APPROVED=YES_REQUIRED",
   );
   assert(
     text(process.env.NODE_ENV, 40).toLowerCase() === "development",

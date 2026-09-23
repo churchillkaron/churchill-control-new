@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { getHotelOperationalDate } from "@/lib/hotel/server/getHotelOperationalDate";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,7 @@ async function loadRecoveryContext(bookingId, request) {
 
   const access = await requireOrganizationAccess({ organizationId: booking.organization_id, request });
   if (!access.success) return { response: fail(access.error, access.status) };
+  assertHotelOperationalAccess({ access, area: "FRONT_DESK" });
   if (!booking.property_id) return { response: fail("Booking has no governed Hotel property", 409) };
 
   const operationalDate = await getHotelOperationalDate({

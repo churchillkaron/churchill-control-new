@@ -1,135 +1,54 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
-import { readFile } from "node:fs/promises";
-import {
-  requireAvantiqoModelImprovementSafeLease,
-} from "../lib/intelligence/runtime/AvantiqoModelImprovementSafeLeaseGuard.js";
+import { requireAvantiqoModelImprovementSafeLease } from "../lib/intelligence/runtime/AvantiqoModelImprovementSafeLeaseGuard.js";
 
-const KEYS = [
-  "AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE",
-  "AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT",
-  "AVANTIQO_RUNPOD_SAFE_LEASE_LANE",
-  "AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID",
-  "AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT",
-];
-
-function withEnv(values, fn) {
-  const before = Object.fromEntries(KEYS.map((key) => [key, process.env[key]]));
-  for (const key of KEYS) delete process.env[key];
-  for (const [key, value] of Object.entries(values)) process.env[key] = value;
+function withLocalEnabled(value, fn) {
+  const before = process.env.AVANTIQO_INTELLIGENCE_LOCAL_MODEL_IMPROVEMENT_ENABLED;
+  if (value == null) delete process.env.AVANTIQO_INTELLIGENCE_LOCAL_MODEL_IMPROVEMENT_ENABLED;
+  else process.env.AVANTIQO_INTELLIGENCE_LOCAL_MODEL_IMPROVEMENT_ENABLED = value;
   try { return fn(); }
   finally {
-    for (const key of KEYS) {
-      if (before[key] === undefined) delete process.env[key];
-      else process.env[key] = before[key];
-    }
+    if (before === undefined) delete process.env.AVANTIQO_INTELLIGENCE_LOCAL_MODEL_IMPROVEMENT_ENABLED;
+    else process.env.AVANTIQO_INTELLIGENCE_LOCAL_MODEL_IMPROVEMENT_ENABLED = before;
   }
 }
 
-function validEnv(lane, endpoint = "endpoint_123") {
-  return {
-    AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE: "YES",
-    AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT: "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
-    AVANTIQO_RUNPOD_SAFE_LEASE_LANE: lane,
-    AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID: endpoint,
-    AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT: new Date(Date.now() + 60_000).toISOString(),
-  };
-}
-
-test("model improvement rejects execution without Safe Lease V2", () => {
-  withEnv({}, () => {
-    assert.throws(
-      () => requireAvantiqoModelImprovementSafeLease("trainer"),
-      /SAFE_LEASE_ACTIVE_REQUIRED/,
-    );
+test("model improvement fails closed when owned local improvement runtime is disabled", () => {
+  withLocalEnabled(null, () => {
+    assert.throws(() => requireAvantiqoModelImprovementSafeLease("trainer"), /LOCAL_RUNTIME_REQUIRED/);
   });
 });
 
-test("model improvement requires exact stage lane", () => {
-  withEnv(validEnv("intelligence-deep"), () => {
-    assert.throws(
-      () => requireAvantiqoModelImprovementSafeLease("trainer"),
-      /SAFE_LEASE_LANE_MISMATCH/,
-    );
-  });
-});
-
-test("model improvement binds configured endpoint to leased endpoint", () => {
-  withEnv(validEnv("intelligence-trainer", "leased_ep"), () => {
-    assert.throws(
-      () => requireAvantiqoModelImprovementSafeLease("trainer", {
-        configuredEndpointId: "other_ep",
-      }),
-      /SAFE_LEASE_ENDPOINT_MISMATCH/,
-    );
-  });
-});
-
-test("expired model improvement leases fail closed", () => {
-  const env = validEnv("intelligence-candidate");
-  env.AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT = new Date(Date.now() - 1_000).toISOString();
-  withEnv(env, () => {
-    assert.throws(
-      () => requireAvantiqoModelImprovementSafeLease("candidate"),
-      /SAFE_LEASE_EXPIRED/,
-    );
-  });
-});
-
-test("trainer benchmark and candidate use distinct governed lease identities", () => {
-  for (const [stage, lane] of [
-    ["trainer", "intelligence-trainer"],
-    ["benchmark", "intelligence-benchmark"],
-    ["candidate", "intelligence-candidate"],
-  ]) {
-    withEnv(validEnv(lane, `${stage}_ep`), () => {
-      const guard = requireAvantiqoModelImprovementSafeLease(stage, {
-        configuredEndpointId: `${stage}_ep`,
-      });
-      assert.equal(guard.safe_lease_contract, "AVANTIQO_RUNPOD_SAFE_LEASE_V2");
+test("model improvement keeps exact stage lanes on owned local compute", () => {
+  withLocalEnabled("true", () => {
+    for (const [stage, lane] of [["trainer", "intelligence-trainer"], ["benchmark", "intelligence-benchmark"], ["candidate", "intelligence-candidate"]]) {
+      const guard = requireAvantiqoModelImprovementSafeLease(stage);
       assert.equal(guard.lease_lane, lane);
-      assert.equal(guard.endpoint_id, `${stage}_ep`);
-      assert.equal(guard.direct_endpoint_scaling_allowed, false);
+      assert.equal(guard.external_compute_allowed, false);
+      assert.equal(guard.external_provider_submission_allowed, false);
+      assert.equal(guard.local_owned_hardware_required, true);
       assert.equal(guard.production_model_promotion_effect, "NONE");
-    });
-  }
+    }
+  });
 });
 
-test("all paid model improvement paths are statically Safe Lease bound", async () => {
-  const [policy, trainer, benchmark, candidate, benchmarkWorker, benchmarkLocal, promotion] =
-    await Promise.all([
-      readFile("config/avantiqo-runpod-safe-lease-policy.json", "utf8"),
-      readFile("lib/intelligence/runtime/AvantiqoModelTrainingExecutionRuntime.js", "utf8"),
-      readFile("lib/intelligence/runtime/AvantiqoModelBenchmarkExecutionRuntime.js", "utf8"),
-      readFile("lib/intelligence/runtime/AvantiqoModelCandidateCanaryRuntime.js", "utf8"),
-      readFile("services/avantiqo-intelligence-benchmark/handler.py", "utf8"),
-      readFile("scripts/run-avantiqo-model-benchmark-submission-local.mjs", "utf8"),
-      readFile("lib/intelligence/runtime/AvantiqoModelPromotionRuntime.js", "utf8"),
-    ]);
+test("invalid model improvement stage fails closed", () => {
+  withLocalEnabled("true", () => {
+    assert.throws(() => requireAvantiqoModelImprovementSafeLease("unknown"), /LOCAL_STAGE_INVALID/);
+  });
+});
 
-  assert.match(policy, /"max_jobs_per_lease"\s*:\s*1/);
-
-  assert.doesNotMatch(trainer, /requireAvantiqoModelImprovementSafeLease/);
-  assert.match(trainer, /MODAL_H100_OWNED_TRAINER_V1/);
-  assert.match(trainer, /worker\.spawn\(\[payload\]\)/);
-  assert.match(trainer, /runpod_used: false/);
-  assert.match(benchmark, /requireAvantiqoModelImprovementSafeLease\("benchmark"/);
-  assert.match(candidate, /requireAvantiqoModelImprovementSafeLease\("candidate"/);
-
-  assert.match(benchmark, /mode:\s*"paired"/);
-  assert.match(benchmark, /provider_job_count:\s*1/);
-  assert.doesNotMatch(benchmark, /baseline_provider_job_id/);
-  assert.doesNotMatch(benchmark, /candidate_provider_job_id/);
-  assert.match(benchmarkWorker, /"single_runpod_job": True/);
-  assert.match(benchmarkWorker, /"baseline_outputs": baseline_outputs/);
-  assert.match(benchmarkWorker, /"candidate_outputs": candidate_outputs/);
-
-  assert.match(benchmarkLocal, /SAFE_LEASE_LANE = "intelligence-benchmark"/);
-  assert.match(benchmarkLocal, /refreshAvantiqoModelBenchmark/);
-  assert.match(benchmarkLocal, /provider_jobs_submitted: 1/);
-
-  assert.match(promotion, /explicit_production_release_required: true/);
-  assert.match(promotion, /production_release_authorized: false/);
-  assert.match(promotion, /production_endpoint_mutated: false/);
-  assert.match(promotion, /production_model_promoted: false/);
+test("training benchmark and candidate paths contain no external compute execution", () => {
+  const trainer = fs.readFileSync("lib/intelligence/runtime/AvantiqoModelTrainingExecutionRuntime.js", "utf8");
+  const benchmark = fs.readFileSync("lib/intelligence/runtime/AvantiqoModelBenchmarkExecutionRuntime.js", "utf8");
+  const candidate = fs.readFileSync("lib/intelligence/runtime/AvantiqoModelCandidateCanaryRuntime.js", "utf8");
+  const shared = fs.readFileSync("lib/intelligence/runtime/AvantiqoSharedTrainerReservationGuard.js", "utf8");
+  for (const source of [trainer, benchmark, candidate, shared]) {
+    assert.doesNotMatch(source, /Modal|modal|RunPod|runpod/);
+  }
+  assert.match(trainer, /AVANTIQO_INTELLIGENCE_LOCAL_TRAINER_EXECUTOR_REQUIRED/);
+  assert.match(benchmark, /AVANTIQO_MODEL_BENCHMARK_LOCAL_RUNTIME_REQUIRED/);
+  assert.match(candidate, /AVANTIQO_MODEL_CANDIDATE_CANARY_LOCAL_RUNTIME_REQUIRED/);
+  assert.match(shared, /AVANTIQO_LOCAL_TRAINER_V1/);
 });

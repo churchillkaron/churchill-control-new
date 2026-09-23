@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { broadcastHotelReadinessChanged } from "@/lib/hotel/server/broadcastHotelReadinessChanged";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assertHotelOperationalAccess } from "@/lib/hotel/server/HotelOperationalAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,7 @@ export async function POST(request) {
 
     const access = await requireOrganizationAccess({ organizationId: existing.organization_id, request });
     if (!access.success) return fail(access.error, access.status);
+    assertHotelOperationalAccess({ access, area: "HOUSEKEEPING" });
 
     const { data, error } = await supabaseAdmin.rpc("hotel_inspect_housekeeping_task", {
       p_organization_id: access.organizationId,

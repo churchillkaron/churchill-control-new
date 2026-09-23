@@ -16,7 +16,10 @@ test("existing adaptive lessons bypass repeated turn-history scans", () => {
   assert.match(runtime, /deriveAdaptiveFailureLearning\(\{ observation, existingMetadata \}\)/);
 });
 
-test("fallback failure scan avoids unused turn timestamp payload", () => {
-  assert.match(runtime, /\.select\("execution,conversation_id"\)/);
-  assert.doesNotMatch(runtime, /\.select\("execution,created_at,conversation_id"\)/);
+test("fallback failure scan uses bounded projected execution fields and no unused timestamp payload", () => {
+  assert.match(runtime, /status:execution->>status/);
+  assert.match(runtime, /capability_nested_key:execution->capability->>key/);
+  assert.match(runtime, /business_effect_verified:execution->business_effect_verified/);
+  assert.match(runtime, /\.limit\(120\)/);
+  assert.doesNotMatch(runtime, /created_at,/);
 });

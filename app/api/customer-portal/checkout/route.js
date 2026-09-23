@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   CUSTOMER_PORTAL_COOKIE,
   getPortalPaymentRequest,
+  isCustomerPortalSameOriginRequest,
   markPortalPaymentCheckoutCreated,
   resolveCustomerPortalSession,
 } from "@/lib/customer-portal/CustomerPortalRuntime";
@@ -141,6 +142,9 @@ async function createHotelCheckout({ session, paymentRequest, stripe, appOrigin 
 
 export async function POST(request) {
   try {
+    if (!isCustomerPortalSameOriginRequest(request)) {
+      return NextResponse.json({ success: false, error: "Cross-origin customer portal mutation denied" }, { status: 403 });
+    }
     const session = await resolveCustomerPortalSession(request.cookies.get(CUSTOMER_PORTAL_COOKIE)?.value || null);
     if (!session) return NextResponse.json({ success: false, error: "Customer portal session required" }, { status: 401 });
 
@@ -168,6 +172,15 @@ export async function POST(request) {
         providerSessionId: hotel.checkout.id,
       });
       return NextResponse.json({ success: true, checkout_url: hotel.checkout.url });
+    }
+
+    if (paymentRequest.provider_session_id) {
+      const prior = await stripe.checkout.sessions.retrieve(paymentRequest.provider_session_id);
+      if (prior?.url && String(prior.status || "").toLowerCase() === "open") {
+        const response = NextResponse.json({ success: true, checkout_url: prior.url, reused: true });
+        response.headers.set("Cache-Control", "private, no-store");
+        return response;
+      }
     }
 
     const currency = String(paymentRequest.currency_code || "").toUpperCase();
@@ -203,7 +216,7 @@ export async function POST(request) {
       },
       success_url: `${appOrigin}/customer-portal?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appOrigin}/customer-portal?payment=cancelled`,
-    });
+    }, { idempotencyKey: `customer-portal-checkout:${paymentRequest.id}` });
 
     const bankUpdate = await supabaseAdmin.from("customer_portal_payment_requests").update({
       bank_account_id: matching[0].id,

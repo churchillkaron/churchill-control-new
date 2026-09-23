@@ -250,10 +250,12 @@ test("recall candidates are scope-balanced while final memory stays bounded", as
   );
 
   assert.match(source, /const MAX_RECALL = 12/);
-  assert.match(source, /const MAX_CANDIDATES_PER_SCOPE = 100/);
+  assert.match(source, /memoryRecallCandidateLimit/);
+  assert.match(source, /const candidateLimit = memoryRecallCandidateLimit\(scopes\.length\)/);
   assert.match(source, /Promise\.all\([\s\S]*scopes\.map\(\(scope\)/);
   assert.match(source, /\.eq\("memory_scope", scope\)/);
   assert.match(source, /const candidatesById = new Map\(\)/);
   assert.doesNotMatch(source, /\.in\("memory_scope", scopes\)[\s\S]{0,300}\.limit\(100\)/);
   assert.match(source, /Math\.max\(1, Math\.min\(MAX_RECALL/);
+  assert.match(source, /\.limit\(candidateLimit\)/);
 });

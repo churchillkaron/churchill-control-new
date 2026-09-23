@@ -50,6 +50,11 @@ create table if not exists public.hotel_channel_reservation_events (
   discrepancy_summary jsonb not null default '{}'::jsonb,
   error_code text,
   error_message text,
+  provider_ack_status text not null default 'PENDING' check (provider_ack_status in ('PENDING','ACKNOWLEDGED','SUPERSEDED','RETRY_REQUIRED')),
+  provider_acknowledged_at timestamptz,
+  provider_ack_error_code text,
+  provider_ack_error_message text,
+  provider_ack_detail jsonb not null default '{}'::jsonb,
   received_at timestamptz not null default now(),
   processed_at timestamptz,
   reconciled_at timestamptz,
@@ -80,6 +85,8 @@ create index if not exists hotel_channel_reservation_events_connection_received_
   on public.hotel_channel_reservation_events (connection_id, received_at desc);
 create index if not exists hotel_channel_reservation_events_external_reservation_idx
   on public.hotel_channel_reservation_events (organization_id, provider, external_reservation_id);
+create index if not exists hotel_channel_reservation_events_ack_attention_idx
+  on public.hotel_channel_reservation_events (organization_id, property_id, provider_ack_status, received_at desc);
 create index if not exists hotel_channel_reconciliations_connection_idx
   on public.hotel_channel_reservation_reconciliations (connection_id, reconciled_at desc);
 create index if not exists hotel_channel_reconciliations_event_idx

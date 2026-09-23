@@ -19,7 +19,7 @@ const stays = fs.readFileSync(
   "utf8",
 );
 const frontDesk = fs.readFileSync(
-  new URL("../app/(system)/workspace/[organizationId]/operations/front-desk/page.jsx", import.meta.url),
+  new URL("../components/workspace/hotel/HotelFrontDeskWorkBoard.jsx", import.meta.url),
   "utf8",
 );
 
@@ -52,8 +52,8 @@ test("Folio close cannot strand an unfinished gateway transaction", () => {
 });
 
 test("Front Desk resolves departure exceptions before checkout", () => {
-  assert.match(frontDesk, /Close folio/);
-  assert.match(frontDesk, /Settle folio/);
+  assert.match(frontDesk, /Close zero folio/);
+  assert.match(frontDesk, /Settle guest/);
   assert.match(frontDesk, /Review settlement/);
   assert.match(frontDesk, /departure_readiness/);
   assert.match(frontDesk, /can_check_out/);

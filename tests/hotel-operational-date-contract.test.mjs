@@ -16,7 +16,7 @@ test("Hotel operational date is property-scoped and timezone aware", () => {
   assert.match(operationalDate, /timeZone: timezone/);
   assert.match(operationalDate, /business_day_cutoff_minutes/);
   assert.match(operationalDate, /wallClockMinutes < cutoff/);
-  assert.match(operationalDate, /compatibilityFallback: !configuredTimezone/);
+  assert.match(operationalDate, /compatibilityFallback: !explicitlyConfigured/);
 });
 
 test("Night Audit no longer accepts client authority over business date", () => {

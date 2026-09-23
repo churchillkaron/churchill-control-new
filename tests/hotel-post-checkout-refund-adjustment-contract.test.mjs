@@ -14,7 +14,7 @@ test("closed-folio refund is rejected before provider money movement unless the 
 
   const routeContext = paymentsRoute.indexOf("const refundContext = await getRefundContext");
   const refundInsert = paymentsRoute.indexOf('transaction_type: "REFUND"');
-  const providerCall = paymentsRoute.indexOf("stripe.refunds.create");
+  const providerCall = paymentsRoute.indexOf("StripeProvider.createRefund");
   assert.ok(routeContext >= 0 && routeContext < refundInsert && refundInsert < providerCall);
   assert.match(paymentsRoute, /CLOSED_FOLIO_STAY_NOT_CHECKED_OUT/);
 });

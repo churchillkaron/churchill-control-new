@@ -68,7 +68,7 @@ export async function GET(request) {
 
     let connectionQuery = supabaseAdmin
       .from('hotel_channel_connections')
-      .select('id,property_id,provider,display_name,external_property_id,status,credential_secret_ref,provider_certified,enabled,last_sync_at,last_success_at,last_error')
+      .select('id,property_id,provider,display_name,external_property_id,status,provider_certified,enabled,last_sync_at,last_success_at,last_error')
       .eq('organization_id', access.organizationId)
       .order('display_name', { ascending: true });
     if (propertyId) connectionQuery = connectionQuery.eq('property_id', propertyId);

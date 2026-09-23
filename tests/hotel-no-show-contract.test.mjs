@@ -3,13 +3,15 @@ import fs from "node:fs";
 import test from "node:test";
 
 const route = fs.readFileSync("app/api/hotel/bookings/no-show/route.js", "utf8");
-const frontDesk = fs.readFileSync("app/(system)/workspace/[organizationId]/operations/front-desk/page.jsx", "utf8");
+const frontDesk = fs.readFileSync("components/workspace/hotel/HotelFrontDeskWorkBoard.jsx", "utf8");
 const nightAudit = fs.readFileSync("app/api/hotel/night-audit/route.js", "utf8");
 
-test("no-show authority is derived from the booking and server date", () => {
-  assert.match(route, /const businessDate = todayIso\(\)/);
+test("no-show authority is derived from the booking and property operational date", () => {
+  assert.match(route, /getHotelOperationalDate/);
+  assert.match(route, /const businessDate = operationalDate\.businessDate/);
   assert.doesNotMatch(route, /body\.businessDate|body\.business_date/);
   assert.match(route, /organizationId: existing\.organization_id/);
+  assert.match(route, /propertyId: existing\.property_id/);
   assert.match(route, /requireOrganizationAccess/);
   assert.match(route, /Only a reserved arrival can be recorded as a no-show/);
   assert.match(route, /arrivalDate >= businessDate/);
@@ -29,14 +31,12 @@ test("no-show releases only reservation stay inventory and preserves commercial 
 });
 
 test("Front Desk exposes no-show only after the arrival date has passed", () => {
-  assert.match(frontDesk, /Record no-show/);
+  assert.match(frontDesk, /No-show/);
   assert.match(frontDesk, /\/api\/hotel\/bookings\/no-show/);
-  assert.match(frontDesk, /dateValue\(booking\?\.check_in_date\) >= today/);
+  assert.match(frontDesk, /dateValue\(booking\.check_in_date\) >= day/);
   assert.match(frontDesk, /body: JSON\.stringify\(\{ bookingId: booking\.id \}\)/);
   assert.match(frontDesk, /Confirm no-show/);
-  assert.match(frontDesk, /does not refund or forfeit a deposit/);
-  assert.match(frontDesk, /release a protected group allotment/);
-  assert.match(frontDesk, /report the no-show to an OTA automatically/);
+  assert.match(frontDesk, /does not silently decide deposit, refund, folio, group allotment or OTA treatment/);
 });
 
 test("recording NO_SHOW resolves the Night Audit unresolved-arrival blocker", () => {

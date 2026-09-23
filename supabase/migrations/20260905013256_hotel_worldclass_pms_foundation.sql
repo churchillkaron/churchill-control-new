@@ -1,5 +1,152 @@
 begin;
 
+-- Core Hotel tables were historically assumed to exist before this migration,
+-- but no migration in repository history creates them. Keep this prerequisite
+-- layer intentionally small: later Hotel migrations remain authoritative for
+-- PMS, payments, inventory, operational-day, QC and channel behavior.
+create table if not exists public.hotel_properties (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null,
+  name text not null,
+  address text,
+  city text,
+  country text,
+  finance_entity_id uuid,
+  settlement_bank_account_id uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.hotel_rooms (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null,
+  room_number text not null,
+  room_type text not null,
+  floor text,
+  status text not null default 'AVAILABLE',
+  base_rate numeric not null default 0,
+  max_guests integer not null default 2,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.hotel_guests (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null,
+  party_id uuid references public.parties(id) on delete set null,
+  full_name text not null,
+  first_name text,
+  last_name text,
+  email text,
+  phone text,
+  nationality text,
+  passport_number text,
+  document_type text,
+  document_number text,
+  date_of_birth date,
+  vip_status text not null default 'STANDARD',
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.hotel_bookings (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null,
+  room_id uuid references public.hotel_rooms(id) on delete restrict,
+  guest_id uuid references public.hotel_guests(id) on delete set null,
+  booking_reference text,
+  check_in_date date not null,
+  check_out_date date not null,
+  adults integer not null default 1,
+  children integer not null default 0,
+  status text not null default 'RESERVED',
+  source text not null default 'DIRECT',
+  total_amount numeric not null default 0,
+  paid_amount numeric not null default 0,
+  payment_status text not null default 'UNPAID',
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (check_out_date > check_in_date)
+);
+
+create table if not exists public.hotel_housekeeping_tasks (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null,
+  room_id uuid references public.hotel_rooms(id) on delete cascade,
+  booking_id uuid references public.hotel_bookings(id) on delete set null,
+  task_type text not null default 'CLEANING',
+  assigned_to uuid,
+  task_status text not null default 'PENDING',
+  priority text not null default 'NORMAL',
+  task_date date not null default current_date,
+  notes text,
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.hotel_maintenance_requests (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null,
+  room_id uuid references public.hotel_rooms(id) on delete cascade,
+  reported_by uuid,
+  issue_title text not null,
+  issue_description text,
+  priority text not null default 'NORMAL',
+  status text not null default 'OPEN',
+  resolved_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.hotel_maintenance_tasks (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null,
+  property_id uuid not null references public.hotel_properties(id) on delete cascade,
+  assigned_staff_id uuid,
+  task_type text not null default 'REPAIR',
+  status text not null default 'PENDING',
+  scheduled_at timestamptz not null default now(),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.hotel_concierge_requests (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null,
+  property_id uuid not null references public.hotel_properties(id) on delete cascade,
+  guest_id uuid not null references public.hotel_guests(id) on delete restrict,
+  request_type text not null,
+  details text,
+  status text not null default 'PENDING',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.hotel_guest_requests (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null,
+  guest_id uuid references public.hotel_guests(id) on delete cascade,
+  request_type text,
+  details text,
+  status text not null default 'PENDING',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists hotel_properties_org_idx on public.hotel_properties(organization_id);
+create index if not exists hotel_rooms_org_number_idx on public.hotel_rooms(organization_id, room_number);
+create index if not exists hotel_guests_org_name_idx on public.hotel_guests(organization_id, full_name);
+create index if not exists hotel_bookings_org_dates_idx on public.hotel_bookings(organization_id, check_in_date, check_out_date);
+create index if not exists hotel_housekeeping_tasks_org_status_idx on public.hotel_housekeeping_tasks(organization_id, task_status, task_date);
+create index if not exists hotel_maintenance_requests_org_status_idx on public.hotel_maintenance_requests(organization_id, status, created_at);
+create index if not exists hotel_maintenance_tasks_org_status_idx on public.hotel_maintenance_tasks(organization_id, status, scheduled_at);
+create index if not exists hotel_concierge_requests_org_status_idx on public.hotel_concierge_requests(organization_id, status, created_at);
+
 alter table public.hotel_rooms
   add column if not exists property_id uuid references public.hotel_properties(id) on delete restrict;
 create index if not exists hotel_rooms_org_property_idx on public.hotel_rooms(organization_id, property_id);
@@ -113,6 +260,31 @@ create table if not exists public.hotel_folio_lines (
 );
 create index if not exists hotel_folio_lines_org_folio_idx on public.hotel_folio_lines(organization_id, folio_id, created_at);
 
+create table if not exists public.hotel_payment_transactions (
+  id uuid primary key default gen_random_uuid(), organization_id uuid not null,
+  property_id uuid not null references public.hotel_properties(id) on delete restrict,
+  booking_id uuid not null references public.hotel_bookings(id) on delete restrict,
+  folio_id uuid not null references public.hotel_folios(id) on delete restrict,
+  guest_id uuid references public.hotel_guests(id) on delete set null,
+  party_id uuid references public.parties(id) on delete set null,
+  entity_id uuid, bank_account_id uuid,
+  transaction_type text not null, processor_mode text not null default 'MANUAL',
+  payment_method text, status text not null default 'PENDING', amount numeric not null default 0,
+  applied_amount numeric not null default 0, refunded_amount numeric not null default 0,
+  currency_code text not null default 'THB', exchange_rate numeric not null default 1,
+  parent_transaction_id uuid references public.hotel_payment_transactions(id) on delete restrict,
+  idempotency_key text, external_reference text, finance_payment_id uuid,
+  folio_line_id uuid references public.hotel_folio_lines(id) on delete set null,
+  settled_at timestamptz, failure_reason text,
+  created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+);
+create unique index if not exists hotel_payment_transactions_org_idempotency_uidx
+  on public.hotel_payment_transactions(organization_id, idempotency_key) where idempotency_key is not null;
+create index if not exists hotel_payment_transactions_booking_idx
+  on public.hotel_payment_transactions(organization_id, booking_id, created_at desc);
+create index if not exists hotel_payment_transactions_folio_idx
+  on public.hotel_payment_transactions(organization_id, folio_id, created_at desc);
+
 create table if not exists public.hotel_room_moves (
   id uuid primary key default gen_random_uuid(), organization_id uuid not null,
   booking_id uuid not null references public.hotel_bookings(id) on delete cascade,
@@ -176,7 +348,7 @@ declare
     'hotel_bookings','hotel_concierge_requests','hotel_guest_requests','hotel_guests','hotel_housekeeping_tasks',
     'hotel_maintenance_requests','hotel_maintenance_tasks','hotel_properties','hotel_rooms','hotel_rate_plans','hotel_groups',
     'hotel_channel_connections','hotel_rate_calendar','hotel_channel_mappings','hotel_channel_sync_jobs','hotel_folios',
-    'hotel_folio_lines','hotel_room_moves','hotel_pre_arrival_sessions','hotel_upsell_offers','hotel_booking_upsells',
+    'hotel_folio_lines','hotel_payment_transactions','hotel_room_moves','hotel_pre_arrival_sessions','hotel_upsell_offers','hotel_booking_upsells',
     'hotel_night_audits','hotel_forecast_snapshots'
   ];
 begin

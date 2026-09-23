@@ -44,7 +44,7 @@ test("inspection rechecks every physical release blocker inside the transaction"
   assert.match(transitionMigration, /unresolved or unclassified maintenance/);
   assert.match(transitionMigration, /another active Housekeeping task/);
   assert.match(transitionMigration, /in-house stay/);
-  assert.match(transitionMigration, /v_next_room_status := 'AVAILABLE'/);
+  assert.match(transitionMigration, /set status = 'AVAILABLE'/);
 });
 
 test("server runtime delegates Housekeeping mutation to the atomic RPC only", () => {
@@ -59,8 +59,9 @@ test("Housekeeping UI remains human-controlled", () => {
   assert.match(page, /What Housekeeping should do next/);
   assert.match(page, /Start cleaning/);
   assert.match(page, /Mark clean/);
-  assert.match(page, /Inspect & release/);
-  assert.match(page, /Resolve maintenance/);
+  assert.match(page, /Inspect room/);
+  assert.match(page, /Pass & release/);
+  assert.match(page, /Create maintenance/);
   assert.match(page, /\/api\/hotel\/housekeeping\/priority-plan/);
 });
 

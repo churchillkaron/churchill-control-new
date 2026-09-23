@@ -19,9 +19,9 @@ test("PASS is the only QC outcome that releases the room", () => {
   const passIndex = migration.indexOf("if v_outcome = 'PASS'");
   const availableIndex = migration.indexOf("status = 'AVAILABLE'", passIndex);
   assert.ok(passIndex >= 0 && availableIndex > passIndex);
-  assert.match(migration, /Room still has unresolved maintenance and cannot pass inspection/);
-  assert.match(migration, /Room still has another active Housekeeping task and cannot pass inspection/);
-  assert.match(migration, /Room is still assigned to an in-house stay and cannot pass inspection/);
+  assert.match(migration, /Room still has unresolved or unclassified maintenance and cannot be released to Front Desk/);
+  assert.match(migration, /Room still has another active Housekeeping task and cannot be released to Front Desk/);
+  assert.match(migration, /Room is still assigned to an in-house stay and cannot be released to Front Desk/);
 });
 
 test("RECLEAN returns the same task to Housekeeping without releasing the room", () => {

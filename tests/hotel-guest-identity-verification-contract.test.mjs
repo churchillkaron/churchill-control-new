@@ -52,7 +52,7 @@ test("identity remains advisory while Front Desk makes the attention actionable"
   assert.match(readiness, /issue\("IDENTITY_NOT_VERIFIED"[\s\S]*false\)/);
   assert.match(readiness, /const canCheckIn = blockers\.length === 0/);
   assert.match(frontDesk, /code === "IDENTITY_NOT_VERIFIED"/);
-  assert.match(frontDesk, />Verify identity</);
+  assert.match(frontDesk, /Verify identity/);
   assert.match(frontDesk, /transition\(booking, "CHECK_IN"\)/);
   assert.match(frontDesk, /verificationMethod: "IN_PERSON_DOCUMENT_REVIEW"/);
 });

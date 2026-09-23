@@ -6,8 +6,9 @@ const route = fs.readFileSync("app/api/operator/attention/route.js", "utf8");
 const home = fs.readFileSync("components/operator/HomeAvantiqoIntelligence.jsx", "utf8");
 
 test("Business Partner page-load attention is a passive persisted snapshot", () => {
-  assert.match(home, /fetch\("\/api\/operator\/attention"/);
+  assert.match(home, /fetchWithTimeout\([\s\S]*"\/api\/operator\/attention"/);
   assert.match(home, /passiveSnapshot: true/);
+  assert.match(home, /ATTENTION_SNAPSHOT_TIMEOUT_MS/);
   assert.match(route, /const passiveSnapshot =/);
   assert.match(route, /if \(passiveSnapshot\)/);
   assert.match(route, /attention_scan_performed: false/);

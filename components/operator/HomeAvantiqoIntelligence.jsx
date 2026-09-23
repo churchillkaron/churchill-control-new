@@ -15,9 +15,8 @@ import {
 // Owned Intelligence is zero-idle and can cold-start. Keep the browser alive
 // for the governed backend lifecycle instead of abandoning a live Safe Lease at 30s.
 const OPERATOR_TURN_TIMEOUT_MS = 12 * 60 * 1000;
-const CODE_PREWARM_POLL_MS = 5000;
-const CODE_PREWARM_MAX_POLLS = 90;
 const INTELLIGENCE_PREWARM_TIMEOUT_MS = 30 * 1000;
+const ATTENTION_SNAPSHOT_TIMEOUT_MS = 8 * 1000;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -278,42 +277,6 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     };
   }, [organizationId]);
 
-  useEffect(() => {
-    if (!organizationId) return undefined;
-
-    const controller = new AbortController();
-    let timer = null;
-    let polls = 0;
-
-    async function advanceCodePrewarm() {
-      if (controller.signal.aborted || polls >= CODE_PREWARM_MAX_POLLS) return;
-      polls += 1;
-      try {
-        const response = await fetch("/api/operator/code/prewarm", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          signal: controller.signal,
-          body: JSON.stringify({ organizationId }),
-        });
-        const result = await response.json().catch(() => ({}));
-        if (controller.signal.aborted) return;
-        if (response.ok && (result?.ready === true || result?.status === "disabled")) {
-          return;
-        }
-      } catch (prewarmError) {
-        if (prewarmError?.name === "AbortError") return;
-        console.debug("AVANTIQO_CODE_PREWARM_BACKGROUND_RETRY", prewarmError?.message || prewarmError);
-      }
-      timer = window.setTimeout(advanceCodePrewarm, CODE_PREWARM_POLL_MS);
-    }
-
-    advanceCodePrewarm();
-    return () => {
-      controller.abort();
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [organizationId]);
 
   useEffect(() => {
     if (!organizationId) {
@@ -399,17 +362,23 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
       setAttentionLoading(true);
 
       try {
-        const response = await fetch("/api/operator/attention", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          signal: controller.signal,
-          body: JSON.stringify({
-            organizationId,
-            entityId,
-            periodId,
-          }),
-        });
+        const response = await fetchWithTimeout(
+          "/api/operator/attention",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            signal: controller.signal,
+            body: JSON.stringify({
+              organizationId,
+              entityId,
+              periodId,
+              passiveSnapshot: true,
+            }),
+          },
+          ATTENTION_SNAPSHOT_TIMEOUT_MS,
+          "Business thesis snapshot timed out",
+        );
         const result = await response.json().catch(() => ({}));
         if (!response.ok || result?.success === false) {
           throw new Error(result?.error || "Attention scan failed");

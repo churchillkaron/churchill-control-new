@@ -31,8 +31,12 @@ export default async function PublicSupplierShopPage({ params }) {
           {shop.supplier?.verified ? <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[7px] text-emerald-700">Verified</span> : null}
           {shop.supplier?.business_linked ? <span className="rounded-full border border-black/[.08] bg-white/60 px-2 py-1 text-[7px] text-[#5F574F]">Avantiqo Business</span> : null}
         </div>
-        <h1 className="mt-4 max-w-4xl text-[46px] font-medium leading-[.96] tracking-[-.055em] sm:text-[64px]">{shop.supplier?.business_name || shop.name}</h1>
+        <div className="mt-4 flex items-center gap-4">{shop.supplier?.logo_url ? <img src={shop.supplier.logo_url} alt="" className="h-20 w-20 shrink-0 rounded-[20px] border border-black/[.06] object-cover" /> : null}<h1 className="max-w-4xl text-[46px] font-medium leading-[.96] tracking-[-.055em] sm:text-[64px]">{shop.supplier?.business_name || shop.name}</h1></div>
         <p className="mt-5 max-w-3xl text-[14px] leading-7 text-[#6B645C]">{shop.headline || shop.description || "Published supplier catalog on Avantiqo."}</p>
+        {(shop.supplier?.categories?.length || shop.supplier?.service_areas?.length) ? <div className="mt-5 flex flex-wrap gap-2">
+          {(shop.supplier?.categories || []).map((value)=><span key={"category-"+value} className="rounded-full border border-[#B7793B]/18 bg-white/55 px-3 py-1.5 text-[7px] font-semibold text-[#76502E]">{value}</span>)}
+          {(shop.supplier?.service_areas || []).map((value)=><span key={"area-"+value} className="rounded-full border border-black/[.08] bg-white/55 px-3 py-1.5 text-[7px] font-semibold text-[#5F574F]">{value}</span>)}
+        </div> : null}
         <div className="mt-6 flex flex-wrap gap-2">
           <span className="rounded-xl border border-black/[.08] bg-white/60 px-3 py-2 text-[8px] font-semibold">{shop.products.length} products</span>
           <span className="rounded-xl border border-black/[.08] bg-white/60 px-3 py-2 text-[8px] font-semibold">{shop.allow_customer_orders ? "Customer ordering available after connection" : "Catalog only"}</span>
@@ -50,7 +54,7 @@ export default async function PublicSupplierShopPage({ params }) {
         <a href="/products#supplier-portal" className="text-[9px] font-semibold text-[#815B36]">About Avantiqo Supplier Network →</a>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {shop.products.map((product) => <article key={product.id} className="rounded-[22px] border border-black/[.07] bg-white p-5 shadow-[0_12px_34px_rgba(50,41,31,.035)]">
+        {shop.products.map((product) => <article key={product.id} className="overflow-hidden rounded-[22px] border border-black/[.07] bg-white shadow-[0_12px_34px_rgba(50,41,31,.035)]">{product.image_url ? <img src={product.image_url} alt="" className="h-44 w-full object-cover" /> : null}<div className="p-5">
           <div className="text-[8px] font-semibold uppercase tracking-[.14em] text-[#A37849]">{product.category || "Product"}</div>
           <h3 className="mt-2 text-[18px] font-semibold tracking-[-.025em]">{product.name}</h3>
           {product.description ? <p className="mt-2 text-[9px] leading-5 text-[#756E66]">{product.description}</p> : null}
@@ -60,6 +64,7 @@ export default async function PublicSupplierShopPage({ params }) {
             <div>Lead time: {Number(product.lead_time_days || 0)} day(s)</div>
           </div>
           <div className="mt-4 text-[15px] font-semibold text-[#76502E]">{money(product.base_price, product.currency_code || shop.currency_code)}</div>
+          </div>
         </article>)}
       </div>
       {!shop.products.length ? <div className="rounded-[22px] border border-black/[.07] bg-white p-8 text-center text-[10px] text-[#81786F]">This supplier has not published any active products yet.</div> : null}

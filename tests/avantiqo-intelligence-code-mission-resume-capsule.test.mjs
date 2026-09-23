@@ -110,6 +110,36 @@ test("repository movement marks prepared capsule stale and requires one re-prepa
   assert.equal(inspected.governance.repeat_general_required, false);
 });
 
+test("local Code mission attestation derives a stable key from server-only secret material while production remains strict", () => {
+  const state = codeState(HEAD_A);
+  const env = { NODE_ENV: "development", SUPABASE_SERVICE_ROLE_KEY: "local-service-role-key-that-is-long-enough-for-derivation" };
+  const attested = attestCodeMissionState(state, { env });
+  assert.equal(verifyCodeMissionStateAttestation(attested, { env }), true);
+  assert.throws(
+    () => attestCodeMissionState(state, { env: { ...env, NODE_ENV: "production" } }),
+    /AVANTIQO_CODE_MISSION_ATTESTATION_SECRET_REQUIRED/,
+  );
+});
+
+test("Code state attestation survives the browser JSON transport used between continuation passes", () => {
+  const env = { AVANTIQO_CODE_MISSION_ATTESTATION_SECRET: SECRET };
+  const state = {
+    ...codeState(HEAD_A),
+    optional_top_level: undefined,
+    nested_transport_shape: {
+      keep: "yes",
+      drop: undefined,
+      list: ["a", undefined, "b"],
+    },
+  };
+  const attested = attestCodeMissionState(state, { env });
+  const transported = JSON.parse(JSON.stringify(attested));
+  assert.equal(verifyCodeMissionStateAttestation(transported, { env }), true);
+  assert.equal("optional_top_level" in transported, false);
+  assert.equal("drop" in transported.nested_transport_shape, false);
+  assert.deepEqual(transported.nested_transport_shape.list, ["a", null, "b"]);
+});
+
 test("Code state attestation covers the complete resume capsule", () => {
   const capsule = createAvantiqoIntelligenceCodeMissionResumeCapsule({
     mission_context: missionContext(),

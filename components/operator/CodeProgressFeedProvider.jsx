@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 
-const ACTIVE_POLL_MS = 1800;
+const ACTIVE_POLL_MS = 1000;
 const IDLE_POLL_MS = 6000;
 const ACTIVE_STALE_MS = 30 * 60 * 1000;
 const ACTIVE_STATES = new Set([

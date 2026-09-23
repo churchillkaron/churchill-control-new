@@ -259,6 +259,8 @@ export default function CustomerRuntimeWorkCenter(props) {
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [customerAction, setCustomerAction] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [portalLinkBusy, setPortalLinkBusy] = useState(false);
+  const [portalLink, setPortalLink] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -296,6 +298,10 @@ export default function CustomerRuntimeWorkCenter(props) {
   }, [rows, query]);
 
   const selected = rows.find((row) => row.id === selectedId) || filteredRows[0] || null;
+
+  useEffect(() => {
+    setPortalLink("");
+  }, [selected?.party_id]);
 
   useEffect(() => {
     let active = true;
@@ -385,6 +391,45 @@ export default function CustomerRuntimeWorkCenter(props) {
     setRefreshKey((value) => value + 1);
   }
 
+  async function createCustomerPortalLink() {
+    if (!organizationId || !selected?.party_id) return;
+    try {
+      setPortalLinkBusy(true);
+      setError("");
+      const response = await fetch("/api/customer-portal/access-links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          partyId: selected.party_id,
+          purpose: "PORTAL_ACCESS",
+          expiresHours: 72,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || "Unable to create Customer Portal link");
+      }
+      const accessUrl = String(payload.access_url || "").trim();
+      if (!accessUrl) throw new Error("Customer Portal link was not returned");
+      setPortalLink(accessUrl);
+      try {
+        await navigator.clipboard.writeText(accessUrl);
+      } catch {}
+    } catch (portalError) {
+      setError(portalError?.message || "Unable to create Customer Portal link");
+    } finally {
+      setPortalLinkBusy(false);
+    }
+  }
+
+  async function copyCustomerPortalLink() {
+    if (!portalLink) return;
+    try {
+      await navigator.clipboard.writeText(portalLink);
+    } catch {}
+  }
+
   return (
     <main className="min-h-screen bg-[#050505] px-5 py-6 text-white lg:px-7">
       <div className="mx-auto max-w-[1700px]">
@@ -469,6 +514,7 @@ export default function CustomerRuntimeWorkCenter(props) {
                   <div className="flex flex-wrap justify-end gap-2">
                     <MiniAction onClick={() => openSales("quote")} accent>New Quotation</MiniAction>
                     <MiniAction onClick={() => openSales("order")} accent>New Sales Order</MiniAction>
+                    <MiniAction onClick={createCustomerPortalLink} disabled={!selected?.party_id || portalLinkBusy}>{portalLinkBusy ? "Creating Portal…" : "Customer Portal"}</MiniAction>
                     <MiniAction onClick={() => setCustomerAction("statement")} disabled={!entityId}>Statement</MiniAction>
                     <MiniAction onClick={() => setCustomerAction("collection_case")} disabled={!entityId}>Open Collection</MiniAction>
                     <MiniAction onClick={() => setCustomerAction("collection_activity")} disabled={!entityId || openCollectionCases.length === 0}>Collection Activity</MiniAction>
@@ -483,6 +529,17 @@ export default function CustomerRuntimeWorkCenter(props) {
                     {detailLoading ? <span className="self-center text-[11px] text-white/34">Refreshing...</span> : null}
                   </div>
                 </div>
+
+                {portalLink ? (
+                  <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] p-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200">Secure Customer Portal link · 72 hours · one-time use</div>
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                      <input readOnly value={portalLink} className="h-9 min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-black/30 px-3 text-[10px] text-white/60 outline-none" />
+                      <MiniAction onClick={copyCustomerPortalLink}>Copy link</MiniAction>
+                    </div>
+                    <div className="mt-2 text-[10px] leading-5 text-white/35">Creating a new link revokes any previous unused portal link for this customer relationship. The raw token is shown only here and is never stored in the database.</div>
+                  </div>
+                ) : null}
 
                 {detail?.detail_error ? (
                   <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] p-3 text-[12px] text-amber-100">Commercial profile loaded. Finance detail unavailable: {detail.detail_error}</div>

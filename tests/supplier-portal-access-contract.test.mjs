@@ -80,3 +80,28 @@ test("public Supplier Portal supports invited, free-shop and business entry path
   assert.match(workspace, /03 · Business/);
   assert.match(workspace, /Sign in or create account/);
 });
+
+test("supplier invitation rejects malformed canonical email before replacing pending invitations", () => {
+  const invalidIndex = invite.indexOf("Supplier email is invalid");
+  const revokeIndex = invite.indexOf('from("supplier_portal_invitations").update');
+  assert.ok(invalidIndex >= 0 && revokeIndex > invalidIndex);
+  assert.match(invite, /validEmail/);
+});
+
+test("supplier invitation is atomically claimed before access is created", () => {
+  const acceptedAtIndex = accept.indexOf("const acceptedAt=");
+  const claimIndex = accept.indexOf('.from("supplier_portal_invitations")', acceptedAtIndex);
+  const accessIndex = accept.indexOf('.from("supplier_portal_access")', claimIndex);
+  assert.ok(acceptedAtIndex >= 0 && claimIndex > acceptedAtIndex && accessIndex > claimIndex);
+  assert.match(accept, /\.eq\("status","PENDING"\)/);
+  assert.match(accept, /\.gt\("expires_at",acceptedAt\)/);
+  assert.match(accept, /Invitation was already accepted, revoked or expired/);
+});
+
+test("supplier invitation acceptance compensates only its exact failed access attempt", () => {
+  assert.match(accept, /status:"PENDING"/);
+  assert.match(accept, /accepted_by_auth_user_id:null/);
+  assert.match(accept, /accepted_at:null/);
+  assert.match(accept, /\.eq\("accepted_by_auth_user_id",user\.id\)/);
+  assert.match(accept, /\.eq\("accepted_at",acceptedAt\)/);
+});

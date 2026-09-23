@@ -63,7 +63,7 @@ function callbackPath() {
   const requestedPortal = params.get("portal");
   const portal = requestedPortal === "developer" ? "developer" : requestedPortal === "supplier" ? "supplier" : requestedPortal === "staff" ? "staff" : "business";
   const callback = new URLSearchParams({ portal });
-  const safeNext = next && !next.startsWith("//") && (next.startsWith("/workspace") || next.startsWith("/supplier-invite/") || next.startsWith("/developer-invite/") || next.startsWith("/accounting-client-invite/"));
+  const safeNext = next && !next.startsWith("//") && (next.startsWith("/workspace") || next.startsWith("/supplier-invite/") || next.startsWith("/developer-invite/") || next.startsWith("/accounting-client-invite/") || next.startsWith("/accounting-managed-client-claim/"));
   if (safeNext) callback.set("next", next);
   return `/login/callback?${callback.toString()}`;
 }

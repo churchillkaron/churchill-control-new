@@ -209,7 +209,7 @@ export default function StaffActivationSetup({ activation, organizationId, organ
         <div className="mb-5 rounded-[30px] border border-black/[0.07] bg-white p-5 shadow-[0_16px_45px_rgba(55,47,38,0.06)] sm:p-7">
           <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.22em] text-[#D6A66A]"><ShieldCheck className="h-4 w-4" /> Secure staff setup</div>
           <h1 className="mt-3 text-2xl font-black tracking-[-0.03em] sm:text-3xl">Verify your identity before work access</h1>
-          <p className="mt-2 text-sm leading-6 text-[#817B73]">Your email signs you in. Phone ownership, government ID and your device passkey must also be verified before Avantiqo unlocks the Staff Portal.</p>
+          <p className="mt-2 text-sm leading-6 text-[#817B73]">Your employer first assigns the legal entity that employs you. Then your email, phone ownership, government ID and device passkey must be verified before Avantiqo unlocks the Staff Portal.</p>
           {organizations.length > 1 ? (
             <div className="mt-4 rounded-2xl border border-black/[0.06] bg-[#FCFBF9] p-3">
               <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#948E86]"><Building2 className="h-4 w-4" /> Workplace for this setup</div>
@@ -237,6 +237,19 @@ export default function StaffActivationSetup({ activation, organizationId, organ
         {message ? <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-[#5E6D58]">{message}</div> : null}
 
         <div className="space-y-3">
+          <Step icon={Building2} title="Legal employer" status={steps.employment?.status || "MISSING"} complete={steps.employment?.complete === true}>
+            <p className="text-xs leading-5 text-[#817B73]">Your employer must assign the legal entity that employs you before Staff Portal activation can finish. This controls payroll, compliance and employment records and cannot be selected by the employee.</p>
+            {steps.employment?.legalEntityName ? (
+              <div className="mt-3 rounded-2xl border border-black/[0.06] bg-[#FCFBF9] p-3">
+                <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#948E86]">Assigned legal employer</div>
+                <div className="mt-1 text-sm font-black text-[#1B1A18]">{steps.employment.legalEntityName}</div>
+                {steps.employment?.effectiveFrom ? <div className="mt-1 text-[10px] text-[#817B73]">Effective {steps.employment.effectiveFrom}</div> : null}
+              </div>
+            ) : (
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-[#76583A]">Waiting for Owner / HR to assign your legal employer in People → Employee Directory.</div>
+            )}
+          </Step>
+
           <Step icon={MailCheck} title="Email login" status={steps.email?.status || "CHECKING"} complete={steps.email?.complete === true}>
             <p className="text-xs leading-5 text-[#817B73]">Confirm the email invitation/login sent through Supabase Auth before continuing.</p>
           </Step>

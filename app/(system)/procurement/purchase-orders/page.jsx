@@ -176,17 +176,34 @@ export default function PurchaseOrdersPage() {
                   <div>
 
                     <div className="text-2xl font-bold">
-                      {
-                        order.vendors
-                          ?.display_name
-                      }
+                      {order.parties?.display_name || order.vendors?.display_name || "Supplier"}
                     </div>
 
                     <div className="text-zinc-500 mt-2">
-                      {
-                        order.status
-                      }
+                      Customer PO · {order.status}
                     </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="rounded-full border border-zinc-700 px-3 py-1 text-zinc-300">
+                        Supplier · {order.supplier_response?.response_status || (order.status === "APPROVED" ? "PENDING" : "WAITING FOR APPROVAL")}
+                      </span>
+                      {order.supplier_response?.promised_delivery_date ? (
+                        <span className="rounded-full border border-zinc-700 px-3 py-1 text-zinc-400">
+                          Promised {order.supplier_response.promised_delivery_date}
+                        </span>
+                      ) : null}
+                      {order.supplier_response?.dispatch_reference ? (
+                        <span className="rounded-full border border-zinc-700 px-3 py-1 text-zinc-400">
+                          Dispatch {order.supplier_response.dispatch_reference}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {order.supplier_response?.supplier_note ? (
+                      <div className="mt-3 max-w-2xl text-sm text-zinc-400">
+                        Supplier note · {order.supplier_response.supplier_note}
+                      </div>
+                    ) : null}
 
                   </div>
 

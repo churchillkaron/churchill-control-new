@@ -29,7 +29,7 @@ test("external developer invitations are hashed, expiring, email-bound and least
   assert.match(invite, /randomBytes\(32\)/);
   assert.match(invite, /token_hash:hash\(token\)/);
   assert.match(invite, /\["operations\.view"\]/);
-  assert.match(accept, /invite\.status!=="PENDING"/);
+  assert.match(accept, /invite\.status\s*!==\s*"PENDING"/);
   assert.match(accept, /new Date\(invite\.expires_at\)/);
   assert.match(accept, /user\.email.*invite\.email/s);
 });
@@ -221,4 +221,28 @@ test("invitation issuer UIs always preserve the secure link and display delivery
     assert.match(ui, /Email delivery failed · invitation still valid/);
     assert.match(ui, /Test address · email skipped/);
   }
+});
+
+test("developer invitation acceptance claims the pending invite before granting access", () => {
+  assert.match(accept, /\.eq\("status", "PENDING"\)/);
+  assert.match(accept, /\.gt\("expires_at", acceptedAt\)/);
+  assert.match(accept, /\.select\("\*"\)\s*\.maybeSingle\(\)/s);
+  assert.match(accept, /Invitation was already accepted, revoked or expired/);
+  assert.match(accept, /claimedInvite\.organization_id/);
+  assert.match(accept, /claimedInvite\.permissions/);
+});
+
+test("developer invitation acceptance compensates a failed access write", () => {
+  assert.match(accept, /if \(accessError \|\| !access\)/);
+  assert.match(accept, /status: "PENDING"/);
+  assert.match(accept, /accepted_by_auth_user_id: null/);
+  assert.match(accept, /accepted_at: null/);
+  assert.match(accept, /\.eq\("accepted_at", acceptedAt\)/);
+});
+
+test("developer invitation rejects malformed email before replacing pending invitations", () => {
+  const invalidIndex = invite.indexOf("Developer email is invalid");
+  const revokeIndex = invite.indexOf('from("developer_portal_invitations").update');
+  assert.ok(invalidIndex >= 0 && revokeIndex > invalidIndex);
+  assert.match(invite, /validEmail/);
 });

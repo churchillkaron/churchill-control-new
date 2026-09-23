@@ -90,3 +90,33 @@
 .avantiqo-code-ide .monaco-editor .margin {
   background-color: #fbf8f2 !important;
 }
+
+.avantiqo-code-ide .monaco-editor .avantiqo-code-focus-line {
+  background: rgba(214, 166, 106, 0.13) !important;
+  box-shadow: inset 2px 0 0 rgba(183, 121, 59, 0.68);
+}
+
+.avantiqo-code-ide .monaco-editor .avantiqo-code-focus-glyph {
+  border-left: 3px solid rgba(183, 121, 59, 0.9);
+  margin-left: 2px;
+}
+
+@keyframes avantiqo-live-sweep {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.78;
+  }
+  52% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 0.72;
+  }
+  100% {
+    transform: translateX(calc(100vw - 380px));
+    opacity: 0;
+  }
+}

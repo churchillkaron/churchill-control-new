@@ -7,6 +7,7 @@ import { deliverInvitationEmail } from "@/lib/access/InvitationEmailDeliveryRunt
 export const dynamic = "force-dynamic";
 const ALLOWED = new Set(["OWNER","ORGANIZATION_OWNER","ORG_OWNER","PLATFORM_OWNER","SUPER_ADMIN","MANAGER","PROCUREMENT"]);
 const hash = (value) => createHash("sha256").update(String(value)).digest("hex");
+const validEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim()) && String(value || "").trim().length <= 320;
 
 async function managementAccess({ organizationId, request }) {
   const access = await requireOrganizationAccess({ organizationId, request });
@@ -64,6 +65,7 @@ export async function POST(request){
     if(!party) return NextResponse.json({success:false,error:"Canonical supplier Party not found"},{status:404});
     const email=String(party.email||"").trim().toLowerCase();
     if(!email) return NextResponse.json({success:false,error:"Supplier email is required before portal access can be invited"},{status:400});
+    if(!validEmail(email)) return NextResponse.json({success:false,error:"Supplier email is invalid"},{status:400});
 
     await supabaseAdmin.from("supplier_portal_invitations").update({status:"REVOKED",revoked_at:new Date().toISOString()}).eq("organization_id",organizationId).eq("supplier_profile_id",supplierProfileId).eq("status","PENDING");
     const token=randomBytes(32).toString("base64url");

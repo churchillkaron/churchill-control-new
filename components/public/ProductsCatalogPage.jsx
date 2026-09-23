@@ -125,9 +125,9 @@ function MarketsSystemArt() {
 
 function PortalExperienceArt({ compact = false }) {
   const panes = [
-    ["Customer", "/art/generated/solutions/verticals/solution-hotel-v1.png", "Bookings · payments · documents · messages", "/products/customer-portal"],
+    ["Customer", "/art/generated/solutions/verticals/solution-hotel-v1.png", "Orders · invoices · payments · bookings", "/customer-portal"],
     ["Staff", "/art/generated/products/products-people-v1.png", "Work · shifts · requests · payroll", "/staff-portal"],
-    ["Supplier", "/art/generated/products/products-stock-v1.png", "Invitation · customer-scoped identity · governed access", "/supplier-portal"],
+    ["Supplier", "/art/generated/products/products-stock-v1.png", "Invitations · free shop · Supplier Network · Business upgrade", "/supplier-portal"],
   ];
   return (
     <div className={`relative overflow-hidden bg-[#EDE3D5] ${compact ? "h-full" : "min-h-[390px] rounded-[30px] border border-[#C8B7A0]/45 p-4 shadow-[0_24px_70px_rgba(56,39,22,.08)] sm:p-5"}`}>

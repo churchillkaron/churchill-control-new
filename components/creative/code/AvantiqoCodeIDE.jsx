@@ -16,6 +16,7 @@ import {
   Folder,
   FolderOpen,
   GitCompare,
+  HardDrive,
   MonitorPlay,
   Play,
   RefreshCw,
@@ -32,7 +33,7 @@ import "./AvantiqoCodeIDE.css";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 const MAX_RESUMES = 120;
-const MISSION_IDLE_DEADLINE_MS = 8 * 60 * 1000;
+const MISSION_IDLE_DEADLINE_MS = 45 * 1000;
 const MISSION_ABSOLUTE_DEADLINE_MS = 30 * 60 * 1000;
 const DEFAULT_REPOSITORY = "https://github.com/churchillkaron/churchill-control-new.git";
 
@@ -75,6 +76,145 @@ function observableLearningNote(event) {
   if (/browser/.test(action)) return "Verifying the real user flow in a browser rather than relying only on source-level tests.";
   return "Following the observable engineering step so you can see how the work progresses.";
 }
+function currentEventFile(event = {}) {
+  const direct = text(event?.file_path);
+  if (direct) return direct;
+  const action = text(event?.action || event?.phase).toLowerCase();
+  if (/apply|write|edit|patch|diff/.test(action)) return text(event?.files_changed?.[0]);
+  return "";
+}
+
+function conversationalCodeActivity(event = {}) {
+  const phase = text(event?.phase || event?.status).toLowerCase();
+  const action = text(event?.action || event?.phase || event?.status).toLowerCase();
+  const filePath = currentEventFile(event);
+  const command = text(event?.command);
+  const args = Array.isArray(event?.command_args) ? event.command_args.map((value) => text(value)).filter(Boolean) : [];
+  const url = text(event?.url);
+  const description = text(event?.description || event?.reason);
+  const customerSafeDescription = description && !/owned code model|reasoning|planner|work package|engineering package|provider|attestation|CODE_[A-Z0-9_]+/i.test(description)
+    ? description
+    : "";
+  if (/repository_operation_(?:running|completed|failed)/.test(phase) && customerSafeDescription) return customerSafeDescription;
+  const line = Number(event?.start_line || 0) || null;
+  const lineSuffix = line ? ` around line ${line}` : "";
+  if (command) {
+    const fullCommand = [command, ...args].join(" ");
+    if (event?.exit_code !== null && event?.exit_code !== undefined) {
+      return Number(event.exit_code) === 0
+        ? `I ran \`${fullCommand}\` and it passed, so this part is behaving correctly.`
+        : `I ran \`${fullCommand}\` and it failed with exit ${event.exit_code}. I’m tracing the failure before I change anything else.`;
+    }
+    return `I’m running \`${fullCommand}\` to verify the current implementation before I continue.`;
+  }
+  if (url && /browser/i.test(action)) {
+    if (event?.verification_passed === true) return `I verified ${url} in the browser and the real user flow passed.`;
+    if (event?.verification_passed === false) return `The browser check failed at ${url}. I’m inspecting what the customer would actually experience before I repair it.`;
+    return `I’m testing ${url} in the browser to verify the real customer experience, not just the source code.`;
+  }
+  if (filePath && /read|inspect/.test(action)) return `I’m opening \`${filePath}\`${lineSuffix} to understand the existing behavior before I make a change.`;
+  if (filePath && /search/.test(action)) return `I’m tracing the relevant code in \`${filePath}\`${lineSuffix} so I can identify the exact owner of this behavior.`;
+  if (filePath && /apply|write|edit|patch/.test(action)) return `I found the code that owns this behavior. I’m repairing \`${filePath}\`${lineSuffix} now, keeping the change scoped to the problem.`;
+  if (filePath && /verify|test|check/.test(action)) return `I’m checking \`${filePath}\`${lineSuffix} now to prove the repair works before I move on.`;
+  if (filePath && /diff|review/.test(action)) return `I’m reviewing the changes in \`${filePath}\` to make sure I fixed the intended behavior without changing anything unrelated.`;
+  if (/planner_pending|planning/.test(action)) {
+    if (description && !/owned code model|reasoning|planner|work package|engineering package|provider|attestation/i.test(description)) return description;
+    return "";
+  }
+  if (/repair/.test(action) || /recover/.test(action)) return "I found a recoverable problem in the work path. I’m repairing it automatically, then I’ll continue from the last safe point.";
+  if (/mission_accepted|mission_approved|approved|approval/.test(action)) return "I’ve got the task and I’m starting the work now.";
+  if (/provider|attestation|reasoning|planner|work package|engineering package/i.test(description)) return "";
+  return description || (filePath ? `I’m working in \`${filePath}\` now and checking how it connects to the issue.` : "I’m continuing the work and checking the next concrete step.");
+}
+
+function isTransientRecoveryTalkTurn(turn) {
+  if (turn?.role !== "assistant") return false;
+  const content = text(turn?.content).toLowerCase();
+  return content.includes("the saved work state no longer matches the current workspace")
+    || content.includes("the planning pass did not return an executable repository step")
+    || content.includes("the next implementation step was not precise enough to execute safely")
+    || content.includes("the workspace connection changed while i was working")
+    || content.includes("i lost the active work loop after the reload")
+    || content.includes("i’m still working out the safest next move from what i’ve already inspected")
+    || content.includes("i found a problem that prevents a safe change right now");
+}
+
+function dedupeAdjacentTalkTurns(turns = []) {
+  const next = [];
+  for (const turn of Array.isArray(turns) ? turns : []) {
+    if (isTransientRecoveryTalkTurn(turn)) continue;
+    const previous = next.at(-1);
+    if (
+      previous?.role === "user" &&
+      turn?.role === "user" &&
+      text(previous?.content) &&
+      text(previous?.content) === text(turn?.content)
+    ) continue;
+    if (
+      previous?.role === "assistant" &&
+      turn?.role === "assistant" &&
+      text(previous?.content) &&
+      text(previous?.content) === text(turn?.content)
+    ) continue;
+    next.push(turn);
+  }
+  return next;
+}
+
+function customerFacingCodeBlocker(value) {
+  const message = text(value).toUpperCase();
+  if (message.includes("404") || message.includes("HISTORY_MISSION_NOT_FOUND") || message.includes("LOAD FAILED")) return "The workspace connection changed while I was working. I’m reconnecting to the current project state before I continue.";
+  if (message.includes("ATTESTATION")) return "The saved work state no longer matches the current workspace. I’m rebuilding a trusted checkpoint before continuing.";
+  if (message.includes("PROVIDER") || message.includes("RUNTIME_UNAVAILABLE") || message.includes("LOCAL_NODE")) return "The execution path I was using became unavailable. I’m switching to a healthy path and continuing from the last safe point.";
+  if (message.includes("IMPLEMENTATION_REQUIRED_AFTER_SEEDED_DISCOVERY")) return "I found enough evidence to continue, but the next change is not safe to apply yet. I’m narrowing the exact implementation before touching the code.";
+  if (message.includes("PLANNER") || message.includes("WORK_PACKAGE") || message.includes("REASONING")) return "I’m still working out the safest next move from what I’ve already inspected. I haven’t changed the code yet, and I’ll continue as soon as the next step is clear.";
+  return "I found a problem that prevents a safe change right now. I’m isolating the cause and preserving the current working state.";
+}
+
+function codeDeviceAvailabilityMessage(devices = []) {
+  const paired = Array.isArray(devices) ? devices : [];
+  if (!paired.length) {
+    return "No Code computer is paired with this Avantiqo workspace yet. Pair a computer in Developer Mode before repository work can start.";
+  }
+  const enabled = paired.filter((device) => device?.enabled === true);
+  if (!enabled.length) {
+    return "A Code computer is paired, but it is disabled. Enable or re-pair the computer before repository work can start.";
+  }
+  const mostRecent = enabled[0] || paired[0];
+  const name = text(mostRecent?.display_name) || "your Code computer";
+  const lastSeen = Date.parse(text(mostRecent?.last_seen_at));
+  const ageSeconds = Number.isFinite(lastSeen) ? Math.max(0, Math.round((Date.now() - lastSeen) / 1000)) : null;
+  const seenText = ageSeconds == null
+    ? "It is not sending a heartbeat."
+    : ageSeconds < 120
+      ? `Its last heartbeat was ${ageSeconds} seconds ago.`
+      : `Its last heartbeat was about ${Math.max(2, Math.round(ageSeconds / 60))} minutes ago.`;
+  return `${name} is paired, but its local Code agent is offline. ${seenText} I can keep the conversation open, but repository work cannot start until that agent is online again.`;
+}
+
+function recoverableCodeInfrastructureBlocker(value) {
+  const message = text(value).toUpperCase();
+  return Boolean(
+    message.includes("PROVIDER_RUNTIME_UNAVAILABLE") ||
+    message.includes("PROVIDER RUNTIME UNAVAILABLE") ||
+    message.includes("NO PRICED EXECUTABLE PROVIDER AVAILABLE FOR AI.CODE.DEBUG") ||
+    message.includes("AVANTIQO_CODE_LOCAL_NODE_UNAVAILABLE") ||
+    message.includes("AVANTIQO_LOCAL_COMPUTE_QUEUE_REQUIRED") ||
+    message.includes("CODE_AI_MISSION_ATTESTATION_REQUIRED") ||
+    message.includes("CODE_AI_MISSION_ATTESTATION_INVALID") ||
+    message.includes("CODE_AI_WORK_PACKAGE_IMPLEMENTATION_REQUIRED_AFTER_SEEDED_DISCOVERY") ||
+    message.includes("CODE_AI_WORK_PACKAGE_JSON_AMBIGUOUS") ||
+    message.includes("SERVICE_USAGE_IDEMPOTENT_START_PREEXISTING") ||
+    message.includes("SERVICE_USAGE_IDEMPOTENT_START_STATE_CONFLICT:SUCCESS") ||
+    message.includes("CODE_STUDIO_RUNNING_STATE_REQUIRED") ||
+    message.includes("CODE_STUDIO_HISTORY_MISSION_NOT_FOUND") ||
+    message.includes("CODE MISSION FAILED (404)") ||
+    message.includes("LOAD FAILED") ||
+    message.includes("ECONNRESET") ||
+    message.includes("ECONNREFUSED") ||
+    message.includes("ETIMEDOUT")
+  );
+}
 function likelyRepositoryWork(message, missionActive = false) {
   const source = text(message);
   const discussionOnly = /\b(no|do not|don't|dont|not yet|just|only)\b[\s\S]{0,80}\b(build|code|change|edit|implement|repository work|repo work|start work|touch the code)\b/i.test(source)
@@ -89,8 +229,12 @@ function activeMissionProgress(progress, baselineAt = 0) {
   const eventStatus = text(progress?.latest_event?.status).toLowerCase();
   const activeStates = new Set(["active", "executing", "in_progress", "pending", "planner_pending", "queued", "running", "verifying", "working"]);
   const eventAt = Date.parse(text(progress?.latest_event?.at));
-  const fresh = !baselineAt || (Number.isFinite(eventAt) && eventAt >= baselineAt);
-  return fresh && (activeStates.has(state) || activeStates.has(eventStatus));
+  const eventAgeMs = Number.isFinite(eventAt) ? Date.now() - eventAt : Number.POSITIVE_INFINITY;
+  const eventFreshEnough = eventAgeMs <= 120000;
+  const baselineFresh = !baselineAt
+    || (Number.isFinite(eventAt) && eventAt >= baselineAt)
+    || eventAgeMs <= 30000;
+  return eventFreshEnough && baselineFresh && (activeStates.has(state) || activeStates.has(eventStatus));
 }
 function buildExplorerTree(paths = []) {
   const root = { name: "", path: "", type: "folder", children: new Map() };
@@ -143,7 +287,7 @@ function fastClientIntent(message, recentTurns = []) {
   const visualActions = ["show", "see", "visual", "mockup", "concept", "idea", "look", "design", "layout", "lay out", "would do", "want to do"];
   const imageSubjects = ["image", "photo", "picture", "illustration", "hero art", "background art"];
   const imageActions = ["generate", "create", "make", "render", "produce", "show"];
-  const repoActions = ["fix", "implement", "code", "change", "update", "repair", "debug", "test", "inspect", "trace", "refactor", "deploy", "commit", "continue building", "build this"];
+  const repoActions = ["fix", "implement", "code", "change", "update", "repair", "debug", "test", "inspect", "trace", "refactor", "deploy", "commit", "continue", "resume", "replan", "keep going", "continue building", "build this"];
   const repoSubjects = ["repo", "repository", "code", "file", "route", "component", "api", "database", "migration", "test", "runtime", "worker", "function"];
 
   if (current.includes("architecture")) return "architecture";
@@ -151,8 +295,15 @@ function fastClientIntent(message, recentTurns = []) {
   if (current.includes("decision board")) return "decision_board";
   if (hasAny(current, ["flow diagram", "user flow", "process flow"])) return "flow";
   if (hasAny(current, imageSubjects) && hasAny(current, imageActions) && !hasAny(current, visualSubjects)) return "image_generation";
+  if (
+    hasAny(current, repoActions) &&
+    (
+      hasAny(current, repoSubjects) ||
+      /\b(blocked step|preserved mission|same mission|repository commands?|restart recovery|verification)\b/i.test(current) ||
+      /^\s*(fix|implement|change|update|debug|test|inspect|continue|resume|replan|build)\b/i.test(message)
+    )
+  ) return "repository_work";
   if (hasAny(context, visualSubjects) && hasAny(current, visualActions)) return "design_preview";
-  if (hasAny(current, repoActions) && (hasAny(current, repoSubjects) || /^\s*(fix|implement|change|update|debug|test|inspect|continue|build)\b/i.test(message))) return "repository_work";
   return null;
 }
 
@@ -178,10 +329,13 @@ export default function AvantiqoCodeIDE({
   const [dirty, setDirty] = useState({});
   const [revision, setRevision] = useState(0);
   const [leaseOwner, setLeaseOwner] = useState(null);
+  const [deviceHealth, setDeviceHealth] = useState(null);
   const [error, setError] = useState(null);
   const [status, setStatus] = useState("Open a connected computer workspace");
   const [opening, setOpening] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [takingHumanControl, setTakingHumanControl] = useState(false);
+  const [handingBackToCode, setHandingBackToCode] = useState(false);
   const [diffText, setDiffText] = useState("");
   const [objective, setObjective] = useState("");
   const [chatTurns, setChatTurns] = useState([]);
@@ -201,17 +355,28 @@ export default function AvantiqoCodeIDE({
   const [missionRunning, setMissionRunning] = useState(false);
   const [localMissionId, setLocalMissionId] = useState("");
   const [missionResult, setMissionResult] = useState(null);
+  const [missionStartedAt, setMissionStartedAt] = useState(0);
+  const [localMissionStage, setLocalMissionStage] = useState("");
+  const [liveClockTick, setLiveClockTick] = useState(() => Date.now());
   const [activityBaselineAt, setActivityBaselineAt] = useState(0);
-  const [browserUrl, setBrowserUrl] = useState("http://localhost:3001/code");
+  const [browserUrl, setBrowserUrl] = useState("");
   const [browserResult, setBrowserResult] = useState(null);
   const [followCode, setFollowCode] = useState(true);
   const [learnMode, setLearnMode] = useState(true);
   const terminalHostRef = useRef(null);
   const terminalRef = useRef(null);
+  const explorerRef = useRef(null);
+  const mirroredActivityKeysRef = useRef(new Set());
   const editorRef = useRef(null);
+  const editorCodeFocusRef = useRef(null);
   const fitAddonRef = useRef(null);
   const terminalLineRef = useRef("");
   const pendingSteerRef = useRef([]);
+  const latestProgressAtRef = useRef(0);
+  const lastWorkspaceConnectionErrorRef = useRef("");
+  const autoResumeMissionRef = useRef("");
+  const runCodeMissionRef = useRef(null);
+  const recoverWorkspaceAfterOutageRef = useRef(null);
   const mounted = useRef(false);
 
   const activeBuffer = buffers[activePath] || null;
@@ -222,8 +387,15 @@ export default function AvantiqoCodeIDE({
     progressSessionId === session.session_id
   );
   const scopedProgress = progressSessionId && progressSessionId === session?.session_id ? progress : null;
-  const currentActiveMissionId = activeMissionProgress(scopedProgress, activityBaselineAt) ? text(scopedProgress?.mission_id) : "";
-  const stopMissionId = currentActiveMissionId || (missionRunning ? localMissionId : "");
+  useEffect(() => {
+    const latestAt = Date.parse(text(scopedProgress?.latest_event?.at || scopedProgress?.updated_at));
+    if (Number.isFinite(latestAt)) latestProgressAtRef.current = Math.max(latestProgressAtRef.current, latestAt);
+  }, [scopedProgress?.latest_event?.at, scopedProgress?.updated_at]);
+  const observedProgressActive = activeMissionProgress(scopedProgress, activityBaselineAt);
+  const observedActiveMissionId = observedProgressActive ? text(scopedProgress?.mission_id) : "";
+  const currentActiveMissionId = missionRunning && localMissionId && observedActiveMissionId === localMissionId ? localMissionId : "";
+  const liveTalkActive = Boolean(missionRunning || currentActiveMissionId || (sessionAgentActive && observedProgressActive));
+  const stopMissionId = missionRunning ? localMissionId : "";
   const completedMissionEvents = useMemo(() => {
     const state = missionResult?.state || missionResult?.resume_state || {};
     return (Array.isArray(state?.evidence) ? state.evidence : [])
@@ -237,12 +409,81 @@ export default function AvantiqoCodeIDE({
       ? live
       : live.filter((event) => {
           const at = Date.parse(text(event?.at));
-          return Number.isFinite(at) && at >= activityBaselineAt;
+          if (!Number.isFinite(at)) return false;
+          return at >= activityBaselineAt || Date.now() - at <= 30000;
         });
     return freshLive.length ? freshLive : completedMissionEvents;
   }, [scopedProgress?.events, completedMissionEvents, activityBaselineAt]);
-  const latestObservedEvent = activityEvents.find((entry) => text(entry?.file_path) || entry?.files_changed?.[0]) || scopedProgress?.latest_event || null;
-  const latestTouchedFile = text(latestObservedEvent?.file_path || latestObservedEvent?.files_changed?.[0]);
+  const latestObservedEvent = activityEvents.find((entry) => currentEventFile(entry)) || scopedProgress?.latest_event || null;
+  const latestBrowserEvent = activityEvents.find((entry) => /browser/i.test(text(entry?.action || entry?.phase)) && text(entry?.url)) || null;
+  const talkActivityNarration = useMemo(() => {
+    const seen = new Set();
+    return [...activityEvents].reverse().map((event) => ({
+      key: [event?.at, event?.operation_id, event?.action, event?.status].map((value) => text(value)).join("|"),
+      content: conversationalCodeActivity(event),
+      event,
+    })).filter((entry) => entry.content && !seen.has(entry.content) && seen.add(entry.content)).slice(-10);
+  }, [activityEvents]);
+  const lifecycleOnlyEntry = (entry) => {
+    const event = entry?.event || {};
+    const phase = text(event.phase || event.action || event.status).toLowerCase();
+    return /mission_accepted|mission_approved|approved|approval/.test(phase);
+  };
+  const newestNarrationEntry = talkActivityNarration.at(-1) || null;
+  const newestNonLifecycleEntry = [...talkActivityNarration].reverse().find((entry) => !lifecycleOnlyEntry(entry)) || null;
+  const newestConcreteNarrationEntry = [...talkActivityNarration].reverse().find((entry) => {
+    const event = entry?.event || {};
+    const action = text(event.action || event.phase || event.status).toLowerCase();
+    return /search|read|inspect|verify|test|check|command|run|write|edit|patch|diff|browser/.test(action)
+      || Boolean(text(event.file_path || event.path || event.command || event.url));
+  }) || null;
+  const liveNarrationEntry = newestNonLifecycleEntry || newestNarrationEntry;
+  const liveNarrationContent = (() => {
+    if (!liveNarrationEntry) {
+      if (!liveTalkActive) return "";
+      const elapsed = missionStartedAt
+        ? Math.max(0, Math.floor((liveClockTick - missionStartedAt) / 1000))
+        : 0;
+      return `${localMissionStage || "I’m working through the next step now"} · ${elapsed}s`;
+    }
+    const event = liveNarrationEntry.event || {};
+    const phase = text(event.phase || event.action || event.status).toLowerCase();
+    const eventAt = Date.parse(text(event?.at));
+    const elapsed = Number.isFinite(eventAt)
+      ? Math.max(0, Math.floor((liveClockTick - eventAt) / 1000))
+      : 0;
+    if (/mission_accepted|mission_approved|approved|approval/.test(phase) && elapsed >= 3) {
+      return `I’ve got the task and I’m starting the work now · ${elapsed}s`;
+    }
+    if (/planner_pending|planning/.test(phase)) {
+      const planningEvents = activityEvents.filter((entry) => /planner_pending|planning/.test(text(entry?.phase || entry?.action || entry?.status).toLowerCase()));
+      const planningStartAt = planningEvents.reduce((earliest, entry) => {
+        const at = Date.parse(text(entry?.at));
+        if (!Number.isFinite(at)) return earliest;
+        return earliest === null || at < earliest ? at : earliest;
+      }, null);
+      const planningElapsed = planningStartAt !== null ? Math.max(0, Math.floor((liveClockTick - planningStartAt) / 1000)) : elapsed;
+      const concreteEvent = newestConcreteNarrationEntry?.event || {};
+      const concretePath = text(concreteEvent.file_path || concreteEvent.path || concreteEvent.url);
+      const concreteAction = text(concreteEvent.action || concreteEvent.phase || concreteEvent.status).toLowerCase();
+      const concreteVerb = /apply|write|edit|patch/.test(concreteAction)
+        ? "Editing"
+        : /verify|test|check|command|run/.test(concreteAction)
+          ? "Checking"
+          : /search|read|inspect/.test(concreteAction)
+            ? "Inspecting"
+            : "Working in";
+      if (planningElapsed >= 12 && concretePath) {
+        return `${concreteVerb} \`${concretePath}\` while I narrow the next change · ${planningElapsed}s`;
+      }
+      if (planningElapsed >= 30) {
+        return `${liveNarrationEntry.content || "I’m narrowing the next concrete code change from the evidence already collected"} · ${planningElapsed}s`;
+      }
+      return `${liveNarrationEntry.content}${planningElapsed ? ` · ${planningElapsed}s` : ""}`;
+    }
+    return `${liveNarrationEntry.content}${elapsed ? ` · ${elapsed}s` : ""}`;
+  })();
+  const latestTouchedFile = currentEventFile(latestObservedEvent);
   const latestFileAction = (() => {
     const action = text(latestObservedEvent?.action || latestObservedEvent?.phase).toLowerCase();
     if (/read|inspect|search/.test(action)) return "Reading";
@@ -270,7 +511,7 @@ export default function AvantiqoCodeIDE({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ organizationId, mission_id: missionId, action: "STOP" }),
+        body: JSON.stringify({ organizationId, mission_id: missionId, device_session_id: session?.session_id || null, action: "STOP" }),
       });
       const body = await response.json().catch(() => ({}));
       if (response.ok && body?.success === true) {
@@ -287,21 +528,21 @@ export default function AvantiqoCodeIDE({
       requestRefresh();
     }
     throw new Error("Code mission stop could not bind to the live mission in time");
-  }, [organizationId, requestRefresh]);
+  }, [organizationId, requestRefresh, session?.session_id]);
 
   const submitLiveSteer = useCallback(async (missionId, instruction) => {
     const response = await fetch("/api/operator/code/intervention", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify({ organizationId, mission_id: missionId, action: "STEER", instruction }),
+      body: JSON.stringify({ organizationId, mission_id: missionId, device_session_id: session?.session_id || null, action: "STEER", instruction }),
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.success !== true) throw new Error(body?.error || "Live Code steering failed");
     setStatus("Live instruction queued for Code at the next safe reasoning boundary");
     requestRefresh();
     return body;
-  }, [organizationId, requestRefresh]);
+  }, [organizationId, requestRefresh, session?.session_id]);
 
   const ideRequestWithSession = useCallback(async (targetSession, action, extra = {}) => {
     const response = await fetch("/api/operator/code/ide", {
@@ -349,10 +590,21 @@ export default function AvantiqoCodeIDE({
   }, []);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && window.location?.origin) setBrowserUrl((current) => current || window.location.origin);
+  }, []);
+
+  useEffect(() => {
     const feed = talkFeedRef.current;
     if (!feed || !talkFeedPinnedRef.current) return;
-    feed.scrollTo({ top: feed.scrollHeight, behavior: conversationBusy || visualBusy || designBusy || imageBusy ? "smooth" : "auto" });
-  }, [chatTurns, conversationBusy, visualBusy, designBusy, imageBusy]);
+    feed.scrollTo({ top: feed.scrollHeight, behavior: conversationBusy || visualBusy || designBusy || imageBusy || liveTalkActive ? "smooth" : "auto" });
+  }, [chatTurns, conversationBusy, visualBusy, designBusy, imageBusy, liveTalkActive, talkActivityNarration.length, liveNarrationContent]);
+
+  useEffect(() => {
+    if (!liveTalkActive) return undefined;
+    setLiveClockTick(Date.now());
+    const timer = window.setInterval(() => setLiveClockTick(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [liveTalkActive]);
 
   useEffect(() => {
     setDeviceSessionScope(session?.session_id || null);
@@ -442,6 +694,36 @@ export default function AvantiqoCodeIDE({
   }, [runTerminalCommand, embedded, studioView]);
 
   useEffect(() => {
+    if ((embedded && studioView !== "code") || !terminalRef.current || !activityEvents.length) return;
+    const terminal = terminalRef.current;
+    const seen = mirroredActivityKeysRef.current;
+    for (const event of [...activityEvents].reverse()) {
+      const key = [event?.at, event?.operation_id, event?.action, event?.status, event?.exit_code].map((value) => text(value)).join("|");
+      if (!key || seen.has(key)) continue;
+      const command = text(event?.command);
+      const args = Array.isArray(event?.command_args) ? event.command_args.map((value) => text(value)).filter(Boolean) : [];
+      const filePath = currentEventFile(event);
+      const action = text(event?.action || event?.phase || event?.status || "working").toUpperCase();
+      if (!command && !filePath) continue;
+      seen.add(key);
+      const draft = terminalLineRef.current;
+      terminal.write("\r\x1b[2K");
+      if (command) {
+        terminal.write(`\x1b[38;5;180m[Code] $ ${[command, ...args].join(" ")}\x1b[0m\r\n`);
+        if (event?.exit_code !== null && event?.exit_code !== undefined) {
+          const exitColor = Number(event.exit_code) === 0 ? "32" : "31";
+          terminal.write(`\x1b[${exitColor}m[Code] exit ${event.exit_code}\x1b[0m\r\n`);
+        }
+      } else {
+        const line = Number(event?.start_line || 0) || null;
+        terminal.write(`\x1b[38;5;110m[Code] ${action} ${filePath}${line ? `:${line}` : ""}\x1b[0m\r\n`);
+      }
+      terminal.write(`> ${draft}`);
+    }
+    if (seen.size > 256) mirroredActivityKeysRef.current = new Set([...seen].slice(-160));
+  }, [activityEvents, embedded, studioView]);
+
+  useEffect(() => {
     if (!session) return undefined;
     const key = `avantiqo:code-ide:${organizationId}`;
     localStorage.setItem(key, JSON.stringify({ session_id: session.session_id, device_id: session.device_id, repository_url: session.repository_url, ref: session.ref }));
@@ -454,7 +736,7 @@ export default function AvantiqoCodeIDE({
     try {
       const raw = localStorage.getItem(key);
       const saved = raw ? JSON.parse(raw) : null;
-      setChatTurns(Array.isArray(saved?.turns) ? saved.turns : []);
+      setChatTurns(dedupeAdjacentTalkTurns(Array.isArray(saved?.turns) ? saved.turns : []));
       setObjective(typeof saved?.objective === "string" ? saved.objective : "");
       setVisualArtifact(saved?.visualArtifact && typeof saved.visualArtifact === "object" ? saved.visualArtifact : null);
     } catch {
@@ -471,8 +753,8 @@ export default function AvantiqoCodeIDE({
     }
     const key = `avantiqo:code-talk:${organizationId}`;
     try {
-      const durableTurns = chatTurns
-        .filter((turn) => ["user", "assistant", "design_preview", "visual", "image"].includes(turn?.role))
+      const durableTurns = dedupeAdjacentTalkTurns(chatTurns
+        .filter((turn) => ["user", "assistant", "design_preview", "visual", "image"].includes(turn?.role)))
         .slice(-12);
       const payload = {
         turns: durableTurns,
@@ -483,8 +765,8 @@ export default function AvantiqoCodeIDE({
       localStorage.setItem(key, JSON.stringify(payload));
     } catch {
       try {
-        const compactTurns = chatTurns
-          .filter((turn) => ["user", "assistant", "design_preview"].includes(turn?.role))
+        const compactTurns = dedupeAdjacentTalkTurns(chatTurns
+          .filter((turn) => ["user", "assistant", "design_preview"].includes(turn?.role)))
           .slice(-6);
         localStorage.setItem(key, JSON.stringify({ turns: compactTurns, objective, saved_at: new Date().toISOString() }));
       } catch {}
@@ -518,7 +800,18 @@ export default function AvantiqoCodeIDE({
         setLeaseOwner(result.ide_state?.edit_owner || null);
         setStatus("Developer workspace attached");
       } catch {
-        localStorage.removeItem(key);
+        setStatus("Saved Code session changed · recovering the local workspace…");
+        const recovered = await recoverWorkspaceAfterOutageRef.current?.({
+          preferredSession: saved,
+          maxWaitMs: 30000,
+        });
+        if (recovered) {
+          setActivityBaselineAt(0);
+          setMissionResult(null);
+          return;
+        }
+        setStatus("Could not recover the saved Code workspace");
+        lastWorkspaceConnectionErrorRef.current = "Could not recover the saved Code workspace";
       }
     })();
   }, [organizationId, session]);
@@ -528,6 +821,7 @@ export default function AvantiqoCodeIDE({
     const timer = window.setInterval(async () => {
       try {
         const state = await ideRequest("state");
+        setDeviceHealth(state);
         const nextRevision = Number(state.revision || 0);
         setLeaseOwner(state.edit_owner || null);
         if (nextRevision !== revision) {
@@ -578,15 +872,55 @@ export default function AvantiqoCodeIDE({
   }, [session, followCode, latestTouchedFile, activePath, dirty, files, revision, ideRequest]);
 
   useEffect(() => {
-    if (!followCode || !latestTouchedFile || latestTouchedFile !== activePath || !latestFocusStartLine || !editorRef.current) return;
+    const url = text(latestBrowserEvent?.url);
+    if (!url) return;
+    setBrowserUrl(url);
+    if (typeof onPreviewUrlChange === "function") onPreviewUrlChange(url);
+  }, [latestBrowserEvent?.url, onPreviewUrlChange]);
+
+  useEffect(() => {
+    if (!followCode || !latestTouchedFile) return undefined;
+    const parts = latestTouchedFile.split("/").filter(Boolean);
+    const parents = parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join("/"));
+    if (parents.length) {
+      setExpandedFolders((current) => {
+        const next = new Set(current);
+        parents.forEach((folderPath) => next.add(folderPath));
+        return next;
+      });
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const target = [...(explorerRef.current?.querySelectorAll("[data-code-explorer-path]") || [])]
+        .find((element) => element.dataset.codeExplorerPath === latestTouchedFile);
+      target?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [followCode, latestTouchedFile]);
+
+  useEffect(() => {
     const editor = editorRef.current;
+    const decorations = editorCodeFocusRef.current;
+    if (!editor || !decorations) return;
+    if (!followCode || !latestTouchedFile || latestTouchedFile !== activePath || !latestFocusStartLine) {
+      decorations.clear();
+      return;
+    }
     const startLine = Math.max(1, latestFocusStartLine);
     const endLine = Math.max(startLine, latestFocusEndLine || startLine);
     try {
       editor.revealLineInCenter(startLine);
       editor.setSelection({ startLineNumber: startLine, startColumn: 1, endLineNumber: endLine, endColumn: 1 });
+      decorations.set([{
+        range: { startLineNumber: startLine, startColumn: 1, endLineNumber: endLine, endColumn: 1 },
+        options: {
+          isWholeLine: true,
+          className: "avantiqo-code-focus-line",
+          linesDecorationsClassName: "avantiqo-code-focus-glyph",
+          hoverMessage: { value: `Code focus · ${latestFileAction}` },
+        },
+      }]);
     } catch {}
-  }, [followCode, latestTouchedFile, activePath, latestFocusStartLine, latestFocusEndLine]);
+  }, [followCode, latestTouchedFile, activePath, latestFocusStartLine, latestFocusEndLine, latestFileAction]);
 
   useEffect(() => {
     if (!currentActiveMissionId || !pendingSteerRef.current.length) return undefined;
@@ -610,23 +944,54 @@ export default function AvantiqoCodeIDE({
     return () => { cancelled = true; };
   }, [currentActiveMissionId, submitLiveSteer]);
 
-  async function openWorkspace() {
-    if (!deviceId || !repositoryUrl.trim() || opening) return;
-    setOpening(true); setError(null); setStatus("Opening isolated developer worktree…");
+  async function discoverOnlineCodeDevice(preferredId = "") {
+    const response = await fetch(`/api/operator/code/devices?organizationId=${encodeURIComponent(organizationId)}`, { credentials: "same-origin", cache: "no-store" });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body?.success !== true) throw new Error(body?.error || "Code device discovery failed");
+    const next = Array.isArray(body.devices) ? body.devices : [];
+    setDevices(next);
+    const preferred = next.find((device) => device.id === preferredId && device.online === true);
+    const selected = preferred || next.find((device) => device.online === true) || null;
+    if (!selected?.id) throw new Error(codeDeviceAvailabilityMessage(next));
+    setDeviceId(selected.id);
+    return selected.id;
+  }
+
+  async function openWorkspace({ forceRediscover = false, quiet = false } = {}) {
+    if (!repositoryUrl.trim() || opening) return;
+    setOpening(true);
+    if (!quiet) setError(null);
+    lastWorkspaceConnectionErrorRef.current = "";
+    setStatus("Opening isolated developer worktree…");
     try {
-      const result = await fetch("/api/operator/code/ide", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ organizationId, action: "open", device_id: deviceId, repository_url: repositoryUrl.trim(), ref: ref.trim() || "main" }),
-      }).then(async (response) => {
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok || body?.success !== true) throw new Error(body?.error || "Workspace open failed");
-        return body.result;
-      });
-      const nextSession = { ...result, device_id: deviceId, repository_url: repositoryUrl.trim(), ref: ref.trim() || "main" };
+      let resolvedDeviceId = forceRediscover || !deviceId ? await discoverOnlineCodeDevice(deviceId) : deviceId;
+      let result = null;
+      let lastOpenError = null;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          result = await fetch("/api/operator/code/ide", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ organizationId, action: "open", device_id: resolvedDeviceId, repository_url: repositoryUrl.trim(), ref: ref.trim() || "main" }),
+          }).then(async (response) => {
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok || body?.success !== true) throw new Error(body?.error || "Workspace open failed");
+            return body.result;
+          });
+          break;
+        } catch (attemptError) {
+          lastOpenError = attemptError;
+          if (attempt > 0) throw attemptError;
+          setStatus("Code workspace connection changed · finding an online computer and retrying…");
+          resolvedDeviceId = await discoverOnlineCodeDevice(resolvedDeviceId);
+          await wait(350);
+        }
+      }
+      if (!result) throw lastOpenError || new Error("Workspace open failed");
+      const nextSession = { ...result, device_id: resolvedDeviceId, repository_url: repositoryUrl.trim(), ref: ref.trim() || "main" };
       setSession(nextSession);
-      setActivityBaselineAt(Date.now());
+      setActivityBaselineAt(0);
       setMissionResult(null);
       setFiles(result.tree?.files || []);
       setExpandedFolders(new Set());
@@ -636,11 +1001,72 @@ export default function AvantiqoCodeIDE({
       setStatus(`Developer workspace ready · ${result.base_commit?.slice(0, 10)}`);
       return nextSession;
     } catch (openError) {
-      setError(openError.message);
-      setStatus("Workspace stopped");
+      const connectionReason = text(openError?.message || openError) || "Code workspace connection failed";
+      lastWorkspaceConnectionErrorRef.current = connectionReason;
+      if (!quiet) setError(connectionReason);
+      setStatus(quiet ? "Code workspace reconnecting…" : "Workspace stopped");
       return null;
     } finally { setOpening(false); }
   }
+
+  async function recoverWorkspaceAfterOutage({ preferredSession = null, maxWaitMs = 45000 } = {}) {
+    const startedAt = Date.now();
+    let attempt = 0;
+    while (Date.now() - startedAt < maxWaitMs) {
+      attempt += 1;
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+      setError(null);
+      setStatus(`Code connection interrupted · reattaching the live workspace · ${elapsedSeconds}s`);
+      if (attempt > 1) await wait(Math.min(2500, 500 + attempt * 300));
+
+      if (preferredSession?.session_id && preferredSession?.device_id) {
+        try {
+          const response = await fetch("/api/operator/code/ide", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({
+              organizationId,
+              action: "attach",
+              session_id: preferredSession.session_id,
+              device_id: preferredSession.device_id,
+              timeout_ms: 30000,
+            }),
+          });
+          const body = await response.json().catch(() => ({}));
+          if (response.ok && body?.success === true && body?.result?.session_id) {
+            const result = body.result;
+            const recovered = {
+              ...preferredSession,
+              ...result,
+              device_id: preferredSession.device_id,
+            };
+            setSession(recovered);
+            setFiles(result.tree?.files || []);
+            setRevision(Number(result.ide_state?.revision || 0));
+            setLeaseOwner(result.ide_state?.edit_owner || null);
+            setError(null);
+            setStatus("Code workspace reattached · continuing from current live state");
+            requestRefresh();
+            return recovered;
+          }
+        } catch {}
+      }
+
+      if (Date.now() - startedAt >= Math.min(15000, maxWaitMs / 2)) {
+        const recovered = await openWorkspace({ forceRediscover: true, quiet: true });
+        setError(null);
+        if (recovered) {
+          setStatus("Code workspace rebuilt after reconnect · continuing from current live state");
+          requestRefresh();
+          return recovered;
+        }
+      }
+    }
+    return null;
+  }
+
+  recoverWorkspaceAfterOutageRef.current = recoverWorkspaceAfterOutage;
 
   async function openFile(filePath) {
     if (!session || !filePath) return;
@@ -662,6 +1088,28 @@ export default function AvantiqoCodeIDE({
     return true;
   }
 
+  async function prepareWorkspaceForCode(activeSession) {
+    setLocalMissionStage("I’m checking the local workspace state before Code takes control.");
+    const authoritativeLeaseState = await ideRequestWithSession(activeSession, "state").catch(() => null);
+    const authoritativeLeaseOwner = text(authoritativeLeaseState?.edit_owner).toUpperCase();
+    if (authoritativeLeaseOwner === "HUMAN") {
+      setLocalMissionStage("The workspace is still under human edit control. I’m releasing that lease so Code can continue safely.");
+      await ideRequestWithSession(activeSession, "lease", { owner: "HUMAN", release: true });
+      const releasedLeaseState = await ideRequestWithSession(activeSession, "state").catch(() => null);
+      if (text(releasedLeaseState?.edit_owner).toUpperCase() === "HUMAN") {
+        throw new Error("CODE_WORKSPACE_HUMAN_LEASE_RELEASE_FAILED");
+      }
+      setLeaseOwner(releasedLeaseState?.edit_owner || null);
+      if (releasedLeaseState?.revision !== undefined) setRevision(Number(releasedLeaseState.revision));
+      setLocalMissionStage("The local workspace is ready. I’m handing the current revision to Code now.");
+      return releasedLeaseState;
+    }
+    setLeaseOwner(authoritativeLeaseState?.edit_owner || null);
+    if (authoritativeLeaseState?.revision !== undefined) setRevision(Number(authoritativeLeaseState.revision));
+    setLocalMissionStage("The local workspace is ready. I’m handing the current revision to Code now.");
+    return authoritativeLeaseState;
+  }
+
   async function saveActive() {
     if (!activePath || !activeBuffer || !dirty[activePath] || saving) return;
     setSaving(true); setError(null);
@@ -681,9 +1129,58 @@ export default function AvantiqoCodeIDE({
     } finally { setSaving(false); }
   }
 
-  async function releaseHumanLease() {
-    if (!session) return;
-    try { await ideRequest("lease", { owner: "HUMAN", release: true }); setLeaseOwner(null); } catch (leaseError) { setError(leaseError.message); }
+  async function takeHumanControl() {
+    if (!session || takingHumanControl) return;
+    setTakingHumanControl(true);
+    setError(null);
+    setStatus(stopMissionId ? "Stopping Code at a safe boundary for human control…" : "Taking human control…");
+    try {
+      if (stopMissionId) await stopLiveMission(stopMissionId);
+      let acquired = null;
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        try {
+          const state = await ideRequest("state");
+          setDeviceHealth(state);
+          const owner = text(state?.edit_owner).toUpperCase();
+          if (!owner || owner === "HUMAN") {
+            acquired = await ideRequest("lease", { owner: "HUMAN", ttl_ms: 300000 });
+            break;
+          }
+        } catch (handoffError) {
+          if (!/LEASE_HELD:CODE/i.test(text(handoffError?.message))) throw handoffError;
+        }
+        await wait(250);
+      }
+      if (!acquired) throw new Error("Code did not release the workspace in time");
+      setLeaseOwner("HUMAN");
+      setRevision(Number(acquired.revision ?? revision));
+      setStatus("Human control active · edit, save, then hand back to Code");
+    } catch (handoffError) {
+      setError(handoffError?.message || "Could not take human control");
+      setStatus("Human takeover failed");
+    } finally {
+      setTakingHumanControl(false);
+    }
+  }
+
+  async function handBackToCode() {
+    if (!session || handingBackToCode) return;
+    if (Object.values(dirty).some(Boolean)) {
+      setError("Save or discard your edits before handing the workspace back to Code.");
+      return;
+    }
+    setHandingBackToCode(true);
+    setError(null);
+    try {
+      await ideRequest("lease", { owner: "HUMAN", release: true });
+      setLeaseOwner(null);
+      setStatus("Workspace handed back to Code · continue from the current revision");
+      requestRefresh();
+    } catch (handoffError) {
+      setError(handoffError?.message || "Could not hand the workspace back to Code");
+    } finally {
+      setHandingBackToCode(false);
+    }
   }
 
   async function refreshDiff() {
@@ -701,52 +1198,168 @@ export default function AvantiqoCodeIDE({
     } catch (browserError) { setError(browserError.message); setStatus("Browser verification stopped"); }
   }
 
-  async function runCodeMission(overrideObjective = null, { reportToTalk = false, sessionOverride = null } = {}) {
+  async function runCodeMission(overrideObjective = null, { reportToTalk = false, sessionOverride = null, resumeMissionId = "" } = {}) {
     const trimmedObjective = text(overrideObjective || objective);
-    const activeSession = sessionOverride || session;
-    if (!activeSession || !trimmedObjective || missionRunning) return;
+    let activeSession = sessionOverride || session;
+    const requestedResumeMissionId = text(resumeMissionId);
+    if (!activeSession || !trimmedObjective || (missionRunning && !requestedResumeMissionId)) return;
     if (Object.values(dirty).some(Boolean)) { setError("Save or discard human edits before handing the workspace to Code."); return; }
-    const missionId = `code-mission-${crypto.randomUUID()}`;
+    let missionId = requestedResumeMissionId || `code-mission-${crypto.randomUUID()}`;
+    const resumedProgressStartAt = requestedResumeMissionId && text(scopedProgress?.mission_id) === requestedResumeMissionId
+      ? (Array.isArray(scopedProgress?.events)
+          ? scopedProgress.events
+              .map((event) => Date.parse(text(event?.at)))
+              .filter(Number.isFinite)
+              .reduce((earliest, at) => Math.min(earliest, at), Number.POSITIVE_INFINITY)
+          : Number.POSITIVE_INFINITY)
+      : Number.POSITIVE_INFINITY;
+    const taskStartedAt = Number.isFinite(resumedProgressStartAt) ? resumedProgressStartAt : Date.now();
+    const preservedEvents = Array.isArray(scopedProgress?.events) ? scopedProgress.events : [];
+    const preservedBudgetExhausted = [...preservedEvents].reverse().some((event) =>
+      /CODE_AI_EMPLOYEE_REASONING_BUDGET_EXHAUSTED/i.test(text(event?.reason || event?.description))
+    ) || /CODE_AI_EMPLOYEE_REASONING_BUDGET_EXHAUSTED/i.test(
+      text(scopedProgress?.latest_event?.reason || scopedProgress?.latest_event?.description),
+    );
+    const requestedReasoningBudget = requestedResumeMissionId && preservedBudgetExhausted ? 8 : 4;
+    talkFeedPinnedRef.current = true;
+    setMissionStartedAt((current) => requestedResumeMissionId && current ? current : taskStartedAt);
+    setLocalMissionStage("I’m reconnecting to the current local workspace and checking its live state.");
     setActivityBaselineAt(Date.now());
     setLocalMissionId(missionId);
     setMissionRunning(true); setMissionResult(null); setError(null); setStatus("Code is taking the shared workspace…"); requestRefresh();
-    const executionKey = `code-ide:${crypto.randomUUID()}`;
+    let executionKey = `code-ide:${crypto.randomUUID()}`;
     let resumeState = null;
+    let historyResumePending = Boolean(requestedResumeMissionId);
     let terminalResponseObserved = false;
+    let infrastructureRecoveryCycles = 0;
     const missionAbsoluteDeadline = Date.now() + MISSION_ABSOLUTE_DEADLINE_MS;
     let missionIdleDeadline = Date.now() + MISSION_IDLE_DEADLINE_MS;
     let lastProgressFingerprint = "";
     try {
-      if (leaseOwner === "HUMAN") {
-        await ideRequestWithSession(activeSession, "lease", { owner: "HUMAN", release: true });
-        setLeaseOwner(null);
-      }
+      await prepareWorkspaceForCode(activeSession);
       for (let attempt = 0; attempt < MAX_RESUMES; attempt += 1) {
-        const response = await fetch("/api/operator/code/mission", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ organizationId, objective: trimmedObjective, repository_url: activeSession.repository_url, ref: activeSession.ref || "main", workspace_target: "DEVICE", device_id: activeSession.device_id, device_session_id: activeSession.session_id, mission_id: missionId, execution_key: executionKey, resume_state: resumeState, reasoning_call_budget: 4, max_employee_passes: 8 }),
-        });
+        await prepareWorkspaceForCode(activeSession);
+        let response = null;
+        let passWatchdogTimer = null;
+        let watchdogObservedProgressAt = latestProgressAtRef.current;
+        const armPassWatchdog = () => {
+          passWatchdogTimer = window.setTimeout(() => {
+            const latestProgressAt = latestProgressAtRef.current;
+            if (latestProgressAt > watchdogObservedProgressAt) {
+              watchdogObservedProgressAt = latestProgressAt;
+              setLocalMissionStage("Code is still publishing live progress. I’m keeping this same pass running while it reaches the next repository boundary.");
+              armPassWatchdog();
+              return;
+            }
+            setLocalMissionStage("This Code pass has not published new progress yet. I’m keeping the same employee running and waiting for the bounded backend pass to return; no owner stop has been requested.");
+          }, MISSION_IDLE_DEADLINE_MS);
+        };
+        try {
+          setLocalMissionStage("The local workspace is attached. I’m waiting for the current Code pass to return its next concrete repository step.");
+          armPassWatchdog();
+          response = await fetch("/api/operator/code/mission", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ organizationId, objective: trimmedObjective, repository_url: activeSession.repository_url, ref: activeSession.ref || "main", workspace_target: "DEVICE", device_id: activeSession.device_id, device_session_id: activeSession.session_id, mission_id: missionId, resume_mission_id: historyResumePending ? requestedResumeMissionId : undefined, execution_key: executionKey, resume_state: resumeState, reasoning_call_budget: requestedReasoningBudget, max_employee_passes: 8 }),
+          });
+        } catch (requestError) {
+          const requestReason = text(requestError?.message || requestError, 1000);
+          if (recoverableCodeInfrastructureBlocker(requestReason) && infrastructureRecoveryCycles < 3) {
+            infrastructureRecoveryCycles += 1;
+            setError(null);
+            setStatus(`Code connection changed · waiting for the local server and workspace to return ${infrastructureRecoveryCycles}/3…`);
+            const recoveredSession = await recoverWorkspaceAfterOutage({ preferredSession: activeSession });
+            if (!recoveredSession) throw requestError;
+            activeSession = recoveredSession;
+            executionKey = `code-ide:${crypto.randomUUID()}`;
+            resumeState = null;
+            lastProgressFingerprint = "";
+            missionIdleDeadline = Date.now() + MISSION_IDLE_DEADLINE_MS;
+            setLocalMissionId(missionId);
+            await wait([500, 1200, 2500][infrastructureRecoveryCycles - 1]);
+            requestRefresh();
+            continue;
+          }
+          throw requestError;
+        } finally {
+          if (passWatchdogTimer) window.clearTimeout(passWatchdogTimer);
+        }
         const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || `Code mission failed (${response.status})`);
+        if (response.ok) historyResumePending = false;
+        if (!response.ok) {
+          const responseReason = text(body?.error || `Code mission failed (${response.status})`, 1000);
+          const historySnapshotInvalid = /CODE_AI_MISSION_ATTESTATION_INVALID|CODE_AI_MISSION_ATTESTATION_REQUIRED/i.test(responseReason);
+          if (historySnapshotInvalid && infrastructureRecoveryCycles < 3) {
+            infrastructureRecoveryCycles += 1;
+            historyResumePending = false;
+            autoResumeMissionRef.current = "";
+            executionKey = `code-ide:${crypto.randomUUID()}`;
+            resumeState = null;
+            lastProgressFingerprint = "";
+            missionIdleDeadline = Date.now() + MISSION_IDLE_DEADLINE_MS;
+            setLocalMissionId(missionId);
+            setActivityBaselineAt(Date.now());
+            setError(null);
+            setStatus("The saved checkpoint is stale. I’m continuing from the current local workspace instead.");
+            await wait(500);
+            requestRefresh();
+            continue;
+          }
+          const recoverableResponse = recoverableCodeInfrastructureBlocker(responseReason);
+          if (recoverableResponse && infrastructureRecoveryCycles < 3) {
+            infrastructureRecoveryCycles += 1;
+            const workspaceRecoveryNeeded = response.status === 404 || /LOAD FAILED|HISTORY_MISSION_NOT_FOUND/i.test(responseReason);
+            const historySnapshotInvalid = /ATTESTATION/i.test(responseReason);
+            setStatus(workspaceRecoveryNeeded
+              ? `The Code connection changed. I’m reconnecting to the current project and continuing · ${infrastructureRecoveryCycles}/3`
+              : historySnapshotInvalid
+                ? `The saved checkpoint is stale. I’m rebuilding from the current project state and continuing · ${infrastructureRecoveryCycles}/3`
+                : `I hit a temporary execution problem. I’m repairing it and continuing · ${infrastructureRecoveryCycles}/3`);
+            if (workspaceRecoveryNeeded) {
+              setError(null);
+              const recoveredSession = await recoverWorkspaceAfterOutage({ preferredSession: activeSession });
+              if (!recoveredSession) throw new Error(responseReason);
+              activeSession = recoveredSession;
+            }
+            if (historySnapshotInvalid) {
+              historyResumePending = false;
+              autoResumeMissionRef.current = "";
+            }
+            executionKey = `code-ide:${crypto.randomUUID()}`;
+            resumeState = null;
+            lastProgressFingerprint = "";
+            missionIdleDeadline = Date.now() + MISSION_IDLE_DEADLINE_MS;
+            setLocalMissionId(missionId);
+            await wait([500, 1200, 2500][infrastructureRecoveryCycles - 1]);
+            requestRefresh();
+            continue;
+          }
+          throw new Error(responseReason);
+        }
         setMissionResult(body); requestRefresh();
         const responseState = body.resume_state || body.state || null;
         const responseStatus = text(responseState?.status || body.status, 120).toLowerCase();
+        const developerVerificationTerminal = Boolean(body.developer_verification);
         const shouldResume = Boolean(
+          !developerVerificationTerminal &&
           responseState &&
           (body.resume_required === true ||
+            body.interactive_yield === true ||
             responseState?.planner_pending ||
-            ["planner_pending", "repair_required", "verification_required"].includes(responseStatus))
+            ["running", "planner_pending", "repair_required", "verification_required", "review_required", "replan_required"].includes(responseStatus))
         );
         if (shouldResume) {
           const progressFingerprint = JSON.stringify({
             status: responseStatus,
             reasoning_calls_used: Number(responseState?.work_package_control?.reasoning_calls_used || 0),
             pending_reasoning_call: Number(responseState?.work_package_control?.pending_reasoning_call || 0),
-            evidence_count: Array.isArray(responseState?.evidence) ? responseState.evidence.length : 0,
             operation_count: Array.isArray(responseState?.operations) ? responseState.operations.length : 0,
+            completed_operation_count: Array.isArray(responseState?.completed_operation_ids)
+              ? responseState.completed_operation_ids.length
+              : Number(responseState?.completed_operation_count || 0),
             files_changed_count: Array.isArray(responseState?.files_changed) ? responseState.files_changed.length : 0,
+            verification_count: Array.isArray(responseState?.tests) ? responseState.tests.length : 0,
             planner_job: text(responseState?.planner_pending?.provider_job_id || responseState?.planner_pending?.usage_id),
           });
           if (progressFingerprint !== lastProgressFingerprint) {
@@ -757,6 +1370,15 @@ export default function AvantiqoCodeIDE({
           if (Date.now() >= missionIdleDeadline) throw new Error("Code mission stalled without progress");
           resumeState = responseState;
           await wait(1200);
+          continue;
+        }
+        const terminalReason = text(body.reason || responseState?.blockers?.[0] || responseState?.failures?.[0]?.reason || "", 2000);
+        if (responseStatus === "blocked" && recoverableCodeInfrastructureBlocker(terminalReason) && infrastructureRecoveryCycles < 3) {
+          infrastructureRecoveryCycles += 1;
+          setStatus(`Code is repairing its execution runtime · recovery ${infrastructureRecoveryCycles}/3`);
+          resumeState = responseState ? { ...responseState, status: "repair_required", blockers: [] } : null;
+          await wait([2000, 5000, 10000][infrastructureRecoveryCycles - 1]);
+          requestRefresh();
           continue;
         }
         terminalResponseObserved = true;
@@ -773,27 +1395,70 @@ export default function AvantiqoCodeIDE({
               : `Done. I checked it in the shared Code workspace${verification ? verificationPassed ? " and the verification passed." : "." : "."} No source changes were made.`
             : finalStatus === "stopped"
               ? "I stopped the Code work at a safe boundary. No further changes will be made unless you continue it."
-              : `I hit a blocker while Code was working: ${text(body.reason || finalState.blockers?.[0] || finalState.failures?.[0]?.reason || finalStatus || "unknown blocker", 800)}`;
+              : customerFacingCodeBlocker(body.reason || finalState.blockers?.[0] || finalState.failures?.[0]?.reason || finalStatus || "unknown blocker");
           setChatTurns((current) => [...current, { role: "assistant", content: summary }]);
         }
         break;
       }
       if (!terminalResponseObserved) throw new Error("Code mission resume limit exceeded");
-      const state = await ideRequestWithSession(activeSession, "state");
-      setRevision(Number(state.revision || revision)); setLeaseOwner(state.edit_owner || null);
-      const tree = await ideRequestWithSession(activeSession, "tree"); setFiles(tree.files || []);
-      const diff = await ideRequestWithSession(activeSession, "diff"); setDiffText(diff.patch || "");
-      if (activePath && !dirty[activePath]) {
-        const fresh = await ideRequestWithSession(activeSession, "read", { file_path: activePath });
-        setBuffers((current) => ({ ...current, [activePath]: { ...fresh, content: fresh.content ?? "", revision: Number(state.revision || revision) } }));
+      try {
+        const state = await ideRequestWithSession(activeSession, "state");
+        setDeviceHealth(state);
+        setRevision(Number(state.revision || revision)); setLeaseOwner(state.edit_owner || null);
+        const tree = await ideRequestWithSession(activeSession, "tree"); setFiles(tree.files || []);
+        const diff = await ideRequestWithSession(activeSession, "diff"); setDiffText(diff.patch || "");
+        if (activePath && !dirty[activePath]) {
+          const fresh = await ideRequestWithSession(activeSession, "read", { file_path: activePath });
+          setBuffers((current) => ({ ...current, [activePath]: { ...fresh, content: fresh.content ?? "", revision: Number(state.revision || revision) } }));
+        }
+      } catch (refreshError) {
+        if (!recoverableCodeInfrastructureBlocker(refreshError?.message)) throw refreshError;
+        setStatus("Code finished the mission; refreshing a stale workspace session automatically…");
+        const recoveredSession = await openWorkspace({ forceRediscover: true });
+        if (recoveredSession) activeSession = recoveredSession;
+        requestRefresh();
       }
     } catch (missionError) {
-      setError(missionError.message);
-      setStatus("Code mission stopped");
-      if (reportToTalk) setChatTurns((current) => [...current, { role: "assistant", content: `I hit a blocker while Code was working: ${missionError.message}` }]);
+      const failureReason = text(missionError?.message || missionError) || "Code mission stopped";
+      const recoverableFailure = recoverableCodeInfrastructureBlocker(failureReason);
+      setError(recoverableFailure ? null : failureReason);
+      setStatus(recoverableFailure ? "Code could not reconnect before the recovery window closed" : "Code mission stopped");
+      if (reportToTalk && !recoverableFailure) setChatTurns((current) => [...current, { role: "assistant", content: customerFacingCodeBlocker(failureReason) }]);
     }
     finally { setMissionRunning(false); setLocalMissionId(""); requestRefresh(); }
   }
+
+  runCodeMissionRef.current = runCodeMission;
+
+  useEffect(() => {
+    if (!session || missionRunning || !scopedProgress) return;
+    const staleMissionId = text(scopedProgress?.mission_id);
+    const staleState = text(scopedProgress?.state_status || scopedProgress?.latest_event?.status).toLowerCase();
+    const staleReason = text(scopedProgress?.latest_event?.reason || scopedProgress?.latest_event?.description);
+    const staleActiveStates = new Set(["active", "executing", "in_progress", "pending", "planner_pending", "queued", "running", "verifying", "working"]);
+    const recoverableTerminalState = ["failed", "blocked", "repair_required"].includes(staleState)
+      && recoverableCodeInfrastructureBlocker(staleReason);
+    if (!staleMissionId || (!staleActiveStates.has(staleState) && !recoverableTerminalState)) return;
+    if (autoResumeMissionRef.current === staleMissionId) return;
+    const progressObjective = text(scopedProgress?.objective);
+    if (!progressObjective) return;
+    const latestAt = Date.parse(text(scopedProgress?.latest_event?.at || scopedProgress?.updated_at));
+    const staleForMs = Number.isFinite(latestAt) ? Date.now() - latestAt : 0;
+    if (staleForMs < 15000 || staleForMs > 6 * 60 * 60 * 1000) return;
+    autoResumeMissionRef.current = staleMissionId;
+    setError(null);
+    setStatus("I lost the active work loop after the reload. I’m reconnecting to the same task and continuing now.");
+    void runCodeMissionRef.current?.(progressObjective, {
+      reportToTalk: true,
+      sessionOverride: session,
+      resumeMissionId: staleMissionId,
+    });
+  }, [
+    session,
+    missionRunning,
+    sessionAgentActive,
+    scopedProgress,
+  ]);
 
   async function classifyConversationIntent(message, turns = []) {
     const fastIntent = fastClientIntent(message, turns);
@@ -823,8 +1488,8 @@ export default function AvantiqoCodeIDE({
   function missionObjectiveFromConversation(message, turns = []) {
     const latestInstruction = text(message);
     const explicitReadOnlyVerification = /\bnode\s+--check\b/i.test(latestInstruction)
-      && /\b(?:make\s+no\s+(?:source\s+)?changes?|no\s+(?:source\s+)?changes?|do\s+not\s+(?:change|modify|edit)|verify\s+only|verification[- ]only|read[- ]only)\b/i.test(latestInstruction)
-      && /\b(?:app|components|lib|tests|scripts|workers)\/[A-Za-z0-9_./@()\[\]-]+\.(?:cjs|css|js|jsx|json|md|mjs|sql|ts|tsx|yml|yaml)\b/i.test(latestInstruction);
+      && /\b(?:app|components|lib|tests|scripts|workers)\/[A-Za-z0-9_./@()\[\]-]+\.(?:cjs|css|js|jsx|json|md|mjs|sql|ts|tsx|yml|yaml)\b/i.test(latestInstruction)
+      && !/\b(?:fix|change|modify|edit|implement|repair|refactor|add|remove|replace|rewrite|create)\b/i.test(latestInstruction.replace(/(?:make\s+no\s+(?:source\s+)?changes?|no\s+(?:source\s+)?changes?|do\s+not\s+(?:change|modify|edit))/gi, ""));
     if (explicitReadOnlyVerification) return latestInstruction.slice(0, 24000);
     const recent = (Array.isArray(turns) ? turns : []).slice(-10);
     const context = recent.map((turn) => {
@@ -912,7 +1577,11 @@ export default function AvantiqoCodeIDE({
     if (!message) return;
     const priorTurns = chatTurns.slice(-12);
     const nextUserTurn = { role: "user", content: message };
-    setChatTurns((current) => [...current, nextUserTurn]);
+    setChatTurns((current) => {
+      const previous = current.at(-1);
+      if (previous?.role === "user" && text(previous?.content) === message) return current;
+      return [...current, nextUserTurn];
+    });
     setObjective("");
     setError(null);
     setConversationPendingCount((count) => count + 1);
@@ -928,10 +1597,10 @@ export default function AvantiqoCodeIDE({
           : seconds < 30
             ? 59 + (seconds - 12) * 1.25
             : 82 + (seconds - 30) * 0.18));
-      const stage = percent < 25 ? "Understanding request"
-        : percent < 55 ? "Inspecting project context"
-          : percent < 78 ? "Reasoning through options"
-            : "Preparing response";
+      const stage = percent < 25 ? "Understanding what you need"
+        : percent < 55 ? "Checking the relevant project context"
+          : percent < 78 ? "Working through the safest next step"
+            : "Preparing the clearest response";
       return { percent, stage };
     };
     setChatTurns((current) => [...current, {
@@ -980,8 +1649,27 @@ export default function AvantiqoCodeIDE({
         : intentResult?.intent || "discussion";
 
       if (intent === "repository_work") {
-        if (missionRunning || currentActiveMissionId) {
-          if (currentActiveMissionId) await submitLiveSteer(currentActiveMissionId, message);
+        const locallyOwnedMissionId = missionRunning ? text(localMissionId) : "";
+        const preservedMissionId = text(scopedProgress?.mission_id);
+        const preservedState = text(scopedProgress?.state_status || scopedProgress?.latest_event?.status).toLowerCase();
+        const preservedTerminalStates = new Set([
+          "blocked",
+          "failed",
+          "repair_required",
+          "replan_required",
+          "verification_required",
+          "stopped",
+          "cancelled",
+        ]);
+        const explicitMissionContinuation = /\b(?:continue|resume|replan|same mission|preserved mission|keep going|restart recovery)\b/i.test(message);
+        const shouldResumePreservedMission = Boolean(
+          preservedMissionId &&
+          (explicitMissionContinuation || preservedTerminalStates.has(preservedState)) &&
+          (!locallyOwnedMissionId || locallyOwnedMissionId === preservedMissionId)
+        );
+
+        if (missionRunning && !shouldResumePreservedMission) {
+          if (locallyOwnedMissionId) await submitLiveSteer(locallyOwnedMissionId, message);
           else {
             pendingSteerRef.current.push(message);
             setStatus("Live instruction queued while Code establishes the active mission");
@@ -993,13 +1681,17 @@ export default function AvantiqoCodeIDE({
             settlePendingReply("I’m connecting the Code workspace behind this conversation now.");
             missionSession = await openWorkspace();
             if (!missionSession) {
-              settlePendingReply("I can keep discussing this here, but I couldn’t attach an online Code workspace yet. Open Code when you want me to make repository changes.");
+              settlePendingReply(lastWorkspaceConnectionErrorRef.current || "I couldn’t attach the Code workspace. I’m keeping the conversation open, but repository work is paused until the connection is healthy again.");
               return;
             }
           }
           const missionObjective = missionObjectiveFromConversation(message, [...priorTurns, nextUserTurn]);
-          settlePendingReply("I’m on it. Code is working behind this conversation, and I’ll come back here with the verified result.");
-          runCodeMission(missionObjective, { reportToTalk: true, sessionOverride: missionSession });
+          removePendingReply();
+          runCodeMission(missionObjective, {
+            reportToTalk: true,
+            sessionOverride: missionSession,
+            resumeMissionId: shouldResumePreservedMission ? preservedMissionId : "",
+          });
         } else {
           settlePendingReply("There are unsaved editor changes, so I’m not starting repository work until those are resolved.");
         }
@@ -1042,6 +1734,52 @@ export default function AvantiqoCodeIDE({
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || body?.success !== true) throw new Error(body?.error || "Code conversation failed");
+
+      if (body.needs_repository_work === true) {
+        if (Object.values(dirty).some(Boolean)) {
+          settlePendingReply("There are unsaved editor changes, so I’m not starting repository work until those are resolved.");
+          return;
+        }
+
+        let missionSession = session;
+        if (!missionSession) {
+          settlePendingReply("I’m connecting the Code workspace behind this conversation now.");
+          missionSession = await openWorkspace();
+          if (!missionSession) {
+            settlePendingReply(lastWorkspaceConnectionErrorRef.current || "I couldn’t attach the Code workspace. I’m keeping the conversation open, but repository work is paused until the connection is healthy again.");
+            return;
+          }
+        }
+
+        const preservedMissionId = text(scopedProgress?.mission_id);
+        const preservedState = text(scopedProgress?.state_status || scopedProgress?.latest_event?.status).toLowerCase();
+        const preservedTerminalStates = new Set([
+          "blocked",
+          "failed",
+          "repair_required",
+          "replan_required",
+          "verification_required",
+          "stopped",
+          "cancelled",
+        ]);
+        const explicitMissionContinuation = /\b(?:continue|resume|replan|same mission|preserved mission|keep going|restart recovery)\b/i.test(message);
+        const resumeMissionId = preservedMissionId &&
+          (explicitMissionContinuation || preservedTerminalStates.has(preservedState))
+          ? preservedMissionId
+          : "";
+
+        removePendingReply();
+        runCodeMission(
+          body.execution_objective || missionObjectiveFromConversation(message, [...priorTurns, nextUserTurn]),
+          {
+            reportToTalk: true,
+            sessionOverride: missionSession,
+            resumeMissionId,
+          },
+        );
+        return;
+      }
+
       if (body.reply) settlePendingReply(body.reply);
       else removePendingReply();
       if (body.generate_visual_example === true && body.reply) {
@@ -1780,6 +2518,7 @@ export default function AvantiqoCodeIDE({
         <button
           key={node.path}
           type="button"
+          data-code-explorer-path={node.path}
           onClick={() => openFile(node.path)}
           className={`flex w-full items-center gap-1.5 rounded py-1 pr-2 text-left text-[11px] ${activePath === node.path ? "bg-[#D6A66A]/10 text-[#e7c497]" : "text-white/42 hover:bg-white/[0.035] hover:text-white/65"}`}
           style={{ paddingLeft: `${22 + depth * 12}px` }}
@@ -1795,6 +2534,9 @@ export default function AvantiqoCodeIDE({
 
   const talkOnly = embedded && studioView === "talk";
   const codeOnly = embedded && studioView === "code";
+  const humanEditLocked = leaseOwner === "CODE" || ((missionRunning || Boolean(currentActiveMissionId)) && leaseOwner !== "HUMAN");
+  const diskPressure = text(deviceHealth?.disk_pressure).toUpperCase();
+  const diskFreeGb = Number.isFinite(Number(deviceHealth?.disk_free_bytes)) ? Number(deviceHealth.disk_free_bytes) / (1024 ** 3) : null;
   const missionState = missionResult?.state || missionResult?.resume_state || null;
   const precision = missionResult?.engineering_precision_os || missionState?.engineering_precision_os || null;
   const engineering = missionResult?.engineering_operating_system || missionState?.engineering_operating_system || null;
@@ -1844,7 +2586,8 @@ export default function AvantiqoCodeIDE({
           </div>
         </div>
       ) : (
-        <div className={talkOnly ? "grid min-h-[720px] grid-cols-[minmax(0,1fr)] overflow-hidden" : "grid min-h-[calc(100vh-57px)] grid-cols-[220px_minmax(0,1fr)_300px] grid-rows-[minmax(0,1fr)_230px] overflow-hidden"}>
+        <div className={talkOnly ? "grid min-h-[720px] grid-cols-[minmax(0,1fr)] overflow-hidden" : "relative grid min-h-[calc(100vh-57px)] grid-cols-[220px_minmax(0,1fr)_300px] grid-rows-[minmax(0,1fr)_230px] overflow-hidden"}>
+          {codeOnly && ["LOW", "CRITICAL"].includes(diskPressure) ? <div className={`absolute left-[232px] right-[312px] top-2 z-30 flex items-center gap-2 rounded-lg border px-3 py-2 text-[10px] shadow-lg backdrop-blur ${diskPressure === "CRITICAL" ? "border-red-300/25 bg-red-950/85 text-red-100/80" : "border-[#D6A66A]/30 bg-[#1a130c]/90 text-[#e7c497]/80"}`}><HardDrive size={12}/><span className="font-semibold">{diskPressure === "CRITICAL" ? "Developer disk critically low" : "Developer disk space low"}</span><span className="text-white/45">{diskFreeGb == null ? "Free space is below the safe threshold." : `${diskFreeGb.toFixed(1)} GB free`}</span><span className="ml-auto text-white/30">Free space before long builds to avoid local server/cache failures.</span></div> : null}
           <aside className={codeOnly ? "row-span-2 border-r border-white/[0.07] bg-[#0b0b0b]" : "hidden"}>
             <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-white/35">
               <Files size={12}/>
@@ -1860,7 +2603,7 @@ export default function AvantiqoCodeIDE({
                 {filterActive ? <span className="ml-auto">{explorerPaths.length} matches</span> : null}
               </div>
             </div>
-            <div className="h-[calc(100vh-169px)] overflow-auto px-1 pb-4">
+            <div ref={explorerRef} className="h-[calc(100vh-169px)] overflow-auto px-1 pb-4">
               {explorerTree.length ? renderExplorerNodes(explorerTree) : <div className="px-3 py-4 text-[11px] text-white/25">No matching files</div>}
             </div>
           </aside>
@@ -1868,8 +2611,8 @@ export default function AvantiqoCodeIDE({
           <main className={codeOnly ? "min-w-0 bg-[#090909]" : "hidden"}>
             <div className="flex h-9 items-center overflow-x-auto border-b border-white/[0.07] bg-[#0d0d0d]">{tabs.map((tab) => <div key={tab} className={`flex h-full min-w-0 max-w-[240px] items-center gap-2 border-r border-white/[0.06] px-3 text-[11px] ${activePath === tab ? "bg-[#080808] text-white/70" : "text-white/35"}`}><button type="button" onClick={() => setActivePath(tab)} className="min-w-0 truncate">{tab.split("/").at(-1)}{dirty[tab] ? " •" : ""}</button><button type="button" onClick={() => closeTab(tab)} className="text-white/20 hover:text-white/60"><X size={11}/></button></div>)}</div>
             {latestTouchedFile && followCode ? <div className="flex h-8 items-center gap-2 border-b border-[#D6A66A]/15 bg-[#D6A66A]/[0.045] px-3 text-[10px]"><span className="h-1.5 w-1.5 rounded-full bg-[#D6A66A]"/><span className="font-semibold text-[#e7c497]/80">{latestFileAction}</span><span className="min-w-0 truncate font-mono text-white/45">{latestTouchedFile}</span>{latestFocusStartLine ? <span className="ml-auto font-mono text-white/25">L{latestFocusStartLine}{latestFocusEndLine && latestFocusEndLine !== latestFocusStartLine ? `–${latestFocusEndLine}` : ""}</span> : <span className="ml-auto text-white/20">following Code live</span>}</div> : null}
-            {activeBuffer ? <MonacoEditor height={latestTouchedFile && followCode ? "calc(100vh - 358px)" : "calc(100vh - 326px)"} language={languageFor(activePath)} path={activePath} value={activeBuffer.content} onMount={(editor) => { editorRef.current = editor; }} onChange={(value) => { setBuffers((current) => ({ ...current, [activePath]: { ...current[activePath], content: value ?? "" } })); setDirty((current) => ({ ...current, [activePath]: true })); if (leaseOwner !== "HUMAN") ensureHumanLease().catch((leaseError) => setError(leaseError.message)); }} theme="vs" options={{ fontSize: 12, minimap: { enabled: true }, smoothScrolling: true, automaticLayout: true, wordWrap: "off", renderWhitespace: "selection", bracketPairColorization: { enabled: true } }} /> : <div className={`flex ${latestTouchedFile && followCode ? "h-[calc(100vh-358px)]" : "h-[calc(100vh-326px)]"} items-center justify-center text-sm text-white/20`}>Open a file from Explorer</div>}
-            <div className="flex h-9 items-center gap-2 border-t border-white/[0.06] bg-[#0c0c0c] px-3"><button type="button" onClick={saveActive} disabled={!activePath || !dirty[activePath] || saving || leaseOwner === "CODE"} className="flex items-center gap-1.5 rounded border border-white/10 px-2 py-1 text-[10px] text-white/50 disabled:opacity-25"><Save size={11}/> Save</button><button type="button" onClick={releaseHumanLease} disabled={leaseOwner !== "HUMAN"} className="flex items-center gap-1.5 rounded border border-white/10 px-2 py-1 text-[10px] text-white/50 disabled:opacity-25"><UserRound size={11}/> Release human edit</button><button type="button" onClick={refreshDiff} className="flex items-center gap-1.5 rounded border border-white/10 px-2 py-1 text-[10px] text-white/50"><RefreshCw size={11}/> Diff</button><span className="ml-auto truncate text-[10px] text-white/30">{status}</span></div>
+            {activeBuffer ? <MonacoEditor height={latestTouchedFile && followCode ? "calc(100vh - 358px)" : "calc(100vh - 326px)"} language={languageFor(activePath)} path={activePath} value={activeBuffer.content} onMount={(editor) => { editorRef.current = editor; editorCodeFocusRef.current = editor.createDecorationsCollection(); }} onChange={(value) => { setBuffers((current) => ({ ...current, [activePath]: { ...current[activePath], content: value ?? "" } })); setDirty((current) => ({ ...current, [activePath]: true })); if (leaseOwner !== "HUMAN") ensureHumanLease().catch((leaseError) => setError(leaseError.message)); }} theme="vs" options={{ fontSize: 12, readOnly: humanEditLocked, minimap: { enabled: true }, smoothScrolling: true, automaticLayout: true, wordWrap: "off", renderWhitespace: "selection", bracketPairColorization: { enabled: true } }} /> : <div className={`flex ${latestTouchedFile && followCode ? "h-[calc(100vh-358px)]" : "h-[calc(100vh-326px)]"} items-center justify-center text-sm text-white/20`}>Open a file from Explorer</div>}
+            <div className="flex h-9 items-center gap-2 border-t border-white/[0.06] bg-[#0c0c0c] px-3"><button type="button" onClick={saveActive} disabled={!activePath || !dirty[activePath] || saving || humanEditLocked} className="flex items-center gap-1.5 rounded border border-white/10 px-2 py-1 text-[10px] text-white/50 disabled:opacity-25"><Save size={11}/> Save</button>{leaseOwner === "HUMAN" ? <button type="button" onClick={handBackToCode} disabled={handingBackToCode || Object.values(dirty).some(Boolean)} className="flex items-center gap-1.5 rounded border border-emerald-300/20 bg-emerald-300/[0.05] px-2 py-1 text-[10px] text-emerald-100/70 disabled:opacity-25"><Bot size={11}/>{handingBackToCode ? "Handing back…" : "Hand back to Code"}</button> : <button type="button" onClick={takeHumanControl} disabled={takingHumanControl} className="flex items-center gap-1.5 rounded border border-[#D6A66A]/25 bg-[#D6A66A]/[0.05] px-2 py-1 text-[10px] text-[#e7c497]/75 disabled:opacity-25"><UserRound size={11}/>{takingHumanControl ? "Taking control…" : "Take control"}</button>}<button type="button" onClick={refreshDiff} className="flex items-center gap-1.5 rounded border border-white/10 px-2 py-1 text-[10px] text-white/50"><RefreshCw size={11}/> Diff</button>{humanEditLocked ? <span className="rounded border border-[#D6A66A]/15 bg-[#D6A66A]/[0.04] px-2 py-1 text-[9px] text-[#e7c497]/55">AI owns editor · read only</span> : leaseOwner === "HUMAN" ? <span className="rounded border border-emerald-300/15 bg-emerald-300/[0.04] px-2 py-1 text-[9px] text-emerald-100/55">Human owns editor</span> : null}<span className="ml-auto truncate text-[10px] text-white/30">{status}</span></div>
           </main>
 
           <aside className={talkOnly ? "min-w-0 bg-[#F4F7F9]" : "row-span-2 border-l border-white/[0.07] bg-[#0b0b0b]"}>
@@ -1896,6 +2639,13 @@ export default function AvantiqoCodeIDE({
                     </div>;
                   })}
                   {!chatTurns.length ? <div className="py-2 text-[10px] text-white/22">No Talk context yet.</div> : null}
+                  {(liveTalkActive || missionResult) && talkActivityNarration.length ? <div className="mt-2 border-t border-white/[0.06] pt-2">
+                    <div className="mb-1.5 flex items-center gap-2 text-[8px] uppercase tracking-[0.1em] text-[#D6A66A]/60"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#D6A66A]"/>Live work</div>
+                    <div className="space-y-1.5">{talkActivityNarration.slice(-6).map((entry, activityIndex) => <button key={entry.key || activityIndex} type="button" onClick={() => entry.event?.file_path && openFile(entry.event.file_path)} disabled={!entry.event?.file_path} className="block w-full rounded-md border border-white/[0.05] bg-white/[0.02] px-2 py-1.5 text-left disabled:cursor-default">
+                      <div className="text-[10px] leading-4 text-white/48">{entry.content}</div>
+                      {entry.event?.file_path ? <div className="mt-0.5 truncate font-mono text-[8px] text-[#D6A66A]/55">{entry.event.file_path}{entry.event?.start_line ? `:${entry.event.start_line}` : ""}</div> : null}
+                    </button>)}</div>
+                  </div> : null}
                 </div>
               </div> : null}
               {talkOnly ? <>
@@ -1909,12 +2659,12 @@ export default function AvantiqoCodeIDE({
                     const element = event.currentTarget;
                     talkFeedPinnedRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 72;
                   }}
-                  className={talkOnly ? "mt-3 max-h-[520px] space-y-2 overflow-auto rounded-xl border border-slate-200/80 bg-[#FBFCFD] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.8)]" : "mt-3 max-h-[520px] space-y-2 overflow-auto rounded-xl border border-white/[0.055] bg-black/20 p-3"}
+                  className={talkOnly ? "mt-3 h-[min(58vh,620px)] min-h-[320px] space-y-1 overflow-y-auto overscroll-contain px-2 py-1 [scrollbar-gutter:stable]" : "mt-3 h-[min(52vh,520px)] min-h-[260px] space-y-2 overflow-y-auto overscroll-contain rounded-xl border border-white/[0.055] bg-black/20 p-3 [scrollbar-gutter:stable]"}
                 >{chatTurns.length ? chatTurns.map((turn, index) => {
                   if (turn.role === "visual_error" || turn.role === "image_error") return null;
                   if (turn.role === "assistant_pending") {
-                    return <div key={turn.id || `assistant-pending-${index}`} className="mr-10 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-500 shadow-sm">
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-[#D6A66A]"/>
+                    return <div key={turn.id || `assistant-pending-${index}`} className="max-w-[92%] py-3 text-sm leading-7 text-slate-500">
+                      <span className="mr-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#D6A66A] align-middle"/>
                       <span>Thinking…</span>
                     </div>;
                   }
@@ -2102,20 +2852,26 @@ export default function AvantiqoCodeIDE({
                       {artifact.edges?.length ? <div className="mt-3 flex flex-wrap gap-1.5">{artifact.edges.map((edge, edgeIndex) => { const from = artifact.nodes?.find((node) => node.id === edge.from)?.label || edge.from; const to = artifact.nodes?.find((node) => node.id === edge.to)?.label || edge.to; return <div key={`${edge.from}-${edge.to}-${edgeIndex}`} className="rounded-full border border-white/[0.06] bg-black/20 px-2 py-1 text-[9px] text-white/28"><span className="text-white/45">{from}</span> → <span className="text-white/45">{to}</span>{edge.label ? ` · ${edge.label}` : ""}</div>; })}</div> : null}
                     </div>;
                   }
-                  return <div key={`${turn.role}-${index}`} className={talkOnly ? (turn.role === "user" ? "ml-12 rounded-2xl border border-[#D6A66A]/20 bg-[#fffaf3] px-4 py-3 text-sm leading-6 text-slate-700 shadow-sm" : "mr-12 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700 shadow-sm") : (turn.role === "user" ? "ml-10 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.05] px-3 py-2.5 text-sm leading-6 text-white/72" : "mr-10 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2.5 text-sm leading-6 text-white/62")}>{turn.content}</div>;
-                }) : <div className="py-10 text-center text-sm text-white/24">Start a conversation with Code about product, architecture, UX, layout or visual design.</div>}</div>
+                  return <div key={`${turn.role}-${index}`} className={talkOnly ? (turn.role === "user" ? "ml-auto max-w-[82%] py-3 text-sm leading-7 text-slate-700" : "max-w-[92%] py-3 text-sm leading-7 text-slate-700") : (turn.role === "user" ? "ml-10 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.05] px-3 py-2.5 text-sm leading-6 text-white/72" : "mr-10 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2.5 text-sm leading-6 text-white/62")}>{turn.content}</div>;
+                }) : <div className="py-10 text-center text-sm text-white/24">Start a conversation with Code about product, architecture, UX, layout or visual design.</div>}
+                {liveTalkActive ? <div className="max-w-[92%] px-1 py-3 text-sm leading-7 text-slate-600">
+                  {talkActivityNarration.slice(-6, -1).map((entry, activityIndex) => <div key={entry.key || activityIndex} className="py-2 text-slate-600">
+                    <span>{entry.content}</span>
+                    {entry.event?.file_path ? <button type="button" onClick={() => { if (typeof onStudioViewChange === "function") onStudioViewChange("code"); openFile(entry.event.file_path); }} className="ml-1 font-mono text-[10px] text-[#8a683f] hover:underline">{entry.event.file_path}{entry.event?.start_line ? `:${entry.event.start_line}` : ""}</button> : null}
+                  </div>)}
+                  <div className="flex items-start gap-2 py-2">
+                    <span className="relative mt-2 flex h-2 w-2 shrink-0"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#D6A66A]/45"/><span className="relative inline-flex h-2 w-2 rounded-full bg-[#D6A66A]"/></span>
+                    <div className="min-w-0 flex-1 animate-[pulse_2.4s_ease-in-out_infinite]"><span>{liveNarrationContent}</span>{liveNarrationEntry?.event?.file_path ? <button type="button" onClick={() => { if (typeof onStudioViewChange === "function") onStudioViewChange("code"); openFile(liveNarrationEntry.event.file_path); }} className="ml-1 font-mono text-[10px] text-[#8a683f] hover:underline">{liveNarrationEntry.event.file_path}{liveNarrationEntry.event?.start_line ? `:${liveNarrationEntry.event.start_line}` : ""}</button> : null}</div>
+                  </div>
+                </div> : null}</div>
               </> : null}
-              {talkOnly && (missionRunning || currentActiveMissionId) ? <div className="mt-3 flex items-center gap-2 px-1 text-[10px] text-slate-400">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#D6A66A]"/>
-                <span>Working in Code…</span>
-                {typeof onStudioViewChange === "function" ? <button type="button" onClick={() => onStudioViewChange("code")} className="ml-auto text-[10px] font-medium text-[#8a683f] hover:underline">View live work</button> : null}
-              </div> : null}
-              <textarea value={objective} onChange={(event) => setObjective(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendCodeMessage(); } }} rows={3} placeholder={missionRunning || currentActiveMissionId ? "Tell Code anything else while it works…" : "Message Code…"} className={talkOnly ? "mt-4 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700 shadow-sm outline-none focus:border-[#D6A66A]/45" : "mt-3 w-full resize-none rounded-lg border border-white/[0.08] bg-black/30 px-3 py-2 text-xs leading-5 text-white/65 outline-none focus:border-[#D6A66A]/40"}/>
-              <button type="button" onClick={sendCodeMessage} disabled={!objective.trim() || Object.values(dirty).some(Boolean)} className={talkOnly ? "mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-[#D6A66A]/35 bg-[#D6A66A]/10 py-2.5 text-[11px] font-medium text-[#8a683f] disabled:opacity-25" : "mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-[#D6A66A]/35 bg-[#D6A66A]/10 py-2 text-[10px] text-[#e7c497] disabled:opacity-25"}>{conversationBusy ? <RefreshCw size={12} className="animate-spin"/> : missionRunning || currentActiveMissionId ? <ChevronRight size={12}/> : <Play size={12}/>} {conversationBusy ? conversationVisualBusy ? "Preparing visual…" : "Thinking…" : missionRunning || currentActiveMissionId ? "Send to running Code" : "Send"}</button>
+              {talkOnly && liveTalkActive && typeof onStudioViewChange === "function" ? <div className="mt-1 flex justify-end px-1"><button type="button" onClick={() => onStudioViewChange("code")} className="text-[10px] font-medium text-[#8a683f] hover:underline">View live work</button></div> : null}
+              <textarea value={objective} onChange={(event) => setObjective(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendCodeMessage(); } }} rows={3} placeholder={liveTalkActive ? "Tell Code anything else while it works…" : "Message Code…"} className={talkOnly ? "mt-4 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700 shadow-sm outline-none focus:border-[#D6A66A]/45" : "mt-3 w-full resize-none rounded-lg border border-white/[0.08] bg-black/30 px-3 py-2 text-xs leading-5 text-white/65 outline-none focus:border-[#D6A66A]/40"}/>
+              <button type="button" onClick={sendCodeMessage} disabled={!objective.trim()} className={talkOnly ? "mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-[#D6A66A]/35 bg-[#D6A66A]/10 py-2.5 text-[11px] font-medium text-[#8a683f] disabled:opacity-25" : "mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-[#D6A66A]/35 bg-[#D6A66A]/10 py-2 text-[10px] text-[#e7c497] disabled:opacity-25"}>{conversationBusy ? <RefreshCw size={12} className="animate-spin"/> : liveTalkActive ? <ChevronRight size={12}/> : <Play size={12}/>} {conversationBusy ? conversationVisualBusy ? "Preparing visual…" : "Thinking…" : liveTalkActive ? "Send to running Code" : "Send"}</button>
             </div>
-            <div className={codeOnly ? "border-b border-white/[0.06] p-3" : "hidden"}><div className="flex items-center justify-between gap-2"><div className="text-[10px] uppercase tracking-[0.16em] text-white/30">Live agent activity</div><div className="text-[9px] text-white/20">{activityEvents.length} current ops</div></div><div className="mt-2 max-h-64 space-y-1.5 overflow-auto pr-1">{activityEvents.length ? activityEvents.map((event, index) => { const touched = text(event?.file_path || event?.files_changed?.[0]); const passed = event?.verification_passed; const actionText = text(event?.action || event?.phase || event?.status || "working"); return <button key={`${event?.at || index}-${event?.operation_id || index}`} type="button" onClick={() => touched && openFile(touched)} disabled={!touched} className="w-full rounded-lg border border-white/[0.055] bg-black/25 p-2 text-left disabled:cursor-default"><div className="flex items-center gap-2"><span className={`text-[9px] uppercase tracking-[0.1em] ${passed === false ? "text-red-200/70" : passed === true ? "text-emerald-200/70" : "text-[#D6A66A]/70"}`}>{/read|inspect|search/i.test(actionText) ? "READING" : /verify|test|check|command/i.test(actionText) ? "CHECKING" : /apply|write|edit|patch/i.test(actionText) ? "EDITING" : /diff/i.test(actionText) ? "REVIEWING" : actionText}</span>{event?.exit_code != null ? <span className="text-[9px] text-white/20">exit {event.exit_code}</span> : null}<span className="ml-auto text-[9px] text-white/15">{event?.at ? new Date(event.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : ""}</span></div><div className="mt-1 line-clamp-2 text-[10px] leading-4 text-white/40">{text(event?.description || event?.reason || event?.operation_id || "Working")}</div>{touched ? <div className="mt-1 flex items-center gap-1 font-mono text-[9px] text-white/25"><ChevronRight size={9}/><span className="truncate">{touched}</span>{event?.start_line ? <span className="ml-auto shrink-0">L{event.start_line}{event?.end_line && event.end_line !== event.start_line ? `–${event.end_line}` : ""}</span> : null}</div> : null}{event?.command ? <div className="mt-1 truncate font-mono text-[9px] text-white/20">$ {[event.command, ...(event.command_args || [])].join(" ")}</div> : null}{learnMode ? <div className="mt-1.5 rounded-md border border-emerald-300/10 bg-emerald-300/[0.035] px-2 py-1.5 text-[9px] leading-4 text-emerald-100/50"><span className="font-semibold text-emerald-100/65">Why this step:</span> {observableLearningNote(event)}</div> : null}</button>; }) : <div className="rounded-lg border border-white/[0.06] bg-black/25 p-2.5"><div className="text-xs text-white/60">{currentActiveMissionId ? statusLabel(scopedProgress) : missionRunning ? "starting" : "idle"}</div><div className="mt-1 text-[10px] leading-4 text-white/30">Waiting for new mission activity</div></div>}</div></div>
+            <div className={codeOnly ? "border-b border-white/[0.06] p-3" : "hidden"}><div className="flex items-center justify-between gap-2"><div className="text-[10px] uppercase tracking-[0.16em] text-white/30">Live agent activity</div><div className="text-[9px] text-white/20">{activityEvents.length} current ops</div></div><div className="mt-2 max-h-64 space-y-1.5 overflow-auto pr-1">{activityEvents.length ? activityEvents.map((event, index) => { const touched = currentEventFile(event); const passed = event?.verification_passed; const actionText = text(event?.action || event?.phase || event?.status || "working"); return <button key={`${event?.at || index}-${event?.operation_id || index}`} type="button" onClick={() => touched && openFile(touched)} disabled={!touched} className="w-full rounded-lg border border-white/[0.055] bg-black/25 p-2 text-left disabled:cursor-default"><div className="flex items-center gap-2"><span className={`text-[9px] uppercase tracking-[0.1em] ${passed === false ? "text-red-200/70" : passed === true ? "text-emerald-200/70" : "text-[#D6A66A]/70"}`}>{/read|inspect|search/i.test(actionText) ? "READING" : /verify|test|check|command/i.test(actionText) ? "CHECKING" : /apply|write|edit|patch/i.test(actionText) ? "EDITING" : /diff/i.test(actionText) ? "REVIEWING" : actionText}</span>{event?.exit_code != null ? <span className="text-[9px] text-white/20">exit {event.exit_code}</span> : null}<span className="ml-auto text-[9px] text-white/15">{event?.at ? new Date(event.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : ""}</span></div><div className="mt-1 line-clamp-2 text-[10px] leading-4 text-white/40">{text(event?.description || event?.reason || event?.operation_id || "Working")}</div>{touched ? <div className="mt-1 flex items-center gap-1 font-mono text-[9px] text-white/25"><ChevronRight size={9}/><span className="truncate">{touched}</span>{event?.start_line ? <span className="ml-auto shrink-0">L{event.start_line}{event?.end_line && event.end_line !== event.start_line ? `–${event.end_line}` : ""}</span> : null}</div> : null}{event?.command ? <div className="mt-1 truncate font-mono text-[9px] text-white/20">$ {[event.command, ...(event.command_args || [])].join(" ")}</div> : null}{learnMode ? <div className="mt-1.5 rounded-md border border-emerald-300/10 bg-emerald-300/[0.035] px-2 py-1.5 text-[9px] leading-4 text-emerald-100/50"><span className="font-semibold text-emerald-100/65">Why this step:</span> {observableLearningNote(event)}</div> : null}</button>; }) : <div className="rounded-lg border border-white/[0.06] bg-black/25 p-2.5"><div className="text-xs text-white/60">{currentActiveMissionId ? statusLabel(scopedProgress) : missionRunning ? "starting" : "idle"}</div><div className="mt-1 text-[10px] leading-4 text-white/30">Waiting for new mission activity</div></div>}</div></div>
             <div className={codeOnly ? "border-b border-white/[0.06] p-3" : "hidden"}><div className="grid grid-cols-2 gap-2 text-[10px]"><div className="rounded border border-white/[0.06] p-2"><div className="text-white/25">Engineering OS</div><div className={engineering?.engineering_os_ready ? "mt-1 text-emerald-200/70" : "mt-1 text-white/45"}>{engineering ? `${engineering.satisfied_required_department_count || 0}/${engineering.required_department_count || 0}` : "—"}</div></div><div className="rounded border border-white/[0.06] p-2"><div className="text-white/25">Precision OS</div><div className={precision?.precision_ready ? "mt-1 text-emerald-200/70" : "mt-1 text-white/45"}>{precision ? `${precision.satisfied_required_count || 0}/${precision.required_count || 0}` : "—"}</div></div></div></div>
-            <div className={codeOnly ? "p-3" : "hidden"}><div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-white/30"><MonitorPlay size={12}/> Browser proof</div><div className="mt-2 flex gap-2"><input value={browserUrl} onChange={(event) => setBrowserUrl(event.target.value)} className="min-w-0 flex-1 rounded border border-white/[0.08] bg-black/30 px-2 py-1.5 text-[10px] text-white/55 outline-none"/><button type="button" onClick={verifyBrowser} className="rounded border border-white/10 px-2 text-white/45" title="Verify browser"><ShieldCheck size={12}/></button><button type="button" onClick={openStudioPreview} disabled={!browserUrl.trim() || typeof onStudioViewChange !== "function"} className="rounded border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] px-2 text-[9px] text-[#e7c497] disabled:opacity-30">Preview</button></div>{browserResult ? <div className={`mt-2 text-[10px] ${browserResult.passed ? "text-emerald-200/65" : "text-red-200/65"}`}>{browserResult.passed ? "PASS" : "FAIL"} · console {browserResult.console_errors?.length || 0} · requests {browserResult.failed_requests?.length || 0}</div> : null}</div>
+            <div className={codeOnly ? "p-3" : "hidden"}><div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-white/30"><MonitorPlay size={12}/> Browser proof{latestBrowserEvent ? <span className="ml-auto rounded-full border border-[#D6A66A]/20 bg-[#D6A66A]/[0.05] px-2 py-0.5 text-[8px] normal-case tracking-normal text-[#e7c497]/65">Code verification target</span> : null}</div><div className="mt-2 flex gap-2"><input value={browserUrl} onChange={(event) => setBrowserUrl(event.target.value)} className="min-w-0 flex-1 rounded border border-white/[0.08] bg-black/30 px-2 py-1.5 text-[10px] text-white/55 outline-none"/><button type="button" onClick={verifyBrowser} className="rounded border border-white/10 px-2 text-white/45" title="Verify browser"><ShieldCheck size={12}/></button><button type="button" onClick={openStudioPreview} disabled={!browserUrl.trim() || typeof onStudioViewChange !== "function"} className="rounded border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] px-2 text-[9px] text-[#e7c497] disabled:opacity-30">Preview</button></div>{latestBrowserEvent ? <div className="mt-2 rounded-md border border-white/[0.06] bg-black/20 px-2 py-1.5 text-[9px] leading-4 text-white/35"><span className="font-medium text-[#e7c497]/65">Code is verifying:</span> <span className="font-mono">{latestBrowserEvent.url}</span>{latestBrowserEvent.verification_passed === true ? <span className="ml-2 text-emerald-200/65">PASS</span> : latestBrowserEvent.verification_passed === false ? <span className="ml-2 text-red-200/65">FAIL</span> : <span className="ml-2 text-white/25">working…</span>}</div> : null}{browserResult ? <div className={`mt-2 text-[10px] ${browserResult.passed ? "text-emerald-200/65" : "text-red-200/65"}`}>{browserResult.passed ? "PASS" : "FAIL"} · console {browserResult.console_errors?.length || 0} · requests {browserResult.failed_requests?.length || 0}</div> : null}</div>
           </aside>
 
           <section className={codeOnly ? "min-w-0 border-t border-white/[0.07] bg-[#080808]" : "hidden"}>

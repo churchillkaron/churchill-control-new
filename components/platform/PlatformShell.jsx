@@ -65,7 +65,16 @@ export default function PlatformShell({ children }) {
     role: businessContext.role,
   });
   const workspaceContextLoading = isWorkspacePath && businessContext.ready !== true;
-  const workspaceAccessDenied = isWorkspacePath && businessContext.ready === true && !accessDecision.allowed;
+  const workspaceContextError = isWorkspacePath && businessContext.ready === true && Boolean(businessContext.error);
+  const workspaceAuthenticationRequired =
+    workspaceContextError &&
+    (
+      businessContext.error_code === "AUTHENTICATION_REQUIRED" ||
+      /session expired|authentication required|auth session/i.test(String(businessContext.error || ""))
+    );
+  const workspaceAuthenticationUnavailable =
+    workspaceContextError && businessContext.error_code === "AUTH_SERVICE_UNAVAILABLE";
+  const workspaceAccessDenied = isWorkspacePath && businessContext.ready === true && !businessContext.error && !accessDecision.allowed;
 
   useEffect(() => {
     function handleSecretaryMeetingCapture(event) {
@@ -113,8 +122,38 @@ export default function PlatformShell({ children }) {
           {workspaceContextLoading ? (
             <div className="flex min-h-[45vh] items-center justify-center">
               <div className="rounded-2xl border border-black/[0.07] bg-white px-5 py-4 text-[12px] text-[#77736C] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-                Preparing your workspace...
+                {businessContext.loading_message || "Preparing your workspace..."}
               </div>
+            </div>
+          ) : workspaceContextError ? (
+            <div className="mx-auto mt-12 max-w-2xl rounded-[24px] border border-black/[0.08] bg-white p-7 shadow-[0_14px_50px_rgba(31,27,20,0.06)]">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#A37849]">
+                {workspaceAuthenticationRequired || workspaceAuthenticationUnavailable ? "Authentication" : "Workspace connection"}
+              </div>
+              <h1 className="mt-2 text-[24px] font-medium tracking-[-0.035em] text-[#1B1A18]">
+                {workspaceAuthenticationRequired
+                  ? "Your Avantiqo session needs to be renewed."
+                  : workspaceAuthenticationUnavailable
+                    ? "Authentication is temporarily unavailable."
+                    : "Avantiqo could not finish loading this workspace."}
+              </h1>
+              <p className="mt-3 text-[12px] leading-6 text-[#77736C]">{businessContext.error}</p>
+              {workspaceAuthenticationRequired ? (
+                <Link
+                  href={`/login?next=${encodeURIComponent(pathname || "/")}`}
+                  className="mt-5 inline-flex rounded-xl bg-[#171716] px-4 py-2.5 text-[11px] font-medium text-white transition hover:bg-[#2A2825]"
+                >
+                  Sign in to continue
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="mt-5 rounded-xl bg-[#171716] px-4 py-2.5 text-[11px] font-medium text-white transition hover:bg-[#2A2825]"
+                >
+                  Retry workspace connection
+                </button>
+              )}
             </div>
           ) : workspaceAccessDenied ? (
             <div className="mx-auto mt-12 max-w-2xl rounded-[24px] border border-black/[0.08] bg-white p-7 shadow-[0_14px_50px_rgba(31,27,20,0.06)]">

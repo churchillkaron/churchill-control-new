@@ -55,6 +55,8 @@ export async function POST(request) {
         session_id: workspace.session_id,
         device_id: workspace.device_id,
         device_name: workspace.device_name,
+        repository_root: workspace.repository_root || null,
+        source_repository_root: workspace.source_repository_root || null,
         repository_url: workspace.repository_url,
         ref: workspace.ref,
         base_commit: workspace.base_commit,
@@ -75,7 +77,7 @@ export async function POST(request) {
         });
     if (action === "attach") {
       const [inspection, tree, ideState] = await Promise.all([workspace.inspect(), workspace.fileTree(), workspace.ideState()]);
-      return Response.json({ success: true, result: { session_id: workspace.session_id, repository_url: workspace.repository_url, ref: workspace.ref, base_commit: workspace.base_commit, inspection, tree, ide_state: ideState } });
+      return Response.json({ success: true, result: { session_id: workspace.session_id, repository_root: workspace.repository_root || null, source_repository_root: workspace.source_repository_root || null, repository_url: workspace.repository_url, ref: workspace.ref, base_commit: workspace.base_commit, inspection, tree, ide_state: ideState } });
     }
     if (action === "state") return Response.json({ success: true, result: await workspace.ideState() });
     if (action === "tree") return Response.json({ success: true, result: await workspace.fileTree() });

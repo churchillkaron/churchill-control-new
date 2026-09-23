@@ -91,6 +91,7 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const organizationId = text(body.organizationId || body.organization_id, 200);
     const missionId = text(body.missionId || body.mission_id, 240);
+    const deviceSessionId = text(body.deviceSessionId || body.device_session_id, 160) || null;
     const action = text(body.action, 80).toUpperCase();
     const instruction = text(body.instruction, 2000) || null;
     if (!organizationId) return response({ success: false, error: "organization_id required" }, 400);
@@ -106,7 +107,10 @@ export async function POST(request) {
     }
 
     const context = contextFor(access, organizationId);
-    const loaded = await loadCodeAILiveProgress({ context });
+    const loaded = await loadCodeAILiveProgress({
+      context,
+      device_session_id: deviceSessionId,
+    });
     const progress = loaded?.live_progress || null;
     if (!progress || text(progress.mission_id, 240) !== missionId) {
       return response({ success: false, error: "CODE_AI_OWNER_INTERVENTION_LIVE_MISSION_MISMATCH" }, 409);

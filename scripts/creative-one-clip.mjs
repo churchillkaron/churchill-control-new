@@ -21,6 +21,10 @@ const RESEARCH_PRICING_ID = String(
 const RESEARCH_CEILING = Number(process.env.CREATIVE_CLIP_RESEARCH_MAXIMUM_THB || 30);
 const RESEARCH_MODEL = String(process.env.CREATIVE_CLIP_RESEARCH_MODEL || "gpt-4.1-mini").trim();
 const DIRECTION_CEILING = Number(process.env.CREATIVE_CLIP_DIRECTION_MAXIMUM_THB || 40);
+const TRIBUNAL_MAXIMUM_CALLS = Math.max(
+  40,
+  Math.min(120, Number(process.env.CREATIVE_CLIP_TRIBUNAL_MAXIMUM_CALLS || 40) || 40),
+);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -42,6 +46,29 @@ function finite(value) {
 function sameDuration(value) {
   const number = finite(value);
   return number !== null && Math.abs(number - DURATION) < 0.001;
+}
+
+function transientControlPlaneFailure(error) {
+  const message = text(error?.message || error).toLowerCase();
+  return /creative_clip_startup_read_timeout|520|521|522|523|524|525|pgrst002|statement timeout|connection terminated|connection timed out|ssl handshake|schema cache|fetch failed|aborterror/.test(message);
+}
+
+async function boundedStartupRead(label, operation, { attempts = 3, timeout_ms = 15000 } = {}) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const timeout = new Promise((_, reject) => {
+      const error = new Error(`CREATIVE_CLIP_STARTUP_READ_TIMEOUT:${label}:attempt=${attempt}`);
+      setTimeout(() => reject(error), timeout_ms).unref?.();
+    });
+    try {
+      return await Promise.race([operation(), timeout]);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts || !transientControlPlaneFailure(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, Math.min(8000, 1000 * (2 ** (attempt - 1)))));
+    }
+  }
+  throw lastError || new Error(`CREATIVE_CLIP_STARTUP_READ_FAILED:${label}`);
 }
 
 const commandDigest = createHash("sha256")
@@ -106,6 +133,7 @@ function approvalMetadata(existingMetadata = {}, organization = {}, selectedAsse
       provider: RESEARCH_PROVIDER,
       pricing_id: RESEARCH_PRICING_ID,
       model: RESEARCH_MODEL,
+      capability: "ai.reasoning.execute",
       currency: "THB",
       maximum_customer_price: RESEARCH_CEILING,
       command_identity: COMMAND_IDENTITY,
@@ -120,15 +148,56 @@ function approvalMetadata(existingMetadata = {}, organization = {}, selectedAsse
       provider: RESEARCH_PROVIDER,
       pricing_id: RESEARCH_PRICING_ID,
       model: RESEARCH_MODEL,
+      capability: "ai.reasoning.execute",
       currency: "THB",
       maximum_customer_price: DIRECTION_CEILING,
       maximum_per_call_customer_price: 6,
       maximum_calls: 40,
-      spent_customer_price: 0,
+      spent_customer_price: finite(existingMetadata?.paid_direction_approval?.spent_customer_price) || 0,
+      call_count: finite(existingMetadata?.paid_direction_approval?.call_count) || 0,
       allowed_operations: ["*"],
       command_identity: COMMAND_IDENTITY,
       approved_at: approvedAt,
       expires_at: expiresAt,
+      benchmark_review_preview: true,
+      execution_scope: "BENCHMARK_REVIEW_PREVIEW",
+      owned_only_required: true,
+      external_ai_provider_allowed: false,
+      external_fallback_allowed: false,
+      media_generation_authorized: false,
+      publication_authorized: false,
+      local_zero_price_rebase_contract: "CREATIVE_DIRECTION_LOCAL_ZERO_PRICE_REBASE_V1",
+    },
+    paid_tribunal_approval: {
+      contract: "CREATIVE_TRIBUNAL_BUDGET_APPROVAL_V1",
+      id: `tribunal-${commandDigest}`,
+      approved: true,
+      status: "APPROVED",
+      provider: RESEARCH_PROVIDER,
+      pricing_id: RESEARCH_PRICING_ID,
+      model: RESEARCH_MODEL,
+      capability: "ai.reasoning.execute",
+      currency: "THB",
+      maximum_customer_price: DIRECTION_CEILING,
+      maximum_per_call_customer_price: 6,
+      maximum_calls: Math.max(
+        TRIBUNAL_MAXIMUM_CALLS,
+        finite(existingMetadata?.paid_tribunal_approval?.maximum_calls) || 0,
+        finite(existingMetadata?.paid_tribunal_approval?.call_count) || 0,
+      ),
+      spent_customer_price: finite(existingMetadata?.paid_tribunal_approval?.spent_customer_price) || 0,
+      call_count: finite(existingMetadata?.paid_tribunal_approval?.call_count) || 0,
+      allowed_operations: ["CREATIVE_DYNAMIC_TRIBUNAL_*"],
+      command_identity: COMMAND_IDENTITY,
+      approved_at: approvedAt,
+      expires_at: expiresAt,
+      benchmark_review_preview: true,
+      execution_scope: "BENCHMARK_REVIEW_PREVIEW",
+      owned_only_required: true,
+      external_ai_provider_allowed: false,
+      external_fallback_allowed: false,
+      media_generation_authorized: false,
+      publication_authorized: false,
     },
     creative_quality_policy: {
       version: "AVANTIQO_ONE_CLIP_V1",
@@ -201,7 +270,50 @@ async function loadOrganizationAndAssets(supabaseAdmin) {
   }
 
   const tokens = requestTokens();
+  const { data: matchingProjects, error: projectLookupError } = await supabaseAdmin
+    .from("creative_projects")
+    .select("id,production_type,target_duration,metadata")
+    .eq("organization_id", ORGANIZATION)
+    .eq("production_type", "VIDEO")
+    .limit(100);
+  if (projectLookupError) {
+    throw new Error(`CREATIVE_CLIP_PROJECT_LINEAGE_LOOKUP_FAILED:${projectLookupError.message}`);
+  }
+  const recoveredLineageProject = list(matchingProjects).some((project) =>
+    text(project.metadata?.creative_request) === REQUEST &&
+    sameDuration(project.target_duration) &&
+    project.metadata?.creative_story_lineage_recovery?.contract === "CREATIVE_STORY_LINEAGE_RECOVERY_V1" &&
+    project.metadata?.creative_story_lineage_recovery?.user_authorized === true,
+  );
+  const recoveryLineageOnly =
+    recoveredLineageProject ||
+    String(process.env.CREATIVE_CLIP_RECOVERED_LINEAGE_ONLY || "").trim().toLowerCase() === "true";
+  const historicalStoryAsset = (asset = {}) => {
+    const label = [asset.name, asset.title, asset.file_name, asset.description]
+      .map(text)
+      .join(" ")
+      .toLowerCase();
+    return (
+      label.includes("avantiqo investor film") &&
+      (
+        label.includes("manager cinematic") ||
+        label.includes("restaurant cinematic") ||
+        label.includes("kitchen cinematic")
+      )
+    );
+  };
+  const recoveryAssetEligible = (asset = {}) => {
+    if (!recoveryLineageOnly) return true;
+    if (historicalStoryAsset(asset)) return false;
+    const type = text(asset.asset_type).toUpperCase();
+    const label = [asset.name, asset.title, asset.file_name, asset.description]
+      .map(text)
+      .join(" ")
+      .toLowerCase();
+    return type === "AUDIO" || label.includes("logo");
+  };
   const selectedAssets = list(assets)
+    .filter(recoveryAssetEligible)
     .map((asset) => ({ asset, score: assetScore(asset, tokens) }))
     .filter((entry) => entry.score > 0)
     .sort((left, right) => right.score - left.score)
@@ -309,7 +421,10 @@ async function main() {
     import("@/lib/shared/supabase/admin"),
   ]);
 
-  const { capabilities } = await availableProductionCapabilities(ORGANIZATION);
+  const { capabilities } = await boundedStartupRead(
+    "capabilities",
+    () => availableProductionCapabilities(ORGANIZATION),
+  );
   const ids = new Set(list(capabilities).map((service) => text(service.service_id)));
   const canVideo = ids.has("ai.video.generate");
   stage(
@@ -330,7 +445,10 @@ async function main() {
     stage("wallet", "SKIP", "no balance reader exported");
   }
 
-  const { organization, selectedAssets } = await loadOrganizationAndAssets(supabaseAdmin);
+  const { organization, selectedAssets } = await boundedStartupRead(
+    "organization-assets",
+    () => loadOrganizationAndAssets(supabaseAdmin),
+  );
   stage("organization grounding", text(organization?.name) ? "OK" : "FAIL", text(organization?.name));
   stage(
     "asset grounding",
@@ -489,5 +607,5 @@ function summarise(missionId, projectId, dispatch) {
 main().catch((error) => {
   stage("run", "FAIL", text(error?.message).slice(0, 200));
   console.error(`\n${String(error?.stack || error).slice(0, 1200)}`);
-  process.exitCode = 1;
+  process.exit(1);
 });

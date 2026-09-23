@@ -30,6 +30,10 @@ const lifecycleReceipt = await readFile(
   "lib/code/runtime/CodeAIEngineeringSkillVisibleReceiptRuntime.js",
   "utf8",
 );
+const missionRuntime = await readFile(
+  "lib/code/runtime/CodeAIMissionRuntime.js",
+  "utf8",
+);
 
 function count(source, token) {
   return source.split(token).length - 1;
@@ -131,4 +135,15 @@ test("Code live operations identify the actual file search or command being insp
   assert.match(liveWorkPackage, /Searching repository code for/);
   assert.match(liveWorkPackage, /Running \$\{\[command, \.\.\.args\]\.join\(" "\)\}/);
   assert.match(liveWorkPackage, /description: operationProgressDescription\(operation, input\)/);
+});
+
+test("mission runtime publishes concrete repository activity from the first live-state inspection", () => {
+  assert.match(missionRuntime, /function repositoryOperationProgress/);
+  assert.match(missionRuntime, /REPOSITORY_OPERATION_RUNNING/);
+  assert.match(missionRuntime, /REPOSITORY_OPERATION_COMPLETED/);
+  assert.match(missionRuntime, /I’m checking the current repository head, project guidance, and verification setup/);
+  assert.match(missionRuntime, /I’m opening/);
+  assert.match(missionRuntime, /I’m searching the repository/);
+  assert.match(missionRuntime, /I’m running/);
+  assert.match(missionRuntime, /publishCodeAILiveProgress\(\{[\s\S]*repositoryOperationProgress\(operation, "running"\)/);
 });

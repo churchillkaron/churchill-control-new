@@ -22,7 +22,10 @@ export default function SupplierOnboarding() {
   const [snapshot,setSnapshot]=useState(null);
   const [businessCandidates,setBusinessCandidates]=useState([]);
   const [path,setPath]=useState("");
-  const [profile,setProfile]=useState({businessName:"",displayName:"",phone:"",website:""});
+  const [invitedAccessId,setInvitedAccessId]=useState("");
+  const [creatingSupplierProfile,setCreatingSupplierProfile]=useState(false);
+  const [newSupplierProfileName,setNewSupplierProfileName]=useState("");
+  const [profile,setProfile]=useState({businessName:"",displayName:"",phone:"",website:"",supplierCategories:"",serviceAreas:""});
 
   async function load() {
     setLoading(true);
@@ -45,12 +48,17 @@ export default function SupplierOnboarding() {
         displayName:storePayload.account?.display_name || "",
         phone:storePayload.account?.phone || "",
         website:storePayload.account?.website || "",
+        supplierCategories:(storePayload.account?.supplier_categories || []).join(", "),
+        serviceAreas:(storePayload.account?.service_areas || []).join(", "),
       });
       if (businessResponse.ok && businessPayload?.success) setBusinessCandidates(businessPayload.organizations || []);
       const caps=storePayload.capabilities || {};
-      if (caps.business) setPath("business");
-      else if (caps.storefront) setPath("shop");
-      else if (caps.invited_relationships) setPath("invited");
+      const requestedPath=new URLSearchParams(window.location.search).get("path");
+      if (!["invited","shop","business"].includes(requestedPath)) {
+        if (caps.business) setPath("business");
+        else if (caps.storefront) setPath("shop");
+        else if (caps.invited_relationships) setPath("invited");
+      }
     } catch (e) {
       setError(e?.message || "Unable to load supplier onboarding");
     } finally {
@@ -58,12 +66,19 @@ export default function SupplierOnboarding() {
     }
   }
 
-  useEffect(()=>{ void load(); },[]);
+  useEffect(()=>{
+    const searchParams=new URLSearchParams(window.location.search);
+    const requestedPath=searchParams.get("path");
+    if (["invited","shop","business"].includes(requestedPath)) setPath(requestedPath);
+    setInvitedAccessId(searchParams.get("accessId") || "");
+    void load();
+  },[]);
 
   const relationships=snapshot?.relationships || [];
   const capabilities=snapshot?.capabilities || {};
   const account=snapshot?.account || null;
   const storefront=snapshot?.storefront || null;
+  const networkProfiles=snapshot?.network_profiles || [];
 
   const steps=useMemo(()=>[
     {label:"Identity",done:Boolean(account)},
@@ -83,10 +98,50 @@ export default function SupplierOnboarding() {
     return payload;
   }
 
+  async function switchSupplierProfile(supplierAccountId) {
+    setSaving(true); setError("");
+    try {
+      const response=await fetch("/api/supplier-portal/profile",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({supplierAccountId}),
+      });
+      const payload=await response.json().catch(()=>({}));
+      if (!response.ok || !payload?.success) throw new Error(payload?.error || "Unable to switch supplier profile");
+      window.location.reload();
+    } catch(e) { setError(e?.message || "Unable to switch supplier profile"); }
+    finally { setSaving(false); }
+  }
+
+  async function createAdditionalSupplierProfile() {
+    setSaving(true); setError("");
+    try {
+      if (!newSupplierProfileName.trim()) throw new Error("Business name is required");
+      const response=await fetch("/api/supplier-portal/profile",{
+        method:"PUT",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({businessName:newSupplierProfileName.trim(),makeDefault:true}),
+      });
+      const payload=await response.json().catch(()=>({}));
+      if (!response.ok || !payload?.success) throw new Error(payload?.error || "Unable to create supplier profile");
+      window.location.reload();
+    } catch(e) { setError(e?.message || "Unable to create supplier profile"); }
+    finally { setSaving(false); }
+  }
+
   async function continueInvited() {
     setSaving(true); setError("");
     try {
       await ensureProfile();
+      if (invitedAccessId) {
+        const response=await fetch("/api/supplier-portal/connections",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({supplierPortalAccessId:invitedAccessId}),
+        });
+        const payload=await response.json().catch(()=>({}));
+        if (!response.ok || !payload?.success) throw new Error(payload?.error || "Unable to attach invited customer relationship");
+      }
       window.location.href="/supplier-portal/customers";
     } catch(e) { setError(e?.message || "Unable to continue supplier invitation"); }
     finally { setSaving(false); }
@@ -127,7 +182,7 @@ export default function SupplierOnboarding() {
     setSaving(true); setError("");
     try {
       if (!profile.businessName.trim()) throw new Error("Business name is required");
-      await ensureProfile();
+      const profileResult = await ensureProfile();
       const response=await fetch("/api/onboarding/self-service-owner",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
@@ -135,7 +190,8 @@ export default function SupplierOnboarding() {
       });
       const payload=await response.json().catch(()=>({}));
       if (!response.ok || !payload?.success) throw new Error(payload?.error || "Unable to prepare Business onboarding");
-      window.location.href="/onboarding?intent=business&source=supplier";
+      const supplierAccountId = snapshot?.account?.id || profileResult?.account?.id || "";
+      window.location.href=`/onboarding?intent=business&source=supplier&supplierAccountId=${encodeURIComponent(supplierAccountId)}`;
     } catch(e) { setError(e?.message || "Unable to start Business onboarding"); }
     finally { setSaving(false); }
   }
@@ -169,9 +225,24 @@ export default function SupplierOnboarding() {
         <label className="grid gap-1 text-[8px] font-semibold text-[#6F665D]">Your / display name<input value={profile.displayName} onChange={(e)=>setProfile((current)=>({...current,displayName:e.target.value}))} className="h-10 rounded-xl border border-black/[.08] bg-[#FBFAF8] px-3 text-[10px] font-normal outline-none" /></label>
         <label className="grid gap-1 text-[8px] font-semibold text-[#6F665D]">Phone<input value={profile.phone} onChange={(e)=>setProfile((current)=>({...current,phone:e.target.value}))} className="h-10 rounded-xl border border-black/[.08] bg-[#FBFAF8] px-3 text-[10px] font-normal outline-none" /></label>
         <label className="grid gap-1 text-[8px] font-semibold text-[#6F665D]">Website<input value={profile.website} onChange={(e)=>setProfile((current)=>({...current,website:e.target.value}))} className="h-10 rounded-xl border border-black/[.08] bg-[#FBFAF8] px-3 text-[10px] font-normal outline-none" placeholder="https://…" /></label>
+        {path !== "invited" ? <>
+          <label className="grid gap-1 text-[8px] font-semibold text-[#6F665D]">Supplier categories<input value={profile.supplierCategories} onChange={(e)=>setProfile((current)=>({...current,supplierCategories:e.target.value}))} className="h-10 rounded-xl border border-black/[.08] bg-[#FBFAF8] px-3 text-[10px] font-normal outline-none" placeholder="Seafood, Hotel amenities, Cleaning supplies" /><span className="text-[7px] font-normal text-[#91877C]">What Avantiqo customers should find you for.</span></label>
+          <label className="grid gap-1 text-[8px] font-semibold text-[#6F665D]">Service / delivery areas<input value={profile.serviceAreas} onChange={(e)=>setProfile((current)=>({...current,serviceAreas:e.target.value}))} className="h-10 rounded-xl border border-black/[.08] bg-[#FBFAF8] px-3 text-[10px] font-normal outline-none" placeholder="Phuket, Karon, Patong" /><span className="text-[7px] font-normal text-[#91877C]">Where you deliver or provide service.</span></label>
+        </> : null}
       </div> : null}
 
-      {path==="invited" ? <div className="mt-5"><div className="rounded-[16px] border border-black/[.06] bg-[#FBFAF8] p-4 text-[9px] leading-5 text-[#756E66]">{capabilities.invited_relationships ? "Your accepted customer relationships will be attached to this Supplier Network profile. You can add a shop later without changing accounts." : "There is no accepted customer invitation on this login yet. You can still create the profile now, or choose Free Shop instead."}</div><button onClick={continueInvited} disabled={saving} className="mt-4 rounded-xl bg-[#1D1A17] px-5 py-3 text-[9px] font-semibold text-white disabled:opacity-50">Continue with supplier relationships →</button></div> : null}
+      {path==="invited" ? <div className="mt-5 space-y-3">
+        {networkProfiles.length ? <div className="rounded-[16px] border border-black/[.06] bg-[#FBFAF8] p-4">
+          <div className="text-[8px] font-semibold uppercase tracking-[.14em] text-[#9A744B]">Attach invitation to supplier business</div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {networkProfiles.map((membership)=><button key={membership.supplier_account_id} onClick={()=>switchSupplierProfile(membership.supplier_account_id)} disabled={saving || String(account?.id||"")===String(membership.supplier_account_id)} className={`rounded-[12px] border px-3 py-3 text-left ${String(account?.id||"")===String(membership.supplier_account_id) ? "border-emerald-200 bg-emerald-50/60" : "border-black/[.07] bg-white"}`}><div className="text-[9px] font-semibold">{membership.account?.business_name || membership.account?.display_name || "Supplier profile"}</div><div className="mt-1 text-[7px] text-[#81786F]">{String(account?.id||"")===String(membership.supplier_account_id) ? "Selected" : "Use this supplier"} · {membership.role}</div></button>)}
+          </div>
+          <button type="button" onClick={()=>setCreatingSupplierProfile(!creatingSupplierProfile)} className="mt-3 text-[8px] font-semibold text-[#76502E]">{creatingSupplierProfile ? "Cancel new supplier profile" : "Create another supplier profile +"}</button>
+          {creatingSupplierProfile ? <div className="mt-3 flex gap-2"><input value={newSupplierProfileName} onChange={(e)=>setNewSupplierProfileName(e.target.value)} placeholder="New supplier business name" className="h-10 flex-1 rounded-xl border border-black/[.08] bg-white px-3 text-[9px] outline-none"/><button type="button" onClick={createAdditionalSupplierProfile} disabled={saving || !newSupplierProfileName.trim()} className="rounded-xl bg-[#1D1A17] px-4 text-[8px] font-semibold text-white disabled:opacity-40">Create</button></div> : null}
+        </div> : null}
+        <div className="rounded-[16px] border border-black/[.06] bg-[#FBFAF8] p-4 text-[9px] leading-5 text-[#756E66]">{capabilities.invited_relationships ? "The accepted customer relationship will attach only to the selected Supplier Network profile. You can add a shop later without changing accounts." : "There is no accepted customer invitation on this login yet. You can still create the profile now, or choose Free Shop instead."}</div>
+        <button onClick={continueInvited} disabled={saving} className="rounded-xl bg-[#1D1A17] px-5 py-3 text-[9px] font-semibold text-white disabled:opacity-50">Continue with supplier relationships →</button>
+      </div> : null}
 
       {path==="shop" ? <div className="mt-5"><div className="rounded-[16px] border border-[#B7793B]/15 bg-[#FBF6EF] p-4 text-[9px] leading-5 text-[#756E66]">Next: add products in Catalog, configure Storefront, publish, then choose whether the shop is visible only inside Avantiqo or also through a shareable public URL.</div><button onClick={continueShop} disabled={saving} className="mt-4 rounded-xl bg-[#1D1A17] px-5 py-3 text-[9px] font-semibold text-white disabled:opacity-50">{capabilities.storefront ? "Continue to catalog →" : "Create free shop →"}</button></div> : null}
 

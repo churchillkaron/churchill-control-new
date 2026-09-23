@@ -25,6 +25,7 @@ const OWNER_LEVEL_ROLES = new Set([
 
 const NEUTRAL_BASE_ROLES = ["STAFF", "MANAGER", "OWNER"];
 const ROLE_PATTERN = /^[A-Z][A-Z0-9_]{1,63}$/;
+const validEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim()) && String(value || "").trim().length <= 320;
 
 function normalizeRole(value) {
   return String(value || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
@@ -134,22 +135,59 @@ export async function GET(request) {
     const context = await managementContext(request);
     if (context.response) return context.response;
 
-    const { data: staff, error } = await supabaseAdmin
-      .from("staff_accounts")
-      .select("id,name,email,role,position,department,active,auth_user_id,party_id,active_organization_id")
-      .eq("active_organization_id", context.organizationId)
-      .order("name", { ascending: true });
+    const [legacyStaffResult, membershipsResult] = await Promise.all([
+      supabaseAdmin
+        .from("staff_accounts")
+        .select("id,name,email,role,position,department,active,auth_user_id,party_id,active_organization_id")
+        .eq("active_organization_id", context.organizationId)
+        .eq("active", true),
+      supabaseAdmin
+        .from("organization_users")
+        .select("staff_account_id,role,status")
+        .eq("organization_id", context.organizationId)
+        .eq("status", "active"),
+    ]);
 
-    if (error) throw error;
+    if (legacyStaffResult.error) throw legacyStaffResult.error;
+    if (membershipsResult.error) throw membershipsResult.error;
 
-    const roleOptions = await organizationRoleCatalog(context.organizationId, staff || []);
+    const membershipByStaffId = new Map(
+      (membershipsResult.data || []).map((row) => [String(row.staff_account_id), row])
+    );
+    const membershipStaffIds = [...membershipByStaffId.keys()].filter(Boolean);
+    let membershipStaff = [];
+
+    if (membershipStaffIds.length) {
+      const memberStaffResult = await supabaseAdmin
+        .from("staff_accounts")
+        .select("id,name,email,role,position,department,active,auth_user_id,party_id,active_organization_id")
+        .in("id", membershipStaffIds)
+        .eq("active", true);
+      if (memberStaffResult.error) throw memberStaffResult.error;
+      membershipStaff = memberStaffResult.data || [];
+    }
+
+    const staffById = new Map();
+    for (const row of [...(legacyStaffResult.data || []), ...membershipStaff]) {
+      const membership = membershipByStaffId.get(String(row.id));
+      staffById.set(String(row.id), {
+        ...row,
+        role: membership?.role || row.role,
+        organization_role: membership?.role || row.role || null,
+      });
+    }
+    const staff = [...staffById.values()].sort((left, right) =>
+      String(left.name || left.email || "").localeCompare(String(right.name || right.email || ""))
+    );
+
+    const roleOptions = await organizationRoleCatalog(context.organizationId, staff);
 
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
       actingRole: context.actingRole,
       roleOptions,
-      staff: staff || [],
+      staff,
     });
   } catch (error) {
     console.error("LIST_STAFF_ACCESS_ERROR", error);
@@ -175,6 +213,13 @@ export async function POST(request) {
     if (!name || !email || !role) {
       return NextResponse.json(
         { success: false, error: "Name, email and role are required" },
+        { status: 400 }
+      );
+    }
+
+    if (!validEmail(email)) {
+      return NextResponse.json(
+        { success: false, error: "Staff email is invalid" },
         { status: 400 }
       );
     }

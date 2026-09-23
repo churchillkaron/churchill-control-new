@@ -142,19 +142,27 @@ export default function SupplierNetworkWorkCenter({ organizationId }) {
       {!state.loading ? <div className="mt-4 grid gap-4 xl:grid-cols-2">
         {state.suppliers.map((supplier) => <article key={supplier.id} className="rounded-[24px] border border-black/[0.07] bg-white p-5 shadow-[0_12px_34px_rgba(50,41,31,.035)]">
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="flex min-w-0 items-start gap-3">
+              {supplier.supplier?.logo_url ? <img src={supplier.supplier.logo_url} alt="" className="h-12 w-12 shrink-0 rounded-[14px] object-cover" /> : <div className="h-12 w-12 shrink-0 rounded-[14px] bg-[#EFE8DE]" />}
+              <div>
               <div className="text-[8px] font-black uppercase tracking-[0.16em] text-[#B7793B]">{supplier.supplier?.verified ? "Verified supplier" : "Supplier shop"}</div>
               <h2 className="mt-2 text-[22px] font-semibold tracking-[-.03em]">{supplier.supplier?.business_name || supplier.name}</h2>
               <p className="mt-2 text-[9px] leading-5 text-[#756E66]">{supplier.headline || supplier.description || "Supplier catalog on Avantiqo."}</p>
+              {(supplier.supplier?.categories?.length || supplier.supplier?.service_areas?.length) ? <div className="mt-3 flex flex-wrap gap-1.5">
+                {(supplier.supplier?.categories || []).slice(0,5).map((value)=><span key={"category-"+value} className="rounded-full border border-[#B7793B]/15 bg-[#FBF6EF] px-2 py-1 text-[6px] font-semibold text-[#76502E]">{value}</span>)}
+                {(supplier.supplier?.service_areas || []).slice(0,5).map((value)=><span key={"area-"+value} className="rounded-full border border-black/[0.07] bg-white px-2 py-1 text-[6px] font-semibold text-[#756E66]">{value}</span>)}
+              </div> : null}
+              </div>
             </div>
             {supplier.supplier?.business_linked ? <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[7px] font-bold uppercase tracking-[.12em] text-emerald-700">Avantiqo Business</span> : null}
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            {(supplier.products || []).slice(0,6).map((product) => <div key={product.id} className="rounded-[15px] border border-black/[0.055] bg-[#FBFAF8] p-3">
+            {(supplier.products || []).slice(0,6).map((product) => <div key={product.id} className="overflow-hidden rounded-[15px] border border-black/[0.055] bg-[#FBFAF8]">{product.image_url ? <img src={product.image_url} alt="" className="h-28 w-full object-cover" /> : null}<div className="p-3">
               <div className="flex items-start justify-between gap-2"><div className="text-[9px] font-semibold">{product.name}</div>{product.pricing_source === "CUSTOM" ? <span className="rounded-full border border-[#B7793B]/20 bg-[#FBF6EF] px-2 py-0.5 text-[6px] font-bold uppercase tracking-[.1em] text-[#76502E]">Your price</span> : null}</div>
               <div className="mt-1 text-[8px] text-[#81786F]">{product.category || "Uncategorized"} · MOQ {product.effective_minimum_order_quantity ?? product.minimum_order_quantity} {product.uom || ""}</div>
               <div className="mt-2 text-[9px] font-semibold text-[#76502E]">{money(product.effective_price ?? product.base_price, product.effective_currency_code || product.currency_code)}</div>
               {supplier.relationship?.status === "CONNECTED" && supplier.allow_customer_orders ? <label className="mt-3 grid gap-1 text-[7px] font-semibold text-[#81786F]">Order quantity<input type="number" min={product.effective_minimum_order_quantity ?? product.minimum_order_quantity ?? 1} step="0.01" value={cart[supplier.id]?.[product.id] || ""} onChange={(event)=>setQuantity(supplier.id,product.id,event.target.value)} className="h-9 rounded-lg border border-black/[.08] bg-white px-2 text-[9px] outline-none focus:border-[#B7793B]/40" /></label> : null}
+              </div>
             </div>)}
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2">

@@ -10,6 +10,7 @@ import {
 import { usePathname } from "next/navigation";
 
 import { supabase } from "@/lib/shared/supabase/client";
+import { getPublicSupabaseUrl } from "@/lib/shared/supabase/publicConfig";
 
 const BusinessContext = createContext(null);
 
@@ -34,10 +35,114 @@ const EMPTY_STATE = {
   permissions: [],
   role: null,
   error: null,
+  loading_message: "Preparing your workspace...",
 };
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function decodeBase64Url(value) {
+  const source = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padded = source + "=".repeat((4 - (source.length % 4 || 4)) % 4);
+  const binary = window.atob(padded);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function browserSupabaseAccessToken() {
+  if (typeof document === "undefined") return null;
+  let projectRef = "";
+  try {
+    projectRef = new URL(getPublicSupabaseUrl()).hostname.split(".")[0] || "";
+  } catch {
+    return null;
+  }
+  if (!projectRef) return null;
+
+  const storageKey = `sb-${projectRef}-auth-token`;
+  const cookies = new Map(
+    document.cookie
+      .split(";")
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => {
+        const separator = entry.indexOf("=");
+        const name = separator >= 0 ? entry.slice(0, separator) : entry;
+        const value = separator >= 0 ? entry.slice(separator + 1) : "";
+        return [name, value];
+      }),
+  );
+
+  let encoded = cookies.get(storageKey) || "";
+  if (!encoded) {
+    const chunks = [];
+    for (let index = 0; index < 20; index += 1) {
+      const chunk = cookies.get(`${storageKey}.${index}`);
+      if (chunk == null) break;
+      chunks.push(chunk);
+    }
+    encoded = chunks.join("");
+  }
+
+  const candidates = [];
+  if (encoded) candidates.push(encoded);
+  try {
+    const localValue = window.localStorage?.getItem?.(storageKey);
+    if (localValue) candidates.push(localValue);
+  } catch {
+    // Safari privacy/storage restrictions may deny localStorage access.
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const decoded = candidate.startsWith("base64-")
+        ? decodeBase64Url(candidate.slice("base64-".length))
+        : decodeURIComponent(candidate);
+      const session = JSON.parse(decoded);
+      const accessToken = text(session?.access_token || session?.currentSession?.access_token);
+      if (accessToken) return accessToken;
+    } catch {
+      // Try the next supported browser storage representation.
+    }
+  }
+  return null;
+}
+
+function timeoutPromise(promise, timeoutMs, code) {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error(code)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) window.clearTimeout(timer);
+  });
+}
+
+function retryableBootstrapError(error) {
+  const message = text(error?.message || error).toLowerCase();
+  const status = Number(error?.status || error?.cause?.status || 0);
+  return [408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524].includes(status)
+    || /authretryablefetcherror|fetch failed|headers timeout|network|timeout|522|521|520/.test(message);
+}
+
+async function retryBootstrapStep(operation, { attempts = 3, timeoutMs = 12000, onRetry = null } = {}) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await timeoutPromise(Promise.resolve().then(operation), timeoutMs, "WORKSPACE_BOOTSTRAP_TIMEOUT");
+    } catch (error) {
+      lastError = error;
+      if (!retryableBootstrapError(error) || attempt >= attempts) throw error;
+      if (typeof onRetry === "function") onRetry(attempt, error);
+      await wait([600, 1400, 3000][attempt - 1] || 3000);
+    }
+  }
+  throw lastError || new Error("WORKSPACE_BOOTSTRAP_FAILED");
 }
 
 function workspaceOrganizationId(pathname) {
@@ -106,31 +211,42 @@ export function BusinessContextProvider({ children }) {
 
     async function loadBusinessContext() {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!mounted) return;
-
-        if (!user) {
-          setState({
-            ...EMPTY_STATE,
-            ready: true,
-            loading: false,
-          });
-          return;
-        }
-
         setState((previous) => ({
           ...previous,
           ready: false,
           loading: true,
           error: null,
+          loading_message: "Checking your secure Avantiqo session...",
         }));
+        let user = null;
 
         // Developer Portal routes have their own organization-scoped authority.
-        // Do not force an external developer through the staff/business bootstrap.
+        // Keep their lightweight browser-session path isolated from the normal
+        // staff/business workspace bootstrap.
         if (developerWorkspace && routeOrganizationId) {
+          const {
+            data: { session },
+          } = await retryBootstrapStep(
+            () => supabase.auth.getSession(),
+            {
+              timeoutMs: 5000,
+              onRetry: (attempt) => setState((previous) => ({
+                ...previous,
+                loading: true,
+                loading_message: `The local developer session is temporarily unavailable. Retrying automatically · ${attempt}/3`,
+              })),
+            },
+          );
+          user = session?.user || null;
+          if (!mounted) return;
+          if (!user) {
+            setState({
+              ...EMPTY_STATE,
+              ready: true,
+              loading: false,
+            });
+            return;
+          }
           setState({
             ...EMPTY_STATE,
             ready: true,
@@ -144,35 +260,54 @@ export function BusinessContextProvider({ children }) {
           return;
         }
 
+        setState((previous) => ({
+          ...previous,
+          ready: false,
+          loading: true,
+          error: null,
+        }));
+
         // The organization encoded in /workspace/:organizationId is the
-        // authoritative navigation context. Re-select it server-side before
-        // bootstrap so direct links and client-side organization switches cannot
-        // retain a previous organization's entity, period, branding or modules.
-        if (routeOrganizationId) {
-          const selectionResponse = await fetch("/api/session/organization", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ organizationId: routeOrganizationId }),
+        // authoritative navigation context. Bootstrap validates that organization
+        // directly against the authenticated user's available organizations, so a
+        // separate selection write is not required before the workspace can load.
+        setState((previous) => ({
+          ...previous,
+          loading: true,
+          loading_message: "Loading the organization workspace...",
+        }));
+        const data = await retryBootstrapStep(async () => {
+          const bootstrapUrl = routeOrganizationId
+            ? `/api/session/bootstrap?organizationId=${encodeURIComponent(routeOrganizationId)}`
+            : "/api/session/bootstrap";
+          const accessToken = browserSupabaseAccessToken();
+          const response = await fetch(bootstrapUrl, {
+            method: "GET",
+            headers: accessToken
+              ? { Authorization: `Bearer ${accessToken}` }
+              : {},
             cache: "no-store",
             credentials: "same-origin",
           });
-          const selectionData = await selectionResponse.json().catch(() => ({}));
-
-          if (!selectionResponse.ok || !selectionData?.success) {
-            throw new Error(
-              selectionData?.error || "Unable to select workspace organization",
-            );
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            const error = new Error(payload?.error || payload?.reason || "Business context bootstrap failed");
+            error.status = response.status;
+            error.code = payload?.reason || payload?.code || null;
+            throw error;
           }
-        }
-
-        const response = await fetch("/api/session/bootstrap", {
-          method: "GET",
-          cache: "no-store",
-          credentials: "same-origin",
+          return payload;
+        }, {
+          onRetry: (attempt) => setState((previous) => ({
+            ...previous,
+            loading: true,
+            loading_message: `Workspace services are temporarily slow. Retrying automatically · ${attempt}/3`,
+          })),
         });
-        const data = await response.json();
 
         if (!mounted) return;
+
+        user = data?.user || null;
 
         if (!data?.success) {
           setState((previous) => ({
@@ -253,6 +388,7 @@ export function BusinessContextProvider({ children }) {
 
         if (!mounted) return;
 
+        const temporary = retryableBootstrapError(error);
         setState((previous) => ({
           ...previous,
           ready: true,
@@ -269,7 +405,18 @@ export function BusinessContextProvider({ children }) {
           product_entitlements: [],
           permissions: [],
           is_platform_operator_workspace: false,
-          error: error.message,
+          error: error?.code === "AUTHENTICATION_REQUIRED" || Number(error?.status) === 401
+            ? "Your Avantiqo session expired. Sign in again to continue this workspace."
+            : temporary
+              ? "Avantiqo authentication is temporarily unavailable. Your local Code workspace was not changed, and the current work state is preserved. Retry when authentication responds again."
+              : error.message,
+          error_code: error?.code
+            || (Number(error?.status) === 401
+              ? "AUTHENTICATION_REQUIRED"
+              : temporary
+                ? "AUTH_SERVICE_UNAVAILABLE"
+                : null),
+          loading_message: null,
         }));
       }
     }

@@ -40,7 +40,7 @@ $GpuCapabilities = @('ai.text.generate','ai.code.generate','ai.code.invent','ai.
 $CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process','ai.music.generate','ai.sfx.generate')
 $TrainingCapabilities = @('ai.model.train')
 $LiveCapabilities = @('ai.code.live-conversation')
-$Capabilities = $(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } elseif ($Lane -eq 'live') { $LiveCapabilities } elseif ($Lane -eq 'training') { $TrainingCapabilities } else { $AllCapabilities })
+$Capabilities = @($(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } elseif ($Lane -eq 'live') { $LiveCapabilities } elseif ($Lane -eq 'training') { $TrainingCapabilities } else { $AllCapabilities }))
 if ($Lane -eq 'cpu') {
   try { (Get-Process -Id $PID).PriorityClass = 'BelowNormal' } catch {}
 } elseif ($Lane -eq 'live') {
@@ -59,36 +59,60 @@ function Headers {
   }
 }
 
+function IsTransientRpcFailure([int]$StatusCode, [string]$ResponseText, [string]$Message) {
+  if (@(408,425,429,500,502,503,504,520,521,522,523,524,525) -contains $StatusCode) { return $true }
+  $signal = (($ResponseText + ' ' + $Message).ToLowerInvariant())
+  return ($signal -match 'pgrst002|statement timeout|connection terminated|connection timed out|ssl handshake|web server is down|schema cache|temporarily unavailable|fetch failed')
+}
+
 function Rpc([string]$Name, [hashtable]$Body) {
   $json = $Body | ConvertTo-Json -Depth 20 -Compress
-  $client = New-Object System.Net.Http.HttpClient
-  $content = $null
-  try {
-    $client.Timeout = [TimeSpan]::FromSeconds(30)
-    $client.DefaultRequestHeaders.TryAddWithoutValidation('apikey',$ApiKey) | Out-Null
-    $client.DefaultRequestHeaders.TryAddWithoutValidation('Authorization',"Bearer $ApiKey") | Out-Null
-    $content = New-Object System.Net.Http.StringContent($json,[System.Text.Encoding]::UTF8,'application/json')
-    $response = $client.PostAsync("$BaseUrl/rest/v1/rpc/$Name",$content).GetAwaiter().GetResult()
-    $responseText = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-    if (-not $response.IsSuccessStatusCode) {
-      $diag = @{
-        at = (Get-Date).ToString('o')
-        rpc = $Name
-        request_chars = $json.Length
-        response = $responseText
-        status_code = [int]$response.StatusCode
-        status_description = [string]$response.ReasonPhrase
-      } | ConvertTo-Json -Depth 8 -Compress
-      [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-rpc-error.json',$diag,(New-Object System.Text.UTF8Encoding($false)))
-      [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-rpc-request.json',$json,(New-Object System.Text.UTF8Encoding($false)))
-      throw ("AVANTIQO_RPC_FAILED:" + $Name + ":" + $responseText)
+  $maximumAttempts = 4
+  for ($attempt = 1; $attempt -le $maximumAttempts; $attempt++) {
+    $client = New-Object System.Net.Http.HttpClient
+    $content = $null
+    try {
+      $client.Timeout = [TimeSpan]::FromSeconds(30)
+      $client.DefaultRequestHeaders.TryAddWithoutValidation('apikey',$ApiKey) | Out-Null
+      $client.DefaultRequestHeaders.TryAddWithoutValidation('Authorization',"Bearer $ApiKey") | Out-Null
+      $content = New-Object System.Net.Http.StringContent($json,[System.Text.Encoding]::UTF8,'application/json')
+      $response = $client.PostAsync("$BaseUrl/rest/v1/rpc/$Name",$content).GetAwaiter().GetResult()
+      $responseText = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+      if (-not $response.IsSuccessStatusCode) {
+        $statusCode = [int]$response.StatusCode
+        $diag = @{
+          at = (Get-Date).ToString('o')
+          rpc = $Name
+          attempt = $attempt
+          maximum_attempts = $maximumAttempts
+          request_chars = $json.Length
+          response = $responseText
+          status_code = $statusCode
+          status_description = [string]$response.ReasonPhrase
+        } | ConvertTo-Json -Depth 8 -Compress
+        [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-rpc-error.json',$diag,(New-Object System.Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText('C:\ProgramData\Avantiqo\last-rpc-request.json',$json,(New-Object System.Text.UTF8Encoding($false)))
+        if ($attempt -lt $maximumAttempts -and (IsTransientRpcFailure $statusCode $responseText '')) {
+          Start-Sleep -Milliseconds ([Math]::Min(8000, 750 * [Math]::Pow(2, $attempt - 1)))
+          continue
+        }
+        throw ("AVANTIQO_RPC_FAILED:" + $Name + ":" + $statusCode + ":" + $responseText)
+      }
+      if ([string]::IsNullOrWhiteSpace($responseText)) { return $null }
+      return ($responseText | ConvertFrom-Json)
+    } catch {
+      $message = [string]$_.Exception.Message
+      if ($attempt -lt $maximumAttempts -and (IsTransientRpcFailure 0 '' $message)) {
+        Start-Sleep -Milliseconds ([Math]::Min(8000, 750 * [Math]::Pow(2, $attempt - 1)))
+        continue
+      }
+      throw
+    } finally {
+      if ($content) { $content.Dispose() }
+      $client.Dispose()
     }
-    if ([string]::IsNullOrWhiteSpace($responseText)) { return $null }
-    return ($responseText | ConvertFrom-Json)
-  } finally {
-    if ($content) { $content.Dispose() }
-    $client.Dispose()
   }
+  throw ("AVANTIQO_RPC_RETRY_EXHAUSTED:" + $Name)
 }
 
 function NodeToken {
@@ -125,7 +149,7 @@ function Heartbeat {
     ollama_version='0.33.3'
   }
   [void](Rpc 'heartbeat_avantiqo_local_compute_node' @{
-    p_node_id=$NodeId; p_node_token=(NodeToken); p_capabilities=$AllCapabilities; p_metadata=$meta
+    p_node_id=$NodeId; p_node_token=(NodeToken); p_capabilities=@($AllCapabilities); p_metadata=$meta
   })
 }
 function ResourceProfile($Job) {
@@ -237,7 +261,7 @@ function ClaimJobs {
     try { $line=(& nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader,nounits 2>$null | Select-Object -First 1); if($line){$v=@($line -split ',\s*'); if([int]$v[1] -gt 15){return @()}} } catch { return @() }
   }
   return @(Rpc 'claim_avantiqo_local_compute_jobs' @{
-    p_node_id=$NodeId; p_node_token=(NodeToken); p_capabilities=$Capabilities; p_limit=1; p_lease_seconds=300
+    p_node_id=$NodeId; p_node_token=(NodeToken); p_capabilities=@($Capabilities); p_limit=1; p_lease_seconds=300
   })
 }
 

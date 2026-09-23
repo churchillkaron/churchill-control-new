@@ -60,6 +60,15 @@ function clean(value) {
   return String(value || "").trim();
 }
 
+function money(value, currency = "THB") {
+  const amount = Number(value || 0);
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
+  } catch {
+    return currency + " " + amount.toFixed(2);
+  }
+}
+
 function unavailable(item) {
   return ["planned", "blocked", "disabled", "unavailable"].includes(clean(item?.status).toLowerCase());
 }
@@ -90,6 +99,9 @@ export default function FinanceBooksDesk({ organizationId }) {
   const [query, setQuery] = useState("");
   const [activeArea, setActiveArea] = useState("ledger");
   const [recentIds, setRecentIds] = useState([]);
+  const [supplierInvoiceInbox, setSupplierInvoiceInbox] = useState([]);
+  const [supplierInvoiceLoading, setSupplierInvoiceLoading] = useState(false);
+  const [supplierInvoiceBusyId, setSupplierInvoiceBusyId] = useState("");
   const groups = useMemo(() => getWorkspaceGroups("finance"), []);
 
   const items = useMemo(() => groups.flatMap((group) => (group.items || [])
@@ -118,6 +130,52 @@ export default function FinanceBooksDesk({ organizationId }) {
       setRecentIds([]);
     }
   }, [organizationId]);
+
+  useEffect(() => {
+    if (!organizationId) {
+      setSupplierInvoiceInbox([]);
+      return;
+    }
+    let active = true;
+    setSupplierInvoiceLoading(true);
+    fetch(`/api/finance/supplier-invoice-submissions?organizationId=${encodeURIComponent(organizationId)}`, { cache: "no-store" })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload?.success) {
+          if ([401,403].includes(response.status)) return [];
+          throw new Error(payload?.error || "Unable to load supplier invoice submissions");
+        }
+        return payload.submissions || [];
+      })
+      .then((rows) => { if (active) setSupplierInvoiceInbox(rows); })
+      .catch(() => { if (active) setSupplierInvoiceInbox([]); })
+      .finally(() => { if (active) setSupplierInvoiceLoading(false); });
+    return () => { active = false; };
+  }, [organizationId]);
+
+  async function reviewSupplierInvoice(submissionId, action) {
+    if (!organizationId || !submissionId) return;
+    let reviewNote = "";
+    if (action === "REJECT") {
+      reviewNote = window.prompt("Why is this supplier invoice being rejected?") || "";
+      if (!reviewNote.trim()) return;
+    }
+    setSupplierInvoiceBusyId(submissionId);
+    try {
+      const response = await fetch("/api/finance/supplier-invoice-submissions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId, submissionId, action, reviewNote }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.success) throw new Error(payload?.error || "Unable to review supplier invoice");
+      setSupplierInvoiceInbox((current) => current.map((row) => row.id === submissionId ? { ...row, ...payload.submission } : row));
+    } catch (error) {
+      window.alert(error?.message || "Unable to review supplier invoice");
+    } finally {
+      setSupplierInvoiceBusyId("");
+    }
+  }
 
   const remember = (id) => {
     if (!organizationId || !id) return;
@@ -169,6 +227,51 @@ export default function FinanceBooksDesk({ organizationId }) {
           <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-black/[0.055] pt-3">
             <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9B948B]">Recent</span>
             {recentItems.map((item) => <Link key={item.id} href={hrefFor(item)} onClick={() => remember(item.id)} className="rounded-lg border border-black/[0.065] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#625D56] transition hover:border-[#D6A66A]/40 hover:text-[#7A5838]">{item.name}</Link>)}
+          </div>
+        ) : null}
+
+        {!query && activeArea === "payables" ? (
+          <div className="mt-5 rounded-2xl border border-[#D6A66A]/20 bg-[#FFF9F1] p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">Supplier invoice inbox</div>
+                <div className="mt-1 text-[13px] font-semibold text-[#403B35]">External invoices waiting for Accounts Payable review</div>
+                <div className="mt-1 text-[10px] leading-5 text-[#777067]">Reviewing supplier evidence does not post accounting. Accept only moves the submission into AP processing; canonical vendor invoice creation remains a separate Finance action.</div>
+              </div>
+              <div className="rounded-full border border-[#D6A66A]/20 bg-white px-3 py-1.5 text-[9px] font-semibold text-[#76502E]">{supplierInvoiceInbox.filter((row) => ["SUBMITTED","UNDER_REVIEW"].includes(String(row.status || "").toUpperCase())).length} pending</div>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {supplierInvoiceInbox.map((row) => {
+                const status = String(row.status || "").toUpperCase();
+                const busy = supplierInvoiceBusyId === row.id;
+                return <div key={row.id} className="rounded-xl border border-black/[0.065] bg-white p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2"><span className="text-[10px] font-semibold text-[#46413B]">{row.supplier?.business_name || row.supplier?.display_name || row.supplier?.email || "Supplier"}</span><span className="rounded-full border border-black/[0.07] px-2 py-0.5 text-[7px] font-semibold text-[#777067]">{status}</span></div>
+                      <div className="mt-1 text-[10px] text-[#777067]">Invoice {row.invoice_number} · {row.invoice_date}{row.purchase_order?.po_number ? " · " + row.purchase_order.po_number : ""}</div>
+                      {row.supplier_note ? <div className="mt-1 text-[9px] text-[#918A81]">{row.supplier_note}</div> : null}
+                      {row.document?.file_url ? <a href={row.document.file_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-[9px] font-semibold text-[#8A633C]">{row.document.file_name || "Open supplier invoice"} ↗</a> : null}
+                      {row.review_note ? <div className="mt-2 text-[9px] text-[#76502E]">Review note · {row.review_note}</div> : null}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[11px] font-semibold text-[#3E3933]">{money(row.total_amount,row.currency_code || "THB")}</div>
+                      {status === "ACCEPTED" ? <div className="mt-1 text-[8px] font-semibold text-emerald-700">Ready for canonical AP creation</div> : null}
+                      {status === "CONVERTED" ? <div className="mt-1 text-[8px] font-semibold text-emerald-700">Canonical Vendor Bill created</div> : null}
+                      {status === "REJECTED" ? <div className="mt-1 text-[8px] font-semibold text-red-700">Returned to supplier</div> : null}
+                    </div>
+                  </div>
+                  {["SUBMITTED","UNDER_REVIEW"].includes(status) ? <div className="mt-3 flex flex-wrap gap-2">
+                    {status === "SUBMITTED" ? <button type="button" onClick={() => reviewSupplierInvoice(row.id,"START_REVIEW")} disabled={busy} className="rounded-lg border border-black/[0.08] px-3 py-2 text-[8px] font-semibold text-[#625D56] disabled:opacity-40">Start review</button> : null}
+                    <button type="button" onClick={() => reviewSupplierInvoice(row.id,"ACCEPT")} disabled={busy} className="rounded-lg bg-[#2D2924] px-3 py-2 text-[8px] font-semibold text-white disabled:opacity-40">Accept into AP</button>
+                    <button type="button" onClick={() => reviewSupplierInvoice(row.id,"REJECT")} disabled={busy} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[8px] font-semibold text-red-700 disabled:opacity-40">Reject</button>
+                  </div> : null}
+                  {status === "ACCEPTED" ? <div className="mt-3"><Link href={`/workspace/${organizationId}/finance/vendor-bills?supplierSubmissionId=${encodeURIComponent(row.id)}`} className="inline-flex rounded-lg bg-[#2D2924] px-3 py-2 text-[8px] font-semibold text-white">Create canonical Vendor Bill →</Link></div> : null}
+                </div>;
+              })}
+              {!supplierInvoiceLoading && !supplierInvoiceInbox.length ? <div className="rounded-xl border border-dashed border-black/[0.08] bg-white/70 px-4 py-6 text-center text-[10px] text-[#918A81]">No supplier-submitted invoices are waiting in this organization.</div> : null}
+              {supplierInvoiceLoading ? <div className="px-2 py-3 text-[10px] text-[#918A81]">Loading supplier invoice inbox…</div> : null}
+            </div>
           </div>
         ) : null}
 

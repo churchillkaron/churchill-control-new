@@ -86,9 +86,9 @@ test("public Developers page explains external developer authority separately fr
   assert.doesNotMatch(developersPage, /authenticated staff identity remain connected/);
 });
 
-test("portal artwork does not advertise unreleased Supplier Portal transaction workflows", async () => {
+test("portal artwork reflects the live Supplier Network entry model without exposing private transaction detail", async () => {
   const products = await read("components/public/ProductsCatalogPage.jsx");
-  assert.match(products, /Invitation · customer-scoped identity · governed access/);
+  assert.match(products, /Invitations · free shop · Supplier Network · Business upgrade/);
   assert.match(products, /"\/supplier-portal"/);
   assert.doesNotMatch(products, /POs · delivery · invoices · payment status/);
   assert.doesNotMatch(products, /"\/products\/supplier-portal"/);

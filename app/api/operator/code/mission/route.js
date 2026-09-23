@@ -13,7 +13,10 @@ import {
   resolveCodeAIDeveloperImplementationRequest,
   runCodeAIDeveloperImplementation,
 } from "@/lib/code/runtime/CodeAIDeveloperImplementationRuntime";
-import { publishCodeAILiveProgress } from "@/lib/code/runtime/CodeAILiveProgressRuntime";
+import {
+  loadCodeAILiveProgress,
+  publishCodeAILiveProgress,
+} from "@/lib/code/runtime/CodeAILiveProgressRuntime";
 import {
   AVANTIQO_CODE_CERTIFICATION_CONTRACT,
   AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
@@ -178,6 +181,7 @@ export async function POST(request) {
     const requestedExecutionKey = text(body.execution_key || body.executionKey, 160);
     const requestedMissionId = text(body.mission_id || body.missionId, 240);
     const resumeMissionId = text(body.resume_mission_id || body.resumeMissionId, 240);
+    let effectiveResumeMissionId = resumeMissionId;
     const suppliedResumeState = Object.keys(object(body.resume_state || body.resumeState)).length
       ? object(body.resume_state || body.resumeState)
       : null;
@@ -250,19 +254,40 @@ export async function POST(request) {
       if (suppliedResumeState) {
         return errorResponse(new Error("CODE_STUDIO_HISTORY_RESUME_STATE_MUST_BE_SERVER_OWNED"), 400);
       }
-      const snapshot = await loadCodeAIMissionResumeSnapshot({
-        context,
-        missionId: resumeMissionId,
-      });
-      if (!snapshot.found) {
-        return errorResponse(new Error("CODE_STUDIO_HISTORY_MISSION_NOT_FOUND"), 404);
+      let snapshot = null;
+      let snapshotInvalid = false;
+      try {
+        snapshot = await loadCodeAIMissionResumeSnapshot({
+          context,
+          missionId: resumeMissionId,
+        });
+      } catch (snapshotError) {
+        const snapshotReason = text(snapshotError?.message || snapshotError, 1000);
+        if (/CODE_AI_MISSION_ATTESTATION_INVALID|CODE_AI_MISSION_ATTESTATION_REQUIRED/i.test(snapshotReason)) {
+          snapshotInvalid = true;
+        } else {
+          throw snapshotError;
+        }
       }
-      objective = snapshot.objective;
-      repositoryUrl = snapshot.repository_url;
-      ref = snapshot.ref || "main";
-      key = executionKey(snapshot.execution_key);
-      resumeState = snapshot.resume_state;
-      resumedFromHistory = true;
+      if (snapshotInvalid || !snapshot?.found) {
+        if (!requestedObjective || !requestedRepositoryUrl) {
+          return errorResponse(new Error(snapshotInvalid ? "CODE_STUDIO_HISTORY_CHECKPOINT_INVALID" : "CODE_STUDIO_HISTORY_MISSION_NOT_FOUND"), snapshotInvalid ? 409 : 404);
+        }
+        effectiveResumeMissionId = "";
+        objective = requestedObjective;
+        repositoryUrl = requestedRepositoryUrl;
+        ref = requestedRef;
+        key = executionKey(requestedExecutionKey);
+        resumeState = null;
+        resumedFromHistory = false;
+      } else {
+        objective = snapshot.objective;
+        repositoryUrl = snapshot.repository_url;
+        ref = snapshot.ref || "main";
+        key = executionKey(snapshot.execution_key);
+        resumeState = snapshot.resume_state;
+        resumedFromHistory = true;
+      }
     }
 
     if (!objective) return errorResponse(new Error("objective required"), 400);
@@ -272,7 +297,19 @@ export async function POST(request) {
     if (requestedMissionId && resumeStateMissionId && requestedMissionId !== resumeStateMissionId) {
       return errorResponse(new Error("CODE_STUDIO_MISSION_ID_RESUME_MISMATCH"), 409);
     }
-    const missionId = resumeStateMissionId || resumeMissionId || requestedMissionId || `code-mission-${randomUUID()}`;
+    const missionId = resumeStateMissionId || effectiveResumeMissionId || requestedMissionId || `code-mission-${randomUUID()}`;
+    const resumedControl = object(resumeState?.work_package_control);
+    const resumedBudget = Number(resumedControl.reasoning_call_budget || 0);
+    const resumedCallsUsed = Number(resumedControl.reasoning_calls_used || 0);
+    const ownerContinuationBudgetExtension = Boolean(
+      resumedFromHistory &&
+      text(resumeState?.status, 120).toLowerCase() === "blocked" &&
+      Number.isFinite(resumedBudget) &&
+      resumedBudget > 0 &&
+      Number.isFinite(resumedCallsUsed) &&
+      resumedCallsUsed >= resumedBudget &&
+      reasoningCallBudget > resumedBudget
+    );
 
     const developerVerification = resolveCodeAIDeveloperVerificationRequest(objective);
     if (
@@ -280,7 +317,7 @@ export async function POST(request) {
       requestedWorkspaceTarget === "DEVICE" &&
       requestedDeviceId &&
       requestedDeviceSessionId &&
-      !resumeMissionId &&
+      !effectiveResumeMissionId &&
       !suppliedResumeState
     ) {
       const result = await runCodeAIDeveloperVerification({
@@ -370,39 +407,109 @@ export async function POST(request) {
       });
     }
 
-    await publishCodeAILiveProgress({
-      context,
-      state: {
-        mission_id: missionId,
-        objective,
-        repository_url: repositoryUrl,
-        ref,
-        status: "running",
-        device_id: requestedDeviceId,
-        device_session_id: requestedDeviceSessionId,
-        objective_context: {
-          organization_id: organizationId,
-          workspace_target: requestedWorkspaceTarget,
+    const existingProgress = requestedDeviceSessionId
+      ? await loadCodeAILiveProgress({
+          context,
+          device_session_id: requestedDeviceSessionId,
+        }).catch(() => ({ found: false, live_progress: null }))
+      : { found: false, live_progress: null };
+    const missionAlreadyAccepted = Boolean(
+      existingProgress?.found === true &&
+      text(existingProgress?.live_progress?.mission_id, 240) === missionId
+    );
+    if (!missionAlreadyAccepted) {
+      await publishCodeAILiveProgress({
+        context,
+        state: {
+          mission_id: missionId,
+          objective,
+          repository_url: repositoryUrl,
+          ref,
+          status: "running",
           device_id: requestedDeviceId,
           device_session_id: requestedDeviceSessionId,
-          mission_id: missionId,
+          objective_context: {
+            organization_id: organizationId,
+            workspace_target: requestedWorkspaceTarget,
+            device_id: requestedDeviceId,
+            device_session_id: requestedDeviceSessionId,
+            mission_id: missionId,
+          },
+          completed_operation_ids: [],
+          files_changed: [],
         },
-        completed_operation_ids: [],
-        files_changed: [],
-      },
-      event: {
-        phase: "MISSION_ACCEPTED",
-        status: "running",
-        mission_id: missionId,
-        description: "Code accepted the mission and is preparing repository evidence and planning.",
-        device_id: requestedDeviceId,
-        device_session_id: requestedDeviceSessionId,
-      },
-    });
+        event: {
+          phase: "MISSION_ACCEPTED",
+          status: "running",
+          mission_id: missionId,
+          description: "Code accepted the mission and is preparing repository evidence and planning.",
+          device_id: requestedDeviceId,
+          device_session_id: requestedDeviceSessionId,
+        },
+      });
+    }
 
+    if (!missionAlreadyAccepted) {
+      await publishCodeAILiveProgress({
+        context,
+        state: {
+          mission_id: missionId,
+          objective,
+          repository_url: repositoryUrl,
+          ref,
+          status: "running",
+          device_id: requestedDeviceId,
+          device_session_id: requestedDeviceSessionId,
+          objective_context: {
+            organization_id: organizationId,
+            workspace_target: requestedWorkspaceTarget,
+            device_id: requestedDeviceId,
+            device_session_id: requestedDeviceSessionId,
+            mission_id: missionId,
+          },
+        },
+        event: {
+          phase: "CODE_SERVICE_GATE_CHECK",
+          status: "running",
+          mission_id: missionId,
+          description: "I’m checking the local Code service gate before I start the repository pass.",
+          device_id: requestedDeviceId,
+          device_session_id: requestedDeviceSessionId,
+        },
+      }).catch(() => null);
+    }
     const capability = createCodeAIAutonomousCapability();
     capability.authorize({ context });
     gate = await enablePreviewService(organizationId);
+    if (!missionAlreadyAccepted) {
+      await publishCodeAILiveProgress({
+        context,
+        state: {
+          mission_id: missionId,
+          objective,
+          repository_url: repositoryUrl,
+          ref,
+          status: "running",
+          device_id: requestedDeviceId,
+          device_session_id: requestedDeviceSessionId,
+          objective_context: {
+            organization_id: organizationId,
+            workspace_target: requestedWorkspaceTarget,
+            device_id: requestedDeviceId,
+            device_session_id: requestedDeviceSessionId,
+            mission_id: missionId,
+          },
+        },
+        event: {
+          phase: "CODE_SERVICE_GATE_READY",
+          status: "running",
+          mission_id: missionId,
+          description: "The local Code service gate is ready. I’m starting the repository capability now.",
+          device_id: requestedDeviceId,
+          device_session_id: requestedDeviceSessionId,
+        },
+      }).catch(() => null);
+    }
 
     const result = await withCodeAIInteractivePreviewContext({
       organization_id: organizationId,
@@ -420,10 +527,19 @@ export async function POST(request) {
         device_session_id: requestedDeviceSessionId,
         execution_key: key,
         resume_state: resumeState,
+        resume_existing_mission: missionAlreadyAccepted,
         intelligence_mission_preparation: suppliedIntelligencePreparation,
         intelligence_mission_context: suppliedIntelligenceContext,
         objective_context: {
           ...object(suppliedObjectiveContext),
+          ...(ownerContinuationBudgetExtension
+            ? {
+                adaptive_reasoning_budget_applied: true,
+                owner_continuation_budget_extension: true,
+                prior_reasoning_call_budget: resumedBudget,
+                continued_reasoning_call_budget: reasoningCallBudget,
+              }
+            : {}),
           mission_id: missionId,
         },
         reasoning_call_budget: reasoningCallBudget,
@@ -432,18 +548,62 @@ export async function POST(request) {
       },
     }));
 
+    const finalStatus = text(result?.status || result?.state?.status, 120) || "unknown";
+    if (
+      ["running", "planner_pending", "repair_required", "verification_required", "review_required", "replan_required"].includes(finalStatus.toLowerCase()) &&
+      !result?.state
+    ) {
+      throw new Error("CODE_STUDIO_RUNNING_STATE_REQUIRED");
+    }
+
+    const normalizedFinalStatus = finalStatus.toLowerCase();
+    if (["blocked", "failed", "stopped", "cancelled", "completed"].includes(normalizedFinalStatus)) {
+      const finalReason = text(
+        result?.reason ||
+        result?.state?.blockers?.[0] ||
+        result?.state?.failures?.[0]?.reason ||
+        result?.state?.failures?.[0]?.message,
+        1000,
+      ) || null;
+      await publishCodeAILiveProgress({
+        context,
+        state: {
+          ...object(result?.state),
+          mission_id: missionId,
+          objective,
+          repository_url: repositoryUrl,
+          ref,
+          status: normalizedFinalStatus,
+          device_id: requestedDeviceId,
+          device_session_id: requestedDeviceSessionId,
+        },
+        event: {
+          phase: normalizedFinalStatus === "completed" ? "MISSION_COMPLETED" : "MISSION_TERMINAL",
+          status: normalizedFinalStatus,
+          mission_id: missionId,
+          reason: finalReason,
+          description: normalizedFinalStatus === "completed"
+            ? "Code completed the mission and finished verification."
+            : finalReason || `Code stopped with status ${normalizedFinalStatus}.`,
+          device_id: requestedDeviceId,
+          device_session_id: requestedDeviceSessionId,
+        },
+      }).catch(() => null);
+    }
+
     return Response.json({
       success: result?.success === true,
       contract: PREVIEW_CONTRACT,
       certification_contract: AVANTIQO_CODE_CERTIFICATION_CONTRACT,
       certified_runtime_contract: AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
-      status: text(result?.status || result?.state?.status, 120) || "unknown",
+      status: finalStatus,
       reason: text(result?.reason, 1000) || null,
       execution_key: key,
       mission_id: text(result?.state?.mission_id, 240) || resumeMissionId || null,
       resumed_from_history: resumedFromHistory,
-      resumed_mission_id: resumedFromHistory ? resumeMissionId : null,
-      resume_required: text(result?.status, 120) === "planner_pending",
+      resumed_mission_id: resumedFromHistory ? effectiveResumeMissionId : null,
+      resume_required: text(result?.status, 120) === "planner_pending" || result?.interactive_yield === true,
+      interactive_yield: result?.interactive_yield === true,
       resume_state: result?.state || null,
       state: result?.state || null,
       engineering_operating_system: result?.engineering_operating_system || result?.state?.engineering_operating_system || null,

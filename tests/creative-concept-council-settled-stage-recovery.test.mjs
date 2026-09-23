@@ -10,7 +10,21 @@ test("all paid concept council stages recover settled reasoning before new infer
   assert.match(source, /selectionOperation = "CREATIVE_EXECUTIVE_CONCEPT_SELECTION_V1"/);
   assert.match(source, /revisionOperation = "CREATIVE_SELECTED_CONCEPT_PLAN_REVISION_V1"/);
   assert.match(source, /settledSelection \|\| await reason/);
-  assert.match(source, /recoverSettledCouncilOperation\(context, revisionOperation\) \|\| await reason/);
+  assert.match(source, /recoverSettledCouncilOperation\(context, revisionOperation, revisionInputHash\) \|\| await reason/);
+});
+
+test("settled council recovery is bound to the exact current input fingerprint", () => {
+  assert.match(source, /council_input_hash: inputHash \|\| null/);
+  assert.match(source, /expectedInputHash/);
+  assert.match(source, /metadata\.council_input_hash/);
+  assert.match(source, /revisionInputHash/);
+});
+
+test("critic and executive selection preserve exact concept identity by hash", () => {
+  assert.match(source, /CREATIVE_CONCEPT_CRITIC_CONCEPT_HASH_MISMATCH/);
+  assert.match(source, /selected_concept_hash/);
+  assert.match(source, /CREATIVE_EXECUTIVE_CONCEPT_HASH_MISMATCH/);
+  assert.match(source, /concept_hash: hash\(source\)/);
 });
 
 test("settled council operation is bound to operation project mission and success", () => {

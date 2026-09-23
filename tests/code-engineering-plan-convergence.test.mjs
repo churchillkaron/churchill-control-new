@@ -38,8 +38,8 @@ const businessPartnerSurface = await readFile(
   "components/operator/BusinessPartnerCodeMissionPanel.jsx",
   "utf8",
 );
-const studioPage = await readFile(
-  "app/(system)/workspace/[organizationId]/creative/code/page.jsx",
+const studioSurface = await readFile(
+  "components/creative/code/CreativeCodeStudio.jsx",
   "utf8",
 );
 
@@ -120,7 +120,7 @@ test("live progress and mission receipt expose the same inspectable engineering 
 
 test("Business Partner and Code Studio share the same plan feed", () => {
   assert.match(businessPartnerSurface, /CodeEngineeringIntelligenceLiveCard/);
-  assert.match(studioPage, /CodeEngineeringIntelligenceLiveCard/);
+  assert.match(studioSurface, /CodeEngineeringIntelligenceLiveCard/);
   assert.match(liveCard, /useCodeProgressFeed/);
   assert.match(progressProvider, /\/api\/operator\/code\/progress/);
 });

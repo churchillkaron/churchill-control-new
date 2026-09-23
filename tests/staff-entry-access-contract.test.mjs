@@ -38,3 +38,41 @@ test("new staff password setup is explicitly staff-scoped from the invitation em
   assert.match(route, /\/login\?portal=staff#type=recovery/);
   assert.doesNotMatch(route, /new URL\(\s*"\/login#type=recovery"/);
 });
+
+test("staff activation requires a canonical legal employer assignment", () => {
+  const runtime = fs.readFileSync("lib/people/workforce/StaffActivationRuntime.js", "utf8");
+  const projection = fs.readFileSync("lib/people/portal/StaffActivationProjection.js", "utf8");
+  const setup = fs.readFileSync("components/staff/StaffActivationSetup.jsx", "utf8");
+
+  assert.match(runtime, /employee_employment_assignments/);
+  assert.match(runtime, /legal_entities/);
+  assert.match(runtime, /employmentAssigned/);
+  assert.match(runtime, /const complete = employmentAssigned && emailVerified && phoneVerified && identityVerified && passkeyVerified/);
+  assert.match(projection, /employment:/);
+  assert.match(setup, /title="Legal employer"/);
+  assert.match(setup, /cannot be selected by the employee/);
+  assert.match(setup, /Waiting for Owner \/ HR to assign your legal employer/);
+});
+
+test("People Directory activation email preserves Staff Portal recovery intent", () => {
+  const route = fs.readFileSync("app/api/people/directory/route.js", "utf8");
+  assert.match(route, /\/login\?portal=staff#type=recovery/);
+  assert.doesNotMatch(route, /"\/login#type=recovery"/);
+});
+
+test("legal employer activation follows the current organization role", () => {
+  const runtime = fs.readFileSync("lib/people/workforce/StaffActivationRuntime.js", "utf8");
+  const route = fs.readFileSync("app/api/staff/activation/route.js", "utf8");
+  assert.match(runtime, /EMPLOYMENT_BYPASS_ROLES = new Set\(\["OWNER", "ORGANIZATION_OWNER", "PLATFORM_OWNER"\]\)/);
+  assert.match(runtime, /const role = normalizedRole\(accessRole \|\| staff\?\.role\)/);
+  assert.match(runtime, /status: employmentBypass \? "OWNER_BYPASS" : employment\.status/);
+  assert.match(route, /role: context\.role/);
+});
+
+test("staff access creation rejects malformed email before provisioning", () => {
+  const route = fs.readFileSync("app/api/users/create/route.js", "utf8");
+  const invalidIndex = route.indexOf("Staff email is invalid");
+  const provisionIndex = route.indexOf("provisionStaffAccess({");
+  assert.ok(invalidIndex >= 0 && provisionIndex > invalidIndex);
+  assert.match(route, /validEmail/);
+});

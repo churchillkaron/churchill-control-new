@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -85,6 +85,8 @@ export default function OnboardingPage() {
   const [industries, setIndustries] = useState([]);
   const [industriesLoading, setIndustriesLoading] = useState(true);
   const [signupIntent, setSignupIntent] = useState("business");
+  const [onboardingSource, setOnboardingSource] = useState("");
+  const [supplierAccountId, setSupplierAccountId] = useState("");
   const [form, setForm] = useState({
     name: "",
     industry: "",
@@ -106,13 +108,17 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const onboardingRequestRef = useRef(null);
 
   useEffect(() => {
     let active = true;
-    const requestedIntent = new URLSearchParams(window.location.search).get("intent") === "accounting_firm"
+    const searchParams = new URLSearchParams(window.location.search);
+    const requestedIntent = searchParams.get("intent") === "accounting_firm"
       ? "accounting_firm"
       : "business";
     setSignupIntent(requestedIntent);
+    setOnboardingSource(searchParams.get("source") === "supplier" ? "supplier" : "");
+    setSupplierAccountId(searchParams.get("supplierAccountId") || "");
     fetch("/api/onboarding/industries", { cache: "no-store" })
       .then(async (response) => {
         const data = await response.json();
@@ -130,6 +136,28 @@ export default function OnboardingPage() {
       .finally(() => { if (active) setIndustriesLoading(false); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (onboardingSource !== "supplier" || !supplierAccountId) return;
+    let active = true;
+    fetch("/api/supplier-portal/storefront", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || !data?.success) throw new Error(data?.error || "Unable to load Supplier profile");
+        if (!active || String(data?.account?.id || "") !== String(supplierAccountId)) return;
+        setForm((previous) => ({
+          ...previous,
+          name: previous.name || data.account?.business_name || data.account?.display_name || "",
+          ownerName: previous.ownerName || data.account?.display_name || "",
+          ownerEmail: previous.ownerEmail || data.account?.email || "",
+          ownerPhone: previous.ownerPhone || data.account?.phone || "",
+        }));
+      })
+      .catch((supplierError) => {
+        if (active) setError(supplierError?.message || "Unable to load Supplier profile");
+      });
+    return () => { active = false; };
+  }, [onboardingSource, supplierAccountId]);
 
   const progress = `${Math.round((step / STEPS.length) * 100)}%`;
   const industryLabel = useMemo(
@@ -198,12 +226,31 @@ export default function OnboardingPage() {
     setResult(null);
 
     try {
+      const requestFingerprint = JSON.stringify({
+        form,
+        signupIntent,
+        onboardingSource,
+        supplierAccountId,
+      });
+      if (
+        !onboardingRequestRef.current ||
+        onboardingRequestRef.current.fingerprint !== requestFingerprint
+      ) {
+        onboardingRequestRef.current = {
+          id: globalThis.crypto.randomUUID(),
+          fingerprint: requestFingerprint,
+        };
+      }
+
       const response = await fetch("/api/onboarding/provision", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          onboardingRequestId: onboardingRequestRef.current.id,
           signupIntent,
+          onboardingSource,
+          supplierAccountId,
           currency: clean(form.currency).toUpperCase(),
           paymentSetup: {
             enabled: Boolean(form.acceptCustomerPayments),
@@ -229,6 +276,9 @@ export default function OnboardingPage() {
       const data = await response.json();
 
       if (!response.ok || data?.success === false) {
+        if (data?.retryWithNewOnboardingRequest === true) {
+          onboardingRequestRef.current = null;
+        }
         throw new Error(data?.error || "Unable to create the organization");
       }
 

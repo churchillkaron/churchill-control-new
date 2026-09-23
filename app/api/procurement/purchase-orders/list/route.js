@@ -10,6 +10,31 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
+async function attachSupplierResponses(orders, organizationId) {
+  const rows = Array.isArray(orders) ? orders : [];
+  const purchaseOrderIds = rows.map((row) => row.id).filter(Boolean);
+  if (!purchaseOrderIds.length) return rows;
+
+  const { data: responses, error } = await supabaseAdmin
+    .from("supplier_purchase_order_responses")
+    .select("id,purchase_order_id,response_status,supplier_note,promised_delivery_date,dispatched_at,dispatch_reference,acknowledged_at,declined_at,updated_at")
+    .eq("organization_id", organizationId)
+    .in("purchase_order_id", purchaseOrderIds)
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+
+  const responseByPurchaseOrderId = new Map();
+  for (const response of responses || []) {
+    const key = String(response.purchase_order_id);
+    if (!responseByPurchaseOrderId.has(key)) responseByPurchaseOrderId.set(key, response);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    supplier_response: responseByPurchaseOrderId.get(String(row.id)) || null,
+  }));
+}
+
 export async function POST(req) {
 
   try {
@@ -86,13 +111,11 @@ export async function POST(req) {
       throw error;
     }
 
+    const enrichedOrders = await attachSupplierResponses(data || [], access.organizationId);
+
     return NextResponse.json({
-
       success: true,
-
-      orders:
-        data || [],
-
+      orders: enrichedOrders,
     });
 
   } catch (error) {
@@ -171,10 +194,12 @@ export async function GET(req) {
 
     if (error) throw error;
 
+    const enrichedOrders = await attachSupplierResponses(data || [], access.organizationId);
+
     return NextResponse.json({
       success: true,
-      purchaseOrders: data || [],
-      rows: data || [],
+      purchaseOrders: enrichedOrders,
+      rows: enrichedOrders,
     });
 
   } catch (error) {

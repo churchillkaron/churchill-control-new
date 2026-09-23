@@ -114,17 +114,25 @@ export default function StartPage() {
                 state:"INVITATION / EMPLOYER",
               },
               {
-                eyebrow:"JOIN CUSTOMER",
+                eyebrow:"SELL TO BUSINESSES",
                 title:"Supplier / vendor",
-                copy:"Supplier access belongs to the customer organization that invited the supplier. Supplier self-service organization creation is intentionally not used for this role.",
+                copy:"Accept customer invitations, create a free supplier shop and become discoverable, or connect the same supplier identity to a full Avantiqo Business when you need ERP operations.",
                 href:"/supplier-portal",
-                cta:"Open supplier portal",
-                state:"INVITATION ONLY",
+                cta:"Open Supplier Network",
+                state:"INVITE · FREE SHOP · BUSINESS",
+              },
+              {
+                eyebrow:"BUY / STAY / PAY",
+                title:"Customer / guest",
+                copy:"Use the secure one-time Customer Portal link sent by the business to see your orders, invoices, payments and linked bookings. Customer access never creates staff membership or an internal workspace.",
+                href:"/customer-portal",
+                cta:"Open Customer Portal",
+                state:"SECURE LINK",
               },
               {
                 eyebrow:"RETURN",
                 title:"Returning business owner / admin",
-                copy:"Already manage a business organization in Avantiqo? Use Business Login. Staff, suppliers and external developers should use their dedicated entry paths above so Avantiqo preserves the correct authority model.",
+                copy:"Already manage a business organization in Avantiqo? Use Business Login. Staff, suppliers, customers and external developers should use their dedicated entry paths above so Avantiqo preserves the correct authority model.",
                 href:"/login?portal=business",
                 cta:"Business Login",
                 state:"BUSINESS ACCESS",
@@ -140,8 +148,8 @@ export default function StartPage() {
           <div id="supplier-status" className="mt-8 scroll-mt-24 rounded-[22px] border border-[#B98A52]/20 bg-[#F3E7D7]/58 px-5 py-5 sm:px-6">
             <div className="text-[8px] font-semibold uppercase tracking-[.16em] text-[#9A744B]">SUPPLIER ACCESS</div>
             <div className="mt-2 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-              <p className="max-w-4xl text-[10px] leading-5 text-[#6D6257]">Supplier Portal is invitation-based. A customer organization invites an existing canonical supplier contact; acceptance creates supplier-only customer access and does not create internal workspace membership or a new supplier organization.</p>
-              <a href="/supplier-portal" className="text-[9px] font-semibold text-[#815B36]">Open Supplier Portal →</a>
+              <p className="max-w-4xl text-[10px] leading-5 text-[#6D6257]">Supplier Network has three additive paths. Use customer-scoped invitation access only, create a free supplier shop and publish products to Avantiqo businesses, or connect that same supplier profile to a full Business workspace later. One login can keep all three connected.</p>
+              <a href="/supplier-portal/onboarding" className="text-[9px] font-semibold text-[#815B36]">Choose supplier setup →</a>
             </div>
           </div>
         </div>

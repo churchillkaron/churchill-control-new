@@ -136,6 +136,10 @@ export default function CodeMissionHistoryPanel({
           ? {
               organizationId,
               resume_mission_id: session.mission_id,
+              objective: session.objective,
+              repository_url: session.repository_url,
+              ref: session.ref || "main",
+              execution_key: session.execution_key,
               reasoning_call_budget: 4,
               max_employee_passes: 8,
             }

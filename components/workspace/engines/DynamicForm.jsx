@@ -239,6 +239,17 @@ function FieldRenderer({
         />
       );
 
+    case "vendor":
+      return (
+        <LookupField
+          field={{ ...field, type: "lookup", lookup: "vendors" }}
+          value={value}
+          onChange={onChange}
+          organizationId={organizationId}
+          entityId={entityId}
+        />
+      );
+
     case "table":
       return (
         <DynamicTableField

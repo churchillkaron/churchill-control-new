@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 const ROLES = new Set(["DEVELOPER","INTEGRATOR","PARTNER"]);
 const PORTAL_PERMISSIONS = new Set(["developer.webhooks.manage","developer.security.manage"]);
 const hash = (value) => createHash("sha256").update(String(value)).digest("hex");
+const validEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim()) && String(value || "").trim().length <= 320;
 
 function normalizePermissions(value) {
   const requested = Array.isArray(value) ? value : [];
@@ -49,6 +50,7 @@ export async function POST(request) {
     const role = String(body?.role || "DEVELOPER").trim().toUpperCase();
     const permissions = normalizePermissions(body?.permissions);
     if (!organizationId || !email) return NextResponse.json({success:false,error:"organizationId and email are required"},{status:400});
+    if (!validEmail(email)) return NextResponse.json({success:false,error:"Developer email is invalid"},{status:400});
     if (!ROLES.has(role)) return NextResponse.json({success:false,error:"role must be DEVELOPER, INTEGRATOR or PARTNER"},{status:400});
     if (!permissions.every((permission) => PORTAL_PERMISSIONS.has(permission) || /^operations(?:\.[a-z0-9-]+)*(?:\.\*)?$/.test(permission))) {
       return NextResponse.json({success:false,error:"Unsupported Developer Portal permission"},{status:400});

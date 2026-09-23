@@ -4,6 +4,18 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+const OWNER_ROLES = new Set([
+  "OWNER",
+  "ORGANIZATION_OWNER",
+  "ORG_OWNER",
+  "PLATFORM_OWNER",
+  "SUPER_ADMIN",
+]);
+
+function ownerRole(value) {
+  return OWNER_ROLES.has(String(value || "").trim().toUpperCase());
+}
+
 export async function POST(request) {
   try {
     const user = await getServerCurrentUser();
@@ -37,13 +49,26 @@ export async function POST(request) {
 
     const { data: existing, error: existingError } = await supabaseAdmin
       .from("staff_accounts")
-      .select("id,email,auth_user_id,active,active_organization_id")
+      .select("id,email,auth_user_id,active,active_organization_id,role")
       .eq("auth_user_id", user.id)
       .eq("active", true)
       .limit(2);
     if (existingError) throw existingError;
 
-    if (existing?.length) {
+    if ((existing || []).length > 1) {
+      return NextResponse.json(
+        { success:false, error:"Multiple active Staff identities are linked to this authenticated account. Resolve the duplicate identity before onboarding." },
+        { status:409 },
+      );
+    }
+
+    if (existing?.length === 1) {
+      if (!ownerRole(existing[0].role)) {
+        return NextResponse.json(
+          { success:false, error:"Business organization onboarding requires owner-level Staff authority." },
+          { status:403 },
+        );
+      }
       return NextResponse.json({ success:true, created:false, staff:existing[0], intent:metadataIntent });
     }
 
@@ -51,11 +76,12 @@ export async function POST(request) {
       return NextResponse.json({ success:false, error:"Self-service onboarding intent is missing" }, { status:403 });
     }
 
+    const normalizedEmail = String(user.email).trim().toLowerCase();
     const { data, error } = await supabaseAdmin
       .from("staff_accounts")
       .insert({
-        email: String(user.email).trim().toLowerCase(),
-        name: requestedName || String(user.email).split("@")[0],
+        email: normalizedEmail,
+        name: requestedName || normalizedEmail.split("@")[0],
         auth_user_id: user.id,
         role: "OWNER",
         position: "Owner",
@@ -67,8 +93,31 @@ export async function POST(request) {
         salary_type: null,
         payroll_frequency: null,
       })
-      .select("id,email,auth_user_id,active,active_organization_id")
+      .select("id,email,auth_user_id,active,active_organization_id,role")
       .single();
+
+    if (error?.code === "23505") {
+      const { data: raced, error: racedError } = await supabaseAdmin
+        .from("staff_accounts")
+        .select("id,email,auth_user_id,active,active_organization_id,role")
+        .ilike("email", normalizedEmail)
+        .eq("active", true)
+        .limit(2);
+      if (racedError) throw racedError;
+      if ((raced || []).length !== 1 || String(raced[0].auth_user_id || "") !== String(user.id)) {
+        return NextResponse.json(
+          { success:false, error:"The signup email is already linked to a different or ambiguous Staff identity." },
+          { status:409 },
+        );
+      }
+      if (!ownerRole(raced[0].role)) {
+        return NextResponse.json(
+          { success:false, error:"Business organization onboarding requires owner-level Staff authority." },
+          { status:403 },
+        );
+      }
+      return NextResponse.json({ success:true, created:false, staff:raced[0], intent:metadataIntent });
+    }
     if (error) throw error;
 
     return NextResponse.json({ success:true, created:true, staff:data, intent:metadataIntent });

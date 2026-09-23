@@ -59,7 +59,7 @@ function requestedSafeNonWorkspaceDestination() {
   if (typeof window === "undefined") return null;
   const next = new URLSearchParams(window.location.search).get("next");
   if (!next || next.startsWith("//")) return null;
-  if (next.startsWith("/supplier-invite/") || next.startsWith("/developer-invite/") || next.startsWith("/accounting-client-invite/")) return next;
+  if (next.startsWith("/supplier-invite/") || next.startsWith("/developer-invite/") || next.startsWith("/accounting-client-invite/") || next.startsWith("/accounting-managed-client-claim/")) return next;
   return null;
 }
 

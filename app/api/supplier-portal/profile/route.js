@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  createSupplierNetworkProfile,
   setDefaultSupplierAccount,
   supplierStorefrontSnapshot,
   updateSupplierNetworkProfile,
@@ -33,6 +34,13 @@ export async function PATCH(request) {
   }
 }
 
+export async function PUT(request) {
+  try {
+    return respond(await createSupplierNetworkProfile(await request.json()));
+  } catch (error) {
+    return respond({ success: false, error: error?.message || "Unable to create supplier profile" });
+  }
+}
 
 export async function POST(request) {
   try {

@@ -13,7 +13,9 @@ const imageRoute = await readFile(new URL("../app/api/operator/code/image/route.
 const nodeWorker = await readFile(new URL("../scripts/local-node/avantiqo-node01-worker.ps1", import.meta.url), "utf8");
 const missionRoute = await readFile(new URL("../app/api/operator/code/mission/route.js", import.meta.url), "utf8");
 const ide = await readFile(new URL("../components/creative/code/AvantiqoCodeIDE.jsx", import.meta.url), "utf8");
+const ideCss = await readFile(new URL("../components/creative/code/AvantiqoCodeIDE.css", import.meta.url), "utf8");
 const studio = await readFile(new URL("../components/creative/code/CreativeCodeStudio.jsx", import.meta.url), "utf8");
+const studioPage = await readFile(new URL("../app/(system)/workspace/[organizationId]/creative/code/page.jsx", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 const propagationFiles = [
@@ -109,7 +111,22 @@ test("Code Studio keeps Talk Code Preview and Changes in one shared project sess
   assert.match(ide, /Conversation context/);
   assert.match(ide, /Open full Talk/);
   assert.match(ide, /openStudioPreview/);
-  assert.match(ide, /Code is working behind this conversation, and I’ll come back here with the verified result/);
+  assert.doesNotMatch(ide, /I’m starting this in Code now\. I’ll show you the files, checks, commands and verification as they happen\./);
+  assert.doesNotMatch(ide, /Working in Code…/);
+});
+
+test("outer Studio only polls its release device list while Changes is visible", () => {
+  assert.match(studio, /if \(!organizationId \|\| studioView !== "changes"\) return undefined/);
+  assert.match(studio, /\[organizationId, deviceId, studioView\]/);
+  assert.match(studio, /setInterval\(\(\) => \{[\s\S]*\/api\/operator\/code\/devices/);
+});
+
+test("Talk and Code stay free of historical engineering dashboard panels", () => {
+  assert.match(studio, /studioView === "changes"/);
+  assert.match(studio, /CodeEngineeringIntelligenceLiveCard/);
+  assert.match(studio, /CodeMissionHistoryPanel/);
+  assert.doesNotMatch(studioPage, /CodeEngineeringIntelligenceLiveCard/);
+  assert.doesNotMatch(studioPage, /CodeMissionHistoryPanel/);
 });
 
 test("editor and terminal dependencies are pinned in package metadata", () => {
@@ -131,24 +148,53 @@ test("read-only verification instructions are not polluted by implementation wra
   assert.match(ide, /if \(explicitReadOnlyVerification\) return latestInstruction\.slice\(0, 24000\)/);
 });
 
+test("Follow Code gives the exact active line a persistent Code focus marker", () => {
+  assert.match(ide, /const editorCodeFocusRef = useRef\(null\)/);
+  assert.match(ide, /editor\.createDecorationsCollection\(\)/);
+  assert.match(ide, /className: "avantiqo-code-focus-line"/);
+  assert.match(ide, /linesDecorationsClassName: "avantiqo-code-focus-glyph"/);
+  assert.match(ide, /hoverMessage: \{ value: `Code focus · \$\{latestFileAction\}` \}/);
+  assert.match(ideCss, /\.avantiqo-code-focus-line/);
+  assert.match(ideCss, /\.avantiqo-code-focus-glyph/);
+});
+
+test("Follow Code reveals the active file in Explorer as well as Monaco", () => {
+  assert.match(ide, /const explorerRef = useRef\(null\)/);
+  assert.match(ide, /parents\.forEach\(\(folderPath\) => next\.add\(folderPath\)\)/);
+  assert.match(ide, /data-code-explorer-path=\{node\.path\}/);
+  assert.match(ide, /element\.dataset\.codeExplorerPath === latestTouchedFile/);
+  assert.match(ide, /scrollIntoView\(\{ block: "nearest", behavior: "smooth" \}\)/);
+  assert.match(ide, /ref=\{explorerRef\}/);
+});
+
 test("Developer Mode visibly follows Code files while it reads checks edits and reviews", () => {
   assert.match(ide, /const latestObservedEvent = activityEvents\.find/);
-  assert.match(ide, /latestObservedEvent\?\.file_path/);
+  assert.match(ide, /const latestTouchedFile = currentEventFile\(latestObservedEvent\)/);
   assert.match(ide, /return "Reading"/);
   assert.match(ide, /return "Checking"/);
   assert.match(ide, /return "Editing"/);
   assert.match(ide, /return "Reviewing changes"/);
   assert.match(ide, /latestFileAction/);
   assert.match(ide, /ideRequest\("read", \{ file_path: latestTouchedFile \}\)/);
-  assert.match(ide, /event\?\.file_path \|\| event\?\.files_changed\?\.\[0\]/);
+  assert.match(ide, /function currentEventFile\(event = \{\}\)/);
   assert.match(ide, /following Code live/);
-  assert.match(ide, /onMount=\{\(editor\) => \{ editorRef\.current = editor; \}\}/);
+  assert.match(ide, /onMount=\{\(editor\) => \{ editorRef\.current = editor; editorCodeFocusRef\.current = editor\.createDecorationsCollection\(\); \}\}/);
   assert.match(ide, /editor\.revealLineInCenter\(startLine\)/);
   assert.match(ide, /editor\.setSelection/);
   assert.match(ide, /const \[learnMode, setLearnMode\] = useState\(true\)/);
   assert.match(ide, /Learn \{learnMode \? "on" : "off"\}/);
   assert.match(ide, /Why this step:/);
   assert.match(ide, /observableLearningNote/);
+});
+
+test("Code Studio diagnoses device availability clearly and retries stale workspace attachment", () => {
+  assert.match(ide, /async function discoverOnlineCodeDevice/);
+  assert.match(ide, /function codeDeviceAvailabilityMessage/);
+  assert.match(ide, /is paired, but its local Code agent is offline/);
+  assert.match(ide, /for \(let attempt = 0; attempt < 2; attempt \+= 1\)/);
+  assert.match(ide, /Code workspace connection changed · finding an online computer and retrying/);
+  assert.match(ide, /resolvedDeviceId = await discoverOnlineCodeDevice/);
+  assert.match(ide, /await wait\(350\)/);
 });
 
 test("Talk remains available without an IDE session and attaches Code behind the conversation when repository work begins", () => {
@@ -158,7 +204,7 @@ test("Talk remains available without an IDE session and attaches Code behind the
   assert.match(ide, /device_session_id: session\?\.session_id \|\| null/);
   assert.match(ide, /missionSession = await openWorkspace\(\)/);
   assert.match(ide, /sessionOverride: missionSession/);
-  assert.match(ide, /const activeSession = sessionOverride \|\| session/);
+  assert.match(ide, /let activeSession = sessionOverride \|\| session/);
   assert.match(ide, /ideRequestWithSession\(activeSession/);
 });
 
@@ -169,15 +215,34 @@ test("Talk history belongs to the project conversation instead of an IDE session
   assert.doesNotMatch(closeWorkspace, /setChatTurns\(\[\]\)/);
 });
 
+test("Talk remains available while the human has unsaved manual edits", () => {
+  assert.match(ide, /onClick=\{sendCodeMessage\} disabled=\{!objective\.trim\(\)\}/);
+  assert.match(ide, /There are unsaved editor changes, so I’m not starting repository work until those are resolved/);
+  assert.doesNotMatch(ide, /onClick=\{sendCodeMessage\} disabled=\{!objective\.trim\(\) \|\| Object\.values\(dirty\)\.some\(Boolean\)\}/);
+});
+
+test("Talk narrates live Code work with exact files commands and verification instead of a static waiting message", () => {
+  assert.match(ide, /function conversationalCodeActivity/);
+  assert.doesNotMatch(ide, /Live Code work/);
+  assert.match(ide, /I’m opening/);
+  assert.match(ide, /I’m running/);
+  assert.match(ide, /I verified/);
+  assert.match(ide, /entry\.event\.file_path/);
+  assert.match(ide, /Live work/);
+  assert.doesNotMatch(ide, /I’m on it\. Code is working behind this conversation, and I’ll come back here with the verified result\./);
+});
+
 test("Talk stays conversational while Code works behind the screen", () => {
   assert.match(ide, /session && codeOnly/);
   assert.match(ide, /<span>Thinking…<\/span>/);
-  assert.match(ide, /<span>Working in Code…<\/span>/);
+  assert.doesNotMatch(ide, /<span>Working in Code…<\/span>/);
   assert.match(ide, /View live work/);
   assert.match(ide, /runCodeMission\(missionObjective, \{ reportToTalk: true, sessionOverride: missionSession \}\)/);
   assert.match(ide, /Done\. I checked it in the shared Code workspace/);
   assert.match(ide, /Done\. I finished the Code work and verified it/);
-  assert.match(ide, /I hit a blocker while Code was working/);
+  assert.doesNotMatch(ide, /I hit a blocker while Code was working/);
+  assert.match(ide, /customerFacingCodeBlocker/);
+  assert.match(ide, /The workspace connection changed while I was working/);
   assert.match(ide, /codeOnly \? "border-b border-white\/\[0\.06\] p-3" : "hidden"/);
   assert.match(ide, /embedded && studioView !== "code"/);
   assert.match(ide, /studioView === "code" \? 3500 : 10000/);
@@ -216,7 +281,7 @@ test("Strategic Code reasoning inspects the repository before research and speci
 
 test("Developer Mode publishes an authoritative mission identity before heavy planning", () => {
   assert.match(missionRoute, /const resumeStateMissionId = text\(resumeState\?\.mission_id/);
-  assert.match(missionRoute, /const missionId = resumeStateMissionId \|\| resumeMissionId \|\| requestedMissionId/);
+  assert.match(missionRoute, /const missionId = resumeStateMissionId \|\| effectiveResumeMissionId \|\| requestedMissionId/);
   assert.match(missionRoute, /publishCodeAILiveProgress/);
   assert.match(missionRoute, /phase: "MISSION_ACCEPTED"/);
   assert.match(missionRoute, /mission_id: missionId/);
@@ -237,8 +302,13 @@ test("IDE actions bind directly to a validated device session without enqueueing
 
 test("Developer Mode uses a progress-aware watchdog instead of a fixed wall-clock cutoff", () => {
   assert.match(ide, /const MAX_RESUMES = 120/);
-  assert.match(ide, /const MISSION_IDLE_DEADLINE_MS = 8 \* 60 \* 1000/);
+  assert.match(ide, /const MISSION_IDLE_DEADLINE_MS = 45 \* 1000/);
   assert.match(ide, /const MISSION_ABSOLUTE_DEADLINE_MS = 30 \* 60 \* 1000/);
+  assert.match(ide, /const latestProgressAtRef = useRef\(0\)/);
+  assert.match(ide, /latestProgressAt > watchdogObservedProgressAt/);
+  assert.match(ide, /Code is still publishing live progress/);
+  assert.match(ide, /This Code pass has not published new progress yet/);
+  assert.doesNotMatch(ide, /passWatchdogTimer[\s\S]{0,1600}stopLiveMission\(missionId\)/);
   assert.match(ide, /progressFingerprint/);
   assert.match(ide, /missionIdleDeadline = Date\.now\(\) \+ MISSION_IDLE_DEADLINE_MS/);
   assert.match(ide, /Code mission stalled without progress/);
@@ -247,12 +317,85 @@ test("Developer Mode uses a progress-aware watchdog instead of a fixed wall-cloc
 });
 
 
+test("Browser Proof defaults to the actual current Studio origin instead of a hard-coded localhost port", () => {
+  assert.match(ide, /const \[browserUrl, setBrowserUrl\] = useState\(""\)/);
+  assert.match(ide, /window\.location\?\.origin/);
+  assert.match(ide, /setBrowserUrl\(\(current\) => current \|\| window\.location\.origin\)/);
+  assert.doesNotMatch(ide, /http:\/\/localhost:3001\/code/);
+});
+
+test("browser verification prepares the exact Preview target without leaving Code", () => {
+  assert.match(ide, /const latestBrowserEvent = activityEvents\.find/);
+  assert.match(ide, /setBrowserUrl\(url\)/);
+  assert.match(ide, /onPreviewUrlChange\(url\)/);
+  assert.match(ide, /Code verification target/);
+  assert.match(ide, /Code is verifying:/);
+  assert.match(mission, /browser_verify/);
+});
+
+test("Developer Mode mirrors safe Code activity into the shared human terminal", () => {
+  assert.match(ide, /const mirroredActivityKeysRef = useRef\(new Set\(\)\)/);
+  assert.match(ide, /\[Code\] \$ /);
+  assert.match(ide, /\[Code\] exit/);
+  assert.match(ide, /\[Code\] \$\{action\} \$\{filePath\}/);
+  assert.match(ide, /const draft = terminalLineRef\.current/);
+  assert.match(ide, /terminal\.write\(`> \$\{draft\}`\)/);
+  assert.doesNotMatch(ide, /event\?\.stdout/);
+  assert.doesNotMatch(ide, /event\?\.stderr/);
+});
+
+test("Code mission re-checks the authoritative workspace lease after reload before taking control", () => {
+  assert.match(ide, /const authoritativeLeaseState = await ideRequestWithSession\(activeSession, "state"\)/);
+  assert.match(ide, /const authoritativeLeaseOwner = text\(authoritativeLeaseState\?\.edit_owner\)\.toUpperCase\(\)/);
+  assert.match(ide, /if \(authoritativeLeaseOwner === "HUMAN"\)/);
+  assert.match(ide, /owner: "HUMAN", release: true/);
+  assert.match(ide, /CODE_WORKSPACE_HUMAN_LEASE_RELEASE_FAILED/);
+});
+
+test("Developer Mode supports explicit human-AI editor handoff without lease races", () => {
+  assert.match(ide, /const \[takingHumanControl, setTakingHumanControl\] = useState\(false\)/);
+  assert.match(ide, /const \[handingBackToCode, setHandingBackToCode\] = useState\(false\)/);
+  assert.match(ide, /async function takeHumanControl\(\)/);
+  assert.match(ide, /await stopLiveMission\(stopMissionId\)/);
+  assert.match(ide, /owner: "HUMAN", ttl_ms: 300000/);
+  assert.match(ide, /async function handBackToCode\(\)/);
+  assert.match(ide, /Save or discard your edits before handing the workspace back to Code/);
+  assert.match(ide, /readOnly: humanEditLocked/);
+  assert.match(ide, /AI owns editor · read only/);
+  assert.match(ide, /Human owns editor/);
+  assert.match(ide, /Take control/);
+  assert.match(ide, /Hand back to Code/);
+});
+
+test("Talk missions self-recover stale 404 mission history by reattaching the exact device session before rebuilding", () => {
+  assert.match(ide, /CODE_STUDIO_HISTORY_MISSION_NOT_FOUND/);
+  assert.match(ide, /CODE MISSION FAILED \(404\)/);
+  assert.match(ide, /recoverWorkspaceAfterOutage\(\{ preferredSession: activeSession \}\)/);
+  assert.match(ide, /action: "attach"/);
+  assert.match(ide, /session_id: preferredSession\.session_id/);
+  assert.match(ide, /Code workspace reattached · continuing from current live state/);
+  assert.match(ide, /openWorkspace\(\{ forceRediscover: true, quiet: true \}\)/);
+  assert.match(ide, /missionId = `code-mission-\$\{crypto\.randomUUID\(\)\}`/);
+  assert.match(ide, /executionKey = `code-ide:\$\{crypto\.randomUUID\(\)\}`/);
+  assert.match(ide, /resumeState = null/);
+});
+
+test("Talk missions auto-repair transient Code runtime failures before surfacing blockers", () => {
+  assert.match(ide, /function recoverableCodeInfrastructureBlocker/);
+  assert.match(ide, /infrastructureRecoveryCycles < 3/);
+  assert.match(ide, /Code is repairing its execution runtime/);
+  assert.match(ide, /status: "repair_required", blockers: \[\]/);
+  assert.match(ide, /\[2000, 5000, 10000\]/);
+  assert.match(ide, /PROVIDER_RUNTIME_UNAVAILABLE/);
+  assert.match(ide, /AVANTIQO_CODE_LOCAL_NODE_UNAVAILABLE/);
+});
+
 test("Developer Mode exposes a real governed Stop mission control", () => {
   assert.match(ide, /const stopLiveMission = useCallback/);
   assert.match(ide, /action: "STOP"/);
   assert.match(ide, /next governed safe boundary/);
   assert.match(ide, /const \[localMissionId, setLocalMissionId\] = useState/);
-  assert.match(ide, /const stopMissionId = currentActiveMissionId \|\| \(missionRunning \? localMissionId : ""\)/);
+  assert.match(ide, /const stopMissionId = missionRunning \? localMissionId : ""/);
   assert.match(ide, /mission_id: missionId/);
   assert.match(ide, /for \(let attempt = 0; attempt < 20; attempt \+= 1\)/);
   assert.match(ide, /Stop mission/);
@@ -262,9 +405,12 @@ test("Developer Mode scopes live mission activity to its exact device session", 
   assert.match(ide, /const progressSessionId = text\(progress\?\.device_session_id\)/);
   assert.match(ide, /const sessionAgentActive = Boolean/);
   assert.match(ide, /progressSessionId === session\.session_id/);
-  assert.match(ide, /const currentActiveMissionId = activeMissionProgress/);
+  assert.match(ide, /const observedProgressActive = activeMissionProgress/);
+  assert.match(ide, /const observedActiveMissionId = observedProgressActive \? text\(scopedProgress\?\.mission_id\) : ""/);
+  assert.match(ide, /const liveTalkActive = Boolean\(missionRunning \|\| currentActiveMissionId \|\| \(sessionAgentActive && observedProgressActive\)\)/);
+  assert.match(ide, /const currentActiveMissionId = missionRunning && localMissionId && observedActiveMissionId === localMissionId \? localMissionId : ""/);
   assert.match(ide, /pendingSteerRef/);
-  assert.match(ide, /submitLiveSteer\(currentActiveMissionId/);
+  assert.match(ide, /submitLiveSteer\(locallyOwnedMissionId/);
   assert.match(ide, /action: "STEER"/);
   assert.doesNotMatch(ide, /disabled=\{missionRunning \|\| sessionAgentActive/);
   assert.doesNotMatch(ide, /disabled=\{missionRunning \|\| agentActive/);
@@ -279,8 +425,10 @@ test("Follow Code opens the actual changed file from shared Git diff on revision
 });
 
 
-test("Developer Mode resumes from nested mission state even when envelope flag disagrees", () => {
+test("Developer Mode resumes nested implementation state but never resumes a terminal developer verification into planning", () => {
   assert.match(ide, /const responseState = body\.resume_state \|\| body\.state \|\| null/);
+  assert.match(ide, /const developerVerificationTerminal = Boolean\(body\.developer_verification\)/);
+  assert.match(ide, /!developerVerificationTerminal &&/);
   assert.match(ide, /responseState\?\.planner_pending/);
   assert.match(ide, /\["planner_pending", "repair_required", "verification_required"\]\.includes\(responseStatus\)/);
 });
@@ -297,6 +445,14 @@ test("Talk mode stays conversational while every reasoning request remains visib
   assert.match(ide, /<span>Thinking…<\/span>/);
   assert.match(ide, /settlePendingReply/);
   assert.match(ide, /removePendingReply/);
+  assert.match(ide, /dedupeAdjacentTalkTurns/);
+  assert.match(ide, /h-\[min\(58vh,620px\)\]/);
+  assert.match(ide, /overflow-y-auto/);
+  assert.match(ide, /max-w-\[92%\] py-3 text-sm leading-7 text-slate-700/);
+  assert.match(ide, /talkActivityNarration\.slice\(-6, -1\)/);
+  assert.match(ide, /The current planning pass is still running/);
+  assert.doesNotMatch(ide, /ml-12 rounded-2xl border border-\[#D6A66A\]/);
+  assert.doesNotMatch(ide, /mr-12 rounded-2xl border border-slate-200 bg-white/);
   assert.doesNotMatch(ide, /Code working live/);
   assert.doesNotMatch(ide, /repository unchanged unless Code enters a governed mission/);
 });

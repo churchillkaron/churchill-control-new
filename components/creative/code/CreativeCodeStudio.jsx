@@ -5,6 +5,8 @@ import { Activity, ArrowLeft, Code2, Eye, ExternalLink, GitBranch, GitCommit, Gi
 import { useEffect, useRef, useState } from "react";
 
 import { useCodeProgressFeed } from "@/components/operator/CodeProgressFeedProvider";
+import CodeEngineeringIntelligenceLiveCard from "@/components/operator/CodeEngineeringIntelligenceLiveCard";
+import CodeMissionHistoryPanel from "@/components/operator/CodeMissionHistoryPanel";
 import AvantiqoCodeIDE from "@/components/creative/code/AvantiqoCodeIDE";
 
 const DEFAULT_REPOSITORY = "https://github.com/churchillkaron/churchill-control-new";
@@ -86,7 +88,7 @@ export default function CreativeCodeStudio({ organizationId }) {
   }, [liveProgressActive, progress, running]);
 
   useEffect(() => {
-    if (!organizationId) return;
+    if (!organizationId || studioView !== "changes") return undefined;
     let cancelled = false;
     fetch(`/api/operator/code/devices?organizationId=${encodeURIComponent(organizationId)}`, { credentials: "same-origin" })
       .then((response) => response.json())
@@ -107,7 +109,7 @@ export default function CreativeCodeStudio({ organizationId }) {
         .catch(() => null);
     }, 15000);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [organizationId, deviceId]);
+  }, [organizationId, deviceId, studioView]);
 
   async function createPairing() {
     if (!organizationId || pairingBusy || !allowedRoot.trim()) return;
@@ -712,6 +714,10 @@ export default function CreativeCodeStudio({ organizationId }) {
             )}
           </div>
         </section>
+        <div className="mt-5 space-y-5">
+          <CodeEngineeringIntelligenceLiveCard organizationId={organizationId} theme="dark" />
+          <CodeMissionHistoryPanel organizationId={organizationId} />
+        </div>
         </div>
       </div>
     </main>

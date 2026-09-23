@@ -15,6 +15,15 @@ test("approved council resume reloads completed research before production-room 
   assert.match(resume, /research: resumedResearch\.research \|\| null/);
 });
 
+test("production-room bootstrap reuses a sealed durable Research Room report before rebuilding research evidence", () => {
+  const bootstrap = fs.readFileSync(new URL("../lib/creative/production-room/runtime/CreativeProductionRoomBootstrapRuntime.js", import.meta.url), "utf8");
+  assert.match(bootstrap, /durableResearchStage/);
+  assert.match(bootstrap, /status\)\.toUpperCase\(\) === "SEALED"/);
+  assert.match(bootstrap, /durableResearchStage\?\.report\?\.passed === true/);
+  assert.match(bootstrap, /production_room_stage_inputs\?\.RESEARCH_ROOM\?\.research_room_report/);
+  assert.match(bootstrap, /durableResearchReport\?\.passed === true[\s\S]*buildResearchRoomReport/);
+});
+
 
 test("sealed Research Room can recover validator-complete research without rerunning synthesis", () => {
   const research = fs.readFileSync(new URL("../lib/creative/research/runtime/AutonomousResearchDirectorV4Runtime.js", import.meta.url), "utf8");

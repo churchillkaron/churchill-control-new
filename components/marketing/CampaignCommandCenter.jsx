@@ -704,7 +704,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                           });
                           return (
                             <div key={organizationId} className={`rounded-2xl border px-4 py-3 text-sm ${issues.length ? "border-[#DDBA8B] bg-[#FFF8EC] text-[#7A5A36]" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
-                              <div className="font-semibold">Meta campaign check · {organization?.name || "Organization"}</div>
+                              <div className="font-semibold">Meta provider readiness · {organization?.name || "Organization"}</div>
                               {issues.length ? (
                                 <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
                               ) : (
@@ -745,7 +745,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                           });
                           return (
                             <div key={organizationId} className={`rounded-2xl border px-4 py-3 text-sm ${issues.length ? "border-[#DDBA8B] bg-[#FFF8EC] text-[#7A5A36]" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
-                              <div className="font-semibold">Google Ads campaign check · {organization?.name || "Organization"}</div>
+                              <div className="font-semibold">Google Ads provider readiness · {organization?.name || "Organization"}</div>
                               {issues.length ? (
                                 <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
                               ) : (
@@ -785,7 +785,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                                 />
                                 <div className={`rounded-2xl border px-4 py-3 text-sm ${issues.length ? "border-[#DDBA8B] bg-[#FFF8EC] text-[#7A5A36]" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
                                   <div className="font-semibold">{channel?.name || channelId} campaign check · {organization?.name || "Organization"}</div>
-                                  {issues.length ? <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <div className="mt-1 text-xs">Account, content and channel setup are ready for the final connection check. Explicit owner approval is still required before publishing.</div>}
+                                  {issues.length ? <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <div className="mt-1 text-xs">Account, provider route and content are ready for no-publish preflight. Explicit owner approval is still required before publishing.</div>}
                                 </div>
                               </div>
                             );

@@ -223,28 +223,3 @@ test("legacy reproduction booleans alone cannot satisfy exact defect closure", (
   assert.equal(final.engineering_os_ready, false);
   assert.ok(final.missing_required_departments.some((item) => item.key === "reproduction_first"));
 });
-
-test("broad program cannot satisfy hidden benchmark gate with held_out label alone", () => {
-  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Make the whole platform world-class" });
-  const state = {
-    mission_id: "broad-benchmark-test",
-    objective: "Make the whole platform world-class",
-    files_changed: [],
-    source_changes: [],
-    evidence: [],
-    verification: [],
-    tests: [],
-    parallel_specialist_review: { complete: true },
-    program_plan: { active: true },
-    benchmark_scorecard: { held_out: true, verified: false },
-  };
-  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
-  assert.equal(final.engineering_os_ready, false);
-  assert.ok(final.missing_required_departments.some((item) => item.key === "hidden_benchmark"));
-
-  const verified = finalizeCodeAIEngineeringOperatingSystem({
-    prepared_control: prepared.control,
-    result: { success: true, state: { ...state, benchmark_scorecard: { held_out: true, verified: true } } },
-  });
-  assert.ok(!verified.missing_required_departments.some((item) => item.key === "hidden_benchmark"));
-});

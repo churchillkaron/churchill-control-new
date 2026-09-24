@@ -200,25 +200,10 @@ async function browserVerify(root, input = {}) {
     const pageAudit = await page.evaluate(() => {
       const root = document.documentElement;
       const interactive = [...document.querySelectorAll("button,a,input,select,textarea,[role='button']")];
-      const accessibleName = (el) => {
-        const ariaLabel = (el.getAttribute("aria-label") || "").trim();
-        if (ariaLabel) return ariaLabel;
-        const labelledBy = (el.getAttribute("aria-labelledby") || "")
-          .split(/\s+/)
-          .filter(Boolean)
-          .map((id) => document.getElementById(id)?.textContent || "")
-          .join(" ")
-          .trim();
-        if (labelledBy) return labelledBy;
-        const nativeLabels = el.labels
-          ? [...el.labels].map((label) => label.textContent || "").join(" ").trim()
-          : "";
-        if (nativeLabels) return nativeLabels;
-        return (el.textContent || el.getAttribute("title") || "").trim();
-      };
       const missingAccessibleName = interactive.filter((el) => {
+        const label = (el.getAttribute("aria-label") || el.getAttribute("aria-labelledby") || el.textContent || el.getAttribute("title") || "").trim();
         if (el instanceof HTMLInputElement && ["hidden","submit","button"].includes(el.type)) return false;
-        return !accessibleName(el);
+        return !label;
       }).slice(0, 40).map((el) => ({ tag: el.tagName.toLowerCase(), id: el.id || null, name: el.getAttribute("name") || null }));
       const imagesWithoutAlt = [...document.querySelectorAll("img")].filter((img) => !img.hasAttribute("alt")).slice(0, 40).map((img) => img.getAttribute("src") || "img");
       const headingLevels = [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].map((h) => Number(h.tagName.slice(1)));

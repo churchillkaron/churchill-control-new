@@ -118,20 +118,14 @@ const businessPartnerLiveRoute = await readFile(
   "app/api/operator/live-execution/route.js",
   "utf8",
 );
-const sharedLiveExecutionRuntime = await readFile(
-  "lib/platform/runtime/AvantiqoLiveExecutionRuntime.js",
-  "utf8",
-);
 const liveWorkPackage = await readFile(
   "lib/code/runtime/CodeAIWorkPackageRuntimeLive.js",
   "utf8",
 );
 
-test("Business Partner receives concrete Code event history through the shared live execution runtime", () => {
-  assert.match(businessPartnerLiveRoute, /loadAvantiqoLiveExecution/);
-  assert.match(businessPartnerLiveRoute, /\.\.\.sharedProgress/);
-  assert.match(sharedLiveExecutionRuntime, /events: \[\.\.\.list\(previousState\.events\), compact\]\.slice\(-MAX_EVENTS\)/);
-  assert.match(sharedLiveExecutionRuntime, /latest_event: compact/);
+test("Business Partner receives concrete Code event history instead of generic routing only", () => {
+  assert.match(businessPartnerLiveRoute, /Array\.isArray\(progress\.events\)/);
+  assert.match(businessPartnerLiveRoute, /events: events\.length \? events : \[latestEvent\]/);
   assert.doesNotMatch(businessPartnerLiveRoute, /events: \[\],/);
 });
 

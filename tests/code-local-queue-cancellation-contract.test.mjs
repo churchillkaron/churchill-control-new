@@ -34,6 +34,7 @@ test("interactive Code uses 1.7B while mutation-capable planning escalates to th
   assert.match(provider, /AVANTIQO_CODE_INTERACTIVE_MODEL\|\|"qwen3:1\.7b"/);
   assert.doesNotMatch(provider, /AVANTIQO_CODE_FAST_MODEL/);
   assert.match(provider, /function strongCodeModelRequired/);
+  assert.match(provider, /spec\.implementation_required===true/);
   assert.match(provider, /actions\.includes\("apply_files"\)/);
   assert.match(provider, /spec\.discovery_locked===true/);
   assert.match(provider, /spec\.source_quality_repair_required===true/);

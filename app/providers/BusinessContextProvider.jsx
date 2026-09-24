@@ -266,6 +266,10 @@ export function BusinessContextProvider({ children }) {
     () => /^\/workspace\/[^/]+\/developers(?:\/|$)/.test(String(pathname || "")),
     [pathname],
   );
+  const publicBusinessContextRoute = useMemo(
+    () => !pathname || pathname === "/" || /^\/login(?:\/|$)/.test(String(pathname)),
+    [pathname],
+  );
   const [state, setState] = useState(EMPTY_STATE);
 
   useEffect(() => {
@@ -273,6 +277,14 @@ export function BusinessContextProvider({ children }) {
 
     async function loadBusinessContext() {
       try {
+        if (publicBusinessContextRoute) {
+          setState({
+            ...EMPTY_STATE,
+            ready: true,
+            loading: false,
+          });
+          return;
+        }
         setState((previous) => ({
           ...previous,
           ready: false,
@@ -487,7 +499,7 @@ export function BusinessContextProvider({ children }) {
     return () => {
       mounted = false;
     };
-  }, [developerWorkspace, routeOrganizationId]);
+  }, [developerWorkspace, publicBusinessContextRoute, routeOrganizationId]);
 
   const value = useMemo(() => state, [state]);
 

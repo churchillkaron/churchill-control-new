@@ -1367,7 +1367,7 @@ async function prepareCreative(input, request, execute = false) {
     request,
     permissions: execute
       ? ["creative.execute", "creative.production.run", "creative.*"]
-      : null,
+      : ["marketing.campaign.manage", "creative.mission.create", "creative.projects.create", "creative.*"],
   });
   const campaign = await getCampaign({ organizationId, campaignId });
   const mission = await ensureMission(campaign);

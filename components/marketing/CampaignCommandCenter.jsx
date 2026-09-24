@@ -167,6 +167,20 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
   const [configurationOrganizationId, setConfigurationOrganizationId] = useState("");
   const [createStep, setCreateStep] = useState(0);
 
+  useEffect(() => {
+    if (!mode) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !loading) setMode(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [loading, mode]);
+
   const campaignArea = pathname?.includes("/commercial/marketing/campaigns");
   const selectedGroup = useMemo(
     () => groups.find((group) => group.id === selectedGroupId) || groups[0] || null,
@@ -397,19 +411,28 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
     }));
   }
 
-  function stepValid(step) {
-    if (step === 0) return Boolean(form.name.trim() && form.objective.trim() && selectedOrganizations.length);
-    if (step === 2) return Boolean(form.channels.length);
+  function stepBlockingReason(step) {
+    if (step === 0) {
+      if (!form.name.trim()) return "Add a campaign name to continue.";
+      if (!form.objective.trim()) return "Add the business objective to continue.";
+      if (!selectedOrganizations.length) return "Select an organization to continue.";
+      return "";
+    }
+    if (step === 2 && !form.channels.length) return "Choose at least one campaign channel to continue.";
     if (step === 3) {
-      if (form.startDate && form.endDate && form.endDate < form.startDate) return false;
-      if (selectedOrganizations.some((organizationId) => paidMediaAllocationIssues({
+      if (form.startDate && form.endDate && form.endDate < form.startDate) return "End date must be the same as or later than the start date.";
+      const allocationIssue = selectedOrganizations.flatMap((organizationId) => paidMediaAllocationIssues({
         ...form,
         organizationBudget: organizationBudgetFor(organizationId),
         channelSettings: Object.fromEntries(form.channels.map((channelId) => [channelId, mergedChannelSettings(channelId, organizationId)])),
-      }).length)) return false;
-      return true;
+      }))[0];
+      if (allocationIssue) return allocationIssue;
     }
-    return true;
+    return "";
+  }
+
+  function stepValid(step) {
+    return !stepBlockingReason(step);
   }
 
   const allRequiredValid = createSteps.slice(0, 4).every((_, index) => stepValid(index));
@@ -454,13 +477,13 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
 
       {mode ? (
         <div className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-[#241b12]/20 p-4 pt-20 backdrop-blur-md lg:p-8 lg:pt-24">
-          <div className="w-full max-w-4xl rounded-[30px] border border-[#DCC8AE] bg-[#FCFAF6] shadow-2xl">
+          <div role="dialog" aria-modal="true" aria-labelledby="campaign-command-title" className="w-full max-w-4xl rounded-[30px] border border-[#DCC8AE] bg-[#FCFAF6] shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-[#E8DED1] p-6 lg:p-8">
               <div>
                 <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">
                   Marketing Command Center
                 </div>
-                <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-[#2D2822]">
+                <h2 id="campaign-command-title" className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-[#2D2822]">
                   {mode === "create" ? "Create Campaign" : "Tell Avantiqo to Create"}
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#777169]">
@@ -487,7 +510,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
               </div>
             ) : mode === "create" ? (
               <form onSubmit={createCampaign} className="p-6 lg:p-8">
-                <div className="mb-7 grid grid-cols-5 gap-2">
+                <div className="mb-7 grid grid-cols-2 gap-2 sm:grid-cols-5">
                   {createSteps.map((step, index) => {
                     const active = index === createStep;
                     const complete = index < createStep && stepValid(index);
@@ -495,6 +518,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                       <button
                         key={step}
                         type="button"
+                        aria-current={active ? "step" : undefined}
                         onClick={() => {
                           if (index <= createStep || createSteps.slice(0, index).every((_, previous) => stepValid(previous))) {
                             setCreateStep(index);
@@ -853,9 +877,12 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                     ) : null}
                   </div>
                   {createStep < createSteps.length - 1 ? (
-                    <button type="button" disabled={!stepValid(createStep)} onClick={() => setCreateStep((step) => Math.min(createSteps.length - 1, step + 1))} className="inline-flex items-center gap-1 rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-[#2B2118] disabled:opacity-40">
-                      Continue <ChevronRight className="h-4 w-4" />
-                    </button>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <button type="button" disabled={!stepValid(createStep)} onClick={() => setCreateStep((step) => Math.min(createSteps.length - 1, step + 1))} className="inline-flex items-center gap-1 rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-[#2B2118] disabled:cursor-not-allowed disabled:opacity-40">
+                        Continue <ChevronRight className="h-4 w-4" />
+                      </button>
+                      {!stepValid(createStep) ? <div className="max-w-sm text-right text-[10px] leading-relaxed text-[#9A6841]">{stepBlockingReason(createStep)}</div> : null}
+                    </div>
                   ) : (
                     <button type="submit" disabled={loading || !allRequiredValid} className="inline-flex items-center gap-2 rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-[#2B2118] disabled:opacity-40">
                       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />}
@@ -1327,25 +1354,37 @@ function ChannelPicker({ selected = [], readiness, organizationId, onToggle, set
           </div>
           <div className="mt-3">
             <ChannelReadinessNotice channel={activeSettingsChannel} state={stateFor(activeSettingsChannel)} organizationId={organizationId} />
-            <ChannelSettings
-              key={`${activeSettingsChannel.id}-settings`}
-              channel={activeSettingsChannel}
-              catalog={readyById.get(pickerChannelTarget(activeSettingsChannel.id).catalogId) || null}
-              state={stateFor(activeSettingsChannel)}
-              organizationId={organizationId}
-              assets={assetsForSurface(activeSettingsChannel, readiness?.channel_assets || [])}
-              creativeAssets={readiness?.creative_assets || []}
-              walletCurrency={readiness?.wallet?.currency || null}
-              organizationTimezone={readiness?.time_context?.timezone || null}
-              value={{ ...(settings[activeSettingsChannel.id] || {}), ...(organizationSettings[activeSettingsChannel.id] || {}) }}
-              onChange={(key, value) => {
-                if (multiOrganization && organizationSpecificSetting(key)) {
-                  onOrganizationSettingChange(activeSettingsChannel.id, key, value);
-                } else {
-                  onSettingChange(activeSettingsChannel.id, key, value);
-                }
-              }}
-            />
+            <details className="group rounded-2xl border border-black/[0.07] bg-[#FCFBF8]">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#A37849]">Configure {activeSettingsChannel.name}</div>
+                  <div className="mt-1 text-[10px] leading-relaxed text-[#817B73]">Open only when you need channel-specific account, audience, creative or delivery controls.</div>
+                </div>
+                <span className="shrink-0 rounded-full border border-black/[0.07] bg-white px-3 py-1.5 text-[9px] font-semibold text-[#6F675F] group-open:hidden">Configure channel</span>
+                <span className="hidden shrink-0 rounded-full border border-[#D8B78D] bg-[#FBF4EA] px-3 py-1.5 text-[9px] font-semibold text-[#7A5735] group-open:inline">Hide settings</span>
+              </summary>
+              <div className="border-t border-black/[0.06] p-4">
+                <ChannelSettings
+                  key={`${activeSettingsChannel.id}-settings`}
+                  channel={activeSettingsChannel}
+                  catalog={readyById.get(pickerChannelTarget(activeSettingsChannel.id).catalogId) || null}
+                  state={stateFor(activeSettingsChannel)}
+                  organizationId={organizationId}
+                  assets={assetsForSurface(activeSettingsChannel, readiness?.channel_assets || [])}
+                  creativeAssets={readiness?.creative_assets || []}
+                  walletCurrency={readiness?.wallet?.currency || null}
+                  organizationTimezone={readiness?.time_context?.timezone || null}
+                  value={{ ...(settings[activeSettingsChannel.id] || {}), ...(organizationSettings[activeSettingsChannel.id] || {}) }}
+                  onChange={(key, value) => {
+                    if (multiOrganization && organizationSpecificSetting(key)) {
+                      onOrganizationSettingChange(activeSettingsChannel.id, key, value);
+                    } else {
+                      onSettingChange(activeSettingsChannel.id, key, value);
+                    }
+                  }}
+                />
+              </div>
+            </details>
           </div>
         </div>
       ) : (

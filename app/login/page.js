@@ -363,6 +363,9 @@ export default function LoginPage() {
               <div className="flex items-center gap-3 rounded-[12px] border border-white/[0.12] bg-black/45 px-4 transition focus-within:border-[#D6A66A]/65 focus-within:shadow-[0_0_24px_rgba(214,166,106,.08)]">
                 <Mail className="h-4 w-4 text-white/35" />
                 <input
+                  id="avantiqo-login-email"
+                  name="email"
+                  aria-label="Email"
                   type="email"
                   autoComplete="email"
                   value={email}
@@ -384,6 +387,9 @@ export default function LoginPage() {
             <div className="flex items-center gap-3 rounded-[12px] border border-white/[0.12] bg-black/45 px-4 transition focus-within:border-[#D6A66A]/65 focus-within:shadow-[0_0_24px_rgba(214,166,106,.08)]">
               <Lock className="h-4 w-4 text-white/35" />
               <input
+                id="avantiqo-login-password"
+                name="password"
+                aria-label={recoveryMode ? "New password" : "Password"}
                 type="password"
                 autoComplete={recoveryMode ? "new-password" : "current-password"}
                 value={password}
@@ -407,6 +413,9 @@ export default function LoginPage() {
               <div className="flex items-center gap-3 rounded-[12px] border border-white/[0.12] bg-black/45 px-4 transition focus-within:border-[#D6A66A]/65">
                 <Lock className="h-4 w-4 text-white/35" />
                 <input
+                  id="avantiqo-login-confirm-password"
+                  name="confirmPassword"
+                  aria-label="Confirm password"
                   type="password"
                   autoComplete="new-password"
                   value={confirmPassword}

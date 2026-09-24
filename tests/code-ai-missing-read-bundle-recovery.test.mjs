@@ -43,3 +43,15 @@ test("declared create targets short-circuit before repository path search", () =
   assert.ok(queryStart > createCheck);
   assert.match(source, /create_target_short_circuit: true/);
 });
+
+test("canonical local repository missing-file error enters read recovery", () => {
+  assert.match(source, /code_ai_repository_file_not_found/);
+  assert.match(source, /missingRepositoryReadPath\(operation, error\)/);
+});
+
+test("planner is explicitly told to create confirmed absent allowed targets", () => {
+  assert.match(live, /function expectedNewRepositoryTargets/);
+  assert.match(live, /DECLARED CREATE TARGETS ARE CONFIRMED ABSENT/);
+  assert.match(live, /Do not search for replacements and do not read these paths again before creation/);
+  assert.match(live, /use apply_files now to create the coherent declared files/);
+});

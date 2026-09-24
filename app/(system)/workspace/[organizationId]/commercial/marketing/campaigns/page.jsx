@@ -146,7 +146,7 @@ function AssetPreview({ asset }) {
       <video
         src={url}
         controls
-        className="h-48 w-full bg-black object-cover"
+        className="h-48 w-full bg-[#F3EFE9] object-cover"
       />
     );
   }

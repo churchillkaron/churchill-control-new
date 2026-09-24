@@ -18,11 +18,11 @@ function completedState(overrides = {}) {
     verification: [{ passed: true, family: "browser" }],
     tests: [{ exit_code: 0, command: "node", args: ["--test", "tests/invoice.test.mjs"] }],
     evidence: [
-      { kind: "operation", action: "verify", status: "completed", result: { exit_code: 1 } },
+      { kind: "operation", operation_id: "pre-verify", action: "verify", status: "completed", result: { exit_code: 1 } },
       { kind: "causal_hypothesis_record", hypotheses: ["auth", "state", "contract"] },
-      { kind: "operation", action: "apply_files", status: "completed", result: {} },
-      { kind: "operation", action: "verify", status: "completed", result: { exit_code: 0 } },
-      { kind: "operation", action: "browser_verify", status: "completed", result: { passed: true } },
+      { kind: "operation", operation_id: "apply", action: "apply_files", status: "completed", result: {} },
+      { kind: "operation", operation_id: "post-verify", action: "verify", status: "completed", result: { exit_code: 0 } },
+      { kind: "operation", operation_id: "post-browser", action: "browser_verify", status: "completed", result: { passed: true } },
     ],
     verified_engineering_memory: {
       contract: "AVANTIQO_CODE_VERIFIED_ENGINEERING_MEMORY_V1",
@@ -43,8 +43,17 @@ function completedState(overrides = {}) {
         matched_impacted_test_count: 1,
         broad_test_operation_ids: [],
       },
-      final_review: { complete: true },
     },
+    parallel_specialist_review: {
+      completed: true,
+      reviewer_count_requested: 2,
+      reviewer_count_succeeded: 2,
+      architecture_performance_review_present: true,
+      adversarial_risk_review_present: true,
+      reviews: [{ role: "architecture_performance", success: true }, { role: "adversarial_risk", success: true }],
+    },
+    final_independent_review: { verified: true, status: "APPROVED" },
+    final_independent_review_gate: { verified: true },
     ...overrides,
   };
 }
@@ -103,7 +112,7 @@ test("finalizer recognizes evidence-backed defect closure", () => {
   const state = completedState({
     hypothesis_debugging: { hypotheses: ["auth", "state", "contract"] },
     reproduction: { before_failure_observed: true, after_pass_observed: true },
-    security_review: { passed: true, scope: "authorization and tenant isolation" },
+    security_review: { passed: true, scope: "authorization and tenant isolation", evidence_operation_ids: ["post-verify"] },
   });
   const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
   const required = final.department_readiness.filter((item) => item.required);
@@ -345,4 +354,153 @@ test("verified behavioral record without impacted or broad test proof cannot sat
   });
   const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
   assert.ok(final.missing_required_departments.some((item) => item.key === "adversarial_testing"));
+});
+
+test("runtime observability cannot rely on telemetry linked only to pre-mutation operations", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken API runtime endpoint" });
+  const state = completedState({
+    files_changed: ["app/api/example/route.js"],
+    source_changes: [{ path: "app/api/example/route.js", operation: "write", content: "export async function GET(){}" }],
+    reproduction: { exact_before_after_observed: true, exact_reproduction_key: "api-runtime" },
+    hypothesis_debugging: { hypotheses: ["route", "auth", "runtime"] },
+    observability_evidence: {
+      records: [{ source: "runtime logs", summary: "old logs", evidence_operation_ids: ["pre-runtime"] }],
+    },
+    evidence: [
+      { kind: "operation", operation_id: "pre-runtime", action: "run", status: "completed", result: { exit_code: 0 } },
+      { kind: "causal_hypothesis_record", hypotheses: ["route", "auth", "runtime"] },
+      { kind: "operation", operation_id: "apply", action: "apply_files", status: "completed", result: {} },
+      { kind: "operation", operation_id: "post-verify", action: "verify", status: "completed", result: { exit_code: 0 } },
+    ],
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(final.missing_required_departments.some((item) => item.key === "runtime_observability"));
+});
+
+test("runtime observability accepts evidence linked to a successful post-mutation operation", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken API runtime endpoint" });
+  const state = completedState({
+    files_changed: ["app/api/example/route.js"],
+    source_changes: [{ path: "app/api/example/route.js", operation: "write", content: "export async function GET(){}" }],
+    reproduction: { exact_before_after_observed: true, exact_reproduction_key: "api-runtime" },
+    hypothesis_debugging: { hypotheses: ["route", "auth", "runtime"] },
+    observability_evidence: {
+      records: [{ source: "runtime logs", summary: "fresh logs", evidence_operation_ids: ["post-runtime"] }],
+    },
+    evidence: [
+      { kind: "operation", operation_id: "pre-runtime", action: "run", status: "completed", result: { exit_code: 0 } },
+      { kind: "causal_hypothesis_record", hypotheses: ["route", "auth", "runtime"] },
+      { kind: "operation", operation_id: "apply", action: "apply_files", status: "completed", result: {} },
+      { kind: "operation", operation_id: "post-runtime", action: "run", status: "completed", result: { exit_code: 0 } },
+    ],
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(!final.missing_required_departments.some((item) => item.key === "runtime_observability"));
+});
+
+test("generic performance verified flag cannot certify a performance mission", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix slow API runtime performance" });
+  const state = completedState({
+    engineering_performance: { verified: true },
+    performance_evidence: null,
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(final.missing_required_departments.some((item) => item.key === "performance_proof"));
+});
+
+test("measured comparable before-after benchmark certifies the performance department", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix slow API runtime performance" });
+  const state = completedState({
+    performance_evidence: {
+      contract: "AVANTIQO_CODE_PERFORMANCE_EVIDENCE_V1",
+      passed: true,
+      benchmark_key: "api-p95-stable-config",
+      metric: "p95 latency",
+      direction: "lower_is_better",
+      minimum_improvement_percent: 5,
+      measured_improvement_percent: 25,
+      before: 120,
+      after: 90,
+      before_operation_id: "perf-before",
+      after_operation_id: "perf-after",
+      evidence_operation_ids: ["perf-before", "perf-after"],
+    },
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(!final.missing_required_departments.some((item) => item.key === "performance_proof"));
+});
+
+test("pre-mutation browser verification cannot certify changed UI", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form UI" });
+  const state = completedState({
+    verification: [{ passed: true, family: "browser", operation_id: "pre-browser" }],
+    reproduction: { exact_before_after_observed: true, exact_reproduction_key: "invoice-ui" },
+    hypothesis_debugging: { hypotheses: ["layout", "state", "event"] },
+    evidence: [
+      { kind: "operation", operation_id: "pre-browser", action: "browser_verify", status: "completed", result: { passed: true } },
+      { kind: "causal_hypothesis_record", hypotheses: ["layout", "state", "event"] },
+      { kind: "operation", operation_id: "apply", action: "apply_files", status: "completed", result: {} },
+      { kind: "operation", operation_id: "post-test", action: "verify", status: "completed", result: { exit_code: 0 } },
+    ],
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(final.missing_required_departments.some((item) => item.key === "browser_verification"));
+});
+
+test("non-browser post-mutation operation cannot masquerade as browser proof", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form UI" });
+  const state = completedState({
+    verification: [{ passed: true, family: "browser", operation_id: "post-test" }],
+    reproduction: { exact_before_after_observed: true, exact_reproduction_key: "invoice-ui" },
+    hypothesis_debugging: { hypotheses: ["layout", "state", "event"] },
+    evidence: [
+      { kind: "operation", operation_id: "pre-fail", action: "verify", status: "completed", result: { exit_code: 1 } },
+      { kind: "causal_hypothesis_record", hypotheses: ["layout", "state", "event"] },
+      { kind: "operation", operation_id: "apply", action: "apply_files", status: "completed", result: {} },
+      { kind: "operation", operation_id: "post-test", action: "verify", status: "completed", result: { exit_code: 0 } },
+    ],
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(final.missing_required_departments.some((item) => item.key === "browser_verification"));
+});
+
+test("high-risk multi-agent gate requires both specialist and independent final review", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice authorization" });
+  const base = completedState({
+    security_review: { passed: true, scope: "authorization", evidence_operation_ids: ["post-verify"] },
+  });
+
+  const independentOnly = finalizeCodeAIEngineeringOperatingSystem({
+    prepared_control: prepared.control,
+    result: { success: true, state: { ...base, parallel_specialist_review: { completed: false, reviewer_count_requested: 2, reviewer_count_succeeded: 0, architecture_performance_review_present: false, adversarial_risk_review_present: false }, final_independent_review: { verified: true, status: "APPROVED" }, final_independent_review_gate: { verified: true } } },
+  });
+  assert.ok(independentOnly.missing_required_departments.some((item) => item.key === "multi_agent_team"));
+
+  const specialistOnly = finalizeCodeAIEngineeringOperatingSystem({
+    prepared_control: prepared.control,
+    result: { success: true, state: { ...base, parallel_specialist_review: { completed: true, reviewer_count_requested: 2, reviewer_count_succeeded: 2, architecture_performance_review_present: true, adversarial_risk_review_present: true }, final_independent_review: { verified: false, status: "UNAVAILABLE" }, final_independent_review_gate: { verified: false } } },
+  });
+  assert.ok(specialistOnly.missing_required_departments.some((item) => item.key === "multi_agent_team"));
+
+  const both = finalizeCodeAIEngineeringOperatingSystem({
+    prepared_control: prepared.control,
+    result: { success: true, state: base },
+  });
+  assert.ok(!both.missing_required_departments.some((item) => item.key === "multi_agent_team"));
+});
+
+
+test("partial specialist council cannot satisfy high-risk multi-agent gate", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice authorization" });
+  const state = completedState({
+    parallel_specialist_review: {
+      completed: true,
+      reviewer_count_requested: 2,
+      reviewer_count_succeeded: 1,
+      architecture_performance_review_present: true,
+      adversarial_risk_review_present: false,
+    },
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(final.missing_required_departments.some((item) => item.key === "multi_agent_team"));
 });

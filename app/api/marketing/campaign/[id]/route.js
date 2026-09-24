@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { getServiceSupabase }
 from "@/lib/shared/supabase/service";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 const supabaseAdmin =
   getServiceSupabase();
@@ -13,7 +14,16 @@ export async function GET(
   try {
 
     const { id } =
-      params;
+      await params;
+    const organizationId = new URL(request.url).searchParams.get("organizationId");
+    if (!organizationId) {
+      return Response.json({ success: false, error: "organizationId is required" }, { status: 400 });
+    }
+
+    const access = await requireOrganizationAccess({ organizationId, request });
+    if (!access.success) {
+      return Response.json({ success: false, error: access.error || "Organization access denied" }, { status: access.status || 403 });
+    }
 
     const {
       data,
@@ -24,6 +34,7 @@ export async function GET(
       )
       .select("*")
       .eq("id", id)
+      .eq("organization_id", access.organizationId)
       .single();
 
     if (error) {

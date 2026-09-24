@@ -8,6 +8,7 @@ const paths = {
   attachmentApi: "app/api/operator/developer-attachments/route.js",
   organizationAccess: "lib/platform/security/requireOrganizationAccess.js",
   dock: "components/operator/HomeAvantiqoIntelligenceDock.jsx",
+  home: "components/operator/HomeAvantiqoIntelligence.jsx",
   codeLive: "lib/code/runtime/CodeAIWorkPackageRuntimeLive.js",
   operatorMission: "lib/platform/capabilities/createOperatorMissionCapability.js",
   developerResources: "lib/platform/runtime/AvantiqoDeveloperResourceReadRuntime.js",
@@ -52,20 +53,27 @@ markers("ATTACHMENT_API", source.attachmentApi, [
 ]);
 markers("ORGANIZATION_ACCESS_AUTH", source.organizationAccess, [
   "async function authenticatedUser(request)",
-  "supabaseAdmin.auth.getUser(token)",
+  "ACCESS_NETWORK_TIMEOUT_MS = 5000",
+  "function boundedAccessFetch",
+  "/auth/v1/user",
   "supabase.auth.getUser()",
   "export async function requireOrganizationAccess",
 ]);
 
-markers("BUSINESS_PARTNER_UI", source.dock, [
+markers("BUSINESS_PARTNER_DOCK", source.dock, [
   "Paperclip",
-  '"/api/operator/developer-attachments"',
-  '"x-avantiqo-developer-attachment-set"',
-  '"/api/operator/turn/live"',
-  "const MAX_DEVELOPER_FILES = 4",
+  '"/api/operator/attachments"',
+  '"/api/operator/attachments/analyze"',
+  "const MAX_DEVELOPER_FILES = 8",
   ".slice(0, MAX_DEVELOPER_FILES)",
   '"/api/operator/live-execution"',
   "requestStop",
+]);
+markers("BUSINESS_PARTNER_TURN", source.home, [
+  '"/api/operator/turn/live"',
+  '"x-avantiqo-attachment-set"',
+  "prepareAttachmentSetForTurn",
+  "completeAttachmentTurn",
 ]);
 
 markers("CODE_TRANSIENT_ATTACHMENT_AND_STOP", source.codeLive, [

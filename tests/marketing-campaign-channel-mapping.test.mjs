@@ -423,11 +423,12 @@ test("Google Ads daily budget cannot project beyond its authorized provider allo
 test("Campaign approval is explicit, fingerprint-gated and paused-first", () => {
   const page = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/page.jsx", "utf8");
   assert.match(page, /Approve & Create Paused/);
-  assert.match(page, /window\.confirm/);
+  assert.match(page, /Paid Media Approval/);
+  assert.match(page, /Provider state after creation/);
   assert.match(page, /confirmOwnerApproval: true/);
   assert.match(page, /expectedPlanFingerprint: fingerprint/);
   assert.match(page, /channel plan has changed since review/);
-  assert.match(page, /It will NOT activate ads/);
+  assert.match(page, /does not activate ads/);
   assert.match(page, /campaign created in PAUSED state\. Ads are not active/);
 });
 
@@ -1400,6 +1401,20 @@ test("multi-organization campaign keeps strategy detail collapsed and light-them
   assert.doesNotMatch(wholePage, /amber-/);
 });
 
+test("Campaign workspace can search and filter large campaign lists", () => {
+  const campaignPage = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/page.jsx", "utf8");
+  assert.match(campaignPage, /const \[campaignQuery, setCampaignQuery\] = useState\(""\)/);
+  assert.match(campaignPage, /const \[campaignStatusFilter, setCampaignStatusFilter\] = useState\("all"\)/);
+  assert.match(campaignPage, /Search name, goal or message/);
+  assert.match(campaignPage, /All statuses/);
+  assert.match(campaignPage, /No campaigns match these filters/);
+  assert.match(campaignPage, /Clear filters/);
+  assert.match(campaignPage, /aria-label="Search campaigns"/);
+  assert.match(campaignPage, /aria-label="Filter campaigns by status"/);
+  assert.match(campaignPage, /aria-current=\{active \? "true" : undefined\}/);
+  assert.match(campaignPage, /\}, \[selected\?\.id\]\);/);
+});
+
 test("Campaign detail explains launch state before technical provider evidence", () => {
   const campaignPage = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/page.jsx", "utf8");
   assert.match(campaignPage, /<LaunchStage label="Plan" state="complete" detail="Campaign draft saved"/);
@@ -1410,6 +1425,30 @@ test("Campaign detail explains launch state before technical provider evidence",
   assert.match(campaignPage, /Still paused · activation separate/);
   assert.match(campaignPage, /Technical evidence/);
   assert.match(campaignPage, /Integrity: \{evidence\.plan_fingerprint \? "Verified" : "Legacy \/ unavailable"\}/);
+});
+
+test("Creative production approval stays in-product, immutable and preserves separate cost and ad-spend boundaries", () => {
+  assert.match(component, /const \[creativeExecutionApproval, setCreativeExecutionApproval\] = useState\(null\)/);
+  assert.match(component, /Creative Production Approval/);
+  assert.match(component, /Approved campaign group:/);
+  assert.match(component, /groupSnapshot: creativeExecutionApproval/);
+  assert.match(component, /for \(const member of targetGroup\.members\)/);
+  assert.match(component, /completed for \$\{completed\.length\}\/\$\{completed\.length \+ failed\.length\} organization campaigns/);
+  assert.match(component, /item\.status === "FAILED"/);
+  assert.match(component, /Approve & Start Production/);
+  assert.match(component, /Provider or cost approvals remain separate, and advertising spend remains unauthorized/);
+  assert.doesNotMatch(component, /window\.confirm\(/);
+});
+
+test("Paid-media approval uses an Avantiqo-native exact-plan confirmation instead of browser confirm", () => {
+  const campaignPage = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/page.jsx", "utf8");
+  assert.match(campaignPage, /function requestProviderApproval\(provider\)/);
+  assert.match(campaignPage, /role="dialog" aria-modal="true" aria-labelledby="provider-approval-title"/);
+  assert.match(campaignPage, /Maximum reservation/);
+  assert.match(campaignPage, /Provider state after creation/);
+  assert.match(campaignPage, /A separate activation action is required before ads can run/);
+  assert.match(campaignPage, /Approve & Create Paused/);
+  assert.doesNotMatch(campaignPage, /window\.confirm\(/);
 });
 
 test("Campaign creation modal is keyboard-aware and responsive", () => {
@@ -1455,11 +1494,19 @@ test("selected channel keeps detailed provider controls collapsed until explicit
   assert.match(component, /<ChannelSettings[\s\S]*activeSettingsChannel/);
 });
 
-test("multi-organization campaign asset controls respect each child organization permission", () => {
+test("multi-organization campaign child capabilities match asset and Creative authority", () => {
   const groupsRoute = fs.readFileSync("app/api/marketing/campaign-groups/route.js", "utf8");
   const wholePage = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/whole/page.jsx", "utf8");
-  assert.match(groupsRoute, /capabilities: \{\s*can_manage_assets: canManageAssets/);
+  assert.match(groupsRoute, /capabilities: \{\s*can_manage_assets: canManageAssets,/);
+  assert.match(groupsRoute, /can_prepare_creative: canPrepareCreative/);
+  assert.match(groupsRoute, /can_execute_creative: canExecuteCreative/);
+  assert.match(groupsRoute, /"creative\.mission\.create"/);
+  assert.match(groupsRoute, /"creative\.production\.run"/);
   assert.match(groupsRoute, /accessibleOrganizations\.get\(member\.organization_id\)/);
+  assert.match(component, /creativePrepareBlockedMembers/);
+  assert.match(component, /creativeExecuteBlockedMembers/);
+  assert.match(component, /Creative preparation permission is missing for:/);
+  assert.match(component, /Creative production permission is missing for:/);
   assert.match(wholePage, /member\.capabilities\?\.can_manage_assets === true/);
   assert.match(wholePage, /View only · upload permission required/);
   assert.match(wholePage, /Adding or attaching media requires campaign or creative upload permission/);

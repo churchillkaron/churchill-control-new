@@ -44,10 +44,10 @@ export default function StudioCenterStage({
   }, [latestCampaign]);
 
   useEffect(() => {
-    if (campaignMedia?.url) {
-      setActiveAsset(campaignMedia);
-    }
-  }, [campaignMedia?.url]);
+    if (!campaignMedia?.url) return;
+    setLocalActiveAsset(campaignMedia);
+    setExternalActiveAsset?.(campaignMedia);
+  }, [campaignMedia, setExternalActiveAsset]);
 
   const visibleAssets =
     selectedAssets.length > 0

@@ -109,7 +109,7 @@ const actionPolicy = resolveCodeAIWorkPackageActionPolicy({
 });
 assert.equal(actionPolicy.discovery_locked, true);
 assert.equal(actionPolicy.all_declared_evidence_loaded, true);
-assert.deepEqual(actionPolicy.allowed_actions, ["apply_files", "verify", "diff"]);
+assert.deepEqual(actionPolicy.allowed_actions, ["apply_files", "replace_range"]);
 assert.equal(actionPolicy.declared_evidence_prompt_source, "DURABLE_COMPACT_DECLARED_READS");
 
 const compact = compactCodeAIMissionStateForPlanner(state);
@@ -129,7 +129,7 @@ const transport = buildCodeAIWorkPackagePromptTransport({
     "You are Avantiqo Code. Implement from already observed evidence and do not ask for more context.",
     "MISSION: repair the bounded fixture and verify it.",
     `CONTROLLER AUTHORITATIVE VERIFICATION: ${JSON.stringify({ command: "node", args: [evidencePaths[2]] })}.`,
-    "Allowed actions: apply_files, verify, diff.",
+    "Allowed actions: apply_files, replace_range.",
   ],
   compact_state: compact,
   objective_context: objectiveContext,

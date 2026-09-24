@@ -182,12 +182,30 @@ export default function CampaignWorkspacePage() {
   const [executingProvider, setExecutingProvider] = useState("");
   const [executionResults, setExecutionResults] = useState({});
   const [approvalRequest, setApprovalRequest] = useState(null);
+  const [campaignQuery, setCampaignQuery] = useState("");
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState("all");
   const [canManageAssets, setCanManageAssets] = useState(false);
   const [canManagePaidMedia, setCanManagePaidMedia] = useState(false);
 
+  const campaignStatuses = useMemo(
+    () => [...new Set(campaigns.map((campaign) => String(campaign.campaign_status || "draft").toLowerCase()))].sort(),
+    [campaigns],
+  );
+  const visibleCampaigns = useMemo(() => {
+    const query = campaignQuery.trim().toLowerCase();
+    return campaigns.filter((campaign) => {
+      const status = String(campaign.campaign_status || "draft").toLowerCase();
+      if (campaignStatusFilter !== "all" && status !== campaignStatusFilter) return false;
+      if (!query) return true;
+      const content = campaign.campaign_content || {};
+      return [campaign.campaign_name, content.goal, content.core_message, campaign.campaign_type]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    });
+  }, [campaignQuery, campaignStatusFilter, campaigns]);
   const selected = useMemo(
-    () => campaigns.find((campaign) => campaign.id === selectedId) || campaigns[0] || null,
-    [campaigns, selectedId],
+    () => visibleCampaigns.find((campaign) => campaign.id === selectedId) || visibleCampaigns[0] || null,
+    [selectedId, visibleCampaigns],
   );
 
   const loadCampaigns = useCallback(async () => {
@@ -233,7 +251,21 @@ export default function CampaignWorkspacePage() {
     setExecutionResults({});
     setExecutingProvider("");
     setApprovalRequest(null);
-  }, [selectedId]);
+  }, [selected?.id]);
+
+  useEffect(() => {
+    if (!approvalRequest) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !executingProvider) setApprovalRequest(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [approvalRequest, executingProvider]);
 
   async function runPreflight() {
     if (!selected || !canManagePaidMedia) return;
@@ -307,10 +339,6 @@ export default function CampaignWorkspacePage() {
   async function approveAndExecuteProvider() {
     if (!selected || !approvalRequest || !canManagePaidMedia) return;
     const { provider, plan, fingerprint, label } = approvalRequest;
-    const approved = window.confirm(
-      `Approve creation of the ${label} campaign in PAUSED state? It will NOT activate ads.`,
-    );
-    if (!approved) return;
     setExecutingProvider(provider);
     setError("");
     setMessage("");
@@ -435,6 +463,50 @@ export default function CampaignWorkspacePage() {
           </div>
         ) : null}
 
+        {approvalRequest ? (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center overflow-y-auto bg-[#241B12]/20 p-4 backdrop-blur-md">
+            <div role="dialog" aria-modal="true" aria-labelledby="provider-approval-title" className="w-full max-w-lg rounded-[30px] border border-[#DCC8AE] bg-[#FCFAF6] p-6 shadow-2xl lg:p-8">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#A37849]">Paid Media Approval</div>
+                  <h2 id="provider-approval-title" className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-[#2D2822]">Create {approvalRequest.label} campaign?</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-[#777169]">This approval applies only to the exact reviewed campaign plan and does not activate ads.</p>
+                </div>
+                <button type="button" onClick={() => setApprovalRequest(null)} disabled={Boolean(executingProvider)} aria-label="Close approval" className="rounded-xl border border-black/[0.08] bg-white p-2 text-[#7C7369] disabled:opacity-40">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-black/[0.07] bg-white p-4">
+                  <div className="text-[9px] uppercase tracking-[0.12em] text-[#9B9289]">Maximum reservation</div>
+                  <div className="mt-2 text-lg font-semibold text-[#4A4138]">{money(approvalRequest.amount, approvalRequest.currency)}</div>
+                </div>
+                <div className="rounded-2xl border border-black/[0.07] bg-white p-4">
+                  <div className="text-[9px] uppercase tracking-[0.12em] text-[#9B9289]">Provider state after creation</div>
+                  <div className="mt-2 text-lg font-semibold text-[#4A4138]">PAUSED</div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-[#DDBA8B] bg-[#FFF8EC] px-4 py-3 text-xs leading-relaxed text-[#7A5A36]">
+                Avantiqo will reserve up to this amount from the organization wallet and create the provider campaign in PAUSED state. A separate activation action is required before ads can run.
+              </div>
+
+              {executionResults?.[approvalRequest.provider]?.success === false ? (
+                <div className="mt-4 rounded-2xl border border-red-700/15 bg-red-50 px-4 py-3 text-xs leading-relaxed text-red-800">{executionResults[approvalRequest.provider]?.error?.message || "Campaign creation failed"}</div>
+              ) : null}
+
+              <div className="mt-6 flex flex-wrap justify-end gap-3 border-t border-black/[0.06] pt-5">
+                <button type="button" onClick={() => setApprovalRequest(null)} disabled={Boolean(executingProvider)} className="rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm text-[#625B53] disabled:opacity-40">Cancel</button>
+                <button type="button" onClick={approveAndExecuteProvider} disabled={Boolean(executingProvider)} className="inline-flex items-center gap-2 rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-[#2B2118] disabled:opacity-40">
+                  {executingProvider ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  {executingProvider ? "Creating paused campaign…" : "Approve & Create Paused"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {!campaigns.length ? (
           <div className="rounded-[30px] border border-black/[0.07] bg-white p-10 text-center">
             <Megaphone className="mx-auto h-9 w-9 text-[#D6A66A]" />
@@ -444,13 +516,25 @@ export default function CampaignWorkspacePage() {
         ) : (
           <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
             <aside className="space-y-3">
-              {campaigns.map((campaign) => {
+              <div className="rounded-[24px] border border-black/[0.07] bg-white p-4">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#A37849]">Find Campaign</div>
+                <input aria-label="Search campaigns" value={campaignQuery} onChange={(event) => setCampaignQuery(event.target.value)} placeholder="Search name, goal or message" className="mt-3 w-full rounded-xl border border-black/[0.08] bg-[#FCFBF8] px-3 py-2.5 text-xs text-[#2D2822] outline-none placeholder:text-[#AAA198] focus:border-[#D6A66A]/50" />
+                <div className="mt-3 flex items-center gap-2">
+                  <select aria-label="Filter campaigns by status" value={campaignStatusFilter} onChange={(event) => setCampaignStatusFilter(event.target.value)} className="min-w-0 flex-1 rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-xs text-[#514A43] outline-none">
+                    <option value="all">All statuses</option>
+                    {campaignStatuses.map((status) => <option key={status} value={status}>{labelize(status)}</option>)}
+                  </select>
+                  <span className="shrink-0 text-[10px] text-[#9B9289]">{visibleCampaigns.length}/{campaigns.length}</span>
+                </div>
+              </div>
+              {visibleCampaigns.length ? visibleCampaigns.map((campaign) => {
                 const active = selected?.id === campaign.id;
                 const content = campaign.campaign_content || {};
 
                 return (
                   <button
                     key={campaign.id}
+                    aria-current={active ? "true" : undefined}
                     onClick={() => setSelectedId(campaign.id)}
                     className={`w-full rounded-[26px] border p-5 text-left transition ${
                       active
@@ -471,12 +555,17 @@ export default function CampaignWorkspacePage() {
                     <div className="mt-4 text-sm text-[#805A35]">{money(campaign.budget, campaignCurrency(content))}{content.budget_semantics === "campaign_total_authorization" ? " total" : " / month"}</div>
                   </button>
                 );
-              })}
+              }) : (
+                <div className="rounded-[24px] border border-dashed border-[#D8C2A8] bg-[#FCFBF8] px-5 py-8 text-center">
+                  <div className="text-sm font-medium text-[#5E564E]">No campaigns match these filters</div>
+                  <button type="button" onClick={() => { setCampaignQuery(""); setCampaignStatusFilter("all"); }} className="mt-2 text-xs font-semibold text-[#8A633C] hover:underline">Clear filters</button>
+                </div>
+              )}
             </aside>
 
             {selected ? (
               <section className="space-y-6">
-                <CampaignDetail campaign={selected} onPreflight={runPreflight} preflighting={preflighting} preflightResults={preflightResults} onApproveProvider={approveAndExecuteProvider} executingProvider={executingProvider} executionResults={executionResults} canManagePaidMedia={canManagePaidMedia} />
+                <CampaignDetail campaign={selected} onPreflight={runPreflight} preflighting={preflighting} preflightResults={preflightResults} onApproveProvider={requestProviderApproval} executingProvider={executingProvider} executionResults={executionResults} canManagePaidMedia={canManagePaidMedia} />
 
                 <div className="rounded-[30px] border border-black/[0.07] bg-white p-6 lg:p-8">
                   <div className="flex flex-wrap items-end justify-between gap-5">

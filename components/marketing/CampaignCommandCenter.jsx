@@ -166,6 +166,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
   const [readinessByOrganization, setReadinessByOrganization] = useState({});
   const [configurationOrganizationId, setConfigurationOrganizationId] = useState("");
   const [createStep, setCreateStep] = useState(0);
+  const [creativeExecutionApproval, setCreativeExecutionApproval] = useState(null);
 
   useEffect(() => {
     if (!mode) return undefined;
@@ -185,6 +186,14 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
   const selectedGroup = useMemo(
     () => groups.find((group) => group.id === selectedGroupId) || groups[0] || null,
     [groups, selectedGroupId],
+  );
+  const creativePrepareBlockedMembers = useMemo(
+    () => (selectedGroup?.members || []).filter((member) => member.capabilities?.can_prepare_creative !== true),
+    [selectedGroup],
+  );
+  const creativeExecuteBlockedMembers = useMemo(
+    () => (selectedGroup?.members || []).filter((member) => member.capabilities?.can_execute_creative !== true),
+    [selectedGroup],
   );
 
   const loadContext = useCallback(async () => {
@@ -314,16 +323,9 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
     }
   }
 
-  async function prepareWholeCampaign({ execute = false } = {}) {
-    if (!selectedGroup?.members?.length) return;
-    if (
-      execute &&
-      !window.confirm(
-        "Start Creative Studio production for every organization in this campaign? This may use connected creative services and may trigger a separate cost-approval boundary. It will not authorize advertising spend.",
-      )
-    ) {
-      return;
-    }
+  async function prepareWholeCampaign({ execute = false, groupSnapshot = null } = {}) {
+    const targetGroup = groupSnapshot || selectedGroup;
+    if (!targetGroup?.members?.length) return;
 
     setLoading(true);
     setMessage("");
@@ -331,30 +333,43 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
 
     try {
       const completed = [];
-      for (const member of selectedGroup.members) {
+      const failed = [];
+      for (const member of targetGroup.members) {
         const campaign = member.campaign;
         if (!campaign?.id || !member.organization_id) continue;
-        const data = await marketingCommand({
-          action: execute ? "execute_creative" : "prepare_creative",
-          organizationId: member.organization_id,
-          campaignId: campaign.id,
-        });
-        completed.push({
-          organizationName: member.organization?.name || "Organization",
-          campaignName: campaign.campaign_name,
-          studioPath: data?.studio_path,
-          status: data?.execution?.status || (execute ? "STARTED" : "PREPARED"),
-        });
-        setPrepared([...completed]);
+        try {
+          const data = await marketingCommand({
+            action: execute ? "execute_creative" : "prepare_creative",
+            organizationId: member.organization_id,
+            campaignId: campaign.id,
+          });
+          completed.push({
+            organizationName: member.organization?.name || "Organization",
+            campaignName: campaign.campaign_name,
+            studioPath: data?.studio_path,
+            status: data?.execution?.status || (execute ? "STARTED" : "PREPARED"),
+          });
+        } catch (memberError) {
+          failed.push({
+            organizationName: member.organization?.name || "Organization",
+            campaignName: campaign.campaign_name,
+            status: "FAILED",
+            error: memberError.message || "Creative handoff failed",
+          });
+        }
+        setPrepared([...completed, ...failed]);
       }
-      setMessage(
-        execute
-          ? `Creative production started for ${completed.length} organization campaigns.`
-          : `Studio missions prepared for ${completed.length} organization campaigns.`,
-      );
+      if (failed.length) {
+        setMessage(`${execute ? "Creative production" : "Creative Studio preparation"} completed for ${completed.length}/${completed.length + failed.length} organization campaigns. ${failed.length} need attention.`);
+      } else {
+        setMessage(
+          execute
+            ? `Creative production started for ${completed.length} organization campaigns.`
+            : `Studio missions prepared for ${completed.length} organization campaigns.`,
+        );
+      }
+      if (execute) setCreativeExecutionApproval(null);
       router.refresh();
-    } catch (error) {
-      setMessage(error.message || "Unable to hand campaign to Creative Studio");
     } finally {
       setLoading(false);
     }
@@ -898,7 +913,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                   <div className="relative mt-3">
                     <select
                       value={selectedGroup?.id || ""}
-                      onChange={(event) => setSelectedGroupId(event.target.value)}
+                      onChange={(event) => { setSelectedGroupId(event.target.value); setCreativeExecutionApproval(null); }}
                       className="w-full appearance-none rounded-2xl border border-black/[0.08] bg-white px-4 py-4 pr-10 text-sm text-[#2D2822] outline-none focus:border-[#D6A66A]/40"
                     >
                       {groups.map((group) => (
@@ -929,25 +944,57 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                 <div className="grid gap-3 md:grid-cols-2">
                   <button
                     type="button"
-                    disabled={loading || !selectedGroup}
+                    disabled={loading || !selectedGroup || creativePrepareBlockedMembers.length > 0}
                     onClick={() => prepareWholeCampaign({ execute: false })}
                     className="rounded-2xl border border-[#D8B78D] bg-[#FBF4EA] p-5 text-left transition hover:bg-[#D6A66A]/15 disabled:opacity-40"
                   >
                     <Sparkles className="h-5 w-5 text-[#D6A66A]" />
                     <div className="mt-3 text-base font-semibold text-[#5D4129]">Prepare in Creative Studio</div>
-                    <div className="mt-1 text-sm leading-relaxed text-[#777169]">Creates and starts real campaign-linked Creative Missions, projects and briefs for every organization.</div>
+                    <div className="mt-1 text-sm leading-relaxed text-[#777169]">Creates or reuses the campaign-linked Creative Mission, project and brief for each organization without starting production.</div>
                   </button>
                   <button
                     type="button"
-                    disabled={loading || !selectedGroup}
-                    onClick={() => prepareWholeCampaign({ execute: true })}
-                    className="rounded-2xl border border-emerald-700/15 bg-emerald-50 p-5 text-left transition hover:bg-emerald-500/[0.11] disabled:opacity-40"
+                    disabled={loading || !selectedGroup || creativeExecuteBlockedMembers.length > 0}
+                    onClick={() => setCreativeExecutionApproval({
+                      id: selectedGroup.id,
+                      name: selectedGroup.campaign_group_name,
+                      members: (selectedGroup.members || []).map((member) => ({
+                        id: member.id,
+                        organization_id: member.organization_id,
+                        organization: { name: member.organization?.name || "Organization" },
+                        campaign: { id: member.campaign?.id, campaign_name: member.campaign?.campaign_name || "Campaign" },
+                      })),
+                    })}
+                    className="rounded-2xl border border-[#D8B78D] bg-[#FBF4EA] p-5 text-left transition hover:bg-[#F4E7D5] disabled:opacity-40"
                   >
-                    <Megaphone className="h-5 w-5 text-emerald-300" />
-                    <div className="mt-3 text-base font-semibold text-emerald-800">Start Creative Production</div>
+                    <Megaphone className="h-5 w-5 text-[#A37849]" />
+                    <div className="mt-3 text-base font-semibold text-[#5D4129]">Start Creative Production</div>
                     <div className="mt-1 text-sm leading-relaxed text-[#777169]">Tells the Creative Director to execute. Provider/cost approval remains governed separately; advertising spend stays unauthorized.</div>
                   </button>
                 </div>
+
+                {creativePrepareBlockedMembers.length || creativeExecuteBlockedMembers.length ? (
+                  <div className="rounded-2xl border border-[#DDBA8B] bg-[#FFF8EC] px-4 py-3 text-xs leading-relaxed text-[#7A5A36]">
+                    {creativePrepareBlockedMembers.length ? <div>Creative preparation permission is missing for: {creativePrepareBlockedMembers.map((member) => member.organization?.name || "Organization").join(" · ")}.</div> : null}
+                    {creativeExecuteBlockedMembers.length ? <div className={creativePrepareBlockedMembers.length ? "mt-1" : ""}>Creative production permission is missing for: {creativeExecuteBlockedMembers.map((member) => member.organization?.name || "Organization").join(" · ")}.</div> : null}
+                  </div>
+                ) : null}
+
+                {creativeExecutionApproval ? (
+                  <div className="rounded-[24px] border border-[#DDBA8B] bg-[#FFF8EC] p-5">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#A37849]">Creative Production Approval</div>
+                    <div className="mt-2 text-base font-semibold text-[#4A4138]">Start production for {creativeExecutionApproval.members.length} organization campaign{creativeExecutionApproval.members.length === 1 ? "" : "s"}?</div>
+                    <div className="mt-1 text-[10px] uppercase tracking-[0.1em] text-[#9A7651]">Approved campaign group: {creativeExecutionApproval.name}</div>
+                    <p className="mt-2 text-xs leading-relaxed text-[#7A5A36]">This starts governed Creative Director execution and may use connected creative services. Provider or cost approvals remain separate, and advertising spend remains unauthorized.</p>
+                    <div className="mt-4 flex flex-wrap justify-end gap-2">
+                      <button type="button" onClick={() => setCreativeExecutionApproval(null)} disabled={loading} className="rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-xs font-medium text-[#625B53] disabled:opacity-40">Cancel</button>
+                      <button type="button" onClick={() => prepareWholeCampaign({ execute: true, groupSnapshot: creativeExecutionApproval })} disabled={loading} className="inline-flex items-center gap-2 rounded-xl bg-[#D6A66A] px-4 py-2.5 text-xs font-semibold text-[#2B2118] disabled:opacity-40">
+                        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Megaphone className="h-3.5 w-3.5" />}
+                        {loading ? "Starting production…" : "Approve & Start Production"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
 
                 {loading ? (
                   <div className="flex items-center gap-2 text-sm text-[#817B73]"><Loader2 className="h-4 w-4 animate-spin" /> Working through organization campaigns...</div>
@@ -961,7 +1008,10 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                           <div className="text-xs uppercase tracking-[0.12em] text-[#D6A66A]">{item.organizationName}</div>
                           <div className="mt-1 text-sm text-[#625B53]">{item.campaignName}</div>
                         </div>
-                        <div className="text-xs uppercase tracking-[0.12em] text-emerald-300">{item.status}</div>
+                        <div className="text-right">
+                          <div className={`text-xs font-semibold uppercase tracking-[0.12em] ${item.status === "FAILED" ? "text-red-700" : "text-emerald-700"}`}>{item.status}</div>
+                          {item.error ? <div className="mt-1 max-w-sm text-[10px] leading-relaxed text-red-700">{item.error}</div> : null}
+                        </div>
                       </div>
                     ))}
                   </div>

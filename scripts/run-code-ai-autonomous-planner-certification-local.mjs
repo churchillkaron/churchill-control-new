@@ -409,13 +409,24 @@ try {
   }
   serviceEnabled = true;
 
+  const expectedMainCommit = run(
+    "git",
+    ["ls-remote", "origin", "refs/heads/main"],
+    { capture: true },
+  ).split(/\s+/)[0]?.toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(expectedMainCommit || "")) {
+    throw new Error("CODE_AI_CERTIFICATION_REMOTE_MAIN_COMMIT_REQUIRED");
+  }
   const certificationEnv = {
     ...process.env,
     AVANTIQO_CODE_PLANNER_CERT_ORGANIZATION_ID: organizationId,
+    AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT: expectedMainCommit,
   };
-  run("npm", ["run", "certify:code-ai-autonomous-planner"], {
-    env: certificationEnv,
-  });
+  run(
+    process.execPath,
+    ["scripts/certify-code-ai-autonomous-planner-service-runtime-live.mjs"],
+    { env: certificationEnv },
+  );
   certificationSucceeded = true;
 } finally {
   let disabled = false;

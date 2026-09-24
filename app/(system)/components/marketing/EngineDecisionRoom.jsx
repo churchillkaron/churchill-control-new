@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 export default function EngineDecisionRoom({
   setEngine,
   next,
@@ -80,17 +82,13 @@ export default function EngineDecisionRoom({
               transition-all
             "
           >
-            <div className="aspect-[4/5] overflow-hidden">
-              <img
+            <div className="relative aspect-[4/5] overflow-hidden">
+              <Image
                 src={engine.image}
-                className="
-                  w-full
-                  h-full
-                  object-cover
-                  group-hover:scale-105
-                  transition-all
-                  duration-700
-                "
+                alt={engine.title || "Marketing engine"}
+                fill
+                sizes="(min-width: 1280px) 20vw, (min-width: 768px) 50vw, 100vw"
+                className="object-cover transition-all duration-700 group-hover:scale-105"
               />
             </div>
 

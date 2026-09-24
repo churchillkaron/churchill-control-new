@@ -235,11 +235,24 @@ export const POST = withApiHandler(
         "creative.asset.upload",
         "creative.*",
       ].some((permission) => hasMarketingPermission(memberAccess, permission));
+      const canPrepareCreative = [
+        "marketing.campaign.manage",
+        "creative.mission.create",
+        "creative.projects.create",
+        "creative.*",
+      ].some((permission) => hasMarketingPermission(memberAccess, permission));
+      const canExecuteCreative = [
+        "creative.execute",
+        "creative.production.run",
+        "creative.*",
+      ].some((permission) => hasMarketingPermission(memberAccess, permission));
 
       membersByGroup.get(member.campaign_group_id).push({
         ...member,
         capabilities: {
           can_manage_assets: canManageAssets,
+          can_prepare_creative: canPrepareCreative,
+          can_execute_creative: canExecuteCreative,
         },
         organization: organizationsById.get(member.organization_id) || null,
         campaign: {

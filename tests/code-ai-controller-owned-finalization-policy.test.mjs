@@ -35,7 +35,7 @@ test("controller-owned verify and diff do not violate mutation-first action poli
   );
 });
 
-test("model-supplied verify remains forbidden during mutation-first phase", () => {
+test("matching model verify is adopted as controller-authoritative during mutation-first phase", () => {
   const parsed = parseCodeAIWorkPackage(packageWith([
     {
       action: "apply_files",
@@ -49,6 +49,31 @@ test("model-supplied verify remains forbidden during mutation-first phase", () =
     },
   ]), { authoritative_verification: authoritative });
 
+  assert.deepEqual(
+    codeAIWorkPackageForbiddenModelActions(parsed, ["apply_files"]),
+    [],
+  );
+  assert.ok(parsed.controller_normalizations.some((entry) =>
+    entry.kind === "ADOPT_MATCHING_VERIFY_AS_CONTROLLER_AUTHORITATIVE"
+  ));
+});
+
+test("non-matching model verify cannot suppress exact controller-authoritative verification", () => {
+  const parsed = parseCodeAIWorkPackage(packageWith([
+    {
+      action: "apply_files",
+      description: "repair source",
+      input: { files: [{ path: "src/a.js", content: "export const a=1;\n" }] },
+    },
+    {
+      action: "verify",
+      description: "different model verify",
+      input: { command: "node", args: ["--check", "src/a.js"] },
+    },
+  ]), { authoritative_verification: authoritative });
+
+  assert.equal(parsed.operations.filter((operation) => operation.action === "verify").length, 2);
+  assert.deepEqual(parsed.operations.at(-2).input, authoritative);
   assert.deepEqual(
     codeAIWorkPackageForbiddenModelActions(parsed, ["apply_files"]),
     ["verify"],

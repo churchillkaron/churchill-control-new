@@ -69,12 +69,22 @@ high.final_independent_review = {
   status: "APPROVED",
   verified: true,
   fingerprint: highFingerprint,
-  approved_review_count: 1,
+  approved_review_count: 2,
   blocking_finding_count: 0,
+  reviews: [
+    { role: "semantic_integration", success: true, approved: true, verdict: "approve", blocking_finding_count: 0 },
+  ],
 };
 highGate = assessCodeAIFinalIndependentReviewGate(high, quality("high"));
+assert.equal(highGate.verified, false);
+assert.equal(highGate.required_approvals, 2);
+assert.equal(highGate.observed_approvals, 1);
+assert.equal(highGate.blocker, "CODE_AI_FINAL_INDEPENDENT_REVIEW_UNAVAILABLE");
+high.final_independent_review.reviews.push(
+  { role: "adversarial_regression", success: true, approved: true, verdict: "approve", blocking_finding_count: 0 },
+);
+highGate = assessCodeAIFinalIndependentReviewGate(high, quality("high"));
 assert.equal(highGate.verified, true);
-assert.equal(highGate.required_approvals, 1);
 
 const critical = state("critical");
 const criticalFingerprint = codeAIFinalIndependentReviewFingerprint(critical, quality("critical"));
@@ -85,6 +95,9 @@ critical.final_independent_review = {
   fingerprint: criticalFingerprint,
   approved_review_count: 1,
   blocking_finding_count: 0,
+  reviews: [
+    { role: "semantic_integration", success: true, approved: true, verdict: "approve", blocking_finding_count: 0 },
+  ],
 };
 let criticalGate = assessCodeAIFinalIndependentReviewGate(critical, quality("critical"));
 assert.equal(criticalGate.verified, false);
@@ -92,6 +105,9 @@ assert.equal(criticalGate.required_approvals, 2);
 assert.equal(criticalGate.blocker, "CODE_AI_FINAL_INDEPENDENT_REVIEW_UNAVAILABLE");
 
 critical.final_independent_review.approved_review_count = 2;
+critical.final_independent_review.reviews.push(
+  { role: "adversarial_regression", success: true, approved: true, verdict: "approve", blocking_finding_count: 0 },
+);
 criticalGate = assessCodeAIFinalIndependentReviewGate(critical, quality("critical"));
 assert.equal(criticalGate.verified, true);
 
@@ -104,8 +120,8 @@ console.log(JSON.stringify({
   success: true,
   contract: "AVANTIQO_CODE_AI_FINAL_INDEPENDENT_REVIEW_SELFTEST_V1",
   standard_review_skipped: true,
-  high_requires_one_approval: true,
-  critical_requires_two_approvals: true,
+  high_requires_two_named_approvals: true,
+  critical_requires_two_named_approvals: true,
   patch_change_invalidates_review: true,
   provider_execution_submitted: false,
   model_inference_performed: false,

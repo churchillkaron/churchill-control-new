@@ -7,7 +7,8 @@ const provider = await readFile(new URL("../lib/platform/service-runtime/provide
 
 test("live work-package routing preserves natural owner implementation intent", () => {
   assert.match(live, /const suppliedObjectiveContext = object\(objective_context \|\| resume_state\?\.objective_context\)/);
-  assert.match(live, /owner_objective: text\(suppliedObjectiveContext\.owner_objective, 12000\) \|\| goal/);
+  assert.match(live, /const normalizedOwnerObjective = text\(suppliedObjectiveContext\.owner_objective, 12000\) \|\| goal/);
+  assert.match(live, /implementation_required: objectiveRequiresImplementation\(\{/);
 });
 
 test("implementation-required planner passes select the strong local Code model before mutation", () => {

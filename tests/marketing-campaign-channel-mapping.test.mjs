@@ -288,7 +288,7 @@ test("campaign detail exposes no-spend provider preflight for stored execution s
   assert.match(page, /Check readiness/);
   assert.match(page, /action: "preflight"/);
   assert.match(page, /\/api\/marketing\/campaign-execution/);
-  assert.match(page, /Final Connection Check/);
+  assert.match(page, /Run readiness check/);
   assert.match(page, /No wallet change and no campaign was created/);
 });
 
@@ -1358,6 +1358,16 @@ test("blocked campaign steps explain the exact requirement instead of only disab
   assert.match(component, /Choose at least one campaign channel to continue/);
   assert.match(component, /\{stepBlockingReason\(createStep\)\}/);
   assert.match(component, /disabled:cursor-not-allowed/);
+});
+
+test("Campaign detail explains launch state before technical provider evidence", () => {
+  const campaignPage = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/page.jsx", "utf8");
+  assert.match(campaignPage, /<LaunchStage label="Plan" state="complete" detail="Campaign draft saved"/);
+  assert.match(campaignPage, /label="Readiness"/);
+  assert.match(campaignPage, /label="Provider creation"/);
+  assert.match(campaignPage, /label="Ads live"/);
+  assert.match(campaignPage, /Launch Readiness/);
+  assert.match(campaignPage, /Still paused · activation separate/);
 });
 
 test("Campaign creation modal is keyboard-aware and responsive", () => {

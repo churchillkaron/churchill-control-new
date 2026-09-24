@@ -129,7 +129,9 @@ const liveWorkPackage = await readFile(
 
 test("Business Partner receives concrete Code event history through the shared live execution runtime", () => {
   assert.match(businessPartnerLiveRoute, /loadAvantiqoLiveExecution/);
+  assert.match(businessPartnerLiveRoute, /const progress = sharedProgress/);
   assert.match(businessPartnerLiveRoute, /\.\.\.sharedProgress/);
+  assert.match(businessPartnerLiveRoute, /events: events\.length \? events : \[latestEvent\]/);
   assert.match(sharedLiveExecutionRuntime, /events: \[\.\.\.list\(previousState\.events\), compact\]\.slice\(-MAX_EVENTS\)/);
   assert.match(sharedLiveExecutionRuntime, /latest_event: compact/);
   assert.doesNotMatch(businessPartnerLiveRoute, /events: \[\],/);

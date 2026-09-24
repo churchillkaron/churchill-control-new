@@ -201,7 +201,7 @@ requireMarkers("PLANNER_PROMPT", plannerPrompt, [
   "When a command/test fails, inspect the failure and repair instead of claiming completion.",
   "Use verify after source changes.",
   "Use research only when current external technical evidence is genuinely needed.",
-  "CODE_AI_PLANNER_MAX_INSTRUCTION_CHARS = 24000",
+  "CODE_AI_PLANNER_MAX_INSTRUCTION_CHARS = 16000",
   "worker_instruction_hard_limit_chars: 30000",
 ]);
 

@@ -142,7 +142,7 @@ function Heartbeat {
   $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
   $drive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
   $meta = @{
-    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v4-scheduler'; worker_lane=$Lane; local_context_tokens=$ContextTokens; scheduler=@{ resource_aware=$true; gpu_exclusive=$true; qwen_warm_policy='IDLE_WARM'; idle_learning_window='01:00-06:00'; idle_learning_after_seconds=$GpuIdleLearningAfterSeconds; learning_promotion_authorized=$false; cpu_policy=$(if($Lane -eq 'cpu'){'ONE_HEAVY_JOB_BELOW_NORMAL'}else{'N/A'}) };
+    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v4-scheduler'; worker_lane='multi'; worker_lanes=@('cpu','gpu','live','training'); heartbeat_source_lane=$Lane; local_context_tokens=$ContextTokens; scheduler=@{ resource_aware=$true; gpu_exclusive=$true; qwen_warm_policy='IDLE_WARM'; idle_learning_window='01:00-06:00'; idle_learning_after_seconds=$GpuIdleLearningAfterSeconds; learning_promotion_authorized=$false; cpu_policy='ONE_HEAVY_JOB_BELOW_NORMAL'; active_lanes=@('cpu','gpu','live','training') };
     gpu=$gpu; cpu=@{ name=$cpu.Name; cores=[int]$cpu.NumberOfCores; logical_processors=[int]$cpu.NumberOfLogicalProcessors };
     memory=@{ total_mb=[int]($os.TotalVisibleMemorySize/1024); free_mb=[int]($os.FreePhysicalMemory/1024) };
     disk=@{ c_total_gb=[math]::Round($drive.Size/1GB,1); c_free_gb=[math]::Round($drive.FreeSpace/1GB,1) };

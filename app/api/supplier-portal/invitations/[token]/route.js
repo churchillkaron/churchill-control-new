@@ -25,9 +25,15 @@ export async function GET(_request, { params }) {
     if (organizationError) throw organizationError;
     if (partyError) throw partyError;
 
-    const expired = new Date(invitation.expires_at).getTime() <= Date.now();
+    const now = new Date();
+    const expired = new Date(invitation.expires_at).getTime() <= now.getTime();
     if (expired && invitation.status === "PENDING") {
-      await supabaseAdmin.from("supplier_portal_invitations").update({ status: "EXPIRED" }).eq("id", invitation.id);
+      await supabaseAdmin
+        .from("supplier_portal_invitations")
+        .update({ status: "EXPIRED" })
+        .eq("id", invitation.id)
+        .eq("status", "PENDING")
+        .lte("expires_at", now.toISOString());
     }
 
     return NextResponse.json({

@@ -6,6 +6,9 @@ import {
   CODE_AI_LIVE_PROGRESS_CONTRACT,
 } from "@/lib/code/runtime/CodeAILiveProgressRuntime";
 import {
+  codeStudioLocalMissionBackgroundStatus,
+} from "@/lib/code/runtime/CodeStudioLocalMissionBackgroundRuntime";
+import {
   loadCodeAIEngineeringSkillVisibleReceipt,
   CODE_AI_ENGINEERING_SKILL_VISIBLE_RECEIPT_CONTRACT,
 } from "@/lib/code/runtime/CodeAIEngineeringSkillVisibleReceiptRuntime";
@@ -131,7 +134,54 @@ export async function GET(request) {
       context,
       device_session_id: deviceSessionId,
     });
-    const progress = loaded.live_progress || null;
+    let progress = loaded.live_progress || null;
+    if (progress?.mission_id) {
+      const background = codeStudioLocalMissionBackgroundStatus({
+        organization_id: organizationId,
+        mission_id: progress.mission_id,
+      });
+      const progressStatus = text(progress?.state_status || progress?.latest_event?.status).toLowerCase();
+      const activeStatuses = new Set([
+        "active",
+        "executing",
+        "in_progress",
+        "pending",
+        "planner_pending",
+        "queued",
+        "running",
+        "verifying",
+        "working",
+        "repair_required",
+        "review_required",
+        "verification_required",
+        "replan_required",
+      ]);
+      const backgroundStatus = text(background?.outcome?.status).toLowerCase();
+      if (
+        background?.found === true &&
+        background?.running === false &&
+        backgroundStatus &&
+        activeStatuses.has(progressStatus)
+      ) {
+        const terminalPhase = backgroundStatus === "completed"
+          ? "MISSION_COMPLETED"
+          : "MISSION_TERMINAL";
+        progress = {
+          ...progress,
+          state_status: backgroundStatus,
+          latest_event: {
+            ...progress.latest_event,
+            phase: terminalPhase,
+            status: backgroundStatus,
+            at: background.finished_at || progress?.latest_event?.at || null,
+            description: backgroundStatus === "completed"
+              ? "Code completed the local background mission."
+              : background?.outcome?.error || `Code stopped with status ${backgroundStatus}.`,
+            reason: background?.outcome?.error || null,
+          },
+        };
+      }
+    }
     const portfolioLoaded = includeDetails
       ? await loadLatestProductEngineeringPortfolio({ context }).catch((error) => ({
           found: false,

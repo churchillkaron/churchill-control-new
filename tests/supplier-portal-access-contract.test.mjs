@@ -105,3 +105,9 @@ test("supplier invitation acceptance compensates only its exact failed access at
   assert.match(accept, /\.eq\("accepted_by_auth_user_id",user\.id\)/);
   assert.match(accept, /\.eq\("accepted_at",acceptedAt\)/);
 });
+
+test("supplier invitation expiry housekeeping cannot overwrite a concurrent state change", () => {
+  const tokenRoute = fs.readFileSync("app/api/supplier-portal/invitations/[token]/route.js", "utf8");
+  assert.match(tokenRoute, /\.eq\("status", "PENDING"\)/);
+  assert.match(tokenRoute, /\.lte\("expires_at", now\.toISOString\(\)\)/);
+});

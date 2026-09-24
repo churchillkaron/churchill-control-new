@@ -29,8 +29,9 @@ export async function GET(_request,{params}){
     if(!invite) return NextResponse.json({success:false,error:"Invitation not found"},{status:404});
     const {data:firm,error:firmError}=await supabaseAdmin.from("organizations").select("id,name,legal_name,organization_type").eq("id",invite.firm_organization_id).maybeSingle();
     if(firmError) throw firmError;
-    const expired=new Date(invite.expires_at).getTime()<=Date.now();
-    if(expired&&invite.status==="PENDING") await supabaseAdmin.from("organization_client_invitations").update({status:"EXPIRED"}).eq("id",invite.id);
+    const now=new Date();
+    const expired=new Date(invite.expires_at).getTime()<=now.getTime();
+    if(expired&&invite.status==="PENDING") await supabaseAdmin.from("organization_client_invitations").update({status:"EXPIRED"}).eq("id",invite.id).eq("status","PENDING").lte("expires_at",now.toISOString());
     const user=await getServerCurrentUser();
     const emailMatches=Boolean(user?.email&&String(user.email).trim().toLowerCase()===String(invite.client_email).trim().toLowerCase());
     const eligible=user?.id&&emailMatches?await eligibleOrganizations(user.id):[];

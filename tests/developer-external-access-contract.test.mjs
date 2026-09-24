@@ -246,3 +246,8 @@ test("developer invitation rejects malformed email before replacing pending invi
   assert.ok(invalidIndex >= 0 && revokeIndex > invalidIndex);
   assert.match(invite, /validEmail/);
 });
+
+test("developer invitation expiry housekeeping cannot overwrite a concurrent state change", () => {
+  const tokenRoute = fs.readFileSync("app/api/developers/access/invitations/[token]/route.js", "utf8");
+  assert.match(tokenRoute, /\.eq\("status","PENDING"\)\.lte\("expires_at",now\.toISOString\(\)\)/);
+});

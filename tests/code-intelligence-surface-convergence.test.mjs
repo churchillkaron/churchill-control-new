@@ -91,32 +91,29 @@ test("Code Studio is bound to the same certified Avantiqo Code identity", () => 
 });
 
 test("Code Studio follows shared governed Code missions and keeps Business Partner as the steering surface", () => {
-  assert.match(studioSurface, /\/api\/operator\/code\/progress/);
-  assert.match(studioSurface, /progressIsActive/);
+  assert.match(studioSurface, /useCodeProgressFeed/);
+  assert.match(studioSurface, /liveProgressActive/);
   assert.match(studioSurface, /data-avantiqo-shared-code-mission="true"/);
   assert.match(studioSurface, /data-avantiqo-business-partner-link="true"/);
   assert.match(studioSurface, /Steer in Business Partner/);
   assert.match(studioSurface, /Following active mission/);
-  assert.match(studioSurface, /no commit · no deploy/);
+  assert.match(studioSurface, /Governed engineering · commit and deploy gated/);
 });
 
 test("Home Business Partner remains the primary operator surface and exposes Code mission evidence", () => {
   assert.match(homeSurface, /BusinessPartnerCodeMissionPanel/);
+  assert.match(homeSurface, /HomeAvantiqoIntelligenceDock/);
   assert.match(homeSurface, /Business Partner/);
   assert.match(homeSurface, /One operator\. Every capability\./);
   assert.match(
     homeSurface,
     /Ask, steer and verify work here\. Code missions stay synchronized with Code Studio\./,
   );
-  assert.match(businessPartnerCodeSurface, /BusinessPartnerActiveCodeMissionPanel/);
-  assert.match(businessPartnerCodeSurface, /CodeMissionHistoryPanel/);
-  assert.match(businessPartnerCodeSurface, /data-avantiqo-business-partner-code-workspace="true"/);
-  assert.match(businessPartnerActiveCodeSurface, /\/api\/operator\/code\/progress/);
+  assert.match(businessPartnerCodeSurface, /return null/);
+  assert.doesNotMatch(businessPartnerCodeSurface, /CodeMissionHistoryPanel/);
+  assert.match(businessPartnerActiveCodeSurface, /useCodeProgressFeed/);
   assert.match(businessPartnerActiveCodeSurface, /data-avantiqo-business-partner-code-mission="true"/);
   assert.match(businessPartnerActiveCodeSurface, /data-avantiqo-open-code-studio="true"/);
-  assert.match(businessPartnerActiveCodeSurface, /latest_verification_passed/);
-  assert.match(businessPartnerActiveCodeSurface, /Open Code Studio/);
-  assert.match(businessPartnerActiveCodeSurface, /RECENT_VISIBLE_MS/);
 });
 
 test("Business Partner can steer the same active Code mission at governed safe boundaries", () => {
@@ -137,7 +134,8 @@ test("owner intervention lookup infrastructure cannot take down ordinary Code ex
   assert.match(workPackageRuntime, /safeClaimOwnerIntervention/);
   assert.match(workPackageRuntime, /AVANTIQO_CODE_OWNER_INTERVENTION_LOOKUP_FAILED/);
   assert.match(workPackageRuntime, /code_execution_blocked:\s*false/);
-  assert.match(workPackageRuntime, /owner_intervention_lookup_failure_blocks_code:\s*false/);
+  assert.match(workPackageRuntime, /owner_intervention_lookup_failure_blocks_claimed_resume:\s*true/);
+  assert.match(workPackageRuntime, /code_execution_blocked:/);
 });
 
 test("Business Partner exposes delta visibility and verified preview review without granting persistence authority", () => {
@@ -187,7 +185,7 @@ test("Code mission history is searchable and ranks objective, product-area and f
 });
 
 test("Business Partner and Code Studio expose the same persistent resumable Code mission history", () => {
-  assert.match(businessPartnerCodeSurface, /CodeMissionHistoryPanel/);
+  assert.doesNotMatch(businessPartnerCodeSurface, /CodeMissionHistoryPanel/);
   assert.match(studioSurface, /CodeMissionHistoryPanel/);
   assert.match(missionHistorySurface, /\/api\/operator\/code\/history/);
   assert.match(missionHistorySurface, /data-avantiqo-code-mission-history="true"/);
@@ -216,7 +214,7 @@ test("missing historical mission after restart falls back to current live object
   assert.match(missionHistorySurface, /objective: session\.objective/);
   assert.match(missionHistorySurface, /repository_url: session\.repository_url/);
   assert.match(studioRoute, /let effectiveResumeMissionId = resumeMissionId/);
-  assert.match(studioRoute, /if \(!snapshot\.found\)/);
+  assert.match(studioRoute, /if \(snapshotInvalid \|\| !snapshot\?\.found\)/);
   assert.match(studioRoute, /if \(!requestedObjective \|\| !requestedRepositoryUrl\)/);
   assert.match(studioRoute, /effectiveResumeMissionId = ""/);
   assert.match(studioRoute, /objective = requestedObjective/);

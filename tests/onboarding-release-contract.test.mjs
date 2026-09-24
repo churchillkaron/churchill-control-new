@@ -231,3 +231,57 @@ test("stale onboarding recovery preserves an organization that became active dur
   assert.match(runtime, /outcome\?\.outcome === "RESUME_PROVISIONED"/);
   assert.match(runtime, /mode: "RESUME_PROVISIONED"/);
 });
+
+test("public onboarding entry pages do not wait on Supabase session refresh", () => {
+  const middleware = fs.readFileSync("middleware.js", "utf8");
+  assert.match(middleware, /function isPublicEntryPath\(pathname\)/);
+  assert.match(middleware, /pathname === "\/start"/);
+  assert.match(middleware, /pathname === "\/signup"/);
+  assert.match(middleware, /pathname === "\/login"/);
+  assert.match(middleware, /const sessionResponse = publicEntryRequest \|\| localWorkspaceRequest/);
+  assert.match(middleware, /await refreshSupabaseSession\(request\)/);
+});
+
+test("local loopback hosts resolve Avantiqo context without Supabase lookup", () => {
+  const resolver = fs.readFileSync("lib/platform/context/resolveRegisteredPlatformHostContext.js", "utf8");
+  assert.match(resolver, /normalizedHostname === "localhost"/);
+  assert.match(resolver, /normalizedHostname === "127\.0\.0\.1"/);
+  assert.match(resolver, /normalizedHostname === "::1"/);
+  const localIndex = resolver.indexOf('normalizedHostname === "127.0.0.1"');
+  const adminIndex = resolver.indexOf("const supabaseAdmin = await getSupabaseAdmin()");
+  assert.ok(localIndex >= 0 && adminIndex > localIndex);
+});
+
+test("platform hostname normalization preserves IPv4 and IPv6 loopback identities", () => {
+  const resolver = fs.readFileSync("lib/platform/context/resolvePlatformHostContext.js", "utf8");
+  assert.match(resolver, /first\.startsWith\("\["\)/);
+  assert.match(resolver, /first === "::1"/);
+  assert.match(resolver, /new URL\(raw\)\.hostname\.replace\(\/\^\\\[\|\\\]\$\/g, ""\)/);
+});
+
+test("onboarding reports missing PostgREST schema as a migration prerequisite", () => {
+  const runtime = fs.readFileSync("lib/onboarding/OnboardingProvisionRequestRuntime.js", "utf8");
+  const route = fs.readFileSync("app/api/onboarding/provision/route.js", "utf8");
+  assert.match(runtime, /code === "PGRST205"/);
+  assert.match(runtime, /retire_stale_onboarding_provision_request/);
+  assert.match(runtime, /ONBOARDING_MIGRATION_REQUIRED/);
+  assert.match(runtime, /error\.status = 503/);
+  assert.match(route, /code: error\?\.code \|\| undefined/);
+});
+
+test("business onboarding migration prerequisite uses a customer-safe message and operations code", () => {
+  const runtime = fs.readFileSync("lib/onboarding/OnboardingProvisionRequestRuntime.js", "utf8");
+  assert.match(runtime, /Business setup is temporarily unavailable/);
+  assert.match(runtime, /ONBOARDING_MIGRATION_REQUIRED/);
+  assert.doesNotMatch(runtime, /new Error\("Onboarding idempotency migration is not installed"\)/);
+});
+
+test("cookie-based server auth skips Supabase when no session cookie exists", () => {
+  const auth = fs.readFileSync("lib/auth/getServerCurrentUser.js", "utf8");
+  assert.match(auth, /cookieStore\.getAll\(\)\.some/);
+  assert.match(auth, /name\.startsWith\("sb-"\) && name\.includes\("-auth-token"\)/);
+  const cookieCheck = auth.indexOf("hasSupabaseSessionCookie");
+  const authLookup = auth.indexOf("supabase.auth.getUser()");
+  assert.ok(cookieCheck >= 0 && authLookup > cookieCheck);
+  assert.match(auth, /if \(!hasSupabaseSessionCookie\) \{[\s\S]*return null;/);
+});

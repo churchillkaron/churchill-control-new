@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { createServerSupabase } from "@/lib/shared/supabase/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { getStaffIdentity } from "@/lib/messages/getStaffIdentity";
 
 export const runtime = "nodejs";
@@ -32,7 +32,7 @@ export async function POST(request) {
       );
     }
 
-    const supabase = createServerSupabase();
+    const supabase = supabaseAdmin;
     const buffer = Buffer.from(await file.arrayBuffer());
     const path =
       `message-attachments/${identity.organization_id}/${identity.id}/` +

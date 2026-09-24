@@ -15,7 +15,8 @@ export async function GET(request, { params }) {
       return NextResponse.json({ success: false, error: context.error, code: context.code }, { status: context.status || 403 });
     }
 
-    const staffId = String(params?.staffId || "").trim();
+    const { staffId: rawStaffId } = await params;
+    const staffId = String(rawStaffId || "").trim();
     if (!staffId) return NextResponse.json({ success: false, error: "staffId required" }, { status: 400 });
 
     const target = await supabaseAdmin.from("staff_accounts")
@@ -32,6 +33,7 @@ export async function GET(request, { params }) {
         .select("id")
         .eq("organization_id", context.organizationId)
         .eq("staff_account_id", staffId)
+        .eq("status", "active")
         .limit(1)
         .maybeSingle();
       if (membership.error) throw membership.error;

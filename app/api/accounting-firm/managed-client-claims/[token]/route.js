@@ -13,6 +13,29 @@ const OWNER_ROLES = new Set(["OWNER","ORGANIZATION_OWNER","ORG_OWNER","PLATFORM_
 
 function clean(value){ return String(value ?? "").trim(); }
 function ownerRole(value){ return OWNER_ROLES.has(clean(value).toUpperCase()); }
+function managedClientMigrationMissing(error){
+  const code=clean(error?.code).toUpperCase();
+  const message=clean(error?.message).toLowerCase();
+  return (
+    code==="42P01" ||
+    code==="PGRST205" ||
+    (
+      code==="PGRST202" &&
+      message.includes("finalize_accounting_managed_client_claim")
+    ) ||
+    (
+      message.includes("accounting_managed_clients") &&
+      message.includes("schema cache")
+    )
+  );
+}
+function managedClientMigrationResponse(){
+  return NextResponse.json({
+    success:false,
+    error:"Managed company activation is temporarily unavailable. Please try again shortly.",
+    code:"ACCOUNTING_MANAGED_CLIENT_MIGRATION_REQUIRED",
+  },{status:503});
+}
 
 async function loadClaim(token){
   const {data,error}=await supabaseAdmin
@@ -37,7 +60,6 @@ async function ensureOwnerStaffCandidate({user,name}){
 
   if(staff){
     if(clean(staff.email).toLowerCase()!==email) throw new Error("Staff identity email does not match the authenticated account");
-    if(staff.active && !ownerRole(staff.role)) throw new Error("Claiming a managed company requires owner-level identity");
     if(!staff.active && (staff.role||staff.party_id||staff.active_organization_id)){
       throw new Error("Inactive Staff identity cannot be reused for a managed company claim");
     }
@@ -65,8 +87,8 @@ async function ensureOwnerStaffCandidate({user,name}){
     if(!inserted.data||String(inserted.data.auth_user_id)!==String(user.id)){
       throw new Error("Staff identity email is already linked to another account");
     }
-    if(inserted.data.active||inserted.data.role||inserted.data.party_id||inserted.data.active_organization_id){
-      throw new Error("Concurrent Staff identity is not a neutral claim candidate");
+    if(!inserted.data.active&&(inserted.data.role||inserted.data.party_id||inserted.data.active_organization_id)){
+      throw new Error("Concurrent inactive Staff identity is not a neutral claim candidate");
     }
   }else if(inserted.error){
     throw inserted.error;
@@ -141,6 +163,7 @@ export async function GET(_request,{params}){
       retryable:retryableClaiming,
     },authenticated:Boolean(user?.id),emailMatches:Boolean(user?.email&&clean(user.email).toLowerCase()===clean(claim.claim_email).toLowerCase())});
   }catch(error){
+    if(managedClientMigrationMissing(error)) return managedClientMigrationResponse();
     return NextResponse.json({success:false,error:error?.message||"Unable to load managed client claim"},{status:500});
   }
 }
@@ -245,6 +268,7 @@ export async function POST(request,{params}){
         updated_at:new Date().toISOString(),
       }).eq("id",reservedClaimId).eq("management_status","CLAIMING").eq("claiming_by_auth_user_id",reservedUserId).eq("claiming_attempt_id",reservedAttemptId);
     }
+    if(managedClientMigrationMissing(error)) return managedClientMigrationResponse();
     return NextResponse.json({success:false,error:error?.message||"Unable to claim managed client"},{status:500});
   }
 }

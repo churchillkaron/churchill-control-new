@@ -258,7 +258,6 @@ begin
     and (
       (
         coalesce(active,false) = true
-        and upper(coalesce(role,'')) in ('OWNER','ORGANIZATION_OWNER','ORG_OWNER','PLATFORM_OWNER','SUPER_ADMIN')
       )
       or
       (

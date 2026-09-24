@@ -311,16 +311,18 @@ test("managed-client claim never creates active owner authority before atomic fi
   assert.doesNotMatch(managedClaimRoute, /role:"OWNER"[\s\S]{0,160}active:true/);
 });
 
-test("managed-client owner candidate reuse is neutral-only and race-safe", () => {
+test("managed-client owner candidate reuse accepts an existing active Staff identity and is race-safe", () => {
   assert.match(managedClaimRoute, /Inactive Staff identity cannot be reused for a managed company claim/);
-  assert.match(managedClaimRoute, /Concurrent Staff identity is not a neutral claim candidate/);
+  assert.match(managedClaimRoute, /Concurrent inactive Staff identity is not a neutral claim candidate/);
   assert.match(managedClaimRoute, /Staff identity email is already linked to another account/);
   assert.match(managedClaimRoute, /inserted\.error\?\.code==="23505"/);
+  assert.doesNotMatch(managedClaimRoute, /staff\.active && !ownerRole\(staff\.role\)/);
 });
 
-test("managed-client finalizer independently permits only active owners or neutral inactive candidates", () => {
+test("managed-client finalizer permits an existing active identity or a neutral inactive candidate", () => {
   assert.match(managedMigration, /lower\(coalesce\(email,''\)\) = lower\(p_owner_email\)/);
-  assert.match(managedMigration, /upper\(coalesce\(role,''\)\) in \('OWNER','ORGANIZATION_OWNER','ORG_OWNER','PLATFORM_OWNER','SUPER_ADMIN'\)/);
+  assert.match(managedMigration, /coalesce\(active,false\) = true/);
+  assert.doesNotMatch(managedMigration, /coalesce\(active,false\) = true[\s\S]{0,120}upper\(coalesce\(role/);
   assert.match(managedMigration, /coalesce\(active,false\) = false/);
   assert.match(managedMigration, /role is null/);
   assert.match(managedMigration, /party_id is null/);
@@ -349,4 +351,28 @@ test("failed managed-client setup removes active visibility before retiring its 
   assert.ok(cleanup.indexOf('relationship_status: "inactive"') < cleanup.indexOf('.delete()'));
   assert.match(cleanup, /organization_status: "SETUP_FAILED"/);
   assert.match(cleanup, /\.neq\("organization_status", "ACTIVE"\)/);
+});
+
+test("managed-client claim fails closed with an explicit migration-required response", () => {
+  assert.match(managedClaimRoute, /managedClientMigrationMissing/);
+  assert.match(managedClaimRoute, /PGRST205/);
+  assert.match(managedClaimRoute, /finalize_accounting_managed_client_claim/);
+  assert.match(managedClaimRoute, /ACCOUNTING_MANAGED_CLIENT_MIGRATION_REQUIRED/);
+  assert.match(managedClaimRoute, /status:503/);
+});
+
+test("managed-client migration prerequisite stays machine-readable without exposing schema details to the claimant", () => {
+  assert.match(managedClaimRoute, /Managed company activation is temporarily unavailable/);
+  assert.match(managedClaimRoute, /ACCOUNTING_MANAGED_CLIENT_MIGRATION_REQUIRED/);
+  assert.doesNotMatch(managedClaimRoute, /error:"Managed Accounting Client migration is not installed"/);
+});
+
+test("accounting invitation expiry housekeeping cannot overwrite a concurrent state change", () => {
+  assert.match(invite, /\.eq\("status","PENDING"\)\.lte\("expires_at",now\.toISOString\(\)\)/);
+});
+
+test("managed-client claim upgrades an existing target-organization membership to OWNER without duplication", () => {
+  assert.match(managedMigration, /where ou\.organization_id = p_organization_id[\s\S]*and ou\.staff_account_id = p_staff_account_id/);
+  assert.match(managedMigration, /if v_membership_id is null then[\s\S]*insert into public\.organization_users/);
+  assert.match(managedMigration, /else[\s\S]*update public\.organization_users[\s\S]*set role = 'OWNER',[\s\S]*status = 'active'[\s\S]*where id = v_membership_id/);
 });

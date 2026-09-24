@@ -34,8 +34,12 @@ export async function POST(_request, { params }) {
     return response;
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: error?.message || "Unable to open customer portal" },
-      { status: 500 },
+      {
+        success: false,
+        error: error?.message || "Unable to open customer portal",
+        code: error?.code || null,
+      },
+      { status: Number(error?.status) || 500 },
     );
   }
 }

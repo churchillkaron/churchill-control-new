@@ -33,6 +33,8 @@ import "./AvantiqoCodeIDE.css";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 const MAX_RESUMES = 120;
+const LOCAL_REASONING_BUDGET_TRANCHE = 4;
+const MAX_LOCAL_REASONING_BUDGET = 32;
 const MISSION_IDLE_DEADLINE_MS = 45 * 1000;
 const MISSION_ABSOLUTE_DEADLINE_MS = 30 * 60 * 1000;
 const DEFAULT_REPOSITORY = "https://github.com/churchillkaron/churchill-control-new.git";
@@ -92,10 +94,18 @@ function conversationalCodeActivity(event = {}) {
   const args = Array.isArray(event?.command_args) ? event.command_args.map((value) => text(value)).filter(Boolean) : [];
   const url = text(event?.url);
   const description = text(event?.description || event?.reason);
-  const customerSafeDescription = description && !/owned code model|reasoning|planner|work package|engineering package|provider|attestation|CODE_[A-Z0-9_]+/i.test(description)
+  const customerSafeDescription = description && !/owned code model|provider|attestation|CODE_[A-Z0-9_]+/i.test(description)
     ? description
     : "";
-  if (/repository_operation_(?:running|completed|failed)/.test(phase) && customerSafeDescription) return customerSafeDescription;
+  if (/repository_operation_failed/.test(phase)) {
+    if (/missing|not exist|not found|path/i.test(description)) {
+      return filePath
+        ? `The planned path \`${filePath}\` is not available in the current repository. I’m resolving the correct tracked path before I continue.`
+        : "A planned repository path is missing. I’m resolving the correct tracked path before I continue.";
+    }
+    return customerSafeDescription || "That repository step failed. I’m tracing the exact cause before I continue.";
+  }
+  if (/repository_operation_(?:running|completed)/.test(phase) && customerSafeDescription) return customerSafeDescription;
   const line = Number(event?.start_line || 0) || null;
   const lineSuffix = line ? ` around line ${line}` : "";
   if (command) {
@@ -117,13 +127,13 @@ function conversationalCodeActivity(event = {}) {
   if (filePath && /apply|write|edit|patch/.test(action)) return `I found the code that owns this behavior. I’m repairing \`${filePath}\`${lineSuffix} now, keeping the change scoped to the problem.`;
   if (filePath && /verify|test|check/.test(action)) return `I’m checking \`${filePath}\`${lineSuffix} now to prove the repair works before I move on.`;
   if (filePath && /diff|review/.test(action)) return `I’m reviewing the changes in \`${filePath}\` to make sure I fixed the intended behavior without changing anything unrelated.`;
-  if (/planner_pending|planning/.test(action)) {
-    if (description && !/owned code model|reasoning|planner|work package|engineering package|provider|attestation/i.test(description)) return description;
-    return "";
+  if (/planner_pending|planning|reasoning|work_package|local_background_pass|reasoning_tranche_continuation/.test(action)) {
+    if (customerSafeDescription) return customerSafeDescription;
+    return "I’m planning the next repository step from the evidence already collected.";
   }
   if (/repair/.test(action) || /recover/.test(action)) return "I found a recoverable problem in the work path. I’m repairing it automatically, then I’ll continue from the last safe point.";
   if (/mission_accepted|mission_approved|approved|approval/.test(action)) return "I’ve got the task and I’m starting the work now.";
-  if (/provider|attestation|reasoning|planner|work package|engineering package/i.test(description)) return "";
+  if (/provider|attestation|owned code model/i.test(description)) return "";
   return description || (filePath ? `I’m working in \`${filePath}\` now and checking how it connects to the issue.` : "I’m continuing the work and checking the next concrete step.");
 }
 
@@ -136,7 +146,12 @@ function isTransientRecoveryTalkTurn(turn) {
     || content.includes("the workspace connection changed while i was working")
     || content.includes("i lost the active work loop after the reload")
     || content.includes("i’m still working out the safest next move from what i’ve already inspected")
-    || content.includes("i found a problem that prevents a safe change right now");
+    || content.includes("i found a problem that prevents a safe change right now")
+    || content.includes("i’m building the engineering controls for this task")
+    || content.includes("the engineering controls are ready")
+    || content.includes("the precision controls are ready")
+    || content.includes("i’m selecting the local code execution transport")
+    || content.includes("i’m starting the local code employee");
 }
 
 function dedupeAdjacentTalkTurns(turns = []) {
@@ -161,14 +176,81 @@ function dedupeAdjacentTalkTurns(turns = []) {
   return next;
 }
 
+function codeMissionCompletionSummary(body = {}, finalState = {}) {
+  const filesChanged = [...new Set(
+    (Array.isArray(finalState?.files_changed) ? finalState.files_changed : [])
+      .map((value) => text(value))
+      .filter(Boolean),
+  )];
+  const completedOperationCount = Array.isArray(finalState?.completed_operation_ids)
+    ? finalState.completed_operation_ids.length
+    : Number(finalState?.completed_operation_count || 0);
+  const verificationCandidates = [
+    body?.developer_verification?.verification,
+    ...(Array.isArray(finalState?.tests) ? finalState.tests : []),
+    ...(finalState?.latest_event?.verification_passed === true || finalState?.latest_event?.verification_passed === false
+      ? [{
+          passed: finalState.latest_event.verification_passed,
+          description: finalState.latest_event.description || finalState.latest_event.phase || "final live verification",
+        }]
+      : []),
+  ].filter(Boolean);
+  const passedVerification = verificationCandidates.find((entry) =>
+    entry?.passed === true || Number(entry?.exit_code) === 0
+  ) || null;
+  const failedVerification = verificationCandidates.find((entry) =>
+    entry?.passed === false || (entry?.exit_code !== undefined && entry?.exit_code !== null && Number(entry.exit_code) !== 0)
+  ) || null;
+  const verificationCommand = text(
+    passedVerification?.command ||
+    passedVerification?.description ||
+    failedVerification?.command ||
+    failedVerification?.description,
+  );
+  const objective = text(finalState?.objective || body?.objective);
+  const blockers = (Array.isArray(finalState?.blockers) ? finalState.blockers : [])
+    .map((value) => text(value))
+    .filter(Boolean);
+  const changedText = filesChanged.length
+    ? `${filesChanged.length} file${filesChanged.length === 1 ? "" : "s"} changed: ${filesChanged.slice(0, 6).join(", ")}${filesChanged.length > 6 ? `, plus ${filesChanged.length - 6} more` : ""}.`
+    : "No source files needed to change; the mission completed through inspection, recovery, or verification only.";
+  const whyText = objective
+    ? `Why: I kept the work scoped to your request — ${objective.replace(/\s+/g, " ").slice(0, 320)}${objective.length > 320 ? "…" : ""}.`
+    : "Why: I kept the work scoped to the repository evidence and the exact blocker Code was resolving.";
+  const verificationText = failedVerification
+    ? `Verification: the latest verifier still reports a failure${verificationCommand ? ` in ${verificationCommand}` : ""}.`
+    : passedVerification
+      ? `Verification: passed${verificationCommand ? ` with ${verificationCommand}` : ""}.`
+      : `Verification: ${completedOperationCount} repository operation${completedOperationCount === 1 ? "" : "s"} completed and the final mission checks finished without an unresolved verifier result.`;
+  const meaningText = filesChanged.length
+    ? "What this means: the repaired behavior is now present in the shared local workspace and Code finished its governed verification/review path."
+    : "What this means: Code proved the current workspace state without introducing an unnecessary source change.";
+  const remainingText = blockers.length
+    ? `Still outstanding: ${blockers.slice(0, 3).join("; ")}.`
+    : "Still outstanding: nothing from this mission is left blocked.";
+  return `Done. What I changed: ${changedText} ${whyText} ${verificationText} ${meaningText} ${remainingText}`;
+}
+
 function customerFacingCodeBlocker(value) {
-  const message = text(value).toUpperCase();
-  if (message.includes("404") || message.includes("HISTORY_MISSION_NOT_FOUND") || message.includes("LOAD FAILED")) return "The workspace connection changed while I was working. I’m reconnecting to the current project state before I continue.";
-  if (message.includes("ATTESTATION")) return "The saved work state no longer matches the current workspace. I’m rebuilding a trusted checkpoint before continuing.";
-  if (message.includes("PROVIDER") || message.includes("RUNTIME_UNAVAILABLE") || message.includes("LOCAL_NODE")) return "The execution path I was using became unavailable. I’m switching to a healthy path and continuing from the last safe point.";
-  if (message.includes("IMPLEMENTATION_REQUIRED_AFTER_SEEDED_DISCOVERY")) return "I found enough evidence to continue, but the next change is not safe to apply yet. I’m narrowing the exact implementation before touching the code.";
-  if (message.includes("PLANNER") || message.includes("WORK_PACKAGE") || message.includes("REASONING")) return "I’m still working out the safest next move from what I’ve already inspected. I haven’t changed the code yet, and I’ll continue as soon as the next step is clear.";
-  return "I found a problem that prevents a safe change right now. I’m isolating the cause and preserving the current working state.";
+  const rawReason = text(value, 1200);
+  const message = rawReason.toUpperCase();
+  if (message.includes("REASONING_BUDGET_EXHAUSTED")) return "Code reached the end of its bounded local planning tranche before it produced the next repository step. The current repository changes, completed operations, and mission state are preserved so the next run can continue from this exact point.";
+  if (message.includes("CONTROL_PLANE_CHECK_TIMEOUT") || message.includes("CONTROL_PLANE_TEMPORARILY_UNAVAILABLE")) return "Code’s mission-control connection is temporarily unavailable. The repository state is preserved, and Code will retry from the same safe boundary before any new change.";
+  if (message.includes("404") || message.includes("HISTORY_MISSION_NOT_FOUND") || message.includes("LOAD FAILED")) return "The workspace connection changed while Code was working. The current mission state is preserved and Code must reconnect to that same workspace before continuing.";
+  if (message.includes("ATTESTATION")) return "The saved mission checkpoint no longer matches the current workspace evidence. Code preserved the repository state and must rebuild a trusted checkpoint before making another change.";
+  if (
+    /<!doctype html|<html|web server is down|\b(?:500|502|503|504|520|521|522|523|524)\b|econnreset|econnrefused|etimedout|fetch failed|bad gateway|gateway timeout/i.test(rawReason)
+  ) return "A temporary backend connection failed while Code was working. The repository and mission state are preserved. Code will retry from the same verified point instead of restarting the task.";
+  if (message.includes("PROVIDER") || message.includes("RUNTIME_UNAVAILABLE") || message.includes("LOCAL_NODE")) return "The local execution path became unavailable while Code was working. The repository state is preserved and Code must resume from the last verified point on a healthy local path.";
+  if (message.includes("IMPLEMENTATION_REQUIRED_AFTER_SEEDED_DISCOVERY")) return "Code found the relevant evidence, but the exact implementation target is not precise enough to change safely yet. The repository is unchanged at this blocker and the next run must continue from the discovered evidence.";
+  if (message.includes("PLANNER") || message.includes("WORK_PACKAGE") || message.includes("REASONING")) {
+    return rawReason
+      ? `Code stopped at a planning boundary after preserving the current repository state. The blocker was: ${rawReason.replace(/CODE_[A-Z0-9_:.-]+/gi, "").trim() || "the next repository step was not precise enough to execute safely"}.`
+      : "Code stopped at a planning boundary after preserving the current repository state. The next repository step was not precise enough to execute safely.";
+  }
+  return rawReason
+    ? `Code stopped at a concrete blocker: ${rawReason.replace(/CODE_[A-Z0-9_:.-]+/gi, "").trim() || "the current step could not continue safely"}. The current repository and mission state are preserved.`
+    : "Code stopped because the current step could not continue safely. The current repository and mission state are preserved.";
 }
 
 function codeDeviceAvailabilityMessage(devices = []) {
@@ -200,6 +282,8 @@ function recoverableCodeInfrastructureBlocker(value) {
     message.includes("NO PRICED EXECUTABLE PROVIDER AVAILABLE FOR AI.CODE.DEBUG") ||
     message.includes("AVANTIQO_CODE_LOCAL_NODE_UNAVAILABLE") ||
     message.includes("AVANTIQO_LOCAL_COMPUTE_QUEUE_REQUIRED") ||
+    message.includes("CODE_AI_CONTROL_PLANE_CHECK_TIMEOUT") ||
+    message.includes("CODE_AI_CONTROL_PLANE_TEMPORARILY_UNAVAILABLE") ||
     message.includes("CODE_AI_MISSION_ATTESTATION_REQUIRED") ||
     message.includes("CODE_AI_MISSION_ATTESTATION_INVALID") ||
     message.includes("CODE_AI_WORK_PACKAGE_IMPLEMENTATION_REQUIRED_AFTER_SEEDED_DISCOVERY") ||
@@ -227,6 +311,8 @@ function likelyRepositoryWork(message, missionActive = false) {
 function activeMissionProgress(progress, baselineAt = 0) {
   const state = text(progress?.state_status).toLowerCase();
   const eventStatus = text(progress?.latest_event?.status).toLowerCase();
+  const terminalStates = new Set(["blocked", "completed", "failed", "stopped", "cancelled", "repair_required", "replan_required"]);
+  if (terminalStates.has(state)) return false;
   const activeStates = new Set(["active", "executing", "in_progress", "pending", "planner_pending", "queued", "running", "verifying", "working"]);
   const eventAt = Date.parse(text(progress?.latest_event?.at));
   const eventAgeMs = Number.isFinite(eventAt) ? Date.now() - eventAt : Number.POSITIVE_INFINITY;
@@ -289,6 +375,7 @@ function fastClientIntent(message, recentTurns = []) {
   const imageActions = ["generate", "create", "make", "render", "produce", "show"];
   const repoActions = ["fix", "implement", "code", "change", "update", "repair", "debug", "test", "inspect", "trace", "refactor", "deploy", "commit", "continue", "resume", "replan", "keep going", "continue building", "build this"];
   const repoSubjects = ["repo", "repository", "code", "file", "route", "component", "api", "database", "migration", "test", "runtime", "worker", "function"];
+  const diagnosticRequest = /\b(?:check|diagnose|investigate|what(?:'s| is) wrong|why .*?(?:not work|isn't working|is not working)|not working|broken|issue|problem)\b/i.test(current);
 
   if (current.includes("architecture")) return "architecture";
   if (current.includes("wireframe")) return "wireframe";
@@ -296,11 +383,14 @@ function fastClientIntent(message, recentTurns = []) {
   if (hasAny(current, ["flow diagram", "user flow", "process flow"])) return "flow";
   if (hasAny(current, imageSubjects) && hasAny(current, imageActions) && !hasAny(current, visualSubjects)) return "image_generation";
   if (
-    hasAny(current, repoActions) &&
+    diagnosticRequest ||
     (
-      hasAny(current, repoSubjects) ||
-      /\b(blocked step|preserved mission|same mission|repository commands?|restart recovery|verification)\b/i.test(current) ||
-      /^\s*(fix|implement|change|update|debug|test|inspect|continue|resume|replan|build)\b/i.test(message)
+      hasAny(current, repoActions) &&
+      (
+        hasAny(current, repoSubjects) ||
+        /\b(blocked step|preserved mission|same mission|repository commands?|restart recovery|verification)\b/i.test(current) ||
+        /^\s*(fix|implement|change|update|debug|test|inspect|continue|resume|replan|build)\b/i.test(message)
+      )
     )
   ) return "repository_work";
   if (hasAny(context, visualSubjects) && hasAny(current, visualActions)) return "design_preview";
@@ -339,6 +429,22 @@ export default function AvantiqoCodeIDE({
   const [diffText, setDiffText] = useState("");
   const [objective, setObjective] = useState("");
   const [chatTurns, setChatTurns] = useState([]);
+  const visibleChatTurns = useMemo(() => dedupeAdjacentTalkTurns(chatTurns), [chatTurns]);
+
+  useEffect(() => {
+    function acceptTalkPrefill(event) {
+      const nextObjective = text(event?.detail?.objective, 24000);
+      if (!nextObjective) return;
+      const nextRepository = text(event?.detail?.repository_url, 1000);
+      const nextRef = text(event?.detail?.ref, 160);
+      if (nextRepository) setRepositoryUrl(nextRepository);
+      if (nextRef) setRef(nextRef);
+      setObjective(nextObjective);
+      if (typeof onStudioViewChange === "function") onStudioViewChange("talk");
+    }
+    window.addEventListener("avantiqo:code-talk-prefill", acceptTalkPrefill);
+    return () => window.removeEventListener("avantiqo:code-talk-prefill", acceptTalkPrefill);
+  }, [onStudioViewChange]);
   const [visualArtifact, setVisualArtifact] = useState(null);
   const [visualBusy, setVisualBusy] = useState(false);
   const [designBusy, setDesignBusy] = useState(false);
@@ -351,6 +457,8 @@ export default function AvantiqoCodeIDE({
   const talkFeedPinnedRef = useRef(true);
   const designImageCacheRef = useRef(new Map());
   const chatHydrationSkipWriteRef = useRef(false);
+  const persistedTalkTurnIdsRef = useRef(new Set());
+  const talkServerHydratedRef = useRef(false);
   const conversationBusy = conversationPendingCount > 0;
   const [missionRunning, setMissionRunning] = useState(false);
   const [localMissionId, setLocalMissionId] = useState("");
@@ -373,6 +481,7 @@ export default function AvantiqoCodeIDE({
   const terminalLineRef = useRef("");
   const pendingSteerRef = useRef([]);
   const latestProgressAtRef = useRef(0);
+  const scopedProgressRef = useRef(null);
   const lastWorkspaceConnectionErrorRef = useRef("");
   const autoResumeMissionRef = useRef("");
   const runCodeMissionRef = useRef(null);
@@ -386,16 +495,22 @@ export default function AvantiqoCodeIDE({
     session?.session_id &&
     progressSessionId === session.session_id
   );
-  const scopedProgress = progressSessionId && progressSessionId === session?.session_id ? progress : null;
+  const scopedProgress = progress && (
+    (session?.session_id && progressSessionId === session.session_id) ||
+    (!session?.session_id && embedded && studioView === "talk")
+  ) ? progress : null;
   useEffect(() => {
+    scopedProgressRef.current = scopedProgress;
     const latestAt = Date.parse(text(scopedProgress?.latest_event?.at || scopedProgress?.updated_at));
     if (Number.isFinite(latestAt)) latestProgressAtRef.current = Math.max(latestProgressAtRef.current, latestAt);
-  }, [scopedProgress?.latest_event?.at, scopedProgress?.updated_at]);
+  }, [scopedProgress, scopedProgress?.latest_event?.at, scopedProgress?.updated_at]);
   const observedProgressActive = activeMissionProgress(scopedProgress, activityBaselineAt);
   const observedActiveMissionId = observedProgressActive ? text(scopedProgress?.mission_id) : "";
-  const currentActiveMissionId = missionRunning && localMissionId && observedActiveMissionId === localMissionId ? localMissionId : "";
+  const currentActiveMissionId = missionRunning && localMissionId
+    ? (!observedActiveMissionId || observedActiveMissionId === localMissionId ? localMissionId : "")
+    : observedActiveMissionId;
   const liveTalkActive = Boolean(missionRunning || currentActiveMissionId || (sessionAgentActive && observedProgressActive));
-  const stopMissionId = missionRunning ? localMissionId : "";
+  const stopMissionId = missionRunning ? text(localMissionId) : currentActiveMissionId;
   const completedMissionEvents = useMemo(() => {
     const state = missionResult?.state || missionResult?.resume_state || {};
     return (Array.isArray(state?.evidence) ? state.evidence : [])
@@ -416,28 +531,61 @@ export default function AvantiqoCodeIDE({
   }, [scopedProgress?.events, completedMissionEvents, activityBaselineAt]);
   const latestObservedEvent = activityEvents.find((entry) => currentEventFile(entry)) || scopedProgress?.latest_event || null;
   const latestBrowserEvent = activityEvents.find((entry) => /browser/i.test(text(entry?.action || entry?.phase)) && text(entry?.url)) || null;
+  const ephemeralLifecycleEvent = (event = {}) => {
+    const phase = text(event.phase || event.action || event.status).toLowerCase();
+    return /mission_accepted|mission_approved|approved|approval|capability_binding|engineering_os|precision_os|code_employee_transport|code_employee_starting|local_code_job_queued|local_code_result_check|local_background_pass/.test(phase);
+  };
   const talkActivityNarration = useMemo(() => {
     const seen = new Set();
-    return [...activityEvents].reverse().map((event) => ({
-      key: [event?.at, event?.operation_id, event?.action, event?.status].map((value) => text(value)).join("|"),
-      content: conversationalCodeActivity(event),
-      event,
-    })).filter((entry) => entry.content && !seen.has(entry.content) && seen.add(entry.content)).slice(-10);
+    return [...activityEvents].reverse()
+      .filter((event) => !ephemeralLifecycleEvent(event))
+      .map((event) => ({
+        key: [event?.at, event?.operation_id, event?.action, event?.status].map((value) => text(value)).join("|"),
+        content: conversationalCodeActivity(event),
+        event,
+      }))
+      .filter((entry) => entry.content && !seen.has(entry.content) && seen.add(entry.content))
+      .slice(-10);
   }, [activityEvents]);
-  const lifecycleOnlyEntry = (entry) => {
-    const event = entry?.event || {};
-    const phase = text(event.phase || event.action || event.status).toLowerCase();
-    return /mission_accepted|mission_approved|approved|approval/.test(phase);
-  };
-  const newestNarrationEntry = talkActivityNarration.at(-1) || null;
-  const newestNonLifecycleEntry = [...talkActivityNarration].reverse().find((entry) => !lifecycleOnlyEntry(entry)) || null;
-  const newestConcreteNarrationEntry = [...talkActivityNarration].reverse().find((entry) => {
-    const event = entry?.event || {};
-    const action = text(event.action || event.phase || event.status).toLowerCase();
-    return /search|read|inspect|verify|test|check|command|run|write|edit|patch|diff|browser/.test(action)
-      || Boolean(text(event.file_path || event.path || event.command || event.url));
+  const talkMilestoneNarration = useMemo(() => {
+    const seen = new Set();
+    return [...activityEvents].reverse()
+      .filter((event) => {
+        const phase = text(event?.phase || event?.action || event?.status).toUpperCase();
+        return /REPOSITORY_OPERATION_(?:COMPLETED|FAILED)|DETERMINISTIC_|PLANNER_OUTPUT_REPAIR|CONTROL_PLANE_RECOVERY|REASONING_TRANCHE_CONTINUATION|BROWSER|VERIFICATION|VERIFY|TEST/.test(phase);
+      })
+      .map((event) => ({
+        key: [event?.at, event?.operation_id, event?.phase, event?.status].map((value) => text(value)).join("|"),
+        content: conversationalCodeActivity(event),
+        event,
+      }))
+      .filter((entry) => entry.content && !seen.has(entry.content) && seen.add(entry.content))
+      .slice(-4);
+  }, [activityEvents]);
+  const lifecycleOnlyEntry = (entry) => ephemeralLifecycleEvent(entry?.event || {});
+  const narrationEntryForEvent = (event) => ({
+    key: [event?.at, event?.operation_id, event?.action, event?.status].map((value) => text(value)).join("|"),
+    content: conversationalCodeActivity(event),
+    event,
+  });
+  const newestNarrationEntry = activityEvents[0] ? narrationEntryForEvent(activityEvents[0]) : null;
+  const newestNonLifecycleEvent = activityEvents.find((event) => !lifecycleOnlyEntry({ event })) || null;
+  const newestNonLifecycleEntry = newestNonLifecycleEvent ? narrationEntryForEvent(newestNonLifecycleEvent) : null;
+  const newestConcreteEvent = activityEvents.find((event) => {
+    if (ephemeralLifecycleEvent(event)) return false;
+    const action = text(event?.action || event?.phase || event?.status).toLowerCase();
+    return /search|read|inspect|verify|test|check|command|run|write|edit|patch|diff|browser|repository_operation/.test(action)
+      || Boolean(text(event?.file_path || event?.path || event?.command || event?.url));
   }) || null;
-  const liveNarrationEntry = newestNonLifecycleEntry || newestNarrationEntry;
+  const newestConcreteNarrationEntry = newestConcreteEvent ? narrationEntryForEvent(newestConcreteEvent) : null;
+  const newestEventPhase = text(activityEvents[0]?.phase || activityEvents[0]?.action || activityEvents[0]?.status).toLowerCase();
+  const authoritativeMissionState = text(scopedProgress?.state_status).toLowerCase();
+  const terminalMissionStates = new Set(["completed", "blocked", "failed", "stopped", "cancelled"]);
+  const newestEventTerminal = terminalMissionStates.has(authoritativeMissionState)
+    || (!authoritativeMissionState && /mission_completed|mission_terminal|completed|blocked|failed|stopped|cancelled/.test(newestEventPhase));
+  const liveNarrationEntry = newestEventTerminal
+    ? newestNarrationEntry
+    : newestConcreteNarrationEntry || newestNonLifecycleEntry || newestNarrationEntry;
   const liveNarrationContent = (() => {
     if (!liveNarrationEntry) {
       if (!liveTalkActive) return "";
@@ -448,6 +596,9 @@ export default function AvantiqoCodeIDE({
     }
     const event = liveNarrationEntry.event || {};
     const phase = text(event.phase || event.action || event.status).toLowerCase();
+    if (/mission_completed|mission_terminal|completed|blocked|failed|stopped|cancelled/.test(phase)) {
+      return conversationalCodeActivity(event);
+    }
     const eventAt = Date.parse(text(event?.at));
     const elapsed = Number.isFinite(eventAt)
       ? Math.max(0, Math.floor((liveClockTick - eventAt) / 1000))
@@ -607,12 +758,58 @@ export default function AvantiqoCodeIDE({
   }, [liveTalkActive]);
 
   useEffect(() => {
+    const missionId = text(scopedProgress?.mission_id);
+    const state = text(scopedProgress?.state_status).toLowerCase();
+    const phase = text(scopedProgress?.latest_event?.phase).toLowerCase();
+    if (!missionId || !/^local_background_mission_(completed|terminal)$/.test(phase)) return;
+    if (!["completed", "blocked", "failed", "stopped", "cancelled"].includes(state)) return;
+
+    const summaryId = `mission-summary-${missionId}`;
+    const reason = text(
+      scopedProgress?.latest_event?.reason ||
+      scopedProgress?.latest_event?.description ||
+      scopedProgress?.blockers?.[0] ||
+      state,
+      2000,
+    );
+    const content = state === "completed"
+      ? codeMissionCompletionSummary(
+          { objective: scopedProgress?.objective },
+          scopedProgress,
+        )
+      : state === "stopped"
+        ? "I stopped the Code work at a safe boundary. No further changes will be made unless you continue it."
+        : customerFacingCodeBlocker(reason);
+
+    setChatTurns((current) => current.some((turn) => turn.id === summaryId)
+      ? current
+      : [...current, {
+          id: summaryId,
+          role: "assistant",
+          content,
+          created_at: scopedProgress?.latest_event?.at || new Date().toISOString(),
+        }]);
+  }, [
+    scopedProgress?.mission_id,
+    scopedProgress?.state_status,
+    scopedProgress?.latest_event?.phase,
+    scopedProgress?.latest_event?.reason,
+    scopedProgress?.latest_event?.description,
+    scopedProgress?.latest_event?.at,
+    scopedProgress?.objective,
+    scopedProgress?.files_changed,
+    scopedProgress?.completed_operation_count,
+    scopedProgress?.blockers,
+    scopedProgress,
+  ]);
+
+  useEffect(() => {
     setDeviceSessionScope(session?.session_id || null);
     return () => setDeviceSessionScope(null);
   }, [session?.session_id, setDeviceSessionScope]);
 
   useEffect(() => {
-    if (session) return undefined;
+    if (session || (embedded && studioView !== "code")) return undefined;
     let disposed = false;
     async function loadDevices() {
       try {
@@ -634,7 +831,7 @@ export default function AvantiqoCodeIDE({
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [organizationId, session]);
+  }, [organizationId, session, embedded, studioView]);
 
   useEffect(() => {
     if (embedded && studioView !== "code") return undefined;
@@ -747,6 +944,82 @@ export default function AvantiqoCodeIDE({
   }, [organizationId]);
 
   useEffect(() => {
+    if (!organizationId) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`/api/operator/code/talk?organizationId=${encodeURIComponent(organizationId)}`, {
+          cache: "no-store",
+          credentials: "include",
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || body?.success !== true || cancelled) return;
+        const serverTurns = (Array.isArray(body.turns) ? body.turns : [])
+          .filter((turn) => ["user", "assistant"].includes(turn?.role) && text(turn?.content))
+          .map((turn) => ({
+            id: text(turn.id) || `server-${crypto.randomUUID()}`,
+            role: turn.role,
+            content: text(turn.content),
+            created_at: turn.created_at || null,
+            persisted: true,
+          }));
+        persistedTalkTurnIdsRef.current = new Set(serverTurns.map((turn) => turn.id).filter(Boolean));
+        const serverContentKeys = new Set(serverTurns.map((turn) => `${turn.role}\u0000${turn.content}`));
+        setChatTurns((current) => {
+          const localOnly = current.filter((turn) => {
+            if (!["user", "assistant"].includes(turn?.role)) return true;
+            return !serverContentKeys.has(`${turn.role}\u0000${text(turn?.content)}`);
+          });
+          return dedupeAdjacentTalkTurns([...serverTurns, ...localOnly]).slice(-120);
+        });
+      } catch {
+      } finally {
+        if (!cancelled) talkServerHydratedRef.current = true;
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (!organizationId || !talkServerHydratedRef.current) return undefined;
+    let cancelled = false;
+    const durableTurns = chatTurns.filter((turn) =>
+      ["user", "assistant"].includes(turn?.role) &&
+      text(turn?.content)
+    );
+    (async () => {
+      for (let index = 0; index < durableTurns.length; index += 1) {
+        if (cancelled) return;
+        const turn = durableTurns[index];
+        const turnId = text(turn?.id) || `local-${turn.role}-${index}-${text(turn.content).length}`;
+        if (turn?.persisted === true || persistedTalkTurnIdsRef.current.has(turnId)) continue;
+        persistedTalkTurnIdsRef.current.add(turnId);
+        try {
+          const response = await fetch("/api/operator/code/talk", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              organizationId,
+              role: turn.role,
+              content: text(turn.content),
+              client_turn_id: turnId,
+            }),
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok || body?.success !== true) {
+            throw new Error(body?.error || "CODE_TALK_PERSIST_FAILED");
+          }
+        } catch {
+          persistedTalkTurnIdsRef.current.delete(turnId);
+          return;
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [organizationId, chatTurns]);
+
+  useEffect(() => {
     if (chatHydrationSkipWriteRef.current) {
       chatHydrationSkipWriteRef.current = false;
       return;
@@ -755,7 +1028,7 @@ export default function AvantiqoCodeIDE({
     try {
       const durableTurns = dedupeAdjacentTalkTurns(chatTurns
         .filter((turn) => ["user", "assistant", "design_preview", "visual", "image"].includes(turn?.role)))
-        .slice(-12);
+        .slice(-100);
       const payload = {
         turns: durableTurns,
         objective,
@@ -767,13 +1040,14 @@ export default function AvantiqoCodeIDE({
       try {
         const compactTurns = dedupeAdjacentTalkTurns(chatTurns
           .filter((turn) => ["user", "assistant", "design_preview"].includes(turn?.role)))
-          .slice(-6);
+          .slice(-40);
         localStorage.setItem(key, JSON.stringify({ turns: compactTurns, objective, saved_at: new Date().toISOString() }));
       } catch {}
     }
   }, [organizationId, chatTurns, objective, visualArtifact]);
 
   useEffect(() => {
+    if (embedded && studioView !== "code") return;
     const key = `avantiqo:code-ide:${organizationId}`;
     const raw = localStorage.getItem(key);
     if (!raw || session) return;
@@ -814,10 +1088,10 @@ export default function AvantiqoCodeIDE({
         lastWorkspaceConnectionErrorRef.current = "Could not recover the saved Code workspace";
       }
     })();
-  }, [organizationId, session]);
+  }, [organizationId, session, embedded, studioView]);
 
   useEffect(() => {
-    if (!session) return undefined;
+    if (!session || (embedded && studioView !== "code")) return undefined;
     let cancelled = false;
     let timer = null;
     let consecutiveFailures = 0;
@@ -831,31 +1105,33 @@ export default function AvantiqoCodeIDE({
         const nextRevision = Number(state.revision || 0);
         setLeaseOwner(state.edit_owner || null);
         if (nextRevision !== revision) {
-          if (activePath && !dirty[activePath]) {
-            const fresh = await ideRequest("read", { file_path: activePath });
-            if (cancelled) return;
-            setBuffers((current) => ({ ...current, [activePath]: { ...fresh, content: fresh.content ?? "", revision: nextRevision } }));
-          }
           setRevision(nextRevision);
-          const tree = await ideRequest("tree");
+          const [tree, diff] = await Promise.all([
+            ideRequest("tree"),
+            ideRequest("diff"),
+          ]);
           if (cancelled) return;
           setFiles(tree.files || []);
-          const diff = await ideRequest("diff");
-          if (cancelled) return;
           setDiffText(diff.patch || "");
-          if (followCode && !Object.values(dirty).some(Boolean)) {
-            const changedPath = (Array.isArray(diff.status) ? diff.status : [])
-              .map((entry) => String(entry || "").trim().replace(/^[ MARC?D!]{1,3}\s+/, ""))
-              .map((entry) => entry.includes(" -> ") ? entry.split(" -> ").pop().trim() : entry)
-              .find((entry) => entry && (tree.files || []).includes(entry));
-            if (changedPath) {
+          const changedPath = (Array.isArray(diff.status) ? diff.status : [])
+            .map((entry) => text(entry).replace(/^..\s+/, ""))
+            .find(Boolean) || "";
+          if (followCode && changedPath && !Object.values(dirty).some(Boolean)) {
+            try {
               const freshChanged = await ideRequest("read", { file_path: changedPath });
               if (cancelled) return;
               setBuffers((current) => ({ ...current, [changedPath]: { ...freshChanged, content: freshChanged.content ?? "", revision: nextRevision } }));
               setTabs((current) => current.includes(changedPath) ? current : [...current, changedPath]);
               setActivePath(changedPath);
               setDirty((current) => ({ ...current, [changedPath]: false }));
-            }
+            } catch {}
+          } else if (!followCode && activePath && !dirty[activePath]) {
+            const fresh = await ideRequest("read", { file_path: activePath });
+            if (cancelled) return;
+            setBuffers((current) => ({
+              ...current,
+              [activePath]: { ...fresh, content: fresh.content ?? "", revision: nextRevision },
+            }));
           }
         }
         consecutiveFailures = 0;
@@ -864,10 +1140,10 @@ export default function AvantiqoCodeIDE({
       }
       if (!cancelled) {
         const baseDelayMs = (missionRunning || sessionAgentActive)
-          ? 4000
+          ? 10000
           : studioView === "code"
-            ? 8000
-            : 20000;
+            ? 15000
+            : 30000;
         const delayMs = consecutiveFailures
           ? Math.min(30000, baseDelayMs * (2 ** Math.min(consecutiveFailures, 3)))
           : baseDelayMs;
@@ -880,10 +1156,10 @@ export default function AvantiqoCodeIDE({
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [session, ideRequest, revision, activePath, dirty, missionRunning, sessionAgentActive, followCode, studioView]);
+  }, [session, ideRequest, revision, activePath, dirty, missionRunning, sessionAgentActive, followCode, studioView, embedded]);
 
   useEffect(() => {
-    if (!session || !followCode || !latestTouchedFile || latestTouchedFile === activePath) return undefined;
+    if (!session || (embedded && studioView !== "code") || !followCode || !latestTouchedFile || latestTouchedFile === activePath) return undefined;
     if (Object.values(dirty).some(Boolean)) return undefined;
     let cancelled = false;
     (async () => {
@@ -898,7 +1174,7 @@ export default function AvantiqoCodeIDE({
       } catch {}
     })();
     return () => { cancelled = true; };
-  }, [session, followCode, latestTouchedFile, activePath, dirty, files, revision, ideRequest]);
+  }, [session, embedded, studioView, followCode, latestTouchedFile, activePath, dirty, files, revision, ideRequest]);
 
   useEffect(() => {
     const url = text(latestBrowserEvent?.url);
@@ -1234,24 +1510,41 @@ export default function AvantiqoCodeIDE({
     if (!activeSession || !trimmedObjective || (missionRunning && !requestedResumeMissionId)) return;
     if (Object.values(dirty).some(Boolean)) { setError("Save or discard human edits before handing the workspace to Code."); return; }
     let missionId = requestedResumeMissionId || `code-mission-${crypto.randomUUID()}`;
-    const resumedProgressStartAt = requestedResumeMissionId && text(scopedProgress?.mission_id) === requestedResumeMissionId
-      ? (Array.isArray(scopedProgress?.events)
-          ? scopedProgress.events
-              .map((event) => Date.parse(text(event?.at)))
-              .filter(Number.isFinite)
-              .reduce((earliest, at) => Math.min(earliest, at), Number.POSITIVE_INFINITY)
-          : Number.POSITIVE_INFINITY)
-      : Number.POSITIVE_INFINITY;
-    const taskStartedAt = Number.isFinite(resumedProgressStartAt) ? resumedProgressStartAt : Date.now();
+    const taskStartedAt = Date.now();
     const preservedEvents = Array.isArray(scopedProgress?.events) ? scopedProgress.events : [];
-    const preservedBudgetExhausted = [...preservedEvents].reverse().some((event) =>
+    const preservedBudgetExhaustionEvent = [...preservedEvents].reverse().find((event) =>
       /CODE_AI_EMPLOYEE_REASONING_BUDGET_EXHAUSTED/i.test(text(event?.reason || event?.description))
-    ) || /CODE_AI_EMPLOYEE_REASONING_BUDGET_EXHAUSTED/i.test(
-      text(scopedProgress?.latest_event?.reason || scopedProgress?.latest_event?.description),
+    ) || (
+      /CODE_AI_EMPLOYEE_REASONING_BUDGET_EXHAUSTED/i.test(
+        text(scopedProgress?.latest_event?.reason || scopedProgress?.latest_event?.description),
+      )
+        ? scopedProgress?.latest_event
+        : null
     );
-    const requestedReasoningBudget = requestedResumeMissionId && preservedBudgetExhausted ? 8 : 4;
+    const preservedBudgetExhausted = Boolean(preservedBudgetExhaustionEvent);
+    const preservedBudgetMatch = text(
+      preservedBudgetExhaustionEvent?.reason || preservedBudgetExhaustionEvent?.description,
+    ).match(/CODE_AI_EMPLOYEE_REASONING_BUDGET_EXHAUSTED:(\d+):(\d+)/i);
+    const preservedReasoningCallsUsed = Number(preservedBudgetMatch?.[1] || 0);
+    const preservedExhaustedBudget = Number(preservedBudgetMatch?.[2] || 0);
+    const minimumBudgetBeyondUsedCalls = preservedReasoningCallsUsed > 0
+      ? Math.ceil((preservedReasoningCallsUsed + 1) / LOCAL_REASONING_BUDGET_TRANCHE) * LOCAL_REASONING_BUDGET_TRANCHE
+      : 0;
+    let requestedReasoningBudget = requestedResumeMissionId && preservedBudgetExhausted
+      ? Math.min(
+          MAX_LOCAL_REASONING_BUDGET,
+          Math.max(
+            LOCAL_REASONING_BUDGET_TRANCHE * 2,
+            preservedExhaustedBudget + LOCAL_REASONING_BUDGET_TRANCHE,
+            minimumBudgetBeyondUsedCalls,
+          ),
+        )
+      : LOCAL_REASONING_BUDGET_TRANCHE;
+    let lastContinuationCompletedOperationCount = requestedResumeMissionId
+      ? Number(scopedProgress?.completed_operation_count || 0)
+      : -1;
     talkFeedPinnedRef.current = true;
-    setMissionStartedAt((current) => requestedResumeMissionId && current ? current : taskStartedAt);
+    setMissionStartedAt(taskStartedAt);
     setLocalMissionStage("I’m reconnecting to the current local workspace and checking its live state.");
     setActivityBaselineAt(Date.now());
     setLocalMissionId(missionId);
@@ -1350,6 +1643,14 @@ export default function AvantiqoCodeIDE({
               const recoveredSession = await recoverWorkspaceAfterOutage({ preferredSession: activeSession });
               if (!recoveredSession) throw new Error(responseReason);
               activeSession = recoveredSession;
+              if (/HISTORY_MISSION_NOT_FOUND|LOAD FAILED/i.test(responseReason) || response.status === 404) {
+                historyResumePending = false;
+                autoResumeMissionRef.current = "";
+                missionId = `code-mission-${crypto.randomUUID()}`;
+                setLocalMissionId(missionId);
+                setActivityBaselineAt(Date.now());
+                setStatus("The saved mission history is unavailable. I reattached the same workspace and I’m continuing the objective as a fresh local mission.");
+              }
             }
             if (historySnapshotInvalid) {
               historyResumePending = false;
@@ -1366,6 +1667,136 @@ export default function AvantiqoCodeIDE({
           }
           throw new Error(responseReason);
         }
+
+        if (body?.async_running === true) {
+          setMissionResult(body);
+          setStatus(body?.already_running
+            ? "Code is already running this local mission in the background."
+            : "Code accepted the mission and is running locally in the background.");
+          setLocalMissionStage("The local Code employee owns this mission now. I’m following its live repository progress without holding an HTTP pass open.");
+          const asyncProgressBaselineAt = taskStartedAt;
+          requestRefresh();
+
+          let terminalProgress = null;
+          let terminalStatus = "";
+          let terminalReason = "";
+          let progressFingerprint = "";
+          let idleRefreshAttempts = 0;
+          while (Date.now() < missionAbsoluteDeadline) {
+            await wait(750);
+            const liveProgress = scopedProgressRef.current;
+            if (!liveProgress || text(liveProgress?.mission_id) !== missionId) continue;
+            const liveEventAt = Date.parse(text(liveProgress?.latest_event?.at || liveProgress?.updated_at));
+            if (!Number.isFinite(liveEventAt) || liveEventAt < asyncProgressBaselineAt) continue;
+
+            const liveStatus = text(
+              liveProgress?.state_status || liveProgress?.latest_event?.status,
+              120,
+            ).toLowerCase();
+            const liveReason = text(
+              liveProgress?.latest_event?.reason ||
+              liveProgress?.latest_event?.description,
+              2000,
+            );
+            const nextFingerprint = JSON.stringify({
+              status: liveStatus,
+              phase: text(liveProgress?.latest_event?.phase, 120),
+              at: text(liveProgress?.latest_event?.at, 160),
+              completed_operation_count: Number(liveProgress?.completed_operation_count || 0),
+              current_operation_id: text(liveProgress?.current_operation_id, 240),
+            });
+            if (nextFingerprint !== progressFingerprint) {
+              progressFingerprint = nextFingerprint;
+              idleRefreshAttempts = 0;
+              missionIdleDeadline = Date.now() + MISSION_IDLE_DEADLINE_MS;
+            }
+
+            const liveReasoningBudget = Number(
+              liveProgress?.work_package_control?.reasoning_call_budget || requestedReasoningBudget,
+            );
+            const provisionalBudgetBoundary =
+              liveStatus === "blocked" &&
+              /CODE_AI_EMPLOYEE_REASONING_BUDGET_EXHAUSTED/i.test(liveReason) &&
+              liveReasoningBudget < MAX_LOCAL_REASONING_BUDGET;
+            if (provisionalBudgetBoundary) continue;
+
+            if (["blocked", "completed", "failed", "stopped", "cancelled"].includes(liveStatus)) {
+              terminalProgress = liveProgress;
+              terminalStatus = liveStatus;
+              terminalReason = liveReason;
+              break;
+            }
+
+            if (Date.now() >= missionIdleDeadline) {
+              idleRefreshAttempts += 1;
+              requestRefresh();
+              await wait(2000);
+              const refreshedProgress = scopedProgressRef.current;
+              const refreshedMissionMatches =
+                refreshedProgress &&
+                text(refreshedProgress?.mission_id) === missionId;
+              const refreshedStatus = refreshedMissionMatches
+                ? text(
+                    refreshedProgress?.state_status ||
+                    refreshedProgress?.latest_event?.status,
+                    120,
+                  ).toLowerCase()
+                : "";
+              if (["blocked", "completed", "failed", "stopped", "cancelled"].includes(refreshedStatus)) {
+                terminalProgress = refreshedProgress;
+                terminalStatus = refreshedStatus;
+                terminalReason = text(
+                  refreshedProgress?.latest_event?.reason ||
+                  refreshedProgress?.latest_event?.description,
+                  2000,
+                );
+                break;
+              }
+              if (idleRefreshAttempts < 3) {
+                setLocalMissionStage("No fresh worker event arrived yet. I’m refreshing the authoritative mission state before deciding whether the Code employee is actually stalled.");
+                missionIdleDeadline = Date.now() + MISSION_IDLE_DEADLINE_MS;
+                continue;
+              }
+              throw new Error("Code background mission stalled without authoritative progress");
+            }
+          }
+
+          if (!terminalProgress) {
+            throw new Error("Code background mission exceeded its absolute deadline");
+          }
+
+          const terminalBody = {
+            ...body,
+            success: terminalStatus === "completed",
+            status: terminalStatus,
+            reason: terminalReason || null,
+            state: terminalProgress,
+            resume_state: terminalProgress,
+            async_running: false,
+          };
+          setMissionResult(terminalBody);
+          terminalResponseObserved = true;
+          setStatus(terminalStatus === "completed"
+            ? "Code mission completed in shared workspace"
+            : terminalReason || terminalStatus || "Code stopped");
+          if (reportToTalk) {
+            const summary = terminalStatus === "completed"
+              ? codeMissionCompletionSummary(terminalBody, terminalProgress)
+              : terminalStatus === "stopped"
+                ? "I stopped the Code work at a safe boundary. No further changes will be made unless you continue it."
+                : customerFacingCodeBlocker(terminalReason || terminalStatus || "unknown blocker");
+            const summaryId = `mission-summary-${missionId}`;
+            setChatTurns((current) => current.some((turn) => turn.id === summaryId)
+              ? current
+              : [...current, {
+                  id: summaryId,
+                  role: "assistant",
+                  content: summary,
+                }]);
+          }
+          break;
+        }
+
         setMissionResult(body); requestRefresh();
         const responseState = body.resume_state || body.state || null;
         const responseStatus = text(responseState?.status || body.status, 120).toLowerCase();
@@ -1402,6 +1833,30 @@ export default function AvantiqoCodeIDE({
           continue;
         }
         const terminalReason = text(body.reason || responseState?.blockers?.[0] || responseState?.failures?.[0]?.reason || "", 2000);
+        const completedOperationCount = Array.isArray(responseState?.completed_operation_ids)
+          ? responseState.completed_operation_ids.length
+          : Number(responseState?.completed_operation_count || 0);
+        const exhaustedReasoningBudget = /CODE_AI_EMPLOYEE_REASONING_BUDGET_EXHAUSTED/i.test(terminalReason);
+        if (
+          responseStatus === "blocked" &&
+          exhaustedReasoningBudget &&
+          completedOperationCount > lastContinuationCompletedOperationCount &&
+          requestedReasoningBudget < MAX_LOCAL_REASONING_BUDGET
+        ) {
+          lastContinuationCompletedOperationCount = completedOperationCount;
+          requestedReasoningBudget = Math.min(
+            MAX_LOCAL_REASONING_BUDGET,
+            requestedReasoningBudget + LOCAL_REASONING_BUDGET_TRANCHE,
+          );
+          executionKey = `code-ide:${crypto.randomUUID()}`;
+          resumeState = responseState;
+          missionIdleDeadline = Date.now() + MISSION_IDLE_DEADLINE_MS;
+          setError(null);
+          setLocalMissionStage(`Code completed ${completedOperationCount} repository operation${completedOperationCount === 1 ? "" : "s"} and reached its current reasoning tranche. I’m continuing the same mission with the next bounded local tranche (${requestedReasoningBudget} calls total) now.`);
+          requestRefresh();
+          await wait(500);
+          continue;
+        }
         if (responseStatus === "blocked" && recoverableCodeInfrastructureBlocker(terminalReason) && infrastructureRecoveryCycles < 3) {
           infrastructureRecoveryCycles += 1;
           setStatus(`Code is repairing its execution runtime · recovery ${infrastructureRecoveryCycles}/3`);
@@ -1415,17 +1870,15 @@ export default function AvantiqoCodeIDE({
         if (reportToTalk) {
           const finalState = body.state || body.resume_state || {};
           const finalStatus = text(body.status || finalState.status, 120).toLowerCase();
-          const changedCount = Array.isArray(finalState.files_changed) ? finalState.files_changed.length : 0;
-          const verification = body.developer_verification?.verification || finalState.tests?.[0] || null;
-          const verificationPassed = verification?.passed === true || Number(verification?.exit_code) === 0;
           const summary = finalStatus === "completed"
-            ? changedCount
-              ? `Done. I finished the Code work and verified it. ${changedCount} file${changedCount === 1 ? "" : "s"} changed${verification ? verificationPassed ? ", and the verification passed." : "." : "."}`
-              : `Done. I checked it in the shared Code workspace${verification ? verificationPassed ? " and the verification passed." : "." : "."} No source changes were made.`
+            ? codeMissionCompletionSummary(body, finalState)
             : finalStatus === "stopped"
               ? "I stopped the Code work at a safe boundary. No further changes will be made unless you continue it."
               : customerFacingCodeBlocker(body.reason || finalState.blockers?.[0] || finalState.failures?.[0]?.reason || finalStatus || "unknown blocker");
-          setChatTurns((current) => [...current, { role: "assistant", content: summary }]);
+          const summaryId = `mission-summary-${missionId}`;
+          setChatTurns((current) => current.some((turn) => turn.id === summaryId)
+            ? current
+            : [...current, { id: summaryId, role: "assistant", content: summary }]);
         }
         break;
       }
@@ -1521,9 +1974,10 @@ export default function AvantiqoCodeIDE({
       && !/\b(?:fix|change|modify|edit|implement|repair|refactor|add|remove|replace|rewrite|create)\b/i.test(latestInstruction.replace(/(?:make\s+no\s+(?:source\s+)?changes?|no\s+(?:source\s+)?changes?|do\s+not\s+(?:change|modify|edit))/gi, ""));
     if (explicitReadOnlyVerification) return latestInstruction.slice(0, 24000);
     const recent = (Array.isArray(turns) ? turns : []).slice(-10);
+    const visualContextRequested = /\b(?:design|visual|ui|ux|layout|style|brand|image|poster|hero|preview|wireframe|mockup)\b/i.test(latestInstruction);
     const context = recent.map((turn) => {
       if (!turn) return "";
-      if (turn.role === "design_preview" && turn.preview?.schema) {
+      if (visualContextRequested && turn.role === "design_preview" && turn.preview?.schema) {
         return [
           "Approved visual direction:",
           turn.preview?.title || turn.content || "Design preview",
@@ -1533,7 +1987,7 @@ export default function AvantiqoCodeIDE({
           turn.support_image_url ? `Supporting visual reference: ${turn.support_image_url}` : "",
         ].filter(Boolean).join("\n");
       }
-      if (turn.role === "visual" && turn.artifact) {
+      if (visualContextRequested && turn.role === "visual" && turn.artifact) {
         return [
           `Approved ${turn.artifact.kind || "visual"} conclusion:`,
           turn.artifact.title || "",
@@ -1544,7 +1998,7 @@ export default function AvantiqoCodeIDE({
           }),
         ].filter(Boolean).join("\n");
       }
-      if (turn.role === "image" && turn.asset_url) {
+      if (visualContextRequested && turn.role === "image" && turn.asset_url) {
         return `Visual reference generated in Talk: ${turn.asset_url}`;
       }
       if (["user", "assistant"].includes(turn.role) && turn.content) {
@@ -1553,10 +2007,24 @@ export default function AvantiqoCodeIDE({
       return "";
     }).filter(Boolean).join("\n\n");
 
+    const diagnosticRequest = /\b(?:check|diagnose|investigate|what(?:'s| is) wrong|why .*?(?:not work|isn't working|is not working)|not working|broken|issue|problem)\b/i.test(latestInstruction)
+      && !/\b(?:build|implement|add|create|rewrite|refactor|replace|remove|deploy|commit)\b/i.test(latestInstruction);
+    if (diagnosticRequest) {
+      return [
+        "Diagnose the user's reported product problem before making any source change.",
+        `User request: ${message}`,
+        context ? `Relevant recent conversation:\n${context}` : "",
+        "Resolve the product/feature named by the user from the actual repository and running workspace context. Do not treat the user's wording as a filename or invent an implementation target.",
+        "Reproduce or inspect the real user-facing failure first. Trace the relevant UI, route/API, runtime state, local worker, and data boundary only as needed to explain the observed behavior.",
+        "Identify the exact blocker from repository/runtime evidence. Only then repair proven defects, preserve unrelated work, run focused verification, and confirm the real behavior works end to end.",
+        "The final Talk handoff must explain what was wrong, what changed, why that fixed the observed problem, what was verified, and anything still unresolved.",
+      ].filter(Boolean).join("\n\n").slice(0, 24000);
+    }
+
     return [
       "Implement the user's latest instruction in the existing shared Code Studio project.",
       `Latest instruction: ${message}`,
-      context ? `Conversation and approved visual context:\n${context}` : "",
+      context ? `${visualContextRequested ? "Conversation and approved visual context" : "Relevant recent engineering conversation"}:\n${context}` : "",
       "Inspect the live repository before editing. Preserve unrelated work. Implement, test, verify the real running behavior, and keep responsibility until the requested result is proven.",
     ].filter(Boolean).join("\n\n").slice(0, 24000);
   }
@@ -1605,7 +2073,7 @@ export default function AvantiqoCodeIDE({
     const message = objective.trim();
     if (!message) return;
     const priorTurns = chatTurns.slice(-12);
-    const nextUserTurn = { role: "user", content: message };
+    const nextUserTurn = { id: `user-${crypto.randomUUID()}`, role: "user", content: message };
     setChatTurns((current) => {
       const previous = current.at(-1);
       if (previous?.role === "user" && text(previous?.content) === message) return current;
@@ -1682,13 +2150,9 @@ export default function AvantiqoCodeIDE({
         const preservedMissionId = text(scopedProgress?.mission_id);
         const preservedState = text(scopedProgress?.state_status || scopedProgress?.latest_event?.status).toLowerCase();
         const preservedTerminalStates = new Set([
-          "blocked",
-          "failed",
           "repair_required",
           "replan_required",
           "verification_required",
-          "stopped",
-          "cancelled",
         ]);
         const explicitMissionContinuation = /\b(?:continue|resume|replan|same mission|preserved mission|keep going|restart recovery)\b/i.test(message);
         const shouldResumePreservedMission = Boolean(
@@ -1783,13 +2247,9 @@ export default function AvantiqoCodeIDE({
         const preservedMissionId = text(scopedProgress?.mission_id);
         const preservedState = text(scopedProgress?.state_status || scopedProgress?.latest_event?.status).toLowerCase();
         const preservedTerminalStates = new Set([
-          "blocked",
-          "failed",
           "repair_required",
           "replan_required",
           "verification_required",
-          "stopped",
-          "cancelled",
         ]);
         const explicitMissionContinuation = /\b(?:continue|resume|replan|same mission|preserved mission|keep going|restart recovery)\b/i.test(message);
         const resumeMissionId = preservedMissionId &&
@@ -2668,7 +3128,7 @@ export default function AvantiqoCodeIDE({
                     </div>;
                   })}
                   {!chatTurns.length ? <div className="py-2 text-[10px] text-white/22">No Talk context yet.</div> : null}
-                  {(liveTalkActive || missionResult) && talkActivityNarration.length ? <div className="mt-2 border-t border-white/[0.06] pt-2">
+                  {liveTalkActive && talkActivityNarration.length ? <div className="mt-2 border-t border-white/[0.06] pt-2">
                     <div className="mb-1.5 flex items-center gap-2 text-[8px] uppercase tracking-[0.1em] text-[#D6A66A]/60"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#D6A66A]"/>Live work</div>
                     <div className="space-y-1.5">{talkActivityNarration.slice(-6).map((entry, activityIndex) => <button key={entry.key || activityIndex} type="button" onClick={() => entry.event?.file_path && openFile(entry.event.file_path)} disabled={!entry.event?.file_path} className="block w-full rounded-md border border-white/[0.05] bg-white/[0.02] px-2 py-1.5 text-left disabled:cursor-default">
                       <div className="text-[10px] leading-4 text-white/48">{entry.content}</div>
@@ -2688,8 +3148,8 @@ export default function AvantiqoCodeIDE({
                     const element = event.currentTarget;
                     talkFeedPinnedRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 72;
                   }}
-                  className={talkOnly ? "mt-3 h-[min(58vh,620px)] min-h-[320px] space-y-1 overflow-y-auto overscroll-contain px-2 py-1 [scrollbar-gutter:stable]" : "mt-3 h-[min(52vh,520px)] min-h-[260px] space-y-2 overflow-y-auto overscroll-contain rounded-xl border border-white/[0.055] bg-black/20 p-3 [scrollbar-gutter:stable]"}
-                >{chatTurns.length ? chatTurns.map((turn, index) => {
+                  className={talkOnly ? "mt-3 h-[min(58vh,620px)] min-h-[320px] w-full min-w-0 max-w-full space-y-1 overflow-x-hidden overflow-y-auto overscroll-contain px-2 py-1 [scrollbar-gutter:stable]" : "mt-3 h-[min(52vh,520px)] min-h-[260px] space-y-2 overflow-y-auto overscroll-contain rounded-xl border border-white/[0.055] bg-black/20 p-3 [scrollbar-gutter:stable]"}
+                >{visibleChatTurns.length ? visibleChatTurns.map((turn, index) => {
                   if (turn.role === "visual_error" || turn.role === "image_error") return null;
                   if (turn.role === "assistant_pending") {
                     return <div key={turn.id || `assistant-pending-${index}`} className="max-w-[92%] py-3 text-sm leading-7 text-slate-500">
@@ -2881,16 +3341,25 @@ export default function AvantiqoCodeIDE({
                       {artifact.edges?.length ? <div className="mt-3 flex flex-wrap gap-1.5">{artifact.edges.map((edge, edgeIndex) => { const from = artifact.nodes?.find((node) => node.id === edge.from)?.label || edge.from; const to = artifact.nodes?.find((node) => node.id === edge.to)?.label || edge.to; return <div key={`${edge.from}-${edge.to}-${edgeIndex}`} className="rounded-full border border-white/[0.06] bg-black/20 px-2 py-1 text-[9px] text-white/28"><span className="text-white/45">{from}</span> → <span className="text-white/45">{to}</span>{edge.label ? ` · ${edge.label}` : ""}</div>; })}</div> : null}
                     </div>;
                   }
-                  return <div key={`${turn.role}-${index}`} className={talkOnly ? (turn.role === "user" ? "ml-auto max-w-[82%] py-3 text-sm leading-7 text-slate-700" : "max-w-[92%] py-3 text-sm leading-7 text-slate-700") : (turn.role === "user" ? "ml-10 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.05] px-3 py-2.5 text-sm leading-6 text-white/72" : "mr-10 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2.5 text-sm leading-6 text-white/62")}>{turn.content}</div>;
+                  if (talkOnly && turn.role === "user") {
+                    return <div key={`${turn.role}-${index}`} className="ml-auto mr-3 w-fit min-w-0 max-w-[min(68%,760px)] overflow-hidden break-words rounded-2xl rounded-br-md border border-[#D6A66A]/30 bg-[#D6A66A]/[0.12] px-4 py-3 text-sm font-medium leading-7 text-slate-800 shadow-sm">
+                      <div className="mb-1 text-right text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8a683f]/75">You</div>
+                      <div>{turn.content}</div>
+                    </div>;
+                  }
+                  return <div key={`${turn.role}-${index}`} className={talkOnly ? "mr-auto min-w-0 max-w-[86%] break-words py-3 text-sm leading-7 text-slate-700" : (turn.role === "user" ? "ml-10 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.05] px-3 py-2.5 text-sm leading-6 text-white/72" : "mr-10 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2.5 text-sm leading-6 text-white/62")}>{turn.content}</div>;
                 }) : <div className="py-10 text-center text-sm text-white/24">Start a conversation with Code about product, architecture, UX, layout or visual design.</div>}
                 {liveTalkActive ? <div className="max-w-[92%] px-1 py-3 text-sm leading-7 text-slate-600">
-                  {talkActivityNarration.slice(-6, -1).map((entry, activityIndex) => <div key={entry.key || activityIndex} className="py-2 text-slate-600">
+                  {talkMilestoneNarration.filter((entry) => entry.key !== liveNarrationEntry?.key).map((entry) => <div key={entry.key} className="py-2 text-slate-700">
                     <span>{entry.content}</span>
                     {entry.event?.file_path ? <button type="button" onClick={() => { if (typeof onStudioViewChange === "function") onStudioViewChange("code"); openFile(entry.event.file_path); }} className="ml-1 font-mono text-[10px] text-[#8a683f] hover:underline">{entry.event.file_path}{entry.event?.start_line ? `:${entry.event.start_line}` : ""}</button> : null}
                   </div>)}
                   <div className="flex items-start gap-2 py-2">
                     <span className="relative mt-2 flex h-2 w-2 shrink-0"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#D6A66A]/45"/><span className="relative inline-flex h-2 w-2 rounded-full bg-[#D6A66A]"/></span>
-                    <div className="min-w-0 flex-1 animate-[pulse_2.4s_ease-in-out_infinite]"><span>{liveNarrationContent}</span>{liveNarrationEntry?.event?.file_path ? <button type="button" onClick={() => { if (typeof onStudioViewChange === "function") onStudioViewChange("code"); openFile(liveNarrationEntry.event.file_path); }} className="ml-1 font-mono text-[10px] text-[#8a683f] hover:underline">{liveNarrationEntry.event.file_path}{liveNarrationEntry.event?.start_line ? `:${liveNarrationEntry.event.start_line}` : ""}</button> : null}</div>
+                    <div className="min-w-0 flex-1">
+                      <span>{liveNarrationContent}</span>
+                      {liveNarrationEntry?.event?.file_path ? <button type="button" onClick={() => { if (typeof onStudioViewChange === "function") onStudioViewChange("code"); openFile(liveNarrationEntry.event.file_path); }} className="ml-1 font-mono text-[10px] text-[#8a683f] hover:underline">{liveNarrationEntry.event.file_path}{liveNarrationEntry.event?.start_line ? `:${liveNarrationEntry.event.start_line}` : ""}</button> : null}
+                    </div>
                   </div>
                 </div> : null}</div>
               </> : null}

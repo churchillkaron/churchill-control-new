@@ -20,9 +20,9 @@ test("live Code progress stays local on the hot path and checkpoints durably", (
 test("shared progress polling is throttled and expensive details are sampled", () => {
   assert.match(feed, /ACTIVE_POLL_MS = 3000/);
   assert.match(feed, /IDLE_POLL_MS = 15000/);
-  assert.match(feed, /ACTIVE_DETAIL_REFRESH_EVERY = 5/);
+  assert.match(feed, /ACTIVE_DETAIL_REFRESH_EVERY = 20/);
   assert.match(feed, /consecutiveFailures/);
-  assert.match(feed, /Math\.min\(30000, baseDelay \* \(2 \*\* Math\.min\(consecutiveFailures, 4\)\)\)/);
+  assert.match(feed, /Math\.min\(60000, baseDelay \* \(2 \*\* Math\.min\(consecutiveFailures, 4\)\)\)/);
   assert.match(feed, /details=\$\{includeDetails \? "1" : "0"\}/);
   assert.match(route, /const includeDetails =/);
   assert.match(route, /includeDetails\s*\? await loadLatestProductEngineeringPortfolio/);
@@ -33,7 +33,7 @@ test("IDE health polling cannot overlap while Code is active", () => {
   assert.doesNotMatch(ide, /setInterval\(async \(\) => \{[\s\S]*ideRequest\("state"\)/);
   assert.match(ide, /async function pollIdeState\(\)/);
   assert.match(ide, /window\.setTimeout\(pollIdeState, delayMs\)/);
-  assert.match(ide, /\? 4000[\s\S]*\? 8000[\s\S]*: 20000/);
+  assert.match(ide, /\? 10000[\s\S]*\? 15000[\s\S]*: 30000/);
   assert.match(ide, /Math\.min\(30000, baseDelayMs \* \(2 \*\* Math\.min\(consecutiveFailures, 3\)\)\)/);
 });
 

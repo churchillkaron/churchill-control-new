@@ -118,8 +118,9 @@ test("live progress and mission receipt expose the same inspectable engineering 
   assert.match(planCard, /Business acceptance/);
 });
 
-test("Business Partner and Code Studio share the same plan feed", () => {
-  assert.match(businessPartnerSurface, /CodeEngineeringIntelligenceLiveCard/);
+test("Code Studio plan feed uses the shared provider while Home stays conversation-first", () => {
+  assert.match(businessPartnerSurface, /return null/);
+  assert.doesNotMatch(businessPartnerSurface, /CodeEngineeringIntelligenceLiveCard/);
   assert.match(studioSurface, /CodeEngineeringIntelligenceLiveCard/);
   assert.match(liveCard, /useCodeProgressFeed/);
   assert.match(progressProvider, /\/api\/operator\/code\/progress/);

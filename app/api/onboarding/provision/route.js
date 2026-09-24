@@ -471,6 +471,7 @@ export async function POST(request) {
       {
         success: false,
         error: error?.message || "Unable to create the organization",
+        code: error?.code || undefined,
         retryWithNewOnboardingRequest:
           error?.retryWithNewOnboardingRequest === true ||
           Boolean(onboardingReservation && !onboardingProvisioned),

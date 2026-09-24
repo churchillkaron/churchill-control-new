@@ -145,6 +145,51 @@ async function retryBootstrapStep(operation, { attempts = 3, timeoutMs = 12000, 
   throw lastError || new Error("WORKSPACE_BOOTSTRAP_FAILED");
 }
 
+const BOOTSTRAP_REUSE_MS = 3000;
+const workspaceBootstrapRequests = new Map();
+
+async function sharedWorkspaceBootstrapRequest({ bootstrapUrl, accessToken }) {
+  const authKey = accessToken ? accessToken.slice(-32) : "cookie-session";
+  const key = `${bootstrapUrl}::${authKey}`;
+  const now = Date.now();
+  const existing = workspaceBootstrapRequests.get(key);
+  if (existing?.promise) return existing.promise;
+  if (existing?.value && Number(existing.expires_at || 0) > now) return existing.value;
+
+  const promise = (async () => {
+    const response = await fetch(bootstrapUrl, {
+      method: "GET",
+      headers: accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : {},
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(payload?.error || payload?.reason || "Business context bootstrap failed");
+      error.status = response.status;
+      error.code = payload?.reason || payload?.code || null;
+      throw error;
+    }
+    return payload;
+  })();
+
+  workspaceBootstrapRequests.set(key, { promise, value: null, expires_at: 0 });
+  try {
+    const value = await promise;
+    workspaceBootstrapRequests.set(key, {
+      promise: null,
+      value,
+      expires_at: Date.now() + BOOTSTRAP_REUSE_MS,
+    });
+    return value;
+  } catch (error) {
+    workspaceBootstrapRequests.delete(key);
+    throw error;
+  }
+}
+
 function workspaceOrganizationId(pathname) {
   const match = String(pathname || "").match(/^\/workspace\/([^/]+)/);
   const candidate = text(match?.[1]);
@@ -281,22 +326,10 @@ export function BusinessContextProvider({ children }) {
             ? `/api/session/bootstrap?organizationId=${encodeURIComponent(routeOrganizationId)}`
             : "/api/session/bootstrap";
           const accessToken = browserSupabaseAccessToken();
-          const response = await fetch(bootstrapUrl, {
-            method: "GET",
-            headers: accessToken
-              ? { Authorization: `Bearer ${accessToken}` }
-              : {},
-            cache: "no-store",
-            credentials: "same-origin",
+          return sharedWorkspaceBootstrapRequest({
+            bootstrapUrl,
+            accessToken,
           });
-          const payload = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            const error = new Error(payload?.error || payload?.reason || "Business context bootstrap failed");
-            error.status = response.status;
-            error.code = payload?.reason || payload?.code || null;
-            throw error;
-          }
-          return payload;
         }, {
           onRetry: (attempt) => setState((previous) => ({
             ...previous,

@@ -208,3 +208,13 @@ test("customer access token consumption and session creation are atomic", () => 
   assert.match(migration, /to service_role/);
   assert.match(migration, /p_session_expires_at > v_now \+ interval '31 days'/);
 });
+
+test("customer portal fails closed with an explicit service error when atomic migration is missing", () => {
+  const runtime = read("lib/customer-portal/CustomerPortalRuntime.js");
+  const route = read("app/api/customer-portal/access/[token]/route.js");
+  assert.match(runtime, /CUSTOMER_PORTAL_MIGRATION_REQUIRED/);
+  assert.match(runtime, /migrationError\.status = 503/);
+  assert.match(runtime, /PGRST202/);
+  assert.match(route, /code: error\?\.code \|\| null/);
+  assert.match(route, /status: Number\(error\?\.status\) \|\| 500/);
+});

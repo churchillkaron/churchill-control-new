@@ -12,7 +12,7 @@ const files = {
     "utf8",
   ),
   provider: await readFile(
-    "lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProvider.js",
+    "lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeLocalQueueProvider.js",
     "utf8",
   ),
 };
@@ -36,23 +36,20 @@ test("Operator preserves Code artifacts when the cognitive guard blocks mutation
     /function withCodeCustomerArtifactReply\(result, artifactSource = result\)/,
   );
   assert.match(files.operator, /findCodeAICustomerArtifact\(artifactSource\)/);
-  assert.match(files.operator, /withCodeCustomerArtifactReply\(guarded, result\)/);
+  assert.match(files.operator, /withCodeCustomerArtifactReply\(guarded, verifiedResult\)/);
   assert.match(files.operator, /code_customer_artifact_preserved_through_guard:/);
   assert.match(files.operator, /mutation_executed: false/);
 });
 
-test("zero-idle failed submission reaps capacity before preserving the error", () => {
-  assert.match(files.provider, /reapAfterServerlessSubmissionFailure/);
-  assert.match(files.provider, /await reapIdleCodeAIServerlessWorker\(\)/);
-  assert.match(files.provider, /if \(zeroIdle\) await reapAfterServerlessSubmissionFailure\(error\)/);
-  assert.match(files.provider, /throw error/);
+test("local Code delivery stays on the governed local queue", () => {
+  assert.match(files.provider, /AVANTIQO_CODE_LOCAL_NODE_UNAVAILABLE/);
+  assert.match(files.provider, /organizationId/);
+  assert.match(files.provider, /usageId/);
+  assert.match(files.provider, /avantiqo_local_compute_jobs/);
 });
 
-test("completed Code jobs fail closed before billing when no deliverable result exists", () => {
-  assert.match(files.provider, /AVANTIQO_CODE_DELIVERY_SETTLEMENT_GUARD_V1/);
-  assert.match(files.provider, /guardCompletedDeliverable/);
-  assert.match(files.provider, /AVANTIQO_CODE_SERVERLESS_COMPLETED_RESULT_REQUIRED/);
-  assert.match(files.provider, /AVANTIQO_CODE_POD_COMPLETED_RESULT_REQUIRED/);
-  assert.match(files.provider, /customer_charge_eligible: false/);
-  assert.match(files.provider, /status: "failed"/);
+test("completed local Code jobs fail closed when no deliverable result exists", () => {
+  assert.match(files.provider, /AVANTIQO_CODE_LOCAL_COMPLETED_RESULT_REQUIRED/);
+  assert.match(files.provider, /customer_charge_eligible:false/);
+  assert.match(files.provider, /status:"failed"/);
 });

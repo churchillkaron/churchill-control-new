@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { createServerSupabase }
-from "@/lib/shared/supabase/server";
+import resolveAuthenticatedStaffContext
+from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
+import { supabaseAdmin }
+from "@/lib/shared/supabase/admin";
+
+const PROFILE_BUCKET = "staff-profile-pictures";
+const MAX_PROFILE_BYTES = 5 * 1024 * 1024;
+const PROFILE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export const runtime =
   "nodejs";
@@ -10,8 +16,13 @@ export async function POST(req) {
 
   try {
 
-    const supabase =
-      createServerSupabase();
+    const context = await resolveAuthenticatedStaffContext({ request: req });
+    if (!context.success) {
+      return NextResponse.json(
+        { success: false, error: context.error, code: context.code },
+        { status: context.status || 403 }
+      );
+    }
 
     const formData =
       await req.formData();
@@ -40,6 +51,33 @@ export async function POST(req) {
 
     }
 
+    if (String(staff_id) !== String(context.staff.id)) {
+      return NextResponse.json(
+        { success: false, error: "You can only update your own Staff profile picture." },
+        { status: 403 }
+      );
+    }
+
+    const contentType = String(file.type || "").trim().toLowerCase();
+    if (!PROFILE_TYPES.has(contentType)) {
+      return NextResponse.json(
+        { success: false, error: "Profile picture must be JPEG, PNG or WebP." },
+        { status: 415 }
+      );
+    }
+    if (!Number.isFinite(Number(file.size)) || Number(file.size) <= 0) {
+      return NextResponse.json(
+        { success: false, error: "Profile picture is empty." },
+        { status: 400 }
+      );
+    }
+    if (Number(file.size) > MAX_PROFILE_BYTES) {
+      return NextResponse.json(
+        { success: false, error: "Profile picture exceeds 5 MB." },
+        { status: 413 }
+      );
+    }
+
     const arrayBuffer =
       await file.arrayBuffer();
 
@@ -48,18 +86,15 @@ export async function POST(req) {
         arrayBuffer
       );
 
-    const fileName =
-      `${staff_id}-${Date.now()}.png`;
-
     const filePath =
-      `staff/${fileName}`;
+      `${context.organizationId}/${staff_id}/profile`;
 
     const {
       error: uploadError,
-    } = await supabase.storage
+    } = await supabaseAdmin.storage
 
       .from(
-        "uploads"
+        PROFILE_BUCKET
       )
 
       .upload(
@@ -67,7 +102,8 @@ export async function POST(req) {
         buffer,
         {
           contentType:
-            file.type,
+            contentType,
+          cacheControl: "300",
           upsert: true,
         }
       );
@@ -89,23 +125,12 @@ export async function POST(req) {
 
     }
 
-    const { data } =
-      supabase.storage
-
-        .from(
-          "uploads"
-        )
-
-        .getPublicUrl(
-          filePath
-        );
-
-    const publicUrl =
-      data.publicUrl;
+    const profileUrl =
+      `/api/staff/profile-picture/${encodeURIComponent(String(staff_id))}`;
 
     const {
       error: updateError,
-    } = await supabase
+    } = await supabaseAdmin
 
       .from(
         "staff_accounts"
@@ -113,7 +138,7 @@ export async function POST(req) {
 
       .update({
         profile_picture:
-          publicUrl,
+          profileUrl,
       })
 
       .eq(
@@ -143,7 +168,7 @@ export async function POST(req) {
       success: true,
 
       url:
-        publicUrl,
+        profileUrl,
 
     });
 

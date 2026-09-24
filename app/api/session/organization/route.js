@@ -107,6 +107,7 @@ export async function POST(request) {
       .update({
         active_organization_id: context.organizationId,
         party_id: selectedPartyId,
+        role: context.role || null,
       })
       .eq("id", staffId)
       .eq("auth_user_id", authUserId);

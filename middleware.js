@@ -20,6 +20,10 @@ function isProtectedWorkspacePath(pathname) {
   return pathname === "/workspace" || pathname.startsWith("/workspace/");
 }
 
+function isPublicEntryPath(pathname) {
+  return pathname === "/start" || pathname === "/signup" || pathname === "/login";
+}
+
 function hasSupabaseSessionCookie(request) {
   return request.cookies.getAll().some(({ name }) =>
     name.startsWith("sb-") && name.includes("-auth-token")
@@ -127,10 +131,11 @@ export async function middleware(request, event) {  if (request.nextUrl.pathname
   }
 
   const hostname = String(request.nextUrl.hostname || "").toLowerCase();
+  const publicEntryRequest = isPublicEntryPath(request.nextUrl.pathname);
   const localWorkspaceRequest =
     isProtectedWorkspacePath(request.nextUrl.pathname) &&
     (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1");
-  const sessionResponse = localWorkspaceRequest
+  const sessionResponse = publicEntryRequest || localWorkspaceRequest
     ? NextResponse.next({ request })
     : await refreshSupabaseSession(request);
 

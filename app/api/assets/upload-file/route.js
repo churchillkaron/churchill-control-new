@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { createServerSupabase } from "@/lib/shared/supabase/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   requireOrganizationAccess,
@@ -11,7 +10,6 @@ export const runtime = "nodejs";
 
 export async function POST(req) {
   try {
-    const supabase = createServerSupabase();
     const formData = await req.formData();
 
     const file = formData.get("file");
@@ -41,7 +39,7 @@ export async function POST(req) {
     const safeName = String(file.name || "upload").replace(/[^a-zA-Z0-9._-]/g, "-");
     const filePath = `organization-documents/${resolvedOrganizationId}/${Date.now()}-${safeName}`;
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabaseAdmin.storage
       .from("uploads")
       .upload(filePath, buffer, {
         contentType: file.type || "application/octet-stream",
@@ -55,7 +53,7 @@ export async function POST(req) {
       );
     }
 
-    const { data: publicData } = supabase.storage
+    const { data: publicData } = supabaseAdmin.storage
       .from("uploads")
       .getPublicUrl(filePath);
 

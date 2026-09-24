@@ -49,9 +49,9 @@ test("shared provider is the only Code progress poll owner on Home and Code Stud
   assert.match(provider, /single_progress_poll_per_surface:\s*true/);
 });
 
-test("Business Partner shares one progress provider between mission and intelligence surfaces", () => {
-  assert.match(businessPartnerWorkspace, /CodeProgressFeedProvider/);
-  assert.match(businessPartnerWorkspace, /data-avantiqo-code-progress-poll-owner="shared-provider"/);
+test("Home Business Partner does not mount a duplicate Code progress poll owner", () => {
+  assert.match(businessPartnerWorkspace, /return null/);
+  assert.doesNotMatch(businessPartnerWorkspace, /CodeProgressFeedProvider/);
   assert.match(activeMission, /useCodeProgressFeed/);
   assert.match(activeMission, /data-avantiqo-code-progress-consumer="shared-provider"/);
   assert.match(intelligenceFeed, /useCodeProgressFeed/);

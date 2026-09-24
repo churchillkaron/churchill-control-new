@@ -6,10 +6,10 @@ import path from "node:path";
 const root = process.cwd();
 const source = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
-test("critical reviews can never auto-publish", () => {
+test("critical reviews preserve recovery while organization policy controls auto-publish", () => {
   const runtime = source("lib/commercial/reputation/ReputationAutomationRuntime.js");
   assert.match(runtime, /const critical = rating <=/);
-  assert.match(runtime, /const autoPublish =\s*!critical && rating >=/);
+  assert.match(runtime, /const autoPublish = rating >= Number\(policy\.auto_publish_min_rating \?\? 5\)/);
   assert.match(runtime, /if \(critical\) await createRecoveryCase/);
 });
 
@@ -54,4 +54,34 @@ test("Meta connection callbacks persist new secrets through the vault boundary",
   assert.match(credentialRuntime, /store_provider_credential_vault_secret/);
   assert.match(migration, /vault\.create_secret/);
   assert.match(migration, /provider_id = 'meta'/);
+});
+
+test("communication inbox accepts only canonical communication providers", () => {
+  const service = source("lib/commercial/communications/CommunicationService.js");
+  const catalog = source("lib/commercial/communications/CommunicationChannelCatalog.js");
+  assert.match(catalog, /export function isCommunicationProvider/);
+  assert.match(service, /isCommunicationProvider\(connection\?\.provider\)/);
+  assert.doesNotMatch(catalog, /^\s*google:\s*\{/m);
+});
+
+test("communication timelines sort by provider event time instead of database insertion time", () => {
+  const repository = source("lib/commercial/communications/CommunicationRepository.js");
+  assert.match(repository, /function messageEventTime/);
+  assert.match(repository, /row\?\.sent_at \|\| row\?\.received_at \|\| row\?\.created_at/);
+  assert.match(repository, /sort\(\(left, right\) => messageEventTime\(left\) - messageEventTime\(right\)\)/);
+  assert.match(repository, /sort\(\(left, right\) => messageEventTime\(right\) - messageEventTime\(left\)\)/);
+});
+
+test("communication workspace keeps the full channel catalog while status comes from live connections", () => {
+  const workspace = source("components/workspace/commercial/CommunicationsWorkspace.jsx");
+  assert.match(workspace, /const visibleChannels = CHANNELS/);
+  assert.match(workspace, /connectedFamilies\.has\(id\)/);
+  assert.match(workspace, /connectedFamilies\.size \+ 1/);
+});
+
+test("communication timeline deduplicates provider attachments by stable Meta attachment identity", () => {
+  const service = source("lib/commercial/communications/CommunicationService.js");
+  assert.match(service, /metadata\.meta_attachment_id/);
+  assert.match(service, /duplicateIndex = bucket\.findIndex/);
+  assert.match(service, /render_as_sticker === true/);
 });

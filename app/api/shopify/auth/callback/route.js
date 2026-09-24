@@ -68,9 +68,17 @@ function verifyHmac(url) {
   return safeEqual(digest, url.searchParams.get("hmac"));
 }
 
-function destination(origin, organizationId, message) {
+function safeReturnPath(authorization, organizationId) {
+  const candidate = text(authorization?.metadata?.return_path);
+  const allowed = `/workspace/${encodeURIComponent(organizationId)}/administration/communications-setup?onboarding=1`;
+  return candidate === allowed
+    ? allowed
+    : `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`;
+}
+
+function destination(origin, organizationId, message, authorization = null) {
   const url = new URL(
-    `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
+    safeReturnPath(authorization, organizationId),
     origin,
   );
   url.searchParams.set("message", message);
@@ -416,6 +424,7 @@ export async function GET(request) {
         entityId
           ? "Shopify connected. Avantiqo is importing the store and activating commerce synchronization automatically."
           : "Shopify connected. Choose the legal entity for this store to activate order synchronization.",
+        authorization,
       ),
     );
   } catch (error) {
@@ -424,6 +433,7 @@ export async function GET(request) {
         authorization?.return_origin || url.origin,
         authorization?.organization_id || "unknown",
         error?.message || "Shopify connection failed",
+        authorization,
       ),
     );
   }

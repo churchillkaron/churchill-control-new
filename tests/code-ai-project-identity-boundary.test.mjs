@@ -63,8 +63,8 @@ test("live conversation distinguishes explanation from a real build command", ()
 test("project identity firewall is injected into planner and live conversation", () => {
   assert.match(planner, /deriveCodeAIProjectIdentity/);
   assert.match(planner, /formatCodeAIProjectIdentityForPlanner\(projectIdentity\)/);
-  assert.match(conversation, /Avantiqo Code is the engineering tool, not the identity of the user's software product/);
-  assert.match(conversation, /Never import Avantiqo product domains, terminology, UI style, workflows/);
+  assert.match(conversation, /Avantiqo Code is the engineering tool, not the user's product/);
+  assert.match(conversation, /Never import Avantiqo product domains, UI style, workflows, organization\/entity concepts, stack choices, or provider choices/);
 });
 
 test("project identity persists with mission state and mission history", () => {
@@ -77,4 +77,23 @@ test("verified engineering memory remains repository-scoped", () => {
   assert.match(memory, /same organization\/actor and repository/);
   assert.match(memory, /repositoryUrl/);
   assert.match(memory, /normalizedRepository/);
+});
+test("project identity sees nested source-read evidence paths and deduplicates them", () => {
+  const identity = deriveCodeAIProjectIdentity({
+    repositoryUrl: "https://github.com/acme/example",
+    objective: "Repair the observed target module.",
+    state: {
+      files_changed: ["lib/changed.js"],
+      evidence: [{ action: "read", result: { file_path: "lib/evidence.js" } }],
+      source_read_evidence: [
+        { action: "read", result: { file_path: "lib/target.js" } },
+        { action: "read", result: { file_path: "lib/target.js" } },
+      ],
+    },
+  });
+  assert.deepEqual(identity.observed_repository_paths, [
+    "lib/changed.js",
+    "lib/evidence.js",
+    "lib/target.js",
+  ]);
 });

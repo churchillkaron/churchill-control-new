@@ -1,0 +1,17 @@
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+
+export async function GET(request) {
+  try {
+    const url = new URL(request.url);
+    const organizationId = url.searchParams.get("organizationId") || url.searchParams.get("organization_id");
+    const access = await requireOrganizationAccess({ organizationId, request });
+    if (!access.success) return NextResponse.json({ success:false, error:access.error || "Organization access denied" }, { status:access.status || 403 });
+    const query = url.searchParams.get("onboarding") === "1" ? "?onboarding=1" : "";
+    return NextResponse.redirect(new URL(`/workspace/${encodeURIComponent(access.organizationId)}/administration/telegram-setup${query}`, url.origin));
+  } catch (error) {
+    return NextResponse.json({ success:false, error:error?.message || "Telegram setup could not start" }, { status:500 });
+  }
+}

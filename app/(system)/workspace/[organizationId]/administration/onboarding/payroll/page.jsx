@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Building2,
@@ -182,7 +182,7 @@ export default function AdministrationPayrollOnboardingPage() {
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
 
-  async function loadReadiness(month = payrollMonth) {
+  const loadReadiness = useCallback(async (month = payrollMonth) => {
     if (!organizationId || !/^\d{4}-\d{2}$/.test(month)) return;
 
     setLoading(true);
@@ -211,11 +211,11 @@ export default function AdministrationPayrollOnboardingPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId, payrollMonth]);
 
   useEffect(() => {
     loadReadiness(payrollMonth);
-  }, [organizationId, payrollMonth]);
+  }, [loadReadiness, payrollMonth]);
 
   const setupBlockers = useMemo(
     () => (readiness?.blockers || []).filter((item) => item.code !== "PAYROLL_PERIOD_OPEN"),
@@ -241,9 +241,9 @@ export default function AdministrationPayrollOnboardingPage() {
   ).length;
 
   return (
-    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#24201B] lg:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
+        <section className="overflow-hidden rounded-[34px] border border-black/[0.07] bg-white backdrop-blur-3xl">
           <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
           <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -251,7 +251,7 @@ export default function AdministrationPayrollOnboardingPage() {
                 Administration · Onboarding & Setup
               </div>
               <h1 className="mt-3 text-4xl font-black">Payroll Setup</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/45">
+              <p className="mt-2 max-w-3xl text-sm text-[#777169]">
                 Prepare a company for payroll using the canonical People, Finance and workforce configuration already owned by each domain. This page does not duplicate payroll master data.
               </p>
             </div>
@@ -261,13 +261,13 @@ export default function AdministrationPayrollOnboardingPage() {
                 type="month"
                 value={payrollMonth}
                 onChange={(event) => setPayrollMonth(event.target.value)}
-                className="h-12 rounded-xl border border-white/10 bg-[#111] px-4 text-sm outline-none"
+                className="h-12 rounded-xl border border-black/[0.07] bg-white px-4 text-sm outline-none"
               />
               <button
                 type="button"
                 onClick={() => loadReadiness(payrollMonth)}
                 disabled={loading}
-                className="flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.15em] text-white/70 disabled:opacity-40"
+                className="flex h-12 items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBF8F3] px-4 text-xs font-black uppercase tracking-[0.15em] text-[#5F574E] disabled:opacity-40"
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                 Refresh
@@ -284,11 +284,11 @@ export default function AdministrationPayrollOnboardingPage() {
         </section>
 
         {error ? (
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <div className="rounded-2xl border border-red-700/15 bg-red-50 px-4 py-3 text-sm text-red-800">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span>{error}</span>
               {errorCode === "LEGAL_ENTITY_MISSING" ? (
-                <Link href="/finance/legal-entities" className="rounded-xl border border-red-300/20 bg-black/20 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em]">
+                <Link href="/finance/legal-entities" className="rounded-xl border border-red-300/20 bg-[#F7EFE4] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em]">
                   Configure legal entity
                 </Link>
               ) : null}
@@ -296,13 +296,13 @@ export default function AdministrationPayrollOnboardingPage() {
           </div>
         ) : null}
 
-        <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+        <section className="rounded-[30px] border border-black/[0.07] bg-white p-5 lg:p-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Onboarding sequence</div>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-[#938B82]">Onboarding sequence</div>
               <h2 className="mt-1 text-2xl font-black">Payroll go-live checklist</h2>
             </div>
-            <div className="text-xs text-white/35">
+            <div className="text-xs text-[#938B82]">
               Scope: {readiness?.entityId ? "legal entity resolved" : "legal entity required"}
             </div>
           </div>
@@ -321,13 +321,13 @@ export default function AdministrationPayrollOnboardingPage() {
 
         {readiness ? (
           <section className="grid gap-4 lg:grid-cols-[1.05fr_.95fr]">
-            <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
-              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-white/35">
+            <div className="rounded-[30px] border border-black/[0.07] bg-white p-5 lg:p-6">
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-[#938B82]">
                 <AlertTriangle className="h-4 w-4" /> Required setup
               </div>
 
               {requiredBlockers.length === 0 ? (
-                <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200">
+                <div className="mt-4 rounded-2xl border border-emerald-700/15 bg-emerald-50 p-4 text-sm text-emerald-800">
                   All configuration and settlement prerequisites for this payroll month are complete. Period-close rules may still prevent generation while the month is open.
                 </div>
               ) : (
@@ -335,14 +335,14 @@ export default function AdministrationPayrollOnboardingPage() {
                   {requiredBlockers.map((item) => {
                     const action = blockerAction(item.code, organizationId);
                     return (
-                      <div key={item.code} className="rounded-2xl border border-red-500/15 bg-red-500/[0.06] p-4">
+                      <div key={item.code} className="rounded-2xl border border-red-700/15 bg-red-50 p-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.14em] text-red-300">{item.code}</div>
-                            <p className="mt-1 text-sm text-white/65">{item.message}</p>
+                            <div className="text-[10px] font-black uppercase tracking-[0.14em] text-red-700">{item.code}</div>
+                            <p className="mt-1 text-sm text-[#6F675E]">{item.message}</p>
                           </div>
                           {action ? (
-                            <Link href={action.href} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/70">
+                            <Link href={action.href} className="shrink-0 rounded-xl border border-black/[0.07] bg-[#FBF8F3] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#5F574E]">
                               {action.label}
                             </Link>
                           ) : null}
@@ -354,8 +354,8 @@ export default function AdministrationPayrollOnboardingPage() {
               )}
             </div>
 
-            <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
-              <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Readiness evidence</div>
+            <div className="rounded-[30px] border border-black/[0.07] bg-white p-5 lg:p-6">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-[#938B82]">Readiness evidence</div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <Mini label="Profiles" value={readiness.summary?.compensationProfiles || 0} />
                 <Mini label="Pay missing" value={readiness.summary?.compensationUnconfigured || 0} />
@@ -366,11 +366,11 @@ export default function AdministrationPayrollOnboardingPage() {
                 <Mini label="Settlement blockers" value={lifecycleBlockers.length} />
                 <Mini label="Generation blockers" value={setupBlockers.length} />
               </div>
-              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-xs leading-6 text-white/40">
-                Payroll country: <span className="text-white/70">{readiness.settings?.country || "Not configured"}</span><br />
-                Payroll currency: <span className="text-white/70">{readiness.settings?.currency || "Not configured"}</span><br />
-                Schedule expected hours: <span className="text-white/70">{readiness.settings?.useScheduleExpectedHours ? "Enabled" : "Disabled"}</span><br />
-                Timezone: <span className="text-white/70">{readiness.timezone || "—"}</span>
+              <div className="mt-4 rounded-2xl border border-black/[0.07] bg-[#F7EFE4] p-4 text-xs leading-6 text-[#81786F]">
+                Payroll country: <span className="text-[#5F574E]">{readiness.settings?.country || "Not configured"}</span><br />
+                Payroll currency: <span className="text-[#5F574E]">{readiness.settings?.currency || "Not configured"}</span><br />
+                Schedule expected hours: <span className="text-[#5F574E]">{readiness.settings?.useScheduleExpectedHours ? "Enabled" : "Disabled"}</span><br />
+                Timezone: <span className="text-[#5F574E]">{readiness.timezone || "—"}</span>
               </div>
             </div>
           </section>
@@ -389,23 +389,23 @@ function SetupStage({ number, stage, state }) {
   const statusLabel = ready ? "Ready" : blocked ? "Action required" : attention ? "Review" : "Waiting";
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+    <div className="rounded-2xl border border-black/[0.07] bg-[#F7EFE4] p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-[#D6A66A]">
+          <div className="rounded-xl border border-black/[0.07] bg-[#FBF8F3] p-2.5 text-[#D6A66A]">
             <Icon className="h-4 w-4" />
           </div>
           <div>
-            <div className="text-[9px] uppercase tracking-[0.18em] text-white/30">Step {number}</div>
+            <div className="text-[9px] uppercase tracking-[0.18em] text-[#9A9085]">Step {number}</div>
             <div className="mt-1 text-sm font-black">{stage.title}</div>
           </div>
         </div>
-        <div className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.12em] ${ready ? "text-emerald-300" : blocked ? "text-red-300" : attention ? "text-amber-300" : "text-white/30"}`}>
+        <div className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.12em] ${ready ? "text-emerald-300" : blocked ? "text-red-700" : attention ? "text-amber-300" : "text-[#9A9085]"}`}>
           <StatusIcon className="h-3.5 w-3.5" /> {statusLabel}
         </div>
       </div>
-      <p className="mt-4 min-h-[60px] text-xs leading-5 text-white/40">{stage.description}</p>
-      <Link href={stage.href} className="mt-4 inline-flex rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65 transition hover:border-[#D6A66A]/40 hover:text-[#D6A66A]">
+      <p className="mt-4 min-h-[60px] text-xs leading-5 text-[#81786F]">{stage.description}</p>
+      <Link href={stage.href} className="mt-4 inline-flex rounded-xl border border-black/[0.07] bg-[#FBF8F3] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#6F675E] transition hover:border-[#D6A66A]/40 hover:text-[#D6A66A]">
         {stage.action}
       </Link>
     </div>
@@ -414,8 +414,8 @@ function SetupStage({ number, stage, state }) {
 
 function Metric({ label, value }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
-      <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">{label}</div>
+    <div className="rounded-[24px] border border-black/[0.07] bg-white p-5">
+      <div className="text-[10px] uppercase tracking-[0.2em] text-[#938B82]">{label}</div>
       <div className="mt-3 text-2xl font-black">{value}</div>
     </div>
   );
@@ -423,8 +423,8 @@ function Metric({ label, value }) {
 
 function Mini({ label, value }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-      <div className="text-[9px] uppercase tracking-[0.16em] text-white/30">{label}</div>
+    <div className="rounded-2xl border border-black/[0.07] bg-[#F7EFE4] p-4">
+      <div className="text-[9px] uppercase tracking-[0.16em] text-[#9A9085]">{label}</div>
       <div className="mt-2 text-xl font-black">{value}</div>
     </div>
   );

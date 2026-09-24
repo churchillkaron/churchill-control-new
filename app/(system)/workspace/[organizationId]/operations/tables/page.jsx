@@ -39,21 +39,21 @@ function statusPresentation(table) {
   if (["READY", "FOOD READY"].includes(status)) {
     return {
       label: "Food ready",
-      card: "border-amber-300/35 bg-amber-300/[0.06]",
-      pill: "border-amber-300/30 bg-amber-300/[0.08] text-amber-100",
+      card: "border-[#C08A4A]/25 bg-[#FBF3E8]",
+      pill: "border-[#C08A4A]/30 bg-[#F7E9D6] text-[#76583A]",
     };
   }
   if (OPEN_STATUSES.has(status) || Number(table?.current_guests || 0) > 0) {
     return {
       label: "Dining",
-      card: "border-emerald-300/20 bg-emerald-400/[0.045]",
-      pill: "border-emerald-300/20 bg-emerald-400/[0.07] text-emerald-100",
+      card: "border-[#748267]/25 bg-[#F3F6F0]",
+      pill: "border-[#748267]/30 bg-[#EAF0E5] text-[#607057]",
     };
   }
   return {
     label: "Available",
-    card: "border-white/10 bg-white/[0.025]",
-    pill: "border-white/10 bg-white/[0.035] text-white/45",
+    card: "border-black/[0.08] bg-white",
+    pill: "border-black/[0.08] bg-[#FBF8F3] text-[#746E66]",
   };
 }
 
@@ -201,9 +201,9 @@ export default function TablesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-4 py-5 text-white lg:px-6 lg:py-7">
+    <main className="min-h-screen bg-[#F7F6F3] px-4 py-5 text-[#191919] lg:px-6 lg:py-7">
       <div className="mx-auto max-w-[1760px]">
-        <header className="rounded-[30px] border border-white/10 bg-white/[0.03] p-5 lg:p-6">
+        <header className="rounded-[30px] border border-black/[0.08] bg-white p-5 lg:p-6">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#D6A66A]">
@@ -212,7 +212,7 @@ export default function TablesPage() {
               <h1 className="mt-2 text-3xl font-light tracking-tight lg:text-4xl">
                 See the room. Act on what needs attention.
               </h1>
-              <p className="mt-2 max-w-2xl text-sm text-white/42">
+              <p className="mt-2 max-w-2xl text-sm text-[#746E66]">
                 Live tables, covers, kitchen readiness and settlement attention from the same restaurant state used by Waiter and POS.
               </p>
             </div>
@@ -220,7 +220,7 @@ export default function TablesPage() {
             <button
               type="button"
               onClick={loadTables}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-2.5 text-xs text-white/55"
+              className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-xs text-[#5F5A54]"
             >
               <RefreshCw size={14} /> Refresh live floor
             </button>
@@ -233,8 +233,8 @@ export default function TablesPage() {
               ["Settle", metrics.settlement],
               ["Guests", metrics.guests],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
-                <div className="text-[9px] uppercase tracking-[0.18em] text-white/32">{label}</div>
+              <div key={label} className="rounded-2xl border border-black/[0.07] bg-[#FBF8F3] px-4 py-3">
+                <div className="text-[9px] uppercase tracking-[0.18em] text-[#918B83]">{label}</div>
                 <div className="mt-1 text-2xl font-light">{value}</div>
               </div>
             ))}
@@ -250,7 +250,7 @@ export default function TablesPage() {
                   className={
                     activeZoneId === zone.id
                       ? "shrink-0 rounded-xl bg-[#D6A66A] px-4 py-2 text-xs font-semibold text-black"
-                      : "shrink-0 rounded-xl border border-white/10 bg-black/20 px-4 py-2 text-xs text-white/50"
+                      : "shrink-0 rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-xs text-[#746E66]"
                   }
                 >
                   {zone.name}
@@ -260,16 +260,16 @@ export default function TablesPage() {
           ) : null}
 
           {error ? (
-            <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            <div className="mt-4 rounded-2xl border border-[#B7654C]/25 bg-[#FBF1EE] px-4 py-3 text-sm text-[#914B38]">
               {error}
             </div>
           ) : null}
         </header>
 
         <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
-          <div className="rounded-[28px] border border-white/10 bg-white/[0.018] p-4">
+          <div className="rounded-[28px] border border-black/[0.08] bg-white p-4">
             {loading ? (
-              <div className="flex min-h-[520px] items-center justify-center text-sm text-white/30">
+              <div className="flex min-h-[520px] items-center justify-center text-sm text-[#A19A92]">
                 Loading live floor...
               </div>
             ) : visibleTables.length ? (
@@ -289,17 +289,17 @@ export default function TablesPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <div className="text-[9px] uppercase tracking-[0.2em] text-white/30">Table</div>
+                          <div className="text-[9px] uppercase tracking-[0.2em] text-[#A19A92]">Table</div>
                           <div className="mt-1 text-3xl font-light">{labelOf(table)}</div>
                         </div>
-                        <Users size={18} className="text-white/35" />
+                        <Users size={18} className="text-[#918B83]" />
                       </div>
 
                       <div className={`mt-4 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-medium ${presentation.pill}`}>
                         {presentation.label}
                       </div>
 
-                      <div className="mt-3 flex items-center justify-between text-xs text-white/42">
+                      <div className="mt-3 flex items-center justify-between text-xs text-[#746E66]">
                         <span>{Number(table.current_guests || 0)} guests</span>
                         {state ? <span>{formatMoney(total, currencyCode)}</span> : null}
                       </div>
@@ -308,13 +308,13 @@ export default function TablesPage() {
                 })}
               </div>
             ) : (
-              <div className="flex min-h-[520px] items-center justify-center rounded-3xl border border-dashed border-white/10 text-sm text-white/30">
+              <div className="flex min-h-[520px] items-center justify-center rounded-3xl border border-dashed border-black/[0.10] text-sm text-[#A19A92]">
                 No restaurant tables are configured in this zone.
               </div>
             )}
           </div>
 
-          <aside className="rounded-[28px] border border-white/10 bg-[#080808] p-5 xl:sticky xl:top-4 xl:self-start">
+          <aside className="rounded-[28px] border border-black/[0.08] bg-white p-5 xl:sticky xl:top-4 xl:self-start">
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#D6A66A]">Service detail</p>
             <h2 className="mt-2 text-2xl font-light">
               {selectedTable ? `Table ${labelOf(selectedTable)}` : "Select a table"}
@@ -325,25 +325,25 @@ export default function TablesPage() {
                 <div className="mt-5 max-h-[300px] space-y-1.5 overflow-y-auto pr-1">
                   {selectedItems.length ? (
                     selectedItems.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2.5 text-xs">
+                      <div key={item.id} className="flex items-center justify-between rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-xs">
                         <div className="min-w-0">
                           <div className="truncate font-medium">{item.item_name || item.name || "Item"}</div>
-                          <div className="mt-0.5 text-[10px] text-white/32">Seat {item.seat_position || item.seat_number || "—"}</div>
+                          <div className="mt-0.5 text-[10px] text-[#918B83]">Seat {item.seat_position || item.seat_number || "—"}</div>
                         </div>
-                        <div className="ml-3 text-white/45">{Number(item.quantity || 1)} × {formatMoney(item.price, currencyCode)}</div>
+                        <div className="ml-3 text-[#746E66]">{Number(item.quantity || 1)} × {formatMoney(item.price, currencyCode)}</div>
                       </div>
                     ))
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-white/30">
+                    <div className="rounded-2xl border border-dashed border-black/[0.10] px-4 py-8 text-center text-xs text-[#A19A92]">
                       No active items on this table.
                     </div>
                   )}
                 </div>
 
-                <div className="mt-5 space-y-2 border-t border-white/10 pt-4 text-xs">
-                  <div className="flex justify-between text-white/42"><span>Subtotal</span><span>{formatMoney(selectedSummary.subtotal, currencyCode)}</span></div>
-                  <div className="flex justify-between text-white/42"><span>Service</span><span>{formatMoney(selectedSummary.service, currencyCode)}</span></div>
-                  <div className="flex justify-between text-white/42"><span>Tax</span><span>{formatMoney(selectedSummary.vat, currencyCode)}</span></div>
+                <div className="mt-5 space-y-2 border-t border-black/[0.08] pt-4 text-xs">
+                  <div className="flex justify-between text-[#746E66]"><span>Subtotal</span><span>{formatMoney(selectedSummary.subtotal, currencyCode)}</span></div>
+                  <div className="flex justify-between text-[#746E66]"><span>Service</span><span>{formatMoney(selectedSummary.service, currencyCode)}</span></div>
+                  <div className="flex justify-between text-[#746E66]"><span>Tax</span><span>{formatMoney(selectedSummary.vat, currencyCode)}</span></div>
                   <div className="flex justify-between pt-1 text-lg font-medium"><span>Total</span><span>{formatMoney(selectedSummary.total, currencyCode)}</span></div>
                 </div>
 
@@ -354,12 +354,12 @@ export default function TablesPage() {
                 >
                   Continue at stationary POS
                 </button>
-                <div className="mt-2 text-center text-[10px] leading-4 text-white/28">
+                <div className="mt-2 text-center text-[10px] leading-4 text-[#A19A92]">
                   Order, split and settlement continue together on the cashier workstation. No separate payment workspace.
                 </div>
               </>
             ) : (
-              <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-5 text-xs leading-5 text-white/30">
+              <div className="mt-5 rounded-2xl border border-dashed border-black/[0.10] p-5 text-xs leading-5 text-[#A19A92]">
                 Tap a table to see its active check and next operational state.
               </div>
             )}

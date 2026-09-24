@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, RefreshCw, ShieldCheck } from "lucide-react";
 
 function label(value) {
@@ -15,7 +15,7 @@ function shortDate(value) {
 export default function FinanceReviewFreshnessExceptionsRail({ organizationId }) {
   const [state, setState] = useState({ loading: true, error: "", body: null });
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     try {
       setState((current) => ({ ...current, loading: true, error: "" }));
@@ -28,9 +28,9 @@ export default function FinanceReviewFreshnessExceptionsRail({ organizationId })
     } catch (error) {
       setState({ loading: false, error: error?.message || "Unable to evaluate signed-review freshness", body: null });
     }
-  }
+  }, [organizationId]);
 
-  useEffect(() => { load(); }, [organizationId]);
+  useEffect(() => { load(); }, [load]);
 
   if (!organizationId) return null;
   const exceptions = Array.isArray(state.body?.exceptions) ? state.body.exceptions : [];

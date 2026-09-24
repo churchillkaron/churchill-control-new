@@ -138,37 +138,37 @@ export default function FinanceCustomerDepositLiabilityEngine({
   const configured = configuration?.configured === true;
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 px-5 backdrop-blur-xl">
-      <div className="w-full max-w-2xl rounded-[30px] border border-white/[0.08] bg-[#0b0b0b]/95 p-7 shadow-2xl shadow-black/80">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[#F7F6F3]/75 px-5 backdrop-blur-xl">
+      <div className="w-full max-w-2xl rounded-[30px] border border-black/[0.08] bg-white p-7 shadow-2xl shadow-black/10">
         <div className="text-[11px] uppercase tracking-[0.30em] text-amber-300/65">
           Finance · Accounting Setup
         </div>
-        <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-white">
+        <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-[#191919]">
           {action?.title || "Customer Deposit Accounting"}
         </h2>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-white/45">
-          Choose the liability account used for customer deposits and unapplied cash. Avantiqo derives the bank and Accounts Receivable sides from this Legal Entity's existing customer accounting configuration.
+        <p className="mt-3 max-w-xl text-sm leading-6 text-[#746E66]">
+          Choose the liability account used for customer deposits and unapplied cash. Avantiqo derives the bank and Accounts Receivable sides from this Legal Entity&apos;s existing customer accounting configuration.
         </p>
 
         <div className="mt-7 grid gap-5">
           <label className="block">
-            <span className="text-xs text-white/45">Effective From</span>
+            <span className="text-xs text-[#746E66]">Effective From</span>
             <input
               type="date"
               value={effectiveDate}
               onChange={(event) => setEffectiveDate(event.target.value)}
               disabled={loading || saving}
-              className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 p-3 text-white outline-none focus:border-amber-300/35 disabled:opacity-50"
+              className="mt-2 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3]/35 p-3 text-[#191919] outline-none focus:border-amber-300/35 disabled:opacity-50"
             />
           </label>
 
           <label className="block">
-            <span className="text-xs text-white/45">Customer Deposit Liability Account</span>
+            <span className="text-xs text-[#746E66]">Customer Deposit Liability Account</span>
             <select
               value={liabilityAccountId}
               onChange={(event) => setLiabilityAccountId(event.target.value)}
               disabled={loading || saving || !baseReady}
-              className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 p-3 text-white outline-none focus:border-amber-300/35 disabled:opacity-50"
+              className="mt-2 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3]/35 p-3 text-[#191919] outline-none focus:border-amber-300/35 disabled:opacity-50"
             >
               <option value="">Select liability account</option>
               {accounts.map((account) => (
@@ -181,7 +181,7 @@ export default function FinanceCustomerDepositLiabilityEngine({
         </div>
 
         {loading ? (
-          <div className="mt-5 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 text-sm text-white/50">
+          <div className="mt-5 rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-4 text-sm text-[#746E66]">
             Loading accounting configuration…
           </div>
         ) : null}
@@ -214,7 +214,7 @@ export default function FinanceCustomerDepositLiabilityEngine({
           <button
             onClick={onClose}
             disabled={saving}
-            className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-5 py-3 text-sm text-white/60 disabled:opacity-50"
+            className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-5 py-3 text-sm text-[#5F5A54] disabled:opacity-50"
           >
             Close
           </button>

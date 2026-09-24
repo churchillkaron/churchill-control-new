@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   useBusinessContext,
@@ -28,7 +28,7 @@ export default function PurchaseOrdersPage() {
     setOrders,
   ] = useState([]);
 
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
 
     const response =
       await fetch(
@@ -61,7 +61,7 @@ export default function PurchaseOrdersPage() {
     setOrders(
       result.orders || []
     );
-  }
+  }, [organizationId, entityId]);
 
   async function approveOrder(
     id
@@ -126,11 +126,11 @@ export default function PurchaseOrdersPage() {
 
     loadOrders();
 
-  }, []);
+  }, [loadOrders]);
 
   return (
 
-    <div className="min-h-screen bg-black text-white p-10">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919] p-10">
 
       <div className="max-w-7xl mx-auto">
 
@@ -168,7 +168,7 @@ export default function PurchaseOrdersPage() {
 
               <div
                 key={order.id}
-                className="border border-zinc-800 rounded-3xl p-6"
+                className="border border-black/[0.08] rounded-3xl p-6"
               >
 
                 <div className="flex items-center justify-between">

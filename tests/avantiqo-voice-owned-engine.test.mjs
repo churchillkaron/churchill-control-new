@@ -261,7 +261,7 @@ test("Voice STT can use Node 01 with the same Whisper foundation model and Modal
   assert.match(localQueue, /const MODEL = "openai\/whisper-large-v3-turbo"/);
   assert.match(worker, /'ai\.speech\.to\.text'/);
   assert.match(worker, /RunVoiceSttJob/);
-  assert.match(worker, /ValidateSet\('supervisor','gpu','cpu'\)/);
+  assert.match(worker, /ValidateSet\('supervisor','gpu','code','cpu','live','training'\)/);
   assert.match(worker, /\$GpuCapabilities = @\([^\n]*'ai\.speech\.to\.text'[^\n]*\)/);
   assert.match(worker, /\$CpuCapabilities = @\([^\n]*'ai\.audio\.elastic-warp'[^\n]*'media\.ffmpeg\.process'[^\n]*\)/);
   assert.match(worker, /Start-Job -Name \("Avantiqo-" \+ \$childLane\)/);

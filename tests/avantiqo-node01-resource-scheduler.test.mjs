@@ -25,6 +25,14 @@ test("Node 01 retries transient Supabase control-plane faults without retrying m
 
 test("Node 01 has resource-aware scheduling and governed idle learning",()=>{
   assert.match(worker,/ResourceProfile/); assert.match(worker,/interactive_gpu/); assert.match(worker,/heavy_cpu/);
+  assert.match(worker,/ValidateSet\('supervisor','gpu','code','cpu','live','training'\)/);
+  assert.match(worker,/foreach \(\$childLane in @\('gpu','code','cpu','live','training'\)\)/);
+  assert.match(worker,/\$CodeCapabilities = @\([^\n]*'ai\.code\.debug'[^\n]*\)/);
+  assert.match(worker,/elseif \(\$Lane -eq 'code'\) \{ \$CodeCapabilities \}/);
+  assert.doesNotMatch(worker,/\$GpuCapabilities = @\([^\n]*'ai\.code\.debug'/);
+  assert.match(worker,/\$freeGpuMb -lt 4300/);
+  assert.match(worker,/\$body\.options\.num_gpu = 0/);
+  assert.match(worker,/Interactive Code must remain available even when GPU telemetry is unavailable/);
   assert.match(worker,/GpuIdleLearningAfterSeconds = 900/); assert.match(worker,/NightLearningStartHour = 1/); assert.match(worker,/NightLearningEndHour = 6/);
   assert.match(worker,/promotion_authorized=\$false/);
   assert.match(worker,/read_avantiqo_local_learning_eval_candidate/);

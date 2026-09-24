@@ -53,7 +53,7 @@ export default function LayoutRenderer({
                 text-8xl
                 uppercase
                 leading-none
-                text-white
+                text-[#191919]
                 mb-6
               "
             >
@@ -65,7 +65,7 @@ export default function LayoutRenderer({
                 text-2xl
                 uppercase
                 tracking-[0.2em]
-                text-white/90
+                text-[#191919]/90
               "
             >
               {displayDate} {displayTime}
@@ -94,7 +94,7 @@ export default function LayoutRenderer({
             className="
               text-6xl
               uppercase
-              text-white
+              text-[#191919]
               font-light
             "
           >
@@ -107,7 +107,7 @@ export default function LayoutRenderer({
               text-xl
               uppercase
               tracking-[0.2em]
-              text-white/70
+              text-[#5F5A54]
             "
           >
             {displayDate} {displayTime}
@@ -147,7 +147,7 @@ export default function LayoutRenderer({
               text-7xl
               uppercase
               leading-none
-              text-white
+              text-[#191919]
               mb-5
             "
           >
@@ -159,7 +159,7 @@ export default function LayoutRenderer({
               text-2xl
               tracking-[0.2em]
               uppercase
-              text-white/90
+              text-[#191919]/90
             "
           >
             {displayDate} {displayTime}

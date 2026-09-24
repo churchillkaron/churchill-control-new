@@ -156,13 +156,13 @@ function CommandLink({ organizationId, item, compact = false }) {
       href={workspaceHref({ organizationId, item })}
       className={compact
         ? "group flex items-center justify-between gap-3 rounded-xl border border-transparent px-3 py-2.5 transition hover:border-[#D6A66A]/25 hover:bg-[#D6A66A]/[0.07]"
-        : "group flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3.5 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/[0.08]"}
+        : "group flex items-center justify-between gap-4 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3.5 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/[0.08]"}
     >
       <div className="min-w-0">
-        <div className="truncate text-sm font-medium text-white/90">{item.name}</div>
-        {!compact ? <div className="mt-1 line-clamp-2 text-xs leading-5 text-white/40">{item.description}</div> : null}
+        <div className="truncate text-sm font-medium text-[#191919]/90">{item.name}</div>
+        {!compact ? <div className="mt-1 line-clamp-2 text-xs leading-5 text-[#918B83]">{item.description}</div> : null}
       </div>
-      <ArrowRight size={15} className="shrink-0 text-white/20 transition group-hover:translate-x-0.5 group-hover:text-[#D6A66A]" />
+      <ArrowRight size={15} className="shrink-0 text-[#191919]/20 transition group-hover:translate-x-0.5 group-hover:text-[#D6A66A]" />
     </Link>
   );
 }
@@ -173,8 +173,8 @@ function SolutionWorkspace({ solution }) {
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">{solution.eyebrow}</div>
-          <h2 className="mt-2 text-2xl font-semibold text-white">{solution.title}</h2>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-white/45">{solution.description}</p>
+          <h2 className="mt-2 text-2xl font-semibold text-[#191919]">{solution.title}</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-[#817A72]">{solution.description}</p>
         </div>
         <div className="rounded-full border border-[#D6A66A]/20 bg-[#D6A66A]/[0.07] px-3 py-1.5 text-xs text-[#D6A66A]">
           Organization configured
@@ -189,16 +189,16 @@ function SolutionWorkspace({ solution }) {
             <Link
               key={item.id}
               href={item.href}
-              className="group min-h-[154px] rounded-2xl border border-white/10 bg-black/25 p-4 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/45 hover:bg-[#D6A66A]/[0.08]"
+              className="group min-h-[154px] rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/45 hover:bg-[#D6A66A]/[0.08]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.08] p-2.5 text-[#D6A66A]">
                   <Icon size={18} />
                 </div>
-                <ArrowRight size={16} className="mt-2 text-white/20 transition group-hover:translate-x-0.5 group-hover:text-[#D6A66A]" />
+                <ArrowRight size={16} className="mt-2 text-[#191919]/20 transition group-hover:translate-x-0.5 group-hover:text-[#D6A66A]" />
               </div>
-              <div className="mt-4 text-sm font-semibold text-white">{item.label}</div>
-              <div className="mt-1.5 text-xs leading-5 text-white/40">{item.description}</div>
+              <div className="mt-4 text-sm font-semibold text-[#191919]">{item.label}</div>
+              <div className="mt-1.5 text-xs leading-5 text-[#918B83]">{item.description}</div>
             </Link>
           );
         })}
@@ -273,7 +273,7 @@ export default function OperationsWorkspaceHub() {
   const queryHasNoMatches = showAllTools && normalizedQuery && visibleCapabilities === 0;
 
   return (
-    <main className="min-h-screen px-6 pb-12 pt-20 text-white md:pt-24">
+    <main className="min-h-screen px-6 pb-12 pt-20 text-[#191919] md:pt-24">
       <div className="mx-auto max-w-[1540px]">
         <WorkspaceHeader
           workspace="Operations"
@@ -284,7 +284,7 @@ export default function OperationsWorkspaceHub() {
               <button
                 type="button"
                 onClick={() => setShowManagement((current) => !current)}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/60 transition hover:border-[#D6A66A]/30 hover:text-white"
+                className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54] transition hover:border-[#D6A66A]/30 hover:text-[#191919]"
               >
                 <Activity size={15} />
                 {showManagement ? "Close Management" : "Manage Operations"}
@@ -292,7 +292,7 @@ export default function OperationsWorkspaceHub() {
               <button
                 type="button"
                 onClick={() => setShowAllTools((current) => !current)}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/60 transition hover:border-[#D6A66A]/30 hover:text-white"
+                className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54] transition hover:border-[#D6A66A]/30 hover:text-[#191919]"
               >
                 <Settings2 size={15} />
                 {showAllTools ? "Close All Tools" : "All Operations Tools"}
@@ -310,7 +310,7 @@ export default function OperationsWorkspaceHub() {
         />
 
         {access.loading ? (
-          <div className="flex min-h-[280px] items-center justify-center rounded-[28px] border border-white/10 bg-white/[0.035] p-8 text-sm text-white/50">
+          <div className="flex min-h-[280px] items-center justify-center rounded-[28px] border border-black/[0.08] bg-[#FBF8F3] p-8 text-sm text-[#746E66]">
             <LoaderCircle className="mr-3 animate-spin text-[#D6A66A]" size={20} />
             Preparing your Operations command center...
           </div>
@@ -321,7 +321,7 @@ export default function OperationsWorkspaceHub() {
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-red-100">Operations access failed to load</div>
                 <div className="mt-2 text-sm leading-6 text-red-100/65">{access.error}</div>
-                <button type="button" onClick={access.refresh} className="mt-5 inline-flex items-center gap-2 rounded-xl border border-red-300/25 bg-black/20 px-4 py-2 text-sm text-red-100">
+                <button type="button" onClick={access.refresh} className="mt-5 inline-flex items-center gap-2 rounded-xl border border-red-300/25 bg-[#FBF8F3] px-4 py-2 text-sm text-red-100">
                   <RefreshCw size={15} /> Retry Access Check
                 </button>
               </div>
@@ -332,8 +332,8 @@ export default function OperationsWorkspaceHub() {
             <div className="flex items-start gap-4">
               <ShieldCheck className="mt-0.5 text-[#D6A66A]" size={22} />
               <div>
-                <div className="font-semibold text-white">No Operations role is assigned</div>
-                <div className="mt-2 text-sm leading-6 text-white/50">Your organisation membership is active, but it does not currently grant an Operations role. Ask an Operations administrator to assign the appropriate access bundle.</div>
+                <div className="font-semibold text-[#191919]">No Operations role is assigned</div>
+                <div className="mt-2 text-sm leading-6 text-[#746E66]">Your organisation membership is active, but it does not currently grant an Operations role. Ask an Operations administrator to assign the appropriate access bundle.</div>
               </div>
             </div>
           </div>
@@ -342,24 +342,24 @@ export default function OperationsWorkspaceHub() {
             {operationalSolutions.length > 0 ? operationalSolutions.map((solution) => (
               <SolutionWorkspace key={solution.id} solution={solution} />
             )) : (
-              <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 shadow-2xl shadow-black/20 md:p-6">
+              <section className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5 shadow-2xl shadow-black/20 md:p-6">
                 <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">Today</div>
-                    <h2 className="mt-2 text-xl font-semibold text-white">Where work needs attention</h2>
-                    <p className="mt-1 text-sm leading-6 text-white/40">No industry solution is configured, so the neutral execution surfaces are shown.</p>
+                    <h2 className="mt-2 text-xl font-semibold text-[#191919]">Where work needs attention</h2>
+                    <p className="mt-1 text-sm leading-6 text-[#918B83]">No industry solution is configured, so the neutral execution surfaces are shown.</p>
                   </div>
-                  <div className="rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-xs text-white/40">Role and context filtered</div>
+                  <div className="rounded-full border border-black/[0.08] bg-[#FBF8F3] px-3 py-1.5 text-xs text-[#918B83]">Role and context filtered</div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
                   {primaryActions.map(({ capabilityId, label, description, icon: Icon, item }) => (
-                    <Link key={capabilityId} href={workspaceHref({ organizationId, item })} className="group min-h-[168px] rounded-2xl border border-white/10 bg-black/25 p-4 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/40 hover:bg-[#D6A66A]/[0.08]">
+                    <Link key={capabilityId} href={workspaceHref({ organizationId, item })} className="group min-h-[168px] rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/40 hover:bg-[#D6A66A]/[0.08]">
                       <div className="flex items-start justify-between gap-3">
                         <div className="rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.08] p-2.5 text-[#D6A66A]"><Icon size={18} /></div>
-                        <ArrowRight size={16} className="mt-2 text-white/20 transition group-hover:translate-x-0.5 group-hover:text-[#D6A66A]" />
+                        <ArrowRight size={16} className="mt-2 text-[#191919]/20 transition group-hover:translate-x-0.5 group-hover:text-[#D6A66A]" />
                       </div>
-                      <div className="mt-4 text-sm font-semibold text-white">{label}</div>
-                      <div className="mt-1.5 text-xs leading-5 text-white/40">{description}</div>
+                      <div className="mt-4 text-sm font-semibold text-[#191919]">{label}</div>
+                      <div className="mt-1.5 text-xs leading-5 text-[#918B83]">{description}</div>
                     </Link>
                   ))}
                 </div>
@@ -370,19 +370,19 @@ export default function OperationsWorkspaceHub() {
               <section>
                 <div className="mb-4">
                   <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">Cross-industry kernel</div>
-                  <h2 className="mt-2 text-xl font-semibold text-white">Manage Operations</h2>
-                  <p className="mt-1 text-sm text-white/40">Neutral execution, planning, control and intelligence shared by every installed solution.</p>
+                  <h2 className="mt-2 text-xl font-semibold text-[#191919]">Manage Operations</h2>
+                  <p className="mt-1 text-sm text-[#918B83]">Neutral execution, planning, control and intelligence shared by every installed solution.</p>
                 </div>
                 <div className="grid gap-5 xl:grid-cols-2">
                   {commandSections.map((section) => {
                     const Icon = section.icon;
                     return (
-                      <article key={section.id} className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+                      <article key={section.id} className="rounded-[28px] border border-black/[0.08] bg-[#FBF8F3] p-5">
                         <div className="mb-4 flex items-start gap-3">
                           <div className="rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.07] p-2.5 text-[#D6A66A]"><Icon size={18} /></div>
                           <div>
-                            <h3 className="text-base font-semibold text-white">{section.title}</h3>
-                            <p className="mt-1 text-xs leading-5 text-white/40">{section.description}</p>
+                            <h3 className="text-base font-semibold text-[#191919]">{section.title}</h3>
+                            <p className="mt-1 text-xs leading-5 text-[#918B83]">{section.description}</p>
                           </div>
                         </div>
                         <div className="grid gap-2 sm:grid-cols-2">
@@ -401,20 +401,20 @@ export default function OperationsWorkspaceHub() {
                   <div className="flex items-center gap-3">
                     {readiness.loading ? <LoaderCircle className="animate-spin text-[#D6A66A]" size={18} /> : readiness.status === "healthy" ? <CheckCircle2 className="text-emerald-300" size={18} /> : <AlertTriangle className="text-amber-200" size={18} />}
                     <div>
-                      <div className="text-sm font-medium text-white/80">{readinessLabel(readiness.status)}</div>
-                      <div className="mt-0.5 text-xs text-white/40">{readiness.loading ? "Checking execution, events, lifecycle and security contracts..." : readiness.status === "healthy" ? "Operations runtime contracts are available." : `${readiness.blocking_failures.length} blocking issue(s) and ${readiness.warnings.length} warning(s) require review.`}</div>
+                      <div className="text-sm font-medium text-[#2F2C28]">{readinessLabel(readiness.status)}</div>
+                      <div className="mt-0.5 text-xs text-[#918B83]">{readiness.loading ? "Checking execution, events, lifecycle and security contracts..." : readiness.status === "healthy" ? "Operations runtime contracts are available." : `${readiness.blocking_failures.length} blocking issue(s) and ${readiness.warnings.length} warning(s) require review.`}</div>
                     </div>
                   </div>
-                  <button type="button" onClick={readiness.refresh} disabled={readiness.loading} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/50 transition hover:text-white disabled:opacity-50">
+                  <button type="button" onClick={readiness.refresh} disabled={readiness.loading} className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-xs text-[#746E66] transition hover:text-[#191919] disabled:opacity-50">
                     <RefreshCw size={14} /> Recheck Runtime
                   </button>
                 </div>
                 {!readiness.loading && readiness.blocking_failures.length > 0 ? (
                   <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                     {readiness.blocking_failures.map((failure) => (
-                      <div key={failure.key} className="rounded-xl border border-white/10 bg-black/20 p-3">
-                        <div className="text-xs font-semibold text-white/70">{failure.key}</div>
-                        <div className="mt-1 text-[11px] leading-5 text-white/40">{failure.error?.message || "Required Operations contract is unavailable."}</div>
+                      <div key={failure.key} className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3">
+                        <div className="text-xs font-semibold text-[#5F5A54]">{failure.key}</div>
+                        <div className="mt-1 text-[11px] leading-5 text-[#918B83]">{failure.error?.message || "Required Operations contract is unavailable."}</div>
                       </div>
                     ))}
                   </div>
@@ -423,36 +423,36 @@ export default function OperationsWorkspaceHub() {
             ) : null}
 
             {showAllTools ? (
-              <section className="rounded-[30px] border border-white/10 bg-black/25 p-5 md:p-6">
+              <section className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5 md:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">All Operations Tools</div>
-                    <h2 className="mt-2 text-xl font-semibold text-white">Capability directory</h2>
-                    <p className="mt-1 text-sm leading-6 text-white/40">Configuration and specialist tools remain available without crowding the daily operating solution.</p>
+                    <h2 className="mt-2 text-xl font-semibold text-[#191919]">Capability directory</h2>
+                    <p className="mt-1 text-sm leading-6 text-[#918B83]">Configuration and specialist tools remain available without crowding the daily operating solution.</p>
                   </div>
-                  <div className="flex w-full items-center rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white/50 md:w-[390px]">
+                  <div className="flex w-full items-center rounded-2xl border border-black/[0.08] bg-white px-4 py-3 text-[#746E66] md:w-[390px]">
                     <Search size={16} />
-                    <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search authorised Operations tools..." className="ml-3 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30" />
+                    <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search authorised Operations tools..." className="ml-3 w-full bg-transparent text-sm text-[#191919] outline-none placeholder:text-[#A19A92]" />
                   </div>
                 </div>
-                <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4 text-xs text-white/30">
+                <div className="mt-4 flex items-center justify-between border-t border-black/[0.08] pt-4 text-xs text-[#A19A92]">
                   <span>{visibleCapabilities} of {totalAuthorisedCapabilities} authorised tools</span>
-                  <button type="button" onClick={() => setShowAllTools(false)} className="inline-flex items-center gap-2 text-white/50 transition hover:text-white">Close directory <ChevronDown size={14} className="rotate-180" /></button>
+                  <button type="button" onClick={() => setShowAllTools(false)} className="inline-flex items-center gap-2 text-[#746E66] transition hover:text-[#191919]">Close directory <ChevronDown size={14} className="rotate-180" /></button>
                 </div>
                 {queryHasNoMatches ? (
-                  <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.025] p-6 text-sm text-white/40">No authorised Operations tools match "{query}".</div>
+                  <div className="mt-5 rounded-2xl border border-black/[0.08] bg-white p-6 text-sm text-[#918B83]">No authorised Operations tools match &ldquo;{query}&rdquo;.</div>
                 ) : (
                   <div className="mt-5 grid max-h-[760px] gap-4 overflow-y-auto pr-1 md:grid-cols-2 xl:grid-cols-3">
                     {filteredGroups.map((group) => (
-                      <article key={group.id} className="self-start rounded-2xl border border-white/10 bg-white/[0.025] p-3">
+                      <article key={group.id} className="self-start rounded-2xl border border-black/[0.08] bg-white p-3">
                         <div className="flex items-start justify-between gap-3 px-2 pb-2 pt-1">
                           <div>
-                            <h3 className="text-sm font-semibold text-white/90">{group.name}</h3>
-                            <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-white/30">{group.description}</p>
+                            <h3 className="text-sm font-semibold text-[#191919]/90">{group.name}</h3>
+                            <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-[#A19A92]">{group.description}</p>
                           </div>
-                          <div className="rounded-full border border-white/10 bg-black/25 px-2 py-1 text-[10px] text-white/30">{group.items.length}</div>
+                          <div className="rounded-full border border-black/[0.08] bg-[#FBF8F3] px-2 py-1 text-[10px] text-[#A19A92]">{group.items.length}</div>
                         </div>
-                        <div className="mt-1 space-y-0.5 border-t border-white/10 pt-1">
+                        <div className="mt-1 space-y-0.5 border-t border-black/[0.08] pt-1">
                           {group.items.map((item) => <CommandLink key={item.capabilityId} organizationId={organizationId} item={item} compact />)}
                         </div>
                       </article>

@@ -15,12 +15,36 @@ const PROMPT_PATH = "benchmarks/avantiqo-code-frontier-prompt-contract.json";
 const env = { AVANTIQO_CODE_COMPETITIVE_REFERENCE_ATTESTATION_SECRET: SECRET };
 const sha256 = (value) => createHash("sha256").update(value, "utf8").digest("hex");
 
-function observations(caseIds, wallMs) {
+function observations(caseIds, wallMs, { repositoryProof = true } = {}) {
   return caseIds.map((case_id, index) => ({
     case_id,
     passed: true,
     wall_ms: wallMs + index,
     supplier_cost_usd: 0.0005,
+    ...(repositoryProof ? {
+      base_commit: "1".repeat(40),
+      diff_sha256: "2".repeat(64),
+      artifact_sha256: "3".repeat(64),
+      repository_mutation_observed: true,
+      diff_nonempty: true,
+      diff_bytes: 512,
+      artifact_materialized: true,
+      artifact_bytes: 1024,
+      repository_verification: {
+        independent: true,
+        verifier: "hidden-node-test",
+        evidence_source: "INDEPENDENT_RUNNER",
+        passed: true,
+        exit_code: 0,
+        hidden_acceptance_sha256: "4".repeat(64),
+        hidden_acceptance_executed: true,
+        hidden_acceptance_test_count: 4,
+        protected_baseline_sha256: "5".repeat(64),
+        protected_baseline_executed: true,
+        protected_baseline_test_count: 12,
+        candidate_self_report_authority: false,
+      },
+    } : {}),
   }));
 }
 

@@ -12,4 +12,7 @@ test("service execution imports its creative provider claim runtime", () => {
     source,
     /import\s*\{\s*CreativeProviderExecutionClaimRuntime,?\s*\}\s*from\s*["']\.\/CreativeProviderExecutionClaimRuntime\.js["'];/,
   );
+  assert.match(source, /CreativeProviderExecutionClaimRuntime\.claim\(/);
+  assert.match(source, /CreativeProviderExecutionClaimRuntime\.submitted\(/);
+  assert.match(source, /CreativeProviderExecutionClaimRuntime\.completed\(/);
 });

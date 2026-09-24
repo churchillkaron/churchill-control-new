@@ -300,11 +300,11 @@ export default function DeveloperApiExplorer({ organizationId, capabilities, ext
             <div className="text-[9px] font-semibold uppercase tracking-[.15em] text-[#9A744B]">Live session read</div>
             <div className="mt-2 text-[11px] text-[#696159]">Uses your logged-in organization session and exact capability authorization. No machine token required.</div>
           </div>
-          <button onClick={runSessionRead} disabled={loading} className="rounded-xl bg-[#1D1A17] px-4 py-2.5 text-[9px] font-semibold text-white disabled:opacity-40">{loading?"Running…":"Send request"}</button>
+          <button onClick={runSessionRead} disabled={loading} className="rounded-xl border border-[#B98A52]/25 bg-[#D6A66A] px-4 py-2.5 text-[9px] font-semibold text-[#2C2117] hover:bg-[#C99A5E] disabled:opacity-40">{loading?"Running…":"Send request"}</button>
         </div>
-        <div className="mt-5 rounded-xl bg-[#1D1A17] p-4 font-mono text-[9px] text-[#E8D2B4]">
+        <div className="mt-5 rounded-xl border border-[#C7B08D]/20 bg-[#FBF6EF] p-4 font-mono text-[9px] text-[#5C4731]">
           <div>GET {sessionUrl}</div>
-          <div className="mt-1 text-white/45">credentials: include</div>
+          <div className="mt-1 text-[#81786F]">credentials: include</div>
         </div>
       </div>:null}
 
@@ -317,7 +317,7 @@ export default function DeveloperApiExplorer({ organizationId, capabilities, ext
 
         {machineRead?<div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <div><div className="text-[9px] font-semibold uppercase tracking-[.15em] text-[#9A744B]">Machine read</div><div className="mt-2 text-[10px] text-[#696159]">Calls the versioned Developer API with the token’s environment and scopes.</div></div>
-          <button onClick={runMachineRead} disabled={loading||!machineToken.trim()} className="rounded-xl bg-[#1D1A17] px-4 py-2.5 text-[9px] font-semibold text-white disabled:opacity-40">{loading?"Running…":"Send machine read"}</button>
+          <button onClick={runMachineRead} disabled={loading||!machineToken.trim()} className="rounded-xl border border-[#B98A52]/25 bg-[#D6A66A] px-4 py-2.5 text-[9px] font-semibold text-[#2C2117] hover:bg-[#C99A5E] disabled:opacity-40">{loading?"Running…":"Send machine read"}</button>
         </div>:null}
 
         {machineCommand?<div className="mt-4">
@@ -328,13 +328,13 @@ export default function DeveloperApiExplorer({ organizationId, capabilities, ext
           </div>
           <label className="mt-3 block"><span className="text-[8px] font-semibold uppercase tracking-[.12em] text-[#91877C]">JSON payload</span><textarea value={payloadText} onChange={event=>setPayloadText(event.target.value)} rows={8} spellCheck={false} className="mt-1 w-full rounded-xl border border-black/[.08] bg-[#FBF9F6] p-3 font-mono text-[8px] leading-5"/></label>
           <div className="mt-3 rounded-xl bg-[#F8F4EE] p-3"><div className="text-[8px] text-[#746D65]">Type this exact phrase to execute:</div><div className="mt-1 font-mono text-[9px] font-semibold">{expectedConfirmation}</div><input value={confirmation} onChange={event=>setConfirmation(event.target.value)} placeholder={expectedConfirmation} className="mt-2 w-full rounded-lg border border-black/[.08] bg-white px-3 py-2.5 font-mono text-[8px]"/></div>
-          <button onClick={runMachineCommand} disabled={loading||selected?.readOnly||!machineToken.trim()||confirmation.trim()!==expectedConfirmation} className="mt-4 rounded-xl bg-[#1D1A17] px-4 py-2.5 text-[9px] font-semibold text-white disabled:opacity-40">{loading?"Executing…":"Execute governed command"}</button>
+          <button onClick={runMachineCommand} disabled={loading||selected?.readOnly||!machineToken.trim()||confirmation.trim()!==expectedConfirmation} className="mt-4 rounded-xl border border-[#B98A52]/25 bg-[#D6A66A] px-4 py-2.5 text-[9px] font-semibold text-[#2C2117] hover:bg-[#C99A5E] disabled:opacity-40">{loading?"Executing…":"Execute governed command"}</button>
         </div>:null}
 
-        <div className="mt-5 rounded-xl bg-[#1D1A17] p-4 font-mono text-[9px] text-[#E8D2B4]">
+        <div className="mt-5 rounded-xl border border-[#C7B08D]/20 bg-[#FBF6EF] p-4 font-mono text-[9px] text-[#5C4731]">
           <div>{machineCommand?"POST":"GET"} {machineCommand?machineBaseUrl:machineReadUrl}</div>
-          <div className="mt-1 text-white/45">Authorization: Bearer ••••••••</div>
-          {machineCommand?<><div className="mt-1 text-white/45">Idempotency-Key: {idempotencyKey||"(generated on first run)"}</div><div className="mt-2 text-white/65">body: {JSON.stringify({command:selectedCommand})} + payload</div></>:null}
+          <div className="mt-1 text-[#81786F]">Authorization: Bearer ••••••••</div>
+          {machineCommand?<><div className="mt-1 text-[#81786F]">Idempotency-Key: {idempotencyKey||"(generated on first run)"}</div><div className="mt-2 text-[#6F675E]">body: {JSON.stringify({command:selectedCommand})} + payload</div></>:null}
         </div>
 
         <div className="mt-4 rounded-xl border border-black/[.07] bg-[#FAF8F4] p-4">
@@ -348,7 +348,7 @@ export default function DeveloperApiExplorer({ organizationId, capabilities, ext
               <button type="button" onClick={async()=>{try{await navigator.clipboard.writeText(requestSnippet);setCopiedSnippet(true);setTimeout(()=>setCopiedSnippet(false),1500);}catch{}}} className="rounded-lg border border-black/[.08] bg-white px-2.5 py-1.5 text-[7px] font-semibold">{copiedSnippet?"Copied":"Copy code"}</button>
             </div>
           </div>
-          <pre className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-[#1D1A17] p-4 font-mono text-[8px] leading-5 text-[#E8D2B4]">{requestSnippet}</pre>
+          <pre className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-[#C7B08D]/20 bg-[#FBF6EF] p-4 font-mono text-[8px] leading-5 text-[#5C4731]">{requestSnippet}</pre>
         </div>
       </div>:null}
 

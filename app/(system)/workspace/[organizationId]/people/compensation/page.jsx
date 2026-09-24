@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Banknote,
   CheckCircle2,
@@ -96,7 +96,7 @@ export default function CompensationPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!entityId) {
       setData(null);
       setDrafts({});
@@ -138,7 +138,7 @@ export default function CompensationPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [entityId]);
 
   useEffect(() => {
     setData(null);
@@ -147,7 +147,7 @@ export default function CompensationPage() {
     setMessage("");
     setError("");
     load();
-  }, [entityId]);
+  }, [entityId, load]);
 
   const summary = useMemo(() => {
     const employees = data?.employees || [];
@@ -306,9 +306,9 @@ export default function CompensationPage() {
     "Not configured";
 
   return (
-    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
+        <section className="overflow-hidden rounded-[34px] border border-black/[0.08] bg-white/[0.045] backdrop-blur-3xl">
           <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
           <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -316,10 +316,10 @@ export default function CompensationPage() {
                 People · Compensation
               </div>
               <h1 className="mt-3 text-4xl font-black">Compensation Onboarding</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/45">
+              <p className="mt-2 max-w-3xl text-sm text-[#746E66]">
                 Complete the pay contract Payroll actually uses, then add payout details required by the organization payment method.
               </p>
-              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[10px] uppercase tracking-[0.18em] text-white/30">
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[10px] uppercase tracking-[0.18em] text-[#A19A92]">
                 <span>{data?.role || runtime.role || "Role"}</span>
                 <span>Entity: {entityName}</span>
                 <span>Currency: {data?.entity?.currency || runtime.entity?.currency || "-"}</span>
@@ -334,7 +334,7 @@ export default function CompensationPage() {
                 className={`h-12 rounded-2xl border px-4 text-xs font-black uppercase tracking-[0.14em] transition ${
                   showIncompleteOnly
                     ? "border-[#D6A66A]/40 bg-[#D6A66A]/10 text-[#D6A66A]"
-                    : "border-white/10 bg-white/[0.05] text-white/60"
+                    : "border-black/[0.08] bg-white/[0.05] text-[#5F5A54]"
                 }`}
               >
                 {showIncompleteOnly ? "Showing incomplete" : "Show incomplete"}
@@ -343,7 +343,7 @@ export default function CompensationPage() {
                 type="button"
                 onClick={load}
                 disabled={loading || !entityId}
-                className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
+                className="flex h-12 items-center gap-2 rounded-2xl border border-black/[0.08] bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-[#5F5A54] disabled:opacity-40"
               >
                 <RefreshCw className="h-4 w-4" /> Refresh
               </button>
@@ -373,7 +373,7 @@ export default function CompensationPage() {
         ) : null}
 
         {data?.bankTransferEnabled ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/55">
+          <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-sm text-[#5F5A54]">
             Bank transfer is enabled for this legal entity. Employees can be pay-configured before bank details exist, but bank details are required before the payroll lifecycle can reach payment.
           </div>
         ) : null}
@@ -386,7 +386,7 @@ export default function CompensationPage() {
         ) : null}
 
         {loading ? (
-          <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6 text-sm text-white/45">
+          <section className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-6 text-sm text-[#746E66]">
             Loading compensation profiles...
           </section>
         ) : visibleEmployees.length === 0 ? (
@@ -409,7 +409,7 @@ export default function CompensationPage() {
               const monthly = String(draft.salaryType || "").toUpperCase() === "MONTHLY";
 
               return (
-                <article key={employee.id} className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+                <article key={employee.id} className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5 lg:p-6">
                   <div className="flex flex-col gap-5">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div>
@@ -429,12 +429,12 @@ export default function CompensationPage() {
                             neutral={!data?.bankTransferEnabled && !paymentReady}
                           />
                         </div>
-                        <div className="mt-2 text-xs text-white/35">
+                        <div className="mt-2 text-xs text-[#918B83]">
                           {employee.role || "-"} · {employee.position || employee.department || "-"}
                         </div>
                       </div>
 
-                      <div className="text-right text-sm text-white/55">
+                      <div className="text-right text-sm text-[#5F5A54]">
                         {profile
                           ? `${profile.salary_type || "-"} · ${
                               profile.salary_type === "HOURLY"
@@ -529,12 +529,12 @@ export default function CompensationPage() {
                             className="input"
                           />
                         </Field>
-                        <div className="flex items-end rounded-xl border border-white/[0.07] bg-black/20 px-4 py-3 text-xs leading-5 text-white/35">
+                        <div className="flex items-end rounded-xl border border-black/[0.07] bg-[#F7F6F3]/20 px-4 py-3 text-xs leading-5 text-[#918B83]">
                           Monthly salary remains the regular base. This rate is only used for overtime when supplied; otherwise Payroll derives an overtime rate from monthly salary and expected hours.
                         </div>
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-white/[0.07] bg-black/20 px-4 py-3 text-xs leading-5 text-white/35">
+                      <div className="rounded-xl border border-black/[0.07] bg-[#F7F6F3]/20 px-4 py-3 text-xs leading-5 text-[#918B83]">
                         Hourly payroll pays approved regular hours at the hourly rate. Overtime hours are removed from regular hours and paid separately under the legal jurisdiction overtime rules.
                       </div>
                     )}
@@ -597,7 +597,7 @@ export default function CompensationPage() {
 function Field({ label, children }) {
   return (
     <label>
-      <span className="mb-2 block text-[9px] uppercase tracking-[0.18em] text-white/35">{label}</span>
+      <span className="mb-2 block text-[9px] uppercase tracking-[0.18em] text-[#918B83]">{label}</span>
       {children}
     </label>
   );
@@ -607,7 +607,7 @@ function StatusBadge({ good, goodLabel, badLabel, neutral = false }) {
   const classes = good
     ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
     : neutral
-      ? "border-white/10 bg-white/[0.04] text-white/40"
+      ? "border-black/[0.08] bg-[#FBF8F3] text-[#817A72]"
       : "border-amber-500/20 bg-amber-500/10 text-amber-300";
 
   return (
@@ -619,9 +619,9 @@ function StatusBadge({ good, goodLabel, badLabel, neutral = false }) {
 
 function Metric({ label, value, icon }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-      <div className="flex items-center gap-2 text-white/35">{icon}<span className="text-[9px] uppercase tracking-[0.16em]">{label}</span></div>
-      <div className="mt-2 text-2xl font-black text-white">{value}</div>
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+      <div className="flex items-center gap-2 text-[#918B83]">{icon}<span className="text-[9px] uppercase tracking-[0.16em]">{label}</span></div>
+      <div className="mt-2 text-2xl font-black text-[#191919]">{value}</div>
     </div>
   );
 }

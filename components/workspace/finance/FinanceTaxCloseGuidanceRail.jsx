@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, ShieldCheck, Users } from "lucide-react";
 
 function date(value) {
@@ -30,7 +30,7 @@ function Responsibility({ value }) {
 export default function FinanceTaxCloseGuidanceRail({ organizationId, entityId, selectedVatReturnId }) {
   const [state, setState] = useState({ loading: false, error: "", guidance: null, selectedId: null, resolutionAuthority: null });
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !entityId || !selectedVatReturnId) {
       setState({ loading: false, error: "", guidance: null, selectedId: selectedVatReturnId || null, resolutionAuthority: null });
       return;
@@ -48,9 +48,9 @@ export default function FinanceTaxCloseGuidanceRail({ organizationId, entityId, 
     } catch (error) {
       setState({ loading: false, error: error?.message || "Tax close guidance could not be loaded", guidance: null, selectedId: selectedVatReturnId, resolutionAuthority: null });
     }
-  }
+  }, [entityId, organizationId, selectedVatReturnId]);
 
-  useEffect(() => { load(); }, [organizationId, entityId, selectedVatReturnId]);
+  useEffect(() => { load(); }, [load]);
 
   const guidance = state.guidance;
   if (!organizationId || !entityId || !selectedVatReturnId) return null;

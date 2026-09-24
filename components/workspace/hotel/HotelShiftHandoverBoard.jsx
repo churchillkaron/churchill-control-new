@@ -87,7 +87,7 @@ export default function HotelShiftHandoverBoard({ organizationId }) {
       }
     })();
     return () => { active = false; };
-  }, [loadProperties]);
+  }, [loadHandover, loadProperties]);
 
   async function updateContext(item, action, extra = {}) {
     setBusyKey(item.sourceKey); setError("");
@@ -102,7 +102,7 @@ export default function HotelShiftHandoverBoard({ organizationId }) {
     finally { setBusyKey(""); }
   }
 
-  const exceptions = handover?.exceptions || [];
+  const exceptions = useMemo(() => handover?.exceptions || [], [handover?.exceptions]);
   const areas = useMemo(() => ["ALL", ...new Set(exceptions.map((item) => item.area))], [exceptions]);
   const visible = area === "ALL" ? exceptions : exceptions.filter((item) => item.area === area);
   const summary = handover?.summary || {};

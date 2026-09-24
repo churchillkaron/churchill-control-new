@@ -28,7 +28,7 @@ function toneClass(state) {
   if (state === "SETUP_IN_PROGRESS" || state === "PLATFORM_SETUP") {
     return "border-amber-400/20 bg-amber-400/10 text-amber-100";
   }
-  return "border-white/10 bg-white/[0.035] text-white/65";
+  return "border-black/[0.08] bg-[#FBF8F3] text-[#5F5A54]";
 }
 
 function capabilityTone(status) {
@@ -38,28 +38,28 @@ function capabilityTone(status) {
   if (status === "SETUP_REQUIRED") {
     return { dot: "bg-amber-300", text: "text-amber-100", label: "Setup required" };
   }
-  return { dot: "bg-white/25", text: "text-white/40", label: "Not available" };
+  return { dot: "bg-[#C8C1B8]", text: "text-[#817A72]", label: "Not available" };
 }
 
 function CapabilityList({ capabilities }) {
   if (!Array.isArray(capabilities) || !capabilities.length) return null;
 
   return (
-    <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
+    <div className="mt-5 overflow-hidden rounded-2xl border border-black/[0.08] bg-white">
       {capabilities.map((capability, index) => {
         const tone = capabilityTone(capability.status);
         return (
           <div
             key={capability.id}
-            className={`flex items-start justify-between gap-4 px-4 py-3 ${index ? "border-t border-white/10" : ""}`}
+            className={`flex items-start justify-between gap-4 px-4 py-3 ${index ? "border-t border-black/[0.08]" : ""}`}
           >
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tone.dot}`} />
-                <span className="text-xs font-medium text-white/80">{capability.label}</span>
+                <span className="text-xs font-medium text-[#2F2C28]">{capability.label}</span>
               </div>
               {capability.detail ? (
-                <div className="mt-1 pl-3.5 text-[11px] leading-4 text-white/35">
+                <div className="mt-1 pl-3.5 text-[11px] leading-4 text-[#918B83]">
                   {capability.detail}
                 </div>
               ) : null}
@@ -82,6 +82,7 @@ export default function IntegrationsPage() {
   const [googleSnapshot, setGoogleSnapshot] = useState({ connection: null, locations: [], entities: [] });
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [focus, setFocus] = useState("");
 
   const organizationId = business?.organization_id || business?.organization?.id || null;
 
@@ -121,6 +122,11 @@ export default function IntegrationsPage() {
       setGoogleLoading(false);
     }
   }, [organizationId]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setFocus(params.get("focus") || "");
+  }, []);
 
   useEffect(() => {
     if (!business?.ready || !organizationId) return;
@@ -180,18 +186,23 @@ export default function IntegrationsPage() {
   const googleCatalog = catalog.find((row) => row.id === "google-business") || null;
   const googlePlatformReady = googleCatalog?.platformReady !== false;
   const allLocationsMapped = googleSnapshot.locations.length > 0 && googleSnapshot.locations.every((location) => location.entity_id);
-  const activeCount = useMemo(() => catalog.filter((row) => row.state === "CONNECTED").length, [catalog]);
+  const visibleCatalog = useMemo(() => {
+    if (focus !== "communications") return catalog;
+    const communicationIds = new Set(["meta", "whatsapp", "line", "email"]);
+    return catalog.filter((row) => communicationIds.has(row.id));
+  }, [catalog, focus]);
+  const activeCount = useMemo(() => visibleCatalog.filter((row) => row.state === "CONNECTED").length, [visibleCatalog]);
 
   if (!business?.ready) {
     return (
-      <main className="min-h-screen bg-black p-8 text-white">
-        <div className="mx-auto max-w-6xl text-white/45">Loading integrations…</div>
+      <main className="min-h-screen bg-[#F7F6F3] p-8 text-[#191919]">
+        <div className="mx-auto max-w-6xl text-[#746E66]">Loading integrations…</div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-6xl">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-5">
           <div>
@@ -200,11 +211,11 @@ export default function IntegrationsPage() {
               Administration / Integrations
             </div>
             <h1 className="mt-4 text-5xl font-light lg:text-6xl">Integrations</h1>
-            <p className="mt-4 max-w-3xl text-lg leading-7 text-white/45">
+            <p className="mt-4 max-w-3xl text-lg leading-7 text-[#746E66]">
               Connect the external business accounts this organization uses. Avantiqo handles the technical infrastructure behind them.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2"><a href={`/workspace/${encodeURIComponent(organizationId)}/developers`} className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-medium text-white/70">← Developer Portal</a>{platformOperator ? (
+          <div className="flex flex-wrap items-center gap-2"><a href={`/workspace/${encodeURIComponent(organizationId)}/developers`} className="inline-flex items-center rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-xs font-medium text-[#5F5A54]">← Developer Portal</a>{platformOperator ? (
             <a
               href={`/workspace/${encodeURIComponent(organizationId)}/administration/integrations/platform-setup`}
               className="inline-flex items-center gap-2 rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-4 py-2.5 text-xs font-medium text-[#E5C18D]"
@@ -221,40 +232,40 @@ export default function IntegrationsPage() {
           </div>
         )}
 
-        <section className="rounded-[30px] border border-white/10 bg-white/[0.025] p-6 lg:p-7">
+        <section className="rounded-[30px] border border-black/[0.08] bg-white p-6 lg:p-7">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="text-xs uppercase tracking-[0.22em] text-white/30">Business connections</div>
-              <h2 className="mt-2 text-2xl font-medium">Connected services</h2>
+              <div className="text-xs uppercase tracking-[0.22em] text-[#A19A92]">Business connections</div>
+              <h2 className="mt-2 text-2xl font-medium">{focus === "communications" ? "Communication connections" : "Connected services"}</h2>
             </div>
-            <div className="text-sm text-white/40">{catalogLoading ? "Loading…" : `${activeCount} connected`}</div>
+            <div className="text-sm text-[#817A72]">{catalogLoading ? "Loading…" : `${activeCount} connected`}</div>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {catalog.map((integration) => {
+            {visibleCatalog.map((integration) => {
               const canConnect = integration.action === "CONNECT" && integration.connectPath;
               const canManage = integration.action === "MANAGE" && integration.detailAnchor;
               return (
                 <article
                   key={integration.id}
-                  className={`rounded-2xl border border-white/10 bg-black/25 p-5 ${integration.id === "meta" ? "md:col-span-2 xl:col-span-2" : ""}`}
+                  className={`rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5 ${integration.id === "meta" ? "md:col-span-2 xl:col-span-2" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/30">{integration.category}</div>
-                      <h3 className="mt-2 text-lg font-medium text-white">{integration.name}</h3>
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-[#A19A92]">{integration.category}</div>
+                      <h3 className="mt-2 text-lg font-medium text-[#191919]">{integration.name}</h3>
                     </div>
                     <div className={`rounded-full border px-2.5 py-1 text-[10px] ${toneClass(integration.state)}`}>{integration.label}</div>
                   </div>
 
-                  <p className="mt-3 min-h-[48px] text-sm leading-6 text-white/42">{integration.description}</p>
+                  <p className="mt-3 min-h-[48px] text-sm leading-6 text-[#746E66]">{integration.description}</p>
 
                   {integration.account ? (
-                    <div className="mt-3 truncate text-xs text-white/55">Connected: {integration.account}</div>
+                    <div className="mt-3 truncate text-xs text-[#5F5A54]">Connected: {integration.account}</div>
                   ) : null}
 
                   {integration.detail ? (
-                    <div className="mt-2 text-xs leading-5 text-white/35">{integration.detail}</div>
+                    <div className="mt-2 text-xs leading-5 text-[#918B83]">{integration.detail}</div>
                   ) : null}
 
                   <CapabilityList capabilities={integration.capabilities} />
@@ -269,12 +280,12 @@ export default function IntegrationsPage() {
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     ) : canManage ? (
-                      <a href={`#${integration.detailAnchor}`} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-medium text-white/70">
+                      <a href={`#${integration.detailAnchor}`} className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-xs font-medium text-[#5F5A54]">
                         Manage
                         <Link2 className="h-3.5 w-3.5" />
                       </a>
                     ) : (
-                      <span className="text-xs text-white/30">
+                      <span className="text-xs text-[#A19A92]">
                         {integration.state === "PLATFORM_SETUP"
                           ? "No customer action required"
                           : integration.state === "COMING_SOON"
@@ -289,14 +300,14 @@ export default function IntegrationsPage() {
           </div>
         </section>
 
-        <section id="google-business" className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.025] p-6 lg:p-7">
+        <section id="google-business" className="mt-6 rounded-[28px] border border-black/[0.08] bg-white p-6 lg:p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
-              <div className="text-xs uppercase tracking-[0.22em] text-white/30">Business presence</div>
+              <div className="text-xs uppercase tracking-[0.22em] text-[#A19A92]">Business presence</div>
               <h2 className="mt-2 text-2xl font-medium">Google Business Profile</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/45">Connect the business profile used for locations, reviews and public business information.</p>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#746E66]">Connect the business profile used for locations, reviews and public business information.</p>
             </div>
-            <div className={`rounded-full border px-3 py-1 text-xs ${googleConnected ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : "border-white/10 bg-white/[0.04] text-white/50"}`}>
+            <div className={`rounded-full border px-3 py-1 text-xs ${googleConnected ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : "border-black/[0.08] bg-white/[0.04] text-[#746E66]"}`}>
               {googleConnected ? "Connected" : googlePlatformReady ? "Not connected" : "Avantiqo setup"}
             </div>
           </div>
@@ -330,17 +341,17 @@ export default function IntegrationsPage() {
           )}
 
           {googleConnected ? (
-            <button type="button" onClick={discoverGoogle} disabled={googleWorking} className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-medium text-white/70 disabled:opacity-50">
+            <button type="button" onClick={discoverGoogle} disabled={googleWorking} className="mt-5 inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-xs font-medium text-[#5F5A54] disabled:opacity-50">
               <RefreshCw className={`h-3.5 w-3.5 ${googleWorking ? "animate-spin" : ""}`} />
               {googleWorking ? "Checking…" : "Refresh connection"}
             </button>
           ) : null}
 
           {!googleLoading && googleSnapshot.locations.length > 0 ? (
-            <div className="mt-7 border-t border-white/10 pt-6">
+            <div className="mt-7 border-t border-black/[0.08] pt-6">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-xs uppercase tracking-[0.16em] text-white/30">Locations</div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-[#A19A92]">Locations</div>
                   <h3 className="mt-1 text-lg font-medium">Business location mapping</h3>
                 </div>
                 <div className={`text-xs ${allLocationsMapped ? "text-emerald-300" : "text-amber-200"}`}>{allLocationsMapped ? "Complete" : "Action required"}</div>
@@ -348,15 +359,15 @@ export default function IntegrationsPage() {
 
               <div className="space-y-3">
                 {googleSnapshot.locations.map((location) => (
-                  <div key={location.id} className="grid gap-4 rounded-2xl border border-white/10 bg-black/25 p-4 lg:grid-cols-[1fr_320px] lg:items-center">
+                  <div key={location.id} className="grid gap-4 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4 lg:grid-cols-[1fr_320px] lg:items-center">
                     <div className="flex items-start gap-3">
                       <MapPin className="mt-0.5 h-4 w-4 text-[#D6A66A]" />
                       <div>
-                        <div className="font-medium text-white">{location.name || "Google Business location"}</div>
-                        <div className="mt-1 text-xs text-white/35">Map this external location to the correct business entity.</div>
+                        <div className="font-medium text-[#191919]">{location.name || "Google Business location"}</div>
+                        <div className="mt-1 text-xs text-[#918B83]">Map this external location to the correct business entity.</div>
                       </div>
                     </div>
-                    <select value={location.entity_id || ""} onChange={(event) => mapLocation(location.id, event.target.value)} disabled={googleWorking} className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none disabled:opacity-50">
+                    <select value={location.entity_id || ""} onChange={(event) => mapLocation(location.id, event.target.value)} disabled={googleWorking} className="w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm text-[#191919] outline-none disabled:opacity-50">
                       <option value="">Select business entity</option>
                       {googleSnapshot.entities.map((entity) => (
                         <option key={entity.id} value={entity.id}>{entity.display_name || entity.legal_name || entity.code}</option>

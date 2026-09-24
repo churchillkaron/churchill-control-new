@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -14,7 +14,7 @@ export default function ShopifyInventorySyncPanel({ organizationId }) {
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -32,11 +32,11 @@ export default function ShopifyInventorySyncPanel({ organizationId }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     load();
-  }, [organizationId]);
+  }, [load]);
 
   async function configure(location, patch) {
     const metadata = location || {};
@@ -90,29 +90,29 @@ export default function ShopifyInventorySyncPanel({ organizationId }) {
   const connected = Boolean(snapshot?.connection);
 
   return (
-    <section className="bg-black px-5 pb-10 text-white lg:px-10">
-      <div className="mx-auto max-w-6xl rounded-[30px] border border-white/10 bg-white/[0.025] p-6 lg:p-8">
+    <section className="bg-[#F7F6F3] px-5 pb-10 text-[#191919] lg:px-10">
+      <div className="mx-auto max-w-6xl rounded-[30px] border border-black/[0.08] bg-white p-6 lg:p-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <div className="text-xs uppercase tracking-[0.22em] text-white/30">Inventory synchronization</div>
+            <div className="text-xs uppercase tracking-[0.22em] text-[#A19A92]">Inventory synchronization</div>
             <h2 className="mt-2 text-2xl font-light">Shopify locations → Avantiqo stock</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/40">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#817A72]">
               Observe only is the safe default. When Shopify controls Avantiqo stock, every external quantity change becomes a governed Inventory adjustment through the canonical stock ledger. Avantiqo does not write stock back to Shopify.
             </p>
           </div>
           {connected && !loading ? (
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2">
-                <div className="text-white/30">Applied</div>
-                <div className="mt-1 text-base text-white/80">{sync.applied || 0}</div>
+              <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2">
+                <div className="text-[#A19A92]">Applied</div>
+                <div className="mt-1 text-base text-[#2F2C28]">{sync.applied || 0}</div>
               </div>
-              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2">
-                <div className="text-white/30">Pending</div>
-                <div className="mt-1 text-base text-white/80">{(sync.pending || 0) + (sync.retrying || 0)}</div>
+              <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2">
+                <div className="text-[#A19A92]">Pending</div>
+                <div className="mt-1 text-base text-[#2F2C28]">{(sync.pending || 0) + (sync.retrying || 0)}</div>
               </div>
-              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2">
-                <div className="text-white/30">Failed</div>
-                <div className="mt-1 text-base text-white/80">{sync.failed || 0}</div>
+              <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2">
+                <div className="text-[#A19A92]">Failed</div>
+                <div className="mt-1 text-base text-[#2F2C28]">{sync.failed || 0}</div>
               </div>
             </div>
           ) : null}
@@ -125,13 +125,13 @@ export default function ShopifyInventorySyncPanel({ organizationId }) {
         ) : null}
 
         {loading ? (
-          <div className="mt-6 text-sm text-white/35">Loading inventory synchronization…</div>
+          <div className="mt-6 text-sm text-[#918B83]">Loading inventory synchronization…</div>
         ) : !connected ? (
-          <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5 text-sm text-white/40">
+          <div className="mt-6 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5 text-sm text-[#817A72]">
             Connect Shopify first. Location and stock synchronization controls appear after Shopify discovery.
           </div>
         ) : !(snapshot?.shopifyLocations || []).length ? (
-          <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5 text-sm text-white/40">
+          <div className="mt-6 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5 text-sm text-[#817A72]">
             Shopify locations will appear here after the recovery sync or the first location webhook.
           </div>
         ) : (
@@ -140,23 +140,23 @@ export default function ShopifyInventorySyncPanel({ organizationId }) {
               const warehouseLocations = locationsByWarehouse.get(shopifyLocation.inventory_warehouse_id) || [];
               const mapped = Boolean(shopifyLocation.inventory_warehouse_id && shopifyLocation.inventory_location_id);
               return (
-                <div key={shopifyLocation.id} className="rounded-2xl border border-white/10 bg-black/30 p-4 lg:p-5">
+                <div key={shopifyLocation.id} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4 lg:p-5">
                   <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                     <div className="min-w-0 xl:w-64">
-                      <div className="text-sm font-medium text-white/85">{shopifyLocation.name}</div>
-                      <div className="mt-1 text-xs text-white/30">
+                      <div className="text-sm font-medium text-[#2F2C28]">{shopifyLocation.name}</div>
+                      <div className="mt-1 text-xs text-[#A19A92]">
                         {shopifyLocation.inventory_sync_mode === "SHOPIFY_TO_AVANTIQO" ? "Stock sync enabled" : "Observe only"}
                       </div>
                     </div>
 
                     <div className="grid flex-1 gap-3 md:grid-cols-3">
                       <label className="block">
-                        <span className="text-[11px] uppercase tracking-[0.14em] text-white/30">Warehouse</span>
+                        <span className="text-[11px] uppercase tracking-[0.14em] text-[#A19A92]">Warehouse</span>
                         <select
                           value={shopifyLocation.inventory_warehouse_id || ""}
                           disabled={saving === shopifyLocation.id}
                           onChange={(event) => configure(shopifyLocation, { warehouseId: event.target.value, locationId: "", syncMode: "OBSERVE_ONLY" })}
-                          className="mt-2 w-full rounded-xl border border-white/10 bg-black px-3 py-2.5 text-sm text-white outline-none"
+                          className="mt-2 w-full rounded-xl border border-black/[0.09] bg-white px-3 py-2.5 text-sm text-[#191919] outline-none"
                         >
                           <option value="">Select warehouse</option>
                           {(snapshot?.warehouses || []).map((warehouse) => (
@@ -166,12 +166,12 @@ export default function ShopifyInventorySyncPanel({ organizationId }) {
                       </label>
 
                       <label className="block">
-                        <span className="text-[11px] uppercase tracking-[0.14em] text-white/30">Inventory location</span>
+                        <span className="text-[11px] uppercase tracking-[0.14em] text-[#A19A92]">Inventory location</span>
                         <select
                           value={shopifyLocation.inventory_location_id || ""}
                           disabled={!shopifyLocation.inventory_warehouse_id || saving === shopifyLocation.id}
                           onChange={(event) => configure(shopifyLocation, { locationId: event.target.value, syncMode: "OBSERVE_ONLY" })}
-                          className="mt-2 w-full rounded-xl border border-white/10 bg-black px-3 py-2.5 text-sm text-white outline-none disabled:opacity-40"
+                          className="mt-2 w-full rounded-xl border border-black/[0.09] bg-white px-3 py-2.5 text-sm text-[#191919] outline-none disabled:opacity-40"
                         >
                           <option value="">Select location</option>
                           {warehouseLocations.map((location) => (
@@ -181,12 +181,12 @@ export default function ShopifyInventorySyncPanel({ organizationId }) {
                       </label>
 
                       <label className="block">
-                        <span className="text-[11px] uppercase tracking-[0.14em] text-white/30">Stock authority</span>
+                        <span className="text-[11px] uppercase tracking-[0.14em] text-[#A19A92]">Stock authority</span>
                         <select
                           value={shopifyLocation.inventory_sync_mode || "OBSERVE_ONLY"}
                           disabled={!mapped || !snapshot?.store?.entity_id || saving === shopifyLocation.id}
                           onChange={(event) => configure(shopifyLocation, { syncMode: event.target.value })}
-                          className="mt-2 w-full rounded-xl border border-white/10 bg-black px-3 py-2.5 text-sm text-white outline-none disabled:opacity-40"
+                          className="mt-2 w-full rounded-xl border border-black/[0.09] bg-white px-3 py-2.5 text-sm text-[#191919] outline-none disabled:opacity-40"
                         >
                           <option value="OBSERVE_ONLY">Observe only</option>
                           <option value="SHOPIFY_TO_AVANTIQO">Shopify controls Avantiqo stock</option>
@@ -201,7 +201,7 @@ export default function ShopifyInventorySyncPanel({ organizationId }) {
         )}
 
         {connected && !loading ? (
-          <div className="mt-5 text-xs leading-5 text-white/25">
+          <div className="mt-5 text-xs leading-5 text-[#A9A39C]">
             Latest stock observation: {formatDate(sync?.latest?.created_at)} · Enabled locations: {sync.enabled_locations || 0}. Quantity reconciliation uses explicit variant and location mappings only; no SKU/name guessing is performed.
           </div>
         ) : null}

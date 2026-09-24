@@ -3,27 +3,15 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 export async function POST() {
-
-  try {
-
-    return NextResponse.json({
-      success: true,
-      message:
-        "Marketing publish complete",
-    });
-
-  } catch (error) {
-
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: "LEGACY_MARKETING_PUBLISH_RETIRED",
+        message: "The legacy marketing publish endpoint is retired.",
+        correction: "Use the governed Campaigns execution path or Creative Publish command flow so provider readiness, approval, evidence and execution are enforced.",
       },
-      {
-        status: 500,
-      }
-    );
-  }
+    },
+    { status: 409 },
+  );
 }

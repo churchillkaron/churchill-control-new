@@ -51,7 +51,7 @@ const EMPTY_VALUES = {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[11px] uppercase tracking-[0.24em] text-white/40">
+      <span className="mb-2 block text-[11px] uppercase tracking-[0.24em] text-[#817A72]">
         {label}
       </span>
       {children}
@@ -60,7 +60,7 @@ function Field({ label, children }) {
 }
 
 const INPUT =
-  "h-11 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none";
+  "h-11 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-4 text-sm text-[#191919] outline-none";
 
 export default function FinanceDocumentTemplateBuilderEngine({
   open = true,
@@ -186,28 +186,28 @@ export default function FinanceDocumentTemplateBuilderEngine({
   }
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
-      <div className="grid max-h-[92vh] w-full max-w-7xl overflow-hidden rounded-[30px] border border-white/10 bg-[#090909] shadow-2xl lg:grid-cols-[1fr_0.9fr]">
-        <section className="overflow-auto border-b border-white/10 p-6 lg:border-b-0 lg:border-r">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[#F7F6F3]/75 px-4 backdrop-blur-sm">
+      <div className="grid max-h-[92vh] w-full max-w-7xl overflow-hidden rounded-[30px] border border-black/[0.08] bg-white shadow-2xl lg:grid-cols-[1fr_0.9fr]">
+        <section className="overflow-auto border-b border-black/[0.08] p-6 lg:border-b-0 lg:border-r">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-[11px] uppercase tracking-[0.3em] text-amber-300/70">
                 Finance Document Studio
               </div>
-              <h2 className="mt-2 text-3xl font-light text-white">
+              <h2 className="mt-2 text-3xl font-light text-[#191919]">
                 {editing ? "Edit Document Template" : "Create Document Template"}
               </h2>
-              <p className="mt-2 max-w-2xl text-sm text-white/45">
+              <p className="mt-2 max-w-2xl text-sm text-[#746E66]">
                 Build a branded, organisation-scoped design. Saving changes returns an active template to Draft for review.
               </p>
             </div>
-            <button onClick={onClose} className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60">
+            <button onClick={onClose} className="rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#5F5A54]">
               Close
             </button>
           </div>
 
           {loading ? (
-            <div className="mt-8 text-sm text-white/45">Loading template design...</div>
+            <div className="mt-8 text-sm text-[#746E66]">Loading template design...</div>
           ) : (
             <>
               <div className="mt-7 grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -257,7 +257,7 @@ export default function FinanceDocumentTemplateBuilderEngine({
                   ["show_tax_summary", "Show Tax Summary"],
                   ["show_payment_details", "Show Payment Details"],
                 ].map(([name, label]) => (
-                  <label key={name} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70">
+                  <label key={name} className="flex items-center gap-3 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-sm text-[#5F5A54]">
                     <input type="checkbox" checked={Boolean(values[name])} onChange={(event) => update(name, event.target.checked)} />
                     {label}
                   </label>
@@ -266,20 +266,20 @@ export default function FinanceDocumentTemplateBuilderEngine({
 
               <div className="mt-6 grid gap-5">
                 <Field label="Payment Instructions">
-                  <textarea className="min-h-24 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none" value={values.payment_note} onChange={(event) => update("payment_note", event.target.value)} placeholder="Resolved from organisation payment settings when empty" />
+                  <textarea className="min-h-24 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-4 py-3 text-sm text-[#191919] outline-none" value={values.payment_note} onChange={(event) => update("payment_note", event.target.value)} placeholder="Resolved from organisation payment settings when empty" />
                 </Field>
                 <Field label="Legal / Compliance Note">
-                  <textarea className="min-h-24 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none" value={values.legal_note} onChange={(event) => update("legal_note", event.target.value)} placeholder="Jurisdiction-specific text or disclosure" />
+                  <textarea className="min-h-24 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-4 py-3 text-sm text-[#191919] outline-none" value={values.legal_note} onChange={(event) => update("legal_note", event.target.value)} placeholder="Jurisdiction-specific text or disclosure" />
                 </Field>
                 <Field label="Footer Note">
-                  <textarea className="min-h-20 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none" value={values.footer_note} onChange={(event) => update("footer_note", event.target.value)} placeholder="Thank you for your business" />
+                  <textarea className="min-h-20 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-4 py-3 text-sm text-[#191919] outline-none" value={values.footer_note} onChange={(event) => update("footer_note", event.target.value)} placeholder="Thank you for your business" />
                 </Field>
               </div>
 
               {error ? <div className="mt-5 rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</div> : null}
 
-              <div className="mt-7 flex justify-end gap-3 border-t border-white/10 pt-5">
-                <button onClick={onClose} className="rounded-xl border border-white/10 px-5 py-3 text-sm text-white/60">Cancel</button>
+              <div className="mt-7 flex justify-end gap-3 border-t border-black/[0.08] pt-5">
+                <button onClick={onClose} className="rounded-xl border border-black/[0.08] px-5 py-3 text-sm text-[#5F5A54]">Cancel</button>
                 <button onClick={save} disabled={saving} className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-semibold text-black disabled:opacity-50">
                   {saving ? "Saving..." : editing ? "Save as Draft" : "Create Draft Template"}
                 </button>
@@ -288,12 +288,12 @@ export default function FinanceDocumentTemplateBuilderEngine({
           )}
         </section>
 
-        <section className="overflow-auto bg-[#050505] p-6">
-          <div className="text-[11px] uppercase tracking-[0.3em] text-white/35">Live Preview</div>
+        <section className="overflow-auto bg-[#F7F6F3] p-6">
+          <div className="text-[11px] uppercase tracking-[0.3em] text-[#918B83]">Live Preview</div>
           <div className="mt-4 rounded-2xl bg-white p-8 text-black shadow-2xl">
             <div className="flex items-start justify-between border-b pb-6">
               <div>
-                {values.show_logo ? <div className="mb-3 h-10 w-28 rounded bg-black/10" /> : null}
+                {values.show_logo ? <div className="mb-3 h-10 w-28 rounded bg-[#F7F6F3]/10" /> : null}
                 <div className="text-2xl font-semibold">Organisation Name</div>
                 <div className="mt-1 text-xs text-black/55">Legal entity and registration details</div>
               </div>

@@ -237,15 +237,15 @@ test("Talk stays conversational while Code works behind the screen", () => {
   assert.match(ide, /<span>Thinking…<\/span>/);
   assert.doesNotMatch(ide, /<span>Working in Code…<\/span>/);
   assert.match(ide, /View live work/);
-  assert.match(ide, /runCodeMission\(missionObjective, \{ reportToTalk: true, sessionOverride: missionSession \}\)/);
-  assert.match(ide, /Done\. I checked it in the shared Code workspace/);
-  assert.match(ide, /Done\. I finished the Code work and verified it/);
+  assert.match(ide, /runCodeMission\(missionObjective, \{[\s\S]{0,220}reportToTalk: true,[\s\S]{0,120}sessionOverride: missionSession,[\s\S]{0,160}resumeMissionId:/);
+  assert.match(ide, /return `Done\. \$\{checkedText\} \$\{changedText\} \$\{verificationText\} \$\{remainingText\}`/);
+  assert.match(ide, /Code mission completed in shared workspace/);
   assert.doesNotMatch(ide, /I hit a blocker while Code was working/);
   assert.match(ide, /customerFacingCodeBlocker/);
-  assert.match(ide, /The workspace connection changed while I was working/);
+  assert.match(ide, /The workspace connection changed while Code was working/);
   assert.match(ide, /codeOnly \? "border-b border-white\/\[0\.06\] p-3" : "hidden"/);
   assert.match(ide, /embedded && studioView !== "code"/);
-  assert.match(ide, /studioView === "code" \? 3500 : 10000/);
+  assert.match(ide, /\(missionRunning \|\| sessionAgentActive\)[\s\S]{0,80}\? 10000[\s\S]{0,80}studioView === "code"[\s\S]{0,60}\? 15000[\s\S]{0,60}: 30000/);
 });
 
 test("Developer Mode can follow Code without overriding dirty human buffers", () => {
@@ -268,14 +268,20 @@ test("Explorer index covers large repositories with hierarchical client-side nav
 });
 
 
-test("Strategic Code reasoning inspects the repository before research and specialist review", async () => {
+test("Strategic Code reasoning inspects before research and defers routine specialist review until implementation", async () => {
   const strategic = await readFile(new URL("../lib/code/runtime/CodeAIStrategicReasoningRuntime.js", import.meta.url), "utf8");
   const inspectIndex = strategic.indexOf("strategic_initial_inspect");
   const researchIndex = strategic.indexOf("const research = await resolveStrategicResearch");
-  const specialistIndex = strategic.indexOf("const specialistReview = await resolveParallelSpecialistCouncil");
+  const implementationGateIndex = strategic.indexOf("const implementationAlreadyPresent");
+  const riskGateIndex = strategic.indexOf("const preImplementationSpecialistReviewRequired");
+  const specialistIndex = strategic.indexOf("? await resolveParallelSpecialistCouncil");
   assert.ok(inspectIndex > 0);
   assert.ok(researchIndex > inspectIndex);
-  assert.ok(specialistIndex > researchIndex);
+  assert.ok(implementationGateIndex > researchIndex);
+  assert.ok(riskGateIndex > implementationGateIndex);
+  assert.ok(specialistIndex > riskGateIndex);
+  assert.match(strategic, /DEFERRED_UNTIL_IMPLEMENTATION_OR_HIGH_RISK/);
+  assert.match(strategic, /deferred_until_implementation_or_high_risk: true/);
   assert.match(strategic, /mission_id: text\(objectiveContext\.mission_id/);
 });
 
@@ -295,7 +301,8 @@ test("IDE actions bind directly to a validated device session without enqueueing
   assert.match(deviceRuntime, /bindDeviceCodeWorkspace/);
   assert.match(deviceRuntime, /bind: bindDeviceCodeWorkspace/);
   assert.match(ideRoute, /CodeWorkspaceRuntime\.bind/);
-  assert.match(agent, /p_limit:4/);
+  assert.match(agent, /p_limit:1,p_lease_seconds:DEVICE_JOB_LEASE_SECONDS/);
+  assert.match(agent, /startDeviceJobLeaseRenewal/);
   assert.match(agent, /handled\?75:350/);
 });
 
@@ -395,7 +402,7 @@ test("Developer Mode exposes a real governed Stop mission control", () => {
   assert.match(ide, /action: "STOP"/);
   assert.match(ide, /next governed safe boundary/);
   assert.match(ide, /const \[localMissionId, setLocalMissionId\] = useState/);
-  assert.match(ide, /const stopMissionId = missionRunning \? localMissionId : ""/);
+  assert.match(ide, /const stopMissionId = missionRunning \? text\(localMissionId\) : currentActiveMissionId/);
   assert.match(ide, /mission_id: missionId/);
   assert.match(ide, /for \(let attempt = 0; attempt < 20; attempt \+= 1\)/);
   assert.match(ide, /Stop mission/);
@@ -408,7 +415,7 @@ test("Developer Mode scopes live mission activity to its exact device session", 
   assert.match(ide, /const observedProgressActive = activeMissionProgress/);
   assert.match(ide, /const observedActiveMissionId = observedProgressActive \? text\(scopedProgress\?\.mission_id\) : ""/);
   assert.match(ide, /const liveTalkActive = Boolean\(missionRunning \|\| currentActiveMissionId \|\| \(sessionAgentActive && observedProgressActive\)\)/);
-  assert.match(ide, /const currentActiveMissionId = missionRunning && localMissionId && observedActiveMissionId === localMissionId \? localMissionId : ""/);
+  assert.match(ide, /const currentActiveMissionId = missionRunning && localMissionId[\s\S]{0,180}observedActiveMissionId === localMissionId \? localMissionId : ""[\s\S]{0,80}: observedActiveMissionId/);
   assert.match(ide, /pendingSteerRef/);
   assert.match(ide, /submitLiveSteer\(locallyOwnedMissionId/);
   assert.match(ide, /action: "STEER"/);
@@ -430,7 +437,7 @@ test("Developer Mode resumes nested implementation state but never resumes a ter
   assert.match(ide, /const developerVerificationTerminal = Boolean\(body\.developer_verification\)/);
   assert.match(ide, /!developerVerificationTerminal &&/);
   assert.match(ide, /responseState\?\.planner_pending/);
-  assert.match(ide, /\["planner_pending", "repair_required", "verification_required"\]\.includes\(responseStatus\)/);
+  assert.match(ide, /\["running", "planner_pending", "repair_required", "verification_required", "review_required", "replan_required"\]\.includes\(responseStatus\)/);
 });
 
 test("Talk feed follows live work without fighting intentional history scroll", () => {
@@ -448,9 +455,10 @@ test("Talk mode stays conversational while every reasoning request remains visib
   assert.match(ide, /dedupeAdjacentTalkTurns/);
   assert.match(ide, /h-\[min\(58vh,620px\)\]/);
   assert.match(ide, /overflow-y-auto/);
-  assert.match(ide, /max-w-\[92%\] py-3 text-sm leading-7 text-slate-700/);
-  assert.match(ide, /talkActivityNarration\.slice\(-6, -1\)/);
-  assert.match(ide, /The current planning pass is still running/);
+  assert.match(ide, /mr-auto min-w-0 max-w-\[86%\] break-words py-3 text-sm leading-7 text-slate-700/);
+  assert.doesNotMatch(ide, /talkActivityNarration\.slice\(-6, -1\)/);
+  assert.match(ide, /<span>\{liveNarrationContent\}<\/span>/);
+  assert.match(ide, /I’m planning the next repository step from the evidence already collected/);
   assert.doesNotMatch(ide, /ml-12 rounded-2xl border border-\[#D6A66A\]/);
   assert.doesNotMatch(ide, /mr-12 rounded-2xl border border-slate-200 bg-white/);
   assert.doesNotMatch(ide, /Code working live/);

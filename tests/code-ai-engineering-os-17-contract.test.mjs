@@ -49,6 +49,14 @@ test("debugging database security performance and observability are durable type
   assert.match(mission, /AVANTIQO_CODE_SECURITY_ENGINEERING_REVIEW_V1/);
   assert.match(mission, /AVANTIQO_CODE_PERFORMANCE_EVIDENCE_V1/);
   assert.match(mission, /AVANTIQO_CODE_OBSERVABILITY_EVIDENCE_V1/);
+  assert.match(mission, /function assertObservedEvidenceOperationIds/);
+  assert.match(mission, /"CODE_AI_DATABASE_REVIEW"/);
+  assert.match(mission, /"CODE_AI_SECURITY_REVIEW"/);
+  assert.match(mission, /"CODE_AI_PERFORMANCE"/);
+  assert.match(mission, /"CODE_AI_OBSERVABILITY"/);
+  assert.match(mission, /_EVIDENCE_REQUIRED/);
+  assert.match(mission, /_EVIDENCE_NOT_OBSERVED/);
+  assert.match(mission, /_EVIDENCE_INCOMPLETE/);
 });
 
 test("review workflow creates draft PR from verified exact head and never merges automatically", () => {
@@ -68,9 +76,9 @@ test("multi repository missions keep independent heads and no merge authority", 
 });
 
 test("hidden benchmark prevents expected answers from entering candidate surface", () => {
-  assert.match(benchmark, /createHmac\("sha256",salt\)/);
-  assert.match(benchmark, /expected_values_exposed_to_candidate:false/);
-  assert.match(benchmark, /held_out:true/);
+  assert.match(benchmark, /createHmac\("sha256",\s*salt\)/);
+  assert.match(benchmark, /expected_values_exposed_to_candidate:\s*false/);
+  assert.match(benchmark, /held_out:\s*true/);
   assert.match(benchmark, /pass_rate/);
 });
 

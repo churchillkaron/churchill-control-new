@@ -5,11 +5,29 @@ import { getCommunicationInbox, openConversation } from "@/lib/commercial/commun
 import { syncMetaCommunicationHistory } from "@/lib/commercial/communications/CommunicationMetaInboxSyncRuntime";
 import { listInternalConversations } from "@/lib/commercial/communications/InternalCommunicationAdapter";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { resolveBrand } from "@/lib/platform/documents/branding/BrandResolver";
 
 // Connection payloads expose sanitized channel readiness only; provider credentials remain server-side.
 function clean(value) {
   const normalized = String(value ?? "").trim();
   return normalized || null;
+}
+
+async function organizationBrand(organizationId) {
+  const brand = await resolveBrand({ organizationId, entityId: null });
+  const name = clean(brand?.name) || "Organization";
+  const normalized = name.toLowerCase();
+  const iconText = normalized.includes("churchill")
+    ? "CC"
+    : normalized.includes("avantiqo")
+      ? "A"
+      : name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "OR";
+  return {
+    name,
+    logoIconUrl: brand?.logo_icon_url || null,
+    iconText,
+    iconTone: normalized.includes("churchill") ? "churchill" : normalized.includes("avantiqo") ? "avantiqo" : "default",
+  };
 }
 
 function sortedConversations(rows = []) {
@@ -53,7 +71,7 @@ export async function GET(request) {
     const includeExternal = requestedProvider !== "internal";
     const includeInternal = !requestedProvider || requestedProvider === "internal";
 
-    const [snapshot, internalConversations] = await Promise.all([
+    const [snapshot, internalConversations, brand] = await Promise.all([
       includeExternal
         ? getCommunicationInbox({
             organizationId: access.organizationId,
@@ -67,6 +85,7 @@ export async function GET(request) {
             staffId: access.staff?.id,
           })
         : Promise.resolve([]),
+      organizationBrand(access.organizationId),
     ]);
 
     const internalConnection = includeInternal
@@ -87,6 +106,7 @@ export async function GET(request) {
       success: true,
       organizationId: access.organizationId,
       providerSync,
+      organizationBrand: brand,
       conversations: sortedConversations([
         ...(snapshot.conversations || []),
         ...internalConversations,

@@ -203,7 +203,7 @@ export default function UsersPage() {
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </button>
-              <button type="button" onClick={() => setShowModal(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-4 text-[11px] font-medium text-white">
+              <button type="button" onClick={() => setShowModal(true)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#B98A52]/25 bg-[#D6A66A] px-4 text-[11px] font-medium text-[#2C2117] hover:bg-[#C99A5E]">
                 <Plus className="h-3.5 w-3.5" />
                 Add staff
               </button>
@@ -263,7 +263,7 @@ export default function UsersPage() {
       </div>
 
       {showModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#6F5A42]/20 p-5 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-[24px] border border-black/[0.09] bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -289,7 +289,7 @@ export default function UsersPage() {
 
             <div className="mt-6 flex gap-3">
               <button type="button" onClick={() => setShowModal(false)} className="h-11 flex-1 rounded-xl border border-black/[0.09] bg-white text-[11px] font-medium text-[#625D56]">Cancel</button>
-              <button type="button" onClick={createUser} disabled={workingId === "create"} className="h-11 flex-1 rounded-xl bg-[#1F1E1B] text-[11px] font-medium text-white disabled:opacity-40">{workingId === "create" ? "Creating…" : "Create access"}</button>
+              <button type="button" onClick={createUser} disabled={workingId === "create"} className="h-11 flex-1 rounded-xl border border-[#B98A52]/25 bg-[#D6A66A] text-[11px] font-medium text-[#2C2117] hover:bg-[#C99A5E] disabled:opacity-40">{workingId === "create" ? "Creating…" : "Create access"}</button>
             </div>
           </div>
         </div>

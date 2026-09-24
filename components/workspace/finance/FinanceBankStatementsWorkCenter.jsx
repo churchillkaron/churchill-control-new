@@ -284,18 +284,18 @@ export default function FinanceBankStatementsWorkCenter({
     ? Number(selectedStatement.closing_balance || 0) - Number(selectedStatement.opening_balance || 0)
     : 0;
 
-  function openCreate() {
+  const openCreate = useCallback(() => {
     if (!create) return;
     setSubmissionKey(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
     setForm({});
     createEngine.show();
-  }
+  }, [create, createEngine]);
 
   useEffect(() => {
     if (!createRequested || createRequestHandled.current || !create || !organizationId || !entityId) return;
     createRequestHandled.current = true;
     openCreate();
-  }, [createRequested, create, organizationId, entityId]);
+  }, [create, createRequested, entityId, openCreate, organizationId]);
 
   async function saveCreate() {
     if (!create) return;

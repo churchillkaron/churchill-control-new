@@ -65,19 +65,19 @@ export default function ReportWorkCenter({
       <div className="space-y-6">
 
 
-        <div className="rounded-[30px] border border-white/[0.08] bg-gradient-to-b from-white/[0.045] to-white/[0.018] p-6 shadow-2xl shadow-black/70 backdrop-blur-3xl">
+        <div className="rounded-[30px] border border-black/[0.08] bg-gradient-to-b from-white/[0.045] to-white/[0.018] p-6 shadow-2xl shadow-black/10 backdrop-blur-3xl">
 
-          <div className="text-[11px] uppercase tracking-[0.28em] text-white/35">
+          <div className="text-[11px] uppercase tracking-[0.28em] text-[#918B83]">
             Reporting
           </div>
 
 
-          <h1 className="mt-3 text-3xl font-light tracking-[-0.05em] text-white">
+          <h1 className="mt-3 text-3xl font-light tracking-[-0.05em] text-[#191919]">
             {capability?.name || "Report"}
           </h1>
 
 
-          <p className="mt-2 text-sm text-white/45">
+          <p className="mt-2 text-sm text-[#746E66]">
             {capability?.description || "Generate business reports."}
           </p>
 
@@ -102,7 +102,7 @@ export default function ReportWorkCenter({
 
                     ? "border-amber-300/20 bg-amber-300/[0.08] text-amber-200"
 
-                    : "border-white/[0.08] bg-white/[0.035] text-white/58 backdrop-blur-2xl"
+                    : "border-black/[0.08] bg-[#FBF8F3] text-[#191919]/58 backdrop-blur-2xl"
 
                   ].join(" ")
                 }

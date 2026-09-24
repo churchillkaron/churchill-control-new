@@ -10,5 +10,5 @@ test("repair planner narrows multi-file work to one remaining target", () => {
   assert.match(source, /Edit exactly one file in this repair pass/);
   assert.match(source, /FOCUSED REPAIR: Verification failed after prior source mutation/);
   assert.match(source, /allowed_edit_paths: focusedRepairTargetPath \? \[focusedRepairTargetPath\]/);
-  assert.match(source, /CODE_AI_WORK_PACKAGE_FOCUSED_REPAIR_PATH_SCOPE_INVALID/);
+  assert.match(source, /files: list\(operation\?\.input\?\.files\)\.filter\(\(file\) => text\(file\?\.path, 1000\) === focusedRepairTargetPath\)/);
 });

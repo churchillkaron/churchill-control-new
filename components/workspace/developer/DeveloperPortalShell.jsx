@@ -77,7 +77,7 @@ export default function DeveloperPortalShell({ organizationId, current = "", ext
               key={label}
               href={suffix === "/integrations" ? `/workspace/${organizationId}/administration/integrations` : suffix === "/compute" ? `/workspace/${organizationId}/administration/compute` : `${base}${suffix}`}
               title={administrationHandoff ? `${label} opens the canonical Administration workspace` : undefined}
-              className={`whitespace-nowrap rounded-lg px-3 py-2 text-[9px] font-medium transition ${active ? "bg-[#1D1A17] text-white" : "text-[#72685F] hover:bg-[#EFE7DC] hover:text-[#2B2621]"}`}
+              className={`whitespace-nowrap rounded-lg px-3 py-2 text-[9px] font-medium transition ${active ? "border border-[#B98A52]/25 bg-[#EFE3D3] text-[#76502E]" : "text-[#72685F] hover:bg-[#EFE7DC] hover:text-[#2B2621]"}`}
             >
               <span>{label}</span>
               {administrationHandoff ? <span className="ml-1.5 rounded-full border border-[#B7793B]/20 bg-[#EFE0CC] px-1.5 py-0.5 text-[6px] font-semibold uppercase tracking-[.08em] text-[#76502E]">Admin</span> : null}

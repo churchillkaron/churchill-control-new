@@ -23,9 +23,10 @@ function tone(status) {
 export default function FinanceCorrectionWorkspace({ organizationId }) {
   const businessContext = useBusinessContext() || {};
   const landing = useFinanceLandingRuntime();
-  const entityId = businessContext.entity_id || businessContext.entity?.id || null;
-  const periodId = businessContext.period_id || businessContext.period?.id || null;
-  const currency = landing.currency || businessContext.entity?.currency || businessContext.organization?.default_currency || null;
+  const accountingOrganizationId = landing.accountingOrganizationId || organizationId;
+  const entityId = landing.entityId || null;
+  const periodId = landing.periodId || null;
+  const currency = landing.currency || landing.entity?.currency || businessContext.organization?.default_currency || null;
   const [state, setState] = useState({ loading: true, error: "", corrections: [], accounts: [], documents: [] });
   const [selectedId, setSelectedId] = useState(null);
   const [busy, setBusy] = useState("");
@@ -33,11 +34,11 @@ export default function FinanceCorrectionWorkspace({ organizationId }) {
   const [form, setForm] = useState({ resolutionMode: "CONTROL", summary: "", rationale: "", evidenceBasis: "", documentIds: [], postingDate: "", description: "", lines: [] });
 
   const load = useCallback(async () => {
-    if (!organizationId || !entityId || !periodId) return;
+    if (!accountingOrganizationId || !entityId || !periodId) return;
     try {
       setState((current) => ({ ...current, loading: true, error: "" }));
       const correctionsUrl = new URL("/api/workspace/finance/corrections", window.location.origin);
-      correctionsUrl.searchParams.set("organizationId", organizationId); correctionsUrl.searchParams.set("clientOrganizationId", organizationId); correctionsUrl.searchParams.set("entityId", entityId); correctionsUrl.searchParams.set("periodId", periodId);
+      correctionsUrl.searchParams.set("organizationId", accountingOrganizationId); correctionsUrl.searchParams.set("clientOrganizationId", accountingOrganizationId); correctionsUrl.searchParams.set("entityId", entityId); correctionsUrl.searchParams.set("periodId", periodId);
       const response = await fetch(correctionsUrl.toString(), { cache: "no-store", credentials: "include" });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to load corrections");
@@ -45,7 +46,7 @@ export default function FinanceCorrectionWorkspace({ organizationId }) {
       setState({ loading: false, error: "", corrections, accounts: body.accounts || [], documents: body.documents || [] });
       setSelectedId((current) => corrections.some((row) => row.id === current) ? current : corrections[0]?.id || null);
     } catch (error) { setState((current) => ({ ...current, loading: false, error: error?.message || "Unable to load correction workflow" })); }
-  }, [organizationId, entityId, periodId]);
+  }, [accountingOrganizationId, entityId, periodId]);
   useEffect(() => { load(); }, [load]);
 
   const health = landing.accountHealth;
@@ -83,7 +84,7 @@ export default function FinanceCorrectionWorkspace({ organizationId }) {
     if (busy) return null;
     try {
       setBusy(action); setState((current) => ({ ...current, error: "" }));
-      const response = await fetch("/api/workspace/finance/corrections", { method: "POST", cache: "no-store", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organizationId, action, ...payload }) });
+      const response = await fetch("/api/workspace/finance/corrections", { method: "POST", cache: "no-store", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organizationId: accountingOrganizationId, action, ...payload }) });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || body?.success === false) throw new Error(body?.error || "Correction action failed");
       const correction = body.result?.correction || body.result;
@@ -92,7 +93,7 @@ export default function FinanceCorrectionWorkspace({ organizationId }) {
     finally { setBusy(""); }
   }
 
-  async function create(exception) { await act("create", { clientOrganizationId: organizationId, entityId, periodId, accountId: exception.account_id, currencyCode: currency }); }
+  async function create(exception) { await act("create", { clientOrganizationId: accountingOrganizationId, entityId, periodId, accountId: exception.account_id, currencyCode: currency }); }
   function updateLine(index, key, value) { setForm((current) => ({ ...current, lines: current.lines.map((line, i) => i === index ? { ...line, [key]: value } : line) })); }
   function addLine() { setForm((current) => ({ ...current, lines: [...current.lines, { account_id: "", debit: 0, credit: 0, description: "" }] })); }
   function toggleDocument(documentId) { setForm((current) => ({ ...current, documentIds: current.documentIds.includes(documentId) ? current.documentIds.filter((id) => id !== documentId) : [...current.documentIds, documentId] })); }
@@ -100,7 +101,7 @@ export default function FinanceCorrectionWorkspace({ organizationId }) {
     return act(submit ? "submit" : "save", { correctionId: selected.id, resolutionMode: form.resolutionMode, treatment: { summary: form.summary, rationale: form.rationale, evidence_basis: form.evidenceBasis }, documentIds: form.documentIds, journalDraft: { ...(selected.metadata?.journal_draft || {}), posting_date: form.postingDate, document_date: form.postingDate, description: form.description, currency_code: selected.currency_code || currency, exchange_rate: 1, lines: form.lines } });
   }
 
-  if (!organizationId || !entityId || !periodId) return null;
+  if (!accountingOrganizationId || !entityId || !periodId) return null;
   if ((state.loading || landing.loading) && !health) return <div className="mx-auto mb-4 flex min-h-[74px] max-w-[1720px] items-center justify-center rounded-[20px] border border-black/[0.07] bg-white text-[11px] text-[#817A72]"><LoaderCircle size={11} className="mr-2 animate-spin text-[#A37849]" /> Preparing correction control loop…</div>;
   if (!exceptions.length && !state.corrections.length) return null;
 
@@ -132,7 +133,7 @@ export default function FinanceCorrectionWorkspace({ organizationId }) {
               {Object.keys(evidenceBoundaries).length ? <div className="mt-2 flex flex-wrap gap-1.5 border-t border-black/[0.05] pt-2">{["submission","approval","posting"].map((stage) => evidenceBoundaries[stage] ? <span key={stage} className="rounded-full border border-emerald-700/15 bg-emerald-50 px-2 py-1 text-[11px] font-semibold uppercase text-emerald-800">{label(stage)} verified · {evidenceBoundaries[stage].document_count || 0} docs</span> : null)}</div> : null}
             </div>
             {form.resolutionMode === 'JOURNAL' ? <div className="mt-4 rounded-xl border border-black/[0.07] bg-[#FCFBF9] p-3"><div className="flex items-center justify-between"><div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8A633C]">Draft correcting journal</div>{['DRAFT','REJECTED'].includes(selected.status) ? <button onClick={addLine} className="text-[11px] font-semibold text-[#76583A]">+ Line</button> : null}</div><div className="mt-2 grid gap-2 sm:grid-cols-2"><input type="date" disabled={!['DRAFT','REJECTED'].includes(selected.status)} value={form.postingDate} onChange={(e) => setForm((c) => ({ ...c, postingDate: e.target.value }))} className="h-9 rounded-lg border border-black/[0.08] px-2 text-[11px]"/><input disabled={!['DRAFT','REJECTED'].includes(selected.status)} value={form.description} onChange={(e) => setForm((c) => ({ ...c, description: e.target.value }))} className="h-9 rounded-lg border border-black/[0.08] px-2 text-[11px]" placeholder="Journal description"/></div><div className="mt-2 space-y-2">{form.lines.map((line,index) => <div key={index} className="grid gap-2 md:grid-cols-[1.4fr_.55fr_.55fr_1fr]"><select disabled={!['DRAFT','REJECTED'].includes(selected.status)} value={line.account_id || ''} onChange={(e) => updateLine(index,'account_id',e.target.value)} className="h-9 rounded-lg border border-black/[0.08] bg-white px-2 text-[11px]"><option value="">Select account</option>{state.accounts.map((a) => <option key={a.id} value={a.id}>{a.account_code} · {a.account_name}</option>)}</select><input disabled={!['DRAFT','REJECTED'].includes(selected.status)} type="number" min="0" step="0.01" value={line.debit || ''} onChange={(e) => updateLine(index,'debit',e.target.value)} className="h-9 rounded-lg border border-black/[0.08] px-2 text-[11px]" placeholder="Debit"/><input disabled={!['DRAFT','REJECTED'].includes(selected.status)} type="number" min="0" step="0.01" value={line.credit || ''} onChange={(e) => updateLine(index,'credit',e.target.value)} className="h-9 rounded-lg border border-black/[0.08] px-2 text-[11px]" placeholder="Credit"/><input disabled={!['DRAFT','REJECTED'].includes(selected.status)} value={line.description || ''} onChange={(e) => updateLine(index,'description',e.target.value)} className="h-9 rounded-lg border border-black/[0.08] px-2 text-[11px]" placeholder="Line evidence"/></div>)}</div></div> : null}
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-black/[0.06] pt-3">{['DRAFT','REJECTED'].includes(selected.status) ? <><button onClick={() => save(false)} disabled={Boolean(busy)} className="h-8 rounded-lg border border-black/[0.08] px-3 text-[11px] font-semibold">Save draft</button><button onClick={() => save(true)} disabled={Boolean(busy)} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#3F352A] px-3 text-[11px] font-semibold text-white"><Send size={9}/> Submit for independent approval</button></> : null}{selected.status === 'PENDING' ? <><button onClick={() => act('reject',{ correctionId:selected.id,note:'Accounting correction requires changes' })} disabled={Boolean(busy)} className="h-8 rounded-lg border border-red-700/15 bg-red-50 px-3 text-[11px] font-semibold text-red-800">Reject</button><button onClick={() => act('approve',{ correctionId:selected.id })} disabled={Boolean(busy)} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#3F352A] px-3 text-[11px] font-semibold text-white"><BadgeCheck size={9}/> Approve</button></> : null}{selected.status === 'APPROVED' && selected.metadata?.resolution_mode === 'JOURNAL' ? <button onClick={() => act('post',{ correctionId:selected.id })} disabled={Boolean(busy)} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#3F352A] px-3 text-[11px] font-semibold text-white"><CheckCircle2 size={9}/> Post & re-check</button> : null}{selected.metadata?.resolution_mode === 'CONTROL' && ['APPROVED','POSTED'].includes(selected.status) ? <button onClick={() => act('recheck',{ correctionId:selected.id })} disabled={Boolean(busy)} className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#A37849]/20 bg-[#FFF9F0] px-3 text-[11px] font-semibold text-[#76583A]"><RefreshCw size={9}/> Re-check original exception</button> : null}</div>
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-black/[0.06] pt-3">{['DRAFT','REJECTED'].includes(selected.status) ? <><button onClick={() => save(false)} disabled={Boolean(busy)} className="h-8 rounded-lg border border-black/[0.08] px-3 text-[11px] font-semibold">Save draft</button><button onClick={() => save(true)} disabled={Boolean(busy)} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#3F352A] px-3 text-[11px] font-semibold text-[#191919]"><Send size={9}/> Submit for independent approval</button></> : null}{selected.status === 'PENDING' ? <><button onClick={() => act('reject',{ correctionId:selected.id,note:'Accounting correction requires changes' })} disabled={Boolean(busy)} className="h-8 rounded-lg border border-red-700/15 bg-red-50 px-3 text-[11px] font-semibold text-red-800">Reject</button><button onClick={() => act('approve',{ correctionId:selected.id })} disabled={Boolean(busy)} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#3F352A] px-3 text-[11px] font-semibold text-[#191919]"><BadgeCheck size={9}/> Approve</button></> : null}{selected.status === 'APPROVED' && selected.metadata?.resolution_mode === 'JOURNAL' ? <button onClick={() => act('post',{ correctionId:selected.id })} disabled={Boolean(busy)} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#3F352A] px-3 text-[11px] font-semibold text-[#191919]"><CheckCircle2 size={9}/> Post & re-check</button> : null}{selected.metadata?.resolution_mode === 'CONTROL' && ['APPROVED','POSTED'].includes(selected.status) ? <button onClick={() => act('recheck',{ correctionId:selected.id })} disabled={Boolean(busy)} className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#A37849]/20 bg-[#FFF9F0] px-3 text-[11px] font-semibold text-[#76583A]"><RefreshCw size={9}/> Re-check original exception</button> : null}</div>
             <div className="mt-3 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-[#FAF9F7] p-3 text-[11px] leading-4 text-[#817B73]"><AlertTriangle size={9} className="mt-0.5 shrink-0 text-[#9A744B]"/> Evidence, approval and posting are re-authorized server-side. The preparer cannot approve their own case, and the source exception must still exist at every control boundary.</div>
           </>}
         </div>

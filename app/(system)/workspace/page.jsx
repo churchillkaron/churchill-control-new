@@ -78,8 +78,8 @@ export default function PlatformWorkspacePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#030712] p-10 text-white">
-        <div className="animate-pulse text-white/40">Loading workspace...</div>
+      <main className="min-h-screen bg-[#F7F6F3] p-10 text-[#191919]">
+        <div className="animate-pulse text-[#918B83]">Loading workspace...</div>
       </main>
     );
   }
@@ -89,9 +89,9 @@ export default function PlatformWorkspacePage() {
   const brand = workspace?.brand || FALLBACK_BRAND;
 
   return (
-    <main className="min-h-screen bg-[#030712] p-10 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] p-10 text-[#191919]">
       <div className="mx-auto max-w-7xl">
-        <section className="mb-12 overflow-hidden rounded-[42px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.28),transparent_34%),linear-gradient(135deg,rgba(23,19,45,0.96),rgba(7,15,26,0.98))] px-10 py-10 shadow-[0_30px_120px_rgba(0,0,0,0.45)]">
+        <section className="mb-12 overflow-hidden rounded-[42px] border border-black/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(214,166,106,0.16),transparent_38%),linear-gradient(135deg,#FFFFFF,#FBF8F3)] px-10 py-10 shadow-[0_24px_80px_rgba(25,25,25,0.08)]">
           {brand.logoSrc ? (
             <img
               src={brand.logoSrc}
@@ -101,8 +101,8 @@ export default function PlatformWorkspacePage() {
           ) : null}
 
           <div className="mb-6 flex items-center gap-3">
-            <Crown className="h-6 w-6 text-violet-300" />
-            <span className="text-xs uppercase tracking-[0.30em] text-violet-300/80">
+            <Crown className="h-6 w-6 text-[#9B6F3F]" />
+            <span className="text-xs uppercase tracking-[0.30em] text-[#9B6F3F]/80">
               {developerPortal ? "Developer Workspace Access" : brand.runtimeLabel}
             </span>
           </div>
@@ -111,20 +111,20 @@ export default function PlatformWorkspacePage() {
             {developerPortal ? "Choose a developer organization" : brand.workspaceTitle}
           </h1>
 
-          <p className="mt-4 max-w-3xl text-white/60">
+          <p className="mt-4 max-w-3xl text-[#746E66]">
             {developerPortal ? "Select the organization whose APIs, capabilities, integrations and compute you want to work with." : brand.workspaceDescription}
           </p>
         </section>
 
         {error ? (
-          <div className="mb-8 rounded-3xl border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm text-red-100">
+          <div className="mb-8 rounded-3xl border border-[#B7654C]/25 bg-[#FBF1EE] px-5 py-4 text-sm text-[#914B38]">
             {error}
           </div>
         ) : null}
 
         <section className="mb-16">
           <div className="mb-6 flex items-center gap-3">
-            <Building2 className="h-5 w-5 text-[#8B5CF6]" />
+            <Building2 className="h-5 w-5 text-[#D6A66A]" />
             <h2 className="text-xl font-light">Organizations</h2>
           </div>
 
@@ -136,16 +136,16 @@ export default function PlatformWorkspacePage() {
                   type="button"
                   onClick={() => selectOrganization(org.id)}
                   disabled={Boolean(selectingOrganizationId)}
-                  className="group rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-left transition hover:border-[#8B5CF6]/40 hover:bg-white/[0.05] disabled:cursor-wait disabled:opacity-60"
+                  className="group rounded-3xl border border-black/[0.08] bg-white p-6 text-left transition hover:border-[#D6A66A]/55 hover:bg-[#FBF8F3] disabled:cursor-wait disabled:opacity-60"
                 >
                   <div className="mb-6 flex items-center justify-between">
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                      <Building2 className="h-5 w-5 text-[#8B5CF6]" />
+                    <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-3">
+                      <Building2 className="h-5 w-5 text-[#D6A66A]" />
                     </div>
-                    <ArrowUpRight className="h-5 w-5 text-white/30 transition group-hover:text-[#8B5CF6]" />
+                    <ArrowUpRight className="h-5 w-5 text-[#A19A92] transition group-hover:text-[#D6A66A]" />
                   </div>
                   <p className="text-lg">{org.name}</p>
-                  <p className="mt-2 text-sm text-white/40">
+                  <p className="mt-2 text-sm text-[#817A72]">
                     {selectingOrganizationId === org.id
                       ? "Opening organization..."
                       : org.organization_type || "Organization"}
@@ -154,7 +154,7 @@ export default function PlatformWorkspacePage() {
               ))}
             </div>
           ) : (
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-white/50">
+            <div className="rounded-3xl border border-black/[0.08] bg-white p-6 text-sm text-[#746E66]">
               No active organizations are available for this account.
             </div>
           )}
@@ -162,7 +162,7 @@ export default function PlatformWorkspacePage() {
 
         <section className="mb-16">
           <div className="mb-6 flex items-center gap-3">
-            <Building2 className="h-5 w-5 text-[#8B5CF6]" />
+            <Building2 className="h-5 w-5 text-[#D6A66A]" />
             <h2 className="text-xl font-light">Industries</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -171,11 +171,11 @@ export default function PlatformWorkspacePage() {
                 key={industry.industry_id}
                 href={`/workspace/platform/${industry.industry_id}`}
               >
-                <div className="group rounded-3xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-[#8B5CF6]/40 hover:bg-white/[0.05]">
+                <div className="group rounded-3xl border border-black/[0.08] bg-white p-6 transition hover:border-[#D6A66A]/55 hover:bg-[#FBF8F3]">
                   <p className="text-lg font-semibold">
                     {industry.name || industry.industry_id}
                   </p>
-                  <p className="mt-2 text-sm text-white/40">
+                  <p className="mt-2 text-sm text-[#817A72]">
                     {industry.runtime?.modules?.length || 0} Modules
                   </p>
                 </div>

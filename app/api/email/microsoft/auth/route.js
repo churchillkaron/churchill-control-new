@@ -19,13 +19,20 @@ export async function GET(request) {
       return NextResponse.json({ success: false, error: "Microsoft mailbox connection is not configured by Avantiqo yet" }, { status: 503 });
     }
 
+    const onboardingReturnPath = url.searchParams.get("onboarding") === "1"
+      ? `/workspace/${encodeURIComponent(access.organizationId)}/administration/communications-setup?onboarding=1`
+      : null;
+
     const { state } = await createOAuthAuthorization({
       provider: "email_microsoft",
       purpose: "business_mailbox",
       organizationId: access.organizationId,
       partyId: access.staff?.party_id || null,
       returnOrigin: url.origin,
-      metadata: { user_id: access.userId || null },
+      metadata: {
+        user_id: access.userId || null,
+        ...(onboardingReturnPath ? { return_path: onboardingReturnPath } : {}),
+      },
     });
 
     const tenant = String(process.env.MICROSOFT_TENANT_ID || "common").trim();

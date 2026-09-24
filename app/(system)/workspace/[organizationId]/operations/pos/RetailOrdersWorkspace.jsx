@@ -242,16 +242,16 @@ export default function RetailOrdersWorkspace({ posRuntime }) {
   }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-8 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-8 text-[#191919]">
       <div className="mx-auto max-w-[1500px]">
-        <header className="rounded-[32px] border border-white/10 bg-white/[0.035] p-7">
+        <header className="rounded-[32px] border border-black/[0.08] bg-[#FBF8F3] p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
               <p className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">
                 Commercial Sales Orders
               </p>
               <h1 className="mt-3 text-4xl font-semibold">Retail sales orders</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#746E66]">
                 Confirmed orders reserve entity-scoped inventory. Paid reserved orders
                 can then be fulfilled, consuming the reservation into canonical SALE
                 inventory movements when the Inventory fulfillment contract is active.
@@ -261,7 +261,7 @@ export default function RetailOrdersWorkspace({ posRuntime }) {
               type="button"
               onClick={loadOrders}
               disabled={loading}
-              className="flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-sm text-white/60"
+              className="flex items-center gap-2 rounded-xl border border-black/[0.08] px-4 py-2.5 text-sm text-[#5F5A54]"
             >
               <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
               Refresh
@@ -280,20 +280,20 @@ export default function RetailOrdersWorkspace({ posRuntime }) {
         </header>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
-          <div className="rounded-[28px] border border-white/10 bg-white/[0.025] p-5">
-            <div className="flex items-center rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white/35">
+          <div className="rounded-[28px] border border-black/[0.08] bg-[#FBF8F3] p-5">
+            <div className="flex items-center rounded-xl border border-black/[0.08] bg-[#F7F6F3]/25 px-4 py-3 text-[#918B83]">
               <Search size={16} />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search order, status or customer"
-                className="ml-3 w-full bg-transparent text-sm text-white outline-none"
+                className="ml-3 w-full bg-transparent text-sm text-[#191919] outline-none"
               />
             </div>
 
             <div className="mt-4 max-h-[650px] space-y-2 overflow-y-auto">
               {loading ? (
-                <div className="p-10 text-center text-sm text-white/35">
+                <div className="p-10 text-center text-sm text-[#918B83]">
                   Loading sales orders...
                 </div>
               ) : visibleOrders.length ? (
@@ -308,7 +308,7 @@ export default function RetailOrdersWorkspace({ posRuntime }) {
                     className={`w-full rounded-2xl border p-4 text-left ${
                       selectedId === order.id
                         ? "border-[#D6A66A]/45 bg-[#D6A66A]/10"
-                        : "border-white/10 bg-black/20"
+                        : "border-black/[0.08] bg-[#F7F6F3]/20"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-4">
@@ -316,7 +316,7 @@ export default function RetailOrdersWorkspace({ posRuntime }) {
                         <div className="font-semibold">
                           {order.order_number || `Draft ${String(order.id).slice(0, 8)}`}
                         </div>
-                        <div className="mt-1 text-xs text-white/35">
+                        <div className="mt-1 text-xs text-[#918B83]">
                           {new Date(order.created_at).toLocaleString()}
                         </div>
                       </div>
@@ -324,21 +324,21 @@ export default function RetailOrdersWorkspace({ posRuntime }) {
                         {order.status}
                       </div>
                     </div>
-                    <div className="mt-4 flex justify-between text-sm text-white/50">
+                    <div className="mt-4 flex justify-between text-sm text-[#746E66]">
                       <span>{(order.items || []).length} line(s)</span>
                       <span>{money(order.total_amount, order.currency_code || currency)}</span>
                     </div>
                   </button>
                 ))
               ) : (
-                <div className="p-10 text-center text-sm text-white/35">
+                <div className="p-10 text-center text-sm text-[#918B83]">
                   No retail sales orders found.
                 </div>
               )}
             </div>
           </div>
 
-          <aside className="rounded-[28px] border border-white/10 bg-white/[0.03] p-6">
+          <aside className="rounded-[28px] border border-black/[0.08] bg-[#FBF8F3] p-6">
             {selected ? (
               <>
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -349,12 +349,12 @@ export default function RetailOrdersWorkspace({ posRuntime }) {
                     <h2 className="mt-2 text-3xl font-light">
                       {selected.order_number || `Draft ${String(selected.id).slice(0, 8)}`}
                     </h2>
-                    <p className="mt-1 text-xs text-white/35">{selected.id}</p>
+                    <p className="mt-1 text-xs text-[#918B83]">{selected.id}</p>
                   </div>
                   <div className="text-right text-xs">
                     <div className={statusClass(selected.status)}>{selected.status}</div>
-                    <div className="mt-1 text-white/35">{selected.payment_status}</div>
-                    <div className="mt-1 text-white/35">{selected.fulfillment_status}</div>
+                    <div className="mt-1 text-[#918B83]">{selected.payment_status}</div>
+                    <div className="mt-1 text-[#918B83]">{selected.fulfillment_status}</div>
                   </div>
                 </div>
 
@@ -362,19 +362,19 @@ export default function RetailOrdersWorkspace({ posRuntime }) {
                   {lines.map((line) => (
                     <div
                       key={line.id}
-                      className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 p-4"
+                      className="flex items-center justify-between gap-4 rounded-xl border border-black/[0.08] bg-[#F7F6F3]/20 p-4"
                     >
                       <div>
                         <div className="font-medium">{line.item_name || line.name}</div>
-                        <div className="mt-1 text-xs text-white/35">
+                        <div className="mt-1 text-xs text-[#918B83]">
                           {[line.sku, line.barcode].filter(Boolean).join(" · ") || "Catalog item"}
                         </div>
                       </div>
-                      <div className="text-right text-sm text-white/55">
+                      <div className="text-right text-sm text-[#5F5A54]">
                         <div>
                           {Number(line.quantity)} × {money(line.unit_price, selected.currency_code || currency)}
                         </div>
-                        <div className="mt-1 text-xs text-white/30">
+                        <div className="mt-1 text-xs text-[#A19A92]">
                           {money(line.line_total, selected.currency_code || currency)}
                         </div>
                       </div>
@@ -382,12 +382,12 @@ export default function RetailOrdersWorkspace({ posRuntime }) {
                   ))}
                 </div>
 
-                <div className="mt-6 space-y-3 border-t border-white/10 pt-5">
-                  <div className="flex justify-between text-sm text-white/50">
+                <div className="mt-6 space-y-3 border-t border-black/[0.08] pt-5">
+                  <div className="flex justify-between text-sm text-[#746E66]">
                     <span>Subtotal</span>
                     <span>{money(selected.subtotal, selected.currency_code || currency)}</span>
                   </div>
-                  <div className="flex justify-between text-sm text-white/50">
+                  <div className="flex justify-between text-sm text-[#746E66]">
                     <span>Tax</span>
                     <span>{money(selected.tax_amount, selected.currency_code || currency)}</span>
                   </div>
@@ -450,20 +450,20 @@ export default function RetailOrdersWorkspace({ posRuntime }) {
                 ) : null}
 
                 {!isDraft && !isConfirmedUnpaid && !isPaidReserved && !isFulfilled ? (
-                  <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-xs leading-5 text-white/45">
+                  <div className="mt-6 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4 text-xs leading-5 text-[#746E66]">
                     This sales order is not currently eligible for a Retail lifecycle action.
                   </div>
                 ) : null}
 
                 {isDraft ? (
-                  <p className="mt-3 text-xs leading-5 text-white/35">
+                  <p className="mt-3 text-xs leading-5 text-[#918B83]">
                     Confirmation fails safely when stock is insufficient or no active
                     SALES_ORDER number sequence is configured.
                   </p>
                 ) : null}
               </>
             ) : (
-              <div className="text-sm text-white/35">Select a sales order.</div>
+              <div className="text-sm text-[#918B83]">Select a sales order.</div>
             )}
           </aside>
         </section>

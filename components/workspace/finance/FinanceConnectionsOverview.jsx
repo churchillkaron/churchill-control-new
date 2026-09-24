@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Building2, CheckCircle2, CircleAlert, FileCheck2, Mail, RefreshCw, ShieldCheck } from "lucide-react";
 
@@ -43,7 +43,7 @@ export default function FinanceConnectionsOverview({ organizationId }) {
   const [state, setState] = useState({ loading: false, error: "", data: null });
   const [busy, setBusy] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     try {
       setState((current) => ({ ...current, loading: true, error: "" }));
@@ -56,9 +56,9 @@ export default function FinanceConnectionsOverview({ organizationId }) {
     } catch (error) {
       setState({ loading: false, error: error?.message || "Unable to load Finance connection health", data: null });
     }
-  }
+  }, [organizationId]);
 
-  useEffect(() => { load(); }, [organizationId]);
+  useEffect(() => { load(); }, [load]);
 
   async function verify(action) {
     try {

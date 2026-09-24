@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock3, ExternalLink, LoaderCircle, RefreshCw, Save, WalletCards } from "lucide-react";
 
@@ -25,7 +25,7 @@ export default function FinancePracticeTimeWip({ organizationId, initialEngageme
   const [form, setForm] = useState({ workItemId: "", minutes: 30, billable: true, description: "" });
   const [billingForm, setBillingForm] = useState({ engagementId: "", billingMethod: "TIME_AND_MATERIALS", currencyCode: "THB", defaultHourlyRate: "", fixedFeeAmount: "", billingEntityId: "", customerPartyId: "", revenueAccountId: "", taxRuleId: "", taxTreatmentConfirmed: false, paymentTermsDays: 0, billingCadence: "ON_DEMAND", nextBillingDate: "", applyRateToUnpriced: false });
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     try {
       setState((current) => ({ ...current, loading: true, error: "" }));
@@ -38,9 +38,9 @@ export default function FinancePracticeTimeWip({ organizationId, initialEngageme
     } catch (error) {
       setState({ loading: false, error: error?.message || "Unable to load time and WIP", data: null });
     }
-  }
+  }, [organizationId]);
 
-  useEffect(() => { load(); }, [organizationId]);
+  useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
     if (!initialEngagementId || !(state.data?.engagement_context || []).some((row) => row.id === initialEngagementId)) return;
@@ -54,7 +54,7 @@ export default function FinancePracticeTimeWip({ organizationId, initialEngageme
     const country = String(selectedBillingEntity?.country || "").trim().toUpperCase();
     if (!country) return [];
     return (state.data?.billing_options?.tax_rules || []).filter((rule) => (rule.applicable_countries || []).includes(country));
-  }, [state.data, selectedBillingEntity?.id, selectedBillingEntity?.country]);
+  }, [state.data, selectedBillingEntity?.country]);
 
   useEffect(() => {
     const profile = selectedEngagement?.billing_profile;
@@ -75,7 +75,7 @@ export default function FinancePracticeTimeWip({ organizationId, initialEngageme
       nextBillingDate: profile?.next_billing_date || "",
       applyRateToUnpriced: false,
     }));
-  }, [selectedEngagement?.id]);
+  }, [selectedEngagement]);
 
   async function recordTime(event) {
     event.preventDefault();

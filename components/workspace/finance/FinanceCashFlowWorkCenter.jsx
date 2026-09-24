@@ -139,7 +139,7 @@ export default function FinanceCashFlowWorkCenter({ organizationId, entityId, pe
     return () => { active = false; };
   }, [entityId, grain, historyDays, horizonDays, organizationId, refreshKey]);
 
-  const rows = Array.isArray(data?.rows) ? data.rows : [];
+  const rows = useMemo(() => (Array.isArray(data?.rows) ? data.rows : []), [data?.rows]);
   const currencies = Array.isArray(data?.currencies) ? data.currencies : [];
   const visibleRows = useMemo(() => {
     const needle = query.trim().toLowerCase();

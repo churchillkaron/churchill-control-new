@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -54,7 +54,7 @@ export default function PasskeyReadinessPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function loadReadiness({ preserveMessage = false } = {}) {
+  const loadReadiness = useCallback(async ({ preserveMessage = false } = {}) => {
     if (!organizationId) return;
     setLoading(true);
     setError("");
@@ -77,11 +77,11 @@ export default function PasskeyReadinessPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     loadReadiness();
-  }, [organizationId]);
+  }, [loadReadiness]);
 
   async function sendEnrollmentAccess(staff) {
     if (!staff?.staffId) return;
@@ -126,12 +126,12 @@ export default function PasskeyReadinessPage() {
     : null;
 
   return (
-    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex items-center justify-between gap-4">
           <Link
             href={`/workspace/${organizationId}/administration/access-policy`}
-            className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-white/45"
+            className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#746E66]"
           >
             <ArrowLeft className="h-4 w-4" /> Access & Workforce
           </Link>
@@ -139,36 +139,36 @@ export default function PasskeyReadinessPage() {
             type="button"
             onClick={() => loadReadiness()}
             disabled={loading || Boolean(sendingStaffId)}
-            className="flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-white/55 disabled:opacity-40"
+            className="flex h-10 items-center gap-2 rounded-xl border border-black/[0.08] px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#5F5A54] disabled:opacity-40"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
         </div>
 
-        <section className="rounded-[32px] border border-white/10 bg-white/[0.045] p-6">
-          <div className="text-[10px] uppercase tracking-[0.32em] text-violet-300">
+        <section className="rounded-[32px] border border-black/[0.08] bg-white p-6">
+          <div className="text-[10px] uppercase tracking-[0.32em] text-[#9B6F3F]">
             Administration · Workforce Security
           </div>
           <h1 className="mt-3 text-4xl font-black">Passkey rollout readiness</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#746E66]">
             Prepare clock-in staff for passwordless identity verification before mandatory passkeys are enabled. Staff enter through their organization’s own Staff Portal; passkey creation and verification are brokered securely through https://auth.avantiqo.ai, then the staff member returns to the organization portal.
           </p>
         </section>
 
         {error ? (
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <div className="rounded-2xl border border-red-700/15 bg-red-50 px-4 py-3 text-sm text-red-800">
             {error}
           </div>
         ) : null}
 
         {message ? (
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          <div className="rounded-2xl border border-emerald-700/15 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
             {message}
           </div>
         ) : null}
 
         {loading ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-white/40">
+          <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5 text-sm text-[#817A72]">
             Checking rollout readiness...
           </div>
         ) : readiness ? (
@@ -184,7 +184,7 @@ export default function PasskeyReadinessPage() {
                   <div className="text-lg font-black">
                     {ready ? "Ready to enable mandatory passkeys" : "Mandatory passkeys remain locked"}
                   </div>
-                  <div className="mt-1 text-sm text-white/50">
+                  <div className="mt-1 text-sm text-[#746E66]">
                     Current policy: {required ? "passkey verification required" : "passkey verification not required"}.
                   </div>
                 </div>
@@ -215,17 +215,17 @@ export default function PasskeyReadinessPage() {
               />
             </section>
 
-            <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5">
+            <section className="rounded-[28px] border border-black/[0.08] bg-white p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <div className="text-sm font-black uppercase tracking-[0.14em] text-white/70">
+                  <div className="text-sm font-black uppercase tracking-[0.14em] text-[#5F5A54]">
                     Clock-in staff enrollment
                   </div>
-                  <p className="mt-2 max-w-3xl text-xs leading-5 text-white/40">
-                    New identities receive a Supabase invitation. Existing identities receive a passwordless sign-in link. No temporary or manager-created staff password is used. Access returns staff to the organization's own Staff Portal. Passkey creation and verification are brokered through https://auth.avantiqo.ai.
+                  <p className="mt-2 max-w-3xl text-xs leading-5 text-[#817A72]">
+                    New identities receive a Supabase invitation. Existing identities receive a passwordless sign-in link. No temporary or manager-created staff password is used. Access returns staff to the organization&apos;s own Staff Portal. Passkey creation and verification are brokered through https://auth.avantiqo.ai.
                   </p>
                 </div>
-                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-white/30">
+                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#A19A92]">
                   {staff.length} staff
                 </div>
               </div>
@@ -242,20 +242,20 @@ export default function PasskeyReadinessPage() {
                     />
                   ))
                 ) : (
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/40">
+                  <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4 text-sm text-[#817A72]">
                     No active clock-in staff are available for passkey enrollment.
                   </div>
                 )}
               </div>
             </section>
 
-            <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5">
+            <section className="rounded-[28px] border border-black/[0.08] bg-white p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <div className="text-sm font-black uppercase tracking-[0.14em] text-white/70">
+                  <div className="text-sm font-black uppercase tracking-[0.14em] text-[#5F5A54]">
                     Hosted Passkey configuration
                   </div>
-                  <p className="mt-2 max-w-2xl text-xs leading-5 text-white/40">
+                  <p className="mt-2 max-w-2xl text-xs leading-5 text-[#817A72]">
                     Avantiqo checks the live Supabase Auth challenge before mandatory clock-in can be enabled. Configure the hosted Auth project once, then refresh this page to verify it.
                   </p>
                 </div>
@@ -265,7 +265,7 @@ export default function PasskeyReadinessPage() {
                       href={passkeySettingsUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex h-10 items-center rounded-xl border border-violet-400/25 bg-violet-400/10 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-violet-100"
+                      className="inline-flex h-10 items-center rounded-xl border border-[#D6A66A]/35 bg-[#FBF3E8] px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#76583A]"
                     >
                       Open Passkey settings ↗
                     </a>
@@ -273,7 +273,7 @@ export default function PasskeyReadinessPage() {
                       href={urlConfigurationUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex h-10 items-center rounded-xl border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-white/60"
+                      className="inline-flex h-10 items-center rounded-xl border border-black/[0.08] px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#5F5A54]"
                     >
                       Open URL configuration ↗
                     </a>
@@ -314,8 +314,8 @@ export default function PasskeyReadinessPage() {
                 />
               </div>
 
-              <div className="mt-5 rounded-2xl border border-violet-400/15 bg-violet-400/[0.05] p-4">
-                <div className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-200">
+              <div className="mt-5 rounded-2xl border border-[#D6A66A]/30 bg-[#FBF3E8] p-4">
+                <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9B6F3F]">
                   Required hosted values
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -325,14 +325,14 @@ export default function PasskeyReadinessPage() {
                   <SetupValue label="Relying Party Origin" value={readiness.canonicalOrigin || PASSKEY_IDENTITY_ORIGIN} />
                   <SetupValue label="Identity broker" value={PASSKEY_IDENTITY_ORIGIN} />
                 </div>
-                <p className="mt-3 text-xs leading-5 text-violet-100/55">
+                <p className="mt-3 text-xs leading-5 text-[#76583A]">
                   Keep the RP ID stable after staff begin enrolling. The production redirect should be explicitly allowed for the passwordless enrollment flow.
                 </p>
               </div>
             </section>
 
-            <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5">
-              <div className="text-sm font-black uppercase tracking-[0.14em] text-white/70">
+            <section className="rounded-[28px] border border-black/[0.08] bg-white p-5">
+              <div className="text-sm font-black uppercase tracking-[0.14em] text-[#5F5A54]">
                 Rollout blockers
               </div>
               {readiness.blockers?.length ? (
@@ -353,7 +353,7 @@ export default function PasskeyReadinessPage() {
               )}
             </section>
 
-            <section className="rounded-[28px] border border-violet-400/15 bg-violet-400/[0.05] p-5 text-sm leading-6 text-violet-100/70">
+            <section className="rounded-[28px] border border-[#D6A66A]/30 bg-[#FBF3E8] p-5 text-sm leading-6 text-[#76583A]">
               Enrollment sequence: manager sends access → staff opens the email and signs in on <strong>avantiqo.ai</strong> → Workforce Profile → <strong>Register passkey</strong> → <strong>Test passkey verification</strong>. A recent successful test proves the hosted Passkey configuration and canonical Workforce origin work together. Biometric templates remain on the employee device.
             </section>
           </>
@@ -374,16 +374,16 @@ function StaffEnrollmentRow({ staff, sending, disabled, onSend }) {
   if (!hasEmail) actionLabel = "Email required";
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-black text-white/85">{staff.name}</span>
-            <span className="rounded-lg border border-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/40">
+            <span className="text-sm font-black text-[#2F2C28]">{staff.name}</span>
+            <span className="rounded-lg border border-black/[0.08] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#817A72]">
               {staff.role}
             </span>
           </div>
-          <div className="mt-1 flex items-center gap-2 text-xs text-white/35">
+          <div className="mt-1 flex items-center gap-2 text-xs text-[#918B83]">
             <Mail className="h-3.5 w-3.5" /> {hasEmail ? staff.email : "No email configured"}
           </div>
           <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.1em]">
@@ -399,7 +399,7 @@ function StaffEnrollmentRow({ staff, sending, disabled, onSend }) {
           type="button"
           onClick={onSend}
           disabled={disabled || sending || enrolled || !hasEmail}
-          className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-violet-400/25 bg-violet-400/10 px-4 text-[10px] font-black uppercase tracking-[0.12em] text-violet-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-[#D6A66A]/35 bg-[#FBF3E8] px-4 text-[10px] font-black uppercase tracking-[0.12em] text-[#76583A] disabled:cursor-not-allowed disabled:opacity-40"
         >
           {enrolled ? <CheckCircle2 className="h-4 w-4" /> : <Send className={`h-4 w-4 ${sending ? "animate-pulse" : ""}`} />}
           {sending ? "Sending..." : actionLabel}
@@ -411,7 +411,7 @@ function StaffEnrollmentRow({ staff, sending, disabled, onSend }) {
 
 function StatusPill({ good, label }) {
   return (
-    <span className={`rounded-lg border px-2 py-1 ${good ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200" : "border-amber-400/20 bg-amber-400/[0.06] text-amber-200"}`}>
+    <span className={`rounded-lg border px-2 py-1 ${good ? "border-emerald-700/15 bg-emerald-50 text-emerald-800" : "border-amber-700/15 bg-amber-50 text-amber-800"}`}>
       {label}
     </span>
   );
@@ -419,22 +419,22 @@ function StatusPill({ good, label }) {
 
 function Metric({ icon, label, value, detail, good }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
+    <div className="rounded-[24px] border border-black/[0.08] bg-white p-5">
       <div className={`flex items-center gap-2 ${good ? "text-emerald-300" : "text-amber-300"}`}>
         {icon}
         <span className="text-[10px] font-black uppercase tracking-[0.14em]">{label}</span>
       </div>
       <div className="mt-3 text-2xl font-black">{value}</div>
-      <div className="mt-1 text-xs text-white/35">{detail}</div>
+      <div className="mt-1 text-xs text-[#918B83]">{detail}</div>
     </div>
   );
 }
 
 function StatusRow({ label, value, good }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-      <div className="text-xs text-white/35">{label}</div>
-      <div className={`mt-1 break-words text-sm font-semibold ${good ? "text-emerald-200" : "text-amber-200"}`}>
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+      <div className="text-xs text-[#918B83]">{label}</div>
+      <div className={`mt-1 break-words text-sm font-semibold ${good ? "text-emerald-800" : "text-amber-800"}`}>
         {value}
       </div>
     </div>
@@ -443,9 +443,9 @@ function StatusRow({ label, value, good }) {
 
 function SetupValue({ label, value }) {
   return (
-    <div className="rounded-xl border border-violet-400/10 bg-black/20 p-3">
-      <div className="text-[10px] uppercase tracking-[0.12em] text-violet-100/40">{label}</div>
-      <div className="mt-1 break-all text-xs font-semibold text-violet-50/85">{value}</div>
+    <div className="rounded-xl border border-[#D6A66A]/25 bg-[#FBF8F3] p-3">
+      <div className="text-[10px] uppercase tracking-[0.12em] text-[#9B6F3F]">{label}</div>
+      <div className="mt-1 break-all text-xs font-semibold text-[#5F5A54]">{value}</div>
     </div>
   );
 }

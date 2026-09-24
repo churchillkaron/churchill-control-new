@@ -16,7 +16,7 @@ export default function JournalDetailRenderer({
       <section className="grid grid-cols-2 gap-4">
 
         <div>
-          <div className="text-xs text-white/40">
+          <div className="text-xs text-[#817A72]">
             Journal Number
           </div>
           <div>
@@ -25,7 +25,7 @@ export default function JournalDetailRenderer({
         </div>
 
         <div>
-          <div className="text-xs text-white/40">
+          <div className="text-xs text-[#817A72]">
             Status
           </div>
           <div>
@@ -34,7 +34,7 @@ export default function JournalDetailRenderer({
         </div>
 
         <div>
-          <div className="text-xs text-white/40">
+          <div className="text-xs text-[#817A72]">
             Reference
           </div>
           <div>
@@ -43,7 +43,7 @@ export default function JournalDetailRenderer({
         </div>
 
         <div>
-          <div className="text-xs text-white/40">
+          <div className="text-xs text-[#817A72]">
             Description
           </div>
           <div>
@@ -66,7 +66,7 @@ export default function JournalDetailRenderer({
           {lines.map((line)=>(
             <div
               key={line.id}
-              className="grid grid-cols-3 rounded-xl border border-white/10 p-3"
+              className="grid grid-cols-3 rounded-xl border border-black/[0.08] p-3"
             >
 
               <div>

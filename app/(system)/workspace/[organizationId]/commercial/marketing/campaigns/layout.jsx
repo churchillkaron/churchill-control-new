@@ -67,8 +67,8 @@ export default function CampaignsLayout({ children }) {
   const canCreateCampaign = capabilities?.canCreateCampaign === true;
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="sticky top-0 z-40 border-b border-white/10 bg-black/95 px-6 py-3 lg:px-10">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#2D2822]">
+      <div className="sticky top-0 z-40 border-b border-black/[0.06] bg-[#F7F6F3]/95 px-6 py-3 backdrop-blur lg:px-10">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-2">
           {canUseWholeCampaign ? (
             <>
@@ -76,41 +76,35 @@ export default function CampaignsLayout({ children }) {
                 href={`${base}/whole`}
                 className={`rounded-full px-5 py-2 text-sm transition ${
                   wholeActive
-                    ? "bg-[#D6A66A] font-semibold text-black"
-                    : "border border-white/10 bg-white/[0.04] text-white/65 hover:bg-white/[0.08]"
+                    ? "bg-[#D6A66A] font-semibold text-[#2B2118]"
+                    : "border border-black/[0.08] bg-white text-[#6A6259] hover:border-[#C9AD89]"
                 }`}
               >
-                Whole Campaign
+                Multi-Organization Campaign
               </Link>
               <Link
                 href={base}
                 className={`rounded-full px-5 py-2 text-sm transition ${
                   !wholeActive
-                    ? "bg-[#D6A66A] font-semibold text-black"
-                    : "border border-white/10 bg-white/[0.04] text-white/65 hover:bg-white/[0.08]"
+                    ? "bg-[#D6A66A] font-semibold text-[#2B2118]"
+                    : "border border-black/[0.08] bg-white text-[#6A6259] hover:border-[#C9AD89]"
                 }`}
               >
-                By Organization
+                Organization Campaigns
               </Link>
             </>
           ) : (
             <Link
               href={base}
-              className="rounded-full bg-[#D6A66A] px-5 py-2 text-sm font-semibold text-black"
+              className="rounded-full bg-[#D6A66A] px-5 py-2 text-sm font-semibold text-[#2B2118]"
             >
               Campaigns
             </Link>
           )}
 
           {canCreateCampaign ? (
-            <div
-              className={
-                canUseWholeCampaign
-                  ? "ml-auto"
-                  : "ml-auto [&>div>button:nth-child(2)]:hidden"
-              }
-            >
-              <CampaignCommandCenter />
+            <div className="ml-auto">
+              <CampaignCommandCenter allowMultiOrganization={canUseWholeCampaign} />
             </div>
           ) : null}
         </div>

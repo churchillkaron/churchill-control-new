@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import {
   CheckCircle2,
   Clock3,
@@ -53,6 +54,8 @@ export default function SecretaryMeetingPresence({
   disabled = false,
   onCaptureStateChange = null,
 } = {}) {
+  const pathname = usePathname();
+  const communicationRoute = String(pathname || "").includes("/commercial/customers/communications");
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [authorized, setAuthorized] = useState(false);
@@ -508,6 +511,7 @@ export default function SecretaryMeetingPresence({
       : "Secretary Meeting";
 
   if (!organizationId) return null;
+  if (communicationRoute && !capturing && !open) return null;
 
   return (
     <>

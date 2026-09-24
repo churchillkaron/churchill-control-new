@@ -72,7 +72,7 @@ test("atomic COMP preserves fulfillment state and removes only the billable char
 test("COMP never mutates Kitchen or Expo fulfillment history", () => {
   assert.match(migration, /if v_correction_type = 'VOID' then[\s\S]*update public\.kitchen_tickets/);
   assert.match(migration, /if v_correction_type = 'VOID' then[\s\S]*update public\.bar_tickets/);
-  assert.match(migration, /v_correction_type = 'COMP'[\s\S]*v_production_evidence/);
+  assert.match(migration, /else[\s\S]*COMP requires an item that has entered production or service[\s\S]*v_production_evidence/);
 });
 
 test("comped items cannot be selected for payment", () => {

@@ -60,11 +60,11 @@ function bindingName(runtime) {
 
 function UnsupportedApplication({ applicationId, light = false }) {
   return (
-    <section className={light ? "min-h-[620px] bg-[#F7F6F3] px-6 py-12 text-[#191919]" : "min-h-[620px] bg-[#030712] px-6 py-12 text-white"}>
-      <div className={light ? "mx-auto max-w-[1000px] rounded-[22px] border border-black/[0.075] bg-white p-8 shadow-[0_1px_2px_rgba(0,0,0,0.025)]" : "mx-auto max-w-[1000px] rounded-[30px] border border-amber-300/20 bg-white/[0.03] p-8"}>
+    <section className={light ? "min-h-[620px] bg-[#F7F6F3] px-6 py-12 text-[#191919]" : "min-h-[620px] bg-[#F7F6F3] px-6 py-12 text-[#191919]"}>
+      <div className={light ? "mx-auto max-w-[1000px] rounded-[22px] border border-black/[0.075] bg-white p-8 shadow-[0_1px_2px_rgba(0,0,0,0.025)]" : "mx-auto max-w-[1000px] rounded-[30px] border border-amber-300/20 bg-[#FBF8F3] p-8"}>
         <p className={light ? "text-xs uppercase tracking-[0.24em] text-[#9A744B]" : "text-xs uppercase tracking-[0.24em] text-[#D6A66A]"}>Point of Sale</p>
         <h2 className={light ? "mt-4 text-3xl font-medium tracking-[-0.03em] text-[#181817]" : "mt-4 text-3xl font-semibold"}>Application surface unavailable</h2>
-        <p className={light ? "mt-3 text-sm text-[#6C6963]" : "mt-3 text-sm text-white/50"}>
+        <p className={light ? "mt-3 text-sm text-[#6C6963]" : "mt-3 text-sm text-[#746E66]"}>
           No POS presentation is registered for application {applicationId || "unknown"}.
         </p>
       </div>
@@ -120,11 +120,11 @@ export default function StationaryPOSUI({
 
   const shellClass = isRestaurant
     ? "min-h-screen bg-[#F7F6F3] text-[#191919]"
-    : "min-h-screen bg-black text-white";
+    : "min-h-screen bg-[#F7F6F3] text-[#191919]";
 
   const headerClass = isRestaurant
     ? "sticky top-0 z-50 border-b border-black/[0.07] bg-[#F7F6F3]/95 px-4 py-3 backdrop-blur-xl"
-    : "sticky top-0 z-50 border-b border-white/10 bg-black/95 px-4 py-3 backdrop-blur-xl";
+    : "sticky top-0 z-50 border-b border-black/[0.08] bg-[#F7F6F3]/95 px-4 py-3 backdrop-blur-xl";
 
   return (
     <div
@@ -142,7 +142,7 @@ export default function StationaryPOSUI({
             <div className={isRestaurant ? "mt-0.5 text-sm font-medium text-[#181817]" : "mt-0.5 text-sm font-semibold"}>
               {isRestaurant ? "Order and payment in one workspace" : "Sell · Order · Payment"}
             </div>
-            <div className={isRestaurant ? "mt-1 text-[10px] text-[#8A867F]" : "mt-1 text-[10px] text-white/35"}>
+            <div className={isRestaurant ? "mt-1 text-[10px] text-[#8A867F]" : "mt-1 text-[10px] text-[#918B83]"}>
               {applicationName(posRuntime)} · {bindingName(posRuntime)}
             </div>
           </div>
@@ -152,11 +152,11 @@ export default function StationaryPOSUI({
             const active = definition.id === activeDefinition.id;
             const className = isRestaurant
               ? active
-                ? "flex shrink-0 items-center gap-2 rounded-lg bg-[#25231F] px-4 py-2.5 text-xs font-semibold text-white"
+                ? "flex shrink-0 items-center gap-2 rounded-lg bg-[#25231F] px-4 py-2.5 text-xs font-semibold text-[#191919]"
                 : "flex shrink-0 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-4 py-2.5 text-xs text-[#6C6963] shadow-[0_1px_2px_rgba(0,0,0,0.025)]"
               : active
                 ? "flex shrink-0 items-center gap-2 rounded-xl bg-[#D6A66A] px-4 py-2.5 text-xs font-semibold text-black"
-                : "flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs text-white/60";
+                : "flex shrink-0 items-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2.5 text-xs text-[#5F5A54]";
 
             return (
               <button

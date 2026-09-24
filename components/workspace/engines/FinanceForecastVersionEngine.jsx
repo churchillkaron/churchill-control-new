@@ -32,12 +32,12 @@ function approvalBlockers(version) {
 function statusClasses(status) {
   if (status === "APPROVED") return "border-emerald-300/25 bg-emerald-300/10 text-emerald-200";
   if (status === "DRAFT") return "border-amber-300/25 bg-amber-300/10 text-amber-200";
-  return "border-white/[0.08] bg-white/[0.04] text-white/45";
+  return "border-black/[0.08] bg-[#FBF8F3] text-[#746E66]";
 }
 
 function reviewStatusClasses(status) {
   if (status === "RESOLVED") return "border-emerald-300/25 bg-emerald-300/10 text-emerald-200";
-  if (status === "ACKNOWLEDGED") return "border-sky-300/25 bg-sky-300/10 text-sky-200";
+  if (status === "ACKNOWLEDGED") return "border-[#D6A66A]/30 bg-[#FBF3E8] text-[#9B6F3F]";
   return "border-amber-300/25 bg-amber-300/10 text-amber-200";
 }
 
@@ -140,33 +140,33 @@ export default function FinanceForecastVersionEngine({ action, organizationId, e
   }
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 px-5 backdrop-blur-xl">
-      <div className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-[30px] border border-white/[0.08] bg-[#0b0b0b]/95 p-7 shadow-2xl shadow-black/80">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[#191919]/20 px-5 backdrop-blur-xl">
+      <div className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-[30px] border border-black/[0.08] bg-white p-7 shadow-2xl shadow-black/10">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
             <div className="text-[11px] uppercase tracking-[0.30em] text-amber-300/65">Finance Forecasting</div>
-            <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-white">Forecast Versions</h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45">Normal approval is available only when the stored forecast is ready and, for Scenarios vs Budget, the budget is both available and complete. Exceptional approval is separately permission-gated, reason-required, audit-visible, and remains under governed review until formally resolved.</p>
+            <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-[#191919]">Forecast Versions</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-[#746E66]">Normal approval is available only when the stored forecast is ready and, for Scenarios vs Budget, the budget is both available and complete. Exceptional approval is separately permission-gated, reason-required, audit-visible, and remains under governed review until formally resolved.</p>
           </div>
-          <button onClick={onClose} className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-white/60">Close</button>
+          <button onClick={onClose} className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54]">Close</button>
         </div>
 
         {error ? <div className="mt-5 rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">{error}</div> : null}
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4"><div className="text-2xl text-white">{counts.ready}</div><div className="mt-1 text-xs uppercase tracking-[0.14em] text-white/35">Approval-ready drafts</div></div>
+          <div className="rounded-2xl border border-black/[0.08] bg-white p-4"><div className="text-2xl text-[#191919]">{counts.ready}</div><div className="mt-1 text-xs uppercase tracking-[0.14em] text-[#918B83]">Approval-ready drafts</div></div>
           <div className="rounded-2xl border border-amber-300/15 bg-amber-300/[0.04] p-4"><div className="text-2xl text-amber-100">{counts.blocked}</div><div className="mt-1 text-xs uppercase tracking-[0.14em] text-amber-100/55">Policy-blocked drafts</div></div>
-          <div className="rounded-2xl border border-fuchsia-300/15 bg-fuchsia-300/[0.04] p-4"><div className="text-2xl text-fuchsia-100">{counts.overridden}</div><div className="mt-1 text-xs uppercase tracking-[0.14em] text-fuchsia-100/55">Approved with override</div></div>
+          <div className="rounded-2xl border border-[#D6A66A]/30 bg-[#FBF3E8] p-4"><div className="text-2xl text-[#76583A]">{counts.overridden}</div><div className="mt-1 text-xs uppercase tracking-[0.14em] text-[#9B6F3F]">Approved with override</div></div>
         </div>
 
         <div className="mt-6 flex flex-wrap justify-between gap-3">
-          <div className="flex flex-wrap gap-2">{STATUS_OPTIONS.map(status => <button key={status} onClick={() => setStatusFilter(status)} className={`rounded-xl border px-3 py-2 text-xs ${statusFilter === status ? "border-amber-300/30 bg-amber-300/10 text-amber-100" : "border-white/[0.08] text-white/45"}`}>{status}</button>)}</div>
-          <div className="flex flex-wrap gap-2">{KIND_OPTIONS.map(kind => <button key={kind} onClick={() => setKindFilter(kind)} className={`rounded-xl border px-3 py-2 text-xs ${kindFilter === kind ? "border-amber-300/30 bg-amber-300/10 text-amber-100" : "border-white/[0.08] text-white/45"}`}>{kind === "ALL" ? "ALL TYPES" : kindLabel(kind)}</button>)}</div>
+          <div className="flex flex-wrap gap-2">{STATUS_OPTIONS.map(status => <button key={status} onClick={() => setStatusFilter(status)} className={`rounded-xl border px-3 py-2 text-xs ${statusFilter === status ? "border-amber-300/30 bg-amber-300/10 text-amber-100" : "border-black/[0.08] text-[#746E66]"}`}>{status}</button>)}</div>
+          <div className="flex flex-wrap gap-2">{KIND_OPTIONS.map(kind => <button key={kind} onClick={() => setKindFilter(kind)} className={`rounded-xl border px-3 py-2 text-xs ${kindFilter === kind ? "border-amber-300/30 bg-amber-300/10 text-amber-100" : "border-black/[0.08] text-[#746E66]"}`}>{kind === "ALL" ? "ALL TYPES" : kindLabel(kind)}</button>)}</div>
         </div>
 
         <div className="mt-6 space-y-3">
-          {busy && !versions.length ? <div className="rounded-2xl border border-white/[0.08] p-5 text-sm text-white/45">Loading forecast versions...</div> : null}
-          {!busy && !filteredVersions.length ? <div className="rounded-2xl border border-white/[0.08] p-5 text-sm text-white/45">No forecast versions match this view.</div> : null}
+          {busy && !versions.length ? <div className="rounded-2xl border border-black/[0.08] p-5 text-sm text-[#746E66]">Loading forecast versions...</div> : null}
+          {!busy && !filteredVersions.length ? <div className="rounded-2xl border border-black/[0.08] p-5 text-sm text-[#746E66]">No forecast versions match this view.</div> : null}
 
           {filteredVersions.map(version => {
             const status = normalizedStatus(version);
@@ -176,33 +176,33 @@ export default function FinanceForecastVersionEngine({ action, organizationId, e
             const overrideReview = version.governance?.approval_override_review;
             const reviewStatus = String(overrideReview?.status || "OPEN").toUpperCase();
             return (
-              <div key={version.id} className={`rounded-2xl border p-5 ${status === "APPROVED" ? "border-emerald-300/20 bg-emerald-300/[0.035]" : "border-white/[0.08] bg-white/[0.025]"}`}>
+              <div key={version.id} className={`rounded-2xl border p-5 ${status === "APPROVED" ? "border-emerald-300/20 bg-emerald-300/[0.035]" : "border-black/[0.08] bg-white"}`}>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="text-base font-medium text-white">Version {version.version_number} · {kindLabel(version.scenario_kind)}</div>
+                      <div className="text-base font-medium text-[#191919]">Version {version.version_number} · {kindLabel(version.scenario_kind)}</div>
                       <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${statusClasses(status)}`}>{status}</span>
-                      {overridden ? <span className="rounded-full border border-fuchsia-300/25 bg-fuchsia-300/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-fuchsia-200">Override</span> : null}
+                      {overridden ? <span className="rounded-full border border-[#D6A66A]/35 bg-[#FBF3E8] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9B6F3F]">Override</span> : null}
                       {overrideReview ? <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${reviewStatusClasses(reviewStatus)}`}>Review {reviewStatus}</span> : null}
                     </div>
-                    <div className="mt-2 text-xs text-white/40">Created {dateLabel(version.created_at)} · Forecast ready {version.forecast_ready ? "Yes" : "No"} · Budget {version.budget_available === null ? "N/A" : version.budget_complete ? "Complete" : version.budget_available ? "Incomplete" : "Unavailable"}</div>
+                    <div className="mt-2 text-xs text-[#817A72]">Created {dateLabel(version.created_at)} · Forecast ready {version.forecast_ready ? "Yes" : "No"} · Budget {version.budget_available === null ? "N/A" : version.budget_complete ? "Complete" : version.budget_available ? "Incomplete" : "Unavailable"}</div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => preview(version)} disabled={busy} className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-white/70 disabled:opacity-50">Preview</button>
+                    <button onClick={() => preview(version)} disabled={busy} className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54] disabled:opacity-50">Preview</button>
                     {canManage && status === "DRAFT" && blockers.length === 0 ? <button onClick={() => submitApproval(version)} disabled={busy} className="rounded-xl border border-amber-300/35 bg-gradient-to-b from-amber-200 to-amber-500 px-4 py-2 text-sm font-semibold text-black disabled:opacity-50">Approve</button> : null}
-                    {canManage && canOverride && status === "DRAFT" && blockers.length > 0 ? <button onClick={() => { setOverrideVersion(version); setOverrideReason(""); }} disabled={busy} className="rounded-xl border border-fuchsia-300/30 bg-fuchsia-300/10 px-4 py-2 text-sm font-semibold text-fuchsia-100 disabled:opacity-50">Exceptional Override</button> : null}
+                    {canManage && canOverride && status === "DRAFT" && blockers.length > 0 ? <button onClick={() => { setOverrideVersion(version); setOverrideReason(""); }} disabled={busy} className="rounded-xl border border-[#D6A66A]/40 bg-[#FBF3E8] px-4 py-2 text-sm font-semibold text-[#76583A] disabled:opacity-50">Exceptional Override</button> : null}
                   </div>
                 </div>
 
-                {status === "DRAFT" && blockers.length > 0 ? <div className="mt-4 rounded-xl border border-amber-300/15 bg-amber-300/[0.05] px-4 py-3 text-xs text-amber-100/75"><div className="font-semibold uppercase tracking-[0.12em]">Normal approval blocked</div><div className="mt-2">{blockers.join(" · ")}</div>{canOverride ? <div className="mt-2 text-white/45">Exceptional approval requires a recorded business reason and creates immutable override audit evidence.</div> : null}</div> : null}
+                {status === "DRAFT" && blockers.length > 0 ? <div className="mt-4 rounded-xl border border-amber-300/15 bg-amber-300/[0.05] px-4 py-3 text-xs text-amber-100/75"><div className="font-semibold uppercase tracking-[0.12em]">Normal approval blocked</div><div className="mt-2">{blockers.join(" · ")}</div>{canOverride ? <div className="mt-2 text-[#746E66]">Exceptional approval requires a recorded business reason and creates immutable override audit evidence.</div> : null}</div> : null}
 
-                {overridden ? <div className="mt-4 rounded-xl border border-fuchsia-300/20 bg-fuchsia-300/[0.05] px-4 py-3 text-xs text-fuchsia-100/75"><div className="font-semibold uppercase tracking-[0.12em]">Approved by exceptional override</div><div className="mt-2">Reason: {version.approval_override_reason || overrideEvidence?.reason || "Recorded in governance evidence"}</div><div className="mt-1">By {overrideEvidence?.name || "Recorded actor"} · {dateLabel(overrideEvidence?.at || version.approved_at)}</div>{overrideEvidence?.blockers?.length ? <div className="mt-1">Overridden blockers: {overrideEvidence.blockers.join(" · ")}</div> : null}{overrideReview ? <div className="mt-3 border-t border-fuchsia-200/10 pt-3 text-white/55"><div>Governance review: <span className="text-white/80">{reviewStatus}</span> · Owner {overrideReview.assigned_to_name || "Unassigned"} · Due {overrideReview.due_date || "Not set"}</div>{overrideReview.acknowledged_at ? <div className="mt-1">Acknowledged {dateLabel(overrideReview.acknowledged_at)} by {overrideReview.acknowledged_by_name || "Finance"}</div> : null}{reviewStatus === "RESOLVED" ? <div className="mt-1 text-emerald-100/75">Resolved {dateLabel(overrideReview.resolved_at)} by {overrideReview.resolved_by_name || "Finance"} · {overrideReview.resolution_note || "Resolution evidence recorded"}</div> : null}</div> : <div className="mt-3 border-t border-fuchsia-200/10 pt-3 text-amber-100/70">Governance review case is expected for every exceptional approval.</div>}</div> : null}
+                {overridden ? <div className="mt-4 rounded-xl border border-[#D6A66A]/30 bg-[#FBF3E8] px-4 py-3 text-xs text-[#76583A]"><div className="font-semibold uppercase tracking-[0.12em]">Approved by exceptional override</div><div className="mt-2">Reason: {version.approval_override_reason || overrideEvidence?.reason || "Recorded in governance evidence"}</div><div className="mt-1">By {overrideEvidence?.name || "Recorded actor"} · {dateLabel(overrideEvidence?.at || version.approved_at)}</div>{overrideEvidence?.blockers?.length ? <div className="mt-1">Overridden blockers: {overrideEvidence.blockers.join(" · ")}</div> : null}{overrideReview ? <div className="mt-3 border-t border-[#D6A66A]/20 pt-3 text-[#5F5A54]"><div>Governance review: <span className="text-[#2F2C28]">{reviewStatus}</span> · Owner {overrideReview.assigned_to_name || "Unassigned"} · Due {overrideReview.due_date || "Not set"}</div>{overrideReview.acknowledged_at ? <div className="mt-1">Acknowledged {dateLabel(overrideReview.acknowledged_at)} by {overrideReview.acknowledged_by_name || "Finance"}</div> : null}{reviewStatus === "RESOLVED" ? <div className="mt-1 text-emerald-100/75">Resolved {dateLabel(overrideReview.resolved_at)} by {overrideReview.resolved_by_name || "Finance"} · {overrideReview.resolution_note || "Resolution evidence recorded"}</div> : null}</div> : <div className="mt-3 border-t border-[#D6A66A]/20 pt-3 text-amber-100/70">Governance review case is expected for every exceptional approval.</div>}</div> : null}
               </div>
             );
           })}
         </div>
 
-        {overrideVersion ? <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 px-5 backdrop-blur-md"><div className="w-full max-w-xl rounded-[26px] border border-fuchsia-300/20 bg-[#0b0b0b] p-6 shadow-2xl"><div className="text-xs uppercase tracking-[0.18em] text-fuchsia-200/70">Exceptional Forecast Approval</div><h3 className="mt-2 text-xl text-white">Override Version {overrideVersion.version_number}</h3><div className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.05] p-4 text-sm text-amber-100/70">Policy blockers: {approvalBlockers(overrideVersion).join(" · ")}</div><label className="mt-5 block text-xs uppercase tracking-[0.14em] text-white/35">Required business reason</label><textarea value={overrideReason} onChange={event => setOverrideReason(event.target.value)} rows={4} className="mt-2 w-full rounded-xl border border-white/[0.08] bg-black/30 p-3 text-sm text-white outline-none" placeholder="Explain why exceptional approval is required despite the current policy blockers." /><div className="mt-5 flex justify-end gap-2"><button onClick={() => { setOverrideVersion(null); setOverrideReason(""); }} disabled={busy} className="rounded-xl border border-white/[0.08] px-4 py-2 text-sm text-white/60">Cancel</button><button onClick={() => submitApproval(overrideVersion, true)} disabled={busy || !overrideReason.trim()} className="rounded-xl border border-fuchsia-300/30 bg-fuchsia-300/15 px-4 py-2 text-sm font-semibold text-fuchsia-100 disabled:opacity-40">Approve with Override</button></div></div></div> : null}
+        {overrideVersion ? <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[#191919]/20 px-5 backdrop-blur-md"><div className="w-full max-w-xl rounded-[26px] border border-[#D6A66A]/30 bg-white p-6 shadow-2xl"><div className="text-xs uppercase tracking-[0.18em] text-[#9B6F3F]">Exceptional Forecast Approval</div><h3 className="mt-2 text-xl text-[#191919]">Override Version {overrideVersion.version_number}</h3><div className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.05] p-4 text-sm text-amber-100/70">Policy blockers: {approvalBlockers(overrideVersion).join(" · ")}</div><label className="mt-5 block text-xs uppercase tracking-[0.14em] text-[#918B83]">Required business reason</label><textarea value={overrideReason} onChange={event => setOverrideReason(event.target.value)} rows={4} className="mt-2 w-full rounded-xl border border-black/[0.08] bg-white p-3 text-sm text-[#191919] outline-none" placeholder="Explain why exceptional approval is required despite the current policy blockers." /><div className="mt-5 flex justify-end gap-2"><button onClick={() => { setOverrideVersion(null); setOverrideReason(""); }} disabled={busy} className="rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#5F5A54]">Cancel</button><button onClick={() => submitApproval(overrideVersion, true)} disabled={busy || !overrideReason.trim()} className="rounded-xl border border-[#D6A66A]/40 bg-[#FBF3E8] px-4 py-2 text-sm font-semibold text-[#76583A] disabled:opacity-40">Approve with Override</button></div></div></div> : null}
       </div>
     </div>
   );

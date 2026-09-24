@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -198,7 +198,7 @@ export default function AnalyticsCommandCenter({ organizationId }) {
   const [domain, setDomain] = useState("all");
   const [tab, setTab] = useState("overview");
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     setLoading(true);
     setError("");
@@ -217,13 +217,13 @@ export default function AnalyticsCommandCenter({ organizationId }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [entityId, organizationId, periodId]);
 
   useEffect(() => {
     load();
-  }, [organizationId, entityId, periodId]);
+  }, [load]);
 
-  const metrics = Array.isArray(data?.metrics) ? data.metrics : [];
+  const metrics = useMemo(() => (Array.isArray(data?.metrics) ? data.metrics : []), [data?.metrics]);
   const attention = Array.isArray(data?.attention) ? data.attention : [];
   const alerts = Array.isArray(data?.alerts) ? data.alerts : [];
   const forecasts = Array.isArray(data?.forecasts) ? data.forecasts : [];
@@ -264,7 +264,7 @@ export default function AnalyticsCommandCenter({ organizationId }) {
             <button type="button" onClick={() => setTab("metrics")} className="inline-flex h-10 items-center gap-2 rounded-xl border border-black/[0.09] bg-white px-3.5 text-[12px] font-medium text-[#4B4842] hover:border-[#D6A66A]/55 hover:bg-[#D6A66A]/[0.05]">
               <BarChart3 size={14} className="text-[#A37849]" /> Metric library
             </button>
-            <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[12px] font-medium text-white hover:bg-black disabled:opacity-50">
+            <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#D6A66A] px-3.5 text-[12px] font-medium text-[#191919] hover:bg-[#C6975C] disabled:opacity-50">
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
             </button>
           </div>
@@ -273,7 +273,7 @@ export default function AnalyticsCommandCenter({ organizationId }) {
 
       <div className="flex flex-wrap items-center gap-1 rounded-xl border border-black/[0.07] bg-white p-1">
         {[['overview', 'Overview'], ['metrics', 'Metrics'], ['alerts', `Alerts${alerts.length ? ` · ${alerts.length}` : ''}`], ['forecasts', `Forecasts${forecasts.length ? ` · ${forecasts.length}` : ''}`], ['lineage', 'Lineage']].map(([id, label]) => (
-          <button key={id} type="button" onClick={() => setTab(id)} className={`rounded-lg px-3.5 py-2 text-[11px] font-medium transition ${tab === id ? "bg-[#1F1E1B] text-white" : "text-[#68635C] hover:bg-[#F7F5F1]"}`}>
+          <button key={id} type="button" onClick={() => setTab(id)} className={`rounded-lg px-3.5 py-2 text-[11px] font-medium transition ${tab === id ? "bg-[#D6A66A] text-[#191919]" : "text-[#68635C] hover:bg-[#F7F5F1]"}`}>
             {label}
           </button>
         ))}

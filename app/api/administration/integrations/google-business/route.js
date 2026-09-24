@@ -184,6 +184,58 @@ export async function POST(request) {
           metadata: {
             ...(asset.metadata || {}),
             entity_id: entityId,
+            assignment_status: "ASSIGNED",
+          },
+          updated_at: now,
+        })
+        .eq("id", asset.id)
+        .eq("organization_id", context.organizationId);
+      if (updateError) throw updateError;
+
+      return NextResponse.json({
+        success: true,
+        organizationId: context.organizationId,
+        ...(await integrationSnapshot(context.organizationId)),
+      });
+    }
+
+    if (action === "ignore-location") {
+      const assetId = String(body.assetId || body.asset_id || "").trim();
+      if (!assetId) {
+        return NextResponse.json(
+          { success: false, error: "assetId is required" },
+          { status: 400 }
+        );
+      }
+
+      const { data: asset, error: assetError } = await supabaseAdmin
+        .from("organization_channel_assets")
+        .select("*")
+        .eq("id", assetId)
+        .eq("organization_id", context.organizationId)
+        .eq("channel_provider", PROVIDER)
+        .eq("asset_type", ASSET_TYPE)
+        .maybeSingle();
+      if (assetError) throw assetError;
+      if (!asset) {
+        return NextResponse.json(
+          { success: false, error: "Google Business location was not found" },
+          { status: 404 }
+        );
+      }
+
+      const now = new Date().toISOString();
+      const partyId = context.staff?.party_id || null;
+      const { error: updateError } = await supabaseAdmin
+        .from("organization_channel_assets")
+        .update({
+          entity_id: null,
+          selected_by_party_id: partyId,
+          selected_at: now,
+          metadata: {
+            ...(asset.metadata || {}),
+            entity_id: null,
+            assignment_status: "IGNORED",
           },
           updated_at: now,
         })
@@ -296,7 +348,7 @@ export async function POST(request) {
             entity_id: entity.id,
             selected_by_party_id: partyId,
             selected_at: now,
-            metadata: { ...(location.metadata || {}), entity_id: entity.id },
+            metadata: { ...(location.metadata || {}), entity_id: entity.id, assignment_status: "ASSIGNED" },
             updated_at: now,
           })
           .eq("id", location.id)

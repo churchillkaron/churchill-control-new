@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowLeft, LoaderCircle, Plus, RefreshCw, Save, Search, X } from "lucide-react";
 import Link from "next/link";
 
@@ -97,9 +97,9 @@ export default function ComplianceRecordsWorkspace({ organizationId, mode }) {
     setForm(emptyForm(definition));
     setEditingId(null);
     setEditorOpen(false);
-  }, [mode]);
+  }, [definition]);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     setLoading(true); setError("");
     try {
@@ -112,9 +112,9 @@ export default function ComplianceRecordsWorkspace({ organizationId, mode }) {
       setRows(Array.isArray(json.rows) ? json.rows : []);
     } catch (e) { setRows([]); setError(e?.message || "Compliance records could not be loaded"); }
     finally { setLoading(false); }
-  }
+  }, [definition.resource, entityId, organizationId, periodId]);
 
-  useEffect(() => { load(); }, [organizationId, entityId, periodId, definition.resource]);
+  useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -163,7 +163,7 @@ export default function ComplianceRecordsWorkspace({ organizationId, mode }) {
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl border border-black/[0.09] bg-white px-3.5 text-[11px] font-medium text-[#4B4842]"><RefreshCw size={13} className={loading ? "animate-spin" : ""} />Refresh</button>
-            <button type="button" onClick={openCreate} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[11px] font-medium text-white"><Plus size={13} />New</button>
+            <button type="button" onClick={openCreate} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[11px] font-medium text-[#191919]"><Plus size={13} />New</button>
           </div>
         </div>
       </section>
@@ -181,7 +181,7 @@ export default function ComplianceRecordsWorkspace({ organizationId, mode }) {
       </section>
 
       {editorOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/25 p-3 backdrop-blur-[2px] sm:items-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#F7F6F3]/25 p-3 backdrop-blur-[2px] sm:items-center">
           <div className="max-h-[88vh] w-full max-w-[760px] overflow-y-auto rounded-[24px] border border-black/10 bg-[#F7F6F3] shadow-[0_30px_80px_rgba(0,0,0,0.22)]">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black/[0.07] bg-white px-5 py-4"><div><div className="text-[10px] uppercase tracking-[0.16em] text-[#A37849]">{editingId ? "Edit" : "Create"}</div><div className="mt-1 text-[17px] font-semibold">{definition.title}</div></div><button type="button" onClick={() => setEditorOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/[0.08]"><X size={14} /></button></div>
             <div className="grid gap-4 p-5 md:grid-cols-2">
@@ -189,7 +189,7 @@ export default function ComplianceRecordsWorkspace({ organizationId, mode }) {
                 <label key={name} className={type === "textarea" ? "md:col-span-2" : ""}><span className="mb-1.5 block text-[10px] font-medium uppercase tracking-[0.1em] text-[#77726A]">{label}{required ? " *" : ""}</span>{type === "select" ? <select value={form[name] ?? ""} onChange={e => setForm(v => ({...v,[name]:e.target.value}))} className="h-10 w-full rounded-xl border border-black/[0.09] bg-white px-3 text-[11px] outline-none focus:border-[#D6A66A]">{(options || []).map(option => <option key={option} value={option}>{pretty(option)}</option>)}</select> : type === "textarea" ? <textarea value={form[name] ?? ""} onChange={e => setForm(v => ({...v,[name]:e.target.value}))} rows={4} className="w-full rounded-xl border border-black/[0.09] bg-white px-3 py-2 text-[11px] outline-none focus:border-[#D6A66A]" /> : <input type={type} value={form[name] ?? ""} onChange={e => setForm(v => ({...v,[name]:e.target.value}))} className="h-10 w-full rounded-xl border border-black/[0.09] bg-white px-3 text-[11px] outline-none focus:border-[#D6A66A]" />}</label>
               ))}
             </div>
-            <div className="sticky bottom-0 flex justify-end gap-2 border-t border-black/[0.07] bg-white px-5 py-4"><button type="button" onClick={() => setEditorOpen(false)} className="h-9 rounded-lg border border-black/[0.09] px-3 text-[11px]">Cancel</button><button type="button" disabled={busy} onClick={save} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-4 text-[11px] font-medium text-white disabled:opacity-50">{busy ? <LoaderCircle size={13} className="animate-spin" /> : <Save size={13} />}Save</button></div>
+            <div className="sticky bottom-0 flex justify-end gap-2 border-t border-black/[0.07] bg-white px-5 py-4"><button type="button" onClick={() => setEditorOpen(false)} className="h-9 rounded-lg border border-black/[0.09] px-3 text-[11px]">Cancel</button><button type="button" disabled={busy} onClick={save} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-4 text-[11px] font-medium text-[#191919] disabled:opacity-50">{busy ? <LoaderCircle size={13} className="animate-spin" /> : <Save size={13} />}Save</button></div>
           </div>
         </div>
       ) : null}

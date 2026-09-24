@@ -11,13 +11,13 @@ const activation = read("app/api/auth/activate/route.js");
 assert.match(login, /supabase\.auth\.resetPasswordForEmail/);
 assert.match(login, /new URL\("\/login", window\.location\.origin\)/);
 assert.doesNotMatch(login, /result\.eligible/);
-assert.match(login, /hostBrand\?\.id !== brand\.id/);
+assert.doesNotMatch(login, /hostBrand\?\.id !== brand\.id/);
 assert.match(login, /PASSWORD_RECOVERY/);
 assert.match(login, /supabase\.auth\.updateUser\(\{ password \}\)/);
 
 assert.match(activation, /resolveRecoveryOrganizationId/);
 assert.match(activation, /requestPlatformHostname/);
-assert.match(activation, /resolvePlatformHostContext/);
+assert.match(activation, /resolveRegisteredPlatformHostContext/);
 assert.match(activation, /organizationIds\.length !== 1/);
 assert.match(activation, /genericRecoveryResponse/);
 assert.match(activation, /If this email has active staff access, a password link will be sent/);

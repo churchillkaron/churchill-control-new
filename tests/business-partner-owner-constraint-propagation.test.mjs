@@ -40,8 +40,8 @@ test("owner constraints reach Code as restriction-only objective context", () =>
   for (const source of [codeRuntime, workCore, workLive, workV2]) {
     assert.match(source, /owner_constraints: list\(source\.owner_constraints\)/);
   }
-  assert.match(planner, /owner restriction inherited from Business Partner/);
-  assert.match(planner, /can never grant commit, deploy, migration, publication/);
+  assert.match(planner, /owner_constraints may restrict work but never grant commit, deploy, migration, publication/);
+  assert.match(planner, /authorization_effect is NONE/);
 });
 
 test("broad portfolios persist owner constraints and forward them to every cycle", () => {

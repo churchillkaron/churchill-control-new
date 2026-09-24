@@ -9,10 +9,17 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 
-import { supabase } from "@/lib/shared/supabase/client";
 import { getPublicSupabaseUrl } from "@/lib/shared/supabase/publicConfig";
 
 const BusinessContext = createContext(null);
+
+let browserSupabasePromise = null;
+async function getBrowserSupabase() {
+  if (!browserSupabasePromise) {
+    browserSupabasePromise = import("@/lib/shared/supabase/client").then((module) => module.supabase);
+  }
+  return browserSupabasePromise;
+}
 
 const EMPTY_STATE = {
   ready: false,
@@ -24,6 +31,9 @@ const EMPTY_STATE = {
   organization_id: null,
   is_platform_operator_workspace: false,
   operator_legal_entity: null,
+  operator_accounting_organization_id: null,
+  operator_accounting_period: null,
+  operator_accounting_period_id: null,
   entity: null,
   entities: [],
   entity_id: null,
@@ -122,6 +132,57 @@ function timeoutPromise(promise, timeoutMs, code) {
   return Promise.race([promise, timeout]).finally(() => {
     if (timer) window.clearTimeout(timer);
   });
+}
+
+const bootstrapInflight = new Map();
+
+function bootstrapRequestKey(url, accessToken) {
+  return `${url}|${accessToken || "cookie-session"}`;
+}
+
+async function fetchBusinessBootstrap(bootstrapUrl, accessToken) {
+  const key = bootstrapRequestKey(bootstrapUrl, accessToken);
+  const existing = bootstrapInflight.get(key);
+  if (existing) return existing;
+
+  const request = (async () => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort("WORKSPACE_BOOTSTRAP_FETCH_TIMEOUT"), 8000);
+    try {
+      const response = await fetch(bootstrapUrl, {
+        method: "GET",
+        headers: accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : {},
+        cache: "no-store",
+        credentials: "same-origin",
+        signal: controller.signal,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const error = new Error(payload?.error || payload?.reason || "Business context bootstrap failed");
+        error.status = response.status;
+        error.code = payload?.reason || payload?.code || null;
+        throw error;
+      }
+      return payload;
+    } catch (error) {
+      if (error?.name === "AbortError" || controller.signal.aborted) {
+        const timeoutError = new Error("WORKSPACE_BOOTSTRAP_FETCH_TIMEOUT");
+        timeoutError.cause = error;
+        throw timeoutError;
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  })();
+
+  bootstrapInflight.set(key, request);
+  request.finally(() => {
+    if (bootstrapInflight.get(key) === request) bootstrapInflight.delete(key);
+  }).catch(() => null);
+  return request;
 }
 
 function retryableBootstrapError(error) {
@@ -228,7 +289,7 @@ export function BusinessContextProvider({ children }) {
           const {
             data: { session },
           } = await retryBootstrapStep(
-            () => supabase.auth.getSession(),
+            async () => (await getBrowserSupabase()).auth.getSession(),
             {
               timeoutMs: 5000,
               onRetry: (attempt) => setState((previous) => ({
@@ -282,27 +343,16 @@ export function BusinessContextProvider({ children }) {
             ? `/api/session/bootstrap?organizationId=${encodeURIComponent(routeOrganizationId)}`
             : "/api/session/bootstrap";
           const accessToken = browserSupabaseAccessToken();
-          const response = await fetch(bootstrapUrl, {
-            method: "GET",
-            headers: accessToken
-              ? { Authorization: `Bearer ${accessToken}` }
-              : {},
-            cache: "no-store",
-            credentials: "same-origin",
-          });
-          const payload = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            const error = new Error(payload?.error || payload?.reason || "Business context bootstrap failed");
-            error.status = response.status;
-            error.code = payload?.reason || payload?.code || null;
-            throw error;
-          }
-          return payload;
+          return fetchBusinessBootstrap(bootstrapUrl, accessToken);
         }, {
+          attempts: 8,
+          timeoutMs: 10000,
           onRetry: (attempt) => setState((previous) => ({
             ...previous,
+            ready: false,
             loading: true,
-            loading_message: `Workspace services are temporarily slow. Retrying automatically · ${attempt}/3`,
+            error: null,
+            loading_message: `Workspace services are warming up. Retrying automatically · ${attempt}/8`,
           })),
         });
 
@@ -322,6 +372,9 @@ export function BusinessContextProvider({ children }) {
             organization_id: null,
             is_platform_operator_workspace: false,
             operator_legal_entity: null,
+            operator_accounting_organization_id: null,
+            operator_accounting_period: null,
+            operator_accounting_period_id: null,
             entity: null,
             entity_id: null,
             period: null,
@@ -361,6 +414,11 @@ export function BusinessContextProvider({ children }) {
           is_platform_operator_workspace:
             data.is_platform_operator_workspace === true,
           operator_legal_entity: data.operator_legal_entity || null,
+          operator_accounting_organization_id:
+            data.operator_accounting_organization_id || null,
+          operator_accounting_period: data.operator_accounting_period || null,
+          operator_accounting_period_id:
+            data.operator_accounting_period_id || null,
           entity: data.entity || null,
           entities: Array.isArray(data.entities)
             ? data.entities
@@ -411,13 +469,13 @@ export function BusinessContextProvider({ children }) {
           error: error?.code === "AUTHENTICATION_REQUIRED" || Number(error?.status) === 401
             ? "Your Avantiqo session expired. Sign in again to continue this workspace."
             : temporary
-              ? "Avantiqo authentication is temporarily unavailable. Your local Code workspace was not changed, and the current work state is preserved. Retry when authentication responds again."
+              ? "The Avantiqo workspace connection is temporarily unavailable. Your local Code workspace was not changed and the current work state is preserved. Retry when workspace services respond again."
               : error.message,
           error_code: error?.code
             || (Number(error?.status) === 401
               ? "AUTHENTICATION_REQUIRED"
               : temporary
-                ? "AUTH_SERVICE_UNAVAILABLE"
+                ? "WORKSPACE_SERVICE_UNAVAILABLE"
                 : null),
           loading_message: null,
         }));

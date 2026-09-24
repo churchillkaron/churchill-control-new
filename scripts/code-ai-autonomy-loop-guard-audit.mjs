@@ -94,7 +94,7 @@ const requiredMarkers = [
   "CODE_AI_AUTONOMOUS_PLANNER_ATTEMPT_LIMIT_EXHAUSTED",
   "iteration = control.planner_iterations_used + 1",
   "const operationId = `autonomy_${iteration}_${decision.action}`",
-  "TRANSIENT_WORKSPACE_RETRY_LIMIT = 1",
+  "TRANSIENT_WORKSPACE_RETRY_LIMIT = 3",
   "isTransientWorkspaceTermination",
   'kind: "autonomous_execution_retry"',
   "same_operation_retried: true",
@@ -130,8 +130,8 @@ const requiredMarkers = [
 
 const promptRequiredMarkers = [
   "AVANTIQO_CODE_AI_PLANNER_PROMPT_TRANSPORT_V1",
-  "CODE_AI_PLANNER_MAX_INSTRUCTION_CHARS = 24000",
-  "CODE_AI_PLANNER_MAX_STATE_CHARS = 14000",
+  "CODE_AI_PLANNER_MAX_INSTRUCTION_CHARS = 14000",
+  "CODE_AI_PLANNER_MAX_STATE_CHARS = 7500",
   "worker_instruction_hard_limit_chars: 30000",
   "duplicate_objective_in_structured_specification: false",
   "duplicate_state_in_structured_specification: false",

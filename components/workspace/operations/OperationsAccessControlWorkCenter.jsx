@@ -130,23 +130,23 @@ export default function OperationsAccessControlWorkCenter() {
   }
 
   if (access.loading) {
-    return <main className="min-h-screen px-6 py-7 text-white/45">Resolving Operations access…</main>;
+    return <main className="min-h-screen px-6 py-7 text-[#746E66]">Resolving Operations access…</main>;
   }
 
   if (!access.can?.administer) {
     return (
-      <main className="min-h-screen px-6 py-7 text-white">
+      <main className="min-h-screen px-6 py-7 text-[#191919]">
         <div className="mx-auto max-w-[1100px] rounded-[30px] border border-red-400/20 bg-red-500/[0.06] p-8">
           <div className="text-xs uppercase tracking-[0.28em] text-red-200">Access denied</div>
           <h1 className="mt-3 text-2xl font-semibold">Operations administration permission required</h1>
-          <p className="mt-3 text-sm text-white/45">Only authorised Operations administrators can assign or revoke Operations roles.</p>
+          <p className="mt-3 text-sm text-[#746E66]">Only authorised Operations administrators can assign or revoke Operations roles.</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen px-6 py-7 text-white">
+    <main className="min-h-screen px-6 py-7 text-[#191919]">
       <div className="mx-auto max-w-[1540px]">
         <WorkspaceHeader
           workspace="Operations"
@@ -157,7 +157,7 @@ export default function OperationsAccessControlWorkCenter() {
               type="button"
               disabled={loading}
               onClick={load}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/65 disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54] disabled:opacity-40"
             >
               <RefreshCw size={15} /> Refresh
             </button>
@@ -172,7 +172,7 @@ export default function OperationsAccessControlWorkCenter() {
             <ShieldCheck className="text-[#D6A66A]" size={22} />
             <div>
               <div className="text-sm font-semibold">Assign canonical role</div>
-              <div className="mt-1 text-xs text-white/40">Assignments apply only inside the selected organisation.</div>
+              <div className="mt-1 text-xs text-[#817A72]">Assignments apply only inside the selected organisation.</div>
             </div>
           </div>
 
@@ -180,7 +180,7 @@ export default function OperationsAccessControlWorkCenter() {
             <select
               value={selectedUserId}
               onChange={(event) => setSelectedUserId(event.target.value)}
-              className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none"
+              className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/30 px-4 py-3 text-sm text-[#191919] outline-none"
             >
               <option value="">Select organisation user</option>
               {users.map((user) => <option key={user.user_id} value={user.user_id}>{userLabel(user)}</option>)}
@@ -188,7 +188,7 @@ export default function OperationsAccessControlWorkCenter() {
             <select
               value={selectedRoleCode}
               onChange={(event) => setSelectedRoleCode(event.target.value)}
-              className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none"
+              className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/30 px-4 py-3 text-sm text-[#191919] outline-none"
             >
               <option value="">Select Operations role</option>
               {roles.map((role) => <option key={role.role_code} value={role.role_code}>{role.role_name}</option>)}
@@ -205,15 +205,15 @@ export default function OperationsAccessControlWorkCenter() {
         </section>
 
         <section className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.7fr)]">
-          <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5">
+          <div className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">Active assignments</div>
-                <div className="mt-2 text-sm text-white/40">{loading ? "Loading…" : `${filteredAssignments.length} assignments`}</div>
+                <div className="mt-2 text-sm text-[#817A72]">{loading ? "Loading…" : `${filteredAssignments.length} assignments`}</div>
               </div>
-              <div className="flex w-full items-center rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white/45 md:w-[340px]">
+              <div className="flex w-full items-center rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/25 px-4 py-3 text-[#746E66] md:w-[340px]">
                 <Search size={16} />
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search assignments…" className="ml-3 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30" />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search assignments…" className="ml-3 w-full bg-transparent text-sm text-[#191919] outline-none placeholder:text-[#A19A92]" />
               </div>
             </div>
 
@@ -222,10 +222,10 @@ export default function OperationsAccessControlWorkCenter() {
                 const user = userById.get(String(assignment.user_id));
                 const role = assignment.operations_role || roleById.get(String(assignment.role_id));
                 return (
-                  <div key={assignment.id} className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div key={assignment.id} className="flex items-center justify-between gap-4 rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/20 p-4">
                     <div>
-                      <div className="text-sm font-semibold text-white">{user?.name || user?.email || assignment.user_id}</div>
-                      <div className="mt-1 text-xs text-white/35">{role?.role_name || role?.role_code || "Unknown role"} · {user?.email || "No email"}</div>
+                      <div className="text-sm font-semibold text-[#191919]">{user?.name || user?.email || assignment.user_id}</div>
+                      <div className="mt-1 text-xs text-[#918B83]">{role?.role_name || role?.role_code || "Unknown role"} · {user?.email || "No email"}</div>
                     </div>
                     <button
                       type="button"
@@ -239,18 +239,18 @@ export default function OperationsAccessControlWorkCenter() {
                   </div>
                 );
               })}
-              {!loading && filteredAssignments.length === 0 ? <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-sm text-white/40">No active Operations role assignments.</div> : null}
+              {!loading && filteredAssignments.length === 0 ? <div className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/20 p-6 text-sm text-[#817A72]">No active Operations role assignments.</div> : null}
             </div>
           </div>
 
-          <aside className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5">
+          <aside className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5">
             <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">Canonical roles</div>
             <div className="mt-4 space-y-3">
               {roles.map((role) => (
-                <div key={role.role_code} className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <div className="text-sm font-semibold text-white">{role.role_name}</div>
-                  <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-white/30">{role.role_code}</div>
-                  <p className="mt-3 text-xs leading-5 text-white/45">{role.description}</p>
+                <div key={role.role_code} className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/20 p-4">
+                  <div className="text-sm font-semibold text-[#191919]">{role.role_name}</div>
+                  <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[#A19A92]">{role.role_code}</div>
+                  <p className="mt-3 text-xs leading-5 text-[#746E66]">{role.description}</p>
                 </div>
               ))}
             </div>

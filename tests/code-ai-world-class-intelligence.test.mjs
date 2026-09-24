@@ -473,3 +473,27 @@ test("observed symbol callers become explicit compatibility obligations and meas
   assert.equal(finalized.benchmark_scorecard.observed_imported_symbol_call_edges, 1);
   assert.equal(finalized.benchmark_scorecard.changed_modules_with_observed_symbol_callers, 1);
 });
+test("durable source_read_evidence participates in causal dependency analysis", () => {
+  const graph = deriveCodeAICausalGraph({
+    files_changed: ["lib/core/runtime.js"],
+    source_changes: [{
+      path: "lib/core/runtime.js",
+      operation: "write",
+      content: "export function runMission() { return true; }\n",
+    }],
+    source_read_evidence: [{
+      action: "read",
+      result: {
+        file_path: "lib/consumer/durable.js",
+        content: 'import { runMission } from "../core/runtime.js";\nrunMission();\n',
+      },
+    }],
+    evidence: [],
+  });
+  assert.ok(graph.edges.some((edge) =>
+    edge.relation === "calls_imported_symbol" &&
+    edge.from === "lib/consumer/durable.js" &&
+    edge.to === "lib/core/runtime.js" &&
+    edge.target_symbol === "runMission"
+  ));
+});

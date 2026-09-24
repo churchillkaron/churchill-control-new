@@ -51,19 +51,19 @@ console.log(client.lastResponseMeta);`;
     </div>
 
     <div className="mt-5 grid gap-3 xl:grid-cols-2">
-      <div className="rounded-xl bg-[#1D1A17] p-4 text-white">
+      <div className="rounded-xl border border-[#C7B08D]/20 bg-[#FBF6EF] p-4 text-[#3F352B]">
         <div className="flex items-center justify-between gap-3">
           <div className="text-[8px] font-semibold uppercase tracking-[.13em] text-[#D6A66A]">cURL</div>
-          <button type="button" onClick={()=>copy("curl",curl)} className="rounded-lg border border-white/15 px-3 py-1.5 text-[7px]">{copied==="curl"?"Copied":"Copy"}</button>
+          <button type="button" onClick={()=>copy("curl",curl)} className="rounded-lg border border-[#C7B08D]/25 bg-white px-3 py-1.5 text-[7px] text-[#76583A]">{copied==="curl"?"Copied":"Copy"}</button>
         </div>
-        <pre className="mt-3 overflow-auto whitespace-pre-wrap break-words font-mono text-[8px] leading-5 text-white/75">{curl}</pre>
+        <pre className="mt-3 overflow-auto whitespace-pre-wrap break-words font-mono text-[8px] leading-5 text-[#5F574E]">{curl}</pre>
       </div>
-      <div className="rounded-xl bg-[#1D1A17] p-4 text-white">
+      <div className="rounded-xl border border-[#C7B08D]/20 bg-[#FBF6EF] p-4 text-[#3F352B]">
         <div className="flex items-center justify-between gap-3">
           <div className="text-[8px] font-semibold uppercase tracking-[.13em] text-[#D6A66A]">TypeScript SDK</div>
-          <button type="button" onClick={()=>copy("ts",ts)} className="rounded-lg border border-white/15 px-3 py-1.5 text-[7px]">{copied==="ts"?"Copied":"Copy"}</button>
+          <button type="button" onClick={()=>copy("ts",ts)} className="rounded-lg border border-[#C7B08D]/25 bg-white px-3 py-1.5 text-[7px] text-[#76583A]">{copied==="ts"?"Copied":"Copy"}</button>
         </div>
-        <pre className="mt-3 overflow-auto whitespace-pre-wrap break-words font-mono text-[8px] leading-5 text-white/75">{ts}</pre>
+        <pre className="mt-3 overflow-auto whitespace-pre-wrap break-words font-mono text-[8px] leading-5 text-[#5F574E]">{ts}</pre>
       </div>
     </div>
 

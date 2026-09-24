@@ -209,7 +209,7 @@ test("staff AI feed is organization-and-self scoped owned intelligence with boun
   assert.match(aiFeed, /parsed\.slice\(0, 6\)/);
   assert.match(aiFeed, /title: String\(item\?\.title/);
   assert.match(aiFeed, /message: String\(item\?\.message/);
-  assert.match(aiFeed, /provider_id: "avantiqo-intelligence"/);
+  assert.match(aiFeed, /provider_id:\s*\n?\s*"avantiqo-intelligence"/);
   assert.doesNotMatch(aiFeed, /body\.staffId/);
   assert.doesNotMatch(aiFeed, /provider_id:\s*"openai"/);
 });

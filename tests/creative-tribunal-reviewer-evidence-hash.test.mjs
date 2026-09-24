@@ -12,7 +12,10 @@ test("Tribunal defines conservative reviewer-specific evidence scopes", () => {
   assert.match(source, /return "BRAND_TRUTH"/);
   assert.match(source, /return "NARRATIVE"/);
   assert.match(source, /return "FULL_PLAN"/);
-  assert.match(source, /default:\s*return canonical/);
+  assert.match(source, /default:\s*return \{/);
+  assert.match(source, /concept: compactRepairConcept\(canonical\)/);
+  assert.match(source, /story: compactRepairStory\(canonical\.story\)/);
+  assert.doesNotMatch(source, /default:\s*return canonical/);
 });
 
 test("review evidence hash binds reviewer mandate floor context and scoped evidence", () => {

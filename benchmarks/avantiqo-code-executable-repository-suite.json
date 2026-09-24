@@ -1,0 +1,50 @@
+{
+  "contract": "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_SUITE_V1",
+  "candidate_workspace_contains_expected_answers": false,
+  "hidden_acceptance_materialization": "RUNNER_ONLY_OUTSIDE_CANDIDATE_REPOSITORY",
+  "cases": [
+    {
+      "case_id": "repair_invoice_total_numeric_strings",
+      "title": "Repair invoice line summation without corrupting invalid values",
+      "objective": "Repair sumInvoiceLines so numeric strings add numerically, invalid values are ignored, non-arrays return zero, and finite zero/negative values are preserved.",
+      "seed_files": [
+        "tests/fixtures/code-ai-autonomous-repair/invoice-total.mjs"
+      ],
+      "candidate_paths": [
+        "invoice-total.mjs"
+      ],
+      "allowed_edit_paths": [
+        "invoice-total.mjs"
+      ],
+      "hidden_acceptance": {
+        "kind": "NODE_ASSERT_GENERATED",
+        "module": "./invoice-total.mjs",
+        "export": "sumInvoiceLines",
+        "case_set": "INVOICE_TOTAL_V1"
+      }
+    },
+    {
+      "case_id": "repair_invoice_summary_multifile",
+      "title": "Repair money normalization and invoice summary across files",
+      "objective": "Repair the two-file invoice summary so numeric strings normalize to finite numbers, invalid values normalize to zero, the summary reads line.total, and valid_line_count counts only finite numeric totals.",
+      "seed_files": [
+        "tests/fixtures/code-ai-autonomous-multifile/normalize-money.mjs",
+        "tests/fixtures/code-ai-autonomous-multifile/invoice-summary.mjs"
+      ],
+      "candidate_paths": [
+        "normalize-money.mjs",
+        "invoice-summary.mjs"
+      ],
+      "allowed_edit_paths": [
+        "normalize-money.mjs",
+        "invoice-summary.mjs"
+      ],
+      "hidden_acceptance": {
+        "kind": "NODE_ASSERT_GENERATED",
+        "module": "./invoice-summary.mjs",
+        "support_module": "./normalize-money.mjs",
+        "case_set": "INVOICE_SUMMARY_MULTIFILE_V1"
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -21,11 +21,11 @@ function healthClass(state) {
   if (state === "ACTION_REQUIRED" || state === "ATTENTION") {
     return "border-amber-400/20 bg-amber-400/10 text-amber-100";
   }
-  if (state === "SYNCING") return "border-sky-400/20 bg-sky-400/10 text-sky-100";
-  return "border-white/10 bg-white/[0.04] text-white/60";
+  if (state === "SYNCING") return "border-[#D6A66A]/30 bg-[#FBF3E8] text-[#9B6F3F]";
+  return "border-black/[0.08] bg-[#FBF8F3] text-[#5F5A54]";
 }
 
-export default function ShopifyIntegrationCard({ organizationId }) {
+export default function ShopifyIntegrationCard({ organizationId, onboarding = false }) {
   const [shop, setShop] = useState("");
   const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,7 @@ export default function ShopifyIntegrationCard({ organizationId }) {
     .replace(/^https?:\/\//, "")
     .replace(/\/$/, "");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -57,15 +57,15 @@ export default function ShopifyIntegrationCard({ organizationId }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     load();
-  }, [organizationId]);
+  }, [load]);
 
   function connect() {
     if (!normalized) return;
-    window.location.href = `/api/shopify/auth?organizationId=${encodeURIComponent(organizationId)}&shop=${encodeURIComponent(normalized)}`;
+    window.location.href = `/api/shopify/auth?organizationId=${encodeURIComponent(organizationId)}&shop=${encodeURIComponent(normalized)}${onboarding ? "&onboarding=1" : ""}`;
   }
 
   async function post(body, key) {
@@ -114,10 +114,55 @@ export default function ShopifyIntegrationCard({ organizationId }) {
   const reconciliation = snapshot?.reconciliation || {};
   const mapping = snapshot?.mapping || {};
 
+  if (onboarding) {
+    return (
+      <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#2D2822] lg:p-10">
+        <div className="mx-auto max-w-4xl">
+          <a href={`/workspace/${encodeURIComponent(organizationId)}/administration/communications-setup?onboarding=1`} className="text-[9px] font-semibold text-[#8A633C]">← Channels & connections</a>
+          <section className="mt-5 rounded-[24px] border border-black/[0.07] bg-white p-6 lg:p-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#A37849]">Commerce</div>
+                <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.04em]">Shopify</h1>
+                <p className="mt-2 max-w-2xl text-[10px] leading-5 text-[#777169]">Connect the organization’s Shopify store. The store administrator approves Avantiqo in Shopify; no API keys are entered here.</p>
+              </div>
+              {connection ? <span className={`rounded-full px-2.5 py-1 text-[8px] font-semibold ${health.state === "READY" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{health.label || "Connected"}</span> : <span className="rounded-full bg-[#F0E7DA] px-2.5 py-1 text-[8px] font-semibold text-[#8A633C]">Not connected</span>}
+            </div>
+
+            {error ? <div className="mt-4 rounded-xl border border-red-700/15 bg-red-50 px-4 py-3 text-[10px] text-red-800">{error}</div> : null}
+            {loading ? <div className="mt-5 text-[10px] text-[#817B73]">Loading Shopify status…</div> : !connection ? (
+              <div className="mt-5 rounded-2xl border border-[#C9AD89]/20 bg-[#FBF6EF] p-5">
+                <div className="text-[11px] font-semibold text-[#5C4731]">Store address</div>
+                <p className="mt-1 text-[9px] leading-5 text-[#7E7468]">Enter the permanent <strong>myshopify.com</strong> address. Shopify will open its own secure authorization screen.</p>
+                <input value={shop} onChange={(event) => setShop(event.target.value)} placeholder="your-store.myshopify.com" className="mt-4 h-10 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-[10px] outline-none focus:border-[#D6A66A]/70" />
+                <button type="button" onClick={connect} disabled={!normalized} className="mt-4 h-10 rounded-xl bg-[#D6A66A] px-4 text-[10px] font-semibold text-[#191919] disabled:opacity-35">Continue to Shopify</button>
+              </div>
+            ) : (
+              <div className="mt-5 space-y-4">
+                <div className="rounded-2xl border border-emerald-700/15 bg-emerald-50 p-4">
+                  <div className="text-[10px] font-semibold text-emerald-800">Store connected</div>
+                  <div className="mt-1 text-[9px] text-emerald-800/70">{store?.name || connection?.metadata?.account_name || connection?.metadata?.shop}</div>
+                </div>
+                <div className="rounded-2xl border border-black/[0.07] bg-[#FCFBF8] p-4">
+                  <div className="text-[10px] font-semibold text-[#5A5249]">Legal entity</div>
+                  <p className="mt-1 text-[9px] leading-4 text-[#817B73]">Choose which company entity owns this store’s sales. Avantiqo will not project orders until this ownership is explicit.</p>
+                  <select value={store?.entity_id || ""} onChange={(event) => post({ action: "map-store", assetId: store.id, entityId: event.target.value }, "store-entity")} disabled={!store || saving === "store-entity"} className="mt-3 h-10 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-[10px]">
+                    <option value="" disabled>Select legal entity</option>
+                    {(snapshot?.entities || []).map((entity) => <option key={entity.id} value={entity.id}>{entityLabel(entity)}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-black p-5 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-5 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="rounded-[30px] border border-white/10 bg-white/[0.025] p-6 lg:p-8">
+        <div className="rounded-[30px] border border-black/[0.08] bg-white p-6 lg:p-8">
           <a
             href={`/workspace/${encodeURIComponent(organizationId)}/administration/integrations`}
             className="text-sm text-[#D6A66A]"
@@ -127,9 +172,9 @@ export default function ShopifyIntegrationCard({ organizationId }) {
 
           <div className="mt-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="text-xs uppercase tracking-[0.22em] text-white/30">Commerce</div>
+              <div className="text-xs uppercase tracking-[0.22em] text-[#191919]/30">Commerce</div>
               <h1 className="mt-2 text-4xl font-light">Shopify</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/45">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[#191919]/45">
                 Connect the store once. Avantiqo receives verified Shopify events, performs recovery synchronization, and projects orders into canonical Commercial sales documents.
               </p>
             </div>
@@ -148,19 +193,19 @@ export default function ShopifyIntegrationCard({ organizationId }) {
           ) : null}
 
           {loading ? (
-            <div className="mt-8 text-sm text-white/40">Loading Shopify status…</div>
+            <div className="mt-8 text-sm text-[#191919]/40">Loading Shopify status…</div>
           ) : !connection ? (
-            <div className="mt-8 max-w-2xl rounded-3xl border border-white/10 bg-black/40 p-5">
+            <div className="mt-8 max-w-2xl rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-5">
               <div className="text-sm font-medium">Connect a Shopify store</div>
-              <p className="mt-2 text-sm leading-6 text-white/40">
+              <p className="mt-2 text-sm leading-6 text-[#191919]/40">
                 Enter the store address. Shopify will ask the store administrator to approve Avantiqo. No API keys are required from the customer.
               </p>
-              <label className="mt-5 block text-xs text-white/45">Shopify store</label>
+              <label className="mt-5 block text-xs text-[#191919]/45">Shopify store</label>
               <input
                 value={shop}
                 onChange={(event) => setShop(event.target.value)}
                 placeholder="your-store.myshopify.com"
-                className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm text-[#191919] outline-none"
               />
               <button
                 type="button"
@@ -179,9 +224,9 @@ export default function ShopifyIntegrationCard({ organizationId }) {
                 ["Projected events", projection.processed ?? 0],
                 ["Variant mappings", `${mapping.mapped_variants || 0} / ${mapping.total_variants || 0}`],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/30">{label}</div>
-                  <div className="mt-2 text-lg font-medium text-white/85">{value}</div>
+                <div key={label} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-[#191919]/30">{label}</div>
+                  <div className="mt-2 text-lg font-medium text-[#191919]/85">{value}</div>
                 </div>
               ))}
             </div>
@@ -190,12 +235,12 @@ export default function ShopifyIntegrationCard({ organizationId }) {
 
         {connection && !loading ? (
           <>
-            <section className="rounded-[30px] border border-white/10 bg-white/[0.025] p-6 lg:p-8">
+            <section className="rounded-[30px] border border-black/[0.08] bg-white p-6 lg:p-8">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <div className="text-xs uppercase tracking-[0.22em] text-white/30">Ownership scope</div>
+                  <div className="text-xs uppercase tracking-[0.22em] text-[#191919]/30">Ownership scope</div>
                   <h2 className="mt-2 text-2xl font-light">Legal entity</h2>
-                  <p className="mt-2 text-sm text-white/40">
+                  <p className="mt-2 text-sm text-[#191919]/40">
                     Shopify orders are not allowed into Commercial until the store is assigned to the legal entity that owns the sales activity.
                   </p>
                 </div>
@@ -208,7 +253,7 @@ export default function ShopifyIntegrationCard({ organizationId }) {
                     )
                   }
                   disabled={!store || saving === "store-entity"}
-                  className="min-w-[280px] rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none"
+                  className="min-w-[280px] rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm text-[#191919] outline-none"
                 >
                   <option value="" disabled>Select legal entity</option>
                   {(snapshot?.entities || []).map((entity) => (
@@ -218,38 +263,38 @@ export default function ShopifyIntegrationCard({ organizationId }) {
               </div>
             </section>
 
-            <section className="rounded-[30px] border border-white/10 bg-white/[0.025] p-6 lg:p-8">
-              <div className="text-xs uppercase tracking-[0.22em] text-white/30">Synchronization</div>
+            <section className="rounded-[30px] border border-black/[0.08] bg-white p-6 lg:p-8">
+              <div className="text-xs uppercase tracking-[0.22em] text-[#191919]/30">Synchronization</div>
               <h2 className="mt-2 text-2xl font-light">Operational health</h2>
               <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                  <div className="text-xs text-white/35">Pending events</div>
+                <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+                  <div className="text-xs text-[#191919]/35">Pending events</div>
                   <div className="mt-2 text-2xl">{projection.pending || 0}</div>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                  <div className="text-xs text-white/35">Blocked events</div>
+                <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+                  <div className="text-xs text-[#191919]/35">Blocked events</div>
                   <div className="mt-2 text-2xl">{projection.blocked || 0}</div>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                  <div className="text-xs text-white/35">Failed events</div>
+                <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+                  <div className="text-xs text-[#191919]/35">Failed events</div>
                   <div className="mt-2 text-2xl">{projection.failed || 0}</div>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                  <div className="text-xs text-white/35">Last recovery sync</div>
-                  <div className="mt-2 text-sm text-white/80">{formatDate(reconciliation.last_full_sync_at)}</div>
+                <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+                  <div className="text-xs text-[#191919]/35">Last recovery sync</div>
+                  <div className="mt-2 text-sm text-[#191919]/80">{formatDate(reconciliation.last_full_sync_at)}</div>
                 </div>
               </div>
-              <div className="mt-4 text-xs text-white/30">
+              <div className="mt-4 text-xs text-[#191919]/30">
                 Webhook configured: {formatDate(connection?.metadata?.webhook_configured_at)} · Latest provider event: {formatDate(projection?.latest?.created_at)}
               </div>
             </section>
 
-            <section className="rounded-[30px] border border-white/10 bg-white/[0.025] p-6 lg:p-8">
+            <section className="rounded-[30px] border border-black/[0.08] bg-white p-6 lg:p-8">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                  <div className="text-xs uppercase tracking-[0.22em] text-white/30">Inventory mapping</div>
+                  <div className="text-xs uppercase tracking-[0.22em] text-[#191919]/30">Inventory mapping</div>
                   <h2 className="mt-2 text-2xl font-light">Shopify variants → Avantiqo inventory</h2>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-white/40">
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[#191919]/40">
                     Mapping is explicit. Avantiqo never guesses from a matching name or SKU. Unmapped Shopify order lines remain valid external sale lines and do not reserve or change native stock.
                   </p>
                 </div>
@@ -257,7 +302,7 @@ export default function ShopifyIntegrationCard({ organizationId }) {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search variant or SKU"
-                  className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none lg:w-72"
+                  className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm text-[#191919] outline-none lg:w-72"
                 />
               </div>
 
@@ -266,12 +311,12 @@ export default function ShopifyIntegrationCard({ organizationId }) {
                   Assign the Shopify store to a legal entity before mapping inventory.
                 </div>
               ) : !(snapshot?.variants || []).length ? (
-                <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5 text-sm text-white/40">
+                <div className="mt-6 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5 text-sm text-[#191919]/40">
                   Shopify variants will appear here after the first recovery synchronization or product webhook.
                 </div>
               ) : (
-                <div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
-                  <div className="hidden grid-cols-[1.4fr_.7fr_1.5fr] gap-4 border-b border-white/10 bg-white/[0.03] px-4 py-3 text-[11px] uppercase tracking-[0.16em] text-white/30 md:grid">
+                <div className="mt-6 overflow-hidden rounded-2xl border border-black/[0.08]">
+                  <div className="hidden grid-cols-[1.4fr_.7fr_1.5fr] gap-4 border-b border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-[11px] uppercase tracking-[0.16em] text-[#191919]/30 md:grid">
                     <div>Shopify variant</div>
                     <div>SKU</div>
                     <div>Avantiqo inventory item</div>
@@ -282,10 +327,10 @@ export default function ShopifyIntegrationCard({ organizationId }) {
                       return (
                         <div key={variant.id} className="grid gap-3 px-4 py-4 md:grid-cols-[1.4fr_.7fr_1.5fr] md:items-center">
                           <div>
-                            <div className="text-sm text-white/85">{variant.name}</div>
-                            <div className="mt-1 text-xs text-white/25">Shopify ID {variant.external_id}</div>
+                            <div className="text-sm text-[#191919]/85">{variant.name}</div>
+                            <div className="mt-1 text-xs text-[#191919]/25">Shopify ID {variant.external_id}</div>
                           </div>
-                          <div className="text-sm text-white/55">{variant.sku || "—"}</div>
+                          <div className="text-sm text-[#191919]/55">{variant.sku || "—"}</div>
                           <div className="flex gap-2">
                             <select
                               value={variant.inventory_item_id || ""}
@@ -305,7 +350,7 @@ export default function ShopifyIntegrationCard({ organizationId }) {
                                   `variant-${variant.id}`,
                                 )
                               }
-                              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black px-3 py-2.5 text-sm text-white outline-none"
+                              className="min-w-0 flex-1 rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-sm text-[#191919] outline-none"
                             >
                               <option value="">Not mapped</option>
                               {(snapshot?.inventoryItems || []).map((item) => (

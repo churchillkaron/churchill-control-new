@@ -2,7 +2,7 @@ export default function CreativeDesignLayout({
   children,
 }) {
   return (
-    <section className="h-[calc(100vh-112px)] min-h-0 overflow-hidden bg-[#050505]">
+    <section className="min-h-[calc(100vh-112px)] bg-[#F7F6F3]">
       {children}
     </section>
   );

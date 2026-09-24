@@ -95,10 +95,10 @@ export default function AutomationLivePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-hidden">
-      <div className="h-28 border-b border-white/5 flex items-center justify-between px-12">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919] overflow-hidden">
+      <div className="h-28 border-b border-black/[0.06] flex items-center justify-between px-12">
         <div>
-          <div className="text-xs tracking-[0.35em] uppercase text-cyan-400 mb-3">
+          <div className="text-xs tracking-[0.35em] uppercase text-[#9B6F3F] mb-3">
             AUTOMATION
           </div>
 
@@ -107,7 +107,7 @@ export default function AutomationLivePage() {
           </div>
         </div>
 
-        <div className="px-6 h-14 rounded-3xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs uppercase tracking-[0.3em] flex items-center">
+        <div className="px-6 h-14 rounded-3xl bg-[#FBF3E8] border border-[#D6A66A]/30 text-[#9B6F3F] text-xs uppercase tracking-[0.3em] flex items-center">
           LIVE EXECUTION
         </div>
       </div>
@@ -160,7 +160,7 @@ export default function AutomationLivePage() {
               </div>
 
               <div className="grid grid-cols-2 gap-7">
-                <div className="rounded-3xl bg-black/30 p-6 overflow-auto">
+                <div className="rounded-3xl bg-[#F7F6F3]/30 p-6 overflow-auto">
                   <div className="text-xs uppercase tracking-[0.3em] text-zinc-500 mb-5">
                     Payload
                   </div>
@@ -174,7 +174,7 @@ export default function AutomationLivePage() {
                   </pre>
                 </div>
 
-                <div className="rounded-3xl bg-black/30 p-6 overflow-auto">
+                <div className="rounded-3xl bg-[#F7F6F3]/30 p-6 overflow-auto">
                   <div className="text-xs uppercase tracking-[0.3em] text-zinc-500 mb-5">
                     Result
                   </div>

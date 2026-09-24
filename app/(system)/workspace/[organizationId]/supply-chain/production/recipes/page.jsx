@@ -148,7 +148,7 @@ export default function RecipesPage() {
       title="Production Recipes"
       subtitle="Organization-scoped recipe costing and inventory mapping"
     >
-      <div className="p-6 text-white">
+      <div className="p-6 text-[#191919]">
         {error && (
           <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-red-300">
             {error}
@@ -170,7 +170,7 @@ export default function RecipesPage() {
               setMessage("");
             }}
             disabled={loading}
-            className="w-full rounded-2xl border border-zinc-700 bg-black p-4"
+            className="w-full rounded-2xl border border-zinc-700 bg-[#F7F6F3] p-4"
           >
             <option value="">Select Dish</option>
             {dishes.map((dish) => (
@@ -203,7 +203,7 @@ export default function RecipesPage() {
               type="button"
               onClick={addInventoryItemRow}
               disabled={!selectedDish || loading}
-              className="rounded-2xl bg-violet-500 px-5 py-3 text-white disabled:opacity-40"
+              className="rounded-2xl bg-amber-500 px-5 py-3 text-[#191919] disabled:opacity-40"
             >
               Add Item
             </button>
@@ -220,7 +220,7 @@ export default function RecipesPage() {
                   onChange={(event) =>
                     updateItem(index, "item_id", event.target.value)
                   }
-                  className="rounded-2xl border border-zinc-700 bg-black p-4"
+                  className="rounded-2xl border border-zinc-700 bg-[#F7F6F3] p-4"
                 >
                   <option value="">Select Inventory Item</option>
                   {inventoryItems.map((inventoryItem) => (
@@ -238,7 +238,7 @@ export default function RecipesPage() {
                   onChange={(event) =>
                     updateItem(index, "quantity", event.target.value)
                   }
-                  className="rounded-2xl border border-zinc-700 bg-black p-4"
+                  className="rounded-2xl border border-zinc-700 bg-[#F7F6F3] p-4"
                   placeholder="Quantity"
                 />
 
@@ -254,7 +254,7 @@ export default function RecipesPage() {
           </div>
 
           {!loading && selectedDish && recipeItems.length === 0 && (
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-zinc-500">
+            <div className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/20 p-5 text-sm text-zinc-500">
               No recipe items yet. Add the first inventory item to define this recipe.
             </div>
           )}

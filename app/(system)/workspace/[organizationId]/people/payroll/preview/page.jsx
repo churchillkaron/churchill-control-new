@@ -102,9 +102,9 @@ export default function PayrollPreviewPage() {
   const lifecycleBlockers = readiness?.lifecycleBlockers || [];
 
   return (
-    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
+        <section className="overflow-hidden rounded-[34px] border border-black/[0.08] bg-white/[0.045] backdrop-blur-3xl">
           <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
           <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -112,28 +112,28 @@ export default function PayrollPreviewPage() {
                 <ShieldCheck className="h-4 w-4" /> People · Payroll
               </div>
               <h1 className="mt-3 text-4xl font-black">Payroll Preview</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/45">
+              <p className="mt-2 max-w-3xl text-sm text-[#746E66]">
                 Calculate the same canonical payroll result used by generation without creating payroll, payment or accounting records.
               </p>
-              <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
+              <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[#A9A39C]">
                 {entityName}
               </div>
             </div>
             <Link
               href={peopleRoute(organizationId, "/payroll")}
-              className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/65"
+              className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-[#5F5A54]"
             >
               Payroll Control
             </Link>
           </div>
         </section>
 
-        <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+        <section className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5 lg:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Non-posting preflight</div>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-[#918B83]">Non-posting preflight</div>
               <h2 className="mt-1 text-2xl font-black">Calculate payroll without persistence</h2>
-              <p className="mt-2 text-sm text-white/40">
+              <p className="mt-2 text-sm text-[#817A72]">
                 Preview validates payroll inputs and calculates base pay, hours, overtime, leave, service charge, tax, social security, deductions and net pay using the same engine as generation.
               </p>
             </div>
@@ -142,7 +142,7 @@ export default function PayrollPreviewPage() {
                 type="month"
                 value={payrollMonth}
                 onChange={(event) => setPayrollMonth(event.target.value)}
-                className="h-12 rounded-xl border border-white/10 bg-[#111] px-4 text-sm outline-none"
+                className="h-12 rounded-xl border border-black/[0.08] bg-[#111] px-4 text-sm outline-none"
               />
               <button
                 type="button"
@@ -205,20 +205,20 @@ export default function PayrollPreviewPage() {
               </div>
             </section>
 
-            <section className="overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.035]">
+            <section className="overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#FBF8F3]">
               <div className="flex flex-col gap-2 p-5 lg:flex-row lg:items-end lg:justify-between lg:p-6">
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Calculated records</div>
+                  <div className="text-[10px] uppercase tracking-[0.22em] text-[#918B83]">Calculated records</div>
                   <h2 className="mt-1 text-2xl font-black">{payrollMonth}</h2>
                 </div>
-                <div className="text-xs text-white/35">
+                <div className="text-xs text-[#918B83]">
                   {currency || "Currency unavailable"} · Service charge {money(preview.totalServiceCharge, currency)} · {preview.timezone || "Timezone"}
                 </div>
               </div>
 
-              <div className="overflow-x-auto border-t border-white/5">
+              <div className="overflow-x-auto border-t border-black/[0.06]">
                 <table className="min-w-[1280px] text-left text-sm">
-                  <thead className="bg-black/20 text-[10px] uppercase tracking-[0.14em] text-white/35">
+                  <thead className="bg-[#F7F6F3]/20 text-[10px] uppercase tracking-[0.14em] text-[#918B83]">
                     <tr>
                       <th className="px-4 py-3">Employee</th>
                       <th className="px-4 py-3">Approved Hours</th>
@@ -235,24 +235,24 @@ export default function PayrollPreviewPage() {
                   </thead>
                   <tbody>
                     {records.map((row) => (
-                      <tr key={row.staff_id} className="border-t border-white/5">
+                      <tr key={row.staff_id} className="border-t border-black/[0.06]">
                         <td className="px-4 py-4">
                           <div className="font-bold">{row.staff_name}</div>
-                          <div className="mt-1 text-xs text-white/30">{row.role || row.department_cost_center || "Staff"}</div>
+                          <div className="mt-1 text-xs text-[#A19A92]">{row.role || row.department_cost_center || "Staff"}</div>
                         </td>
-                        <td className="px-4 py-4 text-white/65">
+                        <td className="px-4 py-4 text-[#5F5A54]">
                           {Number(row.approved_hours || 0).toFixed(2)}
-                          <div className="mt-1 text-[10px] text-white/25">OT {Number(row.overtime_hours || 0).toFixed(2)}</div>
+                          <div className="mt-1 text-[10px] text-[#A9A39C]">OT {Number(row.overtime_hours || 0).toFixed(2)}</div>
                         </td>
-                        <td className="px-4 py-4 text-white/65">{money(row.base_salary, currency)}</td>
-                        <td className="px-4 py-4 text-white/65">{money(row.overtime_pay, currency)}</td>
-                        <td className="px-4 py-4 text-white/65">{money(row.service_charge_bonus, currency)}</td>
-                        <td className="px-4 py-4 text-white/65">{money(row.gross_salary, currency)}</td>
-                        <td className="px-4 py-4 text-white/65">{money(row.tax_amount, currency)}</td>
-                        <td className="px-4 py-4 text-white/65">{money(row.social_security, currency)}</td>
-                        <td className="px-4 py-4 text-white/65">{money(otherDeductions(row), currency)}</td>
+                        <td className="px-4 py-4 text-[#5F5A54]">{money(row.base_salary, currency)}</td>
+                        <td className="px-4 py-4 text-[#5F5A54]">{money(row.overtime_pay, currency)}</td>
+                        <td className="px-4 py-4 text-[#5F5A54]">{money(row.service_charge_bonus, currency)}</td>
+                        <td className="px-4 py-4 text-[#5F5A54]">{money(row.gross_salary, currency)}</td>
+                        <td className="px-4 py-4 text-[#5F5A54]">{money(row.tax_amount, currency)}</td>
+                        <td className="px-4 py-4 text-[#5F5A54]">{money(row.social_security, currency)}</td>
+                        <td className="px-4 py-4 text-[#5F5A54]">{money(otherDeductions(row), currency)}</td>
                         <td className="px-4 py-4 font-black text-[#D6A66A]">{money(row.final_salary, currency)}</td>
-                        <td className="px-4 py-4 text-white/50">{row.review_required ? "Required" : "Clear"}</td>
+                        <td className="px-4 py-4 text-[#746E66]">{row.review_required ? "Required" : "Clear"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -273,14 +273,14 @@ function IssueGroup({ title, items, tone, description = "" }) {
       <div className={`flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] ${red ? "text-red-300" : "text-amber-300"}`}>
         <AlertTriangle className="h-4 w-4" /> {title}
       </div>
-      {description ? <div className="mt-2 text-xs text-white/40">{description}</div> : null}
+      {description ? <div className="mt-2 text-xs text-[#817A72]">{description}</div> : null}
       <div className="mt-4 space-y-2">
         {items.map((item) => (
-          <div key={item.code} className="rounded-2xl border border-white/[0.07] bg-black/20 p-4">
+          <div key={item.code} className="rounded-2xl border border-black/[0.07] bg-[#F7F6F3]/20 p-4">
             <div className={`text-[10px] font-black uppercase tracking-[0.14em] ${red ? "text-red-300" : "text-amber-300"}`}>
               {item.code.replaceAll("_", " ")}
             </div>
-            <div className="mt-1 text-sm text-white/65">{item.message}</div>
+            <div className="mt-1 text-sm text-[#5F5A54]">{item.message}</div>
           </div>
         ))}
       </div>
@@ -290,8 +290,8 @@ function IssueGroup({ title, items, tone, description = "" }) {
 
 function Metric({ label, value, accent = false }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
-      <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">{label}</div>
+    <div className="rounded-[24px] border border-black/[0.08] bg-[#FBF8F3] p-5">
+      <div className="text-[10px] uppercase tracking-[0.2em] text-[#918B83]">{label}</div>
       <div className={`mt-3 text-2xl font-black ${accent ? "text-[#D6A66A]" : ""}`}>{value}</div>
     </div>
   );

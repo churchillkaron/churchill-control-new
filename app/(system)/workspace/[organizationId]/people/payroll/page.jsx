@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Banknote,
@@ -178,7 +178,7 @@ export default function PayrollPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
 
     setLoading(true);
@@ -223,9 +223,9 @@ export default function PayrollPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
-  async function loadReadiness(month = payrollMonth) {
+  const loadReadiness = useCallback(async (month = payrollMonth) => {
     if (!organizationId || !/^\d{4}-\d{2}$/.test(month)) return;
 
     setReadinessLoading(true);
@@ -248,15 +248,15 @@ export default function PayrollPage() {
     } finally {
       setReadinessLoading(false);
     }
-  }
+  }, [organizationId, payrollMonth]);
 
   useEffect(() => {
     load();
-  }, [organizationId]);
+  }, [load]);
 
   useEffect(() => {
     loadReadiness(payrollMonth);
-  }, [organizationId, payrollMonth]);
+  }, [loadReadiness, payrollMonth]);
 
   const summary = useMemo(() => {
     const rows = governance?.payroll || [];
@@ -328,9 +328,9 @@ export default function PayrollPage() {
     generating || readinessLoading || !readiness || !readiness.canGenerate;
 
   return (
-    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
+        <section className="overflow-hidden rounded-[34px] border border-black/[0.08] bg-white backdrop-blur-3xl">
           <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
           <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -338,14 +338,14 @@ export default function PayrollPage() {
                 <ShieldCheck className="h-4 w-4" /> People · Payroll
               </div>
               <h1 className="mt-3 text-4xl font-black">Payroll Control Center</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/45">
+              <p className="mt-2 max-w-3xl text-sm text-[#746E66]">
                 One lifecycle from payroll readiness and generation to employee acknowledgement, management approval, accounting lock, payment and reconciliation.
               </p>
-              <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
+              <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[#A19A92]">
                 {payments?.entity?.legal_name || "Organization payroll"} · {governance?.role || payments?.role || "Role"}
               </div>
             </div>
-            <button type="button" onClick={refreshAll} disabled={loading || readinessLoading} className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40">
+            <button type="button" onClick={refreshAll} disabled={loading || readinessLoading} className="flex h-12 items-center gap-2 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 text-xs font-black uppercase tracking-[0.16em] text-[#5F5A54] disabled:opacity-40">
               <RefreshCw className="h-4 w-4" /> Refresh
             </button>
           </div>
@@ -362,27 +362,27 @@ export default function PayrollPage() {
         </section>
 
         <section className="grid gap-4 lg:grid-cols-[1.05fr_.95fr]">
-          <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+          <div className="rounded-[30px] border border-black/[0.08] bg-white p-5 lg:p-6">
             <div className="flex items-start gap-3">
               <div className="rounded-2xl bg-[#D6A66A]/10 p-3 text-[#D6A66A]"><Users className="h-5 w-5" /></div>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Step 1</div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-[#918B83]">Step 1</div>
                 <h2 className="mt-1 text-2xl font-black">Generate Payroll</h2>
-                <p className="mt-2 text-sm text-white/40">Build the monthly payroll from canonical compensation, attendance, schedules, overtime, service charge and deductions.</p>
+                <p className="mt-2 text-sm text-[#817A72]">Build the monthly payroll from canonical compensation, attendance, schedules, overtime, service charge and deductions.</p>
               </div>
             </div>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <input type="month" value={payrollMonth} onChange={(event) => setPayrollMonth(event.target.value)} className="h-12 flex-1 rounded-xl border border-white/10 bg-[#111] px-4 text-sm outline-none" />
+              <input type="month" value={payrollMonth} onChange={(event) => setPayrollMonth(event.target.value)} className="h-12 flex-1 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 text-sm outline-none" />
               <button type="button" onClick={generatePayroll} disabled={generationBlocked} className="h-12 rounded-xl bg-[#D6A66A] px-6 text-xs font-black uppercase tracking-[0.16em] text-black disabled:cursor-not-allowed disabled:opacity-35">
                 {generating ? "Generating..." : readinessLoading ? "Checking..." : "Generate payroll"}
               </button>
             </div>
           </div>
 
-          <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
-            <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Current exposure</div>
+          <div className="rounded-[30px] border border-black/[0.08] bg-white p-5 lg:p-6">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-[#918B83]">Current exposure</div>
             <div className="mt-3 text-4xl font-black text-[#D6A66A]">{money(summary.payrollTotal)}</div>
-            <div className="mt-1 text-xs text-white/30">Total net salary across loaded payroll records</div>
+            <div className="mt-1 text-xs text-[#A19A92]">Total net salary across loaded payroll records</div>
             <div className="mt-6 grid grid-cols-2 gap-3">
               <Mini label="Approved" value={summary.approved} />
               <Mini label="Prepared Batches" value={summary.preparedBatches} />
@@ -392,27 +392,27 @@ export default function PayrollPage() {
           </div>
         </section>
 
-        <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+        <section className="rounded-[30px] border border-black/[0.08] bg-white p-5 lg:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex items-start gap-3">
-              <div className={`rounded-2xl p-3 ${readiness?.canGenerate ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-300"}`}>
+              <div className={`rounded-2xl p-3 ${readiness?.canGenerate ? "bg-emerald-400/10 text-[#607057]" : "bg-amber-400/10 text-amber-300"}`}>
                 {readiness?.canGenerate ? <CheckCircle2 className="h-5 w-5" /> : <CalendarClock className="h-5 w-5" />}
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Generation readiness · {payrollMonth}</div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-[#918B83]">Generation readiness · {payrollMonth}</div>
                 <h2 className="mt-1 text-2xl font-black">
                   {readinessLoading ? "Checking payroll inputs" : readiness?.canGenerate ? "Ready to generate" : "Action required before payroll"}
                 </h2>
-                <p className="mt-2 text-sm text-white/40">
+                <p className="mt-2 text-sm text-[#817A72]">
                   Payroll generation is blocked until legal-employer scope, compensation, schedule coverage and period-close inputs are complete.
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href={peopleRoute(organizationId, "/directory")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Employees</Link>
-              <Link href={peopleCompensationRoute(organizationId)} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Compensation</Link>
-              <Link href={peopleRoute(organizationId, "/scheduling")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Scheduling</Link>
-              <Link href={peopleRoute(organizationId, "/attendance")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Attendance</Link>
+              <Link href={peopleRoute(organizationId, "/directory")} className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#5F5A54]">Employees</Link>
+              <Link href={peopleCompensationRoute(organizationId)} className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#5F5A54]">Compensation</Link>
+              <Link href={peopleRoute(organizationId, "/scheduling")} className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#5F5A54]">Scheduling</Link>
+              <Link href={peopleRoute(organizationId, "/attendance")} className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#5F5A54]">Attendance</Link>
             </div>
           </div>
 
@@ -445,25 +445,25 @@ export default function PayrollPage() {
           ) : null}
         </section>
 
-        <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+        <section className="rounded-[30px] border border-black/[0.08] bg-white p-5 lg:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex items-start gap-3">
-              <div className={`rounded-2xl p-3 ${readiness?.canCompleteLifecycle ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-300"}`}>
+              <div className={`rounded-2xl p-3 ${readiness?.canCompleteLifecycle ? "bg-emerald-400/10 text-[#607057]" : "bg-amber-400/10 text-amber-300"}`}>
                 {readiness?.canCompleteLifecycle ? <CheckCircle2 className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">End-to-end lifecycle readiness</div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-[#918B83]">End-to-end lifecycle readiness</div>
                 <h2 className="mt-1 text-2xl font-black">
                   {readinessLoading ? "Checking Finance and payment controls" : readiness?.canCompleteLifecycle ? "Full payroll lifecycle ready" : "Lifecycle setup still required"}
                 </h2>
-                <p className="mt-2 max-w-3xl text-sm text-white/40">
+                <p className="mt-2 max-w-3xl text-sm text-[#817A72]">
                   These controls do not stop calculation unless required, but they must be complete before payroll can safely reach payment, Finance posting, finalization and archive.
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href={peoplePayrollRoute(organizationId, "/payments")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Payments</Link>
-              <Link href={financeRoute(organizationId, "/fiscal-periods")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Fiscal Periods</Link>
+              <Link href={peoplePayrollRoute(organizationId, "/payments")} className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#5F5A54]">Payments</Link>
+              <Link href={financeRoute(organizationId, "/fiscal-periods")} className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#5F5A54]">Fiscal Periods</Link>
             </div>
           </div>
 
@@ -493,31 +493,31 @@ export default function PayrollPage() {
         </section>
 
         <section className="grid gap-4 lg:grid-cols-2">
-          <Link href={peoplePayrollRoute(organizationId, "/governance")} className="group rounded-[30px] border border-white/10 bg-white/[0.035] p-5 transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.04] lg:p-6">
+          <Link href={peoplePayrollRoute(organizationId, "/governance")} className="group rounded-[30px] border border-black/[0.08] bg-white p-5 transition hover:border-[#D6A66A]/55 hover:bg-[#FBF3E8] lg:p-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-cyan-400/10 p-3 text-cyan-300"><ClipboardCheck className="h-5 w-5" /></div>
-              <div><div className="text-[10px] uppercase tracking-[0.22em] text-cyan-300/70">Step 2–3</div><h2 className="mt-1 text-2xl font-black">Governance</h2></div>
+              <div className="rounded-2xl bg-[#FBF3E8] p-3 text-[#9B6F3F]"><ClipboardCheck className="h-5 w-5" /></div>
+              <div><div className="text-[10px] uppercase tracking-[0.22em] text-[#9B6F3F]">Step 2–3</div><h2 className="mt-1 text-2xl font-black">Governance</h2></div>
             </div>
-            <p className="mt-4 text-sm text-white/40">Review employee acknowledgements and disputes, approve or reject payroll, then lock approved records for accounting.</p>
-            <div className="mt-5 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-cyan-300"><CheckCircle2 className="h-4 w-4" /> Open governance</div>
+            <p className="mt-4 text-sm text-[#817A72]">Review employee acknowledgements and disputes, approve or reject payroll, then lock approved records for accounting.</p>
+            <div className="mt-5 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#9B6F3F]"><CheckCircle2 className="h-4 w-4" /> Open governance</div>
           </Link>
 
           {paymentRestricted ? (
-            <div className="rounded-[30px] border border-white/10 bg-white/[0.025] p-5 lg:p-6">
+            <div className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5 lg:p-6">
               <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-white/5 p-3 text-white/35"><Banknote className="h-5 w-5" /></div>
-                <div><div className="text-[10px] uppercase tracking-[0.22em] text-white/30">Step 4–5</div><h2 className="mt-1 text-2xl font-black text-white/50">Payments & Reconciliation</h2></div>
+                <div className="rounded-2xl bg-[#FBF8F3] p-3 text-[#918B83]"><Banknote className="h-5 w-5" /></div>
+                <div><div className="text-[10px] uppercase tracking-[0.22em] text-[#A19A92]">Step 4–5</div><h2 className="mt-1 text-2xl font-black text-[#817A72]">Payments & Reconciliation</h2></div>
               </div>
-              <p className="mt-4 text-sm text-white/35">Payment execution is restricted to owner, accounting and payroll administration roles. Governance remains available for your role.</p>
+              <p className="mt-4 text-sm text-[#918B83]">Payment execution is restricted to owner, accounting and payroll administration roles. Governance remains available for your role.</p>
             </div>
           ) : (
-            <Link href={peoplePayrollRoute(organizationId, "/payments")} className="group rounded-[30px] border border-white/10 bg-white/[0.035] p-5 transition hover:border-emerald-400/30 hover:bg-emerald-400/[0.04] lg:p-6">
+            <Link href={peoplePayrollRoute(organizationId, "/payments")} className="group rounded-[30px] border border-black/[0.08] bg-white p-5 transition hover:border-[#D6A66A]/45 hover:bg-[#F7F6F3] lg:p-6">
               <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-emerald-400/10 p-3 text-emerald-300"><Banknote className="h-5 w-5" /></div>
-                <div><div className="text-[10px] uppercase tracking-[0.22em] text-emerald-300/70">Step 4–5</div><h2 className="mt-1 text-2xl font-black">Payments & Reconciliation</h2></div>
+                <div className="rounded-2xl bg-emerald-400/10 p-3 text-[#607057]"><Banknote className="h-5 w-5" /></div>
+                <div><div className="text-[10px] uppercase tracking-[0.22em] text-[#607057]/70">Step 4–5</div><h2 className="mt-1 text-2xl font-black">Payments & Reconciliation</h2></div>
               </div>
-              <p className="mt-4 text-sm text-white/40">Prepare locked payroll for bank payment, verify employee bank snapshots, reconcile against the real transaction reference and mark payroll paid.</p>
-              <div className="mt-5 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-300"><Banknote className="h-4 w-4" /> Open payments</div>
+              <p className="mt-4 text-sm text-[#817A72]">Prepare locked payroll for bank payment, verify employee bank snapshots, reconcile against the real transaction reference and mark payroll paid.</p>
+              <div className="mt-5 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#607057]"><Banknote className="h-4 w-4" /> Open payments</div>
             </Link>
           )}
         </section>
@@ -527,9 +527,9 @@ export default function PayrollPage() {
 }
 
 function Metric({ label, value }) {
-  return <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5"><div className="text-[10px] uppercase tracking-[0.2em] text-white/35">{label}</div><div className="mt-3 text-3xl font-black">{value}</div></div>;
+  return <div className="rounded-[24px] border border-black/[0.08] bg-white p-5"><div className="text-[10px] uppercase tracking-[0.2em] text-[#918B83]">{label}</div><div className="mt-3 text-3xl font-black">{value}</div></div>;
 }
 
 function Mini({ label, value }) {
-  return <div className="rounded-2xl border border-white/[0.07] bg-black/20 p-3"><div className="text-[9px] uppercase tracking-[0.16em] text-white/30">{label}</div><div className="mt-2 text-xl font-black">{value}</div></div>;
+  return <div className="rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-3"><div className="text-[9px] uppercase tracking-[0.16em] text-[#A19A92]">{label}</div><div className="mt-2 text-xl font-black">{value}</div></div>;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -135,7 +135,7 @@ export default function FinancePracticePortfolioFocus({ organizationId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     try {
       setLoading(true);
@@ -156,11 +156,11 @@ export default function FinancePracticePortfolioFocus({ organizationId }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     load();
-  }, [organizationId]);
+  }, [load]);
 
   const summary = data?.summary || {};
   const clients = useMemo(

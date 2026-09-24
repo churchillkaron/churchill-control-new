@@ -1269,6 +1269,8 @@ export default function LocalHeyAvantiqoWakeBridge() {
     else enableWake(true);
   }
 
+  const communicationRoute = String(pathname || "").includes("/commercial/customers/communications");
+
   let label = "Enable Avantiqo";
   if (!contextReady) label = "Avantiqo voice loading";
   else if (!supported) label = "Wake-word voice unavailable";
@@ -1280,6 +1282,8 @@ export default function LocalHeyAvantiqoWakeBridge() {
   else if (status === "navigating") label = "Avantiqo · Opening";
   else if (status === "voice-error") label = "Avantiqo · Voice error";
   else if (enabled) label = "Say “Avantiqo”";
+
+  if (communicationRoute) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-[95] flex flex-col items-end gap-2">

@@ -3,6 +3,7 @@ import { provisionOrganization } from "@/lib/onboarding/provisionOrganization";
 import { buildOnboardingCore } from "@/lib/onboarding/aiOnboardingCore";
 import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { resolveOnboardingJurisdictionPolicy } from "@/lib/onboarding/OnboardingJurisdictionPolicy";
 import {
   acquireOnboardingProvisionRequest,
   completeOnboardingProvisionRequest,
@@ -210,11 +211,16 @@ export async function POST(request) {
     const normalizedCountryCode = countryCode(country);
     const ownerName = clean(body.ownerName);
     const ownerPhone = clean(body.ownerPhone);
+    const legalName = clean(body.legalName) || name;
+    const companyRegistrationNumber = clean(body.companyRegistrationNumber);
+    const taxRegistrationNumber = clean(body.taxRegistrationNumber);
     const thaiBusiness = normalizedCountryCode === "TH";
-    const currency = currencyCode(body.currency || (thaiBusiness ? "THB" : ""));
+    const jurisdictionPolicy = resolveOnboardingJurisdictionPolicy(normalizedCountryCode);
+    const currency = currencyCode(jurisdictionPolicy.currency || body.currency || "");
     const accountingStandard = clean(
-      body.accountingStandard || (thaiBusiness ? "TFRS" : "IFRS")
+      jurisdictionPolicy.accounting_standard || body.accountingStandard || "IFRS"
     ).toUpperCase();
+    const vatRegistered = thaiBusiness ? body.vatRegistered === true : false;
 
     if (!name || !industry || !country || !ownerName || !ownerEmail) {
       return NextResponse.json(
@@ -237,6 +243,20 @@ export async function POST(request) {
     if (!currency) {
       return NextResponse.json(
         { success:false, error:"Base currency must be a valid three-letter ISO currency code" },
+        { status:400 },
+      );
+    }
+
+    if (thaiBusiness && typeof body.vatRegistered !== "boolean") {
+      return NextResponse.json(
+        { success:false, error:"VAT registration must be answered Yes or No" },
+        { status:400 },
+      );
+    }
+
+    if (thaiBusiness && vatRegistered && !taxRegistrationNumber) {
+      return NextResponse.json(
+        { success:false, error:"VAT / tax registration number is required when VAT registered = Yes" },
         { status:400 },
       );
     }
@@ -280,6 +300,10 @@ export async function POST(request) {
       country: normalizedCountryCode,
       currency,
       accountingStandard,
+      vatRegistered,
+      legalName,
+      companyRegistrationNumber: companyRegistrationNumber || null,
+      taxRegistrationNumber: taxRegistrationNumber || null,
       signupIntent: requestedSignupIntent,
       onboardingSource,
       supplierAccountId: supplierAccountId || null,
@@ -335,13 +359,27 @@ export async function POST(request) {
     };
 
     payload.finance = {
-      taxRegime: thaiBusiness ? "THAILAND" : "UNCONFIGURED",
+      taxRegime: jurisdictionPolicy.tax_regime,
       accountingStandard,
       accountingMode: "operational_entity",
-      legalName: name,
+      legalName,
       displayName: name,
+      companyRegistrationNumber: companyRegistrationNumber || null,
+      taxRegistrationNumber: taxRegistrationNumber || null,
       country,
       currency,
+      timezone: jurisdictionPolicy.timezone || null,
+      locale: jurisdictionPolicy.locale || null,
+      vatRegistered,
+      withholdingTaxEnabled: jurisdictionPolicy.withholding_tax_enabled === true,
+      vatRate: jurisdictionPolicy.vat_rate ?? null,
+      vatRateValidThrough: jurisdictionPolicy.vat_rate_valid_through || null,
+      jurisdictionReviewRequired: jurisdictionPolicy.requires_review === true,
+      fiscalYearStartMonth: jurisdictionPolicy.fiscal_year_start_month,
+      fiscalYearStartDay: jurisdictionPolicy.fiscal_year_start_day,
+      fiscalYearEndMonth: jurisdictionPolicy.fiscal_year_end_month,
+      fiscalYearEndDay: jurisdictionPolicy.fiscal_year_end_day,
+      jurisdictionAutomated: jurisdictionPolicy.automated === true,
     };
 
     payload.paymentSetup =
@@ -426,7 +464,7 @@ export async function POST(request) {
           result?.payments?.cardPayments?.onboardingUrl ||
           (onboardingSource === "supplier"
             ? `/supplier-portal/settings?businessLinked=${encodeURIComponent(result.organization.id)}`
-            : `/workspace/${result.organization.id}`),
+            : `/workspace/${result.organization.id}/administration/onboarding`),
       },
     };
 
@@ -447,7 +485,7 @@ export async function POST(request) {
         redirectTo:
           onboardingSource === "supplier"
             ? `/supplier-portal/settings?businessLinked=${encodeURIComponent(result.organization.id)}`
-            : `/workspace/${result.organization.id}`,
+            : `/workspace/${result.organization.id}/administration/onboarding`,
       },
     };
 

@@ -96,7 +96,7 @@ export function HotelWorkspaceShell({
                   key={item.id}
                   href={hotelWorkspaceHref(organizationId, item.route)}
                   className={selected
-                    ? "shrink-0 rounded-lg bg-[#25231F] px-2.5 py-1.5 text-[8px] font-semibold text-white"
+                    ? "shrink-0 rounded-lg bg-[#25231F] px-2.5 py-1.5 text-[8px] font-semibold text-[#191919]"
                     : "shrink-0 rounded-lg px-2.5 py-1.5 text-[8px] font-semibold text-[#746E66] transition hover:bg-white hover:text-[#76583A]"}
                 >
                   {item.label}
@@ -113,7 +113,7 @@ export function HotelWorkspaceShell({
 }
 
 export function HotelPrimaryAction({ href, onClick, disabled = false, children, type = "button" }) {
-  const className = "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-45";
+  const className = "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-[#191919] transition hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-45";
   if (href) return <Link href={href} className={className}>{children}</Link>;
   return <button type={type} onClick={onClick} disabled={disabled} className={className}>{children}</button>;
 }

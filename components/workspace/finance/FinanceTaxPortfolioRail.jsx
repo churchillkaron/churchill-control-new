@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Building2, ChevronDown, ChevronUp, Clock3, RefreshCw, ShieldCheck, UserCheck, Users } from "lucide-react";
 
 function upper(value) {
@@ -86,7 +86,7 @@ export default function FinanceTaxPortfolioRail({ organizationId, entityId, sele
   const [state, setState] = useState({ loading: false, error: "", body: null });
   const [busyKey, setBusyKey] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     try {
       setState(current => ({ ...current, loading: true, error: "" }));
@@ -99,12 +99,12 @@ export default function FinanceTaxPortfolioRail({ organizationId, entityId, sele
     } catch (error) {
       setState({ loading: false, error: error?.message || "Tax portfolio could not be loaded", body: null });
     }
-  }
+  }, [organizationId]);
 
-  useEffect(() => { load(); }, [organizationId]);
+  useEffect(() => { load(); }, [load]);
 
-  const filingRows = Array.isArray(state.body?.rows) ? state.body.rows : [];
-  const workRows = Array.isArray(state.body?.dependency_rows) ? state.body.dependency_rows : [];
+  const filingRows = useMemo(() => (Array.isArray(state.body?.rows) ? state.body.rows : []), [state.body?.rows]);
+  const workRows = useMemo(() => (Array.isArray(state.body?.dependency_rows) ? state.body.dependency_rows : []), [state.body?.dependency_rows]);
   const summary = state.body?.dependency_summary || {};
   const filingSummary = state.body?.summary || {};
   const visibleWorkRows = useMemo(() => workRows.filter(row => {
@@ -182,7 +182,7 @@ export default function FinanceTaxPortfolioRail({ organizationId, entityId, sele
         </button>
 
         {expanded ? <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.07] bg-white">
-          <div className="grid gap-px border-b border-black/[0.07] bg-black/[0.05] xl:grid-cols-[minmax(0,1.55fr)_minmax(390px,0.8fr)]">
+          <div className="grid gap-px border-b border-black/[0.07] bg-[#F7F6F3]/[0.05] xl:grid-cols-[minmax(0,1.55fr)_minmax(390px,0.8fr)]">
             <div className="bg-white p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -215,7 +215,7 @@ export default function FinanceTaxPortfolioRail({ organizationId, entityId, sele
                       {nextWork.target_at ? <div className={nextWork.target_overdue ? "text-red-800" : ""}>Internal target {date(nextWork.target_at)}</div> : null}
                     </div>
                     <div className="mt-2 flex flex-col gap-1.5">
-                      {nextWork.unowned ? <button type="button" onClick={() => takeOwnership(nextWork)} disabled={Boolean(busyKey)} className="h-9 rounded-md bg-[#1F1E1B] px-3 text-[11px] font-semibold text-white disabled:opacity-35">{busyKey === nextOwnershipKey ? "Taking…" : "Take ownership"}</button> : nextWork.owned_by_me && nextIsCurrent ? <button type="button" onClick={() => openFiling(nextWork)} disabled={Boolean(busyKey)} className="h-9 rounded-md bg-[#1F1E1B] px-3 text-[11px] font-semibold text-white disabled:opacity-35">Open filing</button> : nextWork.owned_by_me ? <span className="inline-flex h-9 items-center justify-center rounded-md border border-black/[0.08] bg-[#F4F2EE] px-3 text-[11px] font-semibold text-[#716B63]">Switch entity first</span> : <span className="inline-flex h-9 items-center justify-center rounded-md border border-black/[0.08] bg-[#F4F2EE] px-3 text-[11px] font-semibold text-[#716B63]">Colleague owned</span>}
+                      {nextWork.unowned ? <button type="button" onClick={() => takeOwnership(nextWork)} disabled={Boolean(busyKey)} className="h-9 rounded-md bg-[#1F1E1B] px-3 text-[11px] font-semibold text-[#191919] disabled:opacity-35">{busyKey === nextOwnershipKey ? "Taking…" : "Take ownership"}</button> : nextWork.owned_by_me && nextIsCurrent ? <button type="button" onClick={() => openFiling(nextWork)} disabled={Boolean(busyKey)} className="h-9 rounded-md bg-[#1F1E1B] px-3 text-[11px] font-semibold text-[#191919] disabled:opacity-35">Open filing</button> : nextWork.owned_by_me ? <span className="inline-flex h-9 items-center justify-center rounded-md border border-black/[0.08] bg-[#F4F2EE] px-3 text-[11px] font-semibold text-[#716B63]">Switch entity first</span> : <span className="inline-flex h-9 items-center justify-center rounded-md border border-black/[0.08] bg-[#F4F2EE] px-3 text-[11px] font-semibold text-[#716B63]">Colleague owned</span>}
                       {nextWork.unowned && nextIsCurrent ? <button type="button" onClick={() => openFiling(nextWork)} disabled={Boolean(busyKey)} className="h-8 rounded-md border border-black/[0.09] bg-white px-3 text-[11px] font-semibold disabled:opacity-35">Open filing</button> : null}
                       {!nextIsCurrent ? <div className="text-center text-[11px] leading-3 text-[#99938B]">Business Context stays fixed until the legal entity is deliberately switched.</div> : null}
                     </div>
@@ -277,7 +277,7 @@ export default function FinanceTaxPortfolioRail({ organizationId, entityId, sele
                   <td className="px-3 py-3"><div className="inline-flex items-center gap-1 font-semibold text-[#4B4640]">{row.owned_by_me ? <UserCheck size={10} /> : <Users size={10} />}{ownerLabel(row)}</div>{row.target_at ? <div className={`mt-0.5 text-[11px] ${row.target_overdue ? "text-red-800" : "text-[#918B83]"}`}>Target {date(row.target_at)}</div> : <div className="mt-0.5 text-[11px] text-[#A09A92]">No internal target</div>}{row.acknowledged_at ? <div className="mt-0.5 text-[11px] text-emerald-800">Acknowledged</div> : null}</td>
                   <td className="px-3 py-3"><div className={`max-w-[260px] font-semibold ${clientDependencyTone(row.client_dependency_state)}`}>{requestLabel(row)}</div>{row.client_dependency_detail ? <div className="mt-0.5 max-w-[280px] text-[11px] leading-3.5 text-[#817B73]">{row.client_dependency_detail}</div> : null}{row.client_next_eligible_follow_up_at ? <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9A7045]">Next eligible {date(row.client_next_eligible_follow_up_at)}</div> : row.client_request_due_at ? <div className="mt-1 text-[11px] text-[#918B83]">Client due {date(row.client_request_due_at)}</div> : null}{row.client_should_wait ? <div className="mt-1 text-[11px] font-semibold text-[#716B63]">Do not chase</div> : null}</td>
                   <td className="px-3 py-3"><div className="max-w-[250px] font-semibold leading-4 text-[#3F3A35]">{row.client_dependency_action || row.next_action}</div><div className="mt-0.5 text-[11px] text-[#918B83]">{row.client_evidence ? "Client can supply evidence; accountant still validates live Tax truth." : "Accounting team action."}</div>{row.client_safe_to_follow_up ? <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-amber-900">Human follow-up is eligible</div> : null}</td>
-                  <td className="px-3 py-3"><div className="flex flex-col gap-1.5">{row.unowned ? <button type="button" onClick={() => takeOwnership(row)} disabled={Boolean(busyKey)} className="h-8 rounded-md bg-[#1F1E1B] px-2.5 text-[11px] font-semibold text-white disabled:opacity-35">{busyKey === ownershipKey ? "Taking…" : "Take ownership"}</button> : row.owned_by_me ? <span className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-emerald-700/15 bg-emerald-50 px-2.5 text-[11px] font-semibold text-emerald-800"><UserCheck size={9} /> Mine</span> : <span className="inline-flex h-8 items-center justify-center rounded-md border border-black/[0.07] bg-[#F4F2EE] px-2.5 text-[11px] font-semibold text-[#716B63]">Colleague owned</span>}<button type="button" onClick={() => openFiling(row)} disabled={!isCurrent || Boolean(busyKey)} className="h-8 rounded-md border border-black/[0.09] bg-white px-2.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-35">{isCurrent ? isSelected ? "Selected" : "Open filing" : "Switch entity first"}</button></div></td>
+                  <td className="px-3 py-3"><div className="flex flex-col gap-1.5">{row.unowned ? <button type="button" onClick={() => takeOwnership(row)} disabled={Boolean(busyKey)} className="h-8 rounded-md bg-[#1F1E1B] px-2.5 text-[11px] font-semibold text-[#191919] disabled:opacity-35">{busyKey === ownershipKey ? "Taking…" : "Take ownership"}</button> : row.owned_by_me ? <span className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-emerald-700/15 bg-emerald-50 px-2.5 text-[11px] font-semibold text-emerald-800"><UserCheck size={9} /> Mine</span> : <span className="inline-flex h-8 items-center justify-center rounded-md border border-black/[0.07] bg-[#F4F2EE] px-2.5 text-[11px] font-semibold text-[#716B63]">Colleague owned</span>}<button type="button" onClick={() => openFiling(row)} disabled={!isCurrent || Boolean(busyKey)} className="h-8 rounded-md border border-black/[0.09] bg-white px-2.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-35">{isCurrent ? isSelected ? "Selected" : "Open filing" : "Switch entity first"}</button></div></td>
                 </tr>;
               })}</tbody>
             </table>

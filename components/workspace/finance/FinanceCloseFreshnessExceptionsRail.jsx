@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AlertTriangle, FileClock, LoaderCircle, RefreshCw, ShieldAlert } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 function shortDate(value) {
   return value ? String(value).slice(0, 10) : "Unknown date";
@@ -17,7 +17,7 @@ function label(value) {
 export default function FinanceCloseFreshnessExceptionsRail({ organizationId }) {
   const [state, setState] = useState({ loading: true, error: "", data: null });
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     setState((current) => ({ ...current, loading: true, error: "" }));
     try {
@@ -30,11 +30,11 @@ export default function FinanceCloseFreshnessExceptionsRail({ organizationId }) 
     } catch (error) {
       setState({ loading: false, error: error?.message || "Closed-package freshness control unavailable", data: null });
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     load();
-  }, [organizationId]);
+  }, [load]);
 
   if (!organizationId) return null;
   if (state.loading && !state.data) {

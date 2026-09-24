@@ -1,3 +1,5 @@
+const path = require("path");
+
 /** @type {import('next').NextConfig} */
 
 const creativeMediaBinaries = [
@@ -35,10 +37,26 @@ const nextConfig = {
 
   images: {
     unoptimized: true,
+    remotePatterns: [
+      { protocol: "https", hostname: "raw.githubusercontent.com" },
+    ],
   },
 
   webpack(config, { dev }) {
-    if (dev && process.env.AVANTIQO_DEV_DISK_CACHE !== "1") {
+    if (dev && process.env.AVANTIQO_DEV_DISK_CACHE === "1") {
+      config.cache = {
+        type: "filesystem",
+        cacheDirectory: path.resolve(
+          __dirname,
+          process.env.AVANTIQO_NEXT_DIST_DIR || ".next",
+          "cache",
+          "webpack",
+        ),
+        buildDependencies: {
+          config: [__filename],
+        },
+      };
+    } else if (dev) {
       config.cache = { type: "memory" };
     }
     return config;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -185,7 +185,7 @@ export default function FinanceReportingDesk({ organizationId }) {
     });
   }
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !entityId || !periodId) {
       setState({ loading: false, error: "", command: null, pnl: null, balance: null, cash: null, trial: null });
       return;
@@ -223,15 +223,15 @@ export default function FinanceReportingDesk({ organizationId }) {
       cash,
       trial,
     });
-  }
+  }, [entityId, organizationId, periodId]);
 
-  useEffect(() => { load(); }, [organizationId, entityId, periodId]);
+  useEffect(() => { load(); }, [load]);
 
   const pnlSummary = state.pnl?.data?.document?.summary || {};
   const balanceSummary = state.balance?.data?.document?.summary || {};
   const cashSummary = state.cash?.data?.document?.summary || {};
-  const trial = state.trial?.data || {};
-  const command = state.command?.data || {};
+  const trial = useMemo(() => state.trial?.data || {}, [state.trial?.data]);
+  const command = useMemo(() => state.command?.data || {}, [state.command?.data]);
   const currency = state.pnl?.data?.document?.currency?.code || state.balance?.data?.document?.currency?.code || command?.context?.currency || businessContext.entity?.currency || businessContext.organization?.default_currency || null;
 
   const revenue = Number(pnlSummary.revenue || 0);

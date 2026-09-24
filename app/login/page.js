@@ -2,15 +2,23 @@
 
 export const dynamic = "force-dynamic";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound, Lock, Mail } from "lucide-react";
 
 import {
   PLATFORM_LOGIN_BRAND_SESSION_KEY,
-  resolvePlatformLoginContext,
+  resolvePlatformHostContext,
 } from "@/lib/platform/context/resolvePlatformHostContext";
-import { supabase } from "@/lib/shared/supabase/client";
+
+let browserSupabasePromise = null;
+async function getBrowserSupabase() {
+  if (!browserSupabasePromise) {
+    browserSupabasePromise = import("@/lib/shared/supabase/client").then((module) => module.supabase);
+  }
+  return browserSupabasePromise;
+}
 
 function PlatformIdentity({ brand }) {
   if (!brand) {
@@ -24,17 +32,18 @@ function PlatformIdentity({ brand }) {
     );
   }
 
-  const wideLogo = brand.id === "churchill" || brand.id === "coleley";
+  const wideLogo = brand.logoLayout === "wide";
 
   return (
     <div className="flex flex-col items-center">
       <div className="relative flex h-[148px] w-full items-center justify-center sm:h-[162px]">
         <div className="pointer-events-none absolute h-[100px] w-[180px] rounded-full bg-[#D6A66A]/10 blur-3xl" />
-        <img
+        <Image
           src={brand.logoSrc}
           alt={brand.logoAlt}
-          width={wideLogo ? "520" : "320"}
-          height={wideLogo ? "260" : "220"}
+          width={wideLogo ? 520 : 320}
+          height={wideLogo ? 260 : 220}
+          unoptimized
           className={
             wideLogo
               ? "relative h-auto max-h-[142px] w-full max-w-[440px] rounded-[18px] object-contain shadow-[0_0_36px_rgba(214,166,106,0.16)]"
@@ -90,25 +99,26 @@ export default function LoginPage() {
 
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const requestedBrand = params.get("brand");
-      const resolvedBrand = resolvePlatformLoginContext(
-        window.location.hostname,
-        requestedBrand,
-      );
+      const resolvedBrand = resolvePlatformHostContext(window.location.hostname);
 
       setBrand(resolvedBrand);
 
-      if (resolvedBrand?.id && resolvedBrand.id !== "avantiqo") {
+      if (resolvedBrand?.organizationId) {
         window.sessionStorage.setItem(
           PLATFORM_LOGIN_BRAND_SESSION_KEY,
-          resolvedBrand.id,
+          resolvedBrand.organizationId,
         );
       } else {
         window.sessionStorage.removeItem(PLATFORM_LOGIN_BRAND_SESSION_KEY);
       }
     }
 
+    let subscription = null;
+
     async function initialiseAuth() {
+      const supabase = await getBrowserSupabase();
+      if (!mounted) return;
+
       const { data } = await supabase.auth.getSession();
 
       if (
@@ -119,19 +129,18 @@ export default function LoginPage() {
       ) {
         setMode("recovery");
       }
+
+      const authListener = supabase.auth.onAuthStateChange((event) => {
+        if (mounted && event === "PASSWORD_RECOVERY") {
+          setMode("recovery");
+          setError("");
+          setMessage("Choose your new password.");
+        }
+      });
+      subscription = authListener?.data?.subscription || null;
     }
 
     initialiseAuth();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (mounted && event === "PASSWORD_RECOVERY") {
-        setMode("recovery");
-        setError("");
-        setMessage("Choose your new password.");
-      }
-    });
 
     return () => {
       mounted = false;
@@ -150,6 +159,7 @@ export default function LoginPage() {
       setError("");
       setMessage("");
 
+      const supabase = await getBrowserSupabase();
       const { error: loginError } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
@@ -195,16 +205,7 @@ export default function LoginPage() {
 
       const recoveryUrl = new URL("/login", window.location.origin);
       if (["supplier","staff","developer"].includes(portalIntent())) recoveryUrl.searchParams.set("portal", portalIntent());
-      const hostBrand = resolvePlatformLoginContext(window.location.hostname);
-
-      if (
-        brand?.id &&
-        brand.id !== "avantiqo" &&
-        hostBrand?.id !== brand.id
-      ) {
-        recoveryUrl.searchParams.set("brand", brand.id);
-      }
-
+      const supabase = await getBrowserSupabase();
       const { error: recoveryError } = await supabase.auth.resetPasswordForEmail(
         normalizedEmail,
         { redirectTo: recoveryUrl.toString() },
@@ -241,6 +242,7 @@ export default function LoginPage() {
       setError("");
       setMessage("");
 
+      const supabase = await getBrowserSupabase();
       const { error: updateError } = await supabase.auth.updateUser({ password });
 
       if (updateError) {
@@ -293,6 +295,7 @@ export default function LoginPage() {
     setError("");
     setMessage("");
 
+    const supabase = await getBrowserSupabase();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {

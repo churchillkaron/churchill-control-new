@@ -179,7 +179,7 @@ export default function RestaurantPaymentCorrections({
 
   return (
     <section
-      className="mt-3 rounded-[22px] border border-white/10 bg-white/[0.025] p-3"
+      className="mt-3 rounded-[22px] border border-black/[0.08] bg-[#FBF8F3] p-3"
       data-restaurant-payment-corrections="true"
     >
       <div className="flex items-center justify-between gap-3">
@@ -187,7 +187,7 @@ export default function RestaurantPaymentCorrections({
           <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]">
             <ShieldCheck size={13} /> Manager corrections
           </div>
-          <div className="mt-1 text-xs text-white/45">
+          <div className="mt-1 text-xs text-[#746E66]">
             Cash refunds and reversals · original payment remains in the audit trail.
           </div>
         </div>
@@ -195,7 +195,7 @@ export default function RestaurantPaymentCorrections({
           type="button"
           disabled={!canCorrect || loading}
           onClick={begin}
-          className="rounded-xl bg-[#25231F] px-3 py-2 text-[10px] font-semibold text-white disabled:opacity-30"
+          className="rounded-xl bg-[#25231F] px-3 py-2 text-[10px] font-semibold text-[#191919] disabled:opacity-30"
         >
           Correct payment
         </button>
@@ -213,18 +213,18 @@ export default function RestaurantPaymentCorrections({
       ) : null}
 
       {open ? (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-[520px] rounded-[24px] border border-white/10 bg-[#090909] p-5 shadow-2xl">
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-[#F7F6F3]/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-[520px] rounded-[24px] border border-black/[0.08] bg-white p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#D6A66A]">Manager authority</div>
-                <h2 className="mt-1 text-lg font-semibold text-white">Refund or reverse cash payment</h2>
-                <p className="mt-1 text-xs text-white/40">Full payment only. A reason is mandatory and the original payment is never deleted.</p>
+                <h2 className="mt-1 text-lg font-semibold text-[#191919]">Refund or reverse cash payment</h2>
+                <p className="mt-1 text-xs text-[#817A72]">Full payment only. A reason is mandatory and the original payment is never deleted.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-xl border border-white/10 p-2 text-white/45"
+                className="rounded-xl border border-black/[0.08] p-2 text-[#746E66]"
                 aria-label="Close payment correction"
               >
                 <X size={16} />
@@ -233,11 +233,11 @@ export default function RestaurantPaymentCorrections({
 
             <div className="mt-5 space-y-4">
               <label className="block">
-                <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-white/35">Payment</span>
+                <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[#918B83]">Payment</span>
                 <select
                   value={selectedPaymentId || ""}
                   onChange={(event) => setSelectedPaymentId(event.target.value || null)}
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-xs text-white"
+                  className="mt-1.5 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-3 py-2.5 text-xs text-[#191919]"
                 >
                   {eligiblePayments.map((payment) => (
                     <option key={payment.id} value={payment.id}>
@@ -248,14 +248,14 @@ export default function RestaurantPaymentCorrections({
               </label>
 
               <div>
-                <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-white/35">Correction</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[#918B83]">Correction</div>
                 <div className="mt-1.5 grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setAction("REFUND")}
                     className={action === "REFUND"
                       ? "flex items-center justify-center gap-2 rounded-xl bg-[#D6A66A] px-3 py-2.5 text-xs font-bold text-black"
-                      : "flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2.5 text-xs text-white/50"}
+                      : "flex items-center justify-center gap-2 rounded-xl border border-black/[0.08] px-3 py-2.5 text-xs text-[#746E66]"}
                   >
                     <RotateCcw size={14} /> Refund
                   </button>
@@ -264,7 +264,7 @@ export default function RestaurantPaymentCorrections({
                     onClick={() => setAction("REVERSAL")}
                     className={action === "REVERSAL"
                       ? "flex items-center justify-center gap-2 rounded-xl bg-[#D6A66A] px-3 py-2.5 text-xs font-bold text-black"
-                      : "flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2.5 text-xs text-white/50"}
+                      : "flex items-center justify-center gap-2 rounded-xl border border-black/[0.08] px-3 py-2.5 text-xs text-[#746E66]"}
                   >
                     <Undo2 size={14} /> Reverse
                   </button>
@@ -272,23 +272,23 @@ export default function RestaurantPaymentCorrections({
               </div>
 
               {selectedPayment ? (
-                <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-                  <div className="text-[9px] uppercase tracking-[0.14em] text-white/30">Original cash payment</div>
+                <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3">
+                  <div className="text-[9px] uppercase tracking-[0.14em] text-[#A19A92]">Original cash payment</div>
                   <div className="mt-1 flex items-end justify-between gap-3">
-                    <div className="text-xs text-white/55">{paymentTitle(selectedPayment)}</div>
-                    <div className="text-lg font-semibold text-white">{money(selectedPayment.amount, selectedPayment.currency || currencyCode)}</div>
+                    <div className="text-xs text-[#5F5A54]">{paymentTitle(selectedPayment)}</div>
+                    <div className="text-lg font-semibold text-[#191919]">{money(selectedPayment.amount, selectedPayment.currency || currencyCode)}</div>
                   </div>
                 </div>
               ) : null}
 
               <label className="block">
-                <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-white/35">Required reason</span>
+                <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[#918B83]">Required reason</span>
                 <textarea
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
                   rows={3}
                   placeholder="Why is this payment being corrected?"
-                  className="mt-1.5 w-full resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-xs text-white outline-none"
+                  className="mt-1.5 w-full resize-none rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-3 py-2.5 text-xs text-[#191919] outline-none"
                 />
               </label>
 
@@ -300,7 +300,7 @@ export default function RestaurantPaymentCorrections({
                 type="button"
                 disabled={!selectedPayment || !reason.trim() || submitting}
                 onClick={submitCorrection}
-                className="w-full rounded-xl bg-[#25231F] px-4 py-3 text-xs font-semibold text-white disabled:opacity-30"
+                className="w-full rounded-xl bg-[#25231F] px-4 py-3 text-xs font-semibold text-[#191919] disabled:opacity-30"
               >
                 {submitting ? "Recording correction..." : `Record ${action === "REFUND" ? "refund" : "reversal"}`}
               </button>

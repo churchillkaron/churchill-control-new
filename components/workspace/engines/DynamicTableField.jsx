@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getLookupCreatePolicy } from "@/lib/platform/forms/LookupCreatePolicy";
 
 const INPUT_CLASS =
-  "h-10 min-w-0 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-[#D6A66A]/50";
+  "h-10 min-w-0 w-full rounded-lg border border-black/[0.08] bg-[#F7F6F3]/30 px-3 text-sm text-[#191919] outline-none placeholder:text-[#A19A92] focus:border-[#D6A66A]/50";
 
 function initialValue(column) {
   if (column.defaultValue !== undefined) return column.defaultValue;
@@ -237,7 +237,7 @@ function TypedLookupCell({ column, row, value, organizationId, entityId, onChang
                     setCreateCode("");
                     setError("");
                   }}
-                  className="h-8 rounded-lg border border-white/10 px-3 text-[10px] text-white/60"
+                  className="h-8 rounded-lg border border-black/[0.08] px-3 text-[10px] text-[#5F5A54]"
                 >
                   Cancel
                 </button>
@@ -249,12 +249,12 @@ function TypedLookupCell({ column, row, value, organizationId, entityId, onChang
 
       {error ? <p className="mt-1 text-[10px] text-red-300">{error}</p> : null}
       {emptyItemCatalogue && !creating ? (
-        <p className="mt-1 text-[10px] leading-4 text-white/35">
+        <p className="mt-1 text-[10px] leading-4 text-[#918B83]">
           Create the service here once and it will be available on future invoices.
         </p>
       ) : null}
       {noVatLookup && !value ? (
-        <p className="mt-1 text-[10px] leading-4 text-white/35">No VAT selected.</p>
+        <p className="mt-1 text-[10px] leading-4 text-[#918B83]">No VAT selected.</p>
       ) : null}
     </div>
   );
@@ -265,7 +265,7 @@ function TableCell({ column, row, organizationId, entityId, onChange }) {
 
   if (column.type === "calculated-money") {
     return (
-      <div className="flex h-10 items-center justify-end rounded-lg border border-white/5 bg-white/[0.03] px-3 tabular-nums text-white/80">
+      <div className="flex h-10 items-center justify-end rounded-lg border border-black/[0.06] bg-[#FBF8F3] px-3 tabular-nums text-[#2F2C28]">
         {money(calculateLineTotal(row))}
       </div>
     );
@@ -438,7 +438,7 @@ export default function DynamicTableField({
 
   return (
     <div className="col-span-full min-w-0">
-      <label className="mb-3 block text-[10px] font-medium uppercase tracking-[0.18em] text-white/45 sm:text-xs sm:tracking-[0.25em]">
+      <label className="mb-3 block text-[10px] font-medium uppercase tracking-[0.18em] text-[#746E66] sm:text-xs sm:tracking-[0.25em]">
         {field.label}
         {field.required ? <span className="ml-1 text-orange-400">*</span> : null}
       </label>
@@ -447,7 +447,7 @@ export default function DynamicTableField({
         {rows.map((row, index) => (
           <section
             key={row.id || index}
-            className="min-w-0 rounded-xl border border-white/10 bg-black/20 p-3 sm:p-4"
+            className="min-w-0 rounded-xl border border-black/[0.08] bg-[#F7F6F3]/20 p-3 sm:p-4"
           >
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#D6A66A]/80">
@@ -469,7 +469,7 @@ export default function DynamicTableField({
                   key={column.name}
                   className={`min-w-0 ${column.name === "description" ? "sm:col-span-2" : ""}`}
                 >
-                  <label className="mb-1.5 block text-[10px] text-white/45">
+                  <label className="mb-1.5 block text-[10px] text-[#746E66]">
                     {column.label}{column.required ? " *" : ""}
                   </label>
                   <TableCell
@@ -497,9 +497,9 @@ export default function DynamicTableField({
       ) : null}
 
       {invoiceTotals ? (
-        <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/70 sm:flex sm:items-center sm:justify-end sm:gap-5">
-          <span>Subtotal <strong className="ml-1 tabular-nums text-white">{money(invoiceTotals.subtotal)}</strong></span>
-          <span>VAT / Tax <strong className="ml-1 tabular-nums text-white">{money(invoiceTotals.tax)}</strong></span>
+        <div className="mt-3 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-sm text-[#5F5A54] sm:flex sm:items-center sm:justify-end sm:gap-5">
+          <span>Subtotal <strong className="ml-1 tabular-nums text-[#191919]">{money(invoiceTotals.subtotal)}</strong></span>
+          <span>VAT / Tax <strong className="ml-1 tabular-nums text-[#191919]">{money(invoiceTotals.tax)}</strong></span>
           <span>Total <strong className="ml-1 tabular-nums text-[#E8BE88]">{money(invoiceTotals.total)}</strong></span>
         </div>
       ) : null}
@@ -522,7 +522,7 @@ export default function DynamicTableField({
       <button
         type="button"
         onClick={addRow}
-        className="mt-3 h-10 w-full rounded-xl border border-white/10 px-4 text-sm text-white/70 hover:bg-white/5 sm:w-auto"
+        className="mt-3 h-10 w-full rounded-xl border border-black/[0.08] px-4 text-sm text-[#5F5A54] hover:bg-white/5 sm:w-auto"
       >
         + Add Line
       </button>

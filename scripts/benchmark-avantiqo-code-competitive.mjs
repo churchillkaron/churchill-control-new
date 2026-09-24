@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { verifyCodeAICompetitiveReferenceReport } from "../lib/code/runtime/CodeAICompetitiveReferenceAttestationRuntime.js";
+import { assessCodeAIRepositoryTaskBenchmark } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
 const CONTRACT = "AVANTIQO_CODE_COMPETITIVE_BENCHMARK_V1";
 const DEFAULT_OWNED = "/tmp/avantiqo-code-certification-benchmark.json";
@@ -186,6 +187,13 @@ for (const reference of references) {
 }
 const comparisons = references.map((reference) => compareReference(owned, reference, requiredCaseIds));
 const competitiveCertified = comparisons.length >= 2 && comparisons.every((item) => item.passed);
+const ownedRepositoryTaskEvidence = assessCodeAIRepositoryTaskBenchmark(owned);
+const referenceRepositoryTaskEvidence = references.map((reference) => assessCodeAIRepositoryTaskBenchmark(reference));
+const repositoryTaskArtifactCertified =
+  ownedRepositoryTaskEvidence.repository_task_artifact_certified === true &&
+  referenceRepositoryTaskEvidence.length >= 2 &&
+  referenceRepositoryTaskEvidence.every((item) => item.repository_task_artifact_certified === true);
+const superiorityClaimAllowed = competitiveCertified && repositoryTaskArtifactCertified;
 
 const report = {
   contract: CONTRACT,
@@ -210,10 +218,18 @@ const report = {
     exact_prompt_contract_sha256_binding_required: true,
     live_reference_provider_execution_required: true,
     exact_runner_source_commit_required: true,
+    actual_repository_mutation_evidence_required_for_superiority: true,
+    independent_repository_verification_required_for_superiority: true,
+    hidden_acceptance_evidence_required_for_superiority: true,
   },
   comparisons,
+  repository_task_evidence: {
+    owned: ownedRepositoryTaskEvidence,
+    references: referenceRepositoryTaskEvidence,
+    certified: repositoryTaskArtifactCertified,
+  },
   competitive_certified: competitiveCertified,
-  superiority_claim_allowed: competitiveCertified,
+  superiority_claim_allowed: superiorityClaimAllowed,
 };
 
 const outputPath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_OUTPUT || DEFAULT_OUTPUT);
@@ -222,7 +238,8 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   output_path: outputPath,
   competitive_certified: competitiveCertified,
-  superiority_claim_allowed: competitiveCertified,
+  repository_task_artifact_certified: repositoryTaskArtifactCertified,
+  superiority_claim_allowed: superiorityClaimAllowed,
   references: comparisons.map(({ reference, case_count, win_rate, passed, gates }) => ({ reference, case_count, win_rate, passed, gates })),
 }, null, 2));
 if (!competitiveCertified) process.exitCode = 2;

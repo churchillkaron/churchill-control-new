@@ -39,7 +39,7 @@ function stationLabel(entry) {
 function ageClass(minutes) {
   if (minutes >= 20) return "border-red-400/45 bg-red-500/[0.07] text-red-100";
   if (minutes >= 12) return "border-amber-300/35 bg-amber-300/[0.06] text-amber-100";
-  return "border-white/10 bg-white/[0.025] text-white";
+  return "border-black/[0.08] bg-[#FBF8F3] text-[#191919]";
 }
 
 function modifierValues(item) {
@@ -190,9 +190,9 @@ export default function RestaurantKitchenDisplay() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-3 py-4 text-white lg:px-5 lg:py-5">
+    <main className="min-h-screen bg-[#F7F6F3] px-3 py-4 text-[#191919] lg:px-5 lg:py-5">
       <div className="mx-auto max-w-[1900px]">
-        <header className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 lg:p-5">
+        <header className="rounded-[28px] border border-black/[0.08] bg-white p-4 lg:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.07] p-2.5 text-[#D6A66A]">
@@ -201,14 +201,14 @@ export default function RestaurantKitchenDisplay() {
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#D6A66A]">Kitchen Display</div>
                 <h1 className="mt-1 text-2xl font-light tracking-tight lg:text-3xl">Cook what is next. Mark it ready.</h1>
-                <p className="mt-1 text-xs text-white/35">No payment, floor administration or serving controls in the kitchen station.</p>
+                <p className="mt-1 text-xs text-[#918B83]">No payment, floor administration or serving controls in the kitchen station.</p>
               </div>
             </div>
 
             <button
               type="button"
               onClick={() => loadQueue()}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-white/50"
+              className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-xs text-[#746E66]"
             >
               <RefreshCw size={14} /> Refresh
             </button>
@@ -221,8 +221,8 @@ export default function RestaurantKitchenDisplay() {
               ["Ready", metrics.ready],
               ["20m+", metrics.late],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5">
-                <div className="text-[9px] uppercase tracking-[0.16em] text-white/30">{label}</div>
+              <div key={label} className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/25 px-3 py-2.5">
+                <div className="text-[9px] uppercase tracking-[0.16em] text-[#A19A92]">{label}</div>
                 <div className="mt-0.5 text-xl font-light">{value}</div>
               </div>
             ))}
@@ -237,13 +237,13 @@ export default function RestaurantKitchenDisplay() {
                 className={
                   filter === value
                     ? "rounded-xl bg-[#D6A66A] px-3 py-2 text-[10px] font-bold text-black"
-                    : "rounded-xl border border-white/10 px-3 py-2 text-[10px] text-white/45"
+                    : "rounded-xl border border-black/[0.08] px-3 py-2 text-[10px] text-[#746E66]"
                 }
               >
                 {value}
               </button>
             ))}
-            <div className="ml-auto text-[10px] text-white/25">
+            <div className="ml-auto text-[10px] text-[#A9A39C]">
               {lastSync ? `Synced ${lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Connecting"}
             </div>
           </div>
@@ -258,7 +258,7 @@ export default function RestaurantKitchenDisplay() {
                   className={
                     station === value
                       ? "shrink-0 rounded-xl bg-white px-3 py-2 text-[10px] font-semibold text-black"
-                      : "shrink-0 rounded-xl border border-white/10 px-3 py-2 text-[10px] text-white/42"
+                      : "shrink-0 rounded-xl border border-black/[0.08] px-3 py-2 text-[10px] text-[#746E66]"
                   }
                 >
                   {value}
@@ -274,7 +274,7 @@ export default function RestaurantKitchenDisplay() {
 
         <section className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {loading ? (
-            <div className="col-span-full flex min-h-[420px] items-center justify-center rounded-[26px] border border-white/10 text-sm text-white/30">
+            <div className="col-span-full flex min-h-[420px] items-center justify-center rounded-[26px] border border-black/[0.08] text-sm text-[#A19A92]">
               Loading kitchen tickets...
             </div>
           ) : visibleTickets.length ? (
@@ -282,7 +282,7 @@ export default function RestaurantKitchenDisplay() {
               const minutes = ageMinutes(entry.created_at);
               return (
                 <article key={entry.id} className={`rounded-[24px] border p-4 ${ageClass(minutes)}`}>
-                  <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
+                  <div className="flex items-start justify-between gap-3 border-b border-black/[0.08] pb-3">
                     <div>
                       <div className="text-[9px] uppercase tracking-[0.18em] opacity-50">{stationLabel(entry)}</div>
                       <h2 className="mt-1 text-2xl font-semibold">{ticketLabel(entry)}</h2>
@@ -303,7 +303,7 @@ export default function RestaurantKitchenDisplay() {
                       const closed = CLOSED.has(status);
                       const modifiers = modifierValues(item);
                       return (
-                        <div key={itemId || item.name} className="rounded-2xl border border-white/10 bg-black/25 p-3">
+                        <div key={itemId || item.name} className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/25 p-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <div className="text-base font-semibold">{Number(item.quantity || 1)} × {item.name || "Item"}</div>
@@ -311,7 +311,7 @@ export default function RestaurantKitchenDisplay() {
                               {modifiers.length ? (
                                 <div className="mt-2 flex flex-wrap gap-1.5">
                                   {modifiers.map(({ key, value }) => (
-                                    <span key={`${key}:${value}`} className="rounded-lg border border-white/10 px-2 py-1 text-[10px] text-white/52">{value}</span>
+                                    <span key={`${key}:${value}`} className="rounded-lg border border-black/[0.08] px-2 py-1 text-[10px] text-[#5F5A54]">{value}</span>
                                   ))}
                                 </div>
                               ) : null}
@@ -325,7 +325,7 @@ export default function RestaurantKitchenDisplay() {
                                 type="button"
                                 disabled={busy || cooking || ready}
                                 onClick={() => updateItem(entry, item, "PREPARING")}
-                                className="rounded-xl border border-white/15 py-2.5 text-xs font-semibold disabled:opacity-25"
+                                className="rounded-xl border border-black/[0.10] py-2.5 text-xs font-semibold disabled:opacity-25"
                               >
                                 {cooking ? "Cooking" : "Start"}
                               </button>
@@ -347,7 +347,7 @@ export default function RestaurantKitchenDisplay() {
               );
             })
           ) : (
-            <div className="col-span-full flex min-h-[420px] items-center justify-center rounded-[26px] border border-dashed border-white/10 text-sm text-white/30">
+            <div className="col-span-full flex min-h-[420px] items-center justify-center rounded-[26px] border border-dashed border-black/[0.08] text-sm text-[#A19A92]">
               No kitchen tickets in this view.
             </div>
           )}

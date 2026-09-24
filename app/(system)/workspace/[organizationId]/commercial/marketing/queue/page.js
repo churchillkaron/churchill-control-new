@@ -2,6 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
+import Image from "next/image";
 import { useEffect, useState }
 from "react";
 
@@ -223,8 +224,8 @@ if (loading) {
       <div
         className="
           min-h-screen
-          bg-black
-          text-white
+          bg-[#F7F6F3]
+          text-[#191919]
           p-10
         "
       >
@@ -240,8 +241,8 @@ if (loading) {
     <div
       className="
         min-h-screen
-        bg-black
-        text-white
+        bg-[#F7F6F3]
+        text-[#191919]
         p-10
       "
     >
@@ -275,7 +276,7 @@ if (loading) {
 
             <div
               className="
-                text-white/40
+                text-[#817A72]
                 mt-2
               "
             >
@@ -292,12 +293,12 @@ if (loading) {
     )
   }
   className="
-    bg-black
+    bg-[#F7F6F3]
     border
-    border-white/20
+    border-black/[0.10]
     rounded-xl
     p-3
-    text-white
+    text-[#191919]
     mr-4
   "
 />
@@ -332,7 +333,7 @@ if (loading) {
               className="
                 bg-white/5
                 border
-                border-white/10
+                border-black/[0.08]
                 rounded-3xl
                 overflow-hidden
               "
@@ -340,12 +341,15 @@ if (loading) {
 
               {campaign.image_url && (
 
-                <img
+                <Image
                   src={campaign.image_url}
                   alt=""
+                  width={1200}
+                  height={800}
+                  unoptimized
                   className="
-                    w-full
                     h-[400px]
+                    w-full
                     object-cover
                   "
                 />
@@ -377,7 +381,7 @@ if (loading) {
 
                 <div
                   className="
-                    text-white/60
+                    text-[#5F5A54]
                     mb-5
                   "
                 >
@@ -387,7 +391,7 @@ if (loading) {
                 <div
                   className="
                     text-sm
-                    text-blue-400
+                    text-[#9B6F3F]
                     mb-3
                   "
                 >
@@ -403,7 +407,7 @@ if (loading) {
                     text-xs
                     uppercase
                     tracking-[0.2em]
-                    text-white/40
+                    text-[#817A72]
                     mb-2
                   "
                 >
@@ -431,7 +435,7 @@ if (loading) {
                   <div
                     className="
                       text-xs
-                      text-blue-400
+                      text-[#9B6F3F]
                       mb-2
                     "
                   >
@@ -461,7 +465,7 @@ if (loading) {
                     )
                   }
                   className="
-                    bg-blue-500
+                    bg-[#D6A66A]
                     px-4
                     py-2
                     rounded-xl

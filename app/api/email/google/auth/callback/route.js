@@ -21,6 +21,15 @@ function callbackOrigin() {
   ).origin;
 }
 
+
+function safeReturnPath(authorization, organizationId) {
+  const candidate = String(authorization?.metadata?.return_path || "").trim();
+  const allowed = `/workspace/${encodeURIComponent(organizationId)}/administration/communications-setup?onboarding=1`;
+  return candidate === allowed
+    ? allowed
+    : `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`;
+}
+
 function client() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -164,7 +173,7 @@ export async function GET(request) {
     const warnings = await initializeMailbox(connection);
 
     const destination = new URL(
-      `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
+      safeReturnPath(authorization, organizationId),
       authorization.return_origin || callbackOrigin(),
     );
     destination.searchParams.set(
@@ -177,7 +186,7 @@ export async function GET(request) {
   } catch (error) {
     const organizationId = authorization?.organization_id || "unknown";
     const destination = new URL(
-      `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
+      safeReturnPath(authorization, organizationId),
       authorization?.return_origin || callbackOrigin(),
     );
     destination.searchParams.set(

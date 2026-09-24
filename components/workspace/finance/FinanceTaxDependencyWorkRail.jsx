@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock3, Eye, LockKeyhole, RefreshCw, ShieldCheck, UserCheck, Users } from "lucide-react";
 
 function clean(value) {
@@ -38,7 +38,7 @@ export default function FinanceTaxDependencyWorkRail({ organizationId, entityId,
   const [busyCode, setBusyCode] = useState("");
   const [drafts, setDrafts] = useState({});
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !entityId || !selectedVatReturnId) {
       setState({ loading: false, error: "", body: null });
       return;
@@ -58,9 +58,9 @@ export default function FinanceTaxDependencyWorkRail({ organizationId, entityId,
     } catch (error) {
       setState({ loading: false, error: error?.message || "Tax dependency work could not be loaded", body: null });
     }
-  }
+  }, [entityId, organizationId, selectedVatReturnId]);
 
-  useEffect(() => { load(); }, [organizationId, entityId, selectedVatReturnId]);
+  useEffect(() => { load(); }, [load]);
 
   const guidance = state.body?.guidance || null;
   const currentUserId = state.body?.current_user_id || null;

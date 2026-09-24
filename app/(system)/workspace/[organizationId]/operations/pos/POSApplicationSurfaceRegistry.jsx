@@ -42,12 +42,12 @@ function RestaurantSaleSurface(props) {
   if (waiterMode) {
     return (
       <RestaurantAvantiqoTheme mode="service">
-        <div className="min-h-screen bg-black text-white" data-restaurant-waiter-surface="true">
-          <div className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/95 px-4 py-3 backdrop-blur-xl">
+        <div className="min-h-screen bg-[#F7F6F3] text-[#191919]" data-restaurant-waiter-surface="true">
+          <div className="sticky top-0 z-40 border-b border-black/[0.08] bg-[#F7F6F3]/95 px-4 py-3 backdrop-blur-xl">
             <div className="mx-auto max-w-[480px]">
               <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Waiter</div>
               <div className="mt-1 text-sm font-semibold">Table · seat · order · split · move</div>
-              <div className="mt-1 text-[10px] text-white/35">Phone service workspace · settlement stays at the stationary POS</div>
+              <div className="mt-1 text-[10px] text-[#918B83]">Phone service workspace · settlement stays at the stationary POS</div>
             </div>
           </div>
 
@@ -64,13 +64,13 @@ function RestaurantSaleSurface(props) {
 
   return (
     <RestaurantAvantiqoTheme mode="service">
-      <div className="min-h-screen bg-black text-white" data-restaurant-stationary-pos="true" data-pos-unified-sale="true">
-        <div className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/95 px-4 py-3 backdrop-blur-xl">
+      <div className="min-h-screen bg-[#F7F6F3] text-[#191919]" data-restaurant-stationary-pos="true" data-pos-unified-sale="true">
+        <div className="sticky top-0 z-40 border-b border-black/[0.08] bg-[#F7F6F3]/95 px-4 py-3 backdrop-blur-xl">
           <div className="mx-auto flex max-w-[1760px] flex-wrap items-end justify-between gap-3">
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Stationary POS</div>
               <div className="mt-1 text-sm font-semibold">Table · order · send · split · settle</div>
-              <div className="mt-1 text-[10px] text-white/35">Desktop cashier workstation · order and settlement remain visible together.</div>
+              <div className="mt-1 text-[10px] text-[#918B83]">Desktop cashier workstation · order and settlement remain visible together.</div>
             </div>
 
             <div className="rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-[#E7C991]">One continuous cashier screen</div>
@@ -78,7 +78,7 @@ function RestaurantSaleSurface(props) {
         </div>
 
         <div className="mx-auto grid max-w-[1760px] gap-4 p-3 xl:grid-cols-[minmax(0,1fr)_430px] xl:p-4">
-          <div className="min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#050505]" data-stationary-order-entry="true">
+          <div className="min-w-0 overflow-hidden rounded-[28px] border border-black/[0.08] bg-[#F7F6F3]" data-stationary-order-entry="true">
             {canOrder ? (
               <RestaurantStationaryOrderSurface
                 {...props}
@@ -171,8 +171,8 @@ function RetailSaleSurface(props) {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white" data-pos-unified-sale="true">
-      <div className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/95 px-4 py-3 backdrop-blur-xl">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919]" data-pos-unified-sale="true">
+      <div className="sticky top-0 z-40 border-b border-black/[0.08] bg-[#F7F6F3]/95 px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto max-w-[1760px]">
           <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Retail POS</div>
           <div className="mt-1 text-sm font-semibold">Scan · Basket · Reserve · Pay · Receipt</div>
@@ -180,7 +180,7 @@ function RetailSaleSurface(props) {
       </div>
 
       <div className="mx-auto grid max-w-[1760px] gap-4 p-3 xl:grid-cols-[minmax(0,1fr)_430px] xl:p-4">
-        <div className="min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#050505]">
+        <div className="min-w-0 overflow-hidden rounded-[28px] border border-black/[0.08] bg-[#F7F6F3]">
           <RetailCatalogWorkspace {...props} onSaleReady={refreshCheckout} />
         </div>
         <aside className="min-w-0 xl:sticky xl:top-[76px] xl:self-start">

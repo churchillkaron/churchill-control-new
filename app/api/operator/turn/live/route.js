@@ -165,6 +165,16 @@ export async function POST(request) {
               read_only: true, mutation_possible: false, paid_execution_possible: false, paid_execution_running: false,
             },
           }).catch(() => null);
+        } else {
+          await publishAvantiqoLiveExecution({
+            context,
+            executionId: liveExecutionId,
+            event: {
+              lane: "intelligence", phase: "REQUEST_ROUTING", status: "running",
+              description: "I’m routing your request to the correct business capability and current organization context.",
+              read_only: true, mutation_possible: false, paid_execution_possible: false, paid_execution_running: false,
+            },
+          }).catch(() => null);
         }
       }
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
@@ -89,7 +89,7 @@ function FreshnessBanner({ freshness, hasReviewerSignoff }) {
 export default function FinanceReviewerEvidencePanel({ organizationId, row }) {
   const [state, setState] = useState({ loading: false, error: "", evidence: null });
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !row?.id || !row?.run_id) {
       setState({ loading: false, error: "", evidence: null });
       return;
@@ -107,9 +107,9 @@ export default function FinanceReviewerEvidencePanel({ organizationId, row }) {
     } catch (error) {
       setState({ loading: false, error: error?.message || "Unable to load reviewer evidence", evidence: null });
     }
-  }
+  }, [organizationId, row?.id, row?.run_id]);
 
-  useEffect(() => { load(); }, [organizationId, row?.id, row?.run_id]);
+  useEffect(() => { load(); }, [load]);
 
   if (!row) return null;
   if (state.loading && !state.evidence) {

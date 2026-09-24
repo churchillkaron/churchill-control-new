@@ -59,20 +59,36 @@ export function FinanceLandingRuntimeProvider({ organizationId, children }) {
     businessContext.ready === true &&
     contextMatchesOrganization &&
     Boolean(contextOrganizationId);
-
-  const entityId = contextReadyForOrganization
-    ? businessContext.entity_id || businessContext.entity?.id || null
+  const platformOperatorAccounting =
+    contextReadyForOrganization &&
+    businessContext.is_platform_operator_workspace === true &&
+    Boolean(businessContext.operator_legal_entity?.id);
+  const accountingOrganizationId = platformOperatorAccounting
+    ? businessContext.operator_accounting_organization_id ||
+      businessContext.operator_legal_entity?.organization_id ||
+      null
+    : organizationId;
+  const entity = contextReadyForOrganization
+    ? platformOperatorAccounting
+      ? businessContext.operator_legal_entity || null
+      : businessContext.entity || null
     : null;
-  const periodId = contextReadyForOrganization
-    ? businessContext.period_id || businessContext.period?.id || null
+  const entityId = entity?.id || null;
+  const period = contextReadyForOrganization
+    ? platformOperatorAccounting
+      ? businessContext.operator_accounting_period || null
+      : businessContext.period || null
     : null;
-  const entity = contextReadyForOrganization ? businessContext.entity || null : null;
-  const period = contextReadyForOrganization ? businessContext.period || null : null;
+  const periodId =
+    period?.id ||
+    (platformOperatorAccounting
+      ? businessContext.operator_accounting_period_id || null
+      : businessContext.period_id || null);
   const organization = contextReadyForOrganization
     ? businessContext.organization || null
     : null;
   const key = contextReadyForOrganization
-    ? buildSnapshotKey(organizationId, entityId, periodId)
+    ? buildSnapshotKey(accountingOrganizationId, entityId, periodId)
     : null;
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(key, financeSnapshotFetcher, {
@@ -89,6 +105,9 @@ export function FinanceLandingRuntimeProvider({ organizationId, children }) {
 
   const value = useMemo(() => ({
     organizationId,
+    workspaceOrganizationId: organizationId,
+    accountingOrganizationId,
+    platformOperatorAccounting,
     entityId,
     periodId,
     entity,
@@ -115,6 +134,8 @@ export function FinanceLandingRuntimeProvider({ organizationId, children }) {
     refresh,
   }), [
     organizationId,
+    accountingOrganizationId,
+    platformOperatorAccounting,
     entityId,
     periodId,
     entity,

@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import {
+  useCallback,
   useEffect,
   useState,
 } from 'react'
@@ -82,13 +83,7 @@ export default function IngredientsPage() {
 
   }, [])
 
-  useEffect(() => {
-
-    loadIngredients()
-
-  }, [organizationId])
-
-  async function loadIngredients() {
+  const loadIngredients = useCallback(async () => {
 
     if (!organizationId) {
       return
@@ -108,7 +103,13 @@ export default function IngredientsPage() {
     setIngredients(
       data || []
     )
-  }
+  }, [organizationId])
+
+  useEffect(() => {
+
+    loadIngredients()
+
+  }, [loadIngredients])
 
   async function createIngredient() {
 
@@ -251,7 +252,7 @@ export default function IngredientsPage() {
       subtitle="Inventory and production stock management"
     >
 
-      <div className="p-6 text-white">
+      <div className="p-6 text-[#191919]">
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-6">
 
@@ -271,7 +272,7 @@ export default function IngredientsPage() {
                 })
               }
               placeholder="Ingredient"
-              className="bg-black border border-zinc-700 rounded-2xl p-4"
+              className="bg-[#F7F6F3] border border-zinc-700 rounded-2xl p-4"
             />
 
             <input
@@ -287,7 +288,7 @@ export default function IngredientsPage() {
                 })
               }
               placeholder="Quantity"
-              className="bg-black border border-zinc-700 rounded-2xl p-4"
+              className="bg-[#F7F6F3] border border-zinc-700 rounded-2xl p-4"
             />
 
             <input
@@ -300,7 +301,7 @@ export default function IngredientsPage() {
                 })
               }
               placeholder="Unit"
-              className="bg-black border border-zinc-700 rounded-2xl p-4"
+              className="bg-[#F7F6F3] border border-zinc-700 rounded-2xl p-4"
             />
 
             <input
@@ -316,7 +317,7 @@ export default function IngredientsPage() {
                 })
               }
               placeholder="Cost"
-              className="bg-black border border-zinc-700 rounded-2xl p-4"
+              className="bg-[#F7F6F3] border border-zinc-700 rounded-2xl p-4"
             />
 
             <select
@@ -330,7 +331,7 @@ export default function IngredientsPage() {
                     e.target.value,
                 })
               }
-              className="bg-black border border-zinc-700 rounded-2xl p-4"
+              className="bg-[#F7F6F3] border border-zinc-700 rounded-2xl p-4"
             >
 
               <option value="kitchen">
@@ -350,7 +351,7 @@ export default function IngredientsPage() {
               createIngredient
             }
             disabled={loading}
-            className="mt-6 bg-violet-500 px-6 py-4 rounded-2xl"
+            className="mt-6 bg-amber-500 px-6 py-4 rounded-2xl"
           >
 
             {loading
@@ -374,7 +375,7 @@ export default function IngredientsPage() {
 
                 <div
                   key={ingredient.id}
-                  className="bg-black border border-zinc-800 rounded-2xl p-5 flex items-center justify-between"
+                  className="bg-[#F7F6F3] border border-zinc-800 rounded-2xl p-5 flex items-center justify-between"
                 >
 
                   <div>

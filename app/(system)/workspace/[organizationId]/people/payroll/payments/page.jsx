@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   Banknote,
@@ -53,7 +53,7 @@ export default function PayrollPaymentsPage() {
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
   const [references, setReferences] = useState({});
 
-  async function loadPayments() {
+  const loadPayments = useCallback(async () => {
     if (!entityId) {
       setData(null);
       setSelectedMonth("");
@@ -100,7 +100,7 @@ export default function PayrollPaymentsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [entityId]);
 
   useEffect(() => {
     setData(null);
@@ -110,7 +110,7 @@ export default function PayrollPaymentsPage() {
     setMessage("");
     setError("");
     loadPayments();
-  }, [entityId]);
+  }, [entityId, loadPayments]);
 
   const currency =
     data?.paymentMethods?.find((method) => method.payment_method === paymentMethod)?.currency ||
@@ -239,9 +239,9 @@ export default function PayrollPaymentsPage() {
     "Accounting entity";
 
   return (
-    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
+        <section className="overflow-hidden rounded-[34px] border border-black/[0.08] bg-white/[0.045] backdrop-blur-3xl">
           <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
 
           <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:justify-between">
@@ -250,10 +250,10 @@ export default function PayrollPaymentsPage() {
                 <ShieldCheck className="h-4 w-4" /> Payroll · Accounting
               </div>
               <h1 className="mt-3 text-4xl font-black">Payroll Payments</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/45">
+              <p className="mt-2 max-w-3xl text-sm text-[#746E66]">
                 Convert locked payroll into a controlled payment batch, verify employee payout details, then reconcile against the real bank reference before payroll becomes paid.
               </p>
-              <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
+              <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[#A9A39C]">
                 {entityName} · {data?.role || runtime.role || "Role"}
               </div>
             </div>
@@ -262,7 +262,7 @@ export default function PayrollPaymentsPage() {
               type="button"
               onClick={loadPayments}
               disabled={loading || !entityId}
-              className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
+              className="flex h-12 items-center gap-2 rounded-2xl border border-black/[0.08] bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-[#5F5A54] disabled:opacity-40"
             >
               <RefreshCw className="h-4 w-4" /> Refresh
             </button>
@@ -294,20 +294,20 @@ export default function PayrollPaymentsPage() {
           </div>
         ) : null}
 
-        <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+        <section className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5 lg:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Prepare payment</div>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-[#918B83]">Prepare payment</div>
               <h2 className="mt-2 text-2xl font-black">Locked payroll batch</h2>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[650px]">
               <label>
-                <span className="mb-2 block text-[9px] uppercase tracking-[0.18em] text-white/35">Payroll month</span>
+                <span className="mb-2 block text-[9px] uppercase tracking-[0.18em] text-[#918B83]">Payroll month</span>
                 <select
                   value={selectedMonth}
                   onChange={(event) => setSelectedMonth(event.target.value)}
-                  className="h-12 w-full rounded-xl border border-white/10 bg-[#111] px-4 text-sm outline-none"
+                  className="h-12 w-full rounded-xl border border-black/[0.08] bg-[#111] px-4 text-sm outline-none"
                 >
                   <option value="">Select month</option>
                   {(data?.lockedMonths || []).map((month) => (
@@ -317,11 +317,11 @@ export default function PayrollPaymentsPage() {
               </label>
 
               <label>
-                <span className="mb-2 block text-[9px] uppercase tracking-[0.18em] text-white/35">Payment method</span>
+                <span className="mb-2 block text-[9px] uppercase tracking-[0.18em] text-[#918B83]">Payment method</span>
                 <select
                   value={paymentMethod}
                   onChange={(event) => setPaymentMethod(event.target.value)}
-                  className="h-12 w-full rounded-xl border border-white/10 bg-[#111] px-4 text-sm outline-none"
+                  className="h-12 w-full rounded-xl border border-black/[0.08] bg-[#111] px-4 text-sm outline-none"
                 >
                   {(data?.paymentMethods || []).map((method) => (
                     <option key={method.payment_method} value={method.payment_method}>
@@ -343,11 +343,11 @@ export default function PayrollPaymentsPage() {
           </div>
 
           {selectedMonth ? (
-            <div className="mt-5 rounded-2xl border border-white/[0.07] bg-black/20 p-4">
+            <div className="mt-5 rounded-2xl border border-black/[0.07] bg-[#F7F6F3]/20 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-black">{monthLabel(selectedMonth)}</div>
-                  <div className="mt-1 text-xs text-white/35">{lockedForMonth.length} locked employees ready for payment</div>
+                  <div className="mt-1 text-xs text-[#918B83]">{lockedForMonth.length} locked employees ready for payment</div>
                 </div>
                 <div className="text-xl font-black text-[#D6A66A]">{money(lockedTotal, currency)}</div>
               </div>
@@ -356,7 +356,7 @@ export default function PayrollPaymentsPage() {
         </section>
 
         {loading ? (
-          <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6 text-sm text-white/45">
+          <section className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-6 text-sm text-[#746E66]">
             Loading payroll payments...
           </section>
         ) : (data?.payments || []).length ? (
@@ -364,15 +364,15 @@ export default function PayrollPaymentsPage() {
             {(data?.payments || []).map((batch) => (
               <article
                 key={batch.id}
-                className="overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.035]"
+                className="overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#FBF8F3]"
               >
-                <div className="flex flex-col gap-4 border-b border-white/[0.07] p-5 lg:flex-row lg:items-start lg:justify-between lg:p-6">
+                <div className="flex flex-col gap-4 border-b border-black/[0.07] p-5 lg:flex-row lg:items-start lg:justify-between lg:p-6">
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
                       <h2 className="text-2xl font-black">{monthLabel(batch.payroll_period)}</h2>
                       <Status status={batch.status} />
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/35">
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#918B83]">
                       <span>{String(batch.payment_method || "").replaceAll("_", " ")}</span>
                       <span>{batch.currency || ""}</span>
                       <span>{batch.payouts?.length || 0} employees</span>
@@ -380,7 +380,7 @@ export default function PayrollPaymentsPage() {
                   </div>
 
                   <div className="lg:text-right">
-                    <div className="text-[9px] uppercase tracking-[0.18em] text-white/30">Batch total</div>
+                    <div className="text-[9px] uppercase tracking-[0.18em] text-[#A19A92]">Batch total</div>
                     <div className="mt-2 text-3xl font-black text-[#D6A66A]">{money(batch.total_amount, batch.currency)}</div>
                     {batch.payment_reference ? (
                       <div className="mt-2 text-xs text-emerald-300">Ref: {batch.payment_reference}</div>
@@ -396,12 +396,12 @@ export default function PayrollPaymentsPage() {
                     >
                       <div>
                         <div className="font-black">{payout.staff_name || "Employee"}</div>
-                        <div className="mt-1 text-xs text-white/30">{payout.bank_name || "No bank"}</div>
+                        <div className="mt-1 text-xs text-[#A19A92]">{payout.bank_name || "No bank"}</div>
                       </div>
-                      <div className="text-sm text-white/55">{maskAccount(payout.bank_account)}</div>
+                      <div className="text-sm text-[#5F5A54]">{maskAccount(payout.bank_account)}</div>
                       <div className="text-sm font-black">{money(payout.amount, payout.currency || batch.currency)}</div>
                       <div className="text-right">
-                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/45">
+                        <span className="rounded-full border border-black/[0.08] bg-[#FBF8F3] px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#746E66]">
                           {payout.payout_status || "PREPARED"}
                         </span>
                       </div>
@@ -410,12 +410,12 @@ export default function PayrollPaymentsPage() {
                 </div>
 
                 {batch.status === "PREPARED" ? (
-                  <div className="border-t border-white/[0.07] p-5 lg:p-6">
+                  <div className="border-t border-black/[0.07] p-5 lg:p-6">
                     <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
                       <label>
-                        <span className="mb-2 block text-[9px] uppercase tracking-[0.18em] text-white/35">Bank / payment reference</span>
-                        <div className="flex h-12 items-center gap-3 rounded-xl border border-white/10 bg-black/25 px-4">
-                          <CreditCard className="h-4 w-4 text-white/30" />
+                        <span className="mb-2 block text-[9px] uppercase tracking-[0.18em] text-[#918B83]">Bank / payment reference</span>
+                        <div className="flex h-12 items-center gap-3 rounded-xl border border-black/[0.08] bg-[#F7F6F3]/25 px-4">
+                          <CreditCard className="h-4 w-4 text-[#A19A92]" />
                           <input
                             value={references[batch.id] || ""}
                             onChange={(event) =>
@@ -425,7 +425,7 @@ export default function PayrollPaymentsPage() {
                               }))
                             }
                             placeholder="Enter confirmed transaction reference"
-                            className="w-full bg-transparent text-sm outline-none placeholder:text-white/20"
+                            className="w-full bg-transparent text-sm outline-none placeholder:text-[#191919]/20"
                           />
                         </div>
                       </label>
@@ -445,7 +445,7 @@ export default function PayrollPaymentsPage() {
             ))}
           </section>
         ) : (
-          <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6 text-sm text-white/45">
+          <section className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-6 text-sm text-[#746E66]">
             No payroll payment batches yet. Lock an approved payroll month, then prepare its payment batch here.
           </section>
         )}
@@ -456,8 +456,8 @@ export default function PayrollPaymentsPage() {
 
 function Metric({ label, value, icon }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/35">
+    <div className="rounded-[24px] border border-black/[0.08] bg-[#FBF8F3] p-5">
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-[#918B83]">
         {icon}
         {label}
       </div>

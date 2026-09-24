@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -219,7 +219,7 @@ export default function FinanceCommandCenter({ organizationId }) {
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     try {
       setLoading(true);
@@ -243,23 +243,29 @@ export default function FinanceCommandCenter({ organizationId }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId, entityId, periodId]);
 
   useEffect(() => {
     load();
-  }, [organizationId, entityId, periodId]);
+  }, [load]);
 
   const currency =
     data?.context?.currency ||
     businessContext.entity?.currency ||
     businessContext.organization?.default_currency ||
     null;
-  const metrics = data?.metrics || {};
-  const queue = Array.isArray(data?.queue) ? data.queue : [];
-  const close = data?.close || { steps: [], completed: 0, total: 0, progress: 0 };
-  const practice = data?.practice || { active_clients: 0, clients: [] };
-  const recentWork = Array.isArray(data?.recent_work) ? data.recent_work : [];
-  const sources = data?.sources || {};
+  const metrics = useMemo(() => data?.metrics || {}, [data?.metrics]);
+  const queue = useMemo(() => Array.isArray(data?.queue) ? data.queue : [], [data?.queue]);
+  const close = useMemo(
+    () => data?.close || { steps: [], completed: 0, total: 0, progress: 0 },
+    [data?.close],
+  );
+  const practice = useMemo(
+    () => data?.practice || { active_clients: 0, clients: [] },
+    [data?.practice],
+  );
+  const recentWork = useMemo(() => Array.isArray(data?.recent_work) ? data.recent_work : [], [data?.recent_work]);
+  const sources = useMemo(() => data?.sources || {}, [data?.sources]);
   const isFirmMode = Number(practice.active_clients || 0) > 0;
 
   const intelligence = useMemo(
@@ -312,7 +318,7 @@ export default function FinanceCommandCenter({ organizationId }) {
           <div className="flex items-center gap-2 self-start lg:self-auto">
             <Link
               href={financeHref(organizationId, "/finance/work")}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-white"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#D6A66A] px-3 text-[8px] font-semibold text-[#191919]"
             >
               My work <ArrowRight size={9} />
             </Link>
@@ -535,7 +541,7 @@ export default function FinanceCommandCenter({ organizationId }) {
 
               <Link
                 href={financeHref(organizationId, intelligence.href)}
-                className="mt-4 inline-flex h-9 w-full items-center justify-between rounded-xl bg-[#25231F] px-3 text-[8px] font-semibold text-white"
+                className="mt-4 inline-flex h-9 w-full items-center justify-between rounded-xl bg-[#D6A66A] px-3 text-[8px] font-semibold text-[#191919]"
               >
                 <span>{intelligence.action}</span>
                 <ArrowRight size={10} />

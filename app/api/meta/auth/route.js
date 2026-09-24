@@ -71,6 +71,15 @@ export async function GET(request) {
       cookieOptions
     );
     response.cookies.set("meta_oauth_origin", origin, cookieOptions);
+    if (requestUrl.searchParams.get("onboarding") === "1") {
+      response.cookies.set(
+        "meta_oauth_return_path",
+        `/workspace/${encodeURIComponent(access.organizationId)}/administration/communications-setup?onboarding=1`,
+        cookieOptions,
+      );
+    } else {
+      response.cookies.delete("meta_oauth_return_path");
+    }
 
     return response;
   } catch (error) {

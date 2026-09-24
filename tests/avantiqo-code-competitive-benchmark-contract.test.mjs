@@ -31,7 +31,9 @@ test("competitive benchmark measures quality latency and cost", () => {
 
 test("superiority claim fails closed and never changes runtime provider routing", () => {
   assert.match(source, /comparisons\.length >= 2 && comparisons\.every/);
-  assert.match(source, /superiority_claim_allowed: competitiveCertified/);
+  assert.match(source, /superiority_claim_allowed: superiorityClaimAllowed/);
+  assert.match(source, /actual_repository_mutation_evidence_required_for_superiority: true/);
+  assert.match(source, /hidden_acceptance_evidence_required_for_superiority: true/);
   assert.match(source, /runtime_provider_effect: "NONE"/);
   assert.match(source, /external_reference_execution_performed: false/);
 });

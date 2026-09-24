@@ -7,6 +7,10 @@ const source = await readFile(new URL("../lib/code/runtime/CodeAIWorkPackageRunt
 test("declared source evidence is deterministically loaded before first planner call", () => {
   assert.match(source, /const declaredEvidencePaths = \[/);
   assert.match(source, /normalizedContext\.evidence_path_1/);
+  assert.match(source, /const boundedDeclaredEditEvidence =/);
+  assert.match(source, /normalizedContext\.implementation_required === true/);
+  assert.match(source, /allowed_edit_paths\)\.length <= 4/);
+  assert.match(source, /\.\.\.boundedDeclaredEditEvidence/);
   assert.match(source, /action: "read"/);
   assert.match(source, /Load declared source evidence \${filePath} before the first reasoning call/);
   assert.match(source, /operations: initialOperations/);

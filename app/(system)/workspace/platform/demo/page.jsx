@@ -13,26 +13,26 @@ export default function PlatformDemoPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#030712] text-white p-10">
+    <main className="min-h-screen bg-[#F7F6F3] text-[#191919] p-10">
       <div className="mx-auto max-w-7xl">
 
-        <section className="mb-12 overflow-hidden rounded-[42px] border border-white/10 bg-gradient-to-br from-[#1c1c2a] to-[#07080f] px-10 py-10 shadow-lg">
+        <section className="mb-12 overflow-hidden rounded-[42px] border border-black/[0.08] bg-gradient-to-br from-white to-[#FBF8F3] px-10 py-10 shadow-lg">
           <div className="mb-4 flex items-center gap-3">
-            <Building2 className="h-6 w-6 text-violet-300" />
-            <span className="text-xs uppercase tracking-[0.30em] text-violet-300/80">
+            <Building2 className="h-6 w-6 text-[#9B6F3F]" />
+            <span className="text-xs uppercase tracking-[0.30em] text-[#9B6F3F]">
               Demo Platform
             </span>
           </div>
 
           <h1 className="text-6xl font-light tracking-[-0.06em]">Platform Demo</h1>
-          <p className="mt-4 max-w-3xl text-white/60">
+          <p className="mt-4 max-w-3xl text-[#5F5A54]">
             Explore a live demo of modules and industry features in the platform.
           </p>
         </section>
 
         <section>
           <div className="mb-6 flex items-center gap-3">
-            <Boxes className="h-5 w-5 text-[#8B5CF6]" />
+            <Boxes className="h-5 w-5 text-[#D6A66A]" />
             <h2 className="text-xl font-light">Demo Modules</h2>
           </div>
 
@@ -41,14 +41,14 @@ export default function PlatformDemoPage() {
               <Link
                 key={mod.id}
                 href={`/workspace/platform/demo/${mod.id}`}
-                className="group rounded-3xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-[#8B5CF6]/40 hover:bg-white/[0.05]"
+                className="group rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-6 transition hover:border-[#D6A66A]/60 hover:bg-white"
               >
                 <div className="mb-4 flex justify-between">
-                  <Boxes className="h-5 w-5 text-[#8B5CF6]" />
-                  <ArrowUpRight className="h-5 w-5 text-white/30" />
+                  <Boxes className="h-5 w-5 text-[#D6A66A]" />
+                  <ArrowUpRight className="h-5 w-5 text-[#A19A92]" />
                 </div>
                 <p className="text-lg font-semibold">{mod.name}</p>
-                <p className="mt-2 text-sm text-white/40">{mod.category}</p>
+                <p className="mt-2 text-sm text-[#817A72]">{mod.category}</p>
               </Link>
             ))}
           </div>

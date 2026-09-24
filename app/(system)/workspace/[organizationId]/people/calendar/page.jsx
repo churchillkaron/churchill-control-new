@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { CalendarDays, Plus, RefreshCw, Trash2 } from "lucide-react";
 
@@ -27,7 +27,7 @@ export default function WorkforceCalendarPage() {
     sourceReference: "",
   });
 
-  async function load(nextEntityId = entityId) {
+  const load = useCallback(async (nextEntityId = "") => {
     if (!organizationId) return;
     setLoading(true);
     setMessage("");
@@ -49,15 +49,11 @@ export default function WorkforceCalendarPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [month, organizationId]);
 
   useEffect(() => {
-    load();
-  }, [organizationId, month]);
-
-  useEffect(() => {
-    if (entityId) load(entityId);
-  }, [entityId]);
+    load(entityId);
+  }, [entityId, load]);
 
   async function addDay(event) {
     event.preventDefault();
@@ -115,16 +111,16 @@ export default function WorkforceCalendarPage() {
   const publicHolidays = activeDays.filter((row) => row.day_type === "PUBLIC_HOLIDAY");
 
   return (
-    <main className="min-h-screen bg-[#030303] p-5 text-white lg:p-8">
+    <main className="min-h-screen bg-[#F7F6F3] p-5 text-[#191919] lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
+        <header className="rounded-[32px] border border-black/[0.08] bg-[#FBF8F3] p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#D6A66A]">
                 People · Workforce
               </p>
               <h1 className="mt-2 text-4xl font-black">Workforce Calendar</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/45">
+              <p className="mt-2 max-w-3xl text-sm text-[#746E66]">
                 Maintain legal-entity calendar evidence for public holidays and organization-specific working-day exceptions. Calendar dates are configuration evidence; payroll treatment remains controlled by Payroll Policy.
               </p>
             </div>
@@ -132,7 +128,7 @@ export default function WorkforceCalendarPage() {
               <select
                 value={entityId}
                 onChange={(event) => setEntityId(event.target.value)}
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm"
+                className="rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-4 py-3 text-sm"
               >
                 {entities.map((entity) => (
                   <option key={entity.id} value={entity.id}>
@@ -144,12 +140,12 @@ export default function WorkforceCalendarPage() {
                 type="month"
                 value={month}
                 onChange={(event) => setMonth(event.target.value)}
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm"
+                className="rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-4 py-3 text-sm"
               />
               <button
                 type="button"
                 onClick={() => load(entityId)}
-                className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-white/60"
+                className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3 text-[#5F5A54]"
                 aria-label="Refresh calendar"
               >
                 <RefreshCw size={18} />
@@ -165,7 +161,7 @@ export default function WorkforceCalendarPage() {
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[400px_1fr]">
-          <form onSubmit={addDay} className="space-y-4 rounded-[28px] border border-white/10 bg-white/[0.035] p-5">
+          <form onSubmit={addDay} className="space-y-4 rounded-[28px] border border-black/[0.08] bg-[#FBF8F3] p-5">
             <div className="flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-[#D6A66A]" />
               <h2 className="text-xl font-black">Add Calendar Day</h2>
@@ -230,23 +226,23 @@ export default function WorkforceCalendarPage() {
             </button>
           </form>
 
-          <section className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.035]">
-            <div className="border-b border-white/10 p-5">
+          <section className="overflow-hidden rounded-[28px] border border-black/[0.08] bg-[#FBF8F3]">
+            <div className="border-b border-black/[0.08] p-5">
               <h2 className="text-xl font-black">{month} Calendar Evidence</h2>
-              <p className="mt-1 text-xs text-white/35">
+              <p className="mt-1 text-xs text-[#918B83]">
                 Cancelled records remain visible for audit history. Public holidays can later classify scheduled non-worked days for payroll according to policy.
               </p>
             </div>
 
             {message ? (
-              <div className="mx-5 mt-5 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/60">
+              <div className="mx-5 mt-5 rounded-xl border border-black/[0.08] bg-[#F7F6F3]/20 px-4 py-3 text-sm text-[#5F5A54]">
                 {message}
               </div>
             ) : null}
 
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-black/20 text-left text-[10px] uppercase tracking-[0.15em] text-white/35">
+                <thead className="bg-[#F7F6F3]/20 text-left text-[10px] uppercase tracking-[0.15em] text-[#918B83]">
                   <tr>
                     <th className="px-5 py-3">Date</th>
                     <th className="px-5 py-3">Type</th>
@@ -258,21 +254,21 @@ export default function WorkforceCalendarPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={6} className="px-5 py-12 text-center text-white/35">Loading calendar...</td></tr>
+                    <tr><td colSpan={6} className="px-5 py-12 text-center text-[#918B83]">Loading calendar...</td></tr>
                   ) : days.length === 0 ? (
-                    <tr><td colSpan={6} className="px-5 py-12 text-center text-white/35">No workforce calendar days for this month.</td></tr>
+                    <tr><td colSpan={6} className="px-5 py-12 text-center text-[#918B83]">No workforce calendar days for this month.</td></tr>
                   ) : (
                     days.map((row) => (
-                      <tr key={row.id} className="border-t border-white/5">
+                      <tr key={row.id} className="border-t border-black/[0.06]">
                         <td className="px-5 py-4 font-semibold">{row.calendar_date}</td>
-                        <td className="px-5 py-4 text-white/55">{String(row.day_type || "").replaceAll("_", " ")}</td>
+                        <td className="px-5 py-4 text-[#5F5A54]">{String(row.day_type || "").replaceAll("_", " ")}</td>
                         <td className="px-5 py-4">
                           <div className="font-semibold">{row.name}</div>
-                          {row.notes ? <div className="mt-1 max-w-md text-xs text-white/30">{row.notes}</div> : null}
+                          {row.notes ? <div className="mt-1 max-w-md text-xs text-[#A19A92]">{row.notes}</div> : null}
                         </td>
-                        <td className="px-5 py-4 text-white/40">{row.source_reference || row.source_type}</td>
+                        <td className="px-5 py-4 text-[#817A72]">{row.source_reference || row.source_type}</td>
                         <td className="px-5 py-4">
-                          <span className={`rounded-full border px-2 py-1 text-[10px] font-black ${row.status === "ACTIVE" ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200" : "border-white/10 bg-white/[0.03] text-white/35"}`}>
+                          <span className={`rounded-full border px-2 py-1 text-[10px] font-black ${row.status === "ACTIVE" ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200" : "border-black/[0.08] bg-[#FBF8F3] text-[#918B83]"}`}>
                             {row.status}
                           </span>
                         </td>
@@ -309,7 +305,7 @@ export default function WorkforceCalendarPage() {
 function Field({ label, children }) {
   return (
     <label className="block space-y-2">
-      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">{label}</span>
+      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#918B83]">{label}</span>
       {children}
     </label>
   );
@@ -317,8 +313,8 @@ function Field({ label, children }) {
 
 function Metric({ label, value }) {
   return (
-    <div className="rounded-[22px] border border-white/10 bg-white/[0.035] p-4">
-      <div className="text-[10px] uppercase tracking-[0.15em] text-white/30">{label}</div>
+    <div className="rounded-[22px] border border-black/[0.08] bg-[#FBF8F3] p-4">
+      <div className="text-[10px] uppercase tracking-[0.15em] text-[#A19A92]">{label}</div>
       <div className="mt-2 text-3xl font-black">{value}</div>
     </div>
   );

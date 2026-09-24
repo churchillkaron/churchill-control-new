@@ -63,14 +63,14 @@ export default async function CreativeMarketingPage({ params }) {
   const legacyBase = `/workspace/${organizationId}/commercial/marketing`;
 
   return (
-    <main className="min-h-screen bg-black px-6 py-8 text-white lg:px-10">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-8 text-[#191919] lg:px-10">
       <div className="mx-auto max-w-7xl">
         <div className="mb-10">
           <div className="text-[10px] uppercase tracking-[0.3em] text-[#D6A66A]">
             Creative / Marketing
           </div>
           <h1 className="mt-3 text-5xl font-light tracking-[-0.03em]">Marketing</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/45">
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-[#746E66]">
             Campaign planning, paid media, publishing, audiences, brand and growth execution.
           </p>
         </div>
@@ -80,21 +80,21 @@ export default async function CreativeMarketingPage({ params }) {
             <Link
               key={path}
               href={`${legacyBase}/${path}`}
-              className="group rounded-[28px] border border-white/10 bg-white/[0.025] p-5 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/[0.06]"
+              className="group rounded-[28px] border border-black/[0.08] bg-[#FBF8F3] p-5 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/[0.06]"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-2.5 text-[#D6A66A]">
+                <div className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/30 p-2.5 text-[#D6A66A]">
                   <Icon size={19} />
                 </div>
-                <ArrowRight size={17} className="mt-2 text-white/25 transition group-hover:translate-x-1 group-hover:text-[#D6A66A]" />
+                <ArrowRight size={17} className="mt-2 text-[#A9A39C] transition group-hover:translate-x-1 group-hover:text-[#D6A66A]" />
               </div>
-              <div className="mt-5 text-base font-medium text-white">{name}</div>
-              <div className="mt-2 text-xs leading-5 text-white/40">{description}</div>
+              <div className="mt-5 text-base font-medium text-[#191919]">{name}</div>
+              <div className="mt-2 text-xs leading-5 text-[#817A72]">{description}</div>
             </Link>
           ))}
         </div>
 
-        <p className="mt-8 text-xs leading-5 text-white/25">
+        <p className="mt-8 text-xs leading-5 text-[#A9A39C]">
           Marketing data and execution contracts remain unchanged while product ownership moves to Creative.
         </p>
       </div>

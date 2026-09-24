@@ -2,96 +2,53 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { consumeOAuthAuthorization } from "@/lib/platform/security/oauthAuthorizationState";
+import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
+import { deactivateOtherActiveScopedCredentials } from "@/lib/platform/service-runtime/credentials/repositories/CredentialRepository";
+import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
+import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
+import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 import {
   exchangeSocialAuthorizationCode,
   fetchSocialIdentity,
   getSocialOAuthConfig,
 } from "@/lib/platform/channels/oauth/SocialOAuthRuntime";
-import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
-import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
-import { consumeOAuthAuthorization } from "@/lib/platform/security/oauthAuthorizationState";
-import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
-import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-function text(value) {
-  return String(value ?? "").trim();
+const ASSET_TYPES = {
+  threads: "threads_profile",
+  tiktok: "tiktok_account",
+  linkedin: "linkedin_identity",
+  x: "x_account",
+};
+
+function text(value) { return String(value ?? "").trim(); }
+function providerName(value) { return text(value).toLowerCase(); }
+function safeReturnPath(authorization, organizationId) {
+  const candidate = text(authorization?.metadata?.return_path);
+  const allowed = `/workspace/${encodeURIComponent(organizationId)}/administration/communications-setup?onboarding=1`;
+  return candidate === allowed
+    ? allowed
+    : `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`;
 }
-
-function destination(origin, organizationId, message) {
-  const url = new URL(
-    `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
-    origin,
-  );
+function destination(origin, authorization, organizationId, provider, message, status = "connected") {
+  const url = new URL(safeReturnPath(authorization, organizationId), origin);
   url.searchParams.set("message", message);
+  url.searchParams.set(provider, status);
   return url;
 }
 
-async function normalizeProviderTokens(provider, tokens) {
-  if (provider !== "threads" || !text(tokens?.access_token)) return tokens;
-  const secret = text(process.env.THREADS_APP_SECRET);
-  if (!secret) throw new Error("THREADS_APP_SECRET is not configured");
-
-  const url = new URL("https://graph.threads.net/access_token");
-  url.searchParams.set("grant_type", "th_exchange_token");
-  url.searchParams.set("client_secret", secret);
-  url.searchParams.set("access_token", tokens.access_token);
-
-  const response = await fetch(url, { cache: "no-store" });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload?.access_token) {
-    throw new Error(payload?.error?.message || "Threads long-lived token exchange failed");
-  }
-
-  const obtainedAt = new Date();
-  const expiresIn = Number(payload.expires_in) || null;
-  return {
-    ...tokens,
-    ...payload,
-    token_lifecycle: "THREADS_LONG_LIVED",
-    token_obtained_at: obtainedAt.toISOString(),
-    token_expires_at: expiresIn
-      ? new Date(obtainedAt.getTime() + expiresIn * 1000).toISOString()
-      : null,
-  };
-}
-
-async function ensureSocialService(organizationId, provider) {
-  const SERVICE = {
-    linkedin: {
-      service_id: "linkedin",
-      package_id: "core",
-    },
-    threads: {
-      service_id: "threads",
-      package_id: "core",
-    },
-    x: {
-      service_id: "x",
-      package_id: "core",
-    },
-    tiktok: {
-      service_id: "tiktok",
-      package_id: "core",
-    },
-  }[provider];
-  if (!SERVICE) return null;
-
+async function ensureService(organizationId, provider) {
   const existing = await OrganizationServiceRuntime.get({
     organization_id: organizationId,
-    service_id: SERVICE.service_id,
+    service_id: provider,
   }).catch(() => null);
-
-  if (existing && String(existing.status || "").toUpperCase() === "ACTIVE") {
-    return existing;
-  }
-
+  if (existing && String(existing.status || "").toUpperCase() === "ACTIVE") return existing;
   return OrganizationServiceRuntime.save({
     ...(existing || {}),
     organization_id: organizationId,
-    service_category_id: existing?.service_category_id || "marketing-social",
-    service_id: SERVICE.service_id,
-    package_id: existing?.package_id || SERVICE.package_id,
+    service_category_id: "marketing-social",
+    service_id: provider,
+    package_id: existing?.package_id || "core",
     status: "ACTIVE",
     managed_by: existing?.managed_by || "organization",
     authorization_required: true,
@@ -103,15 +60,8 @@ async function ensureSocialService(organizationId, provider) {
     activated_at: existing?.activated_at || new Date().toISOString(),
     metadata: {
       ...(existing?.metadata || {}),
+      connection_model: "ORGANIZATION_SOCIAL_OAUTH",
       provider,
-      connection_model:
-        provider === "x" ? "ORGANIZATION_OAUTH_PKCE" : "ORGANIZATION_OAUTH",
-      ...(provider === "tiktok"
-        ? {
-            explicit_creator_consent_required: true,
-            current_privacy_options_required: true,
-          }
-        : {}),
     },
     configuration: existing?.configuration || {},
   });
@@ -119,47 +69,60 @@ async function ensureSocialService(organizationId, provider) {
 
 export async function GET(request, { params }) {
   const requestUrl = new URL(request.url);
-  const resolved = await params;
-  const provider = text(resolved?.provider).toLowerCase();
+  const resolvedParams = await params;
+  const provider = providerName(resolvedParams?.provider);
   const config = getSocialOAuthConfig(provider);
   let authorization = null;
 
   try {
     if (!config) throw new Error("Unsupported social connection");
     const state = requestUrl.searchParams.get("state");
-    if (!state) throw new Error("Provider connection validation failed or expired");
+    if (!state) throw new Error(`${provider} connection validation failed or expired`);
     authorization = await consumeOAuthAuthorization({ state, provider });
 
-    const providerError =
-      requestUrl.searchParams.get("error") ||
-      requestUrl.searchParams.get("error_description");
-    if (providerError) throw new Error(`Connection was not approved: ${providerError}`);
+    const providerError = requestUrl.searchParams.get("error_description") || requestUrl.searchParams.get("error");
+    if (providerError) throw new Error(`${provider} connection was not approved: ${providerError}`);
     const code = requestUrl.searchParams.get("code");
-    if (!code) throw new Error("Provider did not return an authorization code");
+    if (!code) throw new Error(`${provider} did not return an authorization code`);
 
-    const exchangedTokens = await exchangeSocialAuthorizationCode({
+    const tokens = await exchangeSocialAuthorizationCode({
       provider,
       code,
-      codeVerifier: authorization.metadata?.code_verifier || null,
+      codeVerifier: text(authorization?.metadata?.pkce_verifier) || null,
     });
-    const tokens = await normalizeProviderTokens(provider, exchangedTokens);
-    const identity = await fetchSocialIdentity({
-      provider,
-      accessToken: tokens.access_token,
-    });
-
+    const identity = await fetchSocialIdentity({ provider, accessToken:tokens.access_token });
     const organizationId = authorization.organization_id;
-    const credential = await CredentialRuntime.store({
+    const expiresIn = Number(tokens.expires_in) || 0;
+    const secret = {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token || null,
+      token_type: tokens.token_type || "Bearer",
+      scope: tokens.scope || null,
+      expires_at: expiresIn > 0 ? new Date(Date.now() + expiresIn * 1000).toISOString() : null,
+    };
+
+    const credential = await CredentialRuntime.storeSecret({
       provider_id: provider,
       credential_type: "oauth_token",
-      secret_reference: JSON.stringify(tokens),
+      secret: JSON.stringify(secret),
+      organization_id: organizationId,
+      vault_name: `${provider}-oauth-${organizationId}-${identity.id}`,
+      vault_description: `Organization ${provider} OAuth credential`,
       metadata: {
         organization_id: organizationId,
-        purpose: "ORGANIZATION_SOCIAL_CONNECTION",
+        purpose: `ORGANIZATION_${provider.toUpperCase()}_CONNECTION`,
+        enabled: true,
         external_account_id: identity.id,
         username: identity.username || null,
-        enabled: true,
+        account_name: identity.name || identity.username || null,
+        token_obtained_at: new Date().toISOString(),
       },
+    });
+    await deactivateOtherActiveScopedCredentials({
+      provider_id: provider,
+      organization_id: organizationId,
+      purpose: `ORGANIZATION_${provider.toUpperCase()}_CONNECTION`,
+      except_id: credential.id,
     });
 
     const connection = await ChannelConnectionRuntime.connect({
@@ -169,12 +132,10 @@ export async function GET(request, { params }) {
       credentials_reference: credential.id,
       metadata: {
         account_id: identity.id,
-        account_name: identity.name || identity.username || identity.id,
+        account_name: identity.name || identity.username || provider,
         username: identity.username || null,
         connected_at: new Date().toISOString(),
-        connection_model: config.pkce ? "ORGANIZATION_OAUTH_PKCE" : "ORGANIZATION_OAUTH",
-        token_lifecycle: tokens.token_lifecycle || null,
-        token_expires_at: tokens.token_expires_at || null,
+        connection_model: "ORGANIZATION_SOCIAL_OAUTH",
       },
     });
 
@@ -182,39 +143,34 @@ export async function GET(request, { params }) {
       organization_id: organizationId,
       connection_id: connection.id,
       provider,
-      asset_type: "social_account",
+      asset_type: ASSET_TYPES[provider] || `${provider}_account`,
       external_id: identity.id,
-      name: identity.name || identity.username || identity.id,
+      name: identity.name || identity.username || `${provider} account`,
+      selected_by_party_id: authorization.party_id || null,
+      selected_at: new Date().toISOString(),
       metadata: {
         username: identity.username || null,
       },
     });
+    await ensureService(organizationId, provider);
 
-    const authorizedAt = new Date().toISOString();
-    await supabaseAdmin
-      .from("organization_channel_connections")
-      .update({
-        authorized_by_party_id: authorization.party_id || null,
-        authorized_at: authorizedAt,
-        updated_at: authorizedAt,
-      })
-      .eq("id", connection.id)
-      .eq("organization_id", organizationId);
-
-    await ensureSocialService(organizationId, provider);
-
-    return NextResponse.redirect(
-      destination(
-        authorization.return_origin || requestUrl.origin,
-        organizationId,
-        `${provider === "x" ? "X" : provider.charAt(0).toUpperCase() + provider.slice(1)} connected.`,
-      ),
-    );
+    return NextResponse.redirect(destination(
+      authorization.return_origin || requestUrl.origin,
+      authorization,
+      organizationId,
+      provider,
+      `${identity.name || identity.username || provider} connected.`,
+    ));
   } catch (error) {
     const organizationId = authorization?.organization_id || "unknown";
     const origin = authorization?.return_origin || requestUrl.origin;
-    return NextResponse.redirect(
-      destination(origin, organizationId, error?.message || "Connection failed"),
-    );
+    return NextResponse.redirect(destination(
+      origin,
+      authorization,
+      organizationId,
+      provider || "social",
+      error?.message || "Social connection failed",
+      "error",
+    ));
   }
 }

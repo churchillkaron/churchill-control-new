@@ -18,7 +18,7 @@ export default function LaboratoryPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-4">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6">
           <div className="text-sm text-zinc-400">
             Pending Tests
           </div>
@@ -27,7 +27,7 @@ export default function LaboratoryPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6">
           <div className="text-sm text-zinc-400">
             Processing
           </div>
@@ -36,7 +36,7 @@ export default function LaboratoryPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6">
           <div className="text-sm text-zinc-400">
             Completed
           </div>
@@ -45,7 +45,7 @@ export default function LaboratoryPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6">
           <div className="text-sm text-zinc-400">
             Critical Results
           </div>
@@ -55,10 +55,10 @@ export default function LaboratoryPage() {
         </div>
       </div>
 
-      <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+      <div className="mt-8 overflow-hidden rounded-2xl border border-black/[0.08] bg-[#FBF8F3]">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/10">
+            <tr className="border-b border-black/[0.08]">
               <th className="p-4 text-left">
                 Patient
               </th>

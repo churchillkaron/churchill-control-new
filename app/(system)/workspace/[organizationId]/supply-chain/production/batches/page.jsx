@@ -71,7 +71,7 @@ export default function ProductionBatchPage() {
   }, [loadBatches]);
 
   return (
-    <div className="min-h-screen bg-black p-10 text-white">
+    <div className="min-h-screen bg-[#F7F6F3] p-10 text-[#191919]">
       <div className="mx-auto max-w-7xl">
         <div className="mb-10 flex items-start justify-between gap-6">
           <div>
@@ -83,7 +83,7 @@ export default function ProductionBatchPage() {
             type="button"
             onClick={loadBatches}
             disabled={loading || !organizationId}
-            className="rounded-2xl border border-white/10 px-5 py-3 text-sm text-white/70 disabled:opacity-40"
+            className="rounded-2xl border border-black/[0.08] px-5 py-3 text-sm text-[#5F5A54] disabled:opacity-40"
           >
             {loading ? "Loading..." : "Refresh"}
           </button>
@@ -96,7 +96,7 @@ export default function ProductionBatchPage() {
         )}
 
         {!loading && !error && batches.length === 0 && (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-zinc-500">
+          <div className="rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-8 text-zinc-500">
             No production batches for this organization yet.
           </div>
         )}

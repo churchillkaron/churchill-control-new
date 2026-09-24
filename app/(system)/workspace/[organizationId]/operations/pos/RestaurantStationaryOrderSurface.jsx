@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRightLeft,
   Layers3,
@@ -116,24 +116,24 @@ function tableTone(table, active) {
     return "border-red-400/20 bg-red-500/[0.06] text-red-200/60";
   }
   if (Number(table?.current_guests || 0) > 0 || String(table?.status || "").toUpperCase() === "OCCUPIED") {
-    return "border-white/15 bg-white/[0.045] text-white";
+    return "border-black/[0.10] bg-white text-[#191919]";
   }
-  return "border-white/10 bg-white/[0.02] text-white/60";
+  return "border-black/[0.08] bg-[#FBF8F3] text-[#746E66]";
 }
 
 function Modal({ title, subtitle, onClose, children, wide = false }) {
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className={`max-h-[90vh] w-full overflow-y-auto rounded-[28px] border border-white/10 bg-[#090909] p-5 shadow-2xl ${wide ? "max-w-[620px]" : "max-w-[430px]"}`}>
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#191919]/20 p-4 backdrop-blur-sm">
+      <div className={`max-h-[90vh] w-full overflow-y-auto rounded-[28px] border border-black/[0.08] bg-white p-5 shadow-2xl ${wide ? "max-w-[620px]" : "max-w-[430px]"}`}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">{title}</h2>
-            {subtitle ? <p className="mt-1 text-xs text-white/35">{subtitle}</p> : null}
+            <h2 className="text-lg font-semibold text-[#191919]">{title}</h2>
+            {subtitle ? <p className="mt-1 text-xs text-[#918B83]">{subtitle}</p> : null}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/10 p-2 text-white/45 transition hover:text-white"
+            className="rounded-xl border border-black/[0.08] p-2 text-[#746E66] transition hover:text-[#191919]"
             aria-label="Close"
           >
             <X size={16} />
@@ -200,10 +200,13 @@ export default function RestaurantStationaryOrderSurface({
     setActiveZoneId((current) => current || posRuntime?.zones?.[0]?.id || null);
   }, [posRuntime]);
 
-  const zones = runtime?.zones || [];
-  const tables = runtime?.tables || [];
-  const dishes = runtime?.dishes || [];
-  const settings = runtime?.posSettings || runtime?.settings || {};
+  const zones = useMemo(() => runtime?.zones || [], [runtime?.zones]);
+  const tables = useMemo(() => runtime?.tables || [], [runtime?.tables]);
+  const dishes = useMemo(() => runtime?.dishes || [], [runtime?.dishes]);
+  const settings = useMemo(
+    () => runtime?.posSettings || runtime?.settings || {},
+    [runtime?.posSettings, runtime?.settings],
+  );
   const actionCapabilities = runtime?.capabilities?.actions || {};
   const canMoveGuests = actionCapabilities.move_guests === true;
   const canTransferTable = actionCapabilities.transfer_table === true;
@@ -211,10 +214,10 @@ export default function RestaurantStationaryOrderSurface({
   const modifierGroups = useMemo(() => normalizeModifierGroups(settings), [settings]);
   const activeTable = tables.find((table) => table.id === activeTableId) || null;
 
-  function guestsFor(table) {
+  const guestsFor = useCallback((table) => {
     if (!table) return 0;
     return Number(guestOverrides[table.id] ?? table.current_guests ?? 0);
-  }
+  }, [guestOverrides]);
 
   const guestCount = Math.max(0, guestsFor(activeTable));
   const seats = Array.from({ length: guestCount }, (_, index) => index + 1);
@@ -271,7 +274,15 @@ export default function RestaurantStationaryOrderSurface({
       setGuestDraft(1);
       setModal("GUESTS");
     }
-  }, [preferredTableReference, tables]);
+  }, [
+    activeTableId,
+    activeZoneId,
+    cart.length,
+    guestsFor,
+    onActiveContextChange,
+    preferredTableReference,
+    tables,
+  ]);
 
   async function refreshRuntime() {
     if (typeof refreshPOSRuntime !== "function") return runtime;
@@ -582,8 +593,8 @@ export default function RestaurantStationaryOrderSurface({
   }
 
   return (
-    <section className="min-h-[calc(100vh-132px)] bg-[#050505]" data-restaurant-stationary-order-surface="true">
-      <div className="border-b border-white/10 px-4 py-4">
+    <section className="min-h-[calc(100vh-132px)] bg-[#F7F6F3]" data-restaurant-stationary-order-surface="true">
+      <div className="border-b border-black/[0.08] px-4 py-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
             <div className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Active service</div>
@@ -592,12 +603,12 @@ export default function RestaurantStationaryOrderSurface({
                 {activeTable ? `Table ${tableName(activeTable)}` : "Choose a table"}
               </h2>
               {activeTable ? (
-                <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] text-white/45">
+                <span className="rounded-full border border-black/[0.08] px-2.5 py-1 text-[10px] text-[#746E66]">
                   {guestCount} guest{guestCount === 1 ? "" : "s"}
                 </span>
               ) : null}
             </div>
-            <div className="mt-1 text-[10px] text-white/30">
+            <div className="mt-1 text-[10px] text-[#A19A92]">
               Table and order stay left · authoritative settlement stays visible at right.
             </div>
           </div>
@@ -607,7 +618,7 @@ export default function RestaurantStationaryOrderSurface({
               <button
                 type="button"
                 onClick={() => setModal("TABLE_ACTIONS")}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2.5 text-xs text-white/55"
+                className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2.5 text-xs text-[#5F5A54]"
               >
                 <Settings2 size={14} /> Table
               </button>
@@ -624,7 +635,7 @@ export default function RestaurantStationaryOrderSurface({
         </div>
 
         {message ? (
-          <div className="mt-3 rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-2 text-xs text-[#E9CF9A]">{message}</div>
+          <div className="mt-3 rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-2 text-xs text-[#76583A]">{message}</div>
         ) : null}
         {error ? (
           <div className="mt-3 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-100">{error}</div>
@@ -632,8 +643,8 @@ export default function RestaurantStationaryOrderSurface({
       </div>
 
       <div className="grid min-h-[calc(100vh-230px)] xl:grid-cols-[210px_minmax(0,1fr)_310px]">
-        <aside className="border-b border-white/10 p-3 xl:border-b-0 xl:border-r">
-          <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/30">Areas</div>
+        <aside className="border-b border-black/[0.08] p-3 xl:border-b-0 xl:border-r">
+          <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#A19A92]">Areas</div>
           <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 xl:flex-wrap">
             {zones.map((zone) => (
               <button
@@ -642,14 +653,14 @@ export default function RestaurantStationaryOrderSurface({
                 onClick={() => chooseZone(zone.id)}
                 className={activeZoneId === zone.id
                   ? "shrink-0 rounded-xl bg-[#D6A66A] px-3 py-2 text-[10px] font-bold text-black"
-                  : "shrink-0 rounded-xl border border-white/10 px-3 py-2 text-[10px] text-white/45"}
+                  : "shrink-0 rounded-xl border border-black/[0.08] px-3 py-2 text-[10px] text-[#746E66]"}
               >
                 {zone.name || zone.zone_name || "Area"}
               </button>
             ))}
           </div>
 
-          <div className="mt-4 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/30">Tables</div>
+          <div className="mt-4 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#A19A92]">Tables</div>
           <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5 xl:grid-cols-2">
             {visibleTables.map((table) => {
               const active = table.id === activeTableId;
@@ -671,20 +682,20 @@ export default function RestaurantStationaryOrderSurface({
           </div>
         </aside>
 
-        <div className="min-w-0 border-b border-white/10 p-3 xl:border-b-0 xl:border-r">
+        <div className="min-w-0 border-b border-black/[0.08] p-3 xl:border-b-0 xl:border-r">
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-[220px] flex-1">
-              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#A19A92]" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search menu"
-                className="w-full rounded-xl border border-white/10 bg-black/40 py-2.5 pl-9 pr-3 text-xs outline-none placeholder:text-white/25"
+                className="w-full rounded-xl border border-black/[0.08] bg-white py-2.5 pl-9 pr-3 text-xs outline-none placeholder:text-[#A9A39C]"
               />
             </div>
             {activeTable && guestCount ? (
               <div className="flex items-center gap-1.5 overflow-x-auto">
-                <span className="mr-1 text-[9px] uppercase tracking-[0.15em] text-white/30">Seat</span>
+                <span className="mr-1 text-[9px] uppercase tracking-[0.15em] text-[#A19A92]">Seat</span>
                 {seats.map((seat) => (
                   <button
                     key={seat}
@@ -692,7 +703,7 @@ export default function RestaurantStationaryOrderSurface({
                     onClick={() => setSelectedSeat(seat)}
                     className={selectedSeat === seat
                       ? "h-9 min-w-9 rounded-xl bg-[#D6A66A] px-3 text-xs font-bold text-black"
-                      : "h-9 min-w-9 rounded-xl border border-white/10 px-3 text-xs text-white/50"}
+                      : "h-9 min-w-9 rounded-xl border border-black/[0.08] px-3 text-xs text-[#746E66]"}
                   >
                     {seat}
                   </button>
@@ -709,7 +720,7 @@ export default function RestaurantStationaryOrderSurface({
                 onClick={() => setActiveCategory(category)}
                 className={currentCategory === category
                   ? "shrink-0 rounded-xl bg-white px-3 py-2 text-[10px] font-semibold text-black"
-                  : "shrink-0 rounded-xl border border-white/10 px-3 py-2 text-[10px] text-white/45"}
+                  : "shrink-0 rounded-xl border border-black/[0.08] px-3 py-2 text-[10px] text-[#746E66]"}
               >
                 {category}
               </button>
@@ -723,7 +734,7 @@ export default function RestaurantStationaryOrderSurface({
                 type="button"
                 disabled={!activeTable || !guestCount}
                 onClick={() => openDish(dish)}
-                className="min-h-24 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-left transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/[0.035] disabled:opacity-25"
+                className="min-h-24 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-3 text-left transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/[0.035] disabled:opacity-25"
               >
                 <div className="line-clamp-2 text-sm font-medium">{dish.name || dish.dish_name}</div>
                 {dish.price != null ? (
@@ -734,7 +745,7 @@ export default function RestaurantStationaryOrderSurface({
           </div>
 
           {!visibleDishes.length ? (
-            <div className="mt-3 flex min-h-56 items-center justify-center rounded-2xl border border-dashed border-white/10 text-xs text-white/30">
+            <div className="mt-3 flex min-h-56 items-center justify-center rounded-2xl border border-dashed border-black/[0.08] text-xs text-[#A19A92]">
               No menu items match this view.
             </div>
           ) : null}
@@ -747,23 +758,23 @@ export default function RestaurantStationaryOrderSurface({
               <div className="mt-1 text-base font-semibold">{cartUnits} item{cartUnits === 1 ? "" : "s"}</div>
             </div>
             <div className="text-right">
-              <div className="text-[9px] uppercase tracking-[0.14em] text-white/30">Draft subtotal</div>
+              <div className="text-[9px] uppercase tracking-[0.14em] text-[#A19A92]">Draft subtotal</div>
               <div className="mt-1 text-sm font-semibold">{money(cartSubtotal, currencyCode)}</div>
             </div>
           </div>
 
           <div className="mt-3 max-h-[calc(100vh-365px)] space-y-2 overflow-y-auto pr-1">
             {cart.length ? cart.map((item) => (
-              <div key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.025] p-3">
+              <div key={item.id} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-xs font-medium">{item.name}</div>
-                    <div className="mt-1 text-[9px] text-white/35">Seat {item.seatPosition}{item.notes ? ` · ${item.notes}` : ""}</div>
+                    <div className="mt-1 text-[9px] text-[#918B83]">Seat {item.seatPosition}{item.notes ? ` · ${item.notes}` : ""}</div>
                   </div>
                   <button
                     type="button"
                     onClick={() => removeItem(item.id)}
-                    className="rounded-lg p-1.5 text-white/25 transition hover:bg-white/[0.05] hover:text-white/70"
+                    className="rounded-lg p-1.5 text-[#A9A39C] transition hover:bg-[#FBF8F3] hover:text-[#191919]/70"
                     aria-label={`Remove ${item.name}`}
                   >
                     <X size={13} />
@@ -771,17 +782,17 @@ export default function RestaurantStationaryOrderSurface({
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => changeQuantity(item.id, -1)} className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 text-white/55"><Minus size={12} /></button>
+                    <button type="button" onClick={() => changeQuantity(item.id, -1)} className="grid h-8 w-8 place-items-center rounded-lg border border-black/[0.08] text-[#5F5A54]"><Minus size={12} /></button>
                     <div className="min-w-8 text-center text-xs font-semibold">{item.quantity}</div>
-                    <button type="button" onClick={() => changeQuantity(item.id, 1)} className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 text-white/55"><Plus size={12} /></button>
+                    <button type="button" onClick={() => changeQuantity(item.id, 1)} className="grid h-8 w-8 place-items-center rounded-lg border border-black/[0.08] text-[#5F5A54]"><Plus size={12} /></button>
                   </div>
-                  <div className="text-xs text-white/55">{money(Number(item.price || 0) * Number(item.quantity || 1), currencyCode)}</div>
+                  <div className="text-xs text-[#5F5A54]">{money(Number(item.price || 0) * Number(item.quantity || 1), currencyCode)}</div>
                 </div>
               </div>
             )) : (
-              <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 px-4 text-center">
-                <div className="text-xs font-medium text-white/45">No draft items</div>
-                <div className="mt-1 text-[10px] leading-4 text-white/25">Choose a table and seat, then tap menu items.</div>
+              <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border border-dashed border-black/[0.08] px-4 text-center">
+                <div className="text-xs font-medium text-[#746E66]">No draft items</div>
+                <div className="mt-1 text-[10px] leading-4 text-[#A9A39C]">Choose a table and seat, then tap menu items.</div>
               </div>
             )}
           </div>
@@ -810,7 +821,7 @@ export default function RestaurantStationaryOrderSurface({
             <button
               type="button"
               onClick={cancelDraftSwitch}
-              className="w-full rounded-2xl bg-[#25231F] px-4 py-3.5 text-sm font-semibold text-white"
+              className="w-full rounded-2xl bg-[#D6A66A] px-4 py-3.5 text-sm font-semibold text-[#191919]"
             >
               Keep current draft
             </button>
@@ -835,7 +846,7 @@ export default function RestaurantStationaryOrderSurface({
                 onClick={() => setGuestDraft(value)}
                 className={Number(guestDraft) === value
                   ? "rounded-xl bg-[#D6A66A] py-3 text-sm font-bold text-black"
-                  : "rounded-xl border border-white/10 py-3 text-sm text-white/60"}
+                  : "rounded-xl border border-black/[0.08] py-3 text-sm text-[#5F5A54]"}
               >
                 {value}
               </button>
@@ -854,7 +865,7 @@ export default function RestaurantStationaryOrderSurface({
 
       {modal === "DISH" && dishDraft ? (
         <Modal title={dishDraft.name || dishDraft.dish_name || "Item"} subtitle={`Table ${tableName(activeTable)} · choose the exact seat and preparation.`} onClose={() => setModal(null)} wide>
-          <div className="text-[9px] uppercase tracking-[0.16em] text-white/30">Seat</div>
+          <div className="text-[9px] uppercase tracking-[0.16em] text-[#A19A92]">Seat</div>
           <div className="mt-2 flex flex-wrap gap-2">
             {seats.map((seat) => (
               <button
@@ -863,7 +874,7 @@ export default function RestaurantStationaryOrderSurface({
                 onClick={() => setModifierDraft((current) => ({ ...current, seat: String(seat) }))}
                 className={String(modifierDraft.seat) === String(seat)
                   ? "rounded-xl bg-[#D6A66A] px-4 py-2.5 text-xs font-bold text-black"
-                  : "rounded-xl border border-white/10 px-4 py-2.5 text-xs text-white/55"}
+                  : "rounded-xl border border-black/[0.08] px-4 py-2.5 text-xs text-[#5F5A54]"}
               >
                 Seat {seat}
               </button>
@@ -872,7 +883,7 @@ export default function RestaurantStationaryOrderSurface({
 
           {modifierGroups.map((group) => (
             <div key={group.key} className="mt-4">
-              <div className="text-[9px] uppercase tracking-[0.16em] text-white/30">{group.label}{group.required ? " · required" : ""}</div>
+              <div className="text-[9px] uppercase tracking-[0.16em] text-[#A19A92]">{group.label}{group.required ? " · required" : ""}</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {group.options.map((option) => (
                   <button
@@ -880,8 +891,8 @@ export default function RestaurantStationaryOrderSurface({
                     type="button"
                     onClick={() => setModifierDraft((current) => ({ ...current, [group.key]: option.value }))}
                     className={modifierDraft[group.key] === option.value
-                      ? "rounded-xl border border-[#D6A66A]/40 bg-[#D6A66A]/10 px-3 py-2.5 text-xs text-[#E9CF9A]"
-                      : "rounded-xl border border-white/10 px-3 py-2.5 text-xs text-white/50"}
+                      ? "rounded-xl border border-[#D6A66A]/40 bg-[#D6A66A]/10 px-3 py-2.5 text-xs text-[#76583A]"
+                      : "rounded-xl border border-black/[0.08] px-3 py-2.5 text-xs text-[#746E66]"}
                   >
                     {option.label}
                   </button>
@@ -895,7 +906,7 @@ export default function RestaurantStationaryOrderSurface({
             onChange={(event) => setModifierDraft((current) => ({ ...current, notes: event.target.value }))}
             placeholder="Kitchen note"
             rows={3}
-            className="mt-4 w-full rounded-2xl border border-white/10 bg-black px-3 py-3 text-sm outline-none placeholder:text-white/25"
+            className="mt-4 w-full rounded-2xl border border-black/[0.08] bg-white px-3 py-3 text-sm outline-none placeholder:text-[#A9A39C]"
           />
           <button type="button" onClick={addDish} className="mt-3 w-full rounded-2xl bg-[#D6A66A] py-3.5 text-sm font-bold text-black">
             Add to seat {modifierDraft.seat || selectedSeat}
@@ -907,13 +918,13 @@ export default function RestaurantStationaryOrderSurface({
         <Modal title={`Table ${tableName(activeTable)}`} subtitle="Operational changes only. Settlement remains in the payment rail." onClose={() => setModal(null)}>
           <div className="grid gap-2" data-stationary-authorized-table-actions="true">
             {canMoveGuests ? (
-              <button type="button" onClick={() => { setGuestDraft(Math.max(1, guestCount)); setModal("GUESTS"); }} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Users size={16} className="text-[#D6A66A]" /> Change guest count</button>
+              <button type="button" onClick={() => { setGuestDraft(Math.max(1, guestCount)); setModal("GUESTS"); }} className="flex items-center gap-3 rounded-2xl border border-black/[0.08] p-4 text-left text-sm"><Users size={16} className="text-[#D6A66A]" /> Change guest count</button>
             ) : null}
             {canTransferTable ? (
-              <button type="button" onClick={() => { setTargetTableId(null); setModal("TRANSFER"); }} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><ArrowRightLeft size={16} className="text-[#D6A66A]" /> Move whole table</button>
+              <button type="button" onClick={() => { setTargetTableId(null); setModal("TRANSFER"); }} className="flex items-center gap-3 rounded-2xl border border-black/[0.08] p-4 text-left text-sm"><ArrowRightLeft size={16} className="text-[#D6A66A]" /> Move whole table</button>
             ) : null}
             {canMergeTables ? (
-              <button type="button" onClick={() => { setMergeTargetIds([]); setModal("MERGE"); }} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Layers3 size={16} className="text-[#D6A66A]" /> Merge tables</button>
+              <button type="button" onClick={() => { setMergeTargetIds([]); setModal("MERGE"); }} className="flex items-center gap-3 rounded-2xl border border-black/[0.08] p-4 text-left text-sm"><Layers3 size={16} className="text-[#D6A66A]" /> Merge tables</button>
             ) : null}
           </div>
           {!canTransferTable || !canMergeTables ? (
@@ -933,15 +944,15 @@ export default function RestaurantStationaryOrderSurface({
                 type="button"
                 onClick={() => setTargetTableId(table.id)}
                 className={targetTableId === table.id
-                  ? "w-full rounded-2xl border border-[#D6A66A]/45 bg-[#D6A66A]/10 px-4 py-3 text-left text-[#E9CF9A]"
-                  : "w-full rounded-2xl border border-white/10 px-4 py-3 text-left text-white/60"}
+                  ? "w-full rounded-2xl border border-[#D6A66A]/45 bg-[#D6A66A]/10 px-4 py-3 text-left text-[#76583A]"
+                  : "w-full rounded-2xl border border-black/[0.08] px-4 py-3 text-left text-[#5F5A54]"}
               >
                 <div className="text-sm font-medium">Table {tableName(table)}</div>
                 <div className="mt-1 text-[10px] opacity-50">Empty · available</div>
               </button>
             ))}
             {!transferTargets.length ? (
-              <div className="rounded-2xl border border-dashed border-white/10 px-4 py-5 text-center text-xs text-white/35">
+              <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-5 text-center text-xs text-[#918B83]">
                 No empty available tables. Use Merge tables if you are joining an occupied service.
               </div>
             ) : null}
@@ -963,8 +974,8 @@ export default function RestaurantStationaryOrderSurface({
                   type="button"
                   onClick={() => setMergeTargetIds((current) => selected ? current.filter((id) => id !== table.id) : [...current, table.id])}
                   className={selected
-                    ? "w-full rounded-2xl border border-[#D6A66A]/45 bg-[#D6A66A]/10 px-4 py-3 text-left text-[#E9CF9A]"
-                    : "w-full rounded-2xl border border-white/10 px-4 py-3 text-left text-white/60"}
+                    ? "w-full rounded-2xl border border-[#D6A66A]/45 bg-[#D6A66A]/10 px-4 py-3 text-left text-[#76583A]"
+                    : "w-full rounded-2xl border border-black/[0.08] px-4 py-3 text-left text-[#5F5A54]"}
                 >
                   <div className="text-sm font-medium">Table {tableName(table)}</div>
                   <div className="mt-1 text-[10px] opacity-50">{guestsFor(table)} guests</div>

@@ -165,7 +165,7 @@ export default function SupplyChainCommandCenter() {
     return () => window.removeEventListener("focus", onFocus);
   }, [load]);
 
-  const metrics = state.data?.metrics || {};
+  const metrics = useMemo(() => state.data?.metrics || {}, [state.data?.metrics]);
   const queue = Array.isArray(state.data?.queue) ? state.data.queue : [];
   const flow = Array.isArray(state.data?.flow) ? state.data.flow : [];
   const currency = state.data?.context?.currency || businessContext.currency || null;

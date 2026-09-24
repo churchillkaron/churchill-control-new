@@ -10,11 +10,7 @@ import CodeMissionHistoryPanel from "@/components/operator/CodeMissionHistoryPan
 import AvantiqoCodeIDE from "@/components/creative/code/AvantiqoCodeIDE";
 
 const DEFAULT_REPOSITORY = "https://github.com/churchillkaron/churchill-control-new";
-const MAX_RESUMES = 24;
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const CODE_TALK_PREFILL_EVENT = "avantiqo:code-talk-prefill";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -43,7 +39,6 @@ export default function CreativeCodeStudio({ organizationId }) {
   const [repositoryUrl, setRepositoryUrl] = useState(DEFAULT_REPOSITORY);
   const [ref, setRef] = useState("main");
   const [objective, setObjective] = useState("");
-  const [running, setRunning] = useState(false);
   const [status, setStatus] = useState("Ready");
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -83,9 +78,9 @@ export default function CreativeCodeStudio({ organizationId }) {
   }, []);
 
   useEffect(() => {
-    if (!running && !liveProgressActive) return;
-    setStatus(statusCopy(progress, running ? "Working" : "Following active mission"));
-  }, [liveProgressActive, progress, running]);
+    if (!liveProgressActive) return;
+    setStatus(statusCopy(progress, "Following active mission"));
+  }, [liveProgressActive, progress]);
 
   useEffect(() => {
     if (!organizationId || studioView !== "changes") return undefined;
@@ -306,78 +301,19 @@ export default function CreativeCodeStudio({ organizationId }) {
     }
   }
 
-  async function runMission() {
+  function runMission() {
     const trimmedObjective = objective.trim();
-    if (!trimmedObjective || running || liveProgressActive) return;
-
-    setRunning(true);
-    setResult(null);
+    if (!trimmedObjective || liveProgressActive) return;
     setError(null);
-    setStatus(workspaceTarget === "DEVICE" ? "Connecting to the selected computer and inspecting the repository…" : "Opening governed workspace and inspecting the repository…");
-    requestRefresh();
-
-    const executionKey = `code-studio:${crypto.randomUUID()}`;
-    let resumeState = null;
-
-    try {
-      for (let attempt = 0; attempt < MAX_RESUMES; attempt += 1) {
-        const response = await fetch("/api/operator/code/mission", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({
-            organizationId,
-            objective: trimmedObjective,
-            repository_url: repositoryUrl.trim(),
-            ref: ref.trim() || "main",
-            workspace_target: workspaceTarget,
-            device_id: workspaceTarget === "DEVICE" ? deviceId : null,
-            execution_key: executionKey,
-            resume_state: resumeState,
-            reasoning_call_budget: 4,
-            max_employee_passes: 8,
-          }),
-        });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || `Code mission failed (${response.status})`);
-        if (!mounted.current) return;
-
-        setResult(body);
-        setStatus(body.status === "planner_pending"
-          ? "Reasoning job is still running — following the same job…"
-          : body.status || "Working");
-        requestRefresh();
-
-        if (body.resume_required === true && body.resume_state) {
-          resumeState = body.resume_state;
-          await wait(1400);
-          continue;
-        }
-
-        if (body.status === "completed" && body.customer_artifact?.verified_complete === true) {
-          setCommitMessage((current) => current || `Code Studio: ${trimmedObjective}`.slice(0, 200));
-        }
-        if (body.status === "completed" && body.customer_artifact?.verified_complete === true && body.engineering_operating_system?.engineering_os_ready !== false) {
-          setStatus("Completed and verified");
-        } else if (body.status === "completed" && body.customer_artifact?.verified_complete === true) {
-          setStatus("Implementation verified · engineering department proof still incomplete");
-        } else if (body.status === "completed") {
-          setStatus("Completed");
-        } else {
-          setStatus(body.reason || body.status || "Stopped");
-        }
-        requestRefresh();
-        return;
-      }
-      throw new Error("Code mission resume limit reached. The same mission can be resumed; no second mission was started.");
-    } catch (missionError) {
-      if (!mounted.current) return;
-      setError(missionError?.message || "Code mission failed");
-      setStatus("Stopped");
-    } finally {
-      if (mounted.current) setRunning(false);
-      requestRefresh();
-    }
+    setStatus("Instruction handed to Talk · one Code mission owner");
+    setStudioView("talk");
+    window.dispatchEvent(new CustomEvent(CODE_TALK_PREFILL_EVENT, {
+      detail: {
+        objective: trimmedObjective,
+        repository_url: repositoryUrl.trim() || DEFAULT_REPOSITORY,
+        ref: ref.trim() || "main",
+      },
+    }));
   }
 
   const artifact = result?.customer_artifact || null;
@@ -503,8 +439,8 @@ export default function CreativeCodeStudio({ organizationId }) {
           </section>
         ) : null}
 
-        <div className={studioView === "changes" ? "block" : "hidden"}>
-        {liveProgressActive && !running ? (
+        {studioView === "changes" ? <div>
+        {liveProgressActive ? (
           <section
             data-avantiqo-shared-code-mission="true"
             className="rounded-2xl border border-[#D6A66A]/30 bg-[#D6A66A]/[0.055] px-4 py-4 md:px-5"
@@ -541,14 +477,14 @@ export default function CreativeCodeStudio({ organizationId }) {
                 <div className="text-xs uppercase tracking-[0.18em] text-white/35">Mission</div>
                 <div className="mt-1 text-sm text-white/65">One goal. Avantiqo handles the engineering loop.</div>
               </div>
-              <div className={`h-2 w-2 rounded-full ${running || liveProgressActive ? "animate-pulse bg-[#D6A66A]" : "bg-white/25"}`} />
+              <div className={`h-2 w-2 rounded-full ${liveProgressActive ? "animate-pulse bg-[#D6A66A]" : "bg-white/25"}`} />
             </div>
 
             <label className="block text-[11px] uppercase tracking-[0.16em] text-white/35">Repository</label>
             <input
               value={repositoryUrl}
               onChange={(event) => setRepositoryUrl(event.target.value)}
-              disabled={running || liveProgressActive}
+              disabled={liveProgressActive}
               className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-3 text-sm text-white/80 outline-none transition focus:border-[#D6A66A]/55 disabled:opacity-50"
             />
 
@@ -556,7 +492,7 @@ export default function CreativeCodeStudio({ organizationId }) {
             <input
               value={ref}
               onChange={(event) => setRef(event.target.value)}
-              disabled={running || liveProgressActive}
+              disabled={liveProgressActive}
               className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-3 text-sm text-white/80 outline-none transition focus:border-[#D6A66A]/55 disabled:opacity-50"
             />
 
@@ -564,7 +500,7 @@ export default function CreativeCodeStudio({ organizationId }) {
             <select
               value={workspaceTarget}
               onChange={(event) => setWorkspaceTarget(event.target.value)}
-              disabled={running || liveProgressActive}
+              disabled={liveProgressActive}
               className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-3 text-sm text-white/80 outline-none transition focus:border-[#D6A66A]/55 disabled:opacity-50"
             >
               <option value="SANDBOX">Avantiqo governed sandbox</option>
@@ -591,7 +527,7 @@ export default function CreativeCodeStudio({ organizationId }) {
             <textarea
               value={objective}
               onChange={(event) => setObjective(event.target.value)}
-              disabled={running || liveProgressActive}
+              disabled={liveProgressActive}
               placeholder="Example: Audit the invoice workspace, fix the broken mobile layout, add regression tests and verify the final diff."
               rows={9}
               className="mt-2 w-full resize-y rounded-xl border border-white/10 bg-black/40 px-3.5 py-3 text-sm leading-6 text-white/85 outline-none transition placeholder:text-white/22 focus:border-[#D6A66A]/55 disabled:opacity-50"
@@ -600,13 +536,13 @@ export default function CreativeCodeStudio({ organizationId }) {
             <button
               type="button"
               onClick={runMission}
-              disabled={running || liveProgressActive || !objective.trim() || !repositoryUrl.trim() || (workspaceTarget === "DEVICE" && !devices.some((device) => device.id === deviceId && device.online))}
+              disabled={liveProgressActive || !objective.trim()}
               className="mt-4 w-full rounded-xl border border-[#D6A66A]/60 bg-[#D6A66A] px-4 py-3 text-sm font-medium text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
             >
-              {running ? "Code is working…" : liveProgressActive ? "Following active mission…" : "Run mission"}
+              {liveProgressActive ? "Following active mission…" : "Send to Talk"}
             </button>
 
-            {liveProgressActive && !running ? (
+            {liveProgressActive ? (
               <div className="mt-2 text-[10px] leading-4 text-white/35">
                 A shared Code mission is already active. This surface follows it instead of starting a competing mission.
               </div>
@@ -718,7 +654,7 @@ export default function CreativeCodeStudio({ organizationId }) {
           <CodeEngineeringIntelligenceLiveCard organizationId={organizationId} theme="dark" />
           <CodeMissionHistoryPanel organizationId={organizationId} />
         </div>
-        </div>
+        </div> : null}
       </div>
     </main>
   );

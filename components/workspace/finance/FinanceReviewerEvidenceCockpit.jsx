@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
@@ -68,7 +68,7 @@ export default function FinanceReviewerEvidenceCockpit({ organizationId }) {
   const [selectedId, setSelectedId] = useState(null);
   const [evidenceState, setEvidenceState] = useState({ loading: false, error: "", data: null });
 
-  async function loadQueue() {
+  const loadQueue = useCallback(async () => {
     if (!organizationId) return;
     try {
       setQueueState((current) => ({ ...current, loading: true, error: "" }));
@@ -97,16 +97,16 @@ export default function FinanceReviewerEvidenceCockpit({ organizationId }) {
     } catch (error) {
       setQueueState((current) => ({ ...current, loading: false, error: error?.message || "Unable to load reviewer evidence queue" }));
     }
-  }
+  }, [organizationId]);
 
-  useEffect(() => { loadQueue(); }, [organizationId]);
+  useEffect(() => { loadQueue(); }, [loadQueue]);
 
   const selected = useMemo(
     () => queueState.rows.find((row) => row.id === selectedId) || null,
     [queueState.rows, selectedId],
   );
 
-  async function loadEvidence(row) {
+  const loadEvidence = useCallback(async (row) => {
     if (!organizationId || !row?.id || !row?.run_id) {
       setEvidenceState({ loading: false, error: "", data: null });
       return;
@@ -124,9 +124,9 @@ export default function FinanceReviewerEvidenceCockpit({ organizationId }) {
     } catch (error) {
       setEvidenceState({ loading: false, error: error?.message || "Unable to load reviewer evidence", data: null });
     }
-  }
+  }, [organizationId]);
 
-  useEffect(() => { loadEvidence(selected); }, [organizationId, selected?.id, selected?.run_id]);
+  useEffect(() => { loadEvidence(selected); }, [loadEvidence, selected]);
 
   if (!organizationId) return null;
   if (!queueState.loading && !queueState.error && !queueState.rows.length) return null;

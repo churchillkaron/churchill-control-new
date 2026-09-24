@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 export default function GoodsReceiptsPage() {
@@ -31,7 +31,7 @@ export default function GoodsReceiptsPage() {
     [purchaseOrders],
   );
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     if (!organizationId) {
       setPurchaseOrders([]);
       setReceipts([]);
@@ -83,7 +83,7 @@ export default function GoodsReceiptsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [entityId, organizationId]);
 
   async function receiveSelectedPurchaseOrder() {
     if (!organizationId || !purchaseOrderId || receiving) return;
@@ -120,26 +120,26 @@ export default function GoodsReceiptsPage() {
 
   useEffect(() => {
     loadData();
-  }, [organizationId, entityId]);
+  }, [loadData]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white p-10">
+      <div className="min-h-screen bg-[#F7F6F3] text-[#191919] p-10">
         Loading goods receipts...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-10">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919] p-10">
       <div className="mb-10">
         <h1 className="text-4xl font-bold">Goods Receipts</h1>
-        <div className="text-white/50 mt-2">
+        <div className="text-[#746E66] mt-2">
           Receive approved purchase orders into inventory
         </div>
       </div>
 
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-10">
+      <div className="bg-white/5 border border-black/[0.08] rounded-2xl p-6 mb-10">
         <h2 className="text-2xl mb-6">Receive Purchase Order</h2>
 
         {!organizationId ? (
@@ -149,7 +149,7 @@ export default function GoodsReceiptsPage() {
             <select
               value={purchaseOrderId}
               onChange={(event) => setPurchaseOrderId(event.target.value)}
-              className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3"
+              className="flex-1 bg-[#F7F6F3] border border-black/[0.08] rounded-xl px-4 py-3"
             >
               <option value="">Select approved purchase order</option>
               {receivableOrders.map((order) => (
@@ -174,7 +174,7 @@ export default function GoodsReceiptsPage() {
         )}
 
         {organizationId && receivableOrders.length === 0 && (
-          <div className="text-white/40 mt-4">
+          <div className="text-[#817A72] mt-4">
             No approved purchase orders are ready to receive.
           </div>
         )}
@@ -194,7 +194,7 @@ export default function GoodsReceiptsPage() {
         {receipts.map((receipt) => (
           <div
             key={receipt.id}
-            className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-4"
+            className="bg-white/5 border border-black/[0.08] rounded-2xl p-6 mb-4"
           >
             <div className="flex justify-between items-start gap-6">
               <div>
@@ -202,11 +202,11 @@ export default function GoodsReceiptsPage() {
                   {receipt.grn_number || receipt.id}
                 </div>
 
-                <div className="text-white/40 mt-1">
+                <div className="text-[#817A72] mt-1">
                   {receipt.purchase_orders?.po_number || "-"}
                 </div>
 
-                <div className="mt-4 space-y-1 text-white/70">
+                <div className="mt-4 space-y-1 text-[#5F5A54]">
                   <div>Received Date: {receipt.received_date || "-"}</div>
                   <div>Received By: {receipt.received_by || "-"}</div>
                   <div>Status: {receipt.status || "-"}</div>
@@ -226,7 +226,7 @@ export default function GoodsReceiptsPage() {
 
 function Empty({ text }) {
   return (
-    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-white/40">
+    <div className="bg-white/5 border border-black/[0.08] rounded-2xl p-6 text-[#817A72]">
       {text}
     </div>
   );

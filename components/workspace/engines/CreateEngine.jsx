@@ -408,14 +408,14 @@ export default function CreateEngine({
       : "Create";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-stretch justify-center overflow-hidden overscroll-none bg-black/70 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="flex h-[100dvh] w-full max-w-5xl min-w-0 flex-col overflow-hidden border border-white/10 bg-[#0b0b0b] shadow-2xl sm:h-auto sm:max-h-[94dvh] sm:rounded-[30px]">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] sm:items-center sm:px-6 sm:py-5">
+    <div className="fixed inset-0 z-[100] flex items-stretch justify-center overflow-hidden overscroll-none bg-[#F7F6F3]/70 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="flex h-[100dvh] w-full max-w-5xl min-w-0 flex-col overflow-hidden border border-black/[0.08] bg-white shadow-2xl sm:h-auto sm:max-h-[94dvh] sm:rounded-[30px]">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-black/[0.08] px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] sm:items-center sm:px-6 sm:py-5">
           <div className="min-w-0">
             <div className="text-[10px] uppercase tracking-[0.24em] text-amber-300/70 sm:text-xs sm:tracking-[0.3em]">{modeLabel}</div>
-            <h2 className="mt-1 truncate text-xl font-light text-white sm:mt-2 sm:text-3xl">{title}</h2>
+            <h2 className="mt-1 truncate text-xl font-light text-[#191919] sm:mt-2 sm:text-3xl">{title}</h2>
           </div>
-          <button type="button" onClick={onClose} className="shrink-0 rounded-xl border border-white/10 px-3 py-2 text-xs text-white/60 hover:bg-white/5 sm:px-4 sm:text-sm">Close</button>
+          <button type="button" onClick={onClose} className="shrink-0 rounded-xl border border-black/[0.08] px-3 py-2 text-xs text-[#5F5A54] hover:bg-white/5 sm:px-4 sm:text-sm">Close</button>
         </div>
 
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:max-h-[72vh] sm:p-6">
@@ -432,8 +432,8 @@ export default function CreateEngine({
           ) : children}
         </div>
 
-        <div className="shrink-0 border-t border-white/10 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:py-5">
-          <div className="mb-3 text-[11px] leading-5 text-white/45 sm:mb-0 sm:text-xs">
+        <div className="shrink-0 border-t border-black/[0.08] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:py-5">
+          <div className="mb-3 text-[11px] leading-5 text-[#746E66] sm:mb-0 sm:text-xs">
             {journalForm && !journalReady
               ? "Complete all required fields and balance debit and credit before posting."
               : journalForm
@@ -458,7 +458,7 @@ export default function CreateEngine({
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3">
-            <button type="button" onClick={onClose} className="rounded-xl border border-white/10 px-4 py-3 text-sm text-white/60 sm:px-5">Cancel</button>
+            <button type="button" onClick={onClose} className="rounded-xl border border-black/[0.08] px-4 py-3 text-sm text-[#5F5A54] sm:px-5">Cancel</button>
             {previewEnabled ? (
               <button type="button" onClick={onPreview} className="rounded-xl border border-amber-300/30 px-4 py-3 text-sm text-amber-200 sm:px-5">Preview</button>
             ) : null}

@@ -52,9 +52,9 @@ function statusClass(status) {
 
 function Section({ title, action, children }) {
   return (
-    <section className="rounded-[24px] border border-white/[0.08] bg-black/25 p-4">
+    <section className="rounded-[24px] border border-black/[0.08] bg-[#FBF8F3] p-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-[11px] uppercase tracking-[0.22em] text-white/34">
+        <div className="text-[11px] uppercase tracking-[0.22em] text-[#918B83]">
           {title}
         </div>
         {action || null}
@@ -67,16 +67,16 @@ function Section({ title, action, children }) {
 function Field({ label, value }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-[0.16em] text-white/28">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-[#A19A92]">
         {label}
       </div>
-      <div className="mt-1 break-words text-[12px] text-white/75">{text(value)}</div>
+      <div className="mt-1 break-words text-[12px] text-[#3F3A35]">{text(value)}</div>
     </div>
   );
 }
 
 function Empty({ children = "No records." }) {
-  return <div className="text-[12px] text-white/34">{children}</div>;
+  return <div className="text-[12px] text-[#918B83]">{children}</div>;
 }
 
 function CompactRows({ rows, render }) {
@@ -93,7 +93,7 @@ function MiniAction({ children, onClick, disabled = false, accent = false }) {
       className={
         accent
           ? "h-8 rounded-xl border border-amber-300/30 bg-amber-300/[0.08] px-3 text-[10px] font-medium text-amber-100 transition hover:bg-amber-300/[0.12] disabled:opacity-30"
-          : "h-8 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 text-[10px] text-white/55 transition hover:bg-white/[0.06] disabled:opacity-30"
+          : "h-8 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 text-[10px] text-[#746E66] transition hover:bg-[#FBF8F3] disabled:opacity-30"
       }
     >
       {children}
@@ -130,7 +130,7 @@ function CustomerEditor({ open, customer, organizationId, onClose, onSaved }) {
       notes: customer?.notes || "",
       marketing_opt_in: Boolean(customer?.marketing_opt_in),
     });
-  }, [open, customer?.party_id]);
+  }, [open, customer]);
 
   if (!open) return null;
 
@@ -181,49 +181,49 @@ function CustomerEditor({ open, customer, organizationId, onClose, onSaved }) {
   ];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-xl">
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-white/[0.1] bg-[#0b0b0b] p-6 shadow-2xl">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#191919]/20 p-4 backdrop-blur-xl">
+      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-black/[0.10] bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.28em] text-amber-300/60">
+            <div className="text-[11px] uppercase tracking-[0.28em] text-[#9B6F3F]">
               Commercial · Customer
             </div>
             <h2 className="mt-3 text-[30px] font-light tracking-[-0.05em]">
               {customer ? "Edit Customer" : "New Customer"}
             </h2>
           </div>
-          <button onClick={onClose} className="rounded-xl border border-white/[0.08] px-3 py-2 text-[12px] text-white/50">
+          <button onClick={onClose} className="rounded-xl border border-black/[0.08] px-3 py-2 text-[12px] text-[#746E66]">
             Close
           </button>
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <label className="text-[11px] text-white/48">
+          <label className="text-[11px] text-[#746E66]">
             Customer type
-            <select value={form.customer_type || "PERSON"} onChange={(event) => update("customer_type", event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 text-[13px] text-white outline-none">
+            <select value={form.customer_type || "PERSON"} onChange={(event) => update("customer_type", event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-[13px] text-[#191919] outline-none">
               <option value="PERSON">Person</option>
               <option value="COMPANY">Company</option>
             </select>
           </label>
 
-          <label className="text-[11px] text-white/48">
+          <label className="text-[11px] text-[#746E66]">
             Credit limit
-            <input type="number" value={form.credit_limit ?? 0} onChange={(event) => update("credit_limit", event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 text-[13px] text-white outline-none" />
+            <input type="number" value={form.credit_limit ?? 0} onChange={(event) => update("credit_limit", event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-[13px] text-[#191919] outline-none" />
           </label>
 
           {inputs.map(([key, label]) => (
-            <label key={key} className="text-[11px] text-white/48">
+            <label key={key} className="text-[11px] text-[#746E66]">
               {label}
-              <input value={form[key] || ""} onChange={(event) => update(key, event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 text-[13px] text-white outline-none" />
+              <input value={form[key] || ""} onChange={(event) => update(key, event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-[13px] text-[#191919] outline-none" />
             </label>
           ))}
 
-          <label className="md:col-span-2 text-[11px] text-white/48">
+          <label className="md:col-span-2 text-[11px] text-[#746E66]">
             Notes
-            <textarea rows={4} value={form.notes || ""} onChange={(event) => update("notes", event.target.value)} className="mt-2 w-full rounded-xl border border-white/[0.08] bg-black/40 p-3 text-[13px] text-white outline-none" />
+            <textarea rows={4} value={form.notes || ""} onChange={(event) => update("notes", event.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.08] bg-white p-3 text-[13px] text-[#191919] outline-none" />
           </label>
 
-          <label className="md:col-span-2 flex items-center gap-3 text-[12px] text-white/60">
+          <label className="md:col-span-2 flex items-center gap-3 text-[12px] text-[#5F5A54]">
             <input type="checkbox" checked={Boolean(form.marketing_opt_in)} onChange={(event) => update("marketing_opt_in", event.target.checked)} />
             Marketing opt-in
           </label>
@@ -232,8 +232,8 @@ function CustomerEditor({ open, customer, organizationId, onClose, onSaved }) {
         {error ? <div className="mt-4 text-[12px] text-red-300">{error}</div> : null}
 
         <div className="mt-6 flex justify-end gap-2">
-          <button onClick={onClose} className="h-10 rounded-xl border border-white/[0.08] px-4 text-[12px] text-white/55">Cancel</button>
-          <button disabled={saving || !String(form.customer_name || "").trim()} onClick={save} className="h-10 rounded-xl border border-amber-300/35 bg-gradient-to-b from-amber-200 to-amber-500 px-5 text-[12px] font-semibold text-black disabled:opacity-40">
+          <button onClick={onClose} className="h-10 rounded-xl border border-black/[0.08] px-4 text-[12px] text-[#746E66]">Cancel</button>
+          <button disabled={saving || !String(form.customer_name || "").trim()} onClick={save} className="h-10 rounded-xl border border-[#D6A66A]/45 bg-[#D6A66A] px-5 text-[12px] font-semibold text-[#191919] disabled:opacity-40">
             {saving ? "Saving..." : "Save Customer"}
           </button>
         </div>
@@ -330,7 +330,7 @@ export default function CustomerRuntimeWorkCenter(props) {
 
     loadDetail();
     return () => { active = false; };
-  }, [selected?.party_id, organizationId, entityId, refreshKey]);
+  }, [selected, organizationId, entityId, refreshKey]);
 
   const balances = detail?.finance?.balances || [];
   const loyalty = detail?.loyalty || {};
@@ -431,17 +431,17 @@ export default function CustomerRuntimeWorkCenter(props) {
   }
 
   return (
-    <main className="min-h-screen bg-[#050505] px-5 py-6 text-white lg:px-7">
+    <main className="min-h-screen bg-[#F7F6F3] px-5 py-6 text-[#191919] lg:px-7">
       <div className="mx-auto max-w-[1700px]">
         <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="text-[11px] uppercase tracking-[0.34em] text-amber-300/65">Commercial · Customer Management</div>
             <h1 className="mt-3 text-[44px] font-light tracking-[-0.06em]">Customers</h1>
-            <p className="mt-2 max-w-3xl text-[13px] leading-6 text-white/42">One Party-centric customer record across Commercial, Loyalty and Finance.</p>
+            <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[#817A72]">One Party-centric customer record across Commercial, Loyalty and Finance.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={openEdit} disabled={!selected} className="h-10 rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 text-[12px] text-white/60 disabled:opacity-35">Edit Customer</button>
-            <button onClick={openNew} className="h-10 rounded-xl border border-amber-300/35 bg-gradient-to-b from-amber-200 to-amber-500 px-4 text-[12px] font-semibold text-black">+ New Customer</button>
+            <button onClick={openEdit} disabled={!selected} className="h-10 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 text-[12px] text-[#5F5A54] disabled:opacity-35">Edit Customer</button>
+            <button onClick={openNew} className="h-10 rounded-xl border border-[#D6A66A]/45 bg-[#D6A66A] px-4 text-[12px] font-semibold text-[#191919]">+ New Customer</button>
           </div>
         </header>
 
@@ -452,39 +452,39 @@ export default function CustomerRuntimeWorkCenter(props) {
             ["Overdue", money(totalOverdue), "Selected customer"],
             ["Loyalty Points", Number(loyalty.account?.loyalty_points || detail?.loyalty_points || 0), loyalty.tier?.name || loyalty.account?.tier || "No tier"],
           ].map(([label, value, hint]) => (
-            <div key={label} className="rounded-[26px] border border-white/[0.08] bg-gradient-to-b from-white/[0.045] to-white/[0.018] p-5 shadow-2xl shadow-black/60">
-              <div className="text-[10px] uppercase tracking-[0.22em] text-white/32">{label}</div>
+            <div key={label} className="rounded-[26px] border border-black/[0.08] bg-white p-5 shadow-2xl shadow-black/10">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-[#A19A92]">{label}</div>
               <div className="mt-3 text-[30px] font-light tracking-[-0.05em]">{value}</div>
-              <div className="mt-2 text-[11px] text-white/32">{hint}</div>
+              <div className="mt-2 text-[11px] text-[#A19A92]">{hint}</div>
             </div>
           ))}
         </section>
 
         <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[520px_1fr]">
-          <section className="overflow-hidden rounded-[30px] border border-white/[0.08] bg-white/[0.025] shadow-2xl shadow-black/70">
-            <div className="border-b border-white/[0.07] p-4">
-              <div className="flex items-center rounded-2xl border border-white/[0.07] bg-black/30 px-4">
-                <span className="text-white/28">⌕</span>
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search customers..." className="h-11 flex-1 bg-transparent px-3 text-[13px] outline-none placeholder:text-white/25" />
+          <section className="overflow-hidden rounded-[30px] border border-black/[0.08] bg-white shadow-2xl shadow-black/10">
+            <div className="border-b border-black/[0.07] p-4">
+              <div className="flex items-center rounded-2xl border border-black/[0.07] bg-white px-4">
+                <span className="text-[#A19A92]">⌕</span>
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search customers..." className="h-11 flex-1 bg-transparent px-3 text-[13px] outline-none placeholder:text-[#A9A39C]" />
               </div>
             </div>
 
             {loading ? (
-              <div className="p-8 text-[13px] text-white/40">Loading customers...</div>
+              <div className="p-8 text-[13px] text-[#918B83]">Loading customers...</div>
             ) : error ? (
               <div className="p-8 text-[13px] text-red-300">{error}</div>
             ) : filteredRows.length === 0 ? (
-              <div className="p-8 text-[13px] text-white/40">No customers found.</div>
+              <div className="p-8 text-[13px] text-[#918B83]">No customers found.</div>
             ) : (
               <div className="max-h-[calc(100vh-320px)] overflow-y-auto divide-y divide-white/[0.055]">
                 {filteredRows.map((row) => {
                   const active = row.id === selected?.id;
                   return (
-                    <button key={row.id} onClick={() => setSelectedId(row.id)} className={`flex w-full items-center gap-4 px-5 py-4 text-left transition ${active ? "bg-amber-300/[0.075] shadow-[inset_3px_0_0_rgba(245,158,11,0.65)]" : "hover:bg-white/[0.035]"}`}>
+                    <button key={row.id} onClick={() => setSelectedId(row.id)} className={`flex w-full items-center gap-4 px-5 py-4 text-left transition ${active ? "bg-amber-300/[0.075] shadow-[inset_3px_0_0_rgba(245,158,11,0.65)]" : "hover:bg-[#FBF8F3]"}`}>
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/[0.08] text-[12px] text-amber-100">{initials(row.customer_name)}</div>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[14px] font-medium">{row.customer_name || "Unnamed Customer"}</div>
-                        <div className="mt-1 truncate text-[11px] text-white/36">{[row.customer_number, row.customer_email, row.customer_phone].filter(Boolean).join(" · ") || "Party customer"}</div>
+                        <div className="mt-1 truncate text-[11px] text-[#918B83]">{[row.customer_number, row.customer_email, row.customer_phone].filter(Boolean).join(" · ") || "Party customer"}</div>
                       </div>
                       <div className={`text-[10px] uppercase ${statusClass(row.status)}`}>{row.status || "ACTIVE"}</div>
                     </button>
@@ -494,17 +494,17 @@ export default function CustomerRuntimeWorkCenter(props) {
             )}
           </section>
 
-          <section className="min-w-0 rounded-[30px] border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-white/[0.015] p-5 shadow-2xl shadow-black/70">
+          <section className="min-w-0 rounded-[30px] border border-black/[0.08] bg-white p-5 shadow-2xl shadow-black/10">
             {!selected ? (
-              <div className="text-[13px] text-white/40">Select a customer.</div>
+              <div className="text-[13px] text-[#918B83]">Select a customer.</div>
             ) : (
               <>
-                <div className="flex flex-col gap-4 border-b border-white/[0.07] pb-5 xl:flex-row xl:items-start xl:justify-between">
+                <div className="flex flex-col gap-4 border-b border-black/[0.07] pb-5 xl:flex-row xl:items-start xl:justify-between">
                   <div className="flex items-start gap-4">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/[0.08] text-[14px] text-amber-100">{initials(selected.customer_name)}</div>
                     <div>
                       <h2 className="text-[28px] font-light tracking-[-0.05em]">{selected.customer_name}</h2>
-                      <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-white/38">
+                      <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-[#918B83]">
                         <span>Party {selected.party_id}</span>
                         <span className={statusClass(selected.status)}>{selected.status || "ACTIVE"}</span>
                         {entityId ? <span>Entity scoped finance</span> : <span className="text-amber-200">Select an entity for Finance actions</span>}
@@ -526,7 +526,7 @@ export default function CustomerRuntimeWorkCenter(props) {
                     ) : (
                       <MiniAction onClick={openLoyaltyWorkspace}>Open Loyalty</MiniAction>
                     )}
-                    {detailLoading ? <span className="self-center text-[11px] text-white/34">Refreshing...</span> : null}
+                    {detailLoading ? <span className="self-center text-[11px] text-[#918B83]">Refreshing...</span> : null}
                   </div>
                 </div>
 
@@ -534,10 +534,10 @@ export default function CustomerRuntimeWorkCenter(props) {
                   <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] p-3">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200">Secure Customer Portal link · 72 hours · one-time use</div>
                     <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                      <input readOnly value={portalLink} className="h-9 min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-black/30 px-3 text-[10px] text-white/60 outline-none" />
+                      <input readOnly value={portalLink} className="h-9 min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[10px] text-[#5F5A54] outline-none" />
                       <MiniAction onClick={copyCustomerPortalLink}>Copy link</MiniAction>
                     </div>
-                    <div className="mt-2 text-[10px] leading-5 text-white/35">Creating a new link revokes any previous unused portal link for this customer relationship. The raw token is shown only here and is never stored in the database.</div>
+                    <div className="mt-2 text-[10px] leading-5 text-[#918B83]">Creating a new link revokes any previous unused portal link for this customer relationship. The raw token is shown only here and is never stored in the database.</div>
                   </div>
                 ) : null}
 
@@ -563,7 +563,7 @@ export default function CustomerRuntimeWorkCenter(props) {
 
                   <Section title="Finance Position" action={<MiniAction onClick={() => setCustomerAction("statement")} disabled={!entityId}>Generate Statement</MiniAction>}>
                     <CompactRows rows={balances} render={(row) => (
-                      <div key={row.currency_code} className="rounded-xl border border-white/[0.07] bg-black/25 p-3">
+                      <div key={row.currency_code} className="rounded-xl border border-black/[0.07] bg-[#FBF8F3] p-3">
                         <div className="flex items-center justify-between"><span className="text-[12px] font-medium">{row.currency_code}</span><span className={Number(row.net_customer_position || 0) > 0 ? "text-red-200" : "text-emerald-200"}>{money(row.net_customer_position, row.currency_code)}</span></div>
                         <div className="mt-3 grid grid-cols-3 gap-3 text-[11px]">
                           <Field label="Receivable" value={money(row.receivable_outstanding)} />
@@ -589,8 +589,8 @@ export default function CustomerRuntimeWorkCenter(props) {
                       <Field label="Total spent" value={money(loyalty.account?.total_spent ?? detail?.total_spent)} />
                       <Field label="Last visit" value={dateTime(loyalty.account?.last_visit_at)} />
                     </div>
-                    <div className="mt-4 border-t border-white/[0.06] pt-3">
-                      <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-white/28">Recent points activity</div>
+                    <div className="mt-4 border-t border-black/[0.06] pt-3">
+                      <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-[#A19A92]">Recent points activity</div>
                       <CompactRows rows={ledger.slice(0, 5)} render={(row) => (
                         <div key={row.id} className="flex items-center justify-between gap-3 text-[11px]"><span>{row.entry_type} · {dateTime(row.created_at)}</span><span className={Number(row.points_delta) >= 0 ? "text-emerald-200" : "text-amber-200"}>{Number(row.points_delta) >= 0 ? "+" : ""}{row.points_delta} pts</span></div>
                       )} />
@@ -599,22 +599,22 @@ export default function CustomerRuntimeWorkCenter(props) {
 
                   <Section title="Sales Orders" action={<MiniAction onClick={() => openSales("order")} accent>New Order</MiniAction>}>
                     <CompactRows rows={salesOrders.slice(0, 8)} render={(row) => (
-                      <div key={row.id} className="rounded-xl border border-white/[0.07] p-3 text-[11px]"><div className="flex items-center justify-between gap-3"><span className="font-medium">{row.order_number}</span><span className={statusClass(row.status)}>{row.status}</span></div><div className="mt-2 flex flex-wrap justify-between gap-2 text-white/45"><span>{row.fulfillment_status || "No fulfilment status"} · {row.payment_status || "No payment status"}</span><span>{money(row.total_amount, row.currency_code)}</span></div></div>
+                      <div key={row.id} className="rounded-xl border border-black/[0.07] p-3 text-[11px]"><div className="flex items-center justify-between gap-3"><span className="font-medium">{row.order_number}</span><span className={statusClass(row.status)}>{row.status}</span></div><div className="mt-2 flex flex-wrap justify-between gap-2 text-[#817A72]"><span>{row.fulfillment_status || "No fulfilment status"} · {row.payment_status || "No payment status"}</span><span>{money(row.total_amount, row.currency_code)}</span></div></div>
                     )} />
                   </Section>
 
                   <Section title="Quotations" action={<MiniAction onClick={() => openSales("quote")} accent>New Quote</MiniAction>}>
                     <CompactRows rows={quotations.slice(0, 8)} render={(row) => (
-                      <div key={row.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] p-3 text-[11px]"><div><div className="font-medium">{row.quotation_number}</div><div className="mt-1 text-white/35">Valid until {row.valid_until || "-"}</div></div><div className="text-right"><div className={statusClass(row.status)}>{row.status}</div><div className="mt-1 text-white/55">{money(row.total_amount, row.currency_code)}</div></div></div>
+                      <div key={row.id} className="flex items-center justify-between gap-3 rounded-xl border border-black/[0.07] p-3 text-[11px]"><div><div className="font-medium">{row.quotation_number}</div><div className="mt-1 text-[#918B83]">Valid until {row.valid_until || "-"}</div></div><div className="text-right"><div className={statusClass(row.status)}>{row.status}</div><div className="mt-1 text-[#746E66]">{money(row.total_amount, row.currency_code)}</div></div></div>
                     )} />
                   </Section>
 
                   <Section title="Payments & Credits">
-                    <div className="text-[10px] uppercase tracking-[0.16em] text-white/28">Payments</div>
+                    <div className="text-[10px] uppercase tracking-[0.16em] text-[#A19A92]">Payments</div>
                     <div className="mt-2"><CompactRows rows={payments.slice(0, 6)} render={(row) => (
                       <div key={row.id} className="flex items-center justify-between gap-3 py-1 text-[11px]"><span>{row.payment_number || row.reference_number || row.id}</span><span>{money(row.amount, row.currency_code)} · <span className={statusClass(row.status)}>{row.status}</span></span></div>
                     )} /></div>
-                    <div className="mt-4 text-[10px] uppercase tracking-[0.16em] text-white/28">Available credits</div>
+                    <div className="mt-4 text-[10px] uppercase tracking-[0.16em] text-[#A19A92]">Available credits</div>
                     <div className="mt-2"><CompactRows rows={credits.slice(0, 6)} render={(row) => (
                       <div key={row.id} className="flex items-center justify-between gap-3 py-1 text-[11px]"><span>{row.status}</span><span>{money(row.available_amount, row.currency_code)} available</span></div>
                     )} /></div>
@@ -629,13 +629,13 @@ export default function CustomerRuntimeWorkCenter(props) {
 
                   <Section title="Loyalty Redemptions">
                     <CompactRows rows={redemptions.slice(0, 8)} render={(row) => (
-                      <div key={row.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] p-3 text-[11px]"><div><div>{row.reward_name || row.reward_code || "Reward"}</div><div className="mt-1 text-white/35">{dateTime(row.redeemed_at)}</div></div><div className="text-right"><div>{row.points_spent} pts</div><div className={`mt-1 ${statusClass(row.status)}`}>{row.status}</div></div></div>
+                      <div key={row.id} className="flex items-center justify-between gap-3 rounded-xl border border-black/[0.07] p-3 text-[11px]"><div><div>{row.reward_name || row.reward_code || "Reward"}</div><div className="mt-1 text-[#918B83]">{dateTime(row.redeemed_at)}</div></div><div className="text-right"><div>{row.points_spent} pts</div><div className={`mt-1 ${statusClass(row.status)}`}>{row.status}</div></div></div>
                     )} />
                   </Section>
 
                   <Section title="Customer Timeline">
                     <CompactRows rows={timeline.slice(0, 15)} render={(row) => (
-                      <div key={row.id} className="grid grid-cols-[100px_1fr_auto] gap-3 border-b border-white/[0.055] py-2 text-[11px] last:border-0"><div className="text-white/32">{row.domain}</div><div><div>{row.type}</div><div className="mt-1 text-white/32">{row.reference || dateTime(row.event_at)}</div></div><div className="text-right">{row.points_delta !== undefined ? <div>{row.points_delta} pts</div> : null}{row.amount !== null && row.amount !== undefined ? <div>{money(row.amount, row.currency_code)}</div> : null}{row.status ? <div className={`mt-1 ${statusClass(row.status)}`}>{row.status}</div> : null}</div></div>
+                      <div key={row.id} className="grid grid-cols-[100px_1fr_auto] gap-3 border-b border-black/[0.055] py-2 text-[11px] last:border-0"><div className="text-[#A19A92]">{row.domain}</div><div><div>{row.type}</div><div className="mt-1 text-[#A19A92]">{row.reference || dateTime(row.event_at)}</div></div><div className="text-right">{row.points_delta !== undefined ? <div>{row.points_delta} pts</div> : null}{row.amount !== null && row.amount !== undefined ? <div>{money(row.amount, row.currency_code)}</div> : null}{row.status ? <div className={`mt-1 ${statusClass(row.status)}`}>{row.status}</div> : null}</div></div>
                     )} />
                   </Section>
                 </div>

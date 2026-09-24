@@ -293,8 +293,8 @@ export default function ReportEngine({
   if (!payload) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-xl">
-      <div className="w-full max-w-xl rounded-[28px] border border-white/[0.08] bg-gradient-to-b from-white/[0.045] to-white/[0.018] p-7 shadow-2xl shadow-black/70 backdrop-blur-3xl">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#F7F6F3]/70 backdrop-blur-xl">
+      <div className="w-full max-w-xl rounded-[28px] border border-black/[0.08] bg-gradient-to-b from-white/[0.045] to-white/[0.018] p-7 shadow-2xl shadow-black/70 backdrop-blur-3xl">
 
         <div className="text-[11px] uppercase tracking-[0.30em] text-amber-300/65">
           Report Engine
@@ -304,7 +304,7 @@ export default function ReportEngine({
           {payload.action?.title || payload.action?.label || "Generate Report"}
         </h2>
 
-        <p className="mt-3 text-sm text-white/45">
+        <p className="mt-3 text-sm text-[#746E66]">
           Workspace: {payload.workspaceId}
         </p>
 
@@ -330,7 +330,7 @@ export default function ReportEngine({
               setPayload(null);
               onClose?.();
             }}
-            className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-5 py-3 text-white/58 backdrop-blur-2xl"
+            className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-5 py-3 text-[#191919]/58 backdrop-blur-2xl"
           >
             Cancel
           </button>

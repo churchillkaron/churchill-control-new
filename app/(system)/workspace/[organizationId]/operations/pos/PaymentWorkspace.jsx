@@ -196,7 +196,7 @@ export default function PaymentWorkspace({ posConfiguration }) {
     return () => { cancelled = true; };
   }, [organizationId, requestedReference, loadPayableContexts, loadPaymentState]);
 
-  const items = paymentState?.items || [];
+  const items = useMemo(() => paymentState?.items || [], [paymentState?.items]);
   const activePaymentContext = paymentState?.context || selectedContext;
   const settlementRules = useMemo(
     () => resolveSettlementRules(paymentState),
@@ -436,26 +436,26 @@ export default function PaymentWorkspace({ posConfiguration }) {
   const syncStatus = realtimeLabel(realtimeStatus, refreshing);
 
   if (loading) {
-    return <PageWrapper title="POS Checkout" subtitle="Loading settlement"><div className="text-white/40">Loading...</div></PageWrapper>;
+    return <PageWrapper title="POS Checkout" subtitle="Loading settlement"><div className="text-[#817A72]">Loading...</div></PageWrapper>;
   }
 
   if (!paymentState) {
     return (
       <PageWrapper title="POS Checkout" subtitle={`Select an unpaid ${contextLabel.toLowerCase()}`}>
         <div className="mb-5 flex justify-end">
-          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">
+          <div className="rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#746E66]">
             {syncStatus}
           </div>
         </div>
         {error ? <div className="mb-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-red-100">{error}</div> : null}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {payableContexts.length ? payableContexts.map((entry) => (
-            <button key={contextKey(entry.context)} onClick={() => changeContext(entry.context)} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left transition hover:border-[#D6A66A]/40">
+            <button key={contextKey(entry.context)} onClick={() => changeContext(entry.context)} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5 text-left transition hover:border-[#D6A66A]/40">
               <div className="text-xl font-semibold">{entry.context?.label || entry.context?.reference || contextLabel}</div>
-              <div className="mt-2 text-sm text-white/45">{entry.order_count || 0} order(s)</div>
+              <div className="mt-2 text-sm text-[#746E66]">{entry.order_count || 0} order(s)</div>
               <div className="mt-4 text-lg">{formatMoney(entry.remaining_balance, currencyCode)}</div>
             </button>
-          )) : <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-white/45">No unpaid orders.</div>}
+          )) : <div className="rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-8 text-[#746E66]">No unpaid orders.</div>}
         </div>
       </PageWrapper>
     );
@@ -469,14 +469,14 @@ export default function PaymentWorkspace({ posConfiguration }) {
         <select value={contextKey(activeContext)} onChange={(event) => {
           const entry = payableContexts.find(({ context }) => contextKey(context) === event.target.value);
           if (entry) changeContext(entry.context);
-        }} className="rounded-xl border border-white/10 bg-black px-4 py-3 text-sm">
+        }} className="rounded-xl border border-black/[0.08] bg-[#F7F6F3] px-4 py-3 text-sm">
           {payableContexts.map((entry) => (
             <option key={contextKey(entry.context)} value={contextKey(entry.context)}>
               {entry.context?.label || entry.context?.reference || contextLabel} — {formatMoney(entry.remaining_balance, currencyCode)}
             </option>
           ))}
         </select>
-        <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">
+        <div className="rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#746E66]">
           {syncStatus}
         </div>
       </div>
@@ -484,14 +484,14 @@ export default function PaymentWorkspace({ posConfiguration }) {
       {error ? <div className="mb-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-red-100">{error}</div> : null}
 
       <div className="grid gap-6 xl:grid-cols-3">
-        <section className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 xl:col-span-2">
+        <section className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-6 xl:col-span-2">
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">{contextLabel}</p>
               <h2 className="mt-2 text-5xl font-light">{activeContext?.reference || activeContext?.label || "—"}</h2>
             </div>
             <div className="text-right">
-              <p className="text-xs text-white/40">Remaining</p>
+              <p className="text-xs text-[#817A72]">Remaining</p>
               <p className="mt-1 text-3xl font-semibold">{formatMoney(paymentState.remainingBalance, currencyCode)}</p>
             </div>
           </div>
@@ -500,17 +500,17 @@ export default function PaymentWorkspace({ posConfiguration }) {
               const selected = selectedItems.includes(item.id);
               const paid = Boolean(item.fully_paid);
               return (
-                <button key={item.id} disabled={paid || actionLoading} onClick={() => toggleItem(item)} className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left ${paid ? "border-emerald-400/15 bg-emerald-400/5 opacity-55" : selected ? "border-[#D6A66A]/50 bg-[#D6A66A]/10" : "border-white/10 bg-black/20"}`}>
-                  <div><div className="font-medium">{item.item_name || item.name || "Item"}</div><div className="mt-1 text-xs text-white/40">{paid ? "Paid" : `${Number(item.quantity || 1)} item(s)`}</div></div>
-                  <div className="text-sm text-white/60">{paid ? "Paid" : formatMoney(item.remaining_amount, currencyCode)}</div>
+                <button key={item.id} disabled={paid || actionLoading} onClick={() => toggleItem(item)} className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left ${paid ? "border-emerald-400/15 bg-emerald-400/5 opacity-55" : selected ? "border-[#D6A66A]/50 bg-[#D6A66A]/10" : "border-black/[0.08] bg-[#F7F6F3]/20"}`}>
+                  <div><div className="font-medium">{item.item_name || item.name || "Item"}</div><div className="mt-1 text-xs text-[#817A72]">{paid ? "Paid" : `${Number(item.quantity || 1)} item(s)`}</div></div>
+                  <div className="text-sm text-[#5F5A54]">{paid ? "Paid" : formatMoney(item.remaining_amount, currencyCode)}</div>
                 </button>
               );
             })}
           </div>
         </section>
 
-        <aside className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
-          <p className="text-xs uppercase tracking-[0.2em] text-white/40">Payment method</p>
+        <aside className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-6">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#817A72]">Payment method</p>
           {settlementRules.blocked ? (
             <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-4 text-sm text-amber-100/70">
               {settlementRules.blocker}
@@ -519,18 +519,18 @@ export default function PaymentWorkspace({ posConfiguration }) {
           <div className="mt-4 grid grid-cols-2 gap-2">
             {settlementRules.paymentOptions.map((option) => {
               const Icon = option.icon;
-              return <button key={option.value} onClick={() => { paymentRequestKey.current = null; setPaymentMethod(option.value); }} className={paymentMethod === option.value ? "rounded-2xl border border-[#D6A66A]/50 bg-[#D6A66A]/10 p-4 text-[#F3D7A2]" : "rounded-2xl border border-white/10 bg-black/20 p-4 text-white/55"}><Icon className="mx-auto h-5 w-5" /><div className="mt-2 text-xs">{option.label}</div></button>;
+              return <button key={option.value} onClick={() => { paymentRequestKey.current = null; setPaymentMethod(option.value); }} className={paymentMethod === option.value ? "rounded-2xl border border-[#D6A66A]/50 bg-[#D6A66A]/10 p-4 text-[#F3D7A2]" : "rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/20 p-4 text-[#5F5A54]"}><Icon className="mx-auto h-5 w-5" /><div className="mt-2 text-xs">{option.label}</div></button>;
             })}
           </div>
-          <label className="mt-6 block text-xs uppercase tracking-[0.2em] text-white/40">Split count</label>
-          <input type="number" min="1" value={splitCount} onChange={(event) => { paymentRequestKey.current = null; setSplitCount(Math.max(1, Number(event.target.value || 1))); }} className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3" />
-          <label className="mt-5 block text-xs uppercase tracking-[0.2em] text-white/40">Amount</label>
-          <input type="number" min="0" step="0.01" value={amount} onChange={(event) => { paymentRequestKey.current = null; setAmount(event.target.value); }} className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-xl" />
+          <label className="mt-6 block text-xs uppercase tracking-[0.2em] text-[#817A72]">Split count</label>
+          <input type="number" min="1" value={splitCount} onChange={(event) => { paymentRequestKey.current = null; setSplitCount(Math.max(1, Number(event.target.value || 1))); }} className="mt-2 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3] px-4 py-3" />
+          <label className="mt-5 block text-xs uppercase tracking-[0.2em] text-[#817A72]">Amount</label>
+          <input type="number" min="0" step="0.01" value={amount} onChange={(event) => { paymentRequestKey.current = null; setAmount(event.target.value); }} className="mt-2 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3] px-4 py-3 text-xl" />
           {settlementRules.itemSelectionAllowed ? (
             <button disabled={actionLoading || settlementRules.blocked || !selectedItems.length || selectedGross <= 0} onClick={() => pay(selectedGross, true, selectedItems)} className="mt-6 w-full rounded-2xl border border-[#D6A66A]/40 bg-[#D6A66A]/10 py-4 text-sm font-semibold text-[#F3D7A2] disabled:opacity-30">Pay Selected Items</button>
           ) : null}
           {settlementRules.partialAllowed ? (
-            <button disabled={actionLoading || settlementRules.blocked} onClick={() => pay(Number(amount || 0), true, [])} className="mt-3 w-full rounded-2xl border border-white/10 py-4 text-sm font-semibold disabled:opacity-30">Pay Partial Amount</button>
+            <button disabled={actionLoading || settlementRules.blocked} onClick={() => pay(Number(amount || 0), true, [])} className="mt-3 w-full rounded-2xl border border-black/[0.08] py-4 text-sm font-semibold disabled:opacity-30">Pay Partial Amount</button>
           ) : null}
           <button disabled={actionLoading || settlementRules.blocked} onClick={() => pay(paymentState.remainingBalance, false, [])} className="mt-3 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black disabled:opacity-30">Pay Full Balance</button>
         </aside>

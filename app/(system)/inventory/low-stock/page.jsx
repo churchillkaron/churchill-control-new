@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import {
+  useCallback,
   useEffect,
   useState,
 } from 'react'
@@ -61,13 +62,7 @@ export default function LowStockPage() {
 
   }, [])
 
-  useEffect(() => {
-
-    loadData()
-
-  }, [organizationId])
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
 
     if (!organizationId) {
       return
@@ -92,7 +87,11 @@ export default function LowStockPage() {
     setIngredients(
       data || []
     )
-  }
+  }, [organizationId])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const critical =
     ingredients.filter(

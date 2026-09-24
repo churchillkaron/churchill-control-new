@@ -15,11 +15,11 @@ const previewContext = await import("../lib/code/runtime/CodeAIInteractivePrevie
 test("Code Studio page opens the real controller instead of the placeholder shell", () => {
   assert.match(files.page, /CreativeCodeStudio/);
   assert.doesNotMatch(files.page, /CreativeRuntimeEntryShell/);
-  assert.match(files.ui, /\/api\/operator\/code\/mission/);
+  assert.match(files.ui, /<AvantiqoCodeIDE/);
   assert.match(files.ui, /useCodeProgressFeed/);
-  assert.match(files.ui, /code-studio:\$\{crypto\.randomUUID\(\)\}/);
-  assert.match(files.ui, /resume_state: resumeState/);
-  assert.match(files.ui, /Avantiqo governed sandbox/);
+  assert.match(files.ui, /data-avantiqo-code-progress-consumer="shared-provider"/);
+  assert.match(files.ui, /CodeMissionHistoryPanel/);
+  assert.match(files.ui, /Governed engineering · commit and deploy gated/);
 });
 
 test("Code Studio controller enforces permission and preview-only service lifecycle", () => {

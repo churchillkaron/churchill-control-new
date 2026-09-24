@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, FileSignature, LoaderCircle, Plus, RefreshCw, Send } from "lucide-react";
 
 function tone(state) {
@@ -15,7 +15,7 @@ export default function FinancePracticeOnboarding({ organizationId, onOpenBillin
   const [notice, setNotice] = useState("");
   const [forms, setForms] = useState({});
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setState((current) => ({ ...current, loading: true, error: "" }));
       const url = new URL("/api/workspace/finance/practice-onboarding", window.location.origin); url.searchParams.set("organizationId", organizationId);
@@ -23,8 +23,8 @@ export default function FinancePracticeOnboarding({ organizationId, onOpenBillin
       if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to load onboarding");
       setState({ loading: false, error: "", data: body });
     } catch (error) { setState({ loading: false, error: error?.message || "Unable to load onboarding", data: null }); }
-  }
-  useEffect(() => { if (organizationId) load(); }, [organizationId]);
+  }, [organizationId]);
+  useEffect(() => { if (organizationId) load(); }, [load, organizationId]);
 
   function patchForm(id, patch) { setForms((current) => ({ ...current, [id]: { ...(current[id] || {}), ...patch } })); }
   async function act(engagementId, action, extra = {}) {

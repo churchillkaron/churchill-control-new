@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, FilePenLine, Landmark, RefreshCw, ShieldCheck } from "lucide-react";
 
 import FinanceTaxAmendmentRail from "./FinanceTaxAmendmentRail";
@@ -60,7 +60,7 @@ export default function FinanceTaxPostFilingWorkspace({ organizationId, entityId
   const [state, setState] = useState({ loading: false, error: "", row: null, settlement: null });
   const [mode, setMode] = useState("SETTLEMENT");
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !entityId || !selectedVatReturnId) {
       setState({ loading: false, error: "", row: null, settlement: null });
       return;
@@ -95,9 +95,9 @@ export default function FinanceTaxPostFilingWorkspace({ organizationId, entityId
     } catch (error) {
       setState({ loading: false, error: error?.message || "Post-filing Tax work could not be loaded", row: null, settlement: null });
     }
-  }
+  }, [entityId, organizationId, selectedVatReturnId]);
 
-  useEffect(() => { load(); }, [organizationId, entityId, selectedVatReturnId]);
+  useEffect(() => { load(); }, [load]);
 
   if (!organizationId || !entityId || !selectedVatReturnId) return null;
 
@@ -132,11 +132,11 @@ export default function FinanceTaxPostFilingWorkspace({ organizationId, entityId
         {state.loading && !row ? <div className="p-4 text-[9px] text-[#817B73]">Rebuilding filed version, amendment and settlement evidence…</div> : null}
 
         {row && !submitted ? <div className="p-4">
-          <div className="flex items-start gap-2 rounded-xl border border-amber-700/15 bg-amber-50 p-3 text-amber-950"><AlertTriangle size={13} className="mt-0.5 shrink-0" /><div><div className="text-[10px] font-semibold">Post-filing work starts only after a real authority submission is recorded.</div><div className="mt-1 text-[9px] leading-4 text-amber-900/80">This filing is currently {upper(row.status) || "not submitted"}. Return to the filing stage rather than creating settlement or amendment evidence early.</div><button type="button" onClick={() => onStageChange?.("RETURN")} className="mt-2 h-8 rounded-lg bg-[#1F1E1B] px-3 text-[8px] font-semibold text-white">Return to filing</button></div></div>
+          <div className="flex items-start gap-2 rounded-xl border border-amber-700/15 bg-amber-50 p-3 text-amber-950"><AlertTriangle size={13} className="mt-0.5 shrink-0" /><div><div className="text-[10px] font-semibold">Post-filing work starts only after a real authority submission is recorded.</div><div className="mt-1 text-[9px] leading-4 text-amber-900/80">This filing is currently {upper(row.status) || "not submitted"}. Return to the filing stage rather than creating settlement or amendment evidence early.</div><button type="button" onClick={() => onStageChange?.("RETURN")} className="mt-2 h-8 rounded-lg bg-[#1F1E1B] px-3 text-[8px] font-semibold text-[#191919]">Return to filing</button></div></div>
         </div> : null}
 
         {row && submitted ? <>
-          <div className="grid gap-px border-b border-black/[0.07] bg-black/[0.05] sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-px border-b border-black/[0.07] bg-[#F7F6F3]/[0.05] sm:grid-cols-2 lg:grid-cols-4">
             <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase tracking-[0.08em] text-[#968F87]">Filed return</div><div className="mt-1 text-[10px] font-semibold">{row.jurisdiction_code || "VAT"} · {date(row.period_start)} — {date(row.period_end)}</div></div>
             <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase tracking-[0.08em] text-[#968F87]">Authority reference</div><div className="mt-1 text-[10px] font-semibold">{row.submission_reference || "Recorded filing · receipt reference missing"}</div></div>
             <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase tracking-[0.08em] text-[#968F87]">Filed version chain</div><div className="mt-1 text-[10px] font-semibold">Original + {chain.history.length} filed amendment{chain.history.length === 1 ? "" : "s"}</div></div>
@@ -146,12 +146,12 @@ export default function FinanceTaxPostFilingWorkspace({ organizationId, entityId
           <div className="p-4">
             <div className="grid gap-2 lg:grid-cols-2">
               <button type="button" onClick={() => setMode("SETTLEMENT")} className={`rounded-xl border p-3 text-left ${mode === "SETTLEMENT" ? "border-[#8C6036]/30 bg-[#FFF9F0]" : "border-black/[0.07] bg-white"}`}>
-                <div className="flex items-center gap-2"><Landmark size={13} className="text-[#8C6036]" /><span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#6B655E]">Settlement & bank evidence</span>{recommendedMode === "SETTLEMENT" ? <span className="rounded-md bg-[#1F1E1B] px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.06em] text-white">Next</span> : null}</div>
+                <div className="flex items-center gap-2"><Landmark size={13} className="text-[#8C6036]" /><span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#6B655E]">Settlement & bank evidence</span>{recommendedMode === "SETTLEMENT" ? <span className="rounded-md bg-[#1F1E1B] px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.06em] text-[#191919]">Next</span> : null}</div>
                 <div className="mt-1.5 text-[10px] font-semibold">{settlementNext(settlementState)}</div>
                 <div className="mt-1 text-[8px] leading-4 text-[#817B73]">Post the latest filed version, settle cash, then prove the bank match. Paid alone is not cleared.</div>
               </button>
               <button type="button" onClick={() => setMode("AMENDMENT")} className={`rounded-xl border p-3 text-left ${mode === "AMENDMENT" ? "border-[#8C6036]/30 bg-[#FFF9F0]" : "border-black/[0.07] bg-white"}`}>
-                <div className="flex items-center gap-2"><FilePenLine size={13} className="text-[#8C6036]" /><span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#6B655E]">Filed correction</span>{recommendedMode === "AMENDMENT" ? <span className="rounded-md bg-[#1F1E1B] px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.06em] text-white">Next</span> : null}</div>
+                <div className="flex items-center gap-2"><FilePenLine size={13} className="text-[#8C6036]" /><span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#6B655E]">Filed correction</span>{recommendedMode === "AMENDMENT" ? <span className="rounded-md bg-[#1F1E1B] px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.06em] text-[#191919]">Next</span> : null}</div>
                 <div className="mt-1.5 text-[10px] font-semibold">{activeAmendment ? `${activeAmendment.label || "Amendment"} · ${activeAmendment.status || "OPEN"}` : "Use only when the filed return is actually wrong."}</div>
                 <div className="mt-1 text-[8px] leading-4 text-[#817B73]">The original filing is never rewritten. Every correction gets fresh evidence, a deterministic delta and a new authority receipt.</div>
               </button>

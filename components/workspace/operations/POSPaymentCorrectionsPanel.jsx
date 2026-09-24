@@ -173,31 +173,31 @@ export default function POSPaymentCorrectionsPanel({
         onChanged={onChanged}
       />
 
-      <article className="rounded-[30px] border border-white/10 bg-white/[0.03] p-7 xl:col-span-2">
+      <article className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-7 xl:col-span-2">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">
               Payment corrections
             </div>
             <h2 className="mt-2 text-2xl font-semibold">Refunds & reversals</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/40">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#817A72]">
               Full settled cash sales only. The original sale and payment remain immutable; the correction creates linked Finance reversal journals and the cash payout is charged to the currently open drawer.
             </p>
           </div>
           <button
             type="button"
             onClick={load}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/55"
+            className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#5F5A54]"
           >
             <RefreshCw size={14} /> Refresh
           </button>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-white/40">
-          <span className="rounded-full border border-white/10 px-3 py-1.5">Cash only</span>
-          <span className="rounded-full border border-white/10 px-3 py-1.5">Full sale only</span>
-          <span className="rounded-full border border-white/10 px-3 py-1.5">Manager / Owner approval</span>
-          <span className="rounded-full border border-white/10 px-3 py-1.5">Original settlement preserved</span>
+        <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-[#817A72]">
+          <span className="rounded-full border border-black/[0.08] px-3 py-1.5">Cash only</span>
+          <span className="rounded-full border border-black/[0.08] px-3 py-1.5">Full sale only</span>
+          <span className="rounded-full border border-black/[0.08] px-3 py-1.5">Manager / Owner approval</span>
+          <span className="rounded-full border border-black/[0.08] px-3 py-1.5">Original settlement preserved</span>
         </div>
 
         {error ? (
@@ -213,19 +213,19 @@ export default function POSPaymentCorrectionsPanel({
         ) : null}
 
         {!actor?.can_correct ? (
-          <div className="mt-5 rounded-2xl border border-white/10 p-4 text-sm text-white/40">
+          <div className="mt-5 rounded-2xl border border-black/[0.08] p-4 text-sm text-[#817A72]">
             Manager or owner authority is required to execute payment corrections.
           </div>
         ) : null}
 
         <div className="mt-6 grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-white/35">
+            <div className="text-xs uppercase tracking-[0.18em] text-[#918B83]">
               Eligible settled cash payments
             </div>
             <div className="mt-3 space-y-3">
               {loading ? (
-                <div className="rounded-2xl border border-white/10 p-5 text-sm text-white/35">
+                <div className="rounded-2xl border border-black/[0.08] p-5 text-sm text-[#918B83]">
                   Loading payments...
                 </div>
               ) : eligiblePayments.length ? (
@@ -235,7 +235,7 @@ export default function POSPaymentCorrectionsPanel({
                   return (
                     <div
                       key={payment.id}
-                      className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                      className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/20 p-4"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
@@ -244,7 +244,7 @@ export default function POSPaymentCorrectionsPanel({
                               payment.payment_reference ||
                               `Payment ${String(payment.id).slice(0, 8)}`}
                           </div>
-                          <div className="mt-1 text-[11px] text-white/30">
+                          <div className="mt-1 text-[11px] text-[#A19A92]">
                             {payment.paid_at
                               ? new Date(payment.paid_at).toLocaleString()
                               : "Settled payment"}
@@ -267,7 +267,7 @@ export default function POSPaymentCorrectionsPanel({
                         }
                         placeholder="Required reason — e.g. guest refund, duplicate charge, sale void"
                         rows={2}
-                        className="mt-4 w-full resize-none rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none"
+                        className="mt-4 w-full resize-none rounded-xl border border-black/[0.08] bg-[#F7F6F3]/40 px-3 py-2 text-sm outline-none"
                       />
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
                         <button
@@ -301,7 +301,7 @@ export default function POSPaymentCorrectionsPanel({
                   );
                 })
               ) : (
-                <div className="rounded-2xl border border-white/10 p-5 text-sm text-white/35">
+                <div className="rounded-2xl border border-black/[0.08] p-5 text-sm text-[#918B83]">
                   No uncorrected settled cash payments found.
                 </div>
               )}
@@ -309,7 +309,7 @@ export default function POSPaymentCorrectionsPanel({
           </div>
 
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-white/35">
+            <div className="text-xs uppercase tracking-[0.18em] text-[#918B83]">
               Correction evidence
             </div>
             <div className="mt-3 max-h-[520px] space-y-3 overflow-y-auto pr-1">
@@ -317,10 +317,10 @@ export default function POSPaymentCorrectionsPanel({
                 corrections.map((correction) => (
                   <div
                     key={correction.id}
-                    className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                    className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/20 p-4"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs font-semibold text-white/70">
+                      <span className="text-xs font-semibold text-[#5F5A54]">
                         {String(correction.correction_type || "").toUpperCase()}
                       </span>
                       <span className="font-semibold">
@@ -330,10 +330,10 @@ export default function POSPaymentCorrectionsPanel({
                         )}
                       </span>
                     </div>
-                    <div className="mt-2 text-xs leading-5 text-white/45">
+                    <div className="mt-2 text-xs leading-5 text-[#746E66]">
                       {correction.reason}
                     </div>
-                    <div className="mt-2 text-[10px] text-white/25">
+                    <div className="mt-2 text-[10px] text-[#A9A39C]">
                       {correction.created_at
                         ? new Date(correction.created_at).toLocaleString()
                         : correction.id}
@@ -341,7 +341,7 @@ export default function POSPaymentCorrectionsPanel({
                   </div>
                 ))
               ) : (
-                <div className="rounded-2xl border border-white/10 p-5 text-sm text-white/35">
+                <div className="rounded-2xl border border-black/[0.08] p-5 text-sm text-[#918B83]">
                   No refunds or reversals recorded.
                 </div>
               )}

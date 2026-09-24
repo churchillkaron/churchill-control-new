@@ -154,17 +154,17 @@ export default function IntelligencePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050505] px-6 py-8 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-8 text-[#191919]">
       <div className="mx-auto max-w-[1480px]">
-        <header className="flex flex-col gap-6 border-b border-white/10 pb-7 lg:flex-row lg:items-end lg:justify-between">
+        <header className="flex flex-col gap-6 border-b border-black/[0.08] pb-7 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.32em] text-amber-300/65">
+            <div className="text-[11px] uppercase tracking-[0.32em] text-[#9B6F3F]">
               Intelligence
             </div>
             <h1 className="mt-4 text-5xl font-light tracking-[-0.06em]">
               Business Intelligence
             </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45">
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-[#746E66]">
               Organization-scoped attribution, channel performance and actionable business signals.
             </p>
           </div>
@@ -172,13 +172,13 @@ export default function IntelligencePage() {
           <select
             value={organizationId || ""}
             onChange={(event) => changeOrganization(event.target.value)}
-            className="min-w-72 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none"
+            className="min-w-72 rounded-2xl border border-black/[0.09] bg-white px-4 py-3 text-sm text-[#191919] outline-none"
           >
             {!organizations.length ? (
               <option value="">No organizations available</option>
             ) : null}
             {organizations.map((item) => (
-              <option key={item.id} value={item.id} className="bg-black">
+              <option key={item.id} value={item.id} className="bg-white">
                 {item.name}
               </option>
             ))}
@@ -186,13 +186,13 @@ export default function IntelligencePage() {
         </header>
 
         {error ? (
-          <div className="mt-6 rounded-2xl border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm text-red-100">
+          <div className="mt-6 rounded-2xl border border-[#B7654C]/25 bg-[#FBF1EE] px-5 py-4 text-sm text-[#914B38]">
             {error}
           </div>
         ) : null}
 
         {!organizationId && !loading ? (
-          <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-sm text-white/50">
+          <div className="mt-8 rounded-3xl border border-black/[0.08] bg-white p-8 text-sm text-[#746E66]">
             Select an organization in Workspace to open its intelligence view.
           </div>
         ) : null}
@@ -208,9 +208,9 @@ export default function IntelligencePage() {
               ].map(([label, value]) => (
                 <div
                   key={label}
-                  className="rounded-[26px] border border-white/[0.08] bg-white/[0.03] p-5"
+                  className="rounded-[26px] border border-black/[0.08] bg-white p-5"
                 >
-                  <div className="text-[10px] uppercase tracking-[0.24em] text-white/35">
+                  <div className="text-[10px] uppercase tracking-[0.24em] text-[#918B83]">
                     {label}
                   </div>
                   <div className="mt-3 text-2xl font-light">{value}</div>
@@ -219,20 +219,20 @@ export default function IntelligencePage() {
             </section>
 
             <section className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
-              <div className="rounded-[30px] border border-white/[0.08] bg-white/[0.025] p-6">
+              <div className="rounded-[30px] border border-black/[0.08] bg-white p-6">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <div className="text-[11px] uppercase tracking-[0.25em] text-white/35">
+                    <div className="text-[11px] uppercase tracking-[0.25em] text-[#918B83]">
                       Channel ROI
                     </div>
                     <h2 className="mt-2 text-2xl font-light">Attribution performance</h2>
                   </div>
-                  {loading ? <div className="text-xs text-white/35">Refreshing...</div> : null}
+                  {loading ? <div className="text-xs text-[#918B83]">Refreshing...</div> : null}
                 </div>
 
                 <div className="mt-6 overflow-x-auto">
                   <table className="w-full min-w-[620px] text-left text-sm">
-                    <thead className="text-[10px] uppercase tracking-[0.2em] text-white/30">
+                    <thead className="text-[10px] uppercase tracking-[0.2em] text-[#A19A92]">
                       <tr>
                         <th className="pb-3">Provider</th>
                         <th className="pb-3">Revenue</th>
@@ -242,16 +242,16 @@ export default function IntelligencePage() {
                     </thead>
                     <tbody>
                       {roi.map((row) => (
-                        <tr key={row.provider} className="border-t border-white/[0.07]">
-                          <td className="py-4 text-white/80">{row.provider}</td>
-                          <td className="py-4 text-white/65">{formatNumber(row.revenue)}</td>
-                          <td className="py-4 text-white/65">{formatNumber(row.customers)}</td>
-                          <td className="py-4 text-white/65">{formatNumber(row.events)}</td>
+                        <tr key={row.provider} className="border-t border-black/[0.07]">
+                          <td className="py-4 text-[#2F2C28]">{row.provider}</td>
+                          <td className="py-4 text-[#5F5A54]">{formatNumber(row.revenue)}</td>
+                          <td className="py-4 text-[#5F5A54]">{formatNumber(row.customers)}</td>
+                          <td className="py-4 text-[#5F5A54]">{formatNumber(row.events)}</td>
                         </tr>
                       ))}
                       {!roi.length && !loading ? (
                         <tr>
-                          <td colSpan={4} className="border-t border-white/[0.07] py-8 text-white/35">
+                          <td colSpan={4} className="border-t border-black/[0.07] py-8 text-[#918B83]">
                             No attribution events are available for this organization yet.
                           </td>
                         </tr>
@@ -261,8 +261,8 @@ export default function IntelligencePage() {
                 </div>
               </div>
 
-              <div className="rounded-[30px] border border-white/[0.08] bg-white/[0.025] p-6">
-                <div className="text-[11px] uppercase tracking-[0.25em] text-white/35">
+              <div className="rounded-[30px] border border-black/[0.08] bg-white p-6">
+                <div className="text-[11px] uppercase tracking-[0.25em] text-[#918B83]">
                   Recommendations
                 </div>
                 <h2 className="mt-2 text-2xl font-light">Business signals</h2>
@@ -271,19 +271,19 @@ export default function IntelligencePage() {
                   {(business?.recommendations || []).map((item, index) => (
                     <div
                       key={`${item.provider || "signal"}-${item.type || index}`}
-                      className="rounded-2xl border border-amber-300/15 bg-amber-300/[0.06] p-4"
+                      className="rounded-2xl border border-[#D6A66A]/25 bg-[#FBF3E8] p-4"
                     >
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-amber-200/65">
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-[#9B6F3F]">
                         {item.type || "Signal"}
                       </div>
-                      <div className="mt-2 text-sm leading-6 text-white/70">
+                      <div className="mt-2 text-sm leading-6 text-[#5F5A54]">
                         {item.message}
                       </div>
                     </div>
                   ))}
 
                   {!business?.recommendations?.length && !loading ? (
-                    <div className="rounded-2xl border border-white/[0.07] p-4 text-sm text-white/35">
+                    <div className="rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-4 text-sm text-[#918B83]">
                       No business recommendations are active.
                     </div>
                   ) : null}

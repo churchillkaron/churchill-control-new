@@ -130,21 +130,21 @@ export default function ExpoPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#080808] px-6 py-8 text-white">
+    <main className="min-h-screen bg-white px-6 py-8 text-[#191919]">
       <div className="mx-auto max-w-[1600px]">
-        <header className="rounded-[34px] border border-white/10 bg-white/[0.035] p-7">
+        <header className="rounded-[34px] border border-black/[0.08] bg-[#FBF8F3] p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">Restaurant Operations</p>
               <h1 className="mt-3 text-4xl font-semibold">Expo & Service Handoff</h1>
-              <p className="mt-2 text-sm text-white/45">Kitchen and Bar ready items converge here before service and payment.</p>
+              <p className="mt-2 text-sm text-[#746E66]">Kitchen and Bar ready items converge here before service and payment.</p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="rounded-2xl border border-white/10 bg-black/25 px-5 py-3">
-                <div className="flex items-center gap-2 text-xs text-white/40"><BellRing size={15} /> Ready tables</div>
+              <div className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/25 px-5 py-3">
+                <div className="flex items-center gap-2 text-xs text-[#817A72]"><BellRing size={15} /> Ready tables</div>
                 <div className="mt-1 text-2xl font-semibold">{readyTables.length}</div>
               </div>
-              <button onClick={loadExpo} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60">
+              <button onClick={loadExpo} className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#5F5A54]">
                 <RefreshCw size={15} /> Refresh
               </button>
             </div>
@@ -154,7 +154,7 @@ export default function ExpoPage() {
 
         <section className="mt-6 grid gap-6 xl:grid-cols-2">
           {loading ? (
-            <div className="col-span-full rounded-3xl border border-white/10 p-12 text-center text-white/35">Loading ready service...</div>
+            <div className="col-span-full rounded-3xl border border-black/[0.08] p-12 text-center text-[#918B83]">Loading ready service...</div>
           ) : readyTables.length ? (
             readyTables.map(([table, items]) => (
               <article key={table} className="rounded-[30px] border border-[#D6A66A]/25 bg-[#D6A66A]/[0.045] p-6">
@@ -170,11 +170,11 @@ export default function ExpoPage() {
                   {items.map((item) => {
                     const itemId = item.id || item.source_id;
                     return (
-                      <div key={`${item.ticketId}:${itemId}`} className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                      <div key={`${item.ticketId}:${itemId}`} className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/30 p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="text-lg font-medium">{Number(item.quantity || 1)} × {item.name || "Item"}</div>
-                            {item.attributes?.seat_position ? <div className="mt-1 text-xs text-cyan-200/70">Seat {item.attributes.seat_position}</div> : null}
+                            {item.attributes?.seat_position ? <div className="mt-1 text-xs text-amber-200/70">Seat {item.attributes.seat_position}</div> : null}
                             {item.queueName ? <div className="mt-1 text-xs text-[#D6A66A]/70">{item.queueName}</div> : null}
                             {item.notes ? <div className="mt-1 text-sm text-orange-200/70">{item.notes}</div> : null}
                           </div>
@@ -195,7 +195,7 @@ export default function ExpoPage() {
               </article>
             ))
           ) : (
-            <div className="col-span-full rounded-3xl border border-dashed border-white/10 p-16 text-center text-white/35">No items are ready for service.</div>
+            <div className="col-span-full rounded-3xl border border-dashed border-black/[0.08] p-16 text-center text-[#918B83]">No items are ready for service.</div>
           )}
         </section>
       </div>

@@ -7,6 +7,9 @@ import {
 import {
   assertCodeAIWorldClassCommitReady,
 } from "../lib/code/runtime/CodeAIWorldClassCommitGuard.js";
+import {
+  planCodeAIDeterministicVerificationGates,
+} from "../lib/code/runtime/CodeAIDeterministicVerificationPlanRuntime.js";
 
 function operation(operation_id, action) {
   return {
@@ -173,4 +176,72 @@ test("a post-edit verifier failure closes only when the same signature passes la
   assert.equal(closure.verified, true);
   assert.equal(closure.failed_verifier_count_after_final_edit, 1);
   assert.equal(closure.closed_failed_verifier_count, 1);
+});
+
+test("verifier environment is part of repair-closure identity", () => {
+  const state = baseState();
+  state.tests = [
+    {
+      operation_id: "verify_before",
+      command: "npm",
+      args: ["run", "build"],
+      env: { AVANTIQO_NEXT_DIST_DIR: ".next-code-verify" },
+      exit_code: 1,
+    },
+    {
+      operation_id: "verify_after",
+      command: "npm",
+      args: ["run", "build"],
+      exit_code: 0,
+    },
+  ];
+
+  const closure = assessCodeAIRepairClosure(state);
+  assert.equal(closure.verified, false);
+  assert.equal(closure.unresolved_failed_verifier_count, 1);
+  assert.deepEqual(closure.unresolved_failed_verifiers[0].env, {
+    AVANTIQO_NEXT_DIST_DIR: ".next-code-verify",
+  });
+});
+
+test("exact env-bound verifier pass closes debt and deterministic replay preserves env", () => {
+  const state = baseState();
+  const env = { AVANTIQO_NEXT_DIST_DIR: ".next-code-verify" };
+  state.tests = [
+    {
+      operation_id: "verify_before",
+      command: "npm",
+      args: ["run", "build"],
+      env,
+      exit_code: 1,
+    },
+    {
+      operation_id: "verify_after",
+      command: "npm",
+      args: ["run", "build"],
+      env,
+      exit_code: 0,
+    },
+  ];
+  let closure = assessCodeAIRepairClosure(state);
+  assert.equal(closure.verified, true);
+
+  state.tests = state.tests.slice(0, 1);
+  state.evidence = [
+    operation("apply_1", "apply_files"),
+    operation("verify_before", "verify"),
+    operation("diff_1", "diff"),
+  ];
+  closure = assessCodeAIRepairClosure(state);
+  assert.equal(closure.verified, false);
+
+  const plan = planCodeAIDeterministicVerificationGates({
+    state,
+    authoritative_verification: null,
+  });
+  const debt = plan.operations.find((item) => item.obligation === "FAILED_VERIFIER_DEBT");
+  assert.ok(debt);
+  assert.deepEqual(debt.input.env, env);
+  assert.equal(debt.input.command, "npm");
+  assert.deepEqual(debt.input.args, ["run", "build"]);
 });

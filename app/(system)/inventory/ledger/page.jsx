@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import {
+  useCallback,
   useEffect,
   useState,
 } from 'react'
@@ -66,13 +67,7 @@ export default function InventoryLedgerPage() {
 
   }, [])
 
-  useEffect(() => {
-
-    loadData()
-
-  }, [organizationId])
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
 
     if (!organizationId) {
       return
@@ -114,7 +109,11 @@ export default function InventoryLedgerPage() {
     setMovements(
       movementData || []
     )
-  }
+  }, [organizationId])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   function getIngredientName(
     id

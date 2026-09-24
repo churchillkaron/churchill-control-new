@@ -72,7 +72,7 @@ export default function DeveloperCapabilityCatalogClient({ capabilities = [] }) 
             </div>
             <div>
               <div className="text-[7px] font-semibold uppercase tracking-[.13em] text-[#9A9085]">Endpoint</div>
-              <div className="mt-2 break-all rounded-lg bg-[#1D1A17] px-3 py-2 font-mono text-[8px] text-[#E8D2B4]">{capability.listEndpoint}</div>
+              <div className="mt-2 break-all rounded-lg border border-[#C7B08D]/20 bg-[#FBF6EF] px-3 py-2 font-mono text-[8px] text-[#5C4731]">{capability.listEndpoint}</div>
             </div>
           </div>
         </div>)}</div>

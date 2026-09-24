@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
@@ -40,7 +40,7 @@ export default function ProviderBillingPage() {
   const [supplierSelections, setSupplierSelections] = useState({});
   const [verificationSelections, setVerificationSelections] = useState({});
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) {
       setState(null);
       setLoading(false);
@@ -67,12 +67,12 @@ export default function ProviderBillingPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     if (organizationLoading) return;
     load();
-  }, [organizationId, organizationLoading]);
+  }, [load, organizationLoading]);
 
   const providers = useMemo(() => {
     const rows = Array.isArray(state?.providers) ? state.providers : [];
@@ -268,8 +268,8 @@ export default function ProviderBillingPage() {
 
   if (organizationLoading || loading) {
     return (
-      <main className="min-h-screen bg-black p-6 text-white lg:p-10">
-        <div className="mx-auto max-w-7xl rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-white/50">
+      <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
+        <div className="mx-auto max-w-7xl rounded-3xl border border-black/[0.08] bg-white p-6 text-sm text-[#746E66]">
           Loading provider billing…
         </div>
       </main>
@@ -278,7 +278,7 @@ export default function ProviderBillingPage() {
 
   if (!organizationId) {
     return (
-      <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+      <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
         <div className="mx-auto max-w-7xl rounded-3xl border border-amber-400/20 bg-amber-400/10 p-6 text-sm text-amber-100">
           Select an organization before managing Provider Billing.
         </div>
@@ -287,9 +287,9 @@ export default function ProviderBillingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl">
-        <div className="border-b border-white/10 pb-8">
+        <div className="border-b border-black/[0.08] pb-8">
           <Link
             href={`/workspace/${encodeURIComponent(organizationId)}/administration/integrations`}
             className="text-sm text-[#D6A66A] hover:text-[#e8bd87]"
@@ -300,7 +300,7 @@ export default function ProviderBillingPage() {
             Administration / Integrations
           </div>
           <h1 className="mt-3 text-4xl font-semibold">Provider Billing</h1>
-          <p className="mt-3 max-w-4xl text-sm leading-6 text-white/50">
+          <p className="mt-3 max-w-4xl text-sm leading-6 text-[#746E66]">
             {operatorName} operates managed provider integrations. {payerName} is the legal and commercial
             payer for external provider invoices, charges, ad spend, tax, and supplier obligations. The
             selected customer organization remains the usage owner and funds paid execution through its
@@ -330,7 +330,7 @@ export default function ProviderBillingPage() {
             ].map((label) => (
               <div
                 key={label}
-                className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-sm text-white/75"
+                className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-4 text-sm text-[#2F2C28]"
               >
                 {label}
               </div>
@@ -345,19 +345,19 @@ export default function ProviderBillingPage() {
             ["Managed by Avantiqo", state?.summary?.supplier_billed_to_avantiqo ?? 0],
             ["Fully ready", state?.summary?.service_cost_control_ready ?? 0],
           ].map(([label, value]) => (
-            <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="text-xs uppercase tracking-[0.2em] text-white/35">{label}</div>
+            <div key={label} className="rounded-2xl border border-black/[0.08] bg-white p-5">
+              <div className="text-xs uppercase tracking-[0.2em] text-[#918B83]">{label}</div>
               <div className="mt-2 text-3xl font-semibold">{value}</div>
             </div>
           ))}
         </section>
 
-        <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-          <div className="text-xs uppercase tracking-[0.22em] text-white/30">
+        <section className="mt-6 rounded-3xl border border-black/[0.08] bg-white p-6">
+          <div className="text-xs uppercase tracking-[0.22em] text-[#A19A92]">
             Customer / Operator / Provider Payer / Entity / Party
           </div>
           <h2 className="mt-2 text-2xl font-semibold">Commercial relationship control</h2>
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-white/45">
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-[#746E66]">
             Customer: {organization?.name || organizationId}. Platform operator: {operatorName}. Legal
             provider payer: {payerName}. The customer owns Service usage and its prepaid wallet; {operatorName}
             operates the provider integration; {payerName} is the contracting and paying party to Google,
@@ -392,27 +392,27 @@ export default function ProviderBillingPage() {
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
               href="/finance/legal-entities"
-              className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70 hover:bg-white/[0.07]"
+              className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54] hover:bg-[#F7F6F3]"
             >
               Manage payer Entities
             </Link>
             <Link
               href="/procurement/suppliers"
-              className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70 hover:bg-white/[0.07]"
+              className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54] hover:bg-[#F7F6F3]"
             >
               Manage payer Supplier Parties
             </Link>
           </div>
         </section>
 
-        <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-3xl border border-black/[0.08] bg-white p-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="text-xs uppercase tracking-[0.22em] text-white/30">
+              <div className="text-xs uppercase tracking-[0.22em] text-[#A19A92]">
                 Managed media supplier account
               </div>
               <h2 className="mt-2 text-2xl font-semibold">Google Ads</h2>
-              <p className="mt-2 text-sm text-white/45">
+              <p className="mt-2 text-sm text-[#746E66]">
                 Google Payments is operated through {operatorName}&apos;s managed provider setup, while
                 {payerName} remains the legal provider payer. The customer never supplies a payment method
                 to Google. Selecting the managed Payments account does not bypass advertiser BillingSetup
@@ -431,12 +431,12 @@ export default function ProviderBillingPage() {
                 return (
                   <div
                     key={account.resource_name || account.payments_account_id}
-                    className="rounded-2xl border border-white/10 bg-black/25 p-4"
+                    className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4"
                   >
                     <div className="font-medium">
                       {account.payments_account_name || "Google Payments account"}
                     </div>
-                    <div className="mt-1 text-sm text-white/45">
+                    <div className="mt-1 text-sm text-[#746E66]">
                       Account {account.payments_account_id || "—"} · Profile {account.payments_profile_id || "—"}
                     </div>
                     <button
@@ -458,12 +458,12 @@ export default function ProviderBillingPage() {
           </div>
         </section>
 
-        <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-3xl border border-black/[0.08] bg-white p-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="text-xs uppercase tracking-[0.22em] text-white/30">Supplier adapters</div>
+              <div className="text-xs uppercase tracking-[0.22em] text-[#A19A92]">Supplier adapters</div>
               <h2 className="mt-2 text-2xl font-semibold">All registered providers</h2>
-              <p className="mt-2 text-sm text-white/45">
+              <p className="mt-2 text-sm text-[#746E66]">
                 {operatorName} is the platform operator. The legal provider payer is fixed by governance to
                 {payerName}. Select the payer&apos;s Entity and Supplier Party, then verify the commercial payer
                 from real provider billing evidence. The selected customer organization remains the usage and
@@ -474,7 +474,7 @@ export default function ProviderBillingPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search providers…"
-              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none md:w-80"
+              className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm text-[#191919] outline-none md:w-80"
             />
           </div>
 
@@ -495,30 +495,30 @@ export default function ProviderBillingPage() {
               const verified = verificationStatus === "VERIFIED";
 
               return (
-                <article key={provider.id} className="rounded-2xl border border-white/10 bg-black/25 p-5">
+                <article key={provider.id} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-xs uppercase tracking-[0.18em] text-white/30">{provider.category}</div>
+                      <div className="text-xs uppercase tracking-[0.18em] text-[#A19A92]">{provider.category}</div>
                       <h3 className="mt-1 text-lg font-semibold">{provider.name}</h3>
-                      <div className="mt-1 text-xs text-white/35">{provider.id}</div>
+                      <div className="mt-1 text-xs text-[#918B83]">{provider.id}</div>
                     </div>
                     <span className={`rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${badgeClass(provider.service_cost_control_ready)}`}>
                       {statusLabel(provider)}
                     </span>
                   </div>
 
-                  <div className="mt-4 space-y-2 text-xs leading-5 text-white/45">
-                    <div><span className="text-white/65">Customer:</span> {organization?.name || organizationId}</div>
-                    <div><span className="text-white/65">Operator:</span> {operatorName}</div>
-                    <div><span className="text-white/65">Provider payer:</span> {payerName}</div>
-                    <div><span className="text-white/65">Customer funding:</span> ACTIVE PREPAID wallet</div>
-                    <div><span className="text-white/65">Adapter:</span> {provider.adapter?.adapter_id}</div>
-                    <div><span className="text-white/65">Supplier cost:</span> {provider.adapter?.supplier_cost_source}</div>
-                    <div><span className="text-white/65">Pricing rows:</span> {provider.pricing_count}</div>
+                  <div className="mt-4 space-y-2 text-xs leading-5 text-[#746E66]">
+                    <div><span className="text-[#5F5A54]">Customer:</span> {organization?.name || organizationId}</div>
+                    <div><span className="text-[#5F5A54]">Operator:</span> {operatorName}</div>
+                    <div><span className="text-[#5F5A54]">Provider payer:</span> {payerName}</div>
+                    <div><span className="text-[#5F5A54]">Customer funding:</span> ACTIVE PREPAID wallet</div>
+                    <div><span className="text-[#5F5A54]">Adapter:</span> {provider.adapter?.adapter_id}</div>
+                    <div><span className="text-[#5F5A54]">Supplier cost:</span> {provider.adapter?.supplier_cost_source}</div>
+                    <div><span className="text-[#5F5A54]">Pricing rows:</span> {provider.pricing_count}</div>
                   </div>
 
                   <div className="mt-4 space-y-3">
-                    <div className="rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-white/65">
+                    <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-xs text-[#5F5A54]">
                       Legal provider payer · {payerName}
                     </div>
 
@@ -527,7 +527,7 @@ export default function ProviderBillingPage() {
                       onChange={(event) =>
                         updateSelection(provider.id, "payer_entity_id", event.target.value)
                       }
-                      className="w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-xs text-white"
+                      className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs text-[#191919]"
                     >
                       <option value="">Select payer Entity</option>
                       {legalEntities.map((entity) => (
@@ -542,7 +542,7 @@ export default function ProviderBillingPage() {
                       onChange={(event) =>
                         updateSelection(provider.id, "supplier_party_id", event.target.value)
                       }
-                      className="w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-xs text-white"
+                      className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs text-[#191919]"
                     >
                       <option value="">Select payer Supplier Party</option>
                       {suppliers.map((supplier) => (
@@ -578,9 +578,9 @@ export default function ProviderBillingPage() {
                   </div>
 
                   {supplierAccount ? (
-                    <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                    <div className="mt-4 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
                       <div className="flex items-center justify-between gap-3">
-                        <div className="text-xs font-medium text-white/75">
+                        <div className="text-xs font-medium text-[#2F2C28]">
                           Legal provider payer verification
                         </div>
                         <span className={`rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em] ${badgeClass(verified)}`}>
@@ -589,17 +589,17 @@ export default function ProviderBillingPage() {
                       </div>
 
                       {verified ? (
-                        <div className="mt-3 space-y-1 text-xs leading-5 text-white/45">
+                        <div className="mt-3 space-y-1 text-xs leading-5 text-[#746E66]">
                           <div>
-                            <span className="text-white/65">Evidence:</span>{" "}
+                            <span className="text-[#5F5A54]">Evidence:</span>{" "}
                             {verificationMethodLabel(supplierAccount.verification_method) || "Verified evidence"}
                           </div>
                           <div>
-                            <span className="text-white/65">Reference:</span>{" "}
+                            <span className="text-[#5F5A54]">Reference:</span>{" "}
                             {supplierAccount.verification_reference || "—"}
                           </div>
                           <div>
-                            <span className="text-white/65">Verified:</span>{" "}
+                            <span className="text-[#5F5A54]">Verified:</span>{" "}
                             {supplierAccount.verified_at
                               ? new Date(supplierAccount.verified_at).toLocaleString()
                               : "Recorded"}
@@ -607,7 +607,7 @@ export default function ProviderBillingPage() {
                         </div>
                       ) : (
                         <div className="mt-3 space-y-3">
-                          <p className="text-xs leading-5 text-white/45">
+                          <p className="text-xs leading-5 text-[#746E66]">
                             Verify only after provider billing evidence clearly supports {payerName} and the selected
                             legal Entity as payer, with this Supplier Party as the counterparty. Store only a non-secret
                             reference.
@@ -622,7 +622,7 @@ export default function ProviderBillingPage() {
                                 event.target.value,
                               )
                             }
-                            className="w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-xs text-white disabled:opacity-40"
+                            className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs text-[#191919] disabled:opacity-40"
                           >
                             <option value="">Select evidence type</option>
                             {verificationMethods.map((method) => (
@@ -642,7 +642,7 @@ export default function ProviderBillingPage() {
                               )
                             }
                             placeholder="Invoice / profile / statement reference"
-                            className="w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-xs text-white outline-none disabled:opacity-40"
+                            className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs text-[#191919] outline-none disabled:opacity-40"
                           />
                           {!mappingMatchesStored ? (
                             <div className="text-[11px] leading-4 text-amber-100/70">

@@ -40,11 +40,11 @@ export default function ProductionApprovalPage() {
   };
 
   return (
-    <div className="p-6 text-white max-w-3xl mx-auto">
+    <div className="p-6 text-[#191919] max-w-3xl mx-auto">
       <h1 className="text-2xl mb-6">Production Approval</h1>
 
       {items.length === 0 && (
-        <div className="text-white/50">No production needed</div>
+        <div className="text-[#746E66]">No production needed</div>
       )}
 
       {items.map((item) => (
@@ -59,7 +59,7 @@ export default function ProductionApprovalPage() {
               Stock: {item.current_stock}
             </div>
 
-            <div className="text-sm text-blue-400">
+            <div className="text-sm text-[#9B6F3F]">
               Suggested: {item.suggested_quantity}
             </div>
 

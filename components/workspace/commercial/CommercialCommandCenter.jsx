@@ -195,7 +195,7 @@ export default function CommercialCommandCenter({ organizationId: organizationId
                 key={action.label}
                 href={workspaceHref(organizationId, action.route)}
                 className={index === 0
-                  ? "inline-flex items-center gap-2 rounded-xl bg-[#1D1B18] px-4 py-2.5 text-[12px] font-medium text-white transition hover:bg-black"
+                  ? "inline-flex items-center gap-2 rounded-xl border border-[#B98A52]/25 bg-[#D6A66A] px-4 py-2.5 text-[12px] font-medium text-[#2C2117] transition hover:bg-[#C99A5E]"
                   : "inline-flex items-center gap-2 rounded-xl border border-black/[0.09] bg-white px-4 py-2.5 text-[12px] font-medium text-[#4E4A44] transition hover:border-[#D6A66A]/45 hover:text-[#8D6338]"}
               >
                 {action.label}

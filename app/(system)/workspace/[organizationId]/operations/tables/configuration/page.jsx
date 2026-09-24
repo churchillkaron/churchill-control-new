@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   useOrganizationRuntime,
 } from "@/lib/hooks/useOrganizationRuntime";
@@ -12,7 +12,7 @@ export default function TableSettingsPage() {
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  async function loadSettings() {
+  const loadSettings = useCallback(async () => {
     if (!organizationId) {
       setSettings(null);
       return;
@@ -40,7 +40,7 @@ export default function TableSettingsPage() {
     }
 
     setSettings(result.settings);
-  }
+  }, [organizationId]);
 
   async function saveSettings() {
     if (!organizationId) {
@@ -82,11 +82,11 @@ export default function TableSettingsPage() {
     loadSettings().catch((error) => {
       console.error("LOAD_TABLE_SETTINGS_ERROR", error);
     });
-  }, [organizationId]);
+  }, [loadSettings]);
 
   if (!organizationId) {
     return (
-      <div className="p-10 text-white">
+      <div className="p-10 text-[#191919]">
         Select an organization to manage table settings.
       </div>
     );
@@ -94,7 +94,7 @@ export default function TableSettingsPage() {
 
   if (!settings) {
     return (
-      <div className="p-10 text-white">
+      <div className="p-10 text-[#191919]">
         Loading...
       </div>
     );
@@ -108,10 +108,10 @@ export default function TableSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-10">
+    <div className="min-h-screen bg-[#F7F6F3] p-10 text-[#191919]">
       <div className="max-w-5xl mx-auto space-y-8">
         <div>
-          <div className="text-sm uppercase tracking-[0.3em] text-zinc-500 mb-3">
+          <div className="text-sm uppercase tracking-[0.3em] text-[#817A72] mb-3">
             Table Runtime
           </div>
 
@@ -120,7 +120,7 @@ export default function TableSettingsPage() {
           </h1>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid gap-3 md:grid-cols-2">
           {[
             ["enable_table_locking", "Enable Table Locking"],
             ["auto_release_paid_tables", "Auto Release Paid Tables"],
@@ -138,13 +138,13 @@ export default function TableSettingsPage() {
             <button
               key={key}
               onClick={() => toggle(key)}
-              className={`p-6 rounded-3xl border transition ${
+              className={`rounded-2xl border p-5 text-left transition ${
                 settings[key]
-                  ? "bg-emerald-500 text-black border-emerald-400"
-                  : "bg-white/5 border-white/10"
+                  ? "border-[#D6A66A]/55 bg-[#F1E2CF] text-[#4C3520]"
+                  : "border-black/[0.08] bg-white text-[#5F5A54]"
               }`}
             >
-              <div className="text-lg">
+              <div className="text-[11px] font-semibold">
                 {label}
               </div>
             </button>
@@ -154,7 +154,7 @@ export default function TableSettingsPage() {
         <button
           onClick={saveSettings}
           disabled={saving}
-          className="w-full h-16 rounded-3xl bg-emerald-500 text-black text-xl font-semibold"
+          className="h-14 w-full rounded-2xl border border-[#C89558]/30 bg-[#D6A66A] text-[15px] font-semibold text-[#2F2418] transition hover:bg-[#C99A61] disabled:opacity-45"
         >
           {saving ? "Saving..." : "Save Table Settings"}
         </button>

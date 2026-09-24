@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 export default function WastePage() {
@@ -12,7 +12,7 @@ export default function WastePage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  async function loadWasteLogs() {
+  const loadWasteLogs = useCallback(async () => {
     if (!organizationId) return;
 
     setLoading(true);
@@ -36,14 +36,14 @@ export default function WastePage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     loadWasteLogs();
-  }, [organizationId]);
+  }, [loadWasteLogs]);
 
   return (
-    <div className="min-h-screen bg-black text-white p-10">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919] p-10">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-start justify-between gap-6 mb-10">
           <div>
@@ -54,7 +54,7 @@ export default function WastePage() {
             type="button"
             onClick={loadWasteLogs}
             disabled={loading || !organizationId}
-            className="rounded-2xl border border-white/10 px-5 py-3 text-sm text-white/70 disabled:opacity-40"
+            className="rounded-2xl border border-black/[0.08] px-5 py-3 text-sm text-[#5F5A54] disabled:opacity-40"
           >
             {loading ? "Loading..." : "Refresh"}
           </button>
@@ -67,7 +67,7 @@ export default function WastePage() {
         )}
 
         {!loading && !error && logs.length === 0 && (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-zinc-500">
+          <div className="rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-8 text-zinc-500">
             No yield or waste records for this organization yet.
           </div>
         )}

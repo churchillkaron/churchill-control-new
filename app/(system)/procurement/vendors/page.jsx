@@ -60,7 +60,7 @@ export default function VendorsPage() {
 
   });
 
-  async function loadVendors() {
+  const loadVendors = useCallback(async () => {
 
     try {
 
@@ -94,7 +94,7 @@ export default function VendorsPage() {
 
     }
 
-  }
+  }, [organizationId]);
 
   async function createVendor() {
 
@@ -184,11 +184,11 @@ export default function VendorsPage() {
 
     loadVendors();
 
-  }, [organizationId]);
+  }, [loadVendors, organizationId]);
 
   return (
 
-    <div className="min-h-screen bg-black text-white p-10">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919] p-10">
 
       <div className="max-w-7xl mx-auto">
 
@@ -200,7 +200,7 @@ export default function VendorsPage() {
           Enterprise Procurement Vendor Governance
         </div>
 
-        <div className="border border-zinc-800 rounded-3xl p-8 mb-10">
+        <div className="border border-black/[0.08] rounded-3xl p-8 mb-10">
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
@@ -216,7 +216,7 @@ export default function VendorsPage() {
                     e.target.value,
                 })
               }
-              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
+              className="bg-white border border-black/[0.08] rounded-2xl p-4"
             />
 
             <input
@@ -231,7 +231,7 @@ export default function VendorsPage() {
                     e.target.value,
                 })
               }
-              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
+              className="bg-white border border-black/[0.08] rounded-2xl p-4"
             />
 
             <input
@@ -246,7 +246,7 @@ export default function VendorsPage() {
                     e.target.value,
                 })
               }
-              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
+              className="bg-white border border-black/[0.08] rounded-2xl p-4"
             />
 
             <input
@@ -261,7 +261,7 @@ export default function VendorsPage() {
                     e.target.value,
                 })
               }
-              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
+              className="bg-white border border-black/[0.08] rounded-2xl p-4"
             />
 
             <input
@@ -276,7 +276,7 @@ export default function VendorsPage() {
                     e.target.value,
                 })
               }
-              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
+              className="bg-white border border-black/[0.08] rounded-2xl p-4"
             />
 
             <input
@@ -291,7 +291,7 @@ export default function VendorsPage() {
                     e.target.value,
                 })
               }
-              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
+              className="bg-white border border-black/[0.08] rounded-2xl p-4"
             />
 
           </div>
@@ -308,7 +308,7 @@ export default function VendorsPage() {
                   e.target.value,
               })
             }
-            className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 w-full mt-4"
+            className="bg-white border border-black/[0.08] rounded-2xl p-4 w-full mt-4"
           />
 
           <textarea
@@ -323,7 +323,7 @@ export default function VendorsPage() {
                   e.target.value,
               })
             }
-            className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 w-full mt-4"
+            className="bg-white border border-black/[0.08] rounded-2xl p-4 w-full mt-4"
           />
 
           <button
@@ -361,7 +361,7 @@ export default function VendorsPage() {
 
               <div
                 key={vendor.id}
-                className="border border-zinc-800 rounded-3xl p-6"
+                className="border border-black/[0.08] rounded-3xl p-6"
               >
 
                 <div className="flex items-center justify-between">

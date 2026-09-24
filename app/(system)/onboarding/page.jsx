@@ -6,7 +6,6 @@ import {
   ArrowRight,
   Building2,
   Check,
-  CreditCard,
   LoaderCircle,
   UserRound,
 } from "lucide-react";
@@ -93,17 +92,13 @@ export default function OnboardingPage() {
     country: "",
     currency: "",
     accountingStandard: "IFRS",
+    vatRegistered: null,
+    legalName: "",
+    companyRegistrationNumber: "",
+    taxRegistrationNumber: "",
     ownerName: "",
     ownerEmail: "",
     ownerPhone: "",
-    acceptCustomerPayments: false,
-    enableBankTransfer: false,
-    bankName: "",
-    bankAccountName: "",
-    bankAccountNumber: "",
-    enableCards: false,
-    enablePromptPay: false,
-    promptPayId: "",
   });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -119,6 +114,20 @@ export default function OnboardingPage() {
     setSignupIntent(requestedIntent);
     setOnboardingSource(searchParams.get("source") === "supplier" ? "supplier" : "");
     setSupplierAccountId(searchParams.get("supplierAccountId") || "");
+    fetch("/api/auth/server-user", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!active || !response.ok || !data?.authenticated || !data?.user) return;
+        const user = data.user;
+        setForm((previous) => ({
+          ...previous,
+          ownerName: previous.ownerName || user.user_metadata?.full_name || user.user_metadata?.name || "",
+          ownerEmail: previous.ownerEmail || user.email || "",
+          ownerPhone: previous.ownerPhone || user.phone || user.user_metadata?.phone || "",
+        }));
+      })
+      .catch(() => {});
+
     fetch("/api/onboarding/industries", { cache: "no-store" })
       .then(async (response) => {
         const data = await response.json();
@@ -176,17 +185,12 @@ export default function OnboardingPage() {
       clean(form.industry) &&
       clean(form.country) &&
       /^[A-Za-z]{3}$/.test(clean(form.currency)) &&
-      clean(form.accountingStandard),
+      clean(form.accountingStandard) &&
+      (!isThailand(form.country) ||
+        (typeof form.vatRegistered === "boolean" &&
+          (!form.vatRegistered || clean(form.taxRegistrationNumber)))),
   );
   const ownerReady = Boolean(clean(form.ownerName) && clean(form.ownerEmail));
-  const paymentsReady = Boolean(
-    !form.acceptCustomerPayments ||
-      (((!form.enableBankTransfer && !form.enablePromptPay) ||
-        (clean(form.bankName) &&
-          clean(form.bankAccountName) &&
-          clean(form.bankAccountNumber))) &&
-        (!form.enablePromptPay || clean(form.promptPayId))),
-  );
 
   function update(key, value) {
     setError("");
@@ -214,12 +218,24 @@ export default function OnboardingPage() {
           : wasThai && previous.accountingStandard === "TFRS"
             ? "IFRS"
             : previous.accountingStandard,
+        vatRegistered: thai ? previous.vatRegistered : null,
+        taxRegistrationNumber: thai ? previous.taxRegistrationNumber : "",
       };
     });
   }
 
+  function updateVatRegistration(value) {
+    setError("");
+    setResult(null);
+    setForm((previous) => ({
+      ...previous,
+      vatRegistered: value,
+      taxRegistrationNumber: value === true ? previous.taxRegistrationNumber : "",
+    }));
+  }
+
   async function submit() {
-    if (!businessReady || !ownerReady || !paymentsReady || loading) return;
+    if (!businessReady || !ownerReady || loading) return;
 
     setLoading(true);
     setError("");
@@ -252,24 +268,11 @@ export default function OnboardingPage() {
           onboardingSource,
           supplierAccountId,
           currency: clean(form.currency).toUpperCase(),
-          paymentSetup: {
-            enabled: Boolean(form.acceptCustomerPayments),
-            enableBankTransfer:
-              Boolean(form.acceptCustomerPayments) &&
-              Boolean(form.enableBankTransfer),
-            bank: {
-              bankName: clean(form.bankName),
-              accountName: clean(form.bankAccountName),
-              accountNumber: clean(form.bankAccountNumber),
-            },
-            enableCards:
-              Boolean(form.acceptCustomerPayments) &&
-              Boolean(form.enableCards),
-            enablePromptPay:
-              Boolean(form.acceptCustomerPayments) &&
-              Boolean(form.enablePromptPay),
-            promptPayId: clean(form.promptPayId),
-          },
+          vatRegistered: form.vatRegistered,
+          legalName: clean(form.legalName),
+          companyRegistrationNumber: clean(form.companyRegistrationNumber),
+          taxRegistrationNumber: clean(form.taxRegistrationNumber),
+          paymentSetup: { enabled: false },
         }),
       });
 
@@ -375,7 +378,7 @@ export default function OnboardingPage() {
               </div>
 
               <div className="mt-6 border-t border-black/[0.06] pt-5 text-[9px] leading-4 text-[#918B83] lg:mt-8">
-                Country and currency become real Finance configuration. Thailand receives the governed Thailand tax baseline; other countries remain tax-unconfigured until a country-specific regime is selected.
+                Avantiqo derives Finance defaults from the selected country whenever a governed jurisdiction pack exists. The owner is only asked for legal facts Avantiqo cannot infer, such as VAT registration.
               </div>
             </aside>
 
@@ -384,7 +387,7 @@ export default function OnboardingPage() {
                 <form
                   onSubmit={(event) => {
                     event.preventDefault();
-                    if (businessReady && paymentsReady) setStep(2);
+                    if (businessReady) setStep(2);
                   }}
                 >
                   <div className="max-w-2xl">
@@ -446,154 +449,109 @@ export default function OnboardingPage() {
                         </Field>
                       </div>
 
-                      <div className="grid gap-5 md:grid-cols-2">
-                        <Field label="Base currency" hint="ISO code">
+                      {isThailand(form.country) ? (
+                        <div className="rounded-2xl border border-[#A37849]/15 bg-[#FBF6EF] p-4">
+                          <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">Finance configured by Avantiqo</div>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            <div className="rounded-xl border border-black/[0.06] bg-white px-3 py-2.5">
+                              <div className="text-[8px] uppercase tracking-[0.11em] text-[#999188]">Base currency</div>
+                              <div className="mt-1 text-[11px] font-semibold text-[#3E3934]">THB · Thai Baht</div>
+                            </div>
+                            <div className="rounded-xl border border-black/[0.06] bg-white px-3 py-2.5">
+                              <div className="text-[8px] uppercase tracking-[0.11em] text-[#999188]">Accounting</div>
+                              <div className="mt-1 text-[11px] font-semibold text-[#3E3934]">TFRS · Thailand baseline</div>
+                            </div>
+                          </div>
+                          <div className="mt-4">
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#777169]">VAT registered?</div>
+                            <div className="mt-2 grid grid-cols-2 gap-2">
+                              {[true, false].map((value) => {
+                                const active = form.vatRegistered === value;
+                                return (
+                                  <button
+                                    key={String(value)}
+                                    type="button"
+                                    onClick={() => updateVatRegistration(value)}
+                                    className={`h-11 rounded-xl border text-[11px] font-semibold transition ${active ? "border-[#A37849]/35 bg-[#EFE3D4] text-[#6F4E2C]" : "border-black/[0.07] bg-white text-[#6F6961] hover:bg-[#FAF8F5]"}`}
+                                  >
+                                    {value ? "Yes" : "No"}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <div className="mt-2 text-[9px] leading-4 text-[#8D867D]">Avantiqo will only activate VAT charging and VAT filing configuration when you select Yes. Current governed Thailand VAT rate: 7% through 30 September 2027.</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid gap-5 md:grid-cols-2">
+                          <Field label="Base currency" hint="Advanced fallback">
+                            <input
+                              required
+                              maxLength={3}
+                              value={form.currency}
+                              onChange={(event) => update("currency", event.target.value.toUpperCase())}
+                              placeholder="USD, EUR, SGD…"
+                              className={fieldClass}
+                            />
+                          </Field>
+
+                          <Field label="Accounting standard" hint="Advanced fallback">
+                            <select
+                              required
+                              value={form.accountingStandard}
+                              onChange={(event) => update("accountingStandard", event.target.value)}
+                              className={fieldClass}
+                            >
+                              {ACCOUNTING_STANDARDS.map((item) => (
+                                <option key={item.value} value={item.value}>
+                                  {item.label}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+                        </div>
+                      )}
+
+                      <div className="grid gap-4 rounded-2xl border border-black/[0.06] bg-[#FCFBF8] p-4 md:grid-cols-2">
+                        <Field label="Legal name" hint="Only if different from organization name">
                           <input
-                            required
-                            maxLength={3}
-                            value={form.currency}
-                            onChange={(event) => update("currency", event.target.value.toUpperCase())}
-                            placeholder="THB, USD, EUR…"
+                            value={form.legalName}
+                            onChange={(event) => update("legalName", event.target.value)}
+                            placeholder={form.name || "Registered legal name"}
                             className={fieldClass}
                           />
                         </Field>
-
-                        <Field label="Accounting standard">
-                          <select
-                            required
-                            value={form.accountingStandard}
-                            onChange={(event) => update("accountingStandard", event.target.value)}
+                        <Field label="Company registration number" hint="Optional">
+                          <input
+                            value={form.companyRegistrationNumber}
+                            onChange={(event) => update("companyRegistrationNumber", event.target.value)}
+                            placeholder="Registration number"
                             className={fieldClass}
-                          >
-                            {ACCOUNTING_STANDARDS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </Field>
-                      </div>
-
-                      <div className="rounded-2xl border border-black/[0.07] bg-[#FCFBF8] p-4">
-                        <button
-                          type="button"
-                          onClick={() => update("acceptCustomerPayments", !form.acceptCustomerPayments)}
-                          className="flex w-full items-start gap-3 text-left"
-                        >
-                          <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${form.acceptCustomerPayments ? "border-[#A37849]/20 bg-[#F4EFE8] text-[#8A633C]" : "border-black/[0.07] bg-white text-[#918B83]"}`}>
-                            <CreditCard size={13} />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-[12px] font-semibold text-[#342F2A]">
-                              Will this organization accept payments from customers?
-                            </span>
-                            <span className="mt-1 block text-[10px] leading-4 text-[#817B73]">
-                              Optional. Turn this on only if this organization needs to receive bank, card or QR payments from its own customers.
-                            </span>
-                          </span>
-                          <span className={`mt-1 rounded-full px-2 py-1 text-[8px] font-semibold ${form.acceptCustomerPayments ? "bg-[#EFE6DA] text-[#7B5732]" : "bg-[#F1EFEB] text-[#8D867D]"}`}>
-                            {form.acceptCustomerPayments ? "YES" : "NO"}
-                          </span>
-                        </button>
-
-                        {form.acceptCustomerPayments ? (
-                          <div className="mt-4 border-t border-black/[0.06] pt-4">
-                            <div className="grid gap-3">
-                              <label className="rounded-xl border border-black/[0.06] bg-white p-3">
-                                <span className="flex items-start gap-3">
-                                  <input
-                                    type="checkbox"
-                                    checked={form.enableBankTransfer}
-                                    onChange={(event) => update("enableBankTransfer", event.target.checked)}
-                                    className="mt-0.5"
-                                  />
-                                  <span>
-                                    <span className="block text-[11px] font-semibold text-[#342F2A]">Bank transfer</span>
-                                    <span className="mt-0.5 block text-[9px] leading-4 text-[#817B73]">Pay directly to this organization&apos;s bank account.</span>
-                                  </span>
-                                </span>
-                                {form.enableBankTransfer ? (
-                                  <span className="mt-3 grid gap-3 md:grid-cols-2">
-                                    <Field label="Bank">
-                                      <input value={form.bankName} onChange={(event) => update("bankName", event.target.value)} placeholder="Bank name" className={fieldClass} />
-                                    </Field>
-                                    <Field label="Account name">
-                                      <input value={form.bankAccountName} onChange={(event) => update("bankAccountName", event.target.value)} placeholder="Account holder" className={fieldClass} />
-                                    </Field>
-                                    <span className="md:col-span-2">
-                                      <Field label="Account number">
-                                        <input value={form.bankAccountNumber} onChange={(event) => update("bankAccountNumber", event.target.value)} placeholder="Account number" inputMode="numeric" autoComplete="off" className={fieldClass} />
-                                      </Field>
-                                    </span>
-                                  </span>
-                                ) : null}
-                              </label>
-
-                              <label className="rounded-xl border border-black/[0.06] bg-white p-3">
-                                <span className="flex items-start gap-3">
-                                  <input
-                                    type="checkbox"
-                                    checked={form.enableCards}
-                                    onChange={(event) => update("enableCards", event.target.checked)}
-                                    className="mt-0.5"
-                                  />
-                                  <span>
-                                    <span className="block text-[11px] font-semibold text-[#342F2A]">Card payments</span>
-                                    <span className="mt-0.5 block text-[9px] leading-4 text-[#817B73]">Connect this organization&apos;s own Stripe merchant account after creation. Avantiqo keeps platform billing separate.</span>
-                                  </span>
-                                </span>
-                              </label>
-
-                              {isThailand(form.country) ? (
-                                <label className="rounded-xl border border-black/[0.06] bg-white p-3">
-                                  <span className="flex items-start gap-3">
-                                    <input
-                                      type="checkbox"
-                                      checked={form.enablePromptPay}
-                                      onChange={(event) => update("enablePromptPay", event.target.checked)}
-                                      className="mt-0.5"
-                                    />
-                                    <span className="min-w-0 flex-1">
-                                      <span className="block text-[11px] font-semibold text-[#342F2A]">PromptPay / QR</span>
-                                      <span className="mt-0.5 block text-[9px] leading-4 text-[#817B73]">Use this organization&apos;s registered PromptPay identifier.</span>
-                                      {form.enablePromptPay ? (
-                                        <span className="mt-3 grid gap-3">
-                                          <Field label="PromptPay identifier">
-                                            <input value={form.promptPayId} onChange={(event) => update("promptPayId", event.target.value)} placeholder="Registered phone, tax ID or proxy" className={fieldClass} />
-                                          </Field>
-                                          {!form.enableBankTransfer ? (
-                                            <span className="grid gap-3 md:grid-cols-2">
-                                              <Field label="Settlement bank">
-                                                <input value={form.bankName} onChange={(event) => update("bankName", event.target.value)} placeholder="Bank name" className={fieldClass} />
-                                              </Field>
-                                              <Field label="Account name">
-                                                <input value={form.bankAccountName} onChange={(event) => update("bankAccountName", event.target.value)} placeholder="Account holder" className={fieldClass} />
-                                              </Field>
-                                              <span className="md:col-span-2">
-                                                <Field label="Account number">
-                                                  <input value={form.bankAccountNumber} onChange={(event) => update("bankAccountNumber", event.target.value)} placeholder="Account number" inputMode="numeric" autoComplete="off" className={fieldClass} />
-                                                </Field>
-                                              </span>
-                                            </span>
-                                          ) : null}
-                                        </span>
-                                      ) : null}
-                                    </span>
-                                  </span>
-                                </label>
-                              ) : null}
-                            </div>
+                        {isThailand(form.country) && form.vatRegistered === true ? (
+                          <div className="md:col-span-2">
+                            <Field label="VAT / tax registration number" hint="Required because VAT = Yes">
+                              <input
+                                required
+                                value={form.taxRegistrationNumber}
+                                onChange={(event) => update("taxRegistrationNumber", event.target.value)}
+                                placeholder="Registered tax / VAT number"
+                                className={fieldClass}
+                              />
+                            </Field>
                           </div>
                         ) : null}
                       </div>
+
                     </div>
                   </div>
 
                   <div className="mt-8 flex items-center justify-end border-t border-black/[0.06] pt-5">
                     <button
                       type="submit"
-                      disabled={!businessReady || !paymentsReady || industriesLoading}
-                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#25231F] px-4 text-[10px] font-semibold text-white transition hover:bg-[#34312C] disabled:cursor-not-allowed disabled:opacity-35"
+                      disabled={!businessReady || industriesLoading}
+                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#25231F] px-4 text-[10px] font-semibold text-[#191919] transition hover:bg-[#34312C] disabled:cursor-not-allowed disabled:opacity-35"
                     >
                       Continue <ArrowRight size={12} />
                     </button>
@@ -667,7 +625,7 @@ export default function OnboardingPage() {
                     <button
                       type="submit"
                       disabled={!ownerReady}
-                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#25231F] px-4 text-[10px] font-semibold text-white transition hover:bg-[#34312C] disabled:cursor-not-allowed disabled:opacity-35"
+                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#25231F] px-4 text-[10px] font-semibold text-[#191919] transition hover:bg-[#34312C] disabled:cursor-not-allowed disabled:opacity-35"
                     >
                       Review <ArrowRight size={12} />
                     </button>
@@ -697,31 +655,18 @@ export default function OnboardingPage() {
                         <ReviewRow label="Accounting" value={accountingStandardLabel} />
                         <ReviewRow
                           label="Tax setup"
-                          value={isThailand(form.country) ? "Thailand baseline" : "Country-specific setup required"}
+                          value={isThailand(form.country) ? "Thailand jurisdiction pack · configured by Avantiqo" : "Country-specific setup required"}
                         />
+                        {isThailand(form.country) ? (
+                          <ReviewRow label="VAT registered" value={form.vatRegistered ? "Yes" : "No"} />
+                        ) : null}
+                        <ReviewRow label="Legal name" value={form.legalName || form.name} />
+                        {form.companyRegistrationNumber ? <ReviewRow label="Company registration" value={form.companyRegistrationNumber} /> : null}
+                        {isThailand(form.country) && form.vatRegistered ? <ReviewRow label="VAT / tax registration" value={form.taxRegistrationNumber} /> : null}
                         <ReviewRow label="Owner" value={form.ownerName} />
                         <ReviewRow label="Email" value={form.ownerEmail} />
                         <ReviewRow label="Phone" value={form.ownerPhone || "Not provided"} />
-                        {form.acceptCustomerPayments ? (
-                          <>
-                            <ReviewRow
-                              label="Customer payments"
-                              value="Enabled for this organization"
-                            />
-                            <ReviewRow
-                              label="Bank transfer"
-                              value={form.enableBankTransfer ? `${form.bankName} · ${form.bankAccountName}` : "Not enabled"}
-                            />
-                            <ReviewRow
-                              label="Card payments"
-                              value={form.enableCards ? "Connect organization Stripe after creation" : "Not enabled"}
-                            />
-                            <ReviewRow
-                              label="PromptPay"
-                              value={form.enablePromptPay ? form.promptPayId : "Not enabled"}
-                            />
-                          </>
-                        ) : null}
+
                       </div>
                     </div>
 
@@ -750,8 +695,8 @@ export default function OnboardingPage() {
                     <button
                       type="button"
                       onClick={submit}
-                      disabled={loading || !businessReady || !ownerReady || !paymentsReady}
-                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#25231F] px-4 text-[10px] font-semibold text-white transition hover:bg-[#34312C] disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={loading || !businessReady || !ownerReady}
+                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#25231F] px-4 text-[10px] font-semibold text-[#191919] transition hover:bg-[#34312C] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {loading ? (
                         <>

@@ -1,15 +1,23 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
-import LocalHeyAvantiqoWakeBridge from "@/components/operator/LocalHeyAvantiqoWakeBridge";
-import SecretaryMeetingPresenceBridge from "@/components/operator/SecretaryMeetingPresenceBridge";
 import WorkspaceNavigationRail from "@/components/workspace/WorkspaceNavigationRail";
 import WorkspaceTopBar from "@/components/workspace/WorkspaceTopBar";
 import { workspaceAccessDecision } from "@/lib/platform/entitlements/productWorkspaceVisibility";
+
+const LocalHeyAvantiqoWakeBridge = dynamic(
+  () => import("@/components/operator/LocalHeyAvantiqoWakeBridge"),
+  { ssr: false, loading: () => null },
+);
+const SecretaryMeetingPresenceBridge = dynamic(
+  () => import("@/components/operator/SecretaryMeetingPresenceBridge"),
+  { ssr: false, loading: () => null },
+);
 
 const LEGACY_WAKE_TEMPLATE_KEY = "avantiqo.local-wake.template.v2";
 

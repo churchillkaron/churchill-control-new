@@ -66,6 +66,10 @@ export async function POST(request) {
       }});
     }
 
+    const hotReadOnlyAction = ["state", "tree", "read", "diff", "lease"].includes(action);
+    const workspaceTimeoutMs = hotReadOnlyAction
+      ? Math.max(3000, Math.min(Number(body.timeout_ms) || 15000, 20000))
+      : Math.max(10000, Math.min(Number(body.timeout_ms) || 60000, 120000));
     const workspace = action === "attach"
       ? await attachWorkspace({ organizationId, body })
       : await CodeWorkspaceRuntime.bind({
@@ -73,7 +77,7 @@ export async function POST(request) {
           organization_id: organizationId,
           device_id: text(body.device_id, 160),
           session_id: text(body.session_id, 160),
-          timeout_ms: Math.max(30000, Math.min(Number(body.timeout_ms) || 120000, 300000)),
+          timeout_ms: workspaceTimeoutMs,
         });
     if (action === "attach") {
       const [inspection, tree, ideState] = await Promise.all([workspace.inspect(), workspace.fileTree(), workspace.ideState()]);

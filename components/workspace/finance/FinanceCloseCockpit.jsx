@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -57,7 +57,7 @@ export default function FinanceCloseCockpit({ organizationId }) {
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !entityId || !periodId) {
       setState({ loading: false, error: "", tower: null });
       return;
@@ -75,16 +75,16 @@ export default function FinanceCloseCockpit({ organizationId }) {
     } catch (error) {
       setState((current) => ({ ...current, loading: false, error: error?.message || "Unable to load period close" }));
     }
-  }
+  }, [entityId, organizationId, periodId]);
 
-  useEffect(() => { load(); }, [organizationId, entityId, periodId]);
+  useEffect(() => { load(); }, [load]);
 
   const tower = state.tower;
   const summary = tower?.summary || {};
   const reconciliation = tower?.reconciliation || {};
   const monthEndRows = tower?.close?.steps || [];
   const yearEndRows = tower?.close?.year_end_steps || [];
-  const blockers = tower?.blockers || [];
+  const blockers = useMemo(() => tower?.blockers || [], [tower?.blockers]);
   const path = tower?.path || [];
   const integrityComplete = tower?.integrity?.complete === true;
   const periodClosed = summary.period_closed === true;

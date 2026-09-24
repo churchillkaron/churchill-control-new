@@ -55,7 +55,7 @@ export default function CommunicationEngine({
 
   return(
 
-    <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
+    <div className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-6">
 
       <div className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">
         Communication
@@ -71,7 +71,7 @@ export default function CommunicationEngine({
 
           <div key={group.title}>
 
-            <div className="mb-2 text-xs uppercase tracking-[0.25em] text-white/35">
+            <div className="mb-2 text-xs uppercase tracking-[0.25em] text-[#918B83]">
               {group.title}
             </div>
 
@@ -90,7 +90,7 @@ export default function CommunicationEngine({
 
                       ? "border-amber-400 bg-amber-400/10"
 
-                      : "border-white/10"
+                      : "border-black/[0.08]"
                   }`}
 
                 >
@@ -113,7 +113,7 @@ export default function CommunicationEngine({
 
         onChange={e=>setMessage(e.target.value)}
 
-        className="mt-8 h-36 w-full rounded-2xl border border-white/10 bg-black/20 p-4"
+        className="mt-8 h-36 w-full rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/20 p-4"
 
         placeholder="Write message..."
 
@@ -121,15 +121,15 @@ export default function CommunicationEngine({
 
       <div className="mt-6 flex gap-3">
 
-        <button className="rounded-xl border border-white/10 px-5 py-3">
+        <button className="rounded-xl border border-black/[0.08] px-5 py-3">
           PDF
         </button>
 
-        <button className="rounded-xl border border-white/10 px-5 py-3">
+        <button className="rounded-xl border border-black/[0.08] px-5 py-3">
           Excel
         </button>
 
-        <button className="rounded-xl border border-white/10 px-5 py-3">
+        <button className="rounded-xl border border-black/[0.08] px-5 py-3">
           Native
         </button>
 

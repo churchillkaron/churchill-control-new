@@ -44,6 +44,10 @@ test("device agent blocks direct external side effects and host-qualified execut
 test("device workspaces share bounded worktree locking and source-bound range mutation", () => {
   assert.match(agent, /acquireDeviceWorktreeLock/);
   assert.match(agent, /CODE_DEVICE_WORKTREE_LOCK_TIMEOUT/);
+  assert.match(agent, /runTrustedWorktreeGit/);
+  assert.match(agent, /CODE_DEVICE_INTERNAL_WORKTREE_COMMAND_INVALID/);
+  assert.match(agent, /runTrustedWorktreeGit\(\["worktree","add","--detach",workspace,target\]/);
+  assert.match(agent, /runTrustedWorktreeGit\(\["worktree","remove","--force",workspace\]/);
   assert.match(agent, /createDeviceWorktree/);
   assert.match(agent, /cleanupDeviceWorktree/);
   assert.match(agent, /workspace\.replace_range/);

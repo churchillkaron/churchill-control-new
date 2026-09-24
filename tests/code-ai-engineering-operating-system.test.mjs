@@ -207,3 +207,19 @@ test("database and security reviews cannot rely on stale pre-mutation verificati
   assert.ok(final.missing_required_departments.some((item) => item.key === "database_department"));
   assert.ok(final.missing_required_departments.some((item) => item.key === "security_engineering"));
 });
+
+test("legacy reproduction booleans alone cannot satisfy exact defect closure", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form" });
+  const state = completedState({
+    reproduction: { before_failure_observed: true, after_pass_observed: true },
+    hypothesis_debugging: { hypotheses: ["auth", "state", "contract"] },
+    evidence: [
+      { kind: "causal_hypothesis_record", hypotheses: ["auth", "state", "contract"] },
+      { kind: "operation", action: "apply_files", status: "completed", result: {} },
+      { kind: "operation", action: "browser_verify", status: "completed", result: { passed: true } },
+    ],
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.equal(final.engineering_os_ready, false);
+  assert.ok(final.missing_required_departments.some((item) => item.key === "reproduction_first"));
+});

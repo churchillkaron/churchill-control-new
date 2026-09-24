@@ -71,8 +71,10 @@ const MEDIA_ROLES = [
   { value: "general", label: "General" },
 ];
 
-function money(value, currency = "THB") {
-  const code = String(currency || "THB").toUpperCase();
+function money(value, currency = null) {
+  if (value === null || value === undefined) return "—";
+  const code = String(currency || "").toUpperCase();
+  if (!code) return Number(value || 0).toLocaleString();
   try {
     return new Intl.NumberFormat(undefined, {
       style: "currency",
@@ -82,6 +84,12 @@ function money(value, currency = "THB") {
   } catch {
     return `${code} ${Number(value || 0).toLocaleString()}`;
   }
+}
+
+function campaignCurrency(content = {}) {
+  if (content.currency_code) return String(content.currency_code).toUpperCase();
+  if (content.campaign_budget_thb != null || content.monthly_budget_thb != null || content.daily_budget_guide_thb != null) return "THB";
+  return null;
 }
 
 function labelize(value = "") {
@@ -224,7 +232,7 @@ export default function CampaignWorkspacePage() {
     const fingerprints = selected.campaign_content?.execution_plan_fingerprints || {};
     const entries = Object.entries(snapshots).filter(([, plan]) => plan && typeof plan === "object");
     if (!entries.length) {
-      setPreflightResults([{ provider: "campaign", success: false, error: { message: "No executable provider plan snapshot is stored for this campaign." } }]);
+      setPreflightResults([{ provider: "campaign", success: false, error: { message: "No executable channel plan is stored for this campaign." } }]);
       return;
     }
 
@@ -247,17 +255,17 @@ export default function CampaignWorkspacePage() {
           });
           const payload = await response.json().catch(() => ({}));
           if (!response.ok || payload?.success === false) {
-            results.push({ provider, fingerprint: fingerprints?.[provider] || null, success: false, error: payload?.error || { message: "Provider preflight failed" } });
+            results.push({ provider, fingerprint: fingerprints?.[provider] || null, success: false, error: payload?.error || { message: "Final connection check failed" } });
           } else {
             results.push({ provider, fingerprint: fingerprints?.[provider] || null, success: true, data: payload?.data || null });
           }
         } catch (providerError) {
-          results.push({ provider, fingerprint: fingerprints?.[provider] || null, success: false, error: { message: providerError.message || "Provider preflight failed" } });
+          results.push({ provider, fingerprint: fingerprints?.[provider] || null, success: false, error: { message: providerError.message || "Final connection check failed" } });
         }
       }
       setPreflightResults(results);
       const passed = results.filter((result) => result.success).length;
-      setMessage(`Preflight complete: ${passed}/${results.length} provider plan${results.length === 1 ? "" : "s"} ready.`);
+      setMessage(`Readiness check complete: ${passed}/${results.length} channel plan${results.length === 1 ? "" : "s"} ready.`);
     } finally {
       setPreflighting(false);
     }
@@ -270,19 +278,19 @@ export default function CampaignWorkspacePage() {
     const existingEvidence = selected.campaign_content?.execution_evidence?.[provider];
     if (!plan) return;
     if (existingEvidence && ["PAUSED", "ACTIVE"].includes(String(existingEvidence.status || "").toUpperCase())) {
-      setError(`${channelDisplay(provider).label} already has a ${existingEvidence.status} provider campaign for this Marketing Campaign.`);
+      setError(`${channelDisplay(provider).label} already has a ${existingEvidence.status} channel campaign for this Marketing Campaign.`);
       return;
     }
     if (!fingerprint) {
-      setError("This provider plan does not have a reviewed-plan integrity seal. Recreate or refresh the campaign plan before approval.");
+      setError("This channel plan has changed since review. Recreate or refresh the campaign plan before approval.");
       return;
     }
 
     const amount = Number(plan.budget?.amount || 0);
-    const currency = String(plan.budget?.currency || "THB").toUpperCase();
+    const currency = String(plan.budget?.currency || "").toUpperCase();
     const label = channelDisplay(provider).label;
     const confirmed = window.confirm(
-      `Approve ${label} for this reviewed campaign plan?\n\nThis will reserve up to ${currency} ${amount.toLocaleString()} from the organization wallet and create the provider campaign in PAUSED state. It will NOT activate ads.`,
+      `Approve ${label} for this reviewed campaign plan?\n\nThis will reserve up to ${currency ? `${currency} ` : ""}${amount.toLocaleString()} from the organization wallet and create the campaign in PAUSED state. It will NOT activate ads.`,
     );
     if (!confirmed) return;
 
@@ -304,16 +312,16 @@ export default function CampaignWorkspacePage() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || payload?.success === false) {
-        const providerError = payload?.error || { message: "Provider execution failed" };
+        const providerError = payload?.error || { message: "Campaign creation failed" };
         setExecutionResults((current) => ({ ...current, [provider]: { success: false, error: providerError } }));
-        throw new Error(providerError.message || "Provider execution failed");
+        throw new Error(providerError.message || "Campaign creation failed");
       }
       setExecutionResults((current) => ({ ...current, [provider]: { success: true, data: payload?.data || null } }));
       const evidenceWarning = payload?.data?.marketing_campaign_evidence?.warning;
       setMessage(evidenceWarning || `${label} campaign created in PAUSED state. Ads are not active.`);
       await loadCampaigns();
     } catch (executeError) {
-      setError(executeError.message || "Provider execution failed");
+      setError(executeError.message || "Campaign creation failed");
     } finally {
       setExecutingProvider("");
     }
@@ -442,7 +450,7 @@ export default function CampaignWorkspacePage() {
                     <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[#817B73]">
                       {content.goal || content.core_message || "Campaign plan"}
                     </p>
-                    <div className="mt-4 text-sm text-[#805A35]">{money(campaign.budget, content.currency_code || "THB")}{content.budget_semantics === "campaign_total_authorization" ? " total" : " / month"}</div>
+                    <div className="mt-4 text-sm text-[#805A35]">{money(campaign.budget, campaignCurrency(content))}{content.budget_semantics === "campaign_total_authorization" ? " total" : " / month"}</div>
                   </button>
                 );
               })}
@@ -458,7 +466,7 @@ export default function CampaignWorkspacePage() {
                       <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Creative Assets</div>
                       <h2 className="mt-2 text-3xl font-light">Pictures & Video</h2>
                       <p className="mt-2 max-w-3xl text-[#817B73]">
-                        Upload media here to attach it directly to this campaign. Assets remain organization-scoped and carry this campaign ID into the marketing asset library.
+                        Upload media here to attach it directly to this campaign. Assets stay with this business and carry this campaign ID into the marketing asset library.
                       </p>
                     </div>
 
@@ -592,7 +600,7 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
           {executablePlanCount ? (
             <button type="button" onClick={onPreflight} disabled={preflighting} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#D2B187] bg-[#FBF4EA] px-4 py-3 text-sm font-semibold text-[#684A2E] transition hover:bg-[#F4E7D5] disabled:opacity-50">
               {preflighting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-              {preflighting ? "Running Preflight…" : `Run Preflight (${executablePlanCount})`}
+              {preflighting ? "Checking readiness…" : `Check readiness (${executablePlanCount})`}
             </button>
           ) : null}
         </div>
@@ -600,17 +608,17 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
 
       {preflightResults.length ? (
         <div className="mt-6 rounded-[24px] border border-black/[0.07] bg-[#FCFBF8] p-5">
-          <div className="text-xs uppercase tracking-[0.16em] text-[#D6A66A]">Live Provider Preflight</div>
+          <div className="text-xs uppercase tracking-[0.16em] text-[#D6A66A]">Final Connection Check</div>
           <div className="mt-3 space-y-2">
             {preflightResults.map((result) => (
               <div key={result.provider} className={`rounded-2xl border p-4 ${result.success ? "border-emerald-700/15 bg-emerald-50" : "border-[#DDBA8B] bg-[#FFF8EC]"}`}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="text-sm font-semibold text-[#4A4138]">{channelDisplay(result.provider).label}</div>
-                  <span className={`rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] ${result.success ? "border-emerald-700/15 bg-white text-emerald-700" : "border-[#DDBA8B] bg-white text-[#7A5A36]"}`}>{result.success ? "Preflight passed" : "Blocked"}</span>
+                  <span className={`rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] ${result.success ? "border-emerald-700/15 bg-white text-emerald-700" : "border-[#DDBA8B] bg-white text-[#7A5A36]"}`}>{result.success ? "Ready" : "Blocked"}</span>
                 </div>
                 {result.success ? (
                   <div className="mt-3 space-y-3">
-                    <div className="text-xs leading-relaxed text-emerald-800">No wallet change and no provider campaign was created. {result.data?.result_count ?? 0} adapter check{result.data?.result_count === 1 ? "" : "s"} passed.</div>
+                    <div className="text-xs leading-relaxed text-emerald-800">No wallet change and no campaign was created. {result.data?.result_count ?? 0} adapter check{result.data?.result_count === 1 ? "" : "s"} passed.</div>
                     {executionEvidence?.[result.provider] && ["PAUSED", "ACTIVE"].includes(String(executionEvidence[result.provider]?.status || "").toUpperCase()) ? (
                       <div className="rounded-xl border border-emerald-700/15 bg-white px-3 py-2 text-xs font-medium text-emerald-800">Existing provider campaign: {executionEvidence[result.provider].status}. No duplicate will be created.</div>
                     ) : executionResults?.[result.provider]?.success ? (
@@ -621,13 +629,13 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
                         {executingProvider === result.provider ? "Creating paused campaign…" : "Approve & Create Paused"}
                       </button>
                     ) : (
-                      <div className="rounded-xl border border-[#DDBA8B] bg-white px-3 py-2 text-xs text-[#7A5A36]">Preflight passed, but this legacy plan has no integrity seal. Recreate or refresh the reviewed plan before approval.</div>
+                      <div className="rounded-xl border border-[#DDBA8B] bg-white px-3 py-2 text-xs text-[#7A5A36]">Ready, but this legacy plan has no integrity seal. Recreate or refresh the reviewed plan before approval.</div>
                     )}
                     {executionResults?.[result.provider]?.success === false ? <div className="text-xs text-red-700">{executionResults[result.provider]?.error?.message || "Execution failed"}</div> : null}
                   </div>
                 ) : (
                   <div className="mt-2 space-y-1 text-xs leading-relaxed text-[#7A5A36]">
-                    <div>{result.error?.message || "Provider preflight failed."}</div>
+                    <div>{result.error?.message || "Final connection check failed."}</div>
                     {result.error?.correction ? <div className="text-[#8A633C]">Fix: {result.error.correction}</div> : null}
                     {result.error?.details?.blockers?.length ? <div>Blockers: {result.error.details.blockers.join(" · ")}</div> : null}
                   </div>
@@ -640,13 +648,13 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
 
       {Object.keys(executionEvidence).length ? (
         <div className="mt-6 rounded-[24px] border border-emerald-700/15 bg-emerald-50/70 p-5">
-          <div className="text-xs uppercase tracking-[0.16em] text-emerald-800">Durable Provider Execution</div>
+          <div className="text-xs uppercase tracking-[0.16em] text-emerald-800">Approved Campaign Creation</div>
           <div className="mt-3 grid gap-3 lg:grid-cols-2">
             {Object.entries(executionEvidence).map(([provider, evidence]) => (
               <div key={provider} className="rounded-2xl border border-emerald-700/15 bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3"><div className="text-sm font-semibold text-[#4A4138]">{channelDisplay(provider).label}</div><span className="rounded-full border border-emerald-700/15 bg-emerald-50 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-emerald-700">{evidence.status || "PAUSED"}</span></div>
                 <div className="mt-3 grid gap-2 text-[10px] text-[#6F675F] sm:grid-cols-2">
-                  <div>Reserved: {money(evidence.reserved_amount || 0, evidence.currency || content.currency_code || "THB")}</div>
+                  <div>Reserved: {money(evidence.reserved_amount || 0, evidence.currency || campaignCurrency(content))}</div>
                   <div>Managed media: {evidence.managed_media_campaign_id || "—"}</div>
                   <div>Provider campaign: {evidence.provider_campaign_id || "—"}</div>
                   <div>Executed: {evidence.executed_at ? new Date(evidence.executed_at).toLocaleString() : "—"}</div>
@@ -659,8 +667,8 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
       ) : null}
 
       <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={WalletCards} label={content.budget_semantics === "campaign_total_authorization" ? "Campaign Budget" : "Monthly Budget"} value={money(content.campaign_budget ?? content.monthly_budget ?? content.campaign_budget_thb ?? content.monthly_budget_thb ?? campaign.budget, content.currency_code || "THB")} />
-        <Metric icon={CalendarDays} label="Daily Guide" value={(content.daily_budget_guide ?? content.daily_budget_guide_thb) ? money(content.daily_budget_guide ?? content.daily_budget_guide_thb, content.currency_code || "THB") : "—"} />
+        <Metric icon={WalletCards} label={content.budget_semantics === "campaign_total_authorization" ? "Campaign Budget" : "Monthly Budget"} value={money(content.campaign_budget ?? content.monthly_budget ?? content.campaign_budget_thb ?? content.monthly_budget_thb ?? campaign.budget, campaignCurrency(content))} />
+        <Metric icon={CalendarDays} label="Daily Guide" value={(content.daily_budget_guide ?? content.daily_budget_guide_thb) ? money(content.daily_budget_guide ?? content.daily_budget_guide_thb, campaignCurrency(content)) : "—"} />
         <Metric icon={Target} label="Primary CTA" value={content.primary_cta || "—"} />
         <Metric icon={CheckCircle2} label="Meta" value={metaConnectionLabel(content.meta_connection)} compact />
       </div>
@@ -686,7 +694,7 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
           <ChannelConfiguration settings={channelSettings} assets={settingAssets} />
         </InfoBlock>
 
-        <InfoBlock title="Execution Readiness">
+        <InfoBlock title="Channel Readiness">
           <ChannelReadinessList values={channelReadiness} />
         </InfoBlock>
 
@@ -733,7 +741,7 @@ function InfoBlock({ title, children }) {
 }
 
 function ChannelReadinessList({ values = [] }) {
-  if (!values.length) return <span className="text-sm text-[#928A82]">No readiness snapshot recorded.</span>;
+  if (!values.length) return <span className="text-sm text-[#928A82]">No channel readiness record yet.</span>;
   return (
     <div className="space-y-2">
       {values.map((item) => {

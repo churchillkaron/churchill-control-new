@@ -11,6 +11,7 @@ import {
 import {
   MarketingCampaignBuilderReadinessRuntime,
 } from "@/lib/marketing/campaigns/MarketingCampaignBuilderReadinessRuntime";
+import { hasMarketingPermission } from "@/lib/marketing/security/marketingCampaignAccess";
 
 export const GET = withApiHandler(
   "marketing-campaign-readiness",
@@ -27,8 +28,16 @@ export const GET = withApiHandler(
       throw error;
     }
 
-    return MarketingCampaignBuilderReadinessRuntime.readiness({
+    const readiness = await MarketingCampaignBuilderReadinessRuntime.readiness({
       organizationId: access.organizationId,
     });
+
+    return {
+      ...readiness,
+      capabilities: {
+        ...(readiness?.capabilities || {}),
+        can_manage_paid_media: hasMarketingPermission(access, "marketing.ads.manage"),
+      },
+    };
   },
 );

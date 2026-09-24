@@ -7,12 +7,14 @@ import { hasMarketingPermission } from "@/lib/marketing/security/marketingCampai
 import { MarketingOutcomeAttributionRuntime } from "@/lib/marketing/intelligence/MarketingOutcomeAttributionRuntime";
 
 function errorResponse(error, status = 500) {
+  const safeStatus = Number(status || 500);
+  if (safeStatus >= 500) console.error("CAMPAIGN OUTCOME ERROR:", error);
   return NextResponse.json(
     {
       success: false,
-      error: error?.message || String(error || "Campaign outcome request failed"),
+      error: safeStatus < 500 ? error?.message || "Campaign outcome request failed" : "Campaign outcome request failed",
     },
-    { status },
+    { status: safeStatus },
   );
 }
 

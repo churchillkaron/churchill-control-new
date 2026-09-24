@@ -46,7 +46,8 @@ export async function GET(request) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload?.error) {
-      return Response.json({ success: false, error: payload?.error?.message || `WhatsApp template lookup failed (${response.status})` }, { status: 502 });
+      console.error("WHATSAPP TEMPLATE LOOKUP ERROR:", { status: response.status, code: payload?.error?.code || null });
+      return Response.json({ success: false, error: "Unable to load WhatsApp templates from the connected account" }, { status: 502 });
     }
 
     const results = (payload.data || [])
@@ -65,6 +66,11 @@ export async function GET(request) {
 
     return Response.json({ success: true, data: { results } });
   } catch (error) {
-    return Response.json({ success: false, error: error?.message || "Unable to load WhatsApp templates" }, { status: error?.status || 500 });
+    const status = Number(error?.status || 500);
+    console.error("WHATSAPP TEMPLATE ROUTE ERROR:", error);
+    return Response.json(
+      { success: false, error: status < 500 ? error?.message || "Unable to load WhatsApp templates" : "Unable to load WhatsApp templates" },
+      { status },
+    );
   }
 }

@@ -46,12 +46,14 @@ export async function POST(request, { params }) {
 
     return Response.json({ success: true, data: result });
   } catch (error) {
+    const status = Number(error?.status || 500);
+    console.error("MANAGED MEDIA CAMPAIGN ACTION ERROR:", error);
     return Response.json(
       {
         success: false,
-        error: error?.message || "Managed media campaign action failed",
+        error: status < 500 ? error?.message || "Managed media campaign action failed" : "Managed media campaign action failed",
       },
-      { status: error?.status || 500 }
+      { status }
     );
   }
 }

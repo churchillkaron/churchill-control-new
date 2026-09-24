@@ -92,9 +92,11 @@ export async function GET(request) {
       },
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
+    const status = Number(error?.status || 500);
+    console.error("TIKTOK CREATOR LOOKUP ERROR:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "Unable to load TikTok creator publishing options" },
-      { status: error?.status || 500 },
+      { success: false, error: status < 500 ? error?.message || "Unable to load TikTok creator publishing options" : "Unable to load TikTok creator publishing options" },
+      { status },
     );
   }
 }

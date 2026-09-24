@@ -146,6 +146,7 @@ export default function CampaignBuilderPage() {
 
   const walletCurrency = readiness?.wallet?.currency || "";
   const availableBalance = Number(readiness?.wallet?.available_balance || 0);
+  const canManagePaidMedia = readiness?.capabilities?.can_manage_paid_media === true;
   const budget = Number(form.totalBudget || 0);
   const selectedChannel = useMemo(
     () =>
@@ -431,6 +432,12 @@ export default function CampaignBuilderPage() {
           </div>
         </div>
 
+        {!loading && readiness && !canManagePaidMedia ? (
+          <div className="mb-6 rounded-2xl border border-[#DDBA8B] bg-[#FFF8EC] px-5 py-4 text-sm leading-relaxed text-[#7A5A36]">
+            View only · paid-media planning, provider preflight and campaign creation require the Marketing Ads management permission.
+          </div>
+        ) : null}
+
         {error ? (
           <div className="mb-6 rounded-2xl border border-red-700/15 bg-red-50 p-4 text-sm text-red-800">
             <div className="flex gap-3">
@@ -515,7 +522,7 @@ export default function CampaignBuilderPage() {
               <button
                 type="button"
                 onClick={createAiPlan}
-                disabled={planning || loading}
+                disabled={planning || loading || !canManagePaidMedia}
                 className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-[#D6A66A] px-5 py-4 font-semibold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
               >
                 {planning ? (
@@ -526,7 +533,7 @@ export default function CampaignBuilderPage() {
                 Create the best campaign for this business
               </button>
 
-              {!loading && !readiness?.ready_channel_count ? (
+              {!loading && canManagePaidMedia && !readiness?.ready_channel_count ? (
                 <div className="mt-3 text-center text-xs text-[#918B83]">
                   The button remains available so Avantiqo can return the exact
                   readiness stage and required correction.
@@ -768,7 +775,7 @@ export default function CampaignBuilderPage() {
               <button
                 type="button"
                 onClick={runPreflight}
-                disabled={preflighting || !form.confirmExactAsset}
+                disabled={preflighting || !form.confirmExactAsset || !canManagePaidMedia}
                 className="flex items-center justify-center gap-3 rounded-2xl border border-black/[0.10] bg-[#FBF8F3] px-5 py-4 font-semibold text-[#2F2C28] transition hover:border-[#D6A66A]/40 hover:text-[#D6A66A] disabled:opacity-35"
               >
                 {preflighting ? (
@@ -785,7 +792,7 @@ export default function CampaignBuilderPage() {
               </div>
             </div>
 
-            {preflightCurrent ? (
+            {preflightCurrent && canManagePaidMedia ? (
               <div className="mt-5 rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-5">
                 <div className="flex items-center gap-2 text-sm font-medium text-emerald-800">
                   <CheckCircle2 size={17} /> Provider preflight passed
@@ -824,7 +831,7 @@ export default function CampaignBuilderPage() {
             <button
               type="button"
               onClick={createAiPlan}
-              disabled={planning || loading}
+              disabled={planning || loading || !canManagePaidMedia}
               className="flex items-center gap-2 rounded-2xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-5 py-3 text-sm font-semibold text-[#D6A66A] disabled:opacity-35"
             >
               {planning ? <Loader2 size={17} className="animate-spin" /> : <BrainCircuit size={17} />}

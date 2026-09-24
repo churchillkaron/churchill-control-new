@@ -34,6 +34,11 @@ export async function GET(request) {
     })).filter((row) => row.id);
     return Response.json({ success: true, data: { boards } });
   } catch (error) {
-    return Response.json({ success: false, error: error?.message || "Unable to load Pinterest boards" }, { status: error?.status || 500 });
+    const status = Number(error?.status || 500);
+    console.error("PINTEREST BOARD LOOKUP ERROR:", error);
+    return Response.json(
+      { success: false, error: status < 500 ? error?.message || "Unable to load Pinterest boards" : "Unable to load Pinterest boards" },
+      { status },
+    );
   }
 }

@@ -12,7 +12,7 @@ Avantiqo is developed and certified **local-first**.
 
 The normal lifecycle is:
 
-**Develop -> commit to `main` -> sync local `main` -> build/test locally -> run local end-to-end verification -> repair locally -> repeat locally -> deploy production once when the finished release is ready.**
+**Develop in an isolated `work/*`, `hotfix/*`, or `release/*` worktree -> build/test locally -> run local end-to-end verification -> open a PR -> pass the protected release gates -> merge to `main` -> deploy production once when the finished release is ready.**
 
 The forbidden normal lifecycle is:
 
@@ -22,38 +22,51 @@ Production is not a debugging environment and must not be used as the ordinary d
 
 ---
 
-## 2. `main` is the only source of truth
+## 2. `main` is protected and is the only integrated source of truth
 
-- Work directly on `main` unless the user explicitly asks for another branch or a PR.
-- Do not create feature branches or pull requests for ordinary work.
-- Do not leave required fixes only in another branch when `main` is the requested source of truth.
-- Never force-push or force-move `main` to discard newer work.
-- Never revert unrelated work from another chat/agent merely because it appeared while you were working.
+`main` is the canonical integrated source of truth, but **normal development must not edit, commit, or push directly to `main`**.
 
-### Concurrency rule
+Mandatory rules:
 
-Multiple chats/agents may update the repository at the same time.
+- Start normal work from the newest `origin/main` in an isolated worktree.
+- Use only short-lived branch names under `work/*`, `hotfix/*`, or `release/*`.
+- Do not create a permanent branch per chat. Reuse an existing active mission branch when it owns the same bounded objective.
+- Keep the active mission-branch set small; target no more than five active `work/*` branches at once.
+- Merge through a pull request only after required repository checks pass.
+- GitHub deletes merged branches automatically. Delete abandoned branches after verifying they contain no required unmerged work.
+- Never force-push or force-move `main`.
+- Never bypass the release gate by copying unverified files from a dirty primary worktree into `main`.
 
-Therefore:
+### Primary worktree rule
 
-1. Fetch the newest `main` at the start of every task.
-2. Fetch the newest `main` again immediately before every write/commit.
-3. Refetch every file you are about to edit if `main` moved since you last read it.
-4. Preserve newer unrelated changes and reapply your edit on top of the newest file.
-5. If GitHub rejects a write because the blob SHA changed, treat that as concurrency protection: refetch, reconcile, then write again.
-6. Never solve a concurrency conflict by overwriting the other agent's work blindly.
+The primary checkout of `main` is for reading, integration visibility, and final synchronization. If it is dirty because another session is still working, **do not build new changes on top of that dirty tree**. Create or use an isolated worktree from `origin/main` instead.
 
-When working from the local clone, the equivalent safe startup sequence is normally:
+Normal startup for a new bounded mission is:
 
 ```bash
 git fetch origin main
-git checkout main
-git pull --ff-only origin main
+git worktree add -b work/<short-mission-name> /tmp/avantiqo-<short-mission-name> origin/main
+cd /tmp/avantiqo-<short-mission-name>
 git status
 ```
 
-Do not use destructive reset/clean commands unless the user explicitly asks and the impact is understood.
+If an appropriate `work/*` branch already exists for that same mission, continue there instead of creating another branch.
 
+### Concurrency rule
+
+Multiple chats/agents may work concurrently, but they must not share the same dirty worktree unless they are deliberately collaborating on the same bounded mission.
+
+Therefore:
+
+1. Fetch newest `origin/main` at mission start.
+2. Work in the mission's isolated worktree.
+3. Keep changes bounded to the requested domain/objective.
+4. Before opening the PR, fetch `origin/main` again and reconcile intentionally.
+5. Preserve unrelated newer work; never overwrite it blindly.
+6. If the mission needs to change protected architecture, add or update a contract test proving the intended invariant.
+7. Do not merge while required CI or release-safety checks are failing.
+
+Do not use destructive reset/clean commands unless the user explicitly asks and the impact is understood.
 ---
 
 ## 3. Local environment is the normal execution environment
@@ -310,15 +323,14 @@ Even for OAuth and webhooks, prefer localhost, a tunnel, or preview when practic
 
 Normal development commits:
 
-- go directly to `main`
+- go to the current bounded `work/*`, `hotfix/*`, or `release/*` branch, never directly to `main`
 - should be cohesive and accurately named
 - must not contain the production-deploy marker
 - must not contain secrets
 - must not bundle unrelated destructive cleanup
+- must pass the relevant local checks before a PR is opened
 
-When another agent moves `main`, preserve its work and continue on top of it.
-
-Before reporting a commit as the latest state, fetch `main` once more because another session may have committed after you.
+Before opening or updating a PR, fetch `origin/main` and reconcile intentionally. The protected GitHub checks decide whether the branch is eligible to merge.
 
 ---
 
@@ -346,7 +358,7 @@ A substantial task is not done merely because the code was edited.
 Before calling ordinary development complete, aim for all applicable items:
 
 1. newest `main` was fetched before the final edits
-2. the intended source changes are committed to `main`
+2. the intended source changes are committed to the isolated mission branch
 3. no unrelated concurrent work was overwritten
 4. relevant static/audit checks pass locally
 5. relevant tests pass locally
@@ -366,7 +378,7 @@ A production release is a separate phase from development.
 
 Before the final production release:
 
-1. Fetch and sync the newest `main`.
+1. Fetch the newest `origin/main` and reconcile the release branch against it.
 2. Confirm the release contains all intended concurrent changes.
 3. Install from the lockfile if required (`npm ci`).
 4. Run relevant local audits/tests.
@@ -380,7 +392,7 @@ Before the final production release:
 
 Default rule:
 
-> **LOCAL FIRST. MAIN IS SOURCE OF TRUTH. PRODUCTION LAST.**
+> **LOCAL FIRST. ISOLATED WORKTREE. PROTECTED MERGE. MAIN IS SOURCE OF TRUTH. PRODUCTION LAST.**
 
 ---
 
@@ -391,7 +403,7 @@ Every new coding session should begin by establishing the same baseline instead 
 1. Read `AGENTS.md`.
 2. Fetch newest `main`.
 3. Inspect recent `main` commits relevant to the task.
-4. Sync the local `main` clone when local execution is available.
+4. Create or reuse one bounded `work/*` worktree from `origin/main`; do not edit the primary `main` worktree.
 5. Read the current files being changed; do not rely on stale snippets from another session.
 6. Inspect current `package.json` scripts for the relevant verification commands.
 7. Identify whether the task is source-only, local execution, paid-provider execution, or final production release.

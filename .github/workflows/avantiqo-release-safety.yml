@@ -1,0 +1,50 @@
+name: Avantiqo Release Safety
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-release-safety-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  release-safety:
+    name: release-safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout branch with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Repository mission safety audit
+        run: node scripts/audit-repository-release-safety.mjs
+
+      - name: Protected architecture contracts
+        run: >-
+          node --test
+          tests/platform-owner-scope-boundary-contract.test.mjs
+          tests/onboarding-release-contract.test.mjs
+          tests/finance-customer-invoice-lifecycle-contract.test.mjs
+          tests/restaurant-pos-human-workflow-contract.test.mjs
+          tests/staff-identity-document-lifecycle-contract.test.mjs
+          tests/avantiqo-intelligence-certification-contract.test.mjs
+
+      - name: Reject whitespace/conflict damage
+        run: git diff --check origin/main...HEAD

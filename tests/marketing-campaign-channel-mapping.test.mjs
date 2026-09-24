@@ -205,7 +205,7 @@ test("Google Ads campaign UI persists canonical Search execution configuration",
   assert.match(component, /Broad match/);
   assert.match(component, /Negative keywords/);
   assert.match(component, /Responsive Search Ad/);
-  assert.match(component, /Google Ads campaign check/);
+  assert.match(component, /Google Ads provider readiness/);
 });
 
 test("Google Ads translator preserves keyword match types and negative keywords", () => {
@@ -371,7 +371,7 @@ test("Meta creative assets stay separate from channel connection assets and are 
 });
 
 test("Meta review and readiness are organization-specific for multi-organization campaigns", () => {
-  assert.match(component, /Meta campaign check · \{organization\?\.name/);
+  assert.match(component, /Meta provider readiness · \{organization\?\.name/);
   assert.match(component, /mergedChannelSettings\("meta_ads", organizationId\)/);
   assert.match(component, /organizationReadiness\?\.creative_assets/);
 });
@@ -622,7 +622,7 @@ test("organic social review is organization-specific before owner approval", () 
   assert.match(component, /organicSocialSettingsIssues/);
   assert.match(component, /channel override/);
   assert.match(component, /Text only/);
-  assert.match(component, /Account, content and channel setup are ready for the final connection check/);
+  assert.match(component, /Account, provider route and content are ready for no-publish preflight/);
   assert.match(component, /selectedOrganizations\.flatMap/);
 });
 

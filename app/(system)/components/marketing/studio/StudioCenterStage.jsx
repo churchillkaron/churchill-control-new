@@ -44,10 +44,10 @@ export default function StudioCenterStage({
   }, [latestCampaign]);
 
   useEffect(() => {
-    if (campaignMedia?.url) {
-      setActiveAsset(campaignMedia);
-    }
-  }, [campaignMedia?.url]);
+    if (!campaignMedia?.url) return;
+    setLocalActiveAsset(campaignMedia);
+    setExternalActiveAsset?.(campaignMedia);
+  }, [campaignMedia, setExternalActiveAsset]);
 
   const visibleAssets =
     selectedAssets.length > 0
@@ -96,11 +96,15 @@ export default function StudioCenterStage({
                     className="h-full w-full object-contain"
                   />
                 ) : (
-                  <img
-                    src={activeAsset.url}
-                    alt="Creative Preview"
-                    className="h-full w-full object-contain"
-                  />
+                  <>
+                    {/* Provider/user media can use arbitrary signed hosts outside the next/image allowlist. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={activeAsset.url}
+                      alt="Creative Preview"
+                      className="h-full w-full object-contain"
+                    />
+                  </>
                 )}
               </div>
             ) : (
@@ -178,11 +182,15 @@ export default function StudioCenterStage({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <img
-                        src={mediaUrl}
-                        alt={asset.name || "Asset"}
-                        className="h-full w-full object-cover"
-                      />
+                      <>
+                        {/* Asset URLs can be signed provider URLs from arbitrary allowed business integrations. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={mediaUrl}
+                          alt={asset.name || "Asset"}
+                          className="h-full w-full object-cover"
+                        />
+                      </>
                     )}
                   </button>
                 );

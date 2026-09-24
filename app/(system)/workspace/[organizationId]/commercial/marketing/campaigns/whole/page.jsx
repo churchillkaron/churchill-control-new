@@ -190,7 +190,7 @@ export default function WholeCampaignPage() {
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.15em] text-amber-800">
+                      <span className="rounded-full border border-[#DDBA8B] bg-[#FFF8EC] px-3 py-1 text-[11px] uppercase tracking-[0.15em] text-[#7A5A36]">
                         {group.campaign_status || "draft"}
                       </span>
                       <span className="text-xs text-[#91877D]">
@@ -271,7 +271,7 @@ function WholeCampaignDetail({ group, onRefresh }) {
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="max-w-4xl">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.15em] text-amber-800">
+              <span className="rounded-full border border-[#DDBA8B] bg-[#FFF8EC] px-3 py-1 text-[11px] uppercase tracking-[0.15em] text-[#7A5A36]">
                 {group.campaign_status || "draft"}
               </span>
               <span className="text-xs uppercase tracking-[0.15em] text-[#91877D]">
@@ -466,7 +466,7 @@ function CampaignOperatingPlan({ group }) {
             Review-only operating plan derived from the current campaign strategy. Nothing below publishes content, starts providers, authorizes spend or changes campaign status.
           </p>
         </div>
-        <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-amber-800">
+        <span className="rounded-full border border-[#DDBA8B] bg-[#FFF8EC] px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-[#7A5A36]">
           Review Only · Not Activated
         </span>
       </div>
@@ -764,7 +764,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
           <span className="rounded-full border border-black/[0.08] bg-white px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-[#675F57]">
             {campaign.campaign_status || "draft"}
           </span>
-          <span className="rounded-full border border-amber-500/20 bg-amber-500/[0.06] px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-amber-800">
+          <span className="rounded-full border border-[#DDBA8B] bg-[#FFF8EC] px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-[#7A5A36]">
             {labelize(campaignContent.spend_state || "planned_not_authorized")}
           </span>
         </div>

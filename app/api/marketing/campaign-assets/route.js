@@ -9,8 +9,12 @@ import {
   resolveCreativeAssetPreviewUrl,
 } from "@/lib/marketing/services/resolveCreativeAssetPreviewUrl";
 
-async function requireCampaign({ organizationId, campaignId, request }) {
-  const access = await requireOrganizationAccess({ organizationId, request });
+async function requireCampaign({ organizationId, campaignId, request, requiredAnyPermission = null }) {
+  const access = await requireOrganizationAccess({
+    organizationId,
+    request,
+    ...(requiredAnyPermission?.length ? { requiredAnyPermission } : {}),
+  });
   if (!access.success) {
     return { error: Response.json(access, { status: access.status || 403 }) };
   }
@@ -77,7 +81,14 @@ export async function POST(request) {
       );
     }
 
-    const context = await requireCampaign({ organizationId, campaignId, request });
+    const context = await requireCampaign({
+      organizationId,
+      campaignId,
+      request,
+      requiredAnyPermission: action === "attach"
+        ? ["marketing.campaign.manage", "creative.asset.upload", "creative.*"]
+        : null,
+    });
     if (context.error) return context.error;
 
     if (action === "attach") {

@@ -676,13 +676,23 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
             {Object.entries(executionEvidence).map(([provider, evidence]) => (
               <div key={provider} className="rounded-2xl border border-emerald-700/15 bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3"><div className="text-sm font-semibold text-[#4A4138]">{channelDisplay(provider).label}</div><span className="rounded-full border border-emerald-700/15 bg-emerald-50 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-emerald-700">{evidence.status || "PAUSED"}</span></div>
-                <div className="mt-3 grid gap-2 text-[10px] text-[#6F675F] sm:grid-cols-2">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[#6F675F]">
                   <div>Reserved: {money(evidence.reserved_amount || 0, evidence.currency || campaignCurrency(content))}</div>
-                  <div>Managed media: {evidence.managed_media_campaign_id || "—"}</div>
-                  <div>Provider campaign: {evidence.provider_campaign_id || "—"}</div>
-                  <div>Executed: {evidence.executed_at ? new Date(evidence.executed_at).toLocaleString() : "—"}</div>
+                  <div className="font-medium text-emerald-800">Activation required · ads are not active.</div>
                 </div>
-                <div className="mt-2 text-[10px] text-emerald-800">Activation required · ads are not active.</div>
+                <details className="group mt-3 rounded-xl border border-black/[0.06] bg-[#FCFBF8]">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[10px] font-semibold text-[#746B62] [&::-webkit-details-marker]:hidden">
+                    <span>Technical evidence</span>
+                    <span className="group-open:hidden">Show</span>
+                    <span className="hidden group-open:inline">Hide</span>
+                  </summary>
+                  <div className="grid gap-2 border-t border-black/[0.06] px-3 py-3 text-[10px] text-[#6F675F] sm:grid-cols-2">
+                    <div>Managed media: {evidence.managed_media_campaign_id || "—"}</div>
+                    <div>Provider campaign: {evidence.provider_campaign_id || "—"}</div>
+                    <div>Executed: {evidence.executed_at ? new Date(evidence.executed_at).toLocaleString() : "—"}</div>
+                    <div>Integrity: {evidence.plan_fingerprint ? "Verified" : "Legacy / unavailable"}</div>
+                  </div>
+                </details>
               </div>
             ))}
           </div>

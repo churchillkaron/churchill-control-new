@@ -69,3 +69,33 @@ test("compact JSON repair remains hard-capped", () => {
     compact_json_only: true,
   }), 1400);
 });
+
+test("new multi-file implementation gets enough output budget for complete file contents", () => {
+  assert.equal(resolveCodeAIPlannerOutputTokenBudget({
+    state: {},
+    action_policy: {
+      implementation_required: true,
+      mutation_first_required: true,
+      allowed_actions: ["apply_files", "replace_range"],
+    },
+    allowed_edit_paths: ["index.html", "styles.css", "build.mjs"],
+  }), 4096);
+});
+
+test("structured JSON repair with a concrete edit target is not truncated to discovery budget", () => {
+  assert.equal(resolveCodeAIPlannerOutputTokenBudget({
+    state: {},
+    action_policy: { implementation_required: true },
+    allowed_edit_paths: ["index.html"],
+    compact_json_only: true,
+  }), 2600);
+});
+
+test("multi-file structured JSON repair preserves full coherent implementation budget", () => {
+  assert.equal(resolveCodeAIPlannerOutputTokenBudget({
+    state: {},
+    action_policy: { implementation_required: true },
+    allowed_edit_paths: ["index.html", "styles.css", "build.mjs"],
+    compact_json_only: true,
+  }), 4096);
+});

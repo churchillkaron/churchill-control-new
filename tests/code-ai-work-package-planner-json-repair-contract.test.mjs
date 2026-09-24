@@ -17,6 +17,9 @@ test("invalid planner JSON self-repairs internally within the bounded reasoning 
   assert.match(source, /return executeBatchedAutonomousCodeMissionLive\(\{/);
   assert.match(source, /reasoning_call_budget: control\.reasoning_call_budget/);
   assert.match(source, /raw_reasoning_persisted: false/);
+  assert.match(source, /const multiFileStructuredRepair/);
+  assert.match(source, /Preserve the original coherent implementation across exactly these remaining controller-declared files/);
+  assert.match(source, /Use one apply_files operation containing complete final contents for all required files/);
 });
 
 test("oversized planner packages self-repair into a bounded executable batch", () => {

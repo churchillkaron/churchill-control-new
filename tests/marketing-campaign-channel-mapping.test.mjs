@@ -1230,6 +1230,11 @@ test("Google Ads budget semantics are daily delivery under a total authorization
   assert.doesNotMatch(googleSection, /budgetMode \|\| "lifetime"/);
 });
 
+test("multi-organization campaign groups bind each campaign to the exact member organization", () => {
+  const groupsRoute = fs.readFileSync("app/api/marketing/campaign-groups/route.js", "utf8");
+  assert.match(groupsRoute, /campaign\.organization_id !== member\.organization_id/);
+});
+
 test("multi-organization campaign creation requires write permission in every selected organization", () => {
   assert.match(route, /requiredAnyPermission: \[\s*"marketing\.campaign\.create",\s*"marketing\.campaign\.manage",\s*"marketing\.\*",\s*\]/);
   assert.match(route, /permissions: \[\s*"marketing\.campaign\.create",\s*"marketing\.campaign\.manage",\s*"marketing\.\*",\s*\]/);
@@ -1449,6 +1454,12 @@ test("Paid-media approval uses an Avantiqo-native exact-plan confirmation instea
   assert.match(campaignPage, /A separate activation action is required before ads can run/);
   assert.match(campaignPage, /Approve & Create Paused/);
   assert.doesNotMatch(campaignPage, /window\.confirm\(/);
+});
+
+test("Campaign Studio validation uses Avantiqo warning colors instead of generic amber chrome", () => {
+  assert.doesNotMatch(component, /amber-/);
+  assert.match(component, /border-\[#C99A62\]\/45/);
+  assert.match(component, /text-\[#8A633C\]/);
 });
 
 test("Campaign creation modal is keyboard-aware and responsive", () => {

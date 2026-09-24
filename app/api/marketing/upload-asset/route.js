@@ -154,12 +154,14 @@ export async function POST(request) {
 
     return Response.json(result);
   } catch (error) {
+    const status = statusFor(error);
+    console.error("MARKETING ASSET UPLOAD ERROR:", error);
     return Response.json(
       {
         success: false,
-        error: error.message,
+        error: status < 500 ? error.message : "Unable to upload marketing asset",
       },
-      { status: statusFor(error) },
+      { status },
     );
   }
 }

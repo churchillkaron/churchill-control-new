@@ -39,10 +39,16 @@ test("Marketing asset reads require organization access and exact organization s
   assert.match(assetsRoute, /\.eq\("organization_id", access\.organizationId\)/);
 });
 
-test("Marketing campaign detail cannot fetch by id across organizations", () => {
+test("Marketing campaign detail cannot fetch by id across organizations and fails with truthful status codes", () => {
   assert.match(campaignRoute, /requireOrganizationAccess/);
   assert.match(campaignRoute, /organizationId is required/);
   assert.match(campaignRoute, /\.eq\("organization_id", access\.organizationId\)/);
+  assert.match(campaignRoute, /\.maybeSingle\(\)/);
+  assert.match(campaignRoute, /Campaign not found for this organization/);
+  assert.match(campaignRoute, /\{ status: 404 \}/);
+  assert.match(campaignRoute, /\{ status: 500 \}/);
+  assert.match(campaignRoute, /Response\.json\(\{ success: true, data \}\)/);
+  assert.doesNotMatch(campaignRoute, /console\.error/);
 });
 
 test("Legacy Marketing generation compatibility route requires authenticated generation authority", () => {
@@ -52,13 +58,25 @@ test("Legacy Marketing generation compatibility route requires authenticated gen
   assert.match(generateRoute, /organization_id:\s*access\.organizationId/);
 });
 
-test("Marketing asset mutation routes are organization scoped and permission gated", () => {
+test("Marketing asset mutation routes are organization scoped, permission gated and hide internal 5xx details", () => {
   assert.match(deleteAssetRoute, /requireOrganizationAccess/);
   assert.match(deleteAssetRoute, /Missing organizationId/);
   assert.match(deleteAssetRoute, /\.eq\("organization_id", access\.organizationId\)/);
+  assert.match(deleteAssetRoute, /Unable to delete marketing asset/);
+  assert.doesNotMatch(deleteAssetRoute, /error:\s*err\.message/);
   assert.match(updateAssetRoute, /requireOrganizationAccess/);
   assert.match(updateAssetRoute, /creative\.asset\.upload/);
   assert.match(updateAssetRoute, /organizationId: access\.organizationId/);
+  assert.match(updateAssetRoute, /Unable to update marketing asset/);
+  assert.doesNotMatch(updateAssetRoute, /error:\s*err\.message/);
+});
+
+test("Marketing asset read and upload routes keep internal server errors private", () => {
+  const uploadRoute = read("app/api/marketing/upload-asset/route.js");
+  assert.match(assetsRoute, /Unable to load creative assets/);
+  assert.doesNotMatch(assetsRoute, /error:\s*err\.message/);
+  assert.match(uploadRoute, /status < 500 \? error\.message : "Unable to upload marketing asset"/);
+  assert.match(uploadRoute, /MARKETING ASSET UPLOAD ERROR/);
 });
 
 test("Campaign Queue is truthful read-only operational visibility", () => {

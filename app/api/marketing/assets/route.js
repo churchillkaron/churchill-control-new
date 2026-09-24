@@ -68,7 +68,7 @@ export async function GET(request) {
         success: false,
 
         error:
-          err.message,
+          "Unable to load creative assets",
 
       },
 

@@ -187,7 +187,7 @@ export async function POST(
         success: false,
 
         error:
-          err.message,
+          "Unable to delete marketing asset",
 
       },
 

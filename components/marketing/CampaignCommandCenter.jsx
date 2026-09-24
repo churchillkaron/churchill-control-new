@@ -2448,7 +2448,7 @@ function GoogleCopyBox({ label, value, onChange, min, max, charLimit, helper }) 
   const rows = textareaLines(value);
   const invalid = rows.filter((item) => item.length > charLimit).length;
   const countOk = rows.length >= min && rows.length <= max;
-  return <label className="block"><span className="text-[9px] uppercase tracking-[0.12em] text-[#8A8178]">{label}</span><textarea value={value} onChange={(e) => onChange(e.target.value)} rows={6} className={`mt-1.5 w-full resize-y rounded-xl border bg-white px-3 py-2.5 text-xs leading-relaxed text-[#2D2822] outline-none ${countOk && !invalid ? "border-black/[0.08] focus:border-[#D6A66A]/50" : "border-amber-700/30"}`} /><span className="mt-1 flex justify-between gap-3 text-[10px] text-[#9B9289]"><span>{helper} · max {charLimit} characters each</span><span className={countOk && !invalid ? "text-emerald-700" : "text-amber-700"}>{rows.length}/{max}{invalid ? ` · ${invalid} too long` : ""}</span></span></label>;
+  return <label className="block"><span className="text-[9px] uppercase tracking-[0.12em] text-[#8A8178]">{label}</span><textarea value={value} onChange={(e) => onChange(e.target.value)} rows={6} className={`mt-1.5 w-full resize-y rounded-xl border bg-white px-3 py-2.5 text-xs leading-relaxed text-[#2D2822] outline-none ${countOk && !invalid ? "border-black/[0.08] focus:border-[#D6A66A]/50" : "border-[#C99A62]/45"}`} /><span className="mt-1 flex justify-between gap-3 text-[10px] text-[#9B9289]"><span>{helper} · max {charLimit} characters each</span><span className={countOk && !invalid ? "text-emerald-700" : "text-[#8A633C]"}>{rows.length}/{max}{invalid ? ` · ${invalid} too long` : ""}</span></span></label>;
 }
 
 const META_DESTINATION_COMPATIBILITY = Object.freeze({

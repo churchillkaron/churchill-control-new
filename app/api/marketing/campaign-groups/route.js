@@ -219,7 +219,7 @@ export const POST = withApiHandler(
     const membersByGroup = new Map();
     for (const member of visibleMembers) {
       const campaign = campaignsById.get(member.marketing_campaign_id);
-      if (!campaign) continue;
+      if (!campaign || campaign.organization_id !== member.organization_id) continue;
 
       if (!membersByGroup.has(member.campaign_group_id)) {
         membersByGroup.set(member.campaign_group_id, []);

@@ -190,7 +190,7 @@ export async function POST(
         success: false,
 
         error:
-          err.message,
+          "Unable to update marketing asset",
 
       },
 

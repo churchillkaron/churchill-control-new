@@ -16,6 +16,8 @@ test("invalid planner JSON self-repairs internally within the bounded reasoning 
   assert.match(source, /CODE_AI_PLANNER_OUTPUT_REPAIR_EXHAUSTED/);
   assert.match(source, /return executeBatchedAutonomousCodeMissionLive\(\{/);
   assert.match(source, /reasoning_call_budget: control\.reasoning_call_budget/);
+  assert.match(source, /local_compute_required: local_compute_required === true/);
+  assert.match(source, /infrastructure_policy: local_compute_required === true \? "local_only" : infrastructure_policy/);
   assert.match(source, /raw_reasoning_persisted: false/);
   assert.match(source, /const multiFileStructuredRepair/);
   assert.match(source, /edit exactly one remaining controller-declared file in this pass/);

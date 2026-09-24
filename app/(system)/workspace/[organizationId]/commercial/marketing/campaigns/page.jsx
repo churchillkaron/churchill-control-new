@@ -15,6 +15,7 @@ import {
   Target,
   Upload,
   WalletCards,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -180,6 +181,7 @@ export default function CampaignWorkspacePage() {
   const [preflightResults, setPreflightResults] = useState([]);
   const [executingProvider, setExecutingProvider] = useState("");
   const [executionResults, setExecutionResults] = useState({});
+  const [approvalRequest, setApprovalRequest] = useState(null);
   const [canManageAssets, setCanManageAssets] = useState(false);
   const [canManagePaidMedia, setCanManagePaidMedia] = useState(false);
 
@@ -230,6 +232,7 @@ export default function CampaignWorkspacePage() {
     setPreflightResults([]);
     setExecutionResults({});
     setExecutingProvider("");
+    setApprovalRequest(null);
   }, [selectedId]);
 
   async function runPreflight() {
@@ -277,7 +280,7 @@ export default function CampaignWorkspacePage() {
     }
   }
 
-  async function approveAndExecuteProvider(provider) {
+  function requestProviderApproval(provider) {
     if (!selected || !provider || !canManagePaidMedia) return;
     const plan = selected.campaign_content?.execution_plan_snapshots?.[provider];
     const fingerprint = selected.campaign_content?.execution_plan_fingerprints?.[provider] || null;
@@ -291,15 +294,23 @@ export default function CampaignWorkspacePage() {
       setError("This channel plan has changed since review. Recreate or refresh the campaign plan before approval.");
       return;
     }
+    setApprovalRequest({
+      provider,
+      label: channelDisplay(provider).label,
+      amount: Number(plan.budget?.amount || 0),
+      currency: String(plan.budget?.currency || "").toUpperCase(),
+      plan,
+      fingerprint,
+    });
+  }
 
-    const amount = Number(plan.budget?.amount || 0);
-    const currency = String(plan.budget?.currency || "").toUpperCase();
-    const label = channelDisplay(provider).label;
-    const confirmed = window.confirm(
-      `Approve ${label} for this reviewed campaign plan?\n\nThis will reserve up to ${currency ? `${currency} ` : ""}${amount.toLocaleString()} from the organization wallet and create the campaign in PAUSED state. It will NOT activate ads.`,
+  async function approveAndExecuteProvider() {
+    if (!selected || !approvalRequest || !canManagePaidMedia) return;
+    const { provider, plan, fingerprint, label } = approvalRequest;
+    const approved = window.confirm(
+      `Approve creation of the ${label} campaign in PAUSED state? It will NOT activate ads.`,
     );
-    if (!confirmed) return;
-
+    if (!approved) return;
     setExecutingProvider(provider);
     setError("");
     setMessage("");
@@ -325,6 +336,7 @@ export default function CampaignWorkspacePage() {
       setExecutionResults((current) => ({ ...current, [provider]: { success: true, data: payload?.data || null } }));
       const evidenceWarning = payload?.data?.marketing_campaign_evidence?.warning;
       setMessage(evidenceWarning || `${label} campaign created in PAUSED state. Ads are not active.`);
+      setApprovalRequest(null);
       await loadCampaigns();
     } catch (executeError) {
       setError(executeError.message || "Campaign creation failed");

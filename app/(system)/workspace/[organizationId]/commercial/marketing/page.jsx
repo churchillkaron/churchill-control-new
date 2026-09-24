@@ -22,94 +22,40 @@ import {
 const SECTIONS = [
   {
     title: "Campaign Management",
-    description: "Plan, prepare, approve and launch campaigns across connected channels.",
+    description: "Plan, review and operate governed campaigns across certified channels.",
     icon: Megaphone,
     items: [
       { name: "Campaigns", route: "campaigns" },
-      { name: "Meta Ads Manager", route: "ads", featured: true },
+      { name: "Campaign Dashboard", route: "dashboard" },
+      { name: "Paid Media Builder", route: "ads", featured: true },
       { name: "Campaign Queue", route: "queue" },
-      { name: "Publishing Calendar", route: "calendar" },
-      { name: "Live Campaigns", route: "live-campaigns" },
     ],
   },
   {
-    title: "Content Studio",
-    description: "Create, approve and manage exact organization-owned campaign assets.",
+    title: "Creative & Brand",
+    description: "Create and manage organization-owned campaign media and brand evidence.",
     icon: PenTool,
     items: [
-      { name: "AI Design Studio", route: "design" },
-      { name: "Content Workspace", route: "content" },
+      { name: "Creative Studio", route: "design" },
       { name: "Creative Assets", route: "assets" },
       { name: "Brand Library", route: "brand" },
-      { name: "Media Manager", route: "media" },
     ],
   },
   {
-    title: "Social & Publishing",
-    description: "Publish and monitor content through organization-connected channels.",
+    title: "Organic Social",
+    description: "Plan certified social publishing through the governed Campaigns workflow.",
     icon: Share2,
     items: [
-      { name: "Social Runtime", route: "social" },
-      { name: "Instagram", route: "instagram" },
-      { name: "Facebook", route: "facebook" },
-      { name: "Multi-Platform", route: "platforms" },
-      { name: "Publishing Logs", route: "publishing" },
-    ],
-  },
-  {
-    title: "Audience & Segmentation",
-    description: "Build target groups, journeys and retargeting audiences.",
-    icon: Users,
-    items: [
-      { name: "Audience Segments", route: "segments" },
-      { name: "Target Groups", route: "targets" },
-      { name: "Personalization", route: "personalization" },
-      { name: "Customer Journeys", route: "journeys" },
-      { name: "Retargeting", route: "retargeting" },
-    ],
-  },
-  {
-    title: "Analytics & Conversion",
-    description: "Measure campaign performance, engagement, conversion and return.",
-    icon: BarChart3,
-    items: [
-      { name: "Campaign Analytics", route: "analytics" },
-      { name: "Conversion Tracking", route: "conversions" },
-      { name: "Engagement Metrics", route: "engagement" },
-      { name: "ROI Analytics", route: "roi" },
-      { name: "Traffic Analytics", route: "traffic" },
-    ],
-  },
-  {
-    title: "AI Marketing Intelligence",
-    description: "Generate recommendations and optimize campaigns from live performance.",
-    icon: Brain,
-    items: [
-      { name: "Marketing AI", route: "ai" },
-      { name: "Automation Runtime", route: "automation" },
-      { name: "Growth Forecasting", route: "forecasting" },
-      { name: "Optimization Center", route: "optimization" },
-    ],
-  },
-  {
-    title: "Brand & Reputation",
-    description: "Protect brand consistency and monitor public customer perception.",
-    icon: Eye,
-    items: [
-      { name: "Brand Monitoring", route: "monitoring" },
-      { name: "Reputation Runtime", route: "reputation" },
-      { name: "Reviews", route: "reviews" },
-      { name: "Community Feedback", route: "feedback" },
-      { name: "Public Presence", route: "presence" },
+      { name: "Social Campaigns", route: "social" },
     ],
   },
 ];
 
 const STATUS = [
-  { label: "Campaign Runtime", value: "ACTIVE", icon: LayoutDashboard },
-  { label: "Paid Media", value: "CONNECTED", icon: Target },
-  { label: "Publishing", value: "ONLINE", icon: CalendarDays },
-  { label: "Asset Protection", value: "EXACT", icon: Image },
+  { label: "Campaign Runtime", value: "GOVERNED", icon: LayoutDashboard },
+  { label: "Paid Media", value: "APPROVAL GATED", icon: Target },
+  { label: "Publishing", value: "GOVERNED", icon: CalendarDays },
+  { label: "Asset Scope", value: "ORGANIZATION", icon: Image },
 ];
 
 export default function MarketingPage() {
@@ -133,10 +79,10 @@ export default function MarketingPage() {
 
           <Link
             href={`${base}/ads`}
-            className="flex items-center gap-3 rounded-2xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-6 py-4 text-sm font-medium text-[#E6C18C] transition hover:bg-[#D6A66A]/20"
+            className="flex items-center gap-3 rounded-2xl border border-[#D6A66A]/30 bg-[#FBF3E8] px-6 py-4 text-sm font-semibold text-[#6B4C2E] transition hover:bg-[#F4E7D5]"
           >
             <Megaphone className="h-5 w-5" />
-            Open Meta Ads Manager
+            Open Paid Media Builder
           </Link>
         </div>
 
@@ -154,16 +100,16 @@ export default function MarketingPage() {
           <div className="flex flex-wrap items-center justify-between gap-5">
             <div>
               <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Paid Media</div>
-              <h2 className="mt-2 text-3xl font-light">Meta Ads Manager</h2>
+              <h2 className="mt-2 text-3xl font-light">Paid Media Builder</h2>
               <p className="mt-2 max-w-3xl text-[#746E66]">
-                Select an exact approved organization asset, preview it, confirm the logo and create the complete Meta campaign in paused status.
+                Build provider-ready paid campaigns from certified organization connections. Exact creative, no-spend preflight and owner approval remain mandatory before creation.
               </p>
             </div>
             <Link
               href={`${base}/ads`}
               className="flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black"
             >
-              Create Meta campaign
+              Build paid campaign
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -191,8 +137,8 @@ export default function MarketingPage() {
                       href={`${base}/${item.route}`}
                       className={`group flex items-center justify-between rounded-2xl border p-4 transition ${
                         item.featured
-                          ? "border-[#D6A66A]/30 bg-[#D6A66A]/10 text-[#E6C18C]"
-                          : "border-black/[0.08] bg-[#F7F6F3]/30 text-[#5F5A54] hover:border-[#D6A66A]/30 hover:text-[#191919]"
+                          ? "border-[#D6A66A]/30 bg-[#FBF3E8] text-[#6B4C2E]"
+                          : "border-black/[0.08] bg-white text-[#5F5A54] hover:border-[#D6A66A]/30 hover:text-[#191919]"
                       }`}
                     >
                       <span>{item.name}</span>

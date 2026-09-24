@@ -427,8 +427,33 @@ function RunTextJob($Job) {
     while ((Get-Date) -lt $gpuWaitDeadline) {
       Start-Sleep -Seconds 2
       try {
+        $loadedModels = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 3
+        $residentModel = @($loadedModels.models | Where-Object {
+          ([string]$_.name -eq $runtimeModel -or [string]$_.model -eq $runtimeModel) -and
+          ([int64]$_.size_vram -gt 0)
+        } | Select-Object -First 1)
+        if ($residentModel.Count -gt 0) {
+          $runtimeModelAlreadyGpuResident = $true
+          $forceCpu = $false
+          break
+        }
+      } catch {}
+      try {
         $freeGpuMb = [int]((& nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>$null | Select-Object -First 1).Trim())
         if ($freeGpuMb -ge $codeGpuMinFreeMb) { $forceCpu = $false; break }
+      } catch {}
+    }
+    if ($forceCpu) {
+      try {
+        $loadedModels = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 3
+        $residentModel = @($loadedModels.models | Where-Object {
+          ([string]$_.name -eq $runtimeModel -or [string]$_.model -eq $runtimeModel) -and
+          ([int64]$_.size_vram -gt 0)
+        } | Select-Object -First 1)
+        if ($residentModel.Count -gt 0) {
+          $runtimeModelAlreadyGpuResident = $true
+          $forceCpu = $false
+        }
       } catch {}
     }
     if ($forceCpu) { throw 'AVANTIQO_CODE_STRONG_MODEL_GPU_HEADROOM_REQUIRED' }
@@ -450,7 +475,12 @@ function RunTextJob($Job) {
     stream = $false
     think = ([string]$Job.lane -eq 'deep')
     keep_alive = '30m'
-    options = @{ temperature = $temperature; num_predict = $numPredict; num_ctx = $(if ($liveConversation) { 2048 } elseif ($Lane -eq 'code') { $codeContextTokens } else { $ContextTokens }) }
+    options = @{ temperature = $temperature; num_predict = $numPredict; num_ctx = $ContextTokens }
+  }
+  if ($liveConversation) {
+    $body.options.num_ctx = 2048
+  } elseif ($Lane -eq 'code') {
+    $body.options.num_ctx = $codeContextTokens
   }
   if ($forceCpu) {
     $body.options.num_gpu = 0

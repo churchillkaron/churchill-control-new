@@ -2,28 +2,27 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
-export async function POST() {
-
-  try {
-
-    return NextResponse.json({
-      success: true,
-      message:
-        "Marketing queue processed",
-    });
-
-  } catch (error) {
-
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
+function retired() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: "LEGACY_MARKETING_PROCESS_QUEUE_RETIRED",
+        message: "Legacy Marketing queue processing is retired. Use Campaigns execution and Creative Publish.",
       },
-      {
-        status: 500,
-      }
-    );
-  }
+    },
+    { status: 410 },
+  );
+}
+
+export async function GET() {
+  return retired();
+}
+
+export async function POST() {
+  return retired();
+}
+
+export async function DELETE() {
+  return retired();
 }

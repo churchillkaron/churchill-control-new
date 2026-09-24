@@ -5,6 +5,7 @@ from "next/server";
 
 import { supabase }
 from "@/lib/shared/supabase/client";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 export async function POST(
   req
@@ -17,6 +18,21 @@ export async function POST(
 
     const assetId =
       body?.assetId;
+    const organizationId =
+      body?.organizationId;
+
+    if (!organizationId) {
+      return NextResponse.json({ success: false, error: "Missing organizationId" }, { status: 400 });
+    }
+
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request: req,
+      requiredAnyPermission: ["creative.asset.upload", "marketing.campaign.manage", "creative.*"],
+    });
+    if (!access.success) {
+      return NextResponse.json({ success: false, error: access.error || "Organization access denied" }, { status: access.status || 403 });
+    }
 
     if (!assetId) {
 
@@ -63,6 +79,7 @@ export async function POST(
         "id",
         assetId
       )
+      .eq("organization_id", access.organizationId)
 
       .single();
 
@@ -141,7 +158,8 @@ export async function POST(
       .eq(
         "id",
         assetId
-      );
+      )
+      .eq("organization_id", access.organizationId);
 
     if (deleteError) {
 

@@ -2,28 +2,23 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
-export async function POST(req) {
-  try {
-    const body = await req.json();
+function retired() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: "LEGACY_MARKETING_SAVE_RETIRED",
+        message: "Legacy in-memory campaign save is retired. Use the governed Campaigns API.",
+      },
+    },
+    { status: 410 },
+  );
+}
 
-    const campaign = {
-      id: Date.now(),
-      image: body.image,
-      headline: body.headline,
-      sub: body.sub,
-      cta: body.cta,
-      status: "ready", // 🔥 IMPORTANT: ready for posting
-      createdAt: new Date().toISOString(),
-    };
+export async function GET() {
+  return retired();
+}
 
-    // 👉 store in localStorage via frontend OR later DB
-    return NextResponse.json({
-      success: true,
-      campaign,
-    });
-
-  } catch (err) {
-    if (process.env.NODE_ENV !== "production") console.log(err);
-    return NextResponse.json({ error: "Save failed" }, { status: 500 });
-  }
+export async function POST() {
+  return retired();
 }

@@ -8,6 +8,7 @@ from "next/server";
 
 import { uploadMarketingAssetFlow }
 from "@/lib/marketing/services/uploadMarketingAssetFlow";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 export async function POST(
   request
@@ -68,6 +69,15 @@ export async function POST(
 
       );
 
+    }
+
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredAnyPermission: ["creative.asset.upload", "marketing.campaign.manage", "creative.*"],
+    });
+    if (!access.success) {
+      return NextResponse.json({ success: false, error: access.error || "Organization access denied" }, { status: access.status || 403 });
     }
 
     if (!file) {
@@ -150,7 +160,7 @@ export async function POST(
     const result =
       await uploadMarketingAssetFlow({
 
-        organizationId,
+        organizationId: access.organizationId,
 
         pageId,
 

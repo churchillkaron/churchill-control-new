@@ -23,7 +23,7 @@ function dateLabel(value) {
 }
 
 function expiryTone(expiry) {
-  if (!expiry) return "border-white/10 bg-white/[0.03] text-white/55";
+  if (!expiry) return "border-black/[0.08] bg-[#FBF8F3] text-[#746E66]";
   if (expiry.state === "EXPIRED" || expiry.state === "EXPIRING_7") {
     return "border-red-400/20 bg-red-400/[0.08] text-red-100";
   }
@@ -151,9 +151,9 @@ export default function PeopleIdentityReviewPanel({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] bg-black/80 p-3 backdrop-blur-md sm:p-6">
-      <div className="mx-auto flex h-full max-w-7xl flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[#080808] text-white shadow-2xl">
-        <div className="flex items-center gap-4 border-b border-white/[0.08] px-5 py-4">
+    <div className="fixed inset-0 z-[80] bg-[#191919]/20 p-3 backdrop-blur-md sm:p-6">
+      <div className="mx-auto flex h-full max-w-7xl flex-col overflow-hidden rounded-[30px] border border-black/[0.08] bg-white text-[#191919] shadow-2xl">
+        <div className="flex items-center gap-4 border-b border-black/[0.08] px-5 py-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/10">
             <ShieldCheck className="h-5 w-5 text-[#D6A66A]" />
           </div>
@@ -164,21 +164,21 @@ export default function PeopleIdentityReviewPanel({
             <div className="mt-1 truncate text-xl font-black">
               {employee?.name || "Employee"}
             </div>
-            <div className="mt-1 truncate text-xs text-white/35">
+            <div className="mt-1 truncate text-xs text-[#918B83]">
               {employee?.email || "No email"} · private identity evidence
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white/60"
+            className="ml-auto flex h-10 w-10 items-center justify-center rounded-xl border border-black/[0.08] bg-[#FBF8F3] text-[#746E66]"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="grid min-h-0 flex-1 gap-0 xl:grid-cols-[440px_1fr]">
-          <aside className="overflow-y-auto border-b border-white/[0.08] p-5 xl:border-b-0 xl:border-r">
+          <aside className="overflow-y-auto border-b border-black/[0.08] p-5 xl:border-b-0 xl:border-r xl:border-black/[0.08]">
             {error ? (
               <div className="mb-4 rounded-2xl border border-red-400/20 bg-red-400/[0.08] p-3 text-sm text-red-100">
                 {error}
@@ -186,7 +186,7 @@ export default function PeopleIdentityReviewPanel({
             ) : null}
 
             {loading ? (
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 text-sm text-white/40">
+              <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5 text-sm text-[#817A72]">
                 Loading identity evidence...
               </div>
             ) : (
@@ -235,17 +235,17 @@ export default function PeopleIdentityReviewPanel({
               <div className="space-y-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-[9px] uppercase tracking-[0.2em] text-white/30">
+                    <div className="text-[9px] uppercase tracking-[0.2em] text-[#A19A92]">
                       Secure visual preview
                     </div>
                     <div className="mt-1 text-lg font-black">
                       {preview.document?.document_name || preview.document?.document_type}
                     </div>
-                    <div className="mt-1 text-xs text-white/35">
+                    <div className="mt-1 text-xs text-[#918B83]">
                       Signed preview expires in {preview.expires_in} seconds · version {preview.version_number}
                     </div>
                   </div>
-                  <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[9px] uppercase tracking-[0.12em] text-white/45">
+                  <div className="rounded-full border border-black/[0.08] bg-white px-3 py-1 text-[9px] uppercase tracking-[0.12em] text-[#746E66]">
                     {preview.document?.document_status || "unknown"}
                   </div>
                 </div>
@@ -257,7 +257,7 @@ export default function PeopleIdentityReviewPanel({
                   <Detail label="Legal entity" value={preview.document?.entity_id || "Staff identity"} mono />
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-white/10 bg-white">
+                <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white">
                   {String(preview.document?.mime_type || "").startsWith("image/") ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -279,7 +279,7 @@ export default function PeopleIdentityReviewPanel({
                     <div className="flex items-center gap-2 text-sm font-black text-[#E8C18C]">
                       <FileCheck2 className="h-4 w-4" /> Verification decision
                     </div>
-                    <p className="mt-2 text-xs leading-5 text-white/45">
+                    <p className="mt-2 text-xs leading-5 text-[#746E66]">
                       Confirm that the person, document number, expiry date and legal entity match the employee record before approval.
                     </p>
                     <textarea
@@ -287,7 +287,7 @@ export default function PeopleIdentityReviewPanel({
                       onChange={(event) => setDecisionNotes(event.target.value)}
                       rows={3}
                       placeholder="Decision notes / rejection reason"
-                      className="mt-3 w-full rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white outline-none placeholder:text-white/25"
+                      className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white p-3 text-xs text-[#191919] outline-none placeholder:text-[#A19A92]"
                     />
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
@@ -311,11 +311,11 @@ export default function PeopleIdentityReviewPanel({
                 ) : null}
               </div>
             ) : (
-              <div className="flex min-h-[520px] items-center justify-center rounded-[24px] border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+              <div className="flex min-h-[520px] items-center justify-center rounded-[24px] border border-dashed border-black/[0.10] bg-[#FBF8F3] p-8 text-center">
                 <div className="max-w-md">
                   <ShieldCheck className="mx-auto h-8 w-8 text-[#D6A66A]/60" />
                   <div className="mt-4 text-lg font-black">Select a document to review visually.</div>
-                  <div className="mt-2 text-sm leading-6 text-white/35">
+                  <div className="mt-2 text-sm leading-6 text-[#918B83]">
                     Passport, national ID and work permit remain private. Owner/HR receives a temporary signed preview and every preview access is logged.
                   </div>
                 </div>
@@ -330,19 +330,19 @@ export default function PeopleIdentityReviewPanel({
 
 function StatusCard({ label, value, detail, attention = false }) {
   return (
-    <div className={`rounded-2xl border p-3 ${attention ? "border-amber-300/20 bg-amber-300/[0.06]" : "border-white/[0.08] bg-white/[0.03]"}`}>
-      <div className="text-[8px] uppercase tracking-[0.16em] text-white/25">{label}</div>
-      <div className={`mt-1 text-sm font-black ${attention ? "text-amber-100" : "text-white"}`}>{value}</div>
-      <div className="mt-1 truncate text-[9px] text-white/30">{detail}</div>
+    <div className={`rounded-2xl border p-3 ${attention ? "border-amber-300/20 bg-amber-300/[0.06]" : "border-black/[0.08] bg-[#FBF8F3]"}`}>
+      <div className="text-[8px] uppercase tracking-[0.16em] text-[#A19A92]">{label}</div>
+      <div className={`mt-1 text-sm font-black ${attention ? "text-amber-100" : "text-[#191919]"}`}>{value}</div>
+      <div className="mt-1 truncate text-[9px] text-[#A19A92]">{detail}</div>
     </div>
   );
 }
 
 function Detail({ label, value, mono = false }) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
-      <div className="text-[8px] uppercase tracking-[0.13em] text-white/25">{label}</div>
-      <div className={`mt-1 break-all text-[10px] font-semibold text-white/65 ${mono ? "font-mono" : ""}`}>{value}</div>
+    <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3">
+      <div className="text-[8px] uppercase tracking-[0.13em] text-[#A19A92]">{label}</div>
+      <div className={`mt-1 break-all text-[10px] font-semibold text-[#191919]/65 ${mono ? "font-mono" : ""}`}>{value}</div>
     </div>
   );
 }
@@ -356,21 +356,21 @@ function DocumentCard({ label, entry, onPreview, working }) {
   const authoritative = verified || (current?.verification === "VERIFIED" ? current : null);
 
   return (
-    <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.03] p-4">
+    <div className="rounded-[22px] border border-black/[0.08] bg-[#FBF8F3] p-4">
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/25">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-black/[0.08] bg-[#FBF8F3]">
           {authoritative ? (
             <BadgeCheck className="h-4 w-4 text-emerald-300" />
           ) : pending ? (
             <CalendarClock className="h-4 w-4 text-amber-200" />
           ) : (
-            <FileWarning className="h-4 w-4 text-white/30" />
+            <FileWarning className="h-4 w-4 text-[#A19A92]" />
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <div className="text-sm font-black">{label}</div>
-            <span className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-white/40">
+            <span className="rounded-full border border-black/[0.08] bg-[#FBF8F3] px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-[#817A72]">
               {authoritative ? "Verified" : pending ? "Pending" : entry?.required ? "Missing" : "Optional"}
             </span>
           </div>
@@ -380,7 +380,7 @@ function DocumentCard({ label, entry, onPreview, working }) {
               <div className={`rounded-xl border px-3 py-2 text-[9px] ${expiryTone(authoritative.expiry)}`}>
                 {expiryCopy(authoritative.expiry, authoritative.expiry_date)}
               </div>
-              <div className="mt-2 text-[9px] text-white/35">
+              <div className="mt-2 text-[9px] text-[#918B83]">
                 {authoritative.document_number ? `No. ${authoritative.document_number} · ` : ""}
                 version {authoritative.version_number}
               </div>
@@ -388,7 +388,7 @@ function DocumentCard({ label, entry, onPreview, working }) {
                 type="button"
                 disabled={working}
                 onClick={() => onPreview(authoritative)}
-                className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-white/60 disabled:opacity-35"
+                className="mt-3 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#191919]/60 disabled:opacity-35"
               >
                 View verified document
               </button>
@@ -400,7 +400,7 @@ function DocumentCard({ label, entry, onPreview, working }) {
               <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#E8C18C]">
                 Pending replacement
               </div>
-              <div className="mt-1 text-[9px] text-white/45">
+              <div className="mt-1 text-[9px] text-[#746E66]">
                 {pending.expiry_date ? `Expiry ${dateLabel(pending.expiry_date)} · ` : ""}
                 awaiting owner/HR verification
               </div>
@@ -416,7 +416,7 @@ function DocumentCard({ label, entry, onPreview, working }) {
           ) : null}
 
           {!authoritative && !pending ? (
-            <div className="mt-2 text-[9px] leading-4 text-white/30">
+            <div className="mt-2 text-[9px] leading-4 text-[#A19A92]">
               {entry?.required ? "No current document has been uploaded and verified." : "No work permit is currently recorded for this legal entity."}
             </div>
           ) : null}

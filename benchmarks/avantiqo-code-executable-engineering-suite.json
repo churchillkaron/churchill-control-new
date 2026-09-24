@@ -1,0 +1,114 @@
+{
+  "contract": "AVANTIQO_CODE_EXECUTABLE_ENGINEERING_SUITE_V1",
+  "minimum_cases": 8,
+  "hidden_verification_required": true,
+  "candidate_cannot_edit_tests": true,
+  "production_runtime_effect": "NONE",
+  "cases": [
+    {
+      "case_id": "exec_finite_sum",
+      "category": "debug",
+      "objective": "Fix sumFinite so it sums only finite numeric values, preserves valid zero and negatives, and rejects non-array input without editing tests.",
+      "allowed_edit_paths": ["src/math.mjs"],
+      "public_verifier": {"command": "node", "args": ["tests/public.test.mjs"]},
+      "files": {
+        "package.json": "{\"type\":\"module\"}\n",
+        "src/math.mjs": "export function sumFinite(values){ return values.reduce((sum,value)=>sum+value,0); }\n",
+        "tests/public.test.mjs": "import assert from 'node:assert/strict'; import {sumFinite} from '../src/math.mjs'; assert.equal(sumFinite([1,2,3]),6); assert.equal(sumFinite([1,NaN,2]),3);\n"
+      },
+      "hidden_verifier_source": "import assert from 'node:assert/strict'; const root=process.env.BENCHMARK_ROOT; const {sumFinite}=await import('file://'+root+'/src/math.mjs?x='+Date.now()); assert.equal(sumFinite([Infinity,2,-3,0,4]),3); assert.equal(sumFinite([]),0); assert.throws(()=>sumFinite(null),TypeError);"
+    },
+    {
+      "case_id": "exec_email_normalization",
+      "category": "refactor",
+      "objective": "Make email identity normalization canonical and consistent across both customer lookup callers: trim surrounding whitespace and compare case-insensitively. Do not edit tests.",
+      "allowed_edit_paths": ["src/email.mjs","src/customers.mjs"],
+      "public_verifier": {"command": "node", "args": ["tests/public.test.mjs"]},
+      "files": {
+        "package.json": "{\"type\":\"module\"}\n",
+        "src/email.mjs": "export const normalizeEmail=(value)=>String(value??'').toLowerCase();\n",
+        "src/customers.mjs": "import {normalizeEmail} from './email.mjs'; export const findCustomer=(rows,email)=>rows.find(r=>normalizeEmail(r.email)===normalizeEmail(email)); export const hasCustomer=(rows,email)=>rows.some(r=>String(r.email??'').toLowerCase()===String(email??'').toLowerCase());\n",
+        "tests/public.test.mjs": "import assert from 'node:assert/strict'; import {findCustomer} from '../src/customers.mjs'; const rows=[{id:1,email:'A@Example.com'}]; assert.equal(findCustomer(rows,' a@example.com ')?.id,1);\n"
+      },
+      "hidden_verifier_source": "import assert from 'node:assert/strict'; const root=process.env.BENCHMARK_ROOT; const m=await import('file://'+root+'/src/customers.mjs?x='+Date.now()); const rows=[{id:7,email:' USER@EXAMPLE.COM '}]; assert.equal(m.findCustomer(rows,'user@example.com')?.id,7); assert.equal(m.hasCustomer(rows,' user@example.com '),true);"
+    },
+    {
+      "case_id": "exec_tenant_scope",
+      "category": "security",
+      "objective": "Close cross-organization leakage in getInvoice. The requested organization must be present and the returned invoice must belong to it. Preserve the existing positive lookup behavior and do not edit tests.",
+      "allowed_edit_paths": ["src/invoices.mjs"],
+      "public_verifier": {"command": "node", "args": ["tests/public.test.mjs"]},
+      "files": {
+        "package.json": "{\"type\":\"module\"}\n",
+        "src/invoices.mjs": "export function getInvoice(rows,{invoiceId,organizationId}){ return rows.find(r=>r.id===invoiceId)||null; }\n",
+        "tests/public.test.mjs": "import assert from 'node:assert/strict'; import {getInvoice} from '../src/invoices.mjs'; const rows=[{id:'i1',organization_id:'o1'}]; assert.equal(getInvoice(rows,{invoiceId:'i1',organizationId:'o1'})?.id,'i1');\n"
+      },
+      "hidden_verifier_source": "import assert from 'node:assert/strict'; const root=process.env.BENCHMARK_ROOT; const {getInvoice}=await import('file://'+root+'/src/invoices.mjs?x='+Date.now()); const rows=[{id:'same',organization_id:'a'},{id:'same',organization_id:'b'}]; assert.equal(getInvoice(rows,{invoiceId:'same',organizationId:'b'})?.organization_id,'b'); assert.equal(getInvoice(rows,{invoiceId:'same',organizationId:'c'}),null); assert.throws(()=>getInvoice(rows,{invoiceId:'same'}),/organization/i);"
+    },
+    {
+      "case_id": "exec_money_rounding",
+      "category": "finance",
+      "objective": "Repair calculateInvoiceTotal so monetary rounding is deterministic to two decimal places at the tax boundary and invalid non-finite inputs throw TypeError. Do not edit tests.",
+      "allowed_edit_paths": ["src/money.mjs"],
+      "public_verifier": {"command": "node", "args": ["tests/public.test.mjs"]},
+      "files": {
+        "package.json": "{\"type\":\"module\"}\n",
+        "src/money.mjs": "export function calculateInvoiceTotal(net,taxRate){ return net + net*taxRate; }\n",
+        "tests/public.test.mjs": "import assert from 'node:assert/strict'; import {calculateInvoiceTotal} from '../src/money.mjs'; assert.equal(calculateInvoiceTotal(19.99,0.075),21.49);\n"
+      },
+      "hidden_verifier_source": "import assert from 'node:assert/strict'; const root=process.env.BENCHMARK_ROOT; const {calculateInvoiceTotal}=await import('file://'+root+'/src/money.mjs?x='+Date.now()); assert.equal(calculateInvoiceTotal(0.1,0.2),0.12); assert.equal(calculateInvoiceTotal(100,0.07),107); assert.throws(()=>calculateInvoiceTotal(NaN,0.07),TypeError); assert.throws(()=>calculateInvoiceTotal(100,Infinity),TypeError);"
+    },
+    {
+      "case_id": "exec_idempotent_write",
+      "category": "runtime",
+      "objective": "Make recordPayment retry-safe by idempotencyKey. Repeating the same key must return the original payment without adding another ledger row; distinct keys still create distinct payments. Do not edit tests.",
+      "allowed_edit_paths": ["src/payments.mjs"],
+      "public_verifier": {"command": "node", "args": ["tests/public.test.mjs"]},
+      "files": {
+        "package.json": "{\"type\":\"module\"}\n",
+        "src/payments.mjs": "export function recordPayment(ledger,{idempotencyKey,amount}){ const payment={id:'p'+(ledger.length+1),idempotencyKey,amount}; ledger.push(payment); return payment; }\n",
+        "tests/public.test.mjs": "import assert from 'node:assert/strict'; import {recordPayment} from '../src/payments.mjs'; const ledger=[]; const a=recordPayment(ledger,{idempotencyKey:'k1',amount:10}); const b=recordPayment(ledger,{idempotencyKey:'k1',amount:10}); assert.equal(a.id,b.id); assert.equal(ledger.length,1);\n"
+      },
+      "hidden_verifier_source": "import assert from 'node:assert/strict'; const root=process.env.BENCHMARK_ROOT; const {recordPayment}=await import('file://'+root+'/src/payments.mjs?x='+Date.now()); const ledger=[]; const a=recordPayment(ledger,{idempotencyKey:'x',amount:5}); const b=recordPayment(ledger,{idempotencyKey:'x',amount:999}); const c=recordPayment(ledger,{idempotencyKey:'y',amount:5}); assert.equal(a.id,b.id); assert.equal(b.amount,5); assert.notEqual(c.id,a.id); assert.equal(ledger.length,2);"
+    },
+    {
+      "case_id": "exec_async_resume",
+      "category": "agent",
+      "objective": "Repair ensureJob so a pending providerJobId is resumed instead of submitting duplicate provider work. A new submission is allowed only when no provider job exists. Do not edit tests.",
+      "allowed_edit_paths": ["src/jobs.mjs"],
+      "public_verifier": {"command": "node", "args": ["tests/public.test.mjs"]},
+      "files": {
+        "package.json": "{\"type\":\"module\"}\n",
+        "src/jobs.mjs": "export async function ensureJob(state,provider){ const created=await provider.submit(); state.providerJobId=created.id; return created; }\n",
+        "tests/public.test.mjs": "import assert from 'node:assert/strict'; import {ensureJob} from '../src/jobs.mjs'; let calls=0; const provider={submit:async()=>({id:'new-'+(++calls)}),status:async(id)=>({id,status:'pending'})}; const state={providerJobId:'existing'}; const r=await ensureJob(state,provider); assert.equal(calls,0); assert.equal(r.id,'existing');\n"
+      },
+      "hidden_verifier_source": "import assert from 'node:assert/strict'; const root=process.env.BENCHMARK_ROOT; const {ensureJob}=await import('file://'+root+'/src/jobs.mjs?x='+Date.now()); let submits=0,statuses=0; const provider={submit:async()=>({id:'created-'+(++submits)}),status:async(id)=>{statuses++;return{id,status:'pending'}}}; const existing={providerJobId:'j1'}; assert.equal((await ensureJob(existing,provider)).id,'j1'); assert.equal(submits,0); assert.equal(statuses,1); const fresh={}; assert.equal((await ensureJob(fresh,provider)).id,'created-1'); assert.equal(submits,1);"
+    },
+    {
+      "case_id": "exec_parallel_io",
+      "category": "performance",
+      "objective": "Remove unnecessary serial latency from loadDashboard. The independent profile, invoices, and alerts reads must run concurrently while preserving the returned object shape. Do not edit tests.",
+      "allowed_edit_paths": ["src/dashboard.mjs"],
+      "public_verifier": {"command": "node", "args": ["tests/public.test.mjs"]},
+      "files": {
+        "package.json": "{\"type\":\"module\"}\n",
+        "src/dashboard.mjs": "export async function loadDashboard(api){ const profile=await api.profile(); const invoices=await api.invoices(); const alerts=await api.alerts(); return {profile,invoices,alerts}; }\n",
+        "tests/public.test.mjs": "import assert from 'node:assert/strict'; import {loadDashboard} from '../src/dashboard.mjs'; const api={profile:async()=>1,invoices:async()=>2,alerts:async()=>3}; assert.deepEqual(await loadDashboard(api),{profile:1,invoices:2,alerts:3});\n"
+      },
+      "hidden_verifier_source": "import assert from 'node:assert/strict'; const root=process.env.BENCHMARK_ROOT; const {loadDashboard}=await import('file://'+root+'/src/dashboard.mjs?x='+Date.now()); const wait=(v)=>new Promise(r=>setTimeout(()=>r(v),80)); const started=Date.now(); const out=await loadDashboard({profile:()=>wait(1),invoices:()=>wait(2),alerts:()=>wait(3)}); const elapsed=Date.now()-started; assert.deepEqual(out,{profile:1,invoices:2,alerts:3}); assert.ok(elapsed<180,'expected parallel I/O, elapsed='+elapsed);"
+    },
+    {
+      "case_id": "exec_error_contract",
+      "category": "backend",
+      "objective": "Repair getOrderResponse error semantics. Missing orders must return status 404 with machine code ORDER_NOT_FOUND; successful orders remain status 200. Never hide a missing order behind a false-success 200 response. Do not edit tests.",
+      "allowed_edit_paths": ["src/orders.mjs"],
+      "public_verifier": {"command": "node", "args": ["tests/public.test.mjs"]},
+      "files": {
+        "package.json": "{\"type\":\"module\"}\n",
+        "src/orders.mjs": "export function getOrderResponse(order){ if(!order)return {status:200,body:{success:false}}; return {status:200,body:{success:true,order}}; }\n",
+        "tests/public.test.mjs": "import assert from 'node:assert/strict'; import {getOrderResponse} from '../src/orders.mjs'; const r=getOrderResponse(null); assert.equal(r.status,404); assert.equal(r.body.code,'ORDER_NOT_FOUND');\n"
+      },
+      "hidden_verifier_source": "import assert from 'node:assert/strict'; const root=process.env.BENCHMARK_ROOT; const {getOrderResponse}=await import('file://'+root+'/src/orders.mjs?x='+Date.now()); const missing=getOrderResponse(undefined); assert.deepEqual(missing,{status:404,body:{success:false,code:'ORDER_NOT_FOUND'}}); const order={id:'o1'}; assert.deepEqual(getOrderResponse(order),{status:200,body:{success:true,order}});"
+    }
+  ]
+}

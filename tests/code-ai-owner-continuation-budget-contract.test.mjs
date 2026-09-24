@@ -43,3 +43,9 @@ test("external planner ceiling stays eight while local DEVICE ceiling may reach 
   assert.match(employee, /workspace_target.*DEVICE/s);
   assert.match(live, /max_budget: text\(objectiveContext\?\.workspace_target/);
 });
+test("resumed missions cannot preserve a budget below calls already consumed", () => {
+  assert.match(live, /const reasoningCallsUsed = nonNegativeInteger\(source\.reasoning_calls_used\)/);
+  assert.match(live, /const policyCeiling = localDeviceMission/);
+  assert.match(live, /Math\.min\(reasoningCallsUsed, policyCeiling\)/);
+  assert.match(live, /reasoning_call_budget: effectiveBudget/);
+});

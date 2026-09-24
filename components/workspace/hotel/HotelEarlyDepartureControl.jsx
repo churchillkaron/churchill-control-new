@@ -73,7 +73,7 @@ export default function HotelEarlyDepartureControl({ booking, organizationId, on
     setReviewNote(booking?.early_departure_review_note || "");
     setError("");
     setSuccess("");
-  }, [booking?.id]);
+  }, [booking?.early_departure_review_note, booking?.id]);
 
   if (!eligible && reviewStatus !== "CONFIRMED") return null;
 

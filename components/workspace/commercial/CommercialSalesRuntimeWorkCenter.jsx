@@ -34,7 +34,7 @@ function statusStyle(status) {
     return "border-rose-400/30 bg-rose-400/10 text-rose-200";
   }
   if (["SENT", "RESERVED"].includes(normalized)) {
-    return "border-sky-400/30 bg-sky-400/10 text-sky-200";
+    return "border-[#D6A66A]/35 bg-[#FBF3E8] text-[#76583A]";
   }
   return "border-amber-300/30 bg-amber-300/10 text-amber-100";
 }
@@ -152,9 +152,9 @@ function Composer({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#191919]/20 p-4 backdrop-blur-sm">
       <form
-        className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-white/10 bg-[#101722] shadow-2xl"
+        className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-black/[0.08] bg-white shadow-2xl"
         onSubmit={(event) => {
           event.preventDefault();
           onSave({
@@ -166,19 +166,19 @@ function Composer({
           });
         }}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-[#101722]/95 px-6 py-5 backdrop-blur">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black/[0.08] bg-white/95 px-6 py-5 backdrop-blur">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#D6A66A]">
               Commercial
             </p>
-            <h2 className="mt-1 text-2xl font-semibold text-white">
+            <h2 className="mt-1 text-2xl font-semibold text-[#191919]">
               New {isQuotation ? "quotation" : "sales order"}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/70 hover:bg-white/5"
+            className="rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#5F5A54] hover:bg-[#FBF8F3]"
           >
             Close
           </button>
@@ -186,7 +186,7 @@ function Composer({
 
         <div className="space-y-6 p-6">
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2 text-sm text-white/60">
+            <label className="space-y-2 text-sm text-[#5F5A54]">
               <span>Customer Party {isQuotation ? "*" : "(optional)"}</span>
               <select
                 required={isQuotation}
@@ -197,7 +197,7 @@ function Composer({
                     party_id: event.target.value,
                   }))
                 }
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-[#D6A66A]"
+                className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-[#191919] outline-none focus:border-[#D6A66A]"
               >
                 <option value="">Walk-in / select customer</option>
                 {customers.map((customer) => (
@@ -210,7 +210,7 @@ function Composer({
             </label>
 
             {isQuotation ? (
-              <label className="space-y-2 text-sm text-white/60">
+              <label className="space-y-2 text-sm text-[#5F5A54]">
                 <span>Valid until</span>
                 <input
                   type="date"
@@ -222,17 +222,17 @@ function Composer({
                       valid_until: event.target.value,
                     }))
                   }
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-[#D6A66A]"
+                  className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-[#191919] outline-none focus:border-[#D6A66A]"
                 />
               </label>
             ) : null}
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-black/20">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
+          <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3]">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.08] px-5 py-4">
               <div>
-                <h3 className="font-semibold text-white">Lines</h3>
-                <p className="text-xs text-white/45">
+                <h3 className="font-semibold text-[#191919]">Lines</h3>
+                <p className="text-xs text-[#817A72]">
                   Inventory lines reserve stock; service lines do not.
                 </p>
               </div>
@@ -245,7 +245,7 @@ function Composer({
                       items: [...current.items, emptyLine("inventory_item")],
                     }))
                   }
-                  className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70 hover:border-[#D6A66A]/50"
+                  className="rounded-lg border border-black/[0.08] px-3 py-2 text-xs text-[#5F5A54] hover:border-[#D6A66A]/50"
                 >
                   + Catalog item
                 </button>
@@ -268,13 +268,13 @@ function Composer({
               {form.items.map((line, index) => (
                 <div key={line.key} className="grid gap-3 p-5 lg:grid-cols-12">
                   <div className="lg:col-span-2">
-                    <label className="text-xs text-white/40">Type</label>
+                    <label className="text-xs text-[#918B83]">Type</label>
                     <select
                       value={line.item_type}
                       onChange={(event) =>
                         updateLine(line.key, "item_type", event.target.value)
                       }
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+                      className="mt-1 w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-sm text-[#191919]"
                     >
                       <option value="service">Service</option>
                       <option value="inventory_item">Catalog item</option>
@@ -282,7 +282,7 @@ function Composer({
                   </div>
 
                   <div className="lg:col-span-4">
-                    <label className="text-xs text-white/40">
+                    <label className="text-xs text-[#918B83]">
                       {line.item_type === "inventory_item" ? "Catalog item" : "Service name"}
                     </label>
                     {line.item_type === "inventory_item" ? (
@@ -292,7 +292,7 @@ function Composer({
                         onChange={(event) =>
                           updateLine(line.key, "item_id", event.target.value)
                         }
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-sm text-[#191919]"
                       >
                         <option value="">Select item</option>
                         {catalog.map((item) => (
@@ -309,13 +309,13 @@ function Composer({
                           updateLine(line.key, "item_name", event.target.value)
                         }
                         placeholder="Consulting, performance, maintenance…"
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-sm text-[#191919]"
                       />
                     )}
                   </div>
 
                   <div className="lg:col-span-2">
-                    <label className="text-xs text-white/40">Quantity</label>
+                    <label className="text-xs text-[#918B83]">Quantity</label>
                     <input
                       type="number"
                       min="0.0001"
@@ -325,12 +325,12 @@ function Composer({
                       onChange={(event) =>
                         updateLine(line.key, "quantity", event.target.value)
                       }
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+                      className="mt-1 w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-sm text-[#191919]"
                     />
                   </div>
 
                   <div className="lg:col-span-2">
-                    <label className="text-xs text-white/40">Unit price</label>
+                    <label className="text-xs text-[#918B83]">Unit price</label>
                     <input
                       type="number"
                       min="0"
@@ -340,13 +340,13 @@ function Composer({
                       onChange={(event) =>
                         updateLine(line.key, "unit_price", event.target.value)
                       }
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+                      className="mt-1 w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-sm text-[#191919]"
                     />
                   </div>
 
                   <div className="flex items-end gap-2 lg:col-span-2">
                     <div className="flex-1">
-                      <label className="text-xs text-white/40">Discount</label>
+                      <label className="text-xs text-[#918B83]">Discount</label>
                       <input
                         type="number"
                         min="0"
@@ -355,7 +355,7 @@ function Composer({
                         onChange={(event) =>
                           updateLine(line.key, "discount_amount", event.target.value)
                         }
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-sm text-[#191919]"
                       />
                     </div>
                     <button
@@ -373,7 +373,7 @@ function Composer({
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2 text-sm text-white/60">
+            <label className="space-y-2 text-sm text-[#5F5A54]">
               <span>Notes</span>
               <textarea
                 rows={3}
@@ -381,11 +381,11 @@ function Composer({
                 onChange={(event) =>
                   setForm((current) => ({ ...current, notes: event.target.value }))
                 }
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white"
+                className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-[#191919]"
               />
             </label>
             {isQuotation ? (
-              <label className="space-y-2 text-sm text-white/60">
+              <label className="space-y-2 text-sm text-[#5F5A54]">
                 <span>Commercial terms</span>
                 <textarea
                   rows={3}
@@ -393,22 +393,22 @@ function Composer({
                   onChange={(event) =>
                     setForm((current) => ({ ...current, terms: event.target.value }))
                   }
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white"
+                  className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-[#191919]"
                 />
               </label>
             ) : null}
           </div>
         </div>
 
-        <div className="sticky bottom-0 flex items-center justify-between border-t border-white/10 bg-[#101722]/95 px-6 py-4 backdrop-blur">
+        <div className="sticky bottom-0 flex items-center justify-between border-t border-black/[0.08] bg-white/95 px-6 py-4 backdrop-blur">
           <div>
-            <p className="text-xs uppercase tracking-wider text-white/40">Subtotal before tax</p>
-            <p className="text-xl font-semibold text-white">{money(subtotal)}</p>
+            <p className="text-xs uppercase tracking-wider text-[#918B83]">Subtotal before tax</p>
+            <p className="text-xl font-semibold text-[#191919]">{money(subtotal)}</p>
           </div>
           <button
             type="submit"
             disabled={saving}
-            className="rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black disabled:opacity-50"
+            className="rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-[#191919] disabled:opacity-50"
           >
             {saving ? "Saving…" : `Create ${isQuotation ? "quotation" : "draft order"}`}
           </button>
@@ -575,7 +575,7 @@ export default function CommercialSalesRuntimeWorkCenter({
   }
 
   return (
-    <div className="min-h-full p-5 text-white md:p-8">
+    <div className="min-h-full p-5 text-[#191919] md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
@@ -585,7 +585,7 @@ export default function CommercialSalesRuntimeWorkCenter({
             <h1 className="mt-2 text-3xl font-semibold">
               {isQuotation ? "Quotations" : "Sales Orders"}
             </h1>
-            <p className="mt-2 max-w-2xl text-sm text-white/50">
+            <p className="mt-2 max-w-2xl text-sm text-[#746E66]">
               {isQuotation
                 ? "Prepare, send, accept and convert customer quotations into controlled sales orders."
                 : "Create and confirm inventory, service or mixed customer orders."}
@@ -596,14 +596,14 @@ export default function CommercialSalesRuntimeWorkCenter({
               href={`/workspace/${resolvedOrganizationId}/commercial/sales/${
                 isQuotation ? "orders" : "quotes"
               }`}
-              className="rounded-xl border border-white/10 px-4 py-3 text-sm text-white/70 hover:border-[#D6A66A]/40"
+              className="rounded-xl border border-black/[0.08] px-4 py-3 text-sm text-[#5F5A54] hover:border-[#D6A66A]/40"
             >
               {isQuotation ? "Sales Orders" : "Quotations"}
             </Link>
             <button
               type="button"
               onClick={() => setComposerOpen(true)}
-              className="rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black"
+              className="rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-[#191919]"
             >
               + {isQuotation ? "Quotation" : "Sales Order"}
             </button>
@@ -622,8 +622,8 @@ export default function CommercialSalesRuntimeWorkCenter({
         ) : null}
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-            <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,.7fr)_minmax(110px,.7fr)_minmax(130px,.8fr)] gap-3 border-b border-white/10 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-white/35">
+          <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-[#FBF8F3]">
+            <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,.7fr)_minmax(110px,.7fr)_minmax(130px,.8fr)] gap-3 border-b border-black/[0.08] px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[#918B83]">
               <span>Document / customer</span>
               <span>Status</span>
               <span>Date</span>
@@ -631,10 +631,10 @@ export default function CommercialSalesRuntimeWorkCenter({
             </div>
 
             {loading ? (
-              <div className="p-10 text-center text-white/45">Loading Commercial records…</div>
+              <div className="p-10 text-center text-[#817A72]">Loading Commercial records…</div>
             ) : rows.length === 0 ? (
               <div className="p-10 text-center">
-                <p className="text-white/60">No {isQuotation ? "quotations" : "sales orders"} yet.</p>
+                <p className="text-[#5F5A54]">No {isQuotation ? "quotations" : "sales orders"} yet.</p>
                 <button
                   type="button"
                   onClick={() => setComposerOpen(true)}
@@ -654,14 +654,14 @@ export default function CommercialSalesRuntimeWorkCenter({
                       key={row.id}
                       onClick={() => setSelectedId(row.id)}
                       className={`grid w-full grid-cols-[minmax(0,1.5fr)_minmax(110px,.7fr)_minmax(110px,.7fr)_minmax(130px,.8fr)] gap-3 px-5 py-4 text-left transition ${
-                        selectedRow ? "bg-[#D6A66A]/10" : "hover:bg-white/[0.03]"
+                        selectedRow ? "bg-[#D6A66A]/10" : "hover:bg-[#FBF8F3]"
                       }`}
                     >
                       <span className="min-w-0">
-                        <span className="block truncate font-medium text-white">
+                        <span className="block truncate font-medium text-[#191919]">
                           {row.document_number || row.quotation_number || row.order_number || "Draft"}
                         </span>
-                        <span className="mt-1 block truncate text-xs text-white/45">
+                        <span className="mt-1 block truncate text-xs text-[#817A72]">
                           {row.customer_name || customer?.customer_name || "Walk-in customer"}
                         </span>
                       </span>
@@ -670,8 +670,8 @@ export default function CommercialSalesRuntimeWorkCenter({
                           {row.status || "DRAFT"}
                         </span>
                       </span>
-                      <span className="pt-1 text-sm text-white/55">{formatDate(row.created_at)}</span>
-                      <span className="pt-1 text-right text-sm font-medium text-white">
+                      <span className="pt-1 text-sm text-[#746E66]">{formatDate(row.created_at)}</span>
+                      <span className="pt-1 text-right text-sm font-medium text-[#191919]">
                         {money(row.total_amount, row.currency_code)}
                       </span>
                     </button>
@@ -681,30 +681,30 @@ export default function CommercialSalesRuntimeWorkCenter({
             )}
           </div>
 
-          <aside className="rounded-2xl border border-white/10 bg-black/20 p-5">
+          <aside className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5">
             {!selected ? (
-              <div className="flex min-h-64 items-center justify-center text-center text-sm text-white/35">
+              <div className="flex min-h-64 items-center justify-center text-center text-sm text-[#918B83]">
                 Select a document to review its lines and lifecycle actions.
               </div>
             ) : (
               <div className="space-y-5">
                 <div>
-                  <p className="text-xs uppercase tracking-wider text-white/35">Document</p>
+                  <p className="text-xs uppercase tracking-wider text-[#918B83]">Document</p>
                   <h2 className="mt-1 text-xl font-semibold">
                     {selected.document_number || selected.quotation_number || selected.order_number || "Draft"}
                   </h2>
-                  <p className="mt-1 text-sm text-white/45">
+                  <p className="mt-1 text-sm text-[#817A72]">
                     {selected.customer_name || customerById.get(selected.party_id)?.customer_name || "Walk-in customer"}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="text-xs text-white/35">Status</p>
+                  <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3">
+                    <p className="text-xs text-[#918B83]">Status</p>
                     <p className="mt-1 font-medium">{selected.status}</p>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="text-xs text-white/35">Total</p>
+                  <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3">
+                    <p className="text-xs text-[#918B83]">Total</p>
                     <p className="mt-1 font-medium">
                       {money(selected.total_amount, selected.currency_code)}
                     </p>
@@ -712,16 +712,16 @@ export default function CommercialSalesRuntimeWorkCenter({
                 </div>
 
                 <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/35">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#918B83]">
                     Lines
                   </p>
                   <div className="space-y-2">
                     {(selected.items || []).map((line) => (
-                      <div key={line.id} className="rounded-xl border border-white/10 p-3">
+                      <div key={line.id} className="rounded-xl border border-black/[0.08] p-3">
                         <div className="flex justify-between gap-3">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium">{line.item_name}</p>
-                            <p className="mt-1 text-xs text-white/35">
+                            <p className="mt-1 text-xs text-[#918B83]">
                               {line.item_type === "service" ? "Service" : "Inventory"} · {Number(line.quantity)} × {money(line.unit_price, selected.currency_code)}
                             </p>
                           </div>
@@ -735,12 +735,12 @@ export default function CommercialSalesRuntimeWorkCenter({
                 </div>
 
                 {isQuotation && selected.valid_until ? (
-                  <p className="text-xs text-white/45">
+                  <p className="text-xs text-[#817A72]">
                     Valid until {formatDate(selected.valid_until)}
                   </p>
                 ) : null}
 
-                <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
+                <div className="flex flex-wrap gap-2 border-t border-black/[0.08] pt-4">
                   {(isQuotation
                     ? allowedQuotationActions(selected.status)
                     : String(selected.status).toUpperCase() === "DRAFT"
@@ -755,7 +755,7 @@ export default function CommercialSalesRuntimeWorkCenter({
                       className={`rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-50 ${
                         ["REJECT", "CANCEL"].includes(action)
                           ? "border border-rose-400/30 text-rose-200"
-                          : "bg-[#D6A66A] text-black"
+                          : "bg-[#D6A66A] text-[#191919]"
                       }`}
                     >
                       {actionLabel(action)}

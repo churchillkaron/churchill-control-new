@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/shared/supabase/client";
 import {
   PLATFORM_LOGIN_BRAND_SESSION_KEY,
-  resolvePlatformLoginContext,
+  resolvePlatformHostContext,
 } from "@/lib/platform/context/resolvePlatformHostContext";
 
 const WORKSPACE_ROLES = new Set([
@@ -29,13 +29,15 @@ const WORKSPACE_ROLES = new Set([
 function browserOrganizationId() {
   if (typeof window === "undefined") return null;
 
-  const storedBrand = window.sessionStorage.getItem(
-    PLATFORM_LOGIN_BRAND_SESSION_KEY,
-  );
-  return resolvePlatformLoginContext(
-    window.location.hostname,
-    storedBrand,
-  ).organizationId;
+  const hostOrganizationId = resolvePlatformHostContext(window.location.hostname).organizationId;
+  if (hostOrganizationId) return hostOrganizationId;
+
+  const storedOrganizationId = String(
+    window.sessionStorage.getItem(PLATFORM_LOGIN_BRAND_SESSION_KEY) || "",
+  ).trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(storedOrganizationId)
+    ? storedOrganizationId
+    : null;
 }
 
 function clearBrowserBrandIntent() {

@@ -7,11 +7,11 @@ import DynamicTableField from "./DynamicTableField";
 import { getLookupCreatePolicy } from "@/lib/platform/forms/LookupCreatePolicy";
 
 const FIELD_CLASS =
-  "h-11 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-white outline-none";
+  "h-11 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-4 text-[#191919] outline-none";
 const TEXTAREA_CLASS =
-  "w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none";
+  "w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-4 py-3 text-[#191919] outline-none";
 const LABEL_CLASS =
-  "mb-2 block text-xs uppercase tracking-[0.25em] text-white/40";
+  "mb-2 block text-xs uppercase tracking-[0.25em] text-[#817A72]";
 
 const JOURNAL_TYPE_OPTIONS = Object.freeze([
   { value: "GENERAL", label: "General Journal" },
@@ -300,7 +300,10 @@ function FieldRenderer({
 
 function DependentSelectField({ field, value, values, onChange }) {
   const dependencyValue = values?.[field.dependsOn] || "";
-  const options = field.optionsByValue?.[dependencyValue] || [];
+  const options = useMemo(
+    () => field.optionsByValue?.[dependencyValue] || [],
+    [dependencyValue, field.optionsByValue]
+  );
   const allowedValues = useMemo(
     () => new Set(options.map((option) =>
       typeof option === "string" ? option : option.value
@@ -465,7 +468,7 @@ function PrimitiveField({
       return (
         <>
           {label}
-          <label className="flex h-11 items-center gap-3 rounded-xl border border-white/10 bg-black/30 px-4">
+          <label className="flex h-11 items-center gap-3 rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 px-4">
             <input
               type="checkbox"
               checked={!!value}
@@ -473,7 +476,7 @@ function PrimitiveField({
                 onChange(field.name, event.target.checked)
               }
             />
-            <span className="text-sm text-white">
+            <span className="text-sm text-[#191919]">
               {value ? "Enabled" : "Disabled"}
             </span>
           </label>
@@ -684,7 +687,7 @@ function LookupField({
                 <input value={createCode} onChange={(event) => setCreateCode(event.target.value)} placeholder="Code (optional)" className={FIELD_CLASS} />
                 <div className="flex gap-2">
                   <button type="button" onClick={createInlineOption} disabled={createSaving || !createName.trim()} className="h-8 rounded-lg bg-[#D6A66A] px-3 text-[10px] font-semibold text-black disabled:opacity-40">{createSaving ? "Saving…" : `Save ${createPolicy.label}`}</button>
-                  <button type="button" onClick={() => { setCreating(false); setCreateName(""); setCreateCode(""); setError(""); }} className="h-8 rounded-lg border border-white/10 px-3 text-[10px] text-white/60">Cancel</button>
+                  <button type="button" onClick={() => { setCreating(false); setCreateName(""); setCreateCode(""); setError(""); }} className="h-8 rounded-lg border border-black/[0.08] px-3 text-[10px] text-[#5F5A54]">Cancel</button>
                 </div>
               </div>
             )
@@ -697,7 +700,7 @@ function LookupField({
         <div className="mt-2 text-xs text-red-300">{error}</div>
       ) : null}
       {field.description || field.help ? (
-        <div className="mt-1.5 text-[10px] leading-4 text-white/35">{field.description || field.help}</div>
+        <div className="mt-1.5 text-[10px] leading-4 text-[#918B83]">{field.description || field.help}</div>
       ) : null}
     </>
   );

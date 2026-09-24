@@ -66,7 +66,7 @@ export default function ProductionCostingPage() {
       title="Production Costing"
       subtitle="Organization-scoped dish profitability and recipe cost"
     >
-      <div className="p-6 text-white">
+      <div className="p-6 text-[#191919]">
         {error && (
           <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-red-300">
             {error}
@@ -74,13 +74,13 @@ export default function ProductionCostingPage() {
         )}
 
         {loading && (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-zinc-500">
+          <div className="rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-8 text-zinc-500">
             Loading production costing...
           </div>
         )}
 
         {!loading && !error && dishes.length === 0 && (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-zinc-500">
+          <div className="rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-8 text-zinc-500">
             No dishes are configured for this organization yet.
           </div>
         )}

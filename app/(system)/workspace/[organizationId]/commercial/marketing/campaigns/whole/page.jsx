@@ -2,9 +2,10 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   Brain,
@@ -75,11 +76,7 @@ export default function WholeCampaignPage() {
     [groups, selectedId],
   );
 
-  useEffect(() => {
-    if (organizationId) loadGroups();
-  }, [organizationId]);
-
-  async function loadGroups({ quiet = false } = {}) {
+  const loadGroups = useCallback(async ({ quiet = false } = {}) => {
     if (!quiet) setLoading(true);
     setError("");
 
@@ -109,12 +106,16 @@ export default function WholeCampaignPage() {
     } finally {
       if (!quiet) setLoading(false);
     }
-  }
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (organizationId) loadGroups();
+  }, [loadGroups, organizationId]);
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black p-8 text-white">
-        <div className="mx-auto max-w-[1500px] text-white/50">
+      <main className="min-h-screen bg-[#F7F6F3] p-8 text-[#2D2822]">
+        <div className="mx-auto max-w-[1500px] text-[#675F57]">
           Loading whole campaign...
         </div>
       </main>
@@ -122,7 +123,7 @@ export default function WholeCampaignPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#2D2822] lg:p-10">
       <div className="mx-auto max-w-[1500px]">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-5">
           <div>
@@ -130,14 +131,14 @@ export default function WholeCampaignPage() {
               Multi-Organization Marketing
             </div>
             <h1 className="mt-3 text-5xl font-light lg:text-6xl">Whole Campaign</h1>
-            <p className="mt-4 max-w-3xl text-white/45">
+            <p className="mt-4 max-w-3xl text-[#71685F]">
               One master initiative with separate organization copy, creative, channels and execution controls. Every image stays attached to the correct organization and campaign.
             </p>
           </div>
 
           <button
             onClick={() => loadGroups()}
-            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm text-white/70 transition hover:bg-white/[0.08]"
+            className="inline-flex items-center gap-2 rounded-2xl border border-black/[0.08] bg-white px-5 py-3 text-sm text-[#49423B] transition hover:bg-[#FBF8F3]"
           >
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>
@@ -150,10 +151,10 @@ export default function WholeCampaignPage() {
         ) : null}
 
         {!groups.length ? (
-          <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-12 text-center">
+          <div className="rounded-[32px] border border-black/[0.08] bg-white p-12 text-center">
             <Megaphone className="mx-auto h-9 w-9 text-[#D6A66A]" />
             <h2 className="mt-5 text-2xl font-light">No whole campaigns yet</h2>
-            <p className="mt-2 text-white/40">
+            <p className="mt-2 text-[#7B7168]">
               Create a master campaign when one initiative needs to coordinate several organizations.
             </p>
           </div>
@@ -170,24 +171,24 @@ export default function WholeCampaignPage() {
                     className={`w-full rounded-[26px] border p-5 text-left transition ${
                       active
                         ? "border-[#D6A66A]/40 bg-[#D6A66A]/10"
-                        : "border-white/10 bg-white/[0.03] hover:border-white/20"
+                        : "border-black/[0.08] bg-white hover:border-black/[0.14]"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.15em] text-amber-200">
+                      <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.15em] text-amber-800">
                         {group.campaign_status || "draft"}
                       </span>
-                      <span className="text-xs text-white/30">
+                      <span className="text-xs text-[#91877D]">
                         {group.members?.length || 0} organizations
                       </span>
                     </div>
                     <h2 className="mt-4 text-lg font-medium leading-snug">
                       {group.campaign_group_name}
                     </h2>
-                    <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-white/40">
+                    <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-[#7B7168]">
                       {group.objective || "Coordinated campaign"}
                     </p>
-                    <div className="mt-4 text-sm text-[#E6C18C]">
+                    <div className="mt-4 text-sm text-[#8A633C]">
                       {money(group.budget, group.currency_code)} master budget / month
                     </div>
                   </button>
@@ -222,15 +223,21 @@ function WholeCampaignDetail({ group, onRefresh }) {
     (sum, member) => sum + Number(member.campaign?.approved_asset_count || 0),
     0,
   );
-  const childBudget = members.reduce(
+  const mixedCurrencies = content.currency_mode === "PER_ORGANIZATION";
+  const budgetsByOrganization = content.budgets_by_organization || {};
+  const childBudget = mixedCurrencies ? null : members.reduce(
     (sum, member) => sum + Number(member.campaign?.budget || 0),
     0,
   );
-  const masterBudget = Number(
-    group.budget || content.total_monthly_budget_thb || childBudget || 0,
+  const masterBudget = mixedCurrencies ? null : Number(
+    group.budget || content.master_campaign_budget || content.total_monthly_budget_thb || childBudget || 0,
   );
-  const sharedBudget = Math.max(0, masterBudget - childBudget);
-  const sharedCosts = content.shared_monthly_costs_thb || {};
+  const sharedBudget = mixedCurrencies ? null : Math.max(0, masterBudget - childBudget);
+  const sharedCosts = content.shared_monthly_costs || content.shared_monthly_costs_thb || {};
+  const perOrganizationBudgetLabel = Object.entries(budgetsByOrganization).map(([organizationId, budget]) => {
+    const member = members.find((item) => item.organization_id === organizationId);
+    return `${member?.organization?.name || "Organization"}: ${money(budget?.amount || 0, budget?.currency || "THB")}`;
+  }).join(" · ");
 
   const blockers = members.flatMap((member) => {
     const issues = [];
@@ -245,26 +252,26 @@ function WholeCampaignDetail({ group, onRefresh }) {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6 lg:p-8">
+      <div className="rounded-[32px] border border-black/[0.08] bg-white p-6 lg:p-8">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="max-w-4xl">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.15em] text-amber-200">
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.15em] text-amber-800">
                 {group.campaign_status || "draft"}
               </span>
-              <span className="text-xs uppercase tracking-[0.15em] text-white/30">
+              <span className="text-xs uppercase tracking-[0.15em] text-[#91877D]">
                 {labelize(group.campaign_group_type)}
               </span>
             </div>
             <h2 className="mt-5 text-3xl font-light leading-tight lg:text-4xl">
               {group.campaign_group_name}
             </h2>
-            <p className="mt-4 text-lg leading-relaxed text-white/60">{group.objective}</p>
+            <p className="mt-4 text-lg leading-relaxed text-[#574F48]">{group.objective}</p>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-right">
-            <div className="text-xs uppercase tracking-[0.15em] text-white/30">Spend State</div>
-            <div className="mt-2 text-sm text-amber-200">
+          <div className="rounded-2xl border border-black/[0.08] bg-white px-5 py-4 text-right">
+            <div className="text-xs uppercase tracking-[0.15em] text-[#91877D]">Spend State</div>
+            <div className="mt-2 text-sm text-amber-800">
               {labelize(content.spend_state || "planned_not_authorized")}
             </div>
           </div>
@@ -273,8 +280,8 @@ function WholeCampaignDetail({ group, onRefresh }) {
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Metric
             icon={WalletCards}
-            label="Master Monthly Budget"
-            value={money(masterBudget, group.currency_code)}
+            label="Master Campaign Budget"
+            value={mixedCurrencies ? "Per organization" : money(masterBudget, group.currency_code)}
           />
           <Metric icon={Building2} label="Organizations" value={`${members.length}`} />
           <Metric
@@ -292,23 +299,23 @@ function WholeCampaignDetail({ group, onRefresh }) {
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MiniMetric
-            label="Organization Media Budget"
-            value={money(childBudget, group.currency_code)}
+            label="Organization Campaign Budgets"
+            value={mixedCurrencies ? (perOrganizationBudgetLabel || "Per organization") : money(childBudget, group.currency_code)}
           />
           <MiniMetric
             label="Shared Campaign Costs"
-            value={money(sharedBudget, group.currency_code)}
+            value={mixedCurrencies ? "Not aggregated" : money(sharedBudget, group.currency_code)}
           />
           <MiniMetric label="Creative Assets" value={`${totalAssets}`} />
           <MiniMetric label="Approved / Ready" value={`${totalApprovedAssets}`} />
         </div>
 
         {Object.keys(sharedCosts).length ? (
-          <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/45">
+          <div className="mt-4 flex flex-wrap gap-2 text-xs text-[#71685F]">
             {Object.entries(sharedCosts).map(([key, value]) => (
               <span
                 key={key}
-                className="rounded-full border border-white/10 bg-black/25 px-3 py-2"
+                className="rounded-full border border-black/[0.08] bg-[#FBF8F3] px-3 py-2"
               >
                 {labelize(key)}: {money(value, group.currency_code)}
               </span>
@@ -317,19 +324,19 @@ function WholeCampaignDetail({ group, onRefresh }) {
         ) : null}
 
         <div className="mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/[0.05] px-4 py-3 text-sm text-amber-100/70">
-          Spend Authorized: THB 0. Budget figures are planning only; choosing creative does not authorize or activate provider spend.
+          Spend Authorized: 0. Budget figures are planning only; choosing creative does not authorize or activate provider spend.
         </div>
       </div>
 
       <CampaignOperatingPlan group={group} />
 
-      <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6 lg:p-8">
+      <div className="rounded-[32px] border border-black/[0.08] bg-white p-6 lg:p-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Execution Map</div>
             <h3 className="mt-2 text-3xl font-light">Organization Campaigns</h3>
           </div>
-          <div className="text-sm text-white/35">
+          <div className="text-sm text-[#857B71]">
             Full campaign copy and the creative attached to each organization.
           </div>
         </div>
@@ -345,10 +352,10 @@ function WholeCampaignDetail({ group, onRefresh }) {
         </div>
       </div>
 
-      <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6 lg:p-8">
+      <div className="rounded-[32px] border border-black/[0.08] bg-white p-6 lg:p-8">
         <div className="flex items-center gap-3">
           {blockers.length ? (
-            <CircleAlert className="h-5 w-5 text-amber-300" />
+            <CircleAlert className="h-5 w-5 text-amber-700" />
           ) : (
             <CheckCircle2 className="h-5 w-5 text-emerald-300" />
           )}
@@ -391,7 +398,12 @@ function CampaignOperatingPlan({ group }) {
   const flow = list(content.primary_flow);
   const allChannels = [
     ...new Set(
-      members.flatMap((member) => list(member.campaign?.campaign_content?.channels)),
+      members.flatMap((member) => {
+        const content = member.campaign?.campaign_content || {};
+        return list(content.channel_surfaces).length
+          ? list(content.channel_surfaces)
+          : list(content.channels);
+      }),
     ),
   ];
   const allMetrics = [
@@ -435,11 +447,11 @@ function CampaignOperatingPlan({ group }) {
             <Brain className="h-4 w-4" /> 90-Day Campaign Operating Plan
           </div>
           <h3 className="mt-2 text-3xl font-light">Avantiqo Control Layer</h3>
-          <p className="mt-3 max-w-4xl text-sm leading-relaxed text-white/45">
+          <p className="mt-3 max-w-4xl text-sm leading-relaxed text-[#71685F]">
             Review-only operating plan derived from the current campaign strategy. Nothing below publishes content, starts providers, authorizes spend or changes campaign status.
           </p>
         </div>
-        <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-amber-200">
+        <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-amber-800">
           Review Only · Not Activated
         </span>
       </div>
@@ -448,18 +460,18 @@ function CampaignOperatingPlan({ group }) {
         <OperatingStatus icon={Brain} label="Campaign Operator" value="Avantiqo AI" detail="Autonomous · Governed" />
         <OperatingStatus icon={Sparkles} label="Content & Copy" value="Avantiqo controlled" detail={`${totalCopy} current copy variants`} />
         <OperatingStatus icon={ImageIcon} label="Creative Production" value="Creative Studio" detail={`${totalPillars} creative pillars available`} />
-        <OperatingStatus icon={ShieldCheck} label="Paid Spend" value="Human authorization" detail="THB 0 authorized" warning />
+        <OperatingStatus icon={ShieldCheck} label="Paid Spend" value="Human authorization" detail="0 authorized" warning />
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-3">
         {phases.map((phase, index) => (
-          <div key={phase.label} className="rounded-2xl border border-white/10 bg-black/25 p-5">
+          <div key={phase.label} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5">
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs uppercase tracking-[0.16em] text-[#D6A66A]">Phase {index + 1}</span>
-              <span className="text-xs text-white/30">{phase.label}</span>
+              <span className="text-xs text-[#91877D]">{phase.label}</span>
             </div>
-            <div className="mt-3 text-lg text-white/80">{phase.title}</div>
-            <p className="mt-2 text-sm leading-relaxed text-white/45">{phase.text}</p>
+            <div className="mt-3 text-lg text-[#39342F]">{phase.title}</div>
+            <p className="mt-2 text-sm leading-relaxed text-[#71685F]">{phase.text}</p>
           </div>
         ))}
       </div>
@@ -474,14 +486,14 @@ function CampaignOperatingPlan({ group }) {
 
         <OperatingPanel icon={Radio} title="Channel Plan">
           <TagCloud items={allChannels} empty="No campaign channels configured" />
-          <p className="mt-4 text-xs leading-relaxed text-white/35">
+          <p className="mt-4 text-xs leading-relaxed text-[#857B71]">
             Organic and paid execution remain organization-scoped. Connected channels can be prepared, but paid activation still requires its own authorization boundary.
           </p>
         </OperatingPanel>
 
         <OperatingPanel icon={Route} title="Conversion Flow">
           <FlowRail items={flow.length ? flow : ["Content", "Lead capture", "CRM", "Follow-up", "Conversion"]} />
-          <p className="mt-4 text-xs leading-relaxed text-white/35">
+          <p className="mt-4 text-xs leading-relaxed text-[#857B71]">
             Avantiqo should judge marketing by qualified business outcomes, not impressions alone. Each organization keeps its own CTA and conversion destination.
           </p>
         </OperatingPanel>
@@ -502,13 +514,13 @@ function CampaignOperatingPlan({ group }) {
 
         <OperatingPanel icon={Repeat2} title="Measurement & Learning">
           <TagCloud items={allMetrics} empty="No success metrics configured" />
-          <p className="mt-4 text-xs leading-relaxed text-white/35">
+          <p className="mt-4 text-xs leading-relaxed text-[#857B71]">
             The 90-day test should finish with a reusable learning record: which message, creative, audience, channel and follow-up path produced the strongest business result for each organization.
           </p>
         </OperatingPanel>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5">
+      <div className="mt-6 rounded-2xl border border-black/[0.08] bg-white p-5">
         <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-[#D6A66A]">
           <ShieldCheck className="h-4 w-4" /> Governance
         </div>
@@ -525,21 +537,21 @@ function CampaignOperatingPlan({ group }) {
 
 function OperatingStatus({ icon: Icon, label, value, detail, warning = false }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <Icon className={`h-4 w-4 ${warning ? "text-amber-300" : "text-[#D6A66A]"}`} />
-      <div className="mt-3 text-[10px] uppercase tracking-[0.15em] text-white/30">{label}</div>
-      <div className="mt-1 text-sm text-white/75">{value}</div>
-      <div className="mt-1 text-xs text-white/35">{detail}</div>
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+      <Icon className={`h-4 w-4 ${warning ? "text-amber-700" : "text-[#D6A66A]"}`} />
+      <div className="mt-3 text-[10px] uppercase tracking-[0.15em] text-[#91877D]">{label}</div>
+      <div className="mt-1 text-sm text-[#413B35]">{value}</div>
+      <div className="mt-1 text-xs text-[#857B71]">{detail}</div>
     </div>
   );
 }
 
 function OperatingPanel({ icon: Icon, title, children }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5">
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 text-[#D6A66A]" />
-        <div className="text-sm font-medium text-white/75">{title}</div>
+        <div className="text-sm font-medium text-[#413B35]">{title}</div>
       </div>
       <div className="mt-4">{children}</div>
     </div>
@@ -548,9 +560,9 @@ function OperatingPanel({ icon: Icon, title, children }) {
 
 function PlanRow({ label, value, warning = false }) {
   return (
-    <div className="flex items-start justify-between gap-5 border-b border-white/[0.06] py-2.5 last:border-0">
-      <span className="text-xs text-white/30">{label}</span>
-      <span className={`max-w-[65%] text-right text-xs leading-relaxed ${warning ? "text-amber-200" : "text-white/60"}`}>
+    <div className="flex items-start justify-between gap-5 border-b border-black/[0.06] py-2.5 last:border-0">
+      <span className="text-xs text-[#91877D]">{label}</span>
+      <span className={`max-w-[65%] text-right text-xs leading-relaxed ${warning ? "text-amber-800" : "text-[#574F48]"}`}>
         {value}
       </span>
     </div>
@@ -559,19 +571,19 @@ function PlanRow({ label, value, warning = false }) {
 
 function PolicyCell({ label, value, warning = false }) {
   return (
-    <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
-      <div className="text-[10px] uppercase tracking-[0.13em] text-white/25">{label}</div>
-      <div className={`mt-1 text-xs leading-relaxed ${warning ? "text-amber-200" : "text-white/60"}`}>{value}</div>
+    <div className="rounded-xl border border-black/[0.07] bg-white p-3">
+      <div className="text-[10px] uppercase tracking-[0.13em] text-[#A59A8F]">{label}</div>
+      <div className={`mt-1 text-xs leading-relaxed ${warning ? "text-amber-800" : "text-[#574F48]"}`}>{value}</div>
     </div>
   );
 }
 
 function TagCloud({ items, empty }) {
-  if (!items?.length) return <div className="text-sm text-white/35">{empty}</div>;
+  if (!items?.length) return <div className="text-sm text-[#857B71]">{empty}</div>;
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => (
-        <span key={item} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/50">
+        <span key={item} className="rounded-full border border-black/[0.08] bg-white px-3 py-2 text-xs text-[#675F57]">
           {item}
         </span>
       ))}
@@ -584,7 +596,7 @@ function FlowRail({ items }) {
     <div className="flex flex-wrap items-center gap-2">
       {items.map((item, index) => (
         <div key={`${item}-${index}`} className="flex items-center gap-2">
-          <span className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/55">{item}</span>
+          <span className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs text-[#5F574F]">{item}</span>
           {index < items.length - 1 ? <ArrowRight className="h-3.5 w-3.5 text-[#D6A66A]/60" /> : null}
         </div>
       ))}
@@ -722,7 +734,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
   }
 
   return (
-    <article className="rounded-[28px] border border-white/10 bg-black/30 p-5 lg:p-6">
+    <article className="rounded-[28px] border border-black/[0.08] bg-white p-5 lg:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.14em] text-[#D6A66A]">
@@ -734,10 +746,10 @@ function OrganizationCampaignCard({ member, onRefresh }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-white/50">
+          <span className="rounded-full border border-black/[0.08] bg-white px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-[#675F57]">
             {campaign.campaign_status || "draft"}
           </span>
-          <span className="rounded-full border border-amber-500/20 bg-amber-500/[0.06] px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-amber-200">
+          <span className="rounded-full border border-amber-500/20 bg-amber-500/[0.06] px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-amber-800">
             {labelize(campaignContent.spend_state || "planned_not_authorized")}
           </span>
         </div>
@@ -755,7 +767,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
               {assets.slice(1, 5).map((asset) => (
                 <div
                   key={asset.id}
-                  className="aspect-square overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]"
+                  className="relative aspect-square overflow-hidden rounded-xl border border-black/[0.08] bg-white"
                 >
                   {asset.is_video ? (
                     <video
@@ -765,10 +777,12 @@ function OrganizationCampaignCard({ member, onRefresh }) {
                       preload="metadata"
                     />
                   ) : (
-                    <img
+                    <Image
                       src={asset.preview_url}
                       alt={asset.name || "Campaign asset"}
-                      className="h-full w-full object-cover"
+                      fill
+                      sizes="105px"
+                      className="object-cover"
                     />
                   )}
                 </div>
@@ -776,15 +790,15 @@ function OrganizationCampaignCard({ member, onRefresh }) {
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-white/35">
+          <div className="rounded-2xl border border-black/[0.08] bg-white p-4">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-[#857B71]">
               <ImageIcon className="h-4 w-4 text-[#D6A66A]" /> Creative Source
             </div>
 
             <div className="mt-3 grid gap-2">
               <Link
                 href={studioHref}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-3 py-3 text-sm font-medium text-[#E6C18C] transition hover:bg-[#D6A66A]/15"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-3 py-3 text-sm font-medium text-[#8A633C] transition hover:bg-[#D6A66A]/15"
               >
                 <Sparkles className="h-4 w-4" /> Let Studio Create It
               </Link>
@@ -793,7 +807,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
                 type="button"
                 disabled={uploading}
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-sm font-medium text-white/70 transition hover:bg-white/[0.08] disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 py-3 text-sm font-medium text-[#49423B] transition hover:bg-[#FBF8F3] disabled:opacity-50"
               >
                 {uploading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -806,7 +820,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
               <button
                 type="button"
                 onClick={openLibrary}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-sm font-medium text-white/70 transition hover:bg-white/[0.08]"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 py-3 text-sm font-medium text-[#49423B] transition hover:bg-[#FBF8F3]"
               >
                 <Database className="h-4 w-4" /> Search Asset Database
               </button>
@@ -820,19 +834,19 @@ function OrganizationCampaignCard({ member, onRefresh }) {
               onChange={(event) => uploadFile(event.target.files?.[0])}
             />
 
-            <p className="mt-3 text-xs leading-relaxed text-white/30">
+            <p className="mt-3 text-xs leading-relaxed text-[#91877D]">
               All three choices remain scoped to {member.organization?.name || "this organization"}. Creative selection never authorizes paid spend.
             </p>
 
             {message ? (
-              <p className="mt-3 text-xs leading-relaxed text-white/55">{message}</p>
+              <p className="mt-3 text-xs leading-relaxed text-[#5F574F]">{message}</p>
             ) : null}
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SmallStat label="Budget" value={money(campaign.budget)} />
+            <SmallStat label="Budget" value={money(campaign.budget, campaign.campaign_content?.currency_code || group.currency_code || "THB")} />
             <SmallStat label="Assets" value={`${campaign.asset_count || 0}`} />
             <SmallStat label="Primary CTA" value={campaignContent.primary_cta || "—"} />
             <SmallStat label="Meta" value={meta.label} good={meta.ready} />
@@ -856,7 +870,10 @@ function OrganizationCampaignCard({ member, onRefresh }) {
               title="Audience Segments"
               items={list(campaignContent.audience?.segments)}
             />
-            <ListBlock title="Channels" items={list(campaignContent.channels)} />
+            <ListBlock
+              title="Channels"
+              items={list(campaignContent.channel_surfaces).length ? list(campaignContent.channel_surfaces) : list(campaignContent.channels)}
+            />
             <ListBlock
               title="Content Pillars"
               items={list(campaignContent.creative_direction?.content_pillars)}
@@ -887,13 +904,13 @@ function OrganizationCampaignCard({ member, onRefresh }) {
             />
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-            <span className="text-xs text-white/30">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-black/[0.08] pt-4">
+            <span className="text-xs text-[#91877D]">
               Media is isolated to {member.organization?.name || "this organization"}.
             </span>
             <Link
               href={`/workspace/${member.organization_id}/commercial/marketing/campaigns`}
-              className="inline-flex items-center gap-2 text-sm text-[#E6C18C] transition hover:text-white"
+              className="inline-flex items-center gap-2 text-sm text-[#8A633C] transition hover:text-[#2D2822]"
             >
               Open organization <ArrowRight className="h-4 w-4" />
             </Link>
@@ -908,14 +925,14 @@ function OrganizationCampaignCard({ member, onRefresh }) {
               <div className="text-xs uppercase tracking-[0.18em] text-[#D6A66A]">
                 Organization Asset Database
               </div>
-              <div className="mt-1 text-sm text-white/45">
+              <div className="mt-1 text-sm text-[#71685F]">
                 Only visual assets belonging to {member.organization?.name || "this organization"} are shown.
               </div>
             </div>
             <button
               type="button"
               onClick={() => setLibraryOpen(false)}
-              className="rounded-xl border border-white/10 bg-white/[0.04] p-2 text-white/50 hover:text-white"
+              className="rounded-xl border border-black/[0.08] bg-white p-2 text-[#675F57] hover:text-[#2D2822]"
               aria-label="Close asset database"
             >
               <X className="h-4 w-4" />
@@ -924,7 +941,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
 
           <div className="mt-4 flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#91877D]" />
               <input
                 value={libraryQuery}
                 onChange={(event) => setLibraryQuery(event.target.value)}
@@ -932,14 +949,14 @@ function OrganizationCampaignCard({ member, onRefresh }) {
                   if (event.key === "Enter") searchLibrary();
                 }}
                 placeholder="Search image, filename or asset type"
-                className="w-full rounded-xl border border-white/10 bg-black/40 py-3 pl-10 pr-4 text-sm text-white outline-none placeholder:text-white/25 focus:border-[#D6A66A]/40"
+                className="w-full rounded-xl border border-black/[0.08] bg-white py-3 pl-10 pr-4 text-sm text-[#2D2822] outline-none placeholder:text-[#A59A8F] focus:border-[#D6A66A]/40"
               />
             </div>
             <button
               type="button"
               onClick={() => searchLibrary()}
               disabled={libraryLoading}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-sm text-white/70 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-4 text-sm text-[#49423B] disabled:opacity-50"
             >
               {libraryLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -951,7 +968,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
           </div>
 
           {libraryLoading ? (
-            <div className="mt-6 flex items-center gap-2 text-sm text-white/40">
+            <div className="mt-6 flex items-center gap-2 text-sm text-[#7B7168]">
               <Loader2 className="h-4 w-4 animate-spin" /> Searching organization media...
             </div>
           ) : libraryAssets.length ? (
@@ -959,9 +976,9 @@ function OrganizationCampaignCard({ member, onRefresh }) {
               {libraryAssets.map((asset) => (
                 <div
                   key={asset.id}
-                  className="overflow-hidden rounded-2xl border border-white/10 bg-black/40"
+                  className="overflow-hidden rounded-2xl border border-black/[0.08] bg-[#F5F1EB]"
                 >
-                  <div className="aspect-[4/3] overflow-hidden bg-white/[0.03]">
+                  <div className="relative aspect-[4/3] overflow-hidden bg-white">
                     {asset.is_video ? (
                       <video
                         src={asset.preview_url}
@@ -970,18 +987,20 @@ function OrganizationCampaignCard({ member, onRefresh }) {
                         preload="metadata"
                       />
                     ) : (
-                      <img
+                      <Image
                         src={asset.preview_url}
                         alt={asset.name || "Asset"}
-                        className="h-full w-full object-cover"
+                        fill
+                        sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
+                        className="object-cover"
                       />
                     )}
                   </div>
                   <div className="p-3">
-                    <div className="truncate text-xs font-medium text-white/70">
+                    <div className="truncate text-xs font-medium text-[#49423B]">
                       {asset.name}
                     </div>
-                    <div className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/30">
+                    <div className="mt-1 text-[10px] uppercase tracking-[0.12em] text-[#91877D]">
                       {labelize(asset.asset_type)}
                     </div>
                     <button
@@ -991,7 +1010,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
                       className={`mt-3 w-full rounded-lg border px-3 py-2 text-xs transition ${
                         asset.attached
                           ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
-                          : "border-[#D6A66A]/25 bg-[#D6A66A]/10 text-[#E6C18C] hover:bg-[#D6A66A]/15"
+                          : "border-[#D6A66A]/25 bg-[#D6A66A]/10 text-[#8A633C] hover:bg-[#D6A66A]/15"
                       } disabled:opacity-70`}
                     >
                       {attachingId === asset.id
@@ -1005,7 +1024,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
               ))}
             </div>
           ) : (
-            <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-6 text-center text-sm text-white/35">
+            <div className="mt-5 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6 text-center text-sm text-[#857B71]">
               No usable visual assets found in this organization library.
             </div>
           )}
@@ -1018,10 +1037,10 @@ function OrganizationCampaignCard({ member, onRefresh }) {
 function CampaignCreativePreview({ asset, organizationName }) {
   if (!asset) {
     return (
-      <div className="flex aspect-[4/3] flex-col items-center justify-center rounded-[22px] border border-dashed border-white/15 bg-white/[0.025] p-8 text-center">
-        <ImageIcon className="h-9 w-9 text-white/20" />
-        <div className="mt-4 text-sm text-white/55">No campaign image selected yet</div>
-        <div className="mt-1 max-w-xs text-xs leading-relaxed text-white/30">
+      <div className="flex aspect-[4/3] flex-col items-center justify-center rounded-[22px] border border-dashed border-black/[0.10] bg-white p-8 text-center">
+        <ImageIcon className="h-9 w-9 text-[#B0A69B]" />
+        <div className="mt-4 text-sm text-[#5F574F]">No campaign image selected yet</div>
+        <div className="mt-1 max-w-xs text-xs leading-relaxed text-[#91877D]">
           Choose Studio, upload your own, or search {organizationName || "the organization"} asset database.
         </div>
       </div>
@@ -1029,8 +1048,8 @@ function CampaignCreativePreview({ asset, organizationName }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-[22px] border border-white/10 bg-black">
-      <div className="aspect-[4/3] overflow-hidden">
+    <div className="overflow-hidden rounded-[22px] border border-black/[0.08] bg-[#F7F6F3]">
+      <div className="relative aspect-[4/3] overflow-hidden">
         {asset.is_video ? (
           <video
             src={asset.preview_url}
@@ -1039,19 +1058,21 @@ function CampaignCreativePreview({ asset, organizationName }) {
             preload="metadata"
           />
         ) : (
-          <img
+          <Image
             src={asset.preview_url}
             alt={asset.name || "Campaign creative"}
-            className="h-full w-full object-cover"
+            fill
+            sizes="(min-width: 1280px) 420px, 100vw"
+            className="object-cover"
           />
         )}
       </div>
-      <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 border-t border-black/[0.08] bg-[#F7F6F3] px-4 py-3">
         <div className="min-w-0">
-          <div className="truncate text-xs text-white/65">
+          <div className="truncate text-xs text-[#504941]">
             {asset.name || "Campaign creative"}
           </div>
-          <div className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/30">
+          <div className="mt-1 text-[10px] uppercase tracking-[0.12em] text-[#91877D]">
             {labelize(asset.asset_type)}
           </div>
         </div>
@@ -1071,13 +1092,13 @@ function CopyBlock({ title, value, emphasized = false }) {
       className={`rounded-2xl border p-4 ${
         emphasized
           ? "border-[#D6A66A]/25 bg-[#D6A66A]/[0.06]"
-          : "border-white/10 bg-white/[0.025]"
+          : "border-black/[0.08] bg-white"
       }`}
     >
-      <div className="text-[10px] uppercase tracking-[0.16em] text-white/30">{title}</div>
+      <div className="text-[10px] uppercase tracking-[0.16em] text-[#91877D]">{title}</div>
       <p
         className={`mt-2 leading-relaxed ${
-          emphasized ? "text-base text-[#F0D5AE]" : "text-sm text-white/60"
+          emphasized ? "text-base text-[#F0D5AE]" : "text-sm text-[#574F48]"
         }`}
       >
         {value}
@@ -1090,13 +1111,13 @@ function ListBlock({ title, items, quoted = false }) {
   if (!items?.length) return null;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-      <div className="text-[10px] uppercase tracking-[0.16em] text-white/30">{title}</div>
+    <div className="rounded-2xl border border-black/[0.08] bg-white p-4">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-[#91877D]">{title}</div>
       <div className="mt-3 space-y-2">
         {items.map((item, index) => (
           <div
             key={`${item}-${index}`}
-            className="flex gap-2 text-sm leading-relaxed text-white/55"
+            className="flex gap-2 text-sm leading-relaxed text-[#5F574F]"
           >
             <span className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-[#D6A66A]" />
             <span>{quoted ? `“${item}”` : item}</span>
@@ -1109,11 +1130,11 @@ function ListBlock({ title, items, quoted = false }) {
 
 function Metric({ icon: Icon, label, value, compact = false }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5">
       <Icon className="h-5 w-5 text-[#D6A66A]" />
-      <div className="mt-4 text-xs uppercase tracking-[0.15em] text-white/30">{label}</div>
+      <div className="mt-4 text-xs uppercase tracking-[0.15em] text-[#91877D]">{label}</div>
       <div
-        className={`mt-2 text-white/80 ${
+        className={`mt-2 text-[#39342F] ${
           compact ? "text-sm leading-relaxed" : "text-lg"
         }`}
       >
@@ -1125,24 +1146,24 @@ function Metric({ icon: Icon, label, value, compact = false }) {
 
 function MiniMetric({ label, value }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-      <div className="text-xs uppercase tracking-[0.14em] text-white/30">{label}</div>
-      <div className="mt-2 text-lg text-white/75">{value}</div>
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+      <div className="text-xs uppercase tracking-[0.14em] text-[#91877D]">{label}</div>
+      <div className="mt-2 text-lg text-[#413B35]">{value}</div>
     </div>
   );
 }
 
 function SmallStat({ label, value, good }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-      <div className="text-[10px] uppercase tracking-[0.13em] text-white/30">{label}</div>
+    <div className="rounded-xl border border-black/[0.08] bg-white p-3">
+      <div className="text-[10px] uppercase tracking-[0.13em] text-[#91877D]">{label}</div>
       <div
         className={`mt-1 text-xs leading-relaxed ${
           good === true
             ? "text-emerald-300"
             : good === false
-              ? "text-amber-200"
-              : "text-white/65"
+              ? "text-amber-800"
+              : "text-[#504941]"
         }`}
       >
         {value}

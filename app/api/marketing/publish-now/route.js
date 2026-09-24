@@ -1,41 +1,17 @@
 export const dynamic = "force-dynamic";
 
-export const runtime =
-  "nodejs";
+import { NextResponse } from "next/server";
 
-import { publishCampaignNow }
-from "@/lib/marketing/services/publishCampaignNow";
-
-export async function POST(request) {
-
-  try {
-
-    const body =
-      await request.json();
-
-    const result =
-      await publishCampaignNow({
-
-        campaignId:
-          body.campaignId,
-
-      });
-
-    return Response.json(result);
-
-  } catch (err) {
-
-    return Response.json(
-      {
-        success: false,
-        error:
-          err.message,
+export async function POST() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: "LEGACY_MARKETING_PUBLISH_NOW_RETIRED",
+        message: "The legacy publish-now endpoint is retired.",
+        correction: "Use Campaigns provider preflight and explicit approved execution, or the governed Creative Publish release flow.",
       },
-      {
-        status: 500,
-      }
-    );
-
-  }
-
+    },
+    { status: 409 },
+  );
 }

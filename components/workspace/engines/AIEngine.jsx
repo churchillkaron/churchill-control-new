@@ -101,8 +101,8 @@ export default function AIEngine({
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 p-5 text-white backdrop-blur-xl">
-          <div className="w-full max-w-3xl rounded-[30px] border border-white/10 bg-[#090909] p-6 shadow-2xl shadow-black/80">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#F7F6F3]/75 p-5 text-[#191919] backdrop-blur-xl">
+          <div className="w-full max-w-3xl rounded-[30px] border border-black/[0.08] bg-white p-6 shadow-2xl shadow-black/10">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.3em] text-[#D6A66A]">Workspace AI</div>
@@ -113,7 +113,7 @@ export default function AIEngine({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-[12px] text-white/60"
+                className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-[12px] text-[#5F5A54]"
               >
                 Close
               </button>
@@ -128,7 +128,7 @@ export default function AIEngine({
                   className={
                     mode === item.id
                       ? "rounded-xl border border-[#D6A66A]/40 bg-[#D6A66A]/15 px-4 py-2 text-[12px] text-[#F2D3A0]"
-                      : "rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-[12px] text-white/50"
+                      : "rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-[12px] text-[#746E66]"
                   }
                 >
                   {item.label}
@@ -140,7 +140,7 @@ export default function AIEngine({
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               placeholder="Ask about this workspace or give a specific instruction..."
-              className="mt-6 h-52 w-full rounded-2xl border border-white/10 bg-black/35 p-4 text-[13px] text-white outline-none placeholder:text-white/25"
+              className="mt-6 h-52 w-full rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/35 p-4 text-[13px] text-[#191919] outline-none placeholder:text-[#A9A39C]"
             />
 
             <div className="mt-6 flex justify-end">

@@ -284,19 +284,19 @@ function DetailSections({ presentation, row }) {
     <div className="space-y-5">
       {presentation.sections.map(section => (
         <section key={section.title}>
-          <div className="text-[11px] uppercase tracking-[0.24em] text-white/35">
+          <div className="text-[11px] uppercase tracking-[0.24em] text-[#191919]/35">
             {section.title}
           </div>
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
             {section.fields.map(([label, value, key]) => (
               <div
                 key={label}
-                className="rounded-2xl border border-white/[0.07] bg-black/25 p-4"
+                className="rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-4"
               >
-                <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-[#191919]/35">
                   {label}
                 </div>
-                <div className="mt-2 break-words text-sm text-white/75">
+                <div className="mt-2 break-words text-sm text-[#191919]/75">
                   {formatValue(value, key || label)}
                 </div>
               </div>
@@ -307,14 +307,14 @@ function DetailSections({ presentation, row }) {
 
       {lines.length ? (
         <section>
-          <div className="text-[11px] uppercase tracking-[0.24em] text-white/35">
+          <div className="text-[11px] uppercase tracking-[0.24em] text-[#191919]/35">
             Lines
           </div>
           <div className="mt-3 space-y-2">
             {lines.map((line, index) => (
               <div
                 key={line?.id || index}
-                className="grid gap-3 rounded-2xl border border-white/[0.07] bg-black/25 p-4 text-sm text-white/70 md:grid-cols-4"
+                className="grid gap-3 rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-4 text-sm text-[#191919]/70 md:grid-cols-4"
               >
                 <div>{firstValue(line, ["account_code", "code"], `Line ${index + 1}`)}</div>
                 <div>{firstValue(line, ["account_name", "description", "name"], "—")}</div>
@@ -815,22 +815,22 @@ export default function RowActionEngine({
       ], "Selected record");
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#191919]/20 px-4 backdrop-blur">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0a] shadow-2xl shadow-black"
+        className="w-full max-w-4xl overflow-hidden rounded-[28px] border border-black/[0.08] bg-white shadow-2xl shadow-black/10"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+        <div className="flex items-start justify-between gap-4 border-b border-black/[0.08] px-6 py-5">
           <div>
             <div className="text-[11px] uppercase tracking-[0.28em] text-amber-300/70">
               {eyebrow}
             </div>
-            <h2 className="mt-2 text-3xl font-light tracking-[-0.05em] text-white">
+            <h2 className="mt-2 text-3xl font-light tracking-[-0.05em] text-[#191919]">
               {title}
             </h2>
-            <div className="mt-2 text-sm text-white/45">
+            <div className="mt-2 text-sm text-[#746E66]">
               {subtitle || "Business record"}
             </div>
           </div>
@@ -838,7 +838,7 @@ export default function RowActionEngine({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60 hover:bg-white/5"
+            className="rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#191919]/60 hover:bg-[#FBF8F3]"
           >
             Close
           </button>
@@ -848,8 +848,8 @@ export default function RowActionEngine({
           {isDetail ? (
             <DetailSections presentation={presentation} row={row || {}} />
           ) : kind === "history" ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
-              <div className="text-white/80">Record timeline</div>
+            <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4 text-sm text-[#191919]/60">
+              <div className="text-[#191919]/80">Record timeline</div>
               <div className="mt-3 grid gap-2">
                 {[
                   ["Created", row?.created_at, "created_at"],
@@ -863,16 +863,16 @@ export default function RowActionEngine({
                 ].map(([label, value, key]) => (
                   <div
                     key={label}
-                    className="flex justify-between gap-4 border-b border-white/[0.06] py-2 last:border-b-0"
+                    className="flex justify-between gap-4 border-b border-black/[0.06] py-2 last:border-b-0"
                   >
-                    <span className="text-white/35">{label}</span>
+                    <span className="text-[#191919]/35">{label}</span>
                     <span className="text-right">{formatValue(value, key)}</span>
                   </div>
                 ))}
               </div>
             </div>
           ) : kind === "attachments" ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
+            <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4 text-sm text-[#191919]/60">
               No attachments are linked to this record.
             </div>
           ) : (
@@ -892,11 +892,11 @@ export default function RowActionEngine({
           ) : null}
         </div>
 
-        <div className="flex flex-wrap justify-end gap-3 border-t border-white/10 px-6 py-5">
+        <div className="flex flex-wrap justify-end gap-3 border-t border-black/[0.08] px-6 py-5">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/10 px-5 py-3 text-sm text-white/60 hover:bg-white/5"
+            className="rounded-xl border border-black/[0.08] px-5 py-3 text-sm text-[#191919]/60 hover:bg-[#FBF8F3]"
           >
             Back
           </button>

@@ -74,7 +74,7 @@ function RailLink({ href, label, active, Icon, expanded }) {
       aria-label={label}
       className={
         active
-          ? `group relative flex h-10 items-center rounded-xl bg-[#171716] text-white shadow-[0_3px_10px_rgba(20,18,15,0.16)] ${expanded ? "w-full gap-3 px-3" : "w-10 justify-center"}`
+          ? `group relative flex h-10 items-center rounded-xl bg-[#171716] text-[#191919] shadow-[0_3px_10px_rgba(20,18,15,0.16)] ${expanded ? "w-full gap-3 px-3" : "w-10 justify-center"}`
           : `group relative flex h-10 items-center rounded-xl text-[#77736C] transition hover:bg-[#F1EFEA] hover:text-[#292723] ${expanded ? "w-full gap-3 px-3" : "w-10 justify-center"}`
       }
     >
@@ -82,7 +82,7 @@ function RailLink({ href, label, active, Icon, expanded }) {
       {expanded ? (
         <span className="min-w-0 flex-1 truncate text-[11px] font-medium">{label}</span>
       ) : (
-        <span className="pointer-events-none absolute left-[52px] z-[80] hidden whitespace-nowrap rounded-lg border border-black/[0.08] bg-[#171716] px-2.5 py-1.5 text-[10px] font-medium text-white shadow-xl group-hover:block">
+        <span className="pointer-events-none absolute left-[52px] z-[80] hidden whitespace-nowrap rounded-lg border border-black/[0.08] bg-[#171716] px-2.5 py-1.5 text-[10px] font-medium text-[#191919] shadow-xl group-hover:block">
           {label}
         </span>
       )}
@@ -209,13 +209,13 @@ export default function WorkspaceNavigationRail() {
           {expanded ? (
             <span className="min-w-0 flex-1 truncate text-[11px] font-semibold">Avantiqo Intelligence</span>
           ) : (
-            <span className="pointer-events-none absolute left-[52px] z-[80] hidden whitespace-nowrap rounded-lg border border-black/[0.08] bg-[#171716] px-2.5 py-1.5 text-[10px] font-medium text-white shadow-xl group-hover:block">
+            <span className="pointer-events-none absolute left-[52px] z-[80] hidden whitespace-nowrap rounded-lg border border-black/[0.08] bg-[#171716] px-2.5 py-1.5 text-[10px] font-medium text-[#191919] shadow-xl group-hover:block">
               Avantiqo Intelligence
             </span>
           )}
         </button>
 
-        <div className={`mb-1 h-px bg-black/[0.07] ${expanded ? "mx-2" : "w-7"}`} />
+        <div className={`mb-1 h-px bg-[#F7F6F3]/[0.07] ${expanded ? "mx-2" : "w-7"}`} />
 
         {expanded ? (
           <div className="px-3 pb-1 pt-1 text-[8px] font-semibold uppercase tracking-[0.18em] text-[#AAA59D]">ERP areas</div>

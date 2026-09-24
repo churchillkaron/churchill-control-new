@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import {
   CalendarDays,
@@ -89,7 +89,7 @@ export default function SchedulePage() {
     };
   });
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setMessage("");
 
@@ -119,7 +119,7 @@ export default function SchedulePage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [month, organizationId]);
 
   useEffect(() => {
     const bounds = monthBounds(month);
@@ -129,7 +129,7 @@ export default function SchedulePage() {
       endDate: bounds.end,
     }));
     load();
-  }, [month, organizationId]);
+  }, [load, month]);
 
   const scheduledStaffIds = useMemo(
     () => new Set(schedules.map((row) => row.staff_id)),
@@ -247,9 +247,9 @@ export default function SchedulePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#030303] p-5 text-white lg:p-8">
+    <main className="min-h-screen bg-[#F7F6F3] p-5 text-[#191919] lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
+        <header className="overflow-hidden rounded-[34px] border border-black/[0.08] bg-white/[0.045] backdrop-blur-3xl">
           <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
           <div className="flex flex-col gap-4 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -257,7 +257,7 @@ export default function SchedulePage() {
                 People · Workforce
               </p>
               <h1 className="mt-2 text-4xl font-black">Scheduling Management</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/45">
+              <p className="mt-2 max-w-3xl text-sm text-[#746E66]">
                 Publish real roster evidence for staff clock-in, attendance and payroll readiness. Shift times and working days are explicit manager inputs; once shift or attendance evidence exists, the roster row is locked and corrections move to Attendance Management.
               </p>
             </div>
@@ -266,12 +266,12 @@ export default function SchedulePage() {
                 type="month"
                 value={month}
                 onChange={(event) => setMonth(event.target.value)}
-                className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm"
+                className="rounded-xl border border-black/[0.08] bg-white/5 px-4 py-3 text-sm"
               />
               <button
                 type="button"
                 onClick={load}
-                className="rounded-xl border border-white/10 bg-white/5 p-3"
+                className="rounded-xl border border-black/[0.08] bg-white/5 p-3"
                 aria-label="Refresh"
               >
                 <RefreshCw size={18} />
@@ -306,20 +306,20 @@ export default function SchedulePage() {
         <section className="grid gap-6 xl:grid-cols-[430px_1fr]">
           <form
             onSubmit={publishSchedule}
-            className="space-y-5 rounded-[30px] border border-white/10 bg-white/[0.035] p-5"
+            className="space-y-5 rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5"
           >
             <div>
-              <p className="text-[10px] uppercase tracking-[0.24em] text-white/35">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-[#918B83]">
                 Manager action
               </p>
               <h2 className="mt-1 text-2xl font-black">Publish Roster</h2>
-              <p className="mt-2 text-xs leading-5 text-white/35">
+              <p className="mt-2 text-xs leading-5 text-[#918B83]">
                 Select staff, a date range, working weekdays and actual shift times. Existing staff/date rows can be corrected only before workforce evidence exists; missing rows are created as PUBLISHED.
               </p>
             </div>
 
             <Field label="Staff">
-              <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-white/10 bg-black/20 p-3">
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/20 p-3">
                 <div className="mb-3 flex gap-2">
                   <button
                     type="button"
@@ -348,14 +348,14 @@ export default function SchedulePage() {
                 {staff.map((member) => (
                   <label
                     key={member.id}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/[0.04]"
+                    className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2 hover:bg-[#FBF8F3]"
                   >
                     <input
                       type="checkbox"
                       checked={selectedStaffIds.includes(member.id)}
                       onChange={() => toggleStaff(member.id)}
                     />
-                    <span className="text-sm text-white/70">
+                    <span className="text-sm text-[#5F5A54]">
                       {memberLabel(member)}
                     </span>
                   </label>
@@ -400,7 +400,7 @@ export default function SchedulePage() {
                       className={`rounded-lg border px-1 py-2 text-[10px] font-bold ${
                         active
                           ? "border-[#D6A66A]/50 bg-[#D6A66A]/15 text-[#E7C797]"
-                          : "border-white/10 bg-white/[0.03] text-white/35"
+                          : "border-black/[0.08] bg-[#FBF8F3] text-[#918B83]"
                       }`}
                     >
                       {day.label}
@@ -457,14 +457,14 @@ export default function SchedulePage() {
               />
             </Field>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-xs text-white/45">
+            <div className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/20 p-4 text-xs text-[#746E66]">
               <div className="flex items-center justify-between">
                 <span>Selected staff</span>
-                <strong className="text-white/80">{selectedStaffIds.length}</strong>
+                <strong className="text-[#2F2C28]">{selectedStaffIds.length}</strong>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <span>Selected dates</span>
-                <strong className="text-white/80">{shiftDates.length}</strong>
+                <strong className="text-[#2F2C28]">{shiftDates.length}</strong>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <span>Published rows</span>
@@ -486,26 +486,26 @@ export default function SchedulePage() {
             </button>
 
             {message ? (
-              <p className="text-sm text-white/60">{message}</p>
+              <p className="text-sm text-[#5F5A54]">{message}</p>
             ) : null}
           </form>
 
-          <section className="overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.035]">
-            <div className="flex flex-col gap-2 border-b border-white/10 p-5 sm:flex-row sm:items-end sm:justify-between">
+          <section className="overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#FBF8F3]">
+            <div className="flex flex-col gap-2 border-b border-black/[0.08] p-5 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.24em] text-white/35">
+                <p className="text-[10px] uppercase tracking-[0.24em] text-[#918B83]">
                   {month}
                 </p>
                 <h2 className="mt-1 text-2xl font-black">Published Roster</h2>
               </div>
-              <div className="flex items-center gap-2 text-xs text-white/35">
+              <div className="flex items-center gap-2 text-xs text-[#918B83]">
                 <CheckSquare2 className="h-4 w-4" /> Only PUBLISHED rows count toward payroll readiness
               </div>
             </div>
 
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-black/20 text-left text-xs uppercase tracking-wider text-white/35">
+                <thead className="bg-[#F7F6F3]/20 text-left text-xs uppercase tracking-wider text-[#918B83]">
                   <tr>
                     <th className="px-5 py-3">Date</th>
                     <th className="px-5 py-3">Staff</th>
@@ -520,7 +520,7 @@ export default function SchedulePage() {
                     <tr>
                       <td
                         colSpan={6}
-                        className="px-5 py-10 text-center text-white/35"
+                        className="px-5 py-10 text-center text-[#918B83]"
                       >
                         Loading schedules...
                       </td>
@@ -529,21 +529,21 @@ export default function SchedulePage() {
                     <tr>
                       <td
                         colSpan={6}
-                        className="px-5 py-10 text-center text-white/35"
+                        className="px-5 py-10 text-center text-[#918B83]"
                       >
                         No published shifts for this month.
                       </td>
                     </tr>
                   ) : (
                     schedules.map((row) => (
-                      <tr key={row.id} className="border-t border-white/5">
+                      <tr key={row.id} className="border-t border-black/[0.06]">
                         <td className="px-5 py-4 font-semibold">
                           {row.shift_date}
                         </td>
                         <td className="px-5 py-4">
                           {row.staff_name || "Staff"}
                         </td>
-                        <td className="px-5 py-4 text-white/45">
+                        <td className="px-5 py-4 text-[#746E66]">
                           {row.department || "-"}
                         </td>
                         <td className="px-5 py-4">
@@ -566,7 +566,7 @@ export default function SchedulePage() {
                         </td>
                         <td className="px-5 py-4 text-right">
                           {row.evidenceLocked ? (
-                            <span className="text-[11px] text-white/30">
+                            <span className="text-[11px] text-[#A19A92]">
                               Manage in Attendance
                             </span>
                           ) : (
@@ -603,7 +603,7 @@ export default function SchedulePage() {
 function Field({ label, children }) {
   return (
     <label className="block space-y-2">
-      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">
+      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#918B83]">
         {label}
       </span>
       {children}
@@ -613,8 +613,8 @@ function Field({ label, children }) {
 
 function Metric({ icon, label, value }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
-      <div className="flex items-center gap-2 text-white/35">
+    <div className="rounded-[24px] border border-black/[0.08] bg-[#FBF8F3] p-4">
+      <div className="flex items-center gap-2 text-[#918B83]">
         {icon}
         <span className="text-[10px] uppercase tracking-[0.16em]">{label}</span>
       </div>

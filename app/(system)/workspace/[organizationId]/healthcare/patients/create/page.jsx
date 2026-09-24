@@ -51,7 +51,7 @@ export default function CreatePatientPage() {
             placeholder="First Name"
             value={form.first_name}
             onChange={handleChange}
-            className="p-3 rounded border border-white/20 bg-black/5 text-white focus:ring-2 focus:ring-blue-600"
+            className="p-3 rounded border border-black/[0.10] bg-[#F7F6F3]/5 text-[#191919] focus:ring-2 focus:ring-[#D6A66A]"
             required
           />
           <input
@@ -59,7 +59,7 @@ export default function CreatePatientPage() {
             placeholder="Last Name"
             value={form.last_name}
             onChange={handleChange}
-            className="p-3 rounded border border-white/20 bg-black/5 text-white focus:ring-2 focus:ring-blue-600"
+            className="p-3 rounded border border-black/[0.10] bg-[#F7F6F3]/5 text-[#191919] focus:ring-2 focus:ring-[#D6A66A]"
             required
           />
         </div>
@@ -69,7 +69,7 @@ export default function CreatePatientPage() {
           placeholder="Date of Birth"
           value={form.date_of_birth}
           onChange={handleChange}
-          className="w-full p-3 rounded border border-white/20 bg-black/5 text-white focus:ring-2 focus:ring-blue-600"
+          className="w-full p-3 rounded border border-black/[0.10] bg-[#F7F6F3]/5 text-[#191919] focus:ring-2 focus:ring-[#D6A66A]"
           required
         />
         <input
@@ -77,7 +77,7 @@ export default function CreatePatientPage() {
           placeholder="Phone"
           value={form.phone}
           onChange={handleChange}
-          className="w-full p-3 rounded border border-white/20 bg-black/5 text-white focus:ring-2 focus:ring-blue-600"
+          className="w-full p-3 rounded border border-black/[0.10] bg-[#F7F6F3]/5 text-[#191919] focus:ring-2 focus:ring-[#D6A66A]"
         />
         <input
           type="email"
@@ -85,12 +85,12 @@ export default function CreatePatientPage() {
           placeholder="Email"
           value={form.email}
           onChange={handleChange}
-          className="w-full p-3 rounded border border-white/20 bg-black/5 text-white focus:ring-2 focus:ring-blue-600"
+          className="w-full p-3 rounded border border-black/[0.10] bg-[#F7F6F3]/5 text-[#191919] focus:ring-2 focus:ring-[#D6A66A]"
         />
         <button
           type="submit"
-          className={`w-full py-3 rounded-xl text-white font-semibold ${
-            loading ? "bg-gray-600 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+          className={`w-full py-3 rounded-xl text-[#191919] font-semibold ${
+            loading ? "bg-gray-600 cursor-not-allowed" : "bg-[#D6A66A] hover:bg-[#C6975C] text-[#191919]"
           }`}
           disabled={loading}
         >

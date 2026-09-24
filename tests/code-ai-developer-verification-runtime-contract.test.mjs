@@ -30,6 +30,19 @@ test("truncated exact-file node check still uses deterministic verification when
   assert.equal(request.effective_verifier, "eslint");
 });
 
+test("plain exact-path read-only inspection skips model reasoning and needs no magic verifier phrase", () => {
+  const request = resolveCodeAIDeveloperVerificationRequest(
+    "Read-only inspection: inspect app/api/operator/code/mission/route.js and components/creative/code/AvantiqoCodeIDE.jsx. Do not modify files.",
+  );
+  assert.equal(request.eligible, true);
+  assert.deepEqual(request.file_paths, [
+    "app/api/operator/code/mission/route.js",
+    "components/creative/code/AvantiqoCodeIDE.jsx",
+  ]);
+  assert.equal(request.command, null);
+  assert.equal(request.verification_requested, false);
+});
+
 test("mutation requests never enter developer verification lane", () => {
   const request = resolveCodeAIDeveloperVerificationRequest("Fix app/api/auth/session/route.js and verify it with node --check. Do not deploy.");
   assert.equal(request.eligible, false);
@@ -50,7 +63,7 @@ test("developer verification attaches exact DEVICE session and has no mutation a
   assert.match(runtime, /consumePendingCodeAIOwnerStopAtSafeBoundary/);
   assert.match(runtime, /ownerStopBoundary/);
   assert.match(runtime, /phase: "OWNER_STOPPED"/);
-  assert.match(runtime, /phase: "DEVELOPER_VERIFY_READ"[\s\S]*file_path: request\.file_path/);
+  assert.match(runtime, /phase: "DEVELOPER_VERIFY_READ"[\s\S]*file_path: filePath/);
   assert.match(runtime, /phase: "DEVELOPER_VERIFY_COMMAND"[\s\S]*file_path: request\.file_path/);
   assert.match(runtime, /phase: "DEVELOPER_VERIFY_RESULT"[\s\S]*verification_passed: passed/);
   assert.match(runtime, /phase: "DEVELOPER_VERIFY_COMPLETE"[\s\S]*file_path: request\.file_path/);

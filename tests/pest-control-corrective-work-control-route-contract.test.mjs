@@ -15,7 +15,7 @@ test("legacy Operations work-control route preserves exact Pest Control work ord
   assert.match(route, /redirect\(/);
 });
 
-test("corrective control work-order actions have a governed compatibility destination", async () => {
+test("corrective control work-order actions use the canonical governed Work Control destination", async () => {
   const corrective = await source("app/(system)/workspace/[organizationId]/operations/field-service/corrective-control/page.jsx");
-  assert.match(corrective, /operations\/work-control\?workOrderId=/);
+  assert.match(corrective, /operations\/field-service\/work-control\?workOrderId=/);
 });

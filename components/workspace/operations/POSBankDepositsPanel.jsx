@@ -230,7 +230,7 @@ export default function POSBankDepositsPanel({
   }
 
   return (
-    <article className="rounded-[30px] border border-white/10 bg-white/[0.03] p-7 xl:col-span-2">
+    <article className="rounded-[30px] border border-black/[0.08] bg-white p-7 xl:col-span-2">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">
@@ -239,24 +239,24 @@ export default function POSBankDepositsPanel({
           <h2 className="mt-2 text-2xl font-semibold">
             Safe → Deposit in Transit → Bank
           </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-white/40">
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#918B83]">
             Operations records physical custody leaving the safe. Finance confirms the bank receipt, posts Deposit in Transit to Bank, and existing bank reconciliation later matches the ledger to statement evidence.
           </p>
         </div>
         <button
           type="button"
           onClick={load}
-          className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/55"
+          className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#746E66]"
         >
           <RefreshCw size={14} /> Refresh
         </button>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-white/40">
-        <span className="rounded-full border border-white/10 px-3 py-1.5">Manager submits</span>
-        <span className="rounded-full border border-white/10 px-3 py-1.5">Finance confirms</span>
-        <span className="rounded-full border border-white/10 px-3 py-1.5">No revenue impact</span>
-        <span className="rounded-full border border-white/10 px-3 py-1.5">Statement reconciliation remains Finance-owned</span>
+      <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-[#918B83]">
+        <span className="rounded-full border border-black/[0.08] px-3 py-1.5">Manager submits</span>
+        <span className="rounded-full border border-black/[0.08] px-3 py-1.5">Finance confirms</span>
+        <span className="rounded-full border border-black/[0.08] px-3 py-1.5">No revenue impact</span>
+        <span className="rounded-full border border-black/[0.08] px-3 py-1.5">Statement reconciliation remains Finance-owned</span>
       </div>
 
       {error ? (
@@ -272,12 +272,12 @@ export default function POSBankDepositsPanel({
       ) : null}
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-white/35">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[#918B83]">
             <Landmark size={14} /> Submit physical deposit
           </div>
 
-          <select value={sourceLocationId} onChange={(event) => setSourceLocationId(event.target.value)} className="mt-3 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm">
+          <select value={sourceLocationId} onChange={(event) => setSourceLocationId(event.target.value)} className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm">
             <option value="">Source cash location</option>
             {sources.map((location) => (
               <option key={location.id} value={location.id}>
@@ -286,14 +286,14 @@ export default function POSBankDepositsPanel({
             ))}
           </select>
 
-          <select value={transitLocationId} onChange={(event) => setTransitLocationId(event.target.value)} className="mt-3 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm">
+          <select value={transitLocationId} onChange={(event) => setTransitLocationId(event.target.value)} className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm">
             <option value="">Deposit in Transit location</option>
             {transitLocations.map((location) => (
               <option key={location.id} value={location.id}>{location.name}</option>
             ))}
           </select>
 
-          <select value={bankAccountId} onChange={(event) => setBankAccountId(event.target.value)} className="mt-3 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm">
+          <select value={bankAccountId} onChange={(event) => setBankAccountId(event.target.value)} className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm">
             <option value="">Target bank account</option>
             {banks.map((bank) => (
               <option key={bank.id} value={bank.id}>
@@ -303,35 +303,35 @@ export default function POSBankDepositsPanel({
           </select>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Amount" className="rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm" />
-            <input type="date" value={depositDate} onChange={(event) => setDepositDate(event.target.value)} className="rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm" />
+            <input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Amount" className="rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm" />
+            <input type="date" value={depositDate} onChange={(event) => setDepositDate(event.target.value)} className="rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm" />
           </div>
-          <input value={depositReference} onChange={(event) => setDepositReference(event.target.value)} placeholder="Deposit slip / bank reference" className="mt-3 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm" />
-          <input value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} placeholder="Evidence URL (optional)" className="mt-3 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm" />
-          <textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes (optional)" className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm" />
+          <input value={depositReference} onChange={(event) => setDepositReference(event.target.value)} placeholder="Deposit slip / bank reference" className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm" />
+          <input value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} placeholder="Evidence URL (optional)" className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm" />
+          <textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes (optional)" className="mt-3 w-full resize-none rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm" />
           <button type="button" disabled={actionLoading === "submit" || !actor?.can_submit || !banks.length || !transitLocations.length} onClick={submitDeposit} className="mt-3 w-full rounded-xl bg-[#D6A66A] px-4 py-3 text-sm font-semibold text-black disabled:opacity-35">
             {actionLoading === "submit" ? "Submitting..." : "Submit bank deposit"}
           </button>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-white/35">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[#918B83]">
             <ShieldCheck size={14} /> Deposit evidence
           </div>
           <div className="mt-3 max-h-[520px] space-y-3 overflow-y-auto pr-1">
             {loading ? (
-              <div className="text-sm text-white/35">Loading deposits...</div>
+              <div className="text-sm text-[#918B83]">Loading deposits...</div>
             ) : deposits.length ? (
               deposits.map((deposit) => {
                 const bank = bankMap.get(String(deposit.bank_account_id));
                 const source = locationMap.get(String(deposit.source_location_id));
                 const confirmed = String(deposit.status || "").toUpperCase() === "CONFIRMED";
                 return (
-                  <div key={deposit.id} className="rounded-2xl border border-white/10 p-4">
+                  <div key={deposit.id} className="rounded-2xl border border-black/[0.08] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <div className="text-sm font-semibold">{source?.name || "Cash location"} → {bank?.bank_name || "Bank"}</div>
-                        <div className="mt-1 text-xs text-white/35">{deposit.deposit_reference} · {deposit.deposit_date}</div>
+                        <div className="mt-1 text-xs text-[#918B83]">{deposit.deposit_reference} · {deposit.deposit_date}</div>
                       </div>
                       <div className="text-right">
                         <div className="font-semibold text-[#E2C48A]">{formatMoney(deposit.amount, deposit.currency_code || currencyCode)}</div>
@@ -339,10 +339,10 @@ export default function POSBankDepositsPanel({
                       </div>
                     </div>
                     {confirmed ? (
-                      <div className="mt-3 text-xs text-white/35">Finance confirmed · {deposit.confirmation_reference || deposit.bank_ledger_id}</div>
+                      <div className="mt-3 text-xs text-[#918B83]">Finance confirmed · {deposit.confirmation_reference || deposit.bank_ledger_id}</div>
                     ) : (
                       <div className="mt-3">
-                        <input value={confirmationByDeposit[deposit.id] || ""} onChange={(event) => setConfirmationByDeposit((current) => ({ ...current, [deposit.id]: event.target.value }))} placeholder="Bank confirmation reference" className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs" />
+                        <input value={confirmationByDeposit[deposit.id] || ""} onChange={(event) => setConfirmationByDeposit((current) => ({ ...current, [deposit.id]: event.target.value }))} placeholder="Bank confirmation reference" className="w-full rounded-xl border border-black/[0.09] bg-white px-3 py-2 text-xs" />
                         <button type="button" disabled={!canConfirm || !bank?.finance_account_id || actionLoading === `confirm:${deposit.id}`} onClick={() => confirmDeposit(deposit)} className="mt-2 w-full rounded-xl border border-[#D6A66A]/40 px-3 py-2 text-xs font-semibold text-[#E8C98D] disabled:opacity-35">
                           {actionLoading === `confirm:${deposit.id}` ? "Confirming..." : bank?.finance_account_id ? "Finance confirm bank receipt" : "Bank Finance mapping required"}
                         </button>
@@ -352,7 +352,7 @@ export default function POSBankDepositsPanel({
                 );
               })
             ) : (
-              <div className="text-sm text-white/35">No bank deposits recorded yet.</div>
+              <div className="text-sm text-[#918B83]">No bank deposits recorded yet.</div>
             )}
           </div>
         </div>

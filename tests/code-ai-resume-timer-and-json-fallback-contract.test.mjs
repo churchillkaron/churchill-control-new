@@ -36,6 +36,8 @@ test("multiple contract packages fall through to specific validation instead of 
     () => parseCodeAIWorkPackage(`Draft:\n${first}\nFinal:\n${final}`),
     /CODE_AI_WORK_PACKAGE_OPERATION_LIMIT_EXCEEDED:13/,
   );
+  assert.match(live, /modelOperationCount > packageOperationLimit/);
+  assert.match(live, /CODE_AI_WORK_PACKAGE_OPERATION_LIMIT_EXCEEDED:\$\{modelOperationCount\}/);
 });
 
 test("JSON ambiguity remains repairable if no contract candidate can be selected", () => {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AlertTriangle, BadgeCheck, FileClock, LoaderCircle, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
@@ -34,7 +34,7 @@ export default function FinanceClosePackageFreshnessRail({ organizationId, compa
   const periodId = businessContext.period_id || businessContext.period?.id || null;
   const [state, setState] = useState({ loading: false, error: "", data: null });
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !entityId || !periodId) {
       setState({ loading: false, error: "", data: null });
       return;
@@ -60,9 +60,9 @@ export default function FinanceClosePackageFreshnessRail({ organizationId, compa
         data: error?.freshness ? { freshness: error.freshness } : null,
       });
     }
-  }
+  }, [entityId, organizationId, periodId]);
 
-  useEffect(() => { load(); }, [organizationId, entityId, periodId]);
+  useEffect(() => { load(); }, [load]);
 
   if (!entityId || !periodId) return null;
 

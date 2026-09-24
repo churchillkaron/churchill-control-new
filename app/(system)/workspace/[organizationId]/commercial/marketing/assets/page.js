@@ -2,6 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
+import Image from "next/image";
 import { useEffect, useState }
 from "react";
 
@@ -64,7 +65,7 @@ export default function MarketingAssetsPage() {
 
     return (
 
-      <div className="text-white/60">
+      <div className="text-[#5F5A54]">
 
         Loading assets...
 
@@ -84,7 +85,7 @@ export default function MarketingAssetsPage() {
           className="
             text-3xl
             font-bold
-            text-white
+            text-[#191919]
           "
         >
 
@@ -94,7 +95,7 @@ export default function MarketingAssetsPage() {
 
         <div
           className="
-            text-white/50
+            text-[#746E66]
             mt-2
           "
         >
@@ -125,22 +126,26 @@ export default function MarketingAssetsPage() {
             className="
               bg-white/5
               border
-              border-white/10
+              border-black/[0.08]
               rounded-2xl
               overflow-hidden
             "
 
           >
 
-            <img
+            <Image
 
               src={asset.file_url}
 
               alt="Asset"
 
+              width={1200}
+              height={800}
+              unoptimized
+
               className="
-                w-full
                 h-56
+                w-full
                 object-cover
               "
 
@@ -153,7 +158,7 @@ export default function MarketingAssetsPage() {
                   text-sm
                   uppercase
                   tracking-[0.15em]
-                  text-white/40
+                  text-[#817A72]
                 "
               >
 
@@ -200,7 +205,7 @@ export default function MarketingAssetsPage() {
                 className="
                   mt-4
                   text-xs
-                  text-white/40
+                  text-[#817A72]
                 "
               >
 

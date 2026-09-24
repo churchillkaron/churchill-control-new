@@ -187,7 +187,7 @@ export default function OperationsEventWorkCenter({ capability }) {
   }
 
   return (
-    <main className="min-h-screen px-6 py-7 text-white">
+    <main className="min-h-screen px-6 py-7 text-[#191919]">
       <div className="mx-auto max-w-[1540px]">
         <WorkspaceHeader
           workspace="Operations"
@@ -195,13 +195,13 @@ export default function OperationsEventWorkCenter({ capability }) {
           description={capability?.description || "Immutable Operations event history and delivery health."}
           actions={(
             <div className="flex flex-wrap gap-2">
-              <button onClick={exportEvents} className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/65">
+              <button onClick={exportEvents} className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54]">
                 Export
               </button>
               <button disabled={saving} onClick={flushPending} className="rounded-xl border border-[#D6A66A]/35 bg-[#D6A66A]/10 px-4 py-2 text-sm text-[#D6A66A] disabled:opacity-50">
                 Flush Events
               </button>
-              <button disabled={loading} onClick={load} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/65 disabled:opacity-50">
+              <button disabled={loading} onClick={load} className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54] disabled:opacity-50">
                 <RefreshCw size={15} /> Refresh
               </button>
             </div>
@@ -220,48 +220,48 @@ export default function OperationsEventWorkCenter({ capability }) {
             ["Dead Letter", health.dead_letter],
             ["Max Attempts", health.max_attempts],
           ].map(([label, value]) => (
-            <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-white/30">{label}</div>
-              <div className="mt-2 text-2xl font-semibold text-white">{Number(value || 0)}</div>
+            <div key={label} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-[#A19A92]">{label}</div>
+              <div className="mt-2 text-2xl font-semibold text-[#191919]">{Number(value || 0)}</div>
             </div>
           ))}
         </section>
 
         <section className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(380px,0.75fr)]">
-          <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5">
+          <div className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">Immutable events</div>
-                <div className="mt-2 text-sm text-white/40">{loading ? "Loading…" : `${filteredEvents.length} events`}</div>
+                <div className="mt-2 text-sm text-[#918B83]">{loading ? "Loading…" : `${filteredEvents.length} events`}</div>
               </div>
-              <div className="flex w-full items-center rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white/45 md:w-[360px]">
+              <div className="flex w-full items-center rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-[#817A72] md:w-[360px]">
                 <Search size={16} />
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search event history…" className="ml-3 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30" />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search event history…" className="ml-3 w-full bg-transparent text-sm text-[#191919] outline-none placeholder:text-[#A19A92]" />
               </div>
             </div>
 
             <div className="space-y-2">
               {filteredEvents.map((event) => (
-                <button key={event.id} onClick={() => setSelectedId(event.id)} className={`w-full rounded-2xl border p-4 text-left transition ${selected?.id === event.id ? "border-[#D6A66A]/40 bg-[#D6A66A]/10" : "border-white/10 bg-black/20 hover:border-white/20"}`}>
+                <button key={event.id} onClick={() => setSelectedId(event.id)} className={`w-full rounded-2xl border p-4 text-left transition ${selected?.id === event.id ? "border-[#D6A66A]/40 bg-[#D6A66A]/10" : "border-black/[0.08] bg-[#FBF8F3] hover:border-white/20"}`}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="text-sm font-semibold text-white">{eventLabel(event)}</div>
-                      <div className="mt-1 text-xs text-white/35">{event.capability_id || event.aggregate_type || "operations"} · {formatDate(event.occurred_at)}</div>
+                      <div className="text-sm font-semibold text-[#191919]">{eventLabel(event)}</div>
+                      <div className="mt-1 text-xs text-[#918B83]">{event.capability_id || event.aggregate_type || "operations"} · {formatDate(event.occurred_at)}</div>
                     </div>
-                    <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-white/40">{event.command || "event"}</span>
+                    <span className="rounded-full border border-black/[0.08] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-[#918B83]">{event.command || "event"}</span>
                   </div>
                 </button>
               ))}
-              {!loading && filteredEvents.length === 0 ? <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-sm text-white/40">No published Operations events in this scope.</div> : null}
+              {!loading && filteredEvents.length === 0 ? <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6 text-sm text-[#918B83]">No published Operations events in this scope.</div> : null}
             </div>
           </div>
 
           <aside className="space-y-5">
-            <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5">
+            <div className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5">
               <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">Event detail</div>
               {selected ? (
                 <div className="mt-5 space-y-4">
-                  <div className="text-xl font-semibold text-white">{eventLabel(selected)}</div>
+                  <div className="text-xl font-semibold text-[#191919]">{eventLabel(selected)}</div>
                   <dl className="grid grid-cols-2 gap-3 text-sm">
                     {[
                       ["Capability", selected.capability_id],
@@ -271,18 +271,18 @@ export default function OperationsEventWorkCenter({ capability }) {
                       ["Actor", selected.actor_id],
                       ["Occurred", formatDate(selected.occurred_at)],
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                        <dt className="text-[10px] uppercase tracking-[0.16em] text-white/30">{label}</dt>
-                        <dd className="mt-1 break-all text-white/70">{clean(value) || "—"}</dd>
+                      <div key={label} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-3">
+                        <dt className="text-[10px] uppercase tracking-[0.16em] text-[#A19A92]">{label}</dt>
+                        <dd className="mt-1 break-all text-[#5F5A54]">{clean(value) || "—"}</dd>
                       </div>
                     ))}
                   </dl>
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <div className="text-[10px] uppercase tracking-[0.16em] text-white/30">Payload</div>
-                    <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap text-xs leading-5 text-white/60">{JSON.stringify(selected.payload || {}, null, 2)}</pre>
+                  <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+                    <div className="text-[10px] uppercase tracking-[0.16em] text-[#A19A92]">Payload</div>
+                    <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap text-xs leading-5 text-[#5F5A54]">{JSON.stringify(selected.payload || {}, null, 2)}</pre>
                   </div>
                 </div>
-              ) : <div className="mt-5 text-sm text-white/40">Select an event to inspect it.</div>}
+              ) : <div className="mt-5 text-sm text-[#918B83]">Select an event to inspect it.</div>}
             </div>
 
             {deadLetters.length ? (
@@ -290,9 +290,9 @@ export default function OperationsEventWorkCenter({ capability }) {
                 <div className="text-xs uppercase tracking-[0.28em] text-red-200">Dead-letter events</div>
                 <div className="mt-4 space-y-3">
                   {deadLetters.map((event) => (
-                    <div key={event.id} className="rounded-2xl border border-red-400/15 bg-black/20 p-4">
-                      <div className="text-sm font-semibold text-white">{event.event_type}</div>
-                      <div className="mt-1 text-xs text-white/35">Attempts: {event.attempts} · {formatDate(event.occurred_at)}</div>
+                    <div key={event.id} className="rounded-2xl border border-red-400/15 bg-[#FBF8F3] p-4">
+                      <div className="text-sm font-semibold text-[#191919]">{event.event_type}</div>
+                      <div className="mt-1 text-xs text-[#918B83]">Attempts: {event.attempts} · {formatDate(event.occurred_at)}</div>
                       <div className="mt-2 text-xs text-red-100/70">{event.last_error?.message || "Delivery failed"}</div>
                       <button disabled={saving} onClick={() => retryDeadLetter(event.id)} className="mt-3 rounded-xl border border-red-300/25 bg-red-500/10 px-3 py-2 text-xs text-red-100 disabled:opacity-50">Retry Delivery</button>
                     </div>

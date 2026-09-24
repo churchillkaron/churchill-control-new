@@ -577,41 +577,9 @@ export default function MasterDataRuntimeWorkCenter({
   }
 
 
-  if (
+  const isReportWorkCenter =
     resolvedCapability?.runtime?.renderer ===
-    "ReportWorkCenter"
-  ) {
-
-    return (
-
-      <ReportWorkCenter
-
-        capability={
-          resolvedCapability
-        }
-
-        organizationId={
-          resolvedOrganizationId
-        }
-
-        entityId={
-          resolvedEntityId || legalEntityId
-        }
-
-        periodId={
-          resolvedPeriodId
-        }
-
-        workspaceId={
-          workspaceId
-        }
-
-      />
-
-    );
-
-  }
-
+    "ReportWorkCenter";
 
   const normalizedKey =
     resolvedCapability.id ||
@@ -846,14 +814,18 @@ export default function MasterDataRuntimeWorkCenter({
   }, [
     organizationId,
     resolvedOrganizationId,
+    resolvedEntityId,
     entityId,
     legalEntityId,
+    resolvedPeriodId,
     periodId,
     workspaceId,
     normalizedKey,
     refresh,
+    runtime.ready,
     config.api,
     config.rowsKey,
+    config.filters,
   ]);
 
   const filteredRows =
@@ -969,9 +941,7 @@ export default function MasterDataRuntimeWorkCenter({
 
     };
 
-  }, [
-    selected?.id,
-  ]);
+  }, [selected]);
 
   const totalValue =
     defaultTotalValue(rows);
@@ -1045,6 +1015,18 @@ export default function MasterDataRuntimeWorkCenter({
     )
       ? configuredCreate
       : null;
+
+  if (isReportWorkCenter) {
+    return (
+      <ReportWorkCenter
+        capability={resolvedCapability}
+        organizationId={resolvedOrganizationId}
+        entityId={resolvedEntityId || legalEntityId}
+        periodId={resolvedPeriodId}
+        workspaceId={workspaceId}
+      />
+    );
+  }
 
   return (
     <MasterDataWorkCenter

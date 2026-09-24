@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -132,7 +132,10 @@ function ClientRequestPanel({ request }) {
 }
 
 function WorkpaperDetail({ item, clientRequest, documents, busy, error, onVerify, onLink, onUnlink, onLifecycle }) {
-  const requirements = Array.isArray(item.evidence_requirements) ? item.evidence_requirements : [];
+  const requirements = useMemo(
+    () => (Array.isArray(item.evidence_requirements) ? item.evidence_requirements : []),
+    [item.evidence_requirements],
+  );
   const links = (Array.isArray(item.evidence_links) ? item.evidence_links : []).filter((link) => link.status === "ACTIVE");
   const [category, setCategory] = useState(requirements[0]?.key || "");
   const [documentId, setDocumentId] = useState("");
@@ -143,7 +146,7 @@ function WorkpaperDetail({ item, clientRequest, documents, busy, error, onVerify
     if (!requirements.some((row) => row.key === category)) setCategory(requirements[0]?.key || "");
     setConclusion(item.conclusion || "");
     if (typeof item.evidence === "string") setEvidenceNote(item.evidence);
-  }, [item.id, item.conclusion, requirements.length]);
+  }, [category, item.conclusion, item.evidence, requirements]);
 
   const activePairs = new Set(links.map((link) => `${link.evidence_category}:${link.document_id}`));
   const available = documents.filter((document) => !activePairs.has(`${category}:${document.id}`));
@@ -181,7 +184,7 @@ function WorkpaperDetail({ item, clientRequest, documents, busy, error, onVerify
                   {!links.length ? <div className="py-3 text-[9px] text-[#918B83]">No classified documents are linked to this procedure.</div> : null}
                 </div>
               </div>
-              {item.can_manage_evidence ? <div className="mt-3 rounded-xl border border-[#A37849]/15 bg-[#FFFDF9] p-3"><div className="flex items-center gap-1.5 text-[9px] font-semibold"><Link2 size={11} /> Link existing document</div><div className="mt-2 grid gap-2 md:grid-cols-[180px_minmax(220px,1fr)_auto]"><select value={category} onChange={(event) => { setCategory(event.target.value); setDocumentId(""); }} className="h-9 rounded-lg border border-black/[0.08] bg-white px-2 text-[9px]">{requirements.map((row) => <option key={row.key} value={row.key}>{row.label}</option>)}</select><select value={documentId} onChange={(event) => setDocumentId(event.target.value)} className="h-9 rounded-lg border border-black/[0.08] bg-white px-2 text-[9px]"><option value="">Select client document…</option>{available.map((document) => <option key={document.id} value={document.id}>{document.file_name || document.id}</option>)}</select><button type="button" disabled={busy || !category || !documentId} onClick={() => onLink(item, category, documentId)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#3F352A] px-3 text-[9px] font-semibold text-white disabled:opacity-40"><Link2 size={11} /> Link evidence</button></div><div className="mt-2 text-[8px] text-[#918B83]">Uses canonical client documents; no duplicate upload is created. Any evidence change invalidates prior system verification.</div></div> : <div className="mt-3 text-[8px] text-[#918B83]">{item.evidence_edit_block_reason}</div>}
+              {item.can_manage_evidence ? <div className="mt-3 rounded-xl border border-[#A37849]/15 bg-[#FFFDF9] p-3"><div className="flex items-center gap-1.5 text-[9px] font-semibold"><Link2 size={11} /> Link existing document</div><div className="mt-2 grid gap-2 md:grid-cols-[180px_minmax(220px,1fr)_auto]"><select value={category} onChange={(event) => { setCategory(event.target.value); setDocumentId(""); }} className="h-9 rounded-lg border border-black/[0.08] bg-white px-2 text-[9px]">{requirements.map((row) => <option key={row.key} value={row.key}>{row.label}</option>)}</select><select value={documentId} onChange={(event) => setDocumentId(event.target.value)} className="h-9 rounded-lg border border-black/[0.08] bg-white px-2 text-[9px]"><option value="">Select client document…</option>{available.map((document) => <option key={document.id} value={document.id}>{document.file_name || document.id}</option>)}</select><button type="button" disabled={busy || !category || !documentId} onClick={() => onLink(item, category, documentId)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#3F352A] px-3 text-[9px] font-semibold text-[#191919] disabled:opacity-40"><Link2 size={11} /> Link evidence</button></div><div className="mt-2 text-[8px] text-[#918B83]">Uses canonical client documents; no duplicate upload is created. Any evidence change invalidates prior system verification.</div></div> : <div className="mt-3 text-[8px] text-[#918B83]">{item.evidence_edit_block_reason}</div>}
             </div>
           ) : null}
 
@@ -200,7 +203,7 @@ function WorkpaperDetail({ item, clientRequest, documents, busy, error, onVerify
 
           {evidenceRequired || item.conclusion || readyForCompletion ? <label className="mt-3 block"><span className="text-[8px] font-semibold text-[#5B554E]">Conclusion{evidenceRequired ? " · required" : ""}</span><textarea value={conclusion} onChange={(event) => setConclusion(event.target.value)} rows={4} placeholder="Record the accountant’s conclusion…" className="mt-1.5 w-full resize-y rounded-lg border border-black/[0.08] bg-[#FCFBF9] p-2.5 text-[9px] outline-none focus:border-[#A37849]/40" /></label> : null}
 
-          {readyForCompletion ? <button type="button" disabled={busy || (evidenceRequired && !conclusion.trim()) || (humanEvidenceRequired && !evidenceNote.trim())} onClick={() => onLifecycle(item, "complete_item", { conclusion: conclusion.trim() || null, ...(humanEvidenceRequired ? { evidence: evidenceNote.trim() } : {}), readyForReview: preparerHandoff })} className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-[#3F352A] px-3 text-[9px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{busy ? <LoaderCircle size={11} className="animate-spin" /> : preparerHandoff ? <ArrowRight size={11} /> : <CheckCircle2 size={11} />}{busy ? "Saving…" : preparerHandoff ? "Send to review" : "Complete procedure"}</button> : null}
+          {readyForCompletion ? <button type="button" disabled={busy || (evidenceRequired && !conclusion.trim()) || (humanEvidenceRequired && !evidenceNote.trim())} onClick={() => onLifecycle(item, "complete_item", { conclusion: conclusion.trim() || null, ...(humanEvidenceRequired ? { evidence: evidenceNote.trim() } : {}), readyForReview: preparerHandoff })} className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-[#3F352A] px-3 text-[9px] font-semibold text-[#191919] disabled:cursor-not-allowed disabled:opacity-40">{busy ? <LoaderCircle size={11} className="animate-spin" /> : preparerHandoff ? <ArrowRight size={11} /> : <CheckCircle2 size={11} />}{busy ? "Saving…" : preparerHandoff ? "Send to review" : "Complete procedure"}</button> : null}
           {status === "READY_FOR_REVIEW" ? <div className="mt-3 rounded-lg bg-amber-50 px-2.5 py-2 text-[8px] text-amber-800">Prepared and handed off. Reviewer action happens through the governed review workflow.</div> : null}
           {status === "WAITING_ON_CLIENT" ? <div className="mt-3 rounded-lg bg-[#F7F6F3] px-2.5 py-2 text-[8px] text-[#716B63]">Waiting on client evidence or response. The procedure stays out of the preparer’s active work until the request returns.</div> : null}
         </aside>
@@ -223,7 +226,7 @@ function WorkItemRow({ item, clientRequest, expanded, locked, onToggle, document
   return (
     <>
       <div className={`grid min-w-[900px] grid-cols-[34px_36px_minmax(300px,1.7fr)_100px_120px_105px_150px] items-center gap-3 border-b border-black/[0.05] px-3 py-2.5 text-[10px] transition ${expanded ? "bg-[#FCFAF6]" : "hover:bg-[#FCFBF9]"}`}>
-        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={`${expanded ? "Collapse" : "Open"} ${item.title}`} className="flex h-7 w-7 items-center justify-center rounded-md text-[#817D76] hover:bg-black/[0.04] hover:text-[#5F452D]">{expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</button>
+        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={`${expanded ? "Collapse" : "Open"} ${item.title}`} className="flex h-7 w-7 items-center justify-center rounded-md text-[#817D76] hover:bg-[#F7F6F3]/[0.04] hover:text-[#5F452D]">{expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</button>
         <span className="tabular-nums text-[#A09A92]">{item.sequence_no}</span>
         <button type="button" onClick={onToggle} className="min-w-0 text-left">
           <div className="truncate font-semibold text-[#37342F]">{item.title}</div>
@@ -252,7 +255,7 @@ export default function FinanceEngagementWorkProgram({ organizationId, run, docu
     const focus = (run?.work_items || []).find((item) => ["IN_PROGRESS", "CHANGES_REQUESTED", "BLOCKED"].includes(String(item.status || "").toUpperCase()));
     setExpandedItems(focus?.id ? new Set([focus.id]) : new Set());
     setOperation({ key: "", itemId: "", error: "" });
-  }, [run?.id]);
+  }, [run?.id, run?.work_items]);
 
   async function reloadAndFocus({ currentItemId, action }) {
     const refreshed = await onReload?.();
@@ -343,7 +346,7 @@ export default function FinanceEngagementWorkProgram({ organizationId, run, docu
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2"><span className="font-semibold text-[#37342F]">{run.template?.name || run.run_key || "Accounting work program"}</span><span className={`rounded-full border px-2 py-1 text-[7px] font-semibold uppercase ${tone(run.status)}`}>{label(run.status)}</span>{run.locked_at ? <span className="rounded-full border border-black/[0.07] px-2 py-1 text-[7px] text-[#817D76]">Locked snapshot</span> : null}</div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[8px] text-[#918B83]"><span>{run.period?.period_name || run.run_key}</span><span>{complete}/{total} procedures</span><span>{hours(run.progress?.budget_minutes)} budget</span><span>Due {date(run.due_at)}</span>{run.progress?.missing_evidence_categories ? <span className="text-amber-700">{run.progress.missing_evidence_categories} evidence missing</span> : null}{run.progress?.verification_attention_items ? <span className="text-amber-700">{run.progress.verification_attention_items} verify attention</span> : null}</div>
-          <div className="mt-2 h-1 w-full max-w-xl overflow-hidden rounded-full bg-black/[0.05]"><div className="h-full rounded-full bg-[#9A744B] transition-all" style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} /></div>
+          <div className="mt-2 h-1 w-full max-w-xl overflow-hidden rounded-full bg-[#F7F6F3]/[0.05]"><div className="h-full rounded-full bg-[#9A744B] transition-all" style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} /></div>
         </div>
         {open ? <ChevronDown size={15} className="shrink-0 text-[#817D76]" /> : <ChevronRight size={15} className="shrink-0 text-[#817D76]" />}
       </button>

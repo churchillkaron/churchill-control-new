@@ -404,23 +404,23 @@ export default function MasterActionMenu({
         className={
           variant === "grid"
             ? [
-                "rounded-xl border border-white/[0.07] bg-black/24 px-3 py-3 text-left text-[12px] transition hover:bg-white/[0.06]",
+                "rounded-xl border border-black/[0.07] bg-[#F7F6F3]/24 px-3 py-3 text-left text-[12px] transition hover:bg-white/[0.06]",
                 action.danger
                   ? "text-red-300 hover:text-red-200"
-                  : "text-white/55 hover:text-white/80",
+                  : "text-[#5F5A54] hover:text-[#2F2C28]",
               ].join(" ")
             : [
                 "block w-full rounded-xl px-3 py-2.5 text-left text-[12px] transition",
                 surface === "light"
-                  ? "hover:bg-black/[0.045]"
-                  : "hover:bg-white/[0.07]",
+                  ? "hover:bg-[#F7F6F3]/[0.045]"
+                  : "hover:bg-white",
                 action.danger
                   ? surface === "light"
                     ? "text-red-700 hover:text-red-800"
                     : "text-red-300 hover:text-red-200"
                   : surface === "light"
                     ? "text-[#4E4942] hover:text-[#1F1E1B]"
-                    : "text-white/65 hover:text-white",
+                    : "text-[#5F5A54] hover:text-[#191919]",
               ].join(" ")
         }
       >

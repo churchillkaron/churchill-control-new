@@ -6,6 +6,7 @@ const migration=fs.readFileSync("supabase/migrations/20260919170000_creative_pro
 const runtime=fs.readFileSync("lib/platform/service-runtime/execution/CreativeProviderExecutionClaimRuntime.js","utf8");
 const service=fs.readFileSync("lib/platform/service-runtime/execution/ServiceExecutionRuntime.js","utf8");
 const enqueue=fs.readFileSync("lib/platform/service-runtime/providers/AvantiqoLocalComputeEnqueueRuntime.js","utf8");
+const tasks=fs.readFileSync("lib/operations/tasks/runtime/ProductionTaskRuntime.js","utf8");
 
 test("provider execution has a durable exactly-once claim ledger",()=>{
   assert.match(migration,/creative_provider_execution_claims/);
@@ -33,6 +34,15 @@ test("provider certification is pinned into the execution identity",()=>{
   assert.match(runtime,/provider_certification_fingerprint/);
   assert.match(service,/providerCertificationFingerprint/);
   assert.match(service,/provider_certification:/);
+});
+
+test("explicit production retry creates a new exactly-once execution attempt",()=>{
+  assert.match(runtime,/provider_execution_attempt/);
+  assert.match(runtime,/:attempt:/);
+  assert.match(tasks,/async retry\(id\)/);
+  assert.match(tasks,/FAILED_PRODUCTION_TASK_REQUIRED_FOR_RETRY/);
+  assert.match(tasks,/provider_execution_attempt: attempt/);
+  assert.match(tasks,/provider_retry_previous_job_id/);
 });
 
 test("Node01 queue submission is database-idempotent",()=>{

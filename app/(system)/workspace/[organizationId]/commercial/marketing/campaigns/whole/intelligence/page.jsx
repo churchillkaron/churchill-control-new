@@ -84,11 +84,11 @@ export default function AdsIntelligencePage() {
   const allocation = data?.capital_allocation_proposal || null;
 
   return (
-    <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#2D2822] lg:p-10">
       <div className="mx-auto max-w-[1500px]">
         <Link
           href={`/workspace/${organizationId}/commercial/marketing/campaigns/whole`}
-          className="text-sm text-white/40 hover:text-white/70"
+          className="text-sm text-[#7B7168] hover:text-[#49423B]"
         >
           ← Whole Campaign
         </Link>
@@ -100,7 +100,7 @@ export default function AdsIntelligencePage() {
         <div className="mt-3 flex flex-wrap items-end justify-between gap-5">
           <div>
             <h1 className="text-5xl font-light">Portfolio Decision Engine</h1>
-            <p className="mt-3 max-w-3xl text-white/45">
+            <p className="mt-3 max-w-3xl text-[#71685F]">
               Profit-first business-outcome intelligence. Revenue is evidence, but scale decisions require repeated conversions and attributed gross profit above measured media spend.
             </p>
           </div>
@@ -108,7 +108,7 @@ export default function AdsIntelligencePage() {
           <select
             value={groupId}
             onChange={(e) => setGroupId(e.target.value)}
-            className="rounded-xl border border-white/10 bg-black px-4 py-3 text-sm"
+            className="rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm"
           >
             {groups.map((group) => (
               <option key={group.id} value={group.id}>
@@ -124,13 +124,13 @@ export default function AdsIntelligencePage() {
           </div>
         ) : null}
 
-        {loading ? <div className="mt-8 text-white/40">Building decision model...</div> : null}
+        {loading ? <div className="mt-8 text-[#7B7168]">Building decision model...</div> : null}
 
         {!loading && data ? (
           <div className="mt-8 space-y-6">
             <section className="rounded-[30px] border border-[#D6A66A]/20 bg-[#D6A66A]/[0.035] p-6">
               <h2 className="text-3xl font-light">Business Outcome Brain</h2>
-              <p className="mt-2 max-w-4xl text-sm text-white/45">{data.objective}</p>
+              <p className="mt-2 max-w-4xl text-sm text-[#71685F]">{data.objective}</p>
 
               <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
                 <Metric label="Measured Spend" value={money(data.portfolio?.measured_spend, currency)} />
@@ -145,23 +145,23 @@ export default function AdsIntelligencePage() {
             <section className="rounded-[30px] border border-[#D6A66A]/20 bg-[#D6A66A]/[0.025] p-6">
               <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Next Baht Allocation</div>
               <h2 className="mt-2 text-3xl font-light">Controlled Scale Proposal</h2>
-              <p className="mt-2 max-w-4xl text-sm text-white/45">
+              <p className="mt-2 max-w-4xl text-sm text-[#71685F]">
                 {allocation?.allocation_principle}
               </p>
 
               <div className="mt-5 space-y-3">
                 {(allocation?.next_baht_priority || []).length ? (
                   allocation.next_baht_priority.map((item) => (
-                    <div key={item.campaign_id} className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                    <div key={item.campaign_id} className="rounded-2xl border border-black/[0.08] bg-white p-4">
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
                           <div className="text-xs uppercase tracking-[0.13em] text-[#D6A66A]">
                             Priority #{item.rank} · {item.organization_name}
                           </div>
-                          <div className="mt-1 text-lg text-white/80">{item.campaign_name}</div>
-                          <p className="mt-2 max-w-4xl text-sm text-white/45">{item.rationale}</p>
+                          <div className="mt-1 text-lg text-[#39342F]">{item.campaign_name}</div>
+                          <p className="mt-2 max-w-4xl text-sm text-[#71685F]">{item.rationale}</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-right text-xs text-white/40">
+                        <div className="grid grid-cols-2 gap-2 text-right text-xs text-[#7B7168]">
                           <span>Profit / Ad Spend</span><span>{multiple(item.observed_profit_on_ad_spend)}</span>
                           <span>Profit After Media</span><span>{money(item.observed_profit_after_media, currency)}</span>
                           <span>Qualified Outcomes</span><span>{item.qualified_outcomes}</span>
@@ -174,18 +174,18 @@ export default function AdsIntelligencePage() {
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/45">
+                  <div className="rounded-2xl border border-black/[0.08] bg-white p-4 text-sm text-[#71685F]">
                     No safe scale candidate yet. Continue measurement and controlled learning before allocating additional media budget.
                   </div>
                 )}
               </div>
 
-              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-xs text-white/35">
+              <div className="mt-4 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4 text-xs text-[#857B71]">
                 Marginal model: {allocation?.marginal_model?.available ? "available" : "not yet available"}. {allocation?.marginal_model?.reason}
               </div>
             </section>
 
-            <section className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
+            <section className="rounded-[30px] border border-black/[0.08] bg-white p-6">
               <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">
                 Executive Actions
               </div>
@@ -193,13 +193,13 @@ export default function AdsIntelligencePage() {
                 {(data.executive_actions || []).map((action, index) => (
                   <div
                     key={`${action.action}-${index}`}
-                    className="rounded-2xl border border-white/10 bg-black/30 p-4"
+                    className="rounded-2xl border border-black/[0.08] bg-white p-4"
                   >
                     <div className="text-xs text-[#D6A66A]">
                       {label(action.priority)} · {label(action.action)}
                     </div>
-                    <p className="mt-2 text-sm text-white/55">{action.reason}</p>
-                    <div className="mt-2 text-xs text-white/30">
+                    <p className="mt-2 text-sm text-[#5F574F]">{action.reason}</p>
+                    <div className="mt-2 text-xs text-[#91877D]">
                       {(action.organizations || []).join(" · ")}
                     </div>
                   </div>
@@ -211,7 +211,7 @@ export default function AdsIntelligencePage() {
               {(data.campaigns || []).map((campaign) => (
                 <article
                   key={campaign.campaign_id}
-                  className="rounded-[26px] border border-white/10 bg-white/[0.025] p-5"
+                  className="rounded-[26px] border border-black/[0.08] bg-white p-5"
                 >
                   <div className="flex flex-wrap justify-between gap-4">
                     <div>
@@ -219,13 +219,13 @@ export default function AdsIntelligencePage() {
                         {campaign.organization_name}
                       </div>
                       <h3 className="mt-2 text-2xl">{campaign.campaign_name}</h3>
-                      <div className="mt-1 text-sm text-white/35">
+                      <div className="mt-1 text-sm text-[#857B71]">
                         North star: {campaign.north_star_metric}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-white/60">{label(campaign.decision)}</div>
-                      <div className="text-xs text-white/30">
+                      <div className="text-sm text-[#574F48]">{label(campaign.decision)}</div>
+                      <div className="text-xs text-[#91877D]">
                         Evidence {campaign.evidence_score}/{campaign.evidence_max}
                       </div>
                     </div>
@@ -260,20 +260,20 @@ export default function AdsIntelligencePage() {
 
 function Metric({ label: metricLabel, value }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-black/25 p-4">
-      <div className="text-[10px] uppercase tracking-[0.13em] text-white/25">
+    <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+      <div className="text-[10px] uppercase tracking-[0.13em] text-[#A59A8F]">
         {metricLabel}
       </div>
-      <div className="mt-1 text-lg text-white/75">{value}</div>
+      <div className="mt-1 text-lg text-[#413B35]">{value}</div>
     </div>
   );
 }
 
 function ListBox({ title, items = [] }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
       <div className="text-xs uppercase tracking-[0.13em] text-[#D6A66A]">{title}</div>
-      <div className="mt-3 space-y-2 text-sm text-white/45">
+      <div className="mt-3 space-y-2 text-sm text-[#71685F]">
         {items.length ? (
           items.map((item) => <div key={item}>• {item}</div>)
         ) : (

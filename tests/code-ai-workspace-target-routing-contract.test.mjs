@@ -12,7 +12,8 @@ const { localCodeWorkspaceCommandPolicy } = await import(localPath);
 
 test("Code AI mission uses the shared workspace router instead of hardcoded sandbox", () => {
   assert.match(missionSource, /import \{ CodeWorkspaceRuntime \} from "\.\/CodeWorkspaceRuntime\.js";/);
-  assert.match(missionSource, /CodeWorkspaceRuntime\.commandPolicy\(input\)/);
+  assert.match(missionSource, /CodeWorkspaceRuntime\.commandPolicy\(input, workspaceTarget\)/);
+  assert.match(missionSource, /assertMissionCommand\(normalizedInput, workspace\?\.workspace_target\)/);
   assert.match(missionSource, /CodeWorkspaceRuntime\.open\(\{/);
   assert.doesNotMatch(missionSource, /CodeWorkspaceSandboxRuntime\.open\(/);
   assert.doesNotMatch(missionSource, /CodeWorkspaceSandboxRuntime\.commandPolicy\(/);

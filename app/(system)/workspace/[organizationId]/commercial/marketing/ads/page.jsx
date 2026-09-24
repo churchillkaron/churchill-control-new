@@ -30,7 +30,7 @@ import {
 
 const GOLD = "#D6A66A";
 const inputClass =
-  "w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#D6A66A]/60";
+  "w-full rounded-2xl border border-black/[0.08] bg-white px-4 py-3 text-sm text-[#191919] outline-none transition placeholder:text-[#A19A92] focus:border-[#D6A66A]/60";
 
 function unwrap(payload) {
   return payload?.data ?? payload?.result ?? payload;
@@ -79,12 +79,12 @@ function money(value, currency) {
 function Field({ label, hint, children }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[11px] uppercase tracking-[0.2em] text-white/40">
+      <span className="mb-2 block text-[11px] uppercase tracking-[0.2em] text-[#817A72]">
         {label}
       </span>
       {children}
       {hint ? (
-        <span className="mt-2 block text-xs leading-5 text-white/30">
+        <span className="mt-2 block text-xs leading-5 text-[#A19A92]">
           {hint}
         </span>
       ) : null}
@@ -100,25 +100,25 @@ function ModeButton({ active, icon: Icon, title, description, onClick }) {
       className={`rounded-3xl border p-5 text-left transition ${
         active
           ? "border-[#D6A66A]/55 bg-[#D6A66A]/10"
-          : "border-white/10 bg-black/25 hover:border-white/20"
+          : "border-black/[0.08] bg-[#FBF8F3] hover:border-black/[0.12]"
       }`}
     >
       <Icon className="h-5 w-5 text-[#D6A66A]" />
-      <div className="mt-4 text-lg font-medium text-white">{title}</div>
-      <div className="mt-2 text-sm leading-6 text-white/40">{description}</div>
+      <div className="mt-4 text-lg font-medium text-[#191919]">{title}</div>
+      <div className="mt-2 text-sm leading-6 text-[#817A72]">{description}</div>
     </button>
   );
 }
 
 function SummaryCard({ label, value, description }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+    <div className="rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-5">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-[#918B83]">
         {label}
       </div>
-      <div className="mt-3 text-xl font-light text-white">{value}</div>
+      <div className="mt-3 text-xl font-light text-[#191919]">{value}</div>
       {description ? (
-        <div className="mt-2 text-xs leading-5 text-white/35">{description}</div>
+        <div className="mt-2 text-xs leading-5 text-[#918B83]">{description}</div>
       ) : null}
     </div>
   );
@@ -377,7 +377,7 @@ export default function CampaignBuilderPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-8 text-white lg:px-10">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-8 text-[#191919] lg:px-10">
       <div className="mx-auto max-w-7xl">
         <header className="mb-8 flex flex-wrap items-end justify-between gap-5">
           <div>
@@ -387,7 +387,7 @@ export default function CampaignBuilderPage() {
             <h1 className="text-4xl font-light tracking-tight lg:text-5xl">
               Campaign Builder
             </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-white/42">
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-[#746E66]">
               Avantiqo decides the strategy, targeting, channel, budget, timing,
               copy and creative recommendation. The owner reviews the completed
               plan before any wallet reservation.
@@ -397,7 +397,7 @@ export default function CampaignBuilderPage() {
             type="button"
             onClick={loadReadiness}
             disabled={loading}
-            className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/65 transition hover:border-[#D6A66A]/40 hover:text-[#D6A66A]"
+            className="flex items-center gap-2 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-sm text-[#5F5A54] transition hover:border-[#D6A66A]/40 hover:text-[#D6A66A]"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             Refresh readiness
@@ -424,7 +424,7 @@ export default function CampaignBuilderPage() {
               <ShieldCheck size={15} /> Execution safety
             </div>
             <div className="mt-3 text-xl font-light">Paused first</div>
-            <div className="mt-2 text-xs leading-5 text-white/35">
+            <div className="mt-2 text-xs leading-5 text-[#918B83]">
               Provider preflight and authenticated owner approval remain mandatory.
             </div>
           </div>
@@ -486,7 +486,7 @@ export default function CampaignBuilderPage() {
                   <h2 className="mt-3 text-3xl font-light lg:text-4xl">
                     Let Avantiqo create the best campaign
                   </h2>
-                  <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45">
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-[#746E66]">
                     Avantiqo chooses the objective, channel, Facebook or Instagram
                     delivery, audience, geography, budget, schedule, copy and best
                     approved creative. Your only required action is final approval.
@@ -526,7 +526,7 @@ export default function CampaignBuilderPage() {
               </button>
 
               {!loading && !readiness?.ready_channel_count ? (
-                <div className="mt-3 text-center text-xs text-white/35">
+                <div className="mt-3 text-center text-xs text-[#918B83]">
                   The button remains available so Avantiqo can return the exact
                   readiness stage and required correction.
                 </div>
@@ -534,7 +534,7 @@ export default function CampaignBuilderPage() {
             </div>
           </section>
         ) : (
-          <section className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6 lg:p-8">
+          <section className="rounded-[32px] border border-black/[0.08] bg-white p-6 lg:p-8">
             <div className="mb-6">
               <div className="text-xs uppercase tracking-[0.24em] text-[#D6A66A]">
                 Manual Expert
@@ -646,7 +646,7 @@ export default function CampaignBuilderPage() {
         )}
 
         {aiPlan ? (
-          <section className="mt-6 rounded-[36px] border border-white/10 bg-white/[0.03] p-6 lg:p-9">
+          <section className="mt-6 rounded-[36px] border border-black/[0.08] bg-white p-6 lg:p-9">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <div className="text-xs uppercase tracking-[0.24em] text-[#D6A66A]">
@@ -656,7 +656,7 @@ export default function CampaignBuilderPage() {
                   Review Avantiqo&apos;s decision
                 </h2>
               </div>
-              <div className="text-sm text-white/40">
+              <div className="text-sm text-[#817A72]">
                 Confidence: {aiPlan.ai?.confidence ?? "Not stated"}
               </div>
             </div>
@@ -669,14 +669,14 @@ export default function CampaignBuilderPage() {
             </div>
 
             <div className="mt-6 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-              <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
-                <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+              <div className="rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-5">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-[#918B83]">
                   Campaign message
                 </div>
-                <div className="mt-3 text-lg text-white">
+                <div className="mt-3 text-lg text-[#191919]">
                   {form.headline || "Headline pending"}
                 </div>
-                <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-white/50">
+                <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[#746E66]">
                   {form.primaryText || "Primary text pending"}
                 </div>
               </div>
@@ -688,7 +688,7 @@ export default function CampaignBuilderPage() {
                 <div className="mt-3 text-lg">
                   {selectedAsset?.name || "New campaign art required"}
                 </div>
-                <div className="mt-2 text-sm leading-6 text-white/45">
+                <div className="mt-2 text-sm leading-6 text-[#746E66]">
                   {selectedAsset
                     ? "Avantiqo selected an existing organization asset. The owner must still visually confirm the exact image."
                     : "No suitable approved asset was selected. Send the complete campaign brief to Creative Studio."}
@@ -705,8 +705,8 @@ export default function CampaignBuilderPage() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-3xl border border-white/10 bg-black/25 p-5">
-              <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+            <div className="mt-6 rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-5">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[#918B83]">
                 Exact creative approval
               </div>
               <div className="mt-4 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
@@ -730,7 +730,7 @@ export default function CampaignBuilderPage() {
                       </option>
                     ))}
                   </select>
-                  <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-white/55">
+                  <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-[#5F5A54]">
                     <input
                       type="checkbox"
                       className="mt-1"
@@ -744,7 +744,7 @@ export default function CampaignBuilderPage() {
                     logo, people, food and layout.
                   </label>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
+                <div className="rounded-2xl border border-black/[0.08] bg-white p-3">
                   {selectedAsset?.preview_url ? (
                     <img
                       src={selectedAsset.preview_url}
@@ -752,7 +752,7 @@ export default function CampaignBuilderPage() {
                       className="mx-auto max-h-[360px] rounded-xl object-contain"
                     />
                   ) : (
-                    <div className="flex min-h-44 items-center justify-center text-sm text-white/30">
+                    <div className="flex min-h-44 items-center justify-center text-sm text-[#A19A92]">
                       No exact creative selected
                     </div>
                   )}
@@ -765,7 +765,7 @@ export default function CampaignBuilderPage() {
                 type="button"
                 onClick={runPreflight}
                 disabled={preflighting || !form.confirmExactAsset}
-                className="flex items-center justify-center gap-3 rounded-2xl border border-white/15 bg-white/[0.04] px-5 py-4 font-semibold text-white/75 transition hover:border-[#D6A66A]/40 hover:text-[#D6A66A] disabled:opacity-35"
+                className="flex items-center justify-center gap-3 rounded-2xl border border-black/[0.10] bg-[#FBF8F3] px-5 py-4 font-semibold text-[#2F2C28] transition hover:border-[#D6A66A]/40 hover:text-[#D6A66A] disabled:opacity-35"
               >
                 {preflighting ? (
                   <Loader2 size={19} className="animate-spin" />
@@ -775,7 +775,7 @@ export default function CampaignBuilderPage() {
                 Run no-spend provider preflight
               </button>
 
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/45">
+              <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4 text-sm leading-6 text-[#746E66]">
                 Preflight validates the exact provider payload. It does not reserve
                 money and does not create a campaign.
               </div>

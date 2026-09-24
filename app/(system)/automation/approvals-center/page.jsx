@@ -110,27 +110,27 @@ export default function ApprovalsCenterPage() {
   const pendingCount = useMemo(() => requests.length, [requests]);
 
   return (
-    <div className="min-h-screen bg-black p-8 text-white">
+    <div className="min-h-screen bg-[#F7F6F3] p-8 text-[#191919]">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-8 rounded-[32px] border border-white/10 bg-white/[0.04] p-8">
-          <p className="mb-3 text-xs uppercase tracking-[0.35em] text-white/40">
+        <div className="mb-8 rounded-[32px] border border-black/[0.08] bg-[#FBF8F3] p-8">
+          <p className="mb-3 text-xs uppercase tracking-[0.35em] text-[#817A72]">
             Synthetic Intelligence OS
           </p>
 
           <h1 className="text-4xl font-semibold">Manager Approval Center</h1>
 
-          <p className="mt-3 max-w-2xl text-sm text-white/55">
+          <p className="mt-3 max-w-2xl text-sm text-[#5F5A54]">
             Unified approval queue connected to approval requests, workflows,
             and audit logs for the active organization.
           </p>
 
-          <div className="mt-6 text-sm text-white/60">
-            Pending approvals: <span className="text-white">{pendingCount}</span>
+          <div className="mt-6 text-sm text-[#5F5A54]">
+            Pending approvals: <span className="text-[#191919]">{pendingCount}</span>
           </div>
         </div>
 
         {!organizationId && (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-white/50">
+          <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5 text-[#746E66]">
             Select an organization to view approvals.
           </div>
         )}
@@ -142,13 +142,13 @@ export default function ApprovalsCenterPage() {
         )}
 
         {loading && (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-white/50">
+          <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5 text-[#746E66]">
             Loading approvals...
           </div>
         )}
 
         {!loading && organizationId && requests.length === 0 && !error && (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-white/50">
+          <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5 text-[#746E66]">
             No pending approvals.
           </div>
         )}
@@ -160,11 +160,11 @@ export default function ApprovalsCenterPage() {
             return (
               <div
                 key={request.id}
-                className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6"
+                className="rounded-[28px] border border-black/[0.08] bg-[#FBF8F3] p-6"
               >
                 <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.25em] text-white/35">
+                    <p className="text-xs uppercase tracking-[0.25em] text-[#918B83]">
                       {request.approval_workflows?.department || "approval"}
                     </p>
 
@@ -173,7 +173,7 @@ export default function ApprovalsCenterPage() {
                         "Approval Request"}
                     </h2>
 
-                    <div className="mt-3 grid gap-2 text-sm text-white/55 md:grid-cols-2">
+                    <div className="mt-3 grid gap-2 text-sm text-[#5F5A54] md:grid-cols-2">
                       <div>Reference: {request.reference_table}</div>
                       <div>Status: {request.status}</div>
                       <div>Current step: {request.current_step}</div>
@@ -193,7 +193,7 @@ export default function ApprovalsCenterPage() {
                     <button
                       onClick={() => handleReject(request)}
                       disabled={actionLoading === request.id}
-                      className="rounded-full border border-white/15 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                      className="rounded-full border border-black/[0.10] px-5 py-2 text-sm font-semibold text-[#191919] disabled:opacity-50"
                     >
                       Reject
                     </button>

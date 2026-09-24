@@ -42,12 +42,21 @@ export default function FinanceShellNavigation() {
     null;
   const active = resolveFinanceNavigationSection(pathname);
   const organizationName = businessContext.organization?.name || null;
+  const platformOperatorAccounting =
+    businessContext.is_platform_operator_workspace === true &&
+    Boolean(businessContext.operator_legal_entity?.id);
+  const financeEntity = platformOperatorAccounting
+    ? businessContext.operator_legal_entity
+    : businessContext.entity;
+  const financePeriod = platformOperatorAccounting
+    ? businessContext.operator_accounting_period
+    : businessContext.period;
   const entityName =
-    businessContext.entity?.display_name ||
-    businessContext.entity?.legal_name ||
-    businessContext.entity?.name ||
+    financeEntity?.display_name ||
+    financeEntity?.legal_name ||
+    financeEntity?.name ||
     null;
-  const currentPeriod = periodLabel(businessContext.period);
+  const currentPeriod = periodLabel(financePeriod);
 
   if (!organizationId) return null;
 

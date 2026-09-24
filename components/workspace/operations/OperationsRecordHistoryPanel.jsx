@@ -72,11 +72,11 @@ export default function OperationsRecordHistoryPanel({
   }, [load, refreshKey]);
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+    <section className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/20 p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-white/30">Record history</div>
-          <div className="mt-1 text-xs text-white/35">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-[#A19A92]">Record history</div>
+          <div className="mt-1 text-xs text-[#918B83]">
             {loading ? "Loading…" : `${timeline.length} audit entries`}
           </div>
         </div>
@@ -84,7 +84,7 @@ export default function OperationsRecordHistoryPanel({
           type="button"
           disabled={loading}
           onClick={load}
-          className="rounded-xl border border-white/10 p-2 text-white/45 disabled:opacity-40"
+          className="rounded-xl border border-black/[0.08] p-2 text-[#746E66] disabled:opacity-40"
           aria-label="Refresh record history"
         >
           <RefreshCw size={14} />
@@ -109,24 +109,24 @@ export default function OperationsRecordHistoryPanel({
               type="button"
               key={item.id}
               onClick={() => setExpanded(isExpanded ? null : item.id)}
-              className="w-full rounded-xl border border-white/10 bg-white/[0.025] p-3 text-left"
+              className="w-full rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3 text-left"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-xs font-semibold text-white/80">
+                  <div className="text-xs font-semibold text-[#2F2C28]">
                     {titleCase(item.command || item.event_type || item.type)}
                   </div>
-                  <div className="mt-1 text-[11px] text-white/35">
+                  <div className="mt-1 text-[11px] text-[#918B83]">
                     {actorLabel(item)} · {formatDate(item.occurred_at)}
                   </div>
                 </div>
-                <span className="rounded-full border border-white/10 px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-white/35">
+                <span className="rounded-full border border-black/[0.08] px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-[#918B83]">
                   {item.status || item.type}
                 </span>
               </div>
 
               {isExpanded ? (
-                <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap border-t border-white/10 pt-3 text-[10px] leading-4 text-white/50">
+                <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap border-t border-black/[0.08] pt-3 text-[10px] leading-4 text-[#746E66]">
                   {JSON.stringify(detail || {}, null, 2)}
                 </pre>
               ) : null}
@@ -135,7 +135,7 @@ export default function OperationsRecordHistoryPanel({
         })}
 
         {!loading && !error && timeline.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-white/35">
+          <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3 text-xs text-[#918B83]">
             No command or event history is available for this record yet.
           </div>
         ) : null}

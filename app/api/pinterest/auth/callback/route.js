@@ -1,0 +1,38 @@
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+import { NextResponse } from "next/server";
+import { consumeOAuthAuthorization } from "@/lib/platform/security/oauthAuthorizationState";
+import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
+import { deactivateOtherActiveScopedCredentials } from "@/lib/platform/service-runtime/credentials/repositories/CredentialRepository";
+import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
+import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
+import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
+
+function text(value){return String(value??"").trim();}
+function callbackOrigin(url){return new URL(text(process.env.PINTEREST_OAUTH_CALLBACK_ORIGIN||process.env.NEXT_PUBLIC_APP_URL||url.origin)).origin;}
+function basic(){const id=text(process.env.PINTEREST_APP_ID);const secret=text(process.env.PINTEREST_APP_SECRET);if(!id||!secret)throw new Error("Pinterest application credentials are not configured");return `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`;}
+function safeReturnPath(authorization,organizationId){const candidate=text(authorization?.metadata?.return_path);const allowed=`/workspace/${encodeURIComponent(organizationId)}/administration/communications-setup?onboarding=1`;return candidate===allowed?allowed:`/workspace/${encodeURIComponent(organizationId)}/administration/integrations`;}
+function destination(origin,authorization,organizationId,message){const url=new URL(safeReturnPath(authorization,organizationId),origin);url.searchParams.set("message",message);url.searchParams.set("pinterest","connected");return url;}
+async function exchange(code,url){const response=await fetch("https://api.pinterest.com/v5/oauth/token",{method:"POST",headers:{Authorization:basic(),"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({grant_type:"authorization_code",code,redirect_uri:`${callbackOrigin(url)}/api/pinterest/auth/callback`}),cache:"no-store"});const payload=await response.json().catch(()=>({}));if(!response.ok||!text(payload.access_token))throw new Error(payload?.message||payload?.error||"Pinterest token exchange failed");return payload;}
+async function account(accessToken){const response=await fetch("https://api.pinterest.com/v5/user_account",{headers:{Authorization:`Bearer ${accessToken}`},cache:"no-store"});const payload=await response.json().catch(()=>({}));if(!response.ok)throw new Error(payload?.message||"Pinterest account lookup failed");return {username:text(payload.username)||null,account_type:text(payload.account_type)||null,profile_image:text(payload.profile_image)||null,website_url:text(payload.website_url)||null};}
+async function boards(accessToken){const url=new URL("https://api.pinterest.com/v5/boards");url.searchParams.set("page_size","100");const response=await fetch(url,{headers:{Authorization:`Bearer ${accessToken}`},cache:"no-store"});const payload=await response.json().catch(()=>({}));if(!response.ok)throw new Error(payload?.message||"Pinterest board lookup failed");return Array.isArray(payload.items)?payload.items:[];}
+async function ensureService(organizationId){const existing=await OrganizationServiceRuntime.get({organization_id:organizationId,service_id:"pinterest"}).catch(()=>null);if(existing&&String(existing.status||"").toUpperCase()==="ACTIVE")return existing;return OrganizationServiceRuntime.save({...(existing||{}),organization_id:organizationId,service_category_id:"marketing-social",service_id:"pinterest",package_id:existing?.package_id||"core",status:"ACTIVE",managed_by:existing?.managed_by||"organization",authorization_required:true,usage_enabled:true,billing_enabled:true,billing_mode:existing?.billing_mode||"USAGE",pricing_mode:existing?.pricing_mode||"PROVIDER",fallback_enabled:false,activated_at:existing?.activated_at||new Date().toISOString(),metadata:{...(existing?.metadata||{}),connection_model:"ORGANIZATION_PINTEREST_OAUTH"},configuration:existing?.configuration||{}});}
+
+export async function GET(request){
+  const requestUrl=new URL(request.url);let authorization=null;
+  try{
+    const state=requestUrl.searchParams.get("state");if(!state)throw new Error("Pinterest connection validation failed or expired");
+    authorization=await consumeOAuthAuthorization({state,provider:"pinterest"});
+    const providerError=requestUrl.searchParams.get("error")||requestUrl.searchParams.get("error_description");if(providerError)throw new Error(`Pinterest connection was not approved: ${providerError}`);
+    const code=requestUrl.searchParams.get("code");if(!code)throw new Error("Pinterest did not return an authorization code");
+    const tokens=await exchange(code,requestUrl);const identity=await account(tokens.access_token);const boardRows=await boards(tokens.access_token);const organizationId=authorization.organization_id;const now=Date.now();
+    const secret={access_token:tokens.access_token,refresh_token:tokens.refresh_token||null,expires_at:new Date(now+(Number(tokens.expires_in)||2592000)*1000).toISOString(),refresh_token_expires_at:tokens.refresh_token_expires_at?new Date(Number(tokens.refresh_token_expires_at)*1000).toISOString():null,scope:tokens.scope||null,token_type:tokens.token_type||"bearer"};
+    const credential=await CredentialRuntime.storeSecret({provider_id:"pinterest",credential_type:"oauth_token",secret:JSON.stringify(secret),organization_id:organizationId,vault_name:`pinterest-oauth-${organizationId}-${Date.now()}`,vault_description:"Organization Pinterest OAuth credential",metadata:{organization_id:organizationId,purpose:"ORGANIZATION_PINTEREST_CONNECTION",enabled:true,username:identity.username,account_type:identity.account_type,token_obtained_at:new Date().toISOString()}});
+    await deactivateOtherActiveScopedCredentials({provider_id:"pinterest",organization_id:organizationId,purpose:"ORGANIZATION_PINTEREST_CONNECTION",except_id:credential.id});
+    const connection=await ChannelConnectionRuntime.connect({organization_id:organizationId,provider:"pinterest",channel_type:"social",credentials_reference:credential.id,metadata:{account_name:identity.username||"Pinterest",username:identity.username,account_type:identity.account_type,profile_image_url:identity.profile_image,website_url:identity.website_url,board_count:boardRows.length,boards:boardRows.map((row)=>({id:text(row.id),name:text(row.name),privacy:text(row.privacy)||null})),connected_at:new Date().toISOString(),connection_model:"ORGANIZATION_PINTEREST_OAUTH"}});
+    await ChannelAssetRuntime.register({organization_id:organizationId,connection_id:connection.id,provider:"pinterest",asset_type:"pinterest_account",external_id:identity.username||`pinterest-${organizationId}`,name:identity.username||"Pinterest Account",selected_by_party_id:authorization.party_id||null,selected_at:new Date().toISOString(),metadata:{account_type:identity.account_type,profile_image_url:identity.profile_image,website_url:identity.website_url,board_count:boardRows.length}});
+    await ensureService(organizationId);
+    return NextResponse.redirect(destination(authorization.return_origin||requestUrl.origin,authorization,organizationId,"Pinterest account connected."));
+  }catch(error){const organizationId=authorization?.organization_id||"unknown";const origin=authorization?.return_origin||requestUrl.origin;const url=new URL(safeReturnPath(authorization,organizationId),origin);url.searchParams.set("message",error?.message||"Pinterest connection failed");return NextResponse.redirect(url);}
+}

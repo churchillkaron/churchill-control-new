@@ -24,3 +24,20 @@ test('perceptual review provider instruction is bounded and excludes full task p
   assert.doesNotMatch(instruction, /giant_internal_payload/);
   assert.doesNotMatch(instruction, new RegExp('x{5000}'));
 });
+
+test('generated-media perceptual review instruction emits canonical V2 score and evidence schema', () => {
+  const instruction = serializeCreativeProviderInstruction({
+    capability: 'ai.image.analyze',
+    node_type: 'QUALITY_REVIEW',
+    metadata: { contract: 'GENERATED_MEDIA_PERCEPTUAL_REVIEW_V1' },
+    requirements: {
+      expected_contract: { media_kind: 'IMAGE' },
+      thresholds: { minimum_overall_score: 94 },
+    },
+  });
+  assert.match(instruction, /overall_score/);
+  assert.match(instruction, /environmental_aliveness_score/);
+  assert.match(instruction, /unexpected_text_or_watermark_absent/);
+  assert.match(instruction, /requested_environment_correct/);
+  assert.match(instruction, /keep every _score suffix/);
+});

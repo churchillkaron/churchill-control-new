@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -38,7 +38,7 @@ function targetLabel(targets = []) {
 function statusClass(status) {
   const value = String(status || "").toLowerCase();
   if (value === "approved") return "border-emerald-500/20 bg-emerald-500/10 text-emerald-200";
-  if (value === "consumed") return "border-cyan-500/20 bg-cyan-500/10 text-cyan-200";
+  if (value === "consumed") return "border-amber-500/20 bg-amber-500/10 text-amber-200";
   if (value === "rejected") return "border-red-500/20 bg-red-500/10 text-red-200";
   if (value === "expired") return "border-zinc-500/20 bg-zinc-500/10 text-zinc-300";
   return "border-amber-500/20 bg-amber-500/10 text-amber-200";
@@ -52,7 +52,7 @@ export default function ClockInExceptionReviewPage() {
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setMessage("");
 
@@ -76,11 +76,11 @@ export default function ClockInExceptionReviewPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     if (organizationId) load();
-  }, [organizationId]);
+  }, [load, organizationId]);
 
   const counts = useMemo(() => ({
     pending: data.pending.length,
@@ -132,13 +132,13 @@ export default function ClockInExceptionReviewPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 p-5 text-white lg:p-8">
+    <main className="min-h-screen bg-zinc-950 p-5 text-[#191919] lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <Link
               href={`/workspace/${organizationId}/people/attendance`}
-              className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-zinc-500 hover:text-white"
+              className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-zinc-500 hover:text-[#191919]"
             >
               <ArrowLeft size={15} /> Attendance
             </Link>
@@ -155,7 +155,7 @@ export default function ClockInExceptionReviewPage() {
             type="button"
             onClick={load}
             disabled={loading}
-            className="flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase tracking-[0.14em] text-zinc-300 disabled:opacity-40"
+            className="flex h-12 items-center gap-2 rounded-xl border border-black/[0.08] bg-white/5 px-4 text-xs font-black uppercase tracking-[0.14em] text-zinc-300 disabled:opacity-40"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
@@ -173,7 +173,7 @@ export default function ClockInExceptionReviewPage() {
         </div>
 
         {message ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-zinc-300">
+          <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-sm text-zinc-300">
             {message}
           </div>
         ) : null}
@@ -187,7 +187,7 @@ export default function ClockInExceptionReviewPage() {
           {(data.pending || []).map((request) => (
             <div
               key={request.id}
-              className="grid gap-4 border-t border-white/5 px-5 py-5 lg:grid-cols-[1.3fr_1fr_1.5fr_auto] lg:items-center"
+              className="grid gap-4 border-t border-black/[0.06] px-5 py-5 lg:grid-cols-[1.3fr_1fr_1.5fr_auto] lg:items-center"
             >
               <div>
                 <div className="font-bold">
@@ -244,7 +244,7 @@ export default function ClockInExceptionReviewPage() {
           {(data.recent || []).map((request) => (
             <div
               key={request.id}
-              className="grid gap-4 border-t border-white/5 px-5 py-5 lg:grid-cols-[1.3fr_1fr_1fr_1.5fr] lg:items-center"
+              className="grid gap-4 border-t border-black/[0.06] px-5 py-5 lg:grid-cols-[1.3fr_1fr_1fr_1.5fr] lg:items-center"
             >
               <div>
                 <div className="font-bold">
@@ -290,7 +290,7 @@ export default function ClockInExceptionReviewPage() {
 
 function TargetBadge({ targets }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-violet-400/20 bg-violet-400/[0.08] px-3 py-1 text-xs font-bold text-violet-200">
+    <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/[0.08] px-3 py-1 text-xs font-bold text-amber-200">
       {targets.includes("passkey") ? <KeyRound size={14} /> : null}
       {targets.includes("gps") ? <MapPin size={14} /> : null}
       {targetLabel(targets)}
@@ -302,17 +302,17 @@ function WorkspaceSection({ title, eyebrow, empty, loading, children }) {
   const rows = Array.isArray(children) ? children.filter(Boolean) : children ? [children] : [];
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04]">
+    <section className="overflow-hidden rounded-3xl border border-black/[0.08] bg-[#FBF8F3]">
       <div className="p-5">
         <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">{eyebrow}</p>
         <h2 className="mt-1 text-2xl font-black">{title}</h2>
       </div>
       {loading ? (
-        <div className="border-t border-white/5 px-5 py-10 text-center text-zinc-500">Loading...</div>
+        <div className="border-t border-black/[0.06] px-5 py-10 text-center text-zinc-500">Loading...</div>
       ) : rows.length ? (
         rows
       ) : (
-        <div className="border-t border-white/5 px-5 py-10 text-center text-zinc-500">{empty}</div>
+        <div className="border-t border-black/[0.06] px-5 py-10 text-center text-zinc-500">{empty}</div>
       )}
     </section>
   );
@@ -320,7 +320,7 @@ function WorkspaceSection({ title, eyebrow, empty, loading, children }) {
 
 function Metric({ icon, label, value }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
       <div className="flex items-center gap-2 text-zinc-500">
         {icon}
         <span className="text-xs uppercase tracking-wider">{label}</span>

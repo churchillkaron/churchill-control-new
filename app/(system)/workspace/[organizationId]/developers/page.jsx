@@ -76,11 +76,11 @@ export default async function DeveloperWorkspacePage({ params }) {
 
     {access.externalDeveloper ? <>
       <section className="mt-5 grid gap-3 xl:grid-cols-[1.08fr_.92fr]">
-        <div className="rounded-[24px] border border-black/[.07] bg-[#1D1A17] p-6 text-white">
+        <div className="rounded-[24px] border border-black/[.07] bg-white p-6 text-[#24201B]">
           <div className="text-[9px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">External developer authority</div>
           <div className="mt-3 text-[24px] font-semibold tracking-[-.03em]">Organization-scoped. Never employee access.</div>
-          <p className="mt-3 max-w-2xl text-[9px] leading-5 text-white/50">This identity can use only the Developer Portal permissions explicitly granted by the organization. Business workspace, HR, finance administration, integrations, compute administration and organization-wide security evidence remain outside this authority.</p>
-          <div className="mt-5 flex flex-wrap gap-2"><span className="rounded-full border border-white/10 bg-white/[.05] px-3 py-1.5 text-[8px] font-semibold">{access.role}</span>{(access.permissions||[]).map((permission)=><span key={permission} className="rounded-full border border-[#D6A66A]/20 bg-[#D6A66A]/[.07] px-3 py-1.5 font-mono text-[8px] text-[#E8C99D]">{permission}</span>)}</div>
+          <p className="mt-3 max-w-2xl text-[9px] leading-5 text-[#777169]">This identity can use only the Developer Portal permissions explicitly granted by the organization. Business workspace, HR, finance administration, integrations, compute administration and organization-wide security evidence remain outside this authority.</p>
+          <div className="mt-5 flex flex-wrap gap-2"><span className="rounded-full border border-black/[.08] bg-[#F8F4EE] px-3 py-1.5 text-[8px] font-semibold">{access.role}</span>{(access.permissions||[]).map((permission)=><span key={permission} className="rounded-full border border-[#D6A66A]/20 bg-[#D6A66A]/[.07] px-3 py-1.5 font-mono text-[8px] text-[#8A633C]">{permission}</span>)}</div>
         </div>
         <div className="rounded-[24px] border border-black/[.07] bg-white p-6">
           <div className="text-[9px] font-semibold uppercase tracking-[.17em] text-[#9A744B]">Your developer activity</div>
@@ -94,14 +94,14 @@ export default async function DeveloperWorkspacePage({ params }) {
       </section>
     </> : <>
     <section className="mt-5 grid gap-3 xl:grid-cols-[1.08fr_.92fr]">
-      <div className="rounded-[24px] border border-black/[.07] bg-[#1D1A17] p-6 text-white shadow-[0_16px_45px_rgba(35,28,22,.08)]">
+      <div className="rounded-[24px] border border-black/[.07] bg-white p-6 text-[#24201B] shadow-[0_16px_45px_rgba(35,28,22,.08)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-[9px] font-semibold uppercase tracking-[.18em] text-[#D6A66A]">Today</div>
             <div className="mt-2 text-[24px] font-semibold tracking-[-.03em]">Developer runtime {attention.status === "READY" ? "ready" : attention.status === "ATTENTION" ? "needs attention" : attention.status === "DEGRADED" ? "degraded" : "in setup"}.</div>
-            <div className="mt-2 max-w-2xl text-[9px] leading-5 text-white/48">Your environments, machine identities, webhooks, request health and next integration step in one live view.</div>
+            <div className="mt-2 max-w-2xl text-[9px] leading-5 text-[#777169]">Your environments, machine identities, webhooks, request health and next integration step in one live view.</div>
           </div>
-          <div className={"rounded-full px-3 py-1.5 text-[8px] font-semibold "+(attention.status==="READY"?"bg-[#DDE9E0] text-[#3D5D48]":attention.status==="ATTENTION"?"bg-red-100 text-red-800":attention.status==="DEGRADED"?"bg-[#F3E7D3] text-[#76502E]":"bg-white/10 text-white/65")}>{attention.status}</div>
+          <div className={"rounded-full px-3 py-1.5 text-[8px] font-semibold "+(attention.status==="READY"?"bg-[#DDE9E0] text-[#3D5D48]":attention.status==="ATTENTION"?"bg-red-100 text-red-800":attention.status==="DEGRADED"?"bg-[#F3E7D3] text-[#76502E]":"bg-[#F0E7DA] text-[#8A633C]")}>{attention.status}</div>
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -110,16 +110,16 @@ export default async function DeveloperWorkspacePage({ params }) {
             ["Credentials",attention.usable_credentials],
             ["Webhooks",attention.active_webhooks],
             ["Recent requests",attention.recent_requests],
-          ].map(([label,value])=><div key={label} className="rounded-xl border border-white/[.07] bg-white/[.035] p-3"><div className="text-[7px] uppercase tracking-[.11em] text-white/30">{label}</div><div className="mt-2 text-[20px] font-semibold">{value}</div></div>)}
+          ].map(([label,value])=><div key={label} className="rounded-xl border border-black/[.06] bg-[#FBF9F6] p-3"><div className="text-[7px] uppercase tracking-[.11em] text-[#91877C]">{label}</div><div className="mt-2 text-[20px] font-semibold">{value}</div></div>)}
         </div>
 
         {attention.next_action ? <Link href={`${base}${attention.next_action.href}`} className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[.07] p-4 transition hover:bg-[#D6A66A]/[.1]">
           <div>
             <div className="text-[7px] font-semibold uppercase tracking-[.12em] text-[#D6A66A]">Next safe action</div>
             <div className="mt-1 text-[11px] font-semibold">{attention.next_action.label}</div>
-            <div className="mt-1 text-[8px] leading-4 text-white/42">{attention.next_action.detail}</div>
+            <div className="mt-1 text-[8px] leading-4 text-[#7B736B]">{attention.next_action.detail}</div>
           </div>
-          <div className="text-[9px] font-semibold text-[#E8C99D]">Open →</div>
+          <div className="text-[9px] font-semibold text-[#8A633C]">Open →</div>
         </Link> : null}
       </div>
 
@@ -161,19 +161,19 @@ export default async function DeveloperWorkspacePage({ params }) {
     </section>
 
     <section className="mt-5 grid gap-3 xl:grid-cols-[.72fr_1.28fr]">
-      <div className="rounded-[22px] border border-black/[.07] bg-[#1D1A17] p-6 text-white">
+      <div className="rounded-[22px] border border-black/[.07] bg-white p-6 text-[#24201B]">
         <div className="text-[9px] font-semibold uppercase tracking-[.17em] text-[#D6A66A]">Integration readiness</div>
         <div className="mt-5 flex items-end justify-between gap-4">
           <div>
             <div className="text-[46px] font-medium tracking-[-.05em]">{readiness.score}%</div>
-            <div className="mt-1 text-[9px] text-white/55">{readiness.completed} of {readiness.total} evidence-backed steps complete</div>
+            <div className="mt-1 text-[9px] text-[#776F66]">{readiness.completed} of {readiness.total} evidence-backed steps complete</div>
           </div>
-          <div className={"rounded-full px-3 py-1.5 text-[8px] font-semibold "+(readiness.production_ready?"bg-[#DDE9E0] text-[#3D5D48]":"bg-white/10 text-white/70")}>
+          <div className={"rounded-full px-3 py-1.5 text-[8px] font-semibold "+(readiness.production_ready?"bg-[#DDE9E0] text-[#3D5D48]":"bg-[#EFE8DE] text-[#5F574E]")}>
             {readiness.production_ready?"Production ready":"Production not ready"}
           </div>
         </div>
-        <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-[#D6A66A]" style={{width:`${readiness.score}%`}} /></div>
-        <p className="mt-5 text-[9px] leading-5 text-white/50">Completion comes from live environment, credential, API request and webhook evidence. Nothing here can be checked off manually.</p>
+        <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-[#EFE8DE]"><div className="h-full rounded-full bg-[#D6A66A]" style={{width:`${readiness.score}%`}} /></div>
+        <p className="mt-5 text-[9px] leading-5 text-[#777169]">Completion comes from live environment, credential, API request and webhook evidence. Nothing here can be checked off manually.</p>
       </div>
       <div className="rounded-[22px] border border-black/[.07] bg-white p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -242,10 +242,10 @@ export default async function DeveloperWorkspacePage({ params }) {
           ].map(([t,c]) => <div key={t} className="rounded-xl bg-[#F8F4EE] p-4"><div className="text-[10px] font-semibold">{t}</div><div className="mt-2 text-[9px] leading-5 text-[#7D756D]">{c}</div></div>)}
         </div>
       </div>
-      <div className="rounded-[22px] border border-black/[.07] bg-[#1D1A17] p-6 text-white">
+      <div className="rounded-[22px] border border-black/[.07] bg-white p-6 text-[#24201B]">
         <div className="text-[9px] font-semibold uppercase tracking-[.17em] text-[#D6A66A]">Live foundation</div>
         <div className="mt-4 text-[15px] font-semibold">The portal is attached to real Avantiqo runtime surfaces.</div>
-        <div className="mt-3 text-[10px] leading-5 text-white/55">{access.externalDeveloper ? "Canonical Operations catalog · scoped Developer authority · own machine credentials · own request evidence · generated SDK contracts." : "Canonical Operations catalog · organization access · permission policy · service usage ledger · integrations registry · compute telemetry · Code runtime."}</div>
+        <div className="mt-3 text-[10px] leading-5 text-[#776F66]">{access.externalDeveloper ? "Canonical Operations catalog · scoped Developer authority · own machine credentials · own request evidence · generated SDK contracts." : "Canonical Operations catalog · organization access · permission policy · service usage ledger · integrations registry · compute telemetry · Code runtime."}</div>
       </div>
     </section>
   </DeveloperPortalShell>;

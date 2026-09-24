@@ -132,16 +132,16 @@ function totalsByCurrency(rows, amountGetter) {
 }
 
 function TotalLines({ totals, empty = "—" }) {
-  if (!totals.length) return <span className="text-white/35">{empty}</span>;
+  if (!totals.length) return <span className="text-[#918B83]">{empty}</span>;
   return (
     <div className="space-y-1">
       {totals.slice(0, 3).map(([currency, value]) => (
-        <div key={currency} className="tabular-nums text-white/88">
+        <div key={currency} className="tabular-nums text-[#2F2C28]">
           {money(value, currency)}
         </div>
       ))}
       {totals.length > 3 ? (
-        <div className="text-[10px] uppercase tracking-[0.16em] text-white/35">
+        <div className="text-[10px] uppercase tracking-[0.16em] text-[#918B83]">
           +{totals.length - 3} currencies
         </div>
       ) : null}
@@ -156,8 +156,8 @@ function StatusPill({ children, tone = "neutral" }) {
       : tone === "success"
         ? "border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200/85"
         : tone === "gold"
-          ? "border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] text-[#E6C28F]"
-          : "border-white/[0.09] bg-white/[0.03] text-white/55";
+          ? "border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] text-[#9B6F3F]"
+          : "border-black/[0.09] bg-white text-[#5F5A54]";
 
   return (
     <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-medium uppercase tracking-[0.12em] ${toneClass}`}>
@@ -168,14 +168,14 @@ function StatusPill({ children, tone = "neutral" }) {
 
 function Metric({ label, value, supporting, emphasis = false }) {
   return (
-    <div className={`min-h-[112px] border-r border-white/[0.07] px-5 py-4 last:border-r-0 ${emphasis ? "bg-[#D6A66A]/[0.035]" : ""}`}>
-      <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-white/35">
+    <div className={`min-h-[112px] border-r border-black/[0.07] px-5 py-4 last:border-r-0 ${emphasis ? "bg-[#D6A66A]/[0.035]" : ""}`}>
+      <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#918B83]">
         {label}
       </div>
-      <div className={`mt-3 text-xl font-light tracking-[-0.02em] ${emphasis ? "text-[#E6C28F]" : "text-white/90"}`}>
+      <div className={`mt-3 text-xl font-light tracking-[-0.02em] ${emphasis ? "text-[#9B6F3F]" : "text-[#191919]"}`}>
         {value}
       </div>
-      <div className="mt-2 text-[11px] leading-5 text-white/38">{supporting}</div>
+      <div className="mt-2 text-[11px] leading-5 text-[#817A72]">{supporting}</div>
     </div>
   );
 }
@@ -230,13 +230,13 @@ function EmptyState({ tab, canAct, onAction }) {
   return (
     <div className="flex min-h-[330px] flex-col items-center justify-center px-6 text-center">
       <div className="h-px w-16" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
-      <div className="mt-6 text-base font-light text-white/80">{copy[0]}</div>
-      <div className="mt-2 max-w-md text-sm leading-6 text-white/38">{copy[1]}</div>
+      <div className="mt-6 text-base font-light text-[#2F2C28]">{copy[0]}</div>
+      <div className="mt-2 max-w-md text-sm leading-6 text-[#817A72]">{copy[1]}</div>
       {canAct ? (
         <button
           type="button"
           onClick={onAction}
-          className="mt-6 rounded-lg border border-[#D6A66A]/30 bg-[#D6A66A]/[0.08] px-4 py-2 text-xs font-medium text-[#E6C28F] transition hover:bg-[#D6A66A]/[0.13]"
+          className="mt-6 rounded-lg border border-[#D6A66A]/30 bg-[#D6A66A]/[0.08] px-4 py-2 text-xs font-medium text-[#9B6F3F] transition hover:bg-[#D6A66A]/[0.13]"
         >
           {tab === "in" ? "Record Receipt" : "Pay Vendor"}
         </button>
@@ -352,10 +352,10 @@ export default function FinancePaymentsWorkCenter({
 
   if (!entityId) {
     return (
-      <div className="rounded-2xl border border-white/[0.08] bg-black/40 p-8">
+      <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-8">
         <div className="text-[10px] uppercase tracking-[0.22em] text-[#D6A66A]/80">Finance / Treasury</div>
-        <h2 className="mt-3 text-xl font-light text-white/90">Payments</h2>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-white/40">
+        <h2 className="mt-3 text-xl font-light text-[#191919]">Payments</h2>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-[#746E66]">
           Select a legal entity to operate payments. Cash release, receipts and their accounting evidence are entity-scoped.
         </p>
       </div>
@@ -363,18 +363,18 @@ export default function FinancePaymentsWorkCenter({
   }
 
   return (
-    <div className="min-h-full bg-[#080808] text-white">
-      <div className="sticky top-0 z-20 border-b border-white/[0.07] bg-[#080808]/95 px-5 py-4 backdrop-blur-xl lg:px-7">
+    <div className="min-h-full bg-[#F7F6F3] text-[#191919]">
+      <div className="sticky top-0 z-20 border-b border-black/[0.07] bg-[#F7F6F3]/95 px-5 py-4 backdrop-blur-xl lg:px-7">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <div className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#D6A66A]/75">
               Finance / Treasury
             </div>
             <div className="mt-2 flex items-baseline gap-3">
-              <h1 className="text-[22px] font-light tracking-[-0.025em] text-white/92">
+              <h1 className="text-[22px] font-light tracking-[-0.025em] text-[#191919]">
                 {capability?.name || capability?.label || "Payments"}
               </h1>
-              <span className="hidden text-xs text-white/28 md:inline">Cash release and receipt control tower</span>
+              <span className="hidden text-xs text-[#A19A92] md:inline">Cash release and receipt control tower</span>
             </div>
           </div>
 
@@ -383,21 +383,21 @@ export default function FinancePaymentsWorkCenter({
               type="button"
               onClick={load}
               disabled={loading}
-              className="rounded-lg border border-white/[0.09] bg-white/[0.025] px-3 py-2 text-xs text-white/55 transition hover:bg-white/[0.05] hover:text-white/75 disabled:opacity-40"
+              className="rounded-lg border border-black/[0.09] bg-white px-3 py-2 text-xs text-[#5F5A54] transition hover:bg-[#FBF8F3] hover:text-[#5F5A54] disabled:opacity-40"
             >
               {loading ? "Refreshing…" : "Refresh"}
             </button>
             <button
               type="button"
               onClick={openReceipt}
-              className="rounded-lg border border-white/[0.11] bg-white/[0.035] px-3 py-2 text-xs font-medium text-white/72 transition hover:bg-white/[0.06]"
+              className="rounded-lg border border-black/[0.10] bg-[#FBF8F3] px-3 py-2 text-xs font-medium text-[#5F5A54] transition hover:bg-[#FBF8F3]"
             >
               Record Receipt
             </button>
             <button
               type="button"
               onClick={() => openVendorPayment(selected && tab === "ready" ? selected : null)}
-              className="rounded-lg border border-[#D6A66A]/35 bg-[#D6A66A]/[0.09] px-3.5 py-2 text-xs font-medium text-[#E6C28F] transition hover:bg-[#D6A66A]/[0.14]"
+              className="rounded-lg border border-[#D6A66A]/35 bg-[#D6A66A]/[0.09] px-3.5 py-2 text-xs font-medium text-[#9B6F3F] transition hover:bg-[#D6A66A]/[0.14]"
             >
               Pay Vendor
             </button>
@@ -405,7 +405,7 @@ export default function FinancePaymentsWorkCenter({
         </div>
       </div>
 
-      <div className="border-b border-white/[0.07] bg-black/20">
+      <div className="border-b border-black/[0.07] bg-[#FBF8F3]">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
           <Metric
             label="Ready to Pay"
@@ -432,8 +432,8 @@ export default function FinancePaymentsWorkCenter({
       </div>
 
       <div className="grid min-h-[610px] grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_340px]">
-        <section className="min-w-0 border-r border-white/[0.07]">
-          <div className="flex flex-col gap-3 border-b border-white/[0.07] px-5 py-3 lg:flex-row lg:items-center lg:justify-between lg:px-7">
+        <section className="min-w-0 border-r border-black/[0.07]">
+          <div className="flex flex-col gap-3 border-b border-black/[0.07] px-5 py-3 lg:flex-row lg:items-center lg:justify-between lg:px-7">
             <div className="flex min-w-0 gap-1 overflow-x-auto">
               {TABS.map(item => {
                 const count =
@@ -448,12 +448,12 @@ export default function FinancePaymentsWorkCenter({
                     onClick={() => setTab(item.id)}
                     className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs transition ${
                       active
-                        ? "bg-white/[0.07] text-white/88"
-                        : "text-white/38 hover:bg-white/[0.035] hover:text-white/65"
+                        ? "bg-[#FBF3E8] text-[#2F2C28]"
+                        : "text-[#817A72] hover:bg-[#FBF8F3] hover:text-[#5F5A54]"
                     }`}
                   >
                     {item.label}
-                    <span className={`ml-2 tabular-nums ${active ? "text-[#D6A66A]" : "text-white/25"}`}>
+                    <span className={`ml-2 tabular-nums ${active ? "text-[#D6A66A]" : "text-[#A19A92]"}`}>
                       {count}
                     </span>
                   </button>
@@ -467,9 +467,9 @@ export default function FinancePaymentsWorkCenter({
                 value={search}
                 onChange={event => setSearch(event.target.value)}
                 placeholder="Search payments…"
-                className="w-full rounded-lg border border-white/[0.08] bg-black/35 px-3 py-2 pr-10 text-xs text-white/75 outline-none placeholder:text-white/24 focus:border-[#D6A66A]/35"
+                className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 pr-10 text-xs text-[#5F5A54] outline-none placeholder:text-[#A19A92] focus:border-[#D6A66A]/35"
               />
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-white/22">/</span>
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#A19A92]">/</span>
             </div>
           </div>
 
@@ -483,7 +483,7 @@ export default function FinancePaymentsWorkCenter({
             <div className="overflow-x-auto">
               <table className="w-full min-w-[850px] border-collapse text-left">
                 <thead>
-                  <tr className="border-b border-white/[0.07] text-[10px] uppercase tracking-[0.15em] text-white/28">
+                  <tr className="border-b border-black/[0.07] text-[10px] uppercase tracking-[0.15em] text-[#A19A92]">
                     <th className="px-5 py-3 font-medium lg:px-7">Counterparty</th>
                     <th className="px-4 py-3 font-medium">Document</th>
                     <th className="px-4 py-3 font-medium">{tab === "ready" || tab === "hold" ? "Due" : "Date"}</th>
@@ -509,33 +509,33 @@ export default function FinancePaymentsWorkCenter({
                       <tr
                         key={row?.id || `${tab}-${index}`}
                         onClick={() => setSelected(row)}
-                        className={`cursor-pointer border-b border-white/[0.055] transition hover:bg-white/[0.025] ${
+                        className={`cursor-pointer border-b border-black/[0.06] transition hover:bg-white ${
                           selectedRow ? "bg-[#D6A66A]/[0.045]" : ""
                         }`}
                       >
                         <td className="px-5 py-3.5 lg:px-7">
-                          <div className="max-w-[250px] truncate text-[13px] text-white/78">{title}</div>
-                          <div className="mt-1 text-[11px] text-white/28">{currencyFor(row)}</div>
+                          <div className="max-w-[250px] truncate text-[13px] text-[#2F2C28]">{title}</div>
+                          <div className="mt-1 text-[11px] text-[#A19A92]">{currencyFor(row)}</div>
                         </td>
                         <td className="px-4 py-3.5">
-                          <div className="text-xs text-white/58">{reference}</div>
+                          <div className="text-xs text-[#746E66]">{reference}</div>
                           {row?.reference_number && row?.invoice_number ? (
-                            <div className="mt-1 max-w-[180px] truncate text-[10px] text-white/26">Ref {row.reference_number}</div>
+                            <div className="mt-1 max-w-[180px] truncate text-[10px] text-[#A19A92]">Ref {row.reference_number}</div>
                           ) : null}
                         </td>
                         <td className="px-4 py-3.5">
-                          <div className={`text-xs ${overdue ? "text-red-200/75" : "text-white/52"}`}>
+                          <div className={`text-xs ${overdue ? "text-[#914B38]" : "text-[#746E66]"}`}>
                             {dateLabel(date, !payable)}
                           </div>
                           {overdue ? <div className="mt-1 text-[10px] uppercase tracking-[0.12em] text-red-300/55">Overdue</div> : null}
                         </td>
                         <td className="px-4 py-3.5">
-                          <div className="max-w-[190px] truncate text-xs text-white/52">{bank}</div>
+                          <div className="max-w-[190px] truncate text-xs text-[#746E66]">{bank}</div>
                           {row?.bank_account_number ? (
-                            <div className="mt-1 text-[10px] text-white/24">•••• {String(row.bank_account_number).slice(-4)}</div>
+                            <div className="mt-1 text-[10px] text-[#A19A92]">•••• {String(row.bank_account_number).slice(-4)}</div>
                           ) : null}
                         </td>
-                        <td className="px-4 py-3.5 text-right text-[13px] tabular-nums text-white/80">
+                        <td className="px-4 py-3.5 text-right text-[13px] tabular-nums text-[#2F2C28]">
                           {money(amount, currencyFor(row))}
                         </td>
                         <td className="px-5 py-3.5 text-right lg:px-7">
@@ -562,21 +562,21 @@ export default function FinancePaymentsWorkCenter({
           )}
         </section>
 
-        <aside className="hidden bg-black/25 2xl:block">
+        <aside className="hidden bg-[#FBF8F3] 2xl:block">
           <div className="sticky top-[77px] p-5">
-            <div className="text-[10px] font-medium uppercase tracking-[0.19em] text-white/28">Selected item</div>
+            <div className="text-[10px] font-medium uppercase tracking-[0.19em] text-[#A19A92]">Selected item</div>
             {selected ? (
               <div className="mt-4">
-                <div className="text-lg font-light leading-7 text-white/86">
+                <div className="text-lg font-light leading-7 text-[#191919]">
                   {tab === "ready" || tab === "hold" ? payableTitle(selected) : paymentTitle(selected, tab === "in" ? "in" : "out")}
                 </div>
-                <div className="mt-1 text-xs text-white/32">
+                <div className="mt-1 text-xs text-[#918B83]">
                   {selected?.invoice_number || selected?.reference_number || "No document reference"}
                 </div>
 
-                <div className="mt-6 rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
-                  <div className="text-[10px] uppercase tracking-[0.16em] text-white/28">Amount</div>
-                  <div className="mt-2 text-xl font-light tabular-nums text-white/88">
+                <div className="mt-6 rounded-xl border border-black/[0.07] bg-[#FBF8F3] p-4">
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-[#A19A92]">Amount</div>
+                  <div className="mt-2 text-xl font-light tabular-nums text-[#2F2C28]">
                     {money(
                       tab === "ready" || tab === "hold" ? amountForPayable(selected) : amountForPayment(selected),
                       currencyFor(selected)
@@ -584,7 +584,7 @@ export default function FinancePaymentsWorkCenter({
                   </div>
                 </div>
 
-                <dl className="mt-5 space-y-0 border-t border-white/[0.07]">
+                <dl className="mt-5 space-y-0 border-t border-black/[0.07]">
                   {[
                     ["Status", isOnHold(selected) ? "Payment hold" : statusFor(selected)],
                     ["Due date", selected?.due_date ? dateLabel(selected.due_date) : "—"],
@@ -593,9 +593,9 @@ export default function FinancePaymentsWorkCenter({
                     ["Method", selected?.payment_method || "—"],
                     ["Reference", selected?.reference_number || "—"],
                   ].map(([label, value]) => (
-                    <div key={label} className="grid grid-cols-[105px_1fr] gap-3 border-b border-white/[0.06] py-3 text-xs">
-                      <dt className="text-white/28">{label}</dt>
-                      <dd className="break-words text-right text-white/58">{value}</dd>
+                    <div key={label} className="grid grid-cols-[105px_1fr] gap-3 border-b border-black/[0.06] py-3 text-xs">
+                      <dt className="text-[#A19A92]">{label}</dt>
+                      <dd className="break-words text-right text-[#746E66]">{value}</dd>
                     </div>
                   ))}
                 </dl>
@@ -613,14 +613,14 @@ export default function FinancePaymentsWorkCenter({
                   <button
                     type="button"
                     onClick={() => openVendorPayment(selected)}
-                    className="mt-5 w-full rounded-lg border border-[#D6A66A]/30 bg-[#D6A66A]/[0.08] px-4 py-2.5 text-xs font-medium text-[#E6C28F] transition hover:bg-[#D6A66A]/[0.13]"
+                    className="mt-5 w-full rounded-lg border border-[#D6A66A]/30 bg-[#D6A66A]/[0.08] px-4 py-2.5 text-xs font-medium text-[#9B6F3F] transition hover:bg-[#D6A66A]/[0.13]"
                   >
                     Pay selected payable
                   </button>
                 ) : null}
               </div>
             ) : (
-              <div className="mt-10 text-sm leading-6 text-white/30">
+              <div className="mt-10 text-sm leading-6 text-[#918B83]">
                 Select a row to inspect its payment control context without leaving the queue.
               </div>
             )}

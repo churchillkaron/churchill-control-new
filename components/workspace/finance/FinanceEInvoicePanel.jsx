@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CircleAlert, FileCheck2, RefreshCw, Send, Settings2 } from "lucide-react";
 import FinanceProviderActivationForm from "@/components/workspace/finance/FinanceProviderActivationForm";
 
@@ -13,7 +13,7 @@ export default function FinanceEInvoicePanel({ invoice, organizationId, entityId
   const [busy, setBusy] = useState("");
   const invoiceId = invoice?.id;
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!invoiceId || !organizationId || !entityId) return;
     try {
       setState((current) => ({ ...current, loading: true, error: "" }));
@@ -24,8 +24,8 @@ export default function FinanceEInvoicePanel({ invoice, organizationId, entityId
       if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to load e-Invoice readiness");
       setState({ loading: false, error: "", data: body });
     } catch (error) { setState({ loading: false, error: error?.message || "Unable to load e-Invoice readiness", data: null }); }
-  }
-  useEffect(() => { load(); }, [invoiceId, organizationId, entityId]);
+  }, [entityId, invoiceId, organizationId]);
+  useEffect(() => { load(); }, [load]);
 
   async function action(actionName, transmissionId = null) {
     try {

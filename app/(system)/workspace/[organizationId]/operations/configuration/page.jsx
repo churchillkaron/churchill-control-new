@@ -2,465 +2,105 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from 'react'
+import Link from "next/link";
+import { Building2, CheckCircle2, Hotel, MapPin, MonitorSmartphone, Settings2, TableProperties } from "lucide-react";
+import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 
-import {
-  Plus,
-  Settings2,
-  Layers3,
-} from 'lucide-react'
+function moduleKey(value) {
+  if (typeof value === "string") return value.trim().toLowerCase();
+  return String(value?.module_id || value?.id || value?.key || "").trim().toLowerCase();
+}
 
-export default function ConfigurationManagerPage() {
+function SetupCard({ href, icon: Icon, title, detail, status = "Available" }) {
+  return (
+    <Link href={href} className="group rounded-[20px] border border-black/[0.07] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)] transition hover:border-[#C8AD8C] hover:bg-[#FFFCF8]">
+      <div className="flex items-start justify-between gap-4">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#C9AD89]/25 bg-[#FBF6EF] text-[#8A633C]"><Icon size={15} /></span>
+        <span className="rounded-full bg-[#F0E7DA] px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.09em] text-[#8A633C]">{status}</span>
+      </div>
+      <div className="mt-4 text-[13px] font-semibold text-[#302A24]">{title}</div>
+      <div className="mt-1.5 text-[9px] leading-5 text-[#817B73]">{detail}</div>
+      <div className="mt-4 text-[8px] font-semibold text-[#806444]">Open setup →</div>
+    </Link>
+  );
+}
 
-  const organization_id =
-    '76e2caa6-dd78-49e5-b0f5-1ff94185c2d4'
+export default function OperationsConfigurationPage() {
+  const { ready, organization, modules } = useOrganizationRuntime();
+  const organizationId = organization?.id || null;
+  const enabled = new Set((modules || []).map(moduleKey).filter(Boolean));
+  const has = (...keys) => keys.some((key) => enabled.has(key));
+  const restaurantEnabled = has("pos", "kitchen", "operations");
+  const hotelEnabled = has("hotel", "reservations", "frontdesk");
 
-  const [
-    configurationOptions,
-    setConfigurationOptions,
-  ] = useState([])
-
-  const [
-    groups,
-    setGroups,
-  ] = useState([])
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(false)
-
-  const [
-    form,
-    setForm,
-  ] = useState({
-    name: '',
-    price: 0,
-    configuration_group_id: '',
-  })
-
-  const [
-    groupForm,
-    setGroupForm,
-  ] = useState({
-    name: '',
-    required: false,
-    multi_select: false,
-    max_select: 1,
-  })
-
-  async function loadConfigurationOptions() {
-
-    const response =
-      await fetch(
-        '/api/restaurant/configuration/options'
-      )
-
-    const result =
-      await response.json()
-
-    if (result.success) {
-      setConfigurationOptions(result.data)
-    }
-  }
-
-  async function loadGroups() {
-
-    const response =
-      await fetch(
-        '/api/restaurant/modifiers/groups'
-      )
-
-    const result =
-      await response.json()
-
-    if (result.success) {
-      setGroups(result.data)
-    }
-  }
-
-  useEffect(() => {
-
-    loadConfigurationOptions()
-    loadGroups()
-
-  }, [])
-
-  async function createModifier() {
-
-    setLoading(true)
-
-    const response =
-      await fetch(
-        '/api/restaurant/configuration/options/create',
-        {
-          method: 'POST',
-
-          headers: {
-            'Content-Type':
-              'application/json',
-          },
-
-          body: JSON.stringify({
-            organization_id,
-            ...form,
-          }),
-        }
-      )
-
-    const result =
-      await response.json()
-
-    if (result.success) {
-
-      setForm({
-        name: '',
-        price: 0,
-        configuration_group_id: '',
-      })
-
-      loadConfigurationOptions()
-    }
-
-    setLoading(false)
-  }
-
-  async function createGroup() {
-
-    setLoading(true)
-
-    const response =
-      await fetch(
-        '/api/restaurant/modifiers/groups/create',
-        {
-          method: 'POST',
-
-          headers: {
-            'Content-Type':
-              'application/json',
-          },
-
-          body: JSON.stringify({
-            organization_id,
-            ...groupForm,
-          }),
-        }
-      )
-
-    const result =
-      await response.json()
-
-    if (result.success) {
-
-      setGroupForm({
-        name: '',
-        required: false,
-        multi_select: false,
-        max_select: 1,
-      })
-
-      loadGroups()
-    }
-
-    setLoading(false)
+  if (!ready || !organizationId) {
+    return <div className="min-h-[calc(100vh-92px)] bg-[#F7F6F3] p-6 text-[11px] text-[#817B73]">Loading operations setup…</div>;
   }
 
   return (
+    <main className="min-h-[calc(100vh-92px)] bg-[#F7F6F3] px-4 py-5 text-[#24201B] md:px-6">
+      <div className="mx-auto max-w-[1180px]">
+        <header className="border-b border-black/[0.07] pb-5">
+          <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#A37849]">Operations · Configuration</div>
+          <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.04em]">Operations Setup</h1>
+          <p className="mt-2 max-w-3xl text-[11px] leading-5 text-[#777169]">Configure the operational surfaces this organization actually uses. Every setup area stays scoped to <span className="font-semibold text-[#51473D]">{organization?.name || "this organization"}</span>.</p>
+        </header>
 
-    <div className="min-h-screen bg-black text-white p-8">
+        <section className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <SetupCard
+            href={`/workspace/${organizationId}/administration/business-locations`}
+            icon={MapPin}
+            title="Business locations"
+            detail="Create operating sites, branches and workforce locations used by Operations, People and POS."
+          />
 
-      <div className="flex items-center justify-between mb-10">
+          {restaurantEnabled ? (
+            <>
+              <SetupCard
+                href={`/workspace/${organizationId}/operations/tables/configuration`}
+                icon={TableProperties}
+                title="Table runtime"
+                detail="Configure table locking, transfers, merges, reservations, capacity rules and realtime table behavior."
+              />
+              <SetupCard
+                href={`/workspace/${organizationId}/operations/pos`}
+                icon={MonitorSmartphone}
+                title="Point of Sale"
+                detail="Open the stationary POS and verify ordering, payments, receipts, shifts and fulfillment for this organization."
+              />
+            </>
+          ) : null}
 
-        <div>
+          {hotelEnabled ? (
+            <>
+              <SetupCard
+                href={`/workspace/${organizationId}/operations/hotel-setup`}
+                icon={Hotel}
+                title="Hotel setup"
+                detail="Configure hotel operating foundations before front-desk and reservation workflows go live."
+              />
+              <SetupCard
+                href={`/workspace/${organizationId}/operations/channel-manager`}
+                icon={Building2}
+                title="Hotel distribution"
+                detail="Connect and verify OTA distribution channels using evidence-backed readiness."
+              />
+            </>
+          ) : null}
 
-          <h1 className="text-6xl font-black">
-            CONFIGURATION MANAGER
-          </h1>
+          <SetupCard
+            href={`/workspace/${organizationId}/administration/onboarding`}
+            icon={CheckCircle2}
+            title="Organization readiness"
+            detail="Return to the complete company setup checklist and see what is configured, skipped or still needs review."
+            status="Checklist"
+          />
+        </section>
 
-          <p className="text-zinc-500 mt-3">
-            Enterprise configuration architecture
-          </p>
-
+        <div className="mt-5 rounded-[18px] border border-[#C8AD8C]/20 bg-[#FBF6EF] px-4 py-3 text-[9px] leading-5 text-[#776958]">
+          This page intentionally exposes only live organization-scoped configuration surfaces. Legacy modifier endpoints and hardcoded organization identities are not part of the setup path.
         </div>
-
       </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
-        <div className="space-y-6">
-
-          <div className="border border-zinc-800 bg-zinc-950 rounded-3xl p-6">
-
-            <div className="flex items-center gap-3 mb-6">
-
-              <Layers3 />
-
-              <h2 className="text-2xl font-bold">
-                Create Configuration Group
-              </h2>
-
-            </div>
-
-            <div className="space-y-4">
-
-              <input
-                type="text"
-                placeholder="Group Name"
-                value={groupForm.name}
-                onChange={e =>
-                  setGroupForm(prev => ({
-                    ...prev,
-                    name: e.target.value,
-                  }))
-                }
-                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
-              />
-
-              <div className="flex items-center justify-between">
-
-                <span>
-                  Required
-                </span>
-
-                <input
-                  type="checkbox"
-                  checked={groupForm.required}
-                  onChange={e =>
-                    setGroupForm(prev => ({
-                      ...prev,
-                      required:
-                        e.target.checked,
-                    }))
-                  }
-                />
-
-              </div>
-
-              <div className="flex items-center justify-between">
-
-                <span>
-                  Multi Select
-                </span>
-
-                <input
-                  type="checkbox"
-                  checked={groupForm.multi_select}
-                  onChange={e =>
-                    setGroupForm(prev => ({
-                      ...prev,
-                      multi_select:
-                        e.target.checked,
-                    }))
-                  }
-                />
-
-              </div>
-
-              <input
-                type="number"
-                placeholder="Max Select"
-                value={groupForm.max_select}
-                onChange={e =>
-                  setGroupForm(prev => ({
-                    ...prev,
-                    max_select:
-                      Number(
-                        e.target.value
-                      ),
-                  }))
-                }
-                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
-              />
-
-              <button
-                onClick={createGroup}
-                className="w-full bg-pink-500 hover:bg-pink-400 transition-all rounded-2xl p-4 font-bold text-black"
-              >
-                CREATE CONFIGURATION GROUP
-              </button>
-
-            </div>
-
-          </div>
-
-          <div className="border border-zinc-800 bg-zinc-950 rounded-3xl p-6">
-
-            <div className="flex items-center gap-3 mb-6">
-
-              <Plus />
-
-              <h2 className="text-2xl font-bold">
-                Create Configuration
-              </h2>
-
-            </div>
-
-            <div className="space-y-4">
-
-              <input
-                type="text"
-                placeholder="Configuration Name"
-                value={form.name}
-                onChange={e =>
-                  setForm(prev => ({
-                    ...prev,
-                    name: e.target.value,
-                  }))
-                }
-                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
-              />
-
-              <input
-                type="number"
-                placeholder="Price"
-                value={form.price}
-                onChange={e =>
-                  setForm(prev => ({
-                    ...prev,
-                    price:
-                      Number(
-                        e.target.value
-                      ),
-                  }))
-                }
-                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
-              />
-
-              <select
-                value={form.configuration_group_id}
-                onChange={e =>
-                  setForm(prev => ({
-                    ...prev,
-                    configuration_group_id:
-                      e.target.value,
-                  }))
-                }
-                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
-              >
-
-                <option value="">
-                  Select Configuration Group
-                </option>
-
-                {groups.map(group => (
-
-                  <option
-                    key={group.id}
-                    value={group.id}
-                  >
-                    {group.name}
-                  </option>
-
-                ))}
-
-              </select>
-
-              <button
-                onClick={createModifier}
-                disabled={loading}
-                className="w-full bg-cyan-500 hover:bg-cyan-400 transition-all rounded-2xl p-4 font-bold text-black"
-              >
-                CREATE CONFIGURATION
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        <div className="xl:col-span-2 border border-zinc-800 bg-zinc-950 rounded-3xl p-6">
-
-          <div className="flex items-center gap-3 mb-6">
-
-            <Settings2 />
-
-            <h2 className="text-2xl font-bold">
-              Configuration Library
-            </h2>
-
-          </div>
-
-          <div className="space-y-4 max-h-[900px] overflow-auto">
-
-            {groups.map(group => (
-
-              <div
-                key={group.id}
-                className="border border-zinc-800 rounded-3xl p-5 bg-black"
-              >
-
-                <div className="flex items-center justify-between mb-5">
-
-                  <div>
-
-                    <div className="text-2xl font-bold">
-                      {group.name}
-                    </div>
-
-                    <div className="text-zinc-500 text-sm mt-2">
-
-                      Required:
-                      {' '}
-                      {group.required
-                        ? 'YES'
-                        : 'NO'}
-
-                      {' • '}
-
-                      Multi:
-                      {' '}
-                      {group.multi_select
-                        ? 'YES'
-                        : 'NO'}
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-                <div className="space-y-3">
-
-                  {configurationOptions
-                    .filter(
-                      modifier =>
-                        modifier.configuration_group_id ===
-                        group.id
-                    )
-                    .map(modifier => (
-
-                      <div
-                        key={modifier.id}
-                        className="border border-zinc-800 rounded-2xl p-4 flex items-center justify-between"
-                      >
-
-                        <div className="font-bold">
-                          {modifier.name}
-                        </div>
-
-                        <div className="text-cyan-400 font-black">
-                          ฿
-                          {modifier.price}
-                        </div>
-
-                      </div>
-
-                    ))}
-
-                </div>
-
-              </div>
-
-            ))}
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  )
+    </main>
+  );
 }

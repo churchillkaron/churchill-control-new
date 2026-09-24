@@ -122,12 +122,12 @@ function normalizeModifierGroups(settings) {
 
 function Modal({ children, wide = false }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#191919]/20 p-3">
       <div
         className={
           wide
-            ? "max-h-[92vh] w-full max-w-[430px] overflow-y-auto rounded-[32px] border border-white/10 bg-[#070707]/95 p-5 text-white shadow-2xl backdrop-blur-xl"
-            : "max-h-[88vh] w-full max-w-[360px] overflow-y-auto rounded-[32px] border border-white/10 bg-[#070707]/95 p-5 text-white shadow-2xl backdrop-blur-xl"
+            ? "max-h-[92vh] w-full max-w-[430px] overflow-y-auto rounded-[32px] border border-black/[0.08] bg-white p-5 text-[#191919] shadow-2xl shadow-black/10 backdrop-blur-xl"
+            : "max-h-[88vh] w-full max-w-[360px] overflow-y-auto rounded-[32px] border border-black/[0.08] bg-white p-5 text-[#191919] shadow-2xl shadow-black/10 backdrop-blur-xl"
         }
       >
         {children}
@@ -137,14 +137,14 @@ function Modal({ children, wide = false }) {
 }
 
 function SmallTitle({ children }) {
-  return <div className="text-xs font-medium text-white/55">{children}</div>;
+  return <div className="text-xs font-medium text-[#746E66]">{children}</div>;
 }
 
 function SecondaryButton({ children, ...props }) {
   return (
     <button
       {...props}
-      className="mb-2 w-full rounded-2xl bg-white/[0.06] px-4 py-4 text-left text-sm font-semibold disabled:opacity-30"
+      className="mb-2 w-full rounded-2xl bg-[#FBF8F3] px-4 py-4 text-left text-sm font-semibold disabled:opacity-30"
     >
       {children}
     </button>
@@ -215,10 +215,10 @@ export default function POSFinalUI({
   const [targetTableId, setTargetTableId] = useState(null);
   const [mergeTargetIds, setMergeTargetIds] = useState([]);
 
-  const zones = runtime?.zones || [];
-  const tables = runtime?.tables || [];
-  const dishes = runtime?.dishes || [];
-  const settings = runtime?.posSettings || {};
+  const zones = useMemo(() => runtime?.zones || [], [runtime?.zones]);
+  const tables = useMemo(() => runtime?.tables || [], [runtime?.tables]);
+  const dishes = useMemo(() => runtime?.dishes || [], [runtime?.dishes]);
+  const settings = useMemo(() => runtime?.posSettings || {}, [runtime?.posSettings]);
   const activeTable = tables.find((table) => table.id === activeTableId) || null;
   const modalTable = tables.find((table) => table.id === modalTableId) || null;
   const openTable = tables.find((table) => table.id === openTableId) || null;
@@ -909,8 +909,8 @@ export default function POSFinalUI({
 
   if (runtimeError) {
     return (
-      <main className="min-h-screen bg-black p-4 text-white">
-        <div className="mx-auto flex min-h-[80vh] w-full max-w-[430px] flex-col items-center justify-center gap-4 rounded-[32px] border border-red-500/20 bg-[#060606] p-6 text-center">
+      <main className="min-h-screen bg-[#F7F6F3] p-4 text-[#191919]">
+        <div className="mx-auto flex min-h-[80vh] w-full max-w-[430px] flex-col items-center justify-center gap-4 rounded-[32px] border border-[#B7654C]/25 bg-white p-6 text-center">
           <div className="text-sm text-red-300">{runtimeError}</div>
           <button
             onClick={refreshRuntime}
@@ -925,8 +925,8 @@ export default function POSFinalUI({
 
   if (!runtime) {
     return (
-      <main className="min-h-screen bg-black p-4 text-white">
-        <div className="mx-auto flex min-h-[80vh] w-full max-w-[430px] items-center justify-center rounded-[32px] border border-white/10 bg-[#060606] text-xs text-white/40">
+      <main className="min-h-screen bg-[#F7F6F3] p-4 text-[#191919]">
+        <div className="mx-auto flex min-h-[80vh] w-full max-w-[430px] items-center justify-center rounded-[32px] border border-black/[0.08] bg-white text-xs text-[#918B83]">
           Loading waiter...
         </div>
       </main>
@@ -934,17 +934,17 @@ export default function POSFinalUI({
   }
 
   return (
-    <main className="min-h-screen bg-black p-3 text-white">
-      <section className="mx-auto flex min-h-[calc(100vh-24px)] w-full max-w-[430px] overflow-hidden rounded-[32px] border border-white/10 bg-[#060606] shadow-2xl">
+    <main className="min-h-screen bg-[#F7F6F3] p-3 text-[#191919]">
+      <section className="mx-auto flex min-h-[calc(100vh-24px)] w-full max-w-[430px] overflow-hidden rounded-[32px] border border-black/[0.08] bg-white shadow-2xl shadow-black/10">
         <div className="flex min-h-0 w-full flex-col">
-          <header className="border-b border-white/10 bg-black/70 px-4 py-3 backdrop-blur-xl">
+          <header className="border-b border-black/[0.08] bg-[#FBF8F3]/95 px-4 py-3 backdrop-blur-xl">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="truncate text-base font-semibold">
                   {zones.find((zone) => zone.id === activeZoneId)?.name || "Waiter"}
                   {activeTable ? ` • ${tableName(activeTable)}` : ""}
                 </div>
-                <div className="mt-1 text-[10px] text-white/35">
+                <div className="mt-1 text-[10px] text-[#918B83]">
                   {activeTable
                     ? `${Number(activeTable.current_guests || 0)} guests`
                     : "Select table"}
@@ -960,7 +960,7 @@ export default function POSFinalUI({
             </div>
           </header>
 
-          <div className="border-b border-white/10 px-3 py-2">
+          <div className="border-b border-black/[0.08] px-3 py-2">
             <div className="flex gap-2 overflow-x-auto">
               {zones.map((zone) => (
                 <button
@@ -969,7 +969,7 @@ export default function POSFinalUI({
                   className={
                     activeZoneId === zone.id
                       ? "shrink-0 rounded-xl bg-[#D6A66A] px-3 py-2 text-xs font-bold text-black"
-                      : "shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/60"
+                      : "shrink-0 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-xs text-[#746E66]"
                   }
                 >
                   {zone.name}
@@ -978,7 +978,7 @@ export default function POSFinalUI({
             </div>
           </div>
 
-          <div className="border-b border-white/10 px-3 py-2">
+          <div className="border-b border-black/[0.08] px-3 py-2">
             <div className="flex gap-2 overflow-x-auto">
               {visibleTables.map((table) => (
                 <button
@@ -1002,13 +1002,13 @@ export default function POSFinalUI({
                       : Number(table.current_guests || 0) > 0 ||
                         table.status === "OCCUPIED"
                       ? "shrink-0 rounded-2xl border border-[#D6A66A]/50 bg-[#D6A66A]/10 px-5 py-4 text-sm font-black text-[#F3D7A2]"
-                      : "shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-sm font-black text-white/70"
+                      : "shrink-0 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-5 py-4 text-sm font-black text-[#5F5A54]"
                   }
                 >
                   <div>{tableName(table)}</div>
                   {table.status !== "MERGED" &&
                     Number(table.current_guests || 0) > 0 && (
-                      <div className="mt-1 text-xs text-white/45">
+                      <div className="mt-1 text-xs text-[#817A72]">
                         {table.current_guests} Guests
                       </div>
                     )}
@@ -1026,7 +1026,7 @@ export default function POSFinalUI({
                   className={
                     currentCategory === category
                       ? "shrink-0 rounded-xl bg-[#D6A66A] px-3 py-2 text-xs font-bold text-black"
-                      : "shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/60"
+                      : "shrink-0 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-xs text-[#746E66]"
                   }
                 >
                   {category}
@@ -1039,9 +1039,9 @@ export default function POSFinalUI({
                 <button
                   key={dish.id}
                   onClick={() => openDish(dish)}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-left transition hover:bg-white/[0.07]"
+                  className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-3 text-left transition hover:bg-white/[0.07]"
                 >
-                  <div className="line-clamp-2 text-sm font-semibold text-white">
+                  <div className="line-clamp-2 text-sm font-semibold text-[#191919]">
                     {dish.name || dish.dish_name}
                   </div>
                 </button>
@@ -1092,7 +1092,7 @@ export default function POSFinalUI({
           </SecondaryButton>
           <button
             onClick={closeModal}
-            className="mt-3 w-full rounded-xl border border-white/10 py-3 text-sm font-bold"
+            className="mt-3 w-full rounded-xl border border-black/[0.08] py-3 text-sm font-bold"
           >
             Cancel
           </button>
@@ -1110,11 +1110,11 @@ export default function POSFinalUI({
                 if (event.key === "Enter") searchCustomers();
               }}
               placeholder="Search customer name, phone, email"
-              className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm outline-none"
+              className="w-full rounded-xl border border-black/[0.09] bg-white px-3 py-3 text-sm outline-none"
             />
             <button
               onClick={searchCustomers}
-              className="mt-2 w-full rounded-xl border border-white/10 py-2 text-xs font-semibold"
+              className="mt-2 w-full rounded-xl border border-black/[0.08] py-2 text-xs font-semibold"
             >
               Search
             </button>
@@ -1131,10 +1131,10 @@ export default function POSFinalUI({
                     });
                     setModal("GUESTS");
                   }}
-                  className="w-full rounded-xl border border-white/10 px-3 py-3 text-left text-sm"
+                  className="w-full rounded-xl border border-black/[0.08] px-3 py-3 text-left text-sm"
                 >
                   <div>{customer.customer_name}</div>
-                  <div className="text-xs text-white/40">
+                  <div className="text-xs text-[#918B83]">
                     {customer.customer_phone || ""}
                   </div>
                 </button>
@@ -1146,7 +1146,7 @@ export default function POSFinalUI({
             >
               Walk-in Customer
             </button>
-            <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
+            <div className="mt-4 space-y-2 border-t border-black/[0.08] pt-4">
               <button
                 onClick={() => setModal("CREATE_CUSTOMER")}
                 className="w-full rounded-xl bg-[#D6A66A] py-3 text-sm font-semibold text-black"
@@ -1155,7 +1155,7 @@ export default function POSFinalUI({
               </button>
               <button
                 onClick={cancelCustomerSetup}
-                className="w-full rounded-xl border border-white/10 py-3 text-sm text-white/70"
+                className="w-full rounded-xl border border-black/[0.08] py-3 text-sm text-[#5F5A54]"
               >
                 Cancel
               </button>
@@ -1174,7 +1174,7 @@ export default function POSFinalUI({
                 setCustomerForm({ ...customerForm, name: event.target.value })
               }
               placeholder="Full Name"
-              className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
+              className="w-full rounded-xl border border-black/[0.09] bg-white px-3 py-3 text-sm"
             />
             <input
               value={customerForm.phone}
@@ -1182,7 +1182,7 @@ export default function POSFinalUI({
                 setCustomerForm({ ...customerForm, phone: event.target.value })
               }
               placeholder="Phone"
-              className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
+              className="w-full rounded-xl border border-black/[0.09] bg-white px-3 py-3 text-sm"
             />
             <input
               value={customerForm.email}
@@ -1190,7 +1190,7 @@ export default function POSFinalUI({
                 setCustomerForm({ ...customerForm, email: event.target.value })
               }
               placeholder="Email"
-              className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
+              className="w-full rounded-xl border border-black/[0.09] bg-white px-3 py-3 text-sm"
             />
             <button
               onClick={createCustomer}
@@ -1200,13 +1200,13 @@ export default function POSFinalUI({
             </button>
             <button
               onClick={() => setModal("CUSTOMER")}
-              className="w-full rounded-xl border border-white/10 py-3 text-sm"
+              className="w-full rounded-xl border border-black/[0.08] py-3 text-sm"
             >
               Back
             </button>
             <button
               onClick={cancelCustomerSetup}
-              className="w-full rounded-xl border border-white/10 py-3 text-sm text-white/70"
+              className="w-full rounded-xl border border-black/[0.08] py-3 text-sm text-[#5F5A54]"
             >
               Cancel
             </button>
@@ -1220,7 +1220,7 @@ export default function POSFinalUI({
           <div className="mt-5 flex items-center justify-center gap-4">
             <button
               onClick={() => setGuestDraft(Math.max(1, guestDraft - 1))}
-              className="h-12 w-12 rounded-2xl bg-white/[0.06] text-2xl font-black"
+              className="h-12 w-12 rounded-2xl bg-[#FBF8F3] text-2xl font-black"
             >
               -
             </button>
@@ -1229,7 +1229,7 @@ export default function POSFinalUI({
             </div>
             <button
               onClick={() => setGuestDraft(guestDraft + 1)}
-              className="h-12 w-12 rounded-2xl bg-white/[0.06] text-2xl font-black"
+              className="h-12 w-12 rounded-2xl bg-[#FBF8F3] text-2xl font-black"
             >
               +
             </button>
@@ -1242,7 +1242,7 @@ export default function POSFinalUI({
           </button>
           <button
             onClick={cancelCustomerSetup}
-            className="mt-2 w-full rounded-2xl border border-white/10 py-4 text-sm font-semibold text-white/70"
+            className="mt-2 w-full rounded-2xl border border-black/[0.08] py-4 text-sm font-semibold text-[#5F5A54]"
           >
             Cancel
           </button>
@@ -1267,7 +1267,7 @@ export default function POSFinalUI({
                   className={
                     String(modifierDraft.seat) === String(seat)
                       ? "rounded-lg bg-[#D6A66A] px-3 py-2 text-xs font-semibold text-black"
-                      : "rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/65"
+                      : "rounded-lg border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-xs font-semibold text-[#665F57]"
                   }
                 >
                   S{seat}
@@ -1291,7 +1291,7 @@ export default function POSFinalUI({
                     className={
                       modifierDraft[group.key] === option.value
                         ? "rounded-lg bg-[#D6A66A] px-3 py-2 text-xs font-semibold text-black"
-                        : "rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/65"
+                        : "rounded-lg border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-xs font-semibold text-[#665F57]"
                     }
                   >
                     {option.label}
@@ -1306,7 +1306,7 @@ export default function POSFinalUI({
               setModifierDraft({ ...modifierDraft, notes: event.target.value })
             }
             placeholder={settings?.notes_label || "Notes"}
-            className="mt-4 h-20 w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
+            className="mt-4 h-20 w-full rounded-xl border border-black/[0.09] bg-white px-3 py-3 text-sm"
           />
           <button
             onClick={addDishToCart}
@@ -1319,7 +1319,7 @@ export default function POSFinalUI({
               setDishDraft(null);
               setModal(null);
             }}
-            className="mt-2 w-full rounded-xl border border-white/10 py-3 text-sm font-bold"
+            className="mt-2 w-full rounded-xl border border-black/[0.08] py-3 text-sm font-bold"
           >
             Cancel
           </button>
@@ -1330,25 +1330,25 @@ export default function POSFinalUI({
         <Modal wide>
           <div className="flex items-center justify-between">
             <div className="text-lg font-semibold">Order</div>
-            <div className="text-xs text-white/40">{cart.length} Items</div>
+            <div className="text-xs text-[#918B83]">{cart.length} Items</div>
           </div>
           <div className="mt-4 max-h-[320px] space-y-2 overflow-y-auto">
             {!cart.length && (
-              <div className="rounded-2xl border border-white/10 p-6 text-center text-xs text-white/40">
+              <div className="rounded-2xl border border-black/[0.08] p-6 text-center text-xs text-[#918B83]">
                 No items yet
               </div>
             )}
             {cart.map((item, index) => (
               <div
                 key={item.id}
-                className="grid grid-cols-[42px_1fr_54px] gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3"
+                className="grid grid-cols-[42px_1fr_54px] gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3"
               >
                 <div className="rounded-md border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-2 py-1 text-center text-[10px] font-black text-[#E2C48A]">
                   S{item.seatPosition}
                 </div>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold">{item.name}</div>
-                  <div className="truncate text-[10px] text-white/35">
+                  <div className="truncate text-[10px] text-[#918B83]">
                     {item.notes || ""}
                   </div>
                 </div>
@@ -1374,7 +1374,7 @@ export default function POSFinalUI({
           </button>
           <button
             onClick={() => setModal(null)}
-            className="mt-2 w-full rounded-xl border border-white/10 py-3 text-sm font-bold"
+            className="mt-2 w-full rounded-xl border border-black/[0.08] py-3 text-sm font-bold"
           >
             Close
           </button>
@@ -1400,11 +1400,11 @@ export default function POSFinalUI({
                     await refreshRuntime();
                     await showOpenTable(openTable);
                   }}
-                  className="h-7 w-7 rounded-lg border border-white/10 bg-white/[0.04] text-xs"
+                  className="h-7 w-7 rounded-lg border border-black/[0.08] bg-[#FBF8F3] text-xs"
                 >
                   -
                 </button>
-                <div className="text-xs text-white/45">
+                <div className="text-xs text-[#817A72]">
                   {openTable.current_guests || 0} Guests
                 </div>
                 <button
@@ -1427,7 +1427,7 @@ export default function POSFinalUI({
             </div>
           </div>
 
-          <div className="mt-4 border-t border-white/10 pt-3">
+          <div className="mt-4 border-t border-black/[0.08] pt-3">
             <SmallTitle>Seats</SmallTitle>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {openSeats.map((seat) => (
@@ -1437,7 +1437,7 @@ export default function POSFinalUI({
                   className={
                     String(selectedSeat) === String(seat)
                       ? "rounded-lg border border-[#D6A66A] bg-[#D6A66A]/15 px-2.5 py-1.5 text-[11px] font-semibold text-[#E2C48A]"
-                      : "rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-semibold text-white/80"
+                      : "rounded-lg border border-black/[0.08] bg-[#FBF8F3] px-2.5 py-1.5 text-[11px] font-semibold text-[#3E3933]"
                   }
                 >
                   S{seat}
@@ -1446,7 +1446,7 @@ export default function POSFinalUI({
             </div>
           </div>
 
-          <div className="mt-4 border-t border-white/10 pt-3">
+          <div className="mt-4 border-t border-black/[0.08] pt-3">
             <div className="flex items-center justify-between">
               <SmallTitle>Groups</SmallTitle>
               <button
@@ -1481,12 +1481,12 @@ export default function POSFinalUI({
                     className={
                       selectedGroupIndex === index
                         ? "rounded-lg border border-[#D6A66A]/60 bg-[#D6A66A]/15 px-2.5 py-1.5 text-[11px] font-semibold text-[#E2C48A]"
-                        : "rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-semibold text-white/70"
+                        : "rounded-lg border border-black/[0.08] bg-[#FBF8F3] px-2.5 py-1.5 text-[11px] font-semibold text-[#5F5A54]"
                     }
                   >
                     {group.group_name}
                     {!!seats.length && (
-                      <span className="ml-1 text-white/40">
+                      <span className="ml-1 text-[#918B83]">
                         {seats.map((seat) => `S${seat}`).join(",")}
                       </span>
                     )}
@@ -1495,14 +1495,14 @@ export default function POSFinalUI({
               })}
             </div>
             <div className="mt-3 rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/5 p-3">
-              <div className="text-xs font-medium text-white/55">Assignment</div>
-              <div className="mt-2 text-xs text-white/70">
+              <div className="text-xs font-medium text-[#746E66]">Assignment</div>
+              <div className="mt-2 text-xs text-[#5F5A54]">
                 Seat:
                 <span className="ml-1 font-semibold text-[#E2C48A]">
                   {selectedSeat ? `S${selectedSeat}` : "-"}
                 </span>
               </div>
-              <div className="mt-1 text-xs text-white/70">
+              <div className="mt-1 text-xs text-[#5F5A54]">
                 Group:
                 <span className="ml-1 font-semibold text-[#E2C48A]">
                   {billGroups[targetGroupIndex]?.group_name || "-"}
@@ -1518,7 +1518,7 @@ export default function POSFinalUI({
             </div>
           </div>
 
-          <div className="mt-4 border-t border-white/10 pt-3">
+          <div className="mt-4 border-t border-black/[0.08] pt-3">
             <SmallTitle>Orders</SmallTitle>
             <div className="mt-2 space-y-3">
               {billGroups.map((group) => {
@@ -1532,30 +1532,30 @@ export default function POSFinalUI({
                 return (
                   <div
                     key={group.group_name}
-                    className="rounded-xl border border-white/10 bg-white/[0.025] p-3"
+                    className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3"
                   >
                     <div className="mb-2 text-xs font-semibold text-[#E2C48A]">
                       {group.group_name}
                     </div>
                     {Object.entries(bySeat).map(([seat, items]) => (
                       <div key={seat} className="mt-2">
-                        <div className="mb-1 text-xs font-medium text-white/55">
+                        <div className="mb-1 text-xs font-medium text-[#746E66]">
                           {seat === "Unassigned" ? "Unassigned" : `Seat ${seat}`}
                         </div>
                         {items.map((item) => (
                           <div
                             key={item.id}
-                            className="grid grid-cols-[1fr_52px] border-b border-white/10 py-1 text-xs last:border-b-0"
+                            className="grid grid-cols-[1fr_52px] border-b border-black/[0.08] py-1 text-xs last:border-b-0"
                           >
                             <div className="truncate">
                               {item.item_name || item.name || "Item"}
                               {(item.notes || item.cooking_level) && (
-                                <span className="ml-1 text-white/35">
+                                <span className="ml-1 text-[#918B83]">
                                   {item.cooking_level || item.notes}
                                 </span>
                               )}
                             </div>
-                            <div className="text-right text-white/25">•</div>
+                            <div className="text-right text-[#B2ABA3]">•</div>
                           </div>
                         ))}
                       </div>
@@ -1578,7 +1578,7 @@ export default function POSFinalUI({
           </button>
           <button
             onClick={closeModal}
-            className="mt-2 w-full rounded-xl border border-white/10 py-3 text-xs font-semibold text-white/70"
+            className="mt-2 w-full rounded-xl border border-black/[0.08] py-3 text-xs font-semibold text-[#5F5A54]"
           >
             Close
           </button>
@@ -1587,8 +1587,8 @@ export default function POSFinalUI({
 
       {modal === "MOVE_GUEST" && modalTable && (
         <Modal>
-          <div className="text-lg font-semibold text-white">Move Guest</div>
-          <div className="mt-2 text-sm text-white/50">
+          <div className="text-lg font-semibold text-[#191919]">Move Guest</div>
+          <div className="mt-2 text-sm text-[#191919]/50">
             From: {tableName(modalTable)}
           </div>
           <div className="mt-4">
@@ -1601,7 +1601,7 @@ export default function POSFinalUI({
                   className={
                     String(moveSeatValue) === String(seat)
                       ? "rounded-xl border border-[#D6A66A] bg-[#D6A66A]/15 px-4 py-3 text-[#E2C48A]"
-                      : "rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-white"
+                      : "rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-[#191919]"
                   }
                 >
                   S{seat}
@@ -1622,11 +1622,11 @@ export default function POSFinalUI({
                     className={
                       targetTableId === table.id
                         ? "w-full rounded-2xl border border-[#D6A66A]/40 bg-[#D6A66A]/15 px-4 py-4 text-left text-[#E2C48A]"
-                        : "w-full rounded-2xl bg-white/[0.06] px-4 py-4 text-left"
+                        : "w-full rounded-2xl bg-[#FBF8F3] px-4 py-4 text-left"
                     }
                   >
                     <div className="font-semibold">{tableName(table)}</div>
-                    <div className="mt-1 text-xs text-white/40">
+                    <div className="mt-1 text-xs text-[#918B83]">
                       {Number(table.current_guests || 0)} guests
                     </div>
                   </button>
@@ -1642,7 +1642,7 @@ export default function POSFinalUI({
           </button>
           <button
             onClick={closeModal}
-            className="mt-3 w-full rounded-xl border border-white/10 py-3 text-sm font-bold"
+            className="mt-3 w-full rounded-xl border border-black/[0.08] py-3 text-sm font-bold"
           >
             Cancel
           </button>
@@ -1652,7 +1652,7 @@ export default function POSFinalUI({
       {modal === "TRANSFER_TABLE" && modalTable && (
         <Modal>
           <div className="text-lg font-semibold">Move Table</div>
-          <div className="mt-2 text-sm text-white/50">
+          <div className="mt-2 text-sm text-[#191919]/50">
             From: {tableName(modalTable)}
           </div>
           <div className="mt-4 max-h-[260px] space-y-2 overflow-y-auto">
@@ -1666,7 +1666,7 @@ export default function POSFinalUI({
                   className={
                     targetTableId === table.id
                       ? "w-full rounded-2xl border border-[#D6A66A]/40 bg-[#D6A66A]/15 px-4 py-4 text-left text-[#E2C48A]"
-                      : "w-full rounded-2xl bg-white/[0.06] px-4 py-4 text-left"
+                      : "w-full rounded-2xl bg-[#FBF8F3] px-4 py-4 text-left"
                   }
                 >
                   {tableName(table)}
@@ -1682,7 +1682,7 @@ export default function POSFinalUI({
           </button>
           <button
             onClick={closeModal}
-            className="mt-3 w-full rounded-xl border border-white/10 py-3 text-sm font-bold"
+            className="mt-3 w-full rounded-xl border border-black/[0.08] py-3 text-sm font-bold"
           >
             Cancel
           </button>
@@ -1692,7 +1692,7 @@ export default function POSFinalUI({
       {modal === "MERGE_TABLE" && modalTable && (
         <Modal>
           <div className="text-lg font-semibold">Merge Table</div>
-          <div className="mt-2 text-sm text-white/50">
+          <div className="mt-2 text-sm text-[#191919]/50">
             Master: {tableName(modalTable)}
           </div>
           <div className="mt-4 max-h-[260px] space-y-2 overflow-y-auto">
@@ -1715,7 +1715,7 @@ export default function POSFinalUI({
                     className={
                       selected
                         ? "w-full rounded-2xl border border-[#D6A66A]/40 bg-[#D6A66A]/15 px-4 py-4 text-left text-[#E2C48A]"
-                        : "w-full rounded-2xl bg-white/[0.06] px-4 py-4 text-left"
+                        : "w-full rounded-2xl bg-[#FBF8F3] px-4 py-4 text-left"
                     }
                   >
                     {tableName(table)}
@@ -1732,7 +1732,7 @@ export default function POSFinalUI({
           </button>
           <button
             onClick={closeModal}
-            className="mt-3 w-full rounded-xl border border-white/10 py-3 text-sm font-bold"
+            className="mt-3 w-full rounded-xl border border-black/[0.08] py-3 text-sm font-bold"
           >
             Cancel
           </button>
@@ -1741,8 +1741,8 @@ export default function POSFinalUI({
 
       {successMessage && (
         <Modal>
-          <div className="text-lg font-semibold text-white">{successMessage}</div>
-          <div className="mt-2 text-sm text-white/45">
+          <div className="text-lg font-semibold text-[#191919]">{successMessage}</div>
+          <div className="mt-2 text-sm text-[#817A72]">
             The order is saved in the POS runtime.
           </div>
           <button

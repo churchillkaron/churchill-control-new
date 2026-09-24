@@ -208,22 +208,22 @@ export default function FinanceForecastScenarioEngine({
   }
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 px-5 backdrop-blur-xl">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-white/[0.08] bg-[#0b0b0b]/95 p-7 shadow-2xl shadow-black/80">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[#F7F6F3]/75 px-5 backdrop-blur-xl">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-black/[0.08] bg-white p-7 shadow-2xl shadow-black/10">
         <div className="text-[11px] uppercase tracking-[0.30em] text-amber-300/65">
           Finance Forecasting
         </div>
-        <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-white">
+        <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-[#191919]">
           {action?.title || "Forecast Scenarios"}
         </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-white/45">
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[#746E66]">
           Base uses the canonical guarded ledger run-rate. Conservative and Growth require explicit assumptions; Avantiqo does not invent scenario percentages. Saved drafts are regenerated on the server and preserve an immutable result snapshot for approval.
         </p>
 
         <div className="mt-7 grid gap-4 md:grid-cols-2">
           {FIELDS.map(([key, label]) => (
             <label key={key} className="block">
-              <span className="text-xs text-white/45">{label}</span>
+              <span className="text-xs text-[#746E66]">{label}</span>
               <input
                 type="number"
                 step="any"
@@ -231,7 +231,7 @@ export default function FinanceForecastScenarioEngine({
                 value={values[key]}
                 onChange={event => update(key, event.target.value)}
                 placeholder="Enter explicit assumption"
-                className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 p-3 text-white outline-none focus:border-amber-300/35"
+                className="mt-2 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3]/35 p-3 text-[#191919] outline-none focus:border-amber-300/35"
               />
             </label>
           ))}
@@ -247,7 +247,7 @@ export default function FinanceForecastScenarioEngine({
           <button
             onClick={onClose}
             disabled={busy}
-            className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-5 py-3 text-sm text-white/60"
+            className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-5 py-3 text-sm text-[#5F5A54]"
           >
             Cancel
           </button>
@@ -255,7 +255,7 @@ export default function FinanceForecastScenarioEngine({
             <button
               onClick={saveDraft}
               disabled={busy}
-              className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-5 py-3 text-sm font-medium text-white/80 disabled:opacity-50"
+              className="rounded-xl border border-black/[0.10] bg-[#FBF8F3] px-5 py-3 text-sm font-medium text-[#2F2C28] disabled:opacity-50"
             >
               {busy ? "Working..." : "Save Draft"}
             </button>

@@ -113,7 +113,8 @@ test("Tax portfolio can claim unowned coordination across authorized entities wi
 
 test("Tax control tower starts with one live next task and filing-level deadline runway", () => {
   assert.match(rail, /const \[expanded, setExpanded\] = useState\(true\)/);
-  assert.match(rail, /useEffect\(\(\) => \{ load\(\); \}, \[organizationId\]\)/);
+  assert.match(rail, /const load = useCallback\(async \(\) => \{/);
+  assert.match(rail, /useEffect\(\(\) => \{ load\(\); \}, \[load\]\)/);
   assert.match(rail, /const filingSummary = state\.body\?\.summary \|\| \{\}/);
   assert.match(rail, /const nextWork = workRows\[0\] \|\| null/);
   assert.match(rail, /Next tax work/);

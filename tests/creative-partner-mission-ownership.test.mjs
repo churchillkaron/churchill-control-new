@@ -26,6 +26,13 @@ test("Creative Partner owns continuation and genuine human gates", () => {
   assert.match(partner, /finalisation_passed/);
 });
 
+test("Creative Partner resumes only canonical graph-bound production", () => {
+  assert.match(partner, /async function hasCanonicalExistingProduction/);
+  assert.match(partner, /task\?\.production_graph_id/);
+  assert.match(partner, /canonicalExistingProduction/);
+  assert.match(partner, /ACTIVE_PRODUCTION_STAGES\.has\(state\?\.stage\) && canonicalExistingProduction/);
+});
+
 test("mission-facing status hides provider and queue mechanics", () => {
   assert.match(partner, /provider_selection_exposed:\s*false/);
   assert.match(partner, /queue_management_exposed:\s*false/);

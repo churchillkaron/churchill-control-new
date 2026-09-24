@@ -1,23 +1,41 @@
 param(
-  [ValidateSet('supervisor','gpu','cpu','live','training')]
+  [ValidateSet('supervisor','gpu','code','cpu','live','training')]
   [string]$Lane = 'supervisor'
 )
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Net.Http
 if ($Lane -eq 'supervisor') {
-  $children = @{}
-  while ($true) {
-    foreach ($childLane in @('gpu','cpu','live','training')) {
-      $job = $children[$childLane]
-      if (-not $job -or $job.State -ne 'Running') {
-        if ($job) { Receive-Job $job -ErrorAction SilentlyContinue | Out-Null; Remove-Job $job -Force -ErrorAction SilentlyContinue }
-        $children[$childLane] = Start-Job -Name ("Avantiqo-" + $childLane) -ScriptBlock { param($ScriptPath,$WorkerLane) & $ScriptPath -Lane $WorkerLane } -ArgumentList $PSCommandPath,$childLane
-      }
-    }
-    foreach ($job in @($children.Values)) { Receive-Job $job -ErrorAction SilentlyContinue | Out-Null }
-    Start-Sleep -Seconds 5
+  $createdNew = $false
+  $supervisorMutex = New-Object System.Threading.Mutex($true, 'Global\AvantiqoNode01WorkerSupervisor', [ref]$createdNew)
+  if (-not $createdNew) {
+    Write-Output 'AVANTIQO_NODE01_SUPERVISOR_ALREADY_RUNNING'
+    $supervisorMutex.Dispose()
+    exit 0
   }
+  $children = @{}
+  try {
+    while ($true) {
+      foreach ($childLane in @('gpu','code','cpu','live','training')) {
+        $job = $children[$childLane]
+        if (-not $job -or $job.State -ne 'Running') {
+          if ($job) { Receive-Job $job -ErrorAction SilentlyContinue | Out-Null; Remove-Job $job -Force -ErrorAction SilentlyContinue }
+          $children[$childLane] = Start-Job -Name ("Avantiqo-" + $childLane) -ScriptBlock { param($ScriptPath,$WorkerLane) & $ScriptPath -Lane $WorkerLane } -ArgumentList $PSCommandPath,$childLane
+        }
+      }
+      foreach ($job in @($children.Values)) { Receive-Job $job -ErrorAction SilentlyContinue | Out-Null }
+      Start-Sleep -Seconds 5
+    }
+  } finally {
+    foreach ($job in @($children.Values)) {
+      Stop-Job $job -ErrorAction SilentlyContinue
+      Receive-Job $job -ErrorAction SilentlyContinue | Out-Null
+      Remove-Job $job -Force -ErrorAction SilentlyContinue
+    }
+    try { $supervisorMutex.ReleaseMutex() } catch {}
+    $supervisorMutex.Dispose()
+  }
+  exit 0
 }
 
 $BaseUrl = 'https://vfsjqabpkcbiuerhzugk.supabase.co'
@@ -27,6 +45,10 @@ $NodeId = 'avantiqo-node-01'
 $TokenPath = 'C:\ProgramData\Avantiqo\node-token.txt'
 $OllamaUrl = 'http://127.0.0.1:11434'
 $Model = 'qwen3:4b-instruct'
+$CodeCpuFallbackModel = 'qwen3:0.6b'
+$WorkerContract = 'AVANTIQO_NODE01_WORKER_V6_MODEL_AWARE_CODE'
+$WorkerSourceSha256 = ''
+try { $WorkerSourceSha256 = (Get-FileHash -Algorithm SHA256 $PSCommandPath).Hash.ToLowerInvariant() } catch {}
 $ContextTokens = 20480
 $GpuIdleLearningAfterSeconds = 900
 $QwenWarmAfterGpuJob = $true
@@ -35,15 +57,16 @@ $NightLearningEndHour = 6
 $script:LastGpuWorkAt = Get-Date
 $script:LastIdleLearningAt = [datetime]::MinValue
 $script:LearningCursor = 0
-$AllCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','ai.image.analyze','document.ocr','document.classify','creative.materials.estimate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech','ai.sfx.generate')
-$GpuCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','ai.image.analyze','document.ocr','document.classify','creative.materials.estimate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
+$AllCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','ai.image.analyze','ai.image.generate','document.ocr','document.classify','creative.materials.estimate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech','ai.sfx.generate')
+$CodeCapabilities = @('ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build')
+$GpuCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.image.analyze','ai.image.generate','document.ocr','document.classify','creative.materials.estimate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
 $CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process','ai.music.generate','ai.sfx.generate')
 $TrainingCapabilities = @('ai.model.train')
 $LiveCapabilities = @('ai.code.live-conversation')
-$Capabilities = @($(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } elseif ($Lane -eq 'live') { $LiveCapabilities } elseif ($Lane -eq 'training') { $TrainingCapabilities } else { $AllCapabilities }))
+$Capabilities = @($(if ($Lane -eq 'gpu') { $GpuCapabilities } elseif ($Lane -eq 'code') { $CodeCapabilities } elseif ($Lane -eq 'cpu') { $CpuCapabilities } elseif ($Lane -eq 'live') { $LiveCapabilities } elseif ($Lane -eq 'training') { $TrainingCapabilities } else { $AllCapabilities }))
 if ($Lane -eq 'cpu') {
   try { (Get-Process -Id $PID).PriorityClass = 'BelowNormal' } catch {}
-} elseif ($Lane -eq 'live') {
+} elseif ($Lane -eq 'live' -or $Lane -eq 'code') {
   try { (Get-Process -Id $PID).PriorityClass = 'AboveNormal' } catch {}
 } elseif ($Lane -eq 'gpu') {
   try { (Get-Process -Id $PID).PriorityClass = 'Normal' } catch {}
@@ -62,7 +85,7 @@ function Headers {
 function IsTransientRpcFailure([int]$StatusCode, [string]$ResponseText, [string]$Message) {
   if (@(408,425,429,500,502,503,504,520,521,522,523,524,525) -contains $StatusCode) { return $true }
   $signal = (($ResponseText + ' ' + $Message).ToLowerInvariant())
-  return ($signal -match 'pgrst002|statement timeout|connection terminated|connection timed out|ssl handshake|web server is down|schema cache|temporarily unavailable|fetch failed')
+  return ($signal -match 'pgrst002|statement timeout|connection terminated|connection timed out|underlying connection was closed|expected to be kept alive|connection reset|forcibly closed|transport connection|ssl handshake|web server is down|schema cache|temporarily unavailable|fetch failed')
 }
 
 function Rpc([string]$Name, [hashtable]$Body) {
@@ -142,7 +165,7 @@ function Heartbeat {
   $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
   $drive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
   $meta = @{
-    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v4-scheduler'; worker_lane=$Lane; worker_lanes=@('gpu','cpu'); heartbeat_source_lane=$Lane; local_context_tokens=$ContextTokens; scheduler=@{ resource_aware=$true; gpu_exclusive=$true; qwen_warm_policy='IDLE_WARM'; idle_learning_window='01:00-06:00'; idle_learning_after_seconds=$GpuIdleLearningAfterSeconds; learning_promotion_authorized=$false; cpu_policy=$(if($Lane -eq 'cpu'){'ONE_HEAVY_JOB_BELOW_NORMAL'}else{'N/A'}) };
+    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v4-scheduler'; worker_contract=$WorkerContract; worker_source_sha256=$WorkerSourceSha256; worker_lane=$Lane; worker_lanes=@('gpu','code','cpu','live','training'); heartbeat_source_lane=$Lane; local_context_tokens=$ContextTokens; scheduler=@{ resource_aware=$true; gpu_exclusive=$true; qwen_warm_policy='IDLE_WARM'; idle_learning_window='01:00-06:00'; idle_learning_after_seconds=$GpuIdleLearningAfterSeconds; learning_promotion_authorized=$false; cpu_policy=$(if($Lane -eq 'cpu'){'ONE_HEAVY_JOB_BELOW_NORMAL'}else{'N/A'}); code_gpu_strong_model='qwen3:4b-instruct'; code_gpu_interactive_model='qwen3:1.7b'; code_cpu_fallback_model=$CodeCpuFallbackModel; code_cpu_fallback_capability='ai.code.debug'; code_gpu_min_free_vram_mb=@{ fast=1800; interactive=3000; strong=4300 }; code_cpu_timeout_seconds=90; code_gpu_timeout_seconds=120 };
     gpu=$gpu; cpu=@{ name=$cpu.Name; cores=[int]$cpu.NumberOfCores; logical_processors=[int]$cpu.NumberOfLogicalProcessors };
     memory=@{ total_mb=[int]($os.TotalVisibleMemorySize/1024); free_mb=[int]($os.FreePhysicalMemory/1024) };
     disk=@{ c_total_gb=[math]::Round($drive.Size/1GB,1); c_free_gb=[math]::Round($drive.FreeSpace/1GB,1) };
@@ -155,7 +178,7 @@ function Heartbeat {
 function ResourceProfile($Job) {
   $workload = [string]$Job.workload
   if ($workload -eq 'intelligence_text') { return @{ class='interactive_gpu'; gpu_vram_mb=3900; cpu_weight='light'; exclusive_gpu=$false; product='Business Partner / Intelligence' } }
-  if ($workload -eq 'code_text') { return @{ class='interactive_gpu'; gpu_vram_mb=3900; cpu_weight='light'; exclusive_gpu=$false; product='Developer / Code'; mode='LOCAL_QWEN4B_FIRST' } }
+  if ($workload -eq 'code_text') { return @{ class='interactive_hybrid'; gpu_vram_mb=4300; cpu_weight='medium'; exclusive_gpu=$false; product='Developer / Code'; mode='LOCAL_QWEN4B_GPU_STRONG_MUTATION_QWEN17B_INTERACTIVE_QWEN06B_DISCOVERY_CPU_FALLBACK' } }
   if ($workload -eq 'document_vision') { return @{ class='gpu_specialist'; gpu_vram_mb=4200; cpu_weight='medium'; exclusive_gpu=$true; product='Documents / OCR'; mode='QWEN25VL_3B_LOCAL_FIRST' } }
   if ($workload -eq 'voice_stt') { return @{ class='interactive_gpu'; gpu_vram_mb=5900; cpu_weight='medium'; exclusive_gpu=$true; product='Voice / STT' } }
   if ($workload -eq 'image_generate') { return @{ class='gpu_specialist'; gpu_vram_mb=5900; cpu_weight='heavy'; exclusive_gpu=$true; product='Image Studio'; mode='Z_IMAGE_TURBO_Q3K_CPU_OFFLOAD' } }
@@ -255,7 +278,7 @@ Return exactly these keys: status, research_questions, evidence_needed, risk_fla
 
 function ClaimJobs {
   $trainingLock='C:\ProgramData\Avantiqo\model-training-gpu.lock'
-  if (($Lane -eq 'gpu' -or $Lane -eq 'live') -and (Test-Path $trainingLock)) { return @() }
+  if (($Lane -eq 'gpu' -or $Lane -eq 'code' -or $Lane -eq 'live') -and (Test-Path $trainingLock)) { return @() }
   if ($Lane -eq 'training') {
     $h=(Get-Date).Hour; if ($h -lt $NightLearningStartHour -or $h -ge $NightLearningEndHour) { return @() }
     try { $line=(& nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader,nounits 2>$null | Select-Object -First 1); if($line){$v=@($line -split ',\s*'); if([int]$v[1] -gt 15){return @()}} } catch { return @() }
@@ -275,6 +298,39 @@ function CompleteJob($Job, $Result, $Metrics) {
   [void](Rpc 'complete_avantiqo_local_compute_job' @{
     p_node_id=$NodeId; p_node_token=(NodeToken); p_job_id=$Job.id; p_result=$Result; p_metrics=$Metrics
   })
+}
+
+function UploadFileWithRetry([string]$Url, [string]$Path, [string]$ContentType='application/octet-stream', [int]$MaximumAttempts=8) {
+  if (-not $Url) { throw 'AVANTIQO_UPLOAD_URL_REQUIRED' }
+  if (-not (Test-Path $Path)) { throw ('AVANTIQO_UPLOAD_FILE_REQUIRED:' + $Path) }
+  $lastMessage=''
+  for($attempt=1; $attempt -le $MaximumAttempts; $attempt++) {
+    try {
+      [void](Invoke-WebRequest -UseBasicParsing -Uri $Url -Method Put -ContentType $ContentType -InFile $Path -TimeoutSec 240)
+      return
+    } catch {
+      $lastMessage=[string]$_.Exception.Message
+      if($attempt -ge $MaximumAttempts) { break }
+      Start-Sleep -Seconds ([Math]::Min(30, 2 * $attempt))
+    }
+  }
+  throw ('AVANTIQO_UPLOAD_RETRY_EXHAUSTED:' + $lastMessage)
+}
+
+function CompleteJobWithRetry($Job, $Result, $Metrics, [int]$MaximumAttempts=8) {
+  $lastMessage=''
+  for($attempt=1; $attempt -le $MaximumAttempts; $attempt++) {
+    try {
+      CompleteJob $Job $Result $Metrics
+      return
+    } catch {
+      $lastMessage=[string]$_.Exception.Message
+      if($lastMessage -match 'AVANTIQO_LOCAL_JOB_NOT_OWNED_OR_RUNNING') { throw }
+      if($attempt -ge $MaximumAttempts) { break }
+      Start-Sleep -Seconds ([Math]::Min(30, 2 * $attempt))
+    }
+  }
+  throw ('AVANTIQO_COMPLETE_RETRY_EXHAUSTED:' + $lastMessage)
 }
 
 function FailJob($Job, [string]$Code, [bool]$Retryable=$true) {
@@ -303,14 +359,101 @@ function RunTextJob($Job) {
   $numPredict = [Math]::Max(1, [Math]::Min($tokenCap, $numPredict))
 
   $liveConversation = ([string]$Job.capability -eq 'ai.code.live-conversation')
+  $strongCodeModelRequired = $false
+  try { $strongCodeModelRequired = ([bool]$payload.strong_model_required) } catch {}
+  $runtimeModel = $(if ($Job.model) { [string]$Job.model } else { $Model })
+
+  # Discovery/read planning should be concise. Mutation/repair packages keep the full caller output budget.
+  if ($Lane -eq 'code' -and -not $strongCodeModelRequired -and -not $liveConversation) {
+    $numPredict = [Math]::Min($numPredict, 1024)
+  }
+
+  # Model-aware GPU headroom: do not force small interactive Code models onto CPU just because
+  # the 4B mutation model would not fit. Observed 1.7B GPU usage is ~2.55 GB on Node01.
+  $codeGpuMinFreeMb = 4300
+  if ($runtimeModel -match '0\.6b') { $codeGpuMinFreeMb = 1800 }
+  elseif ($runtimeModel -match '1\.7b') { $codeGpuMinFreeMb = 3000 }
+  elseif ($runtimeModel -match '4b') { $codeGpuMinFreeMb = 4300 }
+  if ($strongCodeModelRequired) { $codeGpuMinFreeMb = [Math]::Max(4300, $codeGpuMinFreeMb) }
+
+  # Lightweight Code discovery may fall back to CPU, but mutation-capable planning must not silently downgrade model quality.
+  # Strong Code waits briefly for safe GPU headroom and fails closed if media still owns the scarce VRAM.
   $forceCpu = $false
+  $gpuTelemetryAvailable = $false
+  $runtimeModelAlreadyGpuResident = $false
+  $codeGpuWaitMs = 0
+  if ($Lane -eq 'code') {
+    try {
+      $loadedModels = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 3
+      $residentModel = @($loadedModels.models | Where-Object {
+        ([string]$_.name -eq $runtimeModel -or [string]$_.model -eq $runtimeModel) -and
+        ([int64]$_.size_vram -gt 0)
+      } | Select-Object -First 1)
+      $runtimeModelAlreadyGpuResident = ($residentModel.Count -gt 0)
+    } catch {}
+    try {
+      $freeGpuMb = [int]((& nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>$null | Select-Object -First 1).Trim())
+      $gpuTelemetryAvailable = $true
+      $forceCpu = (-not $runtimeModelAlreadyGpuResident) -and ($freeGpuMb -lt $codeGpuMinFreeMb)
+    } catch {
+      # Interactive Code must remain available even when GPU telemetry is unavailable.
+      $forceCpu = (-not $runtimeModelAlreadyGpuResident)
+    }
+  }
+
+  # A short wait is cheaper than a 50-115s CPU fallback when a creative GPU job is just finishing.
+  # Never preempt creative work: wait at most 10s, then fall back cleanly.
+  if (
+    $Lane -eq 'code' -and
+    $forceCpu -and
+    -not $strongCodeModelRequired -and
+    $gpuTelemetryAvailable -and
+    $runtimeModel -match '1\.7b'
+  ) {
+    $interactiveGpuWaitStarted = Get-Date
+    $interactiveGpuWaitDeadline = $interactiveGpuWaitStarted.AddSeconds(10)
+    while ((Get-Date) -lt $interactiveGpuWaitDeadline) {
+      Start-Sleep -Seconds 1
+      try {
+        $freeGpuMb = [int]((& nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>$null | Select-Object -First 1).Trim())
+        if ($freeGpuMb -ge $codeGpuMinFreeMb) { $forceCpu = $false; break }
+      } catch { break }
+    }
+    $codeGpuWaitMs = [int](((Get-Date) - $interactiveGpuWaitStarted).TotalMilliseconds)
+  }
+
+  if ($Lane -eq 'code' -and $forceCpu -and $strongCodeModelRequired) {
+    $gpuWaitDeadline = (Get-Date).AddSeconds(45)
+    while ((Get-Date) -lt $gpuWaitDeadline) {
+      Start-Sleep -Seconds 2
+      try {
+        $freeGpuMb = [int]((& nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>$null | Select-Object -First 1).Trim())
+        if ($freeGpuMb -ge $codeGpuMinFreeMb) { $forceCpu = $false; break }
+      } catch {}
+    }
+    if ($forceCpu) { throw 'AVANTIQO_CODE_STRONG_MODEL_GPU_HEADROOM_REQUIRED' }
+  }
+  $messageChars = (@($messages) | ForEach-Object { ([string]$_.content).Length } | Measure-Object -Sum).Sum
+  $codeContextTokens = 4096
+  if ($Lane -eq 'code' -and [int64]$messageChars -gt 15000) { $codeContextTokens = 6144 }
+  if (
+    $Lane -eq 'code' -and
+    $forceCpu -and
+    [string]$Job.capability -eq 'ai.code.debug' -and
+    -not $strongCodeModelRequired
+  ) {
+    $runtimeModel = $CodeCpuFallbackModel
+  }
   $body = @{
-    model = $(if ($Job.model) { [string]$Job.model } else { $Model })
+    model = $runtimeModel
     messages = $messages
     stream = $false
     think = ([string]$Job.lane -eq 'deep')
     keep_alive = '30m'
-    options = @{ temperature = $temperature; num_predict = $numPredict; num_ctx = $(if ($liveConversation) { 2048 } else { $ContextTokens }) }
+    options = @{ temperature = $temperature; num_predict = $numPredict; num_ctx = $(if ($liveConversation) { 2048 } elseif ($Lane -eq 'code') { $codeContextTokens } else { $ContextTokens }) }
+  }
+  if ($forceCpu) {
+    $body.options.num_gpu = 0
   }
   if ($payload.response_format -and [string]$payload.response_format.type -eq 'json_object') { $body.format = 'json' }
   $started = Get-Date
@@ -318,7 +461,8 @@ function RunTextJob($Job) {
   $ollamaClient = New-Object System.Net.Http.HttpClient
   $ollamaContent = $null
   try {
-    $ollamaClient.Timeout = [TimeSpan]::FromSeconds(120)
+    $ollamaTimeoutSeconds = $(if ($Lane -eq 'code' -and $forceCpu) { 90 } else { 120 })
+    $ollamaClient.Timeout = [TimeSpan]::FromSeconds($ollamaTimeoutSeconds)
     $ollamaContent = New-Object System.Net.Http.StringContent($requestJson,[System.Text.Encoding]::UTF8,'application/json')
     $ollamaResponse = $ollamaClient.PostAsync("$OllamaUrl/api/chat",$ollamaContent).GetAwaiter().GetResult()
     $ollamaResponseText = $ollamaResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
@@ -338,6 +482,11 @@ function RunTextJob($Job) {
       throw ("OLLAMA_HTTP_" + [int]$ollamaResponse.StatusCode + ":" + $ollamaResponseText)
     }
     $raw = $ollamaResponseText | ConvertFrom-Json
+  } catch {
+    if ($Lane -eq 'code' -and ([string]$_.Exception.Message -match 'task was canceled|canceled')) {
+      throw 'AVANTIQO_CODE_OLLAMA_TIMEOUT'
+    }
+    throw
   } finally {
     if ($ollamaContent) { $ollamaContent.Dispose() }
     $ollamaClient.Dispose()
@@ -375,7 +524,10 @@ function RunTextJob($Job) {
   $metrics = @{
     elapsed_ms=$elapsed; total_duration_ns=[int64]$raw.total_duration; load_duration_ns=[int64]$raw.load_duration;
     prompt_tokens=[int]$raw.prompt_eval_count; completion_tokens=[int]$raw.eval_count;
-    gpu_workload=($executionResource -eq 'LOCAL_GPU'); gpu_vram_bytes=$gpuVramBytes
+    context_tokens=[int]$body.options.num_ctx; message_chars=[int64]$messageChars;
+    gpu_workload=($executionResource -eq 'LOCAL_GPU'); gpu_vram_bytes=$gpuVramBytes;
+    code_gpu_headroom_required_mb=[int]$codeGpuMinFreeMb; code_gpu_wait_ms=[int]$codeGpuWaitMs;
+    code_runtime_model_already_gpu_resident=[bool]$runtimeModelAlreadyGpuResident; code_cpu_fallback=[bool]$forceCpu
   }
   CompleteJob $Job $result $metrics
 }
@@ -474,15 +626,24 @@ function EnsureImageServer($Job) {
     if ($caps -and [string]$caps.current_mode -eq 'img_gen') { return }
   } catch {}
   try { Start-ScheduledTask -TaskName 'AvantiqoImageServer' -ErrorAction Stop } catch {}
-  for ($attempt = 0; $attempt -lt 120; $attempt++) {
+  # Cold Z-Image startup on Node01 is CPU-offloaded and can take ~160 seconds
+  # to load the 5.5GB model set. Use a real wall-clock deadline because each
+  # capability probe may itself consume its HTTP timeout.
+  $started = Get-Date
+  $deadline = $started.AddSeconds(240)
+  while ((Get-Date) -lt $deadline) {
     Start-Sleep -Milliseconds 500
-    if ($Job -and (($attempt % 2) -eq 0)) {
+    if ($Job) {
       try {
-        ExtendJobLease $Job @{ phase='IMAGE_SERVER_START'; elapsed_seconds=[int]($attempt / 2) }
+        ExtendJobLease $Job @{ phase='IMAGE_SERVER_START'; elapsed_seconds=[int](((Get-Date)-$started).TotalSeconds) }
       } catch {
-        if ($_.Exception.Message -match 'AVANTIQO_LOCAL_JOB_NOT_OWNED_OR_RUNNING') {
+        $leaseMessage = [string]$_.Exception.Message
+        if ($leaseMessage -match 'AVANTIQO_LOCAL_JOB_NOT_OWNED_OR_RUNNING') {
           StopImageServerForExclusiveGpu
           throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_CANCELLED'
+        }
+        if ((IsTransientRpcFailure 0 '' $leaseMessage) -or ($leaseMessage -match 'AVANTIQO_RPC_RETRY_EXHAUSTED')) {
+          continue
         }
         throw
       }
@@ -492,7 +653,261 @@ function EnsureImageServer($Job) {
       if ($caps -and [string]$caps.current_mode -eq 'img_gen') { return }
     } catch {}
   }
-  throw 'AVANTIQO_LOCAL_IMAGE_SERVER_START_TIMEOUT_60S'
+  throw 'AVANTIQO_LOCAL_IMAGE_SERVER_START_TIMEOUT_240S'
+}
+
+function RunRealVisXLGenerateJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_REALVISXL_PAYLOAD_REQUIRED' }
+  $cli = 'C:\Avantiqo\image-generate\bin\sd-cli.exe'
+  $model = 'C:\Avantiqo\image-generate\models\RealVisXL_V5.0_fp16.safetensors'
+  foreach ($required in @($cli,$model)) {
+    if (-not (Test-Path $required)) { throw ('AVANTIQO_REALVISXL_FILE_REQUIRED:' + $required) }
+  }
+
+  $tmpOut = Join-Path $env:TEMP ("avantiqo-realvisxl-" + [string]$Job.id + ".png")
+  $promptFile = Join-Path $env:TEMP ("avantiqo-realvisxl-prompt-" + [string]$Job.id + ".txt")
+  $negativeFile = Join-Path $env:TEMP ("avantiqo-realvisxl-negative-" + [string]$Job.id + ".txt")
+  $stdout = Join-Path $env:TEMP ("avantiqo-realvisxl-" + [string]$Job.id + ".out.log")
+  $stderr = Join-Path $env:TEMP ("avantiqo-realvisxl-" + [string]$Job.id + ".err.log")
+
+  try {
+    UnloadOllamaModel
+    StopImageServerForExclusiveGpu
+
+    $width=1024; try { if($null-ne $payload.width){$width=[int]$payload.width} } catch {}
+    $height=576; try { if($null-ne $payload.height){$height=[int]$payload.height} } catch {}
+    $width=[Math]::Max(256,[Math]::Min(1536,$width))
+    $height=[Math]::Max(256,[Math]::Min(1536,$height))
+    if(($width*$height)-gt 1048576){throw 'AVANTIQO_REALVISXL_PIXEL_BUDGET_EXCEEDED'}
+
+    $steps=30; try { if($null-ne $payload.steps){$steps=[int]$payload.steps} } catch {}
+    $steps=[Math]::Max(1,[Math]::Min(50,$steps))
+    $cfg=4.5; try { if($null-ne $payload.cfg_scale){$cfg=[double]$payload.cfg_scale} } catch {}
+    $cfg=[Math]::Max(0.0,[Math]::Min(12.0,$cfg))
+    $samplingMethod=[string]$payload.sampling_method
+    if(@('dpm++2m_sde','dpm++2m','euler','euler_a') -notcontains $samplingMethod){$samplingMethod='dpm++2m_sde'}
+    $scheduler=[string]$payload.scheduler
+    if(@('karras','simple','exponential','ays') -notcontains $scheduler){$scheduler='karras'}
+    $seed=-1; try { if($null-ne $payload.seed){$seed=[int]$payload.seed} } catch {}
+
+    [IO.File]::WriteAllText($promptFile,[string]$payload.prompt,(New-Object System.Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllText($negativeFile,[string]$payload.negative_prompt,(New-Object System.Text.UTF8Encoding($false)))
+
+    $args=@(
+      '--model',$model,
+      '--prompt-file',$promptFile,
+      '--negative-prompt-file',$negativeFile,
+      '--cfg-scale',[string]$cfg,
+      '--steps',[string]$steps,
+      '--sampling-method',$samplingMethod,
+      '--scheduler',$scheduler,
+      '--offload-to-cpu',
+      '--backend','vae=cpu',
+      '--max-vram','4.5',
+      '--vae-tiling',
+      '-W',[string]$width,
+      '-H',[string]$height
+    )
+    if($seed -ge 0){$args += @('--seed',[string]$seed)}
+    $args += @('-o',$tmpOut)
+
+    $started=Get-Date
+    $process=Start-Process -FilePath $cli -ArgumentList $args -WorkingDirectory 'C:\Avantiqo\image-generate' -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+    while(-not $process.WaitForExit(5000)) {
+      try {
+        ExtendJobLease $Job @{
+          phase='REALVISXL_IMAGE_GENERATION'
+          elapsed_seconds=[int](((Get-Date)-$started).TotalSeconds)
+          direct_cli=$true
+          runtime_model='realvisxl-v5.0-fp16'
+        }
+      } catch {
+        $leaseMessage=[string]$_.Exception.Message
+        if($leaseMessage -match 'AVANTIQO_LOCAL_JOB_NOT_OWNED_OR_RUNNING'){
+          try{$process.Kill()}catch{}
+          throw 'AVANTIQO_REALVISXL_GENERATE_CANCELLED'
+        }
+        if(-not ((IsTransientRpcFailure 0 '' $leaseMessage)-or($leaseMessage-match 'AVANTIQO_RPC_RETRY_EXHAUSTED'))){throw}
+      }
+    }
+
+    try{$process.Refresh()}catch{}
+    $exitCodeRaw=$process.ExitCode
+    $outputReady=(Test-Path $tmpOut)-and((Get-Item $tmpOut).Length-gt 0)
+    $exitCodeKnown=($null-ne $exitCodeRaw)-and([string]$exitCodeRaw-ne '')
+    if((($exitCodeKnown)-and([int]$exitCodeRaw-ne 0))-or(-not $outputReady)){
+      $exitCode=$(if($exitCodeKnown){[string]$exitCodeRaw}else{'UNKNOWN'})
+      $errText=ReadTextFileOrEmpty $stderr
+      $outText=ReadTextFileOrEmpty $stdout
+      $combined=('STDERR'+[Environment]::NewLine+$errText+[Environment]::NewLine+'STDOUT'+[Environment]::NewLine+$outText)
+      $diag=$combined.Substring([Math]::Max(0,$combined.Length-[Math]::Min(800,$combined.Length)))
+      throw ('AVANTIQO_REALVISXL_PROCESS_FAILED:EXIT_'+$exitCode+':'+$diag)
+    }
+
+    $uploadUrl=[string]$payload.storage_upload.signed_url
+    $storageReference=[string]$payload.storage_upload.storage_reference
+    if(-not $uploadUrl){throw 'AVANTIQO_REALVISXL_UPLOAD_URL_REQUIRED'}
+    UploadFileWithRetry $uploadUrl $tmpOut 'image/png' 8
+
+    $elapsed=((Get-Date)-$started).TotalSeconds
+    $size=[int64](Get-Item $tmpOut).Length
+    $resultObject=@{
+      status='completed'
+      provider='avantiqo-image'
+      model='avantiqo-image-v1'
+      capability='ai.image.generate'
+      foundation_model='SG161222/RealVisXL_V5.0'
+      runtime_model='realvisxl-v5.0-fp16'
+      storage_reference=$storageReference
+      width=$width
+      height=$height
+      steps=$steps
+      cfg_scale=$cfg
+      sampling_method=$samplingMethod
+      scheduler=$scheduler
+      seed=$seed
+      size_bytes=$size
+      execution_resource='LOCAL_GPU_CPU_OFFLOAD'
+      infrastructure_provider='AVANTIQO_LOCAL_NODE_V1'
+      runtime_contract='AVANTIQO_NODE01_REALVISXL_V5_FP16_V1'
+      inference_seconds=[Math]::Round($elapsed,3)
+      raw_reasoning_persisted=$false
+      node_id=$NodeId
+    }
+    $metricsObject=@{
+      elapsed_ms=[int]($elapsed*1000)
+      gpu_workload=$true
+      image_generate=$true
+      cpu_offload=$true
+      direct_cli=$true
+      runtime_model='realvisxl-v5.0-fp16'
+      runtime_contract='AVANTIQO_NODE01_REALVISXL_V5_FP16_V1'
+    }
+    CompleteJobWithRetry $Job $resultObject $metricsObject 8
+  } finally {
+    Remove-Item -Force -ErrorAction SilentlyContinue $tmpOut,$promptFile,$negativeFile,$stdout,$stderr
+  }
+}
+
+function RunImageGenerateDirectJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_PAYLOAD_REQUIRED' }
+  $root = 'C:\Avantiqo\image-generate'
+  $cli = Join-Path $root 'bin\sd-cli.exe'
+  $requestedQuant = [string]$payload.image_quantization
+  $quantization = $(if ($requestedQuant -eq 'Q6_K') { 'Q6_K' } elseif ($requestedQuant -eq 'Q5_0') { 'Q5_0' } elseif ($requestedQuant -eq 'Q4_0') { 'Q4_0' } else { 'Q3_K' })
+  $diffusionName = $(if ($quantization -eq 'Q6_K') { 'z_image_turbo-Q6_K.gguf' } elseif ($quantization -eq 'Q5_0') { 'z_image_turbo-Q5_0.gguf' } elseif ($quantization -eq 'Q4_0') { 'z_image_turbo-Q4_0.gguf' } else { 'z_image_turbo-Q3_K.gguf' })
+  $diffusion = Join-Path $root ('models\' + $diffusionName)
+  $vae = Join-Path $root 'models\ae.safetensors'
+  $llm = Join-Path $root 'models\Qwen3-4B-Instruct-2507-Q4_K_M.gguf'
+  foreach ($required in @($cli,$diffusion,$vae,$llm)) { if (-not (Test-Path $required)) { throw ('AVANTIQO_LOCAL_IMAGE_DIRECT_FILE_REQUIRED:'+$required) } }
+  $tmpOut = Join-Path $env:TEMP ("avantiqo-image-direct-" + [string]$Job.id + ".png")
+  $promptFile = Join-Path $env:TEMP ("avantiqo-image-direct-prompt-" + [string]$Job.id + ".txt")
+  $negativeFile = Join-Path $env:TEMP ("avantiqo-image-direct-negative-" + [string]$Job.id + ".txt")
+  $stdout = Join-Path $env:TEMP ("avantiqo-image-direct-" + [string]$Job.id + ".out.log")
+  $stderr = Join-Path $env:TEMP ("avantiqo-image-direct-" + [string]$Job.id + ".err.log")
+  $durableDir = 'C:\ProgramData\Avantiqo\pending-image-results'
+  $durableOut = Join-Path $durableDir ([string]$Job.id + '.png')
+  $durableMeta = Join-Path $durableDir ([string]$Job.id + '.json')
+  New-Item -ItemType Directory -Force -Path $durableDir | Out-Null
+  try {
+    if ((Test-Path $durableOut) -and (Test-Path $durableMeta)) {
+      $saved = Get-Content $durableMeta -Raw | ConvertFrom-Json
+      $uploadUrl = [string]$payload.storage_upload.signed_url
+      if (-not $uploadUrl) { throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_UPLOAD_URL_REQUIRED' }
+      UploadFileWithRetry $uploadUrl $durableOut 'image/png' 8
+      CompleteJobWithRetry $Job $saved.result $saved.metrics 8
+      Remove-Item -Force -ErrorAction SilentlyContinue $durableOut,$durableMeta
+      return
+    }
+    UnloadOllamaModel
+    StopImageServerForExclusiveGpu
+    $width=768; try { if($null-ne $payload.width){$width=[int]$payload.width} } catch {}; $width=[Math]::Max(256,[Math]::Min(1152,$width))
+    $height=768; try { if($null-ne $payload.height){$height=[int]$payload.height} } catch {}; $height=[Math]::Max(256,[Math]::Min(1152,$height))
+    if(($width*$height)-gt 746496){throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_PIXEL_BUDGET_EXCEEDED'}
+    $steps=9; try { if($null-ne $payload.steps){$steps=[int]$payload.steps} } catch {}; $steps=[Math]::Max(1,[Math]::Min(12,$steps))
+    $cfg=1.0; try { if($null-ne $payload.cfg_scale){$cfg=[double]$payload.cfg_scale} } catch {}; $cfg=[Math]::Max(0.0,[Math]::Min(4.0,$cfg))
+    $guidance=0.0; try { if($null-ne $payload.guidance){$guidance=[double]$payload.guidance} } catch {}; $guidance=[Math]::Max(0.0,[Math]::Min(8.0,$guidance))
+    $samplingMethod=[string]$payload.sampling_method; if(@('euler','euler_a','heun','dpm++2m') -notcontains $samplingMethod){$samplingMethod='euler'}
+    $scheduler=[string]$payload.scheduler; if(@('flux','simple','smoothstep','discrete') -notcontains $scheduler){$scheduler='flux'}
+    $flowShift=3.0; try { if($null-ne $payload.flow_shift){$flowShift=[double]$payload.flow_shift} } catch {}; $flowShift=[Math]::Max(0.0,[Math]::Min(10.0,$flowShift))
+    $initImage = $null
+    $initUrl = [string]$payload.init_image_url
+    if ($initUrl) {
+      $initImage = Join-Path $env:TEMP ("avantiqo-image-init-" + [string]$Job.id + ".png")
+      Invoke-WebRequest -UseBasicParsing -Uri $initUrl -OutFile $initImage -TimeoutSec 120
+      if (-not (Test-Path $initImage) -or (Get-Item $initImage).Length -le 0) { throw 'AVANTIQO_LOCAL_IMAGE_INIT_IMAGE_REQUIRED' }
+    }
+    $strength=0.3; try { if($null-ne $payload.img2img_strength){$strength=[double]$payload.img2img_strength} } catch {}; $strength=[Math]::Max(0.05,[Math]::Min(0.95,$strength))
+    [IO.File]::WriteAllText($promptFile,[string]$payload.prompt,(New-Object System.Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllText($negativeFile,[string]$payload.negative_prompt,(New-Object System.Text.UTF8Encoding($false)))
+    $args=@('--diffusion-model',$diffusion,'--vae',$vae,'--llm',$llm,'--prompt-file',$promptFile,'--negative-prompt-file',$negativeFile,'--cfg-scale',[string]$cfg,'--guidance',[string]$guidance,'--steps',[string]$steps,'--sampling-method',$samplingMethod,'--scheduler',$scheduler,'--flow-shift',[string]$flowShift,'--offload-to-cpu','--backend','te=cpu,vae=cpu','--max-vram','4.5','--diffusion-fa','--vae-tiling','-H',[string]$height,'-W',[string]$width,'-o',$tmpOut)
+    if ($initImage) { $args += @('--init-img',$initImage,'--strength',[string]$strength) }
+    $hiresWidth=0; try { if($null-ne $payload.hires_width){$hiresWidth=[int]$payload.hires_width} } catch {}
+    $hiresHeight=0; try { if($null-ne $payload.hires_height){$hiresHeight=[int]$payload.hires_height} } catch {}
+    $hiresSteps=4; try { if($null-ne $payload.hires_steps){$hiresSteps=[int]$payload.hires_steps} } catch {}; $hiresSteps=[Math]::Max(1,[Math]::Min(8,$hiresSteps))
+    $hiresStrength=0.16; try { if($null-ne $payload.hires_denoising_strength){$hiresStrength=[double]$payload.hires_denoising_strength} } catch {}; $hiresStrength=[Math]::Max(0.05,[Math]::Min(0.5,$hiresStrength))
+    if($hiresWidth -gt 0 -and $hiresHeight -gt 0){
+      if(($hiresWidth*$hiresHeight)-gt 1327104){throw 'AVANTIQO_LOCAL_IMAGE_HIRES_PIXEL_BUDGET_EXCEEDED'}
+      $args += @('--hires','--hires-width',[string]$hiresWidth,'--hires-height',[string]$hiresHeight,'--hires-steps',[string]$hiresSteps,'--hires-upscaler','Latent','--hires-denoising-strength',[string]$hiresStrength)
+    }
+    try { $seed=[int]$payload.seed; if($seed-ge 0){$args+=@('--seed',[string]$seed)} } catch { $seed=-1 }
+    $started=Get-Date
+    $process=Start-Process -FilePath $cli -ArgumentList $args -WorkingDirectory (Join-Path $root 'bin') -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+    while(-not $process.WaitForExit(5000)) {
+      try { ExtendJobLease $Job @{phase='IMAGE_GENERATION';elapsed_seconds=[int](((Get-Date)-$started).TotalSeconds);direct_cli=$true} } catch { $leaseMessage=[string]$_.Exception.Message; if($leaseMessage-match 'AVANTIQO_LOCAL_JOB_NOT_OWNED_OR_RUNNING'){try{$process.Kill()}catch{};throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_CANCELLED'}; if(-not ((IsTransientRpcFailure 0 '' $leaseMessage)-or($leaseMessage-match 'AVANTIQO_RPC_RETRY_EXHAUSTED'))){throw} }
+    }
+    try{$process.Refresh()}catch{}; $exitCodeRaw=$process.ExitCode; $outputReady=(Test-Path $tmpOut)-and((Get-Item $tmpOut).Length-gt 0); $exitCodeKnown=($null-ne $exitCodeRaw)-and([string]$exitCodeRaw-ne ''); if((($exitCodeKnown)-and([int]$exitCodeRaw-ne 0))-or(-not $outputReady)){ $exitCode=$(if($exitCodeKnown){[string]$exitCodeRaw}else{'UNKNOWN'}); $errText=ReadTextFileOrEmpty $stderr; $outText=ReadTextFileOrEmpty $stdout; $combined=('STDERR'+[Environment]::NewLine+$errText+[Environment]::NewLine+'STDOUT'+[Environment]::NewLine+$outText); $failureLog='C:\ProgramData\Avantiqo\last-image-generate-failure.log'; try{[IO.File]::WriteAllText($failureLog,('exit_code='+$exitCode+[Environment]::NewLine+$combined),(New-Object System.Text.UTF8Encoding($false)))}catch{}; $diag=$combined.Substring([Math]::Max(0,$combined.Length-[Math]::Min(420,$combined.Length))); throw ('AVANTIQO_LOCAL_IMAGE_GENERATE_PROCESS_FAILED:EXIT_'+$exitCode+':'+$diag)}
+    $uploadUrl=[string]$payload.storage_upload.signed_url; $storageReference=[string]$payload.storage_upload.storage_reference
+    if(-not $uploadUrl){throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_UPLOAD_URL_REQUIRED'}
+    $elapsed=((Get-Date)-$started).TotalSeconds; $size=[int64](Get-Item $tmpOut).Length
+    $finalWidth=$(if($hiresWidth -gt 0){$hiresWidth}else{$width}); $finalHeight=$(if($hiresHeight -gt 0){$hiresHeight}else{$height})
+    $resultObject=@{status='completed';provider='avantiqo-image';model='avantiqo-image-v1';capability='ai.image.generate';foundation_model='Tongyi-MAI/Z-Image-Turbo';runtime_model=('z-image-turbo-' + $quantization.ToLower());quantization=$quantization;storage_reference=$storageReference;width=$finalWidth;height=$finalHeight;base_width=$width;base_height=$height;steps=$steps;hires_steps=$(if($hiresWidth -gt 0){$hiresSteps}else{0});hires_denoising_strength=$(if($hiresWidth -gt 0){$hiresStrength}else{0});cfg_scale=$cfg;guidance=$guidance;sampling_method=$samplingMethod;scheduler=$scheduler;flow_shift=$flowShift;seed=$seed;size_bytes=$size;execution_resource='LOCAL_GPU_CPU_OFFLOAD';infrastructure_provider='AVANTIQO_LOCAL_NODE_V1';runtime_contract='AVANTIQO_NODE01_Z_IMAGE_TURBO_GGUF_DIRECT_V1';inference_seconds=[Math]::Round($elapsed,3);raw_reasoning_persisted=$false;node_id=$NodeId}
+    $metricsObject=@{elapsed_ms=[int]($elapsed*1000);gpu_workload=$true;image_generate=$true;cpu_offload=$true;direct_cli=$true;runtime_contract='AVANTIQO_NODE01_Z_IMAGE_TURBO_GGUF_DIRECT_V1'}
+    Copy-Item -Force $tmpOut $durableOut
+    [IO.File]::WriteAllText($durableMeta,(@{result=$resultObject;metrics=$metricsObject}|ConvertTo-Json -Depth 20 -Compress),(New-Object System.Text.UTF8Encoding($false)))
+    UploadFileWithRetry $uploadUrl $durableOut 'image/png' 8
+    CompleteJobWithRetry $Job $resultObject $metricsObject 8
+    Remove-Item -Force -ErrorAction SilentlyContinue $durableOut,$durableMeta
+  } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmpOut,$promptFile,$negativeFile,$stdout,$stderr }
+}
+
+function RunImageGenerateCliJob($Job) {
+  $payload = $Job.payload
+  if (-not $payload) { throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_PAYLOAD_REQUIRED' }
+  $cli = 'C:\Avantiqo\image-generate\bin\sd-cli.exe'
+  if (-not (Test-Path $cli)) { throw 'AVANTIQO_LOCAL_IMAGE_CLI_REQUIRED' }
+  $tmpOut = Join-Path $env:TEMP ("avantiqo-image-cli-" + [string]$Job.id + ".png")
+  $promptFile = Join-Path $env:TEMP ("avantiqo-image-cli-prompt-" + [string]$Job.id + ".txt")
+  $negativeFile = Join-Path $env:TEMP ("avantiqo-image-cli-negative-" + [string]$Job.id + ".txt")
+  $stdout = Join-Path $env:TEMP ("avantiqo-image-cli-" + [string]$Job.id + ".out.log")
+  $stderr = Join-Path $env:TEMP ("avantiqo-image-cli-" + [string]$Job.id + ".err.log")
+  try {
+    UnloadOllamaModel
+    [IO.File]::WriteAllText($promptFile,[string]$payload.prompt,(New-Object System.Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllText($negativeFile,[string]$payload.negative_prompt,(New-Object System.Text.UTF8Encoding($false)))
+    $width = 768; try { if ($null -ne $payload.width) { $width = [int]$payload.width } } catch {}
+    $height = 768; try { if ($null -ne $payload.height) { $height = [int]$payload.height } } catch {}
+    $steps = 8; try { if ($null -ne $payload.steps) { $steps = [int]$payload.steps } } catch {}
+    $cfg = 1.0; try { if ($null -ne $payload.cfg_scale) { $cfg = [double]$payload.cfg_scale } } catch {}
+    $seed = -1; try { if ($null -ne $payload.seed) { $seed = [int]$payload.seed } } catch {}
+    $args = "--diffusion-model C:\Avantiqo\image-generate\models\z_image_turbo-Q3_K.gguf --vae C:\Avantiqo\image-generate\models\ae.safetensors --llm C:\Avantiqo\image-generate\models\Qwen3-4B-Instruct-2507-Q4_K_M.gguf --offload-to-cpu --backend te=cpu --diffusion-fa --vae-tiling --eager-load --prompt-file `"$promptFile`" --negative-prompt-file `"$negativeFile`" -W $width -H $height --steps $steps --cfg-scale $cfg --seed $seed -o `"$tmpOut`""
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $cli; $psi.Arguments = $args; $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true
+    $process = New-Object System.Diagnostics.Process; $process.StartInfo = $psi; [void]$process.Start()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync(); $started = Get-Date
+    while (-not $process.WaitForExit(15000)) { ExtendJobLease $Job @{ phase='IMAGE_GENERATION_CLI'; elapsed_seconds=[int](((Get-Date)-$started).TotalSeconds) } }
+    [IO.File]::WriteAllText($stdout,[string]$stdoutTask.Result); [IO.File]::WriteAllText($stderr,[string]$stderrTask.Result)
+    if ($process.ExitCode -ne 0) { throw ('AVANTIQO_LOCAL_IMAGE_CLI_FAILED:' + (ReadTextFileOrEmpty $stderr)) }
+    if (-not (Test-Path $tmpOut) -or (Get-Item $tmpOut).Length -le 0) { throw 'AVANTIQO_LOCAL_IMAGE_CLI_OUTPUT_REQUIRED' }
+    $uploadUrl = [string]$payload.storage_upload.signed_url; $storageReference = [string]$payload.storage_upload.storage_reference
+    if (-not $uploadUrl) { throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_UPLOAD_URL_REQUIRED' }
+    [void](Invoke-WebRequest -UseBasicParsing -Uri $uploadUrl -Method Put -ContentType 'image/png' -InFile $tmpOut -TimeoutSec 240)
+    $elapsedSeconds = ((Get-Date)-$started).TotalSeconds; $sizeBytes = [int64](Get-Item $tmpOut).Length
+    CompleteJob $Job @{ status='completed'; provider='avantiqo-image'; model='avantiqo-image-v1'; capability='ai.image.generate'; foundation_model='Tongyi-MAI/Z-Image-Turbo'; runtime_model='z-image-turbo-q3-k'; quantization='Q3_K'; storage_reference=$storageReference; width=$width; height=$height; steps=$steps; cfg_scale=$cfg; seed=$seed; size_bytes=$sizeBytes; execution_resource='LOCAL_GPU_CPU_OFFLOAD_CLI'; infrastructure_provider='AVANTIQO_LOCAL_NODE_V1'; runtime_contract='AVANTIQO_NODE01_Z_IMAGE_TURBO_GGUF_CLI_V1'; inference_seconds=[Math]::Round($elapsedSeconds,3); warm_server=$false; raw_reasoning_persisted=$false; node_id=$NodeId } @{ elapsed_ms=[int]($elapsedSeconds*1000); gpu_workload=$true; image_generate=$true; cpu_offload=$true; warm_server=$false; runtime_contract='AVANTIQO_NODE01_Z_IMAGE_TURBO_GGUF_CLI_V1' }
+  } finally { Remove-Item -Force -ErrorAction SilentlyContinue $tmpOut,$promptFile,$negativeFile,$stdout,$stderr }
 }
 
 function RunImageGenerateJob($Job) {
@@ -552,7 +967,8 @@ function RunImageGenerateJob($Job) {
         try {
           ExtendJobLease $Job @{ phase='IMAGE_GENERATION'; warm_server_job_id=$warmJobId; elapsed_seconds=[int](((Get-Date)-$started).TotalSeconds) }
         } catch {
-          if ($_.Exception.Message -match 'AVANTIQO_LOCAL_JOB_NOT_OWNED_OR_RUNNING') {
+          $leaseError = [string]$_.Exception.Message
+          if ($leaseError -match 'AVANTIQO_LOCAL_JOB_NOT_OWNED_OR_RUNNING') {
             try { [void](Invoke-RestMethod -Uri "$server/sdcpp/v1/jobs/$warmJobId/cancel" -Method Post -TimeoutSec 5) } catch {
               if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 409) {
                 StopImageServerForExclusiveGpu
@@ -560,6 +976,7 @@ function RunImageGenerateJob($Job) {
             }
             throw 'AVANTIQO_LOCAL_IMAGE_GENERATE_CANCELLED'
           }
+          if (IsTransientRpcFailure 0 '' $leaseError) { continue }
           throw
         }
       }
@@ -640,15 +1057,19 @@ function RunVideoLtx25Job($Job) {
   $framesDesired = [Math]::Max(9,[int][Math]::Round($duration * $fps))
   $frames = 1 + (8 * [int][Math]::Round(($framesDesired - 1) / 8.0))
   $frames = [Math]::Max(9,[Math]::Min(193,$frames))
-  $width = 608; $height = 352
-  switch ([string]$payload.aspect_ratio) {
-    '9:16' { $width=352; $height=608 }
-    '1:1'  { $width=448; $height=448 }
-    '4:5'  { $width=384; $height=480 }
-    '5:4'  { $width=480; $height=384 }
-    '4:3'  { $width=512; $height=384 }
-    '3:4'  { $width=384; $height=512 }
-    default { $width=608; $height=352 }
+  $width = 832; $height = 480
+  $nativeResolution = [string]$payload.local_native_resolution
+  if ($nativeResolution -match '^(\d{2,4})x(\d{2,4})$') {
+    $candidateWidth = [int]$Matches[1]
+    $candidateHeight = [int]$Matches[2]
+    if (($candidateWidth % 32) -eq 0 -and ($candidateHeight % 32) -eq 0) {
+      $width = [Math]::Max(320,[Math]::Min(1024,$candidateWidth))
+      $height = [Math]::Max(320,[Math]::Min(576,$candidateHeight))
+    }
+  } elseif ([string]$payload.aspect_ratio -eq '9:16') {
+    $width=480; $height=832
+  } elseif ([string]$payload.aspect_ratio -eq '1:1') {
+    $width=640; $height=640
   }
   $seed = 42
   try { if ([int64]$payload.seed -ge 0) { $seed = [int64]$payload.seed } } catch {}
@@ -663,6 +1084,17 @@ function RunVideoLtx25Job($Job) {
     UnloadOllamaModel
     StopImageServerForExclusiveGpu
     EnsureVideoLtx25Server
+    $firstFrameUrl = [string]$payload.first_frame_url
+    $firstFrameFile = $null
+    $firstFrameName = $null
+    if ($firstFrameUrl) {
+      $firstFrameName = 'avantiqo_i2v_' + $safeJob + '.png'
+      $firstFrameFile = Join-Path 'C:\Avantiqo\ComfyUI\input' $firstFrameName
+      Invoke-WebRequest -UseBasicParsing -Uri $firstFrameUrl -OutFile $firstFrameFile -TimeoutSec 120
+      if (-not (Test-Path $firstFrameFile) -or (Get-Item $firstFrameFile).Length -le 0) {
+        throw 'AVANTIQO_LOCAL_VIDEO_FIRST_FRAME_DOWNLOAD_REQUIRED'
+      }
+    }
     $graph = @{
       '1'=@{class_type='UnetLoaderGGUF';inputs=@{unet_name='LTX-2.5-Distilled-Q3_K_S.gguf'}}
       '2'=@{class_type='CLIPLoader';inputs=@{clip_name=$clipName;type='ltxv';device='default'}}
@@ -671,18 +1103,25 @@ function RunVideoLtx25Job($Job) {
       '5'=@{class_type='LTXVConditioning';inputs=@{positive=@('3',0);negative=@('4',0);frame_rate=[double]$fps}}
       '6'=@{class_type='VAELoader';inputs=@{vae_name=$videoVae}}
       '7'=@{class_type='VAELoader';inputs=@{vae_name='ltx-2.5-audio-vae-bf16.safetensors'}}
-      '8'=@{class_type='EmptyLTXVLatentVideo';inputs=@{width=$width;height=$height;length=$frames;batch_size=1}}
       '9'=@{class_type='LTXVEmptyLatentAudio';inputs=@{frames_number=$frames;frame_rate=[double]$fps;batch_size=1;audio_vae=@('7',0)}}
-      '10'=@{class_type='LTXVConcatAVLatent';inputs=@{video_latent=@('8',0);audio_latent=@('9',0)}}
       '11'=@{class_type='RandomNoise';inputs=@{noise_seed=$seed}}
       '12'=@{class_type='KSamplerSelect';inputs=@{sampler_name='euler_ancestral'}}
       '13'=@{class_type='ManualSigmas';inputs=@{sigmas='1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0'}}
-      '14'=@{class_type='LTXVDualCFGGuider';inputs=@{model=@('1',0);positive=@('5',0);negative=@('5',1);video_cfg=1.0;audio_cfg=1.0}}
       '15'=@{class_type='SamplerCustomAdvanced';inputs=@{noise=@('11',0);guider=@('14',0);sampler=@('12',0);sigmas=@('13',0);latent_image=@('10',0)}}
       '16'=@{class_type='LTXVSeparateAVLatent';inputs=@{av_latent=@('15',0)}}
       '17'=@{class_type='VAEDecodeTiled';inputs=@{samples=@('16',0);vae=@('6',0);tile_size=256;overlap=32;temporal_size=16;temporal_overlap=4}}
       '18'=@{class_type='CreateVideo';inputs=@{images=@('17',0);fps=[double]$fps;bit_depth=8}}
       '19'=@{class_type='SaveVideo';inputs=@{video=@('18',0);filename_prefix=$prefix;format='mp4';codec='auto'}}
+    }
+    if ($firstFrameName) {
+      $graph['20'] = @{class_type='LoadImage';inputs=@{image=$firstFrameName}}
+      $graph['8'] = @{class_type='LTXVImgToVideo';inputs=@{positive=@('5',0);negative=@('5',1);vae=@('6',0);image=@('20',0);width=$width;height=$height;length=$frames;batch_size=1;strength=1.0}}
+      $graph['10'] = @{class_type='LTXVConcatAVLatent';inputs=@{video_latent=@('8',2);audio_latent=@('9',0)}}
+      $graph['14'] = @{class_type='LTXVDualCFGGuider';inputs=@{model=@('1',0);positive=@('8',0);negative=@('8',1);video_cfg=1.0;audio_cfg=1.0}}
+    } else {
+      $graph['8'] = @{class_type='EmptyLTXVLatentVideo';inputs=@{width=$width;height=$height;length=$frames;batch_size=1}}
+      $graph['10'] = @{class_type='LTXVConcatAVLatent';inputs=@{video_latent=@('8',0);audio_latent=@('9',0)}}
+      $graph['14'] = @{class_type='LTXVDualCFGGuider';inputs=@{model=@('1',0);positive=@('5',0);negative=@('5',1);video_cfg=1.0;audio_cfg=1.0}}
     }
     $submitBody = @{ prompt=$graph; client_id=('avantiqo-worker-' + $safeJob) } | ConvertTo-Json -Depth 40 -Compress
     $submit = Invoke-RestMethod -Uri "$server/prompt" -Method Post -ContentType 'application/json' -Body $submitBody -TimeoutSec 30
@@ -722,11 +1161,14 @@ function RunVideoLtx25Job($Job) {
       runtime_contract='AVANTIQO_NODE01_LTX25_GGUF_LOCAL_V1'; execution_profile='LOW_VRAM_6GB_CPU_OFFLOAD';
       infrastructure_provider='AVANTIQO_LOCAL_NODE_V1'; execution_resource='LOCAL_GPU_CPU_OFFLOAD'; local_node=$true; node_id=$NodeId;
       storage_reference=$storageReference; width=$width; height=$height; frames=$frames; fps=$fps; duration_seconds=[Math]::Round($frames/[double]$fps,3);
+      requested_resolution=[string]$payload.requested_resolution; native_resolution=([string]$width + 'x' + [string]$height);
+      first_frame_conditioning_used=[bool]$firstFrameName; motion_source=($(if($firstFrameName){'IMAGE_TO_VIDEO'}else{'TEXT_TO_VIDEO'}));
       size_bytes=[int64]$outFile.Length; sha256=$sha256; comfy_prompt_id=$promptId; peak_vram_mb=$peakVramMb;
       shot_id=[string]$payload.shot_id; raw_reasoning_persisted=$false
     }
-    CompleteJob $Job $result @{ elapsed_ms=$elapsedMs; gpu_workload=$true; video_generate=$true; cpu_offload=$true; peak_vram_mb=$peakVramMb; local_only=$true; supplier_cost_thb=0 }
+    CompleteJob $Job $result @{ elapsed_ms=$elapsedMs; gpu_workload=$true; video_generate=$true; cpu_offload=$true; peak_vram_mb=$peakVramMb; local_only=$true; first_frame_conditioning_used=[bool]$firstFrameName; supplier_cost_thb=0 }
   } finally {
+    if ($firstFrameFile -and (Test-Path $firstFrameFile)) { Remove-Item -Force $firstFrameFile -ErrorAction SilentlyContinue }
     try { [void](Invoke-RestMethod -Uri "$server/free" -Method Post -ContentType 'application/json' -Body '{"unload_models":true,"free_memory":true}' -TimeoutSec 15) } catch {}
   }
 }
@@ -1070,7 +1512,10 @@ while ($true) {
         elseif ([string]$job.capability -eq 'ai.audio.elastic-warp') { RunElasticJob $job }
         elseif ([string]$job.capability -eq 'media.ffmpeg.process') { RunMediaJob $job }
         elseif ([string]$job.capability -eq 'ai.speech.to.text') { RunVoiceSttJob $job }
-        elseif ([string]$job.capability -eq 'ai.image.generate') { RunImageGenerateJob $job }
+        elseif ([string]$job.capability -eq 'ai.image.generate') {
+          if ([string]$job.model -eq 'realvisxl-v5.0-fp16') { RunRealVisXLGenerateJob $job }
+          else { RunImageGenerateDirectJob $job }
+        }
         elseif ([string]$job.capability -eq 'ai.video.generate') { RunVideoLtx25Job $job }
         elseif ([string]$job.capability -eq 'ai.image.upscale') { RunImageUpscaleJob $job }
         elseif ([string]$job.capability -eq 'ai.audio.stems') { RunMusicSeparatorJob $job }
@@ -1083,7 +1528,11 @@ while ($true) {
         if ($_.Exception.Message -match 'AVANTIQO_LOCAL_IMAGE_GENERATE_CANCELLED') {
           continue
         }
-        FailJob $job (('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Substring(0,[Math]::Min(480,('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Length))) $true
+        $retryable = $true
+        if ($Lane -eq 'code' -and $_.Exception.Message -match 'AVANTIQO_CODE_OLLAMA_TIMEOUT|AVANTIQO_CODE_STRONG_MODEL_GPU_HEADROOM_REQUIRED') {
+          $retryable = $false
+        }
+        FailJob $job (('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Substring(0,[Math]::Min(480,('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Length))) $retryable
       }
     }
     if ($Lane -eq 'gpu' -and $jobs.Count -eq 0) { RunIdleLearningEvaluation; WarmQwenIfIdle }

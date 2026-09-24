@@ -118,7 +118,7 @@ export default function MarketingPage() {
   const base = `/workspace/${organizationId}/commercial/marketing`;
 
   return (
-    <main className="min-h-screen bg-black p-8 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-8 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
           <div>
@@ -126,7 +126,7 @@ export default function MarketingPage() {
               Commercial / Marketing
             </div>
             <h1 className="text-6xl font-light">Marketing</h1>
-            <p className="mt-4 max-w-3xl text-lg text-white/45">
+            <p className="mt-4 max-w-3xl text-lg text-[#746E66]">
               Campaign planning, exact creative asset control, connected publishing and paid media execution.
             </p>
           </div>
@@ -142,9 +142,9 @@ export default function MarketingPage() {
 
         <div className="mb-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {STATUS.map(({ label, value, icon: Icon }) => (
-            <div key={label} className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <div key={label} className="rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-6">
               <Icon className="mb-5 h-5 w-5 text-[#D6A66A]" />
-              <div className="text-xs uppercase tracking-[0.2em] text-white/30">{label}</div>
+              <div className="text-xs uppercase tracking-[0.2em] text-[#A19A92]">{label}</div>
               <div className="mt-2 text-2xl font-light">{value}</div>
             </div>
           ))}
@@ -155,7 +155,7 @@ export default function MarketingPage() {
             <div>
               <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Paid Media</div>
               <h2 className="mt-2 text-3xl font-light">Meta Ads Manager</h2>
-              <p className="mt-2 max-w-3xl text-white/45">
+              <p className="mt-2 max-w-3xl text-[#746E66]">
                 Select an exact approved organization asset, preview it, confirm the logo and create the complete Meta campaign in paused status.
               </p>
             </div>
@@ -173,14 +173,14 @@ export default function MarketingPage() {
           {SECTIONS.map((section) => {
             const Icon = section.icon;
             return (
-              <section key={section.title} className="rounded-[32px] border border-white/10 bg-white/[0.03] p-7">
+              <section key={section.title} className="rounded-[32px] border border-black/[0.08] bg-[#FBF8F3] p-7">
                 <div className="mb-6 flex gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#D6A66A]/10">
                     <Icon className="h-6 w-6 text-[#D6A66A]" />
                   </div>
                   <div>
                     <h2 className="text-2xl font-light">{section.title}</h2>
-                    <p className="mt-1 text-sm leading-relaxed text-white/40">{section.description}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-[#817A72]">{section.description}</p>
                   </div>
                 </div>
 
@@ -192,7 +192,7 @@ export default function MarketingPage() {
                       className={`group flex items-center justify-between rounded-2xl border p-4 transition ${
                         item.featured
                           ? "border-[#D6A66A]/30 bg-[#D6A66A]/10 text-[#E6C18C]"
-                          : "border-white/10 bg-black/30 text-white/65 hover:border-[#D6A66A]/30 hover:text-white"
+                          : "border-black/[0.08] bg-[#F7F6F3]/30 text-[#5F5A54] hover:border-[#D6A66A]/30 hover:text-[#191919]"
                       }`}
                     >
                       <span>{item.name}</span>

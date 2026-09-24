@@ -177,16 +177,16 @@ export default function FulfillmentDispatchWorkspace({
   }
 
   return (
-    <main className="min-h-screen bg-[#080808] px-6 py-8 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-8 text-[#191919]">
       <div className="mx-auto max-w-[1700px]">
-        <header className="rounded-[34px] border border-white/10 bg-white/[0.035] p-7">
+        <header className="rounded-[34px] border border-black/[0.08] bg-[#FBF8F3] p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">{eyebrow}</p>
               <h1 className="mt-3 text-4xl font-semibold">{title}</h1>
-              <p className="mt-2 text-sm text-white/45">{description}</p>
+              <p className="mt-2 text-sm text-[#746E66]">{description}</p>
             </div>
-            <button onClick={loadQueue} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60">
+            <button onClick={loadQueue} className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#5F5A54]">
               <RefreshCw size={15} /> Refresh
             </button>
           </div>
@@ -196,17 +196,17 @@ export default function FulfillmentDispatchWorkspace({
               <button
                 key={value}
                 onClick={() => setFilter(value)}
-                className={filter === value ? "rounded-xl bg-[#D6A66A] px-4 py-2 text-xs font-semibold text-black" : "rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50"}
+                className={filter === value ? "rounded-xl bg-[#D6A66A] px-4 py-2 text-xs font-semibold text-black" : "rounded-xl border border-black/[0.08] px-4 py-2 text-xs text-[#746E66]"}
               >
                 {value}
               </button>
             ))}
 
             {viewMetrics ? (
-              <div className="ml-auto flex flex-wrap gap-2 text-xs text-white/40">
-                <span className="rounded-xl border border-white/10 px-3 py-2">Active {viewMetrics.active ?? 0}</span>
-                <span className="rounded-xl border border-white/10 px-3 py-2">Ready {viewMetrics.ready ?? 0}</span>
-                <span className="rounded-xl border border-white/10 px-3 py-2">Total {viewMetrics.total ?? scopedEntries.length}</span>
+              <div className="ml-auto flex flex-wrap gap-2 text-xs text-[#817A72]">
+                <span className="rounded-xl border border-black/[0.08] px-3 py-2">Active {viewMetrics.active ?? 0}</span>
+                <span className="rounded-xl border border-black/[0.08] px-3 py-2">Ready {viewMetrics.ready ?? 0}</span>
+                <span className="rounded-xl border border-black/[0.08] px-3 py-2">Total {viewMetrics.total ?? scopedEntries.length}</span>
               </div>
             ) : null}
           </div>
@@ -216,17 +216,17 @@ export default function FulfillmentDispatchWorkspace({
 
         <section className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {loading ? (
-            <div className="col-span-full rounded-3xl border border-white/10 p-10 text-center text-white/35">Loading fulfillment queue...</div>
+            <div className="col-span-full rounded-3xl border border-black/[0.08] p-10 text-center text-[#918B83]">Loading fulfillment queue...</div>
           ) : visibleEntries.length ? (
             visibleEntries.map((entry) => (
-              <article key={entry.id} className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+              <article key={entry.id} className="rounded-[28px] border border-black/[0.08] bg-[#FBF8F3] p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-xs uppercase tracking-[0.18em] text-[#D6A66A]">{entry.work_center?.name || entry.queue_name || "Work centre"}</div>
                     <h2 className="mt-2 text-2xl font-semibold">{entryTitle(entry, contextFallback)}</h2>
-                    <div className="mt-1 text-xs text-white/35">{entry.demand?.reference || entry.demand?.id || entry.id}</div>
+                    <div className="mt-1 text-xs text-[#918B83]">{entry.demand?.reference || entry.demand?.id || entry.id}</div>
                   </div>
-                  <div className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs text-white/45">
+                  <div className="flex items-center gap-2 rounded-full border border-black/[0.08] px-3 py-1 text-xs text-[#746E66]">
                     <Clock3 size={13} /> {elapsed(entry.created_at)}
                   </div>
                 </div>
@@ -239,20 +239,20 @@ export default function FulfillmentDispatchWorkspace({
                       const busy = actionId === `${entry.id}:${itemId}`;
 
                       return (
-                        <div key={itemId || item.name} className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                        <div key={itemId || item.name} className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/25 p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <div className="font-medium">{Number(item.quantity || 1)} × {item.name || "Item"}</div>
                               {item.notes ? <div className="mt-1 text-xs text-orange-200/70">{item.notes}</div> : null}
                             </div>
-                            <div className="text-xs text-white/40">{status}</div>
+                            <div className="text-xs text-[#817A72]">{status}</div>
                           </div>
 
                           <div className="mt-4 grid grid-cols-2 gap-2">
                             <button
                               disabled={busy || ["IN_PROGRESS", "PREPARING", "READY", "SERVED", "COMPLETED", "CANCELLED", "VOID"].includes(status)}
                               onClick={() => updateItem(entry, item, "PREPARING")}
-                              className="rounded-xl border border-white/10 py-2 text-xs text-white/60 disabled:opacity-30"
+                              className="rounded-xl border border-black/[0.08] py-2 text-xs text-[#5F5A54] disabled:opacity-30"
                             >
                               Start
                             </button>
@@ -273,7 +273,7 @@ export default function FulfillmentDispatchWorkspace({
                             <button
                               disabled={busy || status !== "SERVED"}
                               onClick={() => updateItem(entry, item, "COMPLETED")}
-                              className="rounded-xl border border-white/10 py-2 text-xs font-semibold text-white/70 disabled:opacity-30"
+                              className="rounded-xl border border-black/[0.08] py-2 text-xs font-semibold text-[#5F5A54] disabled:opacity-30"
                             >
                               Complete
                             </button>
@@ -282,13 +282,13 @@ export default function FulfillmentDispatchWorkspace({
                       );
                     })
                   ) : (
-                    <div className="rounded-2xl border border-white/10 p-4 text-sm text-white/35">Queue entry has no persisted work items.</div>
+                    <div className="rounded-2xl border border-black/[0.08] p-4 text-sm text-[#918B83]">Queue entry has no persisted work items.</div>
                   )}
                 </div>
               </article>
             ))
           ) : (
-            <div className="col-span-full rounded-3xl border border-dashed border-white/10 p-12 text-center text-white/35">{emptyLabel}</div>
+            <div className="col-span-full rounded-3xl border border-dashed border-black/[0.08] p-12 text-center text-[#918B83]">{emptyLabel}</div>
           )}
         </section>
       </div>

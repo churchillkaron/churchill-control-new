@@ -161,7 +161,7 @@ function QueueTab({ active, count, children, onClick }) {
       }`}
     >
       {children}
-      <span className={`rounded-full px-1.5 py-0.5 text-[11px] ${active ? "bg-[#D6A66A]/15 text-[#7C5834]" : "bg-black/[0.045] text-[#8E887F]"}`}>
+      <span className={`rounded-full px-1.5 py-0.5 text-[11px] ${active ? "bg-[#D6A66A]/15 text-[#7C5834]" : "bg-[#F7F6F3]/[0.045] text-[#8E887F]"}`}>
         {count}
       </span>
     </button>
@@ -377,7 +377,7 @@ export default function FinanceBankReconciliationWorkCenter({
                 type="button"
                 onClick={startReconciliation}
                 disabled={!primaryAction || !contextReady}
-                className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3.5 text-[11px] font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3.5 text-[11px] font-semibold text-[#191919] transition hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Play size={12} /> {primaryAction?.label || "Start Reconciliation"}
               </button>
@@ -471,7 +471,7 @@ export default function FinanceBankReconciliationWorkCenter({
                     <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl border border-black/[0.07] bg-[#FAF9F7] text-[#8D877E]"><Landmark size={17} /></div>
                     <h2 className="mt-4 text-[16px] font-semibold tracking-[-0.02em] text-[#38342E]">No reconciliation run yet</h2>
                     <p className="mx-auto mt-1.5 max-w-md text-[11px] leading-5 text-[#817B73]">Choose the bank account, set the reconciliation date and statement closing balance, then Avantiqo calculates the posted-ledger balance and the difference.</p>
-                    <button type="button" onClick={startReconciliation} disabled={!primaryAction} className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3.5 text-[11px] font-semibold text-white disabled:opacity-40"><Play size={12} /> Start Reconciliation</button>
+                    <button type="button" onClick={startReconciliation} disabled={!primaryAction} className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3.5 text-[11px] font-semibold text-[#191919] disabled:opacity-40"><Play size={12} /> Start Reconciliation</button>
                     <div className="mt-5 grid gap-2 text-left sm:grid-cols-3">
                       {["Select bank account", "Enter statement balance", "Review the difference"].map((step, index) => (
                         <div key={step} className="rounded-lg border border-black/[0.06] bg-[#FAF9F7] px-3 py-2.5 text-[11px] text-[#716B63]"><span className="mr-2 font-semibold text-[#A27547]">{index + 1}</span>{step}</div>

@@ -73,7 +73,7 @@ function readyAgeMinutes(entry, item) {
 function ageClass(minutes) {
   if (minutes >= 10) return "border-red-400/45 bg-red-500/[0.08]";
   if (minutes >= 5) return "border-amber-300/35 bg-amber-300/[0.06]";
-  return "border-white/10 bg-white/[0.025]";
+  return "border-black/[0.08] bg-[#FBF8F3]";
 }
 
 export default function RestaurantExpoPass() {
@@ -196,9 +196,9 @@ export default function RestaurantExpoPass() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-3 py-4 text-white lg:px-5 lg:py-5">
+    <main className="min-h-screen bg-[#F7F6F3] px-3 py-4 text-[#191919] lg:px-5 lg:py-5">
       <div className="mx-auto max-w-[1900px]">
-        <header className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 lg:p-5">
+        <header className="rounded-[28px] border border-black/[0.08] bg-white p-4 lg:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.07] p-2.5 text-[#D6A66A]">
@@ -207,14 +207,14 @@ export default function RestaurantExpoPass() {
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#D6A66A]">Restaurant Pass</div>
                 <h1 className="mt-1 text-2xl font-light tracking-tight lg:text-3xl">Ready now. Handoff fast.</h1>
-                <p className="mt-1 text-xs text-white/35">Only ready kitchen and bar items appear here. Expo confirms the physical handoff; Kitchen never marks food served.</p>
+                <p className="mt-1 text-xs text-[#918B83]">Only ready kitchen and bar items appear here. Expo confirms the physical handoff; Kitchen never marks food served.</p>
               </div>
             </div>
 
             <button
               type="button"
               onClick={() => load()}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-white/50"
+              className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-xs text-[#746E66]"
             >
               <RefreshCw size={14} /> Refresh
             </button>
@@ -226,14 +226,14 @@ export default function RestaurantExpoPass() {
               ["Tables", tableCount],
               ["10m+", overdue],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5">
-                <div className="text-[9px] uppercase tracking-[0.16em] text-white/30">{label}</div>
+              <div key={label} className="rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/25 px-3 py-2.5">
+                <div className="text-[9px] uppercase tracking-[0.16em] text-[#A19A92]">{label}</div>
                 <div className="mt-0.5 text-xl font-light">{value}</div>
               </div>
             ))}
           </div>
 
-          <div className="mt-3 text-[10px] text-white/25">
+          <div className="mt-3 text-[10px] text-[#A9A39C]">
             {lastSync ? `Synced ${lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Connecting"}
           </div>
 
@@ -244,7 +244,7 @@ export default function RestaurantExpoPass() {
 
         <section className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {loading ? (
-            <div className="col-span-full flex min-h-[420px] items-center justify-center rounded-[26px] border border-white/10 text-sm text-white/30">
+            <div className="col-span-full flex min-h-[420px] items-center justify-center rounded-[26px] border border-black/[0.08] text-sm text-[#A19A92]">
               Loading ready items...
             </div>
           ) : readyItems.length ? (
@@ -256,13 +256,13 @@ export default function RestaurantExpoPass() {
               const modifiers = modifierValues(item);
               return (
                 <article key={`${entry.id}:${itemId}`} className={`rounded-[24px] border p-4 ${ageClass(age)}`}>
-                  <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
+                  <div className="flex items-start justify-between gap-3 border-b border-black/[0.08] pb-3">
                     <div>
                       <div className="text-[9px] uppercase tracking-[0.18em] text-[#D6A66A]">{stationLabel(entry)}</div>
                       <h2 className="mt-1 text-2xl font-semibold">{tableLabel(entry)}</h2>
-                      <div className="mt-1 text-[10px] text-white/35">{seat ? `Seat ${seat}` : "Table handoff"}</div>
+                      <div className="mt-1 text-[10px] text-[#918B83]">{seat ? `Seat ${seat}` : "Table handoff"}</div>
                     </div>
-                    <div className="flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-xs font-semibold text-white/60">
+                    <div className="flex items-center gap-1 rounded-full border border-black/[0.08] px-2.5 py-1 text-xs font-semibold text-[#5F5A54]">
                       <Clock3 size={12} /> {age}m
                     </div>
                   </div>
@@ -273,7 +273,7 @@ export default function RestaurantExpoPass() {
                     {modifiers.length ? (
                       <div className="mt-2 flex flex-wrap gap-1.5" data-expo-item-modifiers="true">
                         {modifiers.map(({ key, value }) => (
-                          <span key={`${key}:${value}`} className="rounded-lg border border-white/10 px-2 py-1 text-[10px] text-white/55">
+                          <span key={`${key}:${value}`} className="rounded-lg border border-black/[0.08] px-2 py-1 text-[10px] text-[#5F5A54]">
                             {value}
                           </span>
                         ))}
@@ -293,10 +293,10 @@ export default function RestaurantExpoPass() {
               );
             })
           ) : (
-            <div className="col-span-full flex min-h-[420px] flex-col items-center justify-center rounded-[26px] border border-dashed border-white/10 text-center">
+            <div className="col-span-full flex min-h-[420px] flex-col items-center justify-center rounded-[26px] border border-dashed border-black/[0.08] text-center">
               <Check size={24} className="text-[#D6A66A]" />
               <div className="mt-3 text-sm font-medium">Pass is clear</div>
-              <div className="mt-1 text-xs text-white/30">Ready items appear automatically.</div>
+              <div className="mt-1 text-xs text-[#A19A92]">Ready items appear automatically.</div>
             </div>
           )}
         </section>

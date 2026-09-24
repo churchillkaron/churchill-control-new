@@ -228,6 +228,18 @@ async function loadBootstrapPayload({ request, user }) {
     ? await loadPlatformOperatorLegalEntity()
     : null;
 
+  const operatorAccountingPeriod =
+    isPlatformOperatorWorkspace && operatorLegalEntity?.organization_id && operatorLegalEntity?.id
+      ? await timedBootstrapStep("operator_accounting_period", () =>
+          loadActivePeriod({
+            supabase,
+            organizationId: operatorLegalEntity.organization_id,
+            entityId: operatorLegalEntity.id,
+            requestedPeriodId: cookies().get(ACTIVE_PERIOD_COOKIE)?.value || null,
+          }),
+        )
+      : null;
+
   const organization =
     organizations.find((row) => row.id === organizationId) || null;
 
@@ -270,6 +282,9 @@ async function loadBootstrapPayload({ request, user }) {
       active_organization_id: organizationId,
       is_platform_operator_workspace: isPlatformOperatorWorkspace,
       operator_legal_entity: operatorLegalEntity,
+      operator_accounting_organization_id: operatorLegalEntity?.organization_id || null,
+      operator_accounting_period: operatorAccountingPeriod,
+      operator_accounting_period_id: operatorAccountingPeriod?.id || null,
       entity,
       entities,
       entity_id: entity?.id || null,

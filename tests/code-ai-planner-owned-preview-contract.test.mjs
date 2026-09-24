@@ -124,6 +124,36 @@ try {
   assert.equal(production.metadata?.local_development_owned_code_preview, undefined);
   assert.equal(production.metadata?.production_certified, undefined);
 
+  const governedCalls = [];
+  await executeCodeAIPlannerRequest({
+    execution_input: {
+      organization_id: "00000000-0000-0000-0000-000000000001",
+      service_id: "ai.code.debug",
+      capability: "ai.code.debug",
+      provider_id: "avantiqo-code",
+      provider_policy: {
+        allowed_providers: ["avantiqo-code"],
+        owned_only_required: true,
+        external_fallback_allowed: false,
+      },
+      input: {
+        instruction: "Choose the next bounded Code action.",
+        quantity: 1,
+        local_compute_required: true,
+        infrastructure_policy: "local_only",
+      },
+      metadata: { code_ai_test: true },
+    },
+    service_runtime: completedServiceRuntime(governedCalls),
+  });
+  assert.equal(governedCalls.length, 1);
+  const governed = governedCalls[0];
+  assert.equal(governed.provider_id, "avantiqo-code");
+  assert.equal(governed.metadata?.code_ai_governed_local_compute, true);
+  assert.equal(governed.metadata?.benchmark_only, true);
+  assert.equal(governed.provider_policy?.local_owned_zero_price_preview, true);
+  assert.equal(governed.provider_policy?.external_fallback_allowed, false);
+
   console.log("AVANTIQO_CODE_PLANNER_OWNED_PREVIEW_CONTRACT=PASS");
 } finally {
   if (originalNodeEnv === undefined) delete process.env.NODE_ENV;

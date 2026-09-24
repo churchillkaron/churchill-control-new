@@ -193,104 +193,104 @@ export default function POSCashTransfersPanel({
   }
 
   return (
-    <article className="rounded-[30px] border border-white/10 bg-white/[0.03] p-7 xl:col-span-2">
+    <article className="rounded-[30px] border border-black/[0.08] bg-white p-7 xl:col-span-2">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Cash custody</div>
           <h2 className="mt-2 text-2xl font-semibold">Safe, petty cash & controlled transfers</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-white/40">
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#918B83]">
             Move physical cash between the active drawer and controlled custody locations. Transfers preserve revenue, create immutable Operations evidence, and post asset-to-asset Finance journals.
           </p>
         </div>
-        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/55">
+        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#746E66]">
           <RefreshCw size={14} /> Refresh
         </button>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-white/40">
-        <span className="rounded-full border border-white/10 px-3 py-1.5">Manager / Owner</span>
-        <span className="rounded-full border border-white/10 px-3 py-1.5">No revenue impact</span>
-        <span className="rounded-full border border-white/10 px-3 py-1.5">Finance evidence required</span>
-        <span className="rounded-full border border-white/10 px-3 py-1.5">Live balance protection</span>
+      <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-[#918B83]">
+        <span className="rounded-full border border-black/[0.08] px-3 py-1.5">Manager / Owner</span>
+        <span className="rounded-full border border-black/[0.08] px-3 py-1.5">No revenue impact</span>
+        <span className="rounded-full border border-black/[0.08] px-3 py-1.5">Finance evidence required</span>
+        <span className="rounded-full border border-black/[0.08] px-3 py-1.5">Live balance protection</span>
       </div>
 
       {error ? <div className="mt-4 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-100">{error}</div> : null}
-      {!actor?.can_control_cash ? <div className="mt-4 rounded-xl border border-white/10 p-3 text-sm text-white/40">Manager or owner authority is required for cash custody controls.</div> : null}
+      {!actor?.can_control_cash ? <div className="mt-4 rounded-xl border border-black/[0.08] p-3 text-sm text-[#918B83]">Manager or owner authority is required for cash custody controls.</div> : null}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {locations.length ? locations.map((location) => (
-          <div key={location.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-white/30">{String(location.location_type || "").replaceAll("_", " ")}</div>
+          <div key={location.id} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-[#A19A92]">{String(location.location_type || "").replaceAll("_", " ")}</div>
             <div className="mt-2 font-semibold">{location.name}</div>
             <div className="mt-3 text-xl font-semibold text-[#E2C48A]">{formatMoney(location.current_balance, location.currency_code || currencyCode)}</div>
           </div>
-        )) : <div className="rounded-2xl border border-white/10 p-4 text-sm text-white/35 sm:col-span-2">No controlled cash locations yet. Create a safe or petty-cash location below.</div>}
+        )) : <div className="rounded-2xl border border-black/[0.08] p-4 text-sm text-[#918B83] sm:col-span-2">No controlled cash locations yet. Create a safe or petty-cash location below.</div>}
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
-          <div className="text-xs uppercase tracking-[0.18em] text-white/35">Move cash</div>
-          <select value={transferType} onChange={(event) => setTransferType(event.target.value)} className="mt-3 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm outline-none">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5">
+          <div className="text-xs uppercase tracking-[0.18em] text-[#918B83]">Move cash</div>
+          <select value={transferType} onChange={(event) => setTransferType(event.target.value)} className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm outline-none">
             {TRANSFER_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
           </select>
 
           {transferType !== "DRAWER_TO_LOCATION" ? (
-            <select value={sourceLocationId} onChange={(event) => setSourceLocationId(event.target.value)} className="mt-3 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm outline-none">
+            <select value={sourceLocationId} onChange={(event) => setSourceLocationId(event.target.value)} className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm outline-none">
               <option value="">Source location</option>
               {locations.map((location) => <option key={location.id} value={location.id}>{location.name} · {formatMoney(location.current_balance, location.currency_code || currencyCode)}</option>)}
             </select>
           ) : null}
 
           {transferType !== "LOCATION_TO_DRAWER" ? (
-            <select value={destinationLocationId} onChange={(event) => setDestinationLocationId(event.target.value)} className="mt-3 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm outline-none">
+            <select value={destinationLocationId} onChange={(event) => setDestinationLocationId(event.target.value)} className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm outline-none">
               <option value="">Destination location</option>
               {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
             </select>
           ) : null}
 
-          <input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Amount" className="mt-3 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none" />
-          <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={2} placeholder="Required business reason" className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none" />
+          <input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Amount" className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm outline-none" />
+          <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={2} placeholder="Required business reason" className="mt-3 w-full resize-none rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm outline-none" />
           <button type="button" disabled={actionLoading || !actor?.can_control_cash} onClick={executeTransfer} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#D6A66A] px-4 py-3 text-sm font-semibold text-black disabled:opacity-35">
             <ArrowRightLeft size={15} /> {actionLoading ? "Posting..." : "Post transfer"}
           </button>
           {!activeSessionId && transferType !== "LOCATION_TO_LOCATION" ? <div className="mt-3 text-xs text-amber-100/60">Open a drawer before transferring to or from the POS.</div> : null}
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
-          <div className="text-xs uppercase tracking-[0.18em] text-white/35">Create custody location</div>
-          <input value={newLocationName} onChange={(event) => setNewLocationName(event.target.value)} placeholder="e.g. Main Safe" className="mt-3 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none" />
-          <select value={newLocationType} onChange={(event) => setNewLocationType(event.target.value)} className="mt-3 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm outline-none">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5">
+          <div className="text-xs uppercase tracking-[0.18em] text-[#918B83]">Create custody location</div>
+          <input value={newLocationName} onChange={(event) => setNewLocationName(event.target.value)} placeholder="e.g. Main Safe" className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm outline-none" />
+          <select value={newLocationType} onChange={(event) => setNewLocationType(event.target.value)} className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm outline-none">
             {LOCATION_TYPES.map((type) => <option key={type} value={type}>{type.replaceAll("_", " ")}</option>)}
           </select>
-          <select value={newLocationAccountId} onChange={(event) => setNewLocationAccountId(event.target.value)} className="mt-3 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm outline-none">
+          <select value={newLocationAccountId} onChange={(event) => setNewLocationAccountId(event.target.value)} className="mt-3 w-full rounded-xl border border-black/[0.09] bg-white px-4 py-3 text-sm outline-none">
             <option value="">Finance cash asset account</option>
             {accounts.map((account) => <option key={account.id} value={account.id}>{account.account_code} · {account.account_name}</option>)}
           </select>
           <button type="button" disabled={actionLoading || !actor?.can_control_cash || !newLocationName.trim() || !newLocationAccountId} onClick={createLocation} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#D6A66A]/40 px-4 py-3 text-sm font-semibold text-[#E8C98D] disabled:opacity-35">
             <Plus size={15} /> Create location
           </button>
-          <div className="mt-3 text-xs leading-5 text-white/30">Each custody location uses its own active Finance asset account. Petty-cash spending is a separate expense workflow; this control only moves custody.</div>
+          <div className="mt-3 text-xs leading-5 text-[#A19A92]">Each custody location uses its own active Finance asset account. Petty-cash spending is a separate expense workflow; this control only moves custody.</div>
         </div>
       </div>
 
-      <div className="mt-6 text-xs uppercase tracking-[0.18em] text-white/35">Transfer evidence</div>
+      <div className="mt-6 text-xs uppercase tracking-[0.18em] text-[#918B83]">Transfer evidence</div>
       <div className="mt-3 max-h-[420px] space-y-3 overflow-y-auto pr-1">
-        {loading ? <div className="rounded-2xl border border-white/10 p-4 text-sm text-white/35">Loading transfers...</div> : transfers.length ? transfers.map((transfer) => {
+        {loading ? <div className="rounded-2xl border border-black/[0.08] p-4 text-sm text-[#918B83]">Loading transfers...</div> : transfers.length ? transfers.map((transfer) => {
           const source = locationMap.get(String(transfer.source_location_id));
           const destination = locationMap.get(String(transfer.destination_location_id));
           const sourceName = transfer.source_cash_session_id ? "POS Drawer" : source?.name || "Cash location";
           const destinationName = transfer.destination_cash_session_id ? "POS Drawer" : destination?.name || "Cash location";
           return (
-            <div key={transfer.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div key={transfer.id} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm font-semibold">{sourceName} → {destinationName}</div>
                 <div className="font-semibold text-[#E2C48A]">{formatMoney(transfer.amount, transfer.currency_code || currencyCode)}</div>
               </div>
-              <div className="mt-2 text-xs text-white/45">{transfer.reason}</div>
-              <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-white/25"><span>{transfer.created_at ? new Date(transfer.created_at).toLocaleString() : transfer.id}</span><span>Journal {String(transfer.journal_entry_id || "").slice(0, 8)}</span></div>
+              <div className="mt-2 text-xs text-[#817A72]">{transfer.reason}</div>
+              <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-[#A9A39C]"><span>{transfer.created_at ? new Date(transfer.created_at).toLocaleString() : transfer.id}</span><span>Journal {String(transfer.journal_entry_id || "").slice(0, 8)}</span></div>
             </div>
           );
-        }) : <div className="rounded-2xl border border-white/10 p-4 text-sm text-white/35">No controlled cash transfers recorded.</div>}
+        }) : <div className="rounded-2xl border border-black/[0.08] p-4 text-sm text-[#918B83]">No controlled cash transfers recorded.</div>}
       </div>
     </article>
   );

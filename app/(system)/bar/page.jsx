@@ -27,8 +27,8 @@ export default function BarCompatibilityPage() {
   }, [organizationId, router]);
 
   return (
-    <main className="min-h-screen bg-[#030712] p-8 text-white">
-      <div className="rounded-[32px] border border-white/10 bg-white/[0.035] p-8">
+    <main className="min-h-screen bg-[#F7F6F3] p-8 text-[#191919]">
+      <div className="rounded-[32px] border border-black/[0.08] bg-[#FBF8F3] p-8">
         Opening Bar Display...
       </div>
     </main>

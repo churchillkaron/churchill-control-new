@@ -378,8 +378,8 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
 
   if (!entityId) {
     return (
-      <main className="min-h-screen bg-black px-6 py-8 text-white">
-        <div className="mx-auto max-w-[1600px] rounded-[30px] border border-white/10 bg-white/[0.03] p-6 text-sm text-white/50">
+      <main className="min-h-screen bg-[#F7F6F3] px-6 py-8 text-[#191919]">
+        <div className="mx-auto max-w-[1600px] rounded-[30px] border border-black/[0.08] bg-white p-6 text-sm text-[#746E66]">
           Select an active legal entity before loading Order Control.
         </div>
       </main>
@@ -387,28 +387,28 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
   }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-8 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-8 text-[#191919]">
       <div className="mx-auto max-w-[1600px]">
-        <header className="rounded-[34px] border border-white/10 bg-white/[0.035] p-7">
+        <header className="rounded-[34px] border border-black/[0.08] bg-white p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">
                 {orderEyebrow}
               </p>
               <h1 className="mt-3 text-4xl font-semibold">Order Control</h1>
-              <p className="mt-2 text-sm text-white/45">
+              <p className="mt-2 text-sm text-[#746E66]">
                 Active, completed and cancelled orders with item and payment state.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">
+              <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#746E66]">
                 {syncStatus}
               </div>
               <button
                 type="button"
                 onClick={refreshOrders}
                 disabled={refreshing}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60 disabled:opacity-35"
+                className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#5F5A54] disabled:opacity-35"
               >
                 <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
                 Refresh
@@ -428,7 +428,7 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
         </header>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-          <div className="rounded-[30px] border border-white/10 bg-white/[0.025] p-5">
+          <div className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5">
             <div className="flex flex-wrap gap-2">
               {["ACTIVE", "COMPLETED", "ALL"].map((value) => (
                 <button
@@ -438,26 +438,26 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                   className={
                     filter === value
                       ? "rounded-xl bg-[#D6A66A] px-4 py-2 text-xs font-semibold text-black"
-                      : "rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50"
+                      : "rounded-xl border border-black/[0.08] px-4 py-2 text-xs text-[#746E66]"
                   }
                 >
                   {value}
                 </button>
               ))}
             </div>
-            <div className="mt-4 flex items-center rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white/35">
+            <div className="mt-4 flex items-center rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-[#918B83]">
               <Search size={16} />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={`Search ${contextLabel.toLowerCase()}, order or status...`}
-                className="ml-3 w-full bg-transparent text-sm text-white outline-none"
+                className="ml-3 w-full bg-transparent text-sm text-[#191919] outline-none"
               />
             </div>
 
             <div className="mt-4 max-h-[650px] space-y-2 overflow-y-auto">
               {loading ? (
-                <div className="p-8 text-center text-sm text-white/35">
+                <div className="p-8 text-center text-sm text-[#918B83]">
                   Loading orders...
                 </div>
               ) : filteredOrders.length ? (
@@ -469,7 +469,7 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                     className={`w-full rounded-2xl border p-4 text-left transition ${
                       selectedOrderId === order.id
                         ? "border-[#D6A66A]/45 bg-[#D6A66A]/10"
-                        : "border-white/10 bg-black/20"
+                        : "border-black/[0.08] bg-white"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -479,7 +479,7 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                             order.context?.reference ||
                             `Unassigned ${contextLabel.toLowerCase()}`}
                         </div>
-                        <div className="mt-1 text-xs text-white/35">
+                        <div className="mt-1 text-xs text-[#918B83]">
                           {order.order_number || order.id}
                         </div>
                       </div>
@@ -487,21 +487,21 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                         {order.status || "OPEN"}
                       </div>
                     </div>
-                    <div className="mt-4 flex justify-between text-sm text-white/50">
+                    <div className="mt-4 flex justify-between text-sm text-[#746E66]">
                       <span>{(order.items || order.order_items || []).length} item(s)</span>
                       <span>{formatMoney(order.total_amount ?? order.total, currencyCode)}</span>
                     </div>
                   </button>
                 ))
               ) : (
-                <div className="p-8 text-center text-sm text-white/35">
+                <div className="p-8 text-center text-sm text-[#918B83]">
                   No matching orders.
                 </div>
               )}
             </div>
           </div>
 
-          <aside className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
+          <aside className="rounded-[30px] border border-black/[0.08] bg-white p-6">
             {selectedOrder ? (
               <>
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -514,7 +514,7 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                         selectedOrder.context?.reference ||
                         `Unassigned ${contextLabel.toLowerCase()}`}
                     </h2>
-                    <p className="mt-1 text-xs text-white/35">
+                    <p className="mt-1 text-xs text-[#918B83]">
                       {selectedOrder.order_number || selectedOrder.id}
                     </p>
                   </div>
@@ -544,7 +544,7 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                       return (
                         <div
                           key={item.id}
-                          className="rounded-xl border border-white/10 bg-black/20 p-4"
+                          className="rounded-xl border border-black/[0.08] bg-white p-4"
                           data-restaurant-order-item={item.id}
                           data-restaurant-item-adjustment={adjustment || undefined}
                         >
@@ -563,7 +563,7 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                               ) : null}
                             </div>
                             <div className="flex shrink-0 items-center gap-3">
-                              <div className={adjustment ? "text-sm text-white/35 line-through" : "text-sm text-white/55"}>
+                              <div className={adjustment ? "text-sm text-[#918B83] line-through" : "text-sm text-[#5F5A54]"}>
                                 {Number(item.quantity || 1)} × {formatMoney(item.price, currencyCode)}
                               </div>
                               {voidEligible && !voidOpen && !compOpen ? (
@@ -594,9 +594,9 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                               <div className="flex items-start justify-between gap-3">
                                 <div>
                                   <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-red-700">Pre-production void</div>
-                                  <div className="mt-1 text-[11px] leading-4 text-white/45">Reason is required. The original item remains in the audit trail. Once production starts, VOID is no longer allowed.</div>
+                                  <div className="mt-1 text-[11px] leading-4 text-[#746E66]">Reason is required. The original item remains in the audit trail. Once production starts, VOID is no longer allowed.</div>
                                 </div>
-                                <button type="button" onClick={cancelVoid} className="rounded-lg p-1 text-white/35" aria-label="Cancel item void">
+                                <button type="button" onClick={cancelVoid} className="rounded-lg p-1 text-[#918B83]" aria-label="Cancel item void">
                                   <X size={14} />
                                 </button>
                               </div>
@@ -605,13 +605,13 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                                 onChange={(event) => setVoidReason(event.target.value)}
                                 rows={2}
                                 placeholder="Why is this item being voided?"
-                                className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-white px-3 py-2 text-xs text-[#191919] outline-none"
+                                className="mt-3 w-full resize-none rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs text-[#191919] outline-none"
                               />
                               <button
                                 type="button"
                                 disabled={!voidReason.trim() || voidBusy}
                                 onClick={() => confirmVoid(item)}
-                                className="mt-2 w-full rounded-xl bg-[#25231F] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-30"
+                                className="mt-2 w-full rounded-xl bg-[#D6A66A] px-3 py-2.5 text-xs font-semibold text-[#191919] disabled:opacity-30"
                               >
                                 {voidBusy ? "Voiding..." : "Confirm void"}
                               </button>
@@ -623,9 +623,9 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                               <div className="flex items-start justify-between gap-3">
                                 <div>
                                   <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-700">Manager comp</div>
-                                  <div className="mt-1 text-[11px] leading-4 text-white/45">Use only after production or service has started. The item stays in Kitchen/Expo history but becomes non-billable. Reason is required.</div>
+                                  <div className="mt-1 text-[11px] leading-4 text-[#746E66]">Use only after production or service has started. The item stays in Kitchen/Expo history but becomes non-billable. Reason is required.</div>
                                 </div>
-                                <button type="button" onClick={cancelComp} className="rounded-lg p-1 text-white/35" aria-label="Cancel item comp">
+                                <button type="button" onClick={cancelComp} className="rounded-lg p-1 text-[#918B83]" aria-label="Cancel item comp">
                                   <X size={14} />
                                 </button>
                               </div>
@@ -634,13 +634,13 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                                 onChange={(event) => setCompReason(event.target.value)}
                                 rows={2}
                                 placeholder="Why is this item being comped?"
-                                className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-white px-3 py-2 text-xs text-[#191919] outline-none"
+                                className="mt-3 w-full resize-none rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs text-[#191919] outline-none"
                               />
                               <button
                                 type="button"
                                 disabled={!compReason.trim() || compBusy}
                                 onClick={() => confirmComp(item)}
-                                className="mt-2 w-full rounded-xl bg-[#25231F] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-30"
+                                className="mt-2 w-full rounded-xl bg-[#D6A66A] px-3 py-2.5 text-xs font-semibold text-[#191919] disabled:opacity-30"
                               >
                                 {compBusy ? "Comping..." : "Confirm comp"}
                               </button>
@@ -650,18 +650,18 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                       );
                     })
                   ) : (
-                    <div className="rounded-xl border border-white/10 p-4 text-sm text-white/35">
+                    <div className="rounded-xl border border-black/[0.08] p-4 text-sm text-[#918B83]">
                       No items found.
                     </div>
                   )}
                 </div>
 
-                <div className="mt-6 space-y-3 border-t border-white/10 pt-5">
-                  <div className="flex justify-between text-sm text-white/50">
+                <div className="mt-6 space-y-3 border-t border-black/[0.08] pt-5">
+                  <div className="flex justify-between text-sm text-[#746E66]">
                     <span>Total</span>
                     <span>{formatMoney(selectedOrder.total_amount ?? selectedOrder.total, currencyCode)}</span>
                   </div>
-                  <div className="flex justify-between text-sm text-white/50">
+                  <div className="flex justify-between text-sm text-[#746E66]">
                     <span>Paid</span>
                     <span>{formatMoney(selectedOrder.paid_amount, currencyCode)}</span>
                   </div>
@@ -686,7 +686,7 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
                 </button>
               </>
             ) : (
-              <div className="text-sm text-white/35">
+              <div className="text-sm text-[#918B83]">
                 Select an order to inspect it.
               </div>
             )}

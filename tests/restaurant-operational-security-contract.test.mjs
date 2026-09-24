@@ -56,13 +56,15 @@ test("restaurant item void remains hidden until both authority and database read
   const orders = await readFile(new URL(`../${ordersPath}`, import.meta.url), "utf8");
 
   assert.match(runtime, /from\("restaurant_order_item_corrections"\)/);
-  assert.match(runtime, /item_corrections_ready: itemCorrectionsReady/);
+  assert.match(runtime, /item_corrections_ready: correctionCapabilities\.itemCorrectionsReady/);
   assert.match(orders, /capabilities\?\.actions\?\.void_order_item === true/);
   assert.match(orders, /capabilities\?\.item_corrections_ready === true/);
   assert.match(orders, /PRE_PRODUCTION_STATUSES = new Set\(\["NEW", "PENDING"\]\)/);
   assert.match(orders, /fetch\("\/api\/pos\/item-corrections"/);
   assert.match(orders, /correctionType: "VOID"/);
-  assert.match(orders, /reason: voidReason\.trim\(\)/);
+  assert.match(orders, /submitItemCorrection\(\{ item, correctionType, reason \}\)/);
+  assert.match(orders, /reason: reason\.trim\(\)/);
+  assert.match(orders, /reason: voidReason/);
   assert.match(orders, /data-restaurant-item-void-action="true"/);
 });
 
@@ -74,10 +76,11 @@ test("restaurant order control returns to unified stationary POS instead of a se
   assert.match(orders, /data-restaurant-open-stationary-pos/);
 });
 
-test("unimplemented advanced restaurant corrections are explicit fail-closed capabilities", async () => {
+test("advanced restaurant corrections expose only deployed capabilities and keep the rest fail closed", async () => {
   const runtime = await readFile(new URL(`../${runtimePath}`, import.meta.url), "utf8");
 
-  assert.match(runtime, /comp_ready: false/);
+  assert.match(runtime, /comp_ready: correctionCapabilities\.compReady/);
+  assert.match(runtime, /correctionRpcReady\("restaurant_comp_order_item_atomic"\)/);
   assert.match(runtime, /discounts_ready: false/);
   assert.match(runtime, /non_cash_refunds_ready: false/);
 });

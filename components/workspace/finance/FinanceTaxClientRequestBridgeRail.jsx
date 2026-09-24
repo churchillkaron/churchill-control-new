@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link2, RefreshCw, ShieldCheck, Unlink2, Users } from "lucide-react";
 
 function clean(value) {
@@ -26,7 +26,7 @@ export default function FinanceTaxClientRequestBridgeRail({ organizationId, enti
   const [selectedRequestId, setSelectedRequestId] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !entityId || !selectedVatReturnId) {
       setState({ loading: false, error: "", dependencyCode: "", body: null });
       return;
@@ -57,9 +57,9 @@ export default function FinanceTaxClientRequestBridgeRail({ organizationId, enti
     } catch (error) {
       setState({ loading: false, error: error?.message || "Tax client request bridge could not be loaded", dependencyCode: "", body: null });
     }
-  }
+  }, [entityId, organizationId, selectedVatReturnId]);
 
-  useEffect(() => { load(); }, [organizationId, entityId, selectedVatReturnId]);
+  useEffect(() => { load(); }, [load]);
 
   async function patch(action, clientRequestId = null) {
     if (!state.dependencyCode) return;

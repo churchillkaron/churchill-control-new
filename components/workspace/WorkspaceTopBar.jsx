@@ -457,7 +457,7 @@ function PeriodSelector({ organizationId, entity, period }) {
             <Link
               href={fiscalPeriodsHref}
               onClick={() => setOpen(false)}
-              className="rounded-xl bg-[#171716] px-3 py-2.5 text-center text-[10px] font-medium text-white transition hover:bg-black"
+              className="rounded-xl bg-[#171716] px-3 py-2.5 text-center text-[10px] font-medium text-[#191919] transition hover:bg-[#F7F6F3]"
             >
               Open new period
             </Link>
@@ -549,7 +549,7 @@ export default function WorkspaceTopBar() {
             href={`/workspace/${encodeURIComponent(organizationId)}`}
             className="flex min-w-0 items-center gap-2.5"
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#171716] text-[9px] font-bold uppercase tracking-[0.08em] text-white">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#171716] text-[9px] font-bold uppercase tracking-[0.08em] text-[#191919]">
               AV
             </div>
             <div className="min-w-0">

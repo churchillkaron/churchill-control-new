@@ -26,10 +26,12 @@ test("Talk renders one evolving live line instead of a historical event stack", 
 
 
 test("device control-plane calls cannot hang past the local pass boundary", () => {
-  assert.match(deviceRuntime, /CONTROL_PLANE_QUERY_TIMEOUT_MS = 5000/);
-  assert.match(deviceRuntime, /AbortSignal\.timeout\(CONTROL_PLANE_QUERY_TIMEOUT_MS\)/);
-  assert.match(deviceRuntime, /\.maybeSingle\(\)\n\s*\.abortSignal\(controlPlaneSignal\(\)\)/);
-  assert.match(deviceRuntime, /\.single\(\)\n\s*\.abortSignal\(controlPlaneSignal\(\)\)/);
+  assert.match(deviceRuntime, /CONTROL_PLANE_QUERY_TIMEOUTS_MS = Object\.freeze\(\[5000, 10000, 15000\]\)/);
+  assert.match(deviceRuntime, /AbortSignal\.timeout\(timeoutMs\)/);
+  assert.match(deviceRuntime, /\.maybeSingle\(\)\n\s*\.abortSignal\(controlPlaneSignal\(attempt\)\)/);
+  assert.match(deviceRuntime, /const jobId = crypto\.randomUUID\(\)/);
+  assert.match(deviceRuntime, /upsert\(row, \{ onConflict: "id", ignoreDuplicates: true \}\)[\s\S]*abortSignal\(controlPlaneSignal\(attempt\)\)/);
+  assert.match(deviceRuntime, /\.eq\("id", jobId\)[\s\S]*abortSignal\(controlPlaneSignal\(readAttempt\)\)/);
 });
 
 test("Talk feed and user bubbles stay inside the workspace", () => {

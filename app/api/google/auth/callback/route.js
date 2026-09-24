@@ -16,15 +16,24 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const RETRY_DELAY_MS = 15 * 60 * 1000;
 
+function safeReturnPath(authorization, organizationId) {
+  const candidate = String(authorization?.metadata?.return_path || "").trim();
+  const allowed = `/workspace/${encodeURIComponent(organizationId)}/administration/communications-setup?onboarding=1`;
+  return candidate === allowed
+    ? allowed
+    : `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`;
+}
+
 function redirectToAdministration(
   origin,
   organizationId,
   status,
   message = null,
-  purpose = "google_business"
+  purpose = "google_business",
+  authorization = null
 ) {
   const url = new URL(
-    `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
+    safeReturnPath(authorization, organizationId),
     origin
   );
   url.searchParams.set("organizationId", organizationId);
@@ -238,7 +247,8 @@ export async function GET(request) {
           organizationId,
           "connected",
           "Google Ads connected. Discover and map the organization’s accessible Ads accounts before campaign execution.",
-          purpose
+          purpose,
+          authorization
         )
       );
     }
@@ -303,7 +313,8 @@ export async function GET(request) {
         organizationId,
         status,
         message,
-        purpose
+        purpose,
+        authorization
       )
     );
   } catch (error) {
@@ -319,7 +330,8 @@ export async function GET(request) {
         organizationId,
         "error",
         error?.message || "Google connection failed",
-        purpose
+        purpose,
+        authorization
       )
     );
   }

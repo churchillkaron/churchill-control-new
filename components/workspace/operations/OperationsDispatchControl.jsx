@@ -145,7 +145,7 @@ export default function OperationsDispatchControl({ capability }) {
   const periodName = businessContext.period?.name || businessContext.period?.period_name || businessContext.period?.label || "Current period";
   const timeZone = text(businessContext.timezone || businessContext.organization?.timezone) || undefined;
 
-  const [state, setState] = useState({ loading: true, error: "", feeds: {}, feedState: {}, assignees: [] });
+  const [state, setState] = useState({ loading: true, error: "", feeds: {}, feedState: {}, assignees: [], loadedAt: Date.now() });
 
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!organizationId) return;
@@ -177,7 +177,7 @@ export default function OperationsDispatchControl({ capability }) {
 
       const feeds = Object.fromEntries(feedResults.map(([id, rows]) => [id, rows]));
       const feedState = Object.fromEntries(feedResults.map(([id, , available]) => [id, available]));
-      setState({ loading: false, error: "", feeds, feedState, assignees });
+      setState({ loading: false, error: "", feeds, feedState, assignees, loadedAt: Date.now() });
     } catch (error) {
       setState((current) => ({ ...current, loading: false, error: error?.message || "Dispatch state could not be loaded." }));
     }
@@ -190,14 +190,14 @@ export default function OperationsDispatchControl({ capability }) {
     return () => window.removeEventListener("focus", onFocus);
   }, [load]);
 
-  const dispatchRows = state.feeds.dispatch || [];
-  const workOrders = state.feeds["work-orders"] || [];
-  const appointments = state.feeds["appointment-windows"] || [];
-  const conflicts = state.feeds["schedule-conflicts"] || [];
-  const assignments = state.feeds.assignments || [];
-  const routing = state.feeds.routing || [];
+  const dispatchRows = useMemo(() => state.feeds.dispatch || [], [state.feeds.dispatch]);
+  const workOrders = useMemo(() => state.feeds["work-orders"] || [], [state.feeds]);
+  const appointments = useMemo(() => state.feeds["appointment-windows"] || [], [state.feeds]);
+  const conflicts = useMemo(() => state.feeds["schedule-conflicts"] || [], [state.feeds]);
+  const assignments = useMemo(() => state.feeds.assignments || [], [state.feeds.assignments]);
+  const routing = useMemo(() => state.feeds.routing || [], [state.feeds.routing]);
 
-  const now = useMemo(() => new Date(), [state.feeds]);
+  const now = useMemo(() => new Date(state.loadedAt), [state.loadedAt]);
   const todayKey = dateKey(now, timeZone);
 
   const conflictIds = useMemo(() => new Set(conflicts.flatMap((row) => [rowIdentity(row), text(row?.source_id), text(row?.attributes?.work_id), text(row?.attributes?.work_order_id)]).filter(Boolean)), [conflicts]);

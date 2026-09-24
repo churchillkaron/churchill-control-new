@@ -76,12 +76,6 @@ export default function PestControlMonitoringScanner({ organizationId }) {
   const technicianHref = `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/technician`;
   const siteIntelligenceHref = `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/site-intelligence`;
 
-  useEffect(() => {
-    setCameraSupported(Boolean(typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia));
-    setDetectorSupported(Boolean(typeof window !== "undefined" && "BarcodeDetector" in window));
-    return () => stopCamera();
-  }, []);
-
   const stopCamera = useCallback(() => {
     scanningRef.current = false;
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
@@ -95,6 +89,12 @@ export default function PestControlMonitoringScanner({ organizationId }) {
     setTorchSupported(false);
     setTorchOn(false);
   }, []);
+
+  useEffect(() => {
+    setCameraSupported(Boolean(typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia));
+    setDetectorSupported(Boolean(typeof window !== "undefined" && "BarcodeDetector" in window));
+    return () => stopCamera();
+  }, [stopCamera]);
 
   const resolvePoint = useCallback(async (value) => {
     const candidate = text(value);
@@ -257,7 +257,7 @@ export default function PestControlMonitoringScanner({ organizationId }) {
             <form onSubmit={(event) => { event.preventDefault(); resolvePoint(lookup); }} className="mt-4">
               <div className="flex gap-2 rounded-xl border border-black/[0.09] bg-[#FAF9F7] p-2">
                 <div className="flex flex-1 items-center gap-2 px-2"><Barcode size={14} className="text-[#8C8073]" /><input id="monitoring-scan-input" autoFocus autoCapitalize="off" autoCorrect="off" spellCheck={false} value={lookup} onChange={(event) => setLookup(event.target.value)} placeholder="Scan or enter point code / barcode" className="min-w-0 flex-1 bg-transparent py-2 text-[13px] font-medium tracking-[0.02em] text-[#2A2520] outline-none placeholder:text-[#AAA39B]" /></div>
-                <button disabled={resolving || !text(lookup)} className="rounded-lg bg-[#28231E] px-4 text-[9px] font-medium text-white disabled:opacity-40">{resolving ? "Resolving…" : "Resolve"}</button>
+                <button disabled={resolving || !text(lookup)} className="rounded-lg bg-[#28231E] px-4 text-[9px] font-medium text-[#191919] disabled:opacity-40">{resolving ? "Resolving…" : "Resolve"}</button>
               </div>
             </form>
 
@@ -269,7 +269,7 @@ export default function PestControlMonitoringScanner({ organizationId }) {
             <div className="mt-3 overflow-hidden rounded-2xl border border-black/[0.08] bg-[#1E1B18]">
               <div className="relative aspect-[4/3] sm:aspect-video">
                 <video ref={videoRef} playsInline muted className={`h-full w-full object-cover ${cameraState === "scanning" ? "opacity-100" : "opacity-0"}`} />
-                {cameraState !== "scanning" ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center text-[#D8D1C7]"><QrCode size={28} strokeWidth={1.2} /><div className="text-[10px]">Camera scan {detectorSupported ? "available" : "depends on browser support"}</div><div className="max-w-[260px] text-[8px] leading-4 text-[#9E968C]">Manual and Bluetooth/USB scan remains available on every supported device.</div></div> : <><div className="pointer-events-none absolute inset-[18%] rounded-2xl border border-white/60 shadow-[0_0_0_999px_rgba(0,0,0,0.28)]" /><div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-white/70" />{torchSupported ? <button type="button" onClick={toggleTorch} className="absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white" aria-label="Toggle camera light"><Flashlight size={14} /></button> : null}</>}
+                {cameraState !== "scanning" ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center text-[#D8D1C7]"><QrCode size={28} strokeWidth={1.2} /><div className="text-[10px]">Camera scan {detectorSupported ? "available" : "depends on browser support"}</div><div className="max-w-[260px] text-[8px] leading-4 text-[#9E968C]">Manual and Bluetooth/USB scan remains available on every supported device.</div></div> : <><div className="pointer-events-none absolute inset-[18%] rounded-2xl border border-white/60 shadow-[0_0_0_999px_rgba(0,0,0,0.28)]" /><div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-white/70" />{torchSupported ? <button type="button" onClick={toggleTorch} className="absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F6F3]/55 text-[#191919]" aria-label="Toggle camera light"><Flashlight size={14} /></button> : null}</>}
               </div>
             </div>
 
@@ -302,7 +302,7 @@ export default function PestControlMonitoringScanner({ organizationId }) {
                   <label className="text-[8px] font-medium uppercase tracking-[0.08em] text-[#8D857D] sm:col-span-2">Action taken<select value={check.actionTaken} onChange={(event) => setCheck((current) => ({ ...current, actionTaken: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-black/[0.09] bg-white px-3 py-2.5 text-[10px] font-normal normal-case tracking-normal text-[#4B443E]"><option value="inspected">Inspected</option><option value="cleaned">Cleaned</option><option value="rebaited">Rebaited</option><option value="reset">Reset</option><option value="repaired">Repaired</option><option value="replaced">Replaced</option><option value="removed">Removed</option></select></label>
                   <label className="text-[8px] font-medium uppercase tracking-[0.08em] text-[#8D857D] sm:col-span-2">Technician note<textarea rows={3} value={check.notes} onChange={(event) => setCheck((current) => ({ ...current, notes: event.target.value }))} placeholder="Only what matters for the next technician or supervisor" className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.09] px-3 py-2.5 text-[10px] font-normal normal-case tracking-normal outline-none" /></label>
                 </div>
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row"><button disabled={!canCheck || saving} className="flex-1 rounded-xl bg-[#28231E] px-4 py-3 text-[10px] font-medium text-white disabled:opacity-40">{saving ? "Recording governed check…" : "Record check"}</button><button type="button" onClick={nextPoint} className="rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-[9px] text-[#68615A]">Next point</button></div>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row"><button disabled={!canCheck || saving} className="flex-1 rounded-xl bg-[#28231E] px-4 py-3 text-[10px] font-medium text-[#191919] disabled:opacity-40">{saving ? "Recording governed check…" : "Record check"}</button><button type="button" onClick={nextPoint} className="rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-[9px] text-[#68615A]">Next point</button></div>
               </form>
             </div>}
           </div>

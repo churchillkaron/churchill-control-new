@@ -209,7 +209,7 @@ export default function FinanceCashManagementWorkCenter({
     };
   }, [entityId, organizationId, refreshKey]);
 
-  const accounts = Array.isArray(data?.accounts) ? data.accounts : [];
+  const accounts = useMemo(() => (Array.isArray(data?.accounts) ? data.accounts : []), [data?.accounts]);
   const currencies = useMemo(
     () => [...new Set(accounts.map(account => account.currency_code).filter(Boolean))].sort(),
     [accounts]

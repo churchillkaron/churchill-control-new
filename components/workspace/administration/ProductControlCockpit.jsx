@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CONTROL_DIMENSIONS, CONTROL_STATE, completionScore } from "@/components/public/productControlCatalog";
 import { PRODUCT_FAMILIES } from "@/components/public/productCatalog";
 
@@ -26,7 +26,7 @@ export default function ProductControlCockpit({ records, workspaceOrganizationId
   const [grantProductId, setGrantProductId] = useState("workforce");
   const [grantState, setGrantState] = useState({ saving: false, message: "", error: "" });
 
-  async function loadProvisioning() {
+  const loadProvisioning = useCallback(async () => {
     if (!workspaceOrganizationId) return;
     setProvisioning((previous) => ({ ...previous, loading: true, error: "" }));
     try {
@@ -44,9 +44,9 @@ export default function ProductControlCockpit({ records, workspaceOrganizationId
     } catch (error) {
       setProvisioning((previous) => ({ ...previous, loading: false, error: error.message }));
     }
-  }
+  }, [workspaceOrganizationId]);
 
-  useEffect(() => { loadProvisioning(); }, [workspaceOrganizationId]);
+  useEffect(() => { loadProvisioning(); }, [loadProvisioning]);
 
   async function grantProduct() {
     if (!targetOrganizationId || !grantProductId || grantState.saving) return;
@@ -130,7 +130,7 @@ function ProductAssignmentPanel({ records, provisioning, targetOrganizationId, s
       <select value={grantProductId} onChange={(e)=>setGrantProductId(e.target.value)} className="h-11 rounded-xl border border-black/[.09] bg-white px-3 text-[11px]">
         {products.map((item)=><option key={item.id} value={item.id}>{item.name}</option>)}
       </select>
-      <button type="button" onClick={onGrant} disabled={!targetOrganizationId || !grantProductId || grantState.saving || provisioning.loading} className="h-11 rounded-xl bg-[#1D1B18] px-5 text-[9px] font-semibold uppercase tracking-[.12em] text-white disabled:opacity-40">{grantState.saving ? "Provisioning…" : "Enable product"}</button>
+      <button type="button" onClick={onGrant} disabled={!targetOrganizationId || !grantProductId || grantState.saving || provisioning.loading} className="h-11 rounded-xl border border-[#B98A52]/25 bg-[#D6A66A] px-5 text-[9px] font-semibold uppercase tracking-[.12em] text-[#2C2117] hover:bg-[#C99A5E] disabled:opacity-40">{grantState.saving ? "Provisioning…" : "Enable product"}</button>
     </div>
     {grantState.message ? <div className="mt-3 text-[10px] font-medium text-emerald-700">{grantState.message}</div> : null}
     {grantState.error ? <div className="mt-3 text-[10px] font-medium text-red-700">{grantState.error}</div> : null}

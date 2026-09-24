@@ -57,13 +57,13 @@ function Field({ field, value, onChange, lookupOptions = [] }) {
   const common = {
     value: value ?? "",
     onChange: (event) => onChange(field.name, event.target.value),
-    className: "mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-[#D6A66A]/40",
+    className: "mt-2 w-full rounded-2xl border border-black/[0.08] bg-white px-4 py-3 text-sm text-[#191919] outline-none focus:border-[#D6A66A]/40",
     required: Boolean(field.required),
   };
 
   return (
     <label className="block">
-      <span className="text-xs uppercase tracking-[0.16em] text-white/35">
+      <span className="text-xs uppercase tracking-[0.16em] text-[#918B83]">
         {field.label}{field.required ? " *" : ""}
       </span>
 
@@ -412,7 +412,7 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
   }
 
   return (
-    <main className="min-h-screen px-6 py-7 text-white">
+    <main className="min-h-screen px-6 py-7 text-[#191919]">
       <div className="mx-auto max-w-[1540px]">
         <WorkspaceHeader
           workspace="Operations"
@@ -435,14 +435,14 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
               <button
                 type="button"
                 onClick={exportRows}
-                className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/65"
+                className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54]"
               >
                 Export
               </button>
               <button
                 type="button"
                 onClick={load}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/65"
+                className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54]"
               >
                 <RefreshCw size={15} /> Refresh
               </button>
@@ -451,7 +451,7 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
         />
 
         {capability?.boundary ? (
-          <div className="mb-5 rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] p-4 text-sm text-white/60">
+          <div className="mb-5 rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] p-4 text-sm text-[#5F5A54]">
             <span className="font-semibold text-[#D6A66A]">Boundary:</span> {capability.boundary}
           </div>
         ) : null}
@@ -467,21 +467,21 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
         ) : null}
 
         <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-          <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5">
+          <div className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">Records</div>
-                <div className="mt-2 text-sm text-white/40">
+                <div className="mt-2 text-sm text-[#918B83]">
                   {loading ? "Loading…" : `${filteredRows.length} records`}
                 </div>
               </div>
-              <div className="flex w-full items-center rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white/45 md:w-[340px]">
+              <div className="flex w-full items-center rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-[#817A72] md:w-[340px]">
                 <Search size={16} />
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search records…"
-                  className="ml-3 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+                  className="ml-3 w-full bg-transparent text-sm text-[#191919] outline-none placeholder:text-[#A19A92]"
                 />
               </div>
             </div>
@@ -492,36 +492,36 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
                   type="button"
                   key={row.id}
                   onClick={() => setSelectedId(row.id)}
-                  className={`w-full rounded-2xl border p-4 text-left transition ${selected?.id === row.id ? "border-[#D6A66A]/40 bg-[#D6A66A]/10" : "border-white/10 bg-black/20 hover:border-white/20"}`}
+                  className={`w-full rounded-2xl border p-4 text-left transition ${selected?.id === row.id ? "border-[#D6A66A]/40 bg-[#D6A66A]/10" : "border-black/[0.08] bg-[#FBF8F3] hover:border-white/20"}`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="text-sm font-semibold text-white">{recordLabel(row)}</div>
-                      <div className="mt-1 text-xs text-white/35">
+                      <div className="text-sm font-semibold text-[#191919]">{recordLabel(row)}</div>
+                      <div className="mt-1 text-xs text-[#918B83]">
                         {row.description || row.record_type || capability?.recordType}
                       </div>
                     </div>
-                    <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-white/40">
+                    <span className="rounded-full border border-black/[0.08] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-[#918B83]">
                       {row.status || "unknown"}
                     </span>
                   </div>
                 </button>
               ))}
               {!loading && filteredRows.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-sm text-white/40">
+                <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6 text-sm text-[#918B83]">
                   No Operations records in this scope.
                 </div>
               ) : null}
             </div>
           </div>
 
-          <aside className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5">
+          <aside className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5">
             <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">Record detail</div>
             {selected ? (
               <div className="mt-5 space-y-4">
                 <div>
-                  <div className="text-xl font-semibold text-white">{recordLabel(selected)}</div>
-                  <div className="mt-1 text-sm text-white/40">
+                  <div className="text-xl font-semibold text-[#191919]">{recordLabel(selected)}</div>
+                  <div className="mt-1 text-sm text-[#918B83]">
                     {selected.description || "No description"}
                   </div>
                 </div>
@@ -535,17 +535,17 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
                     ["Assignee", selected.attributes?.assignee_name || selected.assigned_to],
                     ["Source", selected.source_domain],
                   ].map(([label, value]) => (
-                    <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                      <dt className="text-[10px] uppercase tracking-[0.16em] text-white/30">{label}</dt>
-                      <dd className="mt-1 break-all text-white/70">{clean(value) || "—"}</dd>
+                    <div key={label} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-3">
+                      <dt className="text-[10px] uppercase tracking-[0.16em] text-[#A19A92]">{label}</dt>
+                      <dd className="mt-1 break-all text-[#5F5A54]">{clean(value) || "—"}</dd>
                     </div>
                   ))}
                 </dl>
 
                 {selected.attributes && Object.keys(selected.attributes).length > 0 ? (
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <div className="text-[10px] uppercase tracking-[0.16em] text-white/30">Operational details</div>
-                    <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs leading-5 text-white/60">
+                  <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+                    <div className="text-[10px] uppercase tracking-[0.16em] text-[#A19A92]">Operational details</div>
+                    <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs leading-5 text-[#5F5A54]">
                       {JSON.stringify(selected.attributes, null, 2)}
                     </pre>
                   </div>
@@ -561,14 +561,14 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
                 />
 
                 {rowCommands.length || canConvertServiceFollowUp ? (
-                  <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
+                  <div className="flex flex-wrap gap-2 border-t border-black/[0.08] pt-4">
                     {rowCommands.map((action) => (
                       <button
                         type="button"
                         key={action.command}
                         disabled={saving}
                         onClick={() => openCommand(action.command)}
-                        className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/65 transition hover:border-[#D6A66A]/35 hover:text-[#D6A66A] disabled:opacity-50"
+                        className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-xs text-[#5F5A54] transition hover:border-[#D6A66A]/35 hover:text-[#D6A66A] disabled:opacity-50"
                       >
                         {action.label || titleCase(action.command)}
                       </button>
@@ -585,31 +585,31 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
                     ) : null}
                   </div>
                 ) : (
-                  <div className="border-t border-white/10 pt-4 text-xs text-white/35">
+                  <div className="border-t border-black/[0.08] pt-4 text-xs text-[#918B83]">
                     No further lifecycle actions are available from this state.
                   </div>
                 )}
               </div>
             ) : (
-              <div className="mt-5 text-sm text-white/40">Select a record to inspect it.</div>
+              <div className="mt-5 text-sm text-[#918B83]">Select a record to inspect it.</div>
             )}
           </aside>
         </section>
       </div>
 
       {createOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-5 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-white/10 bg-[#101010] p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F7F6F3]/75 p-5 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-black/[0.08] bg-[#101010] p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">New record</div>
-                <h2 className="mt-2 text-2xl font-semibold text-white">{capability?.name}</h2>
-                <p className="mt-2 text-sm text-white/40">{capability?.description}</p>
+                <h2 className="mt-2 text-2xl font-semibold text-[#191919]">{capability?.name}</h2>
+                <p className="mt-2 text-sm text-[#918B83]">{capability?.description}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setCreateOpen(false)}
-                className="rounded-xl border border-white/10 p-2 text-white/45"
+                className="rounded-xl border border-black/[0.08] p-2 text-[#817A72]"
                 aria-label="Close create form"
               >
                 <X size={18} />
@@ -638,7 +638,7 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
               <button
                 type="button"
                 onClick={() => setCreateOpen(false)}
-                className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/55"
+                className="rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#746E66]"
               >
                 Cancel
               </button>
@@ -656,21 +656,21 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
       ) : null}
 
       {commandModal && selected ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-5 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] border border-white/10 bg-[#101010] p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F7F6F3]/75 p-5 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] border border-black/[0.08] bg-[#101010] p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">Lifecycle action</div>
-                <h2 className="mt-2 text-2xl font-semibold text-white">{commandModal.title}</h2>
-                <p className="mt-2 text-sm text-white/40">{commandModal.description}</p>
-                <p className="mt-2 text-xs text-white/30">
+                <h2 className="mt-2 text-2xl font-semibold text-[#191919]">{commandModal.title}</h2>
+                <p className="mt-2 text-sm text-[#918B83]">{commandModal.description}</p>
+                <p className="mt-2 text-xs text-[#A19A92]">
                   {recordLabel(selected)} · {selected.status}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setCommandModal(null)}
-                className="rounded-xl border border-white/10 p-2 text-white/45"
+                className="rounded-xl border border-black/[0.08] p-2 text-[#817A72]"
                 aria-label="Close lifecycle action"
               >
                 <X size={18} />
@@ -693,7 +693,7 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
                     }))}
                   />
                   {field.optionsSource === "assignable-users" && assigneesLoading ? (
-                    <div className="mt-2 text-xs text-white/30">Loading eligible users…</div>
+                    <div className="mt-2 text-xs text-[#A19A92]">Loading eligible users…</div>
                   ) : null}
                 </div>
               ))}
@@ -703,7 +703,7 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
               <button
                 type="button"
                 onClick={() => setCommandModal(null)}
-                className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/55"
+                className="rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#746E66]"
               >
                 Cancel
               </button>

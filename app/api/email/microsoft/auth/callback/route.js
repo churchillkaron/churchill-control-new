@@ -24,9 +24,17 @@ function tenant() {
   return String(process.env.MICROSOFT_TENANT_ID || "common").trim();
 }
 
-function destination(origin, organizationId, message) {
+function safeReturnPath(authorization, organizationId) {
+  const candidate = String(authorization?.metadata?.return_path || "").trim();
+  const allowed = `/workspace/${encodeURIComponent(organizationId)}/administration/communications-setup?onboarding=1`;
+  return candidate === allowed
+    ? allowed
+    : `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`;
+}
+
+function destination(origin, organizationId, message, authorization = null) {
   const url = new URL(
-    `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
+    safeReturnPath(authorization, organizationId),
     origin,
   );
   url.searchParams.set("message", message);
@@ -208,6 +216,7 @@ export async function GET(request) {
         warnings.length
           ? "Microsoft mailbox connected. Avantiqo is completing incoming-mail setup automatically."
           : "Microsoft mailbox connected. Incoming mail synchronization has started automatically.",
+        authorization,
       ),
     );
   } catch (error) {
@@ -216,6 +225,7 @@ export async function GET(request) {
         authorization?.return_origin || callbackOrigin(),
         authorization?.organization_id || "unknown",
         error?.message || "Microsoft mailbox connection failed",
+        authorization,
       ),
     );
   }

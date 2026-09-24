@@ -14,9 +14,12 @@ test("planner live narration carries real mission and target context", () => {
   assert.match(planner, /Target: \$\{target\}/);
 });
 
-test("planner polling no longer emits generic job-check filler", () => {
+test("planner polling is concrete, elapsed-time aware, and throttled", () => {
   assert.doesNotMatch(planner, /checking whether the local Code job has finished/);
   assert.doesNotMatch(planner, /checking the local Code job for its first result/);
   assert.doesNotMatch(planner, /local Code job is still running\. I’m checking again/);
-  assert.match(planner, /same local Code job is still running; I’m checking its result without restarting it/);
+  assert.match(planner, /same local Code job is still running; it has not been restarted/);
+  assert.match(planner, /elapsedSeconds/);
+  assert.match(planner, /pollCount === 1 \|\| pollCount % 5 === 0/);
+  assert.match(planner, /progress_throttled: true/);
 });

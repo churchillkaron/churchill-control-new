@@ -143,9 +143,9 @@ export default function FinanceAttachmentsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050505] px-6 py-7 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-7 text-[#191919]">
       <div className="mx-auto max-w-6xl">
-        <div className="flex flex-col gap-5 border-b border-white/10 pb-6 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-5 border-b border-black/[0.08] pb-6 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="text-[11px] uppercase tracking-[0.32em] text-amber-300/70">
               Finance · Attachments
@@ -153,7 +153,7 @@ export default function FinanceAttachmentsPage() {
             <h1 className="mt-3 text-4xl font-light tracking-[-0.05em]">
               {reference}
             </h1>
-            <p className="mt-2 text-sm text-white/45">
+            <p className="mt-2 text-sm text-[#746E66]">
               Add supporting invoices, receipts, approvals, calculations and other evidence.
             </p>
           </div>
@@ -162,7 +162,7 @@ export default function FinanceAttachmentsPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-white/60 hover:bg-white/5"
+              className="rounded-xl border border-black/[0.08] px-4 py-2.5 text-sm text-[#5F5A54] hover:bg-white/5"
             >
               Back
             </button>
@@ -191,8 +191,8 @@ export default function FinanceAttachmentsPage() {
           </div>
         ) : null}
 
-        <section className="mt-6 overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.025]">
-          <div className="grid grid-cols-[minmax(0,1fr)_150px_140px_190px] gap-4 border-b border-white/10 px-5 py-3 text-[11px] uppercase tracking-[0.18em] text-white/35">
+        <section className="mt-6 overflow-hidden rounded-[28px] border border-black/[0.08] bg-[#FBF8F3]">
+          <div className="grid grid-cols-[minmax(0,1fr)_150px_140px_190px] gap-4 border-b border-black/[0.08] px-5 py-3 text-[11px] uppercase tracking-[0.18em] text-[#918B83]">
             <div>File</div>
             <div>Type</div>
             <div>Size</div>
@@ -200,11 +200,11 @@ export default function FinanceAttachmentsPage() {
           </div>
 
           {loading ? (
-            <div className="p-8 text-sm text-white/45">Loading attachments...</div>
+            <div className="p-8 text-sm text-[#746E66]">Loading attachments...</div>
           ) : attachments.length === 0 ? (
             <div className="p-8">
-              <div className="text-lg text-white/75">No attachments yet</div>
-              <div className="mt-2 text-sm text-white/40">
+              <div className="text-lg text-[#4F4A45]">No attachments yet</div>
+              <div className="mt-2 text-sm text-[#817A72]">
                 Use Add Attachment to upload the supporting document for this finance record.
               </div>
             </div>
@@ -216,7 +216,7 @@ export default function FinanceAttachmentsPage() {
                   className="grid grid-cols-1 gap-4 px-5 py-4 md:grid-cols-[minmax(0,1fr)_150px_140px_190px] md:items-center"
                 >
                   <div className="min-w-0">
-                    <div className="truncate text-sm text-white/80">
+                    <div className="truncate text-sm text-[#2F2C28]">
                       {attachment.file_name}
                     </div>
                     <div className="mt-2 flex gap-3 text-xs">
@@ -239,13 +239,13 @@ export default function FinanceAttachmentsPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="text-sm text-white/50">
+                  <div className="text-sm text-[#746E66]">
                     {attachment.mime_type || "Document"}
                   </div>
-                  <div className="text-sm text-white/50">
+                  <div className="text-sm text-[#746E66]">
                     {formatBytes(attachment.file_size)}
                   </div>
-                  <div className="text-sm text-white/50">
+                  <div className="text-sm text-[#746E66]">
                     {formatDate(attachment.created_at)}
                   </div>
                 </div>
@@ -254,7 +254,7 @@ export default function FinanceAttachmentsPage() {
           )}
         </section>
 
-        <div className="mt-4 text-xs text-white/30">
+        <div className="mt-4 text-xs text-[#A19A92]">
           Maximum file size: 20 MB. Allowed: PDF, images, text, CSV, Excel and Word documents.
         </div>
       </div>

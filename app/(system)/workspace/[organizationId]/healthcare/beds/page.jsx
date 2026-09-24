@@ -19,10 +19,10 @@ export default function BedsPage() {
         Beds
       </h1>
 
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+      <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-[#FBF8F3]">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/10">
+            <tr className="border-b border-black/[0.08]">
               <th className="p-4 text-left">
                 Bed Number
               </th>
@@ -51,7 +51,7 @@ export default function BedsPage() {
                 (bed) => (
                   <tr
                     key={bed.id}
-                    className="border-b border-white/5"
+                    className="border-b border-black/[0.06]"
                   >
                     <td className="p-4">
                       {bed.bed_number}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarClock, ExternalLink, RefreshCw, ShieldAlert } from "lucide-react";
 import { getFinanceTaxCalendarOptions, resolveFinanceTaxDeadline } from "@/lib/finance/tax/FinanceTaxCalendarPolicy";
 
@@ -24,7 +24,7 @@ export default function FinanceTaxCalendarRail({ organizationId, entityId, selec
   const [reason, setReason] = useState("");
   const [evidence, setEvidence] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !entityId) return;
     try {
       setState(current => ({ ...current, loading: true, error: "" }));
@@ -46,9 +46,9 @@ export default function FinanceTaxCalendarRail({ organizationId, entityId, selec
     } catch (error) {
       setState({ loading: false, error: error?.message || "Tax calendar could not be loaded", body: null });
     }
-  }
+  }, [entityId, organizationId, selectedVatReturnId]);
 
-  useEffect(() => { load(); }, [organizationId, entityId, selectedVatReturnId]);
+  useEffect(() => { load(); }, [load]);
 
   const row = state.body?.preflight?.return || state.body?.returns?.[0] || null;
   const metadata = row?.metadata?.tax_calendar || null;

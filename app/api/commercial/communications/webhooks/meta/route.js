@@ -98,6 +98,28 @@ function messageType(message = {}) {
   return attachmentType || "message";
 }
 
+function participantProfile(event = {}) {
+  const sender = object(event.sender);
+  const profile = object(sender.profile);
+  const picture = object(sender.picture);
+  const pictureData = object(picture.data);
+  const avatar = text(
+    sender.profile_pic ||
+    sender.profile_picture_url ||
+    sender.picture_url ||
+    sender.avatar_url ||
+    profile.picture_url ||
+    profile.profile_pic ||
+    pictureData.url ||
+    picture.url,
+  );
+  const name = text(sender.name || sender.username || profile.name || profile.username);
+  return {
+    name: name || null,
+    avatar: avatar || null,
+  };
+}
+
 function messageMetadata(event = {}) {
   const message = object(event.message);
   return {
@@ -246,6 +268,7 @@ export async function POST(request) {
           continue;
         }
 
+        const senderProfile = participantProfile(event);
         await ingestInboundCommunication({
           connection,
           providerOverride,
@@ -253,10 +276,12 @@ export async function POST(request) {
           conversationMetadata: {
             meta_object_type: objectType || null,
             meta_account_id: recipientId || entry?.id || null,
+            ...(senderProfile.avatar ? { participant_profile_image_url: senderProfile.avatar } : {}),
           },
           externalMessageId,
           externalThreadId: participantId,
           participantId,
+          participantName: senderProfile.name,
           participantAddress: participantId,
           recipientAddress: recipientId || entry?.id || null,
           messageType: messageType(event.message),
@@ -272,6 +297,7 @@ export async function POST(request) {
       if (event?.postback && participantId) {
         const externalMessageId =
           text(event.postback.mid) || stableEventId("meta_postback", event);
+        const senderProfile = participantProfile(event);
         await ingestInboundCommunication({
           connection,
           providerOverride,
@@ -279,10 +305,12 @@ export async function POST(request) {
           conversationMetadata: {
             meta_object_type: objectType || null,
             meta_account_id: recipientId || entry?.id || null,
+            ...(senderProfile.avatar ? { participant_profile_image_url: senderProfile.avatar } : {}),
           },
           externalMessageId,
           externalThreadId: participantId,
           participantId,
+          participantName: senderProfile.name,
           participantAddress: participantId,
           recipientAddress: recipientId || entry?.id || null,
           messageType: "postback",

@@ -211,3 +211,78 @@ test("guard allows safe TypeScript input widening and return strengthening", () 
   const result = assessCodeAIObservedContractCompatibility({ state, writes: [{ path: "lib/orders.ts", content: "export function save(input: { organization_id: string; note?: string }): { id: string } { return { id: 'x' }; }" }] });
   assert.equal(result.compatible, true);
 });
+test("guard rejects the live benchmark failure shape: self-import plus public-surface erasure", () => {
+  const original = [
+    "// Intentionally broken certification fixture.",
+    "export function sumInvoiceLines(lines) {",
+    "  if (!Array.isArray(lines)) return 0;",
+    "  return lines.reduce((sum, line) => sum + (line?.total || 0), 0);",
+    "}",
+  ].join("\n");
+  const state = {
+    source_read_evidence: [
+      read("invoice-total.mjs", original),
+    ],
+  };
+  const result = assessCodeAIObservedContractCompatibility({
+    state,
+    writes: [{
+      path: "invoice-total.mjs",
+      content: "import { sumInvoiceLines } from './invoice-total.mjs'",
+    }],
+  });
+  assert.equal(result.compatible, false);
+  assert.ok(result.violations.some((item) => item.kind === "SOURCE_SELF_IMPORT_INTRODUCED"));
+  assert.ok(result.violations.some((item) =>
+    item.kind === "OBSERVED_PUBLIC_SURFACE_ERASED" &&
+    item.removed_symbols.includes("sumInvoiceLines")
+  ));
+});
+
+test("guard does not flag a scoped implementation repair that preserves the observed export", () => {
+  const state = {
+    source_read_evidence: [
+      read("invoice-total.mjs", "export function sumInvoiceLines(lines){ if(!Array.isArray(lines)) return 0; return lines.reduce((sum,line)=>sum+(line?.total||0),0); }"),
+    ],
+  };
+  const result = assessCodeAIObservedContractCompatibility({
+    state,
+    writes: [{
+      path: "invoice-total.mjs",
+      content: "export function sumInvoiceLines(lines){ if(!Array.isArray(lines)) return 0; return lines.reduce((sum,line)=>{ const value=Number(line?.total); return Number.isFinite(value)?sum+value:sum; },0); }",
+    }],
+  });
+  assert.equal(result.compatible, true);
+  assert.ok(!result.violations.some((item) => item.kind === "SOURCE_SELF_IMPORT_INTRODUCED"));
+  assert.ok(!result.violations.some((item) => item.kind === "OBSERVED_PUBLIC_SURFACE_ERASED"));
+});
+test("repair missions preserve observed exported symbols even before a caller is observed", () => {
+  const state = {
+    objective: "Repair the parser bug without changing its public API.",
+    source_read_evidence: [
+      read("lib/parser.js", "export function parse(){ return 1; } export function format(){ return 'x'; }"),
+    ],
+  };
+  const result = assessCodeAIObservedContractCompatibility({
+    state,
+    writes: [{ path: "lib/parser.js", content: "export function parse(){ return 2; }" }],
+  });
+  assert.equal(result.compatible, false);
+  assert.ok(result.violations.some((item) =>
+    item.kind === "REPAIR_EXPORTED_SYMBOL_REMOVED" && item.symbol === "format"
+  ));
+});
+
+test("non-repair API changes are not blocked solely by the repair-preservation rule", () => {
+  const state = {
+    objective: "Refactor the module API and remove the obsolete format export.",
+    source_read_evidence: [
+      read("lib/parser.js", "export function parse(){ return 1; } export function format(){ return 'x'; }"),
+    ],
+  };
+  const result = assessCodeAIObservedContractCompatibility({
+    state,
+    writes: [{ path: "lib/parser.js", content: "export function parse(){ return 2; }" }],
+  });
+  assert.ok(!result.violations.some((item) => item.kind === "REPAIR_EXPORTED_SYMBOL_REMOVED"));
+});

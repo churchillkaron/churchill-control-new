@@ -66,8 +66,8 @@ export default function FinanceForecastExceptionOversightEngine({
   }, [load]);
 
   const summary = report?.summary || {};
-  const queues = report?.queues || {};
   const rows = useMemo(() => {
+    const queues = report?.queues || {};
     if (view === "critical_escalations") return queues.critical_escalations || [];
     if (view === "escalated") return queues.escalated || [];
     if (view === "attention") return queues.attention || [];
@@ -76,7 +76,7 @@ export default function FinanceForecastExceptionOversightEngine({
     if (view === "aging") return queues.unresolved_aging || [];
     if (view === "without_due") return queues.without_due_date || [];
     return queues.overdue || [];
-  }, [queues, view]);
+  }, [report, view]);
 
   function previewReport() {
     if (!report?.document) return;
@@ -104,17 +104,17 @@ export default function FinanceForecastExceptionOversightEngine({
   ];
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 px-5 backdrop-blur-xl">
-      <div className="max-h-[92vh] w-full max-w-7xl overflow-y-auto rounded-[30px] border border-white/[0.08] bg-[#0b0b0b]/95 p-7 shadow-2xl shadow-black/80">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[#191919]/20 px-5 backdrop-blur-xl">
+      <div className="max-h-[92vh] w-full max-w-7xl overflow-y-auto rounded-[30px] border border-black/[0.08] bg-white p-7 shadow-2xl shadow-black/10">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
             <div className="text-[11px] uppercase tracking-[0.30em] text-amber-300/65">
               Finance Forecasting
             </div>
-            <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-white">
+            <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-[#191919]">
               Exception Oversight
             </h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45">
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-[#191919]/45">
               Objective escalation control for governed forecast exceptions using ownership, lifecycle, and due-date facts only.
             </p>
           </div>
@@ -123,20 +123,20 @@ export default function FinanceForecastExceptionOversightEngine({
             <button
               onClick={load}
               disabled={busy}
-              className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-white/65 disabled:opacity-50"
+              className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#191919]/65 disabled:opacity-50"
             >
               Refresh
             </button>
             <button
               onClick={previewReport}
               disabled={!report?.document}
-              className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-white/65 disabled:opacity-40"
+              className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#191919]/65 disabled:opacity-40"
             >
               Executive Report
             </button>
             <button
               onClick={onClose}
-              className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-white/60"
+              className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#191919]/60"
             >
               Close
             </button>
@@ -150,7 +150,7 @@ export default function FinanceForecastExceptionOversightEngine({
         ) : null}
 
         {busy && !report ? (
-          <div className="mt-7 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-6 text-sm text-white/45">
+          <div className="mt-7 rounded-2xl border border-black/[0.08] bg-white p-6 text-sm text-[#191919]/45">
             Loading forecast oversight...
           </div>
         ) : null}
@@ -159,41 +159,41 @@ export default function FinanceForecastExceptionOversightEngine({
           <>
             <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
               {cards.map(([label, value]) => (
-                <div key={label} className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
-                  <div className="text-2xl text-white">{value}</div>
-                  <div className="mt-2 text-xs uppercase tracking-[0.14em] text-white/35">{label}</div>
+                <div key={label} className="rounded-2xl border border-black/[0.08] bg-white p-5">
+                  <div className="text-2xl text-[#191919]">{value}</div>
+                  <div className="mt-2 text-xs uppercase tracking-[0.14em] text-[#191919]/35">{label}</div>
                 </div>
               ))}
             </div>
 
             <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_2fr]">
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
-                <div className="text-xs uppercase tracking-[0.16em] text-white/35">Control Health</div>
-                <div className="mt-4 space-y-3 text-sm text-white/55">
-                  <div className="flex justify-between gap-4"><span>Open unacknowledged</span><span className="text-white">{summary.open_unacknowledged || 0}</span></div>
-                  <div className="flex justify-between gap-4"><span>Acknowledged unresolved</span><span className="text-white">{summary.acknowledged_unresolved || 0}</span></div>
-                  <div className="flex justify-between gap-4"><span>Without due date</span><span className="text-white">{summary.without_due_date_unresolved || 0}</span></div>
-                  <div className="flex justify-between gap-4"><span>Not yet governed</span><span className="text-white">{summary.not_yet_governed || 0}</span></div>
-                  <div className="flex justify-between gap-4"><span>Average governed age</span><span className="text-white">{summary.average_governed_age_days === null ? "—" : `${summary.average_governed_age_days} days`}</span></div>
-                  <div className="flex justify-between gap-4"><span>Oldest governed age</span><span className="text-white">{summary.oldest_governed_age_days === null ? "—" : `${summary.oldest_governed_age_days} days`}</span></div>
-                  <div className="flex justify-between gap-4"><span>Average resolution time</span><span className="text-white">{summary.average_resolution_days === null ? "—" : `${summary.average_resolution_days} days`}</span></div>
-                  <div className="flex justify-between gap-4"><span>Resolved but source still active</span><span className="text-white">{summary.resolved_active_conditions || 0}</span></div>
+              <div className="rounded-2xl border border-black/[0.08] bg-white p-5">
+                <div className="text-xs uppercase tracking-[0.16em] text-[#191919]/35">Control Health</div>
+                <div className="mt-4 space-y-3 text-sm text-[#191919]/55">
+                  <div className="flex justify-between gap-4"><span>Open unacknowledged</span><span className="text-[#191919]">{summary.open_unacknowledged || 0}</span></div>
+                  <div className="flex justify-between gap-4"><span>Acknowledged unresolved</span><span className="text-[#191919]">{summary.acknowledged_unresolved || 0}</span></div>
+                  <div className="flex justify-between gap-4"><span>Without due date</span><span className="text-[#191919]">{summary.without_due_date_unresolved || 0}</span></div>
+                  <div className="flex justify-between gap-4"><span>Not yet governed</span><span className="text-[#191919]">{summary.not_yet_governed || 0}</span></div>
+                  <div className="flex justify-between gap-4"><span>Average governed age</span><span className="text-[#191919]">{summary.average_governed_age_days === null ? "—" : `${summary.average_governed_age_days} days`}</span></div>
+                  <div className="flex justify-between gap-4"><span>Oldest governed age</span><span className="text-[#191919]">{summary.oldest_governed_age_days === null ? "—" : `${summary.oldest_governed_age_days} days`}</span></div>
+                  <div className="flex justify-between gap-4"><span>Average resolution time</span><span className="text-[#191919]">{summary.average_resolution_days === null ? "—" : `${summary.average_resolution_days} days`}</span></div>
+                  <div className="flex justify-between gap-4"><span>Resolved but source still active</span><span className="text-[#191919]">{summary.resolved_active_conditions || 0}</span></div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
-                <div className="text-xs uppercase tracking-[0.16em] text-white/35">Owner Workload</div>
+              <div className="rounded-2xl border border-black/[0.08] bg-white p-5">
+                <div className="text-xs uppercase tracking-[0.16em] text-[#191919]/35">Owner Workload</div>
                 <div className="mt-4 space-y-2">
                   {!report.owner_workload?.length ? (
-                    <div className="text-sm text-white/40">No assigned unresolved forecast exceptions.</div>
+                    <div className="text-sm text-[#191919]/40">No assigned unresolved forecast exceptions.</div>
                   ) : null}
                   {(report.owner_workload || []).map(owner => (
-                    <div key={owner.assigned_to} className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                    <div key={owner.assigned_to} className="rounded-xl border border-black/[0.06] bg-[#FBF8F3] p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="text-sm text-white/75">{owner.assigned_to_name}</div>
-                        <div className="text-xs text-white/35">{owner.unresolved} unresolved</div>
+                        <div className="text-sm text-[#191919]/75">{owner.assigned_to_name}</div>
+                        <div className="text-xs text-[#191919]/35">{owner.unresolved} unresolved</div>
                       </div>
-                      <div className="mt-2 text-xs text-white/40">
+                      <div className="mt-2 text-xs text-[#191919]/40">
                         {owner.escalated || 0} escalated · {owner.overdue} overdue · {owner.critical} critical source exceptions · oldest {valueOrDash(owner.oldest_age_days)} day(s)
                       </div>
                     </div>
@@ -219,7 +219,7 @@ export default function FinanceForecastExceptionOversightEngine({
                   className={`rounded-xl border px-4 py-2 text-sm ${
                     view === key
                       ? "border-amber-300/35 bg-amber-300/10 text-amber-100"
-                      : "border-white/[0.08] bg-white/[0.025] text-white/45"
+                      : "border-black/[0.08] bg-white text-[#191919]/45"
                   }`}
                 >
                   {label}
@@ -229,22 +229,22 @@ export default function FinanceForecastExceptionOversightEngine({
 
             <div className="mt-5 space-y-3">
               {!rows.length ? (
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-6 text-sm text-white/45">
+                <div className="rounded-2xl border border-black/[0.08] bg-white p-6 text-sm text-[#191919]/45">
                   No forecast exceptions in this oversight queue.
                 </div>
               ) : null}
 
               {rows.map(item => (
-                <div key={item.occurrence_key} className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
+                <div key={item.occurrence_key} className="rounded-2xl border border-black/[0.08] bg-white p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-[#191919]/35">
                         {escalationLabel(item)} · {item.severity} · {item.status} · {String(item.exception_type || "").replaceAll("_", " ")}
                       </div>
-                      <div className="mt-2 text-lg text-white">{item.entity_name}</div>
-                      <div className="mt-1 text-sm text-white/70">{item.title}</div>
+                      <div className="mt-2 text-lg text-[#191919]">{item.entity_name}</div>
+                      <div className="mt-1 text-sm text-[#191919]/70">{item.title}</div>
                     </div>
-                    <div className="text-right text-xs text-white/40">
+                    <div className="text-right text-xs text-[#191919]/40">
                       <div>{ageLabel(item)}</div>
                       <div className={item.overdue ? "mt-1 text-red-300" : "mt-1"}>
                         {item.overdue
@@ -256,25 +256,25 @@ export default function FinanceForecastExceptionOversightEngine({
                     </div>
                   </div>
 
-                  <p className="mt-4 text-sm leading-6 text-white/50">{item.detail}</p>
+                  <p className="mt-4 text-sm leading-6 text-[#191919]/50">{item.detail}</p>
 
                   <div className="mt-4 grid gap-3 md:grid-cols-4">
-                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3 text-xs text-white/40">
-                      Owner: <span className="text-white/65">{item.assigned_to_name || "Unassigned"}</span>
+                    <div className="rounded-xl border border-black/[0.06] bg-[#FBF8F3] p-3 text-xs text-[#191919]/40">
+                      Owner: <span className="text-[#191919]/65">{item.assigned_to_name || "Unassigned"}</span>
                     </div>
-                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3 text-xs text-white/40">
-                      Escalation: <span className="text-white/65">{escalationLabel(item)}</span>
+                    <div className="rounded-xl border border-black/[0.06] bg-[#FBF8F3] p-3 text-xs text-[#191919]/40">
+                      Escalation: <span className="text-[#191919]/65">{escalationLabel(item)}</span>
                     </div>
-                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3 text-xs text-white/40">
-                      Reason: <span className="text-white/65">{item.escalation_reason ? String(item.escalation_reason).replaceAll("_", " ") : "None"}</span>
+                    <div className="rounded-xl border border-black/[0.06] bg-[#FBF8F3] p-3 text-xs text-[#191919]/40">
+                      Reason: <span className="text-[#191919]/65">{item.escalation_reason ? String(item.escalation_reason).replaceAll("_", " ") : "None"}</span>
                     </div>
-                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3 text-xs text-white/40">
-                      Due: <span className="text-white/65">{item.due_date || "Not set"}</span>
+                    <div className="rounded-xl border border-black/[0.06] bg-[#FBF8F3] p-3 text-xs text-[#191919]/40">
+                      Due: <span className="text-[#191919]/65">{item.due_date || "Not set"}</span>
                     </div>
                   </div>
 
                   {item.escalation_changed_at ? (
-                    <div className="mt-3 text-[11px] text-white/30">
+                    <div className="mt-3 text-[11px] text-[#191919]/30">
                       Escalation state changed {new Date(item.escalation_changed_at).toLocaleString()} · revision {item.escalation_revision || 0}
                     </div>
                   ) : null}

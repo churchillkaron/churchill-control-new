@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -502,18 +502,18 @@ export default function FinanceAccountantRecordsWorkCenter({
     setRefreshKey((value) => value + 1);
   }
 
-  function openCreate() {
+  const openCreate = useCallback(() => {
     if (!create || !contextReady) return;
     setSubmissionKey(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
     setForm({});
     createEngine.show();
-  }
+  }, [contextReady, create, createEngine]);
 
   useEffect(() => {
     if (!createRequested || createRequestHandled.current || !create || !contextReady) return;
     createRequestHandled.current = true;
     openCreate();
-  }, [createRequested, create, contextReady]);
+  }, [contextReady, create, createRequested, openCreate]);
 
   async function saveCreate() {
     if (!create) return;
@@ -755,7 +755,7 @@ export default function FinanceAccountantRecordsWorkCenter({
                   onClick={openCreate}
                   disabled={!contextReady}
                   title={!contextReady ? "Preparing company accounting context…" : undefined}
-                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3.5 text-[11px] font-semibold text-white transition hover:bg-black disabled:cursor-wait disabled:opacity-45"
+                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3.5 text-[11px] font-semibold text-[#191919] transition hover:bg-[#F7F6F3] disabled:cursor-wait disabled:opacity-45"
                 >
                   <Plus size={13} /> {create.label || `New ${capability?.document || "record"}`}
                 </button>
@@ -850,7 +850,7 @@ export default function FinanceAccountantRecordsWorkCenter({
                                 );
                               })}
                               <td className="relative px-2 py-2.5 text-right">
-                                {rowMenu.length ? <button type="button" onClick={(event) => { event.stopPropagation(); setMenuId(menuId === rowKey ? null : rowKey); }} className="rounded-md p-1.5 text-[#8D877E] opacity-60 transition hover:bg-black/[0.05] hover:text-[#3F3B35] group-hover:opacity-100" aria-label="Record actions"><MoreHorizontal size={14} /></button> : null}
+                                {rowMenu.length ? <button type="button" onClick={(event) => { event.stopPropagation(); setMenuId(menuId === rowKey ? null : rowKey); }} className="rounded-md p-1.5 text-[#8D877E] opacity-60 transition hover:bg-[#F7F6F3]/[0.05] hover:text-[#3F3B35] group-hover:opacity-100" aria-label="Record actions"><MoreHorizontal size={14} /></button> : null}
                                 {menuId === rowKey ? (
                                   <div className="absolute right-2 top-9 z-30 w-64 rounded-xl border border-black/[0.1] bg-white p-2 text-left shadow-[0_18px_50px_rgba(31,27,20,0.16)]">
                                     <MasterActionMenu surface="light" actions={rowMenu} row={row} organizationId={organizationId} entityId={row?.entity_id || entityId} periodId={row?.period_id || periodId} workspaceId="finance" moduleKey={capability?.id} onSelect={() => setSelectedId(row.id || null)} onCreate={openCreate} onAction={({ action, row: actionRow }) => runAction(action, actionRow || row)} onClose={() => setMenuId(null)} onRefresh={refresh} />
@@ -885,7 +885,7 @@ export default function FinanceAccountantRecordsWorkCenter({
       </div>
 
       {portalPaymentSetup ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/35 p-4">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#F7F6F3]/35 p-4">
           <div className="w-full max-w-xl rounded-2xl border border-black/[0.1] bg-white p-5 shadow-[0_24px_80px_rgba(31,27,20,0.25)]">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -947,7 +947,7 @@ export default function FinanceAccountantRecordsWorkCenter({
                   Number(portalPaymentSetup?.outstanding_amount || 0) <= 0 ||
                   String(portalPaymentSetup?.payment_request?.status || "").toUpperCase() === "PAID"
                 }
-                className="rounded-xl bg-[#1F1E1B] px-4 py-2.5 text-[10px] font-semibold text-white disabled:opacity-40"
+                className="rounded-xl bg-[#1F1E1B] px-4 py-2.5 text-[10px] font-semibold text-[#191919] disabled:opacity-40"
               >
                 {portalPaymentBusy ? "Issuing…" : portalPaymentSetup?.payment_request ? "Reissue payment request" : "Issue payment request"}
               </button>

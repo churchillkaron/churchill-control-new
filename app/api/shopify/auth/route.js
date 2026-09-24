@@ -31,10 +31,13 @@ export async function GET(request) {
       return NextResponse.json({ success: false, error: access.error || "Organization access denied" }, { status: access.status || 403 });
     }
 
+    const onboardingReturnPath = url.searchParams.get("onboarding") === "1"
+      ? `/workspace/${encodeURIComponent(access.organizationId)}/administration/communications-setup?onboarding=1`
+      : null;
     const shop = normalizeShop(url.searchParams.get("shop"));
     if (!shop) {
       return NextResponse.redirect(
-        new URL(`/workspace/${encodeURIComponent(access.organizationId)}/administration/integrations/shopify-connect`, url.origin),
+        new URL(`/workspace/${encodeURIComponent(access.organizationId)}/administration/integrations/shopify-connect${onboardingReturnPath ? "?onboarding=1" : ""}`, url.origin),
       );
     }
     if (!clientId() || !clientSecret()) {
@@ -47,7 +50,7 @@ export async function GET(request) {
       organizationId: access.organizationId,
       partyId: access.staff?.party_id || null,
       returnOrigin: url.origin,
-      metadata: { shop },
+      metadata: { shop, ...(onboardingReturnPath ? { return_path: onboardingReturnPath } : {}) },
     });
 
     const redirectUri = `${url.origin}/api/shopify/auth/callback`;

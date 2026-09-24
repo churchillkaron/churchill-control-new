@@ -70,12 +70,16 @@ const productEngineering = await readFile(
 const CERTIFICATION = "AVANTIQO_CODE_QWEN38_PRIVATE12_CERT_V17";
 const RUNTIME = "AVANTIQO_CODE_QWEN38_CANARY_RUNTIME_V10";
 
-test("registered Avantiqo Code provider exposes the certified V17 runtime identity", () => {
+test("registered Avantiqo Code provider separates legacy foundation certification from the live local runtime", () => {
   assert.match(provider, new RegExp(CERTIFICATION));
   assert.match(provider, new RegExp(RUNTIME));
-  assert.match(provider, /certification_status:\s*"PASS"/);
+  assert.match(provider, /DEFAULT_LOCAL_RUNTIME_MODEL = "qwen3:1\.7b"/);
+  assert.match(provider, /local_runtime_model:\s*localRuntimeModel/);
+  assert.match(provider, /certification_status:\s*"FOUNDATION_REFERENCE_ONLY"/);
+  assert.match(provider, /foundation_certification_status:\s*"PASS"/);
+  assert.match(provider, /certification_applies_to_local_runtime:\s*false/);
+  assert.match(provider, /local_runtime_validation_scope:\s*"SEPARATE_RUNTIME_EVIDENCE_REQUIRED"/);
   assert.match(provider, /certified_repository_agent:\s*"repo_agent_v15"/);
-  assert.match(provider, /method:\s*"mtp"/);
   assert.match(provider, /external_provider_fallback_allowed:\s*false/);
 });
 

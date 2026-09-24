@@ -121,22 +121,22 @@ export default function ImportEngine({
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-5 backdrop-blur-xl">
-          <div className="w-full max-w-2xl rounded-[28px] border border-white/[0.1] bg-[#090909] p-6 text-white shadow-2xl shadow-black/80">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#F7F6F3]/70 px-5 backdrop-blur-xl">
+          <div className="w-full max-w-2xl rounded-[28px] border border-black/[0.08] bg-white p-6 text-[#191919] shadow-2xl shadow-black/10">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.3em] text-amber-300/65">Workspace Import</div>
                 <h2 className="mt-3 text-[30px] font-light tracking-[-0.05em]">
                   Import {moduleKey || "records"}
                 </h2>
-                <p className="mt-2 text-[13px] leading-6 text-white/45">
+                <p className="mt-2 text-[13px] leading-6 text-[#746E66]">
                   Import only through sources implemented by this workspace capability.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-[12px] text-white/55"
+                className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-[12px] text-[#5F5A54]"
               >
                 Close
               </button>
@@ -152,7 +152,7 @@ export default function ImportEngine({
                     className={`rounded-xl border px-4 py-2 text-[12px] ${
                       activeMode === item
                         ? "border-amber-300/35 bg-amber-300/[0.1] text-amber-200"
-                        : "border-white/[0.08] bg-white/[0.03] text-white/45"
+                        : "border-black/[0.08] bg-[#FBF8F3] text-[#746E66]"
                     }`}
                   >
                     {SOURCE_LABELS[item]}
@@ -162,7 +162,7 @@ export default function ImportEngine({
             ) : null}
 
             {activeMode === "file" ? (
-              <div className="mt-5 rounded-3xl border border-dashed border-white/[0.14] bg-white/[0.025] p-10 text-center">
+              <div className="mt-5 rounded-3xl border border-dashed border-black/[0.10] bg-[#FBF8F3] p-10 text-center">
                 <input
                   ref={inputRef}
                   hidden
@@ -173,8 +173,8 @@ export default function ImportEngine({
                     event.target.value = "";
                   }}
                 />
-                <div className="text-[15px] text-white/70">Choose an import file</div>
-                <div className="mt-2 text-[12px] text-white/35">
+                <div className="text-[15px] text-[#5F5A54]">Choose an import file</div>
+                <div className="mt-2 text-[12px] text-[#918B83]">
                   {formatOptions.map(item => item.label).join(", ")}
                 </div>
                 <button
@@ -189,12 +189,12 @@ export default function ImportEngine({
             ) : null}
 
             {activeMode === "paste" ? (
-              <div className="mt-5 rounded-3xl border border-white/[0.08] bg-white/[0.025] p-5">
+              <div className="mt-5 rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-5">
                 <textarea
                   value={text}
                   onChange={event => setText(event.target.value)}
                   placeholder="Paste structured data..."
-                  className="min-h-48 w-full rounded-2xl border border-white/[0.08] bg-black/35 p-4 text-[13px] text-white outline-none placeholder:text-white/25"
+                  className="min-h-48 w-full rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/35 p-4 text-[13px] text-[#191919] outline-none placeholder:text-[#A9A39C]"
                 />
                 <button
                   type="button"
@@ -208,12 +208,12 @@ export default function ImportEngine({
             ) : null}
 
             {activeMode === "url" ? (
-              <div className="mt-5 rounded-3xl border border-white/[0.08] bg-white/[0.025] p-5">
+              <div className="mt-5 rounded-3xl border border-black/[0.08] bg-[#FBF8F3] p-5">
                 <input
                   value={importUrl}
                   onChange={event => setImportUrl(event.target.value)}
                   placeholder="https://example.com/file.csv"
-                  className="h-11 w-full rounded-2xl border border-white/[0.08] bg-black/35 px-4 text-[13px] text-white outline-none placeholder:text-white/25"
+                  className="h-11 w-full rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/35 px-4 text-[13px] text-[#191919] outline-none placeholder:text-[#A9A39C]"
                 />
                 <button
                   type="button"

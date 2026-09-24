@@ -265,7 +265,7 @@ export default function POSInlineCheckout({
     return () => {
       cancelled = true;
     };
-  }, [organizationId, applicationId, preferredContextReference]);
+  }, [load]);
 
   const realtimeStatus = usePOSRealtime({
     organizationId,
@@ -458,7 +458,7 @@ export default function POSInlineCheckout({
 
   if (loading) {
     return (
-      <div className="flex min-h-[360px] items-center justify-center rounded-[26px] border border-white/10 bg-[#090909] text-sm text-white/45">
+      <div className="flex min-h-[360px] items-center justify-center rounded-[26px] border border-black/[0.08] bg-white text-sm text-[#746E66]">
         <LoaderCircle size={18} className="mr-2 animate-spin text-[#D6A66A]" />
         Loading checkout...
       </div>
@@ -469,7 +469,7 @@ export default function POSInlineCheckout({
 
   return (
     <section
-      className={`rounded-[26px] border border-white/10 bg-[#090909] text-white ${compact ? "p-4" : "p-5"}`}
+      className={`rounded-[26px] border border-black/[0.08] bg-white text-[#191919] ${compact ? "p-4" : "p-5"}`}
       data-pos-inline-checkout="true"
       data-stationary-payment-rail="true"
     >
@@ -477,14 +477,14 @@ export default function POSInlineCheckout({
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">Checkout</div>
           <div className="mt-1 text-lg font-semibold">Settle on this screen</div>
-          <div className="mt-1 text-[11px] text-white/40">
+          <div className="mt-1 text-[11px] text-[#817A72]">
             {realtimeStatus === "live" ? "Live check" : "Live sync with fallback refresh"}
           </div>
         </div>
         <button
           type="button"
           onClick={() => load({ preserveSelection: true })}
-          className="rounded-xl border border-white/10 p-2 text-white/45 transition hover:text-white"
+          className="rounded-xl border border-black/[0.08] p-2 text-[#746E66] transition hover:text-[#191919]"
           aria-label="Refresh checkout"
         >
           <RefreshCw size={15} />
@@ -506,18 +506,18 @@ export default function POSInlineCheckout({
                   key={contextKey(entry.context)}
                   type="button"
                   onClick={() => chooseContext(entry.context)}
-                  className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-left transition hover:border-[#D6A66A]/40"
+                  className="flex w-full items-center justify-between rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-left transition hover:border-[#D6A66A]/40"
                 >
                   <div>
                     <div className="text-sm font-semibold">{entry.context?.label || entry.context?.reference || contextLabel}</div>
-                    <div className="mt-1 text-[11px] text-white/40">{entry.order_count || 0} order(s)</div>
+                    <div className="mt-1 text-[11px] text-[#817A72]">{entry.order_count || 0} order(s)</div>
                   </div>
                   <div className="text-sm font-semibold text-[#E9CF9A]">{money(entry.remaining_balance, currencyCode)}</div>
                 </button>
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-white/35">
+            <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-8 text-center text-sm text-[#918B83]">
               No unpaid checks.
             </div>
           )}
@@ -531,7 +531,7 @@ export default function POSInlineCheckout({
                 const entry = contexts.find(({ context }) => contextKey(context) === event.target.value);
                 if (entry) chooseContext(entry.context);
               }}
-              className="w-full rounded-xl border border-white/10 bg-black px-3 py-2.5 text-sm"
+              className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-sm"
             >
               {contexts.map((entry) => (
                 <option key={contextKey(entry.context)} value={contextKey(entry.context)}>
@@ -541,13 +541,13 @@ export default function POSInlineCheckout({
             </select>
           ) : null}
 
-          <div className="mt-3 flex items-end justify-between gap-3 rounded-2xl border border-white/10 bg-black/30 p-4">
+          <div className="mt-3 flex items-end justify-between gap-3 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">{contextLabel}</div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-[#918B83]">{contextLabel}</div>
               <div className="mt-1 text-xl font-semibold">{activeContext?.label || activeContext?.reference || "Open check"}</div>
             </div>
             <div className="text-right">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Remaining</div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-[#918B83]">Remaining</div>
               <div className="mt-1 text-2xl font-semibold">{money(remainingBalance, currencyCode)}</div>
             </div>
           </div>
@@ -570,15 +570,15 @@ export default function POSInlineCheckout({
                   type="button"
                   disabled={paid || actionLoading || !rules.itemSelectionAllowed || mixedMode}
                   onClick={() => toggleItem(item)}
-                  className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left ${paid ? "border-emerald-400/10 bg-emerald-400/[0.04] opacity-55" : selected ? "border-[#D6A66A]/50 bg-[#D6A66A]/10" : "border-white/10 bg-white/[0.025]"}`}
+                  className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left ${paid ? "border-emerald-400/10 bg-emerald-400/[0.04] opacity-55" : selected ? "border-[#D6A66A]/50 bg-[#D6A66A]/10" : "border-black/[0.08] bg-white"}`}
                 >
                   <div className="min-w-0">
                     <div className="truncate text-xs font-medium">{item.item_name || item.name || "Item"}</div>
-                    <div className="mt-0.5 text-[10px] text-white/35">
+                    <div className="mt-0.5 text-[10px] text-[#918B83]">
                       {paid ? "Paid" : `${seat ? `Seat ${seat} · ` : ""}${Number(item.quantity || 1)} × item`}
                     </div>
                   </div>
-                  <div className="ml-3 text-xs text-white/60">{paid ? "Paid" : money(itemAmount(item), currencyCode)}</div>
+                  <div className="ml-3 text-xs text-[#5F5A54]">{paid ? "Paid" : money(itemAmount(item), currencyCode)}</div>
                 </button>
               );
             })}
@@ -598,11 +598,11 @@ export default function POSInlineCheckout({
                 onClick={mixedMode ? exitMixedMode : enterMixedMode}
                 className={mixedMode
                   ? "rounded-xl border border-[#D6A66A]/45 bg-[#D6A66A]/10 px-3 py-2.5 text-xs font-semibold text-[#E9CF9A]"
-                  : "rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2.5 text-xs font-semibold text-white/60"}
+                  : "rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-xs font-semibold text-[#5F5A54]"}
               >
                 <span className="inline-flex items-center gap-2"><Split size={14} /> Split tender</span>
               </button>
-              <div className="rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-[10px] leading-4 text-white/40">
+              <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2.5 text-[10px] leading-4 text-[#817A72]">
                 {mixedMode ? "Take one real tender at a time until remaining reaches zero." : "Use cash + card/QR/transfer on one check."}
               </div>
             </div>
@@ -622,7 +622,7 @@ export default function POSInlineCheckout({
                   }}
                   className={active
                     ? "rounded-xl border border-[#D6A66A]/50 bg-[#D6A66A]/12 px-2 py-2.5 text-[#E9CF9A]"
-                    : "rounded-xl border border-white/10 bg-white/[0.025] px-2 py-2.5 text-white/45"}
+                    : "rounded-xl border border-black/[0.08] bg-white px-2 py-2.5 text-[#746E66]"}
                 >
                   <Icon size={15} className="mx-auto" />
                   <div className="mt-1 text-[9px]">{option.label}</div>
@@ -645,7 +645,7 @@ export default function POSInlineCheckout({
                     }}
                     className={splitCount === count && !selectedItems.length
                       ? "flex-1 rounded-lg bg-white px-2 py-2 text-[10px] font-semibold text-black"
-                      : "flex-1 rounded-lg border border-white/10 px-2 py-2 text-[10px] text-white/45"}
+                      : "flex-1 rounded-lg border border-black/[0.08] px-2 py-2 text-[10px] text-[#746E66]"}
                   >
                     {count === 1 ? "Full" : `Split ${count}`}
                   </button>
@@ -654,9 +654,9 @@ export default function POSInlineCheckout({
             </div>
           ) : null}
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-3">
+          <div className="mt-4 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-3">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-[#918B83]">
                 {mixedMode ? `This ${paymentLabel(paymentMethod)} tender` : selectedItems.length ? "Selected items" : splitCount > 1 ? `1 of ${splitCount}` : "Payment"}
               </div>
               {mixedMode ? <div className="text-[10px] text-[#D6A66A]">Remaining after: {money(Math.max(0, remainingBalance - numericAmount), currencyCode)}</div> : null}
@@ -672,19 +672,19 @@ export default function POSInlineCheckout({
                 paymentRequestKey.current = null;
                 setAmount(event.target.value);
               }}
-              className="mt-2 w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-xl font-semibold outline-none"
+              className="mt-2 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-3 text-xl font-semibold outline-none"
               aria-label="Payment amount"
             />
 
             {paymentMethod === "CASH" ? (
-              <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.025] p-3" data-cash-change-workflow="true">
+              <div className="mt-3 rounded-xl border border-black/[0.08] bg-white p-3" data-cash-change-workflow="true">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-white/35"><Banknote size={13} /> Cash received</div>
-                    <div className="mt-1 text-[10px] text-white/30">Enter what the guest physically handed you.</div>
+                    <div className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[#918B83]"><Banknote size={13} /> Cash received</div>
+                    <div className="mt-1 text-[10px] text-[#A19A92]">Enter what the guest physically handed you.</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[9px] uppercase tracking-[0.14em] text-white/30">Change</div>
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-[#A19A92]">Change</div>
                     <div className="mt-1 text-lg font-semibold text-[#E9CF9A]">{money(changeDue, currencyCode)}</div>
                   </div>
                 </div>
@@ -698,7 +698,7 @@ export default function POSInlineCheckout({
                     paymentRequestKey.current = null;
                     setCashTendered(event.target.value);
                   }}
-                  className="mt-3 w-full rounded-xl border border-white/10 bg-black px-3 py-2.5 text-lg font-semibold outline-none"
+                  className="mt-3 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-lg font-semibold outline-none"
                   aria-label="Cash received"
                 />
 
@@ -708,7 +708,7 @@ export default function POSInlineCheckout({
                       key={value}
                       type="button"
                       onClick={() => setCashTendered(value.toFixed(2))}
-                      className="rounded-lg border border-white/10 px-2 py-2 text-[10px] text-white/55"
+                      className="rounded-lg border border-black/[0.08] px-2 py-2 text-[10px] text-[#5F5A54]"
                     >
                       {index === 0 ? "Exact" : money(value, currencyCode)}
                     </button>

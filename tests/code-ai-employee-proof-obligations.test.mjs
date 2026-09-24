@@ -166,3 +166,50 @@ test("employee completion rejects an unresolved failed verifier even when anothe
   assert.equal(completion.complete, false);
   assert.ok(completion.blockers.includes("CODE_AI_EMPLOYEE_FAILED_VERIFIER_CLOSURE_REQUIRED"));
 });
+
+test("explicit read-only employee mission completes from repository evidence without requiring mutation", () => {
+  const state = completedState({
+    files_changed: [],
+    source_changes: [],
+    tests: [],
+    verification: [],
+    patch: "",
+    evidence: [
+      operation("search_1", "search", { matches: ["app/api/operator/code/mission/route.js:1"] }),
+      operation("read_1", "read", { file_path: "app/api/operator/code/mission/route.js" }),
+    ],
+  });
+  state.employee_mission = {
+    owner_intent: "Read-only inspection only. Do not modify files. Finish from exact source evidence.",
+  };
+
+  const completion = assessCodeAIEmployeeCompletion(state);
+  assert.equal(completion.read_only_mission, true);
+  assert.equal(completion.read_only_evidence_verified, true);
+  assert.equal(completion.changed, false);
+  assert.equal(completion.verified, true);
+  assert.equal(completion.complete, true);
+  assert.deepEqual(completion.blockers, []);
+});
+
+test("repair employee mission cannot self-complete as read-only because a protected test file must not change", () => {
+  const state = completedState({
+    files_changed: [],
+    source_changes: [],
+    tests: [],
+    verification: [],
+    patch: "",
+    evidence: [
+      operation("inspect_1", "inspect", { head_sha: "abc" }),
+    ],
+  });
+  state.employee_mission = {
+    owner_intent: "Fix the broken add behavior. Do not modify the existing test file. Verify the repair.",
+  };
+
+  const completion = assessCodeAIEmployeeCompletion(state);
+  assert.equal(completion.read_only_mission, false);
+  assert.equal(completion.changed, false);
+  assert.equal(completion.complete, false);
+  assert.ok(completion.blockers.includes("CODE_AI_EMPLOYEE_IMPLEMENTATION_REQUIRED"));
+});

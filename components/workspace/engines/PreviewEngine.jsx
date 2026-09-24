@@ -203,9 +203,9 @@ export default function PreviewEngine({
 
   return (
 
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#F7F6F3]/70 backdrop-blur">
 
-      <div className="w-full max-w-5xl rounded-3xl bg-[#090909] border border-white/10 p-8">
+      <div className="w-full max-w-5xl rounded-3xl bg-white border border-black/[0.08] p-8">
 
 
         <div className="text-xs uppercase tracking-[0.3em] text-amber-300/70">
@@ -215,7 +215,7 @@ export default function PreviewEngine({
         </div>
 
 
-        <h2 className="mt-3 text-3xl font-light text-white">
+        <h2 className="mt-3 text-3xl font-light text-[#191919]">
 
           {action?.title || "Document Preview"}
 
@@ -234,7 +234,7 @@ export default function PreviewEngine({
             </div>
           ) : loading ? (
 
-            <div className="text-white/50">
+            <div className="text-[#746E66]">
               Rendering document...
             </div>
 
@@ -267,7 +267,7 @@ export default function PreviewEngine({
 
           <button
             onClick={onClose}
-            className="rounded-xl border border-white/10 px-5 py-3 text-white/60"
+            className="rounded-xl border border-black/[0.08] px-5 py-3 text-[#5F5A54]"
           >
 
             Back

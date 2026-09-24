@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CalendarClock,
@@ -159,7 +159,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
   const [materializeNotice, setMaterializeNotice] = useState(null);
   const [billingFocusEngagementId, setBillingFocusEngagementId] = useState("");
 
-  async function loadPractice() {
+  const loadPractice = useCallback(async () => {
     if (!organizationId) return;
     try {
       setPractice((current) => ({ ...current, loading: true, error: "" }));
@@ -172,9 +172,9 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
     } catch (error) {
       setPractice({ loading: false, error: error?.message || "Unable to load accounting practice", data: null });
     }
-  }
+  }, [organizationId]);
 
-  async function loadWorkPrograms(force = false) {
+  const loadWorkPrograms = useCallback(async (force = false) => {
     if (!organizationId || (workPrograms && !force) || workLoading) return;
     try {
       setWorkLoading(true);
@@ -190,9 +190,9 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
     } finally {
       setWorkLoading(false);
     }
-  }
+  }, [organizationId, workLoading, workPrograms]);
 
-  async function loadCapacity(force = false) {
+  const loadCapacity = useCallback(async (force = false) => {
     if (!organizationId || (capacity && !force) || capacityLoading) return;
     try {
       setCapacityLoading(true);
@@ -209,9 +209,9 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
     } finally {
       setCapacityLoading(false);
     }
-  }
+  }, [capacity, capacityLoading, organizationId]);
 
-  async function loadRecurring(force = false) {
+  const loadRecurring = useCallback(async (force = false) => {
     if (!organizationId || (recurring && !force) || recurringLoading) return;
     try {
       setRecurringLoading(true);
@@ -228,7 +228,7 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
     } finally {
       setRecurringLoading(false);
     }
-  }
+  }, [organizationId, recurring, recurringLoading]);
 
   async function createClientPeriod(candidate) {
     if (!candidate?.idempotency_key || candidate.status !== "BLOCKED_PERIOD_CONFIGURATION" || materializingKey) return;
@@ -282,16 +282,19 @@ export default function FinancePracticeControlTower({ organizationId, initialVie
 
   useEffect(() => {
     loadPractice();
-  }, [organizationId]);
+  }, [loadPractice]);
 
   useEffect(() => {
     if (activeView === "work") loadWorkPrograms();
     if (activeView === "capacity") loadCapacity();
     if (activeView === "cycles") loadRecurring();
-  }, [activeView, organizationId]);
+  }, [activeView, loadCapacity, loadRecurring, loadWorkPrograms]);
 
   const summary = practice.data?.summary || {};
-  const clients = Array.isArray(practice.data?.clients) ? practice.data.clients : [];
+  const clients = useMemo(
+    () => (Array.isArray(practice.data?.clients) ? practice.data.clients : []),
+    [practice.data?.clients],
+  );
   const clientMap = useMemo(() => new Map(clients.map((client) => [client.organization_id, client])), [clients]);
 
   const filteredClients = useMemo(() => {

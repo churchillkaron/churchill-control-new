@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const DEFAULT_API = "/api/finance/customer-payments/prepayments";
 
@@ -71,7 +71,7 @@ export default function FinanceCustomerPrepaymentManagementEngine({
     [eligibleInvoices, invoiceId]
   );
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !entityId) {
       setLoading(false);
       setError("Select a Legal Entity before managing customer prepayments.");
@@ -111,11 +111,11 @@ export default function FinanceCustomerPrepaymentManagementEngine({
     } finally {
       setLoading(false);
     }
-  }
+  }, [api, entityId, organizationId]);
 
   useEffect(() => {
     load();
-  }, [api, organizationId, entityId]);
+  }, [load]);
 
   useEffect(() => {
     setSuccess("");
@@ -130,7 +130,7 @@ export default function FinanceCustomerPrepaymentManagementEngine({
     } else {
       setAmount("");
     }
-  }, [prepaymentId, operation]);
+  }, [eligibleBanks, eligibleInvoices, operation, selectedPrepayment]);
 
   useEffect(() => {
     if (operation !== "apply" || !selectedPrepayment || !selectedInvoice) return;
@@ -229,26 +229,26 @@ export default function FinanceCustomerPrepaymentManagementEngine({
   };
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 px-5 backdrop-blur-xl">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-white/[0.08] bg-[#0b0b0b]/95 p-7 shadow-2xl shadow-black/80">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[#191919]/20 px-5 backdrop-blur-xl">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-black/[0.08] bg-white p-7 shadow-2xl shadow-black/10">
         <div className="text-[11px] uppercase tracking-[0.30em] text-amber-300/65">
           Finance · Accounts Receivable
         </div>
-        <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-white">
+        <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-[#191919]">
           {action?.title || "Manage Customer Prepayments"}
         </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-white/45">
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[#746E66]">
           Apply unapplied customer cash to an open invoice or refund the available balance through a Finance-linked bank account.
         </p>
 
         {loading ? (
-          <div className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 text-sm text-white/50">
+          <div className="mt-6 rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-4 text-sm text-[#746E66]">
             Loading customer prepayments…
           </div>
         ) : null}
 
         {!loading && !prepayments.length ? (
-          <div className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 text-sm text-white/50">
+          <div className="mt-6 rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-4 text-sm text-[#746E66]">
             There is no unapplied customer cash available for this Legal Entity.
           </div>
         ) : null}
@@ -256,12 +256,12 @@ export default function FinanceCustomerPrepaymentManagementEngine({
         {!loading && prepayments.length ? (
           <div className="mt-7 grid gap-5">
             <label className="block">
-              <span className="text-xs text-white/45">Unapplied Customer Payment</span>
+              <span className="text-xs text-[#746E66]">Unapplied Customer Payment</span>
               <select
                 value={prepaymentId}
                 onChange={(event) => setPrepaymentId(event.target.value)}
                 disabled={saving}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 p-3 text-white outline-none focus:border-amber-300/35 disabled:opacity-50"
+                className="mt-2 w-full rounded-xl border border-black/[0.09] bg-white p-3 text-[#191919] outline-none focus:border-[#D6A66A]/70 disabled:opacity-50"
               >
                 {prepayments.map((row) => (
                   <option key={row.id} value={row.id}>
@@ -272,18 +272,18 @@ export default function FinanceCustomerPrepaymentManagementEngine({
             </label>
 
             {selectedPrepayment ? (
-              <div className="grid gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 text-sm sm:grid-cols-3">
+              <div className="grid gap-3 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4 text-sm sm:grid-cols-3">
                 <div>
-                  <div className="text-xs text-white/35">Available</div>
-                  <div className="mt-1 text-white/85">{money(selectedPrepayment.available_amount, selectedPrepayment.currency_code)}</div>
+                  <div className="text-xs text-[#918B83]">Available</div>
+                  <div className="mt-1 text-[#2F2C28]">{money(selectedPrepayment.available_amount, selectedPrepayment.currency_code)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-white/35">Original</div>
-                  <div className="mt-1 text-white/70">{money(selectedPrepayment.original_amount, selectedPrepayment.currency_code)}</div>
+                  <div className="text-xs text-[#918B83]">Original</div>
+                  <div className="mt-1 text-[#5F5A54]">{money(selectedPrepayment.original_amount, selectedPrepayment.currency_code)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-white/35">Received</div>
-                  <div className="mt-1 text-white/70">{String(selectedPrepayment.received_at || "").slice(0, 10) || "-"}</div>
+                  <div className="text-xs text-[#918B83]">Received</div>
+                  <div className="mt-1 text-[#5F5A54]">{String(selectedPrepayment.received_at || "").slice(0, 10) || "-"}</div>
                 </div>
               </div>
             ) : null}
@@ -296,7 +296,7 @@ export default function FinanceCustomerPrepaymentManagementEngine({
                 className={`rounded-xl border px-4 py-3 text-sm ${
                   operation === "apply"
                     ? "border-amber-300/35 bg-amber-300/10 text-amber-100"
-                    : "border-white/[0.08] bg-white/[0.03] text-white/55"
+                    : "border-black/[0.08] bg-white text-[#746E66]"
                 }`}
               >
                 Apply to Invoice
@@ -308,7 +308,7 @@ export default function FinanceCustomerPrepaymentManagementEngine({
                 className={`rounded-xl border px-4 py-3 text-sm ${
                   operation === "refund"
                     ? "border-amber-300/35 bg-amber-300/10 text-amber-100"
-                    : "border-white/[0.08] bg-white/[0.03] text-white/55"
+                    : "border-black/[0.08] bg-white text-[#746E66]"
                 }`}
               >
                 Refund Customer
@@ -317,12 +317,12 @@ export default function FinanceCustomerPrepaymentManagementEngine({
 
             {operation === "apply" ? (
               <label className="block">
-                <span className="text-xs text-white/45">Open Customer Invoice</span>
+                <span className="text-xs text-[#746E66]">Open Customer Invoice</span>
                 <select
                   value={invoiceId}
                   onChange={(event) => setInvoiceId(event.target.value)}
                   disabled={saving || !eligibleInvoices.length}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 p-3 text-white outline-none focus:border-amber-300/35 disabled:opacity-50"
+                  className="mt-2 w-full rounded-xl border border-black/[0.09] bg-white p-3 text-[#191919] outline-none focus:border-[#D6A66A]/70 disabled:opacity-50"
                 >
                   <option value="">Select invoice</option>
                   {eligibleInvoices.map((invoice) => (
@@ -338,12 +338,12 @@ export default function FinanceCustomerPrepaymentManagementEngine({
             ) : (
               <>
                 <label className="block">
-                  <span className="text-xs text-white/45">Settlement Bank Account</span>
+                  <span className="text-xs text-[#746E66]">Settlement Bank Account</span>
                   <select
                     value={bankAccountId}
                     onChange={(event) => setBankAccountId(event.target.value)}
                     disabled={saving || !eligibleBanks.length}
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 p-3 text-white outline-none focus:border-amber-300/35 disabled:opacity-50"
+                    className="mt-2 w-full rounded-xl border border-black/[0.09] bg-white p-3 text-[#191919] outline-none focus:border-[#D6A66A]/70 disabled:opacity-50"
                   >
                     <option value="">Select bank account</option>
                     {eligibleBanks.map((bank) => (
@@ -357,12 +357,12 @@ export default function FinanceCustomerPrepaymentManagementEngine({
                   ) : null}
                 </label>
                 <label className="block">
-                  <span className="text-xs text-white/45">Refund Reference</span>
+                  <span className="text-xs text-[#746E66]">Refund Reference</span>
                   <input
                     value={referenceNumber}
                     onChange={(event) => setReferenceNumber(event.target.value)}
                     disabled={saving}
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 p-3 text-white outline-none focus:border-amber-300/35 disabled:opacity-50"
+                    className="mt-2 w-full rounded-xl border border-black/[0.09] bg-white p-3 text-[#191919] outline-none focus:border-[#D6A66A]/70 disabled:opacity-50"
                     placeholder="Optional bank or customer reference"
                   />
                 </label>
@@ -371,7 +371,7 @@ export default function FinanceCustomerPrepaymentManagementEngine({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className="text-xs text-white/45">Amount</span>
+                <span className="text-xs text-[#746E66]">Amount</span>
                 <input
                   type="number"
                   min="0.000001"
@@ -379,17 +379,17 @@ export default function FinanceCustomerPrepaymentManagementEngine({
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
                   disabled={saving}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 p-3 text-white outline-none focus:border-amber-300/35 disabled:opacity-50"
+                  className="mt-2 w-full rounded-xl border border-black/[0.09] bg-white p-3 text-[#191919] outline-none focus:border-[#D6A66A]/70 disabled:opacity-50"
                 />
               </label>
               <label className="block">
-                <span className="text-xs text-white/45">{operation === "apply" ? "Application Date" : "Refund Date"}</span>
+                <span className="text-xs text-[#746E66]">{operation === "apply" ? "Application Date" : "Refund Date"}</span>
                 <input
                   type="date"
                   value={effectiveDate}
                   onChange={(event) => setEffectiveDate(event.target.value)}
                   disabled={saving}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 p-3 text-white outline-none focus:border-amber-300/35 disabled:opacity-50"
+                  className="mt-2 w-full rounded-xl border border-black/[0.09] bg-white p-3 text-[#191919] outline-none focus:border-[#D6A66A]/70 disabled:opacity-50"
                 />
               </label>
             </div>
@@ -411,7 +411,7 @@ export default function FinanceCustomerPrepaymentManagementEngine({
           <button
             onClick={onClose}
             disabled={saving}
-            className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-5 py-3 text-sm text-white/60 disabled:opacity-50"
+            className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-5 py-3 text-sm text-[#746E66] disabled:opacity-50"
           >
             Close
           </button>

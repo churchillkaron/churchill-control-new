@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import {
+  useCallback,
   useEffect,
   useState,
 } from 'react'
@@ -66,13 +67,7 @@ export default function ReplenishmentPage() {
 
   }, [])
 
-  useEffect(() => {
-
-    loadData()
-
-  }, [organizationId])
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
 
     if (!organizationId) {
       return
@@ -97,7 +92,11 @@ export default function ReplenishmentPage() {
     setIngredients(
       data || []
     )
-  }
+  }, [organizationId])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   async function createPurchaseRequest(
     ingredient
@@ -196,7 +195,7 @@ export default function ReplenishmentPage() {
       subtitle="Procurement intelligence and low stock purchasing"
     >
 
-      <div className="p-6 text-white">
+      <div className="p-6 text-[#191919]">
 
         <div className="grid grid-cols-3 gap-6">
 
@@ -307,7 +306,7 @@ export default function ReplenishmentPage() {
                       )
                     }
                     disabled={loading}
-                    className="w-full bg-violet-500 hover:bg-violet-400 transition-all rounded-2xl py-4"
+                    className="w-full bg-[#D6A66A] hover:bg-[#C6975C] text-[#191919] transition-all rounded-2xl py-4"
                   >
 
                     Create Purchase Request

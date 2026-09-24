@@ -68,11 +68,11 @@ test("image voice and audio providers fail closed locally without cloud fallback
   assert.doesNotMatch(audio, /OwnedModal|ModalDirect|import\("modal"\)/);
 });
 
-test("video cannot route to cloud and fails closed until Node01 video worker exists", () => {
-  assert.match(video, /AVANTIQO_VIDEO_LOCAL_ENGINE_NOT_IMPLEMENTED/);
+test("video routes only to the implemented Node01 local worker and never to cloud fallback", () => {
+  assert.match(video, /AvantiqoVideoLocalQueueProvider/);
   assert.doesNotMatch(video, /createAvantiqoOwnedModalWorker|import\("modal"\)/);
   assert.match(videoRegistration, /infrastructure_provider:\s*"AVANTIQO_LOCAL_NODE_V1"/);
-  assert.match(videoRegistration, /const localVideoWorkerImplemented = false/);
+  assert.match(videoRegistration, /const localVideoWorkerImplemented = true/);
   assert.match(videoRegistration, /modal_fallback_allowed:\s*false/);
 });
 

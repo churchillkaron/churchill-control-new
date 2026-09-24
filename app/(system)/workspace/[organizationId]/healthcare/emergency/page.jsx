@@ -38,7 +38,7 @@ export default function EmergencyPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-6">
+        <div className="rounded-2xl border border-[#D6A66A]/30 bg-[#FBF3E8] p-6">
           <div className="text-sm text-zinc-400">
             Treatment
           </div>
@@ -59,10 +59,10 @@ export default function EmergencyPage() {
         </div>
       </div>
 
-      <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+      <div className="mt-8 overflow-hidden rounded-2xl border border-black/[0.08] bg-[#FBF8F3]">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/10">
+            <tr className="border-b border-black/[0.08]">
               <th className="p-4 text-left">
                 Patient
               </th>

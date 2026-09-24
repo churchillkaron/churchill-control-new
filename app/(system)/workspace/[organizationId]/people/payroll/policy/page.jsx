@@ -170,15 +170,15 @@ export default function PayrollSettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-6xl space-y-6">
-        <section className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
+        <section className="overflow-hidden rounded-[34px] border border-black/[0.08] bg-white/[0.045] backdrop-blur-3xl">
           <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
           <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="text-[10px] uppercase tracking-[0.34em] text-[#D6A66A]">People · Payroll</div>
               <h1 className="mt-3 text-4xl font-black">Payroll Policy</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/45">
+              <p className="mt-2 max-w-3xl text-sm text-[#746E66]">
                 Configure operational payroll rules. Payroll jurisdiction and currency are inherited from the legal entity and cannot be duplicated or overridden here.
               </p>
             </div>
@@ -187,7 +187,7 @@ export default function PayrollSettingsPage() {
               type="button"
               onClick={loadSettings}
               disabled={loading}
-              className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
+              className="flex h-12 items-center gap-2 rounded-2xl border border-black/[0.08] bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-[#5F5A54] disabled:opacity-40"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
             </button>
@@ -217,26 +217,26 @@ export default function PayrollSettingsPage() {
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">{message}</div>
         ) : null}
 
-        <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+        <section className="rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-5 lg:p-6">
           {loading ? (
-            <div className="text-sm text-white/45">Loading payroll policy...</div>
+            <div className="text-sm text-[#746E66]">Loading payroll policy...</div>
           ) : (
             <div className="space-y-6">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Legal payroll context</div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-[#918B83]">Legal payroll context</div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <ReadOnly label="Legal entity" value={legalEntity?.name || "Not configured"} />
                   <ReadOnly label="Payroll country" value={jurisdiction?.country || "Not configured"} />
                   <ReadOnly label="Currency" value={jurisdiction?.currency || "Not configured"} />
                   <ReadOnly label="Timezone" value={jurisdiction?.timezone || "Organization timezone"} />
                 </div>
-                <div className="mt-3 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] px-4 py-3 text-xs leading-5 text-cyan-100/65">
+                <div className="mt-3 rounded-2xl border border-amber-400/15 bg-amber-400/[0.05] px-4 py-3 text-xs leading-5 text-amber-100/65">
                   These values come from Legal Entity setup. Change legal jurisdiction or accounting currency there so Payroll, Finance and statutory logic stay aligned.
                 </div>
               </div>
 
               <div>
-                <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Work expectations</div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-[#918B83]">Work expectations</div>
                 <div className="mt-4 grid gap-4 md:grid-cols-3">
                   <Field label="Default hours per shift" required>
                     <NumberField value={settings.default_hours_per_shift} min="0.01" max="24" onChange={(value) => update("default_hours_per_shift", value)} />
@@ -251,7 +251,7 @@ export default function PayrollSettingsPage() {
               </div>
 
               <div>
-                <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Payroll runtime rules</div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-[#918B83]">Payroll runtime rules</div>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <Toggle label="Manager approval required" description="Flag meaningful hours variance for manager review." checked={Boolean(settings.manager_approval_required)} onChange={(value) => update("manager_approval_required", value)} />
                   <Toggle label="Use scheduled expected hours" description="Use published schedules as the expected-hours source when available." checked={Boolean(settings.use_schedule_expected_hours)} onChange={(value) => update("use_schedule_expected_hours", value)} />
@@ -262,7 +262,7 @@ export default function PayrollSettingsPage() {
                   <Toggle label="Public holiday counts as worked" checked={Boolean(settings.public_holiday_counts_as_worked)} onChange={(value) => update("public_holiday_counts_as_worked", value)} />
                 </div>
 
-                <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs leading-5 text-white/45">
+                <div className="mt-3 rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/20 px-4 py-3 text-xs leading-5 text-[#746E66]">
                   Salary proration is reserved and is not an active generic attendance deduction. Monthly base salary is not automatically reduced from attendance variance; any payroll deduction must follow an explicit supported rule and review path.
                 </div>
 
@@ -323,7 +323,7 @@ function NumberField({ value, onChange, min = "0", max }) {
 function Field({ label, required = false, children }) {
   return (
     <label>
-      <span className="mb-2 block text-[9px] uppercase tracking-[0.18em] text-white/35">
+      <span className="mb-2 block text-[9px] uppercase tracking-[0.18em] text-[#918B83]">
         {label} {required ? <span className="text-[#D6A66A]">*</span> : null}
       </span>
       {children}
@@ -333,19 +333,19 @@ function Field({ label, required = false, children }) {
 
 function ReadOnly({ label, value }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-      <div className="text-[9px] uppercase tracking-[0.16em] text-white/30">{label}</div>
-      <div className="mt-2 text-sm font-black text-white/75">{value}</div>
+    <div className="rounded-xl border border-black/[0.08] bg-[#F7F6F3]/20 p-4">
+      <div className="text-[9px] uppercase tracking-[0.16em] text-[#A19A92]">{label}</div>
+      <div className="mt-2 text-sm font-black text-[#4F4A45]">{value}</div>
     </div>
   );
 }
 
 function Toggle({ label, description = "", checked, onChange }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/65">
+    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-black/[0.08] bg-[#F7F6F3]/20 px-4 py-3 text-sm text-[#5F5A54]">
       <span>
-        <span className="block font-semibold text-white/75">{label}</span>
-        {description ? <span className="mt-1 block text-xs leading-5 text-white/35">{description}</span> : null}
+        <span className="block font-semibold text-[#4F4A45]">{label}</span>
+        {description ? <span className="mt-1 block text-xs leading-5 text-[#918B83]">{description}</span> : null}
       </span>
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-4 w-4 shrink-0" />
     </label>
@@ -354,8 +354,8 @@ function Toggle({ label, description = "", checked, onChange }) {
 
 function Metric({ label, value, icon }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/35">
+    <div className="rounded-[24px] border border-black/[0.08] bg-[#FBF8F3] p-5">
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-[#918B83]">
         {icon}
         {label}
       </div>

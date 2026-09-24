@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { codeWorkspaceCommandPolicy } from "../lib/code/runtime/CodeWorkspaceSandboxRuntime.js";
+import { codeWorkspaceUniversalCommandPolicy as codeWorkspaceCommandPolicy } from "../lib/code/runtime/CodeWorkspaceCommandPolicyRuntime.js";
 
 const blockedWorkspaceCommands = [
   { command: "git", args: ["push", "origin", "main"] },

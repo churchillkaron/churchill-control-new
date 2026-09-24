@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -134,7 +134,7 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
   const [showPracticeManagement, setShowPracticeManagement] = useState(false);
   const today = localDateKey();
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     try {
       setLoading(true);
@@ -156,13 +156,16 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     load();
-  }, [organizationId]);
+  }, [load]);
 
-  const clients = Array.isArray(practice?.clients) ? practice.clients : [];
+  const clients = useMemo(
+    () => Array.isArray(practice?.clients) ? practice.clients : [],
+    [practice?.clients],
+  );
   const clientMap = useMemo(() => new Map(clients.map((client) => [client.organization_id, client])), [clients]);
   const viewer = practice?.viewer || {};
   const viewerId = viewer.staff_account_id || null;
@@ -282,7 +285,7 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
                     <div className="mt-0.5 text-[11px] leading-4 text-[#817A72]">{nextAction.detail}</div>
                   </div>
                 </div>
-                {nextItem ? <button type="button" onClick={() => setSelectedEngagementId(nextItem.engagement_id)} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[11px] font-semibold text-white">Open workpaper <ArrowRight size={9} /></button> : null}
+                {nextItem ? <button type="button" onClick={() => setSelectedEngagementId(nextItem.engagement_id)} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#D6A66A] px-3 text-[11px] font-semibold text-[#191919]">Open workpaper <ArrowRight size={9} /></button> : null}
               </div>
             </div>
 

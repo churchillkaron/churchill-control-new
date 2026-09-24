@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, LoaderCircle, ShieldCheck } from "lucide-react";
 
 function Field({ label, value, onChange, staff, disabled }) {
@@ -27,7 +27,7 @@ export default function FinancePracticeAssignments({ organizationId, engagementI
   const [state, setState] = useState({ loading: true, saving: false, error: "", notice: "", staff: [], profile: null });
   const [form, setForm] = useState({ preparer: "", reviewer: "", partner: "" });
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !engagementId) return;
     try {
       setState((current) => ({ ...current, loading: true, error: "" }));
@@ -47,8 +47,8 @@ export default function FinancePracticeAssignments({ organizationId, engagementI
     } catch (error) {
       setState((current) => ({ ...current, loading: false, error: error?.message || "Unable to load engagement staffing" }));
     }
-  }
-  useEffect(() => { load(); }, [organizationId, engagementId]);
+  }, [engagementId, organizationId]);
+  useEffect(() => { load(); }, [load]);
 
   async function save() {
     if (!form.preparer || !form.reviewer || !form.partner || state.saving) return;

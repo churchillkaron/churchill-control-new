@@ -149,8 +149,8 @@ export default function DynamicCustomerField({
   }
 
   return (
-    <div className="col-span-full min-w-0 rounded-xl border border-white/10 bg-black/20 p-3 sm:p-5">
-      <div className="mb-3 text-[10px] font-medium uppercase tracking-[0.18em] text-white/45 sm:mb-4 sm:text-xs sm:tracking-[0.25em]">
+    <div className="col-span-full min-w-0 rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3 sm:p-5">
+      <div className="mb-3 text-[10px] font-medium uppercase tracking-[0.18em] text-[#746E66] sm:mb-4 sm:text-xs sm:tracking-[0.25em]">
         {field.label}
         {field.required ? <span className="ml-1 text-orange-400">*</span> : null}
       </div>
@@ -166,13 +166,13 @@ export default function DynamicCustomerField({
           }}
           onChange={(event) => searchCustomers(event.target.value)}
           placeholder="Search customers by name, email or phone..."
-          className="h-11 w-full min-w-0 rounded-lg border border-white/10 bg-black/30 px-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-[#D6A66A]/50 sm:rounded-xl sm:px-4"
+          className="h-11 w-full min-w-0 rounded-lg border border-black/[0.09] bg-white px-3 text-sm text-[#191919] outline-none placeholder:text-[#A19A92] focus:border-[#D6A66A]/50 sm:rounded-xl sm:px-4"
         />
 
         {open ? (
-          <div className="absolute inset-x-0 z-50 mt-2 max-h-[min(320px,45vh)] overflow-y-auto rounded-xl border border-white/10 bg-[#111] p-1.5 shadow-2xl sm:p-2">
+          <div className="absolute inset-x-0 z-50 mt-2 max-h-[min(320px,45vh)] overflow-y-auto rounded-xl border border-black/[0.08] bg-white p-1.5 shadow-2xl sm:p-2">
             {loading ? (
-              <div className="px-3 py-3 text-xs text-white/45">Loading customers…</div>
+              <div className="px-3 py-3 text-xs text-[#746E66]">Loading customers…</div>
             ) : error ? (
               <div className="px-3 py-3 text-xs text-red-300">{error}</div>
             ) : results.length ? (
@@ -183,13 +183,13 @@ export default function DynamicCustomerField({
                   onClick={() => selectCustomer(customer)}
                   className="block w-full rounded-lg px-3 py-2.5 text-left hover:bg-white/10"
                 >
-                  <span className="block truncate text-sm text-white">
+                  <span className="block truncate text-sm text-[#191919]">
                     {customerLabel(customer)}
                   </span>
                   {[customer.customer_email || customer.email, customer.customer_phone || customer.phone]
                     .filter(Boolean)
                     .length ? (
-                    <span className="mt-0.5 block truncate text-[11px] text-white/40">
+                    <span className="mt-0.5 block truncate text-[11px] text-[#817A72]">
                       {[customer.customer_email || customer.email, customer.customer_phone || customer.phone]
                         .filter(Boolean)
                         .join(" · ")}
@@ -204,10 +204,10 @@ export default function DynamicCustomerField({
                 className="block w-full rounded-lg border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-3 text-left hover:bg-[#D6A66A]/[0.1]"
               >
                 <span className="block text-xs font-semibold text-[#E8BE88]">+ Create “{search.trim()}” as a new customer</span>
-                <span className="mt-1 block text-[11px] leading-4 text-white/40">You can add contact and billing details before creating the invoice.</span>
+                <span className="mt-1 block text-[11px] leading-4 text-[#817A72]">You can add contact and billing details before creating the invoice.</span>
               </button>
             ) : (
-              <div className="px-3 py-3 text-xs text-white/45">Start typing to find a customer.</div>
+              <div className="px-3 py-3 text-xs text-[#746E66]">Start typing to find a customer.</div>
             )}
           </div>
         ) : null}
@@ -217,32 +217,32 @@ export default function DynamicCustomerField({
         <div className="mt-4 flex flex-col gap-3 rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.05] p-3 sm:mt-5 sm:flex-row sm:items-center sm:justify-between sm:p-4">
           <div className="min-w-0">
             <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#D6A66A]">Customer selected</div>
-            <div className="mt-1 truncate text-sm font-medium text-white">{value.customer_name || search}</div>
+            <div className="mt-1 truncate text-sm font-medium text-[#191919]">{value.customer_name || search}</div>
             {[value.customer_email, value.customer_phone, value.billing_address].filter(Boolean).length ? (
-              <div className="mt-1 truncate text-[11px] text-white/45">
+              <div className="mt-1 truncate text-[11px] text-[#746E66]">
                 {[value.customer_email, value.customer_phone, value.billing_address].filter(Boolean).join(" · ")}
               </div>
             ) : null}
           </div>
           <div className="flex shrink-0 gap-2">
-            <button type="button" onClick={() => setEditingDetails(true)} className="rounded-lg border border-white/10 px-3 py-2 text-[11px] text-white/65 hover:bg-white/5">Edit details</button>
-            <button type="button" onClick={() => { setSearch(""); setOpen(true); setEditingDetails(false); onChange(field.name, {}); loadCustomers(""); }} className="rounded-lg border border-white/10 px-3 py-2 text-[11px] text-white/65 hover:bg-white/5">Change</button>
+            <button type="button" onClick={() => setEditingDetails(true)} className="rounded-lg border border-black/[0.08] px-3 py-2 text-[11px] text-[#191919]/65 hover:bg-[#FBF8F3]">Edit details</button>
+            <button type="button" onClick={() => { setSearch(""); setOpen(true); setEditingDetails(false); onChange(field.name, {}); loadCustomers(""); }} className="rounded-lg border border-black/[0.08] px-3 py-2 text-[11px] text-[#191919]/65 hover:bg-[#FBF8F3]">Change</button>
           </div>
         </div>
       ) : value.new_customer_confirmed || editingDetails ? (
         <div className="mt-4 grid grid-cols-1 gap-3 sm:mt-5 sm:grid-cols-2 sm:gap-4">
-          <div className="sm:col-span-2 text-[11px] leading-4 text-white/45">{value.existing_customer ? "Update invoice contact details if needed." : "New customer — add only the details you know. The customer will be saved with this invoice."}</div>
-          <select value={value.customer_type || "PERSON"} onChange={(event) => update("customer_type", event.target.value)} className="h-11 min-w-0 rounded-lg border border-white/10 bg-black/30 px-3 text-sm text-white sm:rounded-xl sm:px-4">
+          <div className="sm:col-span-2 text-[11px] leading-4 text-[#746E66]">{value.existing_customer ? "Update invoice contact details if needed." : "New customer — add only the details you know. The customer will be saved with this invoice."}</div>
+          <select value={value.customer_type || "PERSON"} onChange={(event) => update("customer_type", event.target.value)} className="h-11 min-w-0 rounded-lg border border-black/[0.09] bg-white px-3 text-sm text-[#191919] sm:rounded-xl sm:px-4">
             <option value="PERSON">Person</option>
             <option value="COMPANY">Company</option>
           </select>
-          {value.customer_type === "COMPANY" ? <input placeholder="Company Name" value={value.company_name || ""} onChange={(event) => update("company_name", event.target.value)} className="h-11 min-w-0 rounded-lg border border-white/10 bg-black/30 px-3 text-sm text-white sm:rounded-xl sm:px-4" /> : null}
-          <input type="email" inputMode="email" placeholder="Email" value={value.customer_email || ""} onChange={(event) => update("customer_email", event.target.value)} className="h-11 min-w-0 rounded-lg border border-white/10 bg-black/30 px-3 text-sm text-white sm:rounded-xl sm:px-4" />
-          <input type="tel" inputMode="tel" placeholder="Phone" value={value.customer_phone || ""} onChange={(event) => update("customer_phone", event.target.value)} className="h-11 min-w-0 rounded-lg border border-white/10 bg-black/30 px-3 text-sm text-white sm:rounded-xl sm:px-4" />
-          <input placeholder="Tax Number" value={value.tax_number || ""} onChange={(event) => update("tax_number", event.target.value)} className="h-11 min-w-0 rounded-lg border border-white/10 bg-black/30 px-3 text-sm text-white sm:rounded-xl sm:px-4" />
-          <input placeholder="Billing Address" value={value.billing_address || ""} onChange={(event) => update("billing_address", event.target.value)} className="h-11 min-w-0 rounded-lg border border-white/10 bg-black/30 px-3 text-sm text-white sm:rounded-xl sm:px-4" />
-          <input placeholder="City" value={value.city || ""} onChange={(event) => update("city", event.target.value)} className="h-11 min-w-0 rounded-lg border border-white/10 bg-black/30 px-3 text-sm text-white sm:rounded-xl sm:px-4" />
-          <input placeholder="Country" value={value.country || ""} onChange={(event) => update("country", event.target.value)} className="h-11 min-w-0 rounded-lg border border-white/10 bg-black/30 px-3 text-sm text-white sm:rounded-xl sm:px-4" />
+          {value.customer_type === "COMPANY" ? <input placeholder="Company Name" value={value.company_name || ""} onChange={(event) => update("company_name", event.target.value)} className="h-11 min-w-0 rounded-lg border border-black/[0.09] bg-white px-3 text-sm text-[#191919] sm:rounded-xl sm:px-4" /> : null}
+          <input type="email" inputMode="email" placeholder="Email" value={value.customer_email || ""} onChange={(event) => update("customer_email", event.target.value)} className="h-11 min-w-0 rounded-lg border border-black/[0.09] bg-white px-3 text-sm text-[#191919] sm:rounded-xl sm:px-4" />
+          <input type="tel" inputMode="tel" placeholder="Phone" value={value.customer_phone || ""} onChange={(event) => update("customer_phone", event.target.value)} className="h-11 min-w-0 rounded-lg border border-black/[0.09] bg-white px-3 text-sm text-[#191919] sm:rounded-xl sm:px-4" />
+          <input placeholder="Tax Number" value={value.tax_number || ""} onChange={(event) => update("tax_number", event.target.value)} className="h-11 min-w-0 rounded-lg border border-black/[0.09] bg-white px-3 text-sm text-[#191919] sm:rounded-xl sm:px-4" />
+          <input placeholder="Billing Address" value={value.billing_address || ""} onChange={(event) => update("billing_address", event.target.value)} className="h-11 min-w-0 rounded-lg border border-black/[0.09] bg-white px-3 text-sm text-[#191919] sm:rounded-xl sm:px-4" />
+          <input placeholder="City" value={value.city || ""} onChange={(event) => update("city", event.target.value)} className="h-11 min-w-0 rounded-lg border border-black/[0.09] bg-white px-3 text-sm text-[#191919] sm:rounded-xl sm:px-4" />
+          <input placeholder="Country" value={value.country || ""} onChange={(event) => update("country", event.target.value)} className="h-11 min-w-0 rounded-lg border border-black/[0.09] bg-white px-3 text-sm text-[#191919] sm:rounded-xl sm:px-4" />
         </div>
       ) : null}
     </div>

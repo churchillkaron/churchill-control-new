@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -9,6 +9,7 @@ import {
   Building2,
   Boxes,
   Flag,
+  Globe2,
   KeyRound,
   LoaderCircle,
   MapPin,
@@ -52,6 +53,7 @@ function Metric({ label, value, detail, icon: Icon, warning = false }) {
 const CONTROL_AREAS = [
   { label: "Users & access", description: "Membership, identity linkage and account lifecycle.", route: "/administration/users", icon: Users },
   { label: "Access policy", description: "Organization security and workforce access policy.", route: "/administration/access-policy", icon: ShieldCheck },
+  { label: "Domains & external access", description: "Verified customer hostnames for branded login and Staff Portal.", route: "/administration/domains", icon: Globe2 },
   { label: "Passkey readiness", description: "Hosted passkey coverage and verification readiness.", route: "/administration/passkey-readiness", icon: KeyRound },
   { label: "Legal entities", description: "Legal and accounting entity structure and governance.", route: "/administration/legal-entities", icon: Building2 },
   { label: "Business locations", description: "Location-specific operational context.", route: "/administration/business-locations", icon: MapPin },
@@ -71,7 +73,7 @@ export default function AdministrationCommandCenter({ organizationId }) {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     setLoading(true);
     setError("");
@@ -92,14 +94,14 @@ export default function AdministrationCommandCenter({ organizationId }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId, entityId, periodId]);
 
   useEffect(() => {
     load();
-  }, [organizationId, entityId, periodId]);
+  }, [load]);
 
   const metrics = data?.metrics || {};
-  const queue = Array.isArray(data?.queue) ? data.queue : [];
+  const queue = useMemo(() => Array.isArray(data?.queue) ? data.queue : [], [data?.queue]);
   const sources = Array.isArray(data?.sources) ? data.sources : [];
   const sourceErrors = sources.filter((row) => row.status !== "connected");
   const structure = data?.structure || {};
@@ -132,7 +134,7 @@ export default function AdministrationCommandCenter({ organizationId }) {
               <span className="rounded-full border border-black/[0.08] bg-[#FAF9F7] px-3 py-1.5">{sourceErrors.length ? `${sourceErrors.length} source issue${sourceErrors.length === 1 ? "" : "s"}` : "Configuration sources connected"}</span>
             </div>
           </div>
-          <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[12px] font-medium text-white hover:bg-black disabled:opacity-50">
+          <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#B98A52]/25 bg-[#EFE3D3] px-3.5 text-[12px] font-medium text-[#76502E] hover:bg-[#E8D6BF] disabled:opacity-50">
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
           </button>
         </div>

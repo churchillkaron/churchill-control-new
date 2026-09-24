@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CircleAlert, FileCheck2, FileUp, LoaderCircle, RefreshCw, ShieldCheck } from "lucide-react";
 
 const label = (value) => String(value || "").replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -19,7 +19,7 @@ export default function FinanceApIntakePanel({ organizationId, entityId, onVendo
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState(true);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !entityId) return;
     try {
       setError("");
@@ -30,8 +30,8 @@ export default function FinanceApIntakePanel({ organizationId, entityId, onVendo
       if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to load AP inbox");
       setRows(body.rows || []);
     } catch (e) { setError(e?.message || "Unable to load AP inbox"); }
-  }
-  useEffect(() => { load(); }, [organizationId, entityId]);
+  }, [entityId, organizationId]);
+  useEffect(() => { load(); }, [load]);
 
   async function upload(files) {
     if (!files?.length) return;

@@ -172,3 +172,24 @@ test("schema blast radius can traverse application service before reaching integ
   assert.equal(candidate.dependency_depth, 2);
   assert.equal(candidate.schema_seed, true);
 });
+test("high-risk Next.js verification uses an isolated production build directory", () => {
+  const state = {
+    files_changed: ["app/api/admin/route.js"],
+    source_changes: [{ path: "app/api/admin/route.js", operation: "write", content: "export function POST(){}" }],
+    patch: "diff",
+    repository_guidance: { verification_commands_text: "npm run build" },
+    evidence: [
+      { action: "apply_files", status: "completed", result: {} },
+      { action: "diff", status: "completed", result: {} },
+    ],
+  };
+  const plan = planCodeAIDeterministicVerificationGates({ state });
+  const build = plan.operations.find((operation) => operation.verification_family === "build");
+  assert.ok(build);
+  assert.equal(plan.risk, "high");
+  assert.deepEqual(build.input, {
+    command: "npm",
+    args: ["run", "build"],
+    env: { AVANTIQO_NEXT_DIST_DIR: ".next-code-verify" },
+  });
+});

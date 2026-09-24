@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -76,7 +76,7 @@ function isFinishEvent(payload) {
   );
 }
 
-export default function WhatsAppIntegrationCard({ organizationId }) {
+export default function WhatsAppIntegrationCard({ organizationId, onboarding = false }) {
   const [snapshot, setSnapshot] = useState(null);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
@@ -93,7 +93,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
     mode: null,
   });
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     const response = await fetch(
       `/api/administration/integrations/whatsapp?organizationId=${encodeURIComponent(organizationId)}`,
@@ -104,7 +104,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
       throw new Error(data.error || "Unable to load WhatsApp Business");
     }
     setSnapshot(data);
-  }
+  }, [organizationId]);
 
   async function validateConnection() {
     if (!organizationId || working) return;
@@ -143,7 +143,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
     }
   }
 
-  async function recoverIfReady() {
+  const recoverIfReady = useCallback(async () => {
     const current = signupRef.current;
     if (
       current.recovering ||
@@ -198,7 +198,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
       signupRef.current.recovering = false;
       setWorking(false);
     }
-  }
+  }, [organizationId]);
 
   async function confirmSelection() {
     if (!pendingCredentialId || !selectedWabaId || !selectedPhoneId) return;
@@ -241,7 +241,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
     load().catch((loadError) =>
       setError(loadError?.message || "Unable to load WhatsApp Business"),
     );
-  }, [organizationId]);
+  }, [load]);
 
   useEffect(() => {
     function onMessage(event) {
@@ -264,7 +264,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [organizationId]);
+  }, [recoverIfReady]);
 
   async function startEmbeddedSignup(mode) {
     if (!snapshot?.publicConfig?.ready) return;
@@ -343,8 +343,69 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
     ? selectedWaba.phones
     : [];
 
+  if (onboarding) {
+    return (
+      <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#2D2822] lg:p-10">
+        <div className="mx-auto max-w-4xl">
+          <a href={`/workspace/${encodeURIComponent(organizationId)}/administration/communications-setup?onboarding=1`} className="text-[9px] font-semibold text-[#8A633C]">← Communication setup</a>
+          <section className="mt-5 rounded-[24px] border border-black/[0.07] bg-white p-6 lg:p-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#A37849]">Messaging</div>
+                <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.04em]">WhatsApp Business</h1>
+                <p className="mt-2 max-w-2xl text-[10px] leading-5 text-[#777169]">Authorize the WhatsApp Business account this organization already owns. Avantiqo handles the webhook and technical connection.</p>
+              </div>
+              <span className={`rounded-full px-2.5 py-1 text-[8px] font-semibold ${operational ? "bg-emerald-50 text-emerald-700" : connected ? "bg-amber-50 text-amber-700" : "bg-[#F0E7DA] text-[#8A633C]"}`}>{operational ? "Operational" : connected ? "Review" : "Not connected"}</span>
+            </div>
+
+            {error ? <div className="mt-4 rounded-xl border border-red-700/15 bg-red-50 px-4 py-3 text-[10px] text-red-800">{error}</div> : null}
+            {notice ? <div className="mt-4 rounded-xl border border-emerald-700/15 bg-emerald-50 px-4 py-3 text-[10px] text-emerald-800">{notice}</div> : null}
+
+            {pendingCredentialId && candidates.length ? (
+              <div className="mt-5 rounded-2xl border border-[#C9AD89]/25 bg-[#FBF6EF] p-5">
+                <div className="text-[11px] font-semibold text-[#5C4731]">Confirm the exact WhatsApp assets</div>
+                <p className="mt-1 text-[9px] leading-4 text-[#817566]">Nothing is attached until you confirm the business account and phone number.</p>
+                <label className="mt-4 block text-[9px] font-semibold text-[#6C6258]">WhatsApp Business Account</label>
+                <select value={selectedWabaId} onChange={(event) => { const nextWabaId = event.target.value; const nextWaba = candidates.find((row) => row.id === nextWabaId); setSelectedWabaId(nextWabaId); setSelectedPhoneId(nextWaba?.phones?.[0]?.id || ""); }} className="mt-2 h-10 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-[10px]">
+                  {candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name || candidate.id}</option>)}
+                </select>
+                <label className="mt-4 block text-[9px] font-semibold text-[#6C6258]">Phone number</label>
+                <select value={selectedPhoneId} onChange={(event) => setSelectedPhoneId(event.target.value)} className="mt-2 h-10 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-[10px]">
+                  {selectablePhones.map((candidatePhone) => <option key={candidatePhone.id} value={candidatePhone.id}>{candidatePhone.verifiedName || "WhatsApp Business"}{candidatePhone.displayPhoneNumber ? ` — ${candidatePhone.displayPhoneNumber}` : ""}</option>)}
+                </select>
+                <button type="button" onClick={confirmSelection} disabled={working || !selectedWabaId || !selectedPhoneId} className="mt-4 h-10 rounded-xl bg-[#25231F] px-4 text-[10px] font-semibold text-[#191919] disabled:opacity-40">{working ? "Connecting…" : "Confirm and connect"}</button>
+              </div>
+            ) : connected ? (
+              <div className={`mt-5 rounded-2xl border p-5 ${operational ? "border-emerald-700/15 bg-emerald-50" : "border-amber-700/15 bg-amber-50"}`}>
+                <div className={`flex items-center gap-2 text-[10px] font-semibold ${operational ? "text-emerald-800" : "text-amber-800"}`}>{operational ? <CheckCircle2 size={13} /> : <AlertTriangle size={13} />}{operational ? "WhatsApp messaging is operational" : "Connection needs review"}</div>
+                <div className="mt-2 text-[10px] text-[#5F5850]">{phone?.name || snapshot?.connection?.accountLabel || "Connected WhatsApp Business account"}</div>
+                {phone?.displayPhoneNumber ? <div className="mt-1 text-[9px] text-[#8B837A]">{phone.displayPhoneNumber}</div> : null}
+                <button type="button" onClick={validateConnection} disabled={working} className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-xl border border-black/[0.08] bg-white px-3 text-[9px] font-semibold text-[#655D54] disabled:opacity-40"><RefreshCw size={10} className={working ? "animate-spin" : ""} />{working ? "Checking…" : "Refresh connection"}</button>
+              </div>
+            ) : snapshot?.publicConfig?.ready ? (
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl border border-[#C9AD89]/20 bg-[#FBF6EF] p-5">
+                  <div className="text-[11px] font-semibold">Keep existing WhatsApp Business app number</div>
+                  <p className="mt-2 text-[9px] leading-5 text-[#7E7468]">Use coexistence so the existing app and phone number stay active while Avantiqo gains Cloud API access.</p>
+                  <button type="button" onClick={() => startEmbeddedSignup("coexistence")} disabled={working} className="mt-4 inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#D6A66A] px-4 text-[10px] font-semibold text-[#3F2E1C] disabled:opacity-40">{working ? "Connecting…" : "Use existing app number"}<ExternalLink size={10} /></button>
+                </div>
+                <div className="rounded-2xl border border-black/[0.07] bg-[#FCFBF8] p-5">
+                  <div className="text-[11px] font-semibold">Create/use a Cloud API setup</div>
+                  <p className="mt-2 text-[9px] leading-5 text-[#7E7468]">Use standard Meta Embedded Signup for a dedicated Cloud API number or WABA.</p>
+                  <button type="button" onClick={() => startEmbeddedSignup("cloud")} disabled={working} className="mt-4 inline-flex h-10 items-center gap-1.5 rounded-xl border border-black/[0.08] bg-white px-4 text-[10px] font-semibold text-[#4A433B] disabled:opacity-40">{working ? "Connecting…" : "Set up Cloud API"}<ExternalLink size={10} /></button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-5 rounded-2xl border border-amber-700/15 bg-amber-50 p-4 text-[10px] leading-5 text-amber-900">Avantiqo is completing the platform-side WhatsApp setup. No customer technical configuration is required yet.</div>
+            )}
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-4xl">
         <a
           href={`/workspace/${encodeURIComponent(organizationId)}/administration/integrations`}
@@ -353,14 +414,14 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
           ← Integrations
         </a>
 
-        <div className="mt-8 rounded-[30px] border border-white/10 bg-white/[0.025] p-6 lg:p-8">
+        <div className="mt-8 rounded-[30px] border border-black/[0.08] bg-[#FBF8F3] p-6 lg:p-8">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
-              <div className="text-xs uppercase tracking-[0.22em] text-white/30">
+              <div className="text-xs uppercase tracking-[0.22em] text-[#A19A92]">
                 Messaging
               </div>
               <h1 className="mt-2 text-4xl font-light">WhatsApp Business</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/45">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[#746E66]">
                 Connect the WhatsApp setup this organization actually uses. Keep an existing WhatsApp Business app number through coexistence, or use the standard Cloud API onboarding flow for a new or dedicated setup.
               </p>
             </div>
@@ -370,7 +431,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
                   ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
                   : connected
                     ? "border-amber-400/20 bg-amber-400/10 text-amber-100"
-                    : "border-white/10 bg-white/[0.04] text-white/50"
+                    : "border-black/[0.08] bg-[#FBF8F3] text-[#746E66]"
               }`}
             >
               {operational
@@ -398,11 +459,11 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
               <div className="text-sm font-medium text-[#E5C18D]">
                 Confirm WhatsApp assets for this organization
               </div>
-              <div className="mt-2 text-xs leading-5 text-white/45">
+              <div className="mt-2 text-xs leading-5 text-[#746E66]">
                 Nothing is attached until you confirm. Check both the WhatsApp Business Account and the phone number.
               </div>
 
-              <label className="mt-5 block text-xs text-white/45">
+              <label className="mt-5 block text-xs text-[#746E66]">
                 WhatsApp Business Account
               </label>
               <select
@@ -413,7 +474,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
                   setSelectedWabaId(nextWabaId);
                   setSelectedPhoneId(nextWaba?.phones?.[0]?.id || "");
                 }}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white"
+                className="mt-2 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3] px-4 py-3 text-sm text-[#191919]"
               >
                 {candidates.map((candidate) => (
                   <option key={candidate.id} value={candidate.id}>
@@ -422,13 +483,13 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
                 ))}
               </select>
 
-              <label className="mt-4 block text-xs text-white/45">
+              <label className="mt-4 block text-xs text-[#746E66]">
                 Phone number
               </label>
               <select
                 value={selectedPhoneId}
                 onChange={(event) => setSelectedPhoneId(event.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white"
+                className="mt-2 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3] px-4 py-3 text-sm text-[#191919]"
               >
                 {selectablePhones.map((candidatePhone) => (
                   <option key={candidatePhone.id} value={candidatePhone.id}>
@@ -473,13 +534,13 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
                     : "This connection does not have the Communications webhook subscription"}
                 </span>
               </div>
-              <div className="mt-3 text-sm text-white/55">
+              <div className="mt-3 text-sm text-[#5F5A54]">
                 {phone?.name ||
                   snapshot?.connection?.accountLabel ||
                   "Connected WhatsApp Business account"}
               </div>
               {phone?.displayPhoneNumber ? (
-                <div className="mt-1 text-xs text-white/35">
+                <div className="mt-1 text-xs text-[#918B83]">
                   {phone.displayPhoneNumber}
                 </div>
               ) : null}
@@ -487,7 +548,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
                 type="button"
                 onClick={validateConnection}
                 disabled={working}
-                className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-medium text-white/70 disabled:opacity-50"
+                className="mt-5 inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2.5 text-xs font-medium text-[#5F5A54] disabled:opacity-50"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${working ? "animate-spin" : ""}`} />
                 {working ? "Validating…" : "Refresh connection"}
@@ -499,7 +560,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
                 <div className="text-sm font-semibold text-[#E5C18D]">
                   I already use the WhatsApp Business app
                 </div>
-                <p className="mt-2 text-xs leading-5 text-white/45">
+                <p className="mt-2 text-xs leading-5 text-[#746E66]">
                   Keep the existing WhatsApp Business app and its current phone number active while adding Avantiqo Cloud API access through coexistence.
                 </p>
                 <button
@@ -511,28 +572,28 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
                   {working ? "Connecting…" : "Use existing app number"}
                   <ExternalLink className="h-4 w-4" />
                 </button>
-                <p className="mt-3 text-[11px] leading-5 text-white/30">
+                <p className="mt-3 text-[11px] leading-5 text-[#A19A92]">
                   Do not migrate or disconnect the current number.
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
-                <div className="text-sm font-semibold text-white/80">
+              <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5">
+                <div className="text-sm font-semibold text-[#2F2C28]">
                   I want a Cloud API setup
                 </div>
-                <p className="mt-2 text-xs leading-5 text-white/45">
+                <p className="mt-2 text-xs leading-5 text-[#746E66]">
                   Use standard Meta Embedded Signup for an existing Cloud API WABA/number or to create and register a new dedicated WhatsApp Business setup.
                 </p>
                 <button
                   type="button"
                   onClick={() => startEmbeddedSignup("cloud")}
                   disabled={working}
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl border border-black/[0.10] bg-[#FBF8F3] px-4 py-3 text-sm font-semibold text-[#191919] disabled:opacity-50"
                 >
                   {working ? "Connecting…" : "Set up Cloud API"}
                   <ExternalLink className="h-4 w-4" />
                 </button>
-                <p className="mt-3 text-[11px] leading-5 text-white/30">
+                <p className="mt-3 text-[11px] leading-5 text-[#A19A92]">
                   Choose this when the business does not need to keep the same number active in the WhatsApp Business app.
                 </p>
               </div>

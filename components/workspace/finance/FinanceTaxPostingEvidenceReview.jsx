@@ -92,7 +92,7 @@ export default function FinanceTaxPostingEvidenceReview({ issue, source, journal
 
     <div className="border-b border-red-700/10 bg-red-50 px-3 py-2 text-[11px] leading-4 text-red-900"><b>Calculation and filing blocked:</b> {issue?.detail}</div>
 
-    <div className="grid gap-px bg-black/[0.05] sm:grid-cols-4">
+    <div className="grid gap-px bg-[#F7F6F3]/[0.05] sm:grid-cols-4">
       <div className="bg-white p-2.5"><div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Source document</div><div className="mt-1 text-[11px] font-semibold">{source?.reference || source?.id || "—"}</div><div className="mt-0.5 text-[11px] text-[#918B83]">{sourceLabel} · {date(source?.date || issue?.date)}</div></div>
       <div className="bg-white p-2.5"><div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Document state</div><div className="mt-1 text-[11px] font-semibold">{sourceStatus}</div><div className="mt-0.5 text-[11px] text-[#918B83]">{output ? "Sales document status" : `Approval · ${approvalStatus}`}</div></div>
       <div className="bg-white p-2.5"><div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">VAT amount affected</div><div className="mt-1 text-[11px] font-semibold">{money(issue?.amount)}</div><div className="mt-0.5 text-[11px] text-[#918B83]">{source?.currency_code || "Document currency"}</div></div>
@@ -102,7 +102,7 @@ export default function FinanceTaxPostingEvidenceReview({ issue, source, journal
     <div className="grid gap-2 p-3 lg:grid-cols-[1.15fr_0.85fr]">
       <div className="overflow-hidden rounded-lg border border-black/[0.06] bg-white">
         <div className="border-b bg-[#FAF9F7] px-2.5 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Posting journal proof</div>
-        <div className="grid gap-px bg-black/[0.05] sm:grid-cols-4">
+        <div className="grid gap-px bg-[#F7F6F3]/[0.05] sm:grid-cols-4">
           <div className="bg-white p-2.5"><div className="text-[11px] uppercase text-[#968F87]">Journal</div><div className="mt-1 text-[11px] font-semibold">{journalIdentity || "Missing"}</div></div>
           <div className="bg-white p-2.5"><div className="text-[11px] uppercase text-[#968F87]">Journal status</div><div className={`mt-1 text-[11px] font-semibold ${journalStatus === "POSTED" ? "text-[#4E4943]" : "text-red-800"}`}>{journalStatus}</div></div>
           <div className="bg-white p-2.5"><div className="text-[11px] uppercase text-[#968F87]">Posting date</div><div className="mt-1 text-[11px] font-semibold">{date(journal?.posting_date)}</div></div>
@@ -118,7 +118,7 @@ export default function FinanceTaxPostingEvidenceReview({ issue, source, journal
 
     <div className="flex flex-col gap-2 border-t border-red-700/12 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
       <div className="text-[11px] font-semibold text-red-800">Blocking · the source document and posting journal remain authoritative.</div>
-      {navigation?.href ? <a href={navigation.href} className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[11px] font-semibold text-white">{output ? "Fix this sales posting" : "Fix this purchase posting"} <ArrowUpRight size={9}/></a> : <span className="text-[11px] font-semibold text-[#918B83]">Exact source route unavailable</span>}
+      {navigation?.href ? <a href={navigation.href} className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[11px] font-semibold text-[#191919]">{output ? "Fix this sales posting" : "Fix this purchase posting"} <ArrowUpRight size={9}/></a> : <span className="text-[11px] font-semibold text-[#918B83]">Exact source route unavailable</span>}
     </div>
   </div>;
 }

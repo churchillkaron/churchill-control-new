@@ -268,18 +268,20 @@ test("Explorer index covers large repositories with hierarchical client-side nav
 });
 
 
-test("Strategic Code reasoning inspects before research and defers specialist review until evidence exists", async () => {
+test("Strategic Code reasoning inspects before research and defers routine specialist review until implementation", async () => {
   const strategic = await readFile(new URL("../lib/code/runtime/CodeAIStrategicReasoningRuntime.js", import.meta.url), "utf8");
   const inspectIndex = strategic.indexOf("strategic_initial_inspect");
   const researchIndex = strategic.indexOf("const research = await resolveStrategicResearch");
-  const evidenceGateIndex = strategic.indexOf("const hasConcreteRepositoryEvidence");
+  const implementationGateIndex = strategic.indexOf("const implementationAlreadyPresent");
+  const riskGateIndex = strategic.indexOf("const preImplementationSpecialistReviewRequired");
   const specialistIndex = strategic.indexOf("? await resolveParallelSpecialistCouncil");
   assert.ok(inspectIndex > 0);
   assert.ok(researchIndex > inspectIndex);
-  assert.ok(evidenceGateIndex > researchIndex);
-  assert.ok(specialistIndex > evidenceGateIndex);
-  assert.match(strategic, /DEFERRED_PENDING_REPOSITORY_EVIDENCE/);
-  assert.match(strategic, /deferred_until_concrete_repository_evidence: true/);
+  assert.ok(implementationGateIndex > researchIndex);
+  assert.ok(riskGateIndex > implementationGateIndex);
+  assert.ok(specialistIndex > riskGateIndex);
+  assert.match(strategic, /DEFERRED_UNTIL_IMPLEMENTATION_OR_HIGH_RISK/);
+  assert.match(strategic, /deferred_until_implementation_or_high_risk: true/);
   assert.match(strategic, /mission_id: text\(objectiveContext\.mission_id/);
 });
 
@@ -299,7 +301,8 @@ test("IDE actions bind directly to a validated device session without enqueueing
   assert.match(deviceRuntime, /bindDeviceCodeWorkspace/);
   assert.match(deviceRuntime, /bind: bindDeviceCodeWorkspace/);
   assert.match(ideRoute, /CodeWorkspaceRuntime\.bind/);
-  assert.match(agent, /p_limit:4/);
+  assert.match(agent, /p_limit:1,p_lease_seconds:DEVICE_JOB_LEASE_SECONDS/);
+  assert.match(agent, /startDeviceJobLeaseRenewal/);
   assert.match(agent, /handled\?75:350/);
 });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -95,7 +95,7 @@ export default function ServicesWorkspace({ organizationId, mode = "overview" })
   const [stripeBilling, setStripeBilling] = useState(null);
   const [billingAction, setBillingAction] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     setLoading(true);
     setError("");
@@ -114,11 +114,11 @@ export default function ServicesWorkspace({ organizationId, mode = "overview" })
     } finally {
       setLoading(false);
     }
-  }
+  }, [entityId, organizationId, periodId]);
 
   useEffect(() => {
     load();
-  }, [organizationId, entityId, periodId]);
+  }, [load]);
 
   useEffect(() => {
     if (!organizationId || mode !== "billing") return;
@@ -191,7 +191,10 @@ export default function ServicesWorkspace({ organizationId, mode = "overview" })
 
   const metrics = data?.metrics || {};
   const queue = Array.isArray(data?.queue) ? data.queue : [];
-  const recentUsage = Array.isArray(data?.recentUsage) ? data.recentUsage : [];
+  const recentUsage = useMemo(
+    () => (Array.isArray(data?.recentUsage) ? data.recentUsage : []),
+    [data?.recentUsage],
+  );
   const services = Array.isArray(data?.services) ? data.services : [];
   const integrations = Array.isArray(data?.integrations) ? data.integrations : [];
   const providers = Array.isArray(data?.topProviders) ? data.topProviders : [];
@@ -217,12 +220,12 @@ export default function ServicesWorkspace({ organizationId, mode = "overview" })
               <h1 className="mt-2 text-[31px] font-semibold tracking-[-0.04em]">Service & Spend Control</h1>
               <p className="mt-2 max-w-3xl text-[12px] leading-5 text-[#706B64]">Wallet, provider execution, usage, billing, reconciliation and integration health from one governed operating view.</p>
             </div>
-            <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[11px] font-medium text-white disabled:opacity-40"><RefreshCw size={13} className={loading ? "animate-spin" : ""} />Refresh</button>
+            <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[11px] font-medium text-[#191919] disabled:opacity-40"><RefreshCw size={13} className={loading ? "animate-spin" : ""} />Refresh</button>
           </div>
         </section>
 
         <nav className="flex flex-wrap gap-1 rounded-xl border border-black/[0.07] bg-white p-1">
-          {MODES.map(([id, label, route]) => <Link key={id} href={href(organizationId, route)} className={`rounded-lg px-3.5 py-2 text-[10px] font-medium ${mode === id ? "bg-[#1F1E1B] text-white" : "text-[#68635C] hover:bg-[#F7F5F1]"}`}>{label}</Link>)}
+          {MODES.map(([id, label, route]) => <Link key={id} href={href(organizationId, route)} className={`rounded-lg px-3.5 py-2 text-[10px] font-medium ${mode === id ? "bg-[#1F1E1B] text-[#191919]" : "text-[#68635C] hover:bg-[#F7F5F1]"}`}>{label}</Link>)}
         </nav>
 
         {error ? <div className="rounded-xl border border-red-700/15 bg-red-50 px-4 py-3 text-[11px] text-red-800"><AlertTriangle size={13} className="mr-2 inline" />{error}</div> : null}
@@ -272,7 +275,7 @@ export default function ServicesWorkspace({ organizationId, mode = "overview" })
                   <p className="mt-1 text-[10px] text-[#817D76]">Canonical Avantiqo module pricing with Stripe acting only as the subscription payment rail.</p>
                 </div>
                 {stripeBilling?.canManage && stripeBilling?.billing?.subscriptionConfigured ? (
-                  <button type="button" onClick={openBillingPortal} disabled={billingAction} className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[10px] font-medium text-white disabled:opacity-40">
+                  <button type="button" onClick={openBillingPortal} disabled={billingAction} className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[10px] font-medium text-[#191919] disabled:opacity-40">
                     {billingAction ? <LoaderCircle size={12} className="animate-spin" /> : <CreditCard size={12} />}
                     Manage billing
                   </button>
@@ -318,7 +321,7 @@ export default function ServicesWorkspace({ organizationId, mode = "overview" })
                               type="button"
                               onClick={() => startBillingCheckout(cycleId)}
                               disabled={billingAction || missing > 0 || !catalog?.modules?.length}
-                              className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[10px] font-medium text-white disabled:opacity-35"
+                              className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[10px] font-medium text-[#191919] disabled:opacity-35"
                             >
                               {billingAction ? <LoaderCircle size={12} className="animate-spin" /> : <ArrowRight size={12} />}
                               Start {label.toLowerCase()}

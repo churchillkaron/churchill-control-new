@@ -105,13 +105,13 @@ export default function InstagramMessagingStatusBanner({ organizationId }) {
   if (!title) return null;
 
   const toneClass = tone === "red"
-    ? "border-red-400/20 bg-red-400/[0.055] text-red-100/80"
+    ? "border-red-700/15 bg-red-50 text-red-800"
     : tone === "neutral"
-      ? "border-white/[0.08] bg-white/[0.025] text-white/62"
-      : "border-amber-300/20 bg-amber-300/[0.055] text-amber-50/80";
+      ? "border-black/[0.07] bg-white text-[#6F675E]"
+      : "border-amber-700/15 bg-amber-50 text-amber-800";
 
   return (
-    <div className="px-4 pt-4 text-white md:px-6 md:pt-6">
+    <div className="px-4 pt-4 text-[#24201B] md:px-6 md:pt-6">
       <div className={`mx-auto max-w-[1780px] rounded-2xl border px-4 py-3 ${toneClass}`}>
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-6">
           <div>

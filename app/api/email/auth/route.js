@@ -13,7 +13,7 @@ export async function GET(request) {
     }
     return NextResponse.redirect(
       new URL(
-        `/workspace/${encodeURIComponent(access.organizationId)}/administration/integrations/email-connect`,
+        `/workspace/${encodeURIComponent(access.organizationId)}/administration/integrations/email-connect${url.searchParams.get("onboarding") === "1" ? "?onboarding=1" : ""}`,
         url.origin,
       ),
     );

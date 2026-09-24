@@ -265,21 +265,21 @@ export default function PayrollGovernancePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
-          <div className="h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+        <section className="overflow-hidden rounded-[34px] border border-black/[0.08] bg-white backdrop-blur-3xl">
+          <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
 
           <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.34em] text-cyan-300">
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.34em] text-[#9B6F3F]">
                 <ShieldCheck className="h-4 w-4" /> Payroll Governance
               </div>
               <h1 className="mt-3 text-4xl font-black">Payroll Lifecycle Governance</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/45">
+              <p className="mt-2 max-w-3xl text-sm text-[#817A72]">
                 Review, approve, lock, pay, finalize, accounting-close, certify and archive each payroll month through one controlled lifecycle.
               </p>
-              <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
+              <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[#A9A39C]">
                 {organizationId ? `Organization ${organizationId}` : "Organization context"} · {role || "Role"}
               </div>
             </div>
@@ -288,7 +288,7 @@ export default function PayrollGovernancePage() {
               type="button"
               onClick={loadPayroll}
               disabled={loading}
-              className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
+              className="flex h-12 items-center gap-2 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 text-xs font-black uppercase tracking-[0.16em] text-[#5F5A54] disabled:opacity-40"
             >
               <RefreshCw className="h-4 w-4" /> Refresh
             </button>
@@ -296,7 +296,7 @@ export default function PayrollGovernancePage() {
         </section>
 
         {focus.staffId ? (
-          <section className="rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.07] px-4 py-3 text-sm text-cyan-100/80">
+          <section className="rounded-2xl border border-[#D6A66A]/30 bg-[#FBF3E8] px-4 py-3 text-sm text-[#76583A]">
             Returned from Attendance Management{focus.month ? ` for ${focus.month}` : ""}. The matching payroll record is highlighted below.
           </section>
         ) : null}
@@ -331,7 +331,7 @@ export default function PayrollGovernancePage() {
         ) : null}
 
         {loading ? (
-          <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6 text-sm text-white/45">
+          <section className="rounded-[30px] border border-black/[0.08] bg-white p-6 text-sm text-[#817A72]">
             Loading payroll governance...
           </section>
         ) : payroll.length ? (
@@ -379,8 +379,8 @@ export default function PayrollGovernancePage() {
                   id={focused ? `payroll-focus-${record.id}` : undefined}
                   className={`rounded-[30px] border p-5 lg:p-6 ${
                     focused
-                      ? "border-cyan-300/30 bg-cyan-300/[0.07] ring-1 ring-inset ring-cyan-300/20"
-                      : "border-white/10 bg-white/[0.035]"
+                      ? "border-[#D6A66A]/35 bg-[#FBF3E8] ring-1 ring-inset ring-[#D6A66A]/20"
+                      : "border-black/[0.08] bg-white"
                   }`}
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -389,19 +389,19 @@ export default function PayrollGovernancePage() {
                         <h2 className="text-2xl font-black">{record.staff_name || "Employee"}</h2>
                         <StatusBadge status={record.status} />
                         {record.review_required ? (
-                          <span className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${pendingManagerReview ? "border-amber-400/20 bg-amber-400/10 text-amber-200" : "border-cyan-400/20 bg-cyan-400/10 text-cyan-200"}`}>
+                          <span className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${pendingManagerReview ? "border-amber-400/20 bg-amber-400/10 text-amber-200" : "border-[#D6A66A]/30 bg-[#FBF3E8] text-[#76583A]"}`}>
                             Review {record.review_status || "PENDING"}
                           </span>
                         ) : null}
                       </div>
-                      <div className="mt-2 text-sm text-white/40">
+                      <div className="mt-2 text-sm text-[#918B83]">
                         {record.role || "-"} · {record.payroll_month || "-"}
                         {record.legal_entity?.name ? ` · ${record.legal_entity.name}` : ""}
                       </div>
                     </div>
 
                     <div className="text-left lg:text-right">
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">Net Salary</div>
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-[#918B83]">Net Salary</div>
                       <div className="mt-2 text-3xl font-black text-emerald-300">{formatMoney(record.final_salary, recordCurrency)}</div>
                     </div>
                   </div>
@@ -462,11 +462,11 @@ export default function PayrollGovernancePage() {
                           ) : null}
                         </div>
                       ) : attendanceRecalculationRequired ? (
-                        <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.07] p-4">
-                          <div className="flex items-center gap-2 text-sm font-black text-cyan-200">
+                        <div className="mt-4 rounded-2xl border border-[#D6A66A]/30 bg-[#FBF3E8] p-4">
+                          <div className="flex items-center gap-2 text-sm font-black text-[#76583A]">
                             <RefreshCw className="h-4 w-4" /> Payroll recalculation required
                           </div>
-                          <div className="mt-2 text-sm leading-6 text-cyan-100/70">
+                          <div className="mt-2 text-sm leading-6 text-[#817A72]">
                             Attendance was classified or changed after this payroll record was calculated. Recalculate the payroll month before completing manager review so hours, missed shifts, credited leave and salary evidence are current.
                           </div>
                           <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -484,7 +484,7 @@ export default function PayrollGovernancePage() {
                                   payrollRecordId: record.id,
                                 })
                               }
-                              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
+                              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#D6A66A] text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
                             >
                               <RefreshCw className="h-4 w-4" /> Recalculate payroll month
                             </button>
@@ -501,7 +501,7 @@ export default function PayrollGovernancePage() {
                       )}
 
                       {Number(record.attendance_penalty || 0) > 0 ? (
-                        <div className="mt-2 text-xs text-white/45">
+                        <div className="mt-2 text-xs text-[#817A72]">
                           Proposed attendance deduction: {formatMoney(record.attendance_penalty, recordCurrency)}. Approving keeps the proposal; waiving removes it and recalculates net payroll.
                         </div>
                       ) : null}
@@ -512,7 +512,7 @@ export default function PayrollGovernancePage() {
                             value={reviewNotes}
                             onChange={(event) => setReviewNotes(event.target.value)}
                             placeholder="Manager notes. Required when waiving a proposed deduction."
-                            className="min-h-20 w-full resize-none rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white outline-none placeholder:text-white/30"
+                            className="min-h-20 w-full resize-none rounded-2xl border border-black/[0.08] bg-white p-3 text-sm text-[#191919] outline-none placeholder:text-[#A19A92]"
                           />
                           <div className="grid gap-3 sm:grid-cols-3">
                             <button
@@ -521,7 +521,7 @@ export default function PayrollGovernancePage() {
                                 setReviewingId("");
                                 setReviewNotes("");
                               }}
-                              className="h-11 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black uppercase tracking-[0.14em]"
+                              className="h-11 rounded-xl border border-black/[0.08] bg-[#FBF8F3] text-xs font-black uppercase tracking-[0.14em]"
                             >
                               Cancel
                             </button>
@@ -598,13 +598,13 @@ export default function PayrollGovernancePage() {
                   ) : null}
 
                   {resolvedDispute ? (
-                    <div className="mt-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4">
-                      <div className="flex items-center gap-2 text-sm font-black text-cyan-200">
+                    <div className="mt-4 rounded-2xl border border-[#D6A66A]/30 bg-[#FBF3E8] p-4">
+                      <div className="flex items-center gap-2 text-sm font-black text-[#76583A]">
                         <CheckCircle2 className="h-4 w-4" /> Dispute resolved
                       </div>
-                      <div className="mt-2 text-sm text-cyan-100/65">{record.employee_dispute}</div>
+                      <div className="mt-2 text-sm text-[#817A72]">{record.employee_dispute}</div>
                       {record.dispute_resolution_notes ? (
-                        <div className="mt-2 text-sm text-white/45">
+                        <div className="mt-2 text-sm text-[#817A72]">
                           Resolution: {record.dispute_resolution_notes}
                         </div>
                       ) : null}
@@ -612,7 +612,7 @@ export default function PayrollGovernancePage() {
                   ) : null}
 
                   {record.accounting_period_closed ? (
-                    <div className="mt-4 text-xs font-black uppercase tracking-[0.14em] text-cyan-300">
+                    <div className="mt-4 text-xs font-black uppercase tracking-[0.14em] text-[#9B6F3F]">
                       Accounting closed · {record.accounting_period_closed_at || "Recorded"}
                     </div>
                   ) : null}
@@ -624,7 +624,7 @@ export default function PayrollGovernancePage() {
                   ) : null}
 
                   {record.archived ? (
-                    <div className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-white/50">
+                    <div className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#746E66]">
                       Archived · {record.archived_at || "Recorded"}
                     </div>
                   ) : null}
@@ -652,7 +652,7 @@ export default function PayrollGovernancePage() {
                         value={resolutionNotes}
                         onChange={(event) => setResolutionNotes(event.target.value)}
                         placeholder="Resolution notes for the employee and payroll audit trail"
-                        className="min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white outline-none placeholder:text-white/30"
+                        className="min-h-24 w-full resize-none rounded-2xl border border-black/[0.08] bg-white p-3 text-sm text-[#191919] outline-none placeholder:text-[#A19A92]"
                       />
                       <div className="flex gap-3">
                         <button
@@ -661,7 +661,7 @@ export default function PayrollGovernancePage() {
                             setResolvingId("");
                             setResolutionNotes("");
                           }}
-                          className="h-11 flex-1 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black uppercase tracking-[0.14em]"
+                          className="h-11 flex-1 rounded-xl border border-black/[0.08] bg-[#FBF8F3] text-xs font-black uppercase tracking-[0.14em]"
                         >
                           Cancel
                         </button>
@@ -702,12 +702,12 @@ export default function PayrollGovernancePage() {
                   ) : null}
 
                   {rejectingId === record.id ? (
-                    <div className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="mt-5 space-y-3 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
                       <textarea
                         value={rejectReason}
                         onChange={(event) => setRejectReason(event.target.value)}
                         placeholder="Reason for rejection"
-                        className="min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white outline-none placeholder:text-white/30"
+                        className="min-h-24 w-full resize-none rounded-2xl border border-black/[0.08] bg-white p-3 text-sm text-[#191919] outline-none placeholder:text-[#A19A92]"
                       />
                       <div className="flex gap-3">
                         <button
@@ -716,7 +716,7 @@ export default function PayrollGovernancePage() {
                             setRejectingId("");
                             setRejectReason("");
                           }}
-                          className="h-11 flex-1 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black uppercase tracking-[0.14em]"
+                          className="h-11 flex-1 rounded-xl border border-black/[0.08] bg-[#FBF8F3] text-xs font-black uppercase tracking-[0.14em]"
                         >
                           Cancel
                         </button>
@@ -804,7 +804,7 @@ export default function PayrollGovernancePage() {
                           payrollRecordId: record.id,
                         })
                       }
-                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
+                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#D6A66A] text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
                     >
                       <Lock className="h-4 w-4" /> Lock payroll month
                     </button>
@@ -836,7 +836,7 @@ export default function PayrollGovernancePage() {
                           payrollRecordId: record.id,
                         })
                       }
-                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-xs font-black uppercase tracking-[0.16em] text-cyan-200 disabled:opacity-40"
+                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#D6A66A]/30 bg-[#FBF3E8] text-xs font-black uppercase tracking-[0.16em] text-[#76583A] disabled:opacity-40"
                     >
                       <Lock className="h-4 w-4" /> Close accounting month
                     </button>
@@ -868,7 +868,7 @@ export default function PayrollGovernancePage() {
                           payrollRecordId: record.id,
                         })
                       }
-                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
+                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-black/[0.10] bg-[#FBF8F3] text-xs font-black uppercase tracking-[0.16em] text-[#5F5A54] disabled:opacity-40"
                     >
                       <Lock className="h-4 w-4" /> Archive payroll month
                     </button>
@@ -878,7 +878,7 @@ export default function PayrollGovernancePage() {
             })}
           </section>
         ) : (
-          <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6 text-sm text-white/45">
+          <section className="rounded-[30px] border border-black/[0.08] bg-white p-6 text-sm text-[#817A72]">
             No payroll records are available for this organization.
           </section>
         )}
@@ -889,8 +889,8 @@ export default function PayrollGovernancePage() {
 
 function Metric({ label, value }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
-      <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">{label}</div>
+    <div className="rounded-[24px] border border-black/[0.08] bg-white p-5">
+      <div className="text-[10px] uppercase tracking-[0.2em] text-[#918B83]">{label}</div>
       <div className="mt-3 text-3xl font-black">{value}</div>
     </div>
   );
@@ -898,18 +898,18 @@ function Metric({ label, value }) {
 
 function Data({ label, value }) {
   return (
-    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3">
-      <div className="text-[9px] uppercase tracking-[0.16em] text-white/30">{label}</div>
-      <div className="mt-2 text-sm font-black text-white/75">{value}</div>
+    <div className="rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-3">
+      <div className="text-[9px] uppercase tracking-[0.16em] text-[#A19A92]">{label}</div>
+      <div className="mt-2 text-sm font-black text-[#3F3A35]">{value}</div>
     </div>
   );
 }
 
 function MiniData({ label, value }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-      <div className="text-[9px] uppercase tracking-[0.14em] text-white/35">{label}</div>
-      <div className="mt-1 text-sm font-black text-white/80">{value}</div>
+    <div className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3">
+      <div className="text-[9px] uppercase tracking-[0.14em] text-[#918B83]">{label}</div>
+      <div className="mt-1 text-sm font-black text-[#2F2C28]">{value}</div>
     </div>
   );
 }
@@ -918,26 +918,26 @@ function StatusBadge({ status }) {
   const value = String(status || "GENERATED").toUpperCase();
   const tone =
     value === "ARCHIVED"
-      ? "border-white/15 bg-white/[0.05] text-white/55"
+      ? "border-black/[0.10] bg-[#FBF8F3] text-[#746E66]"
       : value === "CERTIFIED"
         ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
         : value === "ACCOUNTING_CLOSED"
-          ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
+          ? "border-[#D6A66A]/30 bg-[#FBF3E8] text-[#9B6F3F]"
           : value === "FINALIZED"
             ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
             : value === "RESOLVED"
-              ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
+              ? "border-[#D6A66A]/30 bg-[#FBF3E8] text-[#9B6F3F]"
               : value === "DISPUTED"
                 ? "border-amber-500/20 bg-amber-500/10 text-amber-300"
                 : value === "PAID"
                   ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
                   : value === "LOCKED"
-                    ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
+                    ? "border-[#D6A66A]/30 bg-[#FBF3E8] text-[#9B6F3F]"
                     : value === "APPROVED"
                       ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
                       : value === "REJECTED"
                         ? "border-red-500/20 bg-red-500/10 text-red-300"
-                        : "border-white/10 bg-white/[0.05] text-white/65";
+                        : "border-black/[0.08] bg-[#FBF8F3] text-[#5F5A54]";
 
   return (
     <span className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${tone}`}>

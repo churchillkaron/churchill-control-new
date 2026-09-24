@@ -16,7 +16,7 @@ test("Code worker is source-locked to the owned local-node execution path", () =
 test("local Code jobs preserve governed queue context and fail closed on empty completion", () => {
   assert.match(queue, /AVANTIQO_CODE_LOCAL_GOVERNED_CONTEXT_REQUIRED/);
   assert.match(queue, /avantiqo_local_compute_jobs/);
-  assert.match(queue, /lane:"gpu"/);
+  assert.match(queue, /lane:"code"/);
   assert.match(queue, /AVANTIQO_CODE_LOCAL_COMPLETED_RESULT_REQUIRED/);
   assert.match(queue, /customer_charge_eligible:false/);
 });

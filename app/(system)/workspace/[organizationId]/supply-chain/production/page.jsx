@@ -161,7 +161,7 @@ export default function ProductionPage() {
 
   return (
 
-    <main className="min-h-screen bg-black p-10 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] p-10 text-[#191919]">
 
       <div className="mb-10">
 
@@ -191,7 +191,7 @@ export default function ProductionPage() {
 
             </h1>
 
-            <p className="max-w-5xl text-lg leading-relaxed text-white/50">
+            <p className="max-w-5xl text-lg leading-relaxed text-[#746E66]">
 
               Enterprise production runtime for recipes, prep operations,
               food costing, kitchen production and manufacturing intelligence.
@@ -219,12 +219,12 @@ export default function ProductionPage() {
 
           <div
             key={item.label}
-            className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6"
+            className="rounded-[32px] border border-black/[0.08] bg-[#FBF8F3] p-6"
           >
 
             <div className="mb-5 h-8 w-8 rounded-2xl bg-orange-500/10" />
 
-            <div className="mb-2 text-xs uppercase tracking-[0.2em] text-white/30">
+            <div className="mb-2 text-xs uppercase tracking-[0.2em] text-[#A19A92]">
 
               {item.label}
 
@@ -262,7 +262,7 @@ export default function ProductionPage() {
 
               </div>
 
-              <div className="text-white/40">
+              <div className="text-[#817A72]">
 
                 Analyze recipe costs, production output and kitchen operations.
 
@@ -274,7 +274,7 @@ export default function ProductionPage() {
 
           <Link
             href="/supply-chain/production/ai"
-            className="rounded-2xl border border-orange-500/20 bg-black/30 px-5 py-3 text-sm text-orange-300"
+            className="rounded-2xl border border-orange-500/20 bg-[#F7F6F3]/30 px-5 py-3 text-sm text-orange-300"
           >
 
             Open Production Intelligence
@@ -283,16 +283,16 @@ export default function ProductionPage() {
 
         </div>
 
-        <div className="mb-5 flex items-center gap-4 rounded-3xl border border-white/10 bg-black/40 px-6 py-5">
+        <div className="mb-5 flex items-center gap-4 rounded-3xl border border-black/[0.08] bg-[#F7F6F3]/40 px-6 py-5">
 
           <Bot className="h-6 w-6 text-orange-400" />
 
           <input
             placeholder="Ask production AI to analyze food cost, prep forecasting or kitchen performance..."
-            className="w-full bg-transparent text-lg outline-none placeholder:text-white/20"
+            className="w-full bg-transparent text-lg outline-none placeholder:text-[#B0AAA3]"
           />
 
-          <button className="rounded-2xl bg-orange-500 px-6 py-3 font-medium text-white">
+          <button className="rounded-2xl bg-orange-500 px-6 py-3 font-medium text-[#191919]">
 
             Run
 
@@ -306,7 +306,7 @@ export default function ProductionPage() {
 
             <button
               key={action}
-              className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-white/60 hover:border-orange-500/30 hover:bg-orange-500/10 hover:text-white"
+              className="rounded-full border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54] hover:border-orange-500/30 hover:bg-orange-500/10 hover:text-[#191919]"
             >
 
               {action}
@@ -329,7 +329,7 @@ export default function ProductionPage() {
 
             <div
               key={section.title}
-              className="rounded-[36px] border border-white/10 bg-white/[0.03] p-8"
+              className="rounded-[36px] border border-black/[0.08] bg-[#FBF8F3] p-8"
             >
 
               <div className="mb-8 flex items-start justify-between gap-6">
@@ -350,7 +350,7 @@ export default function ProductionPage() {
 
                     </div>
 
-                    <div className="max-w-xl text-white/45">
+                    <div className="max-w-xl text-[#746E66]">
 
                       {section.description}
 
@@ -360,7 +360,7 @@ export default function ProductionPage() {
 
                 </div>
 
-                <div className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-white/40">
+                <div className="rounded-full border border-black/[0.08] bg-[#F7F6F3]/30 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-[#817A72]">
 
                   Runtime
 
@@ -375,18 +375,18 @@ export default function ProductionPage() {
                   <Link
                     key={item.route}
                     href={item.route}
-                    className="group rounded-2xl border border-white/10 bg-black/30 p-4 hover:border-orange-500/40 hover:bg-orange-500/5"
+                    className="group rounded-2xl border border-black/[0.08] bg-[#F7F6F3]/30 p-4 hover:border-orange-500/40 hover:bg-orange-500/5"
                   >
 
                     <div className="flex items-center justify-between gap-3">
 
-                      <div className="text-white/70">
+                      <div className="text-[#5F5A54]">
 
                         {item.name}
 
                       </div>
 
-                      <ArrowRight className="h-4 w-4 text-white/20 group-hover:text-orange-400" />
+                      <ArrowRight className="h-4 w-4 text-[#B0AAA3] group-hover:text-orange-400" />
 
                     </div>
 

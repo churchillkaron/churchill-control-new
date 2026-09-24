@@ -25,6 +25,8 @@ import {
   MAX_CODE_AI_LOCAL_REASONING_CALL_BUDGET,
   MAX_CODE_AI_REASONING_CALL_BUDGET,
 } from "@/lib/code/runtime/CodeAIPlannerSpendPolicy";
+import { deriveCodeAIWatchdog } from "@/lib/code/runtime/CodeAIEngineeringPrecisionRuntime";
+import { sanitizeCodeAIErrorReason } from "@/lib/code/runtime/CodeAIErrorSanitizationRuntime";
 import {
   codeStudioLocalMissionBackgroundStatus,
   startCodeStudioLocalMissionBackground,
@@ -71,12 +73,16 @@ function executionKey(value) {
 }
 
 function errorResponse(error, status = 500) {
+  const safeError = sanitizeCodeAIErrorReason(error, {
+    label: "MISSION_API",
+    maximum: 1000,
+  });
   return Response.json({
     success: false,
     contract: PREVIEW_CONTRACT,
     certification_contract: AVANTIQO_CODE_CERTIFICATION_CONTRACT,
     certified_runtime_contract: AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
-    error: text(error?.message || error, 1000) || "CODE_STUDIO_MISSION_FAILED",
+    error: safeError || "CODE_STUDIO_MISSION_FAILED",
     production_routing_activated: false,
     production_deploy_performed: false,
     commit_performed: false,
@@ -489,6 +495,55 @@ async function runLocalDeviceMissionBackground({
             lastResumeFingerprint = resumeFingerprint;
             stagnantResumePasses = 0;
           }
+          const plannerWatchdog = deriveCodeAIWatchdog({
+            events: nextState?.evidence,
+            pendingSince: nextState?.planner_pending?.created_at || null,
+          });
+          const plannerPendingActive = Boolean(nextState?.planner_pending);
+          if (plannerPendingActive) {
+            const hardPendingDeadlineMs = 300000;
+            if (plannerWatchdog.pending_age_ms >= hardPendingDeadlineMs) {
+              const pendingReason = "CODE_STUDIO_PLANNER_PENDING_HARD_DEADLINE_EXCEEDED";
+              await publishCodeMissionTerminal({
+                context,
+                missionId,
+                objective,
+                repositoryUrl,
+                ref,
+                requestedDeviceId,
+                requestedDeviceSessionId,
+                state: nextState,
+                status: "blocked",
+                reason: pendingReason,
+              });
+              return { status: "blocked", state: nextState, reason: pendingReason };
+            }
+            if (plannerWatchdog.stale_pending === true) {
+              await publishCodeAILiveProgress({
+                context,
+                state: {
+                  ...object(nextState),
+                  mission_id: missionId,
+                  objective,
+                  repository_url: repositoryUrl,
+                  ref,
+                  status: "running",
+                  device_id: requestedDeviceId,
+                  device_session_id: requestedDeviceSessionId,
+                },
+                event: {
+                  phase: "LOCAL_BACKGROUND_PLANNER_PENDING_RECOVERY",
+                  status: "running",
+                  mission_id: missionId,
+                  description: `The same local Code planner job exceeded the ${Math.round(plannerWatchdog.pending_deadline_ms / 1000)}s interactive progress deadline. I’m preserving and polling that exact job instead of submitting duplicate inference.`,
+                  device_id: requestedDeviceId,
+                  device_session_id: requestedDeviceSessionId,
+                },
+              }).catch(() => null);
+            }
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            continue;
+          }
           if (stagnantResumePasses >= 3) {
             if (!stagnationReplanUsed) {
               stagnationReplanUsed = true;
@@ -521,7 +576,7 @@ async function runLocalDeviceMissionBackground({
                   phase: "LOCAL_BACKGROUND_NO_PROGRESS_REPLAN",
                   status: "running",
                   mission_id: missionId,
-                  description: `Code has not produced a new repository operation across three continuation passes. I’m discarding the stale planner continuation and replanning once from the preserved repository evidence.`,
+                  description: "Code has not produced a new repository operation across three continuation passes. I’m replanning once from preserved repository evidence; no provider job is currently pending.",
                   device_id: requestedDeviceId,
                   device_session_id: requestedDeviceSessionId,
                 },

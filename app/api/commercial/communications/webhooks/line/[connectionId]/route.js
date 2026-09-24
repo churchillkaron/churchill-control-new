@@ -9,6 +9,7 @@ import {
   resolveCommunicationConnectionById,
 } from "@/lib/commercial/communications/CommunicationWebhookRuntime";
 import { get as getProviderCredential } from "@/lib/platform/service-runtime/credentials/repositories/CredentialRepository";
+import { issueLineStatelessChannelAccessToken } from "@/lib/platform/service-runtime/providers/line/LINEChannelAccessTokenRuntime";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -68,6 +69,37 @@ function messageBody(message = {}) {
   return null;
 }
 
+async function resolveLineProfile({ source, channelAccessToken }) {
+  if (!channelAccessToken) return null;
+  const userId = text(source?.userId);
+  if (!userId) return null;
+
+  let path = `/v2/bot/profile/${encodeURIComponent(userId)}`;
+  const groupId = text(source?.groupId);
+  const roomId = text(source?.roomId);
+  if (groupId) {
+    path = `/v2/bot/group/${encodeURIComponent(groupId)}/member/${encodeURIComponent(userId)}`;
+  } else if (roomId) {
+    path = `/v2/bot/room/${encodeURIComponent(roomId)}/member/${encodeURIComponent(userId)}`;
+  }
+
+  const response = await fetch(`https://api.line.me${path}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${channelAccessToken}` },
+    cache: "no-store",
+  }).catch(() => null);
+  if (!response?.ok) return null;
+  const payload = await response.json().catch(() => null);
+  if (!payload || typeof payload !== "object") return null;
+
+  return {
+    displayName: text(payload.displayName) || null,
+    pictureUrl: text(payload.pictureUrl) || null,
+    statusMessage: text(payload.statusMessage) || null,
+    language: text(payload.language) || null,
+  };
+}
+
 function messageMetadata(event, message = {}) {
   const type = text(message.type).toLowerCase();
   const metadata = {
@@ -113,7 +145,7 @@ async function verifiedConnection(connectionId, rawBody, signatureHeader) {
     provider: "line",
     connectionId,
   });
-  if (!connection?.credentials_reference) return { connection: null, valid: false };
+  if (!connection?.credentials_reference) return { connection: null, valid: false, channelAccessToken: null };
 
   const credential = await getProviderCredential(connection.credentials_reference);
   const metadata = object(credential?.metadata);
@@ -122,12 +154,22 @@ async function verifiedConnection(connectionId, rawBody, signatureHeader) {
     text(metadata.organization_id) === text(connection.organization_id) &&
     text(metadata.purpose).toUpperCase() === "ORGANIZATION_LINE_MESSAGING" &&
     metadata.enabled !== false;
-  if (!credentialMatches) return { connection: null, valid: false };
+  if (!credentialMatches) return { connection: null, valid: false, channelAccessToken: null };
 
   const channelSecret = resolveSecret(credential.secret_reference);
+  let channelAccessToken = null;
+  if (channelSecret && text(metadata.channel_id)) {
+    const issued = await issueLineStatelessChannelAccessToken({
+      channel_id: metadata.channel_id,
+      channel_secret: channelSecret,
+    }).catch(() => null);
+    channelAccessToken = issued?.access_token || null;
+  }
+
   return {
     connection,
     valid: validSignature(rawBody, signatureHeader, channelSecret),
+    channelAccessToken,
   };
 }
 
@@ -172,16 +214,27 @@ export async function POST(request, { params }) {
       continue;
     }
 
+    const profile = await resolveLineProfile({
+      source: event.source || {},
+      channelAccessToken: verified.channelAccessToken,
+    });
+
     await ingestInboundCommunication({
       connection,
       externalMessageId: event.message.id,
       externalThreadId: source.threadId,
       participantId: source.participantId,
+      participantName: profile?.displayName || null,
       participantAddress: source.participantId,
       recipientAddress: payload.destination || expectedDestination || null,
       messageType: event.message.type || "unknown",
       body: messageBody(event.message),
       receivedAt: event.timestamp || null,
+      conversationMetadata: {
+        ...(profile?.pictureUrl ? { participant_profile_image_url: profile.pictureUrl } : {}),
+        ...(profile?.statusMessage ? { line_status_message: profile.statusMessage } : {}),
+        ...(profile?.language ? { line_language: profile.language } : {}),
+      },
       metadata: {
         ...messageMetadata(event, event.message),
         source_type: source.sourceType,

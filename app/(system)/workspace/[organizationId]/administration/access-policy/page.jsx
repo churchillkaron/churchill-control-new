@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   CheckCircle2,
@@ -113,7 +113,7 @@ export default function OrganizationAccessPolicyPage() {
     };
   }, [policy.workforce]);
 
-  async function loadPolicy() {
+  const loadPolicy = useCallback(async () => {
     if (!organizationId) return;
     setLoading(true);
     setError("");
@@ -137,11 +137,11 @@ export default function OrganizationAccessPolicyPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     loadPolicy();
-  }, [organizationId]);
+  }, [loadPolicy]);
 
   function updateAccess(key, value) {
     setPolicy((current) => ({
@@ -353,16 +353,16 @@ export default function OrganizationAccessPolicyPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#24201B] lg:p-10">
       <div className="mx-auto max-w-5xl space-y-6">
-        <section className="rounded-[32px] border border-white/10 bg-white/[0.045] p-6">
+        <section className="rounded-[32px] border border-black/[0.07] bg-white p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="text-[10px] uppercase tracking-[0.32em] text-[#D6A66A]">
                 Administration · Access & Workforce
               </div>
               <h1 className="mt-3 text-4xl font-black">Organization Policy</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/45">
+              <p className="mt-2 max-w-3xl text-sm text-[#777169]">
                 Configure each business independently: app access, workforce timing, identity verification, GPS requirements and its own clock-in site geofence.
               </p>
             </div>
@@ -370,7 +370,7 @@ export default function OrganizationAccessPolicyPage() {
               type="button"
               onClick={loadPolicy}
               disabled={loading}
-              className="flex h-11 items-center gap-2 rounded-xl border border-white/10 px-4 text-xs font-bold uppercase tracking-[0.14em] text-white/70 disabled:opacity-40"
+              className="flex h-11 items-center gap-2 rounded-xl border border-black/[0.07] px-4 text-xs font-bold uppercase tracking-[0.14em] text-[#5F574E] disabled:opacity-40"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
             </button>
@@ -418,7 +418,7 @@ export default function OrganizationAccessPolicyPage() {
               checked={policy.workforce.passkey_clock_in_required}
               onChange={(value) => updateWorkforce("passkey_clock_in_required", value)}
             />
-            <div className="rounded-2xl border border-violet-400/15 bg-violet-400/[0.05] p-4 text-xs leading-5 text-violet-100/65">
+            <div className="rounded-2xl border border-[#C7B08D]/25 bg-[#FBF6EF] p-4 text-xs leading-5 text-[#776958]">
               Enroll staff passkeys first in Workforce Profile before requiring this verification. Biometric templates stay on the employee device and are never stored by Avantiqo.
             </div>
           </PolicyCard>
@@ -440,8 +440,8 @@ export default function OrganizationAccessPolicyPage() {
             />
 
             <div className="rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] p-4">
-              <div className="text-sm font-semibold text-white/80">Business clock-in point</div>
-              <p className="mt-1 text-xs leading-5 text-white/40">
+              <div className="text-sm font-semibold text-[#4F473F]">Business clock-in point</div>
+              <p className="mt-1 text-xs leading-5 text-[#81786F]">
                 Stand at the normal staff clock-in location and capture the current coordinates. They are saved only for this organization.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -449,7 +449,7 @@ export default function OrganizationAccessPolicyPage() {
                   type="button"
                   onClick={captureCurrentLocation}
                   disabled={locating || testing}
-                  className="flex h-11 items-center gap-2 rounded-xl border border-[#D6A66A]/30 bg-black/20 px-4 text-xs font-black uppercase tracking-[0.14em] text-[#F3D2A7] disabled:opacity-40"
+                  className="flex h-11 items-center gap-2 rounded-xl border border-[#D6A66A]/35 bg-[#FFF9F0] px-4 text-xs font-black uppercase tracking-[0.14em] text-[#76583A] disabled:opacity-40"
                 >
                   <Crosshair className={`h-4 w-4 ${locating ? "animate-pulse" : ""}`} />
                   {locating ? "Capturing..." : "Use current location"}
@@ -458,14 +458,14 @@ export default function OrganizationAccessPolicyPage() {
                   type="button"
                   onClick={testCurrentLocation}
                   disabled={locating || testing || !locationReadiness.geofenceConfigured}
-                  className="flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-4 text-xs font-black uppercase tracking-[0.14em] text-white/70 disabled:opacity-40"
+                  className="flex h-11 items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBF8F3] px-4 text-xs font-black uppercase tracking-[0.14em] text-[#5F574E] disabled:opacity-40"
                 >
                   <TestTube2 className={`h-4 w-4 ${testing ? "animate-pulse" : ""}`} />
                   {testing ? "Testing..." : "Test current location"}
                 </button>
               </div>
               {capturedAccuracy !== null ? (
-                <div className="mt-2 text-xs text-white/45">
+                <div className="mt-2 text-xs text-[#777169]">
                   Last capture accuracy: approximately {Math.round(capturedAccuracy)} m.
                 </div>
               ) : null}
@@ -511,7 +511,7 @@ export default function OrganizationAccessPolicyPage() {
             type="button"
             onClick={savePolicy}
             disabled={loading || saving || locating || testing}
-            className="flex h-12 items-center gap-2 rounded-xl bg-[#D6A66A] px-5 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
+            className="flex h-12 items-center gap-2 rounded-xl bg-[#D6A66A] px-5 text-xs font-black uppercase tracking-[0.16em] text-[#2C2117] disabled:opacity-40"
           >
             <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save Policy"}
           </button>
@@ -551,10 +551,10 @@ function LocationReadinessCard({
 
   const classes =
     tone === "success"
-      ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-100/80"
+      ? "border-emerald-700/15 bg-emerald-50 text-emerald-800"
       : tone === "warning"
-        ? "border-amber-400/20 bg-amber-400/[0.06] text-amber-100/80"
-        : "border-white/10 bg-white/[0.025] text-white/55";
+        ? "border-amber-700/15 bg-amber-50 text-amber-800"
+        : "border-black/[0.07] bg-[#FBF8F3] text-[#776F66]";
 
   const Icon = tone === "success" ? CheckCircle2 : tone === "warning" ? TriangleAlert : MapPin;
 
@@ -570,8 +570,8 @@ function LocationReadinessCard({
 
 function LocationTestResult({ result, radius, maxAccuracy }) {
   const classes = result.passed
-    ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-100/80"
-    : "border-red-400/20 bg-red-400/[0.06] text-red-100/80";
+    ? "border-emerald-700/15 bg-emerald-50 text-emerald-800"
+    : "border-red-700/15 bg-red-50 text-red-800";
   const Icon = result.passed ? CheckCircle2 : TriangleAlert;
 
   return (
@@ -596,8 +596,8 @@ function LocationTestResult({ result, radius, maxAccuracy }) {
 
 function PolicyCard({ icon, title, children }) {
   return (
-    <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5">
-      <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-white/75">
+    <section className="rounded-[28px] border border-black/[0.07] bg-white p-5">
+      <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-[#5A5148]">
         {icon} {title}
       </div>
       <div className="mt-5 space-y-4">{children}</div>
@@ -607,10 +607,10 @@ function PolicyCard({ icon, title, children }) {
 
 function Toggle({ label, description, checked, onChange }) {
   return (
-    <label className="flex cursor-pointer items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+    <label className="flex cursor-pointer items-start justify-between gap-4 rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-4">
       <span>
-        <span className="block text-sm font-semibold text-white/80">{label}</span>
-        <span className="mt-1 block text-xs leading-5 text-white/35">{description}</span>
+        <span className="block text-sm font-semibold text-[#4F473F]">{label}</span>
+        <span className="mt-1 block text-xs leading-5 text-[#938B82]">{description}</span>
       </span>
       <input
         type="checkbox"
@@ -624,9 +624,9 @@ function Toggle({ label, description, checked, onChange }) {
 
 function NumberField({ label, value, onChange, description, min = "0", step = "1" }) {
   return (
-    <label className="block rounded-2xl border border-white/10 bg-black/20 p-4">
-      <span className="text-sm font-semibold text-white/80">{label}</span>
-      <span className="mt-1 block text-xs leading-5 text-white/35">{description}</span>
+    <label className="block rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-4">
+      <span className="text-sm font-semibold text-[#4F473F]">{label}</span>
+      <span className="mt-1 block text-xs leading-5 text-[#938B82]">{description}</span>
       <input
         type="number"
         min={min}
@@ -634,7 +634,7 @@ function NumberField({ label, value, onChange, description, min = "0", step = "1
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder="Not configured"
-        className="mt-3 h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm outline-none"
+        className="mt-3 h-11 w-full rounded-xl border border-black/[0.07] bg-white px-3 text-sm outline-none"
       />
     </label>
   );
@@ -643,7 +643,7 @@ function NumberField({ label, value, onChange, description, min = "0", step = "1
 function Notice({ tone, children }) {
   const classes =
     tone === "error"
-      ? "border-red-500/20 bg-red-500/10 text-red-200"
-      : "border-emerald-500/20 bg-emerald-500/10 text-emerald-200";
+      ? "border-red-700/15 bg-red-50 text-red-800"
+      : "border-emerald-700/15 bg-emerald-50 text-emerald-800";
   return <div className={`rounded-2xl border px-4 py-3 text-sm ${classes}`}>{children}</div>;
 }

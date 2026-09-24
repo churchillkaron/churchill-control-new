@@ -27,7 +27,7 @@ export default function HealthcareAnalyticsPage() {
       </h1>
 
       <div className="mb-8 grid gap-6 md:grid-cols-4">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6">
           <div className="text-sm text-zinc-400">
             Patients
           </div>
@@ -36,7 +36,7 @@ export default function HealthcareAnalyticsPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6">
           <div className="text-sm text-zinc-400">
             Appointments
           </div>
@@ -45,7 +45,7 @@ export default function HealthcareAnalyticsPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6">
           <div className="text-sm text-zinc-400">
             Admissions
           </div>
@@ -54,7 +54,7 @@ export default function HealthcareAnalyticsPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6">
           <div className="text-sm text-zinc-400">
             Beds
           </div>
@@ -65,19 +65,19 @@ export default function HealthcareAnalyticsPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6">
           <PatientsChart data={chartData} />
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6">
           <AdmissionsChart data={chartData} />
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6">
           <LabChart data={chartData} />
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-6">
           <RadiologyChart data={chartData} />
         </div>
       </div>

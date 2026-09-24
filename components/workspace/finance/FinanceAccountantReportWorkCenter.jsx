@@ -239,7 +239,7 @@ export default function FinanceAccountantReportWorkCenter({
               <button type="button" onClick={exportCsv} disabled={!filteredRows.length} className="inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.09] bg-white px-3 text-[11px] font-medium text-[#575149] hover:border-[#D6A66A]/45 disabled:opacity-35">
                 <Download size={13} /> Export CSV
               </button>
-              <button type="button" onClick={() => window.print()} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3 text-[11px] font-medium text-white hover:bg-black">
+              <button type="button" onClick={() => window.print()} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3 text-[11px] font-medium text-[#191919] hover:bg-[#F7F6F3]">
                 <Printer size={13} /> Print
               </button>
             </div>
@@ -324,7 +324,7 @@ export default function FinanceAccountantReportWorkCenter({
       </div>
 
       {selectedAccount ? (
-        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm print:hidden">
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[#F7F6F3]/35 p-4 backdrop-blur-sm print:hidden">
           <section className="max-h-[86vh] w-full max-w-6xl overflow-hidden rounded-2xl border border-black/[0.1] bg-[#F7F6F3] shadow-[0_28px_90px_rgba(0,0,0,0.28)]">
             <header className="flex items-start justify-between gap-4 border-b border-black/[0.07] bg-white p-5">
               <div>

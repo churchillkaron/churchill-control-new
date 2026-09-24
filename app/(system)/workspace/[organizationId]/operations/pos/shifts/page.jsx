@@ -24,14 +24,14 @@ function formatMoney(value, currencyCode) {
 
 function varianceClass(value) {
   const variance = numeric(value);
-  if (Math.abs(variance) <= 0.01) return "text-emerald-300";
-  return variance < 0 ? "text-red-300" : "text-amber-300";
+  if (Math.abs(variance) <= 0.01) return "text-[#607057]";
+  return variance < 0 ? "text-[#914B38]" : "text-amber-300";
 }
 
 function statusTone(status) {
   const value = String(status || "").toUpperCase();
   if (["APPROVED", "CONFIRMED"].includes(value)) return "border-emerald-400/20 bg-emerald-400/[0.07] text-emerald-200";
-  if (["REJECTED", "BLOCKED"].includes(value)) return "border-red-400/20 bg-red-400/[0.07] text-red-200";
+  if (["REJECTED", "BLOCKED"].includes(value)) return "border-red-400/20 bg-red-400/[0.07] text-[#914B38]";
   return "border-amber-300/20 bg-amber-300/[0.06] text-amber-100";
 }
 
@@ -46,8 +46,8 @@ function StatusBadge({ label, status }) {
 
 function Stat({ label, value, currencyCode, emphasis = false }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">{label}</div>
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+      <div className="text-[10px] uppercase tracking-[0.18em] text-[#918B83]">{label}</div>
       <div className={emphasis ? "mt-2 text-xl font-semibold text-[#E2C48A]" : "mt-2 text-lg font-semibold"}>{formatMoney(value, currencyCode)}</div>
     </div>
   );
@@ -67,7 +67,10 @@ export default function ShiftPage({ posConfiguration }) {
   const entityId = businessContext.entity_id || businessContext.entity?.id || null;
   const applicationId = posConfiguration?.applicationId || null;
   const currencyCode = businessContext.entity?.currency || businessContext.entity?.currency_code || organization?.currency_code || organization?.currency || businessContext.currency || null;
-  const configuredPresentation = posConfiguration?.presentation || {};
+  const configuredPresentation = useMemo(
+    () => posConfiguration?.presentation || {},
+    [posConfiguration?.presentation],
+  );
 
   const [presentation, setPresentation] = useState(configuredPresentation);
   const [actor, setActor] = useState(null);
@@ -190,37 +193,37 @@ export default function ShiftPage({ posConfiguration }) {
   }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-8 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-8 text-[#191919]">
       <div className="mx-auto max-w-[1400px]">
-        <header className="rounded-[34px] border border-white/10 bg-white/[0.035] p-7">
+        <header className="rounded-[34px] border border-black/[0.08] bg-white p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">{presentation.cashControlEyebrow || "Commerce Operations"}</p>
               <h1 className="mt-3 text-4xl font-semibold">POS Cash Control</h1>
-              <p className="mt-2 text-sm text-white/45">Drawer reconciliation, governed cash in/out, refunds and reversals, manager review and Finance-confirmed final lock.</p>
+              <p className="mt-2 text-sm text-[#746E66]">Drawer reconciliation, governed cash in/out, refunds and reversals, manager review and Finance-confirmed final lock.</p>
             </div>
-            <button onClick={loadSessions} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60"><RefreshCw size={15} /> Refresh</button>
+            <button onClick={loadSessions} className="inline-flex items-center gap-2 rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#5F5A54]"><RefreshCw size={15} /> Refresh</button>
           </div>
           <div className="mt-5 flex flex-wrap gap-2 text-xs">
-            <div className="rounded-full border border-white/10 px-3 py-1.5 text-white/45">Review authority: {actor?.can_review ? "Manager / Owner" : "View only"}</div>
-            <div className="rounded-full border border-white/10 px-3 py-1.5 text-white/45">Finance confirmation: {financeCanConfirm ? "Authorized" : "Separate Finance authority"}</div>
+            <div className="rounded-full border border-black/[0.08] px-3 py-1.5 text-[#746E66]">Review authority: {actor?.can_review ? "Manager / Owner" : "View only"}</div>
+            <div className="rounded-full border border-black/[0.08] px-3 py-1.5 text-[#746E66]">Finance confirmation: {financeCanConfirm ? "Authorized" : "Separate Finance authority"}</div>
           </div>
-          {error ? <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">{error}</div> : null}
+          {error ? <div className="mt-5 rounded-2xl border border-red-400/20 bg-[#FBF1EE] p-4 text-sm text-red-100">{error}</div> : null}
         </header>
 
         {loading ? (
-          <div className="mt-6 rounded-3xl border border-white/10 p-10 text-center text-white/35">Loading cash control...</div>
+          <div className="mt-6 rounded-3xl border border-black/[0.08] p-10 text-center text-[#918B83]">Loading cash control...</div>
         ) : (
           <section className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-            <article className="rounded-[30px] border border-white/10 bg-white/[0.03] p-7">
+            <article className="rounded-[30px] border border-black/[0.08] bg-white/[0.03] p-7">
               <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Authenticated operator</div>
               <h2 className="mt-3 text-2xl font-semibold">{actor?.staff_name || "Current staff member"}</h2>
-              <div className="mt-1 text-sm text-white/40">{actor?.role || actor?.staff_id || actor?.user_id || "Authenticated session"}</div>
+              <div className="mt-1 text-sm text-[#817A72]">{actor?.role || actor?.staff_id || actor?.user_id || "Authenticated session"}</div>
 
               {!activeSession ? (
                 <>
-                  <label className="mt-8 block text-xs uppercase tracking-[0.2em] text-white/40">Opening float</label>
-                  <input type="number" min="0" step="0.01" value={openingFloat} onChange={(event) => setOpeningFloat(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-xl" />
+                  <label className="mt-8 block text-xs uppercase tracking-[0.2em] text-[#817A72]">Opening float</label>
+                  <input type="number" min="0" step="0.01" value={openingFloat} onChange={(event) => setOpeningFloat(event.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-4 text-xl text-[#191919]" />
                   <button onClick={() => execute("OPEN", null)} disabled={Boolean(actionLoading) || !entityId} className="mt-5 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black disabled:opacity-40">{actionLoading === "OPEN:new" ? "Opening..." : "Open Cash Session"}</button>
                 </>
               ) : (
@@ -228,7 +231,7 @@ export default function ShiftPage({ posConfiguration }) {
                   <div className="mt-7 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-5">
                     <div className="text-xs uppercase tracking-[0.2em] text-emerald-200/60">Active cash session</div>
                     <div className="mt-2 break-all text-sm font-semibold">{activeSession.session_id || activeSession.id}</div>
-                    <div className="mt-2 text-xs text-white/40">Opened {activeSession.opened_at ? new Date(activeSession.opened_at).toLocaleString() : ""}</div>
+                    <div className="mt-2 text-xs text-[#817A72]">Opened {activeSession.opened_at ? new Date(activeSession.opened_at).toLocaleString() : ""}</div>
                   </div>
                   <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <Stat label="Opening float" value={activeSession.opening_float} currencyCode={currencyCode} />
@@ -244,19 +247,19 @@ export default function ShiftPage({ posConfiguration }) {
                     <Stat label="QR" value={activeSession.qr_total} currencyCode={currencyCode} />
                     <Stat label="Transfer" value={activeSession.transfer_total} currencyCode={currencyCode} />
                   </div>
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <div className="flex items-center justify-between gap-4"><span className="text-xs uppercase tracking-[0.18em] text-white/35">Net settled sales</span><span className="text-xl font-semibold">{formatMoney(activeSession.net_sales, currencyCode)}</span></div>
+                  <div className="mt-4 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
+                    <div className="flex items-center justify-between gap-4"><span className="text-xs uppercase tracking-[0.18em] text-[#918B83]">Net settled sales</span><span className="text-xl font-semibold">{formatMoney(activeSession.net_sales, currencyCode)}</span></div>
                   </div>
-                  <label className="mt-6 block text-xs uppercase tracking-[0.2em] text-white/40">Closing cash count</label>
-                  <input type="number" min="0" step="0.01" value={closingCount} onChange={(event) => setClosingCount(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-xl" />
-                  <div className="mt-3 flex items-center justify-between rounded-xl border border-white/10 px-4 py-3 text-sm"><span className="text-white/45">Live variance preview</span><span className={varianceClass(numeric(closingCount) - activeExpectedCash)}>{formatMoney(numeric(closingCount) - activeExpectedCash, currencyCode)}</span></div>
-                  <button onClick={() => execute("CLOSE", activeSession)} disabled={Boolean(actionLoading)} className="mt-5 w-full rounded-2xl border border-red-400/30 bg-red-500/10 py-4 text-sm font-semibold text-red-100 disabled:opacity-40">{actionLoading?.startsWith("CLOSE:") ? "Reconciling..." : "Reconcile & Close Cash Session"}</button>
+                  <label className="mt-6 block text-xs uppercase tracking-[0.2em] text-[#817A72]">Closing cash count</label>
+                  <input type="number" min="0" step="0.01" value={closingCount} onChange={(event) => setClosingCount(event.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-4 text-xl text-[#191919]" />
+                  <div className="mt-3 flex items-center justify-between rounded-xl border border-black/[0.08] px-4 py-3 text-sm"><span className="text-[#746E66]">Live variance preview</span><span className={varianceClass(numeric(closingCount) - activeExpectedCash)}>{formatMoney(numeric(closingCount) - activeExpectedCash, currencyCode)}</span></div>
+                  <button onClick={() => execute("CLOSE", activeSession)} disabled={Boolean(actionLoading)} className="mt-5 w-full rounded-2xl border border-red-400/30 bg-[#FBF1EE] py-4 text-sm font-semibold text-red-100 disabled:opacity-40">{actionLoading?.startsWith("CLOSE:") ? "Reconciling..." : "Reconcile & Close Cash Session"}</button>
                 </>
               )}
             </article>
 
-            <article className="rounded-[30px] border border-white/10 bg-white/[0.03] p-7">
-              <div className="text-xs uppercase tracking-[0.2em] text-white/40">Reconciliation & governance history</div>
+            <article className="rounded-[30px] border border-black/[0.08] bg-white/[0.03] p-7">
+              <div className="text-xs uppercase tracking-[0.2em] text-[#817A72]">Reconciliation & governance history</div>
               <div className="mt-5 max-h-[820px] space-y-4 overflow-y-auto pr-1">
                 {sessions.length ? sessions.map((session) => {
                   const sessionId = session.session_id || session.id;
@@ -266,12 +269,12 @@ export default function ShiftPage({ posConfiguration }) {
                   const notes = sessionNotes(session);
                   const reviewing = Boolean(actionLoading?.endsWith(`:${sessionId}`));
                   return (
-                    <div key={sessionId} className="rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div key={sessionId} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-5">
                       <div className="flex items-start justify-between gap-3">
-                        <div><div className="font-medium">{session.staff_name || "Staff"}</div><div className="mt-1 break-all text-[10px] text-white/30">{sessionId}</div></div>
-                        <div className={closed ? "text-xs text-white/40" : "text-xs text-emerald-300"}>{session.status}</div>
+                        <div><div className="font-medium">{session.staff_name || "Staff"}</div><div className="mt-1 break-all text-[10px] text-[#A19A92]">{sessionId}</div></div>
+                        <div className={closed ? "text-xs text-[#817A72]" : "text-xs text-[#607057]"}>{session.status}</div>
                       </div>
-                      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-white/50">
+                      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-[#746E66]">
                         <div>Open {formatMoney(session.opening_float, currencyCode)}</div>
                         <div>Cash {formatMoney(session.cash_total, currencyCode)}</div>
                         <div>Cash in {formatMoney(session.paid_in_total, currencyCode)}</div>
@@ -288,38 +291,38 @@ export default function ShiftPage({ posConfiguration }) {
 
                       {closed ? (
                         <>
-                          <div className="mt-4 border-t border-white/10 pt-4">
+                          <div className="mt-4 border-t border-black/[0.08] pt-4">
                             <div className="grid grid-cols-2 gap-2 text-sm">
-                              <div className="text-white/45">Expected cash</div><div className="text-right">{formatMoney(session.expected_cash, currencyCode)}</div>
-                              <div className="text-white/45">Counted cash</div><div className="text-right">{formatMoney(session.closing_count, currencyCode)}</div>
-                              <div className="text-white/45">Variance</div><div className={`text-right font-semibold ${varianceClass(session.variance)}`}>{formatMoney(session.variance, currencyCode)}</div>
+                              <div className="text-[#746E66]">Expected cash</div><div className="text-right">{formatMoney(session.expected_cash, currencyCode)}</div>
+                              <div className="text-[#746E66]">Counted cash</div><div className="text-right">{formatMoney(session.closing_count, currencyCode)}</div>
+                              <div className="text-[#746E66]">Variance</div><div className={`text-right font-semibold ${varianceClass(session.variance)}`}>{formatMoney(session.variance, currencyCode)}</div>
                             </div>
-                            {session.closed_by_name ? <div className="mt-3 text-[11px] text-white/30">Reconciled by {session.closed_by_name}</div> : null}
+                            {session.closed_by_name ? <div className="mt-3 text-[11px] text-[#A19A92]">Reconciled by {session.closed_by_name}</div> : null}
                           </div>
                           <div className="mt-4 grid grid-cols-2 gap-2"><StatusBadge label="Manager review" status={approvalStatus} /><StatusBadge label="Accounting" status={accountingStatus} /></div>
-                          {session.review_log ? <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.025] p-3 text-xs text-white/45"><div>Reviewed by {session.review_log.acted_by_name || session.review_log.role || "authorized manager"}</div>{session.review_log.notes ? <div className="mt-1 text-white/60">{session.review_log.notes}</div> : null}</div> : null}
+                          {session.review_log ? <div className="mt-3 rounded-xl border border-black/[0.08] bg-[#FBF8F3] p-3 text-xs text-[#746E66]"><div>Reviewed by {session.review_log.acted_by_name || session.review_log.role || "authorized manager"}</div>{session.review_log.notes ? <div className="mt-1 text-[#5F5A54]">{session.review_log.notes}</div> : null}</div> : null}
 
                           {approvalStatus === "PENDING" && actor?.can_review ? (
                             <div className="mt-4 rounded-2xl border border-amber-300/15 bg-amber-300/[0.035] p-4">
                               <div className="flex items-center gap-2 text-xs font-semibold text-amber-100"><ShieldCheck size={15} /> Manager review</div>
-                              <textarea value={notes} onChange={(event) => updateSessionNotes(session, event.target.value)} placeholder="Review note or rejection reason" rows={2} className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none" />
+                              <textarea value={notes} onChange={(event) => updateSessionNotes(session, event.target.value)} placeholder="Review note or rejection reason" rows={2} className="mt-3 w-full resize-none rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm outline-none" />
                               <div className="mt-3 grid grid-cols-2 gap-2">
                                 <button type="button" disabled={reviewing} onClick={() => execute("APPROVE", session)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-400 px-3 py-2.5 text-xs font-semibold text-black disabled:opacity-40"><CheckCircle2 size={14} /> Approve</button>
-                                <button type="button" disabled={reviewing || !notes.trim()} onClick={() => execute("REJECT", session)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2.5 text-xs font-semibold text-red-100 disabled:opacity-40"><XCircle size={14} /> Reject</button>
+                                <button type="button" disabled={reviewing || !notes.trim()} onClick={() => execute("REJECT", session)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-400/30 bg-[#FBF1EE] px-3 py-2.5 text-xs font-semibold text-red-100 disabled:opacity-40"><XCircle size={14} /> Reject</button>
                               </div>
                             </div>
                           ) : null}
 
                           {approvalStatus === "APPROVED" && accountingStatus === "PENDING" ? (
-                            <div className="mt-4 rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.035] p-4">
-                              <div className="flex items-center gap-2 text-xs font-semibold text-cyan-100"><ShieldCheck size={15} /> Finance confirmation</div>
-                              {session.approved_by_name ? <div className="mt-2 text-[11px] text-white/35">Approved by {session.approved_by_name}</div> : null}
+                            <div className="mt-4 rounded-2xl border border-[#D6A66A]/30 bg-[#FBF3E8] p-4">
+                              <div className="flex items-center gap-2 text-xs font-semibold text-[#76583A]"><ShieldCheck size={15} /> Finance confirmation</div>
+                              {session.approved_by_name ? <div className="mt-2 text-[11px] text-[#918B83]">Approved by {session.approved_by_name}</div> : null}
                               {financeCanConfirm ? (
                                 <>
-                                  <textarea value={notes} onChange={(event) => updateSessionNotes(session, event.target.value)} placeholder="Accounting confirmation note" rows={2} className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none" />
-                                  <button type="button" disabled={reviewing} onClick={() => confirmAccounting(session)} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-3 py-2.5 text-xs font-semibold text-black disabled:opacity-40"><LockKeyhole size={14} /> Confirm Accounting & Lock</button>
+                                  <textarea value={notes} onChange={(event) => updateSessionNotes(session, event.target.value)} placeholder="Accounting confirmation note" rows={2} className="mt-3 w-full resize-none rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm outline-none" />
+                                  <button type="button" disabled={reviewing} onClick={() => confirmAccounting(session)} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#D6A66A] px-3 py-2.5 text-xs font-semibold text-black disabled:opacity-40"><LockKeyhole size={14} /> Confirm Accounting & Lock</button>
                                 </>
-                              ) : <div className="mt-3 text-xs leading-5 text-white/40">Awaiting a Finance-authorized user with finance.close.execute.</div>}
+                              ) : <div className="mt-3 text-xs leading-5 text-[#817A72]">Awaiting a Finance-authorized user with finance.close.execute.</div>}
                             </div>
                           ) : null}
 
@@ -329,7 +332,7 @@ export default function ShiftPage({ posConfiguration }) {
                       ) : null}
                     </div>
                   );
-                }) : <div className="rounded-2xl border border-white/10 p-5 text-sm text-white/35">No POS cash sessions found.</div>}
+                }) : <div className="rounded-2xl border border-black/[0.08] p-5 text-sm text-[#918B83]">No POS cash sessions found.</div>}
               </div>
             </article>
 

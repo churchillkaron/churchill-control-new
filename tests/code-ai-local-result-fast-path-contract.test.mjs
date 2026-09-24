@@ -10,10 +10,12 @@ const source = await readFile(
 test("planner polls local Node1 job status before governed settlement", () => {
   assert.match(source, /getIntelligenceLocalQueueStatus/);
   assert.match(source, /isIntelligenceLocalQueueJob/);
+  assert.match(source, /isCodeLocalJob/);
+  assert.match(source, /AvantiqoCodeLocalQueueProvider\.getStatus/);
   assert.match(source, /async function fastLocalPlannerJobStatus/);
 
-  const fastIndex = source.indexOf("const fastLocalStatus = await fastLocalPlannerJobStatus(pending)");
-  const settleIndex = source.indexOf("result = await settleOnce(serviceRuntime, pending)", fastIndex);
+  const fastIndex = source.indexOf("const fastLocalStatus = await transientPlannerPollRetry(() => fastLocalPlannerJobStatus(pending))");
+  const settleIndex = source.indexOf("result = await transientPlannerPollRetry(() => settleOnce(serviceRuntime, pending))", fastIndex);
   assert.ok(fastIndex >= 0, "local fast status check must exist");
   assert.ok(settleIndex > fastIndex, "governed settlement must happen after local completion detection");
 
@@ -22,6 +24,7 @@ test("planner polls local Node1 job status before governed settlement", () => {
 });
 
 test("local fast path preserves normal settlement instead of bypassing billing", () => {
-  assert.match(source, /result = await settleOnce\(serviceRuntime, pending\)/);
+  assert.match(source, /result = await transientPlannerPollRetry\(\(\) => settleOnce\(serviceRuntime, pending\)\)/);
+  assert.match(source, /async function transientPlannerPollRetry/);
   assert.match(source, /CODE_AI_PLANNER_COMPLETED_OUTPUT_REQUIRED/);
 });

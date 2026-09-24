@@ -58,3 +58,34 @@ test("live planner binds contract constraints into next repair reasoning call", 
     source.indexOf("compact.latest_failed_verification", source.indexOf("const repairGuidance")),
   );
 });
+test("live benchmark self-import and public-surface erasure become precise repair constraints", () => {
+  const projected = deriveCodeAIContractRepairConstraints({
+    message: "CODE_AI_OBSERVED_CONTRACT_VIOLATION:invoice-total.mjs",
+    result: {
+      violations: [
+        { path: "invoice-total.mjs", kind: "SOURCE_SELF_IMPORT_INTRODUCED" },
+        {
+          path: "invoice-total.mjs",
+          kind: "OBSERVED_PUBLIC_SURFACE_ERASED",
+          removed_symbols: ["sumInvoiceLines"],
+        },
+      ],
+    },
+  });
+  assert.equal(projected.required, true);
+  assert.match(projected.constraints[0].requirement, /Do not import the file from itself/);
+  assert.match(projected.constraints[1].requirement, /sumInvoiceLines/);
+  const formatted = formatCodeAIContractRepairConstraintsForObjective(projected);
+  assert.match(formatted, /Preserve and repair the existing implementation in place/);
+  assert.match(formatted, /Preserve the observed exported API surface: sumInvoiceLines/);
+});
+
+test("contract-rejected interactive patches escalate the repair pass to the strong model tier", async () => {
+  const live = await import("node:fs/promises").then(({ readFile }) => readFile("lib/code/runtime/CodeAIWorkPackageRuntimeLive.js", "utf8"));
+  assert.match(live, /const basePlannerMaxOutputTokens = resolveCodeAIPlannerOutputTokenBudget/);
+  assert.match(live, /contractRepairConstraints\.required === true[\s\S]*Math\.max\(2600, basePlannerMaxOutputTokens\)/);
+  const provider = await import("node:fs/promises").then(({ readFile }) => readFile("lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeLocalQueueProvider.js", "utf8"));
+  assert.match(provider, /strongModelRequired\?STRONG_MODEL:MODEL/);
+  assert.match(provider, /AVANTIQO_CODE_INTERACTIVE_MODEL\|\|"qwen3:1\.7b"/);
+  assert.match(provider, /AVANTIQO_CODE_STRONG_MODEL\|\|"qwen3:4b-instruct"/);
+});

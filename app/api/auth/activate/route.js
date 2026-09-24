@@ -3,10 +3,8 @@ export const dynamic = "force-dynamic";
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 
-import {
-  requestPlatformHostname,
-  resolvePlatformHostContext,
-} from "@/lib/platform/context/resolvePlatformHostContext";
+import { requestPlatformHostname } from "@/lib/platform/context/resolvePlatformHostContext";
+import { resolveRegisteredPlatformHostContext } from "@/lib/platform/context/resolveRegisteredPlatformHostContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function normalizeEmail(value) {
@@ -39,14 +37,14 @@ function genericRecoveryResponse() {
   });
 }
 
-function resolveRecoveryOrganizationId(request, staffRows) {
+async function resolveRecoveryOrganizationId(request, staffRows) {
   const organizationIds = uniqueOrganizationIds(staffRows);
 
   if (!organizationIds.length) {
     throw new Error("Active staff organisation is not configured");
   }
 
-  const hostContext = resolvePlatformHostContext(requestPlatformHostname(request));
+  const hostContext = await resolveRegisteredPlatformHostContext(requestPlatformHostname(request));
   const hostOrganizationId = normalizeId(hostContext?.organizationId);
 
   if (hostOrganizationId) {
@@ -119,7 +117,7 @@ export async function POST(request) {
 
     let organizationId = null;
     try {
-      organizationId = resolveRecoveryOrganizationId(request, staff);
+      organizationId = await resolveRecoveryOrganizationId(request, staff);
     } catch {
       return genericRecoveryResponse();
     }

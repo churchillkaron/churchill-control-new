@@ -19,5 +19,7 @@ test("capability reasserts local device identity after precision context merge",
 test("employee grants the larger ceiling only to DEVICE missions", () => {
   assert.match(employee, /workspace_target.*DEVICE/s);
   assert.match(employee, /MAX_CODE_AI_LOCAL_REASONING_CALL_BUDGET/);
-  assert.match(employee, /max_budget: localDeviceMission \? MAX_CODE_AI_LOCAL_REASONING_CALL_BUDGET : undefined/);
+  assert.match(employee, /resolveCodeAIEmployeeReasoningBudget/);
+  assert.match(employee, /max_budget: local_device_mission \? MAX_CODE_AI_LOCAL_REASONING_CALL_BUDGET : undefined/);
+  assert.match(employee, /return readOnly \? Math\.min\(2, resolved\) : resolved/);
 });

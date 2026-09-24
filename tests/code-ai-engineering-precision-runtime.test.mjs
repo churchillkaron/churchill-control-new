@@ -64,3 +64,12 @@ test("throughput scheduler remains local first",()=>assert.equal(scheduleCodeAIA
 test("compute economics reports THB per verified task",()=>assert.equal(deriveCodeAIComputeEconomics({thb:2.5,verified:true}).thb_per_verified_task,2.5));
 test("comparative benchmark does not declare a winner itself",()=>assert.equal(deriveCodeAIComparativeBenchmark({}).winner,null));
 test("precision summary exposes all thirty-five capabilities",()=>{const x=summarizeCodeAIEngineeringPrecision({});assert.equal(Object.keys(x.capabilities).length,35);assert.equal(x.authority_effect,"NONE")});
+test("watchdog reacquires planner work after two minutes without concrete progress",()=>{
+  const now=Date.parse("2026-09-24T01:00:00.000Z");
+  const fresh=deriveCodeAIWatchdog({pendingSince:"2026-09-24T00:58:30.000Z",nowMs:now});
+  const stale=deriveCodeAIWatchdog({pendingSince:"2026-09-24T00:57:30.000Z",nowMs:now});
+  assert.equal(fresh.stale_pending,false);
+  assert.equal(stale.stale_pending,true);
+  assert.equal(stale.pending_deadline_ms,120000);
+  assert.equal(stale.recovery_action,"REACQUIRE_OR_RESUME");
+});

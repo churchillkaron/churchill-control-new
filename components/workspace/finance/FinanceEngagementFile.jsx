@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   CalendarClock,
@@ -74,7 +74,7 @@ export default function FinanceEngagementFile({ organizationId, engagementId, in
   const [state, setState] = useState({ loading: true, error: "", data: null });
   const [activeTab, setActiveTab] = useState(initialTab);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId || !engagementId) return null;
     try {
       setState((current) => ({ ...current, loading: true, error: "" }));
@@ -90,9 +90,9 @@ export default function FinanceEngagementFile({ organizationId, engagementId, in
       setState((current) => ({ ...current, loading: false, error: error?.message || "Unable to load engagement file" }));
       return null;
     }
-  }
+  }, [engagementId, organizationId]);
 
-  useEffect(() => { setActiveTab(initialTab); load(); }, [organizationId, engagementId, initialTab]);
+  useEffect(() => { setActiveTab(initialTab); load(); }, [initialTab, load]);
 
   const data = state.data;
   const engagement = data?.engagement;

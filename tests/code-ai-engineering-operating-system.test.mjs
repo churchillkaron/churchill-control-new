@@ -125,3 +125,85 @@ test("engineering OS carries prior architecture brain only as revalidated adviso
   assert.equal(prepared.control.prior_architecture_brain_requires_current_head_revalidation, true);
   assert.match(prepared.directive, /Revalidate against the current repository head|revalidate against the current repository head/i);
 });
+
+test("one causal hypothesis record cannot satisfy the three-hypothesis defect gate", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form" });
+  const state = completedState({
+    hypothesis_debugging: null,
+    evidence: [
+      { kind: "operation", action: "verify", status: "completed", result: { exit_code: 1 } },
+      { kind: "causal_hypothesis_record", hypotheses: ["auth"] },
+      { kind: "operation", action: "apply_files", status: "completed", result: {} },
+      { kind: "operation", action: "verify", status: "completed", result: { exit_code: 0 } },
+      { kind: "operation", action: "browser_verify", status: "completed", result: { passed: true } },
+    ],
+    reproduction: { before_failure_observed: true, after_pass_observed: true },
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.equal(final.engineering_os_ready, false);
+  assert.ok(final.missing_required_departments.some((item) => item.key === "hypothesis_debugging"));
+});
+
+test("completed browser verification does not satisfy UI gate when the browser result failed", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form" });
+  const state = completedState({
+    verification: [],
+    reproduction: { before_failure_observed: true, after_pass_observed: true },
+    hypothesis_debugging: { hypotheses: ["auth", "state", "contract"] },
+    evidence: [
+      { kind: "operation", action: "verify", status: "completed", result: { exit_code: 1 } },
+      { kind: "causal_hypothesis_record", hypotheses: ["auth", "state", "contract"] },
+      { kind: "operation", action: "apply_files", status: "completed", result: {} },
+      { kind: "operation", action: "verify", status: "completed", result: { exit_code: 0 } },
+      { kind: "operation", action: "browser_verify", status: "completed", result: { passed: false } },
+    ],
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.equal(final.engineering_os_ready, false);
+  assert.ok(final.missing_required_departments.some((item) => item.key === "browser_verification"));
+});
+
+test("passing pre-edit verification cannot masquerade as defect reproduction", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form" });
+  const state = completedState({
+    reproduction: null,
+    hypothesis_debugging: { hypotheses: ["auth", "state", "contract"] },
+    evidence: [
+      { kind: "operation", action: "verify", status: "completed", result: { exit_code: 0 } },
+      { kind: "causal_hypothesis_record", hypotheses: ["auth", "state", "contract"] },
+      { kind: "operation", action: "apply_files", status: "completed", result: {} },
+      { kind: "operation", action: "verify", status: "completed", result: { exit_code: 0 } },
+      { kind: "operation", action: "browser_verify", status: "completed", result: { passed: true } },
+    ],
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.equal(final.engineering_os_ready, false);
+  assert.ok(final.missing_required_departments.some((item) => item.key === "reproduction_first"));
+});
+
+test("database and security reviews cannot rely on stale pre-mutation verification", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken database RLS authorization" });
+  const state = completedState({
+    objective: "Fix broken database RLS authorization",
+    files_changed: ["supabase/migrations/999_fix_rls.sql"],
+    source_changes: [{ path: "supabase/migrations/999_fix_rls.sql", operation: "write", content: "alter policy ..." }],
+    verification: [{ passed: true, family: "tests" }],
+    database_review: {
+      passed: true,
+      migration_plan: "bounded migration",
+      backward_compatibility: "preserved",
+      rollback_plan: "rollback prepared",
+    },
+    security_review: { passed: true, scope: "RLS and organization isolation" },
+    reproduction: { before_failure_observed: true, after_pass_observed: true },
+    hypothesis_debugging: { hypotheses: ["policy", "membership", "scope"] },
+    evidence: [
+      { kind: "operation", action: "verify", status: "completed", result: { exit_code: 0 } },
+      { kind: "causal_hypothesis_record", hypotheses: ["policy", "membership", "scope"] },
+      { kind: "operation", action: "apply_files", status: "completed", result: {} },
+    ],
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(final.missing_required_departments.some((item) => item.key === "database_department"));
+  assert.ok(final.missing_required_departments.some((item) => item.key === "security_engineering"));
+});

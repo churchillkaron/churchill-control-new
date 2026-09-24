@@ -78,3 +78,22 @@ test("verified engineering memory remains repository-scoped", () => {
   assert.match(memory, /repositoryUrl/);
   assert.match(memory, /normalizedRepository/);
 });
+test("project identity sees nested source-read evidence paths and deduplicates them", () => {
+  const identity = deriveCodeAIProjectIdentity({
+    repositoryUrl: "https://github.com/acme/example",
+    objective: "Repair the observed target module.",
+    state: {
+      files_changed: ["lib/changed.js"],
+      evidence: [{ action: "read", result: { file_path: "lib/evidence.js" } }],
+      source_read_evidence: [
+        { action: "read", result: { file_path: "lib/target.js" } },
+        { action: "read", result: { file_path: "lib/target.js" } },
+      ],
+    },
+  });
+  assert.deepEqual(identity.observed_repository_paths, [
+    "lib/changed.js",
+    "lib/evidence.js",
+    "lib/target.js",
+  ]);
+});

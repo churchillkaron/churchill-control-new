@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -132,7 +132,7 @@ export default function AttendanceManagementPage() {
     setMonthReady(true);
   }, []);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setMessage("");
     try {
@@ -150,12 +150,12 @@ export default function AttendanceManagementPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [month, organizationId]);
 
   useEffect(() => {
     if (!monthReady) return;
     load();
-  }, [monthReady, month, organizationId]);
+  }, [load, monthReady]);
 
   const summary = useMemo(
     () => ({
@@ -378,7 +378,7 @@ export default function AttendanceManagementPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 p-5 text-white lg:p-8">
+    <main className="min-h-screen bg-zinc-950 p-5 text-[#191919] lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -401,7 +401,7 @@ export default function AttendanceManagementPage() {
             {focusStaffId && organizationId ? (
               <Link
                 href={payrollGovernanceHref(organizationId, month, focusStaffId)}
-                className="flex h-11 items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.08] px-4 text-xs font-black uppercase tracking-[0.12em] text-cyan-200"
+                className="flex h-11 items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.08] px-4 text-xs font-black uppercase tracking-[0.12em] text-amber-200"
               >
                 <ShieldCheck size={16} /> Return to Payroll Governance
               </Link>
@@ -422,12 +422,12 @@ export default function AttendanceManagementPage() {
               type="month"
               value={month}
               onChange={(event) => changeMonth(event.target.value)}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm"
+              className="rounded-xl border border-black/[0.08] bg-white/5 px-4 py-3 text-sm"
             />
             <button
               onClick={load}
               disabled={!monthReady || loading}
-              className="rounded-xl border border-white/10 bg-white/5 p-3 disabled:opacity-40"
+              className="rounded-xl border border-black/[0.08] bg-white/5 p-3 disabled:opacity-40"
               aria-label="Refresh"
             >
               <RefreshCw size={18} />
@@ -436,7 +436,7 @@ export default function AttendanceManagementPage() {
         </header>
 
         {focusStaffId ? (
-          <section className="rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.07] px-4 py-3 text-sm text-cyan-100/80">
+          <section className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.07] px-4 py-3 text-sm text-amber-100/80">
             Payroll resolution focus is active for this employee and {month}. Matching unworked published shifts are highlighted below.
           </section>
         ) : null}
@@ -450,7 +450,7 @@ export default function AttendanceManagementPage() {
         </section>
 
         {message && (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-zinc-300">
+          <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-sm text-zinc-300">
             {message}
           </div>
         )}
@@ -462,7 +462,7 @@ export default function AttendanceManagementPage() {
           loading={loading}
         >
           {(data.pendingShifts || []).map((shift) => (
-            <div key={shift.id} className="grid gap-4 border-t border-white/5 px-5 py-4 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-center">
+            <div key={shift.id} className="grid gap-4 border-t border-black/[0.06] px-5 py-4 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-center">
               <div>
                 <div className="font-bold">{shift.staff_name}</div>
                 <div className="text-xs text-zinc-500">{shift.shift_source || "UNSCHEDULED"}</div>
@@ -495,17 +495,17 @@ export default function AttendanceManagementPage() {
           {(data.correctableShifts || []).map((shift) => {
             const corrected = Boolean(shift.attendance_correction_id);
             return (
-              <div key={shift.id} className="grid gap-4 border-t border-white/5 px-5 py-4 lg:grid-cols-[1.25fr_1.35fr_1.35fr_auto] lg:items-center">
+              <div key={shift.id} className="grid gap-4 border-t border-black/[0.06] px-5 py-4 lg:grid-cols-[1.25fr_1.35fr_1.35fr_auto] lg:items-center">
                 <div>
                   <div className="font-bold">{shift.staff_name}</div>
                   <div className="mt-1 flex flex-wrap gap-2 text-xs">
                     <span className="text-zinc-500">{shift.shift_source || "SCHEDULED"}</span>
                     {corrected ? (
-                      <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2 py-0.5 text-cyan-200">
+                      <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-amber-200">
                         Correction #{shift.attendance_correction_no}
                       </span>
                     ) : (
-                      <span className="rounded-full border border-white/10 px-2 py-0.5 text-zinc-500">Raw evidence</span>
+                      <span className="rounded-full border border-black/[0.08] px-2 py-0.5 text-zinc-500">Raw evidence</span>
                     )}
                   </div>
                 </div>
@@ -520,10 +520,10 @@ export default function AttendanceManagementPage() {
                 </div>
                 <div className="text-sm">
                   <div className="text-xs uppercase tracking-wider text-zinc-600">Effective for payroll</div>
-                  <div className={corrected ? "mt-1 text-cyan-200" : "mt-1 text-zinc-300"}>
+                  <div className={corrected ? "mt-1 text-amber-200" : "mt-1 text-zinc-300"}>
                     {formatDateTime(shift.clock_in, data.timezone)}
                   </div>
-                  <div className={corrected ? "text-cyan-300/70" : "text-zinc-500"}>
+                  <div className={corrected ? "text-amber-300/70" : "text-zinc-500"}>
                     → {formatDateTime(shift.clock_out, data.timezone)}
                   </div>
                   <div className="mt-1 text-xs text-zinc-500">
@@ -559,8 +559,8 @@ export default function AttendanceManagementPage() {
                 id={focused ? `attendance-focus-${schedule.id}` : undefined}
                 className={`grid gap-4 border-t px-5 py-4 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-center ${
                   focused
-                    ? "border-cyan-300/30 bg-cyan-300/[0.08] ring-1 ring-inset ring-cyan-300/20"
-                    : "border-white/5"
+                    ? "border-amber-300/30 bg-amber-300/[0.08] ring-1 ring-inset ring-amber-300/20"
+                    : "border-black/[0.06]"
                 }`}
               >
                 <div>
@@ -597,7 +597,7 @@ export default function AttendanceManagementPage() {
               <div
                 key={row.id}
                 className={`grid gap-4 border-t px-5 py-4 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-center ${
-                  focused ? "border-cyan-300/20 bg-cyan-300/[0.04]" : "border-white/5"
+                  focused ? "border-amber-300/20 bg-amber-300/[0.04]" : "border-black/[0.06]"
                 }`}
               >
                 <div>
@@ -642,17 +642,17 @@ export default function AttendanceManagementPage() {
 function WorkspaceSection({ title, eyebrow, empty, loading, children }) {
   const rows = Array.isArray(children) ? children.filter(Boolean) : children ? [children] : [];
   return (
-    <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04]">
+    <section className="overflow-hidden rounded-3xl border border-black/[0.08] bg-[#FBF8F3]">
       <div className="p-5">
         <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">{eyebrow}</p>
         <h2 className="mt-1 text-2xl font-black">{title}</h2>
       </div>
       {loading ? (
-        <div className="border-t border-white/5 px-5 py-10 text-center text-zinc-500">Loading...</div>
+        <div className="border-t border-black/[0.06] px-5 py-10 text-center text-zinc-500">Loading...</div>
       ) : rows.length ? (
         rows
       ) : (
-        <div className="border-t border-white/5 px-5 py-10 text-center text-zinc-500">{empty}</div>
+        <div className="border-t border-black/[0.06] px-5 py-10 text-center text-zinc-500">{empty}</div>
       )}
     </section>
   );
@@ -660,7 +660,7 @@ function WorkspaceSection({ title, eyebrow, empty, loading, children }) {
 
 function Metric({ icon, label, value }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
       <div className="flex items-center gap-2 text-zinc-500">
         {icon}
         <span className="text-xs uppercase tracking-wider">{label}</span>

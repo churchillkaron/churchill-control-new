@@ -58,11 +58,11 @@ function accessClass(status) {
   }
 
   if (status === "ACCOUNT_LINKED") {
-    return "border-cyan-400/20 bg-cyan-400/10 text-cyan-100";
+    return "border-[#D6A66A]/30 bg-[#FBF3E8] text-[#76583A]";
   }
 
   if (status === "INACTIVE") {
-    return "border-white/10 bg-white/[0.04] text-white/45";
+    return "border-black/[0.08] bg-[#FBF8F3] text-[#817A72]";
   }
 
   return "border-amber-400/20 bg-amber-400/10 text-amber-100";
@@ -315,9 +315,9 @@ export default function PeopleDirectoryPage({ params }) {
   const compensationHref = `/workspace/${encodeURIComponent(organizationId)}/people/compensation`;
 
   return (
-    <main className="min-h-screen bg-[#030303] p-5 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-5 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
+        <section className="overflow-hidden rounded-[34px] border border-black/[0.08] bg-white backdrop-blur-3xl">
           <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
           <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -325,7 +325,7 @@ export default function PeopleDirectoryPage({ params }) {
                 <UsersRound className="h-4 w-4" /> People · Employees
               </div>
               <h1 className="mt-3 text-4xl font-black">Employee Directory</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/45">
+              <p className="mt-2 max-w-3xl text-sm text-[#817A72]">
                 Manage canonical employee identity, Party linkage, employment status and staff portal access. Compensation and domain permissions remain in their dedicated workspaces.
               </p>
             </div>
@@ -342,7 +342,7 @@ export default function PeopleDirectoryPage({ params }) {
                 type="button"
                 onClick={load}
                 disabled={loading}
-                className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
+                className="flex h-12 items-center gap-2 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 text-xs font-black uppercase tracking-[0.16em] text-[#5F5A54] disabled:opacity-40"
               >
                 <RefreshCw className="h-4 w-4" /> Refresh
               </button>
@@ -379,13 +379,13 @@ export default function PeopleDirectoryPage({ params }) {
               <ShieldCheck className="h-4 w-4" /> Identity security
             </div>
             <div className="mt-3 text-xl font-black">One governed employee record, not scattered files.</div>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/42">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#817A72]">
               Verified portal identity, passport or national ID, optional work permit, legal-employer binding, document validity and review evidence stay connected to the employee master.
             </p>
           </div>
-          <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.035] p-5">
-            <div className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">What the metrics mean</div>
-            <div className="mt-3 space-y-2 text-xs leading-5 text-white/45">
+          <div className="rounded-[26px] border border-black/[0.08] bg-white p-5">
+            <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#A19A92]">What the metrics mean</div>
+            <div className="mt-3 space-y-2 text-xs leading-5 text-[#817A72]">
               <div><span className="font-black text-amber-100">Identity attention</span> · missing/pending identity evidence or approaching document expiry.</div>
               <div><span className="font-black text-red-200">Identity critical</span> · expired or near-expiry document requiring immediate review.</div>
               <div><span className="font-black text-[#E8C18C]">Identity documents</span> · opens the secure visual review for Owner/HR.</div>
@@ -402,7 +402,7 @@ export default function PeopleDirectoryPage({ params }) {
               <div>
                 <div className="text-[10px] uppercase tracking-[0.22em] text-[#D6A66A]">Employee master</div>
                 <h2 className="mt-1 text-2xl font-black">Create employee</h2>
-                <p className="mt-2 text-sm text-white/40">
+                <p className="mt-2 text-sm text-[#918B83]">
                   Creates the employee Party, employee relationship and organization membership. Portal activation and compensation are separate controlled steps.
                 </p>
               </div>
@@ -414,7 +414,7 @@ export default function PeopleDirectoryPage({ params }) {
               <button
                 type="button"
                 onClick={cancelForm}
-                className="h-11 rounded-xl border border-white/10 bg-white/[0.04] px-5 text-xs font-black uppercase tracking-[0.14em]"
+                className="h-11 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-5 text-xs font-black uppercase tracking-[0.14em]"
               >
                 Cancel
               </button>
@@ -430,28 +430,28 @@ export default function PeopleDirectoryPage({ params }) {
           </section>
         ) : null}
 
-        <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+        <section className="rounded-[30px] border border-black/[0.08] bg-white p-5 lg:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-white/35">
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-[#918B83]">
                 <ShieldCheck className="h-4 w-4" /> Canonical employee records
               </div>
               <h2 className="mt-2 text-2xl font-black">Directory</h2>
             </div>
 
-            <label className="flex h-12 w-full items-center gap-3 rounded-2xl border border-white/10 bg-black/30 px-4 lg:max-w-sm">
-              <Search className="h-4 w-4 text-white/30" />
+            <label className="flex h-12 w-full items-center gap-3 rounded-2xl border border-black/[0.08] bg-white px-4 lg:max-w-sm">
+              <Search className="h-4 w-4 text-[#A19A92]" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search employees"
-                className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/25"
+                className="w-full bg-transparent text-sm text-[#191919] outline-none placeholder:text-[#A9A39C]"
               />
             </label>
           </div>
 
           {loading ? (
-            <div className="mt-5 rounded-2xl border border-white/[0.07] bg-black/20 p-5 text-sm text-white/35">
+            <div className="mt-5 rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-5 text-sm text-[#918B83]">
               Loading employee directory...
             </div>
           ) : (
@@ -467,29 +467,29 @@ export default function PeopleDirectoryPage({ params }) {
                     key={employee.id}
                     className={`rounded-[26px] border p-5 ${
                       active
-                        ? "border-white/[0.08] bg-black/25"
-                        : "border-white/[0.06] bg-white/[0.02] opacity-75"
+                        ? "border-black/[0.08] bg-[#FBF8F3]"
+                        : "border-black/[0.06] bg-[#FBF8F3] opacity-75"
                     }`}
                   >
                     <div className="grid gap-5 xl:grid-cols-[1.25fr_.8fr_.9fr_auto] xl:items-center">
                       <div className="min-w-0">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05]">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-black/[0.08] bg-[#FBF8F3]">
                             <UserRound className="h-5 w-5 text-[#D6A66A]" />
                           </div>
                           <div className="min-w-0">
                             <div className="truncate text-lg font-black">{employee.name || "Unnamed employee"}</div>
-                            <div className="mt-1 truncate text-xs text-white/35">{employee.email || "No email"}</div>
+                            <div className="mt-1 truncate text-xs text-[#918B83]">{employee.email || "No email"}</div>
                           </div>
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.12em] text-white/40">
-                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+                        <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.12em] text-[#918B83]">
+                          <span className="rounded-full border border-black/[0.08] bg-[#FBF8F3] px-3 py-1">
                             {employee.position || "Position not set"}
                           </span>
-                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+                          <span className="rounded-full border border-black/[0.08] bg-[#FBF8F3] px-3 py-1">
                             {employee.department || "Department not set"}
                           </span>
-                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+                          <span className="rounded-full border border-black/[0.08] bg-[#FBF8F3] px-3 py-1">
                             Access: {employee.accessRole || "STAFF"}
                           </span>
                           {employee.identitySecurity?.has_attention ? (
@@ -509,21 +509,21 @@ export default function PeopleDirectoryPage({ params }) {
                       </div>
 
                       <div>
-                        <div className="text-[9px] uppercase tracking-[0.2em] text-white/25">Portal access</div>
+                        <div className="text-[9px] uppercase tracking-[0.2em] text-[#A9A39C]">Portal access</div>
                         <div className={`mt-2 inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${accessClass(accessStatus)}`}>
                           {accessLabel(accessStatus)}
                         </div>
-                        <div className="mt-2 text-xs text-white/30">
+                        <div className="mt-2 text-xs text-[#A19A92]">
                           Last sign-in: {dateTime(employee.portalAccess?.lastSignInAt)}
                         </div>
                       </div>
 
                       <div>
-                        <div className="text-[9px] uppercase tracking-[0.2em] text-white/25">Compensation</div>
-                        <div className={`mt-2 text-sm font-black ${configured ? "text-white" : "text-amber-100"}`}>
+                        <div className="text-[9px] uppercase tracking-[0.2em] text-[#A9A39C]">Compensation</div>
+                        <div className={`mt-2 text-sm font-black ${configured ? "text-[#191919]" : "text-amber-100"}`}>
                           {compensationAmount(employee.compensation)}
                         </div>
-                        <div className="mt-2 text-xs text-white/30">
+                        <div className="mt-2 text-xs text-[#A19A92]">
                           {employee.compensation?.payroll_frequency || "Payroll setup required"}
                         </div>
                         <Link
@@ -554,7 +554,7 @@ export default function PeopleDirectoryPage({ params }) {
                         <button
                           type="button"
                           onClick={() => (isEditing ? cancelForm() : beginEdit(employee))}
-                          className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-[10px] font-black uppercase tracking-[0.12em] text-white/65"
+                          className="flex h-10 items-center justify-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 text-[10px] font-black uppercase tracking-[0.12em] text-[#5F5A54]"
                         >
                           <Pencil className="h-4 w-4" /> {isEditing ? "Cancel edit" : "Edit profile"}
                         </button>
@@ -597,11 +597,11 @@ export default function PeopleDirectoryPage({ params }) {
                     </div>
 
                     {isEditing ? (
-                      <div className="mt-5 border-t border-white/[0.07] pt-5">
+                      <div className="mt-5 border-t border-black/[0.07] pt-5">
                         <div className="flex items-start gap-3">
                           <div>
-                            <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Employee profile</div>
-                            <div className="mt-1 text-sm text-white/45">
+                            <div className="text-[10px] uppercase tracking-[0.18em] text-[#918B83]">Employee profile</div>
+                            <div className="mt-1 text-sm text-[#817A72]">
                               Position and department describe the employee&apos;s job. Access roles and domain permissions are managed separately.
                             </div>
                           </div>
@@ -619,7 +619,7 @@ export default function PeopleDirectoryPage({ params }) {
                           <button
                             type="button"
                             onClick={cancelForm}
-                            className="h-11 rounded-xl border border-white/10 bg-white/[0.04] px-5 text-xs font-black uppercase tracking-[0.14em]"
+                            className="h-11 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-5 text-xs font-black uppercase tracking-[0.14em]"
                           >
                             Cancel
                           </button>
@@ -639,7 +639,7 @@ export default function PeopleDirectoryPage({ params }) {
               })}
 
               {!filteredEmployees.length ? (
-                <div className="rounded-2xl border border-white/[0.07] bg-black/20 p-5 text-sm text-white/35">
+                <div className="rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-5 text-sm text-[#918B83]">
                   No employees match this search.
                 </div>
               ) : null}
@@ -718,7 +718,7 @@ function EmployeeFields({ form, setForm }) {
 function Field({ label, children }) {
   return (
     <label>
-      <div className="mb-2 text-[9px] uppercase tracking-[0.16em] text-white/30">{label}</div>
+      <div className="mb-2 text-[9px] uppercase tracking-[0.16em] text-[#A19A92]">{label}</div>
       {children}
     </label>
   );
@@ -726,9 +726,9 @@ function Field({ label, children }) {
 
 function Metric({ label, value, icon: Icon }) {
   return (
-    <article className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+    <article className="rounded-[24px] border border-black/[0.08] bg-white p-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-[9px] uppercase tracking-[0.18em] text-white/30">{label}</div>
+        <div className="text-[9px] uppercase tracking-[0.18em] text-[#A19A92]">{label}</div>
         <Icon className="h-4 w-4 text-[#D6A66A]" />
       </div>
       <div className="mt-3 text-2xl font-black">{value}</div>

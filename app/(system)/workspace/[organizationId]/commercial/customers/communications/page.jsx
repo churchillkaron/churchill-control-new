@@ -5,7 +5,6 @@ export const dynamic = "force-dynamic";
 import { useParams, useSearchParams } from "next/navigation";
 import CommunicationsWorkspace from "@/components/workspace/commercial/CommunicationsWorkspace";
 import CommunicationDraftReviewBanner from "@/components/workspace/commercial/CommunicationDraftReviewBanner";
-import InstagramMessagingStatusBanner from "@/components/workspace/commercial/InstagramMessagingStatusBanner";
 
 export default function CommunicationsPage() {
   const params = useParams();
@@ -26,7 +25,6 @@ export default function CommunicationsPage() {
 
   return (
     <>
-      <InstagramMessagingStatusBanner organizationId={organizationId} />
       <CommunicationDraftReviewBanner
         organizationId={organizationId}
         conversationId={conversationId}

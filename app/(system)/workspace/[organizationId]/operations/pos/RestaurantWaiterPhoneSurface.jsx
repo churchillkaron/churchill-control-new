@@ -104,17 +104,17 @@ function money(value, currencyCode) {
 
 function Modal({ title, subtitle, onClose, children }) {
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-2 sm:items-center">
-      <div className="max-h-[92vh] w-full max-w-[430px] overflow-y-auto rounded-[28px] border border-white/10 bg-[#090909] p-4 text-white shadow-2xl">
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-[#191919]/20 p-2 sm:items-center">
+      <div className="max-h-[92vh] w-full max-w-[430px] overflow-y-auto rounded-[28px] border border-black/[0.08] bg-white p-4 text-[#191919] shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">{title}</h2>
-            {subtitle ? <p className="mt-1 text-xs text-white/35">{subtitle}</p> : null}
+            {subtitle ? <p className="mt-1 text-xs text-[#918B83]">{subtitle}</p> : null}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/10 p-2 text-white/50"
+            className="rounded-xl border border-black/[0.08] p-2 text-[#746E66]"
             aria-label="Close"
           >
             <X size={16} />
@@ -180,10 +180,13 @@ export default function RestaurantWaiterPhoneSurface({
     setActiveZoneId((current) => current || posRuntime?.zones?.[0]?.id || null);
   }, [posRuntime]);
 
-  const zones = runtime?.zones || [];
-  const tables = runtime?.tables || [];
-  const dishes = runtime?.dishes || [];
-  const settings = runtime?.posSettings || runtime?.settings || {};
+  const zones = useMemo(() => runtime?.zones || [], [runtime?.zones]);
+  const tables = useMemo(() => runtime?.tables || [], [runtime?.tables]);
+  const dishes = useMemo(() => runtime?.dishes || [], [runtime?.dishes]);
+  const settings = useMemo(
+    () => runtime?.posSettings || runtime?.settings || {},
+    [runtime?.posSettings, runtime?.settings],
+  );
   const actionCapabilities = runtime?.capabilities?.actions || {};
   const canOrder = actionCapabilities.order_entry === true;
   const canMoveGuests = actionCapabilities.move_guests === true;
@@ -674,9 +677,9 @@ export default function RestaurantWaiterPhoneSurface({
   }
 
   return (
-    <main className="min-h-screen bg-black p-2 text-white" data-restaurant-waiter-phone="true">
-      <section className="mx-auto flex min-h-[calc(100vh-16px)] w-full max-w-[480px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#070707]">
-        <header className="border-b border-white/10 px-3 py-3">
+    <main className="min-h-screen bg-[#F7F6F3] p-2 text-[#191919]" data-restaurant-waiter-phone="true">
+      <section className="mx-auto flex min-h-[calc(100vh-16px)] w-full max-w-[480px] flex-col overflow-hidden rounded-[28px] border border-black/[0.08] bg-white">
+        <header className="border-b border-black/[0.08] px-3 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">
@@ -685,7 +688,7 @@ export default function RestaurantWaiterPhoneSurface({
               <div className="mt-1 truncate text-base font-semibold">
                 {activeTable ? `Table ${tableName(activeTable)}` : "Choose table"}
               </div>
-              <div className="mt-0.5 text-[10px] text-white/35">
+              <div className="mt-0.5 text-[10px] text-[#918B83]">
                 {activeTable ? `${guestCount} guests · seat ${selectedSeat || "—"}` : "Order · seats · split · move"}
               </div>
             </div>
@@ -694,14 +697,14 @@ export default function RestaurantWaiterPhoneSurface({
               type="button"
               disabled={!activeTable}
               onClick={() => openServicePanel("ACTIONS")}
-              className="rounded-xl border border-white/10 px-3 py-2 text-[10px] font-semibold text-white/55 disabled:opacity-30"
+              className="rounded-xl border border-black/[0.08] px-3 py-2 text-[10px] font-semibold text-[#5F5A54] disabled:opacity-30"
             >
               Table actions
             </button>
           </div>
         </header>
 
-        <div className="border-b border-white/10 px-3 py-2">
+        <div className="border-b border-black/[0.08] px-3 py-2">
           <div className="flex gap-2 overflow-x-auto pb-1">
             {zones.map((zone) => (
               <button
@@ -711,7 +714,7 @@ export default function RestaurantWaiterPhoneSurface({
                 className={
                   activeZoneId === zone.id
                     ? "shrink-0 rounded-xl bg-[#D6A66A] px-3 py-2 text-xs font-semibold text-black"
-                    : "shrink-0 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-white/50"
+                    : "shrink-0 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-xs text-[#746E66]"
                 }
               >
                 {zone.name || zone.zone_name || "Area"}
@@ -720,7 +723,7 @@ export default function RestaurantWaiterPhoneSurface({
           </div>
         </div>
 
-        <div className="border-b border-white/10 px-3 py-2">
+        <div className="border-b border-black/[0.08] px-3 py-2">
           <div className="flex gap-2 overflow-x-auto pb-1">
             {visibleTables.map((table) => {
               const occupied = guestsFor(table) > 0;
@@ -736,8 +739,8 @@ export default function RestaurantWaiterPhoneSurface({
                     active
                       ? "min-w-20 shrink-0 rounded-2xl bg-white px-4 py-3 text-left text-black"
                       : occupied
-                        ? "min-w-20 shrink-0 rounded-2xl border border-[#D6A66A]/45 bg-[#D6A66A]/10 px-4 py-3 text-left text-[#E9CF9A]"
-                        : "min-w-20 shrink-0 rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-3 text-left text-white/65 disabled:opacity-25"
+                        ? "min-w-20 shrink-0 rounded-2xl border border-[#D6A66A]/45 bg-[#D6A66A]/10 px-4 py-3 text-left text-[#76583A]"
+                        : "min-w-20 shrink-0 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-3 text-left text-[#5F5A54] disabled:opacity-25"
                   }
                 >
                   <div className="text-sm font-semibold">{tableName(table)}</div>
@@ -749,9 +752,9 @@ export default function RestaurantWaiterPhoneSurface({
         </div>
 
         {activeTable && guestCount ? (
-          <div className="border-b border-white/10 px-3 py-2">
+          <div className="border-b border-black/[0.08] px-3 py-2">
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              <span className="shrink-0 text-[9px] uppercase tracking-[0.18em] text-white/30">Seat</span>
+              <span className="shrink-0 text-[9px] uppercase tracking-[0.18em] text-[#A19A92]">Seat</span>
               {seats.map((seat) => (
                 <button
                   key={seat}
@@ -760,7 +763,7 @@ export default function RestaurantWaiterPhoneSurface({
                   className={
                     selectedSeat === seat
                       ? "h-9 min-w-9 rounded-xl bg-[#D6A66A] px-3 text-xs font-bold text-black"
-                      : "h-9 min-w-9 rounded-xl border border-white/10 px-3 text-xs text-white/55"
+                      : "h-9 min-w-9 rounded-xl border border-black/[0.08] px-3 text-xs text-[#5F5A54]"
                   }
                 >
                   {seat}
@@ -787,7 +790,7 @@ export default function RestaurantWaiterPhoneSurface({
                   className={
                     currentCategory === category
                       ? "shrink-0 rounded-xl bg-[#D6A66A] px-3 py-2 text-[11px] font-semibold text-black"
-                      : "shrink-0 rounded-xl border border-white/10 px-3 py-2 text-[11px] text-white/50"
+                      : "shrink-0 rounded-xl border border-black/[0.08] px-3 py-2 text-[11px] text-[#746E66]"
                   }
                 >
                   {category}
@@ -803,7 +806,7 @@ export default function RestaurantWaiterPhoneSurface({
                 type="button"
                 disabled={!canOrder || !activeTable || !guestCount}
                 onClick={() => openDish(dish)}
-                className="min-h-20 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-left disabled:opacity-25"
+                className="min-h-20 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-3 text-left disabled:opacity-25"
               >
                 <div className="line-clamp-2 text-sm font-medium">{dish.name || dish.dish_name}</div>
                 {dish.price != null ? (
@@ -814,15 +817,15 @@ export default function RestaurantWaiterPhoneSurface({
           </div>
         </div>
 
-        <footer className="border-t border-white/10 bg-black/60 p-3">
+        <footer className="border-t border-black/[0.08] bg-[#FBF8F3]/95 p-3">
           {error ? <div className="mb-2 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-100">{error}</div> : null}
-          {message ? <div className="mb-2 rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-2 text-xs text-[#E9CF9A]">{message}</div> : null}
+          {message ? <div className="mb-2 rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-2 text-xs text-[#76583A]">{message}</div> : null}
 
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-[9px] uppercase tracking-[0.18em] text-white/30">Current order</div>
+              <div className="text-[9px] uppercase tracking-[0.18em] text-[#A19A92]">Current order</div>
               <div className="mt-1 text-sm font-semibold">{cartUnits} item{cartUnits === 1 ? "" : "s"}</div>
-              <div className="mt-0.5 text-[10px] text-white/30">{money(cartSubtotal, currencyCode)}</div>
+              <div className="mt-0.5 text-[10px] text-[#A19A92]">{money(cartSubtotal, currencyCode)}</div>
             </div>
             <button
               type="button"
@@ -844,7 +847,7 @@ export default function RestaurantWaiterPhoneSurface({
                     setCart((current) => current.filter((row) => row.id !== item.id));
                     orderKey.current = null;
                   }}
-                  className="shrink-0 rounded-xl border border-white/10 px-3 py-2 text-left text-[10px] text-white/55"
+                  className="shrink-0 rounded-xl border border-black/[0.08] px-3 py-2 text-left text-[10px] text-[#5F5A54]"
                 >
                   S{item.seatPosition} · {item.name} ×
                 </button>
@@ -885,7 +888,7 @@ export default function RestaurantWaiterPhoneSurface({
                 className={
                   Number(guestDraft) === value
                     ? "rounded-xl bg-[#D6A66A] py-3 text-sm font-bold text-black"
-                    : "rounded-xl border border-white/10 py-3 text-sm text-white/60"
+                    : "rounded-xl border border-black/[0.08] py-3 text-sm text-[#5F5A54]"
                 }
               >
                 {value}
@@ -900,7 +903,7 @@ export default function RestaurantWaiterPhoneSurface({
 
       {panel === "DISH" && dishDraft ? (
         <Modal title={dishDraft.name || dishDraft.dish_name || "Item"} onClose={() => setPanel(null)}>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-white/30">Seat</div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-[#A19A92]">Seat</div>
           <div className="mt-2 flex flex-wrap gap-2">
             {seats.map((seat) => (
               <button
@@ -910,7 +913,7 @@ export default function RestaurantWaiterPhoneSurface({
                 className={
                   String(modifierDraft.seat) === String(seat)
                     ? "rounded-xl bg-[#D6A66A] px-4 py-2 text-xs font-bold text-black"
-                    : "rounded-xl border border-white/10 px-4 py-2 text-xs text-white/55"
+                    : "rounded-xl border border-black/[0.08] px-4 py-2 text-xs text-[#5F5A54]"
                 }
               >
                 {seat}
@@ -920,7 +923,7 @@ export default function RestaurantWaiterPhoneSurface({
 
           {modifierGroups.map((group) => (
             <div key={group.key} className="mt-4">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-white/30">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-[#A19A92]">
                 {group.label}{group.required ? " · required" : ""}
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -931,8 +934,8 @@ export default function RestaurantWaiterPhoneSurface({
                     onClick={() => setModifierDraft((current) => ({ ...current, [group.key]: option.value }))}
                     className={
                       modifierDraft[group.key] === option.value
-                        ? "rounded-xl border border-[#D6A66A]/40 bg-[#D6A66A]/10 px-3 py-2 text-xs text-[#E9CF9A]"
-                        : "rounded-xl border border-white/10 px-3 py-2 text-xs text-white/50"
+                        ? "rounded-xl border border-[#D6A66A]/40 bg-[#D6A66A]/10 px-3 py-2 text-xs text-[#76583A]"
+                        : "rounded-xl border border-black/[0.08] px-3 py-2 text-xs text-[#746E66]"
                     }
                   >
                     {option.label}
@@ -947,7 +950,7 @@ export default function RestaurantWaiterPhoneSurface({
             onChange={(event) => setModifierDraft((current) => ({ ...current, notes: event.target.value }))}
             placeholder="Kitchen note"
             rows={3}
-            className="mt-4 w-full rounded-2xl border border-white/10 bg-black px-3 py-3 text-sm outline-none"
+            className="mt-4 w-full rounded-2xl border border-black/[0.08] bg-white px-3 py-3 text-sm outline-none"
           />
           <button type="button" onClick={addDish} className="mt-3 w-full rounded-2xl bg-[#D6A66A] py-3.5 text-sm font-bold text-black">
             Add to seat {modifierDraft.seat || selectedSeat}
@@ -959,19 +962,19 @@ export default function RestaurantWaiterPhoneSurface({
         <Modal title={`Table ${tableName(activeTable)}`} onClose={() => setPanel(null)}>
           <div className="grid gap-2" data-waiter-authorized-actions="true">
             {canAssignItems ? (
-              <button type="button" onClick={() => openServicePanel("SPLIT")} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Split size={17} className="text-[#D6A66A]" /> Split by seat / bill group</button>
+              <button type="button" onClick={() => openServicePanel("SPLIT")} className="flex items-center gap-3 rounded-2xl border border-black/[0.08] p-4 text-left text-sm"><Split size={17} className="text-[#D6A66A]" /> Split by seat / bill group</button>
             ) : null}
             {canMoveSeat ? (
-              <button type="button" onClick={() => openServicePanel("MOVE_GUEST")} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Move size={17} className="text-[#D6A66A]" /> Move guest / seat</button>
+              <button type="button" onClick={() => openServicePanel("MOVE_GUEST")} className="flex items-center gap-3 rounded-2xl border border-black/[0.08] p-4 text-left text-sm"><Move size={17} className="text-[#D6A66A]" /> Move guest / seat</button>
             ) : null}
             {canTransferTable ? (
-              <button type="button" onClick={() => openServicePanel("TRANSFER")} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><ArrowRightLeft size={17} className="text-[#D6A66A]" /> Move whole table</button>
+              <button type="button" onClick={() => openServicePanel("TRANSFER")} className="flex items-center gap-3 rounded-2xl border border-black/[0.08] p-4 text-left text-sm"><ArrowRightLeft size={17} className="text-[#D6A66A]" /> Move whole table</button>
             ) : null}
             {canMergeTables ? (
-              <button type="button" onClick={() => openServicePanel("MERGE")} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Layers3 size={17} className="text-[#D6A66A]" /> Merge tables</button>
+              <button type="button" onClick={() => openServicePanel("MERGE")} className="flex items-center gap-3 rounded-2xl border border-black/[0.08] p-4 text-left text-sm"><Layers3 size={17} className="text-[#D6A66A]" /> Merge tables</button>
             ) : null}
             {canMoveGuests ? (
-              <button type="button" onClick={() => { setGuestDraft(Math.max(1, guestCount)); setPanel("EDIT_GUESTS"); }} className="flex items-center gap-3 rounded-2xl border border-white/10 p-4 text-left text-sm"><Users size={17} className="text-[#D6A66A]" /> Change guest count</button>
+              <button type="button" onClick={() => { setGuestDraft(Math.max(1, guestCount)); setPanel("EDIT_GUESTS"); }} className="flex items-center gap-3 rounded-2xl border border-black/[0.08] p-4 text-left text-sm"><Users size={17} className="text-[#D6A66A]" /> Change guest count</button>
             ) : null}
           </div>
           {!canTransferTable || !canMergeTables ? (
@@ -979,7 +982,7 @@ export default function RestaurantWaiterPhoneSurface({
               Whole-table move and merge are supervisor actions and only appear when your signed-in role is authorized.
             </div>
           ) : null}
-          <div className="mt-4 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.05] px-3 py-2 text-[10px] leading-4 text-[#E9CF9A]/70">
+          <div className="mt-4 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.05] px-3 py-2 text-[10px] leading-4 text-[#76583A]/70">
             Payment is intentionally not available on the waiter phone. Settlement is completed at the stationary POS.
           </div>
         </Modal>
@@ -987,17 +990,17 @@ export default function RestaurantWaiterPhoneSurface({
 
       {panel === "SPLIT" && canAssignItems ? (
         <Modal title="Split check" onClose={() => setPanel(null)}>
-          <div className="text-xs text-white/45">Move all items for a seat into a bill group. The same groups are visible to the stationary POS.</div>
-          <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-white/30">Seat</div>
+          <div className="text-xs text-[#746E66]">Move all items for a seat into a bill group. The same groups are visible to the stationary POS.</div>
+          <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-[#A19A92]">Seat</div>
           <div className="mt-2 flex flex-wrap gap-2">
             {splitSeats.map((seat) => (
-              <button key={seat} type="button" onClick={() => setSelectedSplitSeat(seat)} className={selectedSplitSeat === seat ? "rounded-xl bg-white px-4 py-2 text-xs font-bold text-black" : "rounded-xl border border-white/10 px-4 py-2 text-xs text-white/55"}>{seat}</button>
+              <button key={seat} type="button" onClick={() => setSelectedSplitSeat(seat)} className={selectedSplitSeat === seat ? "rounded-xl bg-white px-4 py-2 text-xs font-bold text-black" : "rounded-xl border border-black/[0.08] px-4 py-2 text-xs text-[#5F5A54]"}>{seat}</button>
             ))}
           </div>
-          <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-white/30">Bill group</div>
+          <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-[#A19A92]">Bill group</div>
           <div className="mt-2 flex flex-wrap gap-2">
             {splitGroups.map((group) => (
-              <button key={group} type="button" onClick={() => setSelectedSplitGroup(group)} className={selectedSplitGroup === group ? "rounded-xl border border-[#D6A66A]/50 bg-[#D6A66A]/10 px-4 py-2 text-xs text-[#E9CF9A]" : "rounded-xl border border-white/10 px-4 py-2 text-xs text-white/55"}>{group}</button>
+              <button key={group} type="button" onClick={() => setSelectedSplitGroup(group)} className={selectedSplitGroup === group ? "rounded-xl border border-[#D6A66A]/50 bg-[#D6A66A]/10 px-4 py-2 text-xs text-[#76583A]" : "rounded-xl border border-black/[0.08] px-4 py-2 text-xs text-[#5F5A54]"}>{group}</button>
             ))}
           </div>
           <button type="button" disabled={busy || !selectedSplitSeat || !selectedSplitGroup} onClick={assignSeatGroup} className="mt-4 w-full rounded-2xl bg-[#D6A66A] py-3 text-sm font-bold text-black disabled:opacity-30">Move seat to bill group</button>
@@ -1006,16 +1009,16 @@ export default function RestaurantWaiterPhoneSurface({
 
       {panel === "MOVE_GUEST" && canMoveSeat ? (
         <Modal title="Move guest" onClose={() => setPanel(null)}>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-white/30">Seat</div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-[#A19A92]">Seat</div>
           <div className="mt-2 flex flex-wrap gap-2">
             {splitSeats.map((seat) => (
-              <button key={seat} type="button" onClick={() => setMoveSeat(seat)} className={String(moveSeat) === String(seat) ? "rounded-xl bg-white px-4 py-2 text-xs font-bold text-black" : "rounded-xl border border-white/10 px-4 py-2 text-xs text-white/55"}>{seat}</button>
+              <button key={seat} type="button" onClick={() => setMoveSeat(seat)} className={String(moveSeat) === String(seat) ? "rounded-xl bg-white px-4 py-2 text-xs font-bold text-black" : "rounded-xl border border-black/[0.08] px-4 py-2 text-xs text-[#5F5A54]"}>{seat}</button>
             ))}
           </div>
-          <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-white/30">Destination table</div>
+          <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-[#A19A92]">Destination table</div>
           <div className="mt-2 grid grid-cols-3 gap-2">
             {tables.filter((table) => table.id !== activeTable?.id && String(table.status || "").toUpperCase() !== "MERGED").map((table) => (
-              <button key={table.id} type="button" onClick={() => setTargetTableId(table.id)} className={targetTableId === table.id ? "rounded-xl bg-[#D6A66A] py-3 text-xs font-bold text-black" : "rounded-xl border border-white/10 py-3 text-xs text-white/55"}>{tableName(table)}</button>
+              <button key={table.id} type="button" onClick={() => setTargetTableId(table.id)} className={targetTableId === table.id ? "rounded-xl bg-[#D6A66A] py-3 text-xs font-bold text-black" : "rounded-xl border border-black/[0.08] py-3 text-xs text-[#5F5A54]"}>{tableName(table)}</button>
             ))}
           </div>
           <button type="button" disabled={busy || !moveSeat || !targetTableId} onClick={moveGuest} className="mt-4 w-full rounded-2xl bg-[#D6A66A] py-3 text-sm font-bold text-black disabled:opacity-30">Move guest</button>
@@ -1026,11 +1029,11 @@ export default function RestaurantWaiterPhoneSurface({
         <Modal title="Move whole table" subtitle="Only empty available tables can receive the service." onClose={() => setPanel(null)}>
           <div className="grid grid-cols-3 gap-2">
             {transferTargets.map((table) => (
-              <button key={table.id} type="button" onClick={() => setTargetTableId(table.id)} className={targetTableId === table.id ? "rounded-xl bg-[#D6A66A] py-3 text-xs font-bold text-black" : "rounded-xl border border-white/10 py-3 text-xs text-white/55"}>{tableName(table)}</button>
+              <button key={table.id} type="button" onClick={() => setTargetTableId(table.id)} className={targetTableId === table.id ? "rounded-xl bg-[#D6A66A] py-3 text-xs font-bold text-black" : "rounded-xl border border-black/[0.08] py-3 text-xs text-[#5F5A54]"}>{tableName(table)}</button>
             ))}
           </div>
           {!transferTargets.length ? (
-            <div className="mt-3 rounded-xl border border-dashed border-white/10 px-3 py-4 text-center text-xs text-white/35">No empty available table. Use Merge tables for an occupied service.</div>
+            <div className="mt-3 rounded-xl border border-dashed border-black/[0.08] px-3 py-4 text-center text-xs text-[#918B83]">No empty available table. Use Merge tables for an occupied service.</div>
           ) : null}
           <button type="button" disabled={busy || !targetTableId} onClick={transferTable} className="mt-4 w-full rounded-2xl bg-[#D6A66A] py-3 text-sm font-bold text-black disabled:opacity-30">Move table</button>
         </Modal>
@@ -1042,7 +1045,7 @@ export default function RestaurantWaiterPhoneSurface({
             {tables.filter((table) => table.id !== activeTable?.id && String(table.status || "").toUpperCase() !== "MERGED").map((table) => {
               const selected = mergeTargets.includes(table.id);
               return (
-                <button key={table.id} type="button" onClick={() => setMergeTargets((current) => selected ? current.filter((id) => id !== table.id) : [...current, table.id])} className={selected ? "rounded-xl border border-[#D6A66A]/50 bg-[#D6A66A]/10 py-3 text-xs font-bold text-[#E9CF9A]" : "rounded-xl border border-white/10 py-3 text-xs text-white/55"}>{tableName(table)}</button>
+                <button key={table.id} type="button" onClick={() => setMergeTargets((current) => selected ? current.filter((id) => id !== table.id) : [...current, table.id])} className={selected ? "rounded-xl border border-[#D6A66A]/50 bg-[#D6A66A]/10 py-3 text-xs font-bold text-[#76583A]" : "rounded-xl border border-black/[0.08] py-3 text-xs text-[#5F5A54]"}>{tableName(table)}</button>
               );
             })}
           </div>
@@ -1054,7 +1057,7 @@ export default function RestaurantWaiterPhoneSurface({
         <Modal title="Guest count" onClose={() => setPanel(null)}>
           <div className="grid grid-cols-5 gap-2">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
-              <button key={value} type="button" onClick={() => setGuestDraft(value)} className={Number(guestDraft) === value ? "rounded-xl bg-[#D6A66A] py-3 text-sm font-bold text-black" : "rounded-xl border border-white/10 py-3 text-sm text-white/60"}>{value}</button>
+              <button key={value} type="button" onClick={() => setGuestDraft(value)} className={Number(guestDraft) === value ? "rounded-xl bg-[#D6A66A] py-3 text-sm font-bold text-black" : "rounded-xl border border-black/[0.08] py-3 text-sm text-[#5F5A54]"}>{value}</button>
             ))}
           </div>
           <button type="button" disabled={busy} onClick={persistGuestCount} className="mt-4 w-full rounded-2xl bg-white py-3 text-sm font-semibold text-black disabled:opacity-30">Update guests</button>

@@ -36,9 +36,10 @@ function canManageIntegrations(access) {
   return roles.some((role) => INTEGRATION_ROLES.has(role));
 }
 
-function administrationRedirect(origin, organizationId, message) {
+function administrationRedirect(origin, organizationId, message, returnPath = null) {
+  const allowed = `/workspace/${encodeURIComponent(organizationId)}/administration/communications-setup?onboarding=1`;
   const url = new URL(
-    `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
+    returnPath === allowed ? allowed : `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
     origin
   );
   url.searchParams.set("organizationId", organizationId);
@@ -75,6 +76,9 @@ export async function GET(request) {
     const organizationId =
       requestUrl.searchParams.get("organizationId") ||
       requestUrl.searchParams.get("organization_id");
+    const onboardingReturnPath = requestUrl.searchParams.get("onboarding") === "1"
+      ? `/workspace/${encodeURIComponent(organizationId)}/administration/communications-setup?onboarding=1`
+      : null;
     const reconnect =
       requestUrl.searchParams.get("reconnect") === "true" ||
       requestUrl.searchParams.get("reconnect") === "1";
@@ -123,7 +127,8 @@ export async function GET(request) {
         administrationRedirect(
           returnOrigin,
           access.organizationId,
-          "Google Ads is already connected. The existing authorization was left unchanged."
+          "Google Ads is already connected. The existing authorization was left unchanged.",
+          onboardingReturnPath
         )
       );
     }
@@ -138,6 +143,7 @@ export async function GET(request) {
         user_id: access.userId || null,
         staff_account_id: access.staff?.id || null,
         role: access.role || null,
+        ...(onboardingReturnPath ? { return_path: onboardingReturnPath } : {}),
       },
     });
 

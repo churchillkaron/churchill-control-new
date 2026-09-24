@@ -19,7 +19,7 @@ function idempotencyKey(prefix) {
 
 function Field({ label, children, span = false }) {
   return (
-    <label className={`${span ? "md:col-span-2" : ""} text-[11px] text-white/48`}>
+    <label className={`${span ? "md:col-span-2" : ""} text-[11px] text-[#191919]/48`}>
       {label}
       {children}
     </label>
@@ -27,9 +27,9 @@ function Field({ label, children, span = false }) {
 }
 
 const control =
-  "mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 text-[13px] text-white outline-none focus:border-amber-300/30";
+  "mt-2 h-11 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3]/40 px-3 text-[13px] text-[#191919] outline-none focus:border-amber-300/30";
 const textarea =
-  "mt-2 w-full rounded-xl border border-white/[0.08] bg-black/40 p-3 text-[13px] text-white outline-none focus:border-amber-300/30";
+  "mt-2 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3]/40 p-3 text-[13px] text-[#191919] outline-none focus:border-amber-300/30";
 
 function initialForm(action, detail) {
   const balances = detail?.finance?.balances || [];
@@ -146,7 +146,7 @@ export default function CustomerActionDialog({
     setForm(initialForm(action, detail));
     setError("");
     setSuccess("");
-  }, [action, customer?.party_id, detail?.as_of_date]);
+  }, [action, customer?.party_id, detail]);
 
   const balances = detail?.finance?.balances || [];
   const invoices = (detail?.finance?.transactions || []).filter(
@@ -296,8 +296,8 @@ export default function CustomerActionDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xl">
-      <div className="w-full max-w-2xl rounded-[30px] border border-white/[0.1] bg-[#0b0b0b] p-6 shadow-2xl">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#F7F6F3]/80 p-4 backdrop-blur-xl">
+      <div className="w-full max-w-2xl rounded-[30px] border border-black/[0.08] bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-[0.28em] text-amber-300/60">
@@ -306,16 +306,16 @@ export default function CustomerActionDialog({
             <h2 className="mt-3 text-[28px] font-light tracking-[-0.05em]">
               {titleFor(action)}
             </h2>
-            <p className="mt-2 max-w-xl text-[12px] leading-5 text-white/38">
+            <p className="mt-2 max-w-xl text-[12px] leading-5 text-[#191919]/38">
               {descriptionFor(action)}
             </p>
-            <div className="mt-2 text-[11px] text-white/28">
+            <div className="mt-2 text-[11px] text-[#191919]/28">
               {customer?.customer_name || customer?.display_name} · Party {customer?.party_id}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-xl border border-white/[0.08] px-3 py-2 text-[12px] text-white/50"
+            className="rounded-xl border border-black/[0.08] px-3 py-2 text-[12px] text-[#746E66]"
           >
             Close
           </button>
@@ -380,7 +380,7 @@ export default function CustomerActionDialog({
                 <input value={form.hold_reason || ""} onChange={(event) => update("hold_reason", event.target.value)} className={control} />
               </Field>
               <Field label="Disputed" span>
-                <div className="mt-3 flex items-center gap-3 text-[12px] text-white/65">
+                <div className="mt-3 flex items-center gap-3 text-[12px] text-[#5F5A54]">
                   <input type="checkbox" checked={Boolean(form.disputed)} onChange={(event) => update("disputed", event.target.checked)} />
                   Mark this customer balance as disputed for collections workflow
                 </div>
@@ -443,7 +443,7 @@ export default function CustomerActionDialog({
                 <input type="number" step="1" value={form.points_delta || ""} onChange={(event) => update("points_delta", event.target.value)} placeholder="Use negative number to deduct" className={control} />
               </Field>
               <Field label="Current points">
-                <div className="mt-2 flex h-11 items-center rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 text-[13px] text-white/70">
+                <div className="mt-2 flex h-11 items-center rounded-xl border border-black/[0.06] bg-[#FBF8F3] px-3 text-[13px] text-[#5F5A54]">
                   {detail?.loyalty?.account?.loyalty_points || 0}
                 </div>
               </Field>
@@ -501,7 +501,7 @@ export default function CustomerActionDialog({
         {success ? <div className="mt-4 text-[12px] text-emerald-300">{success}</div> : null}
 
         <div className="mt-6 flex justify-end gap-2">
-          <button onClick={onClose} className="h-10 rounded-xl border border-white/[0.08] px-4 text-[12px] text-white/55">
+          <button onClick={onClose} className="h-10 rounded-xl border border-black/[0.08] px-4 text-[12px] text-[#5F5A54]">
             Cancel
           </button>
           <button

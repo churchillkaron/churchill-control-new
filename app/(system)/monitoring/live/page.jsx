@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import {
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -67,7 +68,7 @@ export default function MonitoringLivePage() {
   }, []);
 
   // ===== LOAD =====
-  async function refresh() {
+  const refresh = useCallback(async () => {
 
     if (!tenantId) {
       return;
@@ -79,15 +80,13 @@ export default function MonitoringLivePage() {
       );
 
     setStats(data);
-  }
+  }, [tenantId]);
 
   useEffect(() => {
 
     refresh();
 
-  }, [
-    tenantId,
-  ]);
+  }, [refresh]);
 
   // ===== ENTERPRISE REALTIME =====
   useEffect(() => {
@@ -135,15 +134,13 @@ export default function MonitoringLivePage() {
 
     };
 
-  }, [
-    tenantId,
-  ]);
+  }, [refresh, tenantId]);
 
   if (!stats) {
 
     return (
 
-      <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 text-2xl">
+      <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center text-zinc-500 text-2xl">
         Loading Monitoring...
       </div>
     );
@@ -151,14 +148,14 @@ export default function MonitoringLivePage() {
 
   return (
 
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919] overflow-hidden">
 
       {/* ===== HEADER ===== */}
-      <div className="h-28 border-b border-white/5 flex items-center justify-between px-12">
+      <div className="h-28 border-b border-black/[0.06] flex items-center justify-between px-12">
 
         <div>
 
-          <div className="text-xs tracking-[0.35em] uppercase text-cyan-400 mb-3">
+          <div className="text-xs tracking-[0.35em] uppercase text-[#9B6F3F] mb-3">
             MONITORING
           </div>
 
@@ -168,7 +165,7 @@ export default function MonitoringLivePage() {
 
         </div>
 
-        <div className="px-6 h-14 rounded-3xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs uppercase tracking-[0.3em] flex items-center">
+        <div className="px-6 h-14 rounded-3xl bg-[#FBF3E8] border border-[#D6A66A]/30 text-[#9B6F3F] text-xs uppercase tracking-[0.3em] flex items-center">
           REALTIME SYSTEM
         </div>
 
@@ -205,9 +202,9 @@ export default function MonitoringLivePage() {
 
         </div>
 
-        <div className="rounded-[40px] border border-cyan-500/20 bg-cyan-500/5 p-10">
+        <div className="rounded-[40px] border border-[#D6A66A]/30 bg-[#FBF3E8] p-10">
 
-          <div className="text-xs uppercase tracking-[0.3em] text-cyan-400 mb-6">
+          <div className="text-xs uppercase tracking-[0.3em] text-[#9B6F3F] mb-6">
             Active Tables
           </div>
 
@@ -219,9 +216,9 @@ export default function MonitoringLivePage() {
 
         </div>
 
-        <div className="rounded-[40px] border border-violet-500/20 bg-violet-500/5 p-10">
+        <div className="rounded-[40px] border border-[#D6A66A]/30 bg-[#FBF3E8] p-10">
 
-          <div className="text-xs uppercase tracking-[0.3em] text-violet-400 mb-6">
+          <div className="text-xs uppercase tracking-[0.3em] text-[#9B6F3F] mb-6">
             Active Orders
           </div>
 

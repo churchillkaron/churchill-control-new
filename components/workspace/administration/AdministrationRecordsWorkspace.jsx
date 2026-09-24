@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -109,7 +109,7 @@ function display(value, type) {
 }
 
 export default function AdministrationRecordsWorkspace({ organizationId, mode }) {
-  const definition = DEFINITIONS[mode] || DEFINITIONS["legal-entities"];
+  const definition = useMemo(() => DEFINITIONS[mode] || DEFINITIONS["legal-entities"], [mode]);
   const Icon = definition.icon;
   const [rows, setRows] = useState([]);
   const [writable, setWritable] = useState(false);
@@ -126,9 +126,9 @@ export default function AdministrationRecordsWorkspace({ organizationId, mode })
     setForm(emptyForm(definition));
     setEditingId(null);
     setEditorOpen(false);
-  }, [mode]);
+  }, [definition]);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     setLoading(true);
     setError("");
@@ -148,11 +148,11 @@ export default function AdministrationRecordsWorkspace({ organizationId, mode })
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId, definition.resource]);
 
   useEffect(() => {
     load();
-  }, [organizationId, definition.resource]);
+  }, [load]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -229,7 +229,7 @@ export default function AdministrationRecordsWorkspace({ organizationId, mode })
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl border border-black/[0.09] bg-white px-3.5 text-[11px] font-medium text-[#4B4842]"><RefreshCw size={13} className={loading ? "animate-spin" : ""} />Refresh</button>
-              {writable ? <button type="button" onClick={openCreate} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[11px] font-medium text-white"><Plus size={13} />New</button> : null}
+              {writable ? <button type="button" onClick={openCreate} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#B98A52]/25 bg-[#D6A66A] px-3.5 text-[11px] font-medium text-[#2C2117] hover:bg-[#C99A5E]"><Plus size={13} />New</button> : null}
             </div>
           </div>
         </section>
@@ -258,7 +258,7 @@ export default function AdministrationRecordsWorkspace({ organizationId, mode })
       </div>
 
       {editorOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#6F5A42]/20 p-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[24px] border border-black/[0.09] bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4"><div><div className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#A37849]">{editingId ? "Edit" : "Create"}</div><h2 className="mt-1 text-[21px] font-semibold tracking-[-0.025em]">{definition.title}</h2></div><button type="button" onClick={() => setEditorOpen(false)} className="rounded-lg border border-black/[0.08] p-2 text-[#77716A]"><X size={15} /></button></div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -269,7 +269,7 @@ export default function AdministrationRecordsWorkspace({ organizationId, mode })
                 </label>
               ))}
             </div>
-            <div className="mt-6 flex gap-3"><button type="button" onClick={() => setEditorOpen(false)} className="h-11 flex-1 rounded-xl border border-black/[0.09] text-[11px] font-medium text-[#625D56]">Cancel</button><button type="button" onClick={save} disabled={busy} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#1F1E1B] text-[11px] font-medium text-white disabled:opacity-40"><Save size={13} />{busy ? "Saving…" : "Save"}</button></div>
+            <div className="mt-6 flex gap-3"><button type="button" onClick={() => setEditorOpen(false)} className="h-11 flex-1 rounded-xl border border-black/[0.09] text-[11px] font-medium text-[#625D56]">Cancel</button><button type="button" onClick={save} disabled={busy} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#B98A52]/25 bg-[#D6A66A] text-[11px] font-medium text-[#2C2117] hover:bg-[#C99A5E] disabled:opacity-40"><Save size={13} />{busy ? "Saving…" : "Save"}</button></div>
           </div>
         </div>
       ) : null}

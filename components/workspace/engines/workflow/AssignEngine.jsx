@@ -225,8 +225,8 @@ export default function AssignEngine({
   }
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur">
-      <div className="w-full max-w-lg rounded-[28px] border border-white/10 bg-[#0a0a0a] p-6 text-white shadow-2xl shadow-black">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#F7F6F3]/70 px-4 backdrop-blur">
+      <div className="w-full max-w-lg rounded-[28px] border border-black/[0.08] bg-white p-6 text-[#191919] shadow-2xl shadow-black">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-[0.25em] text-amber-300/70">
@@ -241,18 +241,18 @@ export default function AssignEngine({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/10 px-3 py-2 text-sm text-white/55 hover:bg-white/5"
+            className="rounded-xl border border-black/[0.08] px-3 py-2 text-sm text-[#5F5A54] hover:bg-white/5"
           >
             Close
           </button>
         </div>
 
-        <label className="mt-6 block text-sm text-white/60">
+        <label className="mt-6 block text-sm text-[#5F5A54]">
           Assign to:
         </label>
 
         {loading ? (
-          <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-white/50">
+          <div className="mt-3 rounded-xl border border-black/[0.08] bg-[#F7F6F3]/30 p-3 text-sm text-[#746E66]">
             Loading users...
           </div>
         ) : (
@@ -261,7 +261,7 @@ export default function AssignEngine({
             onChange={event =>
               setSelected(event.target.value)
             }
-            className="mt-3 w-full rounded-xl border border-white/10 bg-black p-3 text-white outline-none"
+            className="mt-3 w-full rounded-xl border border-black/[0.08] bg-[#F7F6F3] p-3 text-[#191919] outline-none"
           >
             <option value="">
               Select person
@@ -279,7 +279,7 @@ export default function AssignEngine({
         )}
 
         {selectedUser ? (
-          <div className="mt-3 text-sm text-white/45">
+          <div className="mt-3 text-sm text-[#746E66]">
             {selectedUser.department || workspaceId || moduleKey || ""}
           </div>
         ) : null}
@@ -294,7 +294,7 @@ export default function AssignEngine({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/10 px-5 py-3 text-sm text-white/60 hover:bg-white/5"
+            className="rounded-xl border border-black/[0.08] px-5 py-3 text-sm text-[#5F5A54] hover:bg-white/5"
           >
             Back
           </button>

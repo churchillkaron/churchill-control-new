@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle2, Layers3, LoaderCircle, RefreshCw, Search, ShieldCheck } from "lucide-react";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
@@ -25,7 +25,7 @@ export default function SolutionsCommandCenter({ organizationId }) {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     setLoading(true);
     setError("");
@@ -43,11 +43,11 @@ export default function SolutionsCommandCenter({ organizationId }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [entityId, organizationId]);
 
   useEffect(() => {
     load();
-  }, [organizationId, entityId]);
+  }, [load]);
 
   async function act(solution, action) {
     setWorking(`${solution.id}:${action}`);
@@ -74,7 +74,10 @@ export default function SolutionsCommandCenter({ organizationId }) {
     }
   }
 
-  const solutions = Array.isArray(data?.solutions) ? data.solutions : [];
+  const solutions = useMemo(
+    () => (Array.isArray(data?.solutions) ? data.solutions : []),
+    [data?.solutions],
+  );
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return solutions;
@@ -102,7 +105,7 @@ export default function SolutionsCommandCenter({ organizationId }) {
                 Compose industry-ready capability packs from the shared Avantiqo core without hardcoding industry behavior into Finance, Operations, People or other owning domains.
               </p>
             </div>
-            <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1F1E1B] px-3.5 text-[11px] font-medium text-white disabled:opacity-40">
+            <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#D6A66A] px-3.5 text-[11px] font-medium text-[#191919] disabled:opacity-40">
               <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
             </button>
           </div>
@@ -174,8 +177,8 @@ export default function SolutionsCommandCenter({ organizationId }) {
                     )}
 
                     <div className="mt-4 flex flex-wrap gap-2 border-t border-black/[0.06] pt-3">
-                      {!installed ? <button type="button" disabled={busy} onClick={() => act(solution, "INSTALL")} className="rounded-lg bg-[#1F1E1B] px-3 py-2 text-[9px] font-medium text-white disabled:opacity-40">Install</button> : null}
-                      {installed && currentStatus !== "ACTIVE" ? <button type="button" disabled={busy || status !== "READY"} onClick={() => act(solution, "ACTIVATE")} className="rounded-lg bg-[#1F1E1B] px-3 py-2 text-[9px] font-medium text-white disabled:opacity-35">Activate</button> : null}
+                      {!installed ? <button type="button" disabled={busy} onClick={() => act(solution, "INSTALL")} className="rounded-lg bg-[#D6A66A] px-3 py-2 text-[9px] font-medium text-[#191919] disabled:opacity-40">Install</button> : null}
+                      {installed && currentStatus !== "ACTIVE" ? <button type="button" disabled={busy || status !== "READY"} onClick={() => act(solution, "ACTIVATE")} className="rounded-lg bg-[#D6A66A] px-3 py-2 text-[9px] font-medium text-[#191919] disabled:opacity-35">Activate</button> : null}
                       {installed ? <button type="button" disabled={busy} onClick={() => act(solution, "RECHECK")} className="rounded-lg border border-black/[0.09] bg-white px-3 py-2 text-[9px] font-medium text-[#5E5851] disabled:opacity-40">Recheck</button> : null}
                       {installed && currentStatus === "ACTIVE" ? <button type="button" disabled={busy} onClick={() => act(solution, "DISABLE")} className="rounded-lg border border-black/[0.09] bg-white px-3 py-2 text-[9px] font-medium text-[#5E5851] disabled:opacity-40">Disable</button> : null}
                       {solution.route ? <Link href={`/workspace/${organizationId}${solution.route}`} className="ml-auto inline-flex items-center gap-1 rounded-lg border border-[#D6A66A]/40 bg-[#D6A66A]/10 px-3 py-2 text-[9px] font-medium text-[#8A6239]">Open solution <ArrowRight size={10} /></Link> : null}

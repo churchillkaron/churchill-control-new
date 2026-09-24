@@ -952,7 +952,7 @@ export default function MasterDataWorkCenter({
 
   return (
 
-    <main className="min-h-screen bg-[#050505] px-6 py-7 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-7 text-[#191919]">
       <div className="mx-auto max-w-[1540px]">
         <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -964,7 +964,7 @@ export default function MasterDataWorkCenter({
               {title}
             </h1>
 
-            <p className="mt-3 max-w-2xl text-[13px] leading-6 text-white/42">
+            <p className="mt-3 max-w-2xl text-[13px] leading-6 text-[#746E66]">
               {description}
             </p>
           </div>
@@ -976,14 +976,14 @@ export default function MasterDataWorkCenter({
               organizationId={organizationId}
               moduleKey={moduleKey}
               onComplete={onRefresh}
-              className="h-9 rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 text-[12px] text-white/58 backdrop-blur-2xl transition hover:bg-white/[0.07]"
+              className="h-9 rounded-xl border border-black/[0.08] bg-white px-4 text-[12px] text-[#5F5A54] backdrop-blur-2xl transition hover:bg-[#FBF8F3]"
             />
 
             <ExportEngine
               action={exportAction}
               organizationId={organizationId}
               moduleKey={moduleKey}
-              className="h-9 rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 text-[12px] text-white/58 backdrop-blur-2xl transition hover:bg-white/[0.07]"
+              className="h-9 rounded-xl border border-black/[0.08] bg-white px-4 text-[12px] text-[#5F5A54] backdrop-blur-2xl transition hover:bg-[#FBF8F3]"
             />
 
             <AIEngine
@@ -1002,13 +1002,13 @@ export default function MasterDataWorkCenter({
                       menuId === "__top__" ? null : "__top__"
                     )
                   }
-                  className="h-9 rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 text-[12px] text-white/58 backdrop-blur-2xl transition hover:bg-white/[0.07]"
+                  className="h-9 rounded-xl border border-black/[0.08] bg-white px-4 text-[12px] text-[#5F5A54] backdrop-blur-2xl transition hover:bg-[#FBF8F3]"
                 >
                   ...
                 </button>
 
                 {menuId === "__top__" ? (
-                  <div className="absolute right-0 top-11 z-40 w-72 overflow-hidden rounded-2xl border border-white/[0.09] bg-[#111]/95 p-2 shadow-2xl shadow-black/80 backdrop-blur-3xl">
+                  <div className="absolute right-0 top-11 z-40 w-72 overflow-hidden rounded-2xl border border-black/[0.08] bg-white p-2 shadow-2xl shadow-black/10 backdrop-blur-3xl">
                     <MasterActionMenu
                       actions={topMenuActions}
                       row={selected}
@@ -1044,15 +1044,15 @@ export default function MasterDataWorkCenter({
           {kpis.map(item => (
             <div
               key={item.label}
-              className="rounded-[28px] border border-white/[0.08] bg-gradient-to-b from-white/[0.045] to-white/[0.018] p-5 shadow-2xl shadow-black/70 backdrop-blur-3xl"
+              className="rounded-[28px] border border-black/[0.08] bg-white p-5 shadow-2xl shadow-black/10 backdrop-blur-3xl"
             >
-              <div className="text-[11px] uppercase tracking-[0.24em] text-white/34">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-[#918B83]">
                 {item.label}
               </div>
               <div className="mt-4 text-[34px] font-light tracking-[-0.055em]">
                 {item.value}
               </div>
-              <div className="mt-3 text-[12px] text-white/34">
+              <div className="mt-3 text-[12px] text-[#918B83]">
                 {item.hint}
               </div>
             </div>
@@ -1060,15 +1060,15 @@ export default function MasterDataWorkCenter({
         </section>
 
         <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_410px]">
-          <section className="overflow-visible rounded-[30px] border border-white/[0.08] bg-white/[0.028] shadow-2xl shadow-black/70 backdrop-blur-3xl">
-            <div className="flex flex-col gap-3 border-b border-white/[0.07] p-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/[0.07] bg-black/30 px-4">
-                <span className="text-[13px] text-white/26">⌕</span>
+          <section className="overflow-visible rounded-[30px] border border-black/[0.08] bg-white shadow-2xl shadow-black/10 backdrop-blur-3xl">
+            <div className="flex flex-col gap-3 border-b border-black/[0.07] p-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-4">
+                <span className="text-[13px] text-[#A19A92]">⌕</span>
                 <input
                   value={query}
                   onChange={event => onQueryChange?.(event.target.value)}
                   placeholder={searchPlaceholder}
-                  className="h-10 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-white/28"
+                  className="h-10 flex-1 bg-transparent text-[13px] text-[#191919] outline-none placeholder:text-[#A19A92]"
                 />
               </div>
 
@@ -1076,7 +1076,7 @@ export default function MasterDataWorkCenter({
                 {["Filter", "Sort", "Segments", "Columns"].map(item => (
                   <button
                     key={item}
-                    className="h-10 rounded-xl border border-white/[0.07] bg-black/25 px-4 text-[12px] text-white/45 transition hover:bg-white/[0.055] hover:text-white/70"
+                    className="h-10 rounded-xl border border-black/[0.08] bg-white px-4 text-[12px] text-[#746E66] transition hover:bg-[#FBF8F3] hover:text-[#5F5A54]"
                   >
                     {item}
                   </button>
@@ -1085,7 +1085,7 @@ export default function MasterDataWorkCenter({
             </div>
 
             {loading ? (
-              <div className="p-10 text-[13px] text-white/42">
+              <div className="p-10 text-[13px] text-[#746E66]">
                 Loading...
               </div>
             ) : error ? (
@@ -1093,7 +1093,7 @@ export default function MasterDataWorkCenter({
                 {error}
               </div>
             ) : rows.length === 0 ? (
-              <div className="p-10 text-[13px] text-white/42">
+              <div className="p-10 text-[13px] text-[#746E66]">
                 No records found.
               </div>
             ) : (
@@ -1134,11 +1134,11 @@ export default function MasterDataWorkCenter({
                           </div>
 
                           <div className="min-w-0">
-                            <div className="truncate text-[15px] font-medium tracking-[-0.02em] text-white">
+                            <div className="truncate text-[15px] font-medium tracking-[-0.02em] text-[#191919]">
                               {getName?.(row) || "Unnamed Record"}
                             </div>
 
-                            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-white/38">
+                            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-[#817A72]">
                               {(getSubtitle?.(row) || []).map(item => (
                                 <span key={item}>{item}</span>
                               ))}
@@ -1149,10 +1149,10 @@ export default function MasterDataWorkCenter({
                         <div className="grid grid-cols-4 gap-3 text-[12px]">
                           {listMetrics.map(metric => (
                             <div key={metric.label}>
-                              <div className="text-[11px] uppercase tracking-[0.16em] text-white/25">
+                              <div className="text-[11px] uppercase tracking-[0.16em] text-[#A19A92]">
                                 {metric.label}
                               </div>
-                              <div className="mt-1 text-white/70">
+                              <div className="mt-1 text-[#5F5A54]">
                                 {metric.value(row)}
                               </div>
                             </div>
@@ -1176,7 +1176,7 @@ export default function MasterDataWorkCenter({
                                 open ? null : row.id
                               );
                             }}
-                            className="relative z-50 rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2 text-[15px] text-white/50 transition hover:bg-white/[0.07]"
+                            className="relative z-50 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-[15px] text-[#746E66] transition hover:bg-[#FBF8F3]"
                           >
                             ...
                           </button>
@@ -1184,7 +1184,7 @@ export default function MasterDataWorkCenter({
                       </div>
 
                       {open && (
-                        <div className="absolute right-5 top-16 z-30 w-64 overflow-hidden rounded-2xl border border-white/[0.09] bg-[#111]/95 p-2 shadow-2xl shadow-black/80 backdrop-blur-3xl">
+                        <div className="absolute right-5 top-16 z-30 w-64 overflow-hidden rounded-2xl border border-black/[0.08] bg-white p-2 shadow-2xl shadow-black/10 backdrop-blur-3xl">
                           <MasterActionMenu
                             actions={
                               (() => {
@@ -1224,7 +1224,7 @@ export default function MasterDataWorkCenter({
             )}
           </section>
 
-          <aside className="rounded-[30px] border border-white/[0.08] bg-gradient-to-b from-white/[0.045] to-white/[0.018] p-5 shadow-2xl shadow-black/70 backdrop-blur-3xl">
+          <aside className="rounded-[30px] border border-black/[0.08] bg-white p-5 shadow-2xl shadow-black/10 backdrop-blur-3xl">
             {selected ? (
               <>
                 <div className="flex items-start gap-4">
@@ -1241,7 +1241,7 @@ export default function MasterDataWorkCenter({
                     </div>
                   </div>
 
-                  <button className="rounded-xl border border-white/[0.08] bg-black/25 px-3 py-2 text-[14px] text-white/50">
+                  <button className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2 text-[14px] text-[#746E66]">
                     ...
                   </button>
                 </div>
@@ -1249,11 +1249,11 @@ export default function MasterDataWorkCenter({
                 <div className="mt-6 space-y-5">
                   {detailSections.map(section => (
                     <section key={section.title}>
-                      <div className="text-[11px] uppercase tracking-[0.24em] text-white/30">
+                      <div className="text-[11px] uppercase tracking-[0.24em] text-[#A19A92]">
                         {section.title}
                       </div>
 
-                      <div className="mt-3 rounded-2xl border border-white/[0.07] bg-black/24 p-4">
+                      <div className="mt-3 rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-4">
 
                         {section.collection ? (
 
@@ -1263,7 +1263,7 @@ export default function MasterDataWorkCenter({
 
                               <div
                                 key={item.id || index}
-                                className="grid grid-cols-3 gap-3 rounded-xl border border-white/[0.08] p-3 text-[12px]"
+                                className="grid grid-cols-3 gap-3 rounded-xl border border-black/[0.08] p-3 text-[12px]"
                               >
 
                                 <div>
@@ -1298,11 +1298,11 @@ export default function MasterDataWorkCenter({
 
                               <div key={field.label}>
 
-                                <div className="text-white/30">
+                                <div className="text-[#A19A92]">
                                   {field.label}
                                 </div>
 
-                                <div className="mt-1 text-white/75">
+                                <div className="mt-1 text-[#4F4A45]">
                                   {field.value(selected)}
                                 </div>
 
@@ -1320,7 +1320,7 @@ export default function MasterDataWorkCenter({
                 </div>
               </>
             ) : (
-              <div className="text-[13px] text-white/42">
+              <div className="text-[13px] text-[#746E66]">
                 Select a record to view details.
               </div>
             )}

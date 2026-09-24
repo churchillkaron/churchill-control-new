@@ -67,7 +67,7 @@ export default function TimelinePage() {
   }
 
   return (
-    <div className="bg-[#050505] text-white p-8">
+    <div className="bg-[#F7F6F3] text-[#191919] p-8">
 
       {/* HERO */}
       <div className="relative -mt-3 overflow-hidden rounded-[52px] border border-[#D6C39A]/25 bg-gradient-to-br from-[#0B0B0B] via-[#101010] to-[#050505] py-8 px-14 mb-12 shadow-[0_30px_120px_rgba(214,195,154,0.22)]">
@@ -78,7 +78,7 @@ export default function TimelinePage() {
               Synthetic Intelligence OS
             </div>
 
-            <div className="mt-2 text-[11px] tracking-[0.25em] uppercase text-white/40">
+            <div className="mt-2 text-[11px] tracking-[0.25em] uppercase text-[#817A72]">
               Powered by Avantiqo
             </div>
             <h1 className="mt-4 text-5xl font-extralight tracking-tight">
@@ -93,26 +93,26 @@ export default function TimelinePage() {
   Restaurant • Phuket • Active Runtime
 </div>
 
-<p className="mt-4 text-white/55 max-w-3xl text-base leading-relaxed">
+<p className="mt-4 text-[#5F5A54] max-w-3xl text-base leading-relaxed">
 
               Every customer. Every payment. Every table. Every loyalty movement. Recorded forever.
             </p>
           </div>
           <div className="hidden lg:block w-[280px]">
 
-            <div className="rounded-[36px] border border-[#D6C39A]/20 bg-black/40 backdrop-blur-2xl p-7">
+            <div className="rounded-[36px] border border-[#D6C39A]/20 bg-[#F7F6F3]/40 backdrop-blur-2xl p-7">
 
               <div className="text-xs tracking-[0.25em] uppercase text-[#D6C39A] mb-6">
                 Live Intelligence
               </div>
 
               <div className="flex justify-between mb-4">
-                <span className="text-white/50">Events</span>
+                <span className="text-[#746E66]">Events</span>
                 <span>{events.length}</span>
               </div>
 
               <div className="flex justify-between mb-4">
-                <span className="text-white/50">Customers</span>
+                <span className="text-[#746E66]">Customers</span>
                 <span>
                   {
                     new Set(
@@ -125,7 +125,7 @@ export default function TimelinePage() {
               </div>
 
               <div className="flex justify-between">
-                <span className="text-white/50">Status</span>
+                <span className="text-[#746E66]">Status</span>
                 <span className="text-emerald-400">
                   Live
                 </span>
@@ -143,7 +143,7 @@ export default function TimelinePage() {
         {/* FILTERS */}
         <div className="col-span-12 lg:col-span-2">
           <div className="sticky top-6">
-          <div className="rounded-[32px] border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5 h-full overflow-y-auto">
+          <div className="rounded-[32px] border border-black/[0.08] bg-[#FBF8F3] backdrop-blur-xl p-5 h-full overflow-y-auto">
             <div className="text-xs uppercase tracking-[0.25em] text-[#D6C39A] mb-5">
               Filters
             </div>
@@ -155,7 +155,7 @@ export default function TimelinePage() {
                   className={`w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 ${
                     filter === f.value
                       ? "bg-[#D6C39A]/15 border border-[#D6C39A]/30 text-[#D6C39A]"
-                      : "border border-transparent hover:border-white/10 hover:bg-white/[0.03]"
+                      : "border border-transparent hover:border-black/[0.08] hover:bg-[#FBF8F3]"
                   }`}
                 >
                   {f.label}
@@ -168,14 +168,14 @@ export default function TimelinePage() {
 
         {/* TIMELINE FEED */}
         <div className="col-span-12 lg:col-span-7 space-y-6 space-y-6 pr-3">
-          {loading && <div className="text-white/50">Loading...</div>}
-          {!loading && filteredEvents.length === 0 && <div className="text-white/50">No events</div>}
+          {loading && <div className="text-[#746E66]">Loading...</div>}
+          {!loading && filteredEvents.length === 0 && <div className="text-[#746E66]">No events</div>}
           {filteredEvents.map((event) => (
             <div
               key={event.id}
-              className="rounded-[32px] border border-white/10 bg-white/[0.03] backdrop-blur-xl p-6 shadow-[0_0_30px_rgba(214,166,106,0.1)]"
+              className="rounded-[32px] border border-black/[0.08] bg-[#FBF8F3] backdrop-blur-xl p-6 shadow-[0_0_30px_rgba(214,166,106,0.1)]"
             >
-              <div className="text-xl font-medium text-white">
+              <div className="text-xl font-medium text-[#191919]">
 
                 {event.type === "CUSTOMER_VISIT"
                   ? `${event.payload?.customer_name || "Customer"} Returned`
@@ -211,7 +211,7 @@ export default function TimelinePage() {
               <div className="mt-1 text-xs uppercase tracking-[0.25em] text-[#D6C39A]">
                 {event.type.replaceAll("_", " ")}
               </div>
-              <div className="mt-1 text-white/80 text-xs">
+              <div className="mt-1 text-[#2F2C28] text-xs">
                 {new Date(event.created_at).toLocaleString()}
               </div>
               
@@ -220,7 +220,7 @@ export default function TimelinePage() {
 <div className="mt-6 grid grid-cols-4 gap-8">
 
   <div>
-    <div className="text-xs uppercase tracking-[0.2em] text-white/40">
+    <div className="text-xs uppercase tracking-[0.2em] text-[#817A72]">
       Tier
     </div>
     <div className="mt-2 text-lg text-[#D6C39A]">
@@ -229,7 +229,7 @@ export default function TimelinePage() {
   </div>
 
   <div>
-    <div className="text-xs uppercase tracking-[0.2em] text-white/40">
+    <div className="text-xs uppercase tracking-[0.2em] text-[#817A72]">
       Lifetime Spend
     </div>
     <div className="mt-2 text-lg">
@@ -238,7 +238,7 @@ export default function TimelinePage() {
   </div>
 
   <div>
-    <div className="text-xs uppercase tracking-[0.2em] text-white/40">
+    <div className="text-xs uppercase tracking-[0.2em] text-[#817A72]">
       Loyalty Points
     </div>
     <div className="mt-2 text-lg">
@@ -247,7 +247,7 @@ export default function TimelinePage() {
   </div>
 
   <div>
-    <div className="text-xs uppercase tracking-[0.2em] text-white/40">
+    <div className="text-xs uppercase tracking-[0.2em] text-[#817A72]">
       Favorite Dish
     </div>
     <div className="mt-2 text-lg">
@@ -262,7 +262,7 @@ export default function TimelinePage() {
 <div className="mt-6 grid grid-cols-3 gap-8">
 
   <div>
-    <div className="text-xs uppercase tracking-[0.2em] text-white/40">
+    <div className="text-xs uppercase tracking-[0.2em] text-[#817A72]">
       Customer
     </div>
     <div className="mt-2 text-lg">
@@ -271,7 +271,7 @@ export default function TimelinePage() {
   </div>
 
   <div>
-    <div className="text-xs uppercase tracking-[0.2em] text-white/40">
+    <div className="text-xs uppercase tracking-[0.2em] text-[#817A72]">
       Table
     </div>
     <div className="mt-2 text-lg">
@@ -280,7 +280,7 @@ export default function TimelinePage() {
   </div>
 
   <div>
-    <div className="text-xs uppercase tracking-[0.2em] text-white/40">
+    <div className="text-xs uppercase tracking-[0.2em] text-[#817A72]">
       Amount
     </div>
 
@@ -310,19 +310,19 @@ export default function TimelinePage() {
 
         {/* BUSINESS OVERVIEW */}
         <div className="col-span-12 lg:col-span-3 lg:sticky lg:top-6 h-fit">
-          <div className="rounded-[32px] border border-[#D6C39A]/10 bg-white/[0.03] backdrop-blur-xl p-6">
+          <div className="rounded-[32px] border border-[#D6C39A]/10 bg-[#FBF8F3] backdrop-blur-xl p-6">
 
             <div className="text-xs uppercase tracking-[0.25em] text-[#D6C39A] mb-6">
               Business Overview
             </div>
 
             <div className="flex justify-between mb-4">
-              <span className="text-white/50">Events</span>
+              <span className="text-[#746E66]">Events</span>
               <span>{events.length}</span>
             </div>
 
             <div className="flex justify-between mb-4">
-              <span className="text-white/50">Customers</span>
+              <span className="text-[#746E66]">Customers</span>
               <span>
                 {
                   new Set(
@@ -335,7 +335,7 @@ export default function TimelinePage() {
             </div>
 
             <div className="flex justify-between mb-4">
-              <span className="text-white/50">Visits</span>
+              <span className="text-[#746E66]">Visits</span>
               <span>
                 {
                   events.filter(
@@ -346,7 +346,7 @@ export default function TimelinePage() {
             </div>
 
             <div className="flex justify-between mb-6">
-              <span className="text-white/50">Payments</span>
+              <span className="text-[#746E66]">Payments</span>
               <span className="text-[#D6C39A]">
                 {
                   events.filter(
@@ -356,24 +356,24 @@ export default function TimelinePage() {
               </span>
             </div>
 
-            <div className="border-t border-white/10 pt-6">
+            <div className="border-t border-black/[0.08] pt-6">
 
               <div className="flex justify-between mb-4">
-                <span className="text-white/50">Latest Customer</span>
+                <span className="text-[#746E66]">Latest Customer</span>
                 <span>
                   {events?.[0]?.payload?.customer_name || "-"}
                 </span>
               </div>
 
               <div className="flex justify-between mb-4">
-                <span className="text-white/50">Platform</span>
+                <span className="text-[#746E66]">Platform</span>
                 <span className="text-[#D6C39A]">
                   Avantiqo
                 </span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-white/50">Runtime</span>
+                <span className="text-[#746E66]">Runtime</span>
                 <span className="text-emerald-400">
                   Active
                 </span>

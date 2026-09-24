@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { ArrowRight, CalendarClock, RefreshCw, Repeat2 } from "lucide-react";
 
@@ -49,7 +49,7 @@ export default function SchedulingLayout({ children }) {
     staff: [],
   });
 
-  async function loadContext() {
+  const loadContext = useCallback(async () => {
     if (!organizationId) return;
 
     setContext((current) => ({ ...current, loading: true, error: "" }));
@@ -80,11 +80,11 @@ export default function SchedulingLayout({ children }) {
         error: error?.message || "Unable to load workforce requests",
       }));
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     loadContext();
-  }, [organizationId]);
+  }, [loadContext]);
 
   const staffById = useMemo(
     () => new Map(context.staff.map((row) => [row.id, row])),
@@ -117,14 +117,14 @@ export default function SchedulingLayout({ children }) {
 
   return (
     <>
-      <div className="bg-[#030303] px-5 pt-5 text-white lg:px-8 lg:pt-8">
-        <section className="mx-auto max-w-7xl rounded-[26px] border border-white/10 bg-white/[0.035] p-4 lg:p-5">
+      <div className="bg-[#F7F6F3] px-5 pt-5 text-[#191919] lg:px-8 lg:pt-8">
+        <section className="mx-auto max-w-7xl rounded-[26px] border border-black/[0.08] bg-[#FBF8F3] p-4 lg:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#D6A66A]">
                 <CalendarClock className="h-4 w-4" /> Workforce context · {month}
               </div>
-              <p className="mt-2 text-sm text-white/45">
+              <p className="mt-2 text-sm text-[#746E66]">
                 Approved leave blocks new roster rows. Pending leave and open swaps remain visible here before you publish or change schedules.
               </p>
             </div>
@@ -137,7 +137,7 @@ export default function SchedulingLayout({ children }) {
                 type="button"
                 onClick={loadContext}
                 disabled={context.loading}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-[10px] font-black uppercase tracking-[0.12em] text-white/50 disabled:opacity-40"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#746E66] disabled:opacity-40"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${context.loading ? "animate-spin" : ""}`} />
                 Refresh
@@ -163,13 +163,13 @@ export default function SchedulingLayout({ children }) {
                 {timeOff.slice(0, 6).map((row) => (
                   <div
                     key={row.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-black/[0.07] bg-[#F7F6F3]/20 px-3 py-2"
                   >
                     <div className="min-w-0">
-                      <div className="truncate text-xs font-black text-white/75">
+                      <div className="truncate text-xs font-black text-[#4F4A45]">
                         {staffName(staffById, row.staff_id)} · {row.leave_type || "Time off"}
                       </div>
-                      <div className="mt-1 text-[10px] text-white/35">
+                      <div className="mt-1 text-[10px] text-[#918B83]">
                         {row.start_date} → {row.end_date}
                       </div>
                     </div>
@@ -190,18 +190,18 @@ export default function SchedulingLayout({ children }) {
                 {swaps.slice(0, 6).map((row) => (
                   <div
                     key={row.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-black/[0.07] bg-[#F7F6F3]/20 px-3 py-2"
                   >
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2 truncate text-xs font-black text-white/75">
-                        <Repeat2 className="h-3.5 w-3.5 shrink-0 text-cyan-300/70" />
+                      <div className="flex items-center gap-2 truncate text-xs font-black text-[#4F4A45]">
+                        <Repeat2 className="h-3.5 w-3.5 shrink-0 text-amber-300/70" />
                         {staffName(staffById, row.requester_staff_id)} → {staffName(staffById, row.target_staff_id)}
                       </div>
-                      <div className="mt-1 text-[10px] text-white/35">
+                      <div className="mt-1 text-[10px] text-[#918B83]">
                         {row.shift_date} · {row.start_time}–{row.end_time}
                       </div>
                     </div>
-                    <span className="shrink-0 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-cyan-100">
+                    <span className="shrink-0 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-amber-100">
                       {String(row.status || "").replaceAll("_", " ")}
                     </span>
                   </div>
@@ -219,9 +219,9 @@ export default function SchedulingLayout({ children }) {
 
 function ContextBadge({ label, value }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-center">
-      <div className="text-[9px] uppercase tracking-[0.12em] text-white/30">{label}</div>
-      <div className="mt-1 text-sm font-black text-white/75">{value}</div>
+    <div className="rounded-xl border border-black/[0.08] bg-[#F7F6F3]/20 px-3 py-2 text-center">
+      <div className="text-[9px] uppercase tracking-[0.12em] text-[#A19A92]">{label}</div>
+      <div className="mt-1 text-sm font-black text-[#4F4A45]">{value}</div>
     </div>
   );
 }

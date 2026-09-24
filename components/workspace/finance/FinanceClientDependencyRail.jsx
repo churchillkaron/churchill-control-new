@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -43,7 +43,7 @@ export default function FinanceClientDependencyRail({ organizationId }) {
   const [error, setError] = useState("");
   const today = localDateKey();
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!organizationId) return;
     try {
       setLoading(true);
@@ -65,11 +65,11 @@ export default function FinanceClientDependencyRail({ organizationId }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     load();
-  }, [organizationId]);
+  }, [load]);
 
   const clientMap = useMemo(
     () => new Map((practice?.clients || []).map((client) => [client.organization_id, client])),

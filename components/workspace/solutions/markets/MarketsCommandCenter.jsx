@@ -542,7 +542,7 @@ export default function MarketsCommandCenter({ organizationId }) {
               <div className="text-[10px] uppercase tracking-[0.2em] text-[#D6A66A]">First activation</div>
               <h2 className="mt-2 text-2xl font-semibold">Create the governed paper portfolio.</h2>
               <p className="mt-2 text-[12px] leading-5 text-[#706B64]">This creates the portfolio and its independent risk policy. No real-money execution path is created.</p>
-              <button type="button" disabled={working === "INITIALIZE"} onClick={() => act("INITIALIZE")} className="mt-5 rounded-xl bg-[#1F1E1B] px-4 py-2.5 text-[11px] font-medium text-white disabled:opacity-40">
+              <button type="button" disabled={working === "INITIALIZE"} onClick={() => act("INITIALIZE")} className="mt-5 rounded-xl bg-[#D6A66A] px-4 py-2.5 text-[11px] font-medium text-[#191919] disabled:opacity-40">
                 {working === "INITIALIZE" ? "Initializing…" : "Initialize Markets"}
               </button>
             </div>
@@ -818,7 +818,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   type="button"
                   onClick={() => act("PROCESS_PAPER_ORDERS")}
                   disabled={!canExecutePaper || Boolean(working) || !orders.some((row) => row.status === "QUEUED")}
-                  className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#2B2723] px-3.5 text-[10px] font-medium text-white shadow-[0_6px_16px_rgba(43,39,35,0.14)] transition hover:bg-[#1F1C19] disabled:opacity-35"
+                  className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#D6A66A] px-3.5 text-[10px] font-medium text-[#191919] shadow-[0_6px_16px_rgba(25,25,25,0.08)] transition hover:bg-[#C6975C] disabled:opacity-35"
                 >
                   <Activity size={12} />
                   {!canExecutePaper
@@ -910,7 +910,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                   </div>
                   <form onSubmit={addWatchlist} className="flex gap-2">
                     <input value={symbol} onChange={(event) => setSymbol(event.target.value)} placeholder="Ticker e.g. AAPL" className="h-9 w-40 rounded-lg border border-black/[0.09] bg-[#FCFBF9] px-3 text-[11px] uppercase text-[#2E2B27] outline-none placeholder:normal-case placeholder:text-[#AAA69E]" />
-                    <button type="submit" disabled={working === "ADD_WATCHLIST"} className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#2B2723] px-3.5 text-[10px] font-medium text-white shadow-[0_6px_16px_rgba(43,39,35,0.12)] transition hover:bg-[#1F1C19] disabled:opacity-40">
+                    <button type="submit" disabled={working === "ADD_WATCHLIST"} className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#D6A66A] px-3.5 text-[10px] font-medium text-[#191919] shadow-[0_6px_16px_rgba(25,25,25,0.08)] transition hover:bg-[#C6975C] disabled:opacity-40">
                       <Plus size={12} /> Add
                     </button>
                   </form>
@@ -1036,7 +1036,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                                 type="button"
                                 disabled={Boolean(working)}
                                 onClick={() => act("PROCESS_PAPER_ORDERS")}
-                                className="inline-flex h-8 items-center rounded-xl bg-[#2B2723] px-3 text-[9px] font-medium text-white shadow-[0_5px_14px_rgba(43,39,35,0.12)] transition hover:bg-[#1F1C19] disabled:opacity-40"
+                                className="inline-flex h-8 items-center rounded-xl bg-[#D6A66A] px-3 text-[9px] font-medium text-[#191919] shadow-[0_5px_14px_rgba(25,25,25,0.08)] transition hover:bg-[#C6975C] disabled:opacity-40"
                               >
                                 {working === "PROCESS_PAPER_ORDERS" ? "Processing…" : "Process active order"}
                               </button>
@@ -1065,7 +1065,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                                 type="button"
                                 disabled={Boolean(working)}
                                 onClick={() => queuePaperDecision(focusedDecision)}
-                                className="inline-flex h-8 items-center rounded-xl bg-[#2B2723] px-3 text-[9px] font-medium text-white shadow-[0_5px_14px_rgba(43,39,35,0.12)] transition hover:bg-[#1F1C19] disabled:opacity-40"
+                                className="inline-flex h-8 items-center rounded-xl bg-[#D6A66A] px-3 text-[9px] font-medium text-[#191919] shadow-[0_5px_14px_rgba(25,25,25,0.08)] transition hover:bg-[#C6975C] disabled:opacity-40"
                               >
                                 {"Queue " + focusedDecision.action}
                               </button>
@@ -1318,7 +1318,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                                   type="button"
                                   disabled={Boolean(working)}
                                   onClick={() => queuePaperDecision(decision)}
-                                  className="inline-flex h-8 items-center rounded-lg bg-[#2B2723] px-2.5 text-[9px] font-medium text-white shadow-[0_4px_12px_rgba(43,39,35,0.10)] transition hover:bg-[#1F1C19] disabled:opacity-40"
+                                  className="inline-flex h-8 items-center rounded-lg bg-[#D6A66A] px-2.5 text-[9px] font-medium text-[#191919] shadow-[0_4px_12px_rgba(25,25,25,0.08)] transition hover:bg-[#C6975C] disabled:opacity-40"
                                 >
                                   Queue {decision.action}
                                 </button>
@@ -1866,7 +1866,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                         cash_reserve_execution_buffer_bps: Number(riskDraft?.cash_reserve_execution_buffer_bps ?? 25),
                         loss_reentry_cooloff_hours: Number(riskDraft?.loss_reentry_cooloff_hours ?? 24),
                       })}
-                      className="mt-3 h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-medium text-white disabled:opacity-40"
+                      className="mt-3 h-8 rounded-lg bg-[#D6A66A] px-3 text-[9px] font-medium text-[#191919] disabled:opacity-40"
                     >
                       {working === "UPDATE_RISK_POLICY" ? "Saving…" : "Save risk policy"}
                     </button>
@@ -2195,7 +2195,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                       onClick={() => act("UPDATE_AUTOMATION_POLICY", {
                         auto_paper_enabled: !automationPolicy.auto_paper_enabled,
                       })}
-                      className="h-8 rounded-xl bg-[#2B2723] px-3 text-[9px] font-medium text-white shadow-[0_5px_14px_rgba(43,39,35,0.12)] transition hover:bg-[#1F1C19] disabled:opacity-40"
+                      className="h-8 rounded-xl bg-[#D6A66A] px-3 text-[9px] font-medium text-[#191919] shadow-[0_5px_14px_rgba(25,25,25,0.08)] transition hover:bg-[#C6975C] disabled:opacity-40"
                     >
                       {automationPolicy.auto_paper_enabled ? "Disable autopilot" : "Enable paper autopilot"}
                     </button>
@@ -2375,7 +2375,7 @@ export default function MarketsCommandCenter({ organizationId }) {
                         onClick={() => act("UPDATE_PORTFOLIO_BENCHMARK", {
                           benchmark_symbol: benchmarkDraft,
                         })}
-                        className="h-8 rounded-xl bg-[#2B2723] px-3 text-[9px] font-medium text-white shadow-[0_5px_14px_rgba(43,39,35,0.12)] transition hover:bg-[#1F1C19] disabled:opacity-40"
+                        className="h-8 rounded-xl bg-[#D6A66A] px-3 text-[9px] font-medium text-[#191919] shadow-[0_5px_14px_rgba(25,25,25,0.08)] transition hover:bg-[#C6975C] disabled:opacity-40"
                       >
                         {working === "UPDATE_PORTFOLIO_BENCHMARK" ? "Saving…" : "Save"}
                       </button>

@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 const runtime = readFileSync("lib/people/workforce/StaffPasskeyBrokerRuntime.js", "utf8");
 const client = readFileSync("lib/people/workforce/StaffPasskeyBrokerClient.js", "utf8");
 const login = readFileSync("app/login/page.js", "utf8");
-const profile = readFileSync("app/(workforce)/workforce/profile/page.jsx", "utf8");
+const legacyProfile = readFileSync("app/(workforce)/workforce/profile/page.jsx", "utf8");
+const profile = readFileSync("app/(system)/staff/profile/page.jsx", "utf8");
 const authPage = readFileSync("app/auth/staff/passkey/page.jsx", "utf8");
 const enrollPage = readFileSync("app/auth/staff/passkey/enroll/page.jsx", "utf8");
 
@@ -16,7 +17,8 @@ test("workforce passkeys use the central Avantiqo identity origin", () => {
   assert.match(authPage, /signInWithPasskey/);
 });
 
-test("workforce profile never runs WebAuthn directly on customer domains", () => {
+test("staff profile never runs WebAuthn directly on customer domains", () => {
+  assert.match(legacyProfile, /redirect\("\/staff\/profile"\)/);
   assert.match(profile, /beginCentralPasskeyEnrollment/);
   assert.match(profile, /beginCentralPasskeySignIn/);
   assert.doesNotMatch(profile, /auth\.registerPasskey/);
@@ -35,8 +37,8 @@ test("broker handoff is one-time, organization-bound and returned by POST", () =
   assert.match(authPage, /form\.method = "POST"/);
 });
 
-test("customer return paths stay under workforce", () => {
-  assert.match(runtime, /path\.startsWith\("\/workforce"\)/);
-  assert.match(client, /returnPath = "\/workforce"/);
-  assert.match(client, /returnPath = "\/workforce\/profile"/);
+test("customer return paths stay under the canonical Staff Portal", () => {
+  assert.match(runtime, /path\.startsWith\("\/staff"\)/);
+  assert.match(client, /returnPath = "\/staff"/);
+  assert.match(profile, /returnPath: "\/staff\/profile"/);
 });

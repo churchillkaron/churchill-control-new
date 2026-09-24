@@ -148,16 +148,16 @@ function TrialBalanceWorkspace({
 
   return (
     <section className="space-y-6">
-      <header className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6">
+      <header className="rounded-[30px] border border-black/[0.08] bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
             <div className="text-[11px] uppercase tracking-[0.28em] text-[#D6A66A]">
               Accounting Report
             </div>
-            <h1 className="mt-3 text-4xl font-light tracking-[-0.05em] text-white">
+            <h1 className="mt-3 text-4xl font-light tracking-[-0.05em] text-[#191919]">
               {capability?.name || "Trial Balance"}
             </h1>
-            <p className="mt-2 text-sm text-white/45">
+            <p className="mt-2 text-sm text-[#746E66]">
               {date(payload?.startDate)} – {date(payload?.endDate)}{currencyCode ? ` · ${currencyCode}` : ""}
             </p>
           </div>
@@ -165,7 +165,7 @@ function TrialBalanceWorkspace({
             <button
               type="button"
               onClick={exportCsv}
-              className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/65 hover:bg-white/[0.05]"
+              className="rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#5F5A54] hover:bg-[#F7F6F3]"
             >
               Export CSV
             </button>
@@ -181,34 +181,34 @@ function TrialBalanceWorkspace({
       </header>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-5">
-          <div className="text-[10px] uppercase tracking-[0.24em] text-white/35">Accounts</div>
-          <div className="mt-3 text-3xl font-light text-white">{payload?.accountCount ?? rows.length}</div>
+        <div className="rounded-[24px] border border-black/[0.08] bg-[#FBF8F3] p-5">
+          <div className="text-[10px] uppercase tracking-[0.24em] text-[#918B83]">Accounts</div>
+          <div className="mt-3 text-3xl font-light text-[#191919]">{payload?.accountCount ?? rows.length}</div>
         </div>
-        <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-5">
-          <div className="text-[10px] uppercase tracking-[0.24em] text-white/35">Debit Balances</div>
-          <div className="mt-3 text-2xl font-light text-white">{money(payload?.totalDebits, currencyCode)}</div>
+        <div className="rounded-[24px] border border-black/[0.08] bg-[#FBF8F3] p-5">
+          <div className="text-[10px] uppercase tracking-[0.24em] text-[#918B83]">Debit Balances</div>
+          <div className="mt-3 text-2xl font-light text-[#191919]">{money(payload?.totalDebits, currencyCode)}</div>
         </div>
-        <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-5">
-          <div className="text-[10px] uppercase tracking-[0.24em] text-white/35">Credit Balances</div>
-          <div className="mt-3 text-2xl font-light text-white">{money(payload?.totalCredits, currencyCode)}</div>
+        <div className="rounded-[24px] border border-black/[0.08] bg-[#FBF8F3] p-5">
+          <div className="text-[10px] uppercase tracking-[0.24em] text-[#918B83]">Credit Balances</div>
+          <div className="mt-3 text-2xl font-light text-[#191919]">{money(payload?.totalCredits, currencyCode)}</div>
         </div>
         <div className={`rounded-[24px] border p-5 ${payload?.balanced ? "border-emerald-400/20 bg-emerald-400/[0.05]" : "border-red-400/25 bg-red-400/[0.06]"}`}>
-          <div className="text-[10px] uppercase tracking-[0.24em] text-white/35">Control</div>
+          <div className="text-[10px] uppercase tracking-[0.24em] text-[#918B83]">Control</div>
           <div className={`mt-3 text-2xl font-light ${payload?.balanced ? "text-emerald-200" : "text-red-200"}`}>
             {payload?.balanced ? "Balanced" : "Out of Balance"}
           </div>
-          <div className="mt-1 text-xs text-white/45">Difference {money(payload?.difference, currencyCode)}</div>
+          <div className="mt-1 text-xs text-[#746E66]">Difference {money(payload?.difference, currencyCode)}</div>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.02]">
+      <div className="overflow-hidden rounded-[28px] border border-black/[0.08] bg-white">
         {rows.length === 0 ? (
-          <div className="p-8 text-sm text-white/45">No posted balances exist for the selected entity and period.</div>
+          <div className="p-8 text-sm text-[#746E66]">No posted balances exist for the selected entity and period.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-white/10 bg-white/[0.03] text-[10px] uppercase tracking-[0.18em] text-white/35">
+              <thead className="border-b border-black/[0.08] bg-[#FBF8F3] text-[10px] uppercase tracking-[0.18em] text-[#918B83]">
                 <tr>
                   <th className="px-5 py-4">Account</th>
                   <th className="px-5 py-4">Type</th>
@@ -223,11 +223,11 @@ function TrialBalanceWorkspace({
                   <tr
                     key={row.account_id}
                     onClick={() => openAccount(row)}
-                    className="cursor-pointer border-b border-white/[0.06] text-white/70 last:border-0 hover:bg-white/[0.035]"
+                    className="cursor-pointer border-b border-black/[0.06] text-[#5F5A54] last:border-0 hover:bg-white"
                   >
                     <td className="px-5 py-4">
-                      <div className="text-white/85">{row.account_code} · {row.account_name}</div>
-                      <div className="mt-1 text-xs text-white/35">Open ledger activity</div>
+                      <div className="text-[#2F2C28]">{row.account_code} · {row.account_name}</div>
+                      <div className="mt-1 text-xs text-[#918B83]">Open ledger activity</div>
                     </td>
                     <td className="px-5 py-4">{label(row.account_type || row.account_category)}</td>
                     <td className="px-5 py-4 text-right tabular-nums">{money(row.period_debits, currencyCode)}</td>
@@ -237,7 +237,7 @@ function TrialBalanceWorkspace({
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="border-t border-white/10 bg-white/[0.025] text-white/85">
+              <tfoot className="border-t border-black/[0.08] bg-[#FBF8F3] text-[#2F2C28]">
                 <tr>
                   <td className="px-5 py-4 font-medium" colSpan={4}>Total</td>
                   <td className="px-5 py-4 text-right font-medium tabular-nums">{money(payload?.totalDebits, currencyCode)}</td>
@@ -250,26 +250,26 @@ function TrialBalanceWorkspace({
       </div>
 
       {selected ? (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm print:hidden">
-          <div className="w-full max-w-6xl overflow-hidden rounded-[30px] border border-white/10 bg-[#090909] shadow-2xl">
-            <div className="flex items-start justify-between border-b border-white/10 p-6">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[#191919]/20 px-4 backdrop-blur-sm print:hidden">
+          <div className="w-full max-w-6xl overflow-hidden rounded-[30px] border border-black/[0.08] bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-black/[0.08] p-6">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.24em] text-[#D6A66A]">Ledger Drill-down</div>
-                <h2 className="mt-2 text-2xl font-light text-white">{selected.account_code} · {selected.account_name}</h2>
-                <div className="mt-1 text-sm text-white/40">{date(payload?.startDate)} – {date(payload?.endDate)}</div>
+                <h2 className="mt-2 text-2xl font-light text-[#191919]">{selected.account_code} · {selected.account_name}</h2>
+                <div className="mt-1 text-sm text-[#817A72]">{date(payload?.startDate)} – {date(payload?.endDate)}</div>
               </div>
-              <button type="button" onClick={() => setSelected(null)} className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60">Close</button>
+              <button type="button" onClick={() => setSelected(null)} className="rounded-xl border border-black/[0.08] px-4 py-2 text-sm text-[#5F5A54]">Close</button>
             </div>
             <div className="max-h-[70vh] overflow-auto p-6">
               {ledgerLoading ? (
-                <div className="text-sm text-white/45">Loading ledger activity…</div>
+                <div className="text-sm text-[#746E66]">Loading ledger activity…</div>
               ) : ledgerError ? (
                 <div className="rounded-2xl border border-red-400/25 bg-red-400/[0.06] p-4 text-sm text-red-200">{ledgerError}</div>
               ) : ledgerRows.length === 0 ? (
-                <div className="text-sm text-white/45">No ledger lines exist for this account in the selected period.</div>
+                <div className="text-sm text-[#746E66]">No ledger lines exist for this account in the selected period.</div>
               ) : (
                 <table className="min-w-full text-left text-sm">
-                  <thead className="border-b border-white/10 text-[10px] uppercase tracking-[0.18em] text-white/35">
+                  <thead className="border-b border-black/[0.08] text-[10px] uppercase tracking-[0.18em] text-[#918B83]">
                     <tr>
                       <th className="px-3 py-3">Date</th>
                       <th className="px-3 py-3">Journal / Reference</th>
@@ -280,7 +280,7 @@ function TrialBalanceWorkspace({
                   </thead>
                   <tbody>
                     {ledgerRows.map((line, index) => (
-                      <tr key={line.id || index} className="border-b border-white/[0.06] text-white/65 last:border-0">
+                      <tr key={line.id || index} className="border-b border-black/[0.06] text-[#5F5A54] last:border-0">
                         <td className="px-3 py-3">{date(line.posting_date || line.entry_date || line.created_at)}</td>
                         <td className="px-3 py-3">{line.journal_number || line.reference || line.source_document || "—"}</td>
                         <td className="px-3 py-3">{line.description || "—"}</td>
@@ -362,7 +362,7 @@ export default function FinanceReportRuntimeWorkCenter({
   }
 
   if (loading) {
-    return <div className="rounded-[28px] border border-white/10 bg-white/[0.025] p-8 text-sm text-white/45">Loading report…</div>;
+    return <div className="rounded-[28px] border border-black/[0.08] bg-[#FBF8F3] p-8 text-sm text-[#746E66]">Loading report…</div>;
   }
 
   if (error) {
@@ -384,23 +384,23 @@ export default function FinanceReportRuntimeWorkCenter({
 
   return (
     <section className="space-y-6">
-      <header className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6">
+      <header className="rounded-[30px] border border-black/[0.08] bg-white p-6">
         <div className="text-[11px] uppercase tracking-[0.28em] text-[#D6A66A]">Finance Report</div>
-        <h1 className="mt-3 text-4xl font-light tracking-[-0.05em] text-white">{capability?.name || "Finance Report"}</h1>
-        <p className="mt-2 text-sm text-white/45">{capability?.description || "Review the selected entity and accounting period."}</p>
+        <h1 className="mt-3 text-4xl font-light tracking-[-0.05em] text-[#191919]">{capability?.name || "Finance Report"}</h1>
+        <p className="mt-2 text-sm text-[#746E66]">{capability?.description || "Review the selected entity and accounting period."}</p>
       </header>
-      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.02]">
+      <div className="overflow-hidden rounded-[28px] border border-black/[0.08] bg-white">
         {rows.length === 0 ? (
-          <div className="p-8 text-sm text-white/45">No report rows exist for the selected context.</div>
+          <div className="p-8 text-sm text-[#746E66]">No report rows exist for the selected context.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-white/10 bg-white/[0.03] text-[10px] uppercase tracking-[0.2em] text-white/35">
+              <thead className="border-b border-black/[0.08] bg-[#FBF8F3] text-[10px] uppercase tracking-[0.2em] text-[#918B83]">
                 <tr>{columns.map(column => <th key={column} className="px-5 py-4">{label(column)}</th>)}</tr>
               </thead>
               <tbody>
                 {rows.map((row, index) => (
-                  <tr key={row.id || row.account_id || index} className="border-b border-white/[0.06] text-white/70 last:border-0">
+                  <tr key={row.id || row.account_id || index} className="border-b border-black/[0.06] text-[#5F5A54] last:border-0">
                     {columns.map(column => <td key={column} className="px-5 py-4">{display(row[column])}</td>)}
                   </tr>
                 ))}

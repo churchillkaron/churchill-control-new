@@ -18,7 +18,7 @@ test("voided and cancelled restaurant items remain visible but non-billable", ()
   assert.match(adapter, /"CANCELLED"/);
   assert.match(adapter, /original_total/);
   assert.match(adapter, /billable/);
-  assert.match(adapter, /total: billable \? originalAmount : 0/);
+  assert.match(adapter, /total: billable \? originalAmount : round\(correction\?\.corrected_amount \|\| 0\)/);
 });
 
 test("receipt UI distinguishes retained audit history from charged lines", () => {

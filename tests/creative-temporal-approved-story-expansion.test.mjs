@@ -9,6 +9,8 @@ test('tribunal-approved temporal story is expanded without substitute-world drif
   assert.match(source,/if \(tribunalSeeded && list\(approvedMasterPlan\.scenes\)\.length\)/);
   assert.match(source,/if \(tribunalSeeded\) \{\s*basePlan = \{/);
   assert.match(source,/const arrowBeats = causal/);
+  assert.match(source,/const approvedTurns = list\(concept\.irreversible_turns\)/);
+  assert.match(source,/approvedTurns\.length >= 3/);
   assert.match(source,/CREATIVE_TEMPORAL_APPROVED_STORY_BEATS_REQUIRED/);
   assert.match(source,/APPROVED SCENE AUTHORITY/);
   assert.match(source,/approved_scene: tribunalSeeded \? scene : null/);

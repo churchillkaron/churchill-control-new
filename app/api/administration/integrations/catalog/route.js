@@ -43,6 +43,11 @@ function isActive(row) {
   return upper(row?.status) === "ACTIVE";
 }
 
+function isCustomerUsableAsset(row) {
+  const metadata = object(row?.metadata);
+  return metadata.review_demo !== true && metadata.temporary !== true;
+}
+
 function readyCapability(id, label, detail = null) {
   return { id, label, status: "READY", detail };
 }
@@ -351,6 +356,7 @@ function statusForIntegration(integration, connections, assets, credentials) {
     matchingConnections.find((row) => upper(row.status) === "ACTIVE") || null;
 
   const matchingAssets = assets.filter((row) => {
+    if (!isCustomerUsableAsset(row)) return false;
     if (
       integration.assetProviders?.length &&
       !integration.assetProviders.includes(row.channel_provider)
@@ -366,8 +372,125 @@ function statusForIntegration(integration, connections, assets, credentials) {
     return true;
   });
 
+  if (integration.id === "sms" && activeConnection) {
+    const sender = matchingAssets.find((asset) => asset.asset_type === "sms_sender") || null;
+    const webhookReady = activeConnection?.metadata?.webhook_ready === true;
+    return {
+      state: sender && webhookReady ? "CONNECTED" : "SETUP_IN_PROGRESS",
+      label: sender && webhookReady ? "Connected" : "Finish setup",
+      detail: sender && webhookReady
+        ? "Twilio SMS sending, inbound Unified Inbox delivery, and delivery-status callbacks are ready."
+        : "The Twilio SMS connection exists but sender or webhook setup is incomplete.",
+      account: clean(sender?.metadata?.from_number)
+        || clean(sender?.name)
+        || clean(sender?.metadata?.messaging_service_sid)
+        || safeAccountLabel(activeConnection),
+      action: sender && webhookReady ? null : (integration.connectPath ? "CONNECT" : null),
+      actionLabel: sender && webhookReady ? null : "Finish SMS setup",
+      capabilities: [
+        sender ? readyCapability("sms-sender", "SMS sender", clean(sender?.name) || null) : setupCapability("sms-sender", "SMS sender", "Choose an organization Twilio number or Messaging Service."),
+        webhookReady ? readyCapability("sms-inbound", "Inbound SMS", "Incoming texts flow into Unified Inbox.") : setupCapability("sms-inbound", "Inbound SMS", "Finish Twilio inbound webhook configuration."),
+        webhookReady ? readyCapability("sms-delivery", "Delivery tracking", "Twilio delivery callbacks are connected.") : setupCapability("sms-delivery", "Delivery tracking", "Finish Twilio delivery callback configuration."),
+      ],
+    };
+  }
+
+  if (integration.id === "pinterest" && activeConnection) {
+    const account = matchingAssets.find((asset) => asset.asset_type === "pinterest_account") || null;
+    const boardCount = Number(activeConnection?.metadata?.board_count || account?.metadata?.board_count || 0);
+    if (!account) {
+      return {
+        state: "SETUP_IN_PROGRESS",
+        label: "Finish setup",
+        detail: "Pinterest authorization exists, but the organization Pinterest account identity is not bound yet.",
+        account: safeAccountLabel(activeConnection),
+        action: integration.connectPath ? "CONNECT" : null,
+        actionLabel: "Reconnect Pinterest",
+        capabilities: [
+          setupCapability("pinterest-account", "Pinterest account", "Reconnect and authorize the business Pinterest account."),
+        ],
+      };
+    }
+    return {
+      state: "CONNECTED",
+      label: "Connected",
+      detail: boardCount > 0
+        ? `Pinterest account connected with ${boardCount} available board${boardCount === 1 ? "" : "s"}.`
+        : "Pinterest account connected. Create at least one Pinterest board before publishing Pins.",
+      account: clean(account.name) || safeAccountLabel(activeConnection),
+      action: null,
+      capabilities: [
+        readyCapability("pinterest-account", "Pinterest account", clean(account.name) || null),
+        boardCount > 0
+          ? readyCapability("pinterest-boards", "Board discovery", `${boardCount} board${boardCount === 1 ? "" : "s"} available.`)
+          : setupCapability("pinterest-boards", "Board discovery", "No Pinterest boards are available yet."),
+        boardCount > 0
+          ? readyCapability("pinterest-publishing", "Organic Pin publishing", "Image Pin publishing is ready for authorized boards.")
+          : setupCapability("pinterest-publishing", "Organic Pin publishing", "Create a Pinterest board before publishing."),
+        unavailableCapability("pinterest-ads", "Pinterest Ads", "Organic Pinterest is connected; paid Pinterest Ads is not enabled by this connection."),
+      ],
+    };
+  }
+
+  if (integration.id === "youtube" && activeConnection) {
+    const channel = matchingAssets.find((asset) => asset.asset_type === "youtube_channel") || null;
+    const auditApproved = activeConnection?.metadata?.upload_audit_approved === true
+      || String(process.env.YOUTUBE_UPLOAD_AUDIT_APPROVED || "").trim().toLowerCase() === "true";
+    if (!channel) {
+      return {
+        state: "SETUP_IN_PROGRESS",
+        label: "Finish setup",
+        detail: "Google authorization exists, but the organization YouTube channel identity is not bound yet.",
+        account: safeAccountLabel(activeConnection),
+        action: integration.connectPath ? "CONNECT" : null,
+        actionLabel: "Reconnect YouTube",
+        capabilities: [
+          setupCapability("youtube-channel", "YouTube channel", "Reconnect and authorize the business YouTube channel."),
+        ],
+      };
+    }
+    return {
+      state: "CONNECTED",
+      label: auditApproved ? "Connected" : "Connected — upload restriction",
+      detail: auditApproved
+        ? "YouTube channel authorization, video publishing and channel analytics are ready."
+        : "The YouTube channel is connected. Private uploads and analytics are ready; public upload behavior remains subject to Google OAuth/API verification and YouTube upload audit status.",
+      account: clean(channel.name) || safeAccountLabel(activeConnection),
+      action: null,
+      capabilities: [
+        readyCapability("youtube-channel", "YouTube channel", clean(channel.name) || null),
+        readyCapability("youtube-analytics", "Channel analytics", "Authorized channel statistics are available."),
+        readyCapability("youtube-private-upload", "Private video uploads", "Avantiqo defaults uploads to private unless another privacy status is explicitly requested."),
+        auditApproved
+          ? readyCapability("youtube-public-upload", "Public video publishing", "Avantiqo YouTube upload audit is marked approved.")
+          : setupCapability("youtube-public-upload", "Public video publishing", "Google/YouTube project verification or upload audit may still restrict public publishing."),
+      ],
+    };
+  }
+
+  if (integration.id === "telegram" && activeConnection) {
+    const webhookReady = activeConnection?.metadata?.webhook_ready === true;
+    const botAsset = matchingAssets.find((asset) => asset.asset_type === "telegram_bot") || null;
+    return {
+      state: webhookReady && botAsset ? "CONNECTED" : "SETUP_IN_PROGRESS",
+      label: webhookReady && botAsset ? "Connected" : "Finish setup",
+      detail: webhookReady && botAsset
+        ? "Telegram bot messaging and inbound webhook delivery are ready."
+        : "The Telegram bot connection exists but webhook setup is not complete.",
+      account: clean(botAsset?.metadata?.username)
+        ? `@${clean(botAsset.metadata.username)}`
+        : clean(botAsset?.name) || safeAccountLabel(activeConnection),
+      action: webhookReady && botAsset ? null : (integration.connectPath ? "CONNECT" : null),
+      actionLabel: webhookReady && botAsset ? null : "Finish Telegram setup",
+    };
+  }
+
   if (integration.id === "google-business" && activeConnection) {
     const discovery = upper(activeConnection.metadata?.location_discovery_status);
+    const assignedLocations = matchingAssets.filter((asset) => Boolean(asset.entity_id));
+    const unassignedLocations = matchingAssets.filter((asset) =>
+      !asset.entity_id && upper(asset?.metadata?.assignment_status) !== "IGNORED"
+    );
     if (discovery && discovery !== "READY") {
       return {
         state: "SETUP_IN_PROGRESS",
@@ -375,6 +498,33 @@ function statusForIntegration(integration, connections, assets, credentials) {
         detail:
           "Avantiqo is completing the remaining Google setup. No reconnect is required.",
         account: safeAccountLabel(activeConnection),
+        action: integration.detailAnchor ? "MANAGE" : null,
+      };
+    }
+    if (!assignedLocations.length && matchingAssets.length) {
+      return {
+        state: "SETUP_IN_PROGRESS",
+        label: "Choose location",
+        detail: `${matchingAssets.length} Google Business location${matchingAssets.length === 1 ? " is" : "s are"} available. Assign the location or locations that belong to this organization.`,
+        account: safeAccountLabel(activeConnection),
+        action: integration.detailAnchor ? "MANAGE" : null,
+      };
+    }
+    if (assignedLocations.length && unassignedLocations.length) {
+      return {
+        state: "SETUP_IN_PROGRESS",
+        label: "Review locations",
+        detail: `${assignedLocations.length} location${assignedLocations.length === 1 ? " is" : "s are"} assigned and ${unassignedLocations.length} provider location${unassignedLocations.length === 1 ? " is" : "s are"} still unassigned. Review ownership before setup is considered complete.`,
+        account: assignedLocations.length === 1 ? clean(assignedLocations[0]?.name) : `${assignedLocations.length} assigned locations`,
+        action: integration.detailAnchor ? "MANAGE" : null,
+      };
+    }
+    if (assignedLocations.length) {
+      return {
+        state: "CONNECTED",
+        label: "Connected",
+        detail: `${assignedLocations.length} Google Business location${assignedLocations.length === 1 ? " is" : "s are"} assigned to this organization.`,
+        account: assignedLocations.length === 1 ? clean(assignedLocations[0]?.name) : `${assignedLocations.length} assigned locations`,
         action: integration.detailAnchor ? "MANAGE" : null,
       };
     }
@@ -444,8 +594,8 @@ function applyPlatformReadiness(integration, status) {
     state: "PLATFORM_SETUP",
     label: alreadyConnected ? "Avantiqo setup in progress" : "Available soon",
     detail: alreadyConnected
-      ? "The business connection is saved. Avantiqo is completing provider-side setup; no customer action is required."
-      : "Avantiqo is completing the provider setup. This connection will become available automatically when ready.",
+      ? (registry?.platformSetup?.approval || "The business connection is saved. Avantiqo is completing provider-side setup; no customer action is required.")
+      : (registry?.platformSetup?.approval || registry?.platformSetup?.summary || "Avantiqo is completing the provider setup. This connection will become available automatically when ready."),
     action: null,
     actionLabel: null,
     platformReady: false,

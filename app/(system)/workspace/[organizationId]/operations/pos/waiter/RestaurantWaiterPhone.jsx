@@ -71,8 +71,8 @@ function normalizeModifierGroups(settings) {
 
 function Modal({ children }) {
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-2 sm:items-center">
-      <div className="max-h-[88vh] w-full max-w-[430px] overflow-y-auto rounded-[28px] border border-white/10 bg-[#080808] p-4 text-white shadow-2xl">
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-[#191919]/20 p-2 sm:items-center">
+      <div className="max-h-[88vh] w-full max-w-[430px] overflow-y-auto rounded-[28px] border border-black/[0.08] bg-white p-4 text-[#191919] shadow-2xl shadow-black/10">
         {children}
       </div>
     </div>
@@ -120,7 +120,7 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
     setActiveZoneId((current) => current || posRuntime?.zones?.[0]?.id || null);
   }, [posRuntime]);
 
-  const zones = runtime?.zones || [];
+  const zones = useMemo(() => runtime?.zones || [], [runtime?.zones]);
   const tables = useMemo(
     () =>
       [...(runtime?.tables || [])].sort((a, b) =>
@@ -130,8 +130,11 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
       ),
     [runtime?.tables],
   );
-  const dishes = runtime?.dishes || [];
-  const settings = runtime?.posSettings || runtime?.settings || {};
+  const dishes = useMemo(() => runtime?.dishes || [], [runtime?.dishes]);
+  const settings = useMemo(
+    () => runtime?.posSettings || runtime?.settings || {},
+    [runtime?.posSettings, runtime?.settings],
+  );
   const activeTable = tables.find((table) => table.id === activeTableId) || null;
   const targetTable = tables.find((table) => table.id === targetTableId) || null;
   const currentGuestCount = Number(
@@ -503,13 +506,13 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
   }
 
   if (!runtime) {
-    return <div className="min-h-[70vh] bg-black p-6 text-center text-sm text-white/35">Loading waiter...</div>;
+    return <div className="min-h-[70vh] bg-[#F7F6F3] p-6 text-center text-sm text-[#918B83]">Loading waiter...</div>;
   }
 
   return (
-    <main className="min-h-screen bg-black p-2 text-white sm:p-3">
-      <section className="mx-auto flex min-h-[calc(100vh-16px)] w-full max-w-[430px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[#070707]">
-        <header className="border-b border-white/10 bg-black/85 px-3 py-3 backdrop-blur-xl">
+    <main className="min-h-screen bg-[#F7F6F3] p-2 text-[#191919] sm:p-3">
+      <section className="mx-auto flex min-h-[calc(100vh-16px)] w-full max-w-[430px] flex-col overflow-hidden rounded-[30px] border border-black/[0.08] bg-white">
+        <header className="border-b border-black/[0.08] bg-[#FBF8F3]/95 px-3 py-3 backdrop-blur-xl">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#D6A66A]">Waiter service</div>
@@ -517,7 +520,7 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
                 {activeTable ? `Table ${tableName(activeTable)}` : zones.find((zone) => zone.id === activeZoneId)?.name || "Floor"}
               </div>
             </div>
-            <button type="button" onClick={refreshRuntime} className="rounded-xl border border-white/10 p-2 text-white/40" aria-label="Refresh waiter">
+            <button type="button" onClick={refreshRuntime} className="rounded-xl border border-black/[0.08] p-2 text-[#918B83]" aria-label="Refresh waiter">
               <RefreshCw size={15} />
             </button>
           </div>
@@ -526,7 +529,7 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
           {message ? <div className="mt-2 rounded-xl border border-emerald-300/15 bg-emerald-400/[0.06] px-3 py-2 text-xs text-emerald-100">{message}</div> : null}
         </header>
 
-        <div className="border-b border-white/10 px-2 py-2">
+        <div className="border-b border-black/[0.08] px-2 py-2">
           <div className="flex gap-1.5 overflow-x-auto">
             {zones.map((zone) => (
               <button
@@ -535,7 +538,7 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
                 onClick={() => chooseZone(zone.id)}
                 className={activeZoneId === zone.id
                   ? "shrink-0 rounded-xl bg-[#D6A66A] px-3 py-2 text-[11px] font-bold text-black"
-                  : "shrink-0 rounded-xl border border-white/10 px-3 py-2 text-[11px] text-white/50"}
+                  : "shrink-0 rounded-xl border border-black/[0.08] px-3 py-2 text-[11px] text-[#817A72]"}
               >
                 {zone.name}
               </button>
@@ -543,7 +546,7 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
           </div>
         </div>
 
-        <div className="border-b border-white/10 px-2 py-2">
+        <div className="border-b border-black/[0.08] px-2 py-2">
           <div className="flex gap-1.5 overflow-x-auto">
             {visibleTables.map((table) => {
               const active = table.id === activeTableId;
@@ -557,7 +560,7 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
                     ? "min-w-[76px] shrink-0 rounded-2xl bg-white px-3 py-3 text-left text-black"
                     : occupied
                       ? "min-w-[76px] shrink-0 rounded-2xl border border-[#D6A66A]/35 bg-[#D6A66A]/[0.07] px-3 py-3 text-left text-[#F0D59D]"
-                      : "min-w-[76px] shrink-0 rounded-2xl border border-white/10 bg-white/[0.025] px-3 py-3 text-left text-white/65"}
+                      : "min-w-[76px] shrink-0 rounded-2xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-3 text-left text-[#665F57]"}
                 >
                   <div className="text-sm font-bold">{tableName(table)}</div>
                   <div className="mt-1 text-[9px] opacity-55">{Number(table.current_guests || 0)} guests</div>
@@ -569,7 +572,7 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
 
         {activeTable ? (
           <>
-            <div className="border-b border-white/10 px-2 py-2">
+            <div className="border-b border-black/[0.08] px-2 py-2">
               <div className="flex items-center gap-2">
                 <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
                   {Array.from({ length: Math.max(1, currentGuestCount) }, (_, index) => index + 1).map((seat) => (
@@ -579,19 +582,19 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
                       onClick={() => setSelectedSeat(seat)}
                       className={selectedSeat === seat
                         ? "h-9 min-w-9 rounded-xl bg-[#D6A66A] text-xs font-bold text-black"
-                        : "h-9 min-w-9 rounded-xl border border-white/10 text-xs text-white/50"}
+                        : "h-9 min-w-9 rounded-xl border border-black/[0.08] text-xs text-[#817A72]"}
                     >
                       {seat}
                     </button>
                   ))}
                 </div>
-                <button type="button" onClick={() => setModal("GUESTS")} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-white/10 px-2.5 py-2 text-[10px] text-white/50">
+                <button type="button" onClick={() => setModal("GUESTS")} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-black/[0.08] px-2.5 py-2 text-[10px] text-[#817A72]">
                   <Users size={13} /> {currentGuestCount}
                 </button>
               </div>
             </div>
 
-            <div className="border-b border-white/10 px-2 py-2">
+            <div className="border-b border-black/[0.08] px-2 py-2">
               <div className="flex gap-1.5 overflow-x-auto">
                 {categories.map((category) => (
                   <button
@@ -600,7 +603,7 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
                     onClick={() => setActiveCategory(category)}
                     className={currentCategory === category
                       ? "shrink-0 rounded-xl bg-white px-3 py-2 text-[10px] font-bold text-black"
-                      : "shrink-0 rounded-xl border border-white/10 px-3 py-2 text-[10px] text-white/48"}
+                      : "shrink-0 rounded-xl border border-black/[0.08] px-3 py-2 text-[10px] text-[#817A72]"}
                   >
                     {category}
                   </button>
@@ -615,21 +618,21 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
                     key={dish.id}
                     type="button"
                     onClick={() => openDish(dish)}
-                    className="min-h-[78px] rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-left active:scale-[0.98]"
+                    className="min-h-[78px] rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-3 text-left active:scale-[0.98]"
                   >
                     <div className="line-clamp-2 text-sm font-semibold">{dish.name || dish.dish_name}</div>
-                    <div className="mt-2 text-[10px] text-white/30">Seat {selectedSeat}</div>
+                    <div className="mt-2 text-[10px] text-[#A19A92]">Seat {selectedSeat}</div>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="border-t border-white/10 bg-black/80 p-2">
+            <div className="border-t border-black/[0.08] bg-[#FBF8F3] p-2">
               <div className="grid grid-cols-3 gap-1.5">
-                <button type="button" onClick={() => setModal("CHECK")} className="rounded-xl border border-white/10 py-2.5 text-[10px] font-semibold text-white/55">
+                <button type="button" onClick={() => setModal("CHECK")} className="rounded-xl border border-black/[0.08] py-2.5 text-[10px] font-semibold text-[#746E66]">
                   Check {openItems.length}
                 </button>
-                <button type="button" onClick={() => setModal("TABLE")} className="rounded-xl border border-white/10 py-2.5 text-[10px] font-semibold text-white/55">
+                <button type="button" onClick={() => setModal("TABLE")} className="rounded-xl border border-black/[0.08] py-2.5 text-[10px] font-semibold text-[#746E66]">
                   Table actions
                 </button>
                 <button type="button" onClick={() => setModal("CART")} className="rounded-xl border border-[#D6A66A]/35 bg-[#D6A66A]/[0.08] py-2.5 text-[10px] font-bold text-[#F0D59D]">
@@ -639,7 +642,7 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
             </div>
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-white/30">
+          <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-[#A19A92]">
             Select a table to start service.
           </div>
         )}
@@ -652,12 +655,12 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
               <div className="text-[10px] uppercase tracking-[0.18em] text-[#D6A66A]">Table {tableName(activeTable)}</div>
               <div className="mt-1 text-xl font-semibold">Guests</div>
             </div>
-            <button type="button" onClick={() => setModal(null)} className="rounded-xl border border-white/10 p-2 text-white/45"><ChevronLeft size={16} /></button>
+            <button type="button" onClick={() => setModal(null)} className="rounded-xl border border-black/[0.08] p-2 text-[#817A72]"><ChevronLeft size={16} /></button>
           </div>
           <div className="mt-5 flex items-center justify-center gap-5">
-            <button type="button" disabled={busy || guestDraft <= 1} onClick={() => setGuestDraft((value) => Math.max(1, Number(value || 1) - 1))} className="h-12 w-12 rounded-2xl border border-white/10 text-white/65 disabled:opacity-25"><Minus className="mx-auto" /></button>
+            <button type="button" disabled={busy || guestDraft <= 1} onClick={() => setGuestDraft((value) => Math.max(1, Number(value || 1) - 1))} className="h-12 w-12 rounded-2xl border border-black/[0.08] text-[#665F57] disabled:opacity-25"><Minus className="mx-auto" /></button>
             <div className="min-w-16 text-center text-4xl font-light">{guestDraft}</div>
-            <button type="button" disabled={busy} onClick={() => setGuestDraft((value) => Math.min(99, Number(value || 1) + 1))} className="h-12 w-12 rounded-2xl border border-white/10 text-white/65"><Plus className="mx-auto" /></button>
+            <button type="button" disabled={busy} onClick={() => setGuestDraft((value) => Math.min(99, Number(value || 1) + 1))} className="h-12 w-12 rounded-2xl border border-black/[0.08] text-[#665F57]"><Plus className="mx-auto" /></button>
           </div>
           <button
             type="button"
@@ -677,7 +680,7 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
           <div className="mt-4 space-y-4">
             {modifierGroups.map((group) => (
               <div key={group.key}>
-                <div className="mb-2 text-xs text-white/45">{group.label}{group.required ? " · required" : ""}</div>
+                <div className="mb-2 text-xs text-[#817A72]">{group.label}{group.required ? " · required" : ""}</div>
                 <div className="grid grid-cols-2 gap-2">
                   {group.options.map((option) => (
                     <button
@@ -686,7 +689,7 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
                       onClick={() => setModifierDraft((current) => ({ ...current, [group.key]: option.value }))}
                       className={modifierDraft[group.key] === option.value
                         ? "rounded-xl bg-[#D6A66A] px-3 py-2.5 text-xs font-bold text-black"
-                        : "rounded-xl border border-white/10 px-3 py-2.5 text-xs text-white/55"}
+                        : "rounded-xl border border-black/[0.08] px-3 py-2.5 text-xs text-[#746E66]"}
                     >
                       {option.label}
                     </button>
@@ -699,11 +702,11 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
               onChange={(event) => setModifierDraft((current) => ({ ...current, notes: event.target.value }))}
               placeholder="Kitchen note"
               rows={2}
-              className="w-full resize-none rounded-xl border border-white/10 bg-black px-3 py-2.5 text-sm outline-none"
+              className="w-full resize-none rounded-xl border border-black/[0.09] bg-white px-3 py-2.5 text-sm outline-none"
             />
           </div>
           <div className="mt-5 grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => setModal(null)} className="rounded-xl border border-white/10 py-3 text-xs font-semibold text-white/55">Cancel</button>
+            <button type="button" onClick={() => setModal(null)} className="rounded-xl border border-black/[0.08] py-3 text-xs font-semibold text-[#746E66]">Cancel</button>
             <button type="button" onClick={addDish} className="rounded-xl bg-[#D6A66A] py-3 text-xs font-bold text-black">Add to order</button>
           </div>
         </Modal>
@@ -715,23 +718,23 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
           <div className="mt-1 text-xl font-semibold">Send to kitchen</div>
           <div className="mt-4 space-y-2">
             {cart.length ? cart.map((item) => (
-              <div key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.025] p-3">
+              <div key={item.id} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold">{item.name}</div>
-                    <div className="mt-1 text-[10px] text-white/35">Seat {item.seatPosition}{item.notes ? ` · ${item.notes}` : ""}</div>
+                    <div className="mt-1 text-[10px] text-[#918B83]">Seat {item.seatPosition}{item.notes ? ` · ${item.notes}` : ""}</div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => changeCartQuantity(item.id, -1)} className="h-8 w-8 rounded-lg border border-white/10 text-white/55">−</button>
+                    <button type="button" onClick={() => changeCartQuantity(item.id, -1)} className="h-8 w-8 rounded-lg border border-black/[0.08] text-[#746E66]">−</button>
                     <div className="w-6 text-center text-xs">{item.quantity}</div>
-                    <button type="button" onClick={() => changeCartQuantity(item.id, 1)} className="h-8 w-8 rounded-lg border border-white/10 text-white/55">+</button>
+                    <button type="button" onClick={() => changeCartQuantity(item.id, 1)} className="h-8 w-8 rounded-lg border border-black/[0.08] text-[#746E66]">+</button>
                   </div>
                 </div>
               </div>
-            )) : <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-white/30">No new items.</div>}
+            )) : <div className="rounded-2xl border border-dashed border-black/[0.10] px-4 py-8 text-center text-sm text-[#A19A92]">No new items.</div>}
           </div>
           <div className="mt-5 grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => setModal(null)} className="rounded-xl border border-white/10 py-3 text-xs font-semibold text-white/55">Keep ordering</button>
+            <button type="button" onClick={() => setModal(null)} className="rounded-xl border border-black/[0.08] py-3 text-xs font-semibold text-[#746E66]">Keep ordering</button>
             <button type="button" disabled={busy || !cart.length} onClick={() => sendOrder().then(() => setModal(null))} className="rounded-xl bg-[#D6A66A] py-3 text-xs font-bold text-black disabled:opacity-35">{busy ? "Sending..." : "Send"}</button>
           </div>
         </Modal>
@@ -744,29 +747,29 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
               <div className="text-[10px] uppercase tracking-[0.18em] text-[#D6A66A]">Table {tableName(activeTable)}</div>
               <div className="mt-1 text-xl font-semibold">Open check</div>
             </div>
-            <button type="button" onClick={() => loadOpenTable(activeTable)} className="rounded-xl border border-white/10 p-2 text-white/45"><RefreshCw size={15} /></button>
+            <button type="button" onClick={() => loadOpenTable(activeTable)} className="rounded-xl border border-black/[0.08] p-2 text-[#817A72]"><RefreshCw size={15} /></button>
           </div>
           <div className="mt-4 max-h-[48vh] space-y-2 overflow-y-auto">
             {openItems.length ? openItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2.5 text-xs">
+              <div key={item.id} className="flex items-center justify-between rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-3 py-2.5 text-xs">
                 <div className="min-w-0">
                   <div className="truncate font-medium">{Number(item.quantity || 1)} × {item.item_name || item.name || "Item"}</div>
-                  <div className="mt-0.5 text-[10px] text-white/32">Seat {seatOf(item) || "—"} · {item.bill_group || "Shared check"}</div>
+                  <div className="mt-0.5 text-[10px] text-[#9B948C]">Seat {seatOf(item) || "—"} · {item.bill_group || "Shared check"}</div>
                 </div>
-                <div className="ml-2 text-white/40">{item.status || ""}</div>
+                <div className="ml-2 text-[#918B83]">{item.status || ""}</div>
               </div>
-            )) : <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-white/30">No sent items yet.</div>}
+            )) : <div className="rounded-2xl border border-dashed border-black/[0.10] px-4 py-8 text-center text-sm text-[#A19A92]">No sent items yet.</div>}
           </div>
           {openSummary ? (
-            <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4 text-sm">
-              <span className="text-white/45">Table total</span>
+            <div className="mt-4 flex items-center justify-between border-t border-black/[0.08] pt-4 text-sm">
+              <span className="text-[#817A72]">Table total</span>
               <span className="font-semibold">{Number(openSummary.total || 0).toFixed(2)}</span>
             </div>
           ) : null}
           <button type="button" disabled={busy || !openItems.length} onClick={splitBySeat} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#D6A66A]/35 bg-[#D6A66A]/[0.08] py-3 text-xs font-bold text-[#F0D59D] disabled:opacity-30">
             <Split size={14} /> Split check by seat
           </button>
-          <button type="button" onClick={() => setModal(null)} className="mt-2 w-full rounded-xl border border-white/10 py-3 text-xs text-white/45">Done</button>
+          <button type="button" onClick={() => setModal(null)} className="mt-2 w-full rounded-xl border border-black/[0.08] py-3 text-xs text-[#817A72]">Done</button>
         </Modal>
       ) : null}
 
@@ -775,32 +778,32 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
           <div className="text-[10px] uppercase tracking-[0.18em] text-[#D6A66A]">Table {tableName(activeTable)}</div>
           <div className="mt-1 text-xl font-semibold">Service actions</div>
           <div className="mt-4 grid gap-2">
-            <button type="button" onClick={() => { setTargetTableId(null); setMoveSeat(occupiedSeatNumbers[0] || 1); setModal("MOVE_GUEST"); }} className="rounded-2xl border border-white/10 px-4 py-3 text-left text-sm">Move guest</button>
-            <button type="button" onClick={() => { setTargetTableId(null); setModal("MOVE_TABLE"); }} className="rounded-2xl border border-white/10 px-4 py-3 text-left text-sm">Move whole table</button>
-            <button type="button" onClick={() => { setMergeTargetIds([]); setModal("MERGE"); }} className="rounded-2xl border border-white/10 px-4 py-3 text-left text-sm">Merge tables</button>
-            <button type="button" onClick={() => setModal("GUESTS")} className="rounded-2xl border border-white/10 px-4 py-3 text-left text-sm">Change guests</button>
+            <button type="button" onClick={() => { setTargetTableId(null); setMoveSeat(occupiedSeatNumbers[0] || 1); setModal("MOVE_GUEST"); }} className="rounded-2xl border border-black/[0.08] px-4 py-3 text-left text-sm">Move guest</button>
+            <button type="button" onClick={() => { setTargetTableId(null); setModal("MOVE_TABLE"); }} className="rounded-2xl border border-black/[0.08] px-4 py-3 text-left text-sm">Move whole table</button>
+            <button type="button" onClick={() => { setMergeTargetIds([]); setModal("MERGE"); }} className="rounded-2xl border border-black/[0.08] px-4 py-3 text-left text-sm">Merge tables</button>
+            <button type="button" onClick={() => setModal("GUESTS")} className="rounded-2xl border border-black/[0.08] px-4 py-3 text-left text-sm">Change guests</button>
           </div>
-          <button type="button" onClick={() => setModal(null)} className="mt-4 w-full rounded-xl border border-white/10 py-3 text-xs text-white/45">Done</button>
+          <button type="button" onClick={() => setModal(null)} className="mt-4 w-full rounded-xl border border-black/[0.08] py-3 text-xs text-[#817A72]">Done</button>
         </Modal>
       ) : null}
 
       {modal === "MOVE_GUEST" && activeTable ? (
         <Modal>
           <div className="text-xl font-semibold">Move guest</div>
-          <div className="mt-4 text-xs text-white/40">Seat</div>
+          <div className="mt-4 text-xs text-[#918B83]">Seat</div>
           <div className="mt-2 flex gap-2 overflow-x-auto">
             {(occupiedSeatNumbers.length ? occupiedSeatNumbers : Array.from({ length: currentGuestCount }, (_, index) => index + 1)).map((seat) => (
-              <button key={seat} type="button" onClick={() => setMoveSeat(seat)} className={String(moveSeat) === String(seat) ? "h-10 min-w-10 rounded-xl bg-[#D6A66A] text-xs font-bold text-black" : "h-10 min-w-10 rounded-xl border border-white/10 text-xs text-white/55"}>{seat}</button>
+              <button key={seat} type="button" onClick={() => setMoveSeat(seat)} className={String(moveSeat) === String(seat) ? "h-10 min-w-10 rounded-xl bg-[#D6A66A] text-xs font-bold text-black" : "h-10 min-w-10 rounded-xl border border-black/[0.08] text-xs text-[#746E66]"}>{seat}</button>
             ))}
           </div>
-          <div className="mt-4 text-xs text-white/40">To table</div>
+          <div className="mt-4 text-xs text-[#918B83]">To table</div>
           <div className="mt-2 grid grid-cols-3 gap-2">
             {tables.filter((table) => table.id !== activeTable.id && String(table.status || "").toUpperCase() !== "MERGED").map((table) => (
-              <button key={table.id} type="button" onClick={() => setTargetTableId(table.id)} className={targetTableId === table.id ? "rounded-xl bg-white px-2 py-3 text-xs font-bold text-black" : "rounded-xl border border-white/10 px-2 py-3 text-xs text-white/55"}>{tableName(table)}</button>
+              <button key={table.id} type="button" onClick={() => setTargetTableId(table.id)} className={targetTableId === table.id ? "rounded-xl bg-[#D6A66A] px-2 py-3 text-xs font-bold text-[#191919]" : "rounded-xl border border-black/[0.08] px-2 py-3 text-xs text-[#746E66]"}>{tableName(table)}</button>
             ))}
           </div>
           <div className="mt-5 grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => setModal("TABLE")} className="rounded-xl border border-white/10 py-3 text-xs text-white/50">Back</button>
+            <button type="button" onClick={() => setModal("TABLE")} className="rounded-xl border border-black/[0.08] py-3 text-xs text-[#817A72]">Back</button>
             <button type="button" disabled={busy || !moveSeat || !targetTableId} onClick={moveGuestToTable} className="rounded-xl bg-[#D6A66A] py-3 text-xs font-bold text-black disabled:opacity-35">Move guest</button>
           </div>
         </Modal>
@@ -811,11 +814,11 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
           <div className="text-xl font-semibold">Move whole table</div>
           <div className="mt-4 grid grid-cols-3 gap-2">
             {tables.filter((table) => table.id !== activeTable.id && String(table.status || "").toUpperCase() !== "MERGED").map((table) => (
-              <button key={table.id} type="button" onClick={() => setTargetTableId(table.id)} className={targetTableId === table.id ? "rounded-xl bg-white px-2 py-3 text-xs font-bold text-black" : "rounded-xl border border-white/10 px-2 py-3 text-xs text-white/55"}>{tableName(table)}</button>
+              <button key={table.id} type="button" onClick={() => setTargetTableId(table.id)} className={targetTableId === table.id ? "rounded-xl bg-[#D6A66A] px-2 py-3 text-xs font-bold text-[#191919]" : "rounded-xl border border-black/[0.08] px-2 py-3 text-xs text-[#746E66]"}>{tableName(table)}</button>
             ))}
           </div>
           <div className="mt-5 grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => setModal("TABLE")} className="rounded-xl border border-white/10 py-3 text-xs text-white/50">Back</button>
+            <button type="button" onClick={() => setModal("TABLE")} className="rounded-xl border border-black/[0.08] py-3 text-xs text-[#817A72]">Back</button>
             <button type="button" disabled={busy || !targetTableId} onClick={transferTable} className="rounded-xl bg-[#D6A66A] py-3 text-xs font-bold text-black disabled:opacity-35">Move table</button>
           </div>
         </Modal>
@@ -828,12 +831,12 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
             {tables.filter((table) => table.id !== activeTable.id && String(table.status || "").toUpperCase() !== "MERGED").map((table) => {
               const selected = mergeTargetIds.includes(table.id);
               return (
-                <button key={table.id} type="button" onClick={() => setMergeTargetIds((current) => selected ? current.filter((id) => id !== table.id) : [...current, table.id])} className={selected ? "rounded-xl bg-white px-2 py-3 text-xs font-bold text-black" : "rounded-xl border border-white/10 px-2 py-3 text-xs text-white/55"}>{tableName(table)}</button>
+                <button key={table.id} type="button" onClick={() => setMergeTargetIds((current) => selected ? current.filter((id) => id !== table.id) : [...current, table.id])} className={selected ? "rounded-xl bg-[#D6A66A] px-2 py-3 text-xs font-bold text-[#191919]" : "rounded-xl border border-black/[0.08] px-2 py-3 text-xs text-[#746E66]"}>{tableName(table)}</button>
               );
             })}
           </div>
           <div className="mt-5 grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => setModal("TABLE")} className="rounded-xl border border-white/10 py-3 text-xs text-white/50">Back</button>
+            <button type="button" onClick={() => setModal("TABLE")} className="rounded-xl border border-black/[0.08] py-3 text-xs text-[#817A72]">Back</button>
             <button type="button" disabled={busy || !mergeTargetIds.length} onClick={mergeTables} className="rounded-xl bg-[#D6A66A] py-3 text-xs font-bold text-black disabled:opacity-35">Merge</button>
           </div>
         </Modal>

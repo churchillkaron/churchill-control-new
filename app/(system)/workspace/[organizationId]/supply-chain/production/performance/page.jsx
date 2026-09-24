@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import {
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -63,7 +64,7 @@ export default function ProductionPerformancePage() {
   }, []);
 
   // ===== LOAD =====
-  async function refresh() {
+  const refresh = useCallback(async () => {
 
     if (!organizationId) {
       return;
@@ -77,15 +78,13 @@ export default function ProductionPerformancePage() {
     setStations(
       data || []
     );
-  }
+  }, [organizationId]);
 
   useEffect(() => {
 
     refresh();
 
-  }, [
-    organizationId,
-  ]);
+  }, [refresh]);
 
   // ===== REALTIME =====
   useEffect(() => {
@@ -118,16 +117,14 @@ export default function ProductionPerformancePage() {
       );
     };
 
-  }, [
-    organizationId,
-  ]);
+  }, [organizationId, refresh]);
 
   return (
 
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919] overflow-hidden">
 
       {/* ===== HEADER ===== */}
-      <div className="h-24 border-b border-white/5 flex items-center justify-between px-10">
+      <div className="h-24 border-b border-black/[0.06] flex items-center justify-between px-10">
 
         <div>
 
@@ -154,7 +151,7 @@ export default function ProductionPerformancePage() {
 
             <div
               key={index}
-              className="rounded-[36px] border border-white/10 bg-white/[0.03] overflow-hidden"
+              className="rounded-[36px] border border-black/[0.08] bg-[#FBF8F3] overflow-hidden"
             >
 
               <div className="p-8">

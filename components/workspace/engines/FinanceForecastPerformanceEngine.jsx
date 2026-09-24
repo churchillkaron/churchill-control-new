@@ -84,11 +84,12 @@ export default function FinanceForecastPerformanceEngine({
 
   const summary = dashboard?.summary || {};
   const trend = dashboard?.trend || {};
-  const history = Array.isArray(dashboard?.history) ? dashboard.history : [];
 
   const finalHistory = useMemo(
-    () => history.filter(row => row?.accuracy_ready && row?.accuracy_status === "final"),
-    [history]
+    () => (Array.isArray(dashboard?.history) ? dashboard.history : []).filter(
+      row => row?.accuracy_ready && row?.accuracy_status === "final"
+    ),
+    [dashboard?.history]
   );
 
   const latestFinal = useMemo(() => {
@@ -158,17 +159,17 @@ export default function FinanceForecastPerformanceEngine({
   ];
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 px-5 backdrop-blur-xl">
-      <div className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-[30px] border border-white/[0.08] bg-[#0b0b0b]/95 p-7 shadow-2xl shadow-black/80">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[#191919]/20 px-5 backdrop-blur-xl">
+      <div className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-[30px] border border-black/[0.08] bg-white p-7 shadow-2xl shadow-black/10">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
             <div className="text-[11px] uppercase tracking-[0.30em] text-amber-300/65">
               Finance Forecasting
             </div>
-            <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-white">
+            <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-[#191919]">
               Forecast Performance
             </h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45">
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-[#746E66]">
               Management view of approved forecast accuracy. Only final closed or locked periods contribute to rolling averages and trend measurements; preliminary periods remain visible without changing the historical score.
             </p>
           </div>
@@ -177,20 +178,20 @@ export default function FinanceForecastPerformanceEngine({
             <button
               onClick={load}
               disabled={busy}
-              className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-white/65 disabled:opacity-50"
+              className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54] disabled:opacity-50"
             >
               Refresh
             </button>
             <button
               onClick={previewReport}
               disabled={!dashboard?.document}
-              className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-white/65 disabled:opacity-40"
+              className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54] disabled:opacity-40"
             >
               Full Report
             </button>
             <button
               onClick={onClose}
-              className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-white/60"
+              className="rounded-xl border border-black/[0.08] bg-[#FBF8F3] px-4 py-2 text-sm text-[#5F5A54]"
             >
               Close
             </button>
@@ -204,7 +205,7 @@ export default function FinanceForecastPerformanceEngine({
         ) : null}
 
         {busy && !dashboard ? (
-          <div className="mt-7 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-6 text-sm text-white/45">
+          <div className="mt-7 rounded-2xl border border-black/[0.08] bg-white p-6 text-sm text-[#746E66]">
             Loading forecast performance...
           </div>
         ) : null}
@@ -213,14 +214,14 @@ export default function FinanceForecastPerformanceEngine({
           <>
             <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {metricCards.map(card => (
-                <div key={card.label} className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                <div key={card.label} className="rounded-2xl border border-black/[0.08] bg-white p-5">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-[#918B83]">
                     {card.label}
                   </div>
-                  <div className="mt-3 text-2xl font-medium text-white">
+                  <div className="mt-3 text-2xl font-medium text-[#191919]">
                     {card.value}
                   </div>
-                  <div className="mt-2 text-xs text-white/40">
+                  <div className="mt-2 text-xs text-[#817A72]">
                     {card.detail}
                   </div>
                 </div>
@@ -228,70 +229,70 @@ export default function FinanceForecastPerformanceEngine({
             </div>
 
             <div className="mt-6 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
+              <div className="rounded-2xl border border-black/[0.08] bg-white p-5">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
-                    <div className="text-[11px] uppercase tracking-[0.20em] text-white/35">
+                    <div className="text-[11px] uppercase tracking-[0.20em] text-[#918B83]">
                       Latest final-period change
                     </div>
-                    <div className="mt-2 text-sm text-white/55">
+                    <div className="mt-2 text-sm text-[#5F5A54]">
                       {trend.available
                         ? `${trend.latest_final_period_name || "Latest final"} vs ${trend.previous_final_period_name || "previous final"}`
                         : "Two final measured periods are required for trend comparison"}
                     </div>
                   </div>
-                  <div className="text-xs text-white/35">Negative points = improved accuracy</div>
+                  <div className="text-xs text-[#918B83]">Negative points = improved accuracy</div>
                 </div>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   {trendCards.map(card => (
-                    <div key={card.label} className="rounded-xl border border-white/[0.07] bg-black/20 p-4">
-                      <div className="text-xs text-white/45">{card.label}</div>
-                      <div className="mt-2 text-xl text-white">{pointsLabel(card.value)}</div>
-                      <div className="mt-1 text-xs text-white/35">{trendMeaning(card.value)}</div>
+                    <div key={card.label} className="rounded-xl border border-black/[0.07] bg-[#FBF8F3] p-4">
+                      <div className="text-xs text-[#746E66]">{card.label}</div>
+                      <div className="mt-2 text-xl text-[#191919]">{pointsLabel(card.value)}</div>
+                      <div className="mt-1 text-xs text-[#918B83]">{trendMeaning(card.value)}</div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
-                <div className="text-[11px] uppercase tracking-[0.20em] text-white/35">
+              <div className="rounded-2xl border border-black/[0.08] bg-white p-5">
+                <div className="text-[11px] uppercase tracking-[0.20em] text-[#918B83]">
                   Coverage
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   {coverageCards.map(([label, value]) => (
-                    <div key={label} className="rounded-xl border border-white/[0.07] bg-black/20 p-4">
-                      <div className="text-2xl text-white">{value}</div>
-                      <div className="mt-1 text-xs text-white/40">{label}</div>
+                    <div key={label} className="rounded-xl border border-black/[0.07] bg-[#FBF8F3] p-4">
+                      <div className="text-2xl text-[#191919]">{value}</div>
+                      <div className="mt-1 text-xs text-[#817A72]">{label}</div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
+            <div className="mt-6 rounded-2xl border border-black/[0.08] bg-white p-5">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <div className="text-[11px] uppercase tracking-[0.20em] text-white/35">
+                  <div className="text-[11px] uppercase tracking-[0.20em] text-[#918B83]">
                     Approved forecast period history
                   </div>
-                  <div className="mt-2 text-sm text-white/50">
+                  <div className="mt-2 text-sm text-[#746E66]">
                     Latest approved Base scenario snapshots for this legal entity.
                   </div>
                 </div>
-                <div className="text-xs text-white/35">
+                <div className="text-xs text-[#918B83]">
                   History limit {dashboard.history_limit || 12}
                 </div>
               </div>
 
               {!history.length ? (
-                <div className="mt-5 rounded-xl border border-white/[0.07] bg-black/20 p-5 text-sm text-white/45">
+                <div className="mt-5 rounded-xl border border-black/[0.07] bg-[#FBF8F3] p-5 text-sm text-[#746E66]">
                   No approved forecast versions exist for this entity yet.
                 </div>
               ) : (
                 <div className="mt-5 overflow-x-auto">
                   <table className="w-full min-w-[760px] text-left text-sm">
-                    <thead className="text-[11px] uppercase tracking-[0.14em] text-white/30">
+                    <thead className="text-[11px] uppercase tracking-[0.14em] text-[#A19A92]">
                       <tr>
                         <th className="pb-3 pr-4 font-normal">Period</th>
                         <th className="pb-3 pr-4 font-normal">Status</th>
@@ -302,8 +303,8 @@ export default function FinanceForecastPerformanceEngine({
                     </thead>
                     <tbody>
                       {history.slice(0, 8).map(row => (
-                        <tr key={`${row.period_id}-${row.version_id}`} className="border-t border-white/[0.06] text-white/60">
-                          <td className="py-3 pr-4 text-white/80">{row.period_name}</td>
+                        <tr key={`${row.period_id}-${row.version_id}`} className="border-t border-black/[0.06] text-[#5F5A54]">
+                          <td className="py-3 pr-4 text-[#2F2C28]">{row.period_name}</td>
                           <td className="py-3 pr-4">{statusLabel(row.accuracy_status)}</td>
                           <td className="py-3 pr-4">{percentLabel(row.comparisons?.revenue?.absolute_error_percent)}</td>
                           <td className="py-3 pr-4">{percentLabel(row.comparisons?.operating_profit?.absolute_error_percent)}</td>
@@ -316,14 +317,14 @@ export default function FinanceForecastPerformanceEngine({
               )}
             </div>
 
-            <div className="mt-6 grid gap-3 text-xs text-white/40 md:grid-cols-3">
-              <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+            <div className="mt-6 grid gap-3 text-xs text-[#817A72] md:grid-cols-3">
+              <div className="rounded-xl border border-black/[0.07] bg-[#FBF8F3] p-4">
                 Revenue bias: {percentLabel(summary.average_revenue_bias_percent)}
               </div>
-              <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+              <div className="rounded-xl border border-black/[0.07] bg-[#FBF8F3] p-4">
                 Operating profit bias: {percentLabel(summary.average_operating_profit_bias_percent)}
               </div>
-              <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+              <div className="rounded-xl border border-black/[0.07] bg-[#FBF8F3] p-4">
                 Source: Approved SCENARIOS_VS_BUDGET Base snapshots
               </div>
             </div>

@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import {
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -73,7 +74,7 @@ export default function ProductionLogsPage() {
   }, []);
 
   // ===== LOAD =====
-  async function loadLogs() {
+  const loadLogs = useCallback(async () => {
 
     if (!organizationId) {
       return;
@@ -141,15 +142,13 @@ export default function ProductionLogsPage() {
 
       profit,
     });
-  }
+  }, [organizationId]);
 
   useEffect(() => {
 
     loadLogs();
 
-  }, [
-    organizationId,
-  ]);
+  }, [loadLogs]);
 
   // ===== REALTIME =====
   useEffect(() => {
@@ -182,20 +181,18 @@ export default function ProductionLogsPage() {
       );
     };
 
-  }, [
-    organizationId,
-  ]);
+  }, [loadLogs, organizationId]);
 
   return (
 
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919] overflow-hidden">
 
       {/* ===== HEADER ===== */}
-      <div className="flex flex-col gap-4 border-b border-white/5 px-4 py-6 sm:px-6 lg:h-28 lg:flex-row lg:items-center lg:justify-between lg:px-12 lg:py-0">
+      <div className="flex flex-col gap-4 border-b border-black/[0.06] px-4 py-6 sm:px-6 lg:h-28 lg:flex-row lg:items-center lg:justify-between lg:px-12 lg:py-0">
 
         <div>
 
-          <div className="text-xs tracking-[0.35em] uppercase text-cyan-400 mb-3">
+          <div className="text-xs tracking-[0.35em] uppercase text-amber-400 mb-3">
             PRODUCTION
           </div>
 
@@ -205,7 +202,7 @@ export default function ProductionLogsPage() {
 
         </div>
 
-        <div className="flex h-10 w-fit items-center rounded-2xl border border-cyan-500/20 bg-cyan-500/5 px-4 text-[10px] uppercase tracking-[0.22em] text-cyan-400 lg:h-14 lg:rounded-3xl lg:px-6 lg:text-xs lg:tracking-[0.3em]">
+        <div className="flex h-10 w-fit items-center rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 text-[10px] uppercase tracking-[0.22em] text-amber-400 lg:h-14 lg:rounded-3xl lg:px-6 lg:text-xs lg:tracking-[0.3em]">
           LIVE COSTING
         </div>
 
@@ -238,9 +235,9 @@ export default function ProductionLogsPage() {
 
         </div>
 
-        <div className="rounded-[28px] border border-cyan-500/20 bg-cyan-500/5 p-5 lg:rounded-[40px] lg:p-10">
+        <div className="rounded-[28px] border border-amber-500/20 bg-amber-500/5 p-5 lg:rounded-[40px] lg:p-10">
 
-          <div className="text-xs uppercase tracking-[0.3em] text-cyan-400 mb-6">
+          <div className="text-xs uppercase tracking-[0.3em] text-amber-400 mb-6">
             Profit
           </div>
 
@@ -257,19 +254,19 @@ export default function ProductionLogsPage() {
 
         <div className="space-y-3 md:hidden">
           {logs.map((log) => (
-            <div key={log.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div key={log.id} className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
               <div className="min-w-0 truncate text-sm font-semibold">{log.dish_id}</div>
               <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
                 <div><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">Qty</div><div className="mt-1">{log.quantity}</div></div>
                 <div><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">Sales</div><div className="mt-1 text-emerald-400">฿{log.sales_price}</div></div>
                 <div><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">Cost</div><div className="mt-1 text-red-400">฿{log.production_cost}</div></div>
-                <div><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">Profit</div><div className="mt-1 text-cyan-400">฿{log.profit}</div></div>
+                <div><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">Profit</div><div className="mt-1 text-amber-400">฿{log.profit}</div></div>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="hidden overflow-hidden rounded-[40px] border border-white/10 md:block">
+        <div className="hidden overflow-hidden rounded-[40px] border border-black/[0.08] md:block">
           <table className="w-full">
 
             <thead className="bg-white/5">
@@ -307,7 +304,7 @@ export default function ProductionLogsPage() {
 
                   <tr
                     key={log.id}
-                    className="border-t border-white/5"
+                    className="border-t border-black/[0.06]"
                   >
 
                     <td className="p-6">
@@ -326,7 +323,7 @@ export default function ProductionLogsPage() {
                       ฿{log.production_cost}
                     </td>
 
-                    <td className="p-6 text-cyan-400">
+                    <td className="p-6 text-amber-400">
                       ฿{log.profit}
                     </td>
 

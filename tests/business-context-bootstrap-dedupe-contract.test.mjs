@@ -19,3 +19,13 @@ test("workspace bootstrap aborts the underlying fetch instead of leaving zombie 
   assert.match(source, /signal: controller\.signal/);
   assert.match(source, /fetchBusinessBootstrap\(bootstrapUrl, accessToken\)/);
 });
+
+test("public root login and unresolved pathname do not issue authenticated business bootstrap", () => {
+  assert.match(source, /const publicBusinessContextRoute = useMemo/);
+  assert.match(source, /\(\) => !pathname \|\| pathname === "\/"/);
+  assert.match(source, /pathname === "\/"/);
+  assert.match(source, /\^\\\/login/);
+  assert.match(source, /if \(publicBusinessContextRoute\) \{/);
+  assert.match(source, /ready: true/);
+  assert.match(source, /\[developerWorkspace, publicBusinessContextRoute, routeOrganizationId\]/);
+});

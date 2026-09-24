@@ -32,12 +32,27 @@ import {
   X,
 } from "lucide-react";
 
-function money(value, currency = "THB") {
-  return new Intl.NumberFormat("en-TH", {
-    style: "currency",
-    currency: currency || "THB",
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+function money(value, currency = null) {
+  if (value === null || value === undefined) return "Not aggregated";
+  const code = String(currency || "").toUpperCase();
+  if (!code) return Number(value || 0).toLocaleString();
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: 0,
+    }).format(Number(value || 0));
+  } catch {
+    return `${code} ${Number(value || 0).toLocaleString()}`;
+  }
+}
+
+function campaignCurrency(campaign = {}, groupCurrency = null) {
+  const content = campaign.campaign_content || {};
+  if (content.currency_code) return String(content.currency_code).toUpperCase();
+  if (groupCurrency) return String(groupCurrency).toUpperCase();
+  if (content.campaign_budget_thb != null || content.monthly_budget_thb != null) return "THB";
+  return null;
 }
 
 function labelize(value = "") {
@@ -236,7 +251,7 @@ function WholeCampaignDetail({ group, onRefresh }) {
   const sharedCosts = content.shared_monthly_costs || content.shared_monthly_costs_thb || {};
   const perOrganizationBudgetLabel = Object.entries(budgetsByOrganization).map(([organizationId, budget]) => {
     const member = members.find((item) => item.organization_id === organizationId);
-    return `${member?.organization?.name || "Organization"}: ${money(budget?.amount || 0, budget?.currency || "THB")}`;
+    return `${member?.organization?.name || "Organization"}: ${money(budget?.amount || 0, budget?.currency || null)}`;
   }).join(" · ");
 
   const blockers = members.flatMap((member) => {
@@ -323,7 +338,7 @@ function WholeCampaignDetail({ group, onRefresh }) {
           </div>
         ) : null}
 
-        <div className="mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/[0.05] px-4 py-3 text-sm text-amber-100/70">
+        <div className="mt-5 rounded-2xl border border-[#DDBA8B] bg-[#FFF8EC] px-4 py-3 text-sm leading-relaxed text-[#7A5A36]">
           Spend Authorized: 0. Budget figures are planning only; choosing creative does not authorize or activate provider spend.
         </div>
       </div>
@@ -376,7 +391,7 @@ function WholeCampaignDetail({ group, onRefresh }) {
             blockers.map((blocker) => (
               <div
                 key={blocker}
-                className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-sm text-amber-100/80"
+                className="rounded-2xl border border-[#DDBA8B] bg-[#FFF8EC] px-4 py-3 text-sm text-[#7A5A36]"
               >
                 {blocker}
               </div>
@@ -487,7 +502,7 @@ function CampaignOperatingPlan({ group }) {
         <OperatingPanel icon={Radio} title="Channel Plan">
           <TagCloud items={allChannels} empty="No campaign channels configured" />
           <p className="mt-4 text-xs leading-relaxed text-[#857B71]">
-            Organic and paid execution remain organization-scoped. Connected channels can be prepared, but paid activation still requires its own authorization boundary.
+            Organic and paid activity stays with each business. Connected channels can be prepared, but paid activation still requires explicit authorization.
           </p>
         </OperatingPanel>
 
@@ -846,7 +861,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
 
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SmallStat label="Budget" value={money(campaign.budget, campaign.campaign_content?.currency_code || group.currency_code || "THB")} />
+            <SmallStat label="Budget" value={money(campaign.budget, campaignCurrency(campaign, group.currency_code))} />
             <SmallStat label="Assets" value={`${campaign.asset_count || 0}`} />
             <SmallStat label="Primary CTA" value={campaignContent.primary_cta || "—"} />
             <SmallStat label="Meta" value={meta.label} good={meta.ready} />

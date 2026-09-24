@@ -30,8 +30,9 @@ function text(v, n=4000){return String(v??"").trim().slice(0,n)}
 function delay(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
 function deviceWorktreeLockPath(source){const digest=crypto.createHash("sha256").update(source,"utf8").digest("hex").slice(0,24);return path.join(os.tmpdir(),`avantiqo-code-device-worktree-${digest}.lock`)}
 async function acquireDeviceWorktreeLock(source){const lockPath=deviceWorktreeLockPath(source),deadline=Date.now()+WORKTREE_LOCK_WAIT_MS;while(Date.now()<deadline){try{const handle=await open(lockPath,"wx");await handle.writeFile(JSON.stringify({pid:process.pid,source_root:source,acquired_at:new Date().toISOString()}));await handle.close();let released=false;return async()=>{if(released)return;released=true;await rm(lockPath,{force:true}).catch(()=>null)}}catch(error){if(error?.code!=="EEXIST")throw error;const info=await stat(lockPath).catch(()=>null);if(info&&Date.now()-info.mtimeMs>WORKTREE_LOCK_STALE_MS){await rm(lockPath,{force:true}).catch(()=>null);continue}await delay(WORKTREE_LOCK_RETRY_MS)}}throw new Error("CODE_DEVICE_WORKTREE_LOCK_TIMEOUT")}
-async function createDeviceWorktree(source,workspace,target){const release=await acquireDeviceWorktreeLock(source);try{let created=await run("git",["worktree","add","--detach",workspace,target],source,15000);if(created.exit_code!==0){await rm(workspace,{recursive:true,force:true}).catch(()=>null);await run("git",["worktree","prune","--expire","now"],source,15000).catch(()=>null);created=await run("git",["worktree","add","--detach",workspace,target],source,15000)}if(created.exit_code!==0){const error=new Error(`CODE_DEVICE_WORKTREE_FAILED:git:${created.exit_code}`);error.details=created;throw error}}finally{await release()}}
-async function cleanupDeviceWorktree(source,workspace){let release=null;try{release=await acquireDeviceWorktreeLock(source)}catch{await rm(workspace,{recursive:true,force:true}).catch(()=>null);return{metadata_cleanup_deferred:true,repository_lock_acquired:false}}try{await run("git",["worktree","remove","--force",workspace],source,60000).catch(()=>null);return{metadata_cleanup_deferred:false,repository_lock_acquired:true}}finally{await release();await rm(workspace,{recursive:true,force:true}).catch(()=>null)}}
+async function runTrustedWorktreeGit(args,cwd,timeout=60000){const a=(Array.isArray(args)?args:[]).map(String);const add=a.length===5&&a[0]==="worktree"&&a[1]==="add"&&a[2]==="--detach"&&path.isAbsolute(a[3])&&Boolean(a[4]);const remove=a.length===4&&a[0]==="worktree"&&a[1]==="remove"&&a[2]==="--force"&&path.isAbsolute(a[3]);const prune=a.length===4&&a[0]==="worktree"&&a[1]==="prune"&&a[2]==="--expire"&&a[3]==="now";if(!add&&!remove&&!prune)throw new Error("CODE_DEVICE_INTERNAL_WORKTREE_COMMAND_INVALID");return await new Promise((resolve,reject)=>{const child=spawn("git",a,{cwd,env:process.env,stdio:["ignore","pipe","pipe"],shell:false});let out="",err="",done=false;const timer=setTimeout(()=>{if(done)return;child.kill("SIGTERM");setTimeout(()=>{if(!done)child.kill("SIGKILL")},1500).unref()},Math.max(5000,Math.min(timeout,120000)));child.stdout.on("data",c=>out+=c);child.stderr.on("data",c=>err+=c);child.on("error",e=>{if(done)return;done=true;clearTimeout(timer);reject(e)});child.on("close",code=>{if(done)return;done=true;clearTimeout(timer);resolve({command:"git",args:a,cwd,exit_code:Number.isInteger(code)?code:124,stdout:bounded(out),stderr:bounded(err)})})})}
+async function createDeviceWorktree(source,workspace,target){const release=await acquireDeviceWorktreeLock(source);try{let created=await runTrustedWorktreeGit(["worktree","add","--detach",workspace,target],source,15000);if(created.exit_code!==0){await rm(workspace,{recursive:true,force:true}).catch(()=>null);await runTrustedWorktreeGit(["worktree","prune","--expire","now"],source,15000).catch(()=>null);created=await runTrustedWorktreeGit(["worktree","add","--detach",workspace,target],source,15000)}if(created.exit_code!==0){const error=new Error(`CODE_DEVICE_WORKTREE_FAILED:git:${created.exit_code}`);error.details=created;throw error}}finally{await release()}}
+async function cleanupDeviceWorktree(source,workspace){let release=null;try{release=await acquireDeviceWorktreeLock(source)}catch{await rm(workspace,{recursive:true,force:true}).catch(()=>null);return{metadata_cleanup_deferred:true,repository_lock_acquired:false}}try{await runTrustedWorktreeGit(["worktree","remove","--force",workspace],source,60000).catch(()=>null);return{metadata_cleanup_deferred:false,repository_lock_acquired:true}}finally{await release();await rm(workspace,{recursive:true,force:true}).catch(()=>null)}}
 let diskSampleAt=0,diskSample=null;
 async function diskTelemetry(config){const now=Date.now();if(diskSample&&now-diskSampleAt<30000)return diskSample;const root=(config?.allowed_roots||[])[0]||process.cwd();try{const fs=await statfs(root);const total=Number(fs.blocks||0)*Number(fs.bsize||0),free=Number(fs.bavail||0)*Number(fs.bsize||0);const freePct=total>0?Math.round((free/total)*1000)/10:null;diskSample={disk_free_bytes:Number.isFinite(free)?Math.max(0,free):null,disk_total_bytes:Number.isFinite(total)?Math.max(0,total):null,disk_free_percent:freePct,disk_pressure:free<4*1024**3?"CRITICAL":free<8*1024**3?"LOW":"OK"};}catch{diskSample={disk_free_bytes:null,disk_total_bytes:null,disk_free_percent:null,disk_pressure:"UNKNOWN"};}diskSampleAt=now;return diskSample}
 async function loadPublicLocalEnvFallback(){
@@ -199,10 +200,25 @@ async function browserVerify(root, input = {}) {
     const pageAudit = await page.evaluate(() => {
       const root = document.documentElement;
       const interactive = [...document.querySelectorAll("button,a,input,select,textarea,[role='button']")];
+      const accessibleName = (el) => {
+        const ariaLabel = (el.getAttribute("aria-label") || "").trim();
+        if (ariaLabel) return ariaLabel;
+        const labelledBy = (el.getAttribute("aria-labelledby") || "")
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((id) => document.getElementById(id)?.textContent || "")
+          .join(" ")
+          .trim();
+        if (labelledBy) return labelledBy;
+        const nativeLabels = el.labels
+          ? [...el.labels].map((label) => label.textContent || "").join(" ").trim()
+          : "";
+        if (nativeLabels) return nativeLabels;
+        return (el.textContent || el.getAttribute("title") || "").trim();
+      };
       const missingAccessibleName = interactive.filter((el) => {
-        const label = (el.getAttribute("aria-label") || el.getAttribute("aria-labelledby") || el.textContent || el.getAttribute("title") || "").trim();
         if (el instanceof HTMLInputElement && ["hidden","submit","button"].includes(el.type)) return false;
-        return !label;
+        return !accessibleName(el);
       }).slice(0, 40).map((el) => ({ tag: el.tagName.toLowerCase(), id: el.id || null, name: el.getAttribute("name") || null }));
       const imagesWithoutAlt = [...document.querySelectorAll("img")].filter((img) => !img.hasAttribute("alt")).slice(0, 40).map((img) => img.getAttribute("src") || "img");
       const headingLevels = [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].map((h) => Number(h.tagName.slice(1)));

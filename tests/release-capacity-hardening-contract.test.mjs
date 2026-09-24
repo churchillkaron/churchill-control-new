@@ -81,3 +81,28 @@ test("release RLS policies cache auth uid once per statement", async () => {
   assert.match(migration, /hotel_shift_handover_context_org_read/);
   assert.match(migration, /\(select auth\.uid\(\)\)/g);
 });
+
+test("normal ERP services bypass Node1 and AI health failures fail closed to local readiness only", async () => {
+  const runtime = await source("lib/platform/service-runtime/execution/ServiceExecutionRuntime.js");
+  assert.match(runtime, /if \(!\["ai\.reasoning\.execute", "ai\.text\.generate"\]\.includes\(String\(executionCapability \|\| ""\)\.trim\(\)\)\) return policy/);
+  assert.match(runtime, /const health = await getIntelligenceLocalQueueHealth/);
+  assert.match(runtime, /catch \{\s*localReady = false;\s*\}/);
+  assert.match(runtime, /external_fallback_allowed: false/);
+});
+
+test("release storage hardening removes browser write policies from shared legacy buckets", async () => {
+  const publicWrites = await source("supabase/migrations/20260923043732_lock_down_legacy_public_storage_uploads.sql");
+  const assetWrites = await source("supabase/migrations/20260923043948_lock_down_legacy_assets_bucket_writes.sql");
+  assert.match(publicWrites, /drop policy if exists "Allow uploads"/);
+  assert.match(publicWrites, /drop policy if exists "Authenticated Upload"/);
+  assert.match(assetWrites, /drop policy if exists "Authenticated can upload assets bucket"/);
+  assert.match(assetWrites, /drop policy if exists "Authenticated can update assets bucket"/);
+  assert.match(assetWrites, /drop policy if exists "Authenticated can delete assets bucket"/);
+});
+
+test("staff organization authority comes from the target membership role", async () => {
+  const migration = await source("supabase/migrations/20260923032713_release_staff_rls_and_upload_lockdown.sql");
+  assert.match(migration, /ou\.organization_id = target_organization_id/);
+  assert.match(migration, /upper\(coalesce\(ou\.role, ''\)\)/);
+  assert.doesNotMatch(migration, /upper\(coalesce\(sa\.role/);
+});

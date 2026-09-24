@@ -98,10 +98,12 @@ test("adding a second employer does not overwrite the Staff current organization
 
 test("staff organization switch resolves the selected organization Party and never carries the previous Party blindly", () => {
   const route = fs.readFileSync("app/api/session/organization/route.js", "utf8");
+  const resolver = fs.readFileSync("lib/people/runtime/resolveStaffPartyForOrganization.js", "utf8");
   assert.match(route, /resolveStaffPartyForOrganization/);
-  assert.match(route, /employee_employment_assignments/);
-  assert.match(route, /Multiple employment Party identities exist for this Staff account/);
-  assert.match(route, /Multiple Party identities match this Staff email in the selected organization/);
+  assert.match(resolver, /employee_employment_assignments/);
+  assert.match(resolver, /Multiple employment Party identities exist for this Staff account/);
+  assert.match(resolver, /Multiple Party identities match this Staff email in the selected organization/);
+  assert.match(resolver, /\.ilike\("status", "active"\)/);
   assert.match(route, /active_organization_id: context\.organizationId,[\s\S]*party_id: selectedPartyId/);
 });
 

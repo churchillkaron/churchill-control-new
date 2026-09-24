@@ -1,0 +1,4 @@
+-- Historical production migration parity marker.
+-- This version was applied directly to production before its SQL was committed to Git.
+-- Superseded by 20260905035000_hotel_finance_deposit_account_and_atomic_posting.sql.
+-- Intentionally no-op: retained only so local migration history matches the applied remote version.

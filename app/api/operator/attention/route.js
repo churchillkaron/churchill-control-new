@@ -1,6 +1,7 @@
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
+import resolveStaffPartyForOrganization from "@/lib/people/runtime/resolveStaffPartyForOrganization";
 import {
   resolveBusinessContext,
 } from "@/lib/business-context/resolveBusinessContext";
@@ -63,15 +64,15 @@ async function resolvePartyAccess(request, organizationId) {
     };
   }
 
-  const partyId =
-    access.staff?.party_id ||
-    access.staff?.partyId ||
-    null;
+  const partyId = await resolveStaffPartyForOrganization({
+    staff: access.staff,
+    organizationId: access.organizationId || organizationId,
+  });
 
   if (!partyId) {
     return {
       error: errorResponse(
-        "Authenticated staff account is not linked to a party",
+        "Authenticated staff account has no Party identity in this organization",
         409,
       ),
     };

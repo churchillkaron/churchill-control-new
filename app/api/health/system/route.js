@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import checkSystemHealth from "@/lib/health/checkSystemHealth";
 
+export const dynamic = "force-dynamic";
+
 function publicSystemHealth(health = {}) {
   const services = health?.services && typeof health.services === "object" ? health.services : {};
   const diagnosis = services?.business_diagnosis && typeof services.business_diagnosis === "object" ? services.business_diagnosis : null;

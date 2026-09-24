@@ -1,0 +1,4 @@
+-- Historical production migration parity marker.
+-- This version was applied directly to production before its SQL was committed to Git.
+-- Superseded by 20260923053017_hotel_ota_evidence_privilege_hardening.sql.
+-- Intentionally no-op: retained only so local migration history matches the applied remote version.

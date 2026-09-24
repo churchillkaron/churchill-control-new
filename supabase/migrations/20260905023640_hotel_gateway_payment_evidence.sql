@@ -1,0 +1,4 @@
+-- Historical production migration parity marker.
+-- This version was applied directly to production before its SQL was committed to Git.
+-- Superseded by 20260905033000_hotel_gateway_payment_evidence.sql.
+-- Intentionally no-op: retained only so local migration history matches the applied remote version.

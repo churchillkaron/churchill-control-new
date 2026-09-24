@@ -28,14 +28,13 @@ test("timed out reasoning cancels only its exact provider job", () => {
   assert.match(executor, /const cancelFunction = runtime\.cancel \|\| runtime\.cancelJob \|\| runtime\.cancelExecution/);
 });
 
-test("Intelligence cancellation is exact-job bound for local and approved Modal overflow", () => {
+test("Intelligence cancellation is exact-job bound to the owned local queue", () => {
   assert.match(provider, /isIntelligenceLocalQueueJob\(jobId\)/);
   assert.match(provider, /cancelIntelligenceLocalQueue\(\{ \.\.\.input, job_id: jobId \}\)/);
-  assert.match(provider, /isIntelligenceModalDirectJob\(jobId\)/);
-  assert.match(provider, /cancelIntelligenceModalDirect\(\{ \.\.\.input, job_id: jobId \}\)/);
+  assert.match(provider, /AVANTIQO_INTELLIGENCE_LOCAL_JOB_ID_REQUIRED/);
   assert.match(localQueue, /\.eq\("id", id\)/);
   assert.match(localQueue, /exact_job_only: true/);
-  assert.doesNotMatch(provider, /RunPod|runpod/);
+  assert.doesNotMatch(provider, /Modal|modal|RunPod|runpod/);
 });
 
 test("reasoning timeout propagates the exact execution lane into cancellation", () => {

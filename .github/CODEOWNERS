@@ -1,0 +1,11 @@
+# Avantiqo repository ownership. Main protection does not currently require
+# an approval, but these owners make high-risk changes visible and reviewable.
+* @churchillkaron
+
+/app/providers/ @churchillkaron
+/app/api/session/ @churchillkaron
+/lib/platform/registry/ @churchillkaron
+/lib/creative/registry/ @churchillkaron
+/supabase/migrations/ @churchillkaron
+/.github/workflows/ @churchillkaron
+/AGENTS.md @churchillkaron

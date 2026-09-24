@@ -4,6 +4,8 @@ import { supabaseAdmin } from '@/lib/shared/supabase/admin'
 
 import { buildStockAlerts } from '@/lib/inventory/production/runtime/buildStockAlerts'
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
 
   try {

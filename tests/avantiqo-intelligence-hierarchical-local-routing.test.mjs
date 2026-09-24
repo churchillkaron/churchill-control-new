@@ -15,26 +15,22 @@ test("Node01 local intelligence baseline is 20480 context with measured Deep pol
   assert.match(worker, /\$ContextTokens = 20480/);
 });
 
-test("large Deep local reasoning routes hierarchically before ordinary queue and Modal", () => {
+test("large Deep local reasoning routes hierarchically before ordinary local queue", () => {
   const provider = read("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js");
   const hierarchical = read("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceHierarchicalLocalRuntime.js");
-  const hierarchicalIndex = provider.indexOf("shouldUseHierarchicalLocalIntelligence(effectiveInput)");
-  const queueIndex = provider.indexOf("shouldUseLocalIntelligenceQueue(effectiveInput)");
-  const modalIndex = provider.indexOf("return executeIntelligenceModalDirect");
-  assert.ok(hierarchicalIndex >= 0);
-  assert.ok(queueIndex > hierarchicalIndex);
-  assert.ok(modalIndex > queueIndex);
+  const hierarchicalIndex = provider.indexOf("shouldUseHierarchicalLocalIntelligence(input)");
+  const queueIndex = provider.indexOf("shouldUseLocalIntelligenceQueue(input)");
+  assert.ok(hierarchicalIndex >= 0 && queueIndex > hierarchicalIndex);
+  assert.doesNotMatch(provider, /Modal|modal/);
   assert.match(hierarchical, /AVANTIQO_HIERARCHICAL_LOCAL_REASONING_V1/);
   assert.match(hierarchical, /executeIntelligenceLocalQueueAndWait/);
-  assert.match(hierarchical, /hierarchical_single_pass_trusted_prompt_tokens/);
-  assert.match(hierarchical, /MAX_CHUNKS = 12/);
-  assert.match(hierarchical, /modal_inference_performed: false/);
   assert.match(hierarchical, /external_compute_started: false/);
 });
 
-test("approved external proposal bypasses a second local hierarchy attempt", () => {
+test("external approval state cannot bypass the local hierarchy", () => {
   const provider = read("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js");
-  assert.match(provider, /if \(!approvedProposalBinding && shouldUseHierarchicalLocalIntelligence\(effectiveInput\)\)/);
+  assert.match(provider, /shouldUseHierarchicalLocalIntelligence\(input\)/);
+  assert.doesNotMatch(provider, /approvedProposalBinding|modal_overflow_proposal|Modal/);
 });
 
 

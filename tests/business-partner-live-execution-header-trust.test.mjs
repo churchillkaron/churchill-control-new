@@ -15,3 +15,10 @@ test("authoritative turn strips client-supplied live execution identity", () => 
 test("only live wrapper supplies trusted live execution identity to the normal turn", () => {
   assert.match(live, /runOperatorTurnPost\(request, \{[\s\S]*liveExecutionId/);
 });
+
+test("authoritative turn rebuilds a native Request without wrapping a Next.js request object", () => {
+  assert.match(route, /const requestBody = \["GET", "HEAD"\]\.includes/);
+  assert.match(route, /request = new Request\(request\.url, \{/);
+  assert.match(route, /await request\.arrayBuffer\(\)/);
+  assert.doesNotMatch(route, /new Request\(request, \{/);
+});

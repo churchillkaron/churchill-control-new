@@ -167,6 +167,20 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
   const [configurationOrganizationId, setConfigurationOrganizationId] = useState("");
   const [createStep, setCreateStep] = useState(0);
 
+  useEffect(() => {
+    if (!mode) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !loading) setMode(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [loading, mode]);
+
   const campaignArea = pathname?.includes("/commercial/marketing/campaigns");
   const selectedGroup = useMemo(
     () => groups.find((group) => group.id === selectedGroupId) || groups[0] || null,
@@ -346,7 +360,14 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
     }
   }
 
-  const createSteps = ["Basics", "Audience & Creative", "Channels", "Budget & Schedule", "Review"];
+  const createSteps = ["Campaign", "Strategy", "Channels", "Budget", "Review"];
+  const createStepDescriptions = [
+    "Name the campaign and define the business outcome, offer and primary call to action.",
+    "Set the message, market, audience approach, creative direction and success measures.",
+    "Choose channels, connect exact organization assets and configure provider-specific execution settings.",
+    "Set campaign timing and monetary limits. Creating the draft still does not authorize provider spend.",
+    "Confirm the campaign, channel readiness and exact execution evidence before creating the draft plan.",
+  ];
   const multiOrganization = selectedOrganizations.length > 1;
   const activeConfigurationOrganizationId = multiOrganization
     ? configurationOrganizationId || selectedOrganizations[0] || ownerOrganizationId
@@ -390,19 +411,28 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
     }));
   }
 
-  function stepValid(step) {
-    if (step === 0) return Boolean(form.name.trim() && form.objective.trim() && selectedOrganizations.length);
-    if (step === 2) return Boolean(form.channels.length);
+  function stepBlockingReason(step) {
+    if (step === 0) {
+      if (!form.name.trim()) return "Add a campaign name to continue.";
+      if (!form.objective.trim()) return "Add the business objective to continue.";
+      if (!selectedOrganizations.length) return "Select an organization to continue.";
+      return "";
+    }
+    if (step === 2 && !form.channels.length) return "Choose at least one campaign channel to continue.";
     if (step === 3) {
-      if (form.startDate && form.endDate && form.endDate < form.startDate) return false;
-      if (selectedOrganizations.some((organizationId) => paidMediaAllocationIssues({
+      if (form.startDate && form.endDate && form.endDate < form.startDate) return "End date must be the same as or later than the start date.";
+      const allocationIssue = selectedOrganizations.flatMap((organizationId) => paidMediaAllocationIssues({
         ...form,
         organizationBudget: organizationBudgetFor(organizationId),
         channelSettings: Object.fromEntries(form.channels.map((channelId) => [channelId, mergedChannelSettings(channelId, organizationId)])),
-      }).length)) return false;
-      return true;
+      }))[0];
+      if (allocationIssue) return allocationIssue;
     }
-    return true;
+    return "";
+  }
+
+  function stepValid(step) {
+    return !stepBlockingReason(step);
   }
 
   const allRequiredValid = createSteps.slice(0, 4).every((_, index) => stepValid(index));
@@ -447,13 +477,13 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
 
       {mode ? (
         <div className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-[#241b12]/20 p-4 pt-20 backdrop-blur-md lg:p-8 lg:pt-24">
-          <div className="w-full max-w-4xl rounded-[30px] border border-[#DCC8AE] bg-[#FCFAF6] shadow-2xl">
+          <div role="dialog" aria-modal="true" aria-labelledby="campaign-command-title" className="w-full max-w-4xl rounded-[30px] border border-[#DCC8AE] bg-[#FCFAF6] shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-[#E8DED1] p-6 lg:p-8">
               <div>
                 <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">
                   Marketing Command Center
                 </div>
-                <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-[#2D2822]">
+                <h2 id="campaign-command-title" className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-[#2D2822]">
                   {mode === "create" ? "Create Campaign" : "Tell Avantiqo to Create"}
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#777169]">
@@ -480,7 +510,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
               </div>
             ) : mode === "create" ? (
               <form onSubmit={createCampaign} className="p-6 lg:p-8">
-                <div className="mb-7 grid grid-cols-5 gap-2">
+                <div className="mb-7 grid grid-cols-2 gap-2 sm:grid-cols-5">
                   {createSteps.map((step, index) => {
                     const active = index === createStep;
                     const complete = index < createStep && stepValid(index);
@@ -488,6 +518,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                       <button
                         key={step}
                         type="button"
+                        aria-current={active ? "step" : undefined}
                         onClick={() => {
                           if (index <= createStep || createSteps.slice(0, index).every((_, previous) => stepValid(previous))) {
                             setCreateStep(index);
@@ -500,6 +531,11 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                       </button>
                     );
                   })}
+                </div>
+
+                <div className="mb-6 rounded-2xl border border-black/[0.06] bg-[#FCFBF8] px-4 py-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#A37849]">{createSteps[createStep]}</div>
+                  <div className="mt-1 text-xs leading-relaxed text-[#817B73]">{createStepDescriptions[createStep]}</div>
                 </div>
 
                 {createStep === 0 ? (
@@ -652,7 +688,8 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                             }).filter(Boolean);
                             const readyCount = states.filter((item) => item.state.ready).length;
                             const plannedOnlyCount = states.filter((item) => item.state.label === "Planned only").length;
-                            const setupCount = states.length - readyCount - plannedOnlyCount;
+                            const setupStates = states.filter((item) => !item.state.ready && item.state.label !== "Planned only");
+                            const setupCount = setupStates.length;
                             return (
                               <div key={organizationId} className="rounded-2xl border border-black/[0.06] bg-[#FCFBF8] p-4">
                                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -664,7 +701,25 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                                   </div>
                                 </div>
                                 {setupCount ? (
-                                  <div className="mt-2 text-[10px] leading-relaxed text-[#817B73]">Setup needed: {states.filter((item) => !item.state.ready && item.state.label !== "Planned only").map((item) => item.channel.name).join(", ")}</div>
+                                  <details className="group mt-3 rounded-xl border border-[#E3D0B8] bg-[#FFF8EC]">
+                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] font-semibold text-[#7A5A36] [&::-webkit-details-marker]:hidden">
+                                      <span>Why setup is needed · {setupStates.map((item) => item.channel.name).join(", ")}</span>
+                                      <span className="text-[9px] font-medium group-open:hidden">Show</span>
+                                      <span className="hidden text-[9px] font-medium group-open:inline">Hide</span>
+                                    </summary>
+                                    <div className="space-y-3 border-t border-[#E3D0B8] px-3 py-3">
+                                      {setupStates.map(({ channel, state }) => {
+                                        const blockers = [...new Set(state.blockers || [])].filter(Boolean);
+                                        return (
+                                          <div key={channel.id}>
+                                            <div className="text-[10px] font-semibold text-[#5E4935]">{channel.name}</div>
+                                            {blockers.length ? <ul className="mt-1 list-disc space-y-1 pl-4 text-[10px] leading-relaxed text-[#7A5A36]">{blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : <div className="mt-1 text-[10px] leading-relaxed text-[#7A5A36]">{state.detail || "Additional channel setup is required before execution."}</div>}
+                                          </div>
+                                        );
+                                      })}
+                                      <a href={`/workspace/${organizationId}/administration/communications-setup?onboarding=1`} className="inline-flex rounded-full border border-[#D8B78D] bg-white px-3 py-1.5 text-[10px] font-semibold text-[#7A5735] hover:bg-[#FBF4EA]">Open channel setup</a>
+                                    </div>
+                                  </details>
                                 ) : null}
                               </div>
                             );
@@ -677,40 +732,24 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                         {selectedOrganizations.map((organizationId) => {
                           const organization = organizations.find((row) => row.id === organizationId);
                           const organizationReadiness = readinessByOrganization[organizationId] || readiness;
-                          return (
-                            <MetaReview
-                              key={organizationId}
-                              organizationName={organization?.name || "Organization"}
-                              settings={mergedChannelSettings("meta_ads", organizationId)}
-                              creativeAssets={organizationReadiness?.creative_assets || []}
-                              channelAssets={organizationReadiness?.channel_assets || []}
-                              currency={organizationReadiness?.time_context?.currency || organizationReadiness?.wallet?.currency || ""}
-                            />
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                    {metaSelected ? (
-                      <div className="space-y-2">
-                        {selectedOrganizations.map((organizationId) => {
-                          const organization = organizations.find((row) => row.id === organizationId);
-                          const organizationReadiness = readinessByOrganization[organizationId] || readiness;
-                          const issues = metaSettingsIssues(mergedChannelSettings("meta_ads", organizationId), {
+                          const settings = mergedChannelSettings("meta_ads", organizationId);
+                          const issues = metaSettingsIssues(settings, {
                             startDate: form.startDate,
                             endDate: form.endDate,
-                            budget: resolvedProviderBudget({ ...form, organizationBudget: organizationBudgetFor(organizationId), channelSettings: { ...form.channelSettings, meta_ads: mergedChannelSettings("meta_ads", organizationId) } }, "meta_ads"),
+                            budget: resolvedProviderBudget({ ...form, organizationBudget: organizationBudgetFor(organizationId), channelSettings: { ...form.channelSettings, meta_ads: settings } }, "meta_ads"),
                             creativeAssets: organizationReadiness?.creative_assets || [],
                             channelAssets: organizationReadiness?.channel_assets || [],
                           });
                           return (
-                            <div key={organizationId} className={`rounded-2xl border px-4 py-3 text-sm ${issues.length ? "border-[#DDBA8B] bg-[#FFF8EC] text-[#7A5A36]" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
-                              <div className="font-semibold">Meta campaign check · {organization?.name || "Organization"}</div>
-                              {issues.length ? (
-                                <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
-                              ) : (
-                                <div className="mt-1 text-xs">This Meta campaign has the required information for the final connection check. Owner approval is still required before any advertising spend or campaign creation.</div>
-                              )}
-                            </div>
+                            <MetaReview
+                              key={organizationId}
+                              organizationName={organization?.name || "Organization"}
+                              settings={settings}
+                              creativeAssets={organizationReadiness?.creative_assets || []}
+                              channelAssets={organizationReadiness?.channel_assets || []}
+                              currency={organizationReadiness?.time_context?.currency || organizationReadiness?.wallet?.currency || ""}
+                              issues={issues}
+                            />
                           );
                         })}
                       </div>
@@ -720,38 +759,23 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                         {selectedOrganizations.map((organizationId) => {
                           const organization = organizations.find((row) => row.id === organizationId);
                           const organizationReadiness = readinessByOrganization[organizationId] || readiness;
+                          const settings = mergedChannelSettings("google_ads", organizationId);
+                          const assets = assetsForSurface(CAMPAIGN_CHANNELS.find((channel) => channel.id === "google_ads"), organizationReadiness?.channel_assets || []);
+                          const issues = googleAdsSettingsIssues(settings, {
+                            startDate: form.startDate,
+                            endDate: form.endDate,
+                            budget: resolvedProviderBudget({ ...form, organizationBudget: organizationBudgetFor(organizationId), channelSettings: { ...form.channelSettings, google_ads: settings } }, "google_ads"),
+                            assets,
+                          });
                           return (
                             <GoogleAdsReview
                               key={organizationId}
                               organizationName={organization?.name || "Organization"}
-                              settings={mergedChannelSettings("google_ads", organizationId)}
-                              assets={assetsForSurface(CAMPAIGN_CHANNELS.find((channel) => channel.id === "google_ads"), organizationReadiness?.channel_assets || [])}
+                              settings={settings}
+                              assets={assets}
                               currency={organizationReadiness?.time_context?.currency || organizationReadiness?.wallet?.currency || ""}
+                              issues={issues}
                             />
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                    {googleAdsSelected ? (
-                      <div className="space-y-2">
-                        {selectedOrganizations.map((organizationId) => {
-                          const organization = organizations.find((row) => row.id === organizationId);
-                          const organizationReadiness = readinessByOrganization[organizationId] || readiness;
-                          const issues = googleAdsSettingsIssues(mergedChannelSettings("google_ads", organizationId), {
-                            startDate: form.startDate,
-                            endDate: form.endDate,
-                            budget: resolvedProviderBudget({ ...form, organizationBudget: organizationBudgetFor(organizationId), channelSettings: { ...form.channelSettings, google_ads: mergedChannelSettings("google_ads", organizationId) } }, "google_ads"),
-                            assets: assetsForSurface(CAMPAIGN_CHANNELS.find((channel) => channel.id === "google_ads"), organizationReadiness?.channel_assets || []),
-                          });
-                          return (
-                            <div key={organizationId} className={`rounded-2xl border px-4 py-3 text-sm ${issues.length ? "border-[#DDBA8B] bg-[#FFF8EC] text-[#7A5A36]" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
-                              <div className="font-semibold">Google Ads campaign check · {organization?.name || "Organization"}</div>
-                              {issues.length ? (
-                                <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
-                              ) : (
-                                <div className="mt-1 text-xs">This Google Search campaign has the required information for the final connection check. Owner approval is still required before any advertising spend.</div>
-                              )}
-                            </div>
                           );
                         })}
                       </div>
@@ -853,9 +877,12 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                     ) : null}
                   </div>
                   {createStep < createSteps.length - 1 ? (
-                    <button type="button" disabled={!stepValid(createStep)} onClick={() => setCreateStep((step) => Math.min(createSteps.length - 1, step + 1))} className="inline-flex items-center gap-1 rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-[#2B2118] disabled:opacity-40">
-                      Continue <ChevronRight className="h-4 w-4" />
-                    </button>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <button type="button" disabled={!stepValid(createStep)} onClick={() => setCreateStep((step) => Math.min(createSteps.length - 1, step + 1))} className="inline-flex items-center gap-1 rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-[#2B2118] disabled:cursor-not-allowed disabled:opacity-40">
+                        Continue <ChevronRight className="h-4 w-4" />
+                      </button>
+                      {!stepValid(createStep) ? <div className="max-w-sm text-right text-[10px] leading-relaxed text-[#9A6841]">{stepBlockingReason(createStep)}</div> : null}
+                    </div>
                   ) : (
                     <button type="submit" disabled={loading || !allRequiredValid} className="inline-flex items-center gap-2 rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-[#2B2118] disabled:opacity-40">
                       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />}
@@ -896,7 +923,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-black/[0.07] bg-white p-6 text-sm text-[#8A8178]">No whole campaign available yet. Create one first.</div>
+                  <div className="rounded-2xl border border-black/[0.07] bg-white p-6 text-sm text-[#8A8178]">No multi-organization campaign is available yet. Create one first.</div>
                 )}
 
                 <div className="grid gap-3 md:grid-cols-2">
@@ -1069,7 +1096,8 @@ function metaSettingsIssues(settings = {}, { startDate = "", endDate = "", budge
   const includedRegions = splitList(settings.includedRegionIds);
   const includedCities = splitList(settings.includedCityIds);
   const includedPostal = splitList(settings.includedPostalIds);
-  const hasRadius = Boolean(settings.radiusLatitude && settings.radiusLongitude && settings.radius);
+  const radiusFieldsPresent = [settings.radiusLatitude, settings.radiusLongitude, settings.radius].some((value) => String(value ?? "").trim() !== "");
+  const hasRadius = [settings.radiusLatitude, settings.radiusLongitude, settings.radius].every((value) => String(value ?? "").trim() !== "");
   const selectedAsset = creativeAssets.find((asset) => asset.id === (settings.creativeAssetId || settings.assetId));
 
   if (ageMin < 18 || ageMax < ageMin) issues.push("Use a valid Meta age range starting at 18.");
@@ -1083,9 +1111,22 @@ function metaSettingsIssues(settings = {}, { startDate = "", endDate = "", budge
     if (!instagramAsset) issues.push("Select the exact linked Instagram professional account for Instagram delivery.");
     else if (pageAsset && String(instagramAsset.metadata?.facebook_page_id || "") !== String(pageAsset.external_id || "")) issues.push("The selected Instagram account is not linked to the selected Facebook Page.");
   }
+  if (radiusFieldsPresent && !hasRadius) issues.push("Radius targeting requires latitude, longitude and a positive radius.");
+  if (hasRadius) {
+    const latitude = Number(settings.radiusLatitude);
+    const longitude = Number(settings.radiusLongitude);
+    const radius = Number(settings.radius);
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) issues.push("Radius latitude must be between -90 and 90.");
+    if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) issues.push("Radius longitude must be between -180 and 180.");
+    if (!Number.isFinite(radius) || radius <= 0) issues.push("Radius must be a positive number.");
+  }
   if (!includedCountries.length && !includedRegions.length && !includedCities.length && !includedPostal.length && !hasRadius) issues.push("Add at least one executable included location.");
   if (String(settings.destination || "ENGAGEMENT").toUpperCase() === "WEBSITE" && !String(settings.destinationUrl || "").trim()) issues.push("Website campaigns require a destination URL.");
   const destination = String(settings.destination || "ENGAGEMENT").toUpperCase();
+  const whatsappAsset = channelAssets.find((asset) => asset.id === settings.whatsappAssetId && asset.provider === "whatsapp" && asset.asset_type === "whatsapp_phone_number");
+  if (destination === "WHATSAPP" && !whatsappAsset) issues.push("Select the exact organization WhatsApp number for Click-to-WhatsApp delivery.");
+  if (destination !== "WHATSAPP" && settings.whatsappAssetId) issues.push("WhatsApp destination is selected but this campaign destination is not WhatsApp.");
+  if (destination === "WHATSAPP" && String(settings.callToAction || "WHATSAPP_MESSAGE").toUpperCase() !== "WHATSAPP_MESSAGE") issues.push("Click-to-WhatsApp campaigns use the WhatsApp Message call to action.");
   const compatibility = metaCompatibility(destination);
   const objective = String(settings.objective || "").toUpperCase();
   const optimization = String(settings.optimizationGoal || "").toUpperCase();
@@ -1112,6 +1153,9 @@ function metaSettingsIssues(settings = {}, { startDate = "", endDate = "", budge
   } else if (budgetMode !== "lifetime") {
     issues.push("Meta budget mode must be Lifetime or Daily.");
   }
+  const bidStrategy = String(settings.bidStrategy || "lowest_cost").toLowerCase();
+  if (bidStrategy === "bid_cap" && !(Number(settings.bidCap || 0) > 0)) issues.push("Meta Bid Cap strategy requires a positive bid cap.");
+  if (bidStrategy === "cost_cap" && !(Number(settings.costCap || 0) > 0)) issues.push("Meta Cost Cap strategy requires a positive cost cap.");
   if (splitList(settings.specialAdCategories).length) issues.push("Special Ad Category campaigns remain draft-only until Avantiqo special-ad compliance certification is active for the organization and market.");
   if (!String(settings.primaryText || "").trim()) issues.push("Meta creative requires primary text.");
   if (!selectedAsset) issues.push("Select one exact approved image creative asset.");
@@ -1191,7 +1235,7 @@ function assetsForSurface(channel, rows = []) {
     google_business: [["google", "google_business_location"]],
     tripadvisor: [["tripadvisor", "tripadvisor_location"]],
     google_ads: [["google_ads", "google_ads_customer"]],
-    meta_ads: [["meta", "facebook_page"], ["meta", "instagram_business"]],
+    meta_ads: [["meta", "facebook_page"], ["meta", "instagram_business"], ["whatsapp", "whatsapp_phone_number"]],
   }[channel.id] || [[channel.provider, null]];
 
   return (rows || []).filter((asset) =>
@@ -1309,31 +1353,80 @@ function ChannelPicker({ selected = [], readiness, organizationId, onToggle, set
             })}
           </div>
           <div className="mt-3">
-            <ChannelSettings
-              key={`${activeSettingsChannel.id}-settings`}
-              channel={activeSettingsChannel}
-              catalog={readyById.get(pickerChannelTarget(activeSettingsChannel.id).catalogId) || null}
-              state={stateFor(activeSettingsChannel)}
-              organizationId={organizationId}
-              assets={assetsForSurface(activeSettingsChannel, readiness?.channel_assets || [])}
-              creativeAssets={readiness?.creative_assets || []}
-              walletCurrency={readiness?.wallet?.currency || null}
-              organizationTimezone={readiness?.time_context?.timezone || null}
-              value={{ ...(settings[activeSettingsChannel.id] || {}), ...(organizationSettings[activeSettingsChannel.id] || {}) }}
-              onChange={(key, value) => {
-                if (multiOrganization && organizationSpecificSetting(key)) {
-                  onOrganizationSettingChange(activeSettingsChannel.id, key, value);
-                } else {
-                  onSettingChange(activeSettingsChannel.id, key, value);
-                }
-              }}
-            />
+            <ChannelReadinessNotice channel={activeSettingsChannel} state={stateFor(activeSettingsChannel)} organizationId={organizationId} />
+            <details className="group rounded-2xl border border-black/[0.07] bg-[#FCFBF8]">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#A37849]">Configure {activeSettingsChannel.name}</div>
+                  <div className="mt-1 text-[10px] leading-relaxed text-[#817B73]">Open only when you need channel-specific account, audience, creative or delivery controls.</div>
+                </div>
+                <span className="shrink-0 rounded-full border border-black/[0.07] bg-white px-3 py-1.5 text-[9px] font-semibold text-[#6F675F] group-open:hidden">Configure channel</span>
+                <span className="hidden shrink-0 rounded-full border border-[#D8B78D] bg-[#FBF4EA] px-3 py-1.5 text-[9px] font-semibold text-[#7A5735] group-open:inline">Hide settings</span>
+              </summary>
+              <div className="border-t border-black/[0.06] p-4">
+                <ChannelSettings
+                  key={`${activeSettingsChannel.id}-settings`}
+                  channel={activeSettingsChannel}
+                  catalog={readyById.get(pickerChannelTarget(activeSettingsChannel.id).catalogId) || null}
+                  state={stateFor(activeSettingsChannel)}
+                  organizationId={organizationId}
+                  assets={assetsForSurface(activeSettingsChannel, readiness?.channel_assets || [])}
+                  creativeAssets={readiness?.creative_assets || []}
+                  walletCurrency={readiness?.wallet?.currency || null}
+                  organizationTimezone={readiness?.time_context?.timezone || null}
+                  value={{ ...(settings[activeSettingsChannel.id] || {}), ...(organizationSettings[activeSettingsChannel.id] || {}) }}
+                  onChange={(key, value) => {
+                    if (multiOrganization && organizationSpecificSetting(key)) {
+                      onOrganizationSettingChange(activeSettingsChannel.id, key, value);
+                    } else {
+                      onSettingChange(activeSettingsChannel.id, key, value);
+                    }
+                  }}
+                />
+              </div>
+            </details>
           </div>
         </div>
       ) : (
         <div className="mt-6 rounded-2xl border border-dashed border-[#D8C2A8] bg-[#FCFBF8] px-5 py-6 text-center text-xs text-[#817B73]">Choose one or more channels above to configure them.</div>
       )}
       <a href={`/workspace/${organizationId}/administration/communications-setup?onboarding=1`} className="mt-4 inline-flex text-[10px] font-semibold text-[#8A633C] hover:underline">Manage channel connections →</a>
+    </div>
+  );
+}
+
+function ChannelReadinessNotice({ channel, state, organizationId }) {
+  const blockers = [...new Set(state?.blockers || [])].filter(Boolean);
+  if (state?.ready) {
+    return (
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-700/15 bg-emerald-50 px-4 py-3">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">Ready for governed preflight</div>
+          <div className="mt-1 text-xs text-emerald-800">{channel?.name} is connected and its current execution route is available for this organization.</div>
+        </div>
+        <Check className="h-4 w-4 text-emerald-700" />
+      </div>
+    );
+  }
+  if (state?.label === "Planned only") {
+    return (
+      <div className="mb-4 rounded-2xl border border-black/[0.07] bg-[#F7F6F3] px-4 py-3">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7B7168]">Strategy planning only</div>
+        <div className="mt-1 text-xs leading-relaxed text-[#6F675F]">{state?.detail || `${channel?.name || "This channel"} does not have an active campaign execution adapter yet.`}</div>
+        {blockers.length ? <ul className="mt-2 list-disc space-y-1 pl-5 text-[10px] leading-relaxed text-[#817B73]">{blockers.slice(0, 4).map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : null}
+      </div>
+    );
+  }
+  return (
+    <div className="mb-4 rounded-2xl border border-[#DDBA8B] bg-[#FFF8EC] px-4 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7A5A36]">Setup required before execution</div>
+          <div className="mt-1 text-xs leading-relaxed text-[#7A5A36]">{state?.detail || `${channel?.name || "This channel"} needs additional organization setup.`}</div>
+          {blockers.length ? <ul className="mt-2 list-disc space-y-1 pl-5 text-[10px] leading-relaxed text-[#7A5A36]">{blockers.slice(0, 4).map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : null}
+        </div>
+        <a href={`/workspace/${organizationId}/administration/communications-setup?onboarding=1`} className="shrink-0 rounded-full border border-[#D8B78D] bg-white px-3 py-1.5 text-[10px] font-semibold text-[#7A5735] hover:bg-[#FBF4EA]">Open setup</a>
+      </div>
     </div>
   );
 }
@@ -2129,14 +2222,17 @@ function GoogleAdsSettings({ state, organizationId, assets = [], walletCurrency 
             {executableAssets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}{asset.metadata?.currency_code ? ` · ${asset.metadata.currency_code}` : ""}{asset.metadata?.time_zone ? ` · ${asset.metadata.time_zone}` : ""}</option>)}
           </select>
         </label>
-        <MetaInput label="Ad group name" value={value.adGroupName || ""} onChange={(v) => onChange("adGroupName", v)} helper="Optional; Avantiqo generates one if empty" />
-        <div className="md:col-span-2"><ToggleField label="Include Google Search Partners" checked={value.searchPartners === true} onChange={(next) => onChange("searchPartners", next)} /></div>
         <MiniState label="Organization timezone" value={organizationTimezone || "Not configured"} />
         <MiniState label="Account timezone" value={selectedAccount?.metadata?.time_zone || "Select account"} />
         <MetaInput label="Google Ads authorized budget" type="number" value={value.authorizedBudget || ""} onChange={(v) => onChange("authorizedBudget", v)} helper="Required when the Campaign Budget is split across multiple paid providers" />
         <MetaInput label="Daily budget" type="number" value={value.dailyBudget || ""} onChange={(v) => onChange("dailyBudget", v)} helper="Optional; otherwise calculated from authorized provider budget and dates" />
-        <MiniState label="Manager hierarchy" value={selectedAccount?.metadata?.login_customer_id ? `Managed via ${selectedAccount.metadata.login_customer_id}` : "Direct advertiser account"} />
       </MetaSection>
+
+      <AdvancedSettingsSection title="Advanced Google controls" summary="Ad-group naming, Search Partners and manager hierarchy">
+        <MetaInput label="Ad group name" value={value.adGroupName || ""} onChange={(v) => onChange("adGroupName", v)} helper="Optional; Avantiqo generates one if empty" />
+        <div className="md:col-span-2"><ToggleField label="Include Google Search Partners" checked={value.searchPartners === true} onChange={(next) => onChange("searchPartners", next)} /></div>
+        <MiniState label="Manager hierarchy" value={selectedAccount?.metadata?.login_customer_id ? `Managed via ${selectedAccount.metadata.login_customer_id}` : "Direct advertiser account"} />
+      </AdvancedSettingsSection>
 
       <MetaSection title="Targeting">
         <div className="md:col-span-2">
@@ -2184,13 +2280,13 @@ function GoogleAdsSettings({ state, organizationId, assets = [], walletCurrency 
         <div className="md:col-span-2"><MetaInput label="Landing page" value={value.landingPage || ""} onChange={(v) => onChange("landingPage", v)} helper="HTTP or HTTPS destination URL" /></div>
       </MetaSection>
 
-      <MetaSection title="Tracking">
+      <AdvancedSettingsSection title="Tracking" summary="Optional UTM attribution parameters">
         <MetaInput label="UTM source" value={value.utmSource || ""} onChange={(v) => onChange("utmSource", v)} helper="Example: google" />
         <MetaInput label="UTM medium" value={value.utmMedium || ""} onChange={(v) => onChange("utmMedium", v)} helper="Example: cpc" />
         <MetaInput label="UTM campaign" value={value.utmCampaign || ""} onChange={(v) => onChange("utmCampaign", v)} />
         <MetaInput label="UTM term" value={value.utmTerm || ""} onChange={(v) => onChange("utmTerm", v)} />
         <MetaInput label="UTM content" value={value.utmContent || ""} onChange={(v) => onChange("utmContent", v)} />
-      </MetaSection>
+      </AdvancedSettingsSection>
 
       <div className="mt-4 rounded-2xl border border-[#DDBA8B] bg-[#FFF8EC] p-4 text-xs leading-relaxed text-[#7A5A36]">
         Google Search execution is paused-first. The spending account must be mapped to an Avantiqo entity and its currency must match the organization wallet.
@@ -2335,6 +2431,8 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
   const selectedPage = pageAssets.find((asset) => asset.id === value.pageAssetId) || null;
   const instagramAssets = assets.filter((asset) => asset.provider === "meta" && asset.asset_type === "instagram_business" && (!selectedPage || String(asset.metadata?.facebook_page_id || "") === String(selectedPage.external_id || "")));
   const selectedInstagram = instagramAssets.find((asset) => asset.id === value.instagramAssetId) || null;
+  const whatsappAssets = assets.filter((asset) => asset.provider === "whatsapp" && asset.asset_type === "whatsapp_phone_number");
+  const selectedWhatsApp = whatsappAssets.find((asset) => asset.id === value.whatsappAssetId) || null;
   const destinations = (catalog?.available_destinations?.length ? catalog.available_destinations : catalog?.destinations || ["ENGAGEMENT", "WEBSITE", "WHATSAPP"])
     .filter((destination) => ["ENGAGEMENT", "WEBSITE", "WHATSAPP"].includes(String(destination).toUpperCase()));
   const networks = ["facebook", "instagram"].filter((network) => !catalog?.networks?.length || catalog.networks.includes(network));
@@ -2350,6 +2448,15 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
   const billingOptions = selectedOptimization === "LINK_CLICKS"
     ? [["IMPRESSIONS", "Impressions"], ["LINK_CLICKS", "Link clicks"]]
     : [["IMPRESSIONS", "Impressions"]];
+  const advancedDeliveryIssueCount = (!selectedNetworks.includes("facebook") && splitList(value.facebookPositions).length ? 1 : 0) + (!selectedNetworks.includes("instagram") && splitList(value.instagramPositions).length ? 1 : 0) + (selectedSpecial.length ? 1 : 0);
+  const radiusValues = [value.radiusLatitude, value.radiusLongitude, value.radius];
+  const radiusFieldsPresent = radiusValues.some((item) => String(item ?? "").trim() !== "");
+  const completeRadius = radiusValues.every((item) => String(item ?? "").trim() !== "");
+  const radiusLatitude = Number(value.radiusLatitude);
+  const radiusLongitude = Number(value.radiusLongitude);
+  const radiusDistance = Number(value.radius);
+  const advancedAudienceIssueCount = (radiusFieldsPresent && !completeRadius ? 1 : 0) + (completeRadius && (!Number.isFinite(radiusLatitude) || radiusLatitude < -90 || radiusLatitude > 90) ? 1 : 0) + (completeRadius && (!Number.isFinite(radiusLongitude) || radiusLongitude < -180 || radiusLongitude > 180) ? 1 : 0) + (completeRadius && (!Number.isFinite(radiusDistance) || radiusDistance <= 0) ? 1 : 0);
+  const advancedBiddingIssueCount = (String(value.bidStrategy || "lowest_cost").toLowerCase() === "bid_cap" && !(Number(value.bidCap || 0) > 0) ? 1 : 0) + (String(value.bidStrategy || "lowest_cost").toLowerCase() === "cost_cap" && !(Number(value.costCap || 0) > 0) ? 1 : 0);
 
   return (
     <div className="rounded-[24px] border border-[#D8C2A8] bg-[#FFFDF9] p-5">
@@ -2377,12 +2484,23 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
           </select>
           <span className="mt-1 block text-[10px] text-[#9B9289]">Required only when Instagram is selected as a delivery network. The account must be linked to the selected Page.</span>
         </label>
+        {String(value.destination || "ENGAGEMENT").toUpperCase() === "WHATSAPP" ? (
+          <label className="block md:col-span-2">
+            <span className="text-[9px] uppercase tracking-[0.12em] text-[#8A8178]">WhatsApp destination · required</span>
+            <select value={value.whatsappAssetId || ""} onChange={(e) => onChange("whatsappAssetId", e.target.value)} className="mt-1.5 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-xs text-[#2D2822] outline-none">
+              <option value="">{whatsappAssets.length ? "Select organization WhatsApp number" : "No connected WhatsApp number"}</option>
+              {whatsappAssets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+            </select>
+            <span className="mt-1 block text-[10px] text-[#9B9289]">The exact organization phone-number asset used by the Click-to-WhatsApp ad.</span>
+          </label>
+        ) : null}
         <MiniState label="Facebook identity" value={selectedPage?.name || "Not selected"} />
         <MiniState label="Instagram identity" value={selectedInstagram?.name || (selectedPage ? "Not selected" : "Select Page first")} />
+        {String(value.destination || "ENGAGEMENT").toUpperCase() === "WHATSAPP" ? <MiniState label="WhatsApp destination" value={selectedWhatsApp?.name || "Not selected"} /> : null}
       </MetaSection>
 
       <MetaSection title="Campaign">
-        <MetaSelect label="Destination" value={value.destination || "ENGAGEMENT"} onChange={(v) => onChange("destination", v)} options={destinations.map((id) => [id, id.replaceAll("_", " ")])} />
+        <MetaSelect label="Destination" value={value.destination || "ENGAGEMENT"} onChange={(v) => { const nextDestination = String(v).toUpperCase(); onChange("destination", v); if (nextDestination === "WHATSAPP") onChange("callToAction", "WHATSAPP_MESSAGE"); else { if (value.whatsappAssetId) onChange("whatsappAssetId", ""); if (String(value.callToAction || "").toUpperCase() === "WHATSAPP_MESSAGE") onChange("callToAction", "LEARN_MORE"); } }} options={destinations.map((id) => [id, id.replaceAll("_", " ")])} />
         <MetaSelect label="Objective" value={value.objective || ""} onChange={(v) => onChange("objective", v)} options={objectiveOptions} />
         <MetaSelect label="Optimization goal" value={value.optimizationGoal || ""} onChange={(v) => { onChange("optimizationGoal", v); if (String(v).toUpperCase() !== "LINK_CLICKS" && String(value.billingEvent || "IMPRESSIONS").toUpperCase() === "LINK_CLICKS") onChange("billingEvent", "IMPRESSIONS"); }} options={optimizationOptions} />
         <MetaSelect label="Billing event" value={value.billingEvent || "IMPRESSIONS"} onChange={(v) => onChange("billingEvent", v)} options={billingOptions} />
@@ -2392,6 +2510,9 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
         <div className="md:col-span-2">
           <MetaChoice label="Delivery networks" options={networks} selected={selectedNetworks} onToggle={(item) => toggleList("networks", item)} />
         </div>
+      </MetaSection>
+
+      <AdvancedSettingsSection title="Advanced delivery controls" summary="Manual placements, device overrides and Special Ad Categories" attentionCount={advancedDeliveryIssueCount}>
         {selectedNetworks.includes("facebook") ? (
           <div className="md:col-span-2">
             <MetaChoice label="Facebook placements" options={["feed","story","facebook_reels","marketplace","video_feeds","right_hand_column","search"]} selected={splitList(value.facebookPositions)} onToggle={(item) => toggleList("facebookPositions", item)} allowEmpty emptyLabel="Automatic" />
@@ -2413,7 +2534,7 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
             Draft planning is allowed, but provider preflight remains blocked until Avantiqo has certified the special-ad compliance requirements for this organization and market. This avoids pretending that a category flag alone satisfies Meta policy or jurisdiction-specific requirements.
           </div>
         ) : null}
-      </MetaSection>
+      </AdvancedSettingsSection>
 
       <MetaSection title="Audience">
         <MetaInput label="Age minimum" type="number" value={value.ageMin || "18"} onChange={(v) => onChange("ageMin", v)} />
@@ -2421,6 +2542,9 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
         <div className="md:col-span-2"><MetaChoice label="Gender" options={["male","female"]} selected={selectedGenders} onToggle={(item) => toggleList("genders", item)} allowEmpty emptyLabel="All" /></div>
         <div className="md:col-span-2"><MetaLocationLookup label="Included locations" organizationId={organizationId} value={value} prefix="included" onChange={onChange} /></div>
         <div className="md:col-span-2"><MetaLocationLookup label="Excluded locations" organizationId={organizationId} value={value} prefix="excluded" onChange={onChange} /></div>
+      </MetaSection>
+
+      <AdvancedSettingsSection title="Advanced audience" summary="Radius targeting, locales, interests, behaviours and custom audiences" attentionCount={advancedAudienceIssueCount}>
         <MetaInput label="Radius latitude" type="number" value={value.radiusLatitude || ""} onChange={(v) => onChange("radiusLatitude", v)} />
         <MetaInput label="Radius longitude" type="number" value={value.radiusLongitude || ""} onChange={(v) => onChange("radiusLongitude", v)} />
         <MetaInput label="Radius" type="number" value={value.radius || ""} onChange={(v) => onChange("radius", v)} />
@@ -2431,16 +2555,19 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
         <MetaTargetLookup label="Custom audiences" organizationId={organizationId} lookupType="custom_audience" value={value.customAudienceIds || ""} onChange={(v) => onChange("customAudienceIds", v)} />
         <MetaTargetLookup label="Excluded audiences" organizationId={organizationId} lookupType="custom_audience" value={value.excludedAudienceIds || ""} onChange={(v) => onChange("excludedAudienceIds", v)} />
         <MetaTargetLookup label="Lookalike audiences" organizationId={organizationId} lookupType="custom_audience" value={value.lookalikeAudienceIds || ""} onChange={(v) => onChange("lookalikeAudienceIds", v)} />
-      </MetaSection>
+      </AdvancedSettingsSection>
 
       <MetaSection title="Budget & Optimization">
         <MetaInput label="Meta authorized budget" type="number" value={value.authorizedBudget || ""} onChange={(v) => onChange("authorizedBudget", v)} helper="Required when the Campaign Budget is split across multiple paid providers" />
         <MetaSelect label="Budget delivery" value={value.budgetMode || "lifetime"} onChange={(v) => onChange("budgetMode", v)} options={[["lifetime","Lifetime budget"],["daily","Daily budget"]]} />
         {String(value.budgetMode || "lifetime").toLowerCase() === "daily" ? <MetaInput label="Daily budget" type="number" value={value.dailyBudget || ""} onChange={(v) => onChange("dailyBudget", v)} helper="Daily amount must remain within the total authorized Meta budget across the campaign period" /> : <div className="rounded-xl border border-black/[0.06] bg-[#FCFBF8] px-3 py-3 text-[10px] leading-relaxed text-[#817B73]">Lifetime budget uses the full authorized Meta allocation across the campaign schedule.</div>}
+      </MetaSection>
+
+      <AdvancedSettingsSection title="Advanced bidding" summary="Optional bid strategy and cap controls" attentionCount={advancedBiddingIssueCount}>
         <MetaSelect label="Bid strategy" value={value.bidStrategy || "lowest_cost"} onChange={(v) => onChange("bidStrategy", v)} options={[["lowest_cost","Lowest cost"],["bid_cap","Bid cap"],["cost_cap","Cost cap"]]} />
         <MetaInput label="Bid cap" type="number" value={value.bidCap || ""} onChange={(v) => onChange("bidCap", v)} />
         <MetaInput label="Cost cap" type="number" value={value.costCap || ""} onChange={(v) => onChange("costCap", v)} />
-      </MetaSection>
+      </AdvancedSettingsSection>
 
       {String(value.destination || "ENGAGEMENT").toUpperCase() === "WEBSITE" ? (
         <MetaSection title="Conversion">
@@ -2475,16 +2602,19 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
             {approvedAssets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
           </select>
         </label>
-        <MetaSelect label="Call to action" value={value.callToAction || "LEARN_MORE"} onChange={(v) => onChange("callToAction", v)} options={[["LEARN_MORE","Learn more"],["BOOK_NOW","Book now"],["SHOP_NOW","Shop now"],["CONTACT_US","Contact us"],["SIGN_UP","Sign up"],["SEND_MESSAGE","Send message"],["WHATSAPP_MESSAGE","WhatsApp message"]]} />
+        <MetaSelect label="Call to action" value={String(value.destination || "ENGAGEMENT").toUpperCase() === "WHATSAPP" ? "WHATSAPP_MESSAGE" : value.callToAction || "LEARN_MORE"} onChange={(v) => onChange("callToAction", v)} options={String(value.destination || "ENGAGEMENT").toUpperCase() === "WHATSAPP" ? [["WHATSAPP_MESSAGE","WhatsApp message · automatic"]] : [["LEARN_MORE","Learn more"],["BOOK_NOW","Book now"],["SHOP_NOW","Shop now"],["CONTACT_US","Contact us"],["SIGN_UP","Sign up"],["SEND_MESSAGE","Send message"]]} />
         <div className="md:col-span-2"><MetaInput label="Primary text" value={value.primaryText || ""} onChange={(v) => onChange("primaryText", v)} /></div>
         <MetaInput label="Headline" value={value.headline || ""} onChange={(v) => onChange("headline", v)} />
         <MetaInput label="Description" value={value.description || ""} onChange={(v) => onChange("description", v)} />
         <div className="md:col-span-2"><MetaInput label="Destination URL" value={value.destinationUrl || ""} onChange={(v) => onChange("destinationUrl", v)} helper="Required for website campaigns" /></div>
+      </MetaSection>
+
+      <AdvancedSettingsSection title="Tracking" summary="Optional UTM attribution parameters">
         <MetaInput label="UTM source" value={value.utmSource || ""} onChange={(v) => onChange("utmSource", v)} />
         <MetaInput label="UTM medium" value={value.utmMedium || ""} onChange={(v) => onChange("utmMedium", v)} />
         <MetaInput label="UTM campaign" value={value.utmCampaign || ""} onChange={(v) => onChange("utmCampaign", v)} />
         <MetaInput label="UTM content" value={value.utmContent || ""} onChange={(v) => onChange("utmContent", v)} />
-      </MetaSection>
+      </AdvancedSettingsSection>
 
       <div className="mt-4 rounded-2xl border border-[#DDBA8B] bg-[#FFF8EC] p-4 text-xs leading-relaxed text-[#7A5A36]">
         Meta execution is paused-first. Exact creative remains locked, standard creative enhancements remain opted out, and Messenger / Audience Network are not enabled by the current managed adapter.
@@ -2628,12 +2758,15 @@ function MetaLocationLookup({ label, organizationId, value, prefix, onChange }) 
 function MetaSection({ title, children }) {
   return <section className="mt-5 rounded-2xl border border-black/[0.06] bg-white p-4"><div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#A37849]">{title}</div><div className="grid gap-3 md:grid-cols-2">{children}</div></section>;
 }
-function AdvancedSettingsSection({ title = "Advanced settings", summary = "Optional controls", children }) {
+function AdvancedSettingsSection({ title = "Advanced settings", summary = "Optional controls", attentionCount = 0, children }) {
   return (
-    <details className="group mt-5 rounded-2xl border border-black/[0.06] bg-[#FCFBF8]">
+    <details className={`group mt-5 rounded-2xl border bg-[#FCFBF8] ${attentionCount ? "border-[#DDBA8B]" : "border-black/[0.06]"}`}>
       <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#A37849]">{title}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#A37849]">{title}</div>
+            {attentionCount ? <span className="rounded-full border border-[#DDBA8B] bg-[#FFF8EC] px-2 py-0.5 text-[9px] font-semibold text-[#7A5A36]">{attentionCount} issue{attentionCount === 1 ? "" : "s"}</span> : null}
+          </div>
           <div className="mt-1 text-[10px] text-[#8A8178]">{summary}</div>
         </div>
         <span className="shrink-0 rounded-full border border-black/[0.07] bg-white px-2.5 py-1 text-[9px] font-semibold text-[#7B7168] group-open:hidden">Show</span>
@@ -2748,56 +2881,96 @@ function PlanningChannelReview({ organizationName = "Organization", channel, set
   );
 }
 
-function GoogleAdsReview({ organizationName = "Organization", settings = {}, assets = [], currency = "" }) {
+function ProviderReviewStatus({ issues = [], providerName }) {
+  if (issues.length) {
+    return (
+      <div className="mt-4 rounded-2xl border border-[#DDBA8B] bg-[#FFF8EC] px-4 py-3 text-[#7A5A36]">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.12em]">Needs attention before provider preflight</div>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-[10px] leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-4 rounded-2xl border border-emerald-700/15 bg-emerald-50 px-4 py-3 text-emerald-800">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">Ready for final provider preflight</div>
+      <div className="mt-1 text-[10px] leading-relaxed">{providerName} has the required campaign information. Owner approval is still required before provider creation or advertising spend.</div>
+    </div>
+  );
+}
+
+function ReviewDetails({ rows = [], summary = "Advanced review details" }) {
+  if (!rows.length) return null;
+  return (
+    <details className="group mt-3 rounded-2xl border border-black/[0.06] bg-[#FCFBF8]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 [&::-webkit-details-marker]:hidden">
+        <div><div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">Advanced review details</div><div className="mt-0.5 text-[10px] text-[#8A8178]">{summary}</div></div>
+        <span className="rounded-full border border-black/[0.07] bg-white px-2.5 py-1 text-[9px] font-semibold text-[#7B7168] group-open:hidden">Show</span>
+        <span className="hidden rounded-full border border-[#D8B78D] bg-[#FBF4EA] px-2.5 py-1 text-[9px] font-semibold text-[#7A5735] group-open:inline">Hide</span>
+      </summary>
+      <div className="grid gap-2 border-t border-black/[0.06] p-3 md:grid-cols-2">{rows.map(([label, value]) => <ReviewItem key={label} label={label} value={value} />)}</div>
+    </details>
+  );
+}
+
+function GoogleAdsReview({ organizationName = "Organization", settings = {}, assets = [], currency = "", issues = [] }) {
   const account = assets.find((item) => item.id === settings.accountAssetId);
   const currencyCode = String(currency || account?.metadata?.currency_code || "").toUpperCase();
   const moneyLabel = (value) => `${currencyCode ? `${currencyCode} ` : ""}${Number(value || 0).toLocaleString()}`;
   const exactCount = textareaLines(settings.exactKeywords).length;
   const phraseCount = textareaLines(settings.phraseKeywords).length;
   const broadCount = textareaLines(settings.broadKeywords).length;
-  const rows = [
+  const essentialRows = [
     ["Spending account", account?.name || "Not selected"],
-    ["Account currency", account?.metadata?.currency_code || "—"],
-    ["Account timezone", account?.metadata?.time_zone || "—"],
-    ["Locations", Array.isArray(settings.includedLocations) && settings.includedLocations.length ? settings.includedLocations.map((item) => item.name || item.id).join(", ") : "Not selected"],
-    ["Excluded locations", Array.isArray(settings.excludedLocations) && settings.excludedLocations.length ? settings.excludedLocations.map((item) => item.name || item.id).join(", ") : "None"],
-    ["Languages", Array.isArray(settings.languages) && settings.languages.length ? settings.languages.map((item) => item.name || item.id).join(", ") : "Google default"],
-    ["Keywords", `${exactCount} exact · ${phraseCount} phrase · ${broadCount} broad`],
-    ["Negative keywords", `${textareaLines(settings.negativeKeywords).length} selected`],
-    ["Headlines", `${textareaLines(settings.headlines).length}/15`],
-    ["Descriptions", `${textareaLines(settings.descriptions).length}/4`],
     ["Authorized Google budget", settings.authorizedBudget ? moneyLabel(settings.authorizedBudget) : "Uses full Campaign Budget when Google Ads is the only paid provider"],
     ["Daily budget", settings.dailyBudget ? moneyLabel(settings.dailyBudget) : "Automatic from authorized provider budget"],
+    ["Locations", Array.isArray(settings.includedLocations) && settings.includedLocations.length ? settings.includedLocations.map((item) => item.name || item.id).join(", ") : "Not selected"],
+    ["Keywords", `${exactCount} exact · ${phraseCount} phrase · ${broadCount} broad`],
+    ["Headlines", `${textareaLines(settings.headlines).length}/15`],
+    ["Descriptions", `${textareaLines(settings.descriptions).length}/4`],
+    ["Landing page", settings.landingPage || "—"],
+  ];
+  const advancedRows = [
+    ["Account currency", account?.metadata?.currency_code || "—"],
+    ["Account timezone", account?.metadata?.time_zone || "—"],
+    ["Excluded locations", Array.isArray(settings.excludedLocations) && settings.excludedLocations.length ? settings.excludedLocations.map((item) => item.name || item.id).join(", ") : "None"],
+    ["Languages", Array.isArray(settings.languages) && settings.languages.length ? settings.languages.map((item) => item.name || item.id).join(", ") : "Google default"],
+    ["Negative keywords", `${textareaLines(settings.negativeKeywords).length} selected`],
     ["Ad group", settings.adGroupName || "Automatic"],
     ["Search Partners", settings.searchPartners === true ? "Included" : "Off"],
-    ["Landing page", settings.landingPage || "—"],
     ["Tracking", [settings.utmSource && `source=${settings.utmSource}`, settings.utmMedium && `medium=${settings.utmMedium}`, settings.utmCampaign && `campaign=${settings.utmCampaign}`, settings.utmTerm && `term=${settings.utmTerm}`, settings.utmContent && `content=${settings.utmContent}`].filter(Boolean).join(" · ") || "None"],
   ];
   return (
     <div className="rounded-[24px] border border-[#D8C2A8] bg-[#FFFDF9] p-5">
       <div className="flex flex-wrap items-center justify-between gap-2"><div className="text-xs uppercase tracking-[0.16em] text-[#D6A66A]">Google Ads · Search</div><div className="text-[10px] text-[#8A8178]">{organizationName}</div></div>
-      <div className="mt-4 grid gap-2 md:grid-cols-2">
-        {rows.map(([label, value]) => <ReviewItem key={label} label={label} value={value} />)}
-      </div>
+      <ProviderReviewStatus issues={issues} providerName="Google Search" />
+      <div className="mt-4 grid gap-2 md:grid-cols-2">{essentialRows.map(([label, value]) => <ReviewItem key={label} label={label} value={value} />)}</div>
+      <ReviewDetails rows={advancedRows} summary="Account, exclusions, network and tracking details" />
     </div>
   );
 }
 
-function MetaReview({ organizationName = "Organization", settings = {}, creativeAssets = [], channelAssets = [], currency = "" }) {
+function MetaReview({ organizationName = "Organization", settings = {}, creativeAssets = [], channelAssets = [], currency = "", issues = [] }) {
   const asset = creativeAssets.find((item) => item.id === (settings.creativeAssetId || settings.assetId));
   const page = channelAssets.find((item) => item.id === settings.pageAssetId && item.asset_type === "facebook_page");
   const instagram = channelAssets.find((item) => item.id === settings.instagramAssetId && item.asset_type === "instagram_business");
+  const whatsapp = channelAssets.find((item) => item.id === settings.whatsappAssetId && item.provider === "whatsapp" && item.asset_type === "whatsapp_phone_number");
   const currencyCode = String(currency || "").toUpperCase();
   const moneyLabel = (value) => `${currencyCode ? `${currencyCode} ` : ""}${Number(value || 0).toLocaleString()}`;
-  const rows = [
+  const essentialRows = [
     ["Facebook Page", page?.name || "Not selected"],
     ["Instagram identity", instagram?.name || (splitList(settings.networks).includes("instagram") ? "Required" : "Not selected")],
+    ...(String(settings.destination || "ENGAGEMENT").toUpperCase() === "WHATSAPP" ? [["WhatsApp destination", whatsapp?.name || "Required"]] : []),
     ["Delivery", splitList(settings.networks).join(", ") || "Not selected"],
+    ["Destination", settings.destination || "ENGAGEMENT"],
     ["Budget delivery", String(settings.budgetMode || "lifetime").toLowerCase() === "daily" ? `Daily · ${moneyLabel(settings.dailyBudget)}` : "Lifetime"],
+    ["Authorized Meta budget", settings.authorizedBudget ? moneyLabel(settings.authorizedBudget) : "Uses full Campaign Budget when Meta is the only paid provider"],
+    ["Creative", asset?.name || "Not selected"],
+    ["Destination URL", settings.destinationUrl || "—"],
+  ];
+  const advancedRows = [
     ["Facebook placements", splitList(settings.facebookPositions).join(", ") || "Automatic"],
     ["Instagram placements", splitList(settings.instagramPositions).join(", ") || "Automatic"],
     ["Devices", splitList(settings.devicePlatforms).join(", ") || "Automatic"],
-    ["Destination", settings.destination || "ENGAGEMENT"],
     ["Objective", settings.objective || "Automatic"],
     ["Optimization", settings.optimizationGoal || "Automatic"],
     ["Age", `${settings.ageMin || 18}–${settings.ageMax || 65}`],
@@ -2806,20 +2979,18 @@ function MetaReview({ organizationName = "Organization", settings = {}, creative
     ["Interests", `${splitList(settings.interestIds).length} selected`],
     ["Custom audiences", `${splitList(settings.customAudienceIds).length} selected`],
     ["Lookalikes", `${splitList(settings.lookalikeAudienceIds).length} selected`],
-    ["Authorized Meta budget", settings.authorizedBudget ? moneyLabel(settings.authorizedBudget) : "Uses full Campaign Budget when Meta is the only paid provider"],
     ["Bid strategy", settings.bidStrategy || "lowest_cost"],
     ["Pixel", settings.pixelName || settings.pixelId || "Not selected"],
     ["Conversion event", settings.conversionEvent || "—"],
-    ["Creative", asset?.name || "Not selected"],
     ["CTA", settings.callToAction || "LEARN_MORE"],
-    ["Destination URL", settings.destinationUrl || "—"],
+    ["Tracking", [settings.utmSource && `source=${settings.utmSource}`, settings.utmMedium && `medium=${settings.utmMedium}`, settings.utmCampaign && `campaign=${settings.utmCampaign}`, settings.utmContent && `content=${settings.utmContent}`].filter(Boolean).join(" · ") || "None"],
   ];
   return (
     <div className="rounded-[24px] border border-[#D8C2A8] bg-[#FFFDF9] p-5">
       <div className="flex flex-wrap items-center justify-between gap-2"><div className="text-xs uppercase tracking-[0.16em] text-[#D6A66A]">Meta / Facebook & Instagram</div><div className="text-[10px] text-[#8A8178]">{organizationName}</div></div>
-      <div className="mt-4 grid gap-2 md:grid-cols-2">
-        {rows.map(([label, value]) => <ReviewItem key={label} label={label} value={value} />)}
-      </div>
+      <ProviderReviewStatus issues={issues} providerName="Meta Ads" />
+      <div className="mt-4 grid gap-2 md:grid-cols-2">{essentialRows.map(([label, value]) => <ReviewItem key={label} label={label} value={value} />)}</div>
+      <ReviewDetails rows={advancedRows} summary="Placements, optimization, audience and tracking details" />
     </div>
   );
 }

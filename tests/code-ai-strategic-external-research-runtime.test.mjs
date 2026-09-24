@@ -14,3 +14,14 @@ test("explicit current Node documentation research still requires external resea
   assert.equal(need.required, true);
   assert.equal(need.explicit_research_signal, true);
 });
+
+test("controller-added current repository wording cannot create a false research requirement", () => {
+  const need = resolveCodeAIStrategicExternalResearchNeed([
+    "Build a responsive landing page with Node built-ins and a complete design.",
+    "BOUND PRODUCT COMPLETION CRITERIA. These are mandatory engineering outcomes, not optional suggestions.",
+    "EMPLOYEE COMPLETION GAPS FROM THE GOVERNED CONTROLLER:",
+    "Do not restart satisfied investigation. Use the current repository evidence and close these exact gaps in one coherent work package when possible.",
+  ].join("\n"));
+  assert.equal(need.required, false);
+  assert.equal(need.volatility_signal, false);
+});

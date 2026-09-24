@@ -93,7 +93,7 @@ test("channel asset references are validated for organization and channel type",
 });
 
 test("campaign builder has progressive review flow and validates date order", () => {
-  assert.match(component, /const createSteps = \["Basics", "Audience & Creative", "Channels", "Budget & Schedule", "Review"\]/);
+  assert.match(component, /const createSteps = \["Campaign", "Strategy", "Channels", "Budget", "Review"\]/);
   assert.match(component, /Review Campaign/);
   assert.match(route, /Campaign end date cannot be before the start date/);
 });
@@ -205,7 +205,8 @@ test("Google Ads campaign UI persists canonical Search execution configuration",
   assert.match(component, /Broad match/);
   assert.match(component, /Negative keywords/);
   assert.match(component, /Responsive Search Ad/);
-  assert.match(component, /Google Ads campaign check/);
+  assert.match(component, /Ready for final provider preflight/);
+  assert.match(component, /ProviderReviewStatus/);
 });
 
 test("Google Ads translator preserves keyword match types and negative keywords", () => {
@@ -371,7 +372,7 @@ test("Meta creative assets stay separate from channel connection assets and are 
 });
 
 test("Meta review and readiness are organization-specific for multi-organization campaigns", () => {
-  assert.match(component, /Meta campaign check · \{organization\?\.name/);
+  assert.match(component, /ProviderReviewStatus issues=\{issues\} providerName="Meta Ads"/);
   assert.match(component, /mergedChannelSettings\("meta_ads", organizationId\)/);
   assert.match(component, /organizationReadiness\?\.creative_assets/);
 });
@@ -1127,7 +1128,7 @@ test("Google Ads UTM controls are applied to the provider landing page", () => {
   assert.equal(url.searchParams.get("utm_campaign"), "launch");
   assert.equal(url.searchParams.get("utm_term"), "restaurant");
   assert.equal(url.searchParams.get("utm_content"), "rsa1");
-  assert.match(component, /<MetaSection title="Tracking">/);
+  assert.match(component, /<AdvancedSettingsSection title="Tracking"/);
   assert.match(route, /term: text\(settings\.utmTerm\)/);
 });
 
@@ -1233,7 +1234,7 @@ test("Meta Ads uses exact organization Page and linked Instagram identity assets
   assert.match(route, /Selected Instagram identity is not linked to the selected Facebook Page/);
   assert.match(runtime, /resolveChannelIdentityAsset/);
   assert.match(runtime, /\.eq\("organization_id", organizationId\)/);
-  assert.match(runtime, /\.eq\("channel_provider", "meta"\)/);
+  assert.match(runtime, /\.eq\("channel_provider", provider\)/);
   assert.match(runtime, /\.eq\("asset_type", assetType\)/);
   assert.match(runtime, /pageIdentity\.external_id/);
   assert.match(runtime, /instagramIdentity\?\.external_id/);
@@ -1340,4 +1341,112 @@ test("campaign read surfaces use currency-neutral formatting and readable Avanti
   assert.match(intelligencePage, /next_spend_priority \|\| allocation\?\.next_baht_priority/);
   assert.doesNotMatch(intelligencePage, /text-amber-100/);
   assert.match(intelligencePage, /Multi-Organization Campaign/);
+});
+
+test("Campaign creation uses five business-oriented steps with guidance", () => {
+  assert.match(component, /const createSteps = \["Campaign", "Strategy", "Channels", "Budget", "Review"\]/);
+  assert.match(component, /Name the campaign and define the business outcome/);
+  assert.match(component, /Choose channels, connect exact organization assets/);
+  assert.match(component, /Creating the draft still does not authorize provider spend/);
+  assert.match(component, /Confirm the campaign, channel readiness and exact execution evidence/);
+});
+
+test("blocked campaign steps explain the exact requirement instead of only disabling Continue", () => {
+  assert.match(component, /function stepBlockingReason\(step\)/);
+  assert.match(component, /Add a campaign name to continue/);
+  assert.match(component, /Add the business objective to continue/);
+  assert.match(component, /Choose at least one campaign channel to continue/);
+  assert.match(component, /\{stepBlockingReason\(createStep\)\}/);
+  assert.match(component, /disabled:cursor-not-allowed/);
+});
+
+test("Campaign detail explains launch state before technical provider evidence", () => {
+  const campaignPage = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/page.jsx", "utf8");
+  assert.match(campaignPage, /<LaunchStage label="Plan" state="complete" detail="Campaign draft saved"/);
+  assert.match(campaignPage, /label="Readiness"/);
+  assert.match(campaignPage, /label="Provider creation"/);
+  assert.match(campaignPage, /label="Ads live"/);
+  assert.match(campaignPage, /Launch Readiness/);
+  assert.match(campaignPage, /Still paused · activation separate/);
+});
+
+test("Campaign creation modal is keyboard-aware and responsive", () => {
+  assert.match(component, /role="dialog" aria-modal="true" aria-labelledby="campaign-command-title"/);
+  assert.match(component, /id="campaign-command-title"/);
+  assert.match(component, /event\.key === "Escape"/);
+  assert.match(component, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(component, /grid grid-cols-2 gap-2 sm:grid-cols-5/);
+  assert.match(component, /aria-current=\{active \? "step" : undefined\}/);
+});
+
+test("collapsed Meta advanced panels surface hidden validation issues", () => {
+  assert.match(component, /attentionCount=\{advancedDeliveryIssueCount\}/);
+  assert.match(component, /attentionCount=\{advancedAudienceIssueCount\}/);
+  assert.match(component, /attentionCount=\{advancedBiddingIssueCount\}/);
+  assert.match(component, /Meta Bid Cap strategy requires a positive bid cap/);
+  assert.match(component, /Meta Cost Cap strategy requires a positive cost cap/);
+  assert.match(component, /Radius targeting requires latitude, longitude and a positive radius/);
+  assert.match(component, /attentionCount \? <span/);
+});
+
+test("Campaign Review explains exact channel setup blockers per organization", () => {
+  assert.match(component, /Why setup is needed/);
+  assert.match(component, /const setupStates = states\.filter/);
+  assert.match(component, /state\.blockers \|\| \[\]/);
+  assert.match(component, /Open channel setup/);
+});
+
+test("active Channel editor explains readiness before provider-specific settings", () => {
+  assert.match(component, /function ChannelReadinessNotice/);
+  assert.match(component, /Ready for governed preflight/);
+  assert.match(component, /Setup required before execution/);
+  assert.match(component, /Strategy planning only/);
+  assert.match(component, /Open setup/);
+  assert.match(component, /<ChannelReadinessNotice channel=\{activeSettingsChannel\}/);
+});
+
+test("selected channel keeps detailed provider controls collapsed until explicitly configured", () => {
+  assert.match(component, /Configure \{activeSettingsChannel\.name\}/);
+  assert.match(component, /Open only when you need channel-specific account, audience, creative or delivery controls/);
+  assert.match(component, />Configure channel<\/span>/);
+  assert.match(component, /<details className="group rounded-2xl border border-black\/\[0\.07\] bg-\[#FCFBF8\]">/);
+  assert.match(component, /<ChannelSettings[\s\S]*activeSettingsChannel/);
+});
+
+test("Creative Studio preparation from Campaigns requires an explicit write permission", () => {
+  assert.match(route, /\["marketing\.campaign\.manage", "creative\.mission\.create", "creative\.projects\.create", "creative\.\*"\]/);
+  assert.match(route, /\["creative\.execute", "creative\.production\.run", "creative\.\*"\]/);
+});
+
+test("Click-to-WhatsApp Meta Ads uses an exact organization WhatsApp phone-number asset", () => {
+  const runtime = fs.readFileSync("lib/marketing/services/MetaAdsRuntime.js", "utf8");
+  const adapter = fs.readFileSync("lib/marketing/campaigns/adapters/MetaCampaignAdapter.js", "utf8");
+  assert.match(component, /WhatsApp destination · required/);
+  assert.match(component, /Select organization WhatsApp number/);
+  assert.match(route, /whatsappAssetId: \[\["whatsapp", "whatsapp_phone_number"\]\]/);
+  assert.match(route, /whatsapp_asset_id: text\(settings\.whatsappAssetId\)/);
+  assert.match(route, /Selected WhatsApp destination is not valid for this organization/);
+  assert.match(runtime, /assetType: "whatsapp_phone_number", provider: "whatsapp"/);
+  assert.match(runtime, /const whatsappDestination = whatsappIdentity\?\.external_id \|\| null/);
+  assert.match(runtime, /required\(whatsappAssetId, "Exact organization WhatsApp phone-number asset"\)/);
+  assert.match(adapter, /whatsapp_asset_id: translated\.whatsappAssetId/);
+});
+
+test("Meta translator blocks WhatsApp destination without exact WhatsApp identity", () => {
+  const plan = {
+    name: "WhatsApp identity contract",
+    audience: { included_locations: [{ type: "country", country_code: "TH" }], age_min: 18, age_max: 65, genders: [], languages: [], interests: [], behaviors: [], keywords: [], negative_keywords: [], custom_audience_ids: [], excluded_audience_ids: [], lookalike_audience_ids: [] },
+    budget: { amount: 1000, currency: "THB", mode: "lifetime", bid_strategy: "lowest_cost" },
+    schedule: { start_time: "2026-09-24T17:00:00.000Z", end_time: "2026-09-25T16:59:59.000Z", timezone: "Asia/Bangkok" },
+    creative: { asset_ids: ["asset-1"], exact_asset_required: true, primary_text: "Message us", headline: "WhatsApp", description: "Chat now", call_to_action: "WHATSAPP_MESSAGE" },
+  };
+  assert.throws(() => translateMetaCampaignPlan({
+    plan,
+    channel: { networks: ["facebook"], destination: "WHATSAPP", optimization_goal: "CONVERSATIONS", provider_settings: { page_asset_id: "page-1" } },
+  }), (error) => error?.code === "META_WHATSAPP_IDENTITY_REQUIRED");
+  const translated = translateMetaCampaignPlan({
+    plan,
+    channel: { networks: ["facebook"], destination: "WHATSAPP", optimization_goal: "CONVERSATIONS", provider_settings: { page_asset_id: "page-1", whatsapp_asset_id: "wa-1" } },
+  });
+  assert.equal(translated.whatsappAssetId, "wa-1");
 });

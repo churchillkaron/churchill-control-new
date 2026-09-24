@@ -239,6 +239,7 @@ const CHANNEL_ASSET_REQUIREMENTS = Object.freeze({
   meta_ads: {
     pageAssetId: [["meta", "facebook_page"]],
     instagramAssetId: [["meta", "instagram_business"]],
+    whatsappAssetId: [["whatsapp", "whatsapp_phone_number"]],
   },
 });
 
@@ -817,6 +818,7 @@ function metaExecutionPlanSnapshot(input, channelPlan) {
       provider_settings: {
         page_asset_id: text(settings.pageAssetId) || null,
         instagram_asset_id: text(settings.instagramAssetId) || null,
+        whatsapp_asset_id: text(settings.whatsappAssetId) || null,
         pixel_id: text(settings.pixelId) || null,
         special_ad_categories: csv(settings.specialAdCategories).map((value) => value.toUpperCase()),
         facebook_positions: csv(settings.facebookPositions).map((value) => value.toLowerCase()),
@@ -862,6 +864,8 @@ function validateExecutionAssetReadiness({ input, channelAssets = {}, readiness 
 
   const metaPageAssetId = text(settings.meta_ads?.pageAssetId);
   const metaInstagramAssetId = text(settings.meta_ads?.instagramAssetId);
+  const metaWhatsAppAssetId = text(settings.meta_ads?.whatsappAssetId);
+  const metaDestination = text(settings.meta_ads?.destination || "ENGAGEMENT").toUpperCase();
   const metaNetworks = csv(settings.meta_ads?.networks).map((value) => value.toLowerCase());
   if (channelPlanIncludesSurface(input, "meta_ads")) {
     const pageAsset = metaPageAssetId ? channelAssets[metaPageAssetId] : null;
@@ -889,7 +893,20 @@ function validateExecutionAssetReadiness({ input, channelAssets = {}, readiness 
         throw error;
       }
     }
-    // Missing Page/Instagram identities remain valid for a draft plan. The Meta
+    if (metaWhatsAppAssetId) {
+      const whatsappAsset = channelAssets[metaWhatsAppAssetId];
+      if (!whatsappAsset || whatsappAsset.provider !== "whatsapp" || whatsappAsset.asset_type !== "whatsapp_phone_number") {
+        const error = new Error("Selected WhatsApp destination is not valid for this organization");
+        error.status = 400;
+        throw error;
+      }
+    }
+    if (metaDestination !== "WHATSAPP" && metaWhatsAppAssetId) {
+      const error = new Error("WhatsApp destination asset can only be used with WHATSAPP destination");
+      error.status = 400;
+      throw error;
+    }
+    // Missing Page/Instagram/WhatsApp identities remain valid for a draft plan. The Meta
     // translator hard-blocks provider preflight/execution until they are exact.
     void metaNetworks;
   }
@@ -1350,7 +1367,7 @@ async function prepareCreative(input, request, execute = false) {
     request,
     permissions: execute
       ? ["creative.execute", "creative.production.run", "creative.*"]
-      : null,
+      : ["marketing.campaign.manage", "creative.mission.create", "creative.projects.create", "creative.*"],
   });
   const campaign = await getCampaign({ organizationId, campaignId });
   const mission = await ensureMission(campaign);

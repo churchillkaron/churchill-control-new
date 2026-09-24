@@ -146,7 +146,7 @@ function AssetPreview({ asset }) {
       <video
         src={url}
         controls
-        className="h-48 w-full bg-black object-cover"
+        className="h-48 w-full bg-[#F3EFE9] object-cover"
       />
     );
   }
@@ -577,6 +577,10 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
     ? content.execution_evidence
     : {};
   const executablePlanCount = Object.values(executionPlans).filter((plan) => plan && typeof plan === "object").length;
+  const readyProviderCount = preflightResults.filter((result) => result.success).length;
+  const blockedProviderCount = preflightResults.filter((result) => !result.success).length;
+  const createdProviderCount = Object.values(executionEvidence).filter((evidence) => ["PAUSED", "ACTIVE"].includes(String(evidence?.status || "").toUpperCase())).length;
+  const anyProviderActive = Object.values(executionEvidence).some((evidence) => String(evidence?.status || "").toUpperCase() === "ACTIVE");
 
   return (
     <div className="rounded-[30px] border border-black/[0.07] bg-white p-6 lg:p-8">
@@ -606,9 +610,28 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
         </div>
       </div>
 
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <LaunchStage label="Plan" state="complete" detail="Campaign draft saved" />
+        <LaunchStage
+          label="Readiness"
+          state={preflightResults.length ? (blockedProviderCount ? "blocked" : "complete") : executablePlanCount ? "pending" : "not_applicable"}
+          detail={preflightResults.length ? `${readyProviderCount}/${preflightResults.length} provider plan${preflightResults.length === 1 ? "" : "s"} ready` : executablePlanCount ? "Run readiness check" : "No executable paid plan"}
+        />
+        <LaunchStage
+          label="Provider creation"
+          state={createdProviderCount ? "complete" : executablePlanCount ? "pending" : "not_applicable"}
+          detail={createdProviderCount ? `${createdProviderCount} provider campaign${createdProviderCount === 1 ? "" : "s"} created` : executablePlanCount ? "Requires explicit approval" : "Nothing to create"}
+        />
+        <LaunchStage
+          label="Ads live"
+          state={anyProviderActive ? "complete" : createdProviderCount ? "pending" : "not_applicable"}
+          detail={anyProviderActive ? "At least one provider is active" : createdProviderCount ? "Still paused · activation separate" : "No active ads"}
+        />
+      </div>
+
       {preflightResults.length ? (
         <div className="mt-6 rounded-[24px] border border-black/[0.07] bg-[#FCFBF8] p-5">
-          <div className="text-xs uppercase tracking-[0.16em] text-[#D6A66A]">Final Connection Check</div>
+          <div className="text-xs uppercase tracking-[0.16em] text-[#D6A66A]">Launch Readiness</div>
           <div className="mt-3 space-y-2">
             {preflightResults.map((result) => (
               <div key={result.provider} className={`rounded-2xl border p-4 ${result.success ? "border-emerald-700/15 bg-emerald-50" : "border-[#DDBA8B] bg-[#FFF8EC]"}`}>
@@ -717,6 +740,26 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
           <TagList values={measurement} />
         </InfoBlock>
       </div>
+    </div>
+  );
+}
+
+function LaunchStage({ label, state = "pending", detail = "" }) {
+  const tone = state === "complete"
+    ? "border-emerald-700/15 bg-emerald-50 text-emerald-800"
+    : state === "blocked"
+      ? "border-[#DDBA8B] bg-[#FFF8EC] text-[#7A5A36]"
+      : state === "pending"
+        ? "border-[#D8C2A8] bg-[#FCFBF8] text-[#6F675F]"
+        : "border-black/[0.06] bg-white text-[#8A8178]";
+  const status = state === "complete" ? "Ready" : state === "blocked" ? "Blocked" : state === "pending" ? "Next" : "—";
+  return (
+    <div className={`rounded-2xl border p-4 ${tone}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.12em]">{label}</div>
+        <span className="rounded-full border border-current/15 bg-white/70 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em]">{status}</span>
+      </div>
+      <div className="mt-2 text-xs leading-relaxed">{detail}</div>
     </div>
   );
 }

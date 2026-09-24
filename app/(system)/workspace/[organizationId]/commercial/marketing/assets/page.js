@@ -3,10 +3,14 @@
 export const dynamic = "force-dynamic";
 
 import Image from "next/image";
-import { useEffect, useState }
+import { useParams } from "next/navigation";
+import { useCallback, useEffect, useState }
 from "react";
 
 export default function MarketingAssetsPage() {
+
+  const params = useParams();
+  const organizationId = String(params?.organizationId || "");
 
   const [
 
@@ -24,19 +28,13 @@ export default function MarketingAssetsPage() {
 
   ] = useState(true);
 
-  useEffect(() => {
-
-    loadAssets();
-
-  }, []);
-
-  async function loadAssets() {
+  const loadAssets = useCallback(async () => {
 
     try {
 
       const response =
         await fetch(
-          "/api/marketing/assets"
+          `/api/marketing/assets?organizationId=${encodeURIComponent(organizationId)}`
         );
 
       const data =
@@ -59,7 +57,11 @@ export default function MarketingAssetsPage() {
 
     }
 
-  }
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (organizationId) loadAssets();
+  }, [loadAssets, organizationId]);
 
   if (loading) {
 

@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import {
   CreativeGenerationRuntime,
 } from "@/lib/creative/generation/runtime/CreativeGenerationRuntime";
@@ -39,13 +40,24 @@ export async function POST(request) {
 
     } = body;
 
+    if (!organizationId) {
+      return NextResponse.json({ success: false, error: "organizationId is required" }, { status: 400 });
+    }
 
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredAnyPermission: ["creative.generation", "creative.image.generate", "creative.*"],
+    });
+    if (!access.success) {
+      return NextResponse.json({ success: false, error: access.error || "Organization access denied" }, { status: access.status || 403 });
+    }
 
     const job =
       await CreativeGenerationRuntime.create({
 
         organization_id:
-          organizationId,
+          access.organizationId,
 
         entity_id:
           entityId || null,

@@ -32,15 +32,20 @@ jobs:
         run: |
           node --check app/api/creative/music/readiness/route.js
           node --check scripts/apply-avantiqo-music-production-pricing-local.mjs
-          node --check scripts/audit-avantiqo-music-e2e-release-local.mjs
+          node --check lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProvider.js
+          node --check lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration.js
 
-      - name: Run zero-spend Music E2E release audit
-        run: node scripts/audit-avantiqo-music-e2e-release-local.mjs
+      - name: Run governed owned-Music runtime contracts
+        run: |
+          node --test \
+            tests/avantiqo-audio-duration-governance.test.mjs \
+            tests/avantiqo-audio-modal-direct-transport.test.mjs \
+            tests/avantiqo-audio-music-runtime-contract.test.mjs
 
       - name: Assert guard is mutation-free
         run: |
           echo "AVANTIQO_MUSIC_E2E_GUARD=PASS"
-          echo "RUNPOD_JOB_SUBMITTED=false"
+          echo "EXTERNAL_PROVIDER_JOB_SUBMITTED=false"
           echo "SUPABASE_MUTATION_PERFORMED=false"
           echo "ENDPOINT_MUTATION_PERFORMED=false"
           echo "PRODUCTION_DEPLOY_PERFORMED=false"

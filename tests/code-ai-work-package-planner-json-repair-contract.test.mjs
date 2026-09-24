@@ -18,8 +18,11 @@ test("invalid planner JSON self-repairs internally within the bounded reasoning 
   assert.match(source, /reasoning_call_budget: control\.reasoning_call_budget/);
   assert.match(source, /raw_reasoning_persisted: false/);
   assert.match(source, /const multiFileStructuredRepair/);
-  assert.match(source, /Preserve the original coherent implementation across exactly these remaining controller-declared files/);
-  assert.match(source, /Use one apply_files operation containing complete final contents for all required files/);
+  assert.match(source, /edit exactly one remaining controller-declared file in this pass/);
+  assert.match(source, /Do not repeat already-mutated files/);
+  assert.match(source, /const maxRepairAttempts = repairCategory === "STRUCTURED_JSON" \? 2 : 1/);
+  assert.match(source, /repair_attempts: sameRepairCategory \? previousRepairAttempts \+ 1 : 1/);
+  assert.match(source, /max_repair_attempts: maxRepairAttempts/);
 });
 
 test("oversized planner packages self-repair into a bounded executable batch", () => {

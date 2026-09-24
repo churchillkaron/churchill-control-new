@@ -21,7 +21,7 @@ const ALLOWED_FILES = Object.freeze([
 const VERIFIER = "scripts/verify-code-ai-local-computer-landing-page.mjs";
 const BUILD_OUTPUT = path.join(os.tmpdir(), "avantiqo-code-ai-landing-page-proof.html");
 const EXPORT_ROOT = "local-audit-output/avantiqo-code-ai-landing-page-proof";
-const REASONING_CALL_BUDGET = 4;
+const REASONING_CALL_BUDGET = 8;
 const MAX_RUNTIME_MS = 30 * 60 * 1000;
 const POLL_MS = 1000;
 

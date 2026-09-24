@@ -286,7 +286,7 @@ function WholeCampaignDetail({ group, onRefresh }) {
 
           <div className="rounded-2xl border border-black/[0.08] bg-white px-5 py-4 text-right">
             <div className="text-xs uppercase tracking-[0.15em] text-[#91877D]">Spend State</div>
-            <div className="mt-2 text-sm text-amber-800">
+            <div className="mt-2 text-sm text-[#7A5A36]">
               {labelize(content.spend_state || "planned_not_authorized")}
             </div>
           </div>
@@ -343,7 +343,19 @@ function WholeCampaignDetail({ group, onRefresh }) {
         </div>
       </div>
 
-      <CampaignOperatingPlan group={group} />
+      <details className="group rounded-[28px] border border-black/[0.08] bg-white">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 lg:px-6 [&::-webkit-details-marker]:hidden">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#A37849]">Operating plan</div>
+            <div className="mt-1 text-sm text-[#71685F]">90-day strategy, channel system, governance and optimization rules</div>
+          </div>
+          <span className="rounded-full border border-black/[0.07] bg-[#FCFBF8] px-3 py-1.5 text-[10px] font-semibold text-[#6F675F] group-open:hidden">Show plan</span>
+          <span className="hidden rounded-full border border-[#D8B78D] bg-[#FBF4EA] px-3 py-1.5 text-[10px] font-semibold text-[#7A5735] group-open:inline">Hide plan</span>
+        </summary>
+        <div className="border-t border-black/[0.06] p-3 lg:p-4">
+          <CampaignOperatingPlan group={group} />
+        </div>
+      </details>
 
       <div className="rounded-[32px] border border-black/[0.08] bg-white p-6 lg:p-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -370,9 +382,9 @@ function WholeCampaignDetail({ group, onRefresh }) {
       <div className="rounded-[32px] border border-black/[0.08] bg-white p-6 lg:p-8">
         <div className="flex items-center gap-3">
           {blockers.length ? (
-            <CircleAlert className="h-5 w-5 text-amber-700" />
+            <CircleAlert className="h-5 w-5 text-[#8A633C]" />
           ) : (
-            <CheckCircle2 className="h-5 w-5 text-emerald-300" />
+            <CheckCircle2 className="h-5 w-5 text-emerald-700" />
           )}
           <div>
             <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">
@@ -397,7 +409,7 @@ function WholeCampaignDetail({ group, onRefresh }) {
               </div>
             ))
           ) : (
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3 text-sm text-emerald-100/80">
+            <div className="rounded-2xl border border-emerald-700/15 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
               All participating organizations have the minimum channel and creative prerequisites.
             </div>
           )}
@@ -553,7 +565,7 @@ function CampaignOperatingPlan({ group }) {
 function OperatingStatus({ icon: Icon, label, value, detail, warning = false }) {
   return (
     <div className="rounded-2xl border border-black/[0.08] bg-[#FBF8F3] p-4">
-      <Icon className={`h-4 w-4 ${warning ? "text-amber-700" : "text-[#D6A66A]"}`} />
+      <Icon className={`h-4 w-4 ${warning ? "text-[#8A633C]" : "text-[#D6A66A]"}`} />
       <div className="mt-3 text-[10px] uppercase tracking-[0.15em] text-[#91877D]">{label}</div>
       <div className="mt-1 text-sm text-[#413B35]">{value}</div>
       <div className="mt-1 text-xs text-[#857B71]">{detail}</div>
@@ -577,7 +589,7 @@ function PlanRow({ label, value, warning = false }) {
   return (
     <div className="flex items-start justify-between gap-5 border-b border-black/[0.06] py-2.5 last:border-0">
       <span className="text-xs text-[#91877D]">{label}</span>
-      <span className={`max-w-[65%] text-right text-xs leading-relaxed ${warning ? "text-amber-800" : "text-[#574F48]"}`}>
+      <span className={`max-w-[65%] text-right text-xs leading-relaxed ${warning ? "text-[#7A5A36]" : "text-[#574F48]"}`}>
         {value}
       </span>
     </div>
@@ -588,7 +600,7 @@ function PolicyCell({ label, value, warning = false }) {
   return (
     <div className="rounded-xl border border-black/[0.07] bg-white p-3">
       <div className="text-[10px] uppercase tracking-[0.13em] text-[#A59A8F]">{label}</div>
-      <div className={`mt-1 text-xs leading-relaxed ${warning ? "text-amber-800" : "text-[#574F48]"}`}>{value}</div>
+      <div className={`mt-1 text-xs leading-relaxed ${warning ? "text-[#7A5A36]" : "text-[#574F48]"}`}>{value}</div>
     </div>
   );
 }
@@ -622,6 +634,7 @@ function FlowRail({ items }) {
 function OrganizationCampaignCard({ member, onRefresh }) {
   const campaign = member.campaign || {};
   const campaignContent = campaign.campaign_content || {};
+  const canManageAssets = member.capabilities?.can_manage_assets === true;
   const meta = metaState(campaignContent.meta_connection);
   const assets = campaign.assets || [];
   const primaryAsset = assets[0] || null;
@@ -640,7 +653,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
   )}&source=whole-campaign`;
 
   async function uploadFile(file) {
-    if (!file) return;
+    if (!file || !canManageAssets) return;
     setUploading(true);
     setMessage("");
 
@@ -714,6 +727,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
   }
 
   async function attachAsset(assetId) {
+    if (!canManageAssets) return;
     setAttachingId(assetId);
     setMessage("");
 
@@ -775,6 +789,7 @@ function OrganizationCampaignCard({ member, onRefresh }) {
           <CampaignCreativePreview
             asset={primaryAsset}
             organizationName={member.organization?.name}
+            canManageAssets={canManageAssets}
           />
 
           {assets.length > 1 ? (
@@ -818,19 +833,23 @@ function OrganizationCampaignCard({ member, onRefresh }) {
                 <Sparkles className="h-4 w-4" /> Let Studio Create It
               </Link>
 
-              <button
-                type="button"
-                disabled={uploading}
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 py-3 text-sm font-medium text-[#49423B] transition hover:bg-[#FBF8F3] disabled:opacity-50"
-              >
-                {uploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                Upload Your Own
-              </button>
+              {canManageAssets ? (
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 py-3 text-sm font-medium text-[#49423B] transition hover:bg-[#FBF8F3] disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  Upload Your Own
+                </button>
+              ) : (
+                <div className="rounded-xl border border-black/[0.07] bg-[#FCFBF8] px-3 py-3 text-center text-xs text-[#817B73]">View only · upload permission required</div>
+              )}
 
               <button
                 type="button"
@@ -841,13 +860,15 @@ function OrganizationCampaignCard({ member, onRefresh }) {
               </button>
             </div>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*"
-              className="hidden"
-              onChange={(event) => uploadFile(event.target.files?.[0])}
-            />
+            {canManageAssets ? (
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={(event) => uploadFile(event.target.files?.[0])}
+              />
+            ) : null}
 
             <p className="mt-3 text-xs leading-relaxed text-[#91877D]">
               All three choices remain scoped to {member.organization?.name || "this organization"}. Creative selection never authorizes paid spend.
@@ -1018,22 +1039,20 @@ function OrganizationCampaignCard({ member, onRefresh }) {
                     <div className="mt-1 text-[10px] uppercase tracking-[0.12em] text-[#91877D]">
                       {labelize(asset.asset_type)}
                     </div>
-                    <button
-                      type="button"
-                      disabled={asset.attached || attachingId === asset.id}
-                      onClick={() => attachAsset(asset.id)}
-                      className={`mt-3 w-full rounded-lg border px-3 py-2 text-xs transition ${
-                        asset.attached
-                          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
-                          : "border-[#D6A66A]/25 bg-[#D6A66A]/10 text-[#8A633C] hover:bg-[#D6A66A]/15"
-                      } disabled:opacity-70`}
-                    >
-                      {attachingId === asset.id
-                        ? "Attaching..."
-                        : asset.attached
-                          ? "Attached"
-                          : "Use for this campaign"}
-                    </button>
+                    {asset.attached ? (
+                      <div className="mt-3 w-full rounded-lg border border-emerald-700/15 bg-emerald-50 px-3 py-2 text-center text-xs text-emerald-700">Attached</div>
+                    ) : canManageAssets ? (
+                      <button
+                        type="button"
+                        disabled={attachingId === asset.id}
+                        onClick={() => attachAsset(asset.id)}
+                        className="mt-3 w-full rounded-lg border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-3 py-2 text-xs text-[#8A633C] transition hover:bg-[#D6A66A]/15 disabled:opacity-70"
+                      >
+                        {attachingId === asset.id ? "Attaching..." : "Use for this campaign"}
+                      </button>
+                    ) : (
+                      <div className="mt-3 w-full rounded-lg border border-black/[0.07] bg-white px-3 py-2 text-center text-xs text-[#817B73]">View only</div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1049,14 +1068,16 @@ function OrganizationCampaignCard({ member, onRefresh }) {
   );
 }
 
-function CampaignCreativePreview({ asset, organizationName }) {
+function CampaignCreativePreview({ asset, organizationName, canManageAssets = false }) {
   if (!asset) {
     return (
       <div className="flex aspect-[4/3] flex-col items-center justify-center rounded-[22px] border border-dashed border-black/[0.10] bg-white p-8 text-center">
         <ImageIcon className="h-9 w-9 text-[#B0A69B]" />
         <div className="mt-4 text-sm text-[#5F574F]">No campaign image selected yet</div>
         <div className="mt-1 max-w-xs text-xs leading-relaxed text-[#91877D]">
-          Choose Studio, upload your own, or search {organizationName || "the organization"} asset database.
+          {canManageAssets
+            ? `Choose Studio, upload your own, or search ${organizationName || "the organization"} asset database.`
+            : `Browse ${organizationName || "the organization"} assets here. Adding or attaching media requires campaign or creative upload permission.`}
         </div>
       </div>
     );
@@ -1091,7 +1112,7 @@ function CampaignCreativePreview({ asset, organizationName }) {
             {labelize(asset.asset_type)}
           </div>
         </div>
-        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-emerald-200">
+        <span className="rounded-full border border-emerald-700/15 bg-emerald-50 px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-emerald-700">
           Attached
         </span>
       </div>
@@ -1175,9 +1196,9 @@ function SmallStat({ label, value, good }) {
       <div
         className={`mt-1 text-xs leading-relaxed ${
           good === true
-            ? "text-emerald-300"
+            ? "text-emerald-700"
             : good === false
-              ? "text-amber-800"
+              ? "text-[#7A5A36]"
               : "text-[#504941]"
         }`}
       >

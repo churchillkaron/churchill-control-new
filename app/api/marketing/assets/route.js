@@ -3,12 +3,19 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import { createServerSupabase } from "@/lib/shared/supabase/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 const supabase = createServerSupabase();
 
-export async function GET() {
+export async function GET(request) {
 
   try {
+
+    const organizationId = new URL(request.url).searchParams.get("organizationId");
+    if (!organizationId) return NextResponse.json({ success: false, error: "organizationId is required" }, { status: 400 });
+
+    const access = await requireOrganizationAccess({ organizationId, request });
+    if (!access.success) return NextResponse.json({ success: false, error: access.error || "Organization access denied" }, { status: access.status || 403 });
 
     const {
       data,
@@ -20,6 +27,8 @@ export async function GET() {
       )
 
       .select("*")
+
+      .eq("organization_id", access.organizationId)
 
       .order(
         "created_at",

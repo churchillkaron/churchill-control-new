@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import RunProductionButton from "../actions/RunProductionButton";
+import CreativeDirectorCockpit from "../status/CreativeDirectorCockpit";
 
 const REVISION_SCOPES = [
   ["AUTO", "Auto"],
@@ -129,6 +130,7 @@ export default function ProductionWorkspace({ runtime }) {
   const shots = runtime.shotRuntime?.items || [];
 
   const [selectedShotId, setSelectedShotId] = useState(shots[0]?.id || null);
+  const [producerOpen, setProducerOpen] = useState(false);
   const [selectedCandidateId, setSelectedCandidateId] = useState(null);
   const [compareCandidateId, setCompareCandidateId] = useState(null);
   const [comparisonOpen, setComparisonOpen] = useState(false);
@@ -268,8 +270,8 @@ export default function ProductionWorkspace({ runtime }) {
   }
 
   return (
-    <div className="h-full overflow-auto bg-[#F6F3EE] text-[#2A2723]">
-      <div className="sticky top-0 z-20 border-b border-black/[0.07] bg-[#F6F3EE]/95 px-4 py-3 backdrop-blur-sm lg:px-5">
+    <div className="h-full overflow-auto bg-[#F5F1EA] text-[#2A2723]">
+      <div className="sticky top-0 z-20 border-b border-black/[0.07] bg-[#F5F1EA]/95 px-4 py-3 backdrop-blur-sm lg:px-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[7px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">Production desk</div>
@@ -282,12 +284,15 @@ export default function ProductionWorkspace({ runtime }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link href={`/workspace/${runtime.organizationId}/creative/studio/production`} className="hidden h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[8px] font-semibold text-[#716B63] md:inline-flex">Plan & approvals <ArrowRight size={9} /></Link>
+            <button type="button" onClick={() => setProducerOpen((open) => !open)} className="hidden h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[8px] font-semibold text-[#716B63] md:inline-flex">Direction & approvals <ArrowRight size={9} className={producerOpen ? "rotate-90" : ""} /></button>
+            <Link href={`/workspace/${runtime.organizationId}/creative/studio/production`} className="hidden h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[8px] font-semibold text-[#716B63] lg:inline-flex">Production plan <ArrowRight size={9} /></Link>
             <RunProductionButton runtime={runtime} />
           </div>
         </div>
         {mechanicalCadence ? <div className="mt-2 flex items-center gap-2 rounded-lg border border-amber-700/15 bg-amber-50 px-3 py-2 text-[8px] text-amber-900"><CircleAlert size={10} /> Pacing needs attention: {nearFiveSecondShots} of {shots.length} shots sit near five seconds.</div> : null}
       </div>
+
+      {producerOpen ? <div className="border-b border-black/[0.07] bg-[#2A2723] p-3 lg:p-4"><CreativeDirectorCockpit runtime={runtime} /></div> : null}
 
       <div className="grid min-h-[650px] xl:grid-cols-[300px_minmax(0,1fr)_300px]">
         <aside className="border-r border-black/[0.07] bg-white">
@@ -322,9 +327,9 @@ export default function ProductionWorkspace({ runtime }) {
           </div>
         </aside>
 
-        <main className="min-w-0 bg-[#F6F3EE] p-4 lg:p-5">
+        <main className="min-w-0 bg-[#F5F1EA] p-4 lg:p-5">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-            <div className="min-w-0"><div className="text-[7px] font-semibold uppercase tracking-[0.13em] text-[#8A867F]">Viewer</div><div className="mt-0.5 truncate text-[13px] font-semibold text-[#3E3934]">{selectedShot?.title || selectedShot?.purpose || selectedShot?.subject || "Select a shot"}</div></div>
+            <div className="min-w-0"><div className="text-[7px] font-semibold uppercase tracking-[0.13em] text-[#8A867F]">Selected shot</div><div className="mt-0.5 truncate text-[13px] font-semibold text-[#3E3934]">{selectedShot?.title || selectedShot?.purpose || selectedShot?.subject || "Select a shot"}</div></div>
             {selectedShot ? <div className="text-right text-[8px] text-[#817B73]">{shotDuration(selectedShot).toFixed(1)}s · {pacingLabel(shotDuration(selectedShot))}</div> : null}
           </div>
 
@@ -334,6 +339,7 @@ export default function ProductionWorkspace({ runtime }) {
             {nextAction.kind === "review" && selectedReviews[0] ? <button type="button" onClick={() => approveTask(selectedReviews[0])} disabled={approvingId === selectedReviews[0].id} className="shrink-0 rounded-lg bg-[#25231F] px-2.5 py-2 text-[7px] font-semibold text-white disabled:opacity-40">{approvingId === selectedReviews[0].id ? "Approving…" : "Approve after inspection"}</button> : null}
           </div>
 
+          <div className="mb-1 text-[7px] font-semibold uppercase tracking-[0.12em] text-[#8A867F]">Focus viewer</div>
           <div className={`overflow-hidden rounded-xl border border-black/[0.08] bg-[#22201D] shadow-sm ${comparisonOpen && comparisonCandidate ? "grid md:grid-cols-2" : ""}`}>
             <CandidateMedia url={previewUrl} video={previewIsVideo} label={activeCandidate ? `Current · ${taskLabel(activeCandidate.task)}` : "Current"} />
             {comparisonOpen && comparisonCandidate ? <div className="border-t border-white/10 md:border-l md:border-t-0"><CandidateMedia url={comparisonUrl} video={isVideoValue(comparisonUrl)} label={`Compare · ${taskLabel(comparisonCandidate.task)}`} /></div> : null}
@@ -376,13 +382,13 @@ export default function ProductionWorkspace({ runtime }) {
           {selectedShot ? <div className="mt-3 grid gap-2 md:grid-cols-2"><div className="border-t border-black/[0.07] pt-2"><div className="text-[7px] font-semibold uppercase tracking-[0.11em] text-[#918B83]">Story purpose</div><div className="mt-1 text-[9px] leading-4 text-[#625C55]">{selectedShot.purpose || selectedShot.action || selectedShot.description || "Not defined"}</div></div><div className="border-t border-black/[0.07] pt-2"><div className="text-[7px] font-semibold uppercase tracking-[0.11em] text-[#918B83]">Performance / continuity</div><div className="mt-1 text-[9px] leading-4 text-[#625C55]">{selectedShot.performance || selectedShot.performance_direction?.description || selectedShot.continuity?.notes || "Not defined"}</div></div></div> : null}
 
           <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.07] bg-white">
-            <div className="flex items-center justify-between border-b border-black/[0.06] px-4 py-3"><div><div className="text-[7px] font-semibold uppercase tracking-[0.12em] text-[#8A867F]">Active production chain</div><div className="mt-0.5 text-[9px] text-[#716B63]">Only the effective generation, validation and finishing path</div></div><div className="text-[8px] text-[#918B83]">{activeSelectedTasks.length} steps</div></div>
+            <div className="flex items-center justify-between border-b border-black/[0.06] px-4 py-3"><div><div className="text-[7px] font-semibold uppercase tracking-[0.12em] text-[#8A867F]">Production chain</div><div className="mt-0.5 text-[9px] text-[#716B63]">Only the effective generation, validation and finishing path</div></div><div className="text-[8px] text-[#918B83]">{activeSelectedTasks.length} steps</div></div>
             <div className="divide-y divide-black/[0.055]">{activeSelectedTasks.map((task) => { const evidence = qualityEvidence(task); const score = evidence.total_score ?? evidence.overall_score ?? evidence.sync_score ?? null; return <div key={task.id} className="grid gap-2 px-4 py-2.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div className="min-w-0"><div className="truncate text-[9px] font-semibold text-[#4A453F]">{taskLabel(task)}</div><div className="mt-0.5 truncate text-[7px] text-[#9A948B]">{task.metadata?.human_revision ? `Revision · ${String(task.metadata?.revision_scope || "AUTO").replaceAll("_", " ")}` : [task.provider_id || task.output?.provider, task.output?.model || task.metadata?.model].filter(Boolean).join(" · ") || "Provider pending"}</div>{task.error ? <div className="mt-1 text-[8px] text-red-700">{task.error}</div> : null}</div><div className="flex items-center gap-2">{score !== null && score !== undefined ? <span className="text-[8px] font-semibold text-[#76583A]">QC {Number(score).toFixed(0)}</span> : null}<span className={`rounded-full border px-2 py-1 text-[7px] font-semibold uppercase ${statusTone(task.status)}`}>{task.status}</span></div></div>; })}{selectedShot && !activeSelectedTasks.length ? <div className="px-4 py-4 text-[8px] text-[#918B83]">No active production tasks for this shot yet.</div> : null}</div>
           </div>
         </main>
 
         <aside className="border-l border-black/[0.07] bg-white">
-          <div className="border-b border-black/[0.06] px-4 py-3"><div className="flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.13em] text-[#8A633C]"><ShieldCheck size={9} /> Release control</div><div className="mt-1 text-[10px] font-semibold text-[#403C37]">Selected-shot decisions</div><div className="mt-1 text-[8px] leading-4 text-[#918B83]">Only active holds and decisions for the shot in the viewer appear below.</div></div>
+          <div className="border-b border-black/[0.06] px-4 py-3"><div className="flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.13em] text-[#8A633C]"><ShieldCheck size={9} /> Review & release</div><div className="mt-1 text-[10px] font-semibold text-[#403C37]">Selected-shot decisions</div><div className="mt-1 text-[8px] leading-4 text-[#918B83]">Only active holds and decisions for the shot in the viewer appear below.</div></div>
           <div className="grid grid-cols-3 border-b border-black/[0.06] bg-[#FCFBF8]">{[["Review", selectedReviews.length], ["Lip-sync", selectedLipSyncReviews.length], ["Failed", selectedFailed.length]].map(([label, value]) => <div key={label} className="border-r border-black/[0.055] px-3 py-3 last:border-r-0"><div className="text-[7px] uppercase tracking-[0.09em] text-[#918B83]">{label}</div><div className="mt-1 text-[13px] font-semibold tabular-nums text-[#403C37]">{value}</div></div>)}</div>
           <div className="max-h-[calc(100vh-410px)] overflow-y-auto p-3">
             {selectedFailed.map((task) => <div key={task.id} className="mb-2 rounded-xl border border-red-700/15 bg-red-50 p-3"><div className="text-[9px] font-semibold text-red-950">{taskLabel(task)}</div><div className="mt-1 text-[8px] leading-4 text-red-900/70">{task.error || "This active production step failed and must be resolved before release."}</div></div>)}

@@ -105,7 +105,15 @@ async function accessibleOrganizations(access, request) {
 
   const verified = [];
   for (const organizationId of ids) {
-    const candidate = await requireOrganizationAccess({ organizationId, request });
+    const candidate = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredAnyPermission: [
+        "marketing.campaign.create",
+        "marketing.campaign.manage",
+        "marketing.*",
+      ],
+    });
     if (candidate.success) verified.push(organizationId);
   }
 
@@ -1134,7 +1142,15 @@ async function createCampaign(input, request) {
     if (!availableById.has(organizationId)) {
       throw forbidden("One or more selected organizations are not accessible");
     }
-    await requireAccess({ organizationId, request });
+    await requireAccess({
+      organizationId,
+      request,
+      permissions: [
+        "marketing.campaign.create",
+        "marketing.campaign.manage",
+        "marketing.*",
+      ],
+    });
     organizations.push(availableById.get(organizationId));
   }
 

@@ -4,7 +4,7 @@ import { withApiHandler } from "@/lib/shared/http/withApiHandler";
 import { requireFields } from "@/lib/shared/validation/required";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { canUseMultiOrganizationMarketing } from "@/lib/marketing/security/marketingCampaignAccess";
+import { canUseMultiOrganizationMarketing, hasMarketingPermission } from "@/lib/marketing/security/marketingCampaignAccess";
 import {
   isCreativeVisualAsset,
   isVideoAsset,
@@ -81,11 +81,11 @@ export const POST = withApiHandler(
     const organizationIds = [
       ...new Set((members || []).map((member) => member.organization_id).filter(Boolean)),
     ];
-    const accessibleOrganizations = new Set();
+    const accessibleOrganizations = new Map();
 
     for (const organizationId of organizationIds) {
       const access = await requireOrganizationAccess({ organizationId, request });
-      if (access.success) accessibleOrganizations.add(organizationId);
+      if (access.success) accessibleOrganizations.set(organizationId, access);
     }
 
     const membersByRawGroup = new Map();
@@ -229,8 +229,18 @@ export const POST = withApiHandler(
       const visibleAssetIds = new Set(assets.map((asset) => asset.id));
       const rawVisualAssets = rawVisualAssetsByCampaign.get(campaign.id) || [];
 
+      const memberAccess = accessibleOrganizations.get(member.organization_id) || {};
+      const canManageAssets = [
+        "marketing.campaign.manage",
+        "creative.asset.upload",
+        "creative.*",
+      ].some((permission) => hasMarketingPermission(memberAccess, permission));
+
       membersByGroup.get(member.campaign_group_id).push({
         ...member,
+        capabilities: {
+          can_manage_assets: canManageAssets,
+        },
         organization: organizationsById.get(member.organization_id) || null,
         campaign: {
           ...campaign,

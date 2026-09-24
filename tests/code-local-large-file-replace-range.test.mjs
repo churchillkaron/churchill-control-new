@@ -32,8 +32,13 @@ test("source-bound replaceRange can safely edit a tracked file above the normal 
     assert.ok(Buffer.byteLength(original, "utf8") > 512 * 1024);
     assert.ok(Buffer.byteLength(original, "utf8") < 1024 * 1024);
     await writeFile(join(repo, "large-fixture.txt"), original, "utf8");
-    git(repo, ["add", "large-fixture.txt"]);
-    git(repo, ["commit", "-qm", "large fixture"]);
+    await writeFile(
+      join(repo, "small-fixture.txt"),
+      Array.from({ length: 40 }, (_, index) => `small_line_${index + 1}`).join("\n"),
+      "utf8",
+    );
+    git(repo, ["add", "large-fixture.txt", "small-fixture.txt"]);
+    git(repo, ["commit", "-qm", "large and small fixtures"]);
     const commit = git(repo, ["rev-parse", "HEAD"]);
 
     process.env.AVANTIQO_CODE_LOCAL_REPOSITORY_ROOT = repo;
@@ -43,6 +48,16 @@ test("source-bound replaceRange can safely edit a tracked file above the normal 
       timeout_ms: 45000,
     });
     try {
+      const wideSmallRead = await workspace.read({
+        file_path: "small-fixture.txt",
+        start_line: 1,
+        end_line: 1200,
+      });
+      assert.equal(wideSmallRead.large_file_window_read, false);
+      assert.equal(wideSmallRead.start_line, 1);
+      assert.equal(wideSmallRead.end_line, 40);
+      assert.match(wideSmallRead.content, /small_line_40/);
+
       await assert.rejects(
         workspace.read({ file_path: "large-fixture.txt" }),
         /CODE_AI_FILE_READ_TOO_LARGE/,

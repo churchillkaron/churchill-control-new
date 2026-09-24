@@ -286,3 +286,47 @@ test("non-repair API changes are not blocked solely by the repair-preservation r
   });
   assert.ok(!result.violations.some((item) => item.kind === "REPAIR_EXPORTED_SYMBOL_REMOVED"));
 });
+
+test("repair guard preserves observed untyped data member access from the live invoice benchmark", () => {
+  const state = {
+    objective: "Repair sumInvoiceLines so numeric strings add numerically, invalid values are ignored, non-arrays return zero, and finite zero/negative values are preserved.",
+    source_read_evidence: [
+      read("invoice-total.mjs", "export function sumInvoiceLines(lines){ if(!Array.isArray(lines)) return 0; return lines.reduce((sum,line)=>sum+(line?.total||0),0); }"),
+    ],
+  };
+  const result = assessCodeAIObservedContractCompatibility({
+    state,
+    writes: [{
+      path: "invoice-total.mjs",
+      content: "export function sumInvoiceLines(lines){ if(!Array.isArray(lines)) return 0; return lines.reduce((sum,line)=>{ const value=Number(line); return Number.isFinite(value)?sum+value:sum; },0); }",
+    }],
+  });
+  assert.equal(result.compatible, false);
+  assert.ok(result.violations.some((item) =>
+    item.kind === "REPAIR_OBSERVED_DATA_MEMBER_PROPERTY_REMOVED" &&
+    item.receiver === "line" &&
+    item.property === "total"
+  ));
+});
+
+test("repair guard allows an owner-explicit data member migration", () => {
+  const state = {
+    objective: "Repair the invoice summary so the summary reads line.total instead of the old field.",
+    source_read_evidence: [
+      read("invoice-summary.mjs", "export function summarizeInvoice(lines){ return lines.reduce((sum,line)=>sum+(line?.amount||0),0); }"),
+    ],
+  };
+  const result = assessCodeAIObservedContractCompatibility({
+    state,
+    writes: [{
+      path: "invoice-summary.mjs",
+      content: "export function summarizeInvoice(lines){ return lines.reduce((sum,line)=>sum+(line?.total||0),0); }",
+    }],
+  });
+  assert.equal(result.compatible, true);
+  assert.ok(result.coherent_contract_migrations.some((item) =>
+    item.kind === "COHERENT_DATA_MEMBER_MIGRATION" &&
+    item.from_property === "amount" &&
+    item.to_property === "total"
+  ));
+});

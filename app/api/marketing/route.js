@@ -2,27 +2,23 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
-export async function GET() {
-
-  try {
-
-    return NextResponse.json({
-      success: true,
-      campaigns: [],
-    });
-
-  } catch (error) {
-
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
+function retired() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: "LEGACY_MARKETING_ROOT_RETIRED",
+        message: "Legacy Marketing root API is retired. Use organization-scoped Marketing APIs.",
       },
-      {
-        status: 500,
-      }
-    );
-  }
+    },
+    { status: 410 },
+  );
+}
+
+export async function GET() {
+  return retired();
+}
+
+export async function POST() {
+  return retired();
 }

@@ -1,30 +1,28 @@
-import { createServerSupabase } from '@/lib/shared/supabase/server';
+export const dynamic = "force-dynamic";
 
-export const runtime = 'nodejs';
+import { NextResponse } from "next/server";
 
-export async function POST(request) {
-  try {
-    const body = await request.json();
+function retired() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: "LEGACY_MARKETING_GENERATION_JOB_CREATE_RETIRED",
+        message: "Legacy Marketing generation-job creation is retired. Use the governed Creative Generation runtime.",
+      },
+    },
+    { status: 410 },
+  );
+}
 
-    const supabase = createServerSupabase(); // server-side with service role
+export async function GET() {
+  return retired();
+}
 
-    const { data, error } = await supabase
-      .from('generation_jobs')
-      .insert([body])
-      .select()
-      .single();
+export async function POST() {
+  return retired();
+}
 
-    if (error) throw error;
-
-    return new Response(JSON.stringify({ success: true, job: data }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-  } catch (err) {
-    return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+export async function DELETE() {
+  return retired();
 }

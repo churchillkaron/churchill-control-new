@@ -62,7 +62,11 @@ export async function POST(request) {
   try {
     const formData = await request.formData();
     const organizationId = text(formData.get("organizationId") || formData.get("organization_id"));
-    const access = await requireOrganizationAccess({ organizationId, request });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredAnyPermission: ["creative.asset.upload", "creative.*"],
+    });
     if (!access.success) return Response.json(access, { status: access.status || 403 });
 
     const [primaryLogo, logoIcon] = await Promise.all([

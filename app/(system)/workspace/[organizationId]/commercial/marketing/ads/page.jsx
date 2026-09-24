@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   AlertCircle,
@@ -196,7 +197,7 @@ export default function CampaignBuilderPage() {
     resetApproval();
   }
 
-  async function loadReadiness() {
+  const loadReadiness = useCallback(async () => {
     if (!organizationId) return;
     setLoading(true);
     setError(null);
@@ -241,11 +242,11 @@ export default function CampaignBuilderPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId]);
 
   useEffect(() => {
     loadReadiness();
-  }, [organizationId]);
+  }, [loadReadiness]);
 
   async function createAiPlan() {
     setPlanning(true);
@@ -431,18 +432,18 @@ export default function CampaignBuilderPage() {
         </div>
 
         {error ? (
-          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-100">
+          <div className="mb-6 rounded-2xl border border-red-700/15 bg-red-50 p-4 text-sm text-red-800">
             <div className="flex gap-3">
               <AlertCircle size={17} className="mt-0.5 shrink-0" />
               <div>
                 <div>{error.message}</div>
                 {error.stage || error.code ? (
-                  <div className="mt-2 text-xs uppercase tracking-[0.14em] text-red-200/55">
+                  <div className="mt-2 text-xs uppercase tracking-[0.14em] text-red-700/70">
                     {[error.stage, error.code].filter(Boolean).join(" · ")}
                   </div>
                 ) : null}
                 {error.correction ? (
-                  <div className="mt-2 text-xs leading-5 text-red-100/60">
+                  <div className="mt-2 text-xs leading-5 text-red-700/80">
                     Correction: {error.correction}
                   </div>
                 ) : null}
@@ -452,7 +453,7 @@ export default function CampaignBuilderPage() {
         ) : null}
 
         {result ? (
-          <div className="mb-6 flex gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+          <div className="mb-6 flex gap-3 rounded-2xl border border-emerald-700/15 bg-emerald-50 p-4 text-sm text-emerald-800">
             <CheckCircle2 size={17} className="mt-0.5 shrink-0" />
             Campaign created in paused-first mode. Review it before activation.
           </div>
@@ -696,7 +697,7 @@ export default function CampaignBuilderPage() {
                 <Link
                   href={creativeStudioHref}
                   onClick={openCreativeStudio}
-                  className="mt-5 flex items-center justify-center gap-2 rounded-2xl border border-[#D6A66A]/35 bg-[#D6A66A]/10 px-4 py-3 text-sm font-semibold text-[#E6C18C] transition hover:bg-[#D6A66A]/15"
+                  className="mt-5 flex items-center justify-center gap-2 rounded-2xl border border-[#D6A66A]/35 bg-[#FBF3E8] px-4 py-3 text-sm font-semibold text-[#6B4C2E] transition hover:bg-[#F4E7D5]"
                 >
                   <ImagePlus size={17} />
                   {selectedAsset ? "Open Creative Studio" : "Create recommended campaign art"}
@@ -746,10 +747,13 @@ export default function CampaignBuilderPage() {
                 </div>
                 <div className="rounded-2xl border border-black/[0.08] bg-white p-3">
                   {selectedAsset?.preview_url ? (
-                    <img
+                    <Image
                       src={selectedAsset.preview_url}
-                      alt={selectedAsset.name}
-                      className="mx-auto max-h-[360px] rounded-xl object-contain"
+                      alt={selectedAsset.name || "Selected campaign creative"}
+                      width={1200}
+                      height={800}
+                      unoptimized
+                      className="mx-auto max-h-[360px] w-auto rounded-xl object-contain"
                     />
                   ) : (
                     <div className="flex min-h-44 items-center justify-center text-sm text-[#A19A92]">
@@ -783,10 +787,10 @@ export default function CampaignBuilderPage() {
 
             {preflightCurrent ? (
               <div className="mt-5 rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-5">
-                <div className="flex items-center gap-2 text-sm font-medium text-emerald-100">
+                <div className="flex items-center gap-2 text-sm font-medium text-emerald-800">
                   <CheckCircle2 size={17} /> Provider preflight passed
                 </div>
-                <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-emerald-50/75">
+                <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-emerald-800/80">
                   <input
                     type="checkbox"
                     className="mt-1"

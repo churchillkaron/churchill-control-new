@@ -4,10 +4,11 @@ import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../lib/code/runtime/CodeAIWorkPackageRuntimeLive.js", import.meta.url), "utf8");
 
-test("planner carries pre-edit inspection from prompt transport into structured specification", () => {
-  assert.match(source, /effectiveRepairState,\n\s+preEditInspection,\n\s+prompt:/);
-  assert.match(source, /effectiveRepairState,\n\s+preEditInspection,\n\s+prompt,\n\s+} = promptTransport/);
+test("planner carries mutation policy and pre-edit inspection from prompt transport into structured specification", () => {
+  assert.match(source, /effectiveRepairState,\n\s+mutationAllowedThisCall,\n\s+preEditInspection,\n\s+prompt:/);
+  assert.match(source, /effectiveRepairState,\n\s+mutationAllowedThisCall,\n\s+preEditInspection,\n\s+prompt,\n\s+} = promptTransport/);
   assert.match(source, /pre_edit_inspection_contract: preEditInspection\.contract/);
+  assert.match(source, /mutationAllowedThisCall === true/);
 });
 
 test("planning failure publishes a failed state instead of stale running state", () => {

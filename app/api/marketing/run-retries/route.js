@@ -2,55 +2,23 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  "http://localhost:3000";
+function retired() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: "LEGACY_MARKETING_RUN_RETRIES_RETIRED",
+        message: "Legacy Marketing retry runner is retired. Use governed retry controls.",
+      },
+    },
+    { status: 410 },
+  );
+}
 
 export async function GET() {
+  return retired();
+}
 
-  try {
-
-    if (process.env.NODE_ENV !== "production") console.log(
-      "RUN RETRIES START"
-    );
-
-    const response =
-      await fetch(
-        `${BASE_URL}/api/marketing/retry-failed`,
-        {
-          method: "POST",
-        }
-      );
-
-    const data =
-      await response.json();
-
-    if (process.env.NODE_ENV !== "production") console.log(
-      "RUN RETRIES RESULT:",
-      data
-    );
-
-    return NextResponse.json({
-      success: true,
-      result: data,
-    });
-
-  } catch (error) {
-
-    console.error(
-      "RUN RETRIES ERROR:",
-      error
-    );
-
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error.message,
-      },
-      { status: 500 }
-    );
-
-  }
-
+export async function POST() {
+  return retired();
 }

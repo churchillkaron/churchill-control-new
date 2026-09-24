@@ -1,74 +1,28 @@
 export const dynamic = "force-dynamic";
 
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
+import { NextResponse } from "next/server";
 
-export async function POST(req) {
-
-  const supabase =
-    supabaseAdmin;
-
-  try {
-
-    const {
-      image,
-      caption,
-      hashtags,
-      platform,
-    } = await req.json();
-
-    const {
-      data,
-      error,
-    } = await supabase
-
-      .from(
-        "marketing_campaigns"
-      )
-
-      .insert([
-        {
-          image,
-          caption,
-          hashtags,
-          platform,
-          status: "draft",
-        },
-      ])
-
-      .select()
-
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return Response.json({
-
-      success: true,
-
-      data,
-
-    });
-
-  } catch (err) {
-
-    console.error(err);
-
-    return Response.json(
-
-      {
-        error:
-          "Failed to save campaign",
+function retired() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: "LEGACY_MARKETING_SCHEDULE_RETIRED",
+        message: "Legacy Marketing scheduling is retired. Use Campaigns and governed publishing workflows.",
       },
+    },
+    { status: 410 },
+  );
+}
 
-      {
-        status: 500,
-      }
+export async function GET() {
+  return retired();
+}
 
-    );
+export async function POST() {
+  return retired();
+}
 
-  }
-
+export async function DELETE() {
+  return retired();
 }

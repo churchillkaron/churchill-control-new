@@ -69,7 +69,7 @@ export default function Dashboard() {
 
         {loading ? <div className="text-[#746E66]">Loading campaigns…</div> : null}
         {error ? (
-          <div className="rounded-2xl border border-red-400/25 bg-red-400/10 p-4 text-red-200">
+          <div className="rounded-2xl border border-red-700/15 bg-red-50 p-4 text-red-800">
             {error}
           </div>
         ) : null}
@@ -93,7 +93,7 @@ export default function Dashboard() {
                   </div>
                   <h2 className="mt-2 text-xl font-medium">{campaign.campaign_name}</h2>
                 </div>
-                <span className="rounded-full border border-[#D6A66A]/30 px-3 py-1 text-xs text-[#E6C18C]">
+                <span className="rounded-full border border-[#D6A66A]/30 bg-[#FBF3E8] px-3 py-1 text-xs font-medium text-[#6B4C2E]">
                   {campaign.status}
                 </span>
               </div>

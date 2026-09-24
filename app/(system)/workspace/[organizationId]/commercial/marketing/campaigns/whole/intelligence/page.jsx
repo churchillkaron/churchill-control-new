@@ -127,7 +127,7 @@ export default function AdsIntelligencePage() {
         </div>
 
         {error ? (
-          <div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-red-200">
+          <div className="mt-6 rounded-2xl border border-red-700/15 bg-red-50 p-4 text-red-800">
             {error}
           </div>
         ) : null}

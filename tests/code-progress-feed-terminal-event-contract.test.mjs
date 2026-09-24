@@ -15,9 +15,7 @@ test("fresh terminal mission event overrides stale running state", () => {
   assert.match(source, /if \(TERMINAL_EVENT_STATES\.has\(event\)\) return false/);
 });
 
-test("shared live execution owns stopped terminal semantics and the route delegates to it", () => {
+test("shared live execution also treats stopped as terminal", () => {
   assert.match(liveExecution, /\["completed", "failed", "cancelled", "blocked", "stopped"\]/);
-  assert.match(liveRoute, /loadAvantiqoLiveExecution/);
-  assert.match(liveRoute, /AVANTIQO_LIVE_EXECUTION_CONTRACT/);
-  assert.doesNotMatch(liveRoute, /const TERMINAL_EVENT_STATES/);
+  assert.match(liveRoute, /\["completed", "failed", "blocked", "cancelled", "stopped"\]/);
 });

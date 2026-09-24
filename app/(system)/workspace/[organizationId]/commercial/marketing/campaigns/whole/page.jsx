@@ -105,7 +105,7 @@ export default function WholeCampaignPage() {
 
       if (!response.ok || !payload?.success) {
         throw new Error(
-          payload?.message || payload?.error || "Unable to load whole campaigns",
+          payload?.message || payload?.error || "Unable to load multi-organization campaigns",
         );
       }
 
@@ -117,7 +117,7 @@ export default function WholeCampaignPage() {
           : rows[0]?.id || null,
       );
     } catch (loadError) {
-      setError(loadError.message || "Unable to load whole campaigns");
+      setError(loadError.message || "Unable to load multi-organization campaigns");
     } finally {
       if (!quiet) setLoading(false);
     }
@@ -131,7 +131,7 @@ export default function WholeCampaignPage() {
     return (
       <main className="min-h-screen bg-[#F7F6F3] p-8 text-[#2D2822]">
         <div className="mx-auto max-w-[1500px] text-[#675F57]">
-          Loading whole campaign...
+          Loading multi-organization campaigns...
         </div>
       </main>
     );
@@ -145,9 +145,9 @@ export default function WholeCampaignPage() {
             <div className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">
               Multi-Organization Marketing
             </div>
-            <h1 className="mt-3 text-5xl font-light lg:text-6xl">Whole Campaign</h1>
+            <h1 className="mt-3 text-5xl font-light lg:text-6xl">Multi-Organization Campaign</h1>
             <p className="mt-4 max-w-3xl text-[#71685F]">
-              One master initiative with separate organization copy, creative, channels and execution controls. Every image stays attached to the correct organization and campaign.
+              Coordinate one initiative across multiple organizations while keeping each organization’s audience, creative, channels, currency, publishing identities and execution authority isolated.
             </p>
           </div>
 
@@ -160,7 +160,7 @@ export default function WholeCampaignPage() {
         </div>
 
         {error ? (
-          <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-red-200">
+          <div className="mb-6 rounded-2xl border border-red-700/15 bg-red-50 px-5 py-4 text-red-800">
             {error}
           </div>
         ) : null}
@@ -168,9 +168,9 @@ export default function WholeCampaignPage() {
         {!groups.length ? (
           <div className="rounded-[32px] border border-black/[0.08] bg-white p-12 text-center">
             <Megaphone className="mx-auto h-9 w-9 text-[#D6A66A]" />
-            <h2 className="mt-5 text-2xl font-light">No whole campaigns yet</h2>
+            <h2 className="mt-5 text-2xl font-light">No multi-organization campaigns yet</h2>
             <p className="mt-2 text-[#7B7168]">
-              Create a master campaign when one initiative needs to coordinate several organizations.
+              Use this only when one initiative needs to coordinate two or more organizations. Single-organization customers stay in the standard Campaign workspace.
             </p>
           </div>
         ) : (

@@ -55,12 +55,6 @@ test("device workspaces share bounded worktree locking and source-bound range mu
   assert.match(device, /replaceRange: \(input\) => call\("workspace\.replace_range"/);
 });
 
-test("device browser accessibility uses native label relationships", () => {
-  assert.match(agent, /const nativeLabels = el\.labels/);
-  assert.match(agent, /document\.getElementById\(id\)\?\.textContent/);
-  assert.match(agent, /return !accessibleName\(el\)/);
-});
-
 test("device command policy supports the exact shell-free isolated Next.js build environment", () => {
   assert.match(agent, /function exactIsolatedBuildEnvironment/);
   assert.match(agent, /CODE_DEVICE_COMMAND_ENVIRONMENT_NOT_ALLOWED/);

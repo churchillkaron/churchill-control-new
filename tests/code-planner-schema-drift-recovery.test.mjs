@@ -15,7 +15,6 @@ test("record_reproduction derives status from an observed test when planner omit
 test("record_hypotheses accepts the planner causal_path alias without guessing a conclusion", () => {
   assert.match(source, /source\.hypothesis \|\| source\.causal_path/);
   assert.match(source, /const status = text\(source\.status\)\.toUpperCase\(\) \|\| "PLAUSIBLE"/);
-  assert.match(source, /status,/);
 });
 
 

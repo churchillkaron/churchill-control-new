@@ -205,7 +205,8 @@ test("Google Ads campaign UI persists canonical Search execution configuration",
   assert.match(component, /Broad match/);
   assert.match(component, /Negative keywords/);
   assert.match(component, /Responsive Search Ad/);
-  assert.match(component, /Google Ads campaign check/);
+  assert.match(component, /Ready for final provider preflight/);
+  assert.match(component, /ProviderReviewStatus/);
 });
 
 test("Google Ads translator preserves keyword match types and negative keywords", () => {
@@ -371,7 +372,7 @@ test("Meta creative assets stay separate from channel connection assets and are 
 });
 
 test("Meta review and readiness are organization-specific for multi-organization campaigns", () => {
-  assert.match(component, /Meta campaign check · \{organization\?\.name/);
+  assert.match(component, /ProviderReviewStatus issues=\{issues\} providerName="Meta Ads"/);
   assert.match(component, /mergedChannelSettings\("meta_ads", organizationId\)/);
   assert.match(component, /organizationReadiness\?\.creative_assets/);
 });
@@ -1233,7 +1234,7 @@ test("Meta Ads uses exact organization Page and linked Instagram identity assets
   assert.match(route, /Selected Instagram identity is not linked to the selected Facebook Page/);
   assert.match(runtime, /resolveChannelIdentityAsset/);
   assert.match(runtime, /\.eq\("organization_id", organizationId\)/);
-  assert.match(runtime, /\.eq\("channel_provider", "meta"\)/);
+  assert.match(runtime, /\.eq\("channel_provider", provider\)/);
   assert.match(runtime, /\.eq\("asset_type", assetType\)/);
   assert.match(runtime, /pageIdentity\.external_id/);
   assert.match(runtime, /instagramIdentity\?\.external_id/);
@@ -1374,4 +1375,37 @@ test("active Channel editor explains readiness before provider-specific settings
   assert.match(component, /Strategy planning only/);
   assert.match(component, /Open setup/);
   assert.match(component, /<ChannelReadinessNotice channel=\{activeSettingsChannel\}/);
+});
+
+test("Click-to-WhatsApp Meta Ads uses an exact organization WhatsApp phone-number asset", () => {
+  const runtime = fs.readFileSync("lib/marketing/services/MetaAdsRuntime.js", "utf8");
+  const adapter = fs.readFileSync("lib/marketing/campaigns/adapters/MetaCampaignAdapter.js", "utf8");
+  assert.match(component, /WhatsApp destination · required/);
+  assert.match(component, /Select organization WhatsApp number/);
+  assert.match(route, /whatsappAssetId: \[\["whatsapp", "whatsapp_phone_number"\]\]/);
+  assert.match(route, /whatsapp_asset_id: text\(settings\.whatsappAssetId\)/);
+  assert.match(route, /Selected WhatsApp destination is not valid for this organization/);
+  assert.match(runtime, /assetType: "whatsapp_phone_number", provider: "whatsapp"/);
+  assert.match(runtime, /const whatsappDestination = whatsappIdentity\?\.external_id \|\| null/);
+  assert.match(runtime, /required\(whatsappAssetId, "Exact organization WhatsApp phone-number asset"\)/);
+  assert.match(adapter, /whatsapp_asset_id: translated\.whatsappAssetId/);
+});
+
+test("Meta translator blocks WhatsApp destination without exact WhatsApp identity", () => {
+  const plan = {
+    name: "WhatsApp identity contract",
+    audience: { included_locations: [{ type: "country", country_code: "TH" }], age_min: 18, age_max: 65, genders: [], languages: [], interests: [], behaviors: [], keywords: [], negative_keywords: [], custom_audience_ids: [], excluded_audience_ids: [], lookalike_audience_ids: [] },
+    budget: { amount: 1000, currency: "THB", mode: "lifetime", bid_strategy: "lowest_cost" },
+    schedule: { start_time: "2026-09-24T17:00:00.000Z", end_time: "2026-09-25T16:59:59.000Z", timezone: "Asia/Bangkok" },
+    creative: { asset_ids: ["asset-1"], exact_asset_required: true, primary_text: "Message us", headline: "WhatsApp", description: "Chat now", call_to_action: "WHATSAPP_MESSAGE" },
+  };
+  assert.throws(() => translateMetaCampaignPlan({
+    plan,
+    channel: { networks: ["facebook"], destination: "WHATSAPP", optimization_goal: "CONVERSATIONS", provider_settings: { page_asset_id: "page-1" } },
+  }), (error) => error?.code === "META_WHATSAPP_IDENTITY_REQUIRED");
+  const translated = translateMetaCampaignPlan({
+    plan,
+    channel: { networks: ["facebook"], destination: "WHATSAPP", optimization_goal: "CONVERSATIONS", provider_settings: { page_asset_id: "page-1", whatsapp_asset_id: "wa-1" } },
+  });
+  assert.equal(translated.whatsappAssetId, "wa-1");
 });

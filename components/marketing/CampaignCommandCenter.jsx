@@ -346,7 +346,14 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
     }
   }
 
-  const createSteps = ["Basics", "Audience & Creative", "Channels", "Budget & Schedule", "Review"];
+  const createSteps = ["Campaign", "Strategy", "Channels", "Budget", "Review"];
+  const createStepDescriptions = [
+    "Name the campaign and define the business outcome, offer and primary call to action.",
+    "Set the message, market, audience approach, creative direction and success measures.",
+    "Choose channels, connect exact organization assets and configure provider-specific execution settings.",
+    "Set campaign timing and monetary limits. Creating the draft still does not authorize provider spend.",
+    "Confirm the campaign, channel readiness and exact execution evidence before creating the draft plan.",
+  ];
   const multiOrganization = selectedOrganizations.length > 1;
   const activeConfigurationOrganizationId = multiOrganization
     ? configurationOrganizationId || selectedOrganizations[0] || ownerOrganizationId
@@ -502,6 +509,11 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                   })}
                 </div>
 
+                <div className="mb-6 rounded-2xl border border-black/[0.06] bg-[#FCFBF8] px-4 py-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#A37849]">{createSteps[createStep]}</div>
+                  <div className="mt-1 text-xs leading-relaxed text-[#817B73]">{createStepDescriptions[createStep]}</div>
+                </div>
+
                 {createStep === 0 ? (
                   <div className="space-y-6">
                     {allowMultiOrganization && organizations.length > 1 ? (
@@ -652,7 +664,8 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                             }).filter(Boolean);
                             const readyCount = states.filter((item) => item.state.ready).length;
                             const plannedOnlyCount = states.filter((item) => item.state.label === "Planned only").length;
-                            const setupCount = states.length - readyCount - plannedOnlyCount;
+                            const setupStates = states.filter((item) => !item.state.ready && item.state.label !== "Planned only");
+                            const setupCount = setupStates.length;
                             return (
                               <div key={organizationId} className="rounded-2xl border border-black/[0.06] bg-[#FCFBF8] p-4">
                                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -664,7 +677,25 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                                   </div>
                                 </div>
                                 {setupCount ? (
-                                  <div className="mt-2 text-[10px] leading-relaxed text-[#817B73]">Setup needed: {states.filter((item) => !item.state.ready && item.state.label !== "Planned only").map((item) => item.channel.name).join(", ")}</div>
+                                  <details className="group mt-3 rounded-xl border border-[#E3D0B8] bg-[#FFF8EC]">
+                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] font-semibold text-[#7A5A36] [&::-webkit-details-marker]:hidden">
+                                      <span>Why setup is needed · {setupStates.map((item) => item.channel.name).join(", ")}</span>
+                                      <span className="text-[9px] font-medium group-open:hidden">Show</span>
+                                      <span className="hidden text-[9px] font-medium group-open:inline">Hide</span>
+                                    </summary>
+                                    <div className="space-y-3 border-t border-[#E3D0B8] px-3 py-3">
+                                      {setupStates.map(({ channel, state }) => {
+                                        const blockers = [...new Set(state.blockers || [])].filter(Boolean);
+                                        return (
+                                          <div key={channel.id}>
+                                            <div className="text-[10px] font-semibold text-[#5E4935]">{channel.name}</div>
+                                            {blockers.length ? <ul className="mt-1 list-disc space-y-1 pl-4 text-[10px] leading-relaxed text-[#7A5A36]">{blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : <div className="mt-1 text-[10px] leading-relaxed text-[#7A5A36]">{state.detail || "Additional channel setup is required before execution."}</div>}
+                                          </div>
+                                        );
+                                      })}
+                                      <a href={`/workspace/${organizationId}/administration/communications-setup?onboarding=1`} className="inline-flex rounded-full border border-[#D8B78D] bg-white px-3 py-1.5 text-[10px] font-semibold text-[#7A5735] hover:bg-[#FBF4EA]">Open channel setup</a>
+                                    </div>
+                                  </details>
                                 ) : null}
                               </div>
                             );
@@ -704,7 +735,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                           });
                           return (
                             <div key={organizationId} className={`rounded-2xl border px-4 py-3 text-sm ${issues.length ? "border-[#DDBA8B] bg-[#FFF8EC] text-[#7A5A36]" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
-                              <div className="font-semibold">Meta provider readiness · {organization?.name || "Organization"}</div>
+                              <div className="font-semibold">Meta campaign check · {organization?.name || "Organization"}</div>
                               {issues.length ? (
                                 <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
                               ) : (
@@ -745,7 +776,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                           });
                           return (
                             <div key={organizationId} className={`rounded-2xl border px-4 py-3 text-sm ${issues.length ? "border-[#DDBA8B] bg-[#FFF8EC] text-[#7A5A36]" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
-                              <div className="font-semibold">Google Ads provider readiness · {organization?.name || "Organization"}</div>
+                              <div className="font-semibold">Google Ads campaign check · {organization?.name || "Organization"}</div>
                               {issues.length ? (
                                 <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
                               ) : (
@@ -785,7 +816,7 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                                 />
                                 <div className={`rounded-2xl border px-4 py-3 text-sm ${issues.length ? "border-[#DDBA8B] bg-[#FFF8EC] text-[#7A5A36]" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
                                   <div className="font-semibold">{channel?.name || channelId} campaign check · {organization?.name || "Organization"}</div>
-                                  {issues.length ? <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <div className="mt-1 text-xs">Account, provider route and content are ready for no-publish preflight. Explicit owner approval is still required before publishing.</div>}
+                                  {issues.length ? <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <div className="mt-1 text-xs">Account, content and channel setup are ready for the final connection check. Explicit owner approval is still required before publishing.</div>}
                                 </div>
                               </div>
                             );
@@ -1069,7 +1100,8 @@ function metaSettingsIssues(settings = {}, { startDate = "", endDate = "", budge
   const includedRegions = splitList(settings.includedRegionIds);
   const includedCities = splitList(settings.includedCityIds);
   const includedPostal = splitList(settings.includedPostalIds);
-  const hasRadius = Boolean(settings.radiusLatitude && settings.radiusLongitude && settings.radius);
+  const radiusFieldsPresent = [settings.radiusLatitude, settings.radiusLongitude, settings.radius].some((value) => String(value ?? "").trim() !== "");
+  const hasRadius = [settings.radiusLatitude, settings.radiusLongitude, settings.radius].every((value) => String(value ?? "").trim() !== "");
   const selectedAsset = creativeAssets.find((asset) => asset.id === (settings.creativeAssetId || settings.assetId));
 
   if (ageMin < 18 || ageMax < ageMin) issues.push("Use a valid Meta age range starting at 18.");
@@ -1082,6 +1114,15 @@ function metaSettingsIssues(settings = {}, { startDate = "", endDate = "", budge
   if (networks.includes("instagram")) {
     if (!instagramAsset) issues.push("Select the exact linked Instagram professional account for Instagram delivery.");
     else if (pageAsset && String(instagramAsset.metadata?.facebook_page_id || "") !== String(pageAsset.external_id || "")) issues.push("The selected Instagram account is not linked to the selected Facebook Page.");
+  }
+  if (radiusFieldsPresent && !hasRadius) issues.push("Radius targeting requires latitude, longitude and a positive radius.");
+  if (hasRadius) {
+    const latitude = Number(settings.radiusLatitude);
+    const longitude = Number(settings.radiusLongitude);
+    const radius = Number(settings.radius);
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) issues.push("Radius latitude must be between -90 and 90.");
+    if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) issues.push("Radius longitude must be between -180 and 180.");
+    if (!Number.isFinite(radius) || radius <= 0) issues.push("Radius must be a positive number.");
   }
   if (!includedCountries.length && !includedRegions.length && !includedCities.length && !includedPostal.length && !hasRadius) issues.push("Add at least one executable included location.");
   if (String(settings.destination || "ENGAGEMENT").toUpperCase() === "WEBSITE" && !String(settings.destinationUrl || "").trim()) issues.push("Website campaigns require a destination URL.");
@@ -1112,6 +1153,9 @@ function metaSettingsIssues(settings = {}, { startDate = "", endDate = "", budge
   } else if (budgetMode !== "lifetime") {
     issues.push("Meta budget mode must be Lifetime or Daily.");
   }
+  const bidStrategy = String(settings.bidStrategy || "lowest_cost").toLowerCase();
+  if (bidStrategy === "bid_cap" && !(Number(settings.bidCap || 0) > 0)) issues.push("Meta Bid Cap strategy requires a positive bid cap.");
+  if (bidStrategy === "cost_cap" && !(Number(settings.costCap || 0) > 0)) issues.push("Meta Cost Cap strategy requires a positive cost cap.");
   if (splitList(settings.specialAdCategories).length) issues.push("Special Ad Category campaigns remain draft-only until Avantiqo special-ad compliance certification is active for the organization and market.");
   if (!String(settings.primaryText || "").trim()) issues.push("Meta creative requires primary text.");
   if (!selectedAsset) issues.push("Select one exact approved image creative asset.");
@@ -1309,6 +1353,7 @@ function ChannelPicker({ selected = [], readiness, organizationId, onToggle, set
             })}
           </div>
           <div className="mt-3">
+            <ChannelReadinessNotice channel={activeSettingsChannel} state={stateFor(activeSettingsChannel)} organizationId={organizationId} />
             <ChannelSettings
               key={`${activeSettingsChannel.id}-settings`}
               channel={activeSettingsChannel}
@@ -1334,6 +1379,42 @@ function ChannelPicker({ selected = [], readiness, organizationId, onToggle, set
         <div className="mt-6 rounded-2xl border border-dashed border-[#D8C2A8] bg-[#FCFBF8] px-5 py-6 text-center text-xs text-[#817B73]">Choose one or more channels above to configure them.</div>
       )}
       <a href={`/workspace/${organizationId}/administration/communications-setup?onboarding=1`} className="mt-4 inline-flex text-[10px] font-semibold text-[#8A633C] hover:underline">Manage channel connections →</a>
+    </div>
+  );
+}
+
+function ChannelReadinessNotice({ channel, state, organizationId }) {
+  const blockers = [...new Set(state?.blockers || [])].filter(Boolean);
+  if (state?.ready) {
+    return (
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-700/15 bg-emerald-50 px-4 py-3">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">Ready for governed preflight</div>
+          <div className="mt-1 text-xs text-emerald-800">{channel?.name} is connected and its current execution route is available for this organization.</div>
+        </div>
+        <Check className="h-4 w-4 text-emerald-700" />
+      </div>
+    );
+  }
+  if (state?.label === "Planned only") {
+    return (
+      <div className="mb-4 rounded-2xl border border-black/[0.07] bg-[#F7F6F3] px-4 py-3">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7B7168]">Strategy planning only</div>
+        <div className="mt-1 text-xs leading-relaxed text-[#6F675F]">{state?.detail || `${channel?.name || "This channel"} does not have an active campaign execution adapter yet.`}</div>
+        {blockers.length ? <ul className="mt-2 list-disc space-y-1 pl-5 text-[10px] leading-relaxed text-[#817B73]">{blockers.slice(0, 4).map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : null}
+      </div>
+    );
+  }
+  return (
+    <div className="mb-4 rounded-2xl border border-[#DDBA8B] bg-[#FFF8EC] px-4 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7A5A36]">Setup required before execution</div>
+          <div className="mt-1 text-xs leading-relaxed text-[#7A5A36]">{state?.detail || `${channel?.name || "This channel"} needs additional organization setup.`}</div>
+          {blockers.length ? <ul className="mt-2 list-disc space-y-1 pl-5 text-[10px] leading-relaxed text-[#7A5A36]">{blockers.slice(0, 4).map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : null}
+        </div>
+        <a href={`/workspace/${organizationId}/administration/communications-setup?onboarding=1`} className="shrink-0 rounded-full border border-[#D8B78D] bg-white px-3 py-1.5 text-[10px] font-semibold text-[#7A5735] hover:bg-[#FBF4EA]">Open setup</a>
+      </div>
     </div>
   );
 }
@@ -2129,14 +2210,17 @@ function GoogleAdsSettings({ state, organizationId, assets = [], walletCurrency 
             {executableAssets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}{asset.metadata?.currency_code ? ` · ${asset.metadata.currency_code}` : ""}{asset.metadata?.time_zone ? ` · ${asset.metadata.time_zone}` : ""}</option>)}
           </select>
         </label>
-        <MetaInput label="Ad group name" value={value.adGroupName || ""} onChange={(v) => onChange("adGroupName", v)} helper="Optional; Avantiqo generates one if empty" />
-        <div className="md:col-span-2"><ToggleField label="Include Google Search Partners" checked={value.searchPartners === true} onChange={(next) => onChange("searchPartners", next)} /></div>
         <MiniState label="Organization timezone" value={organizationTimezone || "Not configured"} />
         <MiniState label="Account timezone" value={selectedAccount?.metadata?.time_zone || "Select account"} />
         <MetaInput label="Google Ads authorized budget" type="number" value={value.authorizedBudget || ""} onChange={(v) => onChange("authorizedBudget", v)} helper="Required when the Campaign Budget is split across multiple paid providers" />
         <MetaInput label="Daily budget" type="number" value={value.dailyBudget || ""} onChange={(v) => onChange("dailyBudget", v)} helper="Optional; otherwise calculated from authorized provider budget and dates" />
-        <MiniState label="Manager hierarchy" value={selectedAccount?.metadata?.login_customer_id ? `Managed via ${selectedAccount.metadata.login_customer_id}` : "Direct advertiser account"} />
       </MetaSection>
+
+      <AdvancedSettingsSection title="Advanced Google controls" summary="Ad-group naming, Search Partners and manager hierarchy">
+        <MetaInput label="Ad group name" value={value.adGroupName || ""} onChange={(v) => onChange("adGroupName", v)} helper="Optional; Avantiqo generates one if empty" />
+        <div className="md:col-span-2"><ToggleField label="Include Google Search Partners" checked={value.searchPartners === true} onChange={(next) => onChange("searchPartners", next)} /></div>
+        <MiniState label="Manager hierarchy" value={selectedAccount?.metadata?.login_customer_id ? `Managed via ${selectedAccount.metadata.login_customer_id}` : "Direct advertiser account"} />
+      </AdvancedSettingsSection>
 
       <MetaSection title="Targeting">
         <div className="md:col-span-2">
@@ -2184,13 +2268,13 @@ function GoogleAdsSettings({ state, organizationId, assets = [], walletCurrency 
         <div className="md:col-span-2"><MetaInput label="Landing page" value={value.landingPage || ""} onChange={(v) => onChange("landingPage", v)} helper="HTTP or HTTPS destination URL" /></div>
       </MetaSection>
 
-      <MetaSection title="Tracking">
+      <AdvancedSettingsSection title="Tracking" summary="Optional UTM attribution parameters">
         <MetaInput label="UTM source" value={value.utmSource || ""} onChange={(v) => onChange("utmSource", v)} helper="Example: google" />
         <MetaInput label="UTM medium" value={value.utmMedium || ""} onChange={(v) => onChange("utmMedium", v)} helper="Example: cpc" />
         <MetaInput label="UTM campaign" value={value.utmCampaign || ""} onChange={(v) => onChange("utmCampaign", v)} />
         <MetaInput label="UTM term" value={value.utmTerm || ""} onChange={(v) => onChange("utmTerm", v)} />
         <MetaInput label="UTM content" value={value.utmContent || ""} onChange={(v) => onChange("utmContent", v)} />
-      </MetaSection>
+      </AdvancedSettingsSection>
 
       <div className="mt-4 rounded-2xl border border-[#DDBA8B] bg-[#FFF8EC] p-4 text-xs leading-relaxed text-[#7A5A36]">
         Google Search execution is paused-first. The spending account must be mapped to an Avantiqo entity and its currency must match the organization wallet.
@@ -2350,6 +2434,15 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
   const billingOptions = selectedOptimization === "LINK_CLICKS"
     ? [["IMPRESSIONS", "Impressions"], ["LINK_CLICKS", "Link clicks"]]
     : [["IMPRESSIONS", "Impressions"]];
+  const advancedDeliveryIssueCount = (!selectedNetworks.includes("facebook") && splitList(value.facebookPositions).length ? 1 : 0) + (!selectedNetworks.includes("instagram") && splitList(value.instagramPositions).length ? 1 : 0) + (selectedSpecial.length ? 1 : 0);
+  const radiusValues = [value.radiusLatitude, value.radiusLongitude, value.radius];
+  const radiusFieldsPresent = radiusValues.some((item) => String(item ?? "").trim() !== "");
+  const completeRadius = radiusValues.every((item) => String(item ?? "").trim() !== "");
+  const radiusLatitude = Number(value.radiusLatitude);
+  const radiusLongitude = Number(value.radiusLongitude);
+  const radiusDistance = Number(value.radius);
+  const advancedAudienceIssueCount = (radiusFieldsPresent && !completeRadius ? 1 : 0) + (completeRadius && (!Number.isFinite(radiusLatitude) || radiusLatitude < -90 || radiusLatitude > 90) ? 1 : 0) + (completeRadius && (!Number.isFinite(radiusLongitude) || radiusLongitude < -180 || radiusLongitude > 180) ? 1 : 0) + (completeRadius && (!Number.isFinite(radiusDistance) || radiusDistance <= 0) ? 1 : 0);
+  const advancedBiddingIssueCount = (String(value.bidStrategy || "lowest_cost").toLowerCase() === "bid_cap" && !(Number(value.bidCap || 0) > 0) ? 1 : 0) + (String(value.bidStrategy || "lowest_cost").toLowerCase() === "cost_cap" && !(Number(value.costCap || 0) > 0) ? 1 : 0);
 
   return (
     <div className="rounded-[24px] border border-[#D8C2A8] bg-[#FFFDF9] p-5">
@@ -2392,6 +2485,9 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
         <div className="md:col-span-2">
           <MetaChoice label="Delivery networks" options={networks} selected={selectedNetworks} onToggle={(item) => toggleList("networks", item)} />
         </div>
+      </MetaSection>
+
+      <AdvancedSettingsSection title="Advanced delivery controls" summary="Manual placements, device overrides and Special Ad Categories" attentionCount={advancedDeliveryIssueCount}>
         {selectedNetworks.includes("facebook") ? (
           <div className="md:col-span-2">
             <MetaChoice label="Facebook placements" options={["feed","story","facebook_reels","marketplace","video_feeds","right_hand_column","search"]} selected={splitList(value.facebookPositions)} onToggle={(item) => toggleList("facebookPositions", item)} allowEmpty emptyLabel="Automatic" />
@@ -2413,7 +2509,7 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
             Draft planning is allowed, but provider preflight remains blocked until Avantiqo has certified the special-ad compliance requirements for this organization and market. This avoids pretending that a category flag alone satisfies Meta policy or jurisdiction-specific requirements.
           </div>
         ) : null}
-      </MetaSection>
+      </AdvancedSettingsSection>
 
       <MetaSection title="Audience">
         <MetaInput label="Age minimum" type="number" value={value.ageMin || "18"} onChange={(v) => onChange("ageMin", v)} />
@@ -2421,6 +2517,9 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
         <div className="md:col-span-2"><MetaChoice label="Gender" options={["male","female"]} selected={selectedGenders} onToggle={(item) => toggleList("genders", item)} allowEmpty emptyLabel="All" /></div>
         <div className="md:col-span-2"><MetaLocationLookup label="Included locations" organizationId={organizationId} value={value} prefix="included" onChange={onChange} /></div>
         <div className="md:col-span-2"><MetaLocationLookup label="Excluded locations" organizationId={organizationId} value={value} prefix="excluded" onChange={onChange} /></div>
+      </MetaSection>
+
+      <AdvancedSettingsSection title="Advanced audience" summary="Radius targeting, locales, interests, behaviours and custom audiences" attentionCount={advancedAudienceIssueCount}>
         <MetaInput label="Radius latitude" type="number" value={value.radiusLatitude || ""} onChange={(v) => onChange("radiusLatitude", v)} />
         <MetaInput label="Radius longitude" type="number" value={value.radiusLongitude || ""} onChange={(v) => onChange("radiusLongitude", v)} />
         <MetaInput label="Radius" type="number" value={value.radius || ""} onChange={(v) => onChange("radius", v)} />
@@ -2431,16 +2530,19 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
         <MetaTargetLookup label="Custom audiences" organizationId={organizationId} lookupType="custom_audience" value={value.customAudienceIds || ""} onChange={(v) => onChange("customAudienceIds", v)} />
         <MetaTargetLookup label="Excluded audiences" organizationId={organizationId} lookupType="custom_audience" value={value.excludedAudienceIds || ""} onChange={(v) => onChange("excludedAudienceIds", v)} />
         <MetaTargetLookup label="Lookalike audiences" organizationId={organizationId} lookupType="custom_audience" value={value.lookalikeAudienceIds || ""} onChange={(v) => onChange("lookalikeAudienceIds", v)} />
-      </MetaSection>
+      </AdvancedSettingsSection>
 
       <MetaSection title="Budget & Optimization">
         <MetaInput label="Meta authorized budget" type="number" value={value.authorizedBudget || ""} onChange={(v) => onChange("authorizedBudget", v)} helper="Required when the Campaign Budget is split across multiple paid providers" />
         <MetaSelect label="Budget delivery" value={value.budgetMode || "lifetime"} onChange={(v) => onChange("budgetMode", v)} options={[["lifetime","Lifetime budget"],["daily","Daily budget"]]} />
         {String(value.budgetMode || "lifetime").toLowerCase() === "daily" ? <MetaInput label="Daily budget" type="number" value={value.dailyBudget || ""} onChange={(v) => onChange("dailyBudget", v)} helper="Daily amount must remain within the total authorized Meta budget across the campaign period" /> : <div className="rounded-xl border border-black/[0.06] bg-[#FCFBF8] px-3 py-3 text-[10px] leading-relaxed text-[#817B73]">Lifetime budget uses the full authorized Meta allocation across the campaign schedule.</div>}
+      </MetaSection>
+
+      <AdvancedSettingsSection title="Advanced bidding" summary="Optional bid strategy and cap controls" attentionCount={advancedBiddingIssueCount}>
         <MetaSelect label="Bid strategy" value={value.bidStrategy || "lowest_cost"} onChange={(v) => onChange("bidStrategy", v)} options={[["lowest_cost","Lowest cost"],["bid_cap","Bid cap"],["cost_cap","Cost cap"]]} />
         <MetaInput label="Bid cap" type="number" value={value.bidCap || ""} onChange={(v) => onChange("bidCap", v)} />
         <MetaInput label="Cost cap" type="number" value={value.costCap || ""} onChange={(v) => onChange("costCap", v)} />
-      </MetaSection>
+      </AdvancedSettingsSection>
 
       {String(value.destination || "ENGAGEMENT").toUpperCase() === "WEBSITE" ? (
         <MetaSection title="Conversion">
@@ -2480,11 +2582,14 @@ function MetaAdsSettings({ channel, catalog, state, organizationId, assets = [],
         <MetaInput label="Headline" value={value.headline || ""} onChange={(v) => onChange("headline", v)} />
         <MetaInput label="Description" value={value.description || ""} onChange={(v) => onChange("description", v)} />
         <div className="md:col-span-2"><MetaInput label="Destination URL" value={value.destinationUrl || ""} onChange={(v) => onChange("destinationUrl", v)} helper="Required for website campaigns" /></div>
+      </MetaSection>
+
+      <AdvancedSettingsSection title="Tracking" summary="Optional UTM attribution parameters">
         <MetaInput label="UTM source" value={value.utmSource || ""} onChange={(v) => onChange("utmSource", v)} />
         <MetaInput label="UTM medium" value={value.utmMedium || ""} onChange={(v) => onChange("utmMedium", v)} />
         <MetaInput label="UTM campaign" value={value.utmCampaign || ""} onChange={(v) => onChange("utmCampaign", v)} />
         <MetaInput label="UTM content" value={value.utmContent || ""} onChange={(v) => onChange("utmContent", v)} />
-      </MetaSection>
+      </AdvancedSettingsSection>
 
       <div className="mt-4 rounded-2xl border border-[#DDBA8B] bg-[#FFF8EC] p-4 text-xs leading-relaxed text-[#7A5A36]">
         Meta execution is paused-first. Exact creative remains locked, standard creative enhancements remain opted out, and Messenger / Audience Network are not enabled by the current managed adapter.
@@ -2628,12 +2733,15 @@ function MetaLocationLookup({ label, organizationId, value, prefix, onChange }) 
 function MetaSection({ title, children }) {
   return <section className="mt-5 rounded-2xl border border-black/[0.06] bg-white p-4"><div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#A37849]">{title}</div><div className="grid gap-3 md:grid-cols-2">{children}</div></section>;
 }
-function AdvancedSettingsSection({ title = "Advanced settings", summary = "Optional controls", children }) {
+function AdvancedSettingsSection({ title = "Advanced settings", summary = "Optional controls", attentionCount = 0, children }) {
   return (
-    <details className="group mt-5 rounded-2xl border border-black/[0.06] bg-[#FCFBF8]">
+    <details className={`group mt-5 rounded-2xl border bg-[#FCFBF8] ${attentionCount ? "border-[#DDBA8B]" : "border-black/[0.06]"}`}>
       <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#A37849]">{title}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#A37849]">{title}</div>
+            {attentionCount ? <span className="rounded-full border border-[#DDBA8B] bg-[#FFF8EC] px-2 py-0.5 text-[9px] font-semibold text-[#7A5A36]">{attentionCount} issue{attentionCount === 1 ? "" : "s"}</span> : null}
+          </div>
           <div className="mt-1 text-[10px] text-[#8A8178]">{summary}</div>
         </div>
         <span className="shrink-0 rounded-full border border-black/[0.07] bg-white px-2.5 py-1 text-[9px] font-semibold text-[#7B7168] group-open:hidden">Show</span>
